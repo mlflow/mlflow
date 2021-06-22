@@ -1,0 +1,670 @@
+{
+  "+1i81u": {
+    "defaultMessage": "Registered At",
+    "description": "Label name for registered timestamp metadata in model version page"
+  },
+  "+Dnww0": {
+    "defaultMessage": "Rename Run",
+    "description": "Modal title to rename the experiment run name"
+  },
+  "+LLlvi": {
+    "defaultMessage": "Source Run",
+    "description": "Label name for source run metadata in model version page"
+  },
+  "/738wy": {
+    "defaultMessage": "Filter",
+    "description": "String for the filter button to filter experiment runs table which match the search criteria"
+  },
+  "/g45Xz": {
+    "defaultMessage": "Share and manage machine learning models.",
+    "description": "Default text for model registry onboarding on the model list page"
+  },
+  "/lDgzX": {
+    "defaultMessage": "Page {currentPage}",
+    "description": "Text for page number for pagination in MLflow"
+  },
+  "0gGMZm": {
+    "defaultMessage": "Name",
+    "description": "Default text for name placeholder in editable tags table form in MLflow"
+  },
+  "0ja5l/": {
+    "defaultMessage": "No tags found.",
+    "description": "Text for no tags found in editable form table in MLflow"
+  },
+  "16BvfJ": {
+    "defaultMessage": "{timeSince, plural, =1 {1 year} other {# years}} ago",
+    "description": "Text for time in years since given date for MLflow views"
+  },
+  "17k196": {
+    "defaultMessage": "Cancel",
+    "description": "Text for the cancel button in an editable note in MLflow"
+  },
+  "1f72BQ": {
+    "defaultMessage": "Version",
+    "description": "Column title text for model version in model version table"
+  },
+  "1jPG5D": {
+    "defaultMessage": "Creator",
+    "description": "Lable name for the creator under details tab on the model view page"
+  },
+  "2AmV5N": {
+    "defaultMessage": "Search by model name",
+    "description": "Placeholder text inside model search bar"
+  },
+  "2Exf7S": {
+    "defaultMessage": "Supported formats: image, text, html, pdf, geojson files",
+    "description": "Text to explain users which formats are supported to display the artifacts"
+  },
+  "2f2qeb": {
+    "defaultMessage": "Type",
+    "description": "Text for type column in schema table in model version page"
+  },
+  "2kU7bW": {
+    "defaultMessage": "No models are registered yet. <link>Learn more</link> about how to register a model.",
+    "description": "Message text when no model versions are registerd"
+  },
+  "36g3aR": {
+    "defaultMessage": "Edit",
+    "description": "Text for the edit button next to the description section title on\n             the model view page"
+  },
+  "3Rb4sG": {
+    "defaultMessage": "Delete",
+    "description": "String for the delete button to delete a particular experiment run"
+  },
+  "3geT+I": {
+    "defaultMessage": "Use the log artifact APIs to store file outputs from MLflow runs.",
+    "description": "Information in the empty state explaining how one could log artifacts output files for the experiment runs"
+  },
+  "4+RPaz": {
+    "defaultMessage": "Delete",
+    "description": "Text for delete button on model version view page header"
+  },
+  "4MojW8": {
+    "defaultMessage": "Failed to set tag. Error: {errorTrace}",
+    "description": "Error message when updating or setting a tag feature fails"
+  },
+  "4idqpX": {
+    "defaultMessage": "Add",
+    "description": "Add button text in editable tags table view in MLflow"
+  },
+  "5Mzn2b": {
+    "defaultMessage": "Creator",
+    "description": "Label name for creator metadata in model version page"
+  },
+  "5ZAXeS": {
+    "defaultMessage": "{timeSince, plural, =1 {1 month} other {# months}} ago",
+    "description": "Text for time in months since given date for MLflow views"
+  },
+  "656rRX": {
+    "defaultMessage": "Go back to <link>the home page.</link>",
+    "description": "Default error message for error views in MLflow"
+  },
+  "6b6fTN": {
+    "defaultMessage": "Select a file to preview",
+    "description": "Label to suggests users to select a file to preview the output"
+  },
+  "79dD5F": {
+    "defaultMessage": "There was an error submitting your note.",
+    "description": "Error message text when saving an editable note in MLflow"
+  },
+  "7F/CBv": {
+    "defaultMessage": "Stage",
+    "description": "Column title text for model version stage in model version table"
+  },
+  "7NKkk1": {
+    "defaultMessage": "Save",
+    "description": "Modal button text to save the changes to rename the experiment run name"
+  },
+  "7jsqqe": {
+    "defaultMessage": "{timeSince, plural, =1 {1 minute} other {# minutes}} ago",
+    "description": "Text for time in minutes since given date for MLflow views"
+  },
+  "7nAMnb": {
+    "defaultMessage": "Please input a name for the new model.",
+    "description": "Error message for having no input for creating models in the model registry"
+  },
+  "8/7V3S": {
+    "defaultMessage": "Artifact Location",
+    "description": "Label for displaying the experiment artifact location"
+  },
+  "88l+j9": {
+    "defaultMessage": "Are you sure you want to delete model version {versionNum}? This cannot be undone.",
+    "description": "Comment text for model version deletion modal in model versions view\n                 page"
+  },
+  "8XT7z5": {
+    "defaultMessage": "Failed to delete tag. Error: {errorTrace}",
+    "description": "Error message when deleting a tag feature fails"
+  },
+  "8XbTnl": {
+    "defaultMessage": "Value",
+    "description": "Default text for value placeholder in editable tags table form in MLflow"
+  },
+  "93iLUV": {
+    "defaultMessage": "{timeSince, plural, =1 {1 second} other {# seconds}} ago",
+    "description": "Text for time in seconds since given date for MLflow views"
+  },
+  "98Ub01": {
+    "defaultMessage": "Delete Model Version",
+    "description": "Title text for model version deletion modal in model versions view page"
+  },
+  "9HTUnN": {
+    "defaultMessage": "Notes",
+    "description": "Header for displaying notes for the experiment table"
+  },
+  "9W3kev": {
+    "defaultMessage": "Register",
+    "description": "Confirmation text to register the model"
+  },
+  "9mAGv0": {
+    "defaultMessage": "Model name",
+    "description": "Text for form title on creating model in the model registry"
+  },
+  "AEzy9w": {
+    "defaultMessage": "After creation, you can register logged models as new versions.&nbsp;",
+    "description": "Text for form description on creating model in the model registry"
+  },
+  "At3XhS": {
+    "defaultMessage": "Created Time",
+    "description": "Label name for the created time under details tab on the model view page"
+  },
+  "Ay+ZP/": {
+    "defaultMessage": "Failed to delete tag. Error: {userVisibleError}",
+    "description": "Text for user visible error when deleting tag in model version view"
+  },
+  "BSVpSb": {
+    "defaultMessage": "Delete",
+    "description": "Text for delete button on model view page header"
+  },
+  "Ba2hAt": {
+    "defaultMessage": "Delete",
+    "description": "Text for disabled deleted button due to inactive stage on model\n                   version view page header"
+  },
+  "CGVHLD": {
+    "defaultMessage": "Parameters",
+    "description": "Label for the collapsible area to display the parameters used during the experiment run"
+  },
+  "Dxwvus": {
+    "defaultMessage": "Stage Transition",
+    "description": "Title text for model version stage transitions in confirm modal"
+  },
+  "E7mv3b": {
+    "defaultMessage": "Save",
+    "description": "Text for saving changes on rows in editable form table in MLflow"
+  },
+  "ECH4Hu": {
+    "defaultMessage": "Clear",
+    "description": "String for the clear button to clear the text for searching models"
+  },
+  "EwcVCu": {
+    "defaultMessage": "Clear",
+    "description": "String for the clear button to clear any filters or sorting that we may have applied on the experiment table"
+  },
+  "F16DNA": {
+    "defaultMessage": "Version {versionNum}",
+    "description": "Title text for model version page"
+  },
+  "FpjDSq": {
+    "defaultMessage": "Compare",
+    "description": "Text for compare button to compare versions under details tab\n                       on the model view page"
+  },
+  "FpzEE0": {
+    "defaultMessage": "Date",
+    "description": "Label for displaying the start time of the experiment ran"
+  },
+  "GMpg25": {
+    "defaultMessage": "Notes",
+    "description": "Label for the notes editable content for the experiment run"
+  },
+  "GX9Yb8": {
+    "defaultMessage": "Status",
+    "description": "Label for displaying status of the experiment run to see if its running or finished"
+  },
+  "Gg/vLZ": {
+    "defaultMessage": "Delete Model",
+    "description": "Title text for delete model modal on model view page"
+  },
+  "GrrT4e": {
+    "defaultMessage": "Failed to add tag. Error: {errorTrace}",
+    "description": "Error message when add to tag feature fails"
+  },
+  "HNLDYl": {
+    "defaultMessage": "Failed to set tag. Error: {userVisibleError}",
+    "description": "Text for user visible error when setting tag in model version view"
+  },
+  "HUf9qJ": {
+    "defaultMessage": "Are you sure you want to delete {modelName}? This cannot be undone.",
+    "description": "Confirmation message for delete model modal on model view page"
+  },
+  "Hirqyq": {
+    "defaultMessage": "Track machine learning training runs in an experiment. <link>Learn more</link>",
+    "description": "Information banner text to provide more information about experiments runs page"
+  },
+  "HyBP+D": {
+    "defaultMessage": "Tags",
+    "description": "Title text for the tags section under details tab on the model view\n                   page"
+  },
+  "ICtiKS": {
+    "defaultMessage": "Delete",
+    "description": "OK button text for model version deletion modal in model versions view page"
+  },
+  "IHyeUr": {
+    "defaultMessage": "Stage",
+    "description": "Label name for stage metadata in model version page"
+  },
+  "IWuVOI": {
+    "defaultMessage": "Failed to add tag. Error: {userVisibleError}",
+    "description": "Text for user visible error when adding tag in model version view"
+  },
+  "Ibw+mW": {
+    "defaultMessage": "Filter",
+    "description": "String for the filter button to filter model registry table\n                   for models"
+  },
+  "Ik96R6": {
+    "defaultMessage": "Edit",
+    "description": "Text for the edit button next to the description section title on\n             the model version view page"
+  },
+  "K+s7ez": {
+    "defaultMessage": "Last Modified",
+    "description": "Column title for last modified timestamp for a model in the registered model page"
+  },
+  "KEL9Js": {
+    "defaultMessage": "Active",
+    "description": "Tab text to view active versions under details tab\n                               on the model view page"
+  },
+  "KeuSRX": {
+    "defaultMessage": "Delete",
+    "description": "Text for disabled delete button due to active versions on\n                   model view page header"
+  },
+  "L3YRZk": {
+    "defaultMessage": "Parent Run",
+    "description": "Label for displaying a link to the parent experiment run if any present"
+  },
+  "MatV9u": {
+    "defaultMessage": "Create",
+    "description": "Create button text for creating model in the model registry"
+  },
+  "Nj6Ez5": {
+    "defaultMessage": "Name",
+    "description": "Text for name column in schema table in model version page"
+  },
+  "Nm/Pjx": {
+    "defaultMessage": "Registered at",
+    "description": "Column title text for created at timestamp in model version table"
+  },
+  "OGWg8l": {
+    "defaultMessage": "State:",
+    "description": "Filtering label to filter experiments based on state of active or deleted"
+  },
+  "PRe/8y": {
+    "defaultMessage": "None",
+    "description": "Default text for no content in an editable note in MLflow"
+  },
+  "PZGZHV": {
+    "defaultMessage": "Experiment ID",
+    "description": "Label for displaying the current experiment in view"
+  },
+  "Potju2": {
+    "defaultMessage": "Restore",
+    "description": "String for the restore button to undo the experiments that were deleted"
+  },
+  "RaGnOQ": {
+    "defaultMessage": "Compare",
+    "description": "String for the compare button to compare experiment runs to find an ideal model"
+  },
+  "RlRsah": {
+    "defaultMessage": "loading...",
+    "description": "Loading spinner text to show that the artifact loading is in progress"
+  },
+  "SAD2Mj": {
+    "defaultMessage": "OK",
+    "description": "Text for OK button on the confirmation page for stage transition\n                 on the model versions page"
+  },
+  "SCYMXw": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel button text for creating model in the model registry"
+  },
+  "Shv28w": {
+    "defaultMessage": "Save",
+    "description": "Default text for save button on editable notes in MLflow"
+  },
+  "SzvvXl": {
+    "defaultMessage": "Failed to submit",
+    "description": "Message text for failing to save changes in editable note in MLflow"
+  },
+  "TlFUsN": {
+    "defaultMessage": "Tags",
+    "description": "Title text for the tags section on the model versions view page"
+  },
+  "U+Jzcv": {
+    "defaultMessage": "<link>Version {versionNumber}</link>",
+    "description": "Row entry for version columns in the registered model page"
+  },
+  "U6cPEB": {
+    "defaultMessage": "Loading Artifacts Failed",
+    "description": "Error message rendered when loading the artifacts for the experiment fails"
+  },
+  "UhdPmo": {
+    "defaultMessage": "Transition to",
+    "description": "Text for transitioning a model version to a different stage under\n                 dropdown menu in model version page"
+  },
+  "Ux8CTl": {
+    "defaultMessage": "Linked Models:",
+    "description": "Filtering label for filtering experiments based on if the models are linked or not to the experiment"
+  },
+  "VbEMGm": {
+    "defaultMessage": "Register Model",
+    "description": "Button text to register the model for deployment"
+  },
+  "Vm9CvZ": {
+    "defaultMessage": "Description",
+    "description": "Column title text for description in model version table"
+  },
+  "WGhlnW": {
+    "defaultMessage": "User",
+    "description": "Label for displaying the user who created the experiment run"
+  },
+  "Wd8Tga": {
+    "defaultMessage": "No schema. See <link>MLflow docs</link> for how to include input and output schema with your model.",
+    "description": "Text for schema table when no schema exists in the model version\n                     page"
+  },
+  "WqtISN": {
+    "defaultMessage": "Job Output",
+    "description": "Label for displaying the output logs for the experiment run job"
+  },
+  "X3F7x3": {
+    "defaultMessage": "No Artifacts Recorded",
+    "description": "Empty state string when there are no artifacts record for the experiment"
+  },
+  "XIOnOe": {
+    "defaultMessage": "Version {versionNum}",
+    "description": "Text for current version under the header on the model version view page"
+  },
+  "XzoBvA": {
+    "defaultMessage": "Cancel",
+    "description": "Text for cancel button on the confirmation page for stage\n                transitions on the model versions page"
+  },
+  "Y9ZFyN": {
+    "defaultMessage": "Download artifact",
+    "description": "Link to download the artifact of the experiment"
+  },
+  "Z5en2d": {
+    "defaultMessage": "Versions",
+    "description": "Title text for the versions section under details tab on the\n                       model view page"
+  },
+  "ZYBoeF": {
+    "defaultMessage": "Transition to",
+    "description": "Text for activity description under confirmation modal for model\n             version stage transition"
+  },
+  "ZwAzmu": {
+    "defaultMessage": "Create Model",
+    "description": "Create button to register a new model"
+  },
+  "a8rS4O": {
+    "defaultMessage": "Delete",
+    "description": "OK text for delete model modal on model view page"
+  },
+  "aIP7Kb": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel button text for confirmation pop-up to delete a tag from\n                     table in MLflow"
+  },
+  "aOW396": {
+    "defaultMessage": "{timeSince, plural, =1 {1 hour} other {# hours}} ago",
+    "description": "Text for time in hours since given date for MLflow views"
+  },
+  "aYsI8a": {
+    "defaultMessage": "<link>Learn more</link>",
+    "description": "Learn more link on the model list page with cloud-specific link"
+  },
+  "ag05Pe": {
+    "defaultMessage": "Refresh",
+    "description": "refresh button text to refresh the experiment runs"
+  },
+  "awLbAc": {
+    "defaultMessage": "Logs",
+    "description": "Link to the logs for the job output"
+  },
+  "axF2gD": {
+    "defaultMessage": "Full Path:",
+    "description": "Label to display the full path of where the artifact of the experiment runs is located"
+  },
+  "bhgG7S": {
+    "defaultMessage": "Run Command",
+    "description": "Label for the collapsible area to display the run command used for the experiment run"
+  },
+  "cBDYla": {
+    "defaultMessage": "Actions",
+    "description": "Column title for actions column in editable form table in MLflow"
+  },
+  "cI+F/q": {
+    "defaultMessage": "Name",
+    "description": "Column title for name column in editable tags table view in MLflow"
+  },
+  "d78wwA": {
+    "defaultMessage": "Provide Feedback",
+    "description": "Link to a survey for users to give feedback"
+  },
+  "dwTTNK": {
+    "defaultMessage": "Are you sure you want to navigate away? Your pending text changes will be lost.",
+    "description": "Prompt text for navigating away before saving changes in editable note in MLflow"
+  },
+  "e8cUzg": {
+    "defaultMessage": "Latest Version",
+    "description": "Column title for latest model version in the registered model page"
+  },
+  "eFCjOp": {
+    "defaultMessage": "Metrics",
+    "description": "Label for the collapsible area to display the output metrics after the experiment run"
+  },
+  "ew0BAJ": {
+    "defaultMessage": "Transition existing {currentStage} model version to {archivedStage}",
+    "description": "Description text for checkbox for archiving existing model versions\n                    in the toStage for model version stage transition"
+  },
+  "f+VJMF": {
+    "defaultMessage": "Duration",
+    "description": "Label for displaying the duration of the experiment run"
+  },
+  "f/An1W": {
+    "defaultMessage": "Ready.",
+    "description": "Default status message for model versions that are ready"
+  },
+  "fg3SRm": {
+    "defaultMessage": "Git Commit",
+    "description": "Label for displaying the tag or the commit hash of the git commit"
+  },
+  "fv7vQf": {
+    "defaultMessage": "Rename",
+    "description": "Menu item to rename an experiment run"
+  },
+  "g17Es2": {
+    "defaultMessage": "Name",
+    "description": "Column title for model name in the registered model page"
+  },
+  "gUdmaJ": {
+    "defaultMessage": "Schema",
+    "description": "Title text for the schema section on the model versions view page"
+  },
+  "gVxisd": {
+    "defaultMessage": "Tag \"{value}\" already exists.",
+    "description": "Validation message for tags that already exist in tags table in MLflow"
+  },
+  "hIbYYy": {
+    "defaultMessage": "{numEntries} / page",
+    "description": "Text for number of entries in pagination in MLflow"
+  },
+  "iZm6YQ": {
+    "defaultMessage": "<link>Learn more</link>",
+    "description": "Learn more link on the form for creating model in the model registry"
+  },
+  "iwD/Dv": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel button text to cancel the flow to register the model"
+  },
+  "j/pJM6": {
+    "defaultMessage": "Last Modified",
+    "description": "Label name for the last modified time under details tab on the model view page"
+  },
+  "kX6Kdv": {
+    "defaultMessage": "Plot chart",
+    "description": "Link to the view the plot chart for the experiment run"
+  },
+  "llVQ2r": {
+    "defaultMessage": "Outputs ({numOutputs})",
+    "description": "Input section header for schema table in model version page"
+  },
+  "mI1o3S": {
+    "defaultMessage": "Artifacts",
+    "description": "Label for the collapsible area to display the artifacts page"
+  },
+  "mIk1MU": {
+    "defaultMessage": "Create Model",
+    "description": "Title text for creating model in the model registry"
+  },
+  "mpHsCg": {
+    "defaultMessage": "Size:",
+    "description": "Label to display the size of the artifact of the experiment"
+  },
+  "nC54Nf": {
+    "defaultMessage": "Tags",
+    "description": "Column title for model tags in the registered model page"
+  },
+  "nVndit": {
+    "defaultMessage": "Registered on {registeredDate}",
+    "description": "Label to display at what date the model was registered"
+  },
+  "nYKZy4": {
+    "defaultMessage": "<link>Learn more</link>",
+    "description": "Learn more tooltip link to learn more on how to search in an experiments run table"
+  },
+  "o7dzKo": {
+    "defaultMessage": "Last Modified",
+    "description": "Label name for last modified timestamp metadata in model version page"
+  },
+  "oBKd1E": {
+    "defaultMessage": "Value",
+    "description": "Column title for value column in editable tags table view in MLflow"
+  },
+  "oBpBjm": {
+    "defaultMessage": "Unable to list artifacts stored under <code>{artifactUri}</code> for the current run. Please contact your tracking server administrator to notify them of this error, which can happen when the tracking server lacks permission to list artifacts under the current run's root artifact directory.",
+    "description": "Error message when the artifact is unable to load. This message is displayed in the open source ML flow only"
+  },
+  "oHW+ks": {
+    "defaultMessage": "Description",
+    "description": "Title text for the description section under details tab on the model\n                   view page"
+  },
+  "pBUaAK": {
+    "defaultMessage": "Are you sure you want to delete this tag？",
+    "description": "Title text for confirmation pop-up to delete a tag from table\n                     in MLflow"
+  },
+  "peyOdH": {
+    "defaultMessage": "Cancel",
+    "description": "Text for canceling changes on rows in editable form table in MLflow"
+  },
+  "pl1bdY": {
+    "defaultMessage": "Registered Models",
+    "description": "Text for link back to models page under the header on the model version\n             view page"
+  },
+  "q0e4qI": {
+    "defaultMessage": "Entry Point",
+    "description": "Label for displaying entry point of the project"
+  },
+  "qMwRy3": {
+    "defaultMessage": "Registered Models",
+    "description": "Header for displaying models in the model registry"
+  },
+  "rOnjGB": {
+    "defaultMessage": "Download CSV",
+    "description": "String for the download csv button to download experiments offline in a CSV format"
+  },
+  "rRgbJl": {
+    "defaultMessage": "Search runs using a simplified version of the SQL <b>WHERE</b> clause",
+    "description": "Tooltip string to explain how to search runs from the experiments table"
+  },
+  "raa3Ij": {
+    "defaultMessage": "Registered Models",
+    "description": "Text for link back to model page under the header on the model view page"
+  },
+  "sHMQzu": {
+    "defaultMessage": "Showing {length} matching {length, plural, =0 {runs} =1 {run} other {runs}}",
+    "description": "Message for displaying how many runs match search criteria on experiment page"
+  },
+  "ss//L4": {
+    "defaultMessage": "{subMessage}, go back to <link>the home page.</link>",
+    "description": "Default error message for error views in MLflow"
+  },
+  "sxlGRc": {
+    "defaultMessage": "Inputs ({numInputs})",
+    "description": "Input section header for schema table in model version page"
+  },
+  "t8BXC5": {
+    "defaultMessage": "Tags",
+    "description": "Label for the collapsible area to display the tags for the experiment run"
+  },
+  "tD0/e2": {
+    "defaultMessage": "Model {modelName} does not exist",
+    "description": "Sub-message text for error message on overall model page"
+  },
+  "tLb7+M": {
+    "defaultMessage": "{timeSince, plural, =1 {1 day} other {# days}} ago",
+    "description": "Text for time in days since given date for MLflow views"
+  },
+  "tc9+eK": {
+    "defaultMessage": "Register Model",
+    "description": "Register model modal title to register the model for deployment"
+  },
+  "ubGTUL": {
+    "defaultMessage": "Name is required.",
+    "description": "Error message for name requirement in editable tags table view in MLflow"
+  },
+  "vi2MM7": {
+    "defaultMessage": "All",
+    "description": "Tab text to view all versions under details tab on the model view page"
+  },
+  "vlxeiA": {
+    "defaultMessage": "Confirm",
+    "description": "OK button text for confirmation pop-up to delete a tag from table\n                     in MLflow"
+  },
+  "w6erlb": {
+    "defaultMessage": "Source",
+    "description": "Label for displaying source notebook of the experiment run"
+  },
+  "wBFfWW": {
+    "defaultMessage": "Register",
+    "description": "Register button text to register the model"
+  },
+  "xRw7H2": {
+    "defaultMessage": "Created by",
+    "description": "Column title text for creator username in model version table"
+  },
+  "xgLBAH": {
+    "defaultMessage": "Model versions in the `{currentStage}` stage will be moved to the `Archived` stage.",
+    "description": "Tooltip text for transitioning existing model versions in stage to archived\n       in the model versions page"
+  },
+  "yK/6vg": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel text for delete model modal on model view page"
+  },
+  "yV9Slo": {
+    "defaultMessage": "Search",
+    "description": "String for the search button to search objects in MLflow"
+  },
+  "yjerKR": {
+    "defaultMessage": "<link>Version {versionNumber}</link>",
+    "description": "Link to model version in the model version table"
+  },
+  "z1RZwl": {
+    "defaultMessage": "Preview",
+    "description": "Preview badge shown for features which are under preview"
+  },
+  "z9UqPZ": {
+    "defaultMessage": "Description",
+    "description": "Title text for the description section on the model version view page"
+  },
+  "zAvilr": {
+    "defaultMessage": "Ready",
+    "description": "Tooltip text for ready model version status icon in model view page"
+  },
+  "zMhOr3": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel button text for model version deletion modal in model versions view page"
+  }
+}

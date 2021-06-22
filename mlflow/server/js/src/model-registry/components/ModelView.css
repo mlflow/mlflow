@@ -17,3 +17,40 @@
 .ModelView-run-buttons .btn {
   margin-left: 16px;
 }
+
+.rm-breadcrumb-header {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+}
+
+.rm-header {
+  font-size: 18px;
+  margin-bottom: 24px;
+  font-weight: bold;
+  color: #333;
+  display:flex;
+  align-items: center;
+}
+
+.breadcrumb-link {
+  color: inherit;
+}
+
+.breadcrumb-chevron {
+  margin-top: 5px;
+}
+
+.emailNotificationPreferenceDropdownWrapper {
+  margin-left: auto;
+}
+
+.email-notifications-mark {
+  padding-right: 8px;
+  padding-left: 8px;
+  color: #849298;
+}
+
+.subheading-text {
+  color: #849298;
+}

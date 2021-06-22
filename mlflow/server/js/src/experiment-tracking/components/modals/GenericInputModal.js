@@ -15,8 +15,10 @@ export class GenericInputModal extends Component {
 
   static propTypes = {
     okText: PropTypes.string,
+    cancelText: PropTypes.string,
     isOpen: PropTypes.bool,
     onClose: PropTypes.func.isRequired,
+    onCancel: PropTypes.func,
     // Function which returns a promise which resolves when the submission is done.
     handleSubmit: PropTypes.func.isRequired,
     title: PropTypes.string.isRequired,
@@ -58,13 +60,21 @@ export class GenericInputModal extends Component {
     }
   };
 
+  handleCancel = () => {
+    this.onRequestCloseHandler();
+    // Check for optional `onCancel` method prop.
+    if (this.props.onCancel !== undefined) {
+      this.props.onCancel();
+    }
+  };
+
   saveFormRef = (form) => {
     this.form = form;
   };
 
   render() {
     const { isSubmitting } = this.state;
-    const { okText, isOpen, children } = this.props;
+    const { okText, cancelText, isOpen, children } = this.props;
 
     // add props (ref) to passed component
     const displayForm = React.cloneElement(children, { ref: this.saveFormRef });
@@ -76,8 +86,9 @@ export class GenericInputModal extends Component {
         visible={isOpen}
         onOk={this.onSubmit}
         okText={okText}
+        cancelText={cancelText}
         confirmLoading={isSubmitting}
-        onCancel={this.onRequestCloseHandler}
+        onCancel={this.handleCancel}
         centered
       >
         {displayForm}
