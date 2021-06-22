@@ -372,9 +372,7 @@ def autologging_integration(name):
                 # event loggers to more easily identify important configuration parameters
                 # (e.g., `disable`) without examining positional arguments. Passing positional
                 # arguments to `log_autolog_called` is deprecated in MLflow > 1.13.1
-                AutologgingEventLogger.get_logger().log_autolog_called(
-                    name, (), config_to_store
-                )
+                AutologgingEventLogger.get_logger().log_autolog_called(name, (), config_to_store)
             except Exception:
                 pass
 
