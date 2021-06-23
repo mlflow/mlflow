@@ -137,7 +137,7 @@ def _inspect_original_var_name(var):
             all_args = fixed_args + varlen_args + keyword_args
 
             # check whether `var` is in arg list first. If yes, go to check parent frame.
-            if var in all_args:
+            if any(var is arg for arg in all_args):
                 # the var is passed in from caller, check parent frame.
                 frame = frame.f_back
                 continue
@@ -152,5 +152,4 @@ def _inspect_original_var_name(var):
         return original_var_name
 
     except BaseException:
-        # inspect failed.
-        return None
+        pass

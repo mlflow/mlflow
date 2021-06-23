@@ -992,6 +992,7 @@ def autolog(
             )
             if eval_dataset_name:
                 print('DGB: run patched_metric_api #4')
+                # TODO: handle the case log the same metric key multiple times.
                 mlflow.log_metric(
                     f'{metric_name}_on_{eval_dataset_name}',
                     metric
