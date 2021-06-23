@@ -22,6 +22,7 @@ from torch.utils.data import DataLoader, random_split
 from torchvision import datasets, transforms
 
 
+
 class MNISTDataModule(pl.LightningDataModule):
     def __init__(self, **kwargs):
         """
