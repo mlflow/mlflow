@@ -984,8 +984,7 @@ def autolog(
             else:
                 return original(self, *args, **kwargs)
 
-
-    def log_eval_metric(metric_name, metric, metric_api_call_arg_list)
+    def log_eval_metric(metric_name, metric, metric_api_call_arg_list):
         with ResumeAutologRun() as run:
             print(f'DBG: run patched_metric_api #3, resume run_id={run.info.run_id}')
             eval_dataset_name = _autolog_training_status.get_eval_dataset_name_from_metric_api_arglist(
