@@ -173,6 +173,13 @@ def get_job_type():
         return _get_context_tag("jobTaskType")
 
 
+def get_command_run_id():
+    try:
+        return _get_command_context().commandRunId().get()
+    except Exception:
+        return _get_context_tag("commandRunId")
+
+
 def get_webapp_url():
     """Should only be called if is_in_databricks_notebook or is_in_databricks_jobs is true"""
     url = _get_property_from_spark_context("spark.databricks.api.url")
