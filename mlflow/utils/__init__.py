@@ -1,7 +1,7 @@
 import logging
 from itertools import islice
 from sys import version_info
-
+import inspect
 
 _logger = logging.getLogger(__name__)
 
@@ -120,3 +120,26 @@ def _get_fully_qualified_class_name(obj):
     Obtains the fully qualified class name of the given object.
     """
     return obj.__class__.__module__ + "." + obj.__class__.__name__
+
+
+def _inspect_original_var_name(var):
+    var_name_stack = []
+
+    frame = inspect.currentframe().f_back
+    while frame is not None:
+        local_vars = frame.f_locals.items()
+        var_name_in_frame = None
+        for var_name, var_val in local_vars:
+            if var_val is var:
+                var_name_in_frame = var_name
+
+        if var_name_in_frame is None:
+            break
+
+        var_name_stack.append(var_name_in_frame)
+        frame = frame.f_back
+
+    if var_name_stack:
+        return var_name_stack[-1]
+    else:
+        return None

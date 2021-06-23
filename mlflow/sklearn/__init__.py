@@ -472,30 +472,27 @@ class _AutologTrainingStatus:
     def __init__(self, last_mlflow_run_id=None, model_id=None):
         self.last_mlflow_run_id = last_mlflow_run_id
         self.model_id = model_id
-        self.log_test_metric_count_map = defaultdict(lambda: 0)
-        self.predict_result_instance_ids = []
+        self.instance_id_to_eval_dataset_name_map = {}
         self.in_fit_call_scope = False
         self.in_scorer_call_scope = False
 
-    def register_predition_result(self, model, pred_y):
+    def register_predition_result(self, model, eval_dataset, pred_y, eval_dataset_name):
         if id(model) == self.model_id:
-            self.predict_result_instance_ids.append(id(pred_y))
+            self.instance_id_to_eval_dataset_name_map[id(pred_y)] = eval_dataset_name
+            self.instance_id_to_eval_dataset_name_map[id(eval_dataset)] = eval_dataset_name
 
-    def get_log_test_metric_index(self, metric_name):
-        metric_index = self.log_test_metric_count_map[metric_name]
-        self.log_test_metric_count_map[metric_name] += 1
-        return metric_index
-
-    def should_log_test_metric_for(self, metric_api_call_arg_list):
+    def get_eval_dataset_name_from_metric_api_arglist(self, metric_api_call_arg_list):
         # Note: some metric API the arguments is not `y_true`, `y_pred`
         #  e.g.
         #    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.roc_auc_score.html#sklearn.metrics.roc_auc_score
         #    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.silhouette_score.html#sklearn.metrics.silhouette_score
-        # So here check whether predict_result_instance_ids includes instance id from `predict_result_instance_ids`
         active_run = mlflow.active_run()
-        return active_run and active_run.info.run_id == self.last_mlflow_run_id \
-            and any(id(arg) in self.predict_result_instance_ids
-                    for arg in metric_api_call_arg_list)
+        dataset_id_list = self.instance_id_to_eval_dataset_name_map.keys()
+        if active_run and active_run.info.run_id == self.last_mlflow_run_id:
+            for arg in metric_api_call_arg_list:
+                if id(arg) in dataset_id_list:
+                    return self.instance_id_to_eval_dataset_name_map[id(arg)]
+        return None
 
 
 _autolog_training_status = _AutologTrainingStatus()
@@ -974,14 +971,32 @@ def autolog(
                 return original(self, *args, **kwargs)
 
     def patched_predict(original, self, *args, **kwargs):
+        from mlflow.utils import _inspect_original_var_name
         global _autolog_training_status
         with _SklearnTrainingSession(clazz=self.__class__, allow_children=False) as t:
             if t.should_log():
                 result = original(self, *args, **kwargs)
-                _autolog_training_status.register_predition_result(self, result)
+                eval_dataset = args[0] if len(args) >= 1 else kwargs.get('X')
+                eval_dataset_name = _inspect_original_var_name(eval_dataset)
+                _autolog_training_status.register_predition_result(
+                    self, eval_dataset, result, eval_dataset_name)
                 return result
             else:
                 return original(self, *args, **kwargs)
+
+
+    def log_eval_metric(metric_name, metric, metric_api_call_arg_list)
+        with ResumeAutologRun() as run:
+            print(f'DBG: run patched_metric_api #3, resume run_id={run.info.run_id}')
+            eval_dataset_name = _autolog_training_status.get_eval_dataset_name_from_metric_api_arglist(
+                metric_api_call_arg_list
+            )
+            if eval_dataset_name:
+                print('DGB: run patched_metric_api #4')
+                mlflow.log_metric(
+                    f'{metric_name}_on_{eval_dataset_name}',
+                    metric
+                )
 
     def patched_metric_api(original, *args, **kwargs):
         # TODO:
@@ -995,16 +1010,8 @@ def autolog(
             print('DGB: run patched_metric_api #2')
             metric_name = original.__name__
             arg_list = list(args) + list(kwargs.values())
+            log_eval_metric(metric_name, metric, arg_list)
 
-            with ResumeAutologRun() as run:
-                print(f'DBG: run patched_metric_api #3, resume run_id={run.info.run_id}')
-                if _autolog_training_status.should_log_test_metric_for(arg_list):
-                    print('DGB: run patched_metric_api #4')
-                    log_metric_index = _autolog_training_status.get_log_test_metric_index(metric_name)
-                    mlflow.log_metric(
-                        f'test_{metric_name}_{log_metric_index}',
-                        metric
-                    )
         return metric
 
     _, estimators_to_patch = zip(*_all_estimators())
@@ -1091,13 +1098,8 @@ def autolog(
             if id(estimator) == _autolog_training_status.model_id:
                 # TODO: refine metric_name to make it include arguments set for the metric
                 metric_name = self._score_func.__name__
-                with ResumeAutologRun() as run:
-                    if run.info.run_id == _autolog_training_status.last_mlflow_run_id:
-                        log_metric_index = _autolog_training_status.get_log_test_metric_index(metric_name)
-                        mlflow.log_metric(
-                            f'test_{metric_name}_{log_metric_index}',
-                            metric
-                        )
+                arg_list = list(args) + list(kwargs.values())
+                log_eval_metric(metric_name, metric, arg_list)
 
         return metric
 
