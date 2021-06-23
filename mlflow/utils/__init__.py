@@ -1,7 +1,6 @@
 import logging
 from itertools import islice
 from sys import version_info
-import inspect
 
 _logger = logging.getLogger(__name__)
 
@@ -123,23 +122,35 @@ def _get_fully_qualified_class_name(obj):
 
 
 def _inspect_original_var_name(var):
-    var_name_stack = []
+    import inspect
+    try:
+        original_var_name = None
 
-    frame = inspect.currentframe().f_back
-    while frame is not None:
-        local_vars = frame.f_locals.items()
-        var_name_in_frame = None
-        for var_name, var_val in local_vars:
-            if var_val is var:
-                var_name_in_frame = var_name
+        frame = inspect.currentframe().f_back
+        while frame is not None:
+            arg_info = inspect.getargvalues(frame)
 
-        if var_name_in_frame is None:
+            fixed_args = [arg_info.locals[arg_name] for arg_name in arg_info.args]
+            varlen_args = list(arg_info.locals[arg_info.varargs]) if arg_info.varargs else []
+            keyword_args = list(arg_info.locals[arg_info.keywords].values()) if arg_info.keywords else []
+
+            all_args = fixed_args + varlen_args + keyword_args
+
+            # check whether `var` is in arg list first. If yes, go to check parent frame.
+            if var in all_args:
+                # the var is passed in from caller, check parent frame.
+                frame = frame.f_back
+                continue
+
+            for var_name, var_val in frame.f_locals.items():
+                if var_val is var:
+                    original_var_name = var_name
+                    break
+
             break
 
-        var_name_stack.append(var_name_in_frame)
-        frame = frame.f_back
+        return original_var_name
 
-    if var_name_stack:
-        return var_name_stack[-1]
-    else:
+    except BaseException:
+        # inspect failed.
         return None
