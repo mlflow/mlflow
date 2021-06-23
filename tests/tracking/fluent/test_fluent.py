@@ -395,7 +395,7 @@ def test_start_run_defaults_databricks_notebook(
 
 
 @pytest.mark.usefixtures(empty_active_run_stack.__name__)
-def test_start_run_with_user_specified_tags():
+def test_start_run_creates_new_run_with_user_specified_tags():
 
     mock_experiment_id = mock.Mock()
     experiment_id_patch = mock.patch(
@@ -441,6 +441,18 @@ def test_start_run_with_user_specified_tags():
             experiment_id=mock_experiment_id, tags=expected_tags
         )
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
+
+
+@pytest.mark.usefixtures(empty_active_run_stack.__name__)
+def test_start_run_resumes_existing_run_and_sets_user_specified_tags():
+    tags_to_set = {
+        "A": "B",
+        "C": "D",
+    }
+    run_id = mlflow.start_run().info.run_id
+    mlflow.end_run()
+    restarted_run = mlflow.start_run(run_id, tags=tags_to_set)
+    assert tags_to_set.items() <= restarted_run.data.tags.items()
 
 
 def test_start_run_with_parent():

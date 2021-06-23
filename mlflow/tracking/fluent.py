@@ -145,8 +145,9 @@ def start_run(
     :param run_name: Name of new run (stored as a ``mlflow.runName`` tag).
                      Used only when ``run_id`` is unspecified.
     :param nested: Controls whether run is nested in parent run. ``True`` creates a nested run.
-    :param tags: An optional dictionary of string keys and values to set as tags on the new run.
-                 If an existing run is being resumed, this argument is ignored.
+    :param tags: An optional dictionary of string keys and values to set as tags on the run.
+                 If ``run_id`` is specified, these tags are set on the run with ID ``run_id``.
+                 If ``run_id`` is unspecified, these tags are set on the new run that is created.
     :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping
              the run's state.
 
@@ -190,6 +191,7 @@ def start_run(
                 + "run, call start_run with nested=True"
             ).format(_active_run_stack[0].info.run_id)
         )
+    client = MlflowClient()
     if run_id:
         existing_run_id = run_id
     elif _RUN_ID_ENV_VAR in os.environ:
@@ -199,7 +201,7 @@ def start_run(
         existing_run_id = None
     if existing_run_id:
         _validate_run_id(existing_run_id)
-        active_run_obj = MlflowClient().get_run(existing_run_id)
+        active_run_obj = client.get_run(existing_run_id)
         # Check to see if experiment_id from environment matches experiment_id from set_experiment()
         if (
             _active_experiment_id is not None
@@ -223,7 +225,12 @@ def start_run(
         _get_store().update_run_info(
             existing_run_id, run_status=RunStatus.RUNNING, end_time=end_time
         )
-        active_run_obj = MlflowClient().get_run(existing_run_id)
+        if tags:
+            client.log_batch(
+                run_id=existing_run_id,
+                tags=[RunTag(key, str(value)) for key, value in tags.items()],
+            )
+        active_run_obj = client.get_run(existing_run_id)
     else:
         if len(_active_run_stack) > 0:
             parent_run_id = _active_run_stack[-1].info.run_id
@@ -240,7 +247,7 @@ def start_run(
 
         tags = context_registry.resolve_tags(user_specified_tags)
 
-        active_run_obj = MlflowClient().create_run(experiment_id=exp_id_for_run, tags=tags)
+        active_run_obj = client.create_run(experiment_id=exp_id_for_run, tags=tags)
 
     _active_run_stack.append(ActiveRun(active_run_obj))
     return _active_run_stack[-1]
