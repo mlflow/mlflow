@@ -21,7 +21,6 @@ markdown_fixed <- gsub("## Usage", "", markdown_fixed)
 last_section <- which(grepl("reexports", markdown_fixed))[[1]]
 markdown_fixed <- markdown_fixed[1:last_section - 1]
 
-
 # Write fixed markdown file
 writeLines(markdown_fixed, "Reference_Manual_mlflow.md")
 
