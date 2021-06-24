@@ -17,7 +17,7 @@ You can use the R API to `install MLflow <install_mlflow_>`_, start the `user in
 
 Install MLflow
 
-Installs auxiliary dependencies of MLflow (e.g. the MLflow CLI). As a
+Installs auxiliary dependencies of MLflow (e.g. the MLflow CLI). As a
 one-time setup step, you must run install_mlflow() to install these
 dependencies before calling other MLflow APIs.
 
@@ -585,8 +585,8 @@ Arguments
 | Argument                      | Description                          |
 +===============================+======================================+
 | ``flavor``                    | An MLflow flavor object loaded by    |
-|                               | `mlflo                               |
-|                               | w_load_model <#mlflow-load-model>`__ |
+|                               | `mlflow_load_model <#mlflow-load-mod |
+|                               | el>`__                               |
 |                               | , with class loaded from the flavor  |
 |                               | field in an MLmodel file.            |
 +-------------------------------+--------------------------------------+
@@ -639,7 +639,7 @@ Arguments
 Details
 -------
 
-The URI scheme must be supported by MLflow - i.e. there has to be an
+The URI scheme must be supported by MLflow - i.e. there has to be an
 MLflow artifact repository corresponding to the scheme of the URI. The
 content is expected to point to a directory containing MLmodel. The
 following are examples of valid model uris:
@@ -855,7 +855,7 @@ Arguments
 |                               | ``conda_env = /path/to/conda.yaml``  |
 |                               | may be passed to specify a conda     |
 |                               | dependencies file for flavors        |
-|                               | (e.g. keras) that support conda      |
+|                               | (e.g. keras) that support conda      |
 |                               | environments.                        |
 +-------------------------------+--------------------------------------+
 
@@ -929,7 +929,7 @@ Read Command-Line Parameter
 
 Reads a command-line parameter passed to an MLflow project MLflow allows
 you to define named, typed input parameters to your R scripts via the
-mlflow_param API. This is useful for experimentation, e.g. tracking
+mlflow_param API. This is useful for experimentation, e.g. tracking
 multiple invocations of the same script with different parameters.
 
 .. code:: r
@@ -995,16 +995,13 @@ to be used by package authors to extend the supported MLflow models.
 Arguments
 ---------
 
-+-----------+---------------------------------------------------------+
-| Argument  | Description                                             |
-+===========+=========================================================+
-| ``model`` | The loaded MLflow model flavor.                         |
-+-----------+---------------------------------------------------------+
-| ``data``  | A data frame to perform scoring.                        |
-+-----------+---------------------------------------------------------+
-| ``...``   | Optional additional arguments passed to underlying      |
-|           | predict methods.                                        |
-+-----------+---------------------------------------------------------+
+========= ===================================================================
+Argument  Description
+========= ===================================================================
+``model`` The loaded MLflow model flavor.
+``data``  A data frame to perform scoring.
+``...``   Optional additional arguments passed to underlying predict methods.
+========= ===================================================================
 
 ``mlflow_register_external_observer``
 =====================================
@@ -1226,7 +1223,7 @@ Arguments
 Details
 -------
 
-The URI scheme must be supported by MLflow - i.e. there has to be an
+The URI scheme must be supported by MLflow - i.e. there has to be an
 MLflow artifact repository corresponding to the scheme of the URI. The
 content is expected to point to a directory containing MLmodel. The
 following are examples of valid model uris:

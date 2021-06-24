@@ -21,6 +21,7 @@ markdown_fixed <- gsub("## Usage", "", markdown_fixed)
 last_section <- which(grepl("reexports", markdown_fixed))[[1]]
 markdown_fixed <- markdown_fixed[1:last_section - 1]
 
+
 # Write fixed markdown file
 writeLines(markdown_fixed, "Reference_Manual_mlflow.md")
 
@@ -48,6 +49,8 @@ You can use the R API to `install MLflow <install_mlflow_>`_, start the `user in
     :depth: 1
 "
 rst_doc <- readLines("../../../docs/source/R-api.rst")
+# Convert non-breaking spaces inserted by pandoc to regular spaces
+rst_doc <- gsub("\302\240", " ", rst_doc)
 rst_doc <- c(rst_header, rst_doc)
 writeLines(rst_doc, "../../../docs/source/R-api.rst")
 
