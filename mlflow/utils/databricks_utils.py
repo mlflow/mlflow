@@ -177,7 +177,7 @@ def get_command_run_id():
     try:
         return _get_command_context().commandRunId().get()
     except Exception:
-        # old runtimes may not have the commandRunId available
+        # older runtimes may not have the commandRunId available
         return "unknown_command_run_id"
 
 
