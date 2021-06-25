@@ -177,7 +177,8 @@ def get_command_run_id():
     try:
         return _get_command_context().commandRunId().get()
     except Exception:
-        return _get_context_tag("commandRunId")
+        # old runtimes may not have the commandRunId available
+        return "unknown_command_run_id"
 
 
 def get_webapp_url():
