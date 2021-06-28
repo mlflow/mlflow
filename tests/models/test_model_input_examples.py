@@ -25,6 +25,7 @@ def pandas_df_with_all_types():
             "boolean_ext": [True, False, True],
             "integer_ext": [1, 2, 3],
             "string_ext": ["a", "b", "c"],
+            "array": np.array(["a", "b", "c"]),
         }
     )
     df["boolean_ext"] = df["boolean_ext"].astype("boolean")
