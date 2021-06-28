@@ -80,7 +80,7 @@ def test_databricks_request_header_provider_request_headers(
         else:
             assert "cluster_id" not in request_headers
 
-        if command_run_id_mock.return_value not None:
+        if command_run_id_mock.return_value is not None:
             assert request_headers["command_run_id"] == command_run_id_mock.return_value
         else:
             assert "command_run_id" not in request_headers
