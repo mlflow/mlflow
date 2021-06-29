@@ -84,7 +84,6 @@ class TestRestStore(unittest.TestCase):
 
     @with_mock_http_request
     def test_create_registered_model(self, mock_http):
-        print(mock_http.status_code)
         tags = [
             RegisteredModelTag(key="key", value="value"),
             RegisteredModelTag(key="anotherKey", value="some other value"),
