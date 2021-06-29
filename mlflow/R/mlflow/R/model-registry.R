@@ -15,7 +15,7 @@ mlflow_create_registered_model <- function(name, tags = NULL, description = NULL
     "create",
     client = client,
     verb = "POST",
-    version = "2.0/preview",
+    version = "2.0",
     data = list(
       name = forge::cast_string(name),
       tags = tags,
@@ -41,7 +41,7 @@ mlflow_delete_registered_model <- function(name, client = NULL) {
     "delete",
     client = client,
     verb = "DELETE",
-    version = "2.0/preview",
+    version = "2.0",
     data = list(name = forge::cast_string(name))
   )
 }

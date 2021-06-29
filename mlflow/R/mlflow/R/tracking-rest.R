@@ -1,8 +1,7 @@
 mlflow_rest_path <- function(version) {
   switch(
     version,
-    "2.0" = "api/2.0/mlflow",
-    "2.0/preview" = "api/2.0/preview/mlflow"
+    "2.0" = "api/2.0/mlflow"
   )
 }
 
