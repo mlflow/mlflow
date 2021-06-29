@@ -72,7 +72,7 @@ class TestRestStore(object):
                 "headers": _DEFAULT_HEADERS,
                 "verify": True,
             }
-            response = mock.MagicMock
+            response = mock.MagicMock()
             response.status_code = 200
             response.text = '{"experiments": [{"name": "Exp!", "lifecycle_stage": "active"}]}'
             return response
@@ -85,7 +85,7 @@ class TestRestStore(object):
 
     @mock.patch("requests.request")
     def test_failed_http_request(self, request):
-        response = mock.MagicMock
+        response = mock.MagicMock()
         response.status_code = 404
         response.text = '{"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "No experiment"}'
         request.return_value = response
@@ -97,7 +97,7 @@ class TestRestStore(object):
 
     @mock.patch("requests.request")
     def test_failed_http_request_custom_handler(self, request):
-        response = mock.MagicMock
+        response = mock.MagicMock()
         response.status_code = 404
         response.text = '{"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "No experiment"}'
         request.return_value = response
@@ -116,7 +116,7 @@ class TestRestStore(object):
             "OMG_WHAT_IS_THIS_FIELD": "Hooly cow",
         }
 
-        response = mock.MagicMock
+        response = mock.MagicMock()
         response.status_code = 200
         experiments = {"experiments": [experiment_json]}
         response.text = json.dumps(experiments)
@@ -144,7 +144,7 @@ class TestRestStore(object):
 
     @mock.patch("requests.request")
     def test_requestor(self, request):
-        response = mock.MagicMock
+        response = mock.MagicMock()
         response.status_code = 200
         response.text = "{}"
         request.return_value = response
@@ -279,7 +279,7 @@ class TestRestStore(object):
             )
 
         with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
-            response = mock.MagicMock
+            response = mock.MagicMock()
             response.text = '{"runs": ["1a", "2b", "3c"], "next_page_token": "67890fghij"}'
             mock_http.return_value = response
             result = store.search_runs(
@@ -318,7 +318,7 @@ class TestRestStore(object):
         creds = MlflowHostCreds("https://hello")
         store = store_class(lambda: creds)
         with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
-            response = mock.MagicMock
+            response = mock.MagicMock()
             response.status_code = 200
             experiment = Experiment(
                 experiment_id="123",
@@ -345,7 +345,7 @@ class TestRestStore(object):
             assert result.lifecycle_stage == experiment.lifecycle_stage
             # Test GetExperimentByName against nonexistent experiment
             mock_http.reset_mock()
-            nonexistent_exp_response = mock.MagicMock
+            nonexistent_exp_response = mock.MagicMock()
             nonexistent_exp_response.status_code = 404
             nonexistent_exp_response.text = MlflowException(
                 "Exp doesn't exist!", RESOURCE_DOES_NOT_EXIST
@@ -365,7 +365,7 @@ class TestRestStore(object):
             # Test REST client behavior against a mocked old server, which has handler for
             # ListExperiments but not GetExperimentByName
             mock_http.reset_mock()
-            list_exp_response = mock.MagicMock
+            list_exp_response = mock.MagicMock()
             list_exp_response.text = json.dumps(
                 {"experiments": [json.loads(message_to_json(experiment.to_proto()))]}
             )

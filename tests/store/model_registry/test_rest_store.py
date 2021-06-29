@@ -36,7 +36,7 @@ from mlflow.utils.rest_utils import MlflowHostCreds
 @pytest.fixture(scope="class")
 def request_fixture():
     with mock.patch("requests.request") as request_mock:
-        response = mock.MagicMock
+        response = mock.MagicMock()
         response.status_code = 200
         response.text = "{}"
         request_mock.return_value = response
