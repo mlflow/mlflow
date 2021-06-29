@@ -824,10 +824,14 @@ Azure Blob Storage
 
 To store artifacts in Azure Blob Storage, specify a URI of the form
 ``wasbs://<container>@<storage-account>.blob.core.windows.net/<path>``.
-MLflow expects Azure Storage access credentials in the
-``AZURE_STORAGE_CONNECTION_STRING`` or ``AZURE_STORAGE_ACCESS_KEY`` environment variables (preferring
-a connection string if one is set), so you must set one of these variables on both your client
-application and your MLflow tracking server. Finally, you must run ``pip install azure-storage-blob``
+MLflow supports azure-identity `DefaultAzureCredential` (https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/identity/azure-identity). 
+To enable this behavior set MLFLOW_USE_AZURE_IDENTITY to 'true' and add azure-identity as a Python dependency via ``pip install azure-identity``  
+Alternatively Mlflow expects Azure Storage access credentials in the
+``AZURE_STORAGE_CONNECTION_STRING``||``MLFLOW_AZURE_STORAGE_CONNECTION_STRING`` or ``AZURE_STORAGE_ACCESS_KEY`` environment variables (preferring
+a connection string if one is set), so you must set one of these authentication method on both your client
+application and your MLflow tracking server. Those can be different (e.g MLFLOW_USE_AZURE_IDENTITY for tracking server and MLFLOW_AZURE_STORAGE_CONNECTION_STRING 
+for mlflow client). 
+Finally, you must run ``pip install azure-storage-blob``
 separately (on both your client and the server) to access Azure Blob Storage; MLflow does not declare
 a dependency on this package by default.
 

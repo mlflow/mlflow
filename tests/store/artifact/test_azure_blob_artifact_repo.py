@@ -28,11 +28,15 @@ class MockBlobList(object):
 def mock_client():
     # Make sure that our environment variable aren't set to actually access Azure
     old_access_key = os.environ.get("AZURE_STORAGE_ACCESS_KEY")
+    old_conn_string = os.environ.get("AZURE_STORAGE_CONNECTION_STRING")
+    old_azure_identity_env = os.environ.get("MLFLOW_USE_AZURE_IDENTITY")
+
     if old_access_key is not None:
         del os.environ["AZURE_STORAGE_ACCESS_KEY"]
-    old_conn_string = os.environ.get("AZURE_STORAGE_CONNECTION_STRING")
     if old_conn_string is not None:
         del os.environ["AZURE_STORAGE_CONNECTION_STRING"]
+    if old_azure_identity_env is not None:
+        del os.environ["MLFLOW_USE_AZURE_IDENTITY"]
 
     yield mock.MagicMock(autospec=BlobServiceClient)
 
@@ -40,6 +44,8 @@ def mock_client():
         os.environ["AZURE_STORAGE_ACCESS_KEY"] = old_access_key
     if old_conn_string is not None:
         os.environ["AZURE_STORAGE_CONNECTION_STRING"] = old_conn_string
+    if old_azure_identity_env is not None:
+        os.environ["MLFLOW_USE_AZURE_IDENTITY"] = old_azure_identity_env
 
 
 def test_artifact_uri_factory(mock_client):
@@ -50,6 +56,14 @@ def test_artifact_uri_factory(mock_client):
     repo = get_artifact_repository(TEST_URI)
     assert isinstance(repo, AzureBlobArtifactRepository)
     del os.environ["AZURE_STORAGE_ACCESS_KEY"]
+
+
+def test_azure_identity(mock_client):
+    # pylint: disable=unused-argument
+    os.environ["MLFLOW_USE_AZURE_IDENTITY"] = True
+    repo = get_artifact_repository(TEST_URI)
+    assert isinstance(repo, AzureBlobArtifactRepository)
+    del os.environ["MLFLOW_USE_AZURE_IDENTITY"]
 
 
 def test_exception_if_no_env_vars(mock_client):

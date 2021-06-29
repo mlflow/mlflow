@@ -14,7 +14,8 @@ class AzureBlobArtifactRepository(ArtifactRepository):
 
     This repository is used with URIs of the form
     ``wasbs://<container-name>@<ystorage-account-name>.blob.core.windows.net/<path>``,
-    following the same URI scheme as Hadoop on Azure blob storage. It requires that your Azure
+    following the same URI scheme as Hadoop on Azure blob storage. It uses azure-identity if
+    ``MLFLOW_USE_AZURE_IDENTITY`` is set to True. Otherwise requires that your Azure
     storage access key be available in the environment variable ``AZURE_STORAGE_ACCESS_KEY``.
     """
 
@@ -29,7 +30,18 @@ class AzureBlobArtifactRepository(ArtifactRepository):
         from azure.storage.blob import BlobServiceClient
 
         (_, account, _) = AzureBlobArtifactRepository.parse_wasbs_uri(artifact_uri)
-        if "AZURE_STORAGE_CONNECTION_STRING" in os.environ:
+        if os.getenv("MLFLOW_USE_AZURE_IDENTITY", "False").lower() == "true":
+            from azure.identity import DefaultAzureCredential
+
+            account_url = "https://{account}.blob.core.windows.net".format(account=account)
+            self.client = BlobServiceClient(
+                account_url=account_url, credential=DefaultAzureCredential()
+            )
+        elif "MLFLOW_AZURE_STORAGE_CONNECTION_STRING" in os.environ:
+            self.client = BlobServiceClient.from_connection_string(
+                conn_str=os.environ.get("MLFLOW_AZURE_STORAGE_CONNECTION_STRING")
+            )
+        elif "AZURE_STORAGE_CONNECTION_STRING" in os.environ:
             self.client = BlobServiceClient.from_connection_string(
                 conn_str=os.environ.get("AZURE_STORAGE_CONNECTION_STRING")
             )
@@ -40,8 +52,9 @@ class AzureBlobArtifactRepository(ArtifactRepository):
             )
         else:
             raise Exception(
-                "You need to set one of AZURE_STORAGE_CONNECTION_STRING or "
-                "AZURE_STORAGE_ACCESS_KEY to access Azure storage."
+                "You need to set one of the following: MLFLOW_USE_AZURE_IDENTITY,"
+                "MLFLOW_AZURE_STORAGE_CONNECTION_STRING, AZURE_STORAGE_CONNECTION_STRING"
+                "or AZURE_STORAGE_ACCESS_KEY to access Azure storage."
             )
 
     @staticmethod
