@@ -440,6 +440,36 @@ class TestRestStore(object):
             )
             assert mock_http.call_count == 1
 
+    def test_databricks_paginate_list_experiments(self):
+        creds = MlflowHostCreds("https://hello")
+        store = DatabricksRestStore(lambda: creds)
+
+        list_exp_responses = []
+        next_page_tokens = ["a", "b", None]
+        for next_page_token in next_page_tokens:
+            experiment = Experiment(
+                experiment_id="123",
+                name=str(next_page_token),
+                artifact_location="/abc",
+                lifecycle_stage=LifecycleStage.ACTIVE,
+            )
+            list_exp_response = mock.MagicMock()
+            list_exp_response.text = json.dumps(
+                {
+                    "experiments": [json.loads(message_to_json(experiment.to_proto()))],
+                    "next_page_token": next_page_token,
+                }
+            )
+            list_exp_response.status_code = 200
+            list_exp_responses.append(list_exp_response)
+
+        with mock.patch("mlflow.utils.rest_utils.http_request", side_effect=list_exp_responses):
+            for idx, experiments in enumerate(
+                store._paginate_list_experiments(ViewType.ACTIVE_ONLY)
+            ):
+                assert experiments[0].name == str(next_page_tokens[idx])
+                assert experiments.token == next_page_tokens[idx]
+
 
 if __name__ == "__main__":
     unittest.main()
