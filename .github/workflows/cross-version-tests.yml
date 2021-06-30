@@ -83,10 +83,6 @@ jobs:
           key: ${{ steps.get-cache-key.outputs.key }}
           restore-keys: |
             ${{ steps.get-cache-key.outputs.key }}
-      - name: Install protobuf-compiler
-        if: ${{ matrix.package == 'onnx' }}
-        run: |
-          sudo apt-get install protobuf-compiler libprotoc-dev
       - name: Install mlflow & test dependencies
         run: |
           set -x
@@ -105,7 +101,7 @@ jobs:
           pip freeze
       - name: Run tests
         env:
-          MLFLOW_CONDA_HOME: /usr/share/miniconda/bin
+          MLFLOW_CONDA_HOME: /usr/share/miniconda
           SPARK_LOCAL_IP: 127.0.0.1
         run: |
           ${{ matrix.run }}
