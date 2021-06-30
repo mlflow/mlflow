@@ -38,13 +38,13 @@ jobs:
 
       - run:
           name: Dump R dependencies
+          working_directory: mlflow/R/mlflow
           command: |
-            Rscript .circleci/dump-r-dependencies.R
-            ls .circleci
+            Rscript dump-r-dependencies.R
 
       - restore_cache:
           keys:
-            - r-cache-{{ checksum ".circleci/R-version" }}
+            - r-cache-{{ checksum "mlflow/R/mlflow/R-version" }}
 
       - run:
           name: Build documentation
@@ -75,7 +75,7 @@ jobs:
             exit $failed
 
       - save_cache:
-          key: r-cache-{{ checksum ".circleci/R-version" }}-{{ checksum ".circleci/depends.Rds" }}
+          key: r-cache-{{ checksum "mlflow/R/mlflow/R-version" }}-{{ checksum "mlflow/R/mlflow/depends.Rds" }}
           paths:
             - /usr/local/lib/R/site-library
 
