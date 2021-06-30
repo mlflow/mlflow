@@ -55,6 +55,7 @@ jobs:
       - run:
           name: Show diff
           command: |
+            git add --intent-to-add .
             git --no-pager diff --exit-code
 
       - save_cache:
