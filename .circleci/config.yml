@@ -57,11 +57,21 @@ jobs:
           command: |
             set +e
             git add --intent-to-add .
-            patch_file="<< pipeline.git.revision >>.patch"
-            git --no-pager diff --exit-code > $patch_file
+            PATCH_FILE="<< pipeline.git.revision >>.patch"
+            git --no-pager diff --exit-code > $PATCH_FILE
             failed=$?
-            cat $patch_file
-            echo ${CIRCLE_BUILD_URL}
+
+            if [[ "$failed" == "1" ]]; then
+              cat $PATCH_FILE
+              MLFLOW_REPO_ID=136202695
+              PATCH_FILE_URL="https://${CIRCLE_BUILD_NUM}-${MLFLOW_REPO_ID}-gh.circle-artifacts.com/0/${PATCH_FILE}"
+              echo "========== Run the following commands to apply the diff above =========="
+              echo "PATCH_FILE_URL=\"$PATCH_FILE_URL\""
+              echo 'REDIRECTED_URL=$(curl -Ls -o /dev/null -w %{url_effective} $PATCH_FILE_URL)'
+              echo 'curl $REDIRECTED_URL | git apply'
+              echo "========================================================================"
+            fi
+
             exit $failed
 
       - save_cache:
