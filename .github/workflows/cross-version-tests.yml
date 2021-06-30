@@ -83,6 +83,10 @@ jobs:
           key: ${{ steps.get-cache-key.outputs.key }}
           restore-keys: |
             ${{ steps.get-cache-key.outputs.key }}
+      - name: Install protobuf-compiler
+        if: ${{ matrix.package == 'onnx' }}
+        run: |
+          sudo apt-get install protobuf-compiler libprotoc-dev
       - name: Install mlflow & test dependencies
         run: |
           set -x
