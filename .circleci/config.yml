@@ -56,7 +56,8 @@ jobs:
           name: Show diff
           command: |
             git add --intent-to-add .
-            git --no-pager diff --exit-code
+            git --no-pager diff --exit-code > << pipeline.git.revision >>.patch
+            cat << pipeline.git.revision >>.patch
 
       - save_cache:
           key: r-cache-{{ checksum ".circleci/R-version" }}-{{ checksum ".circleci/depends.Rds" }}
@@ -64,7 +65,7 @@ jobs:
             - /usr/local/lib/R/site-library
 
       - store_artifacts:
-          path: docs/source/R-api.rst
+          path: << pipeline.git.revision >>.patch
 
   build_doc:
     docker:
