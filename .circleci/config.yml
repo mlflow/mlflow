@@ -11,7 +11,7 @@ jobs:
           name: Install dev tools
           command: |
             apt-get update --yes
-            apt-get install sudo git wget curl software-properties-common apt-transport-https --yes
+            apt-get install sudo git wget curl jq software-properties-common apt-transport-https --yes
 
       - run:
           name: Install Java
@@ -63,12 +63,12 @@ jobs:
 
             if [[ "$failed" == "1" ]]; then
               cat $PATCH_FILE
-              MLFLOW_REPO_ID=136202695
+              MLFLOW_REPO_ID=$(curl -s -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/mlflow/mlflow | jq '.id')
               PATCH_FILE_URL="https://${CIRCLE_BUILD_NUM}-${MLFLOW_REPO_ID}-gh.circle-artifacts.com/0/${PATCH_FILE}"
               echo "========== Run the following commands to apply the diff above =========="
               echo "PATCH_FILE_URL=\"$PATCH_FILE_URL\""
               echo 'REDIRECTED_URL=$(curl -Ls -o /dev/null -w %{url_effective} $PATCH_FILE_URL)'
-              echo 'curl $REDIRECTED_URL | git apply --verbose'
+              echo 'curl -s $REDIRECTED_URL | git apply --verbose'
               echo "========================================================================"
             fi
 
