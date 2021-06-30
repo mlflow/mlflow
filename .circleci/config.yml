@@ -53,11 +53,16 @@ jobs:
             ./build-rdoc.sh
 
       - run:
-          name: Show diff
+          name: Check diff
           command: |
+            set +e
             git add --intent-to-add .
-            git --no-pager diff --exit-code > << pipeline.git.revision >>.patch
-            cat << pipeline.git.revision >>.patch
+            patch_file="<< pipeline.git.revision >>.patch"
+            git --no-pager diff --exit-code > $patch_file
+            failed=$?
+            cat $patch_file
+            echo ${CIRCLE_BUILD_URL}
+            exit $failed
 
       - save_cache:
           key: r-cache-{{ checksum ".circleci/R-version" }}-{{ checksum ".circleci/depends.Rds" }}
