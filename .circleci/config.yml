@@ -40,7 +40,7 @@ jobs:
           name: Dump R dependencies
           working_directory: mlflow/R/mlflow
           command: |
-            Rscript dump-r-dependencies.R
+            Rscript .dump-r-dependencies.R
 
       - restore_cache:
           keys:
