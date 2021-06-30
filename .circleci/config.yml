@@ -68,7 +68,7 @@ jobs:
               echo "========== Run the following commands to apply the diff above =========="
               echo "PATCH_FILE_URL=\"$PATCH_FILE_URL\""
               echo 'REDIRECTED_URL=$(curl -Ls -o /dev/null -w %{url_effective} $PATCH_FILE_URL)'
-              echo 'curl $REDIRECTED_URL | git apply'
+              echo 'curl $REDIRECTED_URL | git apply --verbose'
               echo "========================================================================"
             fi
 
