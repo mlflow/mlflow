@@ -491,12 +491,18 @@ class SearchUtils(object):
             )
 
         # Return a key such that None values are always at the end.
-        is_null_or_nan = sort_value is None or (
-            isinstance(sort_value, float) and math.isnan(sort_value)
-        )
-        if ascending:
-            return (is_null_or_nan, sort_value)
-        return (not is_null_or_nan, sort_value)
+        is_none = sort_value is None
+        is_nan = isinstance(sort_value, float) and math.isnan(sort_value)
+        fill_value = (1 if ascending else -1) * math.inf
+
+        if is_none:
+            sort_value = fill_value
+        elif is_nan:
+            sort_value = -fill_value
+
+        is_none_or_nan = is_none or is_nan
+
+        return (is_none_or_nan, sort_value) if ascending else (not is_none_or_nan, sort_value)
 
     @classmethod
     def sort(cls, runs, order_by_list):
