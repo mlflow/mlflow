@@ -19,7 +19,5 @@ def test_databricks_command_run_context_tags():
 
 
 def test_databricks_command_run_context_tags_nones():
-    with mock.patch(
-        "mlflow.utils.databricks_utils.get_job_group_id", return_value=None
-    ) as job_group_id_mock:
+    with mock.patch("mlflow.utils.databricks_utils.get_job_group_id", return_value=None) as _:
         assert DatabricksCommandRunContext().tags() == {}
