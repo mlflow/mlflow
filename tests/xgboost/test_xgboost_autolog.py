@@ -8,6 +8,7 @@ from sklearn import datasets
 import xgboost as xgb
 import matplotlib as mpl
 import yaml
+from packaging.version import Version
 
 import mlflow
 import mlflow.xgboost
@@ -315,6 +316,13 @@ def test_xgb_autolog_loads_model_from_artifact(bst_params, dtrain):
 
 
 @pytest.mark.large
+@pytest.mark.skipif(
+    Version(xgb.__version__) > Version("1.4.2"),
+    reason=(
+        "In XGBoost <= 1.4.2, linear boosters do not support `get_score()` for importance value"
+        " creation. In XGBoost > 1.4.2, all boosters support `get_score()`."
+    ),
+)
 def test_xgb_autolog_does_not_throw_if_importance_values_not_supported(dtrain):
     # the gblinear booster does not support calling get_score on it,
     #   where get_score is used to create the importance values plot.
