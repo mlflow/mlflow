@@ -1,6 +1,6 @@
 from mlflow.tracking.context.abstract_context import RunContextProvider
 from mlflow.utils import databricks_utils
-from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_COMMAND_ID
+from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_NOTEBOOK_COMMAND_ID
 
 
 class DatabricksCommandRunContext(RunContextProvider):
@@ -11,5 +11,5 @@ class DatabricksCommandRunContext(RunContextProvider):
         job_group_id = databricks_utils.get_job_group_id()
         tags = {}
         if job_group_id is not None:
-            tags[MLFLOW_DATABRICKS_COMMAND_ID] = job_group_id
+            tags[MLFLOW_DATABRICKS_NOTEBOOK_COMMAND_ID] = job_group_id
         return tags
