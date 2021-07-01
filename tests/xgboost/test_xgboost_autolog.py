@@ -309,7 +309,7 @@ def test_xgb_autolog_logs_feature_importance_for_linear_boosters(dtrain):
 
     bst_params = {"objective": "multi:softprob", "num_class": 3, "booster": "gblinear"}
     model = xgb.train(bst_params, dtrain)
-    
+
     run = get_latest_run()
     run_id = run.info.run_id
     artifacts_dir = run.info.artifact_uri.replace("file://", "")

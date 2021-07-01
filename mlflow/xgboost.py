@@ -447,7 +447,9 @@ def autolog(
                 # values to a `num_features`-by-1 matrix
                 indices = np.argsort(importance)
                 features = features[indices]
-                importances_per_class_by_feature = np.array([[importance] for importance in importances_per_class_by_feature])
+                importances_per_class_by_feature = np.array(
+                    [[importance] for importance in importances_per_class_by_feature]
+                )
                 # In this case, do not include class labels on the feature importance plot because
                 # only one importance value has been provided per feature, rather than an
                 # one importance value for each class per feature
@@ -465,7 +467,7 @@ def autolog(
             fig, ax = plt.subplots(figsize=(w, h))
             # When importance values are provided for each class per feature, we want to ensure
             # that the same color is used for all bars in the bar chart that have the same class
-            colors_to_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color'][:num_classes]
+            colors_to_cycle = plt.rcParams["axes.prop_cycle"].by_key()["color"][:num_classes]
             color_cycler = cycler(color=colors_to_cycle)
             ax.set_prop_cycle(color_cycler)
 
@@ -479,9 +481,18 @@ def autolog(
             # Ensure that per-class bars for adjacent features do not overlap by reducing the size
             # of the offsets by a factor proportional to the number of features
             offsets_per_yloc = offsets_per_yloc / (num_features * 2)
-            for feature_idx, (feature_yloc, importances_per_class) in enumerate(zip(feature_ylocs, importances_per_class_by_feature)):
-                for class_idx, (offset, class_importance) in enumerate(zip(offsets_per_yloc, importances_per_class)):
-                    bar, = ax.barh(feature_yloc + offset, class_importance, align="center", height=(1.0 / (num_features * num_classes)))
+            for feature_idx, (feature_yloc, importances_per_class) in enumerate(
+                zip(feature_ylocs, importances_per_class_by_feature)
+            ):
+                for class_idx, (offset, class_importance) in enumerate(
+                    zip(offsets_per_yloc, importances_per_class)
+                ):
+                    (bar,) = ax.barh(
+                        feature_yloc + offset,
+                        class_importance,
+                        align="center",
+                        height=(1.0 / (num_features * num_classes)),
+                    )
                     if label_classes_on_plot and feature_idx == 0:
                         # Only set a label the first time a bar for a particular class is plotted to
                         # avoid duplicate legend entries. If we were to set a label for every bar,
