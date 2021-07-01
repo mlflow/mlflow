@@ -464,6 +464,7 @@ def autolog(
             # from being too dense.
             w, h = [6.4, 4.8]  # matplotlib's default figure size
             h = h + 0.1 * num_features if num_features > 10 else h
+            h = h + 0.1 * num_classes if num_classes > 1 else h
             fig, ax = plt.subplots(figsize=(w, h))
             # When importance values are provided for each class per feature, we want to ensure
             # that the same color is used for all bars in the bar chart that have the same class
@@ -477,10 +478,7 @@ def autolog(
             feature_ylocs = np.arange(num_features)
             # Define offsets on the y-axis that are used to evenly space the bars for each class
             # around the y-axis position of each feature
-            offsets_per_yloc = np.arange((1 - num_classes) / 2, ((num_classes - 1) / 2) + 1)
-            # Ensure that per-class bars for adjacent features do not overlap by reducing the size
-            # of the offsets by a factor proportional to the number of features
-            offsets_per_yloc = offsets_per_yloc / (num_features * 2)
+            offsets_per_yloc = np.linspace(-0.5, 0.5, num_classes) / 2
             for feature_idx, (feature_yloc, importances_per_class) in enumerate(
                 zip(feature_ylocs, importances_per_class_by_feature)
             ):
@@ -491,7 +489,7 @@ def autolog(
                         feature_yloc + offset,
                         class_importance,
                         align="center",
-                        height=(1.0 / (num_features * num_classes)),
+                        height=(0.5 / num_classes),
                     )
                     if label_classes_on_plot and feature_idx == 0:
                         # Only set a label the first time a bar for a particular class is plotted to
