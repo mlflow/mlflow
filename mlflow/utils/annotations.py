@@ -1,3 +1,4 @@
+import inspect
 import warnings
 from functools import wraps
 
@@ -62,4 +63,26 @@ def keyword_only(func):
 
     notice = ".. Note:: This method requires all argument be specified by keyword.\n"
     wrapper.__doc__ = notice + wrapper.__doc__
+    return wrapper
+
+
+def deprecate_conda_env(f):
+    conda_env_var_name = "conda_env"
+    spec = inspect.getfullargspec(f)
+    conda_env_index = spec.args.index(conda_env_var_name)
+
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        is_conda_env_supplied = len(args) > conda_env_index or conda_env_var_name in kwargs
+        if is_conda_env_supplied:
+            warnings.warn(
+                (
+                    "The `conda_env` argument has been deprecated, "
+                    "please use `pip_requirements` instead"
+                ),
+                FutureWarning,
+                stacklevel=2,
+            )
+        return f(*args, **kwargs)
+
     return wrapper

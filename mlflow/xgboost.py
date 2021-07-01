@@ -36,7 +36,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import experimental, deprecate_conda_env
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
@@ -77,6 +77,7 @@ def get_default_conda_env():
     )
 
 
+@deprecate_conda_env
 def save_model(
     xgb_model,
     path,
@@ -168,6 +169,7 @@ def save_model(
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
+@deprecate_conda_env
 def log_model(
     xgb_model,
     artifact_path,
