@@ -478,7 +478,7 @@ def autolog(
             feature_ylocs = np.arange(num_features)
             # Define offsets on the y-axis that are used to evenly space the bars for each class
             # around the y-axis position of each feature
-            offsets_per_yloc = np.linspace(-0.5, 0.5, num_classes) / 2
+            offsets_per_yloc = np.linspace(-0.5, 0.5, num_classes) / 2 if num_classes > 1 else [0]
             for feature_idx, (feature_yloc, importances_per_class) in enumerate(
                 zip(feature_ylocs, importances_per_class_by_feature)
             ):
