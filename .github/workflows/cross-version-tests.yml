@@ -87,7 +87,7 @@ jobs:
         run: |
           set -x
           python --version
-          pip install --upgrade pip
+          pip install --upgrade pip wheel
           pip install -e .
           pip install -r dev/small-requirements.txt
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
