@@ -8,7 +8,6 @@ from sklearn import datasets
 import xgboost as xgb
 import matplotlib as mpl
 import yaml
-from packaging.version import Version
 
 import mlflow
 import mlflow.xgboost
