@@ -14,8 +14,7 @@ test_that("mlflow can register a model", {
   with_mock(.env = "mlflow",
             mlflow_rest = function(...) {
       args <- list(...)
-      expect_true(paste(args[1:2], collapse = "/")
-                  == "registered-models/create")
+      expect_true(paste(args[1:2], collapse = "/") == "registered-models/create")
 
       data <- args$data
       expect_equal(data$name, "test_model")
@@ -30,8 +29,7 @@ test_that("mlflow can register a model", {
       ))
     }, {
       mock_client <- get_mock_client()
-      registered_model <- mlflow_create_registered_model("test_model",
-                                                         client = mock_client)
+      registered_model <- mlflow_create_registered_model("test_model", client = mock_client)
 
       expect_true("name" %in% names(registered_model))
       expect_true("creation_timestamp" %in% names(registered_model))
@@ -45,8 +43,7 @@ test_that("mlflow can register a model with tags and description", {
     .env = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
-      expect_true(paste(args[1:2], collapse = "/")
-                  == "registered-models/create")
+      expect_true(paste(args[1:2], collapse = "/") == "registered-models/create")
 
       data <- args$data
       expect_equal(data$name, "test_model")
