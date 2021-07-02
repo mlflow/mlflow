@@ -141,8 +141,7 @@ test_that("mlflow can delete a model", {
   with_mock(.env = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
-      expect_true(paste(args[1:2], collapse = "/")
-                  == "registered-models/delete")
+      expect_true(paste(args[1:2], collapse = "/") == "registered-models/delete")
       expect_equal(args$data$name, "test_model")
   }, {
     mock_client <- get_mock_client()
