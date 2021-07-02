@@ -126,7 +126,7 @@ mlflow_delete_registered_model <- function(name, client = NULL) {
 #'
 #' Retrieves a list of registered models.
 #'
-#' @param max_result Maximum number of registered models to retrieve.
+#' @param max_results Maximum number of registered models to retrieve.
 #' @param page_token Pagination token to go to the next page based on a previous query.
 #' @template roxlate-client
 #' @export
