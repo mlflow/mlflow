@@ -11,14 +11,14 @@ mlflow_list_registered_models(
 )
 }
 \arguments{
+\item{max_results}{Maximum number of registered models to retrieve.}
+
 \item{page_token}{Pagination token to go to the next page based on a previous query.}
 
 \item{client}{(Optional) An MLflow client object returned from \link[mlflow]{mlflow_client}.
 If specified, MLflow will use the tracking server associated with the passed-in client. If
 unspecified (the common case),
 MLflow will use the tracking server associated with the current tracking URI.}
-
-\item{max_result}{Maximum number of registered models to retrieve.}
 }
 \description{
 Retrieves a list of registered models.
