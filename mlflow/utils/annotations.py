@@ -77,8 +77,8 @@ def deprecate_conda_env(f):
         if is_conda_env_supplied:
             warnings.warn(
                 (
-                    "The `conda_env` argument has been deprecated, "
-                    "please use `pip_requirements` instead"
+                    "`conda_env` has been deprecated, please use `pip_requirements` or "
+                    "`additional_pip_requirements` instead"
                 ),
                 FutureWarning,
                 stacklevel=2,
