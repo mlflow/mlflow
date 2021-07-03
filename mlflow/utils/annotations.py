@@ -67,6 +67,10 @@ def keyword_only(func):
 
 
 def deprecate_conda_env(f):
+    """
+    Wraps the given function to raise a deprecation warning when the `conda_env` argument is
+    supplied.
+    """
     conda_env_var_name = "conda_env"
     spec = inspect.getfullargspec(f)
     conda_env_index = spec.args.index(conda_env_var_name)
@@ -78,7 +82,7 @@ def deprecate_conda_env(f):
             warnings.warn(
                 (
                     "`conda_env` has been deprecated, please use `pip_requirements` or "
-                    "`additional_pip_requirements` instead"
+                    "`additional_pip_requirements` instead."
                 ),
                 FutureWarning,
                 stacklevel=2,
