@@ -73,7 +73,9 @@ def deprecate_conda_env(f):
     """
     conda_env_var_name = "conda_env"
     spec = inspect.getfullargspec(f)
-    conda_env_index = spec.args.index(conda_env_var_name)
+    # Note `spec.args` contains positional, positional-only (introduced in Python 3.8),
+    # and keyword arguments.
+    conda_env_index = (spec.args + spec.kwonlyargs).index(conda_env_var_name)
 
     @wraps(f)
     def wrapper(*args, **kwargs):

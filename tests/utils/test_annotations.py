@@ -4,23 +4,40 @@ from unittest import mock
 from mlflow.utils.annotations import deprecate_conda_env
 
 
-def test_deprecate_conda_env():
-    @deprecate_conda_env
-    def f(a, conda_env=None):
-        """docstring"""
+def _positional_arg(a, conda_env):
+    """positional"""
 
-    assert f.__name__ == "f"
-    assert f.__doc__ == "docstring"
+
+def _keyword_arg(a, conda_env=None):
+    """keyword"""
+
+
+def keyword_only_arg(a, *, conda_env=None):
+    """keyword_only"""
+
+
+# Only Python 3.8 and newer support positional-only arguments
+# def positional_only_arg(a, conda_env, /):
+#     """positional_only"""
+
+
+@pytest.mark.parametrize("original", [_positional_arg, _keyword_arg, keyword_only_arg])
+def test_deprecate_conda_env(original):
+    wrapped = deprecate_conda_env(original)
+    assert wrapped.__name__ == original.__name__
+    assert wrapped.__doc__ == original.__doc__
+
+    if original != keyword_only_arg:
+        with pytest.warns(FutureWarning, match="`conda_env` has been deprecated"):
+            wrapped(0, {})
 
     with pytest.warns(FutureWarning, match="`conda_env` has been deprecated"):
-        f(0, {})
+        wrapped(0, conda_env={})
 
     with pytest.warns(FutureWarning, match="`conda_env` has been deprecated"):
-        f(0, conda_env={})
+        wrapped(0, conda_env=None)
 
-    with pytest.warns(FutureWarning, match="`conda_env` has been deprecated"):
-        f(0, conda_env=None)
-
-    with mock.patch("warnings.warn") as mock_warn:
-        f(0)
-        mock_warn.assert_not_called()
+    if original != _positional_arg:
+        with mock.patch("warnings.warn") as mock_warn:
+            wrapped(0)
+            mock_warn.assert_not_called()
