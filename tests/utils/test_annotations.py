@@ -16,8 +16,6 @@ def keyword_only_arg(a, *, conda_env=None):
     """keyword_only"""
 
 
-
-
 @pytest.mark.parametrize("original", [_positional_arg, _keyword_arg, keyword_only_arg])
 def test_deprecate_conda_env(original):
     wrapped = deprecate_conda_env(original)
