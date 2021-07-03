@@ -16,9 +16,6 @@ def keyword_only_arg(a, *, conda_env=None):
     """keyword_only"""
 
 
-# Only Python 3.8 and newer support positional-only arguments
-# def positional_only_arg(a, conda_env, /):
-#     """positional_only"""
 
 
 @pytest.mark.parametrize("original", [_positional_arg, _keyword_arg, keyword_only_arg])
