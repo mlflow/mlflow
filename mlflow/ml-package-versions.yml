@@ -2,8 +2,7 @@ sklearn:
   package_info:
     pip_release: "scikit-learn"
     install_dev: |
-      head_sha=$(git ls-remote https://github.com/scikit-learn/scikit-learn.git HEAD | cut -f1)
-      pip install git+https://github.com/scikit-learn/scikit-learn.git@$head_sha
+      pip install git+https://github.com/scikit-learn/scikit-learn.git
 
   models:
     minimum: "0.20.3"
@@ -35,8 +34,7 @@ pytorch-lightning:
   package_info:
     pip_release: "pytorch-lightning"
     install_dev: |
-      head_sha=$(git ls-remote https://github.com/PytorchLightning/pytorch-lightning.git HEAD | cut -f1)
-      pip install git+https://github.com/PytorchLightning/pytorch-lightning.git@$head_sha
+      pip install git+https://github.com/PytorchLightning/pytorch-lightning.git
 
   autologging:
     minimum: "1.0.5"
@@ -121,11 +119,7 @@ xgboost:
   package_info:
     pip_release: "xgboost"
     install_dev: |
-      temp_dir=$(mktemp -d)
-      git clone --recursive https://github.com/dmlc/xgboost.git $temp_dir
-      git --git-dir=$temp_dir/.git rev-parse HEAD
-      cd $temp_dir/python-package
-      python setup.py install
+      pip install git+https://github.com/dmlc/xgboost.git#subdirectory=python-package
 
   models:
     minimum: "0.90"
@@ -145,11 +139,7 @@ lightgbm:
   package_info:
     pip_release: "lightgbm"
     install_dev: |
-      temp_dir=$(mktemp -d)
-      git clone --recursive https://github.com/microsoft/LightGBM.git $temp_dir
-      git --git-dir=$temp_dir/.git rev-parse HEAD
-      cd $temp_dir/python-package
-      python setup.py install
+      pip install git+https://github.com/microsoft/LightGBM.git#subdirectory=python-package
 
   models:
     minimum: "2.3.1"
@@ -170,24 +160,10 @@ catboost:
     pip_release: "catboost"
     install_dev: |
       # The cross-version-tests workflow runs this command with the environment variable `CACHE_DIR`
-      if [ -d "$CACHE_DIR" ] && [ ! -z $(find $CACHE_DIR -type f -name "catboost-*.whl") ]; then
-        pip install $(find $CACHE_DIR -type f -name "catboost-*.whl")
-      else
-        # Build wheel from source
-        temp_dir=$(mktemp -d)
-        git clone --depth 1 https://github.com/catboost/catboost.git $temp_dir
-        git --git-dir=$temp_dir/.git rev-parse HEAD
-        cd $temp_dir/catboost/python-package
-        python setup.py bdist_wheel
-
-        # Copy wheel in cache directory
-        wheel_path=$(find dist -type f -name "*.whl")
-        mkdir -p $CACHE_DIR
-        cp $wheel_path $CACHE_DIR
-
-        # Install wheel
-        pip install $wheel_path
+      if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "catboost-*.whl") ]; then
+        pip wheel --no-deps --wheel-dir $CACHE_DIR git+https://github.com/catboost/catboost.git#subdirectory=catboost/python-package
       fi
+      pip install $(find $CACHE_DIR -type f -name "catboost-*.whl")
 
   models:
     minimum: "0.23.1"
@@ -242,12 +218,7 @@ onnx:
     pip_release: "onnx"
     install_dev: |
       sudo apt-get install protobuf-compiler libprotoc-dev
-      temp_dir=$(mktemp -d)
-      git clone https://github.com/onnx/onnx.git $temp_dir
-      git --git-dir=$temp_dir/.git rev-parse HEAD
-      cd $temp_dir
-      git submodule update --init --recursive
-      python setup.py install
+      pip install git+https://github.com/onnx/onnx.git
 
   models:
     minimum: "1.5.0"
@@ -260,8 +231,7 @@ spacy:
   package_info:
     pip_release: "spacy"
     install_dev: |
-      head_sha=$(git ls-remote https://github.com/explosion/spaCy.git HEAD | cut -f1)
-      pip install git+https://github.com/explosion/spaCy.git@$head_sha
+      pip install git+https://github.com/explosion/spaCy.git
 
   models:
     minimum: "2.2.4"
@@ -274,8 +244,7 @@ statsmodels:
   package_info:
     pip_release: "statsmodels"
     install_dev: |
-      head_sha=$(git ls-remote https://github.com/statsmodels/statsmodels.git HEAD | cut -f1)
-      pip install git+https://github.com/statsmodels/statsmodels.git@$head_sha
+      pip install git+https://github.com/statsmodels/statsmodels.git
 
   models:
     minimum: "0.11.1"
@@ -294,9 +263,7 @@ spark:
     pip_release: "pyspark"
     install_dev: |
       # The cross-version-tests workflow runs this command with the environment variable `CACHE_DIR`
-      if [ -d "$CACHE_DIR" ] && [ ! -z $(find $CACHE_DIR -type f -name "pyspark-*.whl") ]; then
-        pip install $(find $CACHE_DIR -type f -name "pyspark-*.whl")
-      else
+      if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "pyspark-*.whl") ]; then
         # Build wheel from source
         temp_dir=$(mktemp -d)
         git clone --depth 1 https://github.com/apache/spark.git $temp_dir
@@ -305,16 +272,9 @@ spark:
         export MAVEN_OPTS="-Xss256m -Xmx2g -XX:ReservedCodeCacheSize=1g"
         ./build/mvn -DskipTests --no-transfer-progress clean package
         cd python
-        python setup.py bdist_wheel
-
-        # Copy wheel in cache directory
-        wheel_path=$(find dist -type f -name "*.whl")
-        mkdir -p $CACHE_DIR
-        cp $wheel_path $CACHE_DIR
-
-        # Install wheel
-        pip install $wheel_path
+        pip wheel --no-deps --wheel-dir $CACHE_DIR .
       fi
+      pip install $(find $CACHE_DIR -type f -name "pyspark-*.whl")
 
   models:
     minimum: "3.0.0"
