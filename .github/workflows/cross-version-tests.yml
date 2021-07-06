@@ -113,7 +113,6 @@ jobs:
           ${{ matrix.install }}
       - name: Check package versions
         run: |
-          set -x
           pip freeze
       - name: Run tests
         env:
