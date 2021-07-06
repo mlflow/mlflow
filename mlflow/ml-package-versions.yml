@@ -163,7 +163,7 @@ catboost:
       if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "catboost-*.whl") ]; then
         head_sha=$(git ls-remote https://github.com/catboost/catboost.git HEAD | cut -f1)
         pip wheel --no-deps --wheel-dir $CACHE_DIR \
-          git+https://github.com/catboost/catboost.git@head_sha#subdirectory=catboost/python-package
+          git+https://github.com/catboost/catboost.git@$head_sha#subdirectory=catboost/python-package
       fi
       pip install $(find $CACHE_DIR -type f -name "catboost-*.whl")
 
