@@ -23,8 +23,10 @@ jobs:
       - name: Install dependencies
         run: |
           pip install packaging pyyaml pytest
-      - uses: actions/github-script@v4
+      - name: Check labels
+        uses: actions/github-script@v4
         id: enable-dev-tests
+        if: ${{ github.event_name == 'pull_request' }}
         with:
           result-encoding: string
           script: |
