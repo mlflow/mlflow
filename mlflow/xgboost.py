@@ -446,15 +446,21 @@ def autolog(
                 # `num_features`-by-`num_classes` matrix structure, we coerce the importance
                 # values to a `num_features`-by-1 matrix
                 indices = np.argsort(importance)
+                # Sort features and importance values by magnitude during transformation to a
+                # `num_features`-by-`num_classes` matrix
                 features = features[indices]
                 importances_per_class_by_feature = np.array(
-                    [[importance] for importance in importances_per_class_by_feature]
+                    [[importance] for importance in importances_per_class_by_feature[indices]]
                 )
                 # In this case, do not include class labels on the feature importance plot because
                 # only one importance value has been provided per feature, rather than an
                 # one importance value for each class per feature
                 label_classes_on_plot = False
             else:
+                importance_value_magnitudes = np.abs(importances_per_class_by_feature).sum(axis=1)
+                indices = np.argsort(importance_value_magnitudes)
+                features = features[indices]
+                importances_per_class_by_feature = importances_per_class_by_feature[indices]
                 label_classes_on_plot = True
 
             num_classes = importances_per_class_by_feature.shape[1]
@@ -489,7 +495,10 @@ def autolog(
                         feature_yloc + offset,
                         class_importance,
                         align="center",
-                        height=(0.5 / num_classes),
+                        # Set the bar height such that importance value bars for a particular
+                        # feature are spaced properly relative to each other (no overlap or gaps)
+                        # and relative to importance value bars for other features
+                        height=(0.5 / max(num_classes - 1, 1)),
                     )
                     if label_classes_on_plot and feature_idx == 0:
                         # Only set a label the first time a bar for a particular class is plotted to
