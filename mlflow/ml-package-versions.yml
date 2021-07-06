@@ -272,7 +272,12 @@ spark:
         export MAVEN_OPTS="-Xss256m -Xmx2g -XX:ReservedCodeCacheSize=1g"
         ./build/mvn -DskipTests --no-transfer-progress clean package
         cd python
-        pip wheel --no-deps --wheel-dir $CACHE_DIR .
+        python setup.py bdist_wheel
+
+        # Copy wheel in cache directory
+        wheel_path=$(find dist -type f -name "pyspark-*.whl")
+        mkdir -p $CACHE_DIR
+        cp $wheel_path $CACHE_DIR
       fi
       pip install $(find $CACHE_DIR -type f -name "pyspark-*.whl")
 
