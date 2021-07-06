@@ -115,7 +115,6 @@ jobs:
         run: |
           set -x
           pip freeze
-          pip freeze | grep ${{ matrix.package }}
       - name: Run tests
         env:
           MLFLOW_CONDA_HOME: /usr/share/miniconda
