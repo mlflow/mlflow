@@ -45,7 +45,8 @@ module.exports = async ({ core, context, github }) => {
     const anchorUrl = `${pr_url}#user-content-${anchorName}`;
     const message = `
 No release-note category label is applied to this PR.
-Please select a checkbox in the release-note category section: ${anchorUrl},
+Please select a checkbox in the release-note category section:
+${anchorUrl},
 or manually apply a release-note category label (e.g. 'rn/bug-fix')
 if you're a maintainer of this repository.
 `;
