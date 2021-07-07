@@ -15,6 +15,7 @@ module.exports = async ({ core, context, github }) => {
   const labelsForRepoResp = await github.issues.listLabelsForRepo({
     owner,
     repo,
+    per_page: 100, // the default value is 30, which is too small to fetch all labels
   });
   const releaseNoteLabels = labelsForRepoResp.data
     .map(({ name }) => name)
