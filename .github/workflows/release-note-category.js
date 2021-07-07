@@ -19,6 +19,8 @@ module.exports = async ({ core, context, github }) => {
   const releaseNoteLabels = labelsForRepoResp.data
     .map(({ name }) => name)
     .filter(name => name.startsWith("rn/"));
+  console.log("Available release-note category labels:");
+  console.log(releaseNoteLabels);
 
   // Fetch release-note category labels applied to this PR
   const listLabelsOnIssueResp = await github.issues.listLabelsOnIssue({
@@ -30,9 +32,7 @@ module.exports = async ({ core, context, github }) => {
     .map(({ name }) => name)
     .filter(name => releaseNoteLabels.includes(name));
 
-  console.log(
-    "The following release-note category labels are applied to this PR:"
-  );
+  console.log("Release-note category labels applied to this PR:");
   console.log(appliedLabels);
 
   // If no release-note category label is applied to this PR, set the action status to "failed"
