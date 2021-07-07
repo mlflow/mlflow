@@ -11,7 +11,7 @@ module.exports = async ({ core, context, github }) => {
     return;
   }
 
-  // Fetch release-note category labels
+  // Fetch release note category labels
   const labelsForRepoResp = await github.issues.listLabelsForRepo({
     owner,
     repo,
@@ -20,10 +20,10 @@ module.exports = async ({ core, context, github }) => {
   const releaseNoteLabels = labelsForRepoResp.data
     .map(({ name }) => name)
     .filter(name => name.startsWith("rn/"));
-  console.log("Available release-note category labels:");
+  console.log("Available release note category labels:");
   console.log(releaseNoteLabels);
 
-  // Fetch release-note category labels applied to this PR
+  // Fetch release note category labels applied to this PR
   const listLabelsOnIssueResp = await github.issues.listLabelsOnIssue({
     owner,
     repo,
@@ -33,23 +33,24 @@ module.exports = async ({ core, context, github }) => {
     .map(({ name }) => name)
     .filter(name => releaseNoteLabels.includes(name));
 
-  console.log("Release-note category labels applied to this PR:");
+  console.log("release note category labels applied to this PR:");
   console.log(appliedLabels);
 
-  // If no release-note category label is applied to this PR, set the action status to "failed"
+  // If no release note category label is applied to this PR, set the action status to "failed"
   if (appliedLabels.length === 0) {
     // Make sure '.github/pull_request_template.md' contains an HTML anchor with this name
-    const anchorName = "release-note-category";
+    const anchorName = "release note-category";
 
-    // Fragmented URL to jump to the release-note category section in the PR description
+    // Fragmented URL to jump to the release note category section in the PR description
     const anchorUrl = `${pr_url}#user-content-${anchorName}`;
-    const message = `
-No release-note category label is applied to this PR.
-Please select a checkbox in the release-note category section:
-${anchorUrl},
-or manually apply a release-note category label (e.g. 'rn/bug-fix')
-if you're a maintainer of this repository.
-`;
+    const message = [
+      "No release note category label is applied to this PR. ",
+      `Please select a checkbox in the release note category section: ${anchorUrl}, `,
+      "or manually apply a release note category label (e.g. 'rn/bug-fix') ",
+      "if you're a maintainer of this repository. ",
+      "If this workflow failed when a release note category label has been already applied, ",
+      "please re-run it",
+    ].join("");
     core.setFailed(message);
   }
 };
