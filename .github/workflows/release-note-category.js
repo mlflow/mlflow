@@ -1,4 +1,4 @@
-module.exports = ({ core, context, github }) => {
+module.exports = async ({ core, context, github }) => {
   const { user, html_url: pr_url } = context.payload.pull_request;
   const { owner, repo } = context.repo;
   const { number: issue_number } = context.issue;
