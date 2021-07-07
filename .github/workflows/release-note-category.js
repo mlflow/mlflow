@@ -49,7 +49,7 @@ module.exports = async ({ core, context, github }) => {
       "or manually apply a release note category label (e.g. 'rn/bug-fix') ",
       "if you're a maintainer of this repository. ",
       "If this workflow failed when a release note category label has been already applied, ",
-      "please re-run it",
+      "please re-run it.",
     ].join("");
     core.setFailed(message);
   }
