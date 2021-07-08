@@ -57,4 +57,4 @@ pytest dev/set_matrix.py --doctest-modules
 
 1. Click `Labels` in the right sidebar.
 2. Select the `enable-dev-tests` label.
-3. Push a commit or re-run the `Cross version-tests` workflow.
+3. Push a commit or re-run the `Cross version tests` workflow.
