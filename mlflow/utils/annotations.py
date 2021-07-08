@@ -66,21 +66,25 @@ def keyword_only(func):
     return wrapper
 
 
-def deprecate_conda_env(f):
+def deprecate_conda_env(func):
     """
     Wraps the given function to raise a deprecation warning when the `conda_env` argument is
     supplied.
     """
     conda_env_var_name = "conda_env"
-    spec = inspect.getfullargspec(f)
-    # Note `spec.args` contains positional, positional-only (introduced in Python 3.8),
-    # and keyword arguments.
-    conda_env_index = (spec.args + spec.kwonlyargs).index(conda_env_var_name)
+    parameters = inspect.signature(func).parameters
+    conda_env_index = list(parameters.keys()).index(conda_env_var_name)
+    # Assuming `conda_env` is defined as a keyword or keyword-only argument
+    default_value = parameters[conda_env_var_name].default
 
-    @wraps(f)
+    @wraps(func)
     def wrapper(*args, **kwargs):
-        is_conda_env_supplied = len(args) > conda_env_index or conda_env_var_name in kwargs
-        if is_conda_env_supplied:
+        conda_env_val = (
+            args[conda_env_index]
+            if len(args) > conda_env_index
+            else kwargs.get(conda_env_var_name, default_value)
+        )
+        if conda_env_val != default_value:
             warnings.warn(
                 (
                     "`conda_env` has been deprecated, please use `pip_requirements` or "
@@ -89,6 +93,6 @@ def deprecate_conda_env(f):
                 FutureWarning,
                 stacklevel=2,
             )
-        return f(*args, **kwargs)
+        return func(*args, **kwargs)
 
     return wrapper
