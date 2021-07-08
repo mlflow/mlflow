@@ -46,7 +46,7 @@ class GCSArtifactRepository(ArtifactRepository):
             storage_client = self.gcs.Client.create_anonymous_client()
         return storage_client.bucket(bucket)
 
-    def log_artifact(self, local_file, artifact_path=None):
+    def log_artifact(self, local_file, artifact_path=None, timeout=600):
         (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
@@ -54,9 +54,9 @@ class GCSArtifactRepository(ArtifactRepository):
 
         gcs_bucket = self._get_bucket(bucket)
         blob = gcs_bucket.blob(dest_path)
-        blob.upload_from_filename(local_file)
+        blob.upload_from_filename(local_file, timeout=timeout)
 
-    def log_artifacts(self, local_dir, artifact_path=None):
+    def log_artifacts(self, local_dir, artifact_path=None, timeout=600):
         (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
@@ -71,7 +71,7 @@ class GCSArtifactRepository(ArtifactRepository):
                 upload_path = posixpath.join(dest_path, rel_path)
             for f in filenames:
                 path = posixpath.join(upload_path, f)
-                gcs_bucket.blob(path).upload_from_filename(os.path.join(root, f))
+                gcs_bucket.blob(path).upload_from_filename(os.path.join(root, f), timeout=timeout)
 
     def list_artifacts(self, path=None):
         (bucket, artifact_path) = self.parse_gcs_uri(self.artifact_uri)
