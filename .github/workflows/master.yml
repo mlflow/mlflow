@@ -98,6 +98,10 @@ jobs:
         cd tests
         Rscript ../.create-test-env.R
     - name: Run tests
+      env:
+        # Hack to get around this issue:
+        # https://stat.ethz.ch/pipermail/r-package-devel/2020q3/005930.html
+        _R_CHECK_SYSTEM_CLOCK_: false
       run: |
         export LINTR_COMMENT_BOT=false
         cd mlflow/R/mlflow/tests
