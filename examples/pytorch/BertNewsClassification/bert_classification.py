@@ -21,41 +21,24 @@ from sklearn.datasets import fetch_20newsgroups
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from transformers import BertModel, BertTokenizer, AdamW
-from torchtext.utils import download_from_url, extract_archive
 import torchtext.datasets as td
 
 
 def get_20newsgroups(num_samples):
     categories = ["alt.atheism", "talk.religion.misc", "comp.graphics", "sci.space"]
     X, y = fetch_20newsgroups(subset="train", categories=categories, return_X_y=True)
-    return pd.DataFrame(
-        data=X, columns=["description"]).assign(label=y).sample(n=num_samples, replace=True
-        )
-
-
-def process_label(rating):
-        rating = int(rating)
-        return rating - 1
+    return pd.DataFrame(data=X, columns=["description"]).assign(label=y).sample(n=num_samples)
 
 
 def get_ag_news(num_samples):
-    # reading  the input
+    # reading the input
     td.AG_NEWS(root="data", split=("train", "test"))
-    extracted_files = os.listdir("data/AG_NEWS")
-
-    train_csv_path = None
-    for fname in extracted_files:
-        if fname.endswith("train.csv"):
-            train_csv_path = os.path.join(os.getcwd(), "data/AG_NEWS", fname)
-
-    df = pd.read_csv(train_csv_path)
-
-    df.columns = ["label", "title", "description"]
-    df.sample(frac=1)
-    df = df.iloc[: num_samples]
-
-    df["label"] = df.label.apply(process_label)
-    return df
+    train_csv_path = "data/AG_NEWS/train.csv"
+    return (
+        pd.read_csv(train_csv_path, names=["label", "title", "description"])
+        .assign(label=lambda df: df["label"] - 1)
+        .sample(n=num_samples, frac=1)
+    )
 
 
 class NewsDataset(Dataset):
