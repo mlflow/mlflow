@@ -25,6 +25,6 @@ class ReplAwareSparkDataSourceListener(
     // NB: We directly return the Spark Session UUID under the assumption that a data source
     // listener can only be attached to a single Spark Session at a time and that the Spark Session
     // UUID uniquely identifies a REPL
-    return Some(sparkSessionUUID);
+    Some(sparkSessionUUID)
   }
 }
