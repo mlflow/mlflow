@@ -13,7 +13,7 @@ import scala.collection.mutable
  * and notify subscribers. Used in REPL-ID aware environments (e.g. Databricks)
  */
 class ReplAwareSparkDataSourceListener(
-    replId: String,
+    sparkSessionUUID: String,
     publisher: MlflowAutologEventPublisherImpl = MlflowAutologEventPublisher)
   extends SparkDataSourceListener(publisher) {
 
@@ -22,6 +22,9 @@ class ReplAwareSparkDataSourceListener(
   }
 
   override protected def getReplIdOpt(event: SparkListenerSQLExecutionEnd): Option[String] = {
-    return Some(replId);
+    // NB: We directly return the Spark Session UUID under the assumption that a data source
+    // listener can only be attached to a single Spark Session at a time and that the Spark Session
+    // UUID uniquely identifies a REPL
+    return Some(sparkSessionUUID);
   }
 }

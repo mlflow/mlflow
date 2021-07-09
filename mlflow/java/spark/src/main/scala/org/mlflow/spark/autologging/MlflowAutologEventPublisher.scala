@@ -44,7 +44,7 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
   }
 
   // Exposed for testing
-  private[autologging] def getSparkSessionUUIDAsReplId: String = {
+  private[autologging] def getSparkSessionUUID: String = {
     spark.getClass().getDeclaredMethod("sessionUUID").invoke(spark).toString
   }
 
@@ -54,11 +54,11 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
     // we log irrespective of REPL ID, but if so, we log conditionally on the REPL ID. We use
     // reflection to determine whether or not the ID is available for runtime compatibility with
     // older Spark versions that do not define this property
-    val resolveReplId = Try {
-      getSparkSessionUUIDAsReplId
+    val getSparkSessionUUIDResult = Try {
+      getSparkSessionUUID
     }
-    resolveReplId match {
-      case Success(replId) => new ReplAwareSparkDataSourceListener(replId, this)
+    getSparkSessionUUIDResult match {
+      case Success(sessionUUID) => new ReplAwareSparkDataSourceListener(sessionUUID, this)
       case Failure(_) => new SparkDataSourceListener(this)
     }
   }
