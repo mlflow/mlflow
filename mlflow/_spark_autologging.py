@@ -160,9 +160,7 @@ def _get_repl_id():
     from pyspark.sql import SparkSession
 
     try:
-        java_active_session = (
-            SparkSession.getActiveSession()._jvm.SparkSession.getActiveSession().get()
-        )
+        java_active_session = SparkSession._instantiatedSession._jsparkSession
         return java_active_session.sessionUUID()
     except Py4JError:
         main_file = sys.argv[0] if len(sys.argv) > 0 else "<console>"
