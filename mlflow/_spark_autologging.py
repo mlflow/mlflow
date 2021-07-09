@@ -158,9 +158,12 @@ def _get_repl_id():
     """
     from py4j.protocol import Py4JError
     from pyspark.sql import SparkSession
+
     try:
-        active_session = SparkSession._jvm.SparkSession.getActiveSession().get()
-        return active_session.sessionUUID()
+        java_active_session = (
+            SparkSession.getActiveSession()._jvm.SparkSession.getActiveSession().get()
+        )
+        return java_active_session.sessionUUID()
     except Py4JError:
         main_file = sys.argv[0] if len(sys.argv) > 0 else "<console>"
         return "PythonSubscriber[{filename}][{id}]".format(filename=main_file, id=uuid.uuid4().hex)
