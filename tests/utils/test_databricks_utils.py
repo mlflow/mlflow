@@ -20,6 +20,7 @@ def test_no_throw():
     assert not databricks_utils.is_in_databricks_notebook()
     assert not databricks_utils.is_in_databricks_job()
     assert not databricks_utils.is_dbfs_fuse_available()
+    assert not databricks_utils.is_in_databricks_runtime()
 
 
 @mock.patch("databricks_cli.configure.provider.get_config")

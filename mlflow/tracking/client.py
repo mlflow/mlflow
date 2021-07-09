@@ -30,8 +30,7 @@ from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils.databricks_utils import (
     is_databricks_default_tracking_uri,
-    is_in_databricks_job,
-    is_in_databricks_notebook,
+    is_in_databricks_runtime,
     get_workspace_info_from_dbutils,
     get_workspace_info_from_databricks_secrets,
 )
@@ -2231,9 +2230,7 @@ class MlflowClient(object):
     def _get_run_link(self, tracking_uri, run_id):
         # if using the default Databricks tracking URI and in a notebook, we can automatically
         # figure out the run-link.
-        if is_databricks_default_tracking_uri(tracking_uri) and (
-            is_in_databricks_notebook() or is_in_databricks_job()
-        ):
+        if is_databricks_default_tracking_uri(tracking_uri) and is_in_databricks_runtime():
             # use DBUtils to determine workspace information.
             workspace_host, workspace_id = get_workspace_info_from_dbutils()
         else:
