@@ -152,15 +152,18 @@ def _get_repl_id():
     """
     Get a unique REPL ID for a PythonSubscriber instance. This is used to distinguish between
     REPLs in multitenant, REPL-aware environments where multiple Python processes may share the
-    same Spark JVM (e.g. in Databricks). In such environments, we pull the REPL ID from Spark
-    local properties, and expect that the PythonSubscriber for the current Python process only
-    receives events for datasource reads triggered by the current process.
+    same Spark JVM (e.g. in Databricks). In such environments, we pull the REPL ID from the active
+    Spark Session and expect that the PythonSubscriber for the current Python process only receives
+    events for datasource reads triggered by the current process.
     """
-    repl_id = SparkContext.getOrCreate().getLocalProperty("spark.databricks.replId")
-    if repl_id:
-        return repl_id
-    main_file = sys.argv[0] if len(sys.argv) > 0 else "<console>"
-    return "PythonSubscriber[{filename}][{id}]".format(filename=main_file, id=uuid.uuid4().hex)
+    from py4j.protocol import Py4JError
+    from pyspark.sql import SparkSession
+    try:
+        active_session = SparkSession._jvm.SparkSession.getActiveSession().get()
+        return active_session.sessionUUID()
+    except Py4JError:
+        main_file = sys.argv[0] if len(sys.argv) > 0 else "<console>"
+        return "PythonSubscriber[{filename}][{id}]".format(filename=main_file, id=uuid.uuid4().hex)
 
 
 class PythonSubscriber(object, metaclass=ExceptionSafeClass):

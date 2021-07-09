@@ -9,6 +9,7 @@ import scala.collection.JavaConverters._
 import org.apache.spark.sql.SparkSession
 import org.slf4j.LoggerFactory
 
+import scala.util.{Try, Success, Failure}
 import scala.util.control.NonFatal
 
 /**
@@ -43,14 +44,22 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
   }
 
   // Exposed for testing
+  private[autologging] def getSparkSessionUUIDAsReplId: String = {
+    spark.getClass().getDeclaredMethod("sessionUUID").invoke(spark).toString
+  }
+
+  // Exposed for testing
   private[autologging] def getSparkDataSourceListener: SparkListener = {
-    // Get SparkContext & determine if REPL id is set - if not, then we log irrespective of repl
-    // ID, but if so, we log conditionally on repl ID
-    val sc = spark.sparkContext
-    val replId = Option(sc.getLocalProperty("spark.databricks.replId"))
-    replId match {
-      case None => new SparkDataSourceListener(this)
-      case Some(_) => new ReplAwareSparkDataSourceListener(this)
+    // Attempt to fetch the Spark Session UUID and use it as the REPL ID. If it is not present then
+    // we log irrespective of REPL ID, but if so, we log conditionally on the REPL ID. We use
+    // reflection to determine whether or not the ID is available for runtime compatibility with
+    // older Spark versions that do not define this property
+    val resolveReplId = Try {
+      getSparkSessionUUIDAsReplId
+    }
+    resolveReplId match {
+      case Success(replId) => new ReplAwareSparkDataSourceListener(replId, this)
+      case Failure(_) => new SparkDataSourceListener(this)
     }
   }
 

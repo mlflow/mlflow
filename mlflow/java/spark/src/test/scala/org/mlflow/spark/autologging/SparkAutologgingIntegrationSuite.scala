@@ -263,22 +263,25 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
     }
   }
 
-  test("Delegates to repl-ID-aware listener if REPL ID property is set in SparkContext") {
-    // Verify instance created by init() in beforeEach is not REPL-ID-aware
-    assert(MlflowAutologEventPublisher.sparkQueryListener.isInstanceOf[SparkDataSourceListener])
-    assert(!MlflowAutologEventPublisher.sparkQueryListener.isInstanceOf[ReplAwareSparkDataSourceListener])
-    // Call stop, update SparkContext to contain repl ID property, call init(), verify instance is
-    // REPL-ID-aware
-    MlflowAutologEventPublisher.stop()
-    assert(MlflowSparkAutologgingTestUtils.getListeners(spark).isEmpty)
-    val sc = spark.sparkContext
-    sc.setLocalProperty("spark.databricks.replId", "myCoolReplId")
-    MlflowAutologEventPublisher.init()
-    assert(MlflowAutologEventPublisher.sparkQueryListener.isInstanceOf[ReplAwareSparkDataSourceListener])
-    sc.setLocalProperty("spark.databricks.replId", null)
-    MlflowAutologEventPublisher.stop()
-    MlflowAutologEventPublisher.init()
-    assert(MlflowAutologEventPublisher.sparkQueryListener.isInstanceOf[SparkDataSourceListener])
+  test("Delegates to repl-ID-aware listener if Session UUID property is set in SparkSession") {
+    object MockPublisherNoSessionUUID extends MlflowAutologEventPublisherImpl {
+      override def getSparkSessionUUIDAsReplId: String = {
+        throw new NoSuchFieldException("Could not find Session UUID") 
+      }
+    }
+    MockPublisherNoSessionUUID.init()
+    assert(MockPublisherNoSessionUUID.sparkQueryListener.isInstanceOf[SparkDataSourceListener])
+    assert(
+      !MockPublisherNoSessionUUID.sparkQueryListener.isInstanceOf[ReplAwareSparkDataSourceListener]
+    )
+
+    object MockPublisherWithSessionUUID extends MlflowAutologEventPublisherImpl {
+      override def getSparkSessionUUIDAsReplId: String = "123"
+    }
+    MockPublisherWithSessionUUID.init()
+    assert(
+      MockPublisherWithSessionUUID.sparkQueryListener.isInstanceOf[ReplAwareSparkDataSourceListener]
+    )
   }
 
 }
