@@ -91,6 +91,7 @@ def is_in_databricks_job():
 def is_in_databricks_runtime():
     try:
         import pyspark.databricks
+
         return True
     except ModuleNotFoundError:
         return False
