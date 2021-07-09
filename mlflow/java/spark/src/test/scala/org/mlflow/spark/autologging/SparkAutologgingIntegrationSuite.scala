@@ -266,7 +266,7 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
   test("Delegates to repl-ID-aware listener if Session UUID property is set in SparkSession") {
     object MockPublisherNoSessionUUID extends MlflowAutologEventPublisherImpl {
       override def getSparkSessionUUIDAsReplId: String = {
-        throw new NoSuchFieldException("Could not find Session UUID") 
+        throw new NoSuchFieldException("Could not find Session UUID")
       }
     }
     MockPublisherNoSessionUUID.init()
