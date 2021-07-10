@@ -61,6 +61,7 @@ try:
     import mlflow.spacy as spacy  # noqa: E402
     import mlflow.spark as spark  # noqa: E402
     import mlflow.statsmodels as statsmodels  # noqa: E402
+    import mlflow.tensorboardx_autologging as tbx_autolog # noqa: E402
     import mlflow.tensorflow as tensorflow  # noqa: E402
     import mlflow.xgboost as xgboost  # noqa: E402
     import mlflow.shap as shap  # noqa: E402
@@ -86,6 +87,7 @@ try:
         "xgboost",
         "shap",
         "paddle",
+        "tbx_autolog"
     ]
 except ImportError as e:
     # We are conditional loading these commands since the skinny client does

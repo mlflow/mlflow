@@ -1393,6 +1393,7 @@ def autolog(
         sklearn,
         fastai,
         pytorch,
+        tbx_autolog
     )
 
     locals_copy = locals().items()
@@ -1413,6 +1414,7 @@ def autolog(
         # TODO: Broaden this beyond pytorch_lightning as we add autologging support for more
         # Pytorch frameworks under mlflow.pytorch.autolog
         "pytorch_lightning": pytorch.autolog,
+        "tensorboardX": tbx_autolog.autolog
     }
 
     CONF_KEY_IS_GLOBALLY_CONFIGURED = "globally_configured"
