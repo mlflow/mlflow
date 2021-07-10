@@ -44,9 +44,7 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
   }
 
   // Exposed for testing
-  private[autologging] def getSparkSessionUUID: String = {
-    spark.getClass().getDeclaredMethod("sessionUUID").invoke(spark).toString
-  }
+  private[autologging] def getSparkSessionUUID: String = SparkUtils.getSparkSessionUUID(spark)
 
   // Exposed for testing
   private[autologging] def getSparkDataSourceListener: SparkListener = {
@@ -58,7 +56,10 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
       getSparkSessionUUID
     }
     getSparkSessionUUIDResult match {
-      case Success(sessionUUID) => new ReplAwareSparkDataSourceListener(sessionUUID, this)
+      // We don't forward to the Spark Session UUID to `ReplAwareSparkDataSourceListener` directly
+      // because the active session may change; therefore, the UUID should be recomputed each time
+      // that it's requested for publication
+      case Success(_) => new ReplAwareSparkDataSourceListener(this)
       case Failure(_) => new SparkDataSourceListener(this)
     }
   }
