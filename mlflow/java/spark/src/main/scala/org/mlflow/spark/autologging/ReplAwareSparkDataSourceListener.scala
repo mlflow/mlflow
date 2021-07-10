@@ -21,9 +21,10 @@ class ReplAwareSparkDataSourceListener(
   }
 
   override protected def getReplIdOpt(event: SparkListenerSQLExecutionEnd): Option[String] = {
-    // NB: We compute and return the Spark Session UUID under the assumption that a data source
+    // NB: We fetch and return the Spark Session UUID under the assumption that a data source
     // listener can only be attached to a single Spark Session at a time and that the Spark Session
-    // UUID uniquely identifies a REPL
+    // UUID uniquely identifies a REPL. We fetch the Spark Session UUID each time in case the
+    // active session has changed.
     val sessionUUID = SparkUtils.getSparkSessionUUID(SparkSession.getActiveSession.get)
     Some(sessionUUID)
   }
