@@ -466,9 +466,6 @@ def load_model(model_uri):
     )
 
 
-from collections import defaultdict
-
-
 class _AutologTrainingStatus:
     def __init__(self):
         self.model_id_to_run_id_map = {}
@@ -494,7 +491,7 @@ class _AutologTrainingStatus:
         for arg in metric_api_call_arg_list:
             if id(arg) in dataset_id_list:
                 dataset_name, model_id = self.dataset_id_to_dataset_name_and_model_id[id(arg)]
-                return dataset_name, self.model_id_to_run_id_map[model_id]
+                return dataset_name, self.model_id_to_run_id_map.get(model_id, None)
         return None, None
 
 
@@ -933,7 +930,7 @@ def autolog(
         global _autolog_training_status
         with _SklearnTrainingSession(clazz=self.__class__, allow_children=False) as t:
             if t.should_log():
-                _autolog_training_status.register_model(id(self), mlflow.active_run().info.run_id)
+                _autolog_training_status.register_model(self, mlflow.active_run().info.run_id)
                 try:
                     _autolog_training_status.in_fit_call_scope = True
                     result = fit_mlflow(original, self, *args, **kwargs)
