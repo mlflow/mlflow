@@ -12,6 +12,7 @@ Python (native) `pickle <https://scikit-learn.org/stable/modules/model_persisten
 """
 import os
 import logging
+import numpy as np
 import pickle
 import yaml
 import warnings
@@ -990,9 +991,10 @@ def autolog(
             eval_dataset_name = _autolog_training_status.get_eval_dataset_name_from_metric_api_arglist(
                 metric_api_call_arg_list
             )
-            if eval_dataset_name:
+            if eval_dataset_name and np.isscalar(metric):
                 print('DGB: run patched_metric_api #4')
-                # TODO: handle the case log the same metric key multiple times.
+                # Note: if the case log the same metric key multiple times,
+                #  newer value will overwrite old value
                 mlflow.log_metric(
                     f'{metric_name}_on_{eval_dataset_name}',
                     metric
