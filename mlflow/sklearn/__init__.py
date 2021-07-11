@@ -476,6 +476,7 @@ class _AutologTrainingStatus:
         self.instance_id_to_eval_dataset_name_map = {}
         self.in_fit_call_scope = False
         self.in_scorer_call_scope = False
+        self.in_eval_and_log_metrics_scope = False
 
     def register_predition_result(self, model, eval_dataset, pred_y, eval_dataset_name):
         if id(model) == self.model_id:
@@ -1008,7 +1009,8 @@ def autolog(
 
         print('DGB: run patched_metric_api #1')
         if not _autolog_training_status.in_fit_call_scope and \
-                not _autolog_training_status.in_scorer_call_scope:
+                not _autolog_training_status.in_scorer_call_scope and \
+                not _autolog_training_status.in_eval_and_log_metrics_scope:
             print('DGB: run patched_metric_api #2')
             metric_name = original.__name__
             arg_list = list(args) + list(kwargs.values())
@@ -1091,11 +1093,14 @@ def autolog(
     def patched_scorer_call(original, self, *args, **kwargs):
         global _autolog_training_status
 
-        _autolog_training_status.in_scorer_call_scope = True
-        metric = original(self, *args, **kwargs)
-        _autolog_training_status.in_scorer_call_scope = False
+        try:
+            _autolog_training_status.in_scorer_call_scope = True
+            metric = original(self, *args, **kwargs)
+        finally:
+            _autolog_training_status.in_scorer_call_scope = False
 
-        if not _autolog_training_status.in_fit_call_scope:
+        if not _autolog_training_status.in_fit_call_scope and \
+                not _autolog_training_status.in_eval_and_log_metrics_scope:
             estimator = args[0]
             if id(estimator) == _autolog_training_status.model_id:
                 # TODO: refine metric_name to make it include arguments set for the metric
@@ -1166,6 +1171,15 @@ def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
       - prefix is empty
       - model is not an sklearn estimator or does not support the 'predict' method
     """
+    try:
+        _autolog_training_status.in_eval_and_log_metrics_scope = True
+        return _eval_and_log_metrics_impl(
+            model, X, y_true, prefix=prefix, sample_weight=sample_weight)
+    finally:
+        _autolog_training_status.in_eval_and_log_metrics_scope = False
+
+
+def _eval_and_log_metrics_impl(model, X, y_true, *, prefix, sample_weight=None):
     from mlflow.sklearn.utils import _log_estimator_content
     from sklearn.base import BaseEstimator
 
