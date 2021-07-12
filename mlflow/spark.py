@@ -208,7 +208,6 @@ def log_model(
     # to persist the model
     try:
         spark_model.save(posixpath.join(model_dir, _SPARK_MODEL_PATH_SUB))
-    # pylint: disable=broad-except
     except Exception:
         return Model.log(
             artifact_path=artifact_path,
