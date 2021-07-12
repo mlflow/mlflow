@@ -943,16 +943,15 @@ def autolog(
     def patched_predict(original, self, *args, **kwargs):
         from mlflow.utils import _inspect_original_var_name
         global _autolog_training_status
-        with _SklearnTrainingSession(clazz=self.__class__, allow_children=False) as t:
-            if t.should_log():
-                result = original(self, *args, **kwargs)
-                eval_dataset = args[0] if len(args) >= 1 else kwargs.get('X')
-                eval_dataset_name = _inspect_original_var_name(eval_dataset)
-                _autolog_training_status.register_predition_result(
-                    self, eval_dataset, result, eval_dataset_name)
-                return result
-            else:
-                return original(self, *args, **kwargs)
+        if id(self) in _autolog_training_status.model_id_to_run_id_map:
+            result = original(self, *args, **kwargs)
+            eval_dataset = args[0] if len(args) >= 1 else kwargs.get('X')
+            eval_dataset_name = _inspect_original_var_name(eval_dataset)
+            _autolog_training_status.register_predition_result(
+                self, eval_dataset, result, eval_dataset_name)
+            return result
+        else:
+            return original(self, *args, **kwargs)
 
     def log_eval_metric(metric_name, metric, metric_api_call_arg_list):
         if not np.isscalar(metric):
@@ -977,8 +976,6 @@ def autolog(
             )
 
     def patched_metric_api(original, *args, **kwargs):
-        # TODO:
-        #  check _SklearnTrainingSession and skip logging if in nested runs.
         global _autolog_training_status
         metric = original(*args, **kwargs)
 
@@ -1085,8 +1082,6 @@ def autolog(
         return metric
 
     def patched_make_scorer(original, *args, **kwargs):
-        # TODO:
-        #  check _SklearnTrainingSession and skip logging if in nested runs.
         global _autolog_training_status
         scorer = original(*args, **kwargs)
         safe_patch(
