@@ -10,6 +10,7 @@ Python (native) `pickle <https://scikit-learn.org/stable/modules/model_persisten
     NOTE: The `mlflow.pyfunc` flavor is only added for scikit-learn models that define `predict()`,
     since `predict()` is required for pyfunc model inference.
 """
+import inspect
 import os
 import logging
 import numpy as np
@@ -1057,8 +1058,11 @@ def autolog(
     # Note:
     #  don't need patch model.score() because internally model.score() will call the concrete metric API
     for metric_method_name in metrics.__all__:
-        # excludes '**Display' object such as `ConfusionMatrixDisplay`
-        if callable(getattr(metrics, metric_method_name)) and not metric_method_name.endswith('Display'):
+        # excludes plot_* methods
+        # exclude class (e.g. metrics.ConfusionMatrixDisplay)
+        metric_method = getattr(metrics, metric_method_name)
+        if not inspect.isclass(metric_method) and callable(metric_method) \
+                and not metric_method_name.startswith('plot_'):
             safe_patch(FLAVOR_NAME, metrics, metric_method_name, patched_metric_api, manage_run=False)
 
     def patched_scorer_call(original, self, *args, **kwargs):
