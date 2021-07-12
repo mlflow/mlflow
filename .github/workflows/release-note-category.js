@@ -39,7 +39,7 @@ module.exports = async ({ core, context, github }) => {
   // If no release note category label is applied to this PR, set the action status to "failed"
   if (appliedLabels.length === 0) {
     // Make sure '.github/pull_request_template.md' contains an HTML anchor with this name
-    const anchorName = "release note-category";
+    const anchorName = "release-note-category";
 
     // Fragmented URL to jump to the release note category section in the PR description
     const anchorUrl = `${pr_url}#user-content-${anchorName}`;
