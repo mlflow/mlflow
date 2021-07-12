@@ -207,10 +207,10 @@ def test_databricks_params_throws_errors(ProfileConfigProvider):
 def test_is_in_databricks_runtime():
     with mock.patch("sys.modules", new={**sys.modules, "pyspark.databricks": mock.MagicMock()}):
         # pylint: disable=unused-import,import-error,no-name-in-module,unused-variable
-        import pyspark.databricks  # noqa
+        import pyspark.databricks
 
         assert databricks_utils.is_in_databricks_runtime()
     with pytest.raises(ModuleNotFoundError, match="No module named 'pyspark.databricks'"):
         # pylint: disable=unused-import,import-error,no-name-in-module,unused-variable
-        import pyspark.databricks  # noqa
+        import pyspark.databricks
     assert not databricks_utils.is_in_databricks_runtime()

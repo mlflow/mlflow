@@ -344,7 +344,7 @@ def test_create_model_version_explicitly_set_run_link(mock_registry_store):
     )
     # mocks to make sure that even if you're in a notebook, this setting is respected.
     with mock.patch(
-        "mlflow.tracking.client.is_in_databricks_runtime", return_value=True
+        "mlflow.tracking.client.is_in_databricks_notebook", return_value=True
     ), mock.patch(
         "mlflow.tracking.client.get_workspace_info_from_dbutils",
         return_value=(hostname, workspace_id),
@@ -369,7 +369,7 @@ def test_create_model_version_run_link_in_notebook_with_default_profile(mock_reg
         RunInfo(run_id, experiment_id, "userid", "status", 0, 1, None), None
     )
     with mock.patch(
-        "mlflow.tracking.client.is_in_databricks_runtime", return_value=True
+        "mlflow.tracking.client.is_in_databricks_notebook", return_value=True
     ), mock.patch(
         "mlflow.tracking.client.get_workspace_info_from_dbutils",
         return_value=(hostname, workspace_id),
@@ -415,7 +415,7 @@ def test_create_model_version_run_link_with_configured_profile(mock_registry_sto
         RunInfo(run_id, experiment_id, "userid", "status", 0, 1, None), None
     )
     with mock.patch(
-        "mlflow.tracking.client.is_in_databricks_runtime", return_value=False
+        "mlflow.tracking.client.is_in_databricks_notebook", return_value=False
     ), mock.patch(
         "mlflow.tracking.client.get_workspace_info_from_databricks_secrets",
         return_value=(hostname, workspace_id),
@@ -491,7 +491,7 @@ def _default_model_version():
 def test_get_databricks_runtime_no_spark_session():
     with mock.patch(
         "mlflow.utils.databricks_utils._get_active_spark_session", return_value=None
-    ), mock.patch("mlflow.utils.databricks_utils.is_in_databricks_runtime", return_value=True):
+    ), mock.patch("mlflow.utils.databricks_utils.is_in_databricks_notebook", return_value=True):
         runtime = get_databricks_runtime()
         assert runtime is None
 
@@ -501,18 +501,3 @@ def test_get_databricks_runtime_nondb(mock_spark_session):
     assert runtime is None
     mock_spark_session.conf.get.assert_not_called()
 
-
-def test_get_databricks_runtime_in_notebook(mock_spark_session):
-    with mock.patch("mlflow.utils.databricks_utils.is_in_databricks_runtime", return_value=True):
-        get_databricks_runtime()
-        mock_spark_session.conf.get.assert_called_once_with(
-            "spark.databricks.clusterUsageTags.sparkVersion", default=None
-        )
-
-
-def test_get_databricks_runtime_in_job(mock_spark_session):
-    with mock.patch("mlflow.utils.databricks_utils.is_in_databricks_runtime", return_value=True):
-        get_databricks_runtime()
-        mock_spark_session.conf.get.assert_called_once_with(
-            "spark.databricks.clusterUsageTags.sparkVersion", default=None
-        )
