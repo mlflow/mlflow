@@ -500,4 +500,3 @@ def test_get_databricks_runtime_nondb(mock_spark_session):
     runtime = get_databricks_runtime()
     assert runtime is None
     mock_spark_session.conf.get.assert_not_called()
-
