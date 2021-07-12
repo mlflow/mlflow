@@ -477,10 +477,9 @@ class _AutologTrainingStatus:
     def register_model(self, model, run_id):
         self.model_id_to_run_id_map[id(model)] = run_id
 
-    def register_predition_result(self, model, eval_dataset, pred_y, eval_dataset_name):
+    def register_predition_result(self, model, eval_dataset_name, predict_result):
         value = (eval_dataset_name, id(model))
-        self.dataset_id_to_dataset_name_and_model_id[id(pred_y)] = value
-        self.dataset_id_to_dataset_name_and_model_id[id(eval_dataset)] = value
+        self.dataset_id_to_dataset_name_and_model_id[id(predict_result)] = value
 
     def get_eval_dataset_name_and_run_id_from_metric_api_arglist(self, metric_api_call_arg_list):
         # Note: some metric API the arguments is not `y_true`, `y_pred`
@@ -944,12 +943,12 @@ def autolog(
         from mlflow.utils import _inspect_original_var_name
         global _autolog_training_status
         if id(self) in _autolog_training_status.model_id_to_run_id_map:
-            result = original(self, *args, **kwargs)
+            predict_result = original(self, *args, **kwargs)
             eval_dataset = args[0] if len(args) >= 1 else kwargs.get('X')
             eval_dataset_name = _inspect_original_var_name(eval_dataset)
             _autolog_training_status.register_predition_result(
-                self, eval_dataset, result, eval_dataset_name)
-            return result
+                self, eval_dataset_name, predict_result)
+            return predict_result
         else:
             return original(self, *args, **kwargs)
 
@@ -962,7 +961,7 @@ def autolog(
             _autolog_training_status.get_eval_dataset_name_and_run_id_from_metric_api_arglist(
                 metric_api_call_arg_list
             )
-        if eval_dataset_name:
+        if eval_dataset_name and run_id:
             print('DGB: run patched_metric_api #4')
             # Note: if the case log the same metric key multiple times,
             #  newer value will overwrite old value
