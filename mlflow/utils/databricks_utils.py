@@ -90,8 +90,8 @@ def is_in_databricks_job():
 
 def is_in_databricks_runtime():
     try:
-        # pylint: disable=unused-import,import-error,no-name-in-module
-        import pyspark.databricks  # noqa
+        # pylint: disable=unused-import,import-error,no-name-in-module,unused-variable
+        import pyspark.databricks
 
         return True
     except ModuleNotFoundError:
