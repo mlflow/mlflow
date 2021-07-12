@@ -497,6 +497,9 @@ class _AutologTrainingStatus:
 
 _autolog_training_status = _AutologTrainingStatus()
 
+_metric_api_excluding_list = [
+    'check_scoring', 'get_scorer', 'make_scorer'
+]
 
 @experimental
 @autologging_integration(FLAVOR_NAME)
@@ -1061,7 +1064,9 @@ def autolog(
         # excludes plot_* methods
         # exclude class (e.g. metrics.ConfusionMatrixDisplay)
         metric_method = getattr(metrics, metric_method_name)
-        if not inspect.isclass(metric_method) and callable(metric_method) \
+        if metric_method_name not in _metric_api_excluding_list \
+                and not inspect.isclass(metric_method) \
+                and callable(metric_method) \
                 and not metric_method_name.startswith('plot_'):
             safe_patch(FLAVOR_NAME, metrics, metric_method_name, patched_metric_api, manage_run=False)
 
@@ -1076,9 +1081,10 @@ def autolog(
 
         if not _autolog_training_status.in_fit_call_scope and \
                 not _autolog_training_status.in_eval_and_log_metrics_scope:
-            estimator = args[0]
             # TODO: refine metric_name to make it include arguments set for the metric
             metric_name = self._score_func.__name__
+            if metric_name.strip() == '<lambda>':
+                metric_name = f'unknown_metric_{id(self)}'
             arg_list = list(args) + list(kwargs.values())
             log_eval_metric(metric_name, metric, arg_list)
 
