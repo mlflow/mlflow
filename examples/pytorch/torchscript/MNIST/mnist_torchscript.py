@@ -9,8 +9,8 @@ import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
 from torchvision import datasets, transforms
 
-import mlflow
-import mlflow.pytorch
+import mlflux
+import mlflux.pytorch
 
 
 class Net(nn.Module):
@@ -169,10 +169,10 @@ def main():
         train(args, scripted_model, device, train_loader, optimizer, epoch)
         scheduler.step()
     test(scripted_model, device, test_loader)
-    with mlflow.start_run() as run:
-        mlflow.pytorch.log_model(scripted_model, "model")  # logging scripted model
-        model_path = mlflow.get_artifact_uri("model")
-        loaded_pytorch_model = mlflow.pytorch.load_model(model_path)  # loading scripted model
+    with mlflux.start_run() as run:
+        mlflux.pytorch.log_model(scripted_model, "model")  # logging scripted model
+        model_path = mlflux.get_artifact_uri("model")
+        loaded_pytorch_model = mlflux.pytorch.load_model(model_path)  # loading scripted model
         model.eval()
         with torch.no_grad():
             test_datapoint, test_target = next(iter(test_loader))

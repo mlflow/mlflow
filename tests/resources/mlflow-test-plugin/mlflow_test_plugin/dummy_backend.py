@@ -1,7 +1,7 @@
-from mlflow.entities import RunStatus
-from mlflow.projects.utils import fetch_and_validate_project, get_or_create_run
-from mlflow.projects.backend.abstract_backend import AbstractBackend
-from mlflow.projects.submitted_run import SubmittedRun
+from mlflux.entities import RunStatus
+from mlflux.projects.utils import fetch_and_validate_project, get_or_create_run
+from mlflux.projects.backend.abstract_backend import AbstractBackend
+from mlflux.projects.submitted_run import SubmittedRun
 
 
 class DummySubmittedRun(SubmittedRun):

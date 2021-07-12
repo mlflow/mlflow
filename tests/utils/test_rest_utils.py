@@ -4,16 +4,16 @@ from unittest import mock
 import numpy
 import pytest
 
-from mlflow.exceptions import MlflowException, RestException
-from mlflow.pyfunc.scoring_server import NumpyEncoder
-from mlflow.utils.rest_utils import (
+from mlflux.exceptions import MlflowException, RestException
+from mlflux.pyfunc.scoring_server import NumpyEncoder
+from mlflux.utils.rest_utils import (
     http_request,
     http_request_safe,
     MlflowHostCreds,
     _DEFAULT_HEADERS,
     call_endpoint,
 )
-from mlflow.protos.service_pb2 import GetRun
+from mlflux.protos.service_pb2 import GetRun
 from tests import helper_functions
 
 
@@ -157,7 +157,7 @@ def test_http_request_server_cert_path(request):
 @pytest.mark.large
 @mock.patch("requests.request")
 def test_http_request_request_headers(request):
-    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
+    """This test requires the package in tests/resources/mlflux-test-plugin to be installed"""
 
     from mlflow_test_plugin.request_header_provider import PluginRequestHeaderProvider
 

@@ -1,12 +1,12 @@
 """
-This simple example shows how you could use MLflow REST API to create new
-runs inside an experiment to log parameters/metrics.  Using MLflow REST API
-instead of MLflow library might be useful to embed in an application where
-you don't want to depend on the whole MLflow library, or to make
+This simple example shows how you could use mlflux REST API to create new
+runs inside an experiment to log parameters/metrics.  Using mlflux REST API
+instead of mlflux library might be useful to embed in an application where
+you don't want to depend on the whole mlflux library, or to make
 your own HTTP requests in another programming language (not Python).
-For more details on MLflow REST API endpoints check the following page:
+For more details on mlflux REST API endpoints check the following page:
 
-https://www.mlflow.org/docs/latest/rest-api.html
+https://www.mlflux.org/docs/latest/rest-api.html
 """
 
 import argparse
@@ -19,7 +19,7 @@ _DEFAULT_USER_ID = "unknown"
 
 class MLflowTrackingRestApi:
     def __init__(self, hostname, port, experiment_id):
-        self.base_url = "http://" + hostname + ":" + str(port) + "/api/2.0/preview/mlflow"
+        self.base_url = "http://" + hostname + ":" + str(port) + "/api/2.0/preview/mlflux"
         self.experiment_id = experiment_id
         self.run_id = self.create_run()
 
@@ -76,14 +76,14 @@ def _get_user_id():
 
 if __name__ == "__main__":
     # Command-line arguments
-    parser = argparse.ArgumentParser(description="MLflow REST API Example")
+    parser = argparse.ArgumentParser(description="mlflux REST API Example")
 
     parser.add_argument(
         "--hostname",
         type=str,
         default="localhost",
         dest="hostname",
-        help="MLflow server hostname/ip (default: localhost)",
+        help="mlflux server hostname/ip (default: localhost)",
     )
 
     parser.add_argument(
@@ -91,7 +91,7 @@ if __name__ == "__main__":
         type=int,
         default=5000,
         dest="port",
-        help="MLflow server port number (default: 5000)",
+        help="mlflux server port number (default: 5000)",
     )
 
     parser.add_argument(

@@ -1,15 +1,15 @@
 import pytest
 from unittest import mock
 
-from mlflow.entities import SourceType, ViewType, RunTag, Run, RunInfo
-from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
-from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
-from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import ErrorCode, FEATURE_DISABLED
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.tracking import set_registry_uri, MlflowClient
-from mlflow.utils.file_utils import TempDir
-from mlflow.utils.mlflow_tags import (
+from mlflux.entities import SourceType, ViewType, RunTag, Run, RunInfo
+from mlflux.entities.model_registry import ModelVersion, ModelVersionTag
+from mlflux.entities.model_registry.model_version_status import ModelVersionStatus
+from mlflux.exceptions import MlflowException
+from mlflux.protos.databricks_pb2 import ErrorCode, FEATURE_DISABLED
+from mlflux.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflux.tracking import set_registry_uri, MlflowClient
+from mlflux.utils.file_utils import TempDir
+from mlflux.utils.mlflow_tags import (
     MLFLOW_USER,
     MLFLOW_SOURCE_NAME,
     MLFLOW_SOURCE_TYPE,
@@ -17,26 +17,26 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_GIT_COMMIT,
     MLFLOW_PROJECT_ENTRY_POINT,
 )
-from mlflow.utils.uri import construct_run_url
-from mlflow.utils.databricks_utils import get_databricks_runtime
+from mlflux.utils.uri import construct_run_url
+from mlflux.utils.databricks_utils import get_databricks_runtime
 
 
 @pytest.fixture
 def mock_store():
-    with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_get_store:
+    with mock.patch("mlflux.tracking._tracking_service.utils._get_store") as mock_get_store:
         yield mock_get_store.return_value
 
 
 @pytest.fixture
 def mock_registry_store():
-    with mock.patch("mlflow.tracking._model_registry.utils._get_store") as mock_get_store:
+    with mock.patch("mlflux.tracking._model_registry.utils._get_store") as mock_get_store:
         yield mock_get_store.return_value
 
 
 @pytest.fixture
 def mock_spark_session():
     with mock.patch(
-        "mlflow.utils.databricks_utils._get_active_spark_session"
+        "mlflux.utils.databricks_utils._get_active_spark_session"
     ) as mock_spark_session:
         yield mock_spark_session.return_value
 
@@ -285,7 +285,7 @@ def test_registry_uri_from_set_registry_uri():
 
 def test_registry_uri_from_tracking_uri_param():
     with mock.patch(
-        "mlflow.tracking._tracking_service.utils.get_tracking_uri"
+        "mlflux.tracking._tracking_service.utils.get_tracking_uri"
     ) as get_tracking_uri_mock:
         get_tracking_uri_mock.return_value = "databricks://default_tracking"
         tracking_uri = "databricks://tracking_vhawoierj"
@@ -295,7 +295,7 @@ def test_registry_uri_from_tracking_uri_param():
 
 def test_registry_uri_from_implicit_tracking_uri():
     with mock.patch(
-        "mlflow.tracking._tracking_service.utils.get_tracking_uri"
+        "mlflux.tracking._tracking_service.utils.get_tracking_uri"
     ) as get_tracking_uri_mock:
         tracking_uri = "databricks://tracking_wierojasdf"
         get_tracking_uri_mock.return_value = tracking_uri
@@ -344,9 +344,9 @@ def test_create_model_version_explicitly_set_run_link(mock_registry_store):
     )
     # mocks to make sure that even if you're in a notebook, this setting is respected.
     with mock.patch(
-        "mlflow.tracking.client.is_in_databricks_notebook", return_value=True
+        "mlflux.tracking.client.is_in_databricks_notebook", return_value=True
     ), mock.patch(
-        "mlflow.tracking.client.get_workspace_info_from_dbutils",
+        "mlflux.tracking.client.get_workspace_info_from_dbutils",
         return_value=(hostname, workspace_id),
     ):
         client = MlflowClient(tracking_uri="databricks", registry_uri="otherplace")
@@ -369,9 +369,9 @@ def test_create_model_version_run_link_in_notebook_with_default_profile(mock_reg
         RunInfo(run_id, experiment_id, "userid", "status", 0, 1, None), None
     )
     with mock.patch(
-        "mlflow.tracking.client.is_in_databricks_notebook", return_value=True
+        "mlflux.tracking.client.is_in_databricks_notebook", return_value=True
     ), mock.patch(
-        "mlflow.tracking.client.get_workspace_info_from_dbutils",
+        "mlflux.tracking.client.get_workspace_info_from_dbutils",
         return_value=(hostname, workspace_id),
     ):
         client = MlflowClient(tracking_uri="databricks", registry_uri="otherplace")
@@ -415,9 +415,9 @@ def test_create_model_version_run_link_with_configured_profile(mock_registry_sto
         RunInfo(run_id, experiment_id, "userid", "status", 0, 1, None), None
     )
     with mock.patch(
-        "mlflow.tracking.client.is_in_databricks_notebook", return_value=False
+        "mlflux.tracking.client.is_in_databricks_notebook", return_value=False
     ), mock.patch(
-        "mlflow.tracking.client.get_workspace_info_from_databricks_secrets",
+        "mlflux.tracking.client.get_workspace_info_from_databricks_secrets",
         return_value=(hostname, workspace_id),
     ):
         client = MlflowClient(tracking_uri="databricks", registry_uri="otherplace")
@@ -438,7 +438,7 @@ def test_create_model_version_copy_called_db_to_db(mock_registry_store):
         tracking_uri="databricks://tracking", registry_uri="databricks://registry:workspace",
     )
     mock_registry_store.create_model_version.return_value = _default_model_version()
-    with mock.patch("mlflow.tracking.client._upload_artifacts_to_databricks") as upload_mock:
+    with mock.patch("mlflux.tracking.client._upload_artifacts_to_databricks") as upload_mock:
         client.create_model_version(
             "model name", "dbfs:/source", "run_12345", run_link="not:/important/for/test",
         )
@@ -452,7 +452,7 @@ def test_create_model_version_copy_called_nondb_to_db(mock_registry_store):
         tracking_uri="https://tracking", registry_uri="databricks://registry:workspace"
     )
     mock_registry_store.create_model_version.return_value = _default_model_version()
-    with mock.patch("mlflow.tracking.client._upload_artifacts_to_databricks") as upload_mock:
+    with mock.patch("mlflux.tracking.client._upload_artifacts_to_databricks") as upload_mock:
         client.create_model_version(
             "model name", "s3:/source", "run_12345", run_link="not:/important/for/test"
         )
@@ -467,7 +467,7 @@ def test_create_model_version_copy_not_called_to_db(mock_registry_store):
         registry_uri="databricks://registry:workspace",
     )
     mock_registry_store.create_model_version.return_value = _default_model_version()
-    with mock.patch("mlflow.tracking.client._upload_artifacts_to_databricks") as upload_mock:
+    with mock.patch("mlflux.tracking.client._upload_artifacts_to_databricks") as upload_mock:
         client.create_model_version(
             "model name", "dbfs:/source", "run_12345", run_link="not:/important/for/test",
         )
@@ -477,7 +477,7 @@ def test_create_model_version_copy_not_called_to_db(mock_registry_store):
 def test_create_model_version_copy_not_called_to_nondb(mock_registry_store):
     client = MlflowClient(tracking_uri="databricks://tracking", registry_uri="https://registry")
     mock_registry_store.create_model_version.return_value = _default_model_version()
-    with mock.patch("mlflow.tracking.client._upload_artifacts_to_databricks") as upload_mock:
+    with mock.patch("mlflux.tracking.client._upload_artifacts_to_databricks") as upload_mock:
         client.create_model_version(
             "model name", "dbfs:/source", "run_12345", run_link="not:/important/for/test",
         )
@@ -490,8 +490,8 @@ def _default_model_version():
 
 def test_get_databricks_runtime_no_spark_session():
     with mock.patch(
-        "mlflow.utils.databricks_utils._get_active_spark_session", return_value=None
-    ), mock.patch("mlflow.utils.databricks_utils.is_in_databricks_notebook", return_value=True):
+        "mlflux.utils.databricks_utils._get_active_spark_session", return_value=None
+    ), mock.patch("mlflux.utils.databricks_utils.is_in_databricks_notebook", return_value=True):
         runtime = get_databricks_runtime()
         assert runtime is None
 
@@ -503,7 +503,7 @@ def test_get_databricks_runtime_nondb(mock_spark_session):
 
 
 def test_get_databricks_runtime_in_notebook(mock_spark_session):
-    with mock.patch("mlflow.utils.databricks_utils.is_in_databricks_notebook", return_value=True):
+    with mock.patch("mlflux.utils.databricks_utils.is_in_databricks_notebook", return_value=True):
         get_databricks_runtime()
         mock_spark_session.conf.get.assert_called_once_with(
             "spark.databricks.clusterUsageTags.sparkVersion", default=None
@@ -511,7 +511,7 @@ def test_get_databricks_runtime_in_notebook(mock_spark_session):
 
 
 def test_get_databricks_runtime_in_job(mock_spark_session):
-    with mock.patch("mlflow.utils.databricks_utils.is_in_databricks_job", return_value=True):
+    with mock.patch("mlflux.utils.databricks_utils.is_in_databricks_job", return_value=True):
         get_databricks_runtime()
         mock_spark_session.conf.get.assert_called_once_with(
             "spark.databricks.clusterUsageTags.sparkVersion", default=None

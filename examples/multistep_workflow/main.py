@@ -9,12 +9,12 @@ import click
 import os
 
 
-import mlflow
-from mlflow.utils import mlflow_tags
-from mlflow.entities import RunStatus
-from mlflow.utils.logging_utils import eprint
+import mlflux
+from mlflux.utils import mlflow_tags
+from mlflux.entities import RunStatus
+from mlflux.utils.logging_utils import eprint
 
-from mlflow.tracking.fluent import _get_experiment_id
+from mlflux.tracking.fluent import _get_experiment_id
 
 
 def _already_ran(entry_point_name, parameters, git_commit, experiment_id=None):
@@ -23,7 +23,7 @@ def _already_ran(entry_point_name, parameters, git_commit, experiment_id=None):
     successfully and have at least the parameters provided.
     """
     experiment_id = experiment_id if experiment_id is not None else _get_experiment_id()
-    client = mlflow.tracking.MlflowClient()
+    client = mlflux.tracking.MlflowClient()
     all_run_infos = reversed(client.list_run_infos(experiment_id))
     for run_info in all_run_infos:
         full_run = client.get_run(run_info.run_id)
@@ -70,8 +70,8 @@ def _get_or_run(entrypoint, parameters, git_commit, use_cache=True):
         print("Found existing run for entrypoint=%s and parameters=%s" % (entrypoint, parameters))
         return existing_run
     print("Launching new run for entrypoint=%s and parameters=%s" % (entrypoint, parameters))
-    submitted_run = mlflow.run(".", entrypoint, parameters=parameters)
-    return mlflow.tracking.MlflowClient().get_run(submitted_run.run_id)
+    submitted_run = mlflux.run(".", entrypoint, parameters=parameters)
+    return mlflux.tracking.MlflowClient().get_run(submitted_run.run_id)
 
 
 @click.command()
@@ -81,7 +81,7 @@ def _get_or_run(entrypoint, parameters, git_commit, use_cache=True):
 def workflow(als_max_iter, keras_hidden_units, max_row_limit):
     # Note: The entrypoint names are defined in MLproject. The artifact directories
     # are documented by each step's .py file.
-    with mlflow.start_run() as active_run:
+    with mlflux.start_run() as active_run:
         os.environ["SPARK_CONF_DIR"] = os.path.abspath(".")
         git_commit = active_run.data.tags.get(mlflow_tags.MLFLOW_GIT_COMMIT)
         load_raw_data_run = _get_or_run("load_raw_data", {}, git_commit)

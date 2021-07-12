@@ -3,11 +3,11 @@ import sys
 import pandas as pd
 from fbprophet import Prophet
 
-import mlflow.pyfunc
+import mlflux.pyfunc
 
 
 model_uri = sys.argv[1]
-model = mlflow.pyfunc.load_model(sys.argv[1])
+model = mlflux.pyfunc.load_model(sys.argv[1])
 print("Loaded model from URI: {}".format(model_uri))
 
 data = {"periods": [5]}

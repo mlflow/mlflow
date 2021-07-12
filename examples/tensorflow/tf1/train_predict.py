@@ -1,15 +1,15 @@
 # in case this is run outside of conda environment with python2
-import mlflow
-from mlflow import pyfunc
+import mlflux
+from mlflux import pyfunc
 import pandas as pd
 import argparse
 import shutil
 import tempfile
 import tensorflow as tf
-import mlflow.tensorflow
+import mlflux.tensorflow
 
-# Enable auto-logging to MLflow to capture TensorBoard metrics.
-mlflow.tensorflow.autolog()
+# Enable auto-logging to mlflux to capture TensorBoard metrics.
+mlflux.tensorflow.autolog()
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -18,11 +18,11 @@ parser.add_argument(
 
 
 def main(argv):
-    with mlflow.start_run():
+    with mlflux.start_run():
         args = parser.parse_args(argv[1:])
 
         # Builds, trains and evaluates a tf.estimator. Then, exports it for inference,
-        # logs the exported model with MLflow, and loads the fitted model back as a PyFunc.
+        # logs the exported model with mlflux, and loads the fitted model back as a PyFunc.
         (x_train, y_train), (x_test, y_test) = tf.keras.datasets.boston_housing.load_data()
 
         # There are 13 features we are using for inference.
@@ -53,9 +53,9 @@ def main(argv):
             saved_estimator_path = regressor.export_savedmodel(temp, receiver_fn).decode("utf-8")
 
             # Since the model was automatically logged as an artifact (more specifically
-            # a MLflow Model), we don't need to use saved_estimator_path to load back the model.
-            # MLflow takes care of it!
-            pyfunc_model = pyfunc.load_model(mlflow.get_artifact_uri("model"))
+            # a mlflux Model), we don't need to use saved_estimator_path to load back the model.
+            # mlflux takes care of it!
+            pyfunc_model = pyfunc.load_model(mlflux.get_artifact_uri("model"))
             df = pd.DataFrame(data=x_test, columns=["features"] * x_train.shape[1])
 
             # Checking the PyFunc's predictions are the same as the original model's predictions.

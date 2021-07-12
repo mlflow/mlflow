@@ -1,11 +1,11 @@
 #
 # This short example is based on the fastai GitHub Repository of vision examples
 # https://github.com/fastai/fastai/blob/master/examples/vision.ipynb
-# Modified here to show mlflow.fastai.autolog() capabilities
+# Modified here to show mlflux.fastai.autolog() capabilities
 #
 import argparse
 import fastai.vision as vis
-import mlflow.fastai
+import mlflux.fastai
 
 
 def parse_args():
@@ -40,10 +40,10 @@ def main():
     learn = vis.cnn_learner(data, vis.models.resnet18, metrics=vis.accuracy)
 
     # Enable auto logging
-    mlflow.fastai.autolog()
+    mlflux.fastai.autolog()
 
-    # Start MLflow session
-    with mlflow.start_run():
+    # Start mlflux session
+    with mlflux.start_run():
         # Train and fit with default or supplied command line arguments
         learn.fit(args.epochs, args.lr)
 

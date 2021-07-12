@@ -1,4 +1,4 @@
-from mlflow import version
+from mlflux import version
 
 
 def test_is_release_version(monkeypatch):

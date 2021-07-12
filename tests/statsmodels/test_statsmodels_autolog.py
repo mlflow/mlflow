@@ -1,8 +1,8 @@
 import pytest
 import numpy as np
 from statsmodels.tsa.base.tsa_model import TimeSeriesModel
-import mlflow
-import mlflow.statsmodels
+import mlflux
+import mlflux.statsmodels
 from tests.statsmodels.model_fixtures import (
     arma_model,
     ols_model,
@@ -23,26 +23,26 @@ from tests.statsmodels.test_statsmodels_model_export import _get_dates_from_df
 
 
 def get_latest_run():
-    client = mlflow.tracking.MlflowClient()
+    client = mlflux.tracking.MlflowClient()
     return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
 
 
 def test_statsmodels_autolog_ends_auto_created_run():
-    mlflow.statsmodels.autolog()
+    mlflux.statsmodels.autolog()
     arma_model()
-    assert mlflow.active_run() is None
+    assert mlflux.active_run() is None
 
 
 def test_statsmodels_autolog_persists_manually_created_run():
-    mlflow.statsmodels.autolog()
-    with mlflow.start_run() as run:
+    mlflux.statsmodels.autolog()
+    with mlflux.start_run() as run:
         ols_model()
-        assert mlflow.active_run()
-        assert mlflow.active_run().info.run_id == run.info.run_id
+        assert mlflux.active_run()
+        assert mlflux.active_run().info.run_id == run.info.run_id
 
 
 def test_statsmodels_autolog_logs_default_params():
-    mlflow.statsmodels.autolog()
+    mlflux.statsmodels.autolog()
     ols_model()
     run = get_latest_run()
     params = run.data.params
@@ -58,11 +58,11 @@ def test_statsmodels_autolog_logs_default_params():
         assert key in params
         assert params[key] == str(val)
 
-    mlflow.end_run()
+    mlflux.end_run()
 
 
 def test_statsmodels_autolog_logs_specified_params():
-    mlflow.statsmodels.autolog()
+    mlflux.statsmodels.autolog()
     ols_model(method="qr")
 
     expected_params = {"method": "qr"}
@@ -74,11 +74,11 @@ def test_statsmodels_autolog_logs_specified_params():
         assert key in params
         assert params[key] == str(val)
 
-    mlflow.end_run()
+    mlflux.end_run()
 
 
 def test_statsmodels_autolog_works_after_exception():
-    mlflow.statsmodels.autolog()
+    mlflux.statsmodels.autolog()
     # We first fit a model known to raise an exception
     pytest.raises(Exception, failing_logit_model)
     # and then fit another one that should go well
@@ -86,7 +86,7 @@ def test_statsmodels_autolog_works_after_exception():
 
     run = get_latest_run()
     run_id = run.info.run_id
-    loaded_model = mlflow.statsmodels.load_model("runs:/{}/model".format(run_id))
+    loaded_model = mlflux.statsmodels.load_model("runs:/{}/model".format(run_id))
 
     model_predictions = model_with_results.model.predict(model_with_results.inference_dataframe)
     loaded_model_predictions = loaded_model.predict(model_with_results.inference_dataframe)
@@ -98,17 +98,17 @@ def test_statsmodels_autolog_works_after_exception():
     "log_models", [True, False],
 )
 def test_statsmodels_autolog_respects_log_models_flag(log_models):
-    mlflow.statsmodels.autolog(log_models=log_models)
+    mlflux.statsmodels.autolog(log_models=log_models)
     ols_model()
     run = get_latest_run()
-    client = mlflow.tracking.MlflowClient()
+    client = mlflux.tracking.MlflowClient()
     artifact_paths = [artifact.path for artifact in client.list_artifacts(run.info.run_id)]
     assert ("model" in artifact_paths) == log_models
 
 
 @pytest.mark.large
 def test_statsmodels_autolog_loads_model_from_artifact():
-    mlflow.statsmodels.autolog()
+    mlflux.statsmodels.autolog()
     fixtures = [
         ols_model,
         arma_model,
@@ -126,7 +126,7 @@ def test_statsmodels_autolog_loads_model_from_artifact():
         model_with_results = algorithm()
         run = get_latest_run()
         run_id = run.info.run_id
-        loaded_model = mlflow.statsmodels.load_model("runs:/{}/model".format(run_id))
+        loaded_model = mlflux.statsmodels.load_model("runs:/{}/model".format(run_id))
 
         if hasattr(model_with_results.model, "predict"):
 

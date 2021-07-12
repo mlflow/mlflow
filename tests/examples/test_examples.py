@@ -3,9 +3,9 @@ import os.path
 import re
 import shutil
 
-import mlflow
-from mlflow import cli
-from mlflow.utils import process
+import mlflux
+from mlflux import cli
+from mlflux.utils import process
 from tests.integration.utils import invoke_cli_runner
 import pytest
 import json
@@ -15,7 +15,7 @@ EXAMPLES_DIR = "examples"
 
 
 def hash_conda_env(conda_env_path):
-    # use the same hashing logic as `_get_conda_env_name` in mlflow/utils/conda.py
+    # use the same hashing logic as `_get_conda_env_name` in mlflux/utils/conda.py
     return hashlib.sha1(open(conda_env_path).read().encode("utf-8")).hexdigest()
 
 
@@ -25,7 +25,7 @@ def get_conda_envs():
 
 
 def is_mlflow_conda_env(env_name):
-    return re.search(r"^mlflow-\w{40}$", env_name) is not None
+    return re.search(r"^mlflux-\w{40}$", env_name) is not None
 
 
 def remove_conda_env(env_name):
@@ -49,8 +49,8 @@ def find_conda_yaml(directory):
 def replace_mlflow_with_dev_version(yml_path):
     with open(yml_path, "r") as f:
         old_src = f.read()
-        mlflow_dir = os.path.dirname(mlflow.__path__[0])
-        new_src = re.sub(r"- mlflow.*\n", "- {}\n".format(mlflow_dir), old_src)
+        mlflow_dir = os.path.dirname(mlflux.__path__[0])
+        new_src = re.sub(r"- mlflux.*\n", "- {}\n".format(mlflow_dir), old_src)
 
     with open(yml_path, "w") as f:
         f.write(new_src)
@@ -123,7 +123,7 @@ def test_mlflow_run_example(directory, params, tmpdir):
 
     # remove old conda environments to free disk space
     envs = list(filter(is_mlflow_conda_env, get_conda_envs()))
-    current_env_name = "mlflow-" + hash_conda_env(conda_yml_path)
+    current_env_name = "mlflux-" + hash_conda_env(conda_yml_path)
     envs_to_remove = list(filter(lambda e: e != current_env_name, envs))
     for env in envs_to_remove:
         remove_conda_env(env)
@@ -136,7 +136,7 @@ def test_mlflow_run_example(directory, params, tmpdir):
 @pytest.mark.parametrize(
     "directory, command",
     [
-        ("docker", ["docker", "build", "-t", "mlflow-docker-example", "-f", "Dockerfile", "."]),
+        ("docker", ["docker", "build", "-t", "mlflux-docker-example", "-f", "Dockerfile", "."]),
         ("gluon", ["python", "train.py"]),
         ("keras", ["python", "train.py"]),
         (

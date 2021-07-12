@@ -12,15 +12,15 @@ from sklearn.datasets import load_boston
 from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
 
-import mlflow.pyfunc as pyfunc
-import mlflow.paddle
-from mlflow.models import Model
-from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils.file_utils import TempDir
-from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+import mlflux.pyfunc as pyfunc
+import mlflux.paddle
+from mlflux.models import Model
+from mlflux.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflux.tracking.artifact_utils import _download_artifact_from_uri
+from mlflux.utils.environment import _mlflow_conda_env
+from mlflux.utils.file_utils import TempDir
+from mlflux.utils.model_utils import _get_flavor_configuration
+from mlflux.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
@@ -105,9 +105,9 @@ def pd_custom_env(tmpdir):
 
 @pytest.mark.large
 def test_model_save_load(pd_model, model_path):
-    mlflow.paddle.save_model(pd_model=pd_model.model, path=model_path)
+    mlflux.paddle.save_model(pd_model=pd_model.model, path=model_path)
 
-    reloaded_pd_model = mlflow.paddle.load_model(model_uri=model_path)
+    reloaded_pd_model = mlflux.paddle.load_model(model_uri=model_path)
     reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
 
     np.testing.assert_array_almost_equal(
@@ -124,7 +124,7 @@ def test_model_save_load(pd_model, model_path):
 
 
 def test_model_load_from_remote_uri_succeeds(pd_model, model_path, mock_s3_bucket):
-    mlflow.paddle.save_model(pd_model=pd_model.model, path=model_path)
+    mlflux.paddle.save_model(pd_model=pd_model.model, path=model_path)
 
     artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
     artifact_path = "model"
@@ -132,7 +132,7 @@ def test_model_load_from_remote_uri_succeeds(pd_model, model_path, mock_s3_bucke
     artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
 
     model_uri = artifact_root + "/" + artifact_path
-    reloaded_model = mlflow.paddle.load_model(model_uri=model_uri)
+    reloaded_model = mlflux.paddle.load_model(model_uri=model_uri)
     np.testing.assert_array_almost_equal(
         pd_model.model(pd_model.inference_dataframe),
         reloaded_model(pd_model.inference_dataframe),
@@ -142,27 +142,27 @@ def test_model_load_from_remote_uri_succeeds(pd_model, model_path, mock_s3_bucke
 
 @pytest.mark.large
 def test_model_log(pd_model, model_path):
-    old_uri = mlflow.get_tracking_uri()
+    old_uri = mlflux.get_tracking_uri()
     model = pd_model.model
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
         for should_start_run in [False, True]:
             try:
-                mlflow.set_tracking_uri("test")
+                mlflux.set_tracking_uri("test")
                 if should_start_run:
-                    mlflow.start_run()
+                    mlflux.start_run()
 
                 artifact_path = "model"
                 conda_env = os.path.join(tmp.path(), "conda_env.yaml")
                 _mlflow_conda_env(conda_env, additional_pip_deps=["paddle"])
 
-                mlflow.paddle.log_model(
+                mlflux.paddle.log_model(
                     pd_model=model, artifact_path=artifact_path, conda_env=conda_env
                 )
                 model_uri = "runs:/{run_id}/{artifact_path}".format(
-                    run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+                    run_id=mlflux.active_run().info.run_id, artifact_path=artifact_path
                 )
 
-                reloaded_pd_model = mlflow.paddle.load_model(model_uri=model_uri)
+                reloaded_pd_model = mlflux.paddle.load_model(model_uri=model_uri)
                 np.testing.assert_array_almost_equal(
                     model(pd_model.inference_dataframe),
                     reloaded_pd_model(pd_model.inference_dataframe),
@@ -177,43 +177,43 @@ def test_model_log(pd_model, model_path):
                 assert os.path.exists(os.path.join(model_path, env_path))
 
             finally:
-                mlflow.end_run()
-                mlflow.set_tracking_uri(old_uri)
+                mlflux.end_run()
+                mlflux.set_tracking_uri(old_uri)
 
 
 def test_log_model_calls_register_model(pd_model):
     artifact_path = "model"
-    register_model_patch = mock.patch("mlflow.register_model")
-    with mlflow.start_run(), register_model_patch:
-        mlflow.paddle.log_model(
+    register_model_patch = mock.patch("mlflux.register_model")
+    with mlflux.start_run(), register_model_patch:
+        mlflux.paddle.log_model(
             pd_model=pd_model.model,
             artifact_path=artifact_path,
             conda_env=None,
             registered_model_name="AdsModel1",
         )
         model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+            run_id=mlflux.active_run().info.run_id, artifact_path=artifact_path
         )
-        mlflow.register_model.assert_called_once_with(
+        mlflux.register_model.assert_called_once_with(
             model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
         )
 
 
 def test_log_model_no_registered_model_name(pd_model):
     artifact_path = "model"
-    register_model_patch = mock.patch("mlflow.register_model")
-    with mlflow.start_run(), register_model_patch:
-        mlflow.paddle.log_model(
+    register_model_patch = mock.patch("mlflux.register_model")
+    with mlflux.start_run(), register_model_patch:
+        mlflux.paddle.log_model(
             pd_model=pd_model.model, artifact_path=artifact_path, conda_env=None,
         )
-        mlflow.register_model.assert_not_called()
+        mlflux.register_model.assert_not_called()
 
 
 @pytest.mark.large
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     pd_model, model_path, pd_custom_env
 ):
-    mlflow.paddle.save_model(pd_model=pd_model.model, path=model_path, conda_env=pd_custom_env)
+    mlflux.paddle.save_model(pd_model=pd_model.model, path=model_path, conda_env=pd_custom_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -229,9 +229,9 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
 
 @pytest.mark.large
 def test_model_save_accepts_conda_env_as_dict(pd_model, model_path):
-    conda_env = dict(mlflow.paddle.get_default_conda_env())
+    conda_env = dict(mlflux.paddle.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
-    mlflow.paddle.save_model(pd_model=pd_model.model, path=model_path, conda_env=conda_env)
+    mlflux.paddle.save_model(pd_model=pd_model.model, path=model_path, conda_env=conda_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -245,12 +245,12 @@ def test_model_save_accepts_conda_env_as_dict(pd_model, model_path):
 @pytest.mark.large
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(pd_model, pd_custom_env):
     artifact_path = "model"
-    with mlflow.start_run():
-        mlflow.paddle.log_model(
+    with mlflux.start_run():
+        mlflux.paddle.log_model(
             pd_model=pd_model.model, artifact_path=artifact_path, conda_env=pd_custom_env
         )
         model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+            run_id=mlflux.active_run().info.run_id, artifact_path=artifact_path
         )
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
@@ -270,14 +270,14 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(pd_mod
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     pd_model, model_path
 ):
-    mlflow.paddle.save_model(pd_model=pd_model.model, path=model_path, conda_env=None)
+    mlflux.paddle.save_model(pd_model=pd_model.model, path=model_path, conda_env=None)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
     with open(conda_env_path, "r") as f:
         conda_env = yaml.safe_load(f)
 
-    assert conda_env == mlflow.paddle.get_default_conda_env()
+    assert conda_env == mlflux.paddle.get_default_conda_env()
 
 
 @pytest.mark.large
@@ -285,12 +285,12 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     pd_model,
 ):
     artifact_path = "model"
-    with mlflow.start_run():
-        mlflow.paddle.log_model(
+    with mlflux.start_run():
+        mlflux.paddle.log_model(
             pd_model=pd_model.model, artifact_path=artifact_path, conda_env=None
         )
         model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+            run_id=mlflux.active_run().info.run_id, artifact_path=artifact_path
         )
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
@@ -299,7 +299,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     with open(conda_env_path, "r") as f:
         conda_env = yaml.safe_load(f)
 
-    assert conda_env == mlflow.paddle.get_default_conda_env()
+    assert conda_env == mlflux.paddle.get_default_conda_env()
 
 
 @pytest.fixture(scope="session")
@@ -336,9 +336,9 @@ def pd_model_built_in_high_level_api():
 def test_model_save_load_built_in_high_level_api(pd_model_built_in_high_level_api, model_path):
     model = pd_model_built_in_high_level_api.model
     test_dataset = pd_model_built_in_high_level_api.inference_dataframe
-    mlflow.paddle.save_model(pd_model=model, path=model_path)
+    mlflux.paddle.save_model(pd_model=model, path=model_path)
 
-    reloaded_pd_model = mlflow.paddle.load_model(model_uri=model_path)
+    reloaded_pd_model = mlflux.paddle.load_model(model_uri=model_path)
     reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
 
     low_level_test_dataset = [x[0] for x in test_dataset]
@@ -361,7 +361,7 @@ def test_model_built_in_high_level_api_load_from_remote_uri_succeeds(
 ):
     model = pd_model_built_in_high_level_api.model
     test_dataset = pd_model_built_in_high_level_api.inference_dataframe
-    mlflow.paddle.save_model(pd_model=model, path=model_path)
+    mlflux.paddle.save_model(pd_model=model, path=model_path)
 
     artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
     artifact_path = "model"
@@ -369,7 +369,7 @@ def test_model_built_in_high_level_api_load_from_remote_uri_succeeds(
     artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
 
     model_uri = artifact_root + "/" + artifact_path
-    reloaded_model = mlflow.paddle.load_model(model_uri=model_uri)
+    reloaded_model = mlflux.paddle.load_model(model_uri=model_uri)
 
     low_level_test_dataset = [x[0] for x in test_dataset]
 
@@ -382,28 +382,28 @@ def test_model_built_in_high_level_api_load_from_remote_uri_succeeds(
 
 @pytest.mark.large
 def test_model_built_in_high_level_api_log(pd_model_built_in_high_level_api, model_path):
-    old_uri = mlflow.get_tracking_uri()
+    old_uri = mlflux.get_tracking_uri()
     model = pd_model_built_in_high_level_api.model
     test_dataset = pd_model_built_in_high_level_api.inference_dataframe
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
         for should_start_run in [False, True]:
             try:
-                mlflow.set_tracking_uri("test")
+                mlflux.set_tracking_uri("test")
                 if should_start_run:
-                    mlflow.start_run()
+                    mlflux.start_run()
 
                 artifact_path = "model"
                 conda_env = os.path.join(tmp.path(), "conda_env.yaml")
                 _mlflow_conda_env(conda_env, additional_pip_deps=["paddle"])
 
-                mlflow.paddle.log_model(
+                mlflux.paddle.log_model(
                     pd_model=model, artifact_path=artifact_path, conda_env=conda_env
                 )
                 model_uri = "runs:/{run_id}/{artifact_path}".format(
-                    run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+                    run_id=mlflux.active_run().info.run_id, artifact_path=artifact_path
                 )
 
-                reloaded_pd_model = mlflow.paddle.load_model(model_uri=model_uri)
+                reloaded_pd_model = mlflux.paddle.load_model(model_uri=model_uri)
 
                 low_level_test_dataset = [x[0] for x in test_dataset]
 
@@ -421,8 +421,8 @@ def test_model_built_in_high_level_api_log(pd_model_built_in_high_level_api, mod
                 assert os.path.exists(os.path.join(model_path, env_path))
 
             finally:
-                mlflow.end_run()
-                mlflow.set_tracking_uri(old_uri)
+                mlflux.end_run()
+                mlflux.set_tracking_uri(old_uri)
 
 
 @pytest.fixture
@@ -435,21 +435,21 @@ def test_model_retrain_built_in_high_level_api(
     pd_model_built_in_high_level_api, model_path, model_retrain_path
 ):
     model = pd_model_built_in_high_level_api.model
-    mlflow.paddle.save_model(pd_model=model, path=model_path, training=True)
+    mlflux.paddle.save_model(pd_model=model, path=model_path, training=True)
 
     training_dataset, test_dataset = get_dataset_built_in_high_level_api()
 
     model_retrain = paddle.Model(UCIHousing())
-    model_retrain = mlflow.paddle.load_model(model_uri=model_path, model=model_retrain)
+    model_retrain = mlflux.paddle.load_model(model_uri=model_path, model=model_retrain)
     optim = paddle.optimizer.Adam(learning_rate=0.015, parameters=model.parameters())
     model_retrain.prepare(optim, paddle.nn.MSELoss())
 
     model_retrain.fit(training_dataset, epochs=6, batch_size=8, verbose=1)
 
-    mlflow.paddle.save_model(pd_model=model_retrain, path=model_retrain_path, training=False)
+    mlflux.paddle.save_model(pd_model=model_retrain, path=model_retrain_path, training=False)
 
     with pytest.raises(TypeError, match="This model can't be loaded"):
-        mlflow.paddle.load_model(model_uri=model_retrain_path, model=model_retrain)
+        mlflux.paddle.load_model(model_uri=model_retrain_path, model=model_retrain)
 
     error_model = 0
     error_model_type = type(error_model)
@@ -459,9 +459,9 @@ def test_model_retrain_built_in_high_level_api(
             error_model_type
         ),
     ):
-        mlflow.paddle.load_model(model_uri=model_retrain_path, model=error_model)
+        mlflux.paddle.load_model(model_uri=model_retrain_path, model=error_model)
 
-    reloaded_pd_model = mlflow.paddle.load_model(model_uri=model_retrain_path)
+    reloaded_pd_model = mlflux.paddle.load_model(model_uri=model_retrain_path)
     reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_retrain_path)
     low_level_test_dataset = [x[0] for x in test_dataset]
 
@@ -480,7 +480,7 @@ def test_model_retrain_built_in_high_level_api(
 
 @pytest.mark.large
 def test_log_model_built_in_high_level_api(pd_model_built_in_high_level_api, model_path):
-    old_uri = mlflow.get_tracking_uri()
+    old_uri = mlflux.get_tracking_uri()
     model = pd_model_built_in_high_level_api.model
 
     _, test_dataset = get_dataset_built_in_high_level_api()
@@ -488,27 +488,27 @@ def test_log_model_built_in_high_level_api(pd_model_built_in_high_level_api, mod
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
         for should_start_run in [False, True]:
             try:
-                mlflow.set_tracking_uri("test")
+                mlflux.set_tracking_uri("test")
                 if should_start_run:
-                    mlflow.start_run()
+                    mlflux.start_run()
 
                 artifact_path = "model"
                 conda_env = os.path.join(tmp.path(), "conda_env.yaml")
                 _mlflow_conda_env(conda_env, additional_pip_deps=["paddle"])
 
-                mlflow.paddle.log_model(
+                mlflux.paddle.log_model(
                     pd_model=model, artifact_path=artifact_path, conda_env=conda_env, training=True
                 )
                 model_uri = "runs:/{run_id}/{artifact_path}".format(
-                    run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+                    run_id=mlflux.active_run().info.run_id, artifact_path=artifact_path
                 )
 
-                model_uri = mlflow.get_artifact_uri("model")
+                model_uri = mlflux.get_artifact_uri("model")
 
                 model_retrain = paddle.Model(UCIHousing())
                 optim = paddle.optimizer.Adam(learning_rate=0.015, parameters=model.parameters())
                 model_retrain.prepare(optim, paddle.nn.MSELoss())
-                model_retrain = mlflow.paddle.load_model(model_uri=model_uri, model=model_retrain)
+                model_retrain = mlflux.paddle.load_model(model_uri=model_uri, model=model_retrain)
 
                 np.testing.assert_array_almost_equal(
                     np.array(model.predict(test_dataset)).squeeze(),
@@ -524,5 +524,5 @@ def test_log_model_built_in_high_level_api(pd_model_built_in_high_level_api, mod
                 assert os.path.exists(os.path.join(model_path, env_path))
 
             finally:
-                mlflow.end_run()
-                mlflow.set_tracking_uri(old_uri)
+                mlflux.end_run()
+                mlflux.set_tracking_uri(old_uri)

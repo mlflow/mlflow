@@ -7,8 +7,8 @@ import shutil
 import pytest
 import tarfile
 
-from mlflow.utils import file_utils
-from mlflow.utils.file_utils import get_parent_dir, _copy_file_or_tree, TempDir
+from mlflux.utils import file_utils
+from mlflux.utils.file_utils import get_parent_dir, _copy_file_or_tree, TempDir
 from tests.projects.utils import TEST_PROJECT_DIR
 
 from tests.helper_functions import random_int, random_file, safe_edit_yaml

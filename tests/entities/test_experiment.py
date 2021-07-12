@@ -1,6 +1,6 @@
 import unittest
 
-from mlflow.entities import Experiment, LifecycleStage
+from mlflux.entities import Experiment, LifecycleStage
 from tests.helper_functions import random_int, random_file
 
 

@@ -2,9 +2,9 @@ import os
 import pytest
 import posixpath
 
-from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
-from mlflow.utils.file_utils import TempDir
+from mlflux.exceptions import MlflowException
+from mlflux.store.artifact.local_artifact_repo import LocalArtifactRepository
+from mlflux.utils.file_utils import TempDir
 
 
 @pytest.fixture
@@ -14,7 +14,7 @@ def local_artifact_root(tmpdir):
 
 @pytest.fixture
 def local_artifact_repo(local_artifact_root):
-    from mlflow.utils.file_utils import path_to_local_file_uri
+    from mlflux.utils.file_utils import path_to_local_file_uri
 
     return LocalArtifactRepository(artifact_uri=path_to_local_file_uri(local_artifact_root))
 

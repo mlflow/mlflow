@@ -6,9 +6,9 @@ import os
     "MLFLOW_SKINNY" not in os.environ, reason="This test is only valid for the skinny client"
 )
 def test_fails_import_sqlalchemy():
-    import mlflow
+    import mlflux
 
-    assert mlflow is not None  # pylint or flake8 disabling is not working
+    assert mlflux is not None  # pylint or flake8 disabling is not working
 
     with pytest.raises(ImportError):
         import sqlalchemy  # pylint: disable=unused-import

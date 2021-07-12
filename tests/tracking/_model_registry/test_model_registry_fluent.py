@@ -1,18 +1,18 @@
 from unittest import mock
 import pytest
 
-from mlflow import register_model, set_registry_uri, get_registry_uri
-from mlflow.entities.model_registry import ModelVersion, RegisteredModel
-from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import (
+from mlflux import register_model, set_registry_uri, get_registry_uri
+from mlflux.entities.model_registry import ModelVersion, RegisteredModel
+from mlflux.exceptions import MlflowException
+from mlflux.protos.databricks_pb2 import (
     ErrorCode,
     INTERNAL_ERROR,
     RESOURCE_ALREADY_EXISTS,
     FEATURE_DISABLED,
 )
-from mlflow.tracking import MlflowClient
-from mlflow.utils.file_utils import TempDir
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflux.tracking import MlflowClient
+from mlflux.utils.file_utils import TempDir
+from mlflux.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 
 def test_register_model_raises_exception_with_unsupported_registry_store():
@@ -37,7 +37,7 @@ def test_register_model_with_runs_uri():
         MlflowClient, "create_registered_model", return_value=RegisteredModel("Model 1")
     )
     get_uri_patch = mock.patch(
-        "mlflow.store.artifact.runs_artifact_repo.RunsArtifactRepository.get_underlying_uri",
+        "mlflux.store.artifact.runs_artifact_repo.RunsArtifactRepository.get_underlying_uri",
         return_value="s3:/path/to/source",
     )
     create_version_patch = mock.patch.object(

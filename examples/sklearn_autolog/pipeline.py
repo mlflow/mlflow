@@ -5,13 +5,13 @@ from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 
-import mlflow
+import mlflux
 from utils import fetch_logged_data
 
 
 def main():
     # enable autologging
-    mlflow.sklearn.autolog()
+    mlflux.sklearn.autolog()
 
     # prepare training data
     X = np.array([[1, 1], [1, 2], [2, 2], [2, 3]])
@@ -19,7 +19,7 @@ def main():
 
     # train a model
     pipe = Pipeline([("scaler", StandardScaler()), ("lr", LinearRegression())])
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         pipe.fit(X, y)
         print("Logged data and model in run: {}".format(run.info.run_id))
 

@@ -2,10 +2,10 @@ import pytest
 from unittest import mock
 from unittest.mock import Mock
 
-import mlflow
-from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
-from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+import mlflux
+from mlflux.exceptions import MlflowException
+from mlflux.store.artifact.runs_artifact_repo import RunsArtifactRepository
+from mlflux.store.artifact.s3_artifact_repo import S3ArtifactRepository
 
 
 @pytest.mark.parametrize(
@@ -67,7 +67,7 @@ def test_parse_runs_uri_invalid_input(uri):
 )
 def test_get_artifact_uri(uri, expected_tracking_uri, mock_uri, expected_result_uri):
     with mock.patch(
-        "mlflow.tracking.artifact_utils.get_artifact_uri", return_value=mock_uri
+        "mlflux.tracking.artifact_utils.get_artifact_uri", return_value=mock_uri
     ) as get_artifact_uri_mock:
         result_uri = RunsArtifactRepository.get_underlying_uri(uri)
         get_artifact_uri_mock.assert_called_once_with(
@@ -78,9 +78,9 @@ def test_get_artifact_uri(uri, expected_tracking_uri, mock_uri, expected_result_
 
 def test_runs_artifact_repo_init_with_real_run():
     artifact_location = "s3://blah_bucket/"
-    experiment_id = mlflow.create_experiment("expr_abc", artifact_location)
-    with mlflow.start_run(experiment_id=experiment_id):
-        run_id = mlflow.active_run().info.run_id
+    experiment_id = mlflux.create_experiment("expr_abc", artifact_location)
+    with mlflux.start_run(experiment_id=experiment_id):
+        run_id = mlflux.active_run().info.run_id
     runs_uri = "runs:/%s/path/to/model" % run_id
     runs_repo = RunsArtifactRepository(runs_uri)
 
@@ -96,9 +96,9 @@ def test_runs_artifact_repo_uses_repo_download_artifacts():
     function
     """
     artifact_location = "s3://blah_bucket/"
-    experiment_id = mlflow.create_experiment("expr_abcd", artifact_location)
-    with mlflow.start_run(experiment_id=experiment_id):
-        run_id = mlflow.active_run().info.run_id
+    experiment_id = mlflux.create_experiment("expr_abcd", artifact_location)
+    with mlflux.start_run(experiment_id=experiment_id):
+        run_id = mlflux.active_run().info.run_id
     runs_repo = RunsArtifactRepository("runs:/{}".format(run_id))
     runs_repo.repo = Mock()
     runs_repo.download_artifacts("artifact_path", "dst_path")

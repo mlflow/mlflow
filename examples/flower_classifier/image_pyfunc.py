@@ -14,11 +14,11 @@ import pip
 import yaml
 import tensorflow as tf
 
-import mlflow
-import mlflow.keras
-from mlflow.utils import PYTHON_VERSION
-from mlflow.utils.file_utils import TempDir
-from mlflow.utils.environment import _mlflow_conda_env
+import mlflux
+import mlflux.keras
+from mlflux.utils import PYTHON_VERSION
+from mlflux.utils.file_utils import TempDir
+from mlflux.utils.environment import _mlflow_conda_env
 
 
 def decode_and_resize_image(raw_bytes, size):
@@ -36,7 +36,7 @@ class KerasImageClassifierPyfunc(object):
     """
     Image classification model with embedded pre-processing.
 
-    This class is essentially an MLflow custom python function wrapper around a Keras model.
+    This class is essentially an mlflux custom python function wrapper around a Keras model.
     The wrapper provides image preprocessing so that the model can be applied to images directly.
     The input to the model is base64 encoded image binary data (e.g. contents of a jpeg file).
     The output is the predicted class label, predicted class id followed by probabilities for each
@@ -103,7 +103,7 @@ class KerasImageClassifierPyfunc(object):
 
 def log_model(keras_model, artifact_path, image_dims, domain):
     """
-    Log a KerasImageClassifierPyfunc model as an MLflow artifact for the current run.
+    Log a KerasImageClassifierPyfunc model as an mlflux artifact for the current run.
 
     :param keras_model: Keras model to be saved.
     :param artifact_path: Run-relative artifact path this model is to be saved to.
@@ -118,7 +118,7 @@ def log_model(keras_model, artifact_path, image_dims, domain):
         with open(os.path.join(data_path, "conf.yaml"), "w") as f:
             yaml.safe_dump(conf, stream=f)
         keras_path = os.path.join(data_path, "keras_model")
-        mlflow.keras.save_model(keras_model, path=keras_path)
+        mlflux.keras.save_model(keras_model, path=keras_path)
         conda_env = tmp.path("conda_env.yaml")
         with open(conda_env, "w") as f:
             f.write(
@@ -132,7 +132,7 @@ def log_model(keras_model, artifact_path, image_dims, domain):
                 )
             )
 
-        mlflow.pyfunc.log_model(
+        mlflux.pyfunc.log_model(
             artifact_path=artifact_path,
             loader_module=__name__,
             code_path=[__file__],
@@ -156,7 +156,7 @@ def _load_pyfunc(path):
     with tf.Graph().as_default() as g:
         with tf.Session().as_default() as sess:
             keras.backend.set_session(sess)
-            keras_model = mlflow.keras.load_model(keras_model_path)
+            keras_model = mlflux.keras.load_model(keras_model_path)
     return KerasImageClassifierPyfunc(g, sess, keras_model, image_dims, domain=domain)
 
 
@@ -168,7 +168,7 @@ dependencies:
   - python=={python_version}
   - pip=={pip_version}  
   - pip:
-    - mlflow>=1.6
+    - mlflux>=1.6
     - pillow=={pillow_version}
     - keras=={keras_version}
     - {tf_name}=={tf_version}

@@ -1,16 +1,16 @@
 #
 # Trains an MNIST digit recognizer using PyTorch Lightning,
-# and uses Mlflow to log metrics, params and artifacts
+# and uses mlflux to log metrics, params and artifacts
 # NOTE: This example requires you to first install
 # pytorch-lightning (using pip install pytorch-lightning)
-#       and mlflow (using pip install mlflow).
+#       and mlflux (using pip install mlflux).
 #
 # pylint: disable=arguments-differ
 # pylint: disable=unused-argument
 # pylint: disable=abstract-method
 import pytorch_lightning as pl
 import torch
-import mlflow.pytorch
+import mlflux.pytorch
 from argparse import ArgumentParser
 from pytorch_lightning.metrics.functional import accuracy
 from torch.nn import functional as F
@@ -242,7 +242,7 @@ if __name__ == "__main__":
     parser = pl.Trainer.add_argparse_args(parent_parser=parser)
     parser = LightningMNISTClassifier.add_model_specific_args(parent_parser=parser)
 
-    mlflow.pytorch.autolog(log_every_n_epoch=2)
+    mlflux.pytorch.autolog(log_every_n_epoch=2)
 
     args = parser.parse_args()
     dict_args = vars(args)

@@ -8,22 +8,22 @@ from requests.models import Response
 from unittest import mock
 from unittest.mock import ANY
 
-from mlflow.entities.file_info import FileInfo as FileInfoEntity
-from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_artifacts_pb2 import (
+from mlflux.entities.file_info import FileInfo as FileInfoEntity
+from mlflux.exceptions import MlflowException
+from mlflux.protos.databricks_artifacts_pb2 import (
     GetCredentialsForWrite,
     GetCredentialsForRead,
     ArtifactCredentialType,
     ArtifactCredentialInfo,
 )
-from mlflow.protos.service_pb2 import ListArtifacts, FileInfo
-from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.artifact.databricks_artifact_repo import (
+from mlflux.protos.service_pb2 import ListArtifacts, FileInfo
+from mlflux.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflux.store.artifact.databricks_artifact_repo import (
     DatabricksArtifactRepository,
     _MAX_CREDENTIALS_REQUEST_SIZE,
 )
 
-DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.databricks_artifact_repo"
+DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE = "mlflux.store.artifact.databricks_artifact_repo"
 DATABRICKS_ARTIFACT_REPOSITORY = (
     DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE + ".DatabricksArtifactRepository"
 )
@@ -36,7 +36,7 @@ MOCK_HEADERS = [
     ArtifactCredentialInfo.HttpHeader(name="Mock-Name1", value="Mock-Value1"),
     ArtifactCredentialInfo.HttpHeader(name="Mock-Name2", value="Mock-Value2"),
 ]
-MOCK_RUN_ROOT_URI = "dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts"
+MOCK_RUN_ROOT_URI = "dbfs:/databricks/mlflux-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts"
 MOCK_SUBDIR = "subdir/path"
 MOCK_SUBDIR_ROOT_URI = posixpath.join(MOCK_RUN_ROOT_URI, MOCK_SUBDIR)
 
@@ -48,7 +48,7 @@ def databricks_artifact_repo():
     ) as get_run_artifact_root_mock:
         get_run_artifact_root_mock.return_value = MOCK_RUN_ROOT_URI
         return get_artifact_repository(
-            "dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts"
+            "dbfs:/databricks/mlflux-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts"
         )
 
 
@@ -81,10 +81,10 @@ class TestDatabricksArtifactRepository(object):
             get_run_artifact_root_mock.return_value = MOCK_RUN_ROOT_URI
             # Basic artifact uri
             repo = get_artifact_repository(
-                "dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts"
+                "dbfs:/databricks/mlflux-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts"
             )
             assert (
-                repo.artifact_uri == "dbfs:/databricks/mlflow-tracking/"
+                repo.artifact_uri == "dbfs:/databricks/mlflux-tracking/"
                 "MOCK-EXP/MOCK-RUN-ID/artifacts"
             )
             assert repo.run_id == MOCK_RUN_ID
@@ -93,43 +93,43 @@ class TestDatabricksArtifactRepository(object):
             with pytest.raises(MlflowException):
                 DatabricksArtifactRepository("s3://test")
             with pytest.raises(MlflowException):
-                DatabricksArtifactRepository("dbfs:/databricks/mlflow/EXP/RUN/artifact")
+                DatabricksArtifactRepository("dbfs:/databricks/mlflux/EXP/RUN/artifact")
             with pytest.raises(MlflowException):
                 DatabricksArtifactRepository(
-                    "dbfs://scope:key@notdatabricks/databricks/mlflow-tracking/experiment/1/run/2"
+                    "dbfs://scope:key@notdatabricks/databricks/mlflux-tracking/experiment/1/run/2"
                 )
 
     @pytest.mark.parametrize(
         "artifact_uri, expected_uri, expected_db_uri",
         [
             (
-                "dbfs:/databricks/mlflow-tracking/experiment/1/run/2",
-                "dbfs:/databricks/mlflow-tracking/experiment/1/run/2",
+                "dbfs:/databricks/mlflux-tracking/experiment/1/run/2",
+                "dbfs:/databricks/mlflux-tracking/experiment/1/run/2",
                 "databricks://getTrackingUriDefault",
             ),  # see test body for the mock
             (
-                "dbfs://@databricks/databricks/mlflow-tracking/experiment/1/run/2",
-                "dbfs:/databricks/mlflow-tracking/experiment/1/run/2",
+                "dbfs://@databricks/databricks/mlflux-tracking/experiment/1/run/2",
+                "dbfs:/databricks/mlflux-tracking/experiment/1/run/2",
                 "databricks",
             ),
             (
-                "dbfs://someProfile@databricks/databricks/mlflow-tracking/experiment/1/run/2",
-                "dbfs:/databricks/mlflow-tracking/experiment/1/run/2",
+                "dbfs://someProfile@databricks/databricks/mlflux-tracking/experiment/1/run/2",
+                "dbfs:/databricks/mlflux-tracking/experiment/1/run/2",
                 "databricks://someProfile",
             ),
             (
-                "dbfs://scope:key@databricks/databricks/mlflow-tracking/experiment/1/run/2",
-                "dbfs:/databricks/mlflow-tracking/experiment/1/run/2",
+                "dbfs://scope:key@databricks/databricks/mlflux-tracking/experiment/1/run/2",
+                "dbfs:/databricks/mlflux-tracking/experiment/1/run/2",
                 "databricks://scope:key",
             ),
             (
-                "dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts",
-                "dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts",
+                "dbfs:/databricks/mlflux-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts",
+                "dbfs:/databricks/mlflux-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts",
                 "databricks://getTrackingUriDefault",
             ),
             (
-                "dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/awesome/path",
-                "dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/awesome/path",
+                "dbfs:/databricks/mlflux-tracking/MOCK-EXP/MOCK-RUN-ID/awesome/path",
+                "dbfs:/databricks/mlflux-tracking/MOCK-EXP/MOCK-RUN-ID/awesome/path",
                 "databricks://getTrackingUriDefault",
             ),
         ],
@@ -140,7 +140,7 @@ class TestDatabricksArtifactRepository(object):
         ), mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_run_artifact_root", return_value="whatever"
         ), mock.patch(
-            "mlflow.tracking.get_tracking_uri", return_value="databricks://getTrackingUriDefault"
+            "mlflux.tracking.get_tracking_uri", return_value="databricks://getTrackingUriDefault"
         ):
             repo = DatabricksArtifactRepository(artifact_uri)
             assert repo.artifact_uri == expected_uri
@@ -149,14 +149,14 @@ class TestDatabricksArtifactRepository(object):
     @pytest.mark.parametrize(
         "artifact_uri, expected_relative_path",
         [
-            ("dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts", ""),
-            ("dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts/arty", "arty"),
+            ("dbfs:/databricks/mlflux-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts", ""),
+            ("dbfs:/databricks/mlflux-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts/arty", "arty"),
             (
-                "dbfs://prof@databricks/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts/arty",  # noqa
+                "dbfs://prof@databricks/databricks/mlflux-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts/arty",  # noqa
                 "arty",
             ),
             (
-                "dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/awesome/path",
+                "dbfs:/databricks/mlflux-tracking/MOCK-EXP/MOCK-RUN-ID/awesome/path",
                 "../awesome/path",
             ),
         ],
@@ -177,18 +177,18 @@ class TestDatabricksArtifactRepository(object):
         ) as get_run_artifact_root_mock:
             get_run_artifact_root_mock.return_value = MOCK_RUN_ROOT_URI
             expected_run_id = "RUN_ID"
-            repo = get_artifact_repository("dbfs:/databricks/mlflow-tracking/EXP/RUN_ID/artifact")
+            repo = get_artifact_repository("dbfs:/databricks/mlflux-tracking/EXP/RUN_ID/artifact")
             assert repo.run_id == expected_run_id
             repo = get_artifact_repository(
-                "dbfs:/databricks/mlflow-tracking/EXP_ID/RUN_ID/artifacts"
+                "dbfs:/databricks/mlflux-tracking/EXP_ID/RUN_ID/artifacts"
             )
             assert repo.run_id == expected_run_id
             repo = get_artifact_repository(
-                "dbfs:/databricks///mlflow-tracking///EXP_ID///RUN_ID///artifacts/"
+                "dbfs:/databricks///mlflux-tracking///EXP_ID///RUN_ID///artifacts/"
             )
             assert repo.run_id == expected_run_id
             repo = get_artifact_repository(
-                "dbfs:/databricks///mlflow-tracking//EXP_ID//RUN_ID///artifacts//"
+                "dbfs:/databricks///mlflux-tracking//EXP_ID//RUN_ID///artifacts//"
             )
             assert repo.run_id == expected_run_id
 
@@ -236,7 +236,7 @@ class TestDatabricksArtifactRepository(object):
         with mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credential_infos"
         ) as write_credential_infos_mock, mock.patch(
-            "mlflow.utils.rest_utils.cloud_storage_http_request"
+            "mlflux.utils.rest_utils.cloud_storage_http_request"
         ) as request_mock:
             mock_credential_info = ArtifactCredentialInfo(
                 signed_uri=MOCK_AZURE_SIGNED_URI,
@@ -284,7 +284,7 @@ class TestDatabricksArtifactRepository(object):
         with mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credential_infos"
         ) as write_credential_infos_mock, mock.patch(
-            "mlflow.utils.rest_utils.cloud_storage_http_request"
+            "mlflux.utils.rest_utils.cloud_storage_http_request"
         ) as request_mock:
             mock_credential_info = ArtifactCredentialInfo(
                 signed_uri=MOCK_AWS_SIGNED_URI, type=ArtifactCredentialType.AWS_PRESIGNED_URL
@@ -308,7 +308,7 @@ class TestDatabricksArtifactRepository(object):
         with mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credential_infos"
         ) as write_credential_infos_mock, mock.patch(
-            "mlflow.utils.rest_utils.cloud_storage_http_request"
+            "mlflux.utils.rest_utils.cloud_storage_http_request"
         ) as request_mock:
             mock_credential_info = ArtifactCredentialInfo(
                 signed_uri=MOCK_AWS_SIGNED_URI,
@@ -329,7 +329,7 @@ class TestDatabricksArtifactRepository(object):
         with mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credential_infos"
         ) as write_credential_infos_mock, mock.patch(
-            "mlflow.utils.rest_utils.cloud_storage_http_request"
+            "mlflux.utils.rest_utils.cloud_storage_http_request"
         ) as request_mock:
             mock_credential_info = ArtifactCredentialInfo(
                 signed_uri=MOCK_AWS_SIGNED_URI, type=ArtifactCredentialType.AWS_PRESIGNED_URL
@@ -350,7 +350,7 @@ class TestDatabricksArtifactRepository(object):
         with mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credential_infos"
         ) as write_credential_infos_mock, mock.patch(
-            "mlflow.utils.rest_utils.cloud_storage_http_request"
+            "mlflux.utils.rest_utils.cloud_storage_http_request"
         ) as request_mock:
             mock_credential_info = ArtifactCredentialInfo(
                 signed_uri=MOCK_GCP_SIGNED_URL, type=ArtifactCredentialType.GCP_SIGNED_URL
@@ -374,7 +374,7 @@ class TestDatabricksArtifactRepository(object):
         with mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credential_infos"
         ) as write_credential_infos_mock, mock.patch(
-            "mlflow.utils.rest_utils.cloud_storage_http_request"
+            "mlflux.utils.rest_utils.cloud_storage_http_request"
         ) as request_mock:
             mock_credential_info = ArtifactCredentialInfo(
                 signed_uri=MOCK_GCP_SIGNED_URL,
@@ -395,7 +395,7 @@ class TestDatabricksArtifactRepository(object):
         with mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credential_infos"
         ) as write_credential_infos_mock, mock.patch(
-            "mlflow.utils.rest_utils.cloud_storage_http_request"
+            "mlflux.utils.rest_utils.cloud_storage_http_request"
         ) as request_mock:
             mock_credential_info = ArtifactCredentialInfo(
                 signed_uri=MOCK_GCP_SIGNED_URL, type=ArtifactCredentialType.GCP_SIGNED_URL

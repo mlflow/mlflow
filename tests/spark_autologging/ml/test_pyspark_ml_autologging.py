@@ -8,11 +8,11 @@ from collections import namedtuple
 from packaging.version import Version
 from unittest import mock
 
-import mlflow
-from mlflow.entities import RunStatus
-from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_AUTOLOGGING
-from mlflow.utils import _truncate_dict
-from mlflow.utils.validation import (
+import mlflux
+from mlflux.entities import RunStatus
+from mlflux.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_AUTOLOGGING
+from mlflux.utils import _truncate_dict
+from mlflux.utils.validation import (
     MAX_PARAM_VAL_LENGTH,
     MAX_ENTITY_KEY_LENGTH,
 )
@@ -30,7 +30,7 @@ from pyspark.ml.classification import (
 )
 from pyspark.ml.feature import HashingTF, Tokenizer, VectorAssembler
 from pyspark.ml.tuning import CrossValidator, ParamGridBuilder, TrainValidationSplit
-from mlflow.pyspark.ml import (
+from mlflux.pyspark.ml import (
     _should_log_model,
     _get_instance_param_map,
     _get_instance_param_map_recursively,
@@ -45,7 +45,7 @@ from pyspark.sql import SparkSession
 pytestmark = pytest.mark.large
 
 MODEL_DIR = "model"
-MLFLOW_PARENT_RUN_ID = "mlflow.parentRunId"
+MLFLOW_PARENT_RUN_ID = "mlflux.parentRunId"
 
 
 @pytest.fixture(scope="module")
@@ -116,10 +116,10 @@ def get_expected_class_tags(estimator):
 
 
 def get_run_data(run_id):
-    client = mlflow.tracking.MlflowClient()
+    client = mlflux.tracking.MlflowClient()
     data = client.get_run(run_id).data
-    # Ignore tags mlflow logs by default (e.g. "mlflow.user")
-    tags = {k: v for k, v in data.tags.items() if not k.startswith("mlflow.")}
+    # Ignore tags mlflux logs by default (e.g. "mlflux.user")
+    tags = {k: v for k, v in data.tags.items() if not k.startswith("mlflux.")}
     artifacts = [f.path for f in client.list_artifacts(run_id)]
 
     RunData = namedtuple("RunData", ["params", "metrics", "tags", "artifacts"])
@@ -132,28 +132,28 @@ def get_params_to_log(estimator):
 
 
 def load_json_artifact(artifact_path):
-    fpath = mlflow.get_artifact_uri(artifact_path).replace("file://", "")
+    fpath = mlflux.get_artifact_uri(artifact_path).replace("file://", "")
     with open(fpath, "r") as f:
         return json.load(f)
 
 
 def load_json_csv(artifact_path):
-    fpath = mlflow.get_artifact_uri(artifact_path).replace("file://", "")
+    fpath = mlflux.get_artifact_uri(artifact_path).replace("file://", "")
     return pd.read_csv(fpath)
 
 
 def load_model_by_run_id(run_id, model_dir=MODEL_DIR):
-    return mlflow.spark.load_model("runs:/{}/{}".format(run_id, model_dir))
+    return mlflux.spark.load_model("runs:/{}/{}".format(run_id, model_dir))
 
 
 def test_basic_estimator(dataset_binomial):
-    mlflow.pyspark.ml.autolog()
+    mlflux.pyspark.ml.autolog()
 
     for estimator in [
         LinearRegression(),
         MultilayerPerceptronClassifier(layers=[2, 2, 2], seed=123, blockSize=1),
     ]:
-        with mlflow.start_run() as run:
+        with mlflux.start_run() as run:
             model = estimator.fit(dataset_binomial)
         run_id = run.info.run_id
         run_data = get_run_data(run_id)
@@ -173,7 +173,7 @@ def test_basic_estimator(dataset_binomial):
     Version(pyspark.__version__) < Version("3.1"), reason="This test require spark version >= 3.1",
 )
 def test_models_in_allowlist_exist(spark_session):  # pylint: disable=unused-argument
-    mlflow.pyspark.ml.autolog()  # initialize the variable `mlflow.pyspark.ml._log_model_allowlist`
+    mlflux.pyspark.ml.autolog()  # initialize the variable `mlflux.pyspark.ml._log_model_allowlist`
 
     def model_does_not_exist(model_class):
         module_name, class_name = model_class.rsplit(".", 1)
@@ -184,7 +184,7 @@ def test_models_in_allowlist_exist(spark_session):  # pylint: disable=unused-arg
             return True
 
     non_existent_classes = list(
-        filter(model_does_not_exist, mlflow.pyspark.ml._log_model_allowlist)
+        filter(model_does_not_exist, mlflux.pyspark.ml._log_model_allowlist)
     )
     assert len(non_existent_classes) == 0, "{} in log_model_allowlist don't exist".format(
         non_existent_classes
@@ -192,17 +192,17 @@ def test_models_in_allowlist_exist(spark_session):  # pylint: disable=unused-arg
 
 
 def test_autolog_does_not_terminate_active_run(dataset_binomial):
-    mlflow.pyspark.ml.autolog()
-    mlflow.start_run()
+    mlflux.pyspark.ml.autolog()
+    mlflux.start_run()
     lr = LinearRegression()
     lr.fit(dataset_binomial)
-    assert mlflow.active_run() is not None
-    mlflow.end_run()
+    assert mlflux.active_run() is not None
+    mlflux.end_run()
 
 
 def test_meta_estimator_fit(dataset_binomial):
-    mlflow.pyspark.ml.autolog()
-    with mlflow.start_run() as run:
+    mlflux.pyspark.ml.autolog()
+    with mlflux.start_run() as run:
         svc = LinearSVC()
         ova = OneVsRest(classifier=svc)
         ova_model = ova.fit(dataset_binomial)
@@ -217,15 +217,15 @@ def test_meta_estimator_fit(dataset_binomial):
 
     # assert no nested run spawned
     query = "tags.{} = '{}'".format(MLFLOW_PARENT_RUN_ID, run.info.run_id)
-    assert len(mlflow.search_runs([run.info.experiment_id])) == 1
-    assert len(mlflow.search_runs([run.info.experiment_id], query)) == 0
+    assert len(mlflux.search_runs([run.info.experiment_id])) == 1
+    assert len(mlflux.search_runs([run.info.experiment_id], query)) == 0
 
 
 def test_fit_with_params(dataset_binomial):
-    mlflow.pyspark.ml.autolog()
+    mlflux.pyspark.ml.autolog()
     lr = LinearRegression()
     extra_params = {lr.maxIter: 3, lr.standardization: False}
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         lr_model = lr.fit(dataset_binomial, params=extra_params)
     run_id = run.info.run_id
     run_data = get_run_data(run_id)
@@ -239,16 +239,16 @@ def test_fit_with_params(dataset_binomial):
 
 
 def test_fit_with_a_list_of_params(dataset_binomial):
-    mlflow.pyspark.ml.autolog()
+    mlflux.pyspark.ml.autolog()
     lr = LinearRegression()
     extra_params = {lr.maxIter: 3, lr.standardization: False}
     # Test calling fit with a list/tuple of paramMap
     for params in [[extra_params], (extra_params,)]:
-        with mock.patch("mlflow.log_params") as mock_log_params, mock.patch(
-            "mlflow.set_tags"
+        with mock.patch("mlflux.log_params") as mock_log_params, mock.patch(
+            "mlflux.set_tags"
         ) as mock_set_tags:
-            with mlflow.start_run():
-                with mock.patch("mlflow.pyspark.ml._logger.warning") as mock_warning:
+            with mlflux.start_run():
+                with mock.patch("mlflux.pyspark.ml._logger.warning") as mock_warning:
                     lr_model_iter = lr.fit(dataset_binomial, params=params)
                     mock_warning.called_once_with(
                         _get_warning_msg_for_fit_call_with_a_list_of_params(lr)
@@ -259,15 +259,15 @@ def test_fit_with_a_list_of_params(dataset_binomial):
 
 
 def test_should_log_model(dataset_binomial, dataset_multinomial, dataset_text):
-    mlflow.pyspark.ml.autolog(log_models=True)
+    mlflux.pyspark.ml.autolog(log_models=True)
     lor = LogisticRegression()
 
     ova1 = OneVsRest(classifier=lor)
-    with mlflow.start_run():
+    with mlflux.start_run():
         mlor_model = lor.fit(dataset_multinomial)
     assert _should_log_model(mlor_model)
 
-    with mlflow.start_run():
+    with mlflux.start_run():
         ova1_model = ova1.fit(dataset_multinomial)
     assert _should_log_model(ova1_model)
 
@@ -275,28 +275,28 @@ def test_should_log_model(dataset_binomial, dataset_multinomial, dataset_text):
     hashingTF = HashingTF(inputCol=tokenizer.getOutputCol(), outputCol="features")
     lr = LogisticRegression(maxIter=2)
     pipeline = Pipeline(stages=[tokenizer, hashingTF, lr])
-    with mlflow.start_run():
+    with mlflux.start_run():
         pipeline_model = pipeline.fit(dataset_text)
     assert _should_log_model(pipeline_model)
 
     nested_pipeline = Pipeline(stages=[tokenizer, Pipeline(stages=[hashingTF, lr])])
-    with mlflow.start_run():
+    with mlflux.start_run():
         nested_pipeline_model = nested_pipeline.fit(dataset_text)
     assert _should_log_model(nested_pipeline_model)
 
     with mock.patch(
-        "mlflow.pyspark.ml._log_model_allowlist",
+        "mlflux.pyspark.ml._log_model_allowlist",
         {
             "pyspark.ml.regression.LinearRegressionModel",
             "pyspark.ml.classification.OneVsRestModel",
             "pyspark.ml.pipeline.PipelineModel",
         },
-    ), mock.patch("mlflow.pyspark.ml._logger.warning") as mock_warning:
+    ), mock.patch("mlflux.pyspark.ml._logger.warning") as mock_warning:
         lr = LinearRegression()
-        with mlflow.start_run():
+        with mlflux.start_run():
             lr_model = lr.fit(dataset_binomial)
         assert _should_log_model(lr_model)
-        with mlflow.start_run():
+        with mlflux.start_run():
             lor_model = lor.fit(dataset_binomial)
         assert not _should_log_model(lor_model)
         mock_warning.called_once_with(_get_warning_msg_for_skip_log_model(lor_model))
@@ -316,8 +316,8 @@ def test_param_map_captures_wrapped_params(dataset_binomial):
     assert not param_map["LogisticRegression.standardization"]
     assert param_map["LogisticRegression.tol"] == lor.getOrDefault(lor.tol)
 
-    mlflow.pyspark.ml.autolog()
-    with mlflow.start_run() as run:
+    mlflux.pyspark.ml.autolog()
+    with mlflux.start_run() as run:
         ova.fit(dataset_binomial.withColumn("abcd", dataset_binomial.label))
         metadata = _gen_estimator_metadata(ova)
         estimator_info = load_json_artifact("estimator_info.json")
@@ -328,7 +328,7 @@ def test_param_map_captures_wrapped_params(dataset_binomial):
 
 
 def test_pipeline(dataset_text):
-    mlflow.pyspark.ml.autolog()
+    mlflux.pyspark.ml.autolog()
 
     tokenizer = Tokenizer(inputCol="text", outputCol="words")
     hashingTF = HashingTF(inputCol=tokenizer.getOutputCol(), outputCol="features")
@@ -338,7 +338,7 @@ def test_pipeline(dataset_text):
     nested_pipeline = Pipeline(stages=[tokenizer, inner_pipeline])
 
     for estimator in [pipeline, nested_pipeline]:
-        with mlflow.start_run() as run:
+        with mlflux.start_run() as run:
             model = estimator.fit(dataset_text)
             estimator_info = load_json_artifact("estimator_info.json")
             metadata = _gen_estimator_metadata(estimator)
@@ -363,7 +363,7 @@ def test_pipeline(dataset_text):
 def test_param_search_estimator(  # pylint: disable=unused-argument
     metric_name, param_search_estimator, spark_session, dataset_regression
 ):
-    mlflow.pyspark.ml.autolog()
+    mlflux.pyspark.ml.autolog()
     lr = LinearRegression(solver="l-bfgs", regParam=0.01)
     lrParamMaps = [
         {lr.maxIter: 1, lr.standardization: False},
@@ -373,7 +373,7 @@ def test_param_search_estimator(  # pylint: disable=unused-argument
     best_params = {"LinearRegression.maxIter": 200, "LinearRegression.standardization": True}
     eva = RegressionEvaluator(metricName=metric_name)
     estimator = param_search_estimator(estimator=lr, estimatorParamMaps=lrParamMaps, evaluator=eva)
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         model = estimator.fit(dataset_regression)
         estimator_info = load_json_artifact("estimator_info.json")
         metadata = _gen_estimator_metadata(estimator)
@@ -418,9 +418,9 @@ def test_param_search_estimator(  # pylint: disable=unused-argument
         "search_results.csv",
     ]
 
-    client = mlflow.tracking.MlflowClient()
+    client = mlflux.tracking.MlflowClient()
     child_runs = client.search_runs(
-        run.info.experiment_id, "tags.`mlflow.parentRunId` = '{}'".format(run_id)
+        run.info.experiment_id, "tags.`mlflux.parentRunId` = '{}'".format(run_id)
     )
     assert len(child_runs) == len(search_results)
 
@@ -435,7 +435,7 @@ def test_param_search_estimator(  # pylint: disable=unused-argument
                 for key, value in row_params.items()
             ]
         )
-        search_filter = "tags.`mlflow.parentRunId` = '{}' and {}".format(
+        search_filter = "tags.`mlflux.parentRunId` = '{}' and {}".format(
             run_id, params_search_clause
         )
         child_runs = client.search_runs(run.info.experiment_id, search_filter)
@@ -454,7 +454,7 @@ def test_param_search_estimator(  # pylint: disable=unused-argument
         )
         assert (
             child_run.data.tags.get(MLFLOW_AUTOLOGGING)
-            == mlflow.pyspark.ml.AUTOLOGGING_INTEGRATION_NAME
+            == mlflux.pyspark.ml.AUTOLOGGING_INTEGRATION_NAME
         )
 
         metric_name = estimator.getEvaluator().getMetricName()

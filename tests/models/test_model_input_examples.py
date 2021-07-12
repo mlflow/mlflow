@@ -4,11 +4,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from mlflow.models.signature import infer_signature
-from mlflow.models.utils import _Example, _read_tensor_input_from_json
-from mlflow.types.utils import TensorsNotSupportedException
-from mlflow.utils.file_utils import TempDir
-from mlflow.utils.proto_json_utils import _dataframe_from_json
+from mlflux.models.signature import infer_signature
+from mlflux.models.utils import _Example, _read_tensor_input_from_json
+from mlflux.types.utils import TensorsNotSupportedException
+from mlflux.utils.file_utils import TempDir
+from mlflux.utils.proto_json_utils import _dataframe_from_json
 
 
 @pytest.fixture

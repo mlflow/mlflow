@@ -1,4 +1,4 @@
-MLFLOW_VERSION = "1.0.0"  # we expect this model to be bound to this mlflow version.
+MLFLOW_VERSION = "1.0.0"  # we expect this model to be bound to this mlflux version.
 
 
 class PyFuncTestModel:
@@ -6,7 +6,7 @@ class PyFuncTestModel:
         self._check_version = check_version
 
     def predict(self, df):
-        from mlflow.version import VERSION
+        from mlflux.version import VERSION
 
         if self._check_version:
             assert VERSION == MLFLOW_VERSION

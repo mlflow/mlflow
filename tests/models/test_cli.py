@@ -16,12 +16,12 @@ try:
 except ImportError:
     from io import StringIO
 
-import mlflow
-from mlflow import pyfunc
-import mlflow.sklearn
-from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
-from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils import PYTHON_VERSION
+import mlflux
+from mlflux import pyfunc
+import mlflux.sklearn
+from mlflux.utils.file_utils import TempDir, path_to_local_file_uri
+from mlflux.utils.environment import _mlflow_conda_env
+from mlflux.utils import PYTHON_VERSION
 from tests.models import test_pyfunc
 from tests.helper_functions import (
     pyfunc_build_image,
@@ -31,8 +31,8 @@ from tests.helper_functions import (
     get_safe_port,
     pyfunc_serve_and_score_model,
 )
-from mlflow.protos.databricks_pb2 import ErrorCode, MALFORMED_REQUEST
-from mlflow.pyfunc.scoring_server import (
+from mlflux.protos.databricks_pb2 import ErrorCode, MALFORMED_REQUEST
+from mlflux.pyfunc.scoring_server import (
     CONTENT_TYPE_JSON_SPLIT_ORIENTED,
     CONTENT_TYPE_JSON,
     CONTENT_TYPE_CSV,
@@ -41,8 +41,8 @@ from mlflow.pyfunc.scoring_server import (
 # NB: for now, windows tests do not have conda available.
 no_conda = ["--no-conda"] if sys.platform == "win32" else []
 
-# NB: need to install mlflow since the pip version does not have mlflow models cli.
-install_mlflow = ["--install-mlflow"] if not no_conda else []
+# NB: need to install mlflux since the pip version does not have mlflux models cli.
+install_mlflow = ["--install-mlflux"] if not no_conda else []
 
 extra_options = no_conda + install_mlflow
 gunicorn_options = "--timeout 60 -w 5"
@@ -78,10 +78,10 @@ def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
         output_json_path = tmp.path("output.json")
         test_model_path = tmp.path("test_model")
         test_model_conda_path = tmp.path("conda.yml")
-        # create env with old mlflow!
+        # create env with old mlflux!
         _mlflow_conda_env(
             path=test_model_conda_path,
-            additional_pip_deps=["mlflow=={}".format(test_pyfunc.MLFLOW_VERSION)],
+            additional_pip_deps=["mlflux=={}".format(test_pyfunc.MLFLOW_VERSION)],
         )
         pyfunc.save_model(
             path=test_model_path,
@@ -92,7 +92,7 @@ def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
         # explicit json format with orient records
         p = subprocess.Popen(
             [
-                "mlflow",
+                "mlflux",
                 "models",
                 "predict",
                 "-m",
@@ -123,10 +123,10 @@ def test_mlflow_is_not_installed_unless_specified():
         fake_model_path = tmp.path("fake_model")
         fake_env_path = tmp.path("fake_env.yaml")
         _mlflow_conda_env(path=fake_env_path, install_mlflow=False)
-        mlflow.pyfunc.save_model(fake_model_path, loader_module=__name__, conda_env=fake_env_path)
-        # The following should fail because there should be no mlflow in the env:
+        mlflux.pyfunc.save_model(fake_model_path, loader_module=__name__, conda_env=fake_env_path)
+        # The following should fail because there should be no mlflux in the env:
         p = subprocess.Popen(
-            ["mlflow", "models", "predict", "-m", fake_model_path],
+            ["mlflux", "models", "predict", "-m", fake_model_path],
             stderr=subprocess.PIPE,
             cwd=tmp.path(""),
         )
@@ -135,14 +135,14 @@ def test_mlflow_is_not_installed_unless_specified():
         print(stderr)
         assert p.wait() != 0
         if PYTHON_VERSION.startswith("3"):
-            assert "ModuleNotFoundError: No module named 'mlflow'" in stderr
+            assert "ModuleNotFoundError: No module named 'mlflux'" in stderr
         else:
-            assert "ImportError: No module named mlflow.pyfunc.scoring_server" in stderr
+            assert "ImportError: No module named mlflux.pyfunc.scoring_server" in stderr
 
 
 @pytest.mark.large
 def test_model_with_no_deployable_flavors_fails_pollitely():
-    from mlflow.models import Model
+    from mlflux.models import Model
 
     with TempDir(chdr=True) as tmp:
         m = Model(
@@ -155,7 +155,7 @@ def test_model_with_no_deployable_flavors_fails_pollitely():
         m.save(tmp.path("model", "MLmodel"))
         # The following should fail because there should be no suitable flavor
         p = subprocess.Popen(
-            ["mlflow", "models", "predict", "-m", tmp.path("model")],
+            ["mlflux", "models", "predict", "-m", tmp.path("model")],
             stderr=subprocess.PIPE,
             cwd=tmp.path(""),
         )
@@ -170,8 +170,8 @@ def test_model_with_no_deployable_flavors_fails_pollitely():
 def test_serve_gunicorn_opts(iris_data, sk_model):
     if sys.platform == "win32":
         pytest.skip("This test requires gunicorn which is not available on windows.")
-    with mlflow.start_run() as active_run:
-        mlflow.sklearn.log_model(sk_model, "model", registered_model_name="imlegit")
+    with mlflux.start_run() as active_run:
+        mlflux.sklearn.log_model(sk_model, "model", registered_model_name="imlegit")
         run_id = active_run.info.run_id
 
     model_uris = [
@@ -197,7 +197,7 @@ def test_serve_gunicorn_opts(iris_data, sk_model):
         expected = sk_model.predict(x)
         assert all(expected == actual)
         expected_command_pattern = re.compile(
-            ("gunicorn.*-w 3.*mlflow.pyfunc.scoring_server.wsgi:app")
+            ("gunicorn.*-w 3.*mlflux.pyfunc.scoring_server.wsgi:app")
         )
         assert expected_command_pattern.search(stdout) is not None
 
@@ -205,8 +205,8 @@ def test_serve_gunicorn_opts(iris_data, sk_model):
 @pytest.mark.large
 def test_predict(iris_data, sk_model):
     with TempDir(chdr=True) as tmp:
-        with mlflow.start_run() as active_run:
-            mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
+        with mlflux.start_run() as active_run:
+            mlflux.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
             model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
         model_registry_uri = "models:/{name}/{stage}".format(name="impredicting", stage="None")
         input_json_path = tmp.path("input.json")
@@ -218,10 +218,10 @@ def test_predict(iris_data, sk_model):
 
         # Test with no conda & model registry URI
         env_with_tracking_uri = os.environ.copy()
-        env_with_tracking_uri.update(MLFLOW_TRACKING_URI=mlflow.get_tracking_uri())
+        env_with_tracking_uri.update(MLFLOW_TRACKING_URI=mlflux.get_tracking_uri())
         p = subprocess.Popen(
             [
-                "mlflow",
+                "mlflux",
                 "models",
                 "predict",
                 "-m",
@@ -241,10 +241,10 @@ def test_predict(iris_data, sk_model):
         expected = sk_model.predict(x)
         assert all(expected == actual)
 
-        # With conda + --install-mlflow
+        # With conda + --install-mlflux
         p = subprocess.Popen(
             [
-                "mlflow",
+                "mlflux",
                 "models",
                 "predict",
                 "-m",
@@ -266,7 +266,7 @@ def test_predict(iris_data, sk_model):
         # explicit json format with default orient (should be split)
         p = subprocess.Popen(
             [
-                "mlflow",
+                "mlflux",
                 "models",
                 "predict",
                 "-m",
@@ -290,7 +290,7 @@ def test_predict(iris_data, sk_model):
         # explicit json format with orient==split
         p = subprocess.Popen(
             [
-                "mlflow",
+                "mlflux",
                 "models",
                 "predict",
                 "-m",
@@ -315,7 +315,7 @@ def test_predict(iris_data, sk_model):
 
         # read from stdin, write to stdout.
         p = subprocess.Popen(
-            ["mlflow", "models", "predict", "-m", model_uri, "-t", "json", "--json-format", "split"]
+            ["mlflux", "models", "predict", "-m", model_uri, "-t", "json", "--json-format", "split"]
             + extra_options,
             universal_newlines=True,
             stdin=subprocess.PIPE,
@@ -337,7 +337,7 @@ def test_predict(iris_data, sk_model):
         # csv
         p = subprocess.Popen(
             [
-                "mlflow",
+                "mlflux",
                 "models",
                 "predict",
                 "-m",
@@ -365,26 +365,26 @@ def test_prepare_env_passes(sk_model):
         pytest.skip("This test requires conda.")
 
     with TempDir(chdr=True):
-        with mlflow.start_run() as active_run:
-            mlflow.sklearn.log_model(sk_model, "model")
+        with mlflux.start_run() as active_run:
+            mlflux.sklearn.log_model(sk_model, "model")
             model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
 
         # Test with no conda
         p = subprocess.Popen(
-            ["mlflow", "models", "prepare-env", "-m", model_uri, "--no-conda"],
+            ["mlflux", "models", "prepare-env", "-m", model_uri, "--no-conda"],
             stderr=subprocess.PIPE,
         )
         assert p.wait() == 0
 
         # With conda
         p = subprocess.Popen(
-            ["mlflow", "models", "prepare-env", "-m", model_uri], stderr=subprocess.PIPE
+            ["mlflux", "models", "prepare-env", "-m", model_uri], stderr=subprocess.PIPE
         )
         assert p.wait() == 0
 
         # Should be idempotent
         p = subprocess.Popen(
-            ["mlflow", "models", "prepare-env", "-m", model_uri], stderr=subprocess.PIPE
+            ["mlflux", "models", "prepare-env", "-m", model_uri], stderr=subprocess.PIPE
         )
         assert p.wait() == 0
 
@@ -395,29 +395,29 @@ def test_prepare_env_fails(sk_model):
         pytest.skip("This test requires conda.")
 
     with TempDir(chdr=True):
-        with mlflow.start_run() as active_run:
-            mlflow.sklearn.log_model(
-                sk_model, "model", conda_env={"dependencies": ["mlflow-does-not-exist-dep==abc"]}
+        with mlflux.start_run() as active_run:
+            mlflux.sklearn.log_model(
+                sk_model, "model", conda_env={"dependencies": ["mlflux-does-not-exist-dep==abc"]}
             )
             model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
 
         # Test with no conda
-        p = subprocess.Popen(["mlflow", "models", "prepare-env", "-m", model_uri, "--no-conda"])
+        p = subprocess.Popen(["mlflux", "models", "prepare-env", "-m", model_uri, "--no-conda"])
         assert p.wait() == 0
 
         # With conda - should fail due to bad conda environment.
-        p = subprocess.Popen(["mlflow", "models", "prepare-env", "-m", model_uri])
+        p = subprocess.Popen(["mlflux", "models", "prepare-env", "-m", model_uri])
         assert p.wait() != 0
 
 
 @pytest.mark.large
 def test_build_docker(iris_data, sk_model):
-    with mlflow.start_run() as active_run:
-        mlflow.sklearn.log_model(sk_model, "model")
+    with mlflux.start_run() as active_run:
+        mlflux.sklearn.log_model(sk_model, "model")
         model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
     x, _ = iris_data
     df = pd.DataFrame(x)
-    image_name = pyfunc_build_image(model_uri, extra_args=["--install-mlflow"])
+    image_name = pyfunc_build_image(model_uri, extra_args=["--install-mlflux"])
     host_port = get_safe_port()
     scoring_proc = pyfunc_serve_from_docker_image(image_name, host_port)
     _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model)
@@ -425,12 +425,12 @@ def test_build_docker(iris_data, sk_model):
 
 @pytest.mark.large
 def test_build_docker_with_env_override(iris_data, sk_model):
-    with mlflow.start_run() as active_run:
-        mlflow.sklearn.log_model(sk_model, "model")
+    with mlflux.start_run() as active_run:
+        mlflux.sklearn.log_model(sk_model, "model")
         model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
     x, _ = iris_data
     df = pd.DataFrame(x)
-    image_name = pyfunc_build_image(model_uri, extra_args=["--install-mlflow"])
+    image_name = pyfunc_build_image(model_uri, extra_args=["--install-mlflux"])
     host_port = get_safe_port()
     scoring_proc = pyfunc_serve_from_docker_image_with_env_override(
         image_name, host_port, gunicorn_options

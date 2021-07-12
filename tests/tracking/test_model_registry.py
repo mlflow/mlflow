@@ -11,10 +11,10 @@ import pytest
 import shutil
 import tempfile
 
-from mlflow.entities.model_registry import RegisteredModel
-from mlflow.exceptions import MlflowException
-from mlflow.tracking import MlflowClient
-from mlflow.utils.file_utils import path_to_local_file_uri
+from mlflux.entities.model_registry import RegisteredModel
+from mlflux.exceptions import MlflowException
+from mlflux.tracking import MlflowClient
+from mlflux.utils.file_utils import path_to_local_file_uri
 from tests.tracking.integration_test_utils import _await_server_down_or_die, _init_server
 
 # pylint: disable=unused-argument
@@ -80,7 +80,7 @@ def tracking_server_uri(backend_store_uri):
 
 @pytest.fixture()
 def mlflow_client(tracking_server_uri):
-    """Provides an MLflow Tracking API client pointed at the local tracking server."""
+    """Provides an mlflux Tracking API client pointed at the local tracking server."""
     return mock.Mock(wraps=MlflowClient(tracking_server_uri))
 
 

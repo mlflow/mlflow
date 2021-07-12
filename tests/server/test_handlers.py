@@ -5,17 +5,17 @@ import pytest
 from unittest import mock
 
 import os
-import mlflow
-from mlflow.entities import ViewType
-from mlflow.entities.model_registry import (
+import mlflux
+from mlflux.entities import ViewType
+from mlflux.entities.model_registry import (
     RegisteredModel,
     ModelVersion,
     RegisteredModelTag,
     ModelVersionTag,
 )
-from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE, ErrorCode
-from mlflow.server.handlers import (
+from mlflux.exceptions import MlflowException
+from mlflux.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE, ErrorCode
+from mlflux.server.handlers import (
     get_endpoints,
     _create_experiment,
     _get_request_message,
@@ -42,10 +42,10 @@ from mlflow.server.handlers import (
     _set_model_version_tag,
     _delete_model_version_tag,
 )
-from mlflow.server import BACKEND_STORE_URI_ENV_VAR, app
-from mlflow.store.entities.paged_list import PagedList
-from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns
-from mlflow.protos.model_registry_pb2 import (
+from mlflux.server import BACKEND_STORE_URI_ENV_VAR, app
+from mlflux.store.entities.paged_list import PagedList
+from mlflux.protos.service_pb2 import CreateExperiment, SearchRuns
+from mlflux.protos.model_registry_pb2 import (
     CreateRegisteredModel,
     UpdateRegisteredModel,
     DeleteRegisteredModel,
@@ -66,25 +66,25 @@ from mlflow.protos.model_registry_pb2 import (
     SetModelVersionTag,
     DeleteModelVersionTag,
 )
-from mlflow.utils.proto_json_utils import message_to_json
-from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
+from mlflux.utils.proto_json_utils import message_to_json
+from mlflux.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
 
 
 @pytest.fixture()
 def mock_get_request_message():
-    with mock.patch("mlflow.server.handlers._get_request_message") as m:
+    with mock.patch("mlflux.server.handlers._get_request_message") as m:
         yield m
 
 
 @pytest.fixture()
 def mock_get_request_json():
-    with mock.patch("mlflow.server.handlers._get_request_json") as m:
+    with mock.patch("mlflux.server.handlers._get_request_json") as m:
         yield m
 
 
 @pytest.fixture()
 def mock_tracking_store():
-    with mock.patch("mlflow.server.handlers._get_tracking_store") as m:
+    with mock.patch("mlflux.server.handlers._get_tracking_store") as m:
         mock_store = mock.MagicMock()
         m.return_value = mock_store
         yield mock_store
@@ -92,7 +92,7 @@ def mock_tracking_store():
 
 @pytest.fixture()
 def mock_model_registry_store():
-    with mock.patch("mlflow.server.handlers._get_model_registry_store") as m:
+    with mock.patch("mlflux.server.handlers._get_model_registry_store") as m:
         mock_store = mock.MagicMock()
         m.return_value = mock_store
         yield mock_store
@@ -216,18 +216,18 @@ def test_catch_mlflow_exception():
 
 @pytest.mark.large
 def test_mlflow_server_with_installed_plugin(tmpdir):
-    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
+    """This test requires the package in tests/resources/mlflux-test-plugin to be installed"""
     from mlflow_test_plugin.file_store import PluginFileStore
 
     env = {
         BACKEND_STORE_URI_ENV_VAR: "file-plugin:%s" % tmpdir.strpath,
     }
     with mock.patch.dict(os.environ, env):
-        mlflow.server.handlers._tracking_store = None
+        mlflux.server.handlers._tracking_store = None
         try:
-            plugin_file_store = mlflow.server.handlers._get_tracking_store()
+            plugin_file_store = mlflux.server.handlers._get_tracking_store()
         finally:
-            mlflow.server.handlers._tracking_store = None
+            mlflux.server.handlers._tracking_store = None
         assert isinstance(plugin_file_store, PluginFileStore)
         assert plugin_file_store.is_plugin
 

@@ -1,4 +1,4 @@
-import mlflow
+import mlflux
 import shap
 import sklearn
 
@@ -13,11 +13,11 @@ model.fit(X, y)
 explainer_original = shap.Explainer(model.predict, X, algorithm="permutation")
 
 # log an explainer
-with mlflow.start_run() as run:
-    mlflow.shap.log_explainer(explainer_original, artifact_path="shap_explainer")
+with mlflux.start_run() as run:
+    mlflux.shap.log_explainer(explainer_original, artifact_path="shap_explainer")
 
     # load back the explainer
-    explainer_new = mlflow.shap.load_explainer("runs:/%s/shap_explainer" % run.info.run_id)
+    explainer_new = mlflux.shap.load_explainer("runs:/%s/shap_explainer" % run.info.run_id)
 
     # run explainer on data
     shap_values = explainer_new(X[:5])

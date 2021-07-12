@@ -4,12 +4,12 @@ import posixpath
 
 from unittest import mock
 
-import mlflow
-import mlflow.pyfunc
-from mlflow.entities import FileInfo
-from mlflow.store.artifact.cli import _file_infos_to_json
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.file_utils import TempDir
+import mlflux
+import mlflux.pyfunc
+from mlflux.entities import FileInfo
+from mlflux.store.artifact.cli import _file_infos_to_json
+from mlflux.tracking.artifact_utils import _download_artifact_from_uri
+from mlflux.utils.file_utils import TempDir
 from subprocess import Popen, STDOUT, PIPE
 
 
@@ -62,7 +62,7 @@ def test_download_from_uri():
         ("s3://path/to/dir", ("s3://path/to", "dir")),
     ]
     with mock.patch(
-        "mlflow.tracking.artifact_utils.get_artifact_repository"
+        "mlflux.tracking.artifact_utils.get_artifact_repository"
     ) as get_artifact_repo_mock:
         get_artifact_repo_mock.side_effect = test_get_artifact_repository
 
@@ -72,13 +72,13 @@ def test_download_from_uri():
 
 
 def test_download_artifacts_from_uri():
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         with TempDir() as tmp:
             local_path = tmp.path("test")
             with open(local_path, "w") as f:
                 f.write("test")
-            mlflow.log_artifact(local_path, "test")
-    command = ["mlflow", "artifacts", "download", "-u"]
+            mlflux.log_artifact(local_path, "test")
+    command = ["mlflux", "artifacts", "download", "-u"]
     # Test with run uri
     run_uri = "runs:/{run_id}/test".format(run_id=run.info.run_id)
     actual_uri = posixpath.join(run.info.artifact_uri, "test")

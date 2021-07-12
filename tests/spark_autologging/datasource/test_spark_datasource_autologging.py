@@ -3,9 +3,9 @@ import time
 import pytest
 from unittest import mock
 
-import mlflow
-import mlflow.spark
-from mlflow._spark_autologging import _SPARK_TABLE_INFO_TAG_NAME
+import mlflux
+import mlflux.spark
+from mlflux._spark_autologging import _SPARK_TABLE_INFO_TAG_NAME
 
 from tests.tracking.test_rest_tracking import BACKEND_URIS
 from tests.tracking.test_rest_tracking import tracking_server_uri  # pylint: disable=unused-import
@@ -28,9 +28,9 @@ def pytest_generate_tests(metafunc):
 
 @pytest.fixture()
 def http_tracking_uri_mock():
-    mlflow.set_tracking_uri("http://some-cool-uri")
+    mlflux.set_tracking_uri("http://some-cool-uri")
     yield
-    mlflow.set_tracking_uri(None)
+    mlflux.set_tracking_uri(None)
 
 
 def _get_expected_table_info_row(path, data_format, version=None):
@@ -48,7 +48,7 @@ def _get_expected_table_info_row(path, data_format, version=None):
 
 @pytest.mark.large
 def test_autologging_of_datasources_with_different_formats(spark_session, format_to_file_path):
-    mlflow.spark.autolog()
+    mlflux.spark.autolog()
     for data_format, file_path in format_to_file_path.items():
         base_df = (
             spark_session.read.format(data_format)
@@ -70,11 +70,11 @@ def test_autologging_of_datasources_with_different_formats(spark_session, format
         ]
 
         for df in dfs:
-            with mlflow.start_run():
-                run_id = mlflow.active_run().info.run_id
+            with mlflux.start_run():
+                run_id = mlflux.active_run().info.run_id
                 df.collect()
                 time.sleep(1)
-            run = mlflow.get_run(run_id)
+            run = mlflux.get_run(run_id)
             _assert_spark_data_logged(run=run, path=file_path, data_format=data_format)
 
 
@@ -83,13 +83,13 @@ def test_autologging_does_not_throw_on_api_failures(
     spark_session, format_to_file_path, mlflow_client
 ):
     # pylint: disable=unused-argument
-    mlflow.spark.autolog()
+    mlflux.spark.autolog()
 
     def failing_req_mock(*args, **kwargs):
         raise Exception("API request failed!")
 
-    with mlflow.start_run():
-        with mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock:
+    with mlflux.start_run():
+        with mock.patch("mlflux.utils.rest_utils.http_request") as http_request_mock:
             http_request_mock.side_effect = failing_req_mock
             data_format = list(format_to_file_path.keys())[0]
             file_path = format_to_file_path[data_format]
@@ -108,7 +108,7 @@ def test_autologging_does_not_throw_on_api_failures(
 
 @pytest.mark.large
 def test_autologging_dedups_multiple_reads_of_same_datasource(spark_session, format_to_file_path):
-    mlflow.spark.autolog()
+    mlflux.spark.autolog()
     data_format = list(format_to_file_path.keys())[0]
     file_path = format_to_file_path[data_format]
     df = (
@@ -117,36 +117,36 @@ def test_autologging_dedups_multiple_reads_of_same_datasource(spark_session, for
         .option("inferSchema", "true")
         .load(file_path)
     )
-    with mlflow.start_run():
-        run_id = mlflow.active_run().info.run_id
+    with mlflux.start_run():
+        run_id = mlflux.active_run().info.run_id
         df.collect()
         df.filter("number1 > 0").collect()
         df.limit(2).collect()
         df.collect()
         time.sleep(1)
-    run = mlflow.get_run(run_id)
+    run = mlflux.get_run(run_id)
     _assert_spark_data_logged(run=run, path=file_path, data_format=data_format)
     # Test context provider flow
     df.filter("number1 > 0").collect()
     df.limit(2).collect()
     df.collect()
-    with mlflow.start_run():
-        run_id2 = mlflow.active_run().info.run_id
+    with mlflux.start_run():
+        run_id2 = mlflux.active_run().info.run_id
     time.sleep(1)
-    run2 = mlflow.get_run(run_id2)
+    run2 = mlflux.get_run(run_id2)
     _assert_spark_data_logged(run=run2, path=file_path, data_format=data_format)
 
 
 @pytest.mark.large
 def test_autologging_multiple_reads_same_run(spark_session, format_to_file_path):
-    mlflow.spark.autolog()
-    with mlflow.start_run():
+    mlflux.spark.autolog()
+    with mlflux.start_run():
         for data_format, file_path in format_to_file_path.items():
-            run_id = mlflow.active_run().info.run_id
+            run_id = mlflux.active_run().info.run_id
             df = spark_session.read.format(data_format).load(file_path)
             df.collect()
             time.sleep(1)
-        run = mlflow.get_run(run_id)
+        run = mlflux.get_run(run_id)
         assert _SPARK_TABLE_INFO_TAG_NAME in run.data.tags
         table_info_tag = run.data.tags[_SPARK_TABLE_INFO_TAG_NAME]
         assert table_info_tag == "\n".join(
@@ -159,7 +159,7 @@ def test_autologging_multiple_reads_same_run(spark_session, format_to_file_path)
 
 @pytest.mark.large
 def test_autologging_multiple_runs_same_data(spark_session, format_to_file_path):
-    mlflow.spark.autolog()
+    mlflux.spark.autolog()
     data_format = list(format_to_file_path.keys())[0]
     file_path = format_to_file_path[data_format]
     df = (
@@ -171,17 +171,17 @@ def test_autologging_multiple_runs_same_data(spark_session, format_to_file_path)
     df.collect()
 
     for _ in range(2):
-        with mlflow.start_run():
+        with mlflux.start_run():
             time.sleep(1)
-            run_id = mlflow.active_run().info.run_id
-            run = mlflow.get_run(run_id)
+            run_id = mlflux.active_run().info.run_id
+            run = mlflux.get_run(run_id)
             _assert_spark_data_logged(run=run, path=file_path, data_format=data_format)
 
 
 @pytest.mark.large
 def test_autologging_does_not_start_run(spark_session, format_to_file_path):
     try:
-        mlflow.spark.autolog()
+        mlflux.spark.autolog()
         data_format = list(format_to_file_path.keys())[0]
         file_path = format_to_file_path[data_format]
         df = (
@@ -192,19 +192,19 @@ def test_autologging_does_not_start_run(spark_session, format_to_file_path):
         )
         df.collect()
         time.sleep(1)
-        active_run = mlflow.active_run()
+        active_run = mlflux.active_run()
         assert active_run is None
-        assert len(mlflow.search_runs()) == 0
+        assert len(mlflux.search_runs()) == 0
     finally:
-        mlflow.end_run()
+        mlflux.end_run()
 
 
 @pytest.mark.large
 @pytest.mark.usefixtures("mlflow_client")
 def test_autologging_slow_api_requests(spark_session, format_to_file_path):
-    import mlflow.utils.rest_utils
+    import mlflux.utils.rest_utils
 
-    orig = mlflow.utils.rest_utils.http_request
+    orig = mlflux.utils.rest_utils.http_request
 
     def _slow_api_req_mock(*args, **kwargs):
         if kwargs.get("method") == "POST":
@@ -212,12 +212,12 @@ def test_autologging_slow_api_requests(spark_session, format_to_file_path):
             time.sleep(1)
         return orig(*args, **kwargs)
 
-    mlflow.spark.autolog()
-    with mlflow.start_run():
+    mlflux.spark.autolog()
+    with mlflux.start_run():
         # Mock slow API requests to log Spark datasource information
-        with mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock:
+        with mock.patch("mlflux.utils.rest_utils.http_request") as http_request_mock:
             http_request_mock.side_effect = _slow_api_req_mock
-            run_id = mlflow.active_run().info.run_id
+            run_id = mlflux.active_run().info.run_id
             for data_format, file_path in format_to_file_path.items():
                 df = (
                     spark_session.read.format(data_format)
@@ -234,7 +234,7 @@ def test_autologging_slow_api_requests(spark_session, format_to_file_path):
     # Python subscriber threads should pick up the active run at the time they're notified
     # & make API requests against that run, even if those requests are slow.
     time.sleep(5)
-    run = mlflow.get_run(run_id)
+    run = mlflux.get_run(run_id)
     assert _SPARK_TABLE_INFO_TAG_NAME in run.data.tags
     table_info_tag = run.data.tags[_SPARK_TABLE_INFO_TAG_NAME]
     assert table_info_tag == "\n".join(
@@ -248,4 +248,4 @@ def test_autologging_slow_api_requests(spark_session, format_to_file_path):
 @pytest.mark.large
 def test_enabling_autologging_does_not_throw_when_spark_hasnt_been_started(spark_session):
     spark_session.stop()
-    mlflow.spark.autolog()
+    mlflux.spark.autolog()

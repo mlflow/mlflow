@@ -7,10 +7,10 @@ from mxnet.gluon.nn import HybridSequential, Dense, Flatten, MaxPool2D, Conv2D
 from mxnet.metric import Accuracy
 
 # The following import and function call are the only additions to code required
-# to automatically log metrics and parameters to MLflow.
-import mlflow.gluon
+# to automatically log metrics and parameters to mlflux.
+import mlflux.gluon
 
-mlflow.gluon.autolog()
+mlflux.gluon.autolog()
 
 mnist_train = datasets.FashionMNIST(train=True)
 X, y = mnist_train[0]

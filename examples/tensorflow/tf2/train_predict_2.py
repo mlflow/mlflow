@@ -1,13 +1,13 @@
 # in case this is run outside of conda environment with python2
-import mlflow
+import mlflux
 import argparse
 import sys
-from mlflow import pyfunc
+from mlflux import pyfunc
 import pandas as pd
 import shutil
 import tempfile
 import tensorflow as tf
-import mlflow.tensorflow
+import mlflux.tensorflow
 
 TRAIN_URL = "http://download.tensorflow.org/data/iris_training.csv"
 TEST_URL = "http://download.tensorflow.org/data/iris_test.csv"
@@ -62,8 +62,8 @@ def eval_input_fn(features, labels, batch_size):
     return dataset
 
 
-# Enable auto-logging to MLflow to capture TensorBoard metrics.
-mlflow.tensorflow.autolog()
+# Enable auto-logging to mlflux to capture TensorBoard metrics.
+mlflux.tensorflow.autolog()
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--batch_size", default=100, type=int, help="batch size")
@@ -71,7 +71,7 @@ parser.add_argument("--train_steps", default=1000, type=int, help="number of tra
 
 
 def main(argv):
-    with mlflow.start_run():
+    with mlflux.start_run():
         args = parser.parse_args(argv[1:])
 
         # Fetch the data
@@ -145,9 +145,9 @@ def main(argv):
             saved_estimator_path = classifier.export_saved_model(temp, receiver_fn).decode("utf-8")
 
             # Since the model was automatically logged as an artifact (more specifically
-            # a MLflow Model), we don't need to use saved_estimator_path to load back the model.
-            # MLflow takes care of it!
-            pyfunc_model = pyfunc.load_model(mlflow.get_artifact_uri("model"))
+            # a mlflux Model), we don't need to use saved_estimator_path to load back the model.
+            # mlflux takes care of it!
+            pyfunc_model = pyfunc.load_model(mlflux.get_artifact_uri("model"))
 
             predict_data = [[5.1, 3.3, 1.7, 0.5], [5.9, 3.0, 4.2, 1.5], [6.9, 3.1, 5.4, 2.1]]
             df = pd.DataFrame(

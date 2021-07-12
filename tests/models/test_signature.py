@@ -3,9 +3,9 @@ import numpy as np
 import pandas as pd
 import pyspark
 
-from mlflow.models.signature import ModelSignature, infer_signature
-from mlflow.types import DataType
-from mlflow.types.schema import Schema, ColSpec, TensorSpec
+from mlflux.models.signature import ModelSignature, infer_signature
+from mlflux.types import DataType
+from mlflux.types.schema import Schema, ColSpec, TensorSpec
 
 
 def test_model_signature_with_colspec():

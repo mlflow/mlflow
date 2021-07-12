@@ -6,10 +6,10 @@ from keras.models import Sequential
 import numpy as np
 import pytest
 
-import mlflow
-import mlflow.spark
-import mlflow.keras
-import mlflow.tensorflow
+import mlflux
+import mlflux.spark
+import mlflux.keras
+import mlflux.tensorflow
 
 from tests.spark_autologging.utils import _assert_spark_data_logged
 from tests.spark_autologging.utils import spark_session  # pylint: disable=unused-import
@@ -19,9 +19,9 @@ from tests.spark_autologging.utils import file_path, data_format  # pylint: disa
 
 @pytest.fixture()
 def http_tracking_uri_mock():
-    mlflow.set_tracking_uri("http://some-cool-uri")
+    mlflux.set_tracking_uri("http://some-cool-uri")
     yield
-    mlflow.set_tracking_uri(None)
+    mlflux.set_tracking_uri(None)
 
 
 def _fit_keras(pandas_df, epochs):
@@ -35,30 +35,30 @@ def _fit_keras(pandas_df, epochs):
     # the Python-side event handler to run & log a tag to the current active run.
     # This race condition (& the risk of dropping datasource read events for short-lived runs)
     # is known and documented in
-    # https://mlflow.org/docs/latest/python_api/mlflow.spark.html#mlflow.spark.autolog
+    # https://mlflux.org/docs/latest/python_api/mlflux.spark.html#mlflux.spark.autolog
     time.sleep(5)
 
 
 def _fit_keras_model_with_active_run(pandas_df, epochs):
-    run_id = mlflow.active_run().info.run_id
+    run_id = mlflux.active_run().info.run_id
     _fit_keras(pandas_df, epochs)
     run_id = run_id
-    return mlflow.get_run(run_id)
+    return mlflux.get_run(run_id)
 
 
 def _fit_keras_model_no_active_run(pandas_df, epochs):
-    orig_runs = mlflow.search_runs()
+    orig_runs = mlflux.search_runs()
     orig_run_ids = set(orig_runs["run_id"])
     _fit_keras(pandas_df, epochs)
-    new_runs = mlflow.search_runs()
+    new_runs = mlflux.search_runs()
     new_run_ids = set(new_runs["run_id"])
     assert len(new_run_ids) == len(orig_run_ids) + 1
     run_id = (new_run_ids - orig_run_ids).pop()
-    return mlflow.get_run(run_id)
+    return mlflux.get_run(run_id)
 
 
 def _fit_keras_model(pandas_df, epochs):
-    active_run = mlflow.active_run()
+    active_run = mlflux.active_run()
     if active_run:
         return _fit_keras_model_with_active_run(pandas_df, epochs)
     else:
@@ -67,9 +67,9 @@ def _fit_keras_model(pandas_df, epochs):
 
 @pytest.mark.large
 def test_spark_autologging_with_keras_autologging(spark_session, data_format, file_path):
-    assert mlflow.active_run() is None
-    mlflow.spark.autolog()
-    mlflow.keras.autolog()
+    assert mlflux.active_run() is None
+    mlflux.spark.autolog()
+    mlflux.keras.autolog()
     df = (
         spark_session.read.format(data_format)
         .option("header", "true")
@@ -80,13 +80,13 @@ def test_spark_autologging_with_keras_autologging(spark_session, data_format, fi
     pandas_df = df.toPandas()
     run = _fit_keras_model(pandas_df, epochs=1)
     _assert_spark_data_logged(run, file_path, data_format)
-    assert mlflow.active_run() is None
+    assert mlflux.active_run() is None
 
 
 @pytest.mark.large
 def test_spark_keras_autologging_context_provider(spark_session, data_format, file_path):
-    mlflow.spark.autolog()
-    mlflow.keras.autolog()
+    mlflux.spark.autolog()
+    mlflux.keras.autolog()
 
     df = (
         spark_session.read.format(data_format)
@@ -99,25 +99,25 @@ def test_spark_keras_autologging_context_provider(spark_session, data_format, fi
 
     # DF info should be logged to the first run (it should be added to our context provider after
     # the toPandas() call above & then logged here)
-    with mlflow.start_run():
+    with mlflux.start_run():
         run = _fit_keras_model(pandas_df, epochs=1)
     _assert_spark_data_logged(run, file_path, data_format)
 
-    with mlflow.start_run():
+    with mlflux.start_run():
         pandas_df2 = df.filter("number1 > 0").toPandas()
         run2 = _fit_keras_model(pandas_df2, epochs=1)
     assert run2.info.run_id != run.info.run_id
     _assert_spark_data_logged(run2, file_path, data_format)
     time.sleep(1)
-    assert mlflow.active_run() is None
+    assert mlflux.active_run() is None
 
 
 @pytest.mark.large
 def test_spark_and_keras_autologging_all_runs_managed(spark_session, data_format, file_path):
-    mlflow.spark.autolog()
-    mlflow.keras.autolog()
+    mlflux.spark.autolog()
+    mlflux.keras.autolog()
     for _ in range(2):
-        with mlflow.start_run():
+        with mlflux.start_run():
             df = (
                 spark_session.read.format(data_format)
                 .option("header", "true")
@@ -128,4 +128,4 @@ def test_spark_and_keras_autologging_all_runs_managed(spark_session, data_format
             pandas_df = df.toPandas()
             run = _fit_keras_model(pandas_df, epochs=1)
         _assert_spark_data_logged(run, file_path, data_format)
-    assert mlflow.active_run() is None
+    assert mlflux.active_run() is None

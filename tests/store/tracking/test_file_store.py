@@ -11,7 +11,7 @@ import uuid
 import pytest
 from unittest import mock
 
-from mlflow.entities import (
+from mlflux.entities import (
     Metric,
     Param,
     RunTag,
@@ -21,11 +21,11 @@ from mlflow.entities import (
     RunData,
     ExperimentTag,
 )
-from mlflow.exceptions import MlflowException, MissingConfigException
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.store.tracking.file_store import FileStore
-from mlflow.utils.file_utils import write_yaml, read_yaml, path_to_local_file_uri, TempDir
-from mlflow.protos.databricks_pb2 import (
+from mlflux.exceptions import MlflowException, MissingConfigException
+from mlflux.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflux.store.tracking.file_store import FileStore
+from mlflux.utils.file_utils import write_yaml, read_yaml, path_to_local_file_uri, TempDir
+from mlflux.protos.databricks_pb2 import (
     ErrorCode,
     RESOURCE_DOES_NOT_EXIST,
     INTERNAL_ERROR,
@@ -35,7 +35,7 @@ from mlflow.protos.databricks_pb2 import (
 from tests.helper_functions import random_int, random_str, safe_edit_yaml
 from tests.store.tracking import AbstractStoreTest
 
-FILESTORE_PACKAGE = "mlflow.store.tracking.file_store"
+FILESTORE_PACKAGE = "mlflux.store.tracking.file_store"
 
 
 class TestFileStore(unittest.TestCase, AbstractStoreTest):

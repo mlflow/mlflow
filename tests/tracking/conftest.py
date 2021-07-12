@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-import mlflow
+import mlflux
 
 
 @pytest.fixture
@@ -16,4 +16,4 @@ def tmp_wkdir(tmpdir):
 @pytest.fixture
 def reset_active_experiment():
     yield
-    mlflow.tracking.fluent._active_experiment_id = None
+    mlflux.tracking.fluent._active_experiment_id = None

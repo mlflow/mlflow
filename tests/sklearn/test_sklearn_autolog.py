@@ -13,22 +13,22 @@ import sklearn.datasets
 import sklearn.model_selection
 from scipy.stats import uniform
 
-from mlflow.exceptions import MlflowException
-from mlflow.models import Model
-from mlflow.models.signature import infer_signature
-from mlflow.models.utils import _read_example
-import mlflow.sklearn
-from mlflow.entities import RunStatus
-from mlflow.sklearn.utils import (
+from mlflux.exceptions import MlflowException
+from mlflux.models import Model
+from mlflux.models.signature import infer_signature
+from mlflux.models.utils import _read_example
+import mlflux.sklearn
+from mlflux.entities import RunStatus
+from mlflux.sklearn.utils import (
     _is_supported_version,
     _is_metric_supported,
     _is_plotting_supported,
     _get_arg_names,
     _log_child_runs_info,
 )
-from mlflow.utils import _truncate_dict
-from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
-from mlflow.utils.validation import (
+from mlflux.utils import _truncate_dict
+from mlflux.utils.mlflow_tags import MLFLOW_AUTOLOGGING
+from mlflux.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
     MAX_METRICS_PER_BATCH,
     MAX_PARAM_VAL_LENGTH,
@@ -68,20 +68,20 @@ def fit_model(model, X, y, fit_func_name):
 
 
 def get_run(run_id):
-    return mlflow.tracking.MlflowClient().get_run(run_id)
+    return mlflux.tracking.MlflowClient().get_run(run_id)
 
 
 def get_run_data(run_id):
-    client = mlflow.tracking.MlflowClient()
+    client = mlflux.tracking.MlflowClient()
     data = client.get_run(run_id).data
-    # Ignore tags mlflow logs by default (e.g. "mlflow.user")
-    tags = {k: v for k, v in data.tags.items() if not k.startswith("mlflow.")}
+    # Ignore tags mlflux logs by default (e.g. "mlflux.user")
+    tags = {k: v for k, v in data.tags.items() if not k.startswith("mlflux.")}
     artifacts = [f.path for f in client.list_artifacts(run_id)]
     return data.params, data.metrics, tags, artifacts
 
 
 def load_model_by_run_id(run_id):
-    return mlflow.sklearn.load_model("runs:/{}/{}".format(run_id, MODEL_DIR))
+    return mlflux.sklearn.load_model("runs:/{}/{}".format(run_id, MODEL_DIR))
 
 
 def get_model_conf(artifact_uri, model_subpath=MODEL_DIR):
@@ -134,9 +134,9 @@ def test_autolog_preserves_original_function_attributes():
                 attrs[method_name] = get_func_attrs(attr)
         return attrs
 
-    before = [get_cls_attrs(cls) for _, cls in mlflow.sklearn.utils._all_estimators()]
-    mlflow.sklearn.autolog()
-    after = [get_cls_attrs(cls) for _, cls in mlflow.sklearn.utils._all_estimators()]
+    before = [get_cls_attrs(cls) for _, cls in mlflux.sklearn.utils._all_estimators()]
+    mlflux.sklearn.autolog()
+    after = [get_cls_attrs(cls) for _, cls in mlflux.sklearn.utils._all_estimators()]
 
     for b, a in zip(before, after):
         assert b == a
@@ -146,7 +146,7 @@ def test_autolog_throws_error_with_negative_max_tuning_runs():
     with pytest.raises(
         MlflowException, match="`max_tuning_runs` must be non-negative, instead got -1."
     ):
-        mlflow.sklearn.autolog(max_tuning_runs=-1)
+        mlflux.sklearn.autolog(max_tuning_runs=-1)
 
 
 @pytest.mark.parametrize(
@@ -161,7 +161,7 @@ def test_autolog_throws_error_with_negative_max_tuning_runs():
     ],
 )
 def test_autolog_max_tuning_runs_logs_info_correctly(max_tuning_runs, total_runs, output_statment):
-    with mock.patch("mlflow.sklearn.utils._logger.info") as mock_info:
+    with mock.patch("mlflux.sklearn.utils._logger.info") as mock_info:
         _log_child_runs_info(max_tuning_runs, total_runs)
         mock_info.assert_called_once()
         mock_info.called_once_with(output_statment)
@@ -174,25 +174,25 @@ def test_autolog_emits_warning_on_unsupported_versions_of_sklearn():
     with pytest.warns(
         UserWarning, match="Autologging utilities may not work properly on scikit-learn"
     ):
-        mlflow.sklearn.autolog()
+        mlflux.sklearn.autolog()
 
 
 def test_autolog_does_not_terminate_active_run():
-    mlflow.sklearn.autolog()
-    mlflow.start_run()
+    mlflux.sklearn.autolog()
+    mlflux.start_run()
     sklearn.cluster.KMeans().fit(*get_iris())
-    assert mlflow.active_run() is not None
-    mlflow.end_run()
+    assert mlflux.active_run() is not None
+    mlflux.end_run()
 
 
 def test_estimator(fit_func_name):
-    mlflow.sklearn.autolog()
+    mlflux.sklearn.autolog()
 
     # use `KMeans` because it implements `fit`, `fit_transform`, and `fit_predict`.
     model = sklearn.cluster.KMeans()
     X, y = get_iris()
 
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         model = fit_model(model, X, y, fit_func_name)
 
     run_id = run.info.run_id
@@ -207,7 +207,7 @@ def test_estimator(fit_func_name):
 
 
 def test_classifier_binary():
-    mlflow.sklearn.autolog()
+    mlflux.sklearn.autolog()
     # use RandomForestClassifier that has method [predict_proba], so that we can test
     # logging of (1) log_loss and (2) roc_auc_score.
     model = sklearn.ensemble.RandomForestClassifier(max_depth=2, random_state=0, n_estimators=10)
@@ -215,7 +215,7 @@ def test_classifier_binary():
     # use binary datasets to cover the test for roc curve & precision recall curve
     X, y_true = sklearn.datasets.load_breast_cancer(return_X_y=True)
 
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         model = fit_model(model, X, y_true, "fit")
 
     y_pred = model.predict(X)
@@ -247,7 +247,7 @@ def test_classifier_binary():
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
 
-    client = mlflow.tracking.MlflowClient()
+    client = mlflux.tracking.MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id)]
 
     plot_names = []
@@ -269,7 +269,7 @@ def test_classifier_binary():
 
 
 def test_classifier_multi_class():
-    mlflow.sklearn.autolog()
+    mlflux.sklearn.autolog()
     # use RandomForestClassifier that has method [predict_proba], so that we can test
     # logging of (1) log_loss and (2) roc_auc_score.
     model = sklearn.ensemble.RandomForestClassifier(max_depth=2, random_state=0, n_estimators=10)
@@ -277,7 +277,7 @@ def test_classifier_multi_class():
     # use multi-class datasets to verify that roc curve & precision recall curve care not recorded
     X, y_true = get_iris()
 
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         model = fit_model(model, X, y_true, "fit")
 
     y_pred = model.predict(X)
@@ -307,7 +307,7 @@ def test_classifier_multi_class():
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
 
-    client = mlflow.tracking.MlflowClient()
+    client = mlflux.tracking.MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id)]
 
     plot_names = []
@@ -321,12 +321,12 @@ def test_classifier_multi_class():
 
 
 def test_regressor():
-    mlflow.sklearn.autolog()
+    mlflux.sklearn.autolog()
     # use simple `LinearRegression`, which only implements `fit`.
     model = sklearn.linear_model.LinearRegression()
     X, y_true = get_iris()
 
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         model = fit_model(model, X, y_true, "fit")
 
     y_pred = model.predict(X)
@@ -349,7 +349,7 @@ def test_regressor():
 
 
 def test_meta_estimator():
-    mlflow.sklearn.autolog()
+    mlflux.sklearn.autolog()
 
     estimators = [
         ("std_scaler", sklearn.preprocessing.StandardScaler()),
@@ -358,7 +358,7 @@ def test_meta_estimator():
     model = sklearn.pipeline.Pipeline(estimators)
     X, y = get_iris()
 
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         model.fit(X, y)
 
     run_id = run.info.run_id
@@ -371,13 +371,13 @@ def test_meta_estimator():
 
 
 def test_get_params_returns_dict_that_has_more_keys_than_max_params_tags_per_batch():
-    mlflow.sklearn.autolog()
+    mlflux.sklearn.autolog()
 
     large_params = {str(i): str(i) for i in range(MAX_PARAMS_TAGS_PER_BATCH + 1)}
     X, y = get_iris()
 
     with mock.patch("sklearn.cluster.KMeans.get_params", return_value=large_params):
-        with mlflow.start_run() as run:
+        with mlflux.start_run() as run:
             model = sklearn.cluster.KMeans()
             model.fit(X, y)
 
@@ -406,13 +406,13 @@ def test_get_params_returns_dict_that_has_more_keys_than_max_params_tags_per_bat
     ],
 )
 def test_get_params_returns_dict_whose_key_or_value_exceeds_length_limit(long_params, messages):
-    mlflow.sklearn.autolog()
+    mlflux.sklearn.autolog()
 
     X, y = get_iris()
 
     with mock.patch("sklearn.cluster.KMeans.get_params", return_value=long_params), mock.patch(
-        "mlflow.utils._logger.warning"
-    ) as mock_warning, mlflow.start_run() as run:
+        "mlflux.utils._logger.warning"
+    ) as mock_warning, mlflux.start_run() as run:
         model = sklearn.cluster.KMeans()
         model.fit(X, y)
 
@@ -431,12 +431,12 @@ def test_get_params_returns_dict_whose_key_or_value_exceeds_length_limit(long_pa
 
 @pytest.mark.parametrize("Xy_passed_as", ["only_y_kwarg", "both_kwarg", "both_kwargs_swapped"])
 def test_fit_takes_Xy_as_keyword_arguments(Xy_passed_as):
-    mlflow.sklearn.autolog()
+    mlflux.sklearn.autolog()
 
     model = sklearn.cluster.KMeans()
     X, y = get_iris()
 
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         if Xy_passed_as == "only_y_kwarg":
             model.fit(X, y=y)
         elif Xy_passed_as == "both_kwarg":
@@ -454,7 +454,7 @@ def test_fit_takes_Xy_as_keyword_arguments(Xy_passed_as):
 
 
 def test_call_fit_with_arguments_score_does_not_accept():
-    mlflow.sklearn.autolog()
+    mlflux.sklearn.autolog()
 
     from sklearn.linear_model import SGDRegressor
 
@@ -473,7 +473,7 @@ def test_call_fit_with_arguments_score_does_not_accept():
     model = SGDRegressor()
     X, y = get_iris()
 
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         model.fit(X, y, intercept_init=0)
         mock_obj.assert_called_once_with(X, y, None)
 
@@ -488,7 +488,7 @@ def test_call_fit_with_arguments_score_does_not_accept():
 
 @pytest.mark.parametrize("sample_weight_passed_as", ["positional", "keyword"])
 def test_both_fit_and_score_contain_sample_weight(sample_weight_passed_as):
-    mlflow.sklearn.autolog()
+    mlflux.sklearn.autolog()
 
     from sklearn.linear_model import SGDRegressor
 
@@ -509,7 +509,7 @@ def test_both_fit_and_score_contain_sample_weight(sample_weight_passed_as):
     X, y = get_iris()
     sample_weight = abs(np.random.randn(len(X)))
 
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         if sample_weight_passed_as == "positional":
             model.fit(X, y, None, None, sample_weight)
         elif sample_weight_passed_as == "keyword":
@@ -526,7 +526,7 @@ def test_both_fit_and_score_contain_sample_weight(sample_weight_passed_as):
 
 
 def test_only_fit_contains_sample_weight():
-    mlflow.sklearn.autolog()
+    mlflux.sklearn.autolog()
 
     from sklearn.linear_model import RANSACRegressor
 
@@ -545,7 +545,7 @@ def test_only_fit_contains_sample_weight():
     model = RANSACRegressor()
     X, y = get_iris()
 
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         model.fit(X, y)
         mock_obj.assert_called_once_with(X, y)
 
@@ -559,7 +559,7 @@ def test_only_fit_contains_sample_weight():
 
 
 def test_only_score_contains_sample_weight():
-    mlflow.sklearn.autolog()
+    mlflux.sklearn.autolog()
 
     from sklearn.gaussian_process import GaussianProcessRegressor
 
@@ -578,7 +578,7 @@ def test_only_score_contains_sample_weight():
     model = GaussianProcessRegressor()
     X, y = get_iris()
 
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         model.fit(X, y)
         mock_obj.assert_called_once_with(X, y, None)
 
@@ -592,30 +592,30 @@ def test_only_score_contains_sample_weight():
 
 
 def test_autolog_terminates_run_when_active_run_does_not_exist_and_fit_fails():
-    mlflow.sklearn.autolog()
+    mlflux.sklearn.autolog()
 
     with pytest.raises(ValueError, match="Penalty term must be positive"):
         sklearn.svm.LinearSVC(C=-1).fit(*get_iris())
 
-    latest_run = mlflow.search_runs().iloc[0]
-    assert mlflow.active_run() is None
+    latest_run = mlflux.search_runs().iloc[0]
+    assert mlflux.active_run() is None
     assert latest_run.status == "FAILED"
 
 
 def test_autolog_does_not_terminate_run_when_active_run_exists_and_fit_fails():
-    mlflow.sklearn.autolog()
-    run = mlflow.start_run()
+    mlflux.sklearn.autolog()
+    run = mlflux.start_run()
 
     with pytest.raises(ValueError, match="Penalty term must be positive"):
         sklearn.svm.LinearSVC(C=-1).fit(*get_iris())
 
-    assert mlflow.active_run() is not None
-    assert mlflow.active_run() is run
-    mlflow.end_run()
+    assert mlflux.active_run() is not None
+    assert mlflux.active_run() is run
+    mlflux.end_run()
 
 
 def test_autolog_emits_warning_message_when_score_fails():
-    mlflow.sklearn.autolog()
+    mlflux.sklearn.autolog()
 
     model = sklearn.cluster.KMeans()
 
@@ -625,7 +625,7 @@ def test_autolog_emits_warning_message_when_score_fails():
 
     model.score = throwing_score
 
-    with mlflow.start_run(), mock.patch("mlflow.sklearn.utils._logger.warning") as mock_warning:
+    with mlflux.start_run(), mock.patch("mlflux.sklearn.utils._logger.warning") as mock_warning:
         model.fit(*get_iris())
         mock_warning.assert_called_once()
         mock_warning.called_once_with(
@@ -638,7 +638,7 @@ def test_autolog_emits_warning_message_when_metric_fails():
     """
     Take precision_score metric from SVC as an example to test metric logging failure
     """
-    mlflow.sklearn.autolog()
+    mlflux.sklearn.autolog()
 
     model = sklearn.svm.SVC()
 
@@ -646,8 +646,8 @@ def test_autolog_emits_warning_message_when_metric_fails():
     def throwing_metrics(y_true, y_pred):  # pylint: disable=unused-argument
         raise Exception("EXCEPTION")
 
-    with mlflow.start_run(), mock.patch(
-        "mlflow.sklearn.utils._logger.warning"
+    with mlflux.start_run(), mock.patch(
+        "mlflux.sklearn.utils._logger.warning"
     ) as mock_warning, mock.patch("sklearn.metrics.precision_score", side_effect=throwing_metrics):
         model.fit(*get_iris())
         mock_warning.assert_called_once()
@@ -667,7 +667,7 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
     """
     from sklearn.exceptions import NotFittedError
 
-    mlflow.sklearn.autolog()
+    mlflux.sklearn.autolog()
 
     metrics_size = 2
     metrics_to_log = {
@@ -675,7 +675,7 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
         for i in range(metrics_size)
     }
 
-    with mlflow.start_run(), mock.patch("mlflow.sklearn.utils._logger.warning") as mock_warning:
+    with mlflux.start_run(), mock.patch("mlflux.sklearn.utils._logger.warning") as mock_warning:
         svc = sklearn.svm.SVC()
         cv_model = sklearn.model_selection.GridSearchCV(
             svc, {"C": [1]}, n_jobs=1, scoring=metrics_to_log, refit=False
@@ -695,7 +695,7 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
         # If `_is_plotting_supported` returns True (meaning sklearn version is >= 0.22.0),
         # `mock_warning` should have been called twice, once for metrics, once for artifacts.
         # Otherwise, only once for metrics.
-        call_count_expected = 2 if mlflow.sklearn.utils._is_plotting_supported() else 1
+        call_count_expected = 2 if mlflux.sklearn.utils._is_plotting_supported() else 1
         assert call_count == call_count_expected
 
 
@@ -711,7 +711,7 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
 def test_parameter_search_estimators_produce_expected_outputs(
     cv_class, search_space, backend, max_tuning_runs
 ):
-    mlflow.sklearn.autolog(
+    mlflux.sklearn.autolog(
         log_input_examples=True, log_model_signatures=True, max_tuning_runs=max_tuning_runs,
     )
 
@@ -726,7 +726,7 @@ def test_parameter_search_estimators_produce_expected_outputs(
             with sklearn.utils.parallel_backend(backend=backend):
                 cv_model.fit(X, y)
 
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         train_cv_model()
         run_id = run.info.run_id
 
@@ -748,9 +748,9 @@ def test_parameter_search_estimators_produce_expected_outputs(
     assert "best_estimator" in artifacts
     assert "cv_results.csv" in artifacts
 
-    best_estimator = mlflow.sklearn.load_model("runs:/{}/best_estimator".format(run_id))
+    best_estimator = mlflux.sklearn.load_model("runs:/{}/best_estimator".format(run_id))
     assert isinstance(best_estimator, sklearn.svm.SVC)
-    cv_model = mlflow.sklearn.load_model("runs:/{}/{}".format(run_id, MODEL_DIR))
+    cv_model = mlflux.sklearn.load_model("runs:/{}/{}".format(run_id, MODEL_DIR))
     assert isinstance(cv_model, cv_class)
 
     # Ensure that a signature and input example are produced for the best estimator
@@ -761,9 +761,9 @@ def test_parameter_search_estimators_produce_expected_outputs(
     input_example = _read_example(best_estimator_conf, best_estimator_path)
     best_estimator.predict(input_example)  # Ensure that input example evaluation succeeds
 
-    client = mlflow.tracking.MlflowClient()
+    client = mlflux.tracking.MlflowClient()
     child_runs = client.search_runs(
-        run.info.experiment_id, "tags.`mlflow.parentRunId` = '{}'".format(run_id)
+        run.info.experiment_id, "tags.`mlflux.parentRunId` = '{}'".format(run_id)
     )
     cv_results = pd.DataFrame.from_dict(cv_model.cv_results_)
     num_total_results = len(cv_results)
@@ -780,13 +780,13 @@ def test_parameter_search_estimators_produce_expected_outputs(
         assert len(child_runs) + num_rest == num_total_results
 
     # Verify that the best max_tuning_runs of parameter search results
-    # have a corresponding MLflow run with the expected data
+    # have a corresponding mlflux run with the expected data
     for _, result in cv_results_best_n_df.iterrows():
         result_params = result.get("params", {})
         params_search_clause = " and ".join(
             ["params.`{}` = '{}'".format(key, value) for key, value in result_params.items()]
         )
-        search_filter = "tags.`mlflow.parentRunId` = '{}' and {}".format(
+        search_filter = "tags.`mlflux.parentRunId` = '{}' and {}".format(
             run_id, params_search_clause
         )
         child_runs = client.search_runs(run.info.experiment_id, search_filter)
@@ -795,7 +795,7 @@ def test_parameter_search_estimators_produce_expected_outputs(
         assert child_run.info.status == RunStatus.to_string(RunStatus.FINISHED)
         _, child_metrics, child_tags, _ = get_run_data(child_run.info.run_id)
         assert child_tags == get_expected_class_tags(svc)
-        assert child_run.data.tags.get(MLFLOW_AUTOLOGGING) == mlflow.sklearn.FLAVOR_NAME
+        assert child_run.data.tags.get(MLFLOW_AUTOLOGGING) == mlflux.sklearn.FLAVOR_NAME
         assert "mean_test_score" in child_metrics.keys()
         assert "std_test_score" in child_metrics.keys()
         # Ensure that we do not capture separate metrics for each cross validation split, which
@@ -803,13 +803,13 @@ def test_parameter_search_estimators_produce_expected_outputs(
         assert len([metric for metric in child_metrics.keys() if metric.startswith("split")]) == 0
 
     # Verify that the rest of the parameter search results do not have
-    # a corresponding MLflow run.
+    # a corresponding mlflux run.
     for _, result in cv_results_rest_df.iterrows():
         result_params = result.get("params", {})
         params_search_clause = " and ".join(
             ["params.`{}` = '{}'".format(key, value) for key, value in result_params.items()]
         )
-        search_filter = "tags.`mlflow.parentRunId` = '{}' and {}".format(
+        search_filter = "tags.`mlflux.parentRunId` = '{}' and {}".format(
             run_id, params_search_clause
         )
         child_runs = client.search_runs(run.info.experiment_id, search_filter)
@@ -817,7 +817,7 @@ def test_parameter_search_estimators_produce_expected_outputs(
 
 
 def test_parameter_search_handles_large_volume_of_metric_outputs():
-    mlflow.sklearn.autolog()
+    mlflux.sklearn.autolog()
 
     metrics_size = MAX_METRICS_PER_BATCH + 10
     metrics_to_log = {
@@ -825,7 +825,7 @@ def test_parameter_search_handles_large_volume_of_metric_outputs():
         for i in range(metrics_size)
     }
 
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         svc = sklearn.svm.SVC()
         cv_model = sklearn.model_selection.GridSearchCV(
             svc, {"C": [1]}, n_jobs=1, scoring=metrics_to_log, refit=False
@@ -833,9 +833,9 @@ def test_parameter_search_handles_large_volume_of_metric_outputs():
         cv_model.fit(*get_iris())
         run_id = run.info.run_id
 
-    client = mlflow.tracking.MlflowClient()
+    client = mlflux.tracking.MlflowClient()
     child_runs = client.search_runs(
-        run.info.experiment_id, "tags.`mlflow.parentRunId` = '{}'".format(run_id)
+        run.info.experiment_id, "tags.`mlflux.parentRunId` = '{}'".format(run_id)
     )
     assert len(child_runs) == 1
     child_run = child_runs[0]
@@ -845,20 +845,20 @@ def test_parameter_search_handles_large_volume_of_metric_outputs():
 
 @pytest.mark.parametrize("data_type", [pd.DataFrame, np.array])
 def test_autolog_logs_signature_and_input_example(data_type):
-    mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
+    mlflux.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
 
     X, y = get_iris()
     X = data_type(X)
     y = data_type(y)
     model = sklearn.linear_model.LinearRegression()
 
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         model.fit(X, y)
         model_path = os.path.join(run.info.artifact_uri, MODEL_DIR)
 
     model_conf = get_model_conf(run.info.artifact_uri)
     input_example = _read_example(model_conf, model_path)
-    pyfunc_model = mlflow.pyfunc.load_model(model_path)
+    pyfunc_model = mlflux.pyfunc.load_model(model_path)
 
     assert model_conf.signature == infer_signature(X, model.predict(X[:5]))
 
@@ -900,10 +900,10 @@ def test_autolog_does_not_throw_when_failing_to_sample_X():
     with pytest.raises(IndexError, match="DO NOT SLICE ME"):
         _ = throwing_X[:5]
 
-    mlflow.sklearn.autolog()
+    mlflux.sklearn.autolog()
     model = sklearn.linear_model.LinearRegression()
 
-    with mlflow.start_run() as run, mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
+    with mlflux.start_run() as run, mock.patch("mlflux.sklearn._logger.warning") as mock_warning:
         model.fit(throwing_X, y)
 
     model_conf = get_model_conf(run.info.artifact_uri)
@@ -917,13 +917,13 @@ def test_autolog_does_not_throw_when_failing_to_sample_X():
 def test_autolog_logs_signature_only_when_estimator_defines_predict():
     from sklearn.cluster import AgglomerativeClustering
 
-    mlflow.sklearn.autolog(log_model_signatures=True)
+    mlflux.sklearn.autolog(log_model_signatures=True)
 
     X, y = get_iris()
     model = AgglomerativeClustering()
     assert not hasattr(model, "predict")
 
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         model.fit(X, y)
 
     model_conf = get_model_conf(run.info.artifact_uri)
@@ -934,10 +934,10 @@ def test_autolog_does_not_throw_when_predict_fails():
     X, y = get_iris()
 
     # Note that `mock_warning` will be called twice because if `predict` throws, `score` also throws
-    with mlflow.start_run() as run, mock.patch(
+    with mlflux.start_run() as run, mock.patch(
         "sklearn.linear_model.LinearRegression.predict", side_effect=Exception("Failed")
-    ), mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
-        mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
+    ), mock.patch("mlflux.sklearn._logger.warning") as mock_warning:
+        mlflux.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
 
@@ -949,10 +949,10 @@ def test_autolog_does_not_throw_when_predict_fails():
 def test_autolog_does_not_throw_when_infer_signature_fails():
     X, y = get_iris()
 
-    with mlflow.start_run() as run, mock.patch(
-        "mlflow.models.infer_signature", side_effect=Exception("Failed")
-    ), mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
-        mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
+    with mlflux.start_run() as run, mock.patch(
+        "mlflux.models.infer_signature", side_effect=Exception("Failed")
+    ), mock.patch("mlflux.sklearn._logger.warning") as mock_warning:
+        mlflux.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
 
@@ -967,8 +967,8 @@ def test_autolog_does_not_throw_when_infer_signature_fails():
 def test_autolog_configuration_options(log_input_examples, log_model_signatures):
     X, y = get_iris()
 
-    with mlflow.start_run() as run:
-        mlflow.sklearn.autolog(
+    with mlflux.start_run() as run:
+        mlflux.sklearn.autolog(
             log_input_examples=log_input_examples, log_model_signatures=log_model_signatures
         )
         model = sklearn.linear_model.LinearRegression()
@@ -983,8 +983,8 @@ def test_autolog_configuration_options(log_input_examples, log_model_signatures)
 def test_sklearn_autolog_log_models_configuration(log_models):
     X, y = get_iris()
 
-    with mlflow.start_run() as run:
-        mlflow.sklearn.autolog(log_models=log_models)
+    with mlflux.start_run() as run:
+        mlflux.sklearn.autolog(log_models=log_models)
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
 
@@ -1000,12 +1000,12 @@ def test_autolog_does_not_capture_runs_for_preprocessing_or_feature_manipulation
     manipulation steps (e.g., normalization, label encoding) rather than ML models, do not
     produce runs when their fit_* operations are invoked independently of an ML pipeline
     """
-    mlflow.sklearn.autolog()
+    mlflux.sklearn.autolog()
 
-    # Create a run using the MLflow client, which will be resumed via the fluent API,
+    # Create a run using the mlflux client, which will be resumed via the fluent API,
     # in order to avoid setting fluent-level tags (e.g., source and user). Suppressing these
     # tags simplifies test validation logic
-    client = mlflow.tracking.MlflowClient()
+    client = mlflux.tracking.MlflowClient()
     run_id = client.create_run(experiment_id=0).info.run_id
 
     from sklearn.preprocessing import Normalizer, LabelEncoder, MinMaxScaler
@@ -1014,15 +1014,15 @@ def test_autolog_does_not_capture_runs_for_preprocessing_or_feature_manipulation
     from sklearn.feature_selection import VarianceThreshold
     from sklearn.compose import ColumnTransformer
 
-    with mlflow.start_run(run_id=run_id):
+    with mlflux.start_run(run_id=run_id):
         Normalizer().fit_transform(np.random.random((5, 5)))
         LabelEncoder().fit([1, 2, 2, 6])
         MinMaxScaler().fit_transform(50 * np.random.random((10, 10)))
         SimpleImputer().fit_transform([[1, 2], [np.nan, 3], [7, 6]])
         TfidfVectorizer().fit_transform(
             [
-                "MLflow is an end-to-end machine learning platform.",
-                "MLflow enables me to systematize my ML experimentation",
+                "mlflux is an end-to-end machine learning platform.",
+                "mlflux enables me to systematize my ML experimentation",
             ]
         )
         VarianceThreshold().fit_transform([[0, 2, 0, 3], [0, 1, 4, 3], [0, 1, 1, 3]])
@@ -1038,15 +1038,15 @@ def test_autolog_does_not_capture_runs_for_preprocessing_or_feature_manipulation
 @pytest.mark.large
 def test_autolog_produces_expected_results_for_estimator_when_parent_also_defines_fit():
     """
-    Test to prevent recurrences of https://github.com/mlflow/mlflow/issues/3574
+    Test to prevent recurrences of https://github.com/mlflux/mlflux/issues/3574
     """
-    mlflow.sklearn.autolog()
+    mlflux.sklearn.autolog()
 
     # Construct two mock models - `ParentMod` and `ChildMod`, where ChildMod's fit() function
     # calls ParentMod().fit() and mutates a predefined, constant prediction value set by
     # ParentMod().fit(). We will then test that ChildMod.fit() completes and produces the
     # expected constant prediction value, guarding against regressions of
-    # https://github.com/mlflow/mlflow/issues/3574 where ChildMod.fit() would either infinitely
+    # https://github.com/mlflux/mlflux/issues/3574 where ChildMod.fit() would either infinitely
     # recurse or yield the incorrect prediction result set by ParentMod.fit()
 
     class ParentMod(sklearn.base.BaseEstimator):
@@ -1067,14 +1067,14 @@ def test_autolog_produces_expected_results_for_estimator_when_parent_also_define
             super().fit(X, y)
             self.prediction = self.prediction + 1
 
-    og_all_estimators = mlflow.sklearn.utils._all_estimators()
+    og_all_estimators = mlflux.sklearn.utils._all_estimators()
     new_all_estimators = og_all_estimators + [("ParentMod", ParentMod), ("ChildMod", ChildMod)]
 
-    with mock.patch("mlflow.sklearn.utils._all_estimators", return_value=new_all_estimators):
-        mlflow.sklearn.autolog()
+    with mock.patch("mlflux.sklearn.utils._all_estimators", return_value=new_all_estimators):
+        mlflux.sklearn.autolog()
 
     model = ChildMod()
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         model.fit(*get_iris())
 
     _, _, tags, _ = get_run_data(run.info.run_id)
@@ -1084,16 +1084,16 @@ def test_autolog_produces_expected_results_for_estimator_when_parent_also_define
 
 def test_eval_and_log_metrics_for_regressor():
     # disable autologging so that we can check for the sole existence of eval-time metrics
-    mlflow.sklearn.autolog(disable=True)
+    mlflux.sklearn.autolog(disable=True)
 
     # use simple `LinearRegression`, which only implements `fit`.
     model = sklearn.linear_model.LinearRegression()
     X, y_true = get_iris()
     X_eval = X[:-1, :]
     y_eval = y_true[:-1]
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         model = fit_model(model, X, y_true, "fake")
-        eval_metrics = mlflow.sklearn.eval_and_log_metrics(
+        eval_metrics = mlflux.sklearn.eval_and_log_metrics(
             model=model, X=X_eval, y_true=y_eval, prefix="eval_"
         )
     # Check correctness for the returned metrics/artifacts
@@ -1115,7 +1115,7 @@ def test_eval_and_log_metrics_for_regressor():
 
 def test_eval_and_log_metrics_for_binary_classifier():
     # disable autologging so that we can check for the sole existence of eval-time metrics
-    mlflow.sklearn.autolog(disable=True)
+    mlflux.sklearn.autolog(disable=True)
 
     import sklearn.ensemble
 
@@ -1128,9 +1128,9 @@ def test_eval_and_log_metrics_for_binary_classifier():
     X_eval = X[:-1, :]
     y_eval = y[:-1]
 
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         model = fit_model(model, X, y, "fit")
-        eval_metrics = mlflow.sklearn.eval_and_log_metrics(
+        eval_metrics = mlflux.sklearn.eval_and_log_metrics(
             model=model, X=X_eval, y_true=y_eval, prefix="val_"
         )
 
@@ -1172,7 +1172,7 @@ def test_eval_and_log_metrics_for_binary_classifier():
 
 
 def test_eval_and_log_metrics_matches_training_metrics():
-    mlflow.sklearn.autolog()
+    mlflux.sklearn.autolog()
 
     import sklearn.ensemble
 
@@ -1185,9 +1185,9 @@ def test_eval_and_log_metrics_matches_training_metrics():
     X_eval = X[:-1, :]
     y_eval = y[:-1]
 
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         model = fit_model(model, X, y, "fit")
-        eval_metrics = mlflow.sklearn.eval_and_log_metrics(
+        eval_metrics = mlflux.sklearn.eval_and_log_metrics(
             model=model, X=X_eval, y_true=y_eval, prefix="val_"
         )
 
@@ -1235,7 +1235,7 @@ def test_eval_and_log_metrics_matches_training_metrics():
 
 def test_eval_and_log_metrics_for_classifier_multi_class():
     # disable autologging so that we can check for the sole existence of eval-time metrics
-    mlflow.sklearn.autolog(disable=True)
+    mlflux.sklearn.autolog(disable=True)
 
     import sklearn.ensemble
 
@@ -1248,9 +1248,9 @@ def test_eval_and_log_metrics_for_classifier_multi_class():
     X_eval = X[:-1, :]
     y_eval = y[:-1]
 
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         model = fit_model(model, X, y, "fit")
-        eval_metrics = mlflow.sklearn.eval_and_log_metrics(
+        eval_metrics = mlflux.sklearn.eval_and_log_metrics(
             model=model, X=X_eval, y_true=y_eval, prefix="eval_"
         )
 
@@ -1287,7 +1287,7 @@ def test_eval_and_log_metrics_for_classifier_multi_class():
 
 def test_eval_and_log_metrics_with_estimator(fit_func_name):
     # disable autologging so that we can check for the sole existence of eval-time metrics
-    mlflow.sklearn.autolog(disable=True)
+    mlflux.sklearn.autolog(disable=True)
 
     import sklearn.cluster
 
@@ -1297,9 +1297,9 @@ def test_eval_and_log_metrics_with_estimator(fit_func_name):
     X_eval = X[:-1, :]
     y_eval = y[:-1]
 
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         model = fit_model(model, X, y, fit_func_name)
-        eval_metrics = mlflow.sklearn.eval_and_log_metrics(
+        eval_metrics = mlflux.sklearn.eval_and_log_metrics(
             model=model, X=X_eval, y_true=y_eval, prefix="eval_"
         )
 
@@ -1316,7 +1316,7 @@ def test_eval_and_log_metrics_with_estimator(fit_func_name):
 
 def test_eval_and_log_metrics_with_meta_estimator():
     # disable autologging so that we can check for the sole existence of eval-time metrics
-    mlflow.sklearn.autolog(disable=True)
+    mlflux.sklearn.autolog(disable=True)
 
     import sklearn.preprocessing
     import sklearn.svm
@@ -1330,9 +1330,9 @@ def test_eval_and_log_metrics_with_meta_estimator():
     X_eval = X[:-1, :]
     y_eval = y[:-1]
 
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         model.fit(X, y)
-        eval_metrics = mlflow.sklearn.eval_and_log_metrics(
+        eval_metrics = mlflux.sklearn.eval_and_log_metrics(
             model=model, X=X_eval, y_true=y_eval, prefix="eval_"
         )
 
@@ -1361,7 +1361,7 @@ def test_eval_and_log_metrics_with_meta_estimator():
 
 def test_eval_and_log_metrics_with_new_run():
     # disable autologging so that we can check for the sole existence of eval-time metrics
-    mlflow.sklearn.autolog(disable=True)
+    mlflux.sklearn.autolog(disable=True)
 
     # use simple `LinearRegression`, which only implements `fit`.
     model = sklearn.linear_model.LinearRegression()
@@ -1370,7 +1370,7 @@ def test_eval_and_log_metrics_with_new_run():
     y_eval = y_true[:-1]
     model = fit_model(model, X, y_true, "fake")
 
-    eval_metrics = mlflow.sklearn.eval_and_log_metrics(
+    eval_metrics = mlflux.sklearn.eval_and_log_metrics(
         model=model, X=X_eval, y_true=y_eval, prefix="eval_"
     )
     # Check the contents for the metrics and artifacts
@@ -1384,19 +1384,19 @@ def test_eval_and_log_metrics_with_new_run():
     }
 
     # Check the the logged metrics/artifacts are the same as the returned ones.
-    assert mlflow.active_run() is not None
-    run_id = mlflow.active_run().info.run_id
+    assert mlflux.active_run() is not None
+    run_id = mlflux.active_run().info.run_id
     _, metrics, _, artifacts = get_run_data(run_id)
     assert eval_metrics == metrics
     assert len(artifacts) == 0
-    mlflow.end_run()
+    mlflux.end_run()
 
 
 def test_eval_and_log_metrics_with_noscore_estimator():
     from sklearn.base import BaseEstimator
 
     # disable autologging so that we can check for the sole existence of eval-time metrics
-    mlflow.sklearn.autolog(disable=True)
+    mlflux.sklearn.autolog(disable=True)
 
     # Define a fake estimator that can do predictions but does not support 'score'
     class FakeEstimator(BaseEstimator):
@@ -1407,12 +1407,12 @@ def test_eval_and_log_metrics_with_noscore_estimator():
     model = FakeEstimator()
     X_eval, y_eval = get_iris()
 
-    eval_metrics = mlflow.sklearn.eval_and_log_metrics(
+    eval_metrics = mlflux.sklearn.eval_and_log_metrics(
         model=model, X=X_eval, y_true=y_eval, prefix="eval_"
     )
-    _, metrics, _, artifacts = get_run_data(mlflow.active_run().info.run_id)
+    _, metrics, _, artifacts = get_run_data(mlflux.active_run().info.run_id)
 
-    mlflow.end_run()
+    mlflux.end_run()
 
     # No artifacts should be generated
     assert len(metrics) == 0
@@ -1428,16 +1428,16 @@ def test_eval_and_log_metrics_throws_with_invalid_args():
     model = LinearRegression()
 
     with pytest.raises(ValueError, match="Must specify a non-empty prefix"):
-        mlflow.sklearn.eval_and_log_metrics(model=model, X=X, y_true=y_true, prefix="")
+        mlflux.sklearn.eval_and_log_metrics(model=model, X=X, y_true=y_true, prefix="")
 
     with pytest.raises(ValueError, match="Must specify a non-empty prefix"):
-        mlflow.sklearn.eval_and_log_metrics(model=model, X=X, y_true=y_true, prefix=None)
+        mlflux.sklearn.eval_and_log_metrics(model=model, X=X, y_true=y_true, prefix=None)
 
     with pytest.raises(ValueError, match="not a sklearn estimator"):
-        mlflow.sklearn.eval_and_log_metrics(model={}, X=X, y_true=y_true, prefix="val_")
+        mlflux.sklearn.eval_and_log_metrics(model={}, X=X, y_true=y_true, prefix="val_")
 
     with pytest.raises(ValueError, match="Model does not support predictions"):
-        mlflow.sklearn.eval_and_log_metrics(
+        mlflux.sklearn.eval_and_log_metrics(
             model=SpectralClustering(), X=X, y_true=y_true, prefix="val_"
         )
 
@@ -1447,11 +1447,11 @@ def test_metric_computation_handles_absent_labels():
     Verifies that autologging metric computation does not fail For models that do not require
     labels as inputs to training, such as clustering models and other unsupervised techniques.
     """
-    mlflow.sklearn.autolog()
+    mlflux.sklearn.autolog()
 
     model = sklearn.cluster.KMeans()
 
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         # Train a clustering model solely on samples, without specifying labels
         model.fit(X=get_iris()[0])
 

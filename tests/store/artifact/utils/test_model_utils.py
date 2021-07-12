@@ -1,7 +1,7 @@
 import pytest
 
-from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.utils.models import _parse_model_uri
+from mlflux.exceptions import MlflowException
+from mlflux.store.artifact.utils.models import _parse_model_uri
 
 
 @pytest.mark.parametrize(

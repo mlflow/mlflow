@@ -3,8 +3,8 @@ import os
 from unittest import mock
 from unittest.mock import ANY
 
-import mlflow
-from mlflow.tracking.artifact_utils import (
+import mlflux
+from mlflux.tracking.artifact_utils import (
     _download_artifact_from_uri,
     _upload_artifacts_to_databricks,
 )
@@ -18,9 +18,9 @@ def test_artifact_can_be_downloaded_from_absolute_uri_successfully(tmpdir):
         out.write(artifact_text)
 
     logged_artifact_path = "artifact"
-    with mlflow.start_run():
-        mlflow.log_artifact(local_path=local_artifact_path, artifact_path=logged_artifact_path)
-        artifact_uri = mlflow.get_artifact_uri(artifact_path=logged_artifact_path)
+    with mlflux.start_run():
+        mlflux.log_artifact(local_path=local_artifact_path, artifact_path=logged_artifact_path)
+        artifact_uri = mlflux.get_artifact_uri(artifact_path=logged_artifact_path)
 
     downloaded_artifact_path = os.path.join(
         _download_artifact_from_uri(artifact_uri), artifact_file_name
@@ -39,9 +39,9 @@ def test_download_artifact_from_absolute_uri_persists_data_to_specified_output_d
         out.write(artifact_text)
 
     logged_artifact_subdir = "logged_artifact"
-    with mlflow.start_run():
-        mlflow.log_artifact(local_path=local_artifact_path, artifact_path=logged_artifact_subdir)
-        artifact_uri = mlflow.get_artifact_uri(artifact_path=logged_artifact_subdir)
+    with mlflux.start_run():
+        mlflux.log_artifact(local_path=local_artifact_path, artifact_path=logged_artifact_subdir)
+        artifact_uri = mlflux.get_artifact_uri(artifact_path=logged_artifact_subdir)
 
     artifact_output_path = tmpdir.join("artifact_output").strpath
     os.makedirs(artifact_output_path)
@@ -57,7 +57,7 @@ def test_download_artifact_from_absolute_uri_persists_data_to_specified_output_d
 
 
 def test_upload_artifacts_to_databricks():
-    import_root = "mlflow.tracking.artifact_utils"
+    import_root = "mlflux.tracking.artifact_utils"
     with mock.patch(import_root + "._download_artifact_from_uri") as download_mock, mock.patch(
         import_root + ".DbfsRestArtifactRepository"
     ) as repo_mock:
@@ -69,15 +69,15 @@ def test_upload_artifacts_to_databricks():
         )
         download_mock.assert_called_once_with("dbfs://tracking@databricks/original/sourcedir/", ANY)
         repo_mock.assert_called_once_with(
-            "dbfs://registry:ws@databricks/databricks/mlflow/tmp-external-source/"
+            "dbfs://registry:ws@databricks/databricks/mlflux/tmp-external-source/"
         )
-        assert new_source == "dbfs:/databricks/mlflow/tmp-external-source/runid12345/sourcedir"
+        assert new_source == "dbfs:/databricks/mlflux/tmp-external-source/runid12345/sourcedir"
 
 
 def test_upload_artifacts_to_databricks_no_run_id():
     from uuid import UUID
 
-    import_root = "mlflow.tracking.artifact_utils"
+    import_root = "mlflux.tracking.artifact_utils"
     with mock.patch(import_root + "._download_artifact_from_uri") as download_mock, mock.patch(
         import_root + ".DbfsRestArtifactRepository"
     ) as repo_mock, mock.patch("uuid.uuid4", return_value=UUID("4f746cdcc0374da2808917e81bb53323")):
@@ -88,9 +88,9 @@ def test_upload_artifacts_to_databricks_no_run_id():
             "dbfs://tracking:ws@databricks/original/sourcedir/", ANY
         )
         repo_mock.assert_called_once_with(
-            "dbfs://registry@databricks/databricks/mlflow/tmp-external-source/"
+            "dbfs://registry@databricks/databricks/mlflux/tmp-external-source/"
         )
         assert (
-            new_source == "dbfs:/databricks/mlflow/tmp-external-source/"
+            new_source == "dbfs:/databricks/mlflux/tmp-external-source/"
             "4f746cdcc0374da2808917e81bb53323/sourcedir"
         )

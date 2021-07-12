@@ -10,21 +10,21 @@ import numpy as np
 from click.testing import CliRunner
 from sklearn.linear_model import LogisticRegression
 
-import mlflow
-import mlflow.pyfunc
-import mlflow.sklearn
-import mlflow.sagemaker as mfs
-import mlflow.sagemaker.cli as mfscli
-from mlflow.exceptions import MlflowException
-from mlflow.models import Model
-from mlflow.protos.databricks_pb2 import (
+import mlflux
+import mlflux.pyfunc
+import mlflux.sklearn
+import mlflux.sagemaker as mfs
+import mlflux.sagemaker.cli as mfscli
+from mlflux.exceptions import MlflowException
+from mlflux.models import Model
+from mlflux.protos.databricks_pb2 import (
     ErrorCode,
     RESOURCE_DOES_NOT_EXIST,
     INVALID_PARAMETER_VALUE,
     INTERNAL_ERROR,
 )
-from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflux.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflux.tracking.artifact_utils import _download_artifact_from_uri
 
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.sagemaker.mock import mock_sagemaker, Endpoint, EndpointOperation
@@ -35,13 +35,13 @@ TrainedModel = namedtuple("TrainedModel", ["model_path", "run_id", "model_uri"])
 @pytest.fixture
 def pretrained_model():
     model_path = "model"
-    with mlflow.start_run():
+    with mlflux.start_run():
         X = np.array([-2, -1, 0, 1, 2, 1]).reshape(-1, 1)
         y = np.array([0, 0, 1, 1, 1, 0])
         lr = LogisticRegression(solver="lbfgs")
         lr.fit(X, y)
-        mlflow.sklearn.log_model(lr, model_path)
-        run_id = mlflow.active_run().info.run_id
+        mlflux.sklearn.log_model(lr, model_path)
+        run_id = mlflux.active_run().info.run_id
         model_uri = "runs:/" + run_id + "/" + model_path
         return TrainedModel(model_path, run_id, model_uri)
 
@@ -66,7 +66,7 @@ def mock_sagemaker_aws_services(fn):
     @mock_sts
     @wraps(fn)
     def mock_wrapper(*args, **kwargs):
-        # Create an ECR repository for the `mlflow-pyfunc` SageMaker docker image
+        # Create an ECR repository for the `mlflux-pyfunc` SageMaker docker image
         ecr_client = boto3.client("ecr", region_name="us-west-2")
         ecr_client.create_repository(repositoryName=mfs.DEFAULT_IMAGE_NAME)
 
@@ -118,7 +118,7 @@ def test_deployment_of_model_with_no_supported_flavors_raises_exception(pretrain
     logged_model_path = _download_artifact_from_uri(pretrained_model.model_uri)
     model_config_path = os.path.join(logged_model_path, "MLmodel")
     model_config = Model.load(model_config_path)
-    del model_config.flavors[mlflow.pyfunc.FLAVOR_NAME]
+    del model_config.flavors[mlflux.pyfunc.FLAVOR_NAME]
     model_config.save(path=model_config_path)
 
     with pytest.raises(MlflowException) as exc:
@@ -133,7 +133,7 @@ def test_validate_deployment_flavor_validates_python_function_flavor_successfull
         _download_artifact_from_uri(pretrained_model.model_uri), "MLmodel"
     )
     model_config = Model.load(model_config_path)
-    mfs._validate_deployment_flavor(model_config=model_config, flavor=mlflow.pyfunc.FLAVOR_NAME)
+    mfs._validate_deployment_flavor(model_config=model_config, flavor=mlflux.pyfunc.FLAVOR_NAME)
 
 
 @pytest.mark.large
@@ -685,12 +685,12 @@ def test_deploy_in_replace_mode_with_archiving_does_not_delete_resources(
     model_uri = "runs:/{run_id}/{artifact_path}".format(
         run_id=pretrained_model.run_id, artifact_path=pretrained_model.model_path
     )
-    sk_model = mlflow.sklearn.load_model(model_uri=model_uri)
+    sk_model = mlflux.sklearn.load_model(model_uri=model_uri)
     new_artifact_path = "model"
-    with mlflow.start_run():
-        mlflow.sklearn.log_model(sk_model=sk_model, artifact_path=new_artifact_path)
+    with mlflux.start_run():
+        mlflux.sklearn.log_model(sk_model=sk_model, artifact_path=new_artifact_path)
         new_model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=new_artifact_path
+            run_id=mlflux.active_run().info.run_id, artifact_path=new_artifact_path
         )
     mfs.deploy(
         app_name=app_name,

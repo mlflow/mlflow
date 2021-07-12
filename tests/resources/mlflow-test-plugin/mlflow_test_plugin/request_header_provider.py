@@ -1,4 +1,4 @@
-from mlflow.tracking.request_header.abstract_request_header_provider import RequestHeaderProvider
+from mlflux.tracking.request_header.abstract_request_header_provider import RequestHeaderProvider
 
 
 class PluginRequestHeaderProvider(RequestHeaderProvider):

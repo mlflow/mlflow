@@ -4,8 +4,8 @@ import sys
 import random
 import tempfile
 
-import mlflow
-from mlflow import (
+import mlflux
+from mlflux import (
     log_metric,
     log_param,
     log_artifacts,
@@ -24,7 +24,7 @@ if __name__ == "__main__":
     log_metric("random_int", random.randint(0, 100))
     run_id = active_run().info.run_id
     # Get run metadata & data from the tracking server
-    service = mlflow.tracking.MlflowClient()
+    service = mlflux.tracking.MlflowClient()
     run = service.get_run(run_id)
     print("Metadata & data for run with UUID %s: %s" % (run_id, run))
     local_dir = tempfile.mkdtemp()

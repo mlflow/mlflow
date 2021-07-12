@@ -2,9 +2,9 @@ from importlib import reload
 import pytest
 from unittest import mock
 
-import mlflow
-from mlflow.store.artifact import artifact_repository_registry
-from mlflow.store.artifact.artifact_repository_registry import ArtifactRepositoryRegistry
+import mlflux
+from mlflux.store.artifact import artifact_repository_registry
+from mlflux.store.artifact.artifact_repository_registry import ArtifactRepositoryRegistry
 
 
 def test_standard_artifact_registry():
@@ -35,7 +35,7 @@ def test_standard_artifact_registry():
 
 @pytest.mark.large
 def test_plugin_registration_via_installed_package():
-    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
+    """This test requires the package in tests/resources/mlflux-test-plugin to be installed"""
 
     reload(artifact_repository_registry)
 
@@ -69,7 +69,7 @@ def test_get_unknown_scheme():
     artifact_repository_registry = ArtifactRepositoryRegistry()
 
     with pytest.raises(
-        mlflow.exceptions.MlflowException, match="Could not find a registered artifact repository"
+        mlflux.exceptions.MlflowException, match="Could not find a registered artifact repository"
     ):
         artifact_repository_registry.get_artifact_repository("unknown-scheme://")
 
@@ -92,7 +92,7 @@ def test_plugin_registration_via_entrypoints():
     )
 
     mock_plugin_function.assert_called_once_with("mock-scheme://fake-host/fake-path")
-    mock_get_group_all.assert_called_once_with("mlflow.artifact_repository")
+    mock_get_group_all.assert_called_once_with("mlflux.artifact_repository")
 
 
 @pytest.mark.parametrize(
@@ -113,4 +113,4 @@ def test_plugin_registration_failure_via_entrypoints(exception):
             repo_registry.register_entrypoints()
 
     mock_entrypoint.load.assert_called_once()
-    mock_get_group_all.assert_called_once_with("mlflow.artifact_repository")
+    mock_get_group_all.assert_called_once_with("mlflux.artifact_repository")

@@ -1,13 +1,13 @@
 import pytest
 from unittest import mock
 
-from mlflow.entities import Run, RunInfo
-from mlflow.tracking._tracking_service.client import TrackingServiceClient
+from mlflux.entities import Run, RunInfo
+from mlflux.tracking._tracking_service.client import TrackingServiceClient
 
 
 @pytest.fixture
 def mock_store():
-    with mock.patch("mlflow.tracking._trackingZ_service.utils._get_store") as mock_get_store:
+    with mock.patch("mlflux.tracking._trackingZ_service.utils._get_store") as mock_get_store:
         yield mock_get_store.return_value
 
 
@@ -39,7 +39,7 @@ def newTrackingServiceClient():
 )
 def test_get_artifact_repo(artifact_uri, databricks_uri, uri_for_repo):
     with mock.patch(
-        "mlflow.tracking._tracking_service.client.TrackingServiceClient.get_run",
+        "mlflux.tracking._tracking_service.client.TrackingServiceClient.get_run",
         return_value=Run(
             RunInfo(
                 "uuid", "expr_id", "userid", "status", 0, 10, "active", artifact_uri=artifact_uri
@@ -47,7 +47,7 @@ def test_get_artifact_repo(artifact_uri, databricks_uri, uri_for_repo):
             None,
         ),
     ), mock.patch(
-        "mlflow.tracking._tracking_service.client.get_artifact_repository", return_value=None
+        "mlflux.tracking._tracking_service.client.get_artifact_repository", return_value=None
     ) as get_repo_mock:
         client = TrackingServiceClient(databricks_uri)
         client._get_artifact_repo("some-run-id")
@@ -57,7 +57,7 @@ def test_get_artifact_repo(artifact_uri, databricks_uri, uri_for_repo):
 def test_artifact_repo_is_cached_per_run_id():
     uri = "ftp://user:pass@host/path"
     with mock.patch(
-        "mlflow.tracking._tracking_service.client.TrackingServiceClient.get_run",
+        "mlflux.tracking._tracking_service.client.TrackingServiceClient.get_run",
         return_value=Run(
             RunInfo("uuid", "expr_id", "userid", "status", 0, 10, "active", artifact_uri=uri), None,
         ),

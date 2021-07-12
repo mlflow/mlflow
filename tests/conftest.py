@@ -2,8 +2,8 @@ import os
 
 import pytest
 
-import mlflow
-from mlflow.utils.file_utils import path_to_local_sqlite_uri
+import mlflux
+from mlflux.utils.file_utils import path_to_local_sqlite_uri
 
 from tests.autologging.fixtures import test_mode_on
 
@@ -28,11 +28,11 @@ def tracking_uri_mock(tmpdir, request):
     try:
         if "notrackingurimock" not in request.keywords:
             tracking_uri = path_to_local_sqlite_uri(os.path.join(tmpdir.strpath, "mlruns"))
-            mlflow.set_tracking_uri(tracking_uri)
+            mlflux.set_tracking_uri(tracking_uri)
             os.environ["MLFLOW_TRACKING_URI"] = tracking_uri
         yield tmpdir
     finally:
-        mlflow.set_tracking_uri(None)
+        mlflux.set_tracking_uri(None)
         if "notrackingurimock" not in request.keywords:
             del os.environ["MLFLOW_TRACKING_URI"]
 
@@ -40,9 +40,9 @@ def tracking_uri_mock(tmpdir, request):
 @pytest.fixture(autouse=True, scope="session")
 def enable_test_mode_by_default_for_autologging_integrations():
     """
-    Run all MLflow tests in autologging test mode, ensuring that errors in autologging patch code
+    Run all mlflux tests in autologging test mode, ensuring that errors in autologging patch code
     are raised and detected. For more information about autologging test mode, see the docstring
-    for :py:func:`mlflow.utils.autologging_utils._is_testing()`.
+    for :py:func:`mlflux.utils.autologging_utils._is_testing()`.
     """
     yield from test_mode_on()
 
@@ -58,10 +58,10 @@ def clean_up_leaked_runs():
     try:
         yield
         assert (
-            not mlflow.active_run()
+            not mlflux.active_run()
         ), "test case unexpectedly leaked a run. Run info: {}. Run data: {}".format(
-            mlflow.active_run().info, mlflow.active_run().data
+            mlflux.active_run().info, mlflux.active_run().data
         )
     finally:
-        while mlflow.active_run():
-            mlflow.end_run()
+        while mlflux.active_run():
+            mlflux.end_run()

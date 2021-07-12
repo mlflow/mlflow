@@ -1,4 +1,4 @@
-import mlflow.paddle
+import mlflux.paddle
 import paddle
 import numpy as np
 
@@ -22,12 +22,12 @@ model.prepare(optim, paddle.nn.MSELoss())
 
 model.fit(train_dataset, epochs=6, batch_size=8, verbose=1)
 
-with mlflow.start_run() as run:
-    mlflow.paddle.log_model(model, "model")
+with mlflux.start_run() as run:
+    mlflux.paddle.log_model(model, "model")
     print("Model saved in run %s" % run.info.run_uuid)
 
     # load model
-    model_path = mlflow.get_artifact_uri("model")
-    pd_model = mlflow.paddle.load_model(model_path)
+    model_path = mlflux.get_artifact_uri("model")
+    pd_model = mlflux.paddle.load_model(model_path)
     np_test_data = np.array([x[0] for x in eval_dataset])
     print(pd_model(np_test_data))

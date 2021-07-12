@@ -1,9 +1,9 @@
-import mlflow
+import mlflux
 
 
 def yield_artifacts(run_id, path=None):
     """Yield all artifacts in the specified run"""
-    client = mlflow.tracking.MlflowClient()
+    client = mlflux.tracking.MlflowClient()
     for item in client.list_artifacts(run_id, path):
         if item.is_dir:
             yield from yield_artifacts(run_id, item.path)
@@ -13,10 +13,10 @@ def yield_artifacts(run_id, path=None):
 
 def fetch_logged_data(run_id):
     """Fetch params, metrics, tags, and artifacts in the specified run"""
-    client = mlflow.tracking.MlflowClient()
+    client = mlflux.tracking.MlflowClient()
     data = client.get_run(run_id).data
-    # Exclude system tags: https://www.mlflow.org/docs/latest/tracking.html#system-tags
-    tags = {k: v for k, v in data.tags.items() if not k.startswith("mlflow.")}
+    # Exclude system tags: https://www.mlflux.org/docs/latest/tracking.html#system-tags
+    tags = {k: v for k, v in data.tags.items() if not k.startswith("mlflux.")}
     artifacts = list(yield_artifacts(run_id))
     return {
         "params": data.params,

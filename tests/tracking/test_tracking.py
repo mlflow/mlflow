@@ -11,105 +11,105 @@ import yaml
 import pytest
 from unittest import mock
 
-import mlflow
-from mlflow import tracking
-from mlflow.entities import RunStatus, LifecycleStage, Metric, Param, RunTag, ViewType
-from mlflow.exceptions import MlflowException
-from mlflow.store.tracking.file_store import FileStore
-from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
-from mlflow.tracking.client import MlflowClient
-from mlflow.tracking.fluent import start_run
-from mlflow.utils.file_utils import local_file_uri_to_path
-from mlflow.utils.mlflow_tags import (
+import mlflux
+from mlflux import tracking
+from mlflux.entities import RunStatus, LifecycleStage, Metric, Param, RunTag, ViewType
+from mlflux.exceptions import MlflowException
+from mlflux.store.tracking.file_store import FileStore
+from mlflux.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
+from mlflux.tracking.client import MlflowClient
+from mlflux.tracking.fluent import start_run
+from mlflux.utils.file_utils import local_file_uri_to_path
+from mlflux.utils.mlflow_tags import (
     MLFLOW_PARENT_RUN_ID,
     MLFLOW_USER,
     MLFLOW_SOURCE_NAME,
     MLFLOW_SOURCE_TYPE,
 )
-from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
+from mlflux.tracking.fluent import _RUN_ID_ENV_VAR
 
 MockExperiment = namedtuple("MockExperiment", ["experiment_id", "lifecycle_stage"])
 
 
 def test_create_experiment():
     with pytest.raises(TypeError):
-        mlflow.create_experiment()  # pylint: disable=no-value-for-parameter
+        mlflux.create_experiment()  # pylint: disable=no-value-for-parameter
 
     with pytest.raises(Exception):
-        mlflow.create_experiment(None)
+        mlflux.create_experiment(None)
 
     with pytest.raises(Exception):
-        mlflow.create_experiment("")
+        mlflux.create_experiment("")
 
-    exp_id = mlflow.create_experiment("Some random experiment name %d" % random.randint(1, 1e6))
+    exp_id = mlflux.create_experiment("Some random experiment name %d" % random.randint(1, 1e6))
     assert exp_id is not None
 
 
 def test_create_experiment_with_duplicate_name():
     name = "popular_name"
-    exp_id = mlflow.create_experiment(name)
+    exp_id = mlflux.create_experiment(name)
 
     with pytest.raises(MlflowException):
-        mlflow.create_experiment(name)
+        mlflux.create_experiment(name)
 
     tracking.MlflowClient().delete_experiment(exp_id)
     with pytest.raises(MlflowException):
-        mlflow.create_experiment(name)
+        mlflux.create_experiment(name)
 
 
 def test_create_experiments_with_bad_names():
     # None for name
     with pytest.raises(MlflowException) as e:
-        mlflow.create_experiment(None)
+        mlflux.create_experiment(None)
         assert e.message.contains("Invalid experiment name: 'None'")
 
     # empty string name
     with pytest.raises(MlflowException) as e:
-        mlflow.create_experiment("")
+        mlflux.create_experiment("")
         assert e.message.contains("Invalid experiment name: ''")
 
 
 @pytest.mark.parametrize("name", [123, 0, -1.2, [], ["A"], {1: 2}])
 def test_create_experiments_with_bad_name_types(name):
     with pytest.raises(MlflowException) as e:
-        mlflow.create_experiment(name)
+        mlflux.create_experiment(name)
         assert e.message.contains("Invalid experiment name: %s. Expects a string." % name)
 
 
 @pytest.mark.usefixtures("reset_active_experiment")
 def test_set_experiment():
     with pytest.raises(TypeError):
-        mlflow.set_experiment()  # pylint: disable=no-value-for-parameter
+        mlflux.set_experiment()  # pylint: disable=no-value-for-parameter
 
     with pytest.raises(Exception):
-        mlflow.set_experiment(None)
+        mlflux.set_experiment(None)
 
     with pytest.raises(Exception):
-        mlflow.set_experiment("")
+        mlflux.set_experiment("")
 
     name = "random_exp"
-    exp_id = mlflow.create_experiment(name)
-    mlflow.set_experiment(name)
+    exp_id = mlflux.create_experiment(name)
+    mlflux.set_experiment(name)
     with start_run() as run:
         assert run.info.experiment_id == exp_id
 
     another_name = "another_experiment"
-    mlflow.set_experiment(another_name)
-    exp_id2 = mlflow.tracking.MlflowClient().get_experiment_by_name(another_name)
+    mlflux.set_experiment(another_name)
+    exp_id2 = mlflux.tracking.MlflowClient().get_experiment_by_name(another_name)
     with start_run() as another_run:
         assert another_run.info.experiment_id == exp_id2.experiment_id
 
 
 def test_set_experiment_with_deleted_experiment_name():
     name = "dead_exp"
-    mlflow.set_experiment(name)
+    mlflux.set_experiment(name)
     with start_run() as run:
         exp_id = run.info.experiment_id
 
     tracking.MlflowClient().delete_experiment(exp_id)
 
     with pytest.raises(MlflowException):
-        mlflow.set_experiment(name)
+        mlflux.set_experiment(name)
 
 
 def test_list_experiments():
@@ -122,7 +122,7 @@ def test_list_experiments():
         )
         assert result == set([(exp_id, stage) for exp_id, stage in ids_to_lifecycle_stage.items()])
 
-    experiment_id = mlflow.create_experiment("exp_1")
+    experiment_id = mlflux.create_experiment("exp_1")
     assert experiment_id == "1"
     client = tracking.MlflowClient()
     _assert_exps({"0": LifecycleStage.ACTIVE, "1": LifecycleStage.ACTIVE}, ViewType.ACTIVE_ONLY)
@@ -137,7 +137,7 @@ def test_list_experiments():
 def test_list_experiments_paginated():
     experiments = []
     for i in range(10):
-        experiments.append(mlflow.create_experiment("paginated_exp_" + str(i)))
+        experiments.append(mlflux.create_experiment("paginated_exp_" + str(i)))
     max_results = 5
     returned_experiments = []
     client = tracking.MlflowClient()
@@ -157,7 +157,7 @@ def test_list_experiments_paginated_returns_in_correct_order():
     testnames = []
     for i in range(20):
         name = "paginated_exp_order_" + str(i)
-        mlflow.create_experiment(name)
+        mlflux.create_experiment(name)
         testnames.append(name)
 
     client = tracking.MlflowClient()
@@ -207,7 +207,7 @@ def test_set_experiment_with_zero_id(reset_mock):
     )
     reset_mock(MlflowClient, "create_experiment", mock.Mock())
 
-    mlflow.set_experiment("my_exp")
+    mlflux.set_experiment("my_exp")
 
     MlflowClient.get_experiment_by_name.assert_called_once()
     MlflowClient.create_experiment.assert_not_called()
@@ -237,7 +237,7 @@ def test_start_and_end_run():
     # Use the start_run() and end_run() APIs without a `with` block, verify they work.
 
     with start_run() as active_run:
-        mlflow.log_metric("name_1", 25)
+        mlflux.log_metric("name_1", 25)
     finished_run = tracking.MlflowClient().get_run(active_run.info.run_id)
     # Validate metrics
     assert len(finished_run.data.metrics) == 1
@@ -245,12 +245,12 @@ def test_start_and_end_run():
 
 
 def test_metric_timestamp():
-    with mlflow.start_run() as active_run:
-        mlflow.log_metric("name_1", 25)
-        mlflow.log_metric("name_1", 30)
+    with mlflux.start_run() as active_run:
+        mlflux.log_metric("name_1", 25)
+        mlflux.log_metric("name_1", 30)
         run_id = active_run.info.run_uuid
     # Check that metric timestamps are between run start and finish
-    client = mlflow.tracking.MlflowClient()
+    client = mlflux.tracking.MlflowClient()
     history = client.get_metric_history(run_id, "name_1")
     finished_run = client.get_run(run_id)
     assert len(history) == 2
@@ -281,7 +281,7 @@ def test_log_batch():
 
     with start_run() as active_run:
         run_id = active_run.info.run_id
-        mlflow.tracking.MlflowClient().log_batch(
+        mlflux.tracking.MlflowClient().log_batch(
             run_id=run_id, metrics=metrics, params=params, tags=tags
         )
     client = tracking.MlflowClient()
@@ -320,11 +320,11 @@ def test_log_metric():
     with start_run() as active_run, mock.patch("time.time") as time_mock:
         time_mock.side_effect = [123 for _ in range(100)]
         run_id = active_run.info.run_id
-        mlflow.log_metric("name_1", 25)
-        mlflow.log_metric("name_2", -3)
-        mlflow.log_metric("name_1", 30, 5)
-        mlflow.log_metric("name_1", 40, -2)
-        mlflow.log_metric("nested/nested/name", 40)
+        mlflux.log_metric("name_1", 25)
+        mlflux.log_metric("name_2", -3)
+        mlflux.log_metric("name_1", 30, 5)
+        mlflux.log_metric("name_1", 40, -2)
+        mlflux.log_metric("nested/nested/name", 40)
     finished_run = tracking.MlflowClient().get_run(run_id)
     # Validate metrics
     assert len(finished_run.data.metrics) == 3
@@ -345,9 +345,9 @@ def test_log_metric():
 def test_log_metrics_uses_millisecond_timestamp_resolution_fluent():
     with start_run() as active_run, mock.patch("time.time") as time_mock:
         time_mock.side_effect = lambda: 123
-        mlflow.log_metrics({"name_1": 25, "name_2": -3})
-        mlflow.log_metrics({"name_1": 30})
-        mlflow.log_metrics({"name_1": 40})
+        mlflux.log_metrics({"name_1": 25, "name_2": -3})
+        mlflux.log_metrics({"name_1": 30})
+        mlflux.log_metrics({"name_1": 40})
         run_id = active_run.info.run_id
 
     client = tracking.MlflowClient()
@@ -383,7 +383,7 @@ def test_log_metrics_uses_common_timestamp_and_step_per_invocation(step_kwarg):
     expected_metrics = {"name_1": 30, "name_2": -3, "nested/nested/name": 40}
     with start_run() as active_run:
         run_id = active_run.info.run_id
-        mlflow.log_metrics(expected_metrics, step=step_kwarg)
+        mlflux.log_metrics(expected_metrics, step=step_kwarg)
     finished_run = tracking.MlflowClient().get_run(run_id)
     # Validate metric key/values match what we expect, and that all metrics have the same timestamp
     assert len(finished_run.data.metrics) == len(expected_metrics)
@@ -399,7 +399,7 @@ def test_log_metrics_uses_common_timestamp_and_step_per_invocation(step_kwarg):
 @pytest.fixture
 @pytest.mark.usefixtures("tmpdir")
 def get_store_mock():
-    with mock.patch("mlflow.store.file_store.FileStore.log_batch") as _get_store_mock:
+    with mock.patch("mlflux.store.file_store.FileStore.log_batch") as _get_store_mock:
         yield _get_store_mock
 
 
@@ -408,7 +408,7 @@ def test_set_tags():
     approx_expected_tags = set([MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE])
     with start_run() as active_run:
         run_id = active_run.info.run_id
-        mlflow.set_tags(exact_expected_tags)
+        mlflux.set_tags(exact_expected_tags)
     finished_run = tracking.MlflowClient().get_run(run_id)
     # Validate tags
     assert len(finished_run.data.tags) == len(exact_expected_tags) + len(approx_expected_tags)
@@ -423,7 +423,7 @@ def test_log_metric_validation():
     with start_run() as active_run:
         run_id = active_run.info.run_id
         with pytest.raises(MlflowException) as e:
-            mlflow.log_metric("name_1", "apple")
+            mlflux.log_metric("name_1", "apple")
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     finished_run = tracking.MlflowClient().get_run(run_id)
     assert len(finished_run.data.metrics) == 0
@@ -432,9 +432,9 @@ def test_log_metric_validation():
 def test_log_param():
     with start_run() as active_run:
         run_id = active_run.info.run_id
-        mlflow.log_param("name_1", "a")
-        mlflow.log_param("name_2", "b")
-        mlflow.log_param("nested/nested/name", 5)
+        mlflux.log_param("name_1", "a")
+        mlflux.log_param("name_2", "b")
+        mlflux.log_param("nested/nested/name", 5)
     finished_run = tracking.MlflowClient().get_run(run_id)
     # Validate params
     assert finished_run.data.params == {"name_1": "a", "name_2": "b", "nested/nested/name": "5"}
@@ -444,7 +444,7 @@ def test_log_params():
     expected_params = {"name_1": "c", "name_2": "b", "nested/nested/name": 5}
     with start_run() as active_run:
         run_id = active_run.info.run_id
-        mlflow.log_params(expected_params)
+        mlflux.log_params(expected_params)
     finished_run = tracking.MlflowClient().get_run(run_id)
     # Validate params
     assert finished_run.data.params == {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
@@ -484,9 +484,9 @@ def test_log_artifact_with_dirs(tmpdir):
     file1.write("something")
     sub_dir = art_dir.mkdir("child")
     with start_run():
-        artifact_uri = mlflow.get_artifact_uri()
+        artifact_uri = mlflux.get_artifact_uri()
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
-        mlflow.log_artifact(str(art_dir))
+        mlflux.log_artifact(str(art_dir))
         base = os.path.basename(str(art_dir))
         assert os.listdir(run_artifact_dir) == [base]
         assert set(os.listdir(os.path.join(run_artifact_dir, base))) == {"child", "file0", "file1"}
@@ -495,18 +495,18 @@ def test_log_artifact_with_dirs(tmpdir):
     # Test log artifact with directory and specified parent folder
     art_dir = tmpdir.mkdir("dir")
     with start_run():
-        artifact_uri = mlflow.get_artifact_uri()
+        artifact_uri = mlflux.get_artifact_uri()
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
-        mlflow.log_artifact(str(art_dir), "some_parent")
+        mlflux.log_artifact(str(art_dir), "some_parent")
         assert os.listdir(run_artifact_dir) == [os.path.basename("some_parent")]
         assert os.listdir(os.path.join(run_artifact_dir, "some_parent")) == [
             os.path.basename(str(art_dir))
         ]
     sub_dir = art_dir.mkdir("another_dir")
     with start_run():
-        artifact_uri = mlflow.get_artifact_uri()
+        artifact_uri = mlflux.get_artifact_uri()
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
-        mlflow.log_artifact(str(art_dir), "parent/and_child")
+        mlflux.log_artifact(str(art_dir), "parent/and_child")
         assert os.listdir(os.path.join(run_artifact_dir, "parent", "and_child")) == [
             os.path.basename(str(art_dir))
         ]
@@ -528,9 +528,9 @@ def test_log_artifact():
     artifact_parent_dirs = ["some_parent_dir", None]
     for parent_dir in artifact_parent_dirs:
         with start_run():
-            artifact_uri = mlflow.get_artifact_uri()
+            artifact_uri = mlflux.get_artifact_uri()
             run_artifact_dir = local_file_uri_to_path(artifact_uri)
-            mlflow.log_artifact(path0, parent_dir)
+            mlflux.log_artifact(path0, parent_dir)
         expected_dir = (
             os.path.join(run_artifact_dir, parent_dir)
             if parent_dir is not None
@@ -542,10 +542,10 @@ def test_log_artifact():
     # Log multiple artifacts, verify they exist in the directory returned by get_artifact_uri
     for parent_dir in artifact_parent_dirs:
         with start_run():
-            artifact_uri = mlflow.get_artifact_uri()
+            artifact_uri = mlflux.get_artifact_uri()
             run_artifact_dir = local_file_uri_to_path(artifact_uri)
 
-            mlflow.log_artifacts(artifact_src_dir, parent_dir)
+            mlflux.log_artifacts(artifact_src_dir, parent_dir)
         # Check that the logged artifacts match
         expected_artifact_output_dir = (
             os.path.join(run_artifact_dir, parent_dir)
@@ -565,11 +565,11 @@ def test_log_text(subdir):
     text = "a"
     artifact_file = filename if subdir is None else posixpath.join(subdir, filename)
 
-    with mlflow.start_run():
-        mlflow.log_text(text, artifact_file)
+    with mlflux.start_run():
+        mlflux.log_text(text, artifact_file)
 
         artifact_path = None if subdir is None else posixpath.normpath(subdir)
-        artifact_uri = mlflow.get_artifact_uri(artifact_path)
+        artifact_uri = mlflux.get_artifact_uri(artifact_path)
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         assert os.listdir(run_artifact_dir) == [filename]
 
@@ -585,11 +585,11 @@ def test_log_dict(subdir, extension):
     filename = "data" + extension
     artifact_file = filename if subdir is None else posixpath.join(subdir, filename)
 
-    with mlflow.start_run():
-        mlflow.log_dict(dictionary, artifact_file)
+    with mlflux.start_run():
+        mlflux.log_dict(dictionary, artifact_file)
 
         artifact_path = None if subdir is None else posixpath.normpath(subdir)
-        artifact_uri = mlflow.get_artifact_uri(artifact_path)
+        artifact_uri = mlflux.get_artifact_uri(artifact_path)
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         assert os.listdir(run_artifact_dir) == [filename]
 
@@ -617,12 +617,12 @@ def test_log_figure_matplotlib(subdir):
     fig, ax = plt.subplots()
     ax.plot([0, 1], [2, 3])
 
-    with mlflow.start_run():
-        mlflow.log_figure(fig, artifact_file)
+    with mlflux.start_run():
+        mlflux.log_figure(fig, artifact_file)
         plt.close(fig)
 
         artifact_path = None if subdir is None else posixpath.normpath(subdir)
-        artifact_uri = mlflow.get_artifact_uri(artifact_path)
+        artifact_uri = mlflux.get_artifact_uri(artifact_path)
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         assert os.listdir(run_artifact_dir) == [filename]
 
@@ -637,19 +637,19 @@ def test_log_figure_plotly(subdir):
 
     fig = go.Figure(go.Scatter(x=[0, 1], y=[2, 3]))
 
-    with mlflow.start_run():
-        mlflow.log_figure(fig, artifact_file)
+    with mlflux.start_run():
+        mlflux.log_figure(fig, artifact_file)
 
         artifact_path = None if subdir is None else posixpath.normpath(subdir)
-        artifact_uri = mlflow.get_artifact_uri(artifact_path)
+        artifact_uri = mlflux.get_artifact_uri(artifact_path)
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         assert os.listdir(run_artifact_dir) == [filename]
 
 
 @pytest.mark.large
 def test_log_figure_raises_error_for_unsupported_figure_object_type():
-    with mlflow.start_run(), pytest.raises(TypeError, match="Unsupported figure object type"):
-        mlflow.log_figure("not_figure", "figure.png")
+    with mlflux.start_run(), pytest.raises(TypeError, match="Unsupported figure object type"):
+        mlflux.log_figure("not_figure", "figure.png")
 
 
 @pytest.mark.large
@@ -663,11 +663,11 @@ def test_log_image_numpy(subdir):
 
     image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
 
-    with mlflow.start_run():
-        mlflow.log_image(image, artifact_file)
+    with mlflux.start_run():
+        mlflux.log_image(image, artifact_file)
 
         artifact_path = None if subdir is None else posixpath.normpath(subdir)
-        artifact_uri = mlflow.get_artifact_uri(artifact_path)
+        artifact_uri = mlflux.get_artifact_uri(artifact_path)
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         assert os.listdir(run_artifact_dir) == [filename]
 
@@ -687,11 +687,11 @@ def test_log_image_pillow(subdir):
 
     image = Image.new("RGB", (100, 100))
 
-    with mlflow.start_run():
-        mlflow.log_image(image, artifact_file)
+    with mlflux.start_run():
+        mlflux.log_image(image, artifact_file)
 
         artifact_path = None if subdir is None else posixpath.normpath(subdir)
-        artifact_uri = mlflow.get_artifact_uri(artifact_path)
+        artifact_uri = mlflux.get_artifact_uri(artifact_path)
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         assert os.listdir(run_artifact_dir) == [filename]
 
@@ -717,9 +717,9 @@ def test_log_image_numpy_shape(size):
     filename = "image.png"
     image = np.random.randint(0, 256, size=size, dtype=np.uint8)
 
-    with mlflow.start_run():
-        mlflow.log_image(image, filename)
-        artifact_uri = mlflow.get_artifact_uri()
+    with mlflux.start_run():
+        mlflux.log_image(image, filename)
+        artifact_uri = mlflux.get_artifact_uri()
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         assert os.listdir(run_artifact_dir) == [filename]
 
@@ -749,9 +749,9 @@ def test_log_image_numpy_dtype(dtype):
     filename = "image.png"
     image = np.random.randint(0, 2, size=(100, 100, 3)).astype(np.dtype(dtype))
 
-    with mlflow.start_run():
-        mlflow.log_image(image, filename)
-        artifact_uri = mlflow.get_artifact_uri()
+    with mlflux.start_run():
+        mlflux.log_image(image, filename)
+        artifact_uri = mlflux.get_artifact_uri()
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         assert os.listdir(run_artifact_dir) == [filename]
 
@@ -767,8 +767,8 @@ def test_log_image_numpy_emits_warning_for_out_of_range_values(array):
 
     image = np.array(array).astype(type(array[0][0]))
 
-    with mlflow.start_run(), mock.patch("mlflow.tracking.client._logger.warning") as warn_mock:
-        mlflow.log_image(image, "image.png")
+    with mlflux.start_run(), mock.patch("mlflux.tracking.client._logger.warning") as warn_mock:
+        mlflux.log_image(image, "image.png")
         range_str = "[0, 255]" if isinstance(array[0][0], int) else "[0, 1]"
         msg = "Out-of-range values are detected. Clipping array (dtype: '{}') to {}".format(
             image.dtype, range_str
@@ -780,56 +780,56 @@ def test_log_image_numpy_emits_warning_for_out_of_range_values(array):
 def test_log_image_numpy_raises_exception_for_invalid_array_data_type():
     import numpy as np
 
-    with mlflow.start_run(), pytest.raises(TypeError, match="Invalid array data type"):
-        mlflow.log_image(np.tile("a", (1, 1, 3)), "image.png")
+    with mlflux.start_run(), pytest.raises(TypeError, match="Invalid array data type"):
+        mlflux.log_image(np.tile("a", (1, 1, 3)), "image.png")
 
 
 @pytest.mark.large
 def test_log_image_numpy_raises_exception_for_invalid_array_shape():
     import numpy as np
 
-    with mlflow.start_run(), pytest.raises(ValueError, match="`image` must be a 2D or 3D array"):
-        mlflow.log_image(np.zeros((1,), dtype=np.uint8), "image.png")
+    with mlflux.start_run(), pytest.raises(ValueError, match="`image` must be a 2D or 3D array"):
+        mlflux.log_image(np.zeros((1,), dtype=np.uint8), "image.png")
 
 
 @pytest.mark.large
 def test_log_image_numpy_raises_exception_for_invalid_channel_length():
     import numpy as np
 
-    with mlflow.start_run(), pytest.raises(ValueError, match="Invalid channel length"):
-        mlflow.log_image(np.zeros((1, 1, 5), dtype=np.uint8), "image.png")
+    with mlflux.start_run(), pytest.raises(ValueError, match="Invalid channel length"):
+        mlflux.log_image(np.zeros((1, 1, 5), dtype=np.uint8), "image.png")
 
 
 @pytest.mark.large
 def test_log_image_raises_exception_for_unsupported_image_object_type():
-    with mlflow.start_run(), pytest.raises(TypeError, match="Unsupported image object type"):
-        mlflow.log_image("not_image", "image.png")
+    with mlflux.start_run(), pytest.raises(TypeError, match="Unsupported image object type"):
+        mlflux.log_image("not_image", "image.png")
 
 
 def test_with_startrun():
     run_id = None
     t0 = int(time.time() * 1000)
-    with mlflow.start_run() as active_run:
-        assert mlflow.active_run() == active_run
+    with mlflux.start_run() as active_run:
+        assert mlflux.active_run() == active_run
         run_id = active_run.info.run_id
     t1 = int(time.time() * 1000)
-    run_info = mlflow.tracking._get_store().get_run(run_id).info
+    run_info = mlflux.tracking._get_store().get_run(run_id).info
     assert run_info.status == "FINISHED"
     assert t0 <= run_info.end_time and run_info.end_time <= t1
-    assert mlflow.active_run() is None
+    assert mlflux.active_run() is None
 
 
 def test_parent_create_run():
-    with mlflow.start_run() as parent_run:
+    with mlflux.start_run() as parent_run:
         parent_run_id = parent_run.info.run_id
     os.environ[_RUN_ID_ENV_VAR] = parent_run_id
-    with mlflow.start_run() as parent_run:
+    with mlflux.start_run() as parent_run:
         assert parent_run.info.run_id == parent_run_id
         with pytest.raises(Exception, match="To start a nested run"):
-            mlflow.start_run()
-        with mlflow.start_run(nested=True) as child_run:
+            mlflux.start_run()
+        with mlflux.start_run(nested=True) as child_run:
             assert child_run.info.run_id != parent_run_id
-            with mlflow.start_run(nested=True) as grand_child_run:
+            with mlflux.start_run(nested=True) as grand_child_run:
                 pass
 
     def verify_has_parent_id_tag(child_id, expected_parent_id):
@@ -838,42 +838,42 @@ def test_parent_create_run():
 
     verify_has_parent_id_tag(child_run.info.run_id, parent_run.info.run_id)
     verify_has_parent_id_tag(grand_child_run.info.run_id, child_run.info.run_id)
-    assert mlflow.active_run() is None
+    assert mlflux.active_run() is None
 
 
 def test_start_deleted_run():
     run_id = None
-    with mlflow.start_run() as active_run:
+    with mlflux.start_run() as active_run:
         run_id = active_run.info.run_id
     tracking.MlflowClient().delete_run(run_id)
     with pytest.raises(MlflowException, matches="because it is in the deleted state."):
-        with mlflow.start_run(run_id=run_id):
+        with mlflux.start_run(run_id=run_id):
             pass
-    assert mlflow.active_run() is None
+    assert mlflux.active_run() is None
 
 
 @pytest.mark.usefixtures("reset_active_experiment")
 def test_start_run_exp_id_0():
-    mlflow.set_experiment("some-experiment")
+    mlflux.set_experiment("some-experiment")
     # Create a run and verify that the current active experiment is the one we just set
-    with mlflow.start_run() as active_run:
+    with mlflux.start_run() as active_run:
         exp_id = active_run.info.experiment_id
         assert exp_id != FileStore.DEFAULT_EXPERIMENT_ID
         assert MlflowClient().get_experiment(exp_id).name == "some-experiment"
     # Set experiment ID to 0 when creating a run, verify that the specified experiment ID is honored
-    with mlflow.start_run(experiment_id=0) as active_run:
+    with mlflux.start_run(experiment_id=0) as active_run:
         assert active_run.info.experiment_id == FileStore.DEFAULT_EXPERIMENT_ID
 
 
 def test_get_artifact_uri_with_artifact_path_unspecified_returns_artifact_root_dir():
-    with mlflow.start_run() as active_run:
-        assert mlflow.get_artifact_uri(artifact_path=None) == active_run.info.artifact_uri
+    with mlflux.start_run() as active_run:
+        assert mlflux.get_artifact_uri(artifact_path=None) == active_run.info.artifact_uri
 
 
 def test_get_artifact_uri_uses_currently_active_run_id():
     artifact_path = "artifact"
-    with mlflow.start_run() as active_run:
-        assert mlflow.get_artifact_uri(
+    with mlflux.start_run() as active_run:
+        assert mlflux.get_artifact_uri(
             artifact_path=artifact_path
         ) == tracking.artifact_utils.get_artifact_uri(
             run_id=active_run.info.run_id, artifact_path=artifact_path
@@ -900,11 +900,11 @@ def test_get_artifact_uri_appends_to_uri_path_component_correctly(
 ):
     client = MlflowClient()
     client.create_experiment("get-artifact-uri-test", artifact_location=artifact_location)
-    mlflow.set_experiment("get-artifact-uri-test")
-    with mlflow.start_run():
-        run_id = mlflow.active_run().info.run_id
+    mlflux.set_experiment("get-artifact-uri-test")
+    with mlflux.start_run():
+        run_id = mlflux.active_run().info.run_id
         for artifact_path in ["path/to/artifact", "/artifact/path", "arty.txt"]:
-            artifact_uri = mlflow.get_artifact_uri(artifact_path)
+            artifact_uri = mlflux.get_artifact_uri(artifact_path)
             assert artifact_uri == tracking.artifact_utils.get_artifact_uri(run_id, artifact_path)
             assert artifact_uri == expected_uri_format.format(
                 run_id=run_id, path=artifact_path.lstrip("/")
@@ -913,21 +913,21 @@ def test_get_artifact_uri_appends_to_uri_path_component_correctly(
 
 @pytest.mark.usefixtures("reset_active_experiment")
 def test_search_runs():
-    mlflow.set_experiment("exp-for-search")
+    mlflux.set_experiment("exp-for-search")
     # Create a run and verify that the current active experiment is the one we just set
     logged_runs = {}
-    with mlflow.start_run() as active_run:
+    with mlflux.start_run() as active_run:
         logged_runs["first"] = active_run.info.run_id
-        mlflow.log_metric("m1", 0.001)
-        mlflow.log_metric("m2", 0.002)
-        mlflow.log_metric("m1", 0.002)
-        mlflow.log_param("p1", "a")
-        mlflow.set_tag("t1", "first-tag-val")
-    with mlflow.start_run() as active_run:
+        mlflux.log_metric("m1", 0.001)
+        mlflux.log_metric("m2", 0.002)
+        mlflux.log_metric("m1", 0.002)
+        mlflux.log_param("p1", "a")
+        mlflux.set_tag("t1", "first-tag-val")
+    with mlflux.start_run() as active_run:
         logged_runs["second"] = active_run.info.run_id
-        mlflow.log_metric("m1", 0.008)
-        mlflow.log_param("p2", "aa")
-        mlflow.set_tag("t2", "second-tag-val")
+        mlflux.log_metric("m1", 0.008)
+        mlflux.log_param("p2", "aa")
+        mlflux.set_tag("t2", "second-tag-val")
 
     def verify_runs(runs, expected_set):
         assert set([r.info.run_id for r in runs]) == set([logged_runs[r] for r in expected_set])
@@ -983,11 +983,11 @@ def test_search_runs():
 
 @pytest.mark.usefixtures("reset_active_experiment")
 def test_search_runs_multiple_experiments():
-    experiment_ids = [mlflow.create_experiment("exp__{}".format(exp_id)) for exp_id in range(1, 4)]
+    experiment_ids = [mlflux.create_experiment("exp__{}".format(exp_id)) for exp_id in range(1, 4)]
     for eid in experiment_ids:
-        with mlflow.start_run(experiment_id=eid):
-            mlflow.log_metric("m0", 1)
-            mlflow.log_metric("m_{}".format(eid), 2)
+        with mlflux.start_run(experiment_id=eid):
+            mlflux.log_metric("m0", 1)
+            mlflux.log_metric("m_{}".format(eid), 2)
 
     assert len(MlflowClient().search_runs(experiment_ids, "metrics.m0 > 0", ViewType.ALL)) == 3
 

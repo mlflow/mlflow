@@ -1,7 +1,7 @@
 #
 # train_diabetes.py
 #
-#   MLflow model using ElasticNet (sklearn) and Plots ElasticNet Descent Paths
+#   mlflux model using ElasticNet (sklearn) and Plots ElasticNet Descent Paths
 #
 #   Uses the sklearn Diabetes dataset to predict diabetes progression using ElasticNet
 #       The predicted "progression" column is a quantitative measure of disease progression one year after baseline
@@ -42,9 +42,9 @@ cols = diabetes.feature_names + ["progression"]
 data = pd.DataFrame(d, columns=cols)
 
 
-# Import mlflow
-import mlflow
-import mlflow.sklearn
+# Import mlflux
+import mlflux
+import mlflux.sklearn
 
 
 # Evaluate metrics
@@ -83,13 +83,13 @@ if __name__ == "__main__":
     print("  MAE: %s" % mae)
     print("  R2: %s" % r2)
 
-    # Log mlflow attributes for mlflow UI
-    mlflow.log_param("alpha", alpha)
-    mlflow.log_param("l1_ratio", l1_ratio)
-    mlflow.log_metric("rmse", rmse)
-    mlflow.log_metric("r2", r2)
-    mlflow.log_metric("mae", mae)
-    mlflow.sklearn.log_model(lr, "model")
+    # Log mlflux attributes for mlflux UI
+    mlflux.log_param("alpha", alpha)
+    mlflux.log_param("l1_ratio", l1_ratio)
+    mlflux.log_metric("rmse", rmse)
+    mlflux.log_metric("r2", r2)
+    mlflux.log_metric("mae", mae)
+    mlflux.sklearn.log_model(lr, "model")
 
     # Compute paths
     eps = 5e-3  # the smaller it is the longer is the path
@@ -119,4 +119,4 @@ if __name__ == "__main__":
     plt.close(fig)
 
     # Log artifacts (output files)
-    mlflow.log_artifact("ElasticNet-paths.png")
+    mlflux.log_artifact("ElasticNet-paths.png")

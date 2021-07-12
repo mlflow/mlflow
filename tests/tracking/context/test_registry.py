@@ -2,12 +2,12 @@ from importlib import reload
 from unittest import mock
 import pytest
 
-import mlflow.tracking.context.registry
-from mlflow.tracking.context.default_context import DefaultRunContext
-from mlflow.tracking.context.git_context import GitRunContext
-from mlflow.tracking.context.databricks_notebook_context import DatabricksNotebookRunContext
-from mlflow.tracking.context.databricks_job_context import DatabricksJobRunContext
-from mlflow.tracking.context.registry import RunContextProviderRegistry, resolve_tags
+import mlflux.tracking.context.registry
+from mlflux.tracking.context.default_context import DefaultRunContext
+from mlflux.tracking.context.git_context import GitRunContext
+from mlflux.tracking.context.databricks_notebook_context import DatabricksNotebookRunContext
+from mlflux.tracking.context.databricks_job_context import DatabricksJobRunContext
+from mlflux.tracking.context.registry import RunContextProviderRegistry, resolve_tags
 
 # pylint: disable=unused-argument
 
@@ -34,7 +34,7 @@ def test_run_context_provider_registry_register_entrypoints():
 
     assert set(registry) == {provider_class.return_value}
     mock_entrypoint.load.assert_called_once_with()
-    mock_get_group_all.assert_called_once_with("mlflow.run_context_provider")
+    mock_get_group_all.assert_called_once_with("mlflux.run_context_provider")
 
 
 @pytest.mark.parametrize(
@@ -53,13 +53,13 @@ def test_run_context_provider_registry_register_entrypoints_handles_exception(ex
             registry.register_entrypoints()
 
     mock_entrypoint.load.assert_called_once_with()
-    mock_get_group_all.assert_called_once_with("mlflow.run_context_provider")
+    mock_get_group_all.assert_called_once_with("mlflux.run_context_provider")
 
 
 def _currently_registered_run_context_provider_classes():
     return {
         provider.__class__
-        for provider in mlflow.tracking.context.registry._run_context_provider_registry
+        for provider in mlflux.tracking.context.registry._run_context_provider_registry
     }
 
 
@@ -85,17 +85,17 @@ def test_registry_instance_loads_entrypoints():
     ) as mock_get_group_all:
         # Entrypoints are registered at import time, so we need to reload the module to register the
         # entrypoint given by the mocked extrypoints.get_group_all
-        reload(mlflow.tracking.context.registry)
+        reload(mlflux.tracking.context.registry)
 
     assert MockRunContext in _currently_registered_run_context_provider_classes()
-    mock_get_group_all.assert_called_once_with("mlflow.run_context_provider")
+    mock_get_group_all.assert_called_once_with("mlflux.run_context_provider")
 
 
 @pytest.mark.large
 def test_run_context_provider_registry_with_installed_plugin(tmp_wkdir):
-    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
+    """This test requires the package in tests/resources/mlflux-test-plugin to be installed"""
 
-    reload(mlflow.tracking.context.registry)
+    reload(mlflux.tracking.context.registry)
 
     from mlflow_test_plugin.run_context_provider import PluginRunContextProvider
 
@@ -132,7 +132,7 @@ def mock_run_context_providers():
 
     providers = [base_provider, skipped_provider, exception_provider, override_provider]
 
-    with mock.patch("mlflow.tracking.context.registry._run_context_provider_registry", providers):
+    with mock.patch("mlflux.tracking.context.registry._run_context_provider_registry", providers):
         yield
 
     skipped_provider.tags.assert_not_called()

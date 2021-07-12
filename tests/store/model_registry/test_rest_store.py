@@ -7,8 +7,8 @@ import uuid
 from unittest import mock
 import functools
 
-from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
-from mlflow.protos.model_registry_pb2 import (
+from mlflux.entities.model_registry import RegisteredModelTag, ModelVersionTag
+from mlflux.protos.model_registry_pb2 import (
     CreateRegisteredModel,
     UpdateRegisteredModel,
     DeleteRegisteredModel,
@@ -29,9 +29,9 @@ from mlflow.protos.model_registry_pb2 import (
     DeleteRegisteredModelTag,
     DeleteModelVersionTag,
 )
-from mlflow.store.model_registry.rest_store import RestStore
-from mlflow.utils.proto_json_utils import message_to_json
-from mlflow.utils.rest_utils import MlflowHostCreds
+from mlflux.store.model_registry.rest_store import RestStore
+from mlflux.utils.proto_json_utils import message_to_json
+from mlflux.utils.rest_utils import MlflowHostCreds
 
 
 @pytest.fixture(scope="class")
@@ -47,7 +47,7 @@ def request_fixture():
 def mock_http_request(f):
     @functools.wraps(f)
     @mock.patch(
-        "mlflow.utils.rest_utils.http_request",
+        "mlflux.utils.rest_utils.http_request",
         return_value=mock.MagicMock(status_code=200, text="{}"),
     )
     def wrapper(*args, **kwargs):
@@ -68,7 +68,7 @@ class TestRestStore(unittest.TestCase):
     def _args(self, host_creds, endpoint, method, json_body):
         res = {
             "host_creds": host_creds,
-            "endpoint": "/api/2.0/preview/mlflow/%s" % endpoint,
+            "endpoint": "/api/2.0/preview/mlflux/%s" % endpoint,
             "method": method,
         }
         if method == "GET":

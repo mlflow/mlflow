@@ -2,9 +2,9 @@ from unittest.mock import MagicMock
 import pytest
 from tempfile import NamedTemporaryFile
 import pysftp
-from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.artifact.sftp_artifact_repo import SFTPArtifactRepository
-from mlflow.utils.file_utils import TempDir
+from mlflux.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflux.store.artifact.sftp_artifact_repo import SFTPArtifactRepository
+from mlflux.utils.file_utils import TempDir
 import os
 import posixpath
 

@@ -6,8 +6,8 @@ import sys
 import pandas as pd
 import numpy as np
 
-import mlflow
-import mlflow.pyfunc
+import mlflux
+import mlflux.pyfunc
 
 import cloudpickle
 
@@ -22,7 +22,7 @@ logging.basicConfig(level=logging.WARN)
 logger = logging.getLogger(__name__)
 
 
-class FbProphetWrapper(mlflow.pyfunc.PythonModel):
+class FbProphetWrapper(mlflux.pyfunc.PythonModel):
     def __init__(self, model):
         self.model = model
         super().__init__()
@@ -71,7 +71,7 @@ if __name__ == "__main__":
         )
 
     # Useful for multiple runs (only doing one run in this sample notebook)
-    with mlflow.start_run():
+    with mlflux.start_run():
         m = Prophet()
         m.fit(df)
 
@@ -84,13 +84,13 @@ if __name__ == "__main__":
         print("  CV: \n%s" % df_cv.head())
         print("  Perf: \n%s" % df_p.head())
 
-        # Log parameter, metrics, and model to MLflow
-        mlflow.log_param("rolling_window", rolling_window)
-        mlflow.log_metric("rmse", df_p.loc[0, "rmse"])
+        # Log parameter, metrics, and model to mlflux
+        mlflux.log_param("rolling_window", rolling_window)
+        mlflux.log_metric("rmse", df_p.loc[0, "rmse"])
 
-        mlflow.pyfunc.log_model("model", conda_env=conda_env, python_model=FbProphetWrapper(m))
+        mlflux.pyfunc.log_model("model", conda_env=conda_env, python_model=FbProphetWrapper(m))
         print(
             "Logged model with URI: runs:/{run_id}/model".format(
-                run_id=mlflow.active_run().info.run_id
+                run_id=mlflux.active_run().info.run_id
             )
         )

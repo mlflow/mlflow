@@ -4,10 +4,10 @@ import os
 
 import pytest
 
-from mlflow.utils.file_utils import TempDir, _copy_project
+from mlflux.utils.file_utils import TempDir, _copy_project
 
-from mlflow.entities import RunStatus
-from mlflow.projects import _project_spec
+from mlflux.entities import RunStatus
+from mlflux.projects import _project_spec
 
 
 TEST_DIR = "tests"
@@ -15,8 +15,8 @@ TEST_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_project")
 TEST_DOCKER_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_docker_project")
 TEST_PROJECT_NAME = "example_project"
 TEST_NO_SPEC_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_project_no_spec")
-GIT_PROJECT_URI = "https://github.com/mlflow/mlflow-example"
-SSH_PROJECT_URI = "git@github.com:mlflow/mlflow-example.git"
+GIT_PROJECT_URI = "https://github.com/mlflux/mlflux-example"
+SSH_PROJECT_URI = "git@github.com:mlflux/mlflux-example.git"
 
 
 def load_project():
@@ -45,7 +45,7 @@ def docker_example_base_image():
     if not mlflow_home:
         raise Exception(
             "MLFLOW_HOME environment variable is not set. Please set the variable to "
-            "point to your mlflow dev root."
+            "point to your mlflux dev root."
         )
     with TempDir() as tmp:
         cwd = tmp.path()
@@ -55,7 +55,7 @@ def docker_example_base_image():
         shutil.copy(os.path.join(TEST_DOCKER_PROJECT_DIR, "Dockerfile"), tmp.path("Dockerfile"))
         with open(tmp.path("Dockerfile"), "a") as f:
             f.write(
-                ("COPY {mlflow_dir} /opt/mlflow\n" "RUN pip install -U -e /opt/mlflow\n").format(
+                ("COPY {mlflow_dir} /opt/mlflux\n" "RUN pip install -U -e /opt/mlflux\n").format(
                     mlflow_dir=mlflow_dir
                 )
             )
@@ -63,7 +63,7 @@ def docker_example_base_image():
         client = docker.from_env()
         try:
             client.images.build(
-                tag="mlflow-docker-example",
+                tag="mlflux-docker-example",
                 forcerm=True,
                 nocache=True,
                 dockerfile="Dockerfile",

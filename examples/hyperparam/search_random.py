@@ -1,7 +1,7 @@
 """
-Example of hyperparameter search in MLflow using simple random search.
+Example of hyperparameter search in mlflux using simple random search.
 
-The run method will evaluate random combinations of parameters in a new MLflow run.
+The run method will evaluate random combinations of parameters in a new mlflux run.
 
 The runs are evaluated based on validation set loss. Test set score is calculated to verify the
 results.
@@ -15,11 +15,11 @@ import click
 
 import numpy as np
 
-import mlflow
-import mlflow.sklearn
-import mlflow.tracking
-import mlflow.projects
-from mlflow.tracking.client import MlflowClient
+import mlflux
+import mlflux.sklearn
+import mlflux.tracking
+import mlflux.projects
+from mlflux.tracking.client import MlflowClient
 
 _inf = np.finfo(np.float64).max
 
@@ -36,15 +36,15 @@ def run(training_data, max_runs, max_p, epochs, metric, seed):
     val_metric = "val_{}".format(metric)
     test_metric = "test_{}".format(metric)
     np.random.seed(seed)
-    tracking_client = mlflow.tracking.MlflowClient()
+    tracking_client = mlflux.tracking.MlflowClient()
 
     def new_eval(
         nepochs, experiment_id, null_train_loss=_inf, null_val_loss=_inf, null_test_loss=_inf
     ):
         def eval(parms):
             lr, momentum = parms
-            with mlflow.start_run(nested=True) as child_run:
-                p = mlflow.projects.run(
+            with mlflux.start_run(nested=True) as child_run:
+                p = mlflux.projects.run(
                     run_id=child_run.info.run_id,
                     uri=".",
                     entry_point="train",
@@ -72,7 +72,7 @@ def run(training_data, max_runs, max_p, epochs, metric, seed):
                 train_loss = null_train_loss
                 val_loss = null_val_loss
                 test_loss = null_test_loss
-            mlflow.log_metrics(
+            mlflux.log_metrics(
                 {
                     "train_{}".format(metric): train_loss,
                     "val_{}".format(metric): val_loss,
@@ -83,7 +83,7 @@ def run(training_data, max_runs, max_p, epochs, metric, seed):
 
         return eval
 
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         experiment_id = run.info.experiment_id
         _, null_train_loss, null_val_loss, null_test_loss = new_eval(0, experiment_id)((0, 0))
         runs = [(np.random.uniform(1e-5, 1e-1), np.random.uniform(0, 1.0)) for _ in range(max_runs)]
@@ -96,7 +96,7 @@ def run(training_data, max_runs, max_p, epochs, metric, seed):
         # find the best run, log its metrics as the final metrics of this run.
         client = MlflowClient()
         runs = client.search_runs(
-            [experiment_id], "tags.mlflow.parentRunId = '{run_id}' ".format(run_id=run.info.run_id)
+            [experiment_id], "tags.mlflux.parentRunId = '{run_id}' ".format(run_id=run.info.run_id)
         )
         best_val_train = _inf
         best_val_valid = _inf
@@ -108,8 +108,8 @@ def run(training_data, max_runs, max_p, epochs, metric, seed):
                 best_val_train = r.data.metrics["train_rmse"]
                 best_val_valid = r.data.metrics["val_rmse"]
                 best_val_test = r.data.metrics["test_rmse"]
-        mlflow.set_tag("best_run", best_run.info.run_id)
-        mlflow.log_metrics(
+        mlflux.set_tag("best_run", best_run.info.run_id)
+        mlflux.log_metrics(
             {
                 "train_{}".format(metric): best_val_train,
                 "val_{}".format(metric): best_val_valid,

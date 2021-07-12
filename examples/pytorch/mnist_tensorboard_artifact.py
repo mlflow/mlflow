@@ -1,7 +1,7 @@
 #
 # Trains an MNIST digit recognizer using PyTorch, and uses tensorboardX to log training metrics
-# and weights in TensorBoard event format to the MLflow run's artifact directory. This stores the
-# TensorBoard events in MLflow for later access using the TensorBoard command line tool.
+# and weights in TensorBoard event format to the mlflux run's artifact directory. This stores the
+# TensorBoard events in mlflux for later access using the TensorBoard command line tool.
 #
 # NOTE: This example requires you to first install PyTorch (using the instructions at pytorch.org)
 #       and tensorboardX (using pip install tensorboardX).
@@ -10,8 +10,8 @@
 #
 import argparse
 import os
-import mlflow
-import mlflow.pytorch
+import mlflux
+import mlflux.pytorch
 import pickle
 import tempfile
 import torch
@@ -190,15 +190,15 @@ def test(epoch):
 
 
 def log_scalar(name, value, step):
-    """Log a scalar value to both MLflow and TensorBoard"""
+    """Log a scalar value to both mlflux and TensorBoard"""
     writer.add_scalar(name, value, step)
-    mlflow.log_metric(name, value)
+    mlflux.log_metric(name, value)
 
 
-with mlflow.start_run():
-    # Log our parameters into mlflow
+with mlflux.start_run():
+    # Log our parameters into mlflux
     for key, value in vars(args).items():
-        mlflow.log_param(key, value)
+        mlflux.log_param(key, value)
 
     # Create a SummaryWriter to write TensorBoard events locally
     output_dir = dirpath = tempfile.mkdtemp()
@@ -212,21 +212,21 @@ with mlflow.start_run():
 
     # Upload the TensorBoard event logs as a run artifact
     print("Uploading TensorBoard events as a run artifact...")
-    mlflow.log_artifacts(output_dir, artifact_path="events")
+    mlflux.log_artifacts(output_dir, artifact_path="events")
     print(
         "\nLaunch TensorBoard with:\n\ntensorboard --logdir=%s"
-        % os.path.join(mlflow.get_artifact_uri(), "events")
+        % os.path.join(mlflux.get_artifact_uri(), "events")
     )
 
-    # Log the model as an artifact of the MLflow run.
+    # Log the model as an artifact of the mlflux run.
     print("\nLogging the trained model as a run artifact...")
-    mlflow.pytorch.log_model(model, artifact_path="pytorch-model", pickle_module=pickle)
+    mlflux.pytorch.log_model(model, artifact_path="pytorch-model", pickle_module=pickle)
     print(
-        "\nThe model is logged at:\n%s" % os.path.join(mlflow.get_artifact_uri(), "pytorch-model")
+        "\nThe model is logged at:\n%s" % os.path.join(mlflux.get_artifact_uri(), "pytorch-model")
     )
 
     # Since the model was logged as an artifact, it can be loaded to make predictions
-    loaded_model = mlflow.pytorch.load_model(mlflow.get_artifact_uri("pytorch-model"))
+    loaded_model = mlflux.pytorch.load_model(mlflux.get_artifact_uri("pytorch-model"))
 
     # Extract a few examples from the test dataset to evaulate on
     eval_data, eval_labels = next(iter(test_loader))

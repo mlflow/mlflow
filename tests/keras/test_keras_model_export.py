@@ -24,18 +24,18 @@ import numpy as np
 import yaml
 from unittest import mock
 
-import mlflow
-import mlflow.keras
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
-from mlflow import pyfunc
-from mlflow.exceptions import MlflowException
-from mlflow.models import Model, infer_signature
-from mlflow.models.utils import _read_example
-from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils.file_utils import TempDir
-from mlflow.utils.model_utils import _get_flavor_configuration
+import mlflux
+import mlflux.keras
+import mlflux.pyfunc.scoring_server as pyfunc_scoring_server
+from mlflux import pyfunc
+from mlflux.exceptions import MlflowException
+from mlflux.models import Model, infer_signature
+from mlflux.models.utils import _read_example
+from mlflux.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflux.tracking.artifact_utils import _download_artifact_from_uri
+from mlflux.utils.environment import _mlflow_conda_env
+from mlflux.utils.file_utils import TempDir
+from mlflux.utils.model_utils import _get_flavor_configuration
 from tests.helper_functions import pyfunc_serve_and_score_model
 from tests.helper_functions import (
     score_model_in_sagemaker_docker_container,
@@ -44,7 +44,7 @@ from tests.helper_functions import (
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.pyfunc.test_spark import score_model_as_udf
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflux.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -206,25 +206,25 @@ def test_that_keras_module_arg_works(model_path):
         x = MyModel("x123")
         path0 = os.path.join(model_path, "0")
         with pytest.raises(MlflowException):
-            mlflow.keras.save_model(x, path0)
-        mlflow.keras.save_model(x, path0, keras_module=FakeKerasModule, save_format="h5")
-        y = mlflow.keras.load_model(path0)
+            mlflux.keras.save_model(x, path0)
+        mlflux.keras.save_model(x, path0, keras_module=FakeKerasModule, save_format="h5")
+        y = mlflux.keras.load_model(path0)
         assert x == y
         path1 = os.path.join(model_path, "1")
-        mlflow.keras.save_model(x, path1, keras_module=FakeKerasModule.__name__, save_format="h5")
-        z = mlflow.keras.load_model(path1)
+        mlflux.keras.save_model(x, path1, keras_module=FakeKerasModule.__name__, save_format="h5")
+        z = mlflux.keras.load_model(path1)
         assert x == z
         # Tests model log
-        with mlflow.start_run() as active_run:
+        with mlflux.start_run() as active_run:
             with pytest.raises(MlflowException):
-                mlflow.keras.log_model(x, "model0")
-            mlflow.keras.log_model(x, "model0", keras_module=FakeKerasModule, save_format="h5")
-            a = mlflow.keras.load_model("runs:/{}/model0".format(active_run.info.run_id))
+                mlflux.keras.log_model(x, "model0")
+            mlflux.keras.log_model(x, "model0", keras_module=FakeKerasModule, save_format="h5")
+            a = mlflux.keras.load_model("runs:/{}/model0".format(active_run.info.run_id))
             assert x == a
-            mlflow.keras.log_model(
+            mlflux.keras.log_model(
                 x, "model1", keras_module=FakeKerasModule.__name__, save_format="h5"
             )
-            b = mlflow.keras.load_model("runs:/{}/model1".format(active_run.info.run_id))
+            b = mlflux.keras.load_model("runs:/{}/model1".format(active_run.info.run_id))
             assert x == b
 
 
@@ -242,9 +242,9 @@ def test_model_save_load(build_model, save_format, model_path, data):
         model_path = os.path.join(model_path, "plain")
     expected = keras_model.predict(x.values)
     kwargs = {"save_format": save_format} if save_format else {}
-    mlflow.keras.save_model(keras_model, model_path, **kwargs)
+    mlflux.keras.save_model(keras_model, model_path, **kwargs)
     # Loading Keras model
-    model_loaded = mlflow.keras.load_model(model_path)
+    model_loaded = mlflux.keras.load_model(model_path)
     # When saving as SavedModel, we actually convert the model
     # to a slightly different format, so we cannot assume it is
     # exactly the same.
@@ -252,7 +252,7 @@ def test_model_save_load(build_model, save_format, model_path, data):
         assert type(keras_model) == type(model_loaded)
     np.testing.assert_allclose(model_loaded.predict(x.values), expected, rtol=1e-5)
     # Loading pyfunc model
-    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+    pyfunc_loaded = mlflux.pyfunc.load_model(model_path)
     np.testing.assert_allclose(pyfunc_loaded.predict(x).values, expected, rtol=1e-5)
 
     # pyfunc serve
@@ -283,7 +283,7 @@ def test_signature_and_examples_are_saved_correctly(model, data):
         for example in (None, example_):
             with TempDir() as tmp:
                 path = tmp.path("model")
-                mlflow.keras.save_model(
+                mlflux.keras.save_model(
                     model, path=path, signature=signature, input_example=example
                 )
                 mlflow_model = Model.load(path)
@@ -298,10 +298,10 @@ def test_signature_and_examples_are_saved_correctly(model, data):
 def test_custom_model_save_load(custom_model, custom_layer, data, custom_predicted, model_path):
     x, _ = data
     custom_objects = {"MyDense": custom_layer}
-    mlflow.keras.save_model(custom_model, model_path, custom_objects=custom_objects)
+    mlflux.keras.save_model(custom_model, model_path, custom_objects=custom_objects)
 
     # Loading Keras model
-    model_loaded = mlflow.keras.load_model(model_path)
+    model_loaded = mlflux.keras.load_model(model_path)
     assert all(model_loaded.predict(x.values) == custom_predicted)
     # pyfunc serve
     scoring_response = pyfunc_serve_and_score_model(
@@ -319,7 +319,7 @@ def test_custom_model_save_load(custom_model, custom_layer, data, custom_predict
         atol=1e-9,
     )
     # Loading pyfunc model
-    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+    pyfunc_loaded = mlflux.pyfunc.load_model(model_path)
     assert all(pyfunc_loaded.predict(x).values == custom_predicted)
     # test spark udf
     spark_udf_preds = score_model_as_udf(
@@ -338,17 +338,17 @@ def test_custom_model_save_respects_user_custom_objects(custom_model, custom_lay
 
     incorrect_custom_objects = {"MyDense": DifferentCustomLayer()}
     correct_custom_objects = {"MyDense": custom_layer}
-    mlflow.keras.save_model(custom_model, model_path, custom_objects=incorrect_custom_objects)
-    model_loaded = mlflow.keras.load_model(model_path, custom_objects=correct_custom_objects)
+    mlflux.keras.save_model(custom_model, model_path, custom_objects=incorrect_custom_objects)
+    model_loaded = mlflux.keras.load_model(model_path, custom_objects=correct_custom_objects)
     assert model_loaded is not None
     with pytest.raises(TypeError):
-        model_loaded = mlflow.keras.load_model(model_path)
+        model_loaded = mlflux.keras.load_model(model_path)
 
 
 @pytest.mark.large
 def test_model_load_from_remote_uri_succeeds(model, model_path, mock_s3_bucket, data, predicted):
     x, _ = data
-    mlflow.keras.save_model(model, model_path)
+    mlflux.keras.save_model(model, model_path)
 
     artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
     artifact_path = "model"
@@ -356,7 +356,7 @@ def test_model_load_from_remote_uri_succeeds(model, model_path, mock_s3_bucket, 
     artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
 
     model_uri = artifact_root + "/" + artifact_path
-    model_loaded = mlflow.keras.load_model(model_uri=model_uri)
+    model_loaded = mlflux.keras.load_model(model_uri=model_uri)
     assert all(model_loaded.predict(x.values) == predicted)
 
 
@@ -367,52 +367,52 @@ def test_model_log(model, data, predicted):
     for should_start_run in [False, True]:
         try:
             if should_start_run:
-                mlflow.start_run()
+                mlflux.start_run()
             artifact_path = "keras_model"
-            mlflow.keras.log_model(model, artifact_path=artifact_path)
+            mlflux.keras.log_model(model, artifact_path=artifact_path)
             model_uri = "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+                run_id=mlflux.active_run().info.run_id, artifact_path=artifact_path
             )
 
             # Load model
-            model_loaded = mlflow.keras.load_model(model_uri=model_uri)
+            model_loaded = mlflux.keras.load_model(model_uri=model_uri)
             assert all(model_loaded.predict(x.values) == predicted)
 
             # Loading pyfunc model
-            pyfunc_loaded = mlflow.pyfunc.load_model(model_uri=model_uri)
+            pyfunc_loaded = mlflux.pyfunc.load_model(model_uri=model_uri)
             assert all(pyfunc_loaded.predict(x).values == predicted)
         finally:
-            mlflow.end_run()
+            mlflux.end_run()
 
 
 def test_log_model_calls_register_model(model):
     artifact_path = "model"
-    register_model_patch = mock.patch("mlflow.register_model")
-    with mlflow.start_run(), register_model_patch:
-        mlflow.keras.log_model(
+    register_model_patch = mock.patch("mlflux.register_model")
+    with mlflux.start_run(), register_model_patch:
+        mlflux.keras.log_model(
             model, artifact_path=artifact_path, registered_model_name="AdsModel1"
         )
         model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+            run_id=mlflux.active_run().info.run_id, artifact_path=artifact_path
         )
-        mlflow.register_model.assert_called_once_with(
+        mlflux.register_model.assert_called_once_with(
             model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
         )
 
 
 def test_log_model_no_registered_model_name(model):
     artifact_path = "model"
-    register_model_patch = mock.patch("mlflow.register_model")
-    with mlflow.start_run(), register_model_patch:
-        mlflow.keras.log_model(model, artifact_path=artifact_path)
-        mlflow.register_model.assert_not_called()
+    register_model_patch = mock.patch("mlflux.register_model")
+    with mlflux.start_run(), register_model_patch:
+        mlflux.keras.log_model(model, artifact_path=artifact_path)
+        mlflux.register_model.assert_not_called()
 
 
 @pytest.mark.large
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     model, model_path, keras_custom_env
 ):
-    mlflow.keras.save_model(keras_model=model, path=model_path, conda_env=keras_custom_env)
+    mlflux.keras.save_model(keras_model=model, path=model_path, conda_env=keras_custom_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -428,9 +428,9 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
 
 @pytest.mark.large
 def test_model_save_accepts_conda_env_as_dict(model, model_path):
-    conda_env = dict(mlflow.keras.get_default_conda_env())
+    conda_env = dict(mlflux.keras.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
-    mlflow.keras.save_model(keras_model=model, path=model_path, conda_env=conda_env)
+    mlflux.keras.save_model(keras_model=model, path=model_path, conda_env=conda_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -445,7 +445,7 @@ def test_model_save_accepts_conda_env_as_dict(model, model_path):
 def test_model_save_persists_requirements_in_mlflow_model_directory(
     model, model_path, keras_custom_env
 ):
-    mlflow.keras.save_model(keras_model=model, path=model_path, conda_env=keras_custom_env)
+    mlflux.keras.save_model(keras_model=model, path=model_path, conda_env=keras_custom_env)
 
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
     _compare_conda_env_requirements(keras_custom_env, saved_pip_req_path)
@@ -454,13 +454,13 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
 @pytest.mark.large
 def test_model_log_persists_requirements_in_mlflow_model_directory(model, keras_custom_env):
     artifact_path = "model"
-    with mlflow.start_run():
-        mlflow.keras.log_model(
+    with mlflux.start_run():
+        mlflux.keras.log_model(
             keras_model=model, artifact_path=artifact_path, conda_env=keras_custom_env
         )
         model_path = _download_artifact_from_uri(
             "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+                run_id=mlflux.active_run().info.run_id, artifact_path=artifact_path
             )
         )
 
@@ -471,13 +471,13 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(model, keras_
 @pytest.mark.large
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(model, keras_custom_env):
     artifact_path = "model"
-    with mlflow.start_run():
-        mlflow.keras.log_model(
+    with mlflux.start_run():
+        mlflux.keras.log_model(
             keras_model=model, artifact_path=artifact_path, conda_env=keras_custom_env
         )
         model_path = _download_artifact_from_uri(
             "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+                run_id=mlflux.active_run().info.run_id, artifact_path=artifact_path
             )
         )
 
@@ -497,23 +497,23 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(model,
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     model, model_path
 ):
-    mlflow.keras.save_model(keras_model=model, path=model_path, conda_env=None)
+    mlflux.keras.save_model(keras_model=model, path=model_path, conda_env=None)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
     with open(conda_env_path, "r") as f:
         conda_env = yaml.safe_load(f)
 
-    assert conda_env == mlflow.keras.get_default_conda_env()
+    assert conda_env == mlflux.keras.get_default_conda_env()
 
 
 @pytest.mark.large
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(model):
     artifact_path = "model"
-    with mlflow.start_run():
-        mlflow.keras.log_model(keras_model=model, artifact_path=artifact_path, conda_env=None)
+    with mlflux.start_run():
+        mlflux.keras.log_model(keras_model=model, artifact_path=artifact_path, conda_env=None)
         model_path = _download_artifact_from_uri(
             "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+                run_id=mlflux.active_run().info.run_id, artifact_path=artifact_path
             )
         )
 
@@ -522,7 +522,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     with open(conda_env_path, "r") as f:
         conda_env = yaml.safe_load(f)
 
-    assert conda_env == mlflow.keras.get_default_conda_env()
+    assert conda_env == mlflux.keras.get_default_conda_env()
 
 
 @pytest.mark.large
@@ -530,31 +530,31 @@ def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_p
     tf_keras_model, model_path, data
 ):
     """
-    This is a backwards compatibility test to ensure that models saved in MLflow version <= 0.8.0
+    This is a backwards compatibility test to ensure that models saved in mlflux version <= 0.8.0
     can be loaded successfully. These models are missing the `data` flavor configuration key.
     """
-    mlflow.keras.save_model(keras_model=tf_keras_model, path=model_path, save_format="h5")
+    mlflux.keras.save_model(keras_model=tf_keras_model, path=model_path, save_format="h5")
     shutil.move(os.path.join(model_path, "data", "model.h5"), os.path.join(model_path, "model.h5"))
     model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)
-    flavor_conf = model_conf.flavors.get(mlflow.keras.FLAVOR_NAME, None)
+    flavor_conf = model_conf.flavors.get(mlflux.keras.FLAVOR_NAME, None)
     assert flavor_conf is not None
     del flavor_conf["data"]
     model_conf.save(model_conf_path)
 
-    model_loaded = mlflow.keras.load_model(model_path)
+    model_loaded = mlflux.keras.load_model(model_path)
     assert all(model_loaded.predict(data[0].values) == tf_keras_model.predict(data[0].values))
 
 
 @pytest.mark.release
 def test_sagemaker_docker_model_scoring_with_default_conda_env(model, model_path, data, predicted):
-    mlflow.keras.save_model(keras_model=model, path=model_path, conda_env=None)
+    mlflux.keras.save_model(keras_model=model, path=model_path, conda_env=None)
 
     scoring_response = score_model_in_sagemaker_docker_container(
         model_uri=model_path,
         data=data[0],
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        flavor=mlflow.pyfunc.FLAVOR_NAME,
+        flavor=mlflux.pyfunc.FLAVOR_NAME,
         activity_polling_timeout_seconds=500,
     )
     deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
@@ -569,7 +569,7 @@ def test_save_model_with_tf_save_format(model_path):
     is _not_ "h5".
     """
     keras_model = mock.Mock(spec=tf.keras.Model)
-    mlflow.keras.save_model(keras_model=keras_model, path=model_path, save_format="tf")
+    mlflux.keras.save_model(keras_model=keras_model, path=model_path, save_format="tf")
     _, args, kwargs = keras_model.save.mock_calls[0]
     # Ensure that save_format propagated through
     assert kwargs["save_format"] == "tf"
@@ -580,10 +580,10 @@ def test_save_model_with_tf_save_format(model_path):
 @pytest.mark.large
 def test_save_and_load_model_with_tf_save_format(tf_keras_model, model_path):
     """Ensures that keras models saved with save_format="tf" can be loaded."""
-    mlflow.keras.save_model(keras_model=tf_keras_model, path=model_path, save_format="tf")
+    mlflux.keras.save_model(keras_model=tf_keras_model, path=model_path, save_format="tf")
     model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)
-    flavor_conf = model_conf.flavors.get(mlflow.keras.FLAVOR_NAME, None)
+    flavor_conf = model_conf.flavors.get(mlflux.keras.FLAVOR_NAME, None)
     assert flavor_conf is not None
     assert flavor_conf.get("save_format") == "tf"
     assert not os.path.exists(
@@ -593,20 +593,20 @@ def test_save_and_load_model_with_tf_save_format(tf_keras_model, model_path):
         os.path.join(model_path, "data", "model")
     ), "Expected directory containing saved_model.pb"
 
-    model_loaded = mlflow.keras.load_model(model_path)
+    model_loaded = mlflux.keras.load_model(model_path)
     assert tf_keras_model.to_json() == model_loaded.to_json()
 
 
 @pytest.mark.large
 def test_load_without_save_format(tf_keras_model, model_path):
     """Ensures that keras models without save_format can still be loaded."""
-    mlflow.keras.save_model(tf_keras_model, model_path, save_format="h5")
+    mlflux.keras.save_model(tf_keras_model, model_path, save_format="h5")
     model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)
-    flavor_conf = model_conf.flavors.get(mlflow.keras.FLAVOR_NAME)
+    flavor_conf = model_conf.flavors.get(mlflux.keras.FLAVOR_NAME)
     assert flavor_conf is not None
     del flavor_conf["save_format"]
     model_conf.save(model_conf_path)
 
-    model_loaded = mlflow.keras.load_model(model_path)
+    model_loaded = mlflux.keras.load_model(model_path)
     assert tf_keras_model.to_json() == model_loaded.to_json()

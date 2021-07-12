@@ -1,4 +1,4 @@
-from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
+from mlflux.store.artifact.local_artifact_repo import LocalArtifactRepository
 
 
 class PluginLocalArtifactRepository(LocalArtifactRepository):

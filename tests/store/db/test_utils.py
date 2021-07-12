@@ -1,7 +1,7 @@
 import os
 from unittest import mock, TestCase
 
-from mlflow.store.db import utils
+from mlflux.store.db import utils
 
 
 def test_create_sqlalchemy_engine_inject_pool_options():
@@ -34,7 +34,7 @@ class TestCreateSqlAlchemyEngineWithRetry(TestCase):
         with mock.patch.dict(os.environ, {}):
             with mock.patch("sqlalchemy.inspect") as mock_sqlalchemy_inspect:
                 with mock.patch(
-                    "mlflow.store.db.utils.create_sqlalchemy_engine"
+                    "mlflux.store.db.utils.create_sqlalchemy_engine"
                 ) as mock_create_sqlalchemy_engine:
                     with mock.patch("time.sleep") as mock_sleep:
                         mock_create_sqlalchemy_engine.return_value = "Engine"
@@ -48,7 +48,7 @@ class TestCreateSqlAlchemyEngineWithRetry(TestCase):
         with mock.patch.dict(os.environ, {}):
             with mock.patch("sqlalchemy.inspect") as mock_sqlalchemy_inspect:
                 with mock.patch(
-                    "mlflow.store.db.utils.create_sqlalchemy_engine"
+                    "mlflux.store.db.utils.create_sqlalchemy_engine"
                 ) as mock_create_sqlalchemy_engine:
                     with mock.patch("time.sleep"):
                         mock_sqlalchemy_inspect.side_effect = [Exception, Exception, "Inspect"]
@@ -64,7 +64,7 @@ class TestCreateSqlAlchemyEngineWithRetry(TestCase):
         with mock.patch.dict(os.environ, {}):
             with mock.patch("sqlalchemy.inspect") as mock_sqlalchemy_inspect:
                 with mock.patch(
-                    "mlflow.store.db.utils.create_sqlalchemy_engine"
+                    "mlflux.store.db.utils.create_sqlalchemy_engine"
                 ) as mock_create_sqlalchemy_engine:
                     with mock.patch("time.sleep"):
                         mock_sqlalchemy_inspect.side_effect = [Exception] * utils.MAX_RETRY_COUNT

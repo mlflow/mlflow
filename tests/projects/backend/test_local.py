@@ -1,7 +1,7 @@
 import os
 from unittest import mock
 
-from mlflow.projects.backend.local import _get_docker_artifact_storage_cmd_and_envs
+from mlflux.projects.backend.local import _get_docker_artifact_storage_cmd_and_envs
 
 
 def test_docker_s3_artifact_cmd_and_envs_from_env():
@@ -72,7 +72,7 @@ def test_docker_hdfs_artifact_cmd_and_envs_from_home():
 
 def test_docker_local_artifact_cmd_and_envs():
     host_path_expected = os.path.abspath("./mlruns")
-    container_path_expected = "/mlflow/projects/code/mlruns"
+    container_path_expected = "/mlflux/projects/code/mlruns"
     cmds, envs = _get_docker_artifact_storage_cmd_and_envs("file:./mlruns")
     assert cmds == ["-v", "{}:{}".format(host_path_expected, container_path_expected)]
     assert envs == {}

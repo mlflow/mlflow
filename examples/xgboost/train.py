@@ -7,8 +7,8 @@ import xgboost as xgb
 import matplotlib as mpl
 
 
-import mlflow
-import mlflow.xgboost
+import mlflux
+import mlflux.xgboost
 
 mpl.use("Agg")
 
@@ -47,12 +47,12 @@ def main():
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     # enable auto logging
-    mlflow.xgboost.autolog()
+    mlflux.xgboost.autolog()
 
     dtrain = xgb.DMatrix(X_train, label=y_train)
     dtest = xgb.DMatrix(X_test, label=y_test)
 
-    with mlflow.start_run():
+    with mlflux.start_run():
 
         # train model
         params = {
@@ -73,7 +73,7 @@ def main():
         acc = accuracy_score(y_test, y_pred)
 
         # log metrics
-        mlflow.log_metrics({"log_loss": loss, "accuracy": acc})
+        mlflux.log_metrics({"log_loss": loss, "accuracy": acc})
 
 
 if __name__ == "__main__":

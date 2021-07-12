@@ -1,10 +1,10 @@
 """
-Train a simple Keras DL model on the dataset used in MLflow tutorial (wine-quality.csv).
+Train a simple Keras DL model on the dataset used in mlflux tutorial (wine-quality.csv).
 
 Dataset is split into train (~ 0.56), validation(~ 0.19) and test (0.25).
 Validation data is used to select the best hyperparameters, test set performance is evaluated only
 at epochs which improved performance on the validation dataset. The model with best validation set
-performance is logged with MLflow.
+performance is logged with mlflux.
 """
 import warnings
 
@@ -23,13 +23,13 @@ from keras.optimizers import SGD
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
 
-import mlflow
-import mlflow.keras
+import mlflux
+import mlflux.keras
 
 
 def eval_and_log_metrics(prefix, actual, pred, epoch):
     rmse = np.sqrt(mean_squared_error(actual, pred))
-    mlflow.log_metric("{}_rmse".format(prefix), rmse, step=epoch)
+    mlflux.log_metric("{}_rmse".format(prefix), rmse, step=epoch)
     return rmse
 
 
@@ -41,13 +41,13 @@ def get_standardize_f(train):
 
 class MLflowCheckpoint(Callback):
     """
-    Example of Keras MLflow logger.
-    Logs training metrics and final model with MLflow.
+    Example of Keras mlflux logger.
+    Logs training metrics and final model with mlflux.
 
     We log metrics provided by Keras during training and keep track of the best model (best loss
     on validation dataset). Every improvement of the best model is also evaluated on the test set.
 
-    At the end of the training, log the best model with MLflow.
+    At the end of the training, log the best model with mlflux.
     """
 
     def __init__(self, test_x, test_y, loss="rmse"):
@@ -70,13 +70,13 @@ class MLflowCheckpoint(Callback):
         """
         if not self._best_model:
             raise Exception("Failed to build any model")
-        mlflow.log_metric(self.train_loss, self._best_train_loss, step=self._next_step)
-        mlflow.log_metric(self.val_loss, self._best_val_loss, step=self._next_step)
-        mlflow.keras.log_model(self._best_model, "model")
+        mlflux.log_metric(self.train_loss, self._best_train_loss, step=self._next_step)
+        mlflux.log_metric(self.val_loss, self._best_val_loss, step=self._next_step)
+        mlflux.keras.log_model(self._best_model, "model")
 
     def on_epoch_end(self, epoch, logs=None):
         """
-        Log Keras metrics with MLflow. If model improved on the validation data, evaluate it on
+        Log Keras metrics with mlflux. If model improved on the validation data, evaluate it on
         a test set and store it as the best model.
         """
         if not logs:
@@ -84,11 +84,11 @@ class MLflowCheckpoint(Callback):
         self._next_step = epoch + 1
         train_loss = logs["loss"]
         val_loss = logs["val_loss"]
-        mlflow.log_metrics({self.train_loss: train_loss, self.val_loss: val_loss}, step=epoch)
+        mlflux.log_metrics({self.train_loss: train_loss, self.val_loss: val_loss}, step=epoch)
 
         if val_loss < self._best_val_loss:
             # The result improved in the validation set.
-            # Log the model with mlflow and also evaluate and log on test set.
+            # Log the model with mlflux and also evaluate and log on test set.
             self._best_train_loss = train_loss
             self._best_val_loss = val_loss
             self._best_model = keras.models.clone_model(self.model)
@@ -100,7 +100,7 @@ class MLflowCheckpoint(Callback):
 @click.command(
     help="Trains an Keras model on wine-quality dataset."
     "The input is expected in csv format."
-    "The model and its metrics are logged with mlflow."
+    "The model and its metrics are logged with mlflux."
 )
 @click.option("--epochs", type=click.INT, default=100, help="Maximum number of epochs to evaluate.")
 @click.option(
@@ -127,7 +127,7 @@ def run(training_data, epochs, batch_size, learning_rate, momentum, seed):
     test_x = (test.drop(["quality"], axis=1).as_matrix()).astype("float32")
     test_y = test[["quality"]].as_matrix().astype("float32")
 
-    with mlflow.start_run():
+    with mlflux.start_run():
         if epochs == 0:  # score null model
             eval_and_log_metrics(
                 "train", train_y, np.ones(len(train_y)) * np.mean(train_y), epoch=-1

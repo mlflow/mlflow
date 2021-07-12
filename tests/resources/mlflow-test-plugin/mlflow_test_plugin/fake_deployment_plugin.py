@@ -1,5 +1,5 @@
 import os
-from mlflow.deployments import BaseDeploymentClient
+from mlflux.deployments import BaseDeploymentClient
 
 f_deployment_name = "fake_deployment_name"
 

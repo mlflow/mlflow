@@ -9,17 +9,17 @@ import spacy
 import yaml
 from spacy.util import compounding, minibatch
 
-import mlflow.spacy
+import mlflux.spacy
 from sklearn.datasets import fetch_20newsgroups
 
-from mlflow import pyfunc
-from mlflow.exceptions import MlflowException
-from mlflow.models import Model, infer_signature
-from mlflow.models.utils import _read_example
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils.file_utils import TempDir
-from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflux import pyfunc
+from mlflux.exceptions import MlflowException
+from mlflux.models import Model, infer_signature
+from mlflux.models.utils import _read_example
+from mlflux.tracking.artifact_utils import _download_artifact_from_uri
+from mlflux.utils.environment import _mlflow_conda_env
+from mlflux.utils.file_utils import TempDir
+from mlflux.utils.model_utils import _get_flavor_configuration
 from tests.conftest import tracking_uri_mock  # pylint: disable=unused-import, E0611
 from tests.helper_functions import _compare_conda_env_requirements
 
@@ -81,8 +81,8 @@ def model_path(tmpdir):
 @pytest.mark.large
 def test_model_save_load(spacy_model_with_data, model_path):
     spacy_model = spacy_model_with_data.model
-    mlflow.spacy.save_model(spacy_model=spacy_model, path=model_path)
-    loaded_model = mlflow.spacy.load_model(model_path)
+    mlflux.spacy.save_model(spacy_model=spacy_model, path=model_path)
+    loaded_model = mlflux.spacy.load_model(model_path)
 
     # Remove a `_sourced_vectors_hashes` field which is added when spaCy loads a model:
     # https://github.com/explosion/spaCy/blob/e8ef4a46d5dbc9bb6d629ecd0b02721d6bdf2f87/spacy/language.py#L1701
@@ -92,7 +92,7 @@ def test_model_save_load(spacy_model_with_data, model_path):
     assert spacy_model.meta == loaded_model.meta
 
     # Load pyfunc model using saved model and asserting its predictions are equal to the created one
-    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+    pyfunc_loaded = mlflux.pyfunc.load_pyfunc(model_path)
     assert all(
         _predict(spacy_model, spacy_model_with_data.inference_data)
         == pyfunc_loaded.predict(spacy_model_with_data.inference_data)
@@ -109,7 +109,7 @@ def test_model_export_with_schema_and_examples(spacy_model_with_data):
             print(signature is None, example is None)
             with TempDir() as tmp:
                 path = tmp.path("model")
-                mlflow.spacy.save_model(
+                mlflux.spacy.save_model(
                     spacy_model, path=path, signature=signature, input_example=example
                 )
                 mlflow_model = Model.load(path)
@@ -122,8 +122,8 @@ def test_model_export_with_schema_and_examples(spacy_model_with_data):
 
 @pytest.mark.large
 def test_predict_df_with_wrong_shape(spacy_model_with_data, model_path):
-    mlflow.spacy.save_model(spacy_model=spacy_model_with_data.model, path=model_path)
-    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+    mlflux.spacy.save_model(spacy_model=spacy_model_with_data.model, path=model_path)
+    pyfunc_loaded = mlflux.pyfunc.load_pyfunc(model_path)
 
     # Concatenating with itself to duplicate column and mess up input shape
     # then asserting n MlflowException is raised
@@ -138,35 +138,35 @@ def test_predict_df_with_wrong_shape(spacy_model_with_data, model_path):
 @pytest.mark.large
 def test_model_log(spacy_model_with_data, tracking_uri_mock):  # pylint: disable=unused-argument
     spacy_model = spacy_model_with_data.model
-    old_uri = mlflow.get_tracking_uri()
+    old_uri = mlflux.get_tracking_uri()
     # should_start_run tests whether or not calling log_model() automatically starts a run.
     for should_start_run in [False, True]:
         with TempDir(chdr=True, remove_on_exit=True):
             try:
                 artifact_path = "model"
                 if should_start_run:
-                    mlflow.start_run()
-                mlflow.spacy.log_model(spacy_model=spacy_model, artifact_path=artifact_path)
+                    mlflux.start_run()
+                mlflux.spacy.log_model(spacy_model=spacy_model, artifact_path=artifact_path)
                 model_uri = "runs:/{run_id}/{artifact_path}".format(
-                    run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+                    run_id=mlflux.active_run().info.run_id, artifact_path=artifact_path
                 )
 
                 # Load model
-                spacy_model_loaded = mlflow.spacy.load_model(model_uri=model_uri)
+                spacy_model_loaded = mlflux.spacy.load_model(model_uri=model_uri)
                 assert all(
                     _predict(spacy_model, spacy_model_with_data.inference_data)
                     == _predict(spacy_model_loaded, spacy_model_with_data.inference_data)
                 )
             finally:
-                mlflow.end_run()
-                mlflow.set_tracking_uri(old_uri)
+                mlflux.end_run()
+                mlflux.set_tracking_uri(old_uri)
 
 
 @pytest.mark.large
 def test_model_save_persists_requirements_in_mlflow_model_directory(
     spacy_model_with_data, model_path, spacy_custom_env
 ):
-    mlflow.spacy.save_model(
+    mlflux.spacy.save_model(
         spacy_model=spacy_model_with_data.model, path=model_path, conda_env=spacy_custom_env
     )
 
@@ -178,7 +178,7 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     spacy_model_with_data, model_path, spacy_custom_env
 ):
-    mlflow.spacy.save_model(
+    mlflux.spacy.save_model(
         spacy_model=spacy_model_with_data.model, path=model_path, conda_env=spacy_custom_env
     )
 
@@ -196,9 +196,9 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
 
 @pytest.mark.large
 def test_model_save_accepts_conda_env_as_dict(spacy_model_with_data, model_path):
-    conda_env = dict(mlflow.spacy.get_default_conda_env())
+    conda_env = dict(mlflux.spacy.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
-    mlflow.spacy.save_model(
+    mlflux.spacy.save_model(
         spacy_model=spacy_model_with_data.model, path=model_path, conda_env=conda_env
     )
 
@@ -216,15 +216,15 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     spacy_model_with_data, spacy_custom_env
 ):
     artifact_path = "model"
-    with mlflow.start_run():
-        mlflow.spacy.log_model(
+    with mlflux.start_run():
+        mlflux.spacy.log_model(
             spacy_model=spacy_model_with_data.model,
             artifact_path=artifact_path,
             conda_env=spacy_custom_env,
         )
         model_path = _download_artifact_from_uri(
             "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+                run_id=mlflux.active_run().info.run_id, artifact_path=artifact_path
             )
         )
 
@@ -245,15 +245,15 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(
     spacy_model_with_data, spacy_custom_env
 ):
     artifact_path = "model"
-    with mlflow.start_run():
-        mlflow.spacy.log_model(
+    with mlflux.start_run():
+        mlflux.spacy.log_model(
             spacy_model=spacy_model_with_data.model,
             artifact_path=artifact_path,
             conda_env=spacy_custom_env,
         )
         model_path = _download_artifact_from_uri(
             "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+                run_id=mlflux.active_run().info.run_id, artifact_path=artifact_path
             )
         )
 
@@ -265,7 +265,7 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     spacy_model_with_data, model_path
 ):
-    mlflow.spacy.save_model(
+    mlflux.spacy.save_model(
         spacy_model=spacy_model_with_data.model, path=model_path, conda_env=None
     )
 
@@ -274,7 +274,7 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
     with open(conda_env_path, "r") as f:
         conda_env = yaml.safe_load(f)
 
-    assert conda_env == mlflow.spacy.get_default_conda_env()
+    assert conda_env == mlflux.spacy.get_default_conda_env()
 
 
 @pytest.mark.large
@@ -282,11 +282,11 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     spacy_model_with_data,
 ):
     artifact_path = "model"
-    with mlflow.start_run():
-        mlflow.spacy.log_model(spacy_model=spacy_model_with_data.model, artifact_path=artifact_path)
+    with mlflux.start_run():
+        mlflux.spacy.log_model(spacy_model=spacy_model_with_data.model, artifact_path=artifact_path)
         model_path = _download_artifact_from_uri(
             "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+                run_id=mlflux.active_run().info.run_id, artifact_path=artifact_path
             )
         )
 
@@ -295,17 +295,17 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     with open(conda_env_path, "r") as f:
         conda_env = yaml.safe_load(f)
 
-    assert conda_env == mlflow.spacy.get_default_conda_env()
+    assert conda_env == mlflux.spacy.get_default_conda_env()
 
 
 @pytest.mark.large
 def test_model_log_with_pyfunc_flavor(spacy_model_with_data):
     artifact_path = "model"
-    with mlflow.start_run():
-        mlflow.spacy.log_model(spacy_model=spacy_model_with_data.model, artifact_path=artifact_path)
+    with mlflux.start_run():
+        mlflux.spacy.log_model(spacy_model=spacy_model_with_data.model, artifact_path=artifact_path)
         model_path = _download_artifact_from_uri(
             "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+                run_id=mlflux.active_run().info.run_id, artifact_path=artifact_path
             )
         )
 
@@ -326,11 +326,11 @@ def test_model_log_without_pyfunc_flavor():
         nlp.add_pipe(ner, last=True)
 
     # Ensure the pyfunc flavor is not present after logging and loading the model
-    with mlflow.start_run():
-        mlflow.spacy.log_model(spacy_model=nlp, artifact_path=artifact_path)
+    with mlflux.start_run():
+        mlflux.spacy.log_model(spacy_model=nlp, artifact_path=artifact_path)
         model_path = _download_artifact_from_uri(
             "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+                run_id=mlflux.active_run().info.run_id, artifact_path=artifact_path
             )
         )
 

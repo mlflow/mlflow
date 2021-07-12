@@ -15,10 +15,10 @@ import yaml
 import pandas as pd
 import pytest
 
-import mlflow
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
-import mlflow.pyfunc
-from mlflow.utils.file_utils import read_yaml, write_yaml
+import mlflux
+import mlflux.pyfunc.scoring_server as pyfunc_scoring_server
+import mlflux.pyfunc
+from mlflux.utils.file_utils import read_yaml, write_yaml
 
 LOCALHOST = "127.0.0.1"
 
@@ -48,7 +48,7 @@ def score_model_in_sagemaker_docker_container(
     model_uri,
     data,
     content_type,
-    flavor=mlflow.pyfunc.FLAVOR_NAME,
+    flavor=mlflux.pyfunc.FLAVOR_NAME,
     activity_polling_timeout_seconds=500,
 ):
     """
@@ -56,7 +56,7 @@ def score_model_in_sagemaker_docker_container(
     :param data: The data to send to the docker container for testing. This is either a
                  Pandas dataframe or string of the format specified by `content_type`.
     :param content_type: The type of the data to send to the docker container for testing. This is
-                         one of `mlflow.pyfunc.scoring_server.CONTENT_TYPES`.
+                         one of `mlflux.pyfunc.scoring_server.CONTENT_TYPES`.
     :param flavor: Model flavor to be deployed.
     :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
                                              declaring the scoring process to have failed.
@@ -64,7 +64,7 @@ def score_model_in_sagemaker_docker_container(
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
     proc = _start_scoring_proc(
-        cmd=["mlflow", "sagemaker", "run-local", "-m", model_uri, "-p", "5000", "-f", flavor],
+        cmd=["mlflux", "sagemaker", "run-local", "-m", model_uri, "-p", "5000", "-f", flavor],
         env=env,
     )
     return _evaluate_scoring_proc(proc, 5000, data, content_type, activity_polling_timeout_seconds)
@@ -74,10 +74,10 @@ def pyfunc_build_image(model_uri, extra_args=None):
     """
     Builds a docker image containing the specified model, returning the name of the image.
     :param model_uri: URI of model, e.g. runs:/some-run-id/run-relative/path/to/model
-    :param extra_args: List of extra args to pass to `mlflow models build-docker` command
+    :param extra_args: List of extra args to pass to `mlflux models build-docker` command
     """
     name = uuid.uuid4().hex
-    cmd = ["mlflow", "models", "build-docker", "-m", model_uri, "-n", name]
+    cmd = ["mlflux", "models", "build-docker", "-m", model_uri, "-n", name]
     if extra_args:
         cmd += extra_args
     p = subprocess.Popen(cmd,)
@@ -134,7 +134,7 @@ def pyfunc_serve_and_score_model(
     :param data: The data to send to the pyfunc server for testing. This is either a
                  Pandas dataframe or string of the format specified by `content_type`.
     :param content_type: The type of the data to send to the pyfunc server for testing. This is
-                         one of `mlflow.pyfunc.scoring_server.CONTENT_TYPES`.
+                         one of `mlflux.pyfunc.scoring_server.CONTENT_TYPES`.
     :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
                                              declaring the scoring process to have failed.
     :param extra_args: A list of extra arguments to pass to the pyfunc scoring server command. For
@@ -144,18 +144,18 @@ def pyfunc_serve_and_score_model(
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
-    env.update(MLFLOW_TRACKING_URI=mlflow.get_tracking_uri())
+    env.update(MLFLOW_TRACKING_URI=mlflux.get_tracking_uri())
     env.update(MLFLOW_HOME=_get_mlflow_home())
     port = get_safe_port()
     scoring_cmd = [
-        "mlflow",
+        "mlflux",
         "models",
         "serve",
         "-m",
         model_uri,
         "-p",
         str(port),
-        "--install-mlflow",
+        "--install-mlflux",
     ]
     if extra_args is not None:
         scoring_cmd += extra_args
@@ -165,10 +165,10 @@ def pyfunc_serve_and_score_model(
 
 def _get_mlflow_home():
     """
-    :return: The path to the MLflow installation root directory
+    :return: The path to the mlflux installation root directory
     """
-    mlflow_module_path = os.path.dirname(os.path.abspath(mlflow.__file__))
-    # The MLflow root directory is one level about the mlflow module location
+    mlflow_module_path = os.path.dirname(os.path.abspath(mlflux.__file__))
+    # The mlflux root directory is one level about the mlflux module location
     return os.path.join(mlflow_module_path, os.pardir)
 
 

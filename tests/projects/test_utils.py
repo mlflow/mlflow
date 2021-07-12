@@ -4,10 +4,10 @@ import tempfile
 import pytest
 from unittest import mock
 
-import mlflow
-from mlflow.exceptions import ExecutionException
-from mlflow.projects import _project_spec
-from mlflow.projects.utils import (
+import mlflux
+from mlflux.exceptions import ExecutionException
+from mlflux.projects import _project_spec
+from mlflux.projects.utils import (
     _get_storage_dir,
     _is_valid_branch_name,
     _is_zip_uri,
@@ -17,7 +17,7 @@ from mlflow.projects.utils import (
     fetch_and_validate_project,
     load_project,
 )
-from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_SOURCE_NAME
+from mlflux.utils.mlflow_tags import MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_SOURCE_NAME
 from tests.projects.utils import (
     assert_dirs_equal,
     GIT_PROJECT_URI,
@@ -148,13 +148,13 @@ def test_fetch_create_and_log(tmpdir):
     mock_fetched_project = _project_spec.Project(
         None, {entry_point_name: entry_point}, None, "my_project"
     )
-    experiment_id = mlflow.create_experiment("test_fetch_project")
+    experiment_id = mlflux.create_experiment("test_fetch_project")
     expected_dir = tmpdir
     project_uri = "http://someuri/myproject.git"
     user_param = {"method_name": "newton"}
-    with mock.patch("mlflow.projects.utils._fetch_project", return_value=expected_dir):
+    with mock.patch("mlflux.projects.utils._fetch_project", return_value=expected_dir):
         with mock.patch(
-            "mlflow.projects._project_spec.load_project", return_value=mock_fetched_project
+            "mlflux.projects._project_spec.load_project", return_value=mock_fetched_project
         ):
             work_dir = fetch_and_validate_project("", "", entry_point_name, user_param)
             project = load_project(work_dir)
@@ -172,7 +172,7 @@ def test_fetch_create_and_log(tmpdir):
             )
 
             # check tags
-            run = mlflow.get_run(active_run.info.run_id)
+            run = mlflux.get_run(active_run.info.run_id)
             assert MLFLOW_PROJECT_ENTRY_POINT in run.data.tags
             assert MLFLOW_SOURCE_NAME in run.data.tags
             assert entry_point_name == run.data.tags[MLFLOW_PROJECT_ENTRY_POINT]

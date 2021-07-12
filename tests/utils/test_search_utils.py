@@ -2,9 +2,9 @@ import base64
 import json
 import pytest
 
-from mlflow.entities import RunInfo, RunData, Run, LifecycleStage, RunStatus, Metric, Param, RunTag
-from mlflow.exceptions import MlflowException
-from mlflow.utils.search_utils import SearchUtils
+from mlflux.entities import RunInfo, RunData, Run, LifecycleStage, RunStatus, Metric, Param, RunTag
+from mlflux.exceptions import MlflowException
+from mlflux.utils.search_utils import SearchUtils
 
 
 @pytest.mark.parametrize(

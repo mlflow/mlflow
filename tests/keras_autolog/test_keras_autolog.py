@@ -6,9 +6,9 @@ np.random.seed(1337)
 import keras  # noqa
 import keras.layers as layers  # noqa
 
-import mlflow  # noqa
-import mlflow.keras  # noqa
-from mlflow.utils.autologging_utils import BatchMetricsLogger  # noqa
+import mlflux  # noqa
+import mlflux.keras  # noqa
+from mlflux.utils.autologging_utils import BatchMetricsLogger  # noqa
 from unittest.mock import patch  # noqa
 
 
@@ -37,9 +37,9 @@ def random_one_hot_labels():
 @pytest.fixture(params=[True, False])
 def manual_run(request):
     if request.param:
-        mlflow.start_run()
+        mlflux.start_run()
     yield
-    mlflow.end_run()
+    mlflux.end_run()
 
 
 def create_model():
@@ -59,7 +59,7 @@ def create_model():
 @pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 def test_keras_autolog_ends_auto_created_run(random_train_data, random_one_hot_labels, fit_variant):
-    mlflow.keras.autolog()
+    mlflux.keras.autolog()
 
     data = random_train_data
     labels = random_one_hot_labels
@@ -76,7 +76,7 @@ def test_keras_autolog_ends_auto_created_run(random_train_data, random_one_hot_l
     else:
         model.fit(data, labels, epochs=10)
 
-    assert mlflow.active_run() is None
+    assert mlflux.active_run() is None
 
 
 @pytest.mark.large
@@ -84,9 +84,9 @@ def test_keras_autolog_ends_auto_created_run(random_train_data, random_one_hot_l
 def test_keras_autolog_persists_manually_created_run(
     random_train_data, random_one_hot_labels, fit_variant
 ):
-    mlflow.keras.autolog()
+    mlflux.keras.autolog()
 
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         data = random_train_data
         labels = random_one_hot_labels
 
@@ -102,8 +102,8 @@ def test_keras_autolog_persists_manually_created_run(
         else:
             model.fit(data, labels, epochs=10)
 
-        assert mlflow.active_run()
-        assert mlflow.active_run().info.run_id == run.info.run_id
+        assert mlflux.active_run()
+        assert mlflux.active_run().info.run_id == run.info.run_id
 
 
 @pytest.fixture
@@ -111,7 +111,7 @@ def keras_random_data_run(
     random_train_data, fit_variant, random_one_hot_labels, manual_run, initial_epoch
 ):
     # pylint: disable=unused-argument
-    mlflow.keras.autolog()
+    mlflux.keras.autolog()
 
     data = random_train_data
     labels = random_one_hot_labels
@@ -132,7 +132,7 @@ def keras_random_data_run(
             data, labels, epochs=initial_epoch + 10, steps_per_epoch=1, initial_epoch=initial_epoch
         )
 
-    client = mlflow.tracking.MlflowClient()
+    client = mlflux.tracking.MlflowClient()
     return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id), history
 
 
@@ -160,7 +160,7 @@ def test_keras_autolog_logs_expected_data(keras_random_data_run):
     assert data.params["optimizer_name"] == "Adam"
     assert "epsilon" in data.params
     assert data.params["epsilon"] == "1e-07"
-    client = mlflow.tracking.MlflowClient()
+    client = mlflux.tracking.MlflowClient()
     artifacts = client.list_artifacts(run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert "model_summary.txt" in artifacts
@@ -172,11 +172,11 @@ def test_keras_autolog_logs_expected_data(keras_random_data_run):
 def test_keras_autolog_model_can_load_from_artifact(keras_random_data_run, random_train_data):
     run, _ = keras_random_data_run
     run_id = run.info.run_id
-    client = mlflow.tracking.MlflowClient()
+    client = mlflux.tracking.MlflowClient()
     artifacts = client.list_artifacts(run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert "model" in artifacts
-    model = mlflow.keras.load_model("runs:/" + run_id + "/model")
+    model = mlflux.keras.load_model("runs:/" + run_id + "/model")
     model.predict(random_train_data)
 
 
@@ -192,7 +192,7 @@ def keras_random_data_run_with_callback(
     initial_epoch,
 ):
     # pylint: disable=unused-argument
-    mlflow.keras.autolog()
+    mlflux.keras.autolog()
 
     data = random_train_data
     labels = random_one_hot_labels
@@ -238,7 +238,7 @@ def keras_random_data_run_with_callback(
             initial_epoch=initial_epoch,
         )
 
-    client = mlflow.tracking.MlflowClient()
+    client = mlflux.tracking.MlflowClient()
     return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id), history, callback
 
 
@@ -247,7 +247,7 @@ def keras_random_data_run_with_callback(
 def test_keras_autolog_log_models_configuration(
     random_train_data, random_one_hot_labels, log_models
 ):
-    mlflow.keras.autolog(log_models=log_models)
+    mlflux.keras.autolog(log_models=log_models)
 
     data = random_train_data
     labels = random_one_hot_labels
@@ -255,7 +255,7 @@ def test_keras_autolog_log_models_configuration(
     model = create_model()
     model.fit(data, labels, epochs=10, steps_per_epoch=1)
 
-    client = mlflow.tracking.MlflowClient()
+    client = mlflux.tracking.MlflowClient()
     run_id = client.list_run_infos(experiment_id="0")[0].run_id
     artifacts = [f.path for f in client.list_artifacts(run_id)]
     assert ("model" in artifacts) == log_models
@@ -283,13 +283,13 @@ def test_keras_autolog_early_stop_logs(keras_random_data_run_with_callback):
     assert int(metrics["stopped_epoch"]) - max(1, callback.patience) == restored_epoch
     assert "loss" in history.history
     num_of_epochs = len(history.history["loss"])
-    client = mlflow.tracking.MlflowClient()
+    client = mlflux.tracking.MlflowClient()
     metric_history = client.get_metric_history(run.info.run_id, "loss")
     # Check the test epoch numbers are correct
     assert num_of_epochs == max(1, callback.patience) + 1
-    # Check that MLflow has logged the metrics of the "best" model
+    # Check that mlflux has logged the metrics of the "best" model
     assert len(metric_history) == num_of_epochs + 1
-    # Check that MLflow has logged the correct data
+    # Check that mlflux has logged the correct data
     assert history.history["loss"][history.epoch.index(restored_epoch)] == metric_history[-1].value
 
 
@@ -309,7 +309,7 @@ def test_keras_autolog_batch_metrics_logger_logs_expected_metrics(
     original = BatchMetricsLogger.record_metrics
 
     with patch(
-        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics", autospec=True
+        "mlflux.utils.autologging_utils.BatchMetricsLogger.record_metrics", autospec=True
     ) as record_metrics_mock:
 
         def record_metrics_side_effect(self, metrics, step=None):
@@ -360,7 +360,7 @@ def test_keras_autolog_early_stop_no_stop_does_not_log(keras_random_data_run_wit
     assert "restored_epoch" not in metrics
     assert "loss" in history.history
     num_of_epochs = len(history.history["loss"])
-    client = mlflow.tracking.MlflowClient()
+    client = mlflux.tracking.MlflowClient()
     metric_history = client.get_metric_history(run.info.run_id, "loss")
     # Check the test epoch numbers are correct
     assert num_of_epochs == 10
@@ -387,7 +387,7 @@ def test_keras_autolog_early_stop_no_restore_does_not_log(keras_random_data_run_
     assert "restored_epoch" not in metrics
     assert "loss" in history.history
     num_of_epochs = len(history.history["loss"])
-    client = mlflow.tracking.MlflowClient()
+    client = mlflux.tracking.MlflowClient()
     metric_history = client.get_metric_history(run.info.run_id, "loss")
     # Check the test epoch numbers are correct
     assert num_of_epochs == callback.patience + 1
@@ -412,7 +412,7 @@ def test_keras_autolog_non_early_stop_callback_does_not_log(keras_random_data_ru
     assert "restored_epoch" not in metrics
     assert "loss" in history.history
     num_of_epochs = len(history.history["loss"])
-    client = mlflow.tracking.MlflowClient()
+    client = mlflux.tracking.MlflowClient()
     metric_history = client.get_metric_history(run.info.run_id, "loss")
     # Check the test epoch numbers are correct
     assert num_of_epochs == 10

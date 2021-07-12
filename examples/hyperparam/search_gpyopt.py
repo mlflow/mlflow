@@ -1,8 +1,8 @@
 """
-Example of hyperparameter search in MLflow using GPyOpt.
+Example of hyperparameter search in mlflux using GPyOpt.
 
 The run method will instantiate and run GPyOpt optimizer. Each parameter configuration is
-evaluated in a new MLflow run invoking main entry point with selected parameters.
+evaluated in a new mlflux run invoking main entry point with selected parameters.
 
 The runs are evaluated based on validation set loss. Test set score is calculated to verify the
 results.
@@ -18,12 +18,12 @@ import matplotlib
 from matplotlib import pyplot as plt
 import numpy as np
 
-import mlflow
-import mlflow.sklearn
-import mlflow.tracking
-import mlflow.projects
-from mlflow.tracking.client import MlflowClient
-from mlflow.utils.file_utils import TempDir
+import mlflux
+import mlflux.sklearn
+import mlflux.tracking
+import mlflux.projects
+from mlflux.tracking.client import MlflowClient
+from mlflux.utils.file_utils import TempDir
 
 _inf = np.finfo(np.float64).max
 
@@ -62,7 +62,7 @@ def run(
         {"name": "momentum", "type": "continuous", "domain": (0.0, 1.0)},
     ]
     # create random file to store run ids of the training tasks
-    tracking_client = mlflow.tracking.MlflowClient()
+    tracking_client = mlflux.tracking.MlflowClient()
 
     def new_eval(
         nepochs, experiment_id, null_train_loss, null_valid_loss, null_test_loss, return_all=False
@@ -81,19 +81,19 @@ def run(
 
         def eval(params):
             """
-            Train Keras model with given parameters by invoking MLflow run.
+            Train Keras model with given parameters by invoking mlflux run.
 
             Notice we store runUuid and resulting metric in a file. We will later use these to pick
             the best run and to log the runUuids of the child runs as an artifact. This is a
-            temporary workaround until MLflow offers better mechanism of linking runs together.
+            temporary workaround until mlflux offers better mechanism of linking runs together.
 
             :param params: Parameters to the train_keras script we optimize over:
                           learning_rate, drop_out_1
             :return: The metric value evaluated on the validation data.
             """
             lr, momentum = params[0]
-            with mlflow.start_run(nested=True) as child_run:
-                p = mlflow.projects.run(
+            with mlflux.start_run(nested=True) as child_run:
+                p = mlflux.projects.run(
                     run_id=child_run.info.run_id,
                     uri=".",
                     entry_point="train",
@@ -123,7 +123,7 @@ def run(
                 valid_loss = null_valid_loss
                 test_loss = null_test_loss
 
-            mlflow.log_metrics(
+            mlflux.log_metrics(
                 {
                     "train_{}".format(metric): train_loss,
                     "val_{}".format(metric): valid_loss,
@@ -138,7 +138,7 @@ def run(
 
         return eval
 
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         experiment_id = run.info.experiment_id
         # Evaluate null model first.
         # We use null model (predict everything to the mean) as a reasonable upper bound on loss.
@@ -169,14 +169,14 @@ def run(
             myProblem.plot_acquisition(filename=acquisition_plot)
             myProblem.plot_convergence(filename=convergence_plot)
             if os.path.exists(convergence_plot):
-                mlflow.log_artifact(convergence_plot, "converegence_plot")
+                mlflux.log_artifact(convergence_plot, "converegence_plot")
             if os.path.exists(acquisition_plot):
-                mlflow.log_artifact(acquisition_plot, "acquisition_plot")
+                mlflux.log_artifact(acquisition_plot, "acquisition_plot")
 
         # find the best run, log its metrics as the final metrics of this run.
         client = MlflowClient()
         runs = client.search_runs(
-            [experiment_id], "tags.mlflow.parentRunId = '{run_id}' ".format(run_id=run.info.run_id)
+            [experiment_id], "tags.mlflux.parentRunId = '{run_id}' ".format(run_id=run.info.run_id)
         )
         best_val_train = _inf
         best_val_valid = _inf
@@ -188,8 +188,8 @@ def run(
                 best_val_train = r.data.metrics["train_rmse"]
                 best_val_valid = r.data.metrics["val_rmse"]
                 best_val_test = r.data.metrics["test_rmse"]
-        mlflow.set_tag("best_run", best_run.info.run_id)
-        mlflow.log_metrics(
+        mlflux.set_tag("best_run", best_run.info.run_id)
+        mlflux.log_metrics(
             {
                 "train_{}".format(metric): best_val_train,
                 "val_{}".format(metric): best_val_valid,

@@ -2,7 +2,7 @@ import random
 import unittest
 import uuid
 
-from mlflow.entities import RunInfo, LifecycleStage, RunStatus
+from mlflux.entities import RunInfo, LifecycleStage, RunStatus
 from tests.helper_functions import random_str, random_int
 
 

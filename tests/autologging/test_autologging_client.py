@@ -2,12 +2,12 @@ import time
 import pytest
 from unittest import mock
 
-import mlflow
-from mlflow.exceptions import MlflowException
-from mlflow.tracking.client import MlflowClient
-from mlflow.utils import _truncate_dict
-from mlflow.utils.autologging_utils import MlflowAutologgingQueueingClient
-from mlflow.utils.validation import (
+import mlflux
+from mlflux.exceptions import MlflowException
+from mlflux.tracking.client import MlflowClient
+from mlflux.utils import _truncate_dict
+from mlflux.utils.autologging_utils import MlflowAutologgingQueueingClient
+from mlflux.utils.validation import (
     MAX_ENTITY_KEY_LENGTH,
     MAX_PARAM_VAL_LENGTH,
     MAX_TAG_VAL_LENGTH,
@@ -20,10 +20,10 @@ pytestmark = pytest.mark.large
 
 
 def get_run_data(run_id):
-    client = mlflow.tracking.MlflowClient()
+    client = mlflux.tracking.MlflowClient()
     data = client.get_run(run_id).data
-    # Ignore tags mlflow logs by default (e.g. "mlflow.user")
-    tags = {k: v for k, v in data.tags.items() if not k.startswith("mlflow.")}
+    # Ignore tags mlflux logs by default (e.g. "mlflux.user")
+    tags = {k: v for k, v in data.tags.items() if not k.startswith("mlflux.")}
     return data.params, data.metrics, tags
 
 
@@ -34,7 +34,7 @@ def test_client_truncates_param_keys_and_values():
         "a" * (MAX_ENTITY_KEY_LENGTH + 50): "b" * (MAX_PARAM_VAL_LENGTH + 50),
     }
 
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         client.log_params(run_id=run.info.run_id, params=params_to_log)
         client.flush()
 
@@ -51,7 +51,7 @@ def test_client_truncates_tag_keys_and_values():
         "c" * (MAX_ENTITY_KEY_LENGTH + 50): "d" * (MAX_PARAM_VAL_LENGTH + 50),
     }
 
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         client.set_tags(run_id=run.info.run_id, tags=tags_to_log)
         client.flush()
 
@@ -68,7 +68,7 @@ def test_client_truncates_metric_keys():
         "b" * (MAX_ENTITY_KEY_LENGTH + 50): 2,
     }
 
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         client.log_metrics(run_id=run.info.run_id, metrics=metrics_to_log)
         client.flush()
 
@@ -89,7 +89,7 @@ def test_client_logs_expected_run_data():
     }
     metrics_to_log = {"metric_key_{}".format(i): i for i in range((4 * MAX_METRICS_PER_BATCH) + 1)}
 
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         client.log_params(
             run_id=run.info.run_id, params=params_to_log,
         )
@@ -110,7 +110,7 @@ def test_client_logs_expected_run_data():
 def test_client_logs_metric_steps_correctly():
     client = MlflowAutologgingQueueingClient()
 
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         for step in range(3):
             client.log_metrics(
                 run_id=run.info.run_id, metrics={"a": 1}, step=step,
@@ -132,7 +132,7 @@ def test_client_run_creation_and_termination_are_successful():
     client.set_terminated(run_id=pending_run_id, status="FINISHED", end_time=6)
     client.flush()
 
-    runs = mlflow.search_runs(experiment_ids=[experiment_id], output_format="list")
+    runs = mlflux.search_runs(experiment_ids=[experiment_id], output_format="list")
     assert len(runs) == 1
     run = runs[0]
     assert run.info.start_time == 5
@@ -150,11 +150,11 @@ def test_client_asynchronous_flush_operates_correctly():
         return original_log_batch(run_id, metrics, params, tags)
 
     with mock.patch(
-        "mlflow.utils.autologging_utils.client.MlflowClient.log_batch"
+        "mlflux.utils.autologging_utils.client.MlflowClient.log_batch"
     ) as log_batch_mock:
         log_batch_mock.side_effect = mock_log_batch
 
-        with mlflow.start_run() as run:
+        with mlflux.start_run() as run:
             client = MlflowAutologgingQueueingClient()
             client.log_params(run_id=run.info.run_id, params={"a": "b"})
             run_operations = client.flush(synchronous=False)
@@ -181,11 +181,11 @@ def test_client_synchronous_flush_operates_correctly():
         return original_log_batch(run_id, metrics, params, tags)
 
     with mock.patch(
-        "mlflow.utils.autologging_utils.client.MlflowClient.log_batch"
+        "mlflux.utils.autologging_utils.client.MlflowClient.log_batch"
     ) as log_batch_mock:
         log_batch_mock.side_effect = mock_log_batch
 
-        with mlflow.start_run() as run:
+        with mlflux.start_run() as run:
             client = MlflowAutologgingQueueingClient()
             client.log_params(run_id=run.info.run_id, params={"a": "b"})
             client.flush(synchronous=True)
@@ -197,7 +197,7 @@ def test_client_synchronous_flush_operates_correctly():
 
 def test_flush_clears_pending_operations():
     with mock.patch(
-        "mlflow.utils.autologging_utils.client.MlflowClient", autospec=True
+        "mlflux.utils.autologging_utils.client.MlflowClient", autospec=True
     ) as mlflow_client_mock:
         client = MlflowAutologgingQueueingClient()
 
@@ -208,7 +208,7 @@ def test_flush_clears_pending_operations():
         client.flush()
 
         logging_call_count_1 = len(mlflow_client_mock.method_calls)
-        # Verify that at least 3 calls have been made to MLflow logging APIs as a result
+        # Verify that at least 3 calls have been made to mlflux logging APIs as a result
         # of the flush (i.e. log_batch, create_run, and set_terminated)
         assert logging_call_count_1 >= 3
 
@@ -225,8 +225,8 @@ def test_client_correctly_operates_as_context_manager_for_synchronous_flush():
     metrics_to_log = {"c": 1}
     tags_to_log = {"d": "e"}
 
-    with mlflow.start_run(), MlflowAutologgingQueueingClient() as client:
-        run_id_1 = mlflow.active_run().info.run_id
+    with mlflux.start_run(), MlflowAutologgingQueueingClient() as client:
+        run_id_1 = mlflux.active_run().info.run_id
         client.log_params(run_id_1, params_to_log)
         client.log_metrics(run_id_1, metrics_to_log)
         client.set_tags(run_id_1, tags_to_log)
@@ -238,8 +238,8 @@ def test_client_correctly_operates_as_context_manager_for_synchronous_flush():
 
     exc_to_raise = Exception("test exception")
     with pytest.raises(Exception) as raised_exc_info:
-        with mlflow.start_run(), MlflowAutologgingQueueingClient() as client:
-            run_id_2 = mlflow.active_run().info.run_id
+        with mlflux.start_run(), MlflowAutologgingQueueingClient() as client:
+            run_id_2 = mlflux.active_run().info.run_id
             client.log_params(run_id_2, params_to_log)
             client.log_metrics(run_id_2, metrics_to_log)
             client.set_tags(run_id_2, tags_to_log)
@@ -259,7 +259,7 @@ def test_logging_failures_are_handled_as_expected():
     experiment_id = MlflowClient().get_experiment_by_name(experiment_name).experiment_id
 
     with mock.patch(
-        "mlflow.utils.autologging_utils.client.MlflowClient.log_batch"
+        "mlflux.utils.autologging_utils.client.MlflowClient.log_batch"
     ) as log_batch_mock:
         log_batch_mock.side_effect = Exception("Batch logging failed!")
 
@@ -271,7 +271,7 @@ def test_logging_failures_are_handled_as_expected():
         with pytest.raises(MlflowException) as exc:
             client.flush()
 
-        runs = mlflow.search_runs(experiment_ids=[experiment_id], output_format="list")
+        runs = mlflux.search_runs(experiment_ids=[experiment_id], output_format="list")
         assert len(runs) == 1
         run = runs[0]
         # Verify that metrics are absent due to the failure of batch logging

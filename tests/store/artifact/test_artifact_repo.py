@@ -2,9 +2,9 @@ import posixpath
 from unittest import mock
 import pytest
 
-from mlflow.entities import FileInfo
-from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.utils.file_utils import TempDir
+from mlflux.entities import FileInfo
+from mlflux.store.artifact.artifact_repo import ArtifactRepository
+from mlflux.utils.file_utils import TempDir
 
 
 class ArtifactRepositoryImpl(ArtifactRepository):

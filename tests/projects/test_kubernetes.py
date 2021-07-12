@@ -5,9 +5,9 @@ from unittest import mock
 import kubernetes
 from kubernetes.config.config_exception import ConfigException
 
-from mlflow.projects import kubernetes as kb
-from mlflow.exceptions import ExecutionException
-from mlflow.entities import RunStatus
+from mlflux.projects import kubernetes as kb
+from mlflux.exceptions import ExecutionException
+from mlflux.entities import RunStatus
 
 
 def test_run_command_creation():  # pylint: disable=unused-argument
@@ -56,10 +56,10 @@ def test_valid_kubernetes_job_spec():  # pylint: disable=unused-argument
         '          value: "test_var"\n'
         "      restartPolicy: Never\n"
     )
-    project_name = "mlflow-docker-example"
+    project_name = "mlflux-docker-example"
     image_tag = "image_tag"
     image_digest = "5e74a5a"
-    command = ["mlflow", "run", ".", "--no-conda", "-P", "alpha=0.5"]
+    command = ["mlflux", "run", ".", "--no-conda", "-P", "alpha=0.5"]
     env_vars = {"RUN_ID": "1"}
     job_definition = kb._get_kubernetes_job_definition(
         project_name=project_name,
@@ -82,7 +82,7 @@ def test_valid_kubernetes_job_spec():  # pylint: disable=unused-argument
 
 def test_run_kubernetes_job():
     active_run = mock.Mock()
-    project_name = "mlflow-docker-example"
+    project_name = "mlflux-docker-example"
     image_tag = "image_tag"
     image_digest = "5e74a5a"
     command = ["python train.py --alpha 0.5 --l1-ratio 0.1"]
@@ -93,7 +93,7 @@ def test_run_kubernetes_job():
         "kind: Job\n"
         "metadata:\n"
         "  name: pi-with-ttl\n"
-        "  namespace: mlflow\n"
+        "  namespace: mlflux\n"
         "spec:\n"
         "  ttlSecondsAfterFinished: 100\n"
         "  template:\n"
@@ -119,7 +119,7 @@ def test_run_kubernetes_job():
 
             assert submitted_run_obj._mlflow_run_id == active_run.info.run_id
             assert submitted_run_obj._job_name.startswith(project_name)
-            assert submitted_run_obj._job_namespace == "mlflow"
+            assert submitted_run_obj._job_namespace == "mlflux"
             assert kube_api_mock.call_count == 1
             args = kube_config_mock.call_args_list
             assert args[0][1]["context"] == kube_context
@@ -127,7 +127,7 @@ def test_run_kubernetes_job():
 
 def test_run_kubernetes_job_current_kubecontext():
     active_run = mock.Mock()
-    project_name = "mlflow-docker-example"
+    project_name = "mlflux-docker-example"
     image_tag = "image_tag"
     image_digest = "5e74a5a"
     command = ["python train.py --alpha 0.5 --l1-ratio 0.1"]
@@ -139,7 +139,7 @@ def test_run_kubernetes_job_current_kubecontext():
         "kind: Job\n"
         "metadata:\n"
         "  name: pi-with-ttl\n"
-        "  namespace: mlflow\n"
+        "  namespace: mlflux\n"
         "spec:\n"
         "  ttlSecondsAfterFinished: 100\n"
         "  template:\n"
@@ -166,7 +166,7 @@ def test_run_kubernetes_job_current_kubecontext():
 
                 assert submitted_run_obj._mlflow_run_id == active_run.info.run_id
                 assert submitted_run_obj._job_name.startswith(project_name)
-                assert submitted_run_obj._job_namespace == "mlflow"
+                assert submitted_run_obj._job_namespace == "mlflux"
                 assert kube_api_mock.call_count == 1
                 assert kube_config_mock.call_count == 1
                 assert incluster_kube_config_mock.call_count == 0
@@ -174,7 +174,7 @@ def test_run_kubernetes_job_current_kubecontext():
 
 def test_run_kubernetes_job_in_cluster():
     active_run = mock.Mock()
-    project_name = "mlflow-docker-example"
+    project_name = "mlflux-docker-example"
     image_tag = "image_tag"
     image_digest = "5e74a5a"
     command = ["python train.py --alpha 0.5 --l1-ratio 0.1"]
@@ -185,7 +185,7 @@ def test_run_kubernetes_job_in_cluster():
         "kind: Job\n"
         "metadata:\n"
         "  name: pi-with-ttl\n"
-        "  namespace: mlflow\n"
+        "  namespace: mlflux\n"
         "spec:\n"
         "  ttlSecondsAfterFinished: 100\n"
         "  template:\n"
@@ -213,14 +213,14 @@ def test_run_kubernetes_job_in_cluster():
 
                 assert submitted_run_obj._mlflow_run_id == active_run.info.run_id
                 assert submitted_run_obj._job_name.startswith(project_name)
-                assert submitted_run_obj._job_namespace == "mlflow"
+                assert submitted_run_obj._job_namespace == "mlflux"
                 assert kube_api_mock.call_count == 1
                 assert kube_config_mock.call_count == 1
                 assert incluster_kube_config_mock.call_count == 1
 
 
 def test_push_image_to_registry():
-    image_uri = "dockerhub_account/mlflow-kubernetes-example"
+    image_uri = "dockerhub_account/mlflux-kubernetes-example"
     with mock.patch("docker.from_env") as docker_mock:
         client = mock.MagicMock()
         docker_mock.return_value = client
@@ -231,7 +231,7 @@ def test_push_image_to_registry():
 
 
 def test_push_image_to_registry_handling_errors():
-    image_uri = "dockerhub_account/mlflow-kubernetes-example"
+    image_uri = "dockerhub_account/mlflux-kubernetes-example"
     with pytest.raises(ExecutionException):
         kb.push_image_to_registry(image_uri)
 

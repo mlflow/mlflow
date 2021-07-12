@@ -8,16 +8,16 @@ import pyspark
 from pyspark.sql.types import ArrayType, DoubleType, LongType, StringType, FloatType, IntegerType
 from pyspark.sql.utils import AnalysisException
 
-import mlflow
-import mlflow.pyfunc
-import mlflow.sklearn
-from mlflow.exceptions import MlflowException
-from mlflow.models import ModelSignature
-from mlflow.pyfunc import spark_udf, PythonModel, PyFuncModel
-from mlflow.pyfunc.spark_model_cache import SparkModelCache
+import mlflux
+import mlflux.pyfunc
+import mlflux.sklearn
+from mlflux.exceptions import MlflowException
+from mlflux.models import ModelSignature
+from mlflux.pyfunc import spark_udf, PythonModel, PyFuncModel
+from mlflux.pyfunc.spark_model_cache import SparkModelCache
 
 import tests
-from mlflow.types import Schema, ColSpec
+from mlflux.types import Schema, ColSpec
 
 prediction = [int(1), int(2), "class1", float(0.1), 0.2]
 types = [np.int32, int, str, np.float32, np.double]
@@ -76,10 +76,10 @@ def model_path(tmpdir):
 
 @pytest.mark.large
 def test_spark_udf(spark, model_path):
-    mlflow.pyfunc.save_model(
+    mlflux.pyfunc.save_model(
         path=model_path, loader_module=__name__, code_path=[os.path.dirname(tests.__file__)],
     )
-    reloaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_path)
+    reloaded_pyfunc_model = mlflux.pyfunc.load_pyfunc(model_path)
 
     pandas_df = pd.DataFrame(data=np.ones((10, 10)), columns=[str(i) for i in range(10)])
     spark_df = spark.createDataFrame(pandas_df)
@@ -130,9 +130,9 @@ def test_spark_udf_autofills_no_arguments(spark):
     good_data = spark.createDataFrame(
         pd.DataFrame(columns=["a", "b", "c", "d"], data={"a": [1], "b": [2], "c": [3], "d": [4]})
     )
-    with mlflow.start_run() as run:
-        mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
-        udf = mlflow.pyfunc.spark_udf(
+    with mlflux.start_run() as run:
+        mlflux.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
+        udf = mlflux.pyfunc.spark_udf(
             spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
         )
         res = good_data.withColumn("res", udf()).select("res").toPandas()
@@ -157,9 +157,9 @@ def test_spark_udf_autofills_no_arguments(spark):
         inputs=Schema([ColSpec("long"), ColSpec("long"), ColSpec("long")]),
         outputs=Schema([ColSpec("integer")]),
     )
-    with mlflow.start_run() as run:
-        mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=nameless_signature)
-        udf = mlflow.pyfunc.spark_udf(
+    with mlflux.start_run() as run:
+        mlflux.pyfunc.log_model("model", python_model=TestModel(), signature=nameless_signature)
+        udf = mlflux.pyfunc.spark_udf(
             spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
         )
         with pytest.raises(
@@ -167,10 +167,10 @@ def test_spark_udf_autofills_no_arguments(spark):
         ):
             good_data.withColumn("res", udf())
 
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         # model without signature
-        mlflow.pyfunc.log_model("model", python_model=TestModel())
-        udf = mlflow.pyfunc.spark_udf(
+        mlflux.pyfunc.log_model("model", python_model=TestModel())
+        udf = mlflux.pyfunc.spark_udf(
             spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
         )
         with pytest.raises(pyspark.sql.utils.PythonException):
@@ -186,9 +186,9 @@ def test_spark_udf_autofills_column_names_with_schema(spark):
         inputs=Schema([ColSpec("long", "a"), ColSpec("long", "b"), ColSpec("long", "c")]),
         outputs=Schema([ColSpec("integer")]),
     )
-    with mlflow.start_run() as run:
-        mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
-        udf = mlflow.pyfunc.spark_udf(
+    with mlflux.start_run() as run:
+        mlflux.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
+        udf = mlflux.pyfunc.spark_udf(
             spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
         )
         data = spark.createDataFrame(
@@ -214,9 +214,9 @@ def test_spark_udf_with_datetime_columns(spark):
         inputs=Schema([ColSpec("datetime", "timestamp"), ColSpec("datetime", "date")]),
         outputs=Schema([ColSpec("integer")]),
     )
-    with mlflow.start_run() as run:
-        mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
-        udf = mlflow.pyfunc.spark_udf(
+    with mlflux.start_run() as run:
+        mlflux.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
+        udf = mlflux.pyfunc.spark_udf(
             spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
         )
         data = spark.range(10).selectExpr(
@@ -230,7 +230,7 @@ def test_spark_udf_with_datetime_columns(spark):
 
 @pytest.mark.large
 def test_model_cache(spark, model_path):
-    mlflow.pyfunc.save_model(
+    mlflux.pyfunc.save_model(
         path=model_path, loader_module=__name__, code_path=[os.path.dirname(tests.__file__)],
     )
 

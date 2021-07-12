@@ -6,8 +6,8 @@ from sklearn.metrics import accuracy_score, log_loss
 import lightgbm as lgb
 import matplotlib as mpl
 
-import mlflow
-import mlflow.lightgbm
+import mlflux
+import mlflux.lightgbm
 
 mpl.use("Agg")
 
@@ -46,11 +46,11 @@ def main():
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     # enable auto logging
-    mlflow.lightgbm.autolog()
+    mlflux.lightgbm.autolog()
 
     train_set = lgb.Dataset(X_train, label=y_train)
 
-    with mlflow.start_run():
+    with mlflux.start_run():
 
         # train model
         params = {
@@ -73,7 +73,7 @@ def main():
         acc = accuracy_score(y_test, y_pred)
 
         # log metrics
-        mlflow.log_metrics({"log_loss": loss, "accuracy": acc})
+        mlflux.log_metrics({"log_loss": loss, "accuracy": acc})
 
 
 if __name__ == "__main__":

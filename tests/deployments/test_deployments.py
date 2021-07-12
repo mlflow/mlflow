@@ -1,8 +1,8 @@
 import pytest
 import os
-from mlflow import deployments
-from mlflow.deployments.plugin_manager import DeploymentPlugins
-from mlflow.exceptions import MlflowException
+from mlflux import deployments
+from mlflux.deployments.plugin_manager import DeploymentPlugins
+from mlflux.exceptions import MlflowException
 
 f_model_uri = "fake_model_uri"
 f_deployment_id = "fake_deployment_name"

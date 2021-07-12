@@ -4,10 +4,10 @@ from pyspark.ml import Pipeline
 from pyspark.sql import SparkSession
 from sklearn.datasets import load_iris
 
-import mlflow
+import mlflux
 
 spark = SparkSession.builder.getOrCreate()
-mlflow.pyspark.ml.autolog()
+mlflux.pyspark.ml.autolog()
 
 df = load_iris(as_frame=True).frame.rename(columns={"target": "label"})
 df = spark.createDataFrame(df)
@@ -19,7 +19,7 @@ lor = LogisticRegression(maxIter=5, featuresCol=scaler.getOutputCol())
 
 # Non-neseted pipeline
 pipeline = Pipeline(stages=[assembler, scaler, lor])
-with mlflow.start_run():
+with mlflux.start_run():
     pipeline_model = pipeline.fit(train)
 
 columns = ["features", "prediction"]
@@ -27,7 +27,7 @@ pipeline_model.transform(test).select(columns).show()
 
 # Nested pipeline
 nested_pipeline = Pipeline(stages=[Pipeline(stages=[assembler, scaler]), lor])
-with mlflow.start_run():
+with mlflux.start_run():
     nested_pipeline_model = nested_pipeline.fit(train)
 
 nested_pipeline_model.transform(test).select(columns).show()

@@ -1,7 +1,7 @@
 """
-Example of scoring images with MLflow model produced by running this project in Spark.
+Example of scoring images with mlflux model produced by running this project in Spark.
 
-The MLflow model is loaded to Spark using ``mlflow.pyfunc.spark_udf``. The images are read as binary
+The mlflux model is loaded to Spark using ``mlflux.pyfunc.spark_udf``. The images are read as binary
 data and represented as base64 encoded string column and passed to the model. The results are
 returned as a column with predicted class label, class id and probabilities for each class encoded
 as an array of strings.
@@ -14,9 +14,9 @@ import click
 
 import pyspark
 
-import mlflow
-import mlflow.pyfunc
-from mlflow.utils import cli_args
+import mlflux
+import mlflux.pyfunc
+from mlflux.utils import cli_args
 
 from pyspark.sql.types import *
 from pyspark.sql.types import Row
@@ -49,7 +49,7 @@ def score_model(spark, data_path, model_uri):
     else:
         filenames = [data_path]
 
-    image_classifier_udf = mlflow.pyfunc.spark_udf(
+    image_classifier_udf = mlflux.pyfunc.spark_udf(
         spark=spark, model_uri=model_uri, result_type=ArrayType(StringType())
     )
 
@@ -61,7 +61,7 @@ def score_model(spark, data_path, model_uri):
         .toPandas()
     )
     # load the pyfunc model to get our domain
-    pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=model_uri)
+    pyfunc_model = mlflux.pyfunc.load_pyfunc(model_uri=model_uri)
     preds = pd.DataFrame(raw_preds["filename"], index=raw_preds.index)
     preds[pyfunc_model._column_names] = pd.DataFrame(
         raw_preds["prediction"].values.tolist(),

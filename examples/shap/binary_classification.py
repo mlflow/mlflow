@@ -5,7 +5,7 @@ from sklearn.datasets import load_breast_cancer
 from sklearn.ensemble import RandomForestClassifier
 import shap
 
-import mlflow
+import mlflux
 from utils import to_pandas_Xy
 
 
@@ -19,11 +19,11 @@ model = RandomForestClassifier()
 model.fit(X, y)
 
 # log an explanation
-with mlflow.start_run() as run:
-    mlflow.shap.log_explanation(lambda X: model.predict_proba(X)[:, 1], X)
+with mlflux.start_run() as run:
+    mlflux.shap.log_explanation(lambda X: model.predict_proba(X)[:, 1], X)
 
 # list artifacts
-client = mlflow.tracking.MlflowClient()
+client = mlflux.tracking.MlflowClient()
 artifact_path = "model_explanations_shap"
 artifacts = [x.path for x in client.list_artifacts(run.info.run_id, artifact_path)]
 print("# artifacts:")

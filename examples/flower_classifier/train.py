@@ -1,5 +1,5 @@
 """
-Example of image classification with MLflow using Keras to classify flowers from photos. The data is
+Example of image classification with mlflux using Keras to classify flowers from photos. The data is
 taken from ``http://download.tensorflow.org/example_images/flower_photos.tgz`` and may be
 downloaded during running this project if it is missing.
 """
@@ -17,7 +17,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
 
-import mlflow
+import mlflux
 
 from image_pyfunc import decode_and_resize_image, log_model, KerasImageClassifierPyfunc
 
@@ -41,7 +41,7 @@ def download_input():
     help="Trains an Keras model on flower_photos dataset."
     "The input is expected as a directory tree with pictures for each category in a"
     " folder named by the category."
-    "The model and its metrics are logged with mlflow."
+    "The model and its metrics are logged with mlflux."
 )
 @click.option("--epochs", type=click.INT, default=1, help="Maximum number of epochs to evaluate.")
 @click.option(
@@ -88,10 +88,10 @@ def run(training_data, test_ratio, epochs, batch_size, image_width, image_height
 
 class MLflowLogger(Callback):
     """
-    Keras callback for logging metrics and final model with MLflow.
+    Keras callback for logging metrics and final model with mlflux.
 
     Metrics are logged after every epoch. The logger keeps track of the best model based on the
-    validation metric. At the end of the training, the best model is logged with MLflow.
+    validation metric. At the end of the training, the best model is logged with mlflux.
     """
 
     def __init__(self, model, x_train, y_train, x_valid, y_valid, **kwargs):
@@ -104,7 +104,7 @@ class MLflowLogger(Callback):
 
     def on_epoch_end(self, epoch, logs=None):
         """
-        Log Keras metrics with MLflow. Update the best model if the model improved on the validation
+        Log Keras metrics with mlflux. Update the best model if the model improved on the validation
         data.
         """
         if not logs:
@@ -114,7 +114,7 @@ class MLflowLogger(Callback):
                 name = "valid_" + name[4:]
             else:
                 name = "train_" + name
-            mlflow.log_metric(name, value)
+            mlflux.log_metric(name, value)
         val_loss = logs["val_loss"]
         if val_loss < self._best_val_loss:
             # Save the "best" weights
@@ -123,18 +123,18 @@ class MLflowLogger(Callback):
 
     def on_train_end(self, *args, **kwargs):
         """
-        Log the best model with MLflow and evaluate it on the train and validation data so that the
-        metrics stored with MLflow reflect the logged model.
+        Log the best model with mlflux and evaluate it on the train and validation data so that the
+        metrics stored with mlflux reflect the logged model.
         """
         self._model.set_weights(self._best_weights)
         x, y = self._train
         train_res = self._model.evaluate(x=x, y=y)
         for name, value in zip(self._model.metrics_names, train_res):
-            mlflow.log_metric("train_{}".format(name), value)
+            mlflux.log_metric("train_{}".format(name), value)
         x, y = self._valid
         valid_res = self._model.evaluate(x=x, y=y)
         for name, value in zip(self._model.metrics_names, valid_res):
-            mlflow.log_metric("valid_{}".format(name), value)
+            mlflux.log_metric("valid_{}".format(name), value)
         log_model(keras_model=self._model, **self._pyfunc_params)
 
 
@@ -169,8 +169,8 @@ def train(
     seed=None,
 ):
     """
-    Train VGG16 model on provided image files. This will create a new MLflow run and log all
-    parameters, metrics and the resulting model with MLflow. The resulting model is an instance
+    Train VGG16 model on provided image files. This will create a new mlflux run and log all
+    parameters, metrics and the resulting model with mlflux. The resulting model is an instance
     of KerasImageClassifierPyfunc - a custom python function model that embeds all necessary
     preprocessing together with the VGG16 Keras model. The resulting model can be applied
     directly to image base64 encoded image data.
@@ -191,12 +191,12 @@ def train(
 
     input_shape = (image_width, image_height, 3)
 
-    with mlflow.start_run() as run:
-        mlflow.log_param("epochs", str(epochs))
-        mlflow.log_param("batch_size", str(batch_size))
-        mlflow.log_param("validation_ratio", str(test_ratio))
+    with mlflux.start_run() as run:
+        mlflux.log_param("epochs", str(epochs))
+        mlflux.log_param("batch_size", str(batch_size))
+        mlflux.log_param("validation_ratio", str(test_ratio))
         if seed:
-            mlflow.log_param("seed", str(seed))
+            mlflux.log_param("seed", str(seed))
 
         def _read_image(filename):
             with open(filename, "rb") as f:

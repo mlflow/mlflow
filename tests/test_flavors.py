@@ -1,7 +1,7 @@
 import os
 import ast
 
-import mlflow
+import mlflux
 
 
 def read_file(path):
@@ -21,7 +21,7 @@ def is_model_flavor(src):
 
 
 def iter_flavor_names():
-    for root, _, files in os.walk("mlflow"):
+    for root, _, files in os.walk("mlflux"):
         for f in files:
             is_private_module = f.startswith("_") and f != "__init__.py"
             if not f.endswith(".py") or is_private_module:
@@ -37,4 +37,4 @@ def test_all_flavors_can_be_accessed_from_mlflow():
     flavor_names = list(iter_flavor_names())
     assert len(flavor_names) != 0
     for flavor_name in flavor_names:
-        assert hasattr(mlflow, flavor_name)
+        assert hasattr(mlflux, flavor_name)

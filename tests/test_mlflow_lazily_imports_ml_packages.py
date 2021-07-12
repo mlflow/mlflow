@@ -34,10 +34,10 @@ def test_mlflow_lazily_import_ml_packages():
         "xgboost",
     }
 
-    # Ensure ML packages are not loaded before importing mlflow
+    # Ensure ML packages are not loaded before importing mlflux
     assert _get_loaded_packages().intersection(ml_packages) == set()
 
-    import mlflow  # pylint: disable=unused-variable
+    import mlflux  # pylint: disable=unused-variable
 
-    # Ensure ML packages are not loaded after importing mlflow
+    # Ensure ML packages are not loaded after importing mlflux
     assert _get_loaded_packages().intersection(ml_packages) == set()

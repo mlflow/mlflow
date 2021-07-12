@@ -1,6 +1,6 @@
 import unittest
 
-from mlflow.entities import RunStatus
+from mlflux.entities import RunStatus
 
 
 class TestRunStatus(unittest.TestCase):

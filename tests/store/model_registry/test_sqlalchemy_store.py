@@ -5,23 +5,23 @@ import tempfile
 from unittest import mock
 import uuid
 
-import mlflow
-import mlflow.db
-import mlflow.store.db.base_sql_model
-from mlflow.entities.model_registry import (
+import mlflux
+import mlflux.db
+import mlflux.store.db.base_sql_model
+from mlflux.entities.model_registry import (
     RegisteredModel,
     ModelVersion,
     RegisteredModelTag,
     ModelVersionTag,
 )
-from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import (
+from mlflux.exceptions import MlflowException
+from mlflux.protos.databricks_pb2 import (
     ErrorCode,
     RESOURCE_DOES_NOT_EXIST,
     INVALID_PARAMETER_VALUE,
     RESOURCE_ALREADY_EXISTS,
 )
-from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
+from mlflux.store.model_registry.sqlalchemy_store import SqlAlchemyStore
 from tests.helper_functions import random_str
 
 DB_URI = "sqlite:///"
@@ -40,7 +40,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store = self._get_store(self.db_url)
 
     def tearDown(self):
-        mlflow.store.db.base_sql_model.Base.metadata.drop_all(self.store.engine)
+        mlflux.store.db.base_sql_model.Base.metadata.drop_all(self.store.engine)
         os.remove(self.temp_dbfile)
 
     def _rm_maker(self, name, tags=None, description=None):
@@ -1032,7 +1032,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         rms = []
         # explicitly mock the creation_timestamps because timestamps seem to be unstable in Windows
         for i in range(50):
-            with mock.patch("mlflow.store.model_registry.sqlalchemy_store.now", return_value=i):
+            with mock.patch("mlflux.store.model_registry.sqlalchemy_store.now", return_value=i):
                 rms.append(self._rm_maker("RM{:03}".format(i)).name)
 
         # test flow with fixed max_results and order_by (test stable order across pages)
@@ -1084,10 +1084,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             query, page_token=None, order_by=["last_updated_timestamp"], max_results=100
         )
         self.assertEqual(rms, result)
-        with mock.patch("mlflow.store.model_registry.sqlalchemy_store.now", return_value=1):
+        with mock.patch("mlflux.store.model_registry.sqlalchemy_store.now", return_value=1):
             rm1 = self._rm_maker("MR1").name
             rm2 = self._rm_maker("MR2").name
-        with mock.patch("mlflow.store.model_registry.sqlalchemy_store.now", return_value=2):
+        with mock.patch("mlflux.store.model_registry.sqlalchemy_store.now", return_value=2):
             rm3 = self._rm_maker("MR3").name
             rm4 = self._rm_maker("MR4").name
         query = "name LIKE 'MR%'"

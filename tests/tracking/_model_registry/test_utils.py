@@ -2,25 +2,25 @@ import os
 import pytest
 from unittest import mock
 
-from mlflow.exceptions import MlflowException
-from mlflow.store.db.db_types import DATABASE_ENGINES
-from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
-from mlflow.store.model_registry.rest_store import RestStore
-from mlflow.tracking._model_registry.utils import _get_store, get_registry_uri, set_registry_uri
-from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
+from mlflux.exceptions import MlflowException
+from mlflux.store.db.db_types import DATABASE_ENGINES
+from mlflux.store.model_registry.sqlalchemy_store import SqlAlchemyStore
+from mlflux.store.model_registry.rest_store import RestStore
+from mlflux.tracking._model_registry.utils import _get_store, get_registry_uri, set_registry_uri
+from mlflux.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
 
 
 # Disable mocking tracking URI here, as we want to test setting the tracking URI via
 # environment variable. See
 # http://doc.pytest.org/en/latest/skipping.html#skip-all-test-functions-of-a-class-or-module
-# and https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#writing-python-tests
+# and https://github.com/mlflux/mlflux/blob/master/CONTRIBUTING.rst#writing-python-tests
 # for more information.
 pytestmark = pytest.mark.notrackingurimock
 
 
 def test_set_get_registry_uri():
     with mock.patch(
-        "mlflow.tracking._model_registry.utils.get_tracking_uri"
+        "mlflux.tracking._model_registry.utils.get_tracking_uri"
     ) as get_tracking_uri_mock:
         get_tracking_uri_mock.return_value = "databricks://tracking_sldkfj"
         uri = "databricks://registry/path"
@@ -31,7 +31,7 @@ def test_set_get_registry_uri():
 
 def test_set_get_empty_registry_uri():
     with mock.patch(
-        "mlflow.tracking._model_registry.utils.get_tracking_uri"
+        "mlflux.tracking._model_registry.utils.get_tracking_uri"
     ) as get_tracking_uri_mock:
         get_tracking_uri_mock.return_value = None
         set_registry_uri("")
@@ -41,7 +41,7 @@ def test_set_get_empty_registry_uri():
 
 def test_default_get_registry_uri_no_tracking_uri():
     with mock.patch(
-        "mlflow.tracking._model_registry.utils.get_tracking_uri"
+        "mlflux.tracking._model_registry.utils.get_tracking_uri"
     ) as get_tracking_uri_mock:
         get_tracking_uri_mock.return_value = None
         set_registry_uri(None)
@@ -51,7 +51,7 @@ def test_default_get_registry_uri_no_tracking_uri():
 def test_default_get_registry_uri_with_tracking_uri_set():
     tracking_uri = "databricks://tracking_werohoz"
     with mock.patch(
-        "mlflow.tracking._model_registry.utils.get_tracking_uri"
+        "mlflux.tracking._model_registry.utils.get_tracking_uri"
     ) as get_tracking_uri_mock:
         get_tracking_uri_mock.return_value = tracking_uri
         set_registry_uri(None)
@@ -82,7 +82,7 @@ def test_get_store_sqlalchemy_store(db_type):
     env = {_TRACKING_URI_ENV_VAR: uri}
 
     with mock.patch.dict(os.environ, env), patch_create_engine as mock_create_engine, mock.patch(
-        "mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore."
+        "mlflux.store.model_registry.sqlalchemy_store.SqlAlchemyStore."
         "_verify_registry_tables_exist"
     ):
         store = _get_store()

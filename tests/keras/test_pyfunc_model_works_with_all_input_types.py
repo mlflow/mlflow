@@ -11,7 +11,7 @@ import sklearn.datasets as datasets
 import pandas as pd
 import numpy as np
 
-import mlflow
+import mlflux
 
 
 @pytest.fixture
@@ -57,10 +57,10 @@ def test_model_single_tensor_input(single_tensor_input_model, model_path, data):
     x, _ = data
     model_path = os.path.join(model_path, "plain")
     expected = single_tensor_input_model.predict(x.values)
-    mlflow.keras.save_model(single_tensor_input_model, model_path)
+    mlflux.keras.save_model(single_tensor_input_model, model_path)
 
     # Loading Keras model via PyFunc
-    model_loaded = mlflow.pyfunc.load_model(model_path)
+    model_loaded = mlflux.pyfunc.load_model(model_path)
 
     # Calling predict with a dataframe should return a dataframe
     actual = model_loaded.predict(x)
@@ -79,10 +79,10 @@ def test_model_multi_tensor_input(multi_tensor_input_model, model_path, data):
 
     model_path = os.path.join(model_path, "plain")
     expected = multi_tensor_input_model.predict(test_input)
-    mlflow.keras.save_model(multi_tensor_input_model, model_path)
+    mlflux.keras.save_model(multi_tensor_input_model, model_path)
 
     # Loading Keras model via PyFunc
-    model_loaded = mlflow.pyfunc.load_model(model_path)
+    model_loaded = mlflux.pyfunc.load_model(model_path)
 
     # Calling predict with a list should return a np.ndarray output
     actual = model_loaded.predict(test_input)

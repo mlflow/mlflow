@@ -13,37 +13,37 @@ from urllib.parse import urlparse, unquote
 import numpy as np
 import pandas as pd
 
-import mlflow
-from mlflow.cli import server, ui
-from mlflow import pyfunc
-from mlflow.server import handlers
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.store.tracking.file_store import FileStore
-from mlflow.exceptions import MlflowException
-from mlflow.entities import ViewType
+import mlflux
+from mlflux.cli import server, ui
+from mlflux import pyfunc
+from mlflux.server import handlers
+from mlflux.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflux.store.tracking.file_store import FileStore
+from mlflux.exceptions import MlflowException
+from mlflux.entities import ViewType
 
 from tests.helper_functions import pyfunc_serve_and_score_model
 
 
 def test_server_static_prefix_validation():
-    with mock.patch("mlflow.server._run_server") as run_server_mock:
+    with mock.patch("mlflux.server._run_server") as run_server_mock:
         CliRunner().invoke(server)
         run_server_mock.assert_called_once()
-    with mock.patch("mlflow.server._run_server") as run_server_mock:
-        CliRunner().invoke(server, ["--static-prefix", "/mlflow"])
+    with mock.patch("mlflux.server._run_server") as run_server_mock:
+        CliRunner().invoke(server, ["--static-prefix", "/mlflux"])
         run_server_mock.assert_called_once()
-    with mock.patch("mlflow.server._run_server") as run_server_mock:
-        result = CliRunner().invoke(server, ["--static-prefix", "mlflow/"])
+    with mock.patch("mlflux.server._run_server") as run_server_mock:
+        result = CliRunner().invoke(server, ["--static-prefix", "mlflux/"])
         assert "--static-prefix must begin with a '/'." in result.output
         run_server_mock.assert_not_called()
-    with mock.patch("mlflow.server._run_server") as run_server_mock:
-        result = CliRunner().invoke(server, ["--static-prefix", "/mlflow/"])
+    with mock.patch("mlflux.server._run_server") as run_server_mock:
+        result = CliRunner().invoke(server, ["--static-prefix", "/mlflux/"])
         assert "--static-prefix should not end with a '/'." in result.output
         run_server_mock.assert_not_called()
 
 
 def test_server_default_artifact_root_validation():
-    with mock.patch("mlflow.server._run_server") as run_server_mock:
+    with mock.patch("mlflux.server._run_server") as run_server_mock:
         result = CliRunner().invoke(server, ["--backend-store-uri", "sqlite:///my.db"])
         assert result.output.startswith("Option 'default-artifact-root' is required")
         run_server_mock.assert_not_called()
@@ -52,7 +52,7 @@ def test_server_default_artifact_root_validation():
 @pytest.mark.parametrize("command", [server, ui])
 def test_tracking_uri_validation_failure(command):
     handlers._tracking_store = None
-    with mock.patch("mlflow.server._run_server") as run_server_mock:
+    with mock.patch("mlflux.server._run_server") as run_server_mock:
         # SQLAlchemy expects postgresql:// not postgres://
         CliRunner().invoke(
             command,
@@ -70,10 +70,10 @@ def test_tracking_uri_validation_failure(command):
 def test_tracking_uri_validation_sql_driver_uris(command):
     handlers._tracking_store = None
     handlers._model_registry_store = None
-    with mock.patch("mlflow.server._run_server") as run_server_mock, mock.patch(
-        "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"
+    with mock.patch("mlflux.server._run_server") as run_server_mock, mock.patch(
+        "mlflux.store.tracking.sqlalchemy_store.SqlAlchemyStore"
     ) as tracking_store_mock, mock.patch(
-        "mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore"
+        "mlflux.store.model_registry.sqlalchemy_store.SqlAlchemyStore"
     ) as registry_store_mock:
         CliRunner().invoke(
             command,
@@ -129,7 +129,7 @@ def test_mlflow_gc_sqlite(sqlite_store):
     store = sqlite_store[0]
     run = _create_run_in_store(store)
     store.delete_run(run.info.run_uuid)
-    subprocess.check_output(["mlflow", "gc", "--backend-store-uri", sqlite_store[1]])
+    subprocess.check_output(["mlflux", "gc", "--backend-store-uri", sqlite_store[1]])
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
     assert len(runs) == 0
     with pytest.raises(MlflowException):
@@ -140,7 +140,7 @@ def test_mlflow_gc_file_store(file_store):
     store = file_store[0]
     run = _create_run_in_store(store)
     store.delete_run(run.info.run_uuid)
-    subprocess.check_output(["mlflow", "gc", "--backend-store-uri", file_store[1]])
+    subprocess.check_output(["mlflux", "gc", "--backend-store-uri", file_store[1]])
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
     assert len(runs) == 0
     with pytest.raises(MlflowException):
@@ -152,7 +152,7 @@ def test_mlflow_gc_file_store_passing_explicit_run_ids(file_store):
     run = _create_run_in_store(store)
     store.delete_run(run.info.run_uuid)
     subprocess.check_output(
-        ["mlflow", "gc", "--backend-store-uri", file_store[1], "--run-ids", run.info.run_uuid]
+        ["mlflux", "gc", "--backend-store-uri", file_store[1], "--run-ids", run.info.run_uuid]
     )
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
     assert len(runs) == 0
@@ -165,7 +165,7 @@ def test_mlflow_gc_not_deleted_run(file_store):
     run = _create_run_in_store(store)
     with pytest.raises(subprocess.CalledProcessError):
         subprocess.check_output(
-            ["mlflow", "gc", "--backend-store-uri", file_store[1], "--run-ids", run.info.run_uuid]
+            ["mlflux", "gc", "--backend-store-uri", file_store[1], "--run-ids", run.info.run_uuid]
         )
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
     assert len(runs) == 1
@@ -178,9 +178,9 @@ def test_mlflow_models_serve():
 
     model = MyModel()
 
-    with mlflow.start_run():
-        mlflow.pyfunc.log_model(artifact_path="model", python_model=model)
-        model_uri = mlflow.get_artifact_uri("model")
+    with mlflux.start_run():
+        mlflux.pyfunc.log_model(artifact_path="model", python_model=model)
+        model_uri = mlflux.get_artifact_uri("model")
 
     data = pd.DataFrame({"a": [0]})
 

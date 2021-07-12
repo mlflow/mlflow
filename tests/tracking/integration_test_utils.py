@@ -8,9 +8,9 @@ import socket
 import time
 import tempfile
 
-import mlflow
-from mlflow.server import BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
-from mlflow.utils.file_utils import path_to_local_file_uri, local_file_uri_to_path
+import mlflux
+from mlflux.server import BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
+from mlflux.utils.file_utils import path_to_local_file_uri, local_file_uri_to_path
 from tests.helper_functions import LOCALHOST, get_safe_port
 
 
@@ -57,7 +57,7 @@ def _init_server(backend_uri, root_artifact_uri):
     :returns A tuple (url, process) containing the string URL of the server and a handle to the
              server process (a multiprocessing.Process object).
     """
-    mlflow.set_tracking_uri(None)
+    mlflux.set_tracking_uri(None)
     server_port = get_safe_port()
     env = {
         BACKEND_STORE_URI_ENV_VAR: backend_uri,
@@ -69,7 +69,7 @@ def _init_server(backend_uri, root_artifact_uri):
         cmd = [
             "python",
             "-c",
-            'from mlflow.server import app; app.run("{hostname}", {port})'.format(
+            'from mlflux.server import app; app.run("{hostname}", {port})'.format(
                 hostname=LOCALHOST, port=server_port
             ),
         ]

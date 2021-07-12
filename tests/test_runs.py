@@ -7,14 +7,14 @@ import shutil
 import tempfile
 import textwrap
 
-from mlflow import experiments
-from mlflow.runs import list_run
+from mlflux import experiments
+from mlflux.runs import list_run
 
-import mlflow
+import mlflux
 
 
 def test_list_run():
-    with mlflow.start_run(run_name="apple"):
+    with mlflux.start_run(run_name="apple"):
         pass
     result = CliRunner().invoke(list_run, ["--experiment-id", "0"])
     assert "apple" in result.output
@@ -33,7 +33,7 @@ def test_csv_generation():
     import numpy as np
     import pandas as pd
 
-    with mock.patch("mlflow.experiments.fluent.search_runs") as mock_search_runs:
+    with mock.patch("mlflux.experiments.fluent.search_runs") as mock_search_runs:
         mock_search_runs.return_value = pd.DataFrame(
             {
                 "run_id": np.array(["all_set", "with_none", "with_nan"]),

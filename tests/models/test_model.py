@@ -1,17 +1,17 @@
 import os
 from datetime import date
 
-import mlflow
+import mlflux
 import pandas as pd
 import numpy as np
 
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.models import Model
-from mlflow.models.signature import ModelSignature
-from mlflow.models.utils import _save_example
-from mlflow.types.schema import Schema, ColSpec
-from mlflow.utils.file_utils import TempDir
-from mlflow.utils.proto_json_utils import _dataframe_from_json
+from mlflux.tracking.artifact_utils import _download_artifact_from_uri
+from mlflux.models import Model
+from mlflux.models.signature import ModelSignature
+from mlflux.models.utils import _save_example
+from mlflux.types.schema import Schema, ColSpec
+from mlflux.utils.file_utils import TempDir
+from mlflux.utils.proto_json_utils import _dataframe_from_json
 
 from unittest import mock
 
@@ -69,9 +69,9 @@ class TestFlavor(object):
 
 
 def _log_model_with_signature_and_example(tmp_path, sig, input_example):
-    experiment_id = mlflow.create_experiment("test")
+    experiment_id = mlflux.create_experiment("test")
 
-    with mlflow.start_run(experiment_id=experiment_id) as run:
+    with mlflux.start_run(experiment_id=experiment_id) as run:
         Model.log("some/path", TestFlavor, signature=sig, input_example=input_example)
 
     local_path = _download_artifact_from_uri(
@@ -107,7 +107,7 @@ def test_model_log():
 def test_model_log_with_databricks_runtime():
     dbr = "8.3.x-snapshot-gpu-ml-scala2.12"
     with TempDir(chdr=True) as tmp, mock.patch(
-        "mlflow.models.model.get_databricks_runtime", return_value=dbr
+        "mlflux.models.model.get_databricks_runtime", return_value=dbr
     ):
         sig = ModelSignature(
             inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),

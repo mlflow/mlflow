@@ -8,23 +8,23 @@ from databricks_cli.configure.provider import DatabricksConfig
 import databricks_cli
 import pytest
 
-import mlflow
-from mlflow import cli
-from mlflow.exceptions import MlflowException
-from mlflow.projects.databricks import DatabricksJobRunner, _get_cluster_mlflow_run_cmd
-from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
-from mlflow.entities import RunStatus
-from mlflow.projects import databricks, ExecutionException
-from mlflow.tracking import MlflowClient
-from mlflow.utils import file_utils
-from mlflow.store.tracking.file_store import FileStore
-from mlflow.utils.mlflow_tags import (
+import mlflux
+from mlflux import cli
+from mlflux.exceptions import MlflowException
+from mlflux.projects.databricks import DatabricksJobRunner, _get_cluster_mlflow_run_cmd
+from mlflux.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
+from mlflux.entities import RunStatus
+from mlflux.projects import databricks, ExecutionException
+from mlflux.tracking import MlflowClient
+from mlflux.utils import file_utils
+from mlflux.store.tracking.file_store import FileStore
+from mlflux.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_RUN_URL,
     MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID,
     MLFLOW_DATABRICKS_WEBAPP_URL,
 )
-from mlflow.utils.rest_utils import _DEFAULT_HEADERS
-from mlflow.utils.uri import construct_db_uri_from_profile
+from mlflux.utils.rest_utils import _DEFAULT_HEADERS
+from mlflux.utils.uri import construct_db_uri_from_profile
 from tests import helper_functions
 from tests.integration.utils import invoke_cli_runner
 
@@ -35,7 +35,7 @@ from tests.projects.utils import validate_exit_status, TEST_PROJECT_DIR
 def runs_cancel_mock():
     """Mocks the Jobs Runs Cancel API request"""
     with mock.patch(
-        "mlflow.projects.databricks.DatabricksJobRunner.jobs_runs_cancel"
+        "mlflux.projects.databricks.DatabricksJobRunner.jobs_runs_cancel"
     ) as runs_cancel_mock:
         runs_cancel_mock.return_value = None
         yield runs_cancel_mock
@@ -45,7 +45,7 @@ def runs_cancel_mock():
 def runs_submit_mock():
     """Mocks the Jobs Runs Submit API request"""
     with mock.patch(
-        "mlflow.projects.databricks.DatabricksJobRunner._jobs_runs_submit"
+        "mlflux.projects.databricks.DatabricksJobRunner._jobs_runs_submit"
     ) as runs_submit_mock:
         runs_submit_mock.return_value = {"run_id": "-1"}
         yield runs_submit_mock
@@ -55,7 +55,7 @@ def runs_submit_mock():
 def runs_get_mock():
     """Mocks the Jobs Runs Get API request"""
     with mock.patch(
-        "mlflow.projects.databricks.DatabricksJobRunner.jobs_runs_get"
+        "mlflux.projects.databricks.DatabricksJobRunner.jobs_runs_get"
     ) as runs_get_mock:
         yield runs_get_mock
 
@@ -64,7 +64,7 @@ def runs_get_mock():
 def databricks_cluster_mlflow_run_cmd_mock():
     """Mocks the Jobs Runs Get API request"""
     with mock.patch(
-        "mlflow.projects.databricks._get_cluster_mlflow_run_cmd"
+        "mlflux.projects.databricks._get_cluster_mlflow_run_cmd"
     ) as mlflow_run_cmd_mock:
         yield mlflow_run_cmd_mock
 
@@ -89,7 +89,7 @@ def upload_to_dbfs_mock(dbfs_root_mock):
         shutil.copy(src_path, mock_dbfs_dst)
 
     with mock.patch.object(
-        mlflow.projects.databricks.DatabricksJobRunner, "_upload_to_dbfs", new=upload_mock_fn
+        mlflux.projects.databricks.DatabricksJobRunner, "_upload_to_dbfs", new=upload_mock_fn
     ) as upload_mock:
         yield upload_mock
 
@@ -97,7 +97,7 @@ def upload_to_dbfs_mock(dbfs_root_mock):
 @pytest.fixture()
 def dbfs_path_exists_mock(dbfs_root_mock):  # pylint: disable=unused-argument
     with mock.patch(
-        "mlflow.projects.databricks.DatabricksJobRunner._dbfs_path_exists"
+        "mlflux.projects.databricks.DatabricksJobRunner._dbfs_path_exists"
     ) as path_exists_mock:
         yield path_exists_mock
 
@@ -109,13 +109,13 @@ def dbfs_mocks(dbfs_path_exists_mock, upload_to_dbfs_mock):  # pylint: disable=u
 
 @pytest.fixture()
 def before_run_validations_mock():  # pylint: disable=unused-argument
-    with mock.patch("mlflow.projects.databricks.before_run_validations"):
+    with mock.patch("mlflux.projects.databricks.before_run_validations"):
         yield
 
 
 @pytest.fixture()
 def set_tag_mock():
-    with mock.patch("mlflow.projects.databricks.tracking.MlflowClient") as m:
+    with mock.patch("mlflux.projects.databricks.tracking.MlflowClient") as m:
         mlflow_service_mock = mock.Mock(wraps=MlflowClient())
         m.return_value = mlflow_service_mock
         yield mlflow_service_mock.set_tag
@@ -137,7 +137,7 @@ def mock_runs_get_result(succeeded):
 
 
 def run_databricks_project(cluster_spec, **kwargs):
-    return mlflow.projects.run(
+    return mlflux.projects.run(
         uri=TEST_PROJECT_DIR,
         backend="databricks",
         backend_config=cluster_spec,
@@ -170,7 +170,7 @@ def test_upload_project_to_dbfs(
 def test_upload_existing_project_to_dbfs(dbfs_path_exists_mock):  # pylint: disable=unused-argument
     # Check that we don't upload the project if it already exists on DBFS
     with mock.patch(
-        "mlflow.projects.databricks.DatabricksJobRunner._upload_to_dbfs"
+        "mlflux.projects.databricks.DatabricksJobRunner._upload_to_dbfs"
     ) as upload_to_dbfs_mock:
         dbfs_path_exists_mock.return_value = True
         runner = DatabricksJobRunner(
@@ -192,9 +192,9 @@ def test_upload_existing_project_to_dbfs(dbfs_path_exists_mock):  # pylint: disa
 )
 def test_dbfs_path_exists_error_response_handling(response_mock):
     with mock.patch(
-        "mlflow.utils.databricks_utils.get_databricks_host_creds"
+        "mlflux.utils.databricks_utils.get_databricks_host_creds"
     ) as get_databricks_host_creds_mock, mock.patch(
-        "mlflow.utils.rest_utils.http_request"
+        "mlflux.utils.rest_utils.http_request"
     ) as http_request_mock:
         # given a well formed DatabricksJobRunner
         # note: databricks_profile is None needed because clients using profile are mocked
@@ -223,7 +223,7 @@ def test_run_databricks_validations(
     with mock.patch.dict(
         os.environ, {"DATABRICKS_HOST": "test-host", "DATABRICKS_TOKEN": "foo"}
     ), mock.patch(
-        "mlflow.projects.databricks.DatabricksJobRunner._databricks_api_request"
+        "mlflux.projects.databricks.DatabricksJobRunner._databricks_api_request"
     ) as db_api_req_mock:
         # Test bad tracking URI
         tracking_uri_mock.return_value = tmpdir.strpath
@@ -231,14 +231,14 @@ def test_run_databricks_validations(
             run_databricks_project(cluster_spec_mock, synchronous=True)
         assert db_api_req_mock.call_count == 0
         db_api_req_mock.reset_mock()
-        mlflow_service = mlflow.tracking.MlflowClient()
+        mlflow_service = mlflux.tracking.MlflowClient()
         assert (
             len(mlflow_service.list_run_infos(experiment_id=FileStore.DEFAULT_EXPERIMENT_ID)) == 0
         )
         tracking_uri_mock.return_value = "http://"
         # Test misspecified parameters
         with pytest.raises(ExecutionException):
-            mlflow.projects.run(
+            mlflux.projects.run(
                 TEST_PROJECT_DIR,
                 backend="databricks",
                 entry_point="greeter",
@@ -248,7 +248,7 @@ def test_run_databricks_validations(
         db_api_req_mock.reset_mock()
         # Test bad cluster spec
         with pytest.raises(ExecutionException):
-            mlflow.projects.run(
+            mlflux.projects.run(
                 TEST_PROJECT_DIR, backend="databricks", synchronous=True, backend_config=None
             )
         assert db_api_req_mock.call_count == 0
@@ -273,7 +273,7 @@ def test_run_databricks(
 ):
     """Test running on Databricks with mocks."""
     with mock.patch.dict(os.environ, {"DATABRICKS_HOST": "test-host", "DATABRICKS_TOKEN": "foo"}):
-        # Test that MLflow gets the correct run status when performing a Databricks run
+        # Test that mlflux gets the correct run status when performing a Databricks run
         for run_succeeded, expect_status in [(True, RunStatus.FINISHED), (False, RunStatus.FAILED)]:
             runs_get_mock.return_value = mock_runs_get_result(succeeded=run_succeeded)
             submitted_run = run_databricks_project(cluster_spec_mock, synchronous=False)
@@ -396,7 +396,7 @@ def test_run_databricks_cancel(
     cluster_spec_mock,
 ):
     # pylint: disable=unused-argument
-    # Test that MLflow properly handles Databricks run cancellation. We mock the result of
+    # Test that mlflux properly handles Databricks run cancellation. We mock the result of
     # the runs-get API to indicate run failure so that cancel() exits instead of blocking while
     # waiting for run status.
     with mock.patch.dict(os.environ, {"DATABRICKS_HOST": "test-host", "DATABRICKS_TOKEN": "foo"}):
@@ -407,18 +407,18 @@ def test_run_databricks_cancel(
         assert runs_cancel_mock.call_count == 1
         # Test that we raise an exception when a blocking Databricks run fails
         runs_get_mock.return_value = mock_runs_get_result(succeeded=False)
-        with pytest.raises(mlflow.projects.ExecutionException):
+        with pytest.raises(mlflux.projects.ExecutionException):
             run_databricks_project(cluster_spec_mock, synchronous=True)
 
 
 def test_get_tracking_uri_for_run():
-    mlflow.set_tracking_uri("http://some-uri")
+    mlflux.set_tracking_uri("http://some-uri")
     assert databricks._get_tracking_uri_for_run() == "http://some-uri"
-    mlflow.set_tracking_uri("databricks://profile")
+    mlflux.set_tracking_uri("databricks://profile")
     assert databricks._get_tracking_uri_for_run() == "databricks"
-    mlflow.set_tracking_uri(None)
-    with mock.patch.dict(os.environ, {mlflow.tracking._TRACKING_URI_ENV_VAR: "http://some-uri"}):
-        assert mlflow.tracking._tracking_service.utils.get_tracking_uri() == "http://some-uri"
+    mlflux.set_tracking_uri(None)
+    with mock.patch.dict(os.environ, {mlflux.tracking._TRACKING_URI_ENV_VAR: "http://some-uri"}):
+        assert mlflux.tracking._tracking_service.utils.get_tracking_uri() == "http://some-uri"
 
 
 class MockProfileConfigProvider:
@@ -467,9 +467,9 @@ def test_databricks_http_request_integration(get_config, request):
     assert get_config.call_count == 0
 
 
-@mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds")
+@mock.patch("mlflux.utils.databricks_utils.get_databricks_host_creds")
 def test_run_databricks_failed(_):
-    with mock.patch("mlflow.utils.rest_utils.http_request") as m:
+    with mock.patch("mlflux.utils.rest_utils.http_request") as m:
         text = '{"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "Node type not supported"}'
         m.return_value = mock.Mock(text=text, status_code=400)
         runner = DatabricksJobRunner(construct_db_uri_from_profile("profile"))
@@ -481,6 +481,6 @@ def test_run_databricks_generates_valid_mlflow_run_cmd():
     cmd = _get_cluster_mlflow_run_cmd(
         project_dir="my_project_dir", run_id="hi", entry_point="main", parameters={"a": "b"}
     )
-    assert cmd[0] == "mlflow"
-    with mock.patch("mlflow.projects.run"):
+    assert cmd[0] == "mlflux"
+    with mock.patch("mlflux.projects.run"):
         invoke_cli_runner(cli.cli, cmd[1:])

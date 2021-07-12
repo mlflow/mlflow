@@ -1,7 +1,7 @@
 # Based on the official regression example:
 # https://catboost.ai/docs/concepts/python-usages-examples.html#regression
 
-import mlflow
+import mlflux
 from catboost import CatBoostRegressor
 
 # Initialize data
@@ -22,13 +22,13 @@ model = CatBoostRegressor(**params)
 model.fit(train_data, train_labels)
 
 # Log parameters and fitted model
-with mlflow.start_run() as run:
-    mlflow.log_params(params)
-    mlflow.catboost.log_model(model, artifact_path="model")
-    model_uri = mlflow.get_artifact_uri("model")
+with mlflux.start_run() as run:
+    mlflux.log_params(params)
+    mlflux.catboost.log_model(model, artifact_path="model")
+    model_uri = mlflux.get_artifact_uri("model")
 
 # Load model
-loaded_model = mlflow.catboost.load_model(model_uri)
+loaded_model = mlflux.catboost.load_model(model_uri)
 
 # Get predictions
 preds = loaded_model.predict(eval_data)

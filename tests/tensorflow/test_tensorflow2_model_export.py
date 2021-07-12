@@ -16,19 +16,19 @@ import pandas.testing
 import tensorflow as tf
 import iris_data_utils
 
-import mlflow
-import mlflow.tensorflow
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
-from mlflow.exceptions import MlflowException
-from mlflow import pyfunc
-from mlflow.models import infer_signature, Model
-from mlflow.models.utils import _read_example
-from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils.file_utils import TempDir
-from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+import mlflux
+import mlflux.tensorflow
+import mlflux.pyfunc.scoring_server as pyfunc_scoring_server
+from mlflux.exceptions import MlflowException
+from mlflux import pyfunc
+from mlflux.models import infer_signature, Model
+from mlflux.models.utils import _read_example
+from mlflux.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflux.tracking.artifact_utils import _download_artifact_from_uri
+from mlflux.utils.environment import _mlflow_conda_env
+from mlflux.utils.file_utils import TempDir
+from mlflux.utils.model_utils import _get_flavor_configuration
+from mlflux.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 from tests.helper_functions import (
     score_model_in_sagemaker_docker_container,
@@ -228,7 +228,7 @@ def model_path(tmpdir):
 
 @pytest.mark.large
 def test_load_model_from_remote_uri_succeeds(saved_tf_iris_model, model_path, mock_s3_bucket):
-    mlflow.tensorflow.save_model(
+    mlflux.tensorflow.save_model(
         tf_saved_model_dir=saved_tf_iris_model.path,
         tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
         tf_signature_def_key=saved_tf_iris_model.signature_def_key,
@@ -241,7 +241,7 @@ def test_load_model_from_remote_uri_succeeds(saved_tf_iris_model, model_path, mo
     artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
 
     model_uri = artifact_root + "/" + artifact_path
-    infer = mlflow.tensorflow.load_model(model_uri=model_uri)
+    infer = mlflux.tensorflow.load_model(model_uri=model_uri)
     feed_dict = {
         df_column_name: tf.constant(saved_tf_iris_model.inference_df[df_column_name])
         for df_column_name in list(saved_tf_iris_model.inference_df)
@@ -257,7 +257,7 @@ def test_load_model_from_remote_uri_succeeds(saved_tf_iris_model, model_path, mo
 
 @pytest.mark.large
 def test_iris_model_can_be_loaded_and_evaluated_successfully(saved_tf_iris_model, model_path):
-    mlflow.tensorflow.save_model(
+    mlflux.tensorflow.save_model(
         tf_saved_model_dir=saved_tf_iris_model.path,
         tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
         tf_signature_def_key=saved_tf_iris_model.signature_def_key,
@@ -266,7 +266,7 @@ def test_iris_model_can_be_loaded_and_evaluated_successfully(saved_tf_iris_model
 
     def load_and_evaluate():
 
-        infer = mlflow.tensorflow.load_model(model_uri=model_path)
+        infer = mlflux.tensorflow.load_model(model_uri=model_path)
         feed_dict = {
             df_column_name: tf.constant(saved_tf_iris_model.inference_df[df_column_name])
             for df_column_name in list(saved_tf_iris_model.inference_df)
@@ -292,7 +292,7 @@ def test_schema_and_examples_are_save_correctly(saved_tf_iris_model):
         for example in (None, X.head(3)):
             with TempDir() as tmp:
                 path = tmp.path("model")
-                mlflow.tensorflow.save_model(
+                mlflux.tensorflow.save_model(
                     tf_saved_model_dir=saved_tf_iris_model.path,
                     tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
                     tf_signature_def_key=saved_tf_iris_model.signature_def_key,
@@ -313,7 +313,7 @@ def test_save_model_with_invalid_path_signature_def_or_metagraph_tags_throws_exc
     saved_tf_iris_model, model_path
 ):
     with pytest.raises(IOError):
-        mlflow.tensorflow.save_model(
+        mlflux.tensorflow.save_model(
             tf_saved_model_dir="not_a_valid_tf_model_dir",
             tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
             tf_signature_def_key=saved_tf_iris_model.signature_def_key,
@@ -321,7 +321,7 @@ def test_save_model_with_invalid_path_signature_def_or_metagraph_tags_throws_exc
         )
 
     with pytest.raises(RuntimeError):
-        mlflow.tensorflow.save_model(
+        mlflux.tensorflow.save_model(
             tf_saved_model_dir=saved_tf_iris_model.path,
             tf_meta_graph_tags=["bad tags"],
             tf_signature_def_key=saved_tf_iris_model.signature_def_key,
@@ -329,7 +329,7 @@ def test_save_model_with_invalid_path_signature_def_or_metagraph_tags_throws_exc
         )
 
     with pytest.raises(MlflowException):
-        mlflow.tensorflow.save_model(
+        mlflux.tensorflow.save_model(
             tf_saved_model_dir=saved_tf_iris_model.path,
             tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
             tf_signature_def_key="bad signature",
@@ -337,7 +337,7 @@ def test_save_model_with_invalid_path_signature_def_or_metagraph_tags_throws_exc
         )
 
     with pytest.raises(IOError):
-        mlflow.tensorflow.save_model(
+        mlflux.tensorflow.save_model(
             tf_saved_model_dir="bad path",
             tf_meta_graph_tags="bad tags",
             tf_signature_def_key="bad signature",
@@ -347,26 +347,26 @@ def test_save_model_with_invalid_path_signature_def_or_metagraph_tags_throws_exc
 
 @pytest.mark.large
 def test_load_model_loads_artifacts_from_specified_model_directory(saved_tf_iris_model, model_path):
-    mlflow.tensorflow.save_model(
+    mlflux.tensorflow.save_model(
         tf_saved_model_dir=saved_tf_iris_model.path,
         tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
         tf_signature_def_key=saved_tf_iris_model.signature_def_key,
         path=model_path,
     )
 
-    # Verify that the MLflow model can be loaded even after deleting the TensorFlow `SavedModel`
+    # Verify that the mlflux model can be loaded even after deleting the TensorFlow `SavedModel`
     # directory that was used to create it, implying that the artifacts were copied to and are
-    # loaded from the specified MLflow model path
+    # loaded from the specified mlflux model path
     shutil.rmtree(saved_tf_iris_model.path)
 
-    mlflow.tensorflow.load_model(model_uri=model_path)
+    mlflux.tensorflow.load_model(model_uri=model_path)
 
 
 def test_log_model_with_non_keyword_args_fails(saved_tf_iris_model):
     artifact_path = "model"
-    with mlflow.start_run():
+    with mlflux.start_run():
         with pytest.raises(TypeError):
-            mlflow.tensorflow.log_model(
+            mlflux.tensorflow.log_model(
                 saved_tf_iris_model.path,
                 saved_tf_iris_model.meta_graph_tags,
                 saved_tf_iris_model.signature_def_key,
@@ -377,25 +377,25 @@ def test_log_model_with_non_keyword_args_fails(saved_tf_iris_model):
 @pytest.mark.large
 def test_log_and_load_model_persists_and_restores_model_successfully(saved_tf_iris_model):
     artifact_path = "model"
-    with mlflow.start_run():
-        mlflow.tensorflow.log_model(
+    with mlflux.start_run():
+        mlflux.tensorflow.log_model(
             tf_saved_model_dir=saved_tf_iris_model.path,
             tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
             tf_signature_def_key=saved_tf_iris_model.signature_def_key,
             artifact_path=artifact_path,
         )
         model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+            run_id=mlflux.active_run().info.run_id, artifact_path=artifact_path
         )
 
-    mlflow.tensorflow.load_model(model_uri=model_uri)
+    mlflux.tensorflow.load_model(model_uri=model_uri)
 
 
 def test_log_model_calls_register_model(saved_tf_iris_model):
     artifact_path = "model"
-    register_model_patch = mock.patch("mlflow.register_model")
-    with mlflow.start_run(), register_model_patch:
-        mlflow.tensorflow.log_model(
+    register_model_patch = mock.patch("mlflux.register_model")
+    with mlflux.start_run(), register_model_patch:
+        mlflux.tensorflow.log_model(
             tf_saved_model_dir=saved_tf_iris_model.path,
             tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
             tf_signature_def_key=saved_tf_iris_model.signature_def_key,
@@ -403,31 +403,31 @@ def test_log_model_calls_register_model(saved_tf_iris_model):
             registered_model_name="AdsModel1",
         )
         model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+            run_id=mlflux.active_run().info.run_id, artifact_path=artifact_path
         )
-        mlflow.register_model.assert_called_once_with(
+        mlflux.register_model.assert_called_once_with(
             model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
         )
 
 
 def test_log_model_no_registered_model_name(saved_tf_iris_model):
     artifact_path = "model"
-    register_model_patch = mock.patch("mlflow.register_model")
-    with mlflow.start_run(), register_model_patch:
-        mlflow.tensorflow.log_model(
+    register_model_patch = mock.patch("mlflux.register_model")
+    with mlflux.start_run(), register_model_patch:
+        mlflux.tensorflow.log_model(
             tf_saved_model_dir=saved_tf_iris_model.path,
             tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
             tf_signature_def_key=saved_tf_iris_model.signature_def_key,
             artifact_path=artifact_path,
         )
-        mlflow.register_model.assert_not_called()
+        mlflux.register_model.assert_not_called()
 
 
 @pytest.mark.large
 def test_save_model_persists_specified_conda_env_in_mlflow_model_directory(
     saved_tf_iris_model, model_path, tf_custom_env
 ):
-    mlflow.tensorflow.save_model(
+    mlflux.tensorflow.save_model(
         tf_saved_model_dir=saved_tf_iris_model.path,
         tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
         tf_signature_def_key=saved_tf_iris_model.signature_def_key,
@@ -450,7 +450,7 @@ def test_save_model_persists_specified_conda_env_in_mlflow_model_directory(
 def test_save_model_persists_requirements_in_mlflow_model_directory(
     saved_tf_iris_model, model_path, tf_custom_env
 ):
-    mlflow.tensorflow.save_model(
+    mlflux.tensorflow.save_model(
         tf_saved_model_dir=saved_tf_iris_model.path,
         tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
         tf_signature_def_key=saved_tf_iris_model.signature_def_key,
@@ -464,9 +464,9 @@ def test_save_model_persists_requirements_in_mlflow_model_directory(
 
 @pytest.mark.large
 def test_save_model_accepts_conda_env_as_dict(saved_tf_iris_model, model_path):
-    conda_env = dict(mlflow.tensorflow.get_default_conda_env())
+    conda_env = dict(mlflux.tensorflow.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
-    mlflow.tensorflow.save_model(
+    mlflux.tensorflow.save_model(
         tf_saved_model_dir=saved_tf_iris_model.path,
         tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
         tf_signature_def_key=saved_tf_iris_model.signature_def_key,
@@ -488,8 +488,8 @@ def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
     saved_tf_iris_model, tf_custom_env
 ):
     artifact_path = "model"
-    with mlflow.start_run():
-        mlflow.tensorflow.log_model(
+    with mlflux.start_run():
+        mlflux.tensorflow.log_model(
             tf_saved_model_dir=saved_tf_iris_model.path,
             tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
             tf_signature_def_key=saved_tf_iris_model.signature_def_key,
@@ -497,7 +497,7 @@ def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
             conda_env=tf_custom_env,
         )
         model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+            run_id=mlflux.active_run().info.run_id, artifact_path=artifact_path
         )
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
@@ -518,8 +518,8 @@ def test_log_model_persists_requirements_in_mlflow_model_directory(
     saved_tf_iris_model, tf_custom_env
 ):
     artifact_path = "model"
-    with mlflow.start_run():
-        mlflow.tensorflow.log_model(
+    with mlflux.start_run():
+        mlflux.tensorflow.log_model(
             tf_saved_model_dir=saved_tf_iris_model.path,
             tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
             tf_signature_def_key=saved_tf_iris_model.signature_def_key,
@@ -527,7 +527,7 @@ def test_log_model_persists_requirements_in_mlflow_model_directory(
             conda_env=tf_custom_env,
         )
         model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+            run_id=mlflux.active_run().info.run_id, artifact_path=artifact_path
         )
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
@@ -539,7 +539,7 @@ def test_log_model_persists_requirements_in_mlflow_model_directory(
 def test_save_model_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     saved_tf_iris_model, model_path
 ):
-    mlflow.tensorflow.save_model(
+    mlflux.tensorflow.save_model(
         tf_saved_model_dir=saved_tf_iris_model.path,
         tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
         tf_signature_def_key=saved_tf_iris_model.signature_def_key,
@@ -552,7 +552,7 @@ def test_save_model_without_specified_conda_env_uses_default_env_with_expected_d
     with open(conda_env_path, "r") as f:
         conda_env = yaml.safe_load(f)
 
-    assert conda_env == mlflow.tensorflow.get_default_conda_env()
+    assert conda_env == mlflux.tensorflow.get_default_conda_env()
 
 
 @pytest.mark.large
@@ -560,8 +560,8 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
     saved_tf_iris_model,
 ):
     artifact_path = "model"
-    with mlflow.start_run():
-        mlflow.tensorflow.log_model(
+    with mlflux.start_run():
+        mlflux.tensorflow.log_model(
             tf_saved_model_dir=saved_tf_iris_model.path,
             tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
             tf_signature_def_key=saved_tf_iris_model.signature_def_key,
@@ -569,7 +569,7 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
             conda_env=None,
         )
         model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+            run_id=mlflux.active_run().info.run_id, artifact_path=artifact_path
         )
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
@@ -578,12 +578,12 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
     with open(conda_env_path, "r") as f:
         conda_env = yaml.safe_load(f)
 
-    assert conda_env == mlflow.tensorflow.get_default_conda_env()
+    assert conda_env == mlflux.tensorflow.get_default_conda_env()
 
 
 @pytest.mark.large
 def test_iris_data_model_can_be_loaded_and_evaluated_as_pyfunc(saved_tf_iris_model, model_path):
-    mlflow.tensorflow.save_model(
+    mlflux.tensorflow.save_model(
         tf_saved_model_dir=saved_tf_iris_model.path,
         tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
         tf_signature_def_key=saved_tf_iris_model.signature_def_key,
@@ -619,7 +619,7 @@ def test_iris_data_model_can_be_loaded_and_evaluated_as_pyfunc(saved_tf_iris_mod
 def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(
     saved_tf_categorical_model, model_path
 ):
-    mlflow.tensorflow.save_model(
+    mlflux.tensorflow.save_model(
         tf_saved_model_dir=saved_tf_categorical_model.path,
         tf_meta_graph_tags=saved_tf_categorical_model.meta_graph_tags,
         tf_signature_def_key=saved_tf_categorical_model.signature_def_key,
@@ -657,7 +657,7 @@ def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(
 
 @pytest.mark.release
 def test_model_deployment_with_default_conda_env(saved_tf_iris_model, model_path):
-    mlflow.tensorflow.save_model(
+    mlflux.tensorflow.save_model(
         tf_saved_model_dir=saved_tf_iris_model.path,
         tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
         tf_signature_def_key=saved_tf_iris_model.signature_def_key,
@@ -669,7 +669,7 @@ def test_model_deployment_with_default_conda_env(saved_tf_iris_model, model_path
         model_uri=model_path,
         data=saved_tf_iris_model.inference_df,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        flavor=mlflow.pyfunc.FLAVOR_NAME,
+        flavor=mlflux.pyfunc.FLAVOR_NAME,
     )
     deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
 
@@ -696,8 +696,8 @@ def test_tf_saved_model_model_with_tf_keras_api(tmpdir):
     # Save model in TensorFlow SavedModel format.
     tf.saved_model.save(model, tf_model_path)
 
-    # Save TensorFlow SavedModel as MLflow model.
-    mlflow.tensorflow.save_model(
+    # Save TensorFlow SavedModel as mlflux model.
+    mlflux.tensorflow.save_model(
         tf_saved_model_dir=tf_model_path,
         tf_meta_graph_tags=["serve"],
         tf_signature_def_key="serving_default",
@@ -706,7 +706,7 @@ def test_tf_saved_model_model_with_tf_keras_api(tmpdir):
 
     def load_and_predict():
         model_uri = mlflow_model_path
-        mlflow_model = mlflow.pyfunc.load_model(model_uri)
+        mlflow_model = mlflux.pyfunc.load_model(model_uri)
         feed_dict = {"feature1": tf.constant([[2.0]])}
         predictions = mlflow_model.predict(feed_dict)
         assert np.allclose(predictions["dense"], np.asarray([-0.09599352]))

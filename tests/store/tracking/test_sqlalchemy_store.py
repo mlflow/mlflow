@@ -9,37 +9,37 @@ import random
 import pytest
 import sqlalchemy
 import time
-import mlflow
+import mlflux
 import uuid
 import json
 import pandas as pd
 from unittest import mock
 
-import mlflow.db
-import mlflow.store.db.base_sql_model
-from mlflow.entities import ViewType, RunTag, SourceType, RunStatus, Experiment, Metric, Param
-from mlflow.protos.databricks_pb2 import (
+import mlflux.db
+import mlflux.store.db.base_sql_model
+from mlflux.entities import ViewType, RunTag, SourceType, RunStatus, Experiment, Metric, Param
+from mlflux.protos.databricks_pb2 import (
     ErrorCode,
     RESOURCE_DOES_NOT_EXIST,
     INVALID_PARAMETER_VALUE,
     INTERNAL_ERROR,
 )
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.store.db.utils import (
+from mlflux.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflux.store.db.utils import (
     _get_schema_version,
     _get_latest_schema_revision,
     MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW,
     MLFLOW_SQLALCHEMYSTORE_POOL_SIZE,
 )
-from mlflow.store.tracking.dbmodels import models
-from mlflow.store.db.db_types import MYSQL, MSSQL
-from mlflow import entities
-from mlflow.exceptions import MlflowException
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
-from mlflow.utils import mlflow_tags
-from mlflow.utils.file_utils import TempDir
-from mlflow.utils.uri import extract_db_type_from_uri
-from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
+from mlflux.store.tracking.dbmodels import models
+from mlflux.store.db.db_types import MYSQL, MSSQL
+from mlflux import entities
+from mlflux.exceptions import MlflowException
+from mlflux.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
+from mlflux.utils import mlflow_tags
+from mlflux.utils.file_utils import TempDir
+from mlflux.utils.uri import extract_db_type_from_uri
+from mlflux.store.tracking.dbmodels.initial_models import Base as InitialBase
 from tests.integration.utils import invoke_cli_runner
 from tests.store.tracking import AbstractStoreTest
 
@@ -103,7 +103,7 @@ class TestParseDbUri(unittest.TestCase):
         bad_db_uri_strings = ["mysql+pymsql+pyodbc://..."]
         self._db_uri_error(
             bad_db_uri_strings,
-            "mlflow.org/docs/latest/tracking.html#storage for format specifications",
+            "mlflux.org/docs/latest/tracking.html#storage for format specifications",
         )
 
 
@@ -126,7 +126,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         return self.store
 
     def tearDown(self):
-        mlflow.store.db.base_sql_model.Base.metadata.drop_all(self.store.engine)
+        mlflux.store.db.base_sql_model.Base.metadata.drop_all(self.store.engine)
         os.remove(self.temp_dbfile)
         shutil.rmtree(ARTIFACT_URI)
 
@@ -342,7 +342,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
         # Patch `is_local_uri` to prevent the SqlAlchemy store from attempting to create local
         # filesystem directories for file URI and POSIX path test cases
-        with mock.patch("mlflow.store.tracking.sqlalchemy_store.is_local_uri", return_value=False):
+        with mock.patch("mlflux.store.tracking.sqlalchemy_store.is_local_uri", return_value=False):
             for i in range(len(cases)):
                 artifact_root_uri, expected_artifact_uri_format = cases[i]
                 with TempDir() as tmp:
@@ -395,7 +395,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
         # Patch `is_local_uri` to prevent the SqlAlchemy store from attempting to create local
         # filesystem directories for file URI and POSIX path test cases
-        with mock.patch("mlflow.store.tracking.sqlalchemy_store.is_local_uri", return_value=False):
+        with mock.patch("mlflux.store.tracking.sqlalchemy_store.is_local_uri", return_value=False):
             for i in range(len(cases)):
                 artifact_root_uri, expected_artifact_uri_format = cases[i]
                 with TempDir() as tmp:
@@ -514,7 +514,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             "entry_point_name": "main.py",
             "start_time": int(time.time()),
             "end_time": int(time.time()),
-            "source_version": mlflow.__version__,
+            "source_version": mlflux.__version__,
             "lifecycle_stage": entities.LifecycleStage.ACTIVE,
             "artifact_uri": "//",
         }
@@ -659,7 +659,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
         # SQL store _get_run method returns full history of recorded metrics.
         # Should return duplicates as well
-        # MLflow RunData contains only the last reported values for metrics.
+        # mlflux RunData contains only the last reported values for metrics.
         with self.store.ManagedSessionMaker() as session:
             sql_run_metrics = self.store._get_run(session, run.info.run_id).metrics
             self.assertEqual(5, len(sql_run_metrics))
@@ -1620,7 +1620,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         def _raise_exception_fn(*args, **kwargs):  # pylint: disable=unused-argument
             raise Exception("Some internal error")
 
-        package = "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"
+        package = "mlflux.store.tracking.sqlalchemy_store.SqlAlchemyStore"
         with mock.patch(package + ".log_metric") as metric_mock, mock.patch(
             package + ".log_param"
         ) as param_mock, mock.patch(package + ".set_tag") as tags_mock:
@@ -1701,12 +1701,12 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         )
 
     def test_upgrade_cli_idempotence(self):
-        # Repeatedly run `mlflow db upgrade` against our database, verifying that the command
+        # Repeatedly run `mlflux db upgrade` against our database, verifying that the command
         # succeeds and that the DB has the latest schema
         engine = sqlalchemy.create_engine(self.db_url)
         assert _get_schema_version(engine) == _get_latest_schema_revision()
         for _ in range(3):
-            invoke_cli_runner(mlflow.db.commands, ["upgrade", self.db_url])
+            invoke_cli_runner(mlflux.db.commands, ["upgrade", self.db_url])
             assert _get_schema_version(engine) == _get_latest_schema_revision()
 
     def test_metrics_materialization_upgrade_succeeds_and_produces_expected_latest_metric_values(
@@ -1714,14 +1714,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
     ):
         """
         Tests the ``89d4b8295536_create_latest_metrics_table`` migration by migrating and querying
-        the MLflow Tracking SQLite database located at
-        /mlflow/tests/resources/db/db_version_7ac759974ad8_with_metrics.sql. This database contains
+        the mlflux Tracking SQLite database located at
+        /mlflux/tests/resources/db/db_version_7ac759974ad8_with_metrics.sql. This database contains
         metric entries populated by the following metrics generation script:
         https://gist.github.com/dbczumar/343173c6b8982a0cc9735ff19b5571d9.
 
         First, the database is upgraded from its HEAD revision of
         ``7ac755974ad8_update_run_tags_with_larger_limit`` to the latest revision via
-        ``mlflow db upgrade``.
+        ``mlflux db upgrade``.
 
         Then, the test confirms that the metric entries returned by calls
         to ``SqlAlchemyStore.get_run()`` are consistent between the latest revision and the
@@ -1729,14 +1729,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         invoking ``SqlAlchemyStore.get_run()`` for each run id that is present in the upgraded
         database and comparing the resulting runs' metric entries to a JSON dump taken from the
         SQLite database prior to the upgrade (located at
-        mlflow/tests/resources/db/db_version_7ac759974ad8_with_metrics_expected_values.json).
-        This JSON dump can be replicated by installing MLflow version 1.2.0 and executing the
+        mlflux/tests/resources/db/db_version_7ac759974ad8_with_metrics_expected_values.json).
+        This JSON dump can be replicated by installing mlflux version 1.2.0 and executing the
         following code from the directory containing this test suite:
 
         >>> import json
-        >>> import mlflow
-        >>> from mlflow.tracking.client import MlflowClient
-        >>> mlflow.set_tracking_uri(
+        >>> import mlflux
+        >>> from mlflux.tracking.client import MlflowClient
+        >>> mlflux.set_tracking_uri(
         ...     "sqlite:///../../resources/db/db_version_7ac759974ad8_with_metrics.sql")
         >>> client = MlflowClient()
         >>> summary_metrics = {
@@ -1761,7 +1761,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
                 dst=db_path,
             )
 
-            invoke_cli_runner(mlflow.db.commands, ["upgrade", db_url])
+            invoke_cli_runner(mlflux.db.commands, ["upgrade", db_url])
             store = self._get_store(db_uri=db_url)
             with open(expected_metric_values_path, "r") as f:
                 expected_metric_values = json.load(f)
@@ -1911,7 +1911,7 @@ def test_sqlalchemy_store_behaves_as_expected_with_inmemory_sqlite_db():
 
 
 def test_sqlalchemy_store_can_be_initialized_when_default_experiment_has_been_deleted(tmpdir):
-    db_uri = "sqlite:///{}/mlflow.db".format(tmpdir.strpath)
+    db_uri = "sqlite:///{}/mlflux.db".format(tmpdir.strpath)
     store = SqlAlchemyStore(db_uri, ARTIFACT_URI)
     store.delete_experiment("0")
     assert store.get_experiment("0").lifecycle_stage == entities.LifecycleStage.DELETED
@@ -1920,7 +1920,7 @@ def test_sqlalchemy_store_can_be_initialized_when_default_experiment_has_been_de
 
 class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
     """
-    Test case where user has an existing DB with schema generated before MLflow 1.0,
+    Test case where user has an existing DB with schema generated before mlflux 1.0,
     then migrates their DB.
     """
 
@@ -1930,7 +1930,7 @@ class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
         self.db_url = "%s%s" % (DB_URI, self.temp_dbfile)
         engine = sqlalchemy.create_engine(self.db_url)
         InitialBase.metadata.create_all(engine)
-        invoke_cli_runner(mlflow.db.commands, ["upgrade", self.db_url])
+        invoke_cli_runner(mlflux.db.commands, ["upgrade", self.db_url])
         self.store = SqlAlchemyStore(self.db_url, ARTIFACT_URI)
 
     def tearDown(self):

@@ -6,13 +6,13 @@ import tempfile
 from pyspark.sql import SparkSession, Row
 from pyspark.sql.types import StructType, IntegerType, StringType, StructField
 
-from mlflow._spark_autologging import _SPARK_TABLE_INFO_TAG_NAME
+from mlflux._spark_autologging import _SPARK_TABLE_INFO_TAG_NAME
 
 
 def _get_mlflow_spark_jar_path():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     pardir = os.path.pardir
-    jar_dir = os.path.join(current_dir, pardir, pardir, "mlflow", "java", "spark", "target")
+    jar_dir = os.path.join(current_dir, pardir, pardir, "mlflux", "java", "spark", "target")
     jar_filenames = [
         fname
         for fname in os.listdir(jar_dir)

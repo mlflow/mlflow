@@ -3,14 +3,14 @@ from unittest import mock
 import os
 import pytest
 
-import mlflow
-from mlflow.store.db.db_types import DATABASE_ENGINES
-from mlflow.store.tracking.file_store import FileStore
-from mlflow.store.tracking.rest_store import RestStore
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
-from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
-from mlflow.tracking._tracking_service.utils import (
+import mlflux
+from mlflux.store.db.db_types import DATABASE_ENGINES
+from mlflux.store.tracking.file_store import FileStore
+from mlflux.store.tracking.rest_store import RestStore
+from mlflux.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflux.tracking.registry import UnsupportedModelRegistryStoreURIException
+from mlflux.tracking._tracking_service.registry import TrackingStoreRegistry
+from mlflux.tracking._tracking_service.utils import (
     _get_store,
     _resolve_tracking_uri,
     _TRACKING_INSECURE_TLS_ENV_VAR,
@@ -25,7 +25,7 @@ from mlflow.tracking._tracking_service.utils import (
 # Disable mocking tracking URI here, as we want to test setting the tracking URI via
 # environment variable. See
 # http://doc.pytest.org/en/latest/skipping.html#skip-all-test-functions-of-a-class-or-module
-# and https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#writing-python-tests
+# and https://github.com/mlflux/mlflux/blob/master/CONTRIBUTING.rst#writing-python-tests
 # for more information.
 pytestmark = pytest.mark.notrackingurimock
 
@@ -127,12 +127,12 @@ def test_get_store_sqlalchemy_store(tmp_wkdir, db_type):
     uri = "{}://hostname/database".format(db_type)
     env = {_TRACKING_URI_ENV_VAR: uri}
     with mock.patch.dict(os.environ, env), patch_create_engine as mock_create_engine, mock.patch(
-        "mlflow.store.db.utils._verify_schema"
-    ), mock.patch("mlflow.store.db.utils._initialize_tables"), mock.patch(
+        "mlflux.store.db.utils._verify_schema"
+    ), mock.patch("mlflux.store.db.utils._initialize_tables"), mock.patch(
         # In sqlalchemy 1.4.0, `SqlAlchemyStore.list_experiments`, which is called when fetching
         # the store, results in an error when called with a mocked sqlalchemy engine.
         # Accordingly, we mock `SqlAlchemyStore.list_experiments`
-        "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore.list_experiments",
+        "mlflux.store.tracking.sqlalchemy_store.SqlAlchemyStore.list_experiments",
         return_value=[],
     ):
         store = _get_store()
@@ -151,12 +151,12 @@ def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_wkdir, db_type):
     artifact_uri = "file:artifact/path"
 
     with mock.patch.dict(os.environ, env), patch_create_engine as mock_create_engine, mock.patch(
-        "mlflow.store.db.utils._verify_schema"
-    ), mock.patch("mlflow.store.db.utils._initialize_tables"), mock.patch(
+        "mlflux.store.db.utils._verify_schema"
+    ), mock.patch("mlflux.store.db.utils._initialize_tables"), mock.patch(
         # In sqlalchemy 1.4.0, `SqlAlchemyStore.list_experiments`, which is called when fetching
         # the store, results in an error when called with a mocked sqlalchemy engine.
         # Accordingly, we mock `SqlAlchemyStore.list_experiments`
-        "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore.list_experiments",
+        "mlflux.store.tracking.sqlalchemy_store.SqlAlchemyStore.list_experiments",
         return_value=[],
     ):
         store = _get_store(artifact_uri=artifact_uri)
@@ -202,7 +202,7 @@ def test_standard_store_registry_with_mocked_entrypoint():
         # Entrypoints are registered at import time, so we need to reload the
         # module to register the entrypoint given by the mocked
         # extrypoints.get_group_all
-        reload(mlflow.tracking._tracking_service.utils)
+        reload(mlflux.tracking._tracking_service.utils)
 
         expected_standard_registry = {
             "",
@@ -217,18 +217,18 @@ def test_standard_store_registry_with_mocked_entrypoint():
             "mock-scheme",
         }
         assert expected_standard_registry.issubset(
-            mlflow.tracking._tracking_service.utils._tracking_store_registry._registry.keys()
+            mlflux.tracking._tracking_service.utils._tracking_store_registry._registry.keys()
         )
 
 
 @pytest.mark.large
 def test_standard_store_registry_with_installed_plugin(tmp_wkdir):
-    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
+    """This test requires the package in tests/resources/mlflux-test-plugin to be installed"""
 
-    reload(mlflow.tracking._tracking_service.utils)
+    reload(mlflux.tracking._tracking_service.utils)
     assert (
         "file-plugin"
-        in mlflow.tracking._tracking_service.utils._tracking_store_registry._registry.keys()
+        in mlflux.tracking._tracking_service.utils._tracking_store_registry._registry.keys()
     )
 
     from mlflow_test_plugin.file_store import PluginFileStore
@@ -237,7 +237,7 @@ def test_standard_store_registry_with_installed_plugin(tmp_wkdir):
         _TRACKING_URI_ENV_VAR: "file-plugin:test-path",
     }
     with mock.patch.dict(os.environ, env):
-        plugin_file_store = mlflow.tracking._tracking_service.utils._get_store()
+        plugin_file_store = mlflux.tracking._tracking_service.utils._get_store()
         assert isinstance(plugin_file_store, PluginFileStore)
         assert plugin_file_store.is_plugin
 
@@ -270,7 +270,7 @@ def test_plugin_registration_via_entrypoints():
     assert tracking_store.get_store("mock-scheme://") == mock_plugin_function.return_value
 
     mock_plugin_function.assert_called_once_with(store_uri="mock-scheme://", artifact_uri=None)
-    mock_get_group_all.assert_called_once_with("mlflow.tracking_store")
+    mock_get_group_all.assert_called_once_with("mlflux.tracking_store")
 
 
 @pytest.mark.parametrize(
@@ -291,7 +291,7 @@ def test_handle_plugin_registration_failure_via_entrypoints(exception):
             tracking_store.register_entrypoints()
 
     mock_entrypoint.load.assert_called_once()
-    mock_get_group_all.assert_called_once_with("mlflow.tracking_store")
+    mock_get_group_all.assert_called_once_with("mlflux.tracking_store")
 
 
 def test_get_store_for_unregistered_scheme():
@@ -304,7 +304,7 @@ def test_get_store_for_unregistered_scheme():
 
 def test_resolve_tracking_uri_with_param():
     with mock.patch(
-        "mlflow.tracking._tracking_service.utils.get_tracking_uri"
+        "mlflux.tracking._tracking_service.utils.get_tracking_uri"
     ) as get_tracking_uri_mock:
         get_tracking_uri_mock.return_value = "databricks://tracking_qoeirj"
         overriding_uri = "databricks://tracking_poiwerow"
@@ -313,7 +313,7 @@ def test_resolve_tracking_uri_with_param():
 
 def test_resolve_tracking_uri_with_no_param():
     with mock.patch(
-        "mlflow.tracking._tracking_service.utils.get_tracking_uri"
+        "mlflux.tracking._tracking_service.utils.get_tracking_uri"
     ) as get_tracking_uri_mock:
         default_uri = "databricks://tracking_zlkjdas"
         get_tracking_uri_mock.return_value = default_uri

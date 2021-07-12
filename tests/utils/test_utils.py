@@ -1,7 +1,7 @@
 from unittest import mock
 import pytest
 
-from mlflow.utils import (
+from mlflux.utils import (
     get_unique_resource_id,
     _chunk_dict,
     _truncate_dict,
@@ -27,7 +27,7 @@ def test_truncate_dict():
     d = {"12345": "12345"}
     length = 5
 
-    with mock.patch("mlflow.utils._logger.warning") as mock_warning:
+    with mock.patch("mlflux.utils._logger.warning") as mock_warning:
         max_legnth = length - 1
 
         # Truncate keys

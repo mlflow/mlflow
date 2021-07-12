@@ -6,8 +6,8 @@ from unittest import mock
 
 import pytest
 
-from mlflow.data import is_uri, download_uri, DownloadException
-from mlflow.projects import _project_spec
+from mlflux.data import is_uri, download_uri, DownloadException
+from mlflux.projects import _project_spec
 
 TEST_DIR = "tests"
 TEST_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_project")
@@ -37,9 +37,9 @@ def test_is_uri():
 def test_download_uri():
     # Verify downloading from DBFS & S3 urls calls the corresponding helper functions
     prefix_to_mock = {
-        "dbfs:/": "mlflow.data._fetch_dbfs",
-        "s3://": "mlflow.data._fetch_s3",
-        "gs://": "mlflow.data._fetch_gs",
+        "dbfs:/": "mlflux.data._fetch_dbfs",
+        "s3://": "mlflux.data._fetch_s3",
+        "gs://": "mlflux.data._fetch_gs",
     }
     for prefix, fn_name in prefix_to_mock.items():
         with mock.patch(fn_name) as mocked_fn, temp_directory() as dst_dir:

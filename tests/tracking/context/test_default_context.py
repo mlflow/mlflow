@@ -1,9 +1,9 @@
 import pytest
 from unittest import mock
 
-from mlflow.entities import SourceType
-from mlflow.utils.mlflow_tags import MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE
-from mlflow.tracking.context.default_context import DefaultRunContext
+from mlflux.entities import SourceType
+from mlflux.utils.mlflow_tags import MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE
+from mlflux.tracking.context.default_context import DefaultRunContext
 
 # pylint: disable=unused-argument
 

@@ -1,7 +1,7 @@
 import pytest
 
-import mlflow
-import mlflow.spark
+import mlflux
+import mlflux.spark
 import tempfile
 import os
 import shutil
@@ -20,7 +20,7 @@ from tests.spark_autologging.utils import (
 @pytest.mark.large
 @pytest.mark.parametrize("disable", [False, True])
 def test_enabling_autologging_before_spark_session_works(disable):
-    mlflow.spark.autolog(disable=disable)
+    mlflux.spark.autolog(disable=disable)
 
     # creating spark session AFTER autolog was enabled
     spark_session = _get_or_create_spark_session()
@@ -40,12 +40,12 @@ def test_enabling_autologging_before_spark_session_works(disable):
         .load(filepath)
     )
 
-    with mlflow.start_run():
-        run_id = mlflow.active_run().info.run_id
+    with mlflux.start_run():
+        run_id = mlflux.active_run().info.run_id
         read_df.collect()
         time.sleep(1)
 
-    run = mlflow.get_run(run_id)
+    run = mlflux.get_run(run_id)
     if disable:
         _assert_spark_data_not_logged(run=run)
     else:

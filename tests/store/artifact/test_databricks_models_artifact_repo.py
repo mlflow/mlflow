@@ -4,13 +4,13 @@ import pytest
 from unittest import mock
 from unittest.mock import ANY
 
-from mlflow.entities.model_registry import ModelVersion
-from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.databricks_models_artifact_repo import DatabricksModelsArtifactRepository
-from mlflow.tracking import MlflowClient
+from mlflux.entities.model_registry import ModelVersion
+from mlflux.exceptions import MlflowException
+from mlflux.store.artifact.databricks_models_artifact_repo import DatabricksModelsArtifactRepository
+from mlflux.tracking import MlflowClient
 
 DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE = (
-    "mlflow.store.artifact.databricks_models_artifact_repo"
+    "mlflux.store.artifact.databricks_models_artifact_repo"
 )
 DATABRICKS_MODEL_ARTIFACT_REPOSITORY = (
     DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE + ".DatabricksModelsArtifactRepository"
@@ -21,8 +21,8 @@ MOCK_PROFILE = "databricks://profile"
 MOCK_MODEL_NAME = "MyModel"
 MOCK_MODEL_VERSION = "12"
 
-REGISTRY_LIST_ARTIFACTS_ENDPOINT = "/api/2.0/mlflow/model-versions/list-artifacts"
-REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT = "/api/2.0/mlflow/model-versions/get-signed-download-uri"
+REGISTRY_LIST_ARTIFACTS_ENDPOINT = "/api/2.0/mlflux/model-versions/list-artifacts"
+REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT = "/api/2.0/mlflux/model-versions/get-signed-download-uri"
 
 
 @pytest.fixture()
@@ -70,8 +70,8 @@ class TestDatabricksModelArtifactRepository(object):
         "invalid_artifact_uri",
         [
             "s3://test",
-            "dbfs:/databricks/mlflow/MV-id/models",
-            "dbfs://scope:key@notdatabricks/databricks/mlflow-regisry/123/models",
+            "dbfs:/databricks/mlflux/MV-id/models",
+            "dbfs://scope:key@notdatabricks/databricks/mlflux-regisry/123/models",
             "models:/MyModel/12",
             "models://scope:key@notdatabricks/MyModel/12",
         ],
@@ -84,8 +84,8 @@ class TestDatabricksModelArtifactRepository(object):
         # First mock for `is_using_databricks_registry` to pass
         # Second mock to set `databricks_profile_uri` during instantiation
         with mock.patch(
-            "mlflow.store.artifact.utils.models.mlflow.get_registry_uri", return_value=MOCK_PROFILE,
-        ), mock.patch("mlflow.tracking.get_registry_uri", return_value=MOCK_PROFILE):
+            "mlflux.store.artifact.utils.models.mlflux.get_registry_uri", return_value=MOCK_PROFILE,
+        ), mock.patch("mlflux.tracking.get_registry_uri", return_value=MOCK_PROFILE):
             repo = DatabricksModelsArtifactRepository(MOCK_MODEL_ROOT_URI_WITHOUT_PROFILE)
             assert repo.artifact_uri == MOCK_MODEL_ROOT_URI_WITHOUT_PROFILE
             assert repo.model_name == MOCK_MODEL_NAME
@@ -111,8 +111,8 @@ class TestDatabricksModelArtifactRepository(object):
             MlflowClient, "get_latest_versions", return_value=[model_version_detailed]
         )
         with get_latest_versions_patch, mock.patch(
-            "mlflow.store.artifact.utils.models.mlflow.get_registry_uri", return_value=MOCK_PROFILE,
-        ), mock.patch("mlflow.tracking.get_registry_uri", return_value=MOCK_PROFILE):
+            "mlflux.store.artifact.utils.models.mlflux.get_registry_uri", return_value=MOCK_PROFILE,
+        ), mock.patch("mlflux.tracking.get_registry_uri", return_value=MOCK_PROFILE):
             repo = DatabricksModelsArtifactRepository(stage_uri_without_profile)
             assert repo.artifact_uri == stage_uri_without_profile
             assert repo.model_name == MOCK_MODEL_NAME
@@ -125,7 +125,7 @@ class TestDatabricksModelArtifactRepository(object):
     def test_init_with_valid_uri_but_no_profile(self, valid_profileless_artifact_uri):
         # Mock for `is_using_databricks_registry` fail when calling `get_registry_uri`
         with mock.patch(
-            "mlflow.store.artifact.utils.models.mlflow.get_registry_uri", return_value=None,
+            "mlflux.store.artifact.utils.models.mlflux.get_registry_uri", return_value=None,
         ):
             with pytest.raises(MlflowException):
                 DatabricksModelsArtifactRepository(valid_profileless_artifact_uri)

@@ -6,8 +6,8 @@ from unittest import mock
 
 from google.cloud.storage import client as gcs_client
 
-from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
+from mlflux.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflux.store.artifact.gcs_artifact_repo import GCSArtifactRepository
 from google.auth.exceptions import DefaultCredentialsError
 
 

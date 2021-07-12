@@ -8,20 +8,20 @@ from alembic.migration import MigrationContext  # pylint: disable=import-error
 from alembic.autogenerate import compare_metadata
 import sqlalchemy
 
-import mlflow.db
-from mlflow.exceptions import MlflowException
-from mlflow.store.db.utils import _get_alembic_config, _verify_schema
-from mlflow.store.db.base_sql_model import Base
+import mlflux.db
+from mlflux.exceptions import MlflowException
+from mlflux.store.db.utils import _get_alembic_config, _verify_schema
+from mlflux.store.db.base_sql_model import Base
 
 # pylint: disable=unused-import
-from mlflow.store.model_registry.dbmodels.models import (
+from mlflux.store.model_registry.dbmodels.models import (
     SqlRegisteredModel,
     SqlModelVersion,
     SqlRegisteredModelTag,
     SqlModelVersionTag,
 )
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
+from mlflux.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflux.store.tracking.dbmodels.initial_models import Base as InitialBase
 from tests.store.dump_schema import dump_db_schema
 from tests.integration.utils import invoke_cli_runner
 
@@ -49,7 +49,7 @@ def _assert_schema_files_equal(generated_schema_file, expected_schema_file):
             "Generated schema did not match expected schema. Generated schema had table "
             "definition:\n{generated_table}\nExpected schema had table definition:"
             "\n{expected_table}\nIf you intended to make schema changes, run "
-            "'python tests/store/dump_schema.py {expected_file}' from your checkout of MLflow to "
+            "'python tests/store/dump_schema.py {expected_file}' from your checkout of mlflux to "
             "update the schema snapshot.".format(
                 generated_table=generated_schema_table,
                 expected_table=expected_schema_table,
@@ -87,7 +87,7 @@ def test_running_migrations_generates_expected_schema(tmpdir, expected_schema_fi
     """Test that migrating an existing database generates the desired schema."""
     engine = sqlalchemy.create_engine(db_url)
     InitialBase.metadata.create_all(engine)
-    invoke_cli_runner(mlflow.db.commands, ["upgrade", db_url])
+    invoke_cli_runner(mlflux.db.commands, ["upgrade", db_url])
     generated_schema_file = tmpdir.join("generated-schema.sql").strpath
     dump_db_schema(db_url, generated_schema_file)
     _assert_schema_files_equal(generated_schema_file, expected_schema_file)
@@ -116,7 +116,7 @@ def test_sqlalchemy_store_detects_schema_mismatch(
         command.upgrade(config, rev.revision)
         _assert_invalid_schema(engine)
     # Run migrations, schema verification should now pass
-    invoke_cli_runner(mlflow.db.commands, ["upgrade", db_url])
+    invoke_cli_runner(mlflux.db.commands, ["upgrade", db_url])
     _verify_schema(engine)
 
 

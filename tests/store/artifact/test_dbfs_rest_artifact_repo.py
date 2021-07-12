@@ -5,21 +5,21 @@ import pytest
 from unittest import mock
 from unittest.mock import Mock
 
-from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.artifact.dbfs_artifact_repo import (
+from mlflux.exceptions import MlflowException
+from mlflux.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflux.store.artifact.dbfs_artifact_repo import (
     _get_host_creds_from_default_store,
     DbfsRestArtifactRepository,
 )
-from mlflow.store.tracking.file_store import FileStore
-from mlflow.store.tracking.rest_store import RestStore
-from mlflow.utils.rest_utils import MlflowHostCreds
+from mlflux.store.tracking.file_store import FileStore
+from mlflux.store.tracking.rest_store import RestStore
+from mlflux.utils.rest_utils import MlflowHostCreds
 
 
 @pytest.fixture()
 def dbfs_artifact_repo():
     with mock.patch(
-        "mlflow.store.artifact.dbfs_artifact_repo._get_host_creds_from_default_store"
+        "mlflux.store.artifact.dbfs_artifact_repo._get_host_creds_from_default_store"
     ) as get_creds_mock:
         get_creds_mock.return_value = lambda: MlflowHostCreds("http://host")
         return get_artifact_repository("dbfs:/test/")
@@ -29,7 +29,7 @@ TEST_FILE_1_CONTENT = u"Hello 🍆🍔".encode("utf-8")
 TEST_FILE_2_CONTENT = u"World 🍆🍔🍆".encode("utf-8")
 TEST_FILE_3_CONTENT = u"¡🍆🍆🍔🍆🍆!".encode("utf-8")
 
-DBFS_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.dbfs_artifact_repo"
+DBFS_ARTIFACT_REPOSITORY_PACKAGE = "mlflux.store.artifact.dbfs_artifact_repo"
 DBFS_ARTIFACT_REPOSITORY = DBFS_ARTIFACT_REPOSITORY_PACKAGE + ".DbfsRestArtifactRepository"
 
 
@@ -101,7 +101,7 @@ class TestDbfsArtifactRepository(object):
         [(None, "/dbfs/test/test.txt"), ("output", "/dbfs/test/output/test.txt")],
     )
     def test_log_artifact(self, dbfs_artifact_repo, test_file, artifact_path, expected_endpoint):
-        with mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock:
+        with mock.patch("mlflux.utils.rest_utils.http_request") as http_request_mock:
             endpoints = []
             data = []
 
@@ -116,7 +116,7 @@ class TestDbfsArtifactRepository(object):
             assert data == [TEST_FILE_1_CONTENT]
 
     def test_log_artifact_empty_file(self, dbfs_artifact_repo, test_dir):
-        with mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock:
+        with mock.patch("mlflux.utils.rest_utils.http_request") as http_request_mock:
 
             def my_http_request(host_creds, **kwargs):  # pylint: disable=unused-argument
                 assert kwargs["endpoint"] == "/dbfs/test/empty-file"
@@ -127,7 +127,7 @@ class TestDbfsArtifactRepository(object):
             dbfs_artifact_repo.log_artifact(os.path.join(test_dir.strpath, "empty-file"))
 
     def test_log_artifact_empty_artifact_path(self, dbfs_artifact_repo, test_file):
-        with mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock:
+        with mock.patch("mlflux.utils.rest_utils.http_request") as http_request_mock:
 
             def my_http_request(host_creds, **kwargs):  # pylint: disable=unused-argument
                 assert kwargs["endpoint"] == "/dbfs/test/test.txt"
@@ -138,7 +138,7 @@ class TestDbfsArtifactRepository(object):
             dbfs_artifact_repo.log_artifact(test_file.strpath, "")
 
     def test_log_artifact_error(self, dbfs_artifact_repo, test_file):
-        with mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock:
+        with mock.patch("mlflux.utils.rest_utils.http_request") as http_request_mock:
             http_request_mock.return_value = Mock(status_code=409, text="")
             with pytest.raises(MlflowException):
                 dbfs_artifact_repo.log_artifact(test_file.strpath)
@@ -152,7 +152,7 @@ class TestDbfsArtifactRepository(object):
         ],
     )
     def test_log_artifacts(self, dbfs_artifact_repo, test_dir, artifact_path):
-        with mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock:
+        with mock.patch("mlflux.utils.rest_utils.http_request") as http_request_mock:
             endpoints = []
             data = []
 
@@ -178,7 +178,7 @@ class TestDbfsArtifactRepository(object):
             }
 
     def test_log_artifacts_error(self, dbfs_artifact_repo, test_dir):
-        with mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock:
+        with mock.patch("mlflux.utils.rest_utils.http_request") as http_request_mock:
             http_request_mock.return_value = Mock(status_code=409, text="")
             with pytest.raises(MlflowException):
                 dbfs_artifact_repo.log_artifacts(test_dir.strpath)
@@ -208,7 +208,7 @@ class TestDbfsArtifactRepository(object):
     def test_log_artifacts_with_artifact_path(
         self, dbfs_artifact_repo, test_dir, artifact_path, expected_endpoints
     ):
-        with mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock:
+        with mock.patch("mlflux.utils.rest_utils.http_request") as http_request_mock:
             endpoints = []
 
             def my_http_request(host_creds, **kwargs):  # pylint: disable=unused-argument
@@ -260,13 +260,13 @@ class TestDbfsArtifactRepository(object):
 
 
 def test_get_host_creds_from_default_store_file_store():
-    with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as get_store_mock:
+    with mock.patch("mlflux.tracking._tracking_service.utils._get_store") as get_store_mock:
         get_store_mock.return_value = FileStore()
         with pytest.raises(MlflowException):
             _get_host_creds_from_default_store()
 
 
 def test_get_host_creds_from_default_store_rest_store():
-    with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as get_store_mock:
+    with mock.patch("mlflux.tracking._tracking_service.utils._get_store") as get_store_mock:
         get_store_mock.return_value = RestStore(lambda: MlflowHostCreds("http://host"))
         assert isinstance(_get_host_creds_from_default_store()(), MlflowHostCreds)

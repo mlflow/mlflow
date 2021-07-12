@@ -13,8 +13,8 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import ElasticNet
 
-import mlflow
-import mlflow.sklearn
+import mlflux
+import mlflux.sklearn
 
 
 def eval_metrics(actual, pred):
@@ -33,7 +33,7 @@ if __name__ == "__main__":
     parser.add_argument("--l1-ratio")
     args = parser.parse_args()
 
-    # Read the wine-quality csv file (make sure you're running this from the root of MLflow!)
+    # Read the wine-quality csv file (make sure you're running this from the root of mlflux!)
     wine_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wine-quality.csv")
     data = pd.read_csv(wine_path)
 
@@ -49,7 +49,7 @@ if __name__ == "__main__":
     alpha = float(args.alpha)
     l1_ratio = float(args.l1_ratio)
 
-    with mlflow.start_run():
+    with mlflux.start_run():
         lr = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, random_state=42)
         lr.fit(train_x, train_y)
 
@@ -62,10 +62,10 @@ if __name__ == "__main__":
         print("  MAE: %s" % mae)
         print("  R2: %s" % r2)
 
-        mlflow.log_param("alpha", alpha)
-        mlflow.log_param("l1_ratio", l1_ratio)
-        mlflow.log_metric("rmse", rmse)
-        mlflow.log_metric("r2", r2)
-        mlflow.log_metric("mae", mae)
+        mlflux.log_param("alpha", alpha)
+        mlflux.log_param("l1_ratio", l1_ratio)
+        mlflux.log_metric("rmse", rmse)
+        mlflux.log_metric("r2", r2)
+        mlflux.log_metric("mae", mae)
 
-        mlflow.sklearn.log_model(lr, "model")
+        mlflux.sklearn.log_model(lr, "model")

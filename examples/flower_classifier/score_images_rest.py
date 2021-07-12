@@ -1,8 +1,8 @@
 """
-Example of scoring images with MLflow model deployed to a REST API endpoint.
+Example of scoring images with mlflux model deployed to a REST API endpoint.
 
-The MLflow model to be scored is expected to be an instance of KerasImageClassifierPyfunc
-(e.g. produced by running this project) and deployed with MLflow prior to invoking this script.
+The mlflux model to be scored is expected to be an instance of KerasImageClassifierPyfunc
+(e.g. produced by running this project) and deployed with mlflux prior to invoking this script.
 """
 import os
 import base64
@@ -11,12 +11,12 @@ import requests
 import click
 import pandas as pd
 
-from mlflow.utils import cli_args
+from mlflux.utils import cli_args
 
 
 def score_model(path, host, port):
     """
-    Score images on the local path with MLflow model deployed at given uri and port.
+    Score images on the local path with mlflux model deployed at given uri and port.
 
     :param path: Path to a single image file or a directory of images.
     :param host: host the model is deployed at
@@ -59,7 +59,7 @@ def score_model(path, host, port):
 @click.argument("data-path")
 def run(data_path, host, port):
     """
-    Score images with MLflow deployed deployed at given uri and port and print out the response
+    Score images with mlflux deployed deployed at given uri and port and print out the response
     to standard out.
     """
     print(score_model(data_path, host, port).text)

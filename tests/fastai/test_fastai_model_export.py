@@ -10,18 +10,18 @@ import sklearn.datasets as datasets
 from fastai.tabular import tabular_learner, TabularList
 from fastai.metrics import accuracy
 
-import mlflow.fastai
-import mlflow.utils
-from mlflow import pyfunc
-from mlflow.models import Model, infer_signature
-from mlflow.models.utils import _read_example
-from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils.file_utils import TempDir
-from mlflow.utils.model_utils import _get_flavor_configuration
+import mlflux.fastai
+import mlflux.utils
+from mlflux import pyfunc
+from mlflux.models import Model, infer_signature
+from mlflux.models.utils import _read_example
+from mlflux.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflux.tracking.artifact_utils import _download_artifact_from_uri
+from mlflux.utils.environment import _mlflow_conda_env
+from mlflux.utils.file_utils import TempDir
+from mlflux.utils.model_utils import _get_flavor_configuration
 from fastai.tabular import DatasetType
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflux.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
@@ -70,8 +70,8 @@ def compare_wrapper_results(wrapper1_results, wrapper2_results):
 def test_model_save_load(fastai_model, model_path):
     model = fastai_model.model
 
-    mlflow.fastai.save_model(fastai_learner=model, path=model_path)
-    reloaded_model = mlflow.fastai.load_model(model_uri=model_path)
+    mlflux.fastai.save_model(fastai_learner=model, path=model_path)
+    reloaded_model = mlflux.fastai.load_model(model_uri=model_path)
     reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
 
     # Verify reloaded model computes same predictions as original model
@@ -87,8 +87,8 @@ def test_model_save_load(fastai_model, model_path):
     np.testing.assert_array_almost_equal(real_preds, reloaded_preds)
     np.testing.assert_array_almost_equal(real_target, reloaded_target)
 
-    model_wrapper = mlflow.fastai._FastaiModelWrapper(model)
-    reloaded_model_wrapper = mlflow.fastai._FastaiModelWrapper(reloaded_model)
+    model_wrapper = mlflux.fastai._FastaiModelWrapper(model)
+    reloaded_model_wrapper = mlflux.fastai._FastaiModelWrapper(reloaded_model)
 
     model_result = model_wrapper.predict(fastai_model.inference_dataframe)
     reloaded_result = reloaded_model_wrapper.predict(fastai_model.inference_dataframe)
@@ -106,7 +106,7 @@ def test_signature_and_examples_are_saved_correctly(fastai_model):
         for example in (None, example_):
             with TempDir() as tmp:
                 path = tmp.path("model")
-                mlflow.fastai.save_model(
+                mlflux.fastai.save_model(
                     model, path=path, signature=signature, input_example=example
                 )
                 mlflow_model = Model.load(path)
@@ -121,17 +121,17 @@ def test_signature_and_examples_are_saved_correctly(fastai_model):
 def test_model_load_from_remote_uri_succeeds(fastai_model, model_path, mock_s3_bucket):
     model = fastai_model.model
 
-    mlflow.fastai.save_model(fastai_learner=fastai_model.model, path=model_path)
+    mlflux.fastai.save_model(fastai_learner=fastai_model.model, path=model_path)
     artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
     artifact_path = "model"
     artifact_repo = S3ArtifactRepository(artifact_root)
     artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
 
     model_uri = artifact_root + "/" + artifact_path
-    reloaded_model = mlflow.fastai.load_model(model_uri=model_uri)
+    reloaded_model = mlflux.fastai.load_model(model_uri=model_uri)
 
-    model_wrapper = mlflow.fastai._FastaiModelWrapper(model)
-    reloaded_model_wrapper = mlflow.fastai._FastaiModelWrapper(reloaded_model)
+    model_wrapper = mlflux.fastai._FastaiModelWrapper(model)
+    reloaded_model_wrapper = mlflux.fastai._FastaiModelWrapper(reloaded_model)
 
     compare_wrapper_results(
         model_wrapper.predict(fastai_model.inference_dataframe),
@@ -141,31 +141,31 @@ def test_model_load_from_remote_uri_succeeds(fastai_model, model_path, mock_s3_b
 
 @pytest.mark.large
 def test_model_log(fastai_model, model_path):
-    old_uri = mlflow.get_tracking_uri()
+    old_uri = mlflux.get_tracking_uri()
     model = fastai_model.model
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
         for should_start_run in [False, True]:
             try:
-                mlflow.set_tracking_uri("test")
+                mlflux.set_tracking_uri("test")
                 if should_start_run:
-                    mlflow.start_run()
+                    mlflux.start_run()
 
                 artifact_path = "model"
                 conda_env = os.path.join(tmp.path(), "conda_env.yaml")
                 _mlflow_conda_env(conda_env, additional_pip_deps=["fastai"])
 
-                mlflow.fastai.log_model(
+                mlflux.fastai.log_model(
                     fastai_learner=model, artifact_path=artifact_path, conda_env=conda_env
                 )
 
                 model_uri = "runs:/{run_id}/{artifact_path}".format(
-                    run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+                    run_id=mlflux.active_run().info.run_id, artifact_path=artifact_path
                 )
 
-                reloaded_model = mlflow.fastai.load_model(model_uri=model_uri)
+                reloaded_model = mlflux.fastai.load_model(model_uri=model_uri)
 
-                model_wrapper = mlflow.fastai._FastaiModelWrapper(model)
-                reloaded_model_wrapper = mlflow.fastai._FastaiModelWrapper(reloaded_model)
+                model_wrapper = mlflux.fastai._FastaiModelWrapper(model)
+                reloaded_model_wrapper = mlflux.fastai._FastaiModelWrapper(reloaded_model)
 
                 compare_wrapper_results(
                     model_wrapper.predict(fastai_model.inference_dataframe),
@@ -180,47 +180,47 @@ def test_model_log(fastai_model, model_path):
                 assert os.path.exists(os.path.join(model_path, env_path))
 
             finally:
-                mlflow.end_run()
-                mlflow.set_tracking_uri(old_uri)
+                mlflux.end_run()
+                mlflux.set_tracking_uri(old_uri)
 
 
 def test_log_model_calls_register_model(fastai_model):
     artifact_path = "model"
-    register_model_patch = mock.patch("mlflow.register_model")
-    with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
+    register_model_patch = mock.patch("mlflux.register_model")
+    with mlflux.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["fastai"])
-        mlflow.fastai.log_model(
+        mlflux.fastai.log_model(
             fastai_learner=fastai_model.model,
             artifact_path=artifact_path,
             conda_env=conda_env,
             registered_model_name="AdsModel1",
         )
         model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+            run_id=mlflux.active_run().info.run_id, artifact_path=artifact_path
         )
-        mlflow.register_model.assert_called_once_with(
+        mlflux.register_model.assert_called_once_with(
             model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
         )
 
 
 def test_log_model_no_registered_model_name(fastai_model):
     artifact_path = "model"
-    register_model_patch = mock.patch("mlflow.register_model")
-    with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
+    register_model_patch = mock.patch("mlflux.register_model")
+    with mlflux.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["fastai"])
-        mlflow.fastai.log_model(
+        mlflux.fastai.log_model(
             fastai_learner=fastai_model.model, artifact_path=artifact_path, conda_env=conda_env
         )
-        mlflow.register_model.assert_not_called()
+        mlflux.register_model.assert_not_called()
 
 
 @pytest.mark.large
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     fastai_model, model_path, fastai_custom_env
 ):
-    mlflow.fastai.save_model(
+    mlflux.fastai.save_model(
         fastai_learner=fastai_model.model, path=model_path, conda_env=fastai_custom_env
     )
 
@@ -240,7 +240,7 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
 def test_model_save_persists_requirements_in_mlflow_model_directory(
     fastai_model, model_path, fastai_custom_env
 ):
-    mlflow.fastai.save_model(
+    mlflux.fastai.save_model(
         fastai_learner=fastai_model.model, path=model_path, conda_env=fastai_custom_env
     )
 
@@ -250,9 +250,9 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
 
 @pytest.mark.large
 def test_model_save_accepts_conda_env_as_dict(fastai_model, model_path):
-    conda_env = dict(mlflow.fastai.get_default_conda_env())
+    conda_env = dict(mlflux.fastai.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
-    mlflow.fastai.save_model(
+    mlflux.fastai.save_model(
         fastai_learner=fastai_model.model, path=model_path, conda_env=conda_env
     )
 
@@ -270,14 +270,14 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     fastai_model, fastai_custom_env
 ):
     artifact_path = "model"
-    with mlflow.start_run():
-        mlflow.fastai.log_model(
+    with mlflux.start_run():
+        mlflux.fastai.log_model(
             fastai_learner=fastai_model.model,
             artifact_path=artifact_path,
             conda_env=fastai_custom_env,
         )
         model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+            run_id=mlflux.active_run().info.run_id, artifact_path=artifact_path
         )
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
@@ -296,14 +296,14 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
 @pytest.mark.large
 def test_model_log_persists_requirements_in_mlflow_model_directory(fastai_model, fastai_custom_env):
     artifact_path = "model"
-    with mlflow.start_run():
-        mlflow.fastai.log_model(
+    with mlflux.start_run():
+        mlflux.fastai.log_model(
             fastai_learner=fastai_model.model,
             artifact_path=artifact_path,
             conda_env=fastai_custom_env,
         )
         model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+            run_id=mlflux.active_run().info.run_id, artifact_path=artifact_path
         )
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
@@ -316,14 +316,14 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(fastai_model,
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     fastai_model, model_path
 ):
-    mlflow.fastai.save_model(fastai_learner=fastai_model.model, path=model_path, conda_env=None)
+    mlflux.fastai.save_model(fastai_learner=fastai_model.model, path=model_path, conda_env=None)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
     with open(conda_env_path, "r") as f:
         conda_env = yaml.safe_load(f)
 
-    assert conda_env == mlflow.fastai.get_default_conda_env()
+    assert conda_env == mlflux.fastai.get_default_conda_env()
 
 
 @pytest.mark.large
@@ -331,12 +331,12 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     fastai_model,
 ):
     artifact_path = "model"
-    with mlflow.start_run():
-        mlflow.fastai.log_model(
+    with mlflux.start_run():
+        mlflux.fastai.log_model(
             fastai_learner=fastai_model.model, artifact_path=artifact_path, conda_env=None
         )
         model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+            run_id=mlflux.active_run().info.run_id, artifact_path=artifact_path
         )
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
@@ -345,4 +345,4 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     with open(conda_env_path, "r") as f:
         conda_env = yaml.safe_load(f)
 
-    assert conda_env == mlflow.fastai.get_default_conda_env()
+    assert conda_env == mlflux.fastai.get_default_conda_env()

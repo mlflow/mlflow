@@ -7,20 +7,20 @@ import pytest
 from unittest import mock
 from unittest.mock import ANY, patch
 
-from mlflow.entities.model_registry import (
+from mlflux.entities.model_registry import (
     ModelVersion,
     RegisteredModel,
     RegisteredModelTag,
     ModelVersionTag,
 )
-from mlflow.exceptions import MlflowException
-from mlflow.store.entities.paged_list import PagedList
-from mlflow.tracking._model_registry.client import ModelRegistryClient
+from mlflux.exceptions import MlflowException
+from mlflux.store.entities.paged_list import PagedList
+from mlflux.tracking._model_registry.client import ModelRegistryClient
 
 
 @pytest.fixture
 def mock_store():
-    with mock.patch("mlflow.tracking._model_registry.utils._get_store") as mock_get_store:
+    with mock.patch("mlflux.tracking._model_registry.utils._get_store") as mock_get_store:
         yield mock_get_store.return_value
 
 
@@ -196,7 +196,7 @@ def test_delete_registered_model_tag(mock_store):
 
 # Model Version API
 @patch(
-    "mlflow.tracking._model_registry.client.AWAIT_MODEL_VERSION_CREATE_SLEEP_DURATION_SECONDS", 1
+    "mlflux.tracking._model_registry.client.AWAIT_MODEL_VERSION_CREATE_SLEEP_DURATION_SECONDS", 1
 )
 def test_create_model_version_when_wait_exceeds_time(mock_store):
     name = "Model 1"

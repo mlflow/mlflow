@@ -13,15 +13,15 @@ import random
 import sklearn.datasets as datasets
 import sklearn.neighbors as knn
 
-from mlflow.exceptions import MlflowException
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
-import mlflow.sklearn
-from mlflow.models import ModelSignature, infer_signature
-from mlflow.protos.databricks_pb2 import ErrorCode, MALFORMED_REQUEST, BAD_REQUEST
-from mlflow.pyfunc import PythonModel
-from mlflow.types import Schema, ColSpec, DataType
-from mlflow.utils.file_utils import TempDir
-from mlflow.utils.proto_json_utils import NumpyEncoder
+from mlflux.exceptions import MlflowException
+import mlflux.pyfunc.scoring_server as pyfunc_scoring_server
+import mlflux.sklearn
+from mlflux.models import ModelSignature, infer_signature
+from mlflux.protos.databricks_pb2 import ErrorCode, MALFORMED_REQUEST, BAD_REQUEST
+from mlflux.pyfunc import PythonModel
+from mlflux.types import Schema, ColSpec, DataType
+from mlflux.utils.file_utils import TempDir
+from mlflux.utils.proto_json_utils import NumpyEncoder
 
 from tests.helper_functions import pyfunc_serve_and_score_model, random_int, random_str
 
@@ -85,7 +85,7 @@ def model_path(tmpdir):
 def test_scoring_server_responds_to_invalid_json_input_with_stacktrace_and_error_code(
     sklearn_model, model_path
 ):
-    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
+    mlflux.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
     incorrect_json_content = json.dumps({"not": "a serialized dataframe"})
     response = pyfunc_serve_and_score_model(
@@ -116,7 +116,7 @@ def test_scoring_server_responds_to_invalid_json_input_with_stacktrace_and_error
 def test_scoring_server_responds_to_malformed_json_input_with_stacktrace_and_error_code(
     sklearn_model, model_path
 ):
-    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
+    mlflux.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
     malformed_json_content = "this is,,,, not valid json"
     response = pyfunc_serve_and_score_model(
@@ -135,7 +135,7 @@ def test_scoring_server_responds_to_malformed_json_input_with_stacktrace_and_err
 def test_scoring_server_responds_to_invalid_pandas_input_format_with_stacktrace_and_error_code(
     sklearn_model, model_path
 ):
-    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
+    mlflux.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
     # The pyfunc scoring server expects a serialized Pandas Dataframe in `split` or `records`
     # format; passing a serialized Dataframe in `table` format should yield a readable error
@@ -156,7 +156,7 @@ def test_scoring_server_responds_to_invalid_pandas_input_format_with_stacktrace_
 def test_scoring_server_responds_to_incompatible_inference_dataframe_with_stacktrace_and_error_code(
     sklearn_model, model_path
 ):
-    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
+    mlflux.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
     incompatible_df = pd.DataFrame(np.array(range(10)))
 
     response = pyfunc_serve_and_score_model(
@@ -175,7 +175,7 @@ def test_scoring_server_responds_to_incompatible_inference_dataframe_with_stackt
 def test_scoring_server_responds_to_invalid_csv_input_with_stacktrace_and_error_code(
     sklearn_model, model_path
 ):
-    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
+    mlflux.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
     # Any empty string is not valid pandas CSV
     incorrect_csv_content = ""
@@ -195,7 +195,7 @@ def test_scoring_server_responds_to_invalid_csv_input_with_stacktrace_and_error_
 def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_records_orientation(
     sklearn_model, model_path
 ):
-    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
+    mlflux.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
     pandas_record_content = pd.DataFrame(sklearn_model.inference_data).to_json(orient="records")
     response_records_content_type = pyfunc_serve_and_score_model(
@@ -217,7 +217,7 @@ def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_re
 def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_split_orientation(
     sklearn_model, model_path
 ):
-    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
+    mlflux.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
     pandas_split_content = pd.DataFrame(sklearn_model.inference_data).to_json(orient="split")
     response_default_content_type = pyfunc_serve_and_score_model(
@@ -237,7 +237,7 @@ def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_sp
 
 @pytest.mark.large
 def test_scoring_server_successfully_evaluates_correct_split_to_numpy(sklearn_model, model_path):
-    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
+    mlflux.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
     pandas_split_content = pd.DataFrame(sklearn_model.inference_data).to_json(orient="split")
     response_records_content_type = pyfunc_serve_and_score_model(
@@ -252,7 +252,7 @@ def test_scoring_server_successfully_evaluates_correct_split_to_numpy(sklearn_mo
 def test_scoring_server_responds_to_invalid_content_type_request_with_unsupported_content_type_code(
     sklearn_model, model_path
 ):
-    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
+    mlflux.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
     pandas_split_content = pd.DataFrame(sklearn_model.inference_data).to_json(orient="split")
     response = pyfunc_serve_and_score_model(
@@ -267,7 +267,7 @@ def test_scoring_server_responds_to_invalid_content_type_request_with_unsupporte
 def test_scoring_server_successfully_evaluates_correct_tf_serving_sklearn(
     sklearn_model, model_path
 ):
-    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
+    mlflux.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
     inp_dict = {"instances": sklearn_model.inference_data.tolist()}
     response_records_content_type = pyfunc_serve_and_score_model(
@@ -282,7 +282,7 @@ def test_scoring_server_successfully_evaluates_correct_tf_serving_sklearn(
 def test_scoring_server_successfully_evaluates_correct_tf_serving_keras_instances(
     keras_model, model_path
 ):
-    mlflow.keras.save_model(keras_model.model, model_path)
+    mlflux.keras.save_model(keras_model.model, model_path)
 
     inp_dict = {
         "instances": [
@@ -302,7 +302,7 @@ def test_scoring_server_successfully_evaluates_correct_tf_serving_keras_instance
 def test_scoring_server_successfully_evaluates_correct_tf_serving_keras_inputs(
     keras_model, model_path
 ):
-    mlflow.keras.save_model(keras_model.model, model_path)
+    mlflux.keras.save_model(keras_model.model, model_path)
 
     inp_dict = {
         "inputs": {
@@ -504,8 +504,8 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
     schema = Schema([ColSpec(c, c) for c in pandas_df_with_all_types.columns])
     df = _shuffle_pdf(pandas_df_with_all_types)
     with TempDir(chdr=True):
-        with mlflow.start_run() as run:
-            mlflow.pyfunc.log_model(
+        with mlflux.start_run() as run:
+            mlflux.pyfunc.log_model(
                 "model", python_model=TestModel(), signature=ModelSignature(schema)
             )
         response = pyfunc_serve_and_score_model(
@@ -540,7 +540,7 @@ def test_split_oriented_json_to_numpy_array():
 
 
 def test_get_jsonnable_obj():
-    from mlflow.pyfunc.scoring_server import _get_jsonable_obj
+    from mlflux.pyfunc.scoring_server import _get_jsonable_obj
 
     py_ary = [["a", "b", "c"], ["e", "f", "g"]]
     np_ary = _get_jsonable_obj(np.array(py_ary))
@@ -555,8 +555,8 @@ def test_parse_json_input_including_path():
         def predict(self, context, model_input):
             return 1
 
-    with mlflow.start_run() as run:
-        mlflow.pyfunc.log_model("model", python_model=TestModel())
+    with mlflux.start_run() as run:
+        mlflux.pyfunc.log_model("model", python_model=TestModel())
 
     pandas_split_content = pd.DataFrame(
         {

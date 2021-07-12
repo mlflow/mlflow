@@ -4,7 +4,7 @@
 
 import os
 from argparse import ArgumentParser
-import mlflow.pytorch
+import mlflux.pytorch
 import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
@@ -385,7 +385,7 @@ if __name__ == "__main__":
     parser = BertNewsClassifier.add_model_specific_args(parent_parser=parser)
     parser = BertDataModule.add_model_specific_args(parent_parser=parser)
 
-    mlflow.pytorch.autolog()
+    mlflux.pytorch.autolog()
 
     args = parser.parse_args()
     dict_args = vars(args)

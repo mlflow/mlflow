@@ -10,7 +10,7 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 import pandas as pd
 import pytest
 
-import mlflow
+import mlflux
 
 
 ModelWithExplanation = namedtuple(
@@ -22,7 +22,7 @@ def yield_artifacts(run_id, path=None):
     """
     Yields all artifacts in the specified run.
     """
-    client = mlflow.tracking.MlflowClient()
+    client = mlflux.tracking.MlflowClient()
     for item in client.list_artifacts(run_id, path):
         if item.is_dir:
             yield from yield_artifacts(run_id, item.path)
@@ -74,9 +74,9 @@ def classifier():
 @pytest.mark.parametrize("np_obj", [float(0.0), np.array([0.0])])
 def test_log_numpy(np_obj):
 
-    with mlflow.start_run() as run:
-        mlflow.shap._log_numpy(np_obj, "test.npy")
-        mlflow.shap._log_numpy(np_obj, "test.npy", artifact_path="dir")
+    with mlflux.start_run() as run:
+        mlflux.shap._log_numpy(np_obj, "test.npy")
+        mlflux.shap._log_numpy(np_obj, "test.npy", artifact_path="dir")
 
     artifacts = set(yield_artifacts(run.info.run_id))
     assert artifacts == {"test.npy", "dir/test.npy"}
@@ -88,9 +88,9 @@ def test_log_matplotlib_figure():
     fig, ax = plt.subplots()
     ax.plot([0, 1], [2, 3])
 
-    with mlflow.start_run() as run:
-        mlflow.shap._log_matplotlib_figure(fig, "test.png")
-        mlflow.shap._log_matplotlib_figure(fig, "test.png", artifact_path="dir")
+    with mlflux.start_run() as run:
+        mlflux.shap._log_matplotlib_figure(fig, "test.png")
+        mlflux.shap._log_matplotlib_figure(fig, "test.png", artifact_path="dir")
 
     artifacts = set(yield_artifacts(run.info.run_id))
     assert artifacts == {"test.png", "dir/test.png"}
@@ -101,8 +101,8 @@ def test_log_explanation_with_regressor(regressor):
     model = regressor.model
     X = regressor.X
 
-    with mlflow.start_run() as run:
-        explanation_path = mlflow.shap.log_explanation(model.predict, X)
+    with mlflux.start_run() as run:
+        explanation_path = mlflux.shap.log_explanation(model.predict, X)
 
     # Assert no figure is open
     assert len(plt.get_fignums()) == 0
@@ -128,8 +128,8 @@ def test_log_explanation_with_classifier(classifier):
     model = classifier.model
     X = classifier.X
 
-    with mlflow.start_run() as run:
-        explanation_uri = mlflow.shap.log_explanation(model.predict_proba, X)
+    with mlflux.start_run() as run:
+        explanation_uri = mlflux.shap.log_explanation(model.predict_proba, X)
 
     # Assert no figure is open
     assert len(plt.get_fignums()) == 0
@@ -156,8 +156,8 @@ def test_log_explanation_with_artifact_path(regressor, artifact_path):
     model = regressor.model
     X = regressor.X
 
-    with mlflow.start_run() as run:
-        explanation_path = mlflow.shap.log_explanation(model.predict, X, artifact_path)
+    with mlflux.start_run() as run:
+        explanation_path = mlflux.shap.log_explanation(model.predict, X, artifact_path)
 
     # Assert no figure is open
     assert len(plt.get_fignums()) == 0
@@ -183,10 +183,10 @@ def test_log_explanation_without_active_run(regressor):
     X = regressor.X.values
 
     try:
-        explanation_uri = mlflow.shap.log_explanation(model.predict, X)
+        explanation_uri = mlflux.shap.log_explanation(model.predict, X)
     finally:
-        run = mlflow.active_run()
-        mlflow.end_run()
+        run = mlflux.active_run()
+        mlflux.end_run()
 
         # Assert no figure is open
         assert len(plt.get_fignums()) == 0
@@ -212,8 +212,8 @@ def test_log_explanation_with_numpy_array(regressor):
     model = regressor.model
     X = regressor.X.values
 
-    with mlflow.start_run() as run:
-        explanation_uri = mlflow.shap.log_explanation(model.predict, X)
+    with mlflux.start_run() as run:
+        explanation_uri = mlflux.shap.log_explanation(model.predict, X)
 
     # Assert no figure is open
     assert len(plt.get_fignums()) == 0
@@ -241,15 +241,15 @@ def test_log_explanation_with_small_features():
     `_MAXIMUM_BACKGROUND_DATA_SIZE`.
     """
     num_rows = 50
-    assert num_rows < mlflow.shap._MAXIMUM_BACKGROUND_DATA_SIZE
+    assert num_rows < mlflux.shap._MAXIMUM_BACKGROUND_DATA_SIZE
 
     X, y = get_boston()
     X, y = X.iloc[:num_rows], y[:num_rows]
     model = RandomForestRegressor()
     model.fit(X, y)
 
-    with mlflow.start_run() as run:
-        explanation_uri = mlflow.shap.log_explanation(model.predict, X)
+    with mlflux.start_run() as run:
+        explanation_uri = mlflux.shap.log_explanation(model.predict, X)
 
     artifact_path = "model_explanations_shap"
     artifacts = set(yield_artifacts(run.info.run_id))

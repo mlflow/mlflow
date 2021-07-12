@@ -1,10 +1,10 @@
-"""Hyperparameter optimization with cuML, hyperopt, and MLFlow"""
+"""Hyperparameter optimization with cuML, hyperopt, and mlflux"""
 
 import argparse
 from functools import partial
 
-import mlflow
-import mlflow.sklearn
+import mlflux
+import mlflux.sklearn
 
 from cuml.metrics.accuracy import accuracy_score
 from cuml.preprocessing.model_selection import train_test_split
@@ -54,11 +54,11 @@ def _train(params, fpath, hyperopt=False):
         "max_features": str(max_features),
         "n_estimators": str(n_estimators),
     }
-    mlflow.log_params(mlparams)
+    mlflux.log_params(mlparams)
 
-    mlflow.log_metric("accuracy", acc)
+    mlflux.log_metric("accuracy", acc)
 
-    mlflow.sklearn.log_model(mod, "saved_models")
+    mlflux.sklearn.log_model(mod, "saved_models")
 
     if not hyperopt:
         return mod
@@ -74,7 +74,7 @@ def train(params, fpath, hyperopt=False):
     :param hyperopt: Use hyperopt for hyperparameter search during training.
     :return: dict with fields 'loss' (scalar loss) and 'status' (success/failure status of run)
     """
-    with mlflow.start_run(nested=True):
+    with mlflux.start_run(nested=True):
         return _train(params, fpath, hyperopt)
 
 
@@ -99,15 +99,15 @@ if __name__ == "__main__":
     artifact_path = "Airline-Demo"
     artifact_uri = None
 
-    mlflow.set_tracking_uri(uri="sqlite:////tmp/mlflow-db.sqlite")
-    with mlflow.start_run(run_name="RAPIDS-Hyperopt"):
+    mlflux.set_tracking_uri(uri="sqlite:////tmp/mlflux-db.sqlite")
+    with mlflux.start_run(run_name="RAPIDS-Hyperopt"):
         argmin = fmin(fn=fn, space=search_space, algo=algorithm, max_evals=2, trials=trials)
 
         print("===========")
         fn = partial(train, fpath=args.fpath, hyperopt=False)
         final_model = fn(tuple(argmin.values()))
 
-        mlflow.sklearn.log_model(
+        mlflux.sklearn.log_model(
             final_model,
             artifact_path=artifact_path,
             registered_model_name="rapids_mlflow_cli",

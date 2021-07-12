@@ -4,11 +4,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from mlflow.exceptions import MlflowException
-from mlflow.pyfunc import _enforce_tensor_spec
-from mlflow.types import DataType
-from mlflow.types.schema import ColSpec, Schema, TensorSpec
-from mlflow.types.utils import _infer_schema, _get_tensor_shape
+from mlflux.exceptions import MlflowException
+from mlflux.pyfunc import _enforce_tensor_spec
+from mlflux.types import DataType
+from mlflux.types.schema import ColSpec, Schema, TensorSpec
+from mlflux.types.utils import _infer_schema, _get_tensor_shape
 
 
 def test_col_spec():
@@ -49,7 +49,7 @@ def test_tensor_spec():
     assert "Expected `shape` to be instance" in str(ex2.value)
     with pytest.raises(MlflowException) as ex3:
         TensorSpec(np.dtype("<U10"), (-1,), "b")
-    assert "MLflow does not support size information in flexible numpy data types" in str(ex3.value)
+    assert "mlflux does not support size information in flexible numpy data types" in str(ex3.value)
 
     a5 = TensorSpec.from_json_dict(**a1.to_dict())
     assert a5 == a1
@@ -375,8 +375,8 @@ def test_all_numpy_dtypes():
     # str_
     for dtype in str_:
         test_dtype(np.array(["m", "l", "f", "l", "o", "w"], dtype=dtype), dtype)
-        test_dtype(np.array(["mlflow"], dtype=dtype), dtype)
-        test_dtype(np.array(["mlflow is the best"], dtype=dtype), dtype)
+        test_dtype(np.array(["mlflux"], dtype=dtype), dtype)
+        test_dtype(np.array(["mlflux is the best"], dtype=dtype), dtype)
     # Explicitly giving size information for flexible dtype str_
     test_dtype(np.array(["a", "bc", "def"], dtype="U16"), "str")
     test_dtype(np.array(["a", "bc", "def"], dtype="U16"), "U")

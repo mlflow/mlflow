@@ -10,10 +10,10 @@ from io import StringIO
 from itertools import permutations
 from unittest import mock
 
-import mlflow
-from mlflow.tracking import MlflowClient
-from mlflow.utils import gorilla
-from mlflow.utils.autologging_utils import (
+import mlflux
+from mlflux.tracking import MlflowClient
+from mlflux.utils import gorilla
+from mlflux.utils.autologging_utils import (
     safe_patch,
     get_autologging_config,
     autologging_is_disabled,
@@ -27,16 +27,16 @@ pytestmark = pytest.mark.large
 
 
 AUTOLOGGING_INTEGRATIONS_TO_TEST = {
-    mlflow.sklearn: "sklearn",
-    mlflow.keras: "keras",
-    mlflow.xgboost: "xgboost",
-    mlflow.lightgbm: "lightgbm",
-    mlflow.pytorch: "torch",
-    mlflow.gluon: "mxnet.gluon",
-    mlflow.fastai: "fastai",
-    mlflow.statsmodels: "statsmodels",
-    mlflow.spark: "pyspark",
-    mlflow.pyspark.ml: "pyspark",
+    mlflux.sklearn: "sklearn",
+    mlflux.keras: "keras",
+    mlflux.xgboost: "xgboost",
+    mlflux.lightgbm: "lightgbm",
+    mlflux.pytorch: "torch",
+    mlflux.gluon: "mxnet.gluon",
+    mlflux.fastai: "fastai",
+    mlflux.statsmodels: "statsmodels",
+    mlflux.spark: "pyspark",
+    mlflux.pyspark.ml: "pyspark",
 }
 
 
@@ -90,7 +90,7 @@ def test_autologging_integrations_expose_configs_and_support_disablement(integra
 def test_autologging_integrations_use_safe_patch_for_monkey_patching(integration):
     for integration in AUTOLOGGING_INTEGRATIONS_TO_TEST:
         with mock.patch(
-            "mlflow.utils.gorilla.apply", wraps=gorilla.apply
+            "mlflux.utils.gorilla.apply", wraps=gorilla.apply
         ) as gorilla_mock, mock.patch(
             integration.__name__ + ".safe_patch", wraps=safe_patch
         ) as safe_patch_mock:
@@ -107,20 +107,20 @@ def test_autologging_integrations_use_safe_patch_for_monkey_patching(integration
 def test_autolog_respects_exclusive_flag(setup_keras_model):
     x, y, model = setup_keras_model
 
-    mlflow.keras.autolog(exclusive=True)
-    run = mlflow.start_run()
+    mlflux.keras.autolog(exclusive=True)
+    run = mlflux.start_run()
     model.fit(x, y, epochs=150, batch_size=10)
-    mlflow.end_run()
+    mlflux.end_run()
     run_data = MlflowClient().get_run(run.info.run_id).data
     metrics, params, tags = run_data.metrics, run_data.params, run_data.tags
     assert not metrics
     assert not params
-    assert all("mlflow." in key for key in tags)
+    assert all("mlflux." in key for key in tags)
 
-    mlflow.keras.autolog(exclusive=False)
-    run = mlflow.start_run()
+    mlflux.keras.autolog(exclusive=False)
+    run = mlflux.start_run()
     model.fit(x, y, epochs=150, batch_size=10)
-    mlflow.end_run()
+    mlflux.end_run()
     run_data = MlflowClient().get_run(run.info.run_id).data
     metrics, params = run_data.metrics, run_data.params
     assert metrics
@@ -130,20 +130,20 @@ def test_autolog_respects_exclusive_flag(setup_keras_model):
 def test_autolog_respects_disable_flag(setup_keras_model):
     x, y, model = setup_keras_model
 
-    mlflow.keras.autolog(disable=True, exclusive=False)
-    run = mlflow.start_run()
+    mlflux.keras.autolog(disable=True, exclusive=False)
+    run = mlflux.start_run()
     model.fit(x, y, epochs=2, batch_size=10)
-    mlflow.end_run()
+    mlflux.end_run()
     run_data = MlflowClient().get_run(run.info.run_id).data
     metrics, params, tags = run_data.metrics, run_data.params, run_data.tags
     assert not metrics
     assert not params
-    assert all("mlflow." in key for key in tags)
+    assert all("mlflux." in key for key in tags)
 
-    mlflow.keras.autolog(disable=False, exclusive=False)
-    run = mlflow.start_run()
+    mlflux.keras.autolog(disable=False, exclusive=False)
+    run = mlflux.start_run()
     model.fit(x, y, epochs=2, batch_size=10)
-    mlflow.end_run()
+    mlflux.end_run()
     run_data = MlflowClient().get_run(run.info.run_id).data
     metrics, params = run_data.metrics, run_data.params
     assert metrics
@@ -161,7 +161,7 @@ def test_autolog_reverts_patched_code_when_disabled():
     original_fit_predict = model.fit_predict
 
     # After patching.
-    mlflow.sklearn.autolog(disable=False)
+    mlflux.sklearn.autolog(disable=False)
     patched_fit = model.fit
     patched_fit_transform = model.fit_transform
     patched_fit_predict = model.fit_predict
@@ -170,7 +170,7 @@ def test_autolog_reverts_patched_code_when_disabled():
     assert patched_fit_predict != original_fit_predict
 
     # After revert of patching.
-    mlflow.sklearn.autolog(disable=True)
+    mlflux.sklearn.autolog(disable=True)
     reverted_fit = model.fit
     reverted_fit_transform = model.fit_transform
     reverted_fit_predict = model.fit_predict
@@ -189,23 +189,23 @@ def test_autolog_respects_disable_flag_across_import_orders():
 
         iris = datasets.load_iris()
         svc = svm.SVC(C=2.0, degree=5, kernel="rbf")
-        run = mlflow.start_run()
+        run = mlflux.start_run()
         svc.fit(iris.data, iris.target)
-        mlflow.end_run()
+        mlflux.end_run()
         run_data = MlflowClient().get_run(run.info.run_id).data
         metrics, params, tags = run_data.metrics, run_data.params, run_data.tags
         assert not metrics
         assert not params
-        assert all("mlflow." in key for key in tags)
+        assert all("mlflux." in key for key in tags)
 
     def import_sklearn():
         import sklearn  # pylint: disable=unused-variable
 
     def disable_autolog():
-        mlflow.sklearn.autolog(disable=True)
+        mlflux.sklearn.autolog(disable=True)
 
     def mlflow_autolog():
-        mlflow.autolog()
+        mlflux.autolog()
 
     import_list = [import_sklearn, disable_autolog, mlflow_autolog]
 
@@ -219,13 +219,13 @@ def test_autolog_respects_disable_flag_across_import_orders():
 def test_autolog_respects_silent_mode(tmpdir):
     # Use file-based experiment storage for this test. Otherwise, concurrent experiment creation in
     # multithreaded contexts may fail for other storage backends (e.g. SQLAlchemy)
-    mlflow.set_tracking_uri(str(tmpdir))
-    mlflow.set_experiment("test_experiment")
+    mlflux.set_tracking_uri(str(tmpdir))
+    mlflux.set_experiment("test_experiment")
 
     og_showwarning = warnings.showwarning
     stream = StringIO()
     sys.stderr = stream
-    logger = logging.getLogger(mlflow.__name__)
+    logger = logging.getLogger(mlflux.__name__)
 
     from sklearn import datasets
 
@@ -246,8 +246,8 @@ def test_autolog_respects_silent_mode(tmpdir):
 
     # Call general and framework-specific autologging APIs to cover a
     # larger surface area for testing purposes
-    mlflow.autolog(silent=True)
-    mlflow.sklearn.autolog(silent=True, log_input_examples=True)
+    mlflux.autolog(silent=True)
+    mlflux.sklearn.autolog(silent=True, log_input_examples=True)
 
     executions = []
     with ThreadPoolExecutor(max_workers=50) as executor:
@@ -258,14 +258,14 @@ def test_autolog_respects_silent_mode(tmpdir):
     assert all([e.result() is True for e in executions])
     assert not stream.getvalue()
     # Verify that `warnings.showwarning` was restored to its original value after training
-    # and that MLflow event logs are enabled
+    # and that mlflux event logs are enabled
     assert warnings.showwarning == og_showwarning
     logger.info("verify that event logs are enabled")
     assert "verify that event logs are enabled" in stream.getvalue()
 
     stream.truncate(0)
 
-    mlflow.sklearn.autolog(silent=False, log_input_examples=True)
+    mlflux.sklearn.autolog(silent=False, log_input_examples=True)
 
     executions = []
     with ThreadPoolExecutor(max_workers=50) as executor:
@@ -276,12 +276,12 @@ def test_autolog_respects_silent_mode(tmpdir):
     assert all([e.result() is True for e in executions])
     assert stream.getvalue()
     # Verify that `warnings.showwarning` was restored to its original value after training
-    # and that MLflow event logs are enabled
+    # and that mlflux event logs are enabled
     assert warnings.showwarning == og_showwarning
     logger.info("verify that event logs are enabled")
     assert "verify that event logs are enabled" in stream.getvalue()
 
     # TODO: Investigate why this test occasionally leaks a run, which causes the
     # `clean_up_leaked_runs` fixture in `tests/conftest.py` to fail.
-    while mlflow.active_run():
-        mlflow.end_run()
+    while mlflux.active_run():
+        mlflux.end_run()

@@ -5,9 +5,9 @@ from unittest import mock
 
 from azure.storage.blob import BlobServiceClient, BlobPrefix, BlobProperties
 
-from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
+from mlflux.exceptions import MlflowException
+from mlflux.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflux.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
 
 
 TEST_ROOT_PATH = "some/path"

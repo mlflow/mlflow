@@ -1,4 +1,4 @@
-import mlflow
+import mlflux
 
 from sklearn.datasets import load_iris
 from sklearn.ensemble import GradientBoostingClassifier
@@ -8,8 +8,8 @@ from sklearn.utils import shuffle
 
 if __name__ == "__main__":
     # Enable auto-logging
-    mlflow.set_tracking_uri("sqlite:///mlruns.db")
-    mlflow.sklearn.autolog()
+    mlflux.set_tracking_uri("sqlite:///mlruns.db")
+    mlflux.sklearn.autolog()
 
     # Load data
     iris_dataset = load_iris()
@@ -28,7 +28,7 @@ if __name__ == "__main__":
     val_x, val_y = data[100:], target[100:]
 
     # Train and evaluate model
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         model.fit(train_x, train_y)
     print("MSE:", mean_squared_error(model.predict(val_x), val_y))
     print("Target names: ", target_names)
@@ -37,6 +37,6 @@ if __name__ == "__main__":
     # Register the auto-logged model
     model_uri = "runs:/{}/model".format(run.info.run_id)
     registered_model_name = "RayMLflowIntegration"
-    mv = mlflow.register_model(model_uri, registered_model_name)
+    mv = mlflux.register_model(model_uri, registered_model_name)
     print("Name: {}".format(mv.name))
     print("Version: {}".format(mv.version))

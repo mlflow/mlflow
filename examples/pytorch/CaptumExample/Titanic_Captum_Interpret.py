@@ -10,7 +10,7 @@ from captum.attr import NeuronConductance
 import matplotlib.pyplot as plt
 import pandas as pd
 from scipy import stats
-import mlflow
+import mlflux
 from prettytable import PrettyTable
 from sklearn.model_selection import train_test_split
 import os
@@ -128,7 +128,7 @@ def visualize_importances(
         ax.set(title=title, xlabel=axis_title)
         ax.set_xticks(x_pos)
         ax.set_xticklabels(feature_names, rotation="vertical")
-        mlflow.log_figure(fig, title + ".png")
+        mlflux.log_figure(fig, title + ".png")
     return feature_imp, feature_imp_dict
 
 
@@ -143,8 +143,8 @@ def train(USE_PRETRAINED_MODEL=False):
     else:
         criterion = nn.CrossEntropyLoss()
         num_epochs = dict_args["max_epochs"]
-        mlflow.log_param("epochs", num_epochs)
-        mlflow.log_param("lr", dict_args["lr"])
+        mlflux.log_param("epochs", num_epochs)
+        mlflux.log_param("lr", dict_args["lr"])
 
         optimizer = torch.optim.Adam(net.parameters(), lr=dict_args["lr"])
         input_tensor = torch.from_numpy(train_features).type(torch.FloatTensor)
@@ -159,14 +159,14 @@ def train(USE_PRETRAINED_MODEL=False):
                 print(
                     "Epoch {}/{} => Train Loss: {:.2f}".format(epoch + 1, num_epochs, loss.item())
                 )
-                mlflow.log_metric(
+                mlflux.log_metric(
                     "Epoch {} Loss".format(str(epoch + 1)), float(loss.item()), step=epoch,
                 )
         if not os.path.isdir("models"):
             os.makedirs("models")
             torch.save(net.state_dict(), "models/titanic_state_dict.pt")
     summary, _ = count_model_parameters(net)
-    mlflow.log_text(str(summary), "model_summary.txt")
+    mlflux.log_text(str(summary), "model_summary.txt")
     return (
         net,
         train_features,
@@ -181,7 +181,7 @@ def compute_accuracy(net, features, labels, title=None):
     input_tensor = torch.from_numpy(features).type(torch.FloatTensor)
     out_probs = net(input_tensor).detach().numpy()
     out_classes = np.argmax(out_probs, axis=1)
-    mlflow.log_metric(title, float(sum(out_classes == labels) / len(labels)))
+    mlflux.log_metric(title, float(sum(out_classes == labels) / len(labels)))
     print(title, sum(out_classes == labels) / len(labels))
     return input_tensor
 
@@ -201,8 +201,8 @@ def feature_conductance(net, test_input_tensor):
     attr = attr.detach().numpy()
     # To understand these attributions, we can first average them across all the inputs and print and visualize the average attribution for each feature.
     feature_imp, feature_imp_dict = visualize_importances(feature_names, np.mean(attr, axis=0))
-    mlflow.log_metrics(feature_imp_dict)
-    mlflow.log_text(str(feature_imp), "feature_imp_summary.txt")
+    mlflux.log_metrics(feature_imp_dict)
+    mlflux.log_text(str(feature_imp), "feature_imp_summary.txt")
     fig, (ax1, ax2) = plt.subplots(2, 1)
     fig.tight_layout(pad=3)
     ax1.hist(attr[:, 1], 100)
@@ -222,7 +222,7 @@ def feature_conductance(net, test_input_tensor):
     bin_centers = bin_edges[1:] - bin_width / 2
     ax2.scatter(bin_centers, bin_means, s=bin_count)
     ax2.set(xlabel="Average Sibsp Feature Value", ylabel="Average Attribution")
-    mlflow.log_figure(fig, "Average_Sibsp_Feature_Value.png")
+    mlflux.log_figure(fig, "Average_Sibsp_Feature_Value.png")
 
 
 def layer_conductance(net, test_input_tensor):
@@ -247,8 +247,8 @@ def layer_conductance(net, test_input_tensor):
         title="Average Neuron Importances",
         axis_title="Neurons",
     )
-    mlflow.log_metrics(neuron_imp_dict)
-    mlflow.log_text(str(avg_neuron_imp), "neuron_imp_summary.txt")
+    mlflux.log_metrics(neuron_imp_dict)
+    mlflux.log_text(str(avg_neuron_imp), "neuron_imp_summary.txt")
     # We can also look at the distribution of each neuron's attributions. Below we look at the distributions for neurons 7 and 9,
     # and we can confirm that their attribution distributions are very close to 0, suggesting they are not learning substantial features.
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(9, 6))
@@ -257,7 +257,7 @@ def layer_conductance(net, test_input_tensor):
     ax1.set(title="Neuron 9 Distribution")
     ax2.hist(cond_vals[:, 7], 100)
     ax2.set(title="Neuron 7 Distribution")
-    mlflow.log_figure(fig, "Neurons_Distribution.png")
+    mlflux.log_figure(fig, "Neurons_Distribution.png")
 
 
 def neuron_conductance(net, test_input_tensor, neuron_selector=None):
@@ -289,7 +289,7 @@ def neuron_conductance(net, test_input_tensor, neuron_selector=None):
         neuron_cond_vals.mean(dim=0).detach().numpy(),
         title="Average Feature Importances for Neuron {}".format(neuron_selector),
     )
-    mlflow.log_text(
+    mlflux.log_text(
         str(neuron_cond), "Avg_Feature_Importances_Neuron_" + str(neuron_selector) + ".txt"
     )
 
@@ -320,7 +320,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     dict_args = vars(args)
 
-    with mlflow.start_run(run_name="Titanic_Captum_mlflow"):
+    with mlflux.start_run(run_name="Titanic_Captum_mlflow"):
         (net, train_features, train_labels, test_features, test_labels, feature_names,) = train()
 
         compute_accuracy(net, train_features, train_labels, title="Train Accuracy")
@@ -328,5 +328,5 @@ if __name__ == "__main__":
         feature_conductance(net, test_input_tensor)
         layer_conductance(net, test_input_tensor)
         neuron_conductance(net, test_input_tensor)
-        mlflow.log_param("Train Size", len(train_labels))
-        mlflow.log_param("Test Size", len(test_labels))
+        mlflux.log_param("Train Size", len(train_labels))
+        mlflux.log_param("Test Size", len(test_labels))

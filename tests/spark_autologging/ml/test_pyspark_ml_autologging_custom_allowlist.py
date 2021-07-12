@@ -1,6 +1,6 @@
 import os
 import pytest
-import mlflow
+import mlflux
 
 from pyspark.sql import SparkSession
 
@@ -17,14 +17,14 @@ def test_custom_log_model_allowlist(tmpdir):
 
     spark_session = (
         SparkSession.builder.config(
-            "spark.mlflow.pysparkml.autolog.logModelAllowlistFile", allowlist_file_path
+            "spark.mlflux.pysparkml.autolog.logModelAllowlistFile", allowlist_file_path
         )
         .master("local[*]")
         .getOrCreate()
     )
 
-    mlflow.pyspark.ml.autolog()
-    assert mlflow.pyspark.ml._log_model_allowlist == {
+    mlflux.pyspark.ml.autolog()
+    assert mlflux.pyspark.ml._log_model_allowlist == {
         "pyspark.ml.regression.LinearRegressionModel",
         "pyspark.ml.classification.NaiveBayesModel",
     }

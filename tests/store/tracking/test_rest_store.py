@@ -4,8 +4,8 @@ import unittest
 from unittest import mock
 import pytest
 
-import mlflow
-from mlflow.entities import (
+import mlflux
+from mlflux.entities import (
     Param,
     Metric,
     RunTag,
@@ -15,9 +15,9 @@ from mlflow.entities import (
     Experiment,
     LifecycleStage,
 )
-from mlflow.exceptions import MlflowException
-from mlflow.models import Model
-from mlflow.protos.service_pb2 import (
+from mlflux.exceptions import MlflowException
+from mlflux.models import Model
+from mlflux.protos.service_pb2 import (
     CreateRun,
     DeleteExperiment,
     DeleteRun,
@@ -35,19 +35,19 @@ from mlflow.protos.service_pb2 import (
     ListExperiments,
     LogModel,
 )
-from mlflow.protos.databricks_pb2 import (
+from mlflux.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     ENDPOINT_NOT_FOUND,
     REQUEST_LIMIT_EXCEEDED,
     INTERNAL_ERROR,
     ErrorCode,
 )
-from mlflow.store.tracking.rest_store import (
+from mlflux.store.tracking.rest_store import (
     RestStore,
     DatabricksRestStore,
 )
-from mlflow.utils.proto_json_utils import message_to_json
-from mlflow.utils.rest_utils import MlflowHostCreds, _DEFAULT_HEADERS
+from mlflux.utils.proto_json_utils import message_to_json
+from mlflux.utils.rest_utils import MlflowHostCreds, _DEFAULT_HEADERS
 
 
 class MyCoolException(Exception):
@@ -61,7 +61,7 @@ class CustomErrorHandlingRestStore(RestStore):
 
 def mock_http_request():
     return mock.patch(
-        "mlflow.utils.rest_utils.http_request",
+        "mlflux.utils.rest_utils.http_request",
         return_value=mock.MagicMock(status_code=200, text="{}"),
     )
 
@@ -75,7 +75,7 @@ class TestRestStore(object):
             assert kwargs == {
                 "method": "GET",
                 "params": {"view_type": "ACTIVE_ONLY"},
-                "url": "https://hello/api/2.0/mlflow/experiments/list",
+                "url": "https://hello/api/2.0/mlflux/experiments/list",
                 "headers": _DEFAULT_HEADERS,
                 "verify": True,
             }
@@ -137,7 +137,7 @@ class TestRestStore(object):
     def _args(self, host_creds, endpoint, method, json_body):
         res = {
             "host_creds": host_creds,
-            "endpoint": "/api/2.0/mlflow/%s" % endpoint,
+            "endpoint": "/api/2.0/mlflux/%s" % endpoint,
             "method": method,
         }
         if method == "GET":
@@ -157,29 +157,29 @@ class TestRestStore(object):
         source_name = "rest test"
 
         source_name_patch = mock.patch(
-            "mlflow.tracking.context.default_context._get_source_name", return_value=source_name
+            "mlflux.tracking.context.default_context._get_source_name", return_value=source_name
         )
         source_type_patch = mock.patch(
-            "mlflow.tracking.context.default_context._get_source_type",
+            "mlflux.tracking.context.default_context._get_source_type",
             return_value=SourceType.LOCAL,
         )
         with mock_http_request() as mock_http, mock.patch(
-            "mlflow.tracking._tracking_service.utils._get_store", return_value=store
+            "mlflux.tracking._tracking_service.utils._get_store", return_value=store
         ), mock.patch(
-            "mlflow.tracking.context.default_context._get_user", return_value=user_name
+            "mlflux.tracking.context.default_context._get_user", return_value=user_name
         ), mock.patch(
             "time.time", return_value=13579
         ), source_name_patch, source_type_patch:
-            with mlflow.start_run(experiment_id="43"):
+            with mlflux.start_run(experiment_id="43"):
                 cr_body = message_to_json(
                     CreateRun(
                         experiment_id="43",
                         user_id=user_name,
                         start_time=13579000,
                         tags=[
-                            ProtoRunTag(key="mlflow.source.name", value=source_name),
-                            ProtoRunTag(key="mlflow.source.type", value="LOCAL"),
-                            ProtoRunTag(key="mlflow.user", value=user_name),
+                            ProtoRunTag(key="mlflux.source.name", value=source_name),
+                            ProtoRunTag(key="mlflux.source.type", value="LOCAL"),
+                            ProtoRunTag(key="mlflux.user", value=user_name),
                         ],
                     )
                 )
@@ -279,7 +279,7 @@ class TestRestStore(object):
                 message_to_json(RestoreExperiment(experiment_id="0")),
             )
 
-        with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
+        with mock.patch("mlflux.utils.rest_utils.http_request") as mock_http:
             response = mock.MagicMock()
             response.status_code = 200
             response.text = '{"runs": ["1a", "2b", "3c"], "next_page_token": "67890fghij"}'
@@ -319,7 +319,7 @@ class TestRestStore(object):
     def test_get_experiment_by_name(self, store_class):
         creds = MlflowHostCreds("https://hello")
         store = store_class(lambda: creds)
-        with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
+        with mock.patch("mlflux.utils.rest_utils.http_request") as mock_http:
             response = mock.MagicMock()
             response.status_code = 200
             experiment = Experiment(
@@ -375,7 +375,7 @@ class TestRestStore(object):
 
             def response_fn(*args, **kwargs):
                 # pylint: disable=unused-argument
-                if kwargs.get("endpoint") == "/api/2.0/mlflow/experiments/get-by-name":
+                if kwargs.get("endpoint") == "/api/2.0/mlflux/experiments/get-by-name":
                     raise MlflowException(
                         "GetExperimentByName is not implemented", ENDPOINT_NOT_FOUND
                     )
@@ -419,7 +419,7 @@ class TestRestStore(object):
     def test_databricks_rest_store_get_experiment_by_name(self):
         creds = MlflowHostCreds("https://hello")
         store = DatabricksRestStore(lambda: creds)
-        with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
+        with mock.patch("mlflux.utils.rest_utils.http_request") as mock_http:
             # Verify that Databricks REST client won't fall back to ListExperiments for 500-level
             # errors that are not ENDPOINT_NOT_FOUND
 
@@ -465,7 +465,7 @@ class TestRestStore(object):
             list_exp_response.status_code = 200
             list_exp_responses.append(list_exp_response)
 
-        with mock.patch("mlflow.utils.rest_utils.http_request", side_effect=list_exp_responses):
+        with mock.patch("mlflux.utils.rest_utils.http_request", side_effect=list_exp_responses):
             for idx, experiments in enumerate(
                 store._paginate_list_experiments(ViewType.ACTIVE_ONLY)
             ):

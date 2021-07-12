@@ -5,8 +5,8 @@ import posixpath
 import ftplib
 from ftplib import FTP
 
-from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.artifact.ftp_artifact_repo import FTPArtifactRepository
+from mlflux.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflux.store.artifact.ftp_artifact_repo import FTPArtifactRepository
 
 
 @pytest.fixture

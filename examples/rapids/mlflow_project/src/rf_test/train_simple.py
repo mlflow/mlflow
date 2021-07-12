@@ -1,10 +1,10 @@
-"""Simple example integrating cuML with MLFlow"""
+"""Simple example integrating cuML with mlflux"""
 
 import argparse
 from functools import partial
 
-import mlflow
-import mlflow.sklearn
+import mlflux
+import mlflux.sklearn
 
 from cuml.metrics.accuracy import accuracy_score
 from cuml.preprocessing.model_selection import train_test_split
@@ -51,11 +51,11 @@ def train(fpath, max_depth, max_features, n_estimators):
         "max_features": str(max_features),
         "n_estimators": str(n_estimators),
     }
-    mlflow.log_params(mlparams)
+    mlflux.log_params(mlparams)
 
-    mlflow.log_metric("accuracy", acc)
+    mlflux.log_metric("accuracy", acc)
 
-    mlflow.sklearn.log_model(mod, "saved_models")
+    mlflux.sklearn.log_model(mod, "saved_models")
 
     return mod
 
@@ -78,16 +78,16 @@ if __name__ == "__main__":
     experiment_name = "RAPIDS-CLI"
     experiment_id = None
 
-    mlflow.set_tracking_uri(uri="sqlite:////tmp/mlflow-db.sqlite")
-    with mlflow.start_run(run_name="RAPIDS-MLFlow"):
+    mlflux.set_tracking_uri(uri="sqlite:////tmp/mlflux-db.sqlite")
+    with mlflux.start_run(run_name="RAPIDS-mlflux"):
         model = train(args.fpath, args.max_depth, args.max_features, args.n_estimators)
 
-        mlflow.sklearn.log_model(
+        mlflux.sklearn.log_model(
             model,
             artifact_path=artifact_path,
             registered_model_name="rapids_mlflow_cli",
             conda_env="conda.yaml",
         )
-        artifact_uri = mlflow.get_artifact_uri(artifact_path=artifact_path)
+        artifact_uri = mlflux.get_artifact_uri(artifact_path=artifact_path)
 
     print("Model uri: %s" % artifact_uri)

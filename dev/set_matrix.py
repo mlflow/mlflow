@@ -1,5 +1,5 @@
 """
-A script to set a matrix for the cross version tests for MLflow Models / autologging integrations.
+A script to set a matrix for the cross version tests for mlflux Models / autologging integrations.
 
 # How to run:
 
@@ -10,14 +10,14 @@ python dev/set_matrix.py
 
 # ===== Include only `ml-package-versions.yml` updates =====
 
-REF_VERSIONS_YAML="https://raw.githubusercontent.com/mlflow/mlflow/master/ml-package-versions.yml"
+REF_VERSIONS_YAML="https://raw.githubusercontent.com/mlflux/mlflux/master/ml-package-versions.yml"
 python dev/set_matrix.py --ref-versions-yaml $REF_VERSIONS_YAML
 
 # ===== Include only flavor file updates =====
 
 CHANGED_FILES="
-mlflow/keras.py
-mlflow/tensorlfow/__init__.py
+mlflux/keras.py
+mlflux/tensorlfow/__init__.py
 "
 python dev/set_matrix.py --changed-files $CHANGED_FILES
 
@@ -44,7 +44,7 @@ import urllib.request
 
 import yaml
 
-VERSIONS_YAML_PATH = "mlflow/ml-package-versions.yml"
+VERSIONS_YAML_PATH = "mlflux/ml-package-versions.yml"
 DEV_VERSION = "dev"
 
 
@@ -54,7 +54,7 @@ def read_yaml(location, if_error=None):
 
     Examples
     --------
-    >>> read_yaml("https://raw.githubusercontent.com/mlflow/mlflow/master/.circleci/config.yml")
+    >>> read_yaml("https://raw.githubusercontent.com/mlflux/mlflux/master/.circleci/config.yml")
     {...}
     >>> read_yaml(".circleci/config.yml")
     {...}
@@ -191,9 +191,9 @@ def get_changed_flavors(changed_files, flavors):
     Examples
     --------
     >>> flavors = ["pytorch", "xgboost"]
-    >>> get_changed_flavors(["mlflow/pytorch/__init__.py", "mlflow/xgboost.py"], flavors)
+    >>> get_changed_flavors(["mlflux/pytorch/__init__.py", "mlflux/xgboost.py"], flavors)
     ['pytorch', 'xgboost']
-    >>> get_changed_flavors(["mlflow/xgboost.py"], flavors)
+    >>> get_changed_flavors(["mlflux/xgboost.py"], flavors)
     ['xgboost']
     >>> get_changed_flavors(["tests/xgboost/test_xxx.py"], flavors)
     ['xgboost']
@@ -208,7 +208,7 @@ def get_changed_flavors(changed_files, flavors):
     """
     changed_flavors = []
     for f in changed_files:
-        pattern = r"^(mlflow|tests)/(.+?)(_autolog(ging)?)?(\.py|/)"
+        pattern = r"^(mlflux|tests)/(.+?)(_autolog(ging)?)?(\.py|/)"
         #                           ~~~~~
         #                           # This group captures a flavor name
         match = re.search(pattern, f)

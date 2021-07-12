@@ -1,6 +1,6 @@
 from collections import defaultdict
 from importlib import reload
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflux.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 
 import os
 import random
@@ -11,10 +11,10 @@ import time
 import pytest
 from unittest import mock
 
-import mlflow
-import mlflow.tracking.context.registry
-import mlflow.tracking.fluent
-from mlflow.entities import (
+import mlflux
+import mlflux.tracking.context.registry
+import mlflux.tracking.fluent
+from mlflux.entities import (
     LifecycleStage,
     Metric,
     Param,
@@ -26,12 +26,12 @@ from mlflow.entities import (
     SourceType,
     ViewType,
 )
-from mlflow.exceptions import MlflowException
-from mlflow.store.entities.paged_list import PagedList
-from mlflow.store.tracking.dbmodels.models import SqlExperiment
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.tracking.client import MlflowClient
-from mlflow.tracking.fluent import (
+from mlflux.exceptions import MlflowException
+from mlflux.store.entities.paged_list import PagedList
+from mlflux.store.tracking.dbmodels.models import SqlExperiment
+from mlflux.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflux.tracking.client import MlflowClient
+from mlflux.tracking.fluent import (
     _EXPERIMENT_ID_ENV_VAR,
     _EXPERIMENT_NAME_ENV_VAR,
     _RUN_ID_ENV_VAR,
@@ -43,8 +43,8 @@ from mlflow.tracking.fluent import (
     start_run,
     get_run,
 )
-from mlflow.utils import mlflow_tags
-from mlflow.utils.file_utils import TempDir
+from mlflux.utils import mlflow_tags
+from mlflux.utils.file_utils import TempDir
 
 from tests.tracking.integration_test_utils import _init_server
 
@@ -107,13 +107,13 @@ def reset_experiment_id():
     """
     yield
     HelperEnv.set_values()
-    mlflow.tracking.fluent._active_experiment_id = None
+    mlflux.tracking.fluent._active_experiment_id = None
 
 
 @pytest.fixture(autouse=True)
 def reload_context_registry():
     """Reload the context registry module to clear caches."""
-    reload(mlflow.tracking.context.registry)
+    reload(mlflux.tracking.context.registry)
 
 
 @pytest.fixture(params=["list", "pandas"])
@@ -129,10 +129,10 @@ def test_all_fluent_apis_are_included_in_dunder_all():
 
     apis = [
         a
-        for a in dir(mlflow)
-        if _is_function_or_class(getattr(mlflow, a)) and not a.startswith("_")
+        for a in dir(mlflux)
+        if _is_function_or_class(getattr(mlflux, a)) and not a.startswith("_")
     ]
-    assert set(apis).issubset(set(mlflow.__all__))
+    assert set(apis).issubset(set(mlflux.__all__))
 
 
 def test_get_experiment_id_from_env():
@@ -149,7 +149,7 @@ def test_get_experiment_id_from_env():
     # set only name
     with TempDir(chdr=True):
         name = "random experiment %d" % random.randint(1, 1e6)
-        exp_id = mlflow.create_experiment(name)
+        exp_id = mlflux.create_experiment(name)
         assert exp_id is not None
         HelperEnv.set_values(name=name)
         HelperEnv.assert_values(None, name)
@@ -158,7 +158,7 @@ def test_get_experiment_id_from_env():
     # set both: assert that name variable takes precedence
     with TempDir(chdr=True):
         name = "random experiment %d" % random.randint(1, 1e6)
-        exp_id = mlflow.create_experiment(name)
+        exp_id = mlflux.create_experiment(name)
         assert exp_id is not None
         random_id = random.randint(1, 1e6)
         HelperEnv.set_values(name=name, experiment_id=random_id)
@@ -170,9 +170,9 @@ def test_get_experiment_id_with_active_experiment_returns_active_experiment_id()
     # Create a new experiment and set that as active experiment
     with TempDir(chdr=True):
         name = "Random experiment %d" % random.randint(1, 1e6)
-        exp_id = mlflow.create_experiment(name)
+        exp_id = mlflux.create_experiment(name)
         assert exp_id is not None
-        mlflow.set_experiment(name)
+        mlflux.set_experiment(name)
         assert _get_experiment_id() == exp_id
 
 
@@ -184,9 +184,9 @@ def test_get_experiment_id_in_databricks_detects_notebook_id_by_default():
     notebook_id = 768
 
     with mock.patch(
-        "mlflow.tracking.fluent.is_in_databricks_notebook"
+        "mlflux.tracking.fluent.is_in_databricks_notebook"
     ) as notebook_detection_mock, mock.patch(
-        "mlflow.tracking.fluent.get_notebook_id"
+        "mlflux.tracking.fluent.get_notebook_id"
     ) as notebook_id_mock:
         notebook_detection_mock.return_value = True
         notebook_id_mock.return_value = notebook_id
@@ -196,14 +196,14 @@ def test_get_experiment_id_in_databricks_detects_notebook_id_by_default():
 def test_get_experiment_id_in_databricks_with_active_experiment_returns_active_experiment_id():
     with TempDir(chdr=True):
         exp_name = "random experiment %d" % random.randint(1, 1e6)
-        exp_id = mlflow.create_experiment(exp_name)
-        mlflow.set_experiment(exp_name)
+        exp_id = mlflux.create_experiment(exp_name)
+        mlflux.set_experiment(exp_name)
         notebook_id = str(int(exp_id) + 73)
 
     with mock.patch(
-        "mlflow.tracking.fluent.is_in_databricks_notebook"
+        "mlflux.tracking.fluent.is_in_databricks_notebook"
     ) as notebook_detection_mock, mock.patch(
-        "mlflow.tracking.fluent.get_notebook_id"
+        "mlflux.tracking.fluent.get_notebook_id"
     ) as notebook_id_mock:
         notebook_detection_mock.return_value = True
         notebook_id_mock.return_value = notebook_id
@@ -215,14 +215,14 @@ def test_get_experiment_id_in_databricks_with_active_experiment_returns_active_e
 def test_get_experiment_id_in_databricks_with_experiment_defined_in_env_returns_env_experiment_id():
     with TempDir(chdr=True):
         exp_name = "random experiment %d" % random.randint(1, 1e6)
-        exp_id = mlflow.create_experiment(exp_name)
+        exp_id = mlflux.create_experiment(exp_name)
         notebook_id = str(int(exp_id) + 73)
         HelperEnv.set_values(experiment_id=exp_id)
 
     with mock.patch(
-        "mlflow.tracking.fluent.is_in_databricks_notebook"
+        "mlflux.tracking.fluent.is_in_databricks_notebook"
     ) as notebook_detection_mock, mock.patch(
-        "mlflow.tracking.fluent.get_notebook_id"
+        "mlflux.tracking.fluent.get_notebook_id"
     ) as notebook_id_mock:
         notebook_detection_mock.side_effect = lambda *args, **kwargs: True
         notebook_id_mock.side_effect = lambda *args, **kwargs: notebook_id
@@ -234,9 +234,9 @@ def test_get_experiment_id_in_databricks_with_experiment_defined_in_env_returns_
 def test_get_experiment_by_id():
     with TempDir(chdr=True):
         name = "Random experiment %d" % random.randint(1, 1e6)
-        exp_id = mlflow.create_experiment(name)
+        exp_id = mlflux.create_experiment(name)
 
-        experiment = mlflow.get_experiment(exp_id)
+        experiment = mlflux.get_experiment(exp_id)
         print(experiment)
         assert experiment.experiment_id == exp_id
 
@@ -244,9 +244,9 @@ def test_get_experiment_by_id():
 def test_get_experiment_by_name():
     with TempDir(chdr=True):
         name = "Random experiment %d" % random.randint(1, 1e6)
-        exp_id = mlflow.create_experiment(name)
+        exp_id = mlflux.create_experiment(name)
 
-        experiment = mlflow.get_experiment_by_name(name)
+        experiment = mlflux.get_experiment_by_name(name)
         assert experiment.experiment_id == exp_id
 
 
@@ -259,10 +259,10 @@ def test_list_experiments(view_type, tmpdir):
 
     if view_type == ViewType.DELETED_ONLY:
         # Delete the default experiment
-        mlflow.tracking.MlflowClient(sqlite_uri).delete_experiment("0")
+        mlflux.tracking.MlflowClient(sqlite_uri).delete_experiment("0")
 
     # This is a bit hacky but much faster than creating experiments one by one with
-    # `mlflow.create_experiment`
+    # `mlflux.create_experiment`
     with store.ManagedSessionMaker() as session:
         lifecycle_stages = LifecycleStage.view_type_to_stages(view_type)
         experiments = [
@@ -277,22 +277,22 @@ def test_list_experiments(view_type, tmpdir):
 
     try:
         url, process = _init_server(sqlite_uri, root_artifact_uri=tmpdir.strpath)
-        mlflow.set_tracking_uri(url)
+        mlflux.set_tracking_uri(url)
         # `max_results` is unspecified
-        assert len(mlflow.list_experiments(view_type)) == num_experiments
+        assert len(mlflux.list_experiments(view_type)) == num_experiments
         # `max_results` is larger than the number of experiments in the database
-        assert len(mlflow.list_experiments(view_type, num_experiments + 1)) == num_experiments
+        assert len(mlflux.list_experiments(view_type, num_experiments + 1)) == num_experiments
         # `max_results` is equal to the number of experiments in the database
-        assert len(mlflow.list_experiments(view_type, num_experiments)) == num_experiments
+        assert len(mlflux.list_experiments(view_type, num_experiments)) == num_experiments
         # `max_results` is smaller than the number of experiments in the database
-        assert len(mlflow.list_experiments(view_type, num_experiments - 1)) == num_experiments - 1
+        assert len(mlflux.list_experiments(view_type, num_experiments - 1)) == num_experiments - 1
     finally:
         process.terminate()
 
 
 @pytest.fixture
 def empty_active_run_stack():
-    with mock.patch("mlflow.tracking.fluent._active_run_stack", []):
+    with mock.patch("mlflux.tracking.fluent._active_run_stack", []):
         yield
 
 
@@ -304,25 +304,25 @@ def test_start_run_defaults(empty_active_run_stack):  # pylint: disable=unused-a
 
     mock_experiment_id = mock.Mock()
     experiment_id_patch = mock.patch(
-        "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
+        "mlflux.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
     )
     databricks_notebook_patch = mock.patch(
-        "mlflow.tracking.fluent.is_in_databricks_notebook", return_value=False
+        "mlflux.tracking.fluent.is_in_databricks_notebook", return_value=False
     )
     mock_user = mock.Mock()
     user_patch = mock.patch(
-        "mlflow.tracking.context.default_context._get_user", return_value=mock_user
+        "mlflux.tracking.context.default_context._get_user", return_value=mock_user
     )
     mock_source_name = mock.Mock()
     source_name_patch = mock.patch(
-        "mlflow.tracking.context.default_context._get_source_name", return_value=mock_source_name
+        "mlflux.tracking.context.default_context._get_source_name", return_value=mock_source_name
     )
     source_type_patch = mock.patch(
-        "mlflow.tracking.context.default_context._get_source_type", return_value=SourceType.NOTEBOOK
+        "mlflux.tracking.context.default_context._get_source_type", return_value=SourceType.NOTEBOOK
     )
     mock_source_version = mock.Mock()
     source_version_patch = mock.patch(
-        "mlflow.tracking.context.git_context._get_source_version", return_value=mock_source_version
+        "mlflux.tracking.context.git_context._get_source_version", return_value=mock_source_version
     )
 
     expected_tags = {
@@ -348,30 +348,30 @@ def test_start_run_defaults_databricks_notebook(
 
     mock_experiment_id = mock.Mock()
     experiment_id_patch = mock.patch(
-        "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
+        "mlflux.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
     )
     databricks_notebook_patch = mock.patch(
-        "mlflow.utils.databricks_utils.is_in_databricks_notebook", return_value=True
+        "mlflux.utils.databricks_utils.is_in_databricks_notebook", return_value=True
     )
     mock_user = mock.Mock()
     user_patch = mock.patch(
-        "mlflow.tracking.context.default_context._get_user", return_value=mock_user
+        "mlflux.tracking.context.default_context._get_user", return_value=mock_user
     )
     mock_source_version = mock.Mock()
     source_version_patch = mock.patch(
-        "mlflow.tracking.context.git_context._get_source_version", return_value=mock_source_version
+        "mlflux.tracking.context.git_context._get_source_version", return_value=mock_source_version
     )
     mock_notebook_id = mock.Mock()
     notebook_id_patch = mock.patch(
-        "mlflow.utils.databricks_utils.get_notebook_id", return_value=mock_notebook_id
+        "mlflux.utils.databricks_utils.get_notebook_id", return_value=mock_notebook_id
     )
     mock_notebook_path = mock.Mock()
     notebook_path_patch = mock.patch(
-        "mlflow.utils.databricks_utils.get_notebook_path", return_value=mock_notebook_path
+        "mlflux.utils.databricks_utils.get_notebook_path", return_value=mock_notebook_path
     )
     mock_webapp_url = mock.Mock()
     webapp_url_patch = mock.patch(
-        "mlflow.utils.databricks_utils.get_webapp_url", return_value=mock_webapp_url
+        "mlflux.utils.databricks_utils.get_webapp_url", return_value=mock_webapp_url
     )
 
     expected_tags = {
@@ -399,25 +399,25 @@ def test_start_run_creates_new_run_with_user_specified_tags():
 
     mock_experiment_id = mock.Mock()
     experiment_id_patch = mock.patch(
-        "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
+        "mlflux.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
     )
     databricks_notebook_patch = mock.patch(
-        "mlflow.tracking.fluent.is_in_databricks_notebook", return_value=False
+        "mlflux.tracking.fluent.is_in_databricks_notebook", return_value=False
     )
     mock_user = mock.Mock()
     user_patch = mock.patch(
-        "mlflow.tracking.context.default_context._get_user", return_value=mock_user
+        "mlflux.tracking.context.default_context._get_user", return_value=mock_user
     )
     mock_source_name = mock.Mock()
     source_name_patch = mock.patch(
-        "mlflow.tracking.context.default_context._get_source_name", return_value=mock_source_name
+        "mlflux.tracking.context.default_context._get_source_name", return_value=mock_source_name
     )
     source_type_patch = mock.patch(
-        "mlflow.tracking.context.default_context._get_source_type", return_value=SourceType.NOTEBOOK
+        "mlflux.tracking.context.default_context._get_source_type", return_value=SourceType.NOTEBOOK
     )
     mock_source_version = mock.Mock()
     source_version_patch = mock.patch(
-        "mlflow.tracking.context.git_context._get_source_version", return_value=mock_source_version
+        "mlflux.tracking.context.git_context._get_source_version", return_value=mock_source_version
     )
     user_specified_tags = {
         "ml_task": "regression",
@@ -449,9 +449,9 @@ def test_start_run_resumes_existing_run_and_sets_user_specified_tags():
         "A": "B",
         "C": "D",
     }
-    run_id = mlflow.start_run().info.run_id
-    mlflow.end_run()
-    restarted_run = mlflow.start_run(run_id, tags=tags_to_set)
+    run_id = mlflux.start_run().info.run_id
+    mlflux.end_run()
+    restarted_run = mlflux.start_run(run_id, tags=tags_to_set)
     assert tags_to_set.items() <= restarted_run.data.tags.items()
 
 
@@ -461,17 +461,17 @@ def test_start_run_with_parent():
     mock_experiment_id = mock.Mock()
     mock_source_name = mock.Mock()
 
-    active_run_stack_patch = mock.patch("mlflow.tracking.fluent._active_run_stack", [parent_run])
+    active_run_stack_patch = mock.patch("mlflux.tracking.fluent._active_run_stack", [parent_run])
 
     databricks_notebook_patch = mock.patch(
-        "mlflow.tracking.fluent.is_in_databricks_notebook", return_value=False
+        "mlflux.tracking.fluent.is_in_databricks_notebook", return_value=False
     )
     mock_user = mock.Mock()
     user_patch = mock.patch(
-        "mlflow.tracking.context.default_context._get_user", return_value=mock_user
+        "mlflux.tracking.context.default_context._get_user", return_value=mock_user
     )
     source_name_patch = mock.patch(
-        "mlflow.tracking.context.default_context._get_source_name", return_value=mock_source_name
+        "mlflux.tracking.context.default_context._get_source_name", return_value=mock_source_name
     )
 
     expected_tags = {
@@ -492,7 +492,7 @@ def test_start_run_with_parent():
 
 
 def test_start_run_with_parent_non_nested():
-    with mock.patch("mlflow.tracking.fluent._active_run_stack", [mock.Mock()]):
+    with mock.patch("mlflux.tracking.fluent._active_run_stack", [mock.Mock()]):
         with pytest.raises(Exception):
             start_run()
 
@@ -502,7 +502,7 @@ def test_start_run_existing_run(empty_active_run_stack):  # pylint: disable=unus
     mock_run.info.lifecycle_stage = LifecycleStage.ACTIVE
 
     run_id = uuid.uuid4().hex
-    mock_get_store = mock.patch("mlflow.tracking.fluent._get_store")
+    mock_get_store = mock.patch("mlflux.tracking.fluent._get_store")
 
     with mock_get_store, mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
         active_run = start_run(run_id)
@@ -519,7 +519,7 @@ def test_start_run_existing_run_from_environment(
 
     run_id = uuid.uuid4().hex
     env_patch = mock.patch.dict("os.environ", {_RUN_ID_ENV_VAR: run_id})
-    mock_get_store = mock.patch("mlflow.tracking.fluent._get_store")
+    mock_get_store = mock.patch("mlflux.tracking.fluent._get_store")
 
     with env_patch, mock_get_store, mock.patch.object(
         MlflowClient, "get_run", return_value=mock_run
@@ -557,21 +557,21 @@ def test_start_run_existing_run_deleted(empty_active_run_stack):  # pylint: disa
 
 
 def test_start_existing_run_status(empty_active_run_stack):  # pylint: disable=unused-argument
-    run_id = mlflow.start_run().info.run_id
-    mlflow.end_run()
+    run_id = mlflux.start_run().info.run_id
+    mlflux.end_run()
     assert MlflowClient().get_run(run_id).info.status == RunStatus.to_string(RunStatus.FINISHED)
-    restarted_run = mlflow.start_run(run_id)
+    restarted_run = mlflux.start_run(run_id)
     assert restarted_run.info.status == RunStatus.to_string(RunStatus.RUNNING)
 
 
 def test_start_existing_run_end_time(empty_active_run_stack):  # pylint: disable=unused-argument
-    run_id = mlflow.start_run().info.run_id
-    mlflow.end_run()
+    run_id = mlflux.start_run().info.run_id
+    mlflux.end_run()
     run_obj_info = MlflowClient().get_run(run_id).info
     old_end = run_obj_info.end_time
     assert run_obj_info.status == RunStatus.to_string(RunStatus.FINISHED)
-    mlflow.start_run(run_id)
-    mlflow.end_run()
+    mlflux.start_run(run_id)
+    mlflux.end_run()
     run_obj_info = MlflowClient().get_run(run_id).info
     assert run_obj_info.end_time > old_end
 
@@ -645,7 +645,7 @@ def test_search_runs_attributes(search_runs_output_format):
             end=end_times[1],
         ),
     ]
-    with mock.patch("mlflow.tracking.fluent._paginate", return_value=runs):
+    with mock.patch("mlflux.tracking.fluent._paginate", return_value=runs):
         pdf = search_runs(output_format=search_runs_output_format)
         data = {
             "status": [RunStatus.FINISHED, RunStatus.SCHEDULED],
@@ -682,7 +682,7 @@ def test_search_runs_data():
             end=1564783200000,
         ),
     ]
-    with mock.patch("mlflow.tracking.fluent._paginate", return_value=runs):
+    with mock.patch("mlflux.tracking.fluent._paginate", return_value=runs):
         pdf = search_runs()
         data = {
             "status": [RunStatus.FINISHED] * 2,
@@ -714,13 +714,13 @@ def test_search_runs_no_arguments(search_runs_output_format):
     """
     mock_experiment_id = mock.Mock()
     experiment_id_patch = mock.patch(
-        "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
+        "mlflux.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
     )
-    get_paginated_runs_patch = mock.patch("mlflow.tracking.fluent._paginate", return_value=[])
+    get_paginated_runs_patch = mock.patch("mlflux.tracking.fluent._paginate", return_value=[])
     with experiment_id_patch, get_paginated_runs_patch:
         search_runs(output_format=search_runs_output_format)
-        mlflow.tracking.fluent._paginate.assert_called_once()
-        mlflow.tracking.fluent._get_experiment_id.assert_called_once()
+        mlflux.tracking.fluent._paginate.assert_called_once()
+        mlflux.tracking.fluent._get_experiment_id.assert_called_once()
 
 
 def test_paginate_lt_maxresults_onepage():
@@ -848,15 +848,15 @@ def test_delete_tag():
     Confirm that fluent API delete tags actually works
     :return:
     """
-    mlflow.set_tag("a", "b")
-    run = MlflowClient().get_run(mlflow.active_run().info.run_id)
+    mlflux.set_tag("a", "b")
+    run = MlflowClient().get_run(mlflux.active_run().info.run_id)
     print(run.info.run_id)
     assert "a" in run.data.tags
-    mlflow.delete_tag("a")
-    run = MlflowClient().get_run(mlflow.active_run().info.run_id)
+    mlflux.delete_tag("a")
+    run = MlflowClient().get_run(mlflux.active_run().info.run_id)
     assert "a" not in run.data.tags
     with pytest.raises(MlflowException):
-        mlflow.delete_tag("a")
+        mlflux.delete_tag("a")
     with pytest.raises(MlflowException):
-        mlflow.delete_tag("b")
-    mlflow.end_run()
+        mlflux.delete_tag("b")
+    mlflux.end_run()

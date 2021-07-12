@@ -4,7 +4,7 @@ from packaging.version import Version
 import spacy
 from spacy.util import minibatch, compounding
 
-import mlflow.spacy
+import mlflux.spacy
 
 IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0 = Version(spacy.__version__) >= Version("3.0.0")
 
@@ -31,7 +31,7 @@ if __name__ == "__main__":
             ner.add_label(ent[2])
 
     params = {"n_iter": 100, "drop": 0.5}
-    mlflow.log_params(params)
+    mlflux.log_params(params)
 
     nlp.begin_training()
     for itn in range(params["n_iter"]):
@@ -48,18 +48,18 @@ if __name__ == "__main__":
                 losses=losses,
             )
         print("Losses", losses)
-        mlflow.log_metrics(losses)
+        mlflux.log_metrics(losses)
 
-    # Log the spaCy model using mlflow
-    mlflow.spacy.log_model(spacy_model=nlp, artifact_path="model")
+    # Log the spaCy model using mlflux
+    mlflux.spacy.log_model(spacy_model=nlp, artifact_path="model")
     model_uri = "runs:/{run_id}/{artifact_path}".format(
-        run_id=mlflow.active_run().info.run_id, artifact_path="model"
+        run_id=mlflux.active_run().info.run_id, artifact_path="model"
     )
 
-    print("Model saved in run %s" % mlflow.active_run().info.run_uuid)
+    print("Model saved in run %s" % mlflux.active_run().info.run_uuid)
 
-    # Load the model using mlflow and use it to predict data
-    nlp2 = mlflow.spacy.load_model(model_uri=model_uri)
+    # Load the model using mlflux and use it to predict data
+    nlp2 = mlflux.spacy.load_model(model_uri=model_uri)
     for text, _ in TRAIN_DATA:
         doc = nlp2(text)
         print("Entities", [(ent.text, ent.label_) for ent in doc.ents])

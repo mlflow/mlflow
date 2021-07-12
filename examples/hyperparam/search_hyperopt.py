@@ -1,8 +1,8 @@
 """
-Example of hyperparameter search in MLflow using Hyperopt.
+Example of hyperparameter search in mlflux using Hyperopt.
 
 The run method will instantiate and run Hyperopt optimizer. Each parameter configuration is
-evaluated in a new MLflow run invoking main entry point with selected parameters.
+evaluated in a new mlflux run invoking main entry point with selected parameters.
 
 The runs are evaluated based on validation set loss. Test set score is calculated to verify the
 results.
@@ -16,8 +16,8 @@ import numpy as np
 
 from hyperopt import fmin, hp, tpe, rand
 
-import mlflow.projects
-from mlflow.tracking.client import MlflowClient
+import mlflux.projects
+from mlflux.tracking.client import MlflowClient
 
 _inf = np.finfo(np.float64).max
 
@@ -36,7 +36,7 @@ def train(training_data, max_runs, epochs, metric, algo, seed):
     Run hyperparameter optimization.
     """
     # create random file to store run ids of the training tasks
-    tracking_client = mlflow.tracking.MlflowClient()
+    tracking_client = mlflux.tracking.MlflowClient()
 
     def new_eval(
         nepochs, experiment_id, null_train_loss, null_valid_loss, null_test_loss, return_all=False
@@ -55,21 +55,21 @@ def train(training_data, max_runs, epochs, metric, algo, seed):
 
         def eval(params):
             """
-            Train Keras model with given parameters by invoking MLflow run.
+            Train Keras model with given parameters by invoking mlflux run.
 
             Notice we store runUuid and resulting metric in a file. We will later use these to pick
             the best run and to log the runUuids of the child runs as an artifact. This is a
-            temporary workaround until MLflow offers better mechanism of linking runs together.
+            temporary workaround until mlflux offers better mechanism of linking runs together.
 
             :param params: Parameters to the train_keras script we optimize over:
                           learning_rate, drop_out_1
             :return: The metric value evaluated on the validation data.
             """
-            import mlflow.tracking
+            import mlflux.tracking
 
             lr, momentum = params
-            with mlflow.start_run(nested=True) as child_run:
-                p = mlflow.projects.run(
+            with mlflux.start_run(nested=True) as child_run:
+                p = mlflux.projects.run(
                     uri=".",
                     entry_point="train",
                     run_id=child_run.info.run_id,
@@ -99,7 +99,7 @@ def train(training_data, max_runs, epochs, metric, algo, seed):
                 valid_loss = null_valid_loss
                 test_loss = null_test_loss
 
-            mlflow.log_metrics(
+            mlflux.log_metrics(
                 {
                     "train_{}".format(metric): train_loss,
                     "val_{}".format(metric): valid_loss,
@@ -119,7 +119,7 @@ def train(training_data, max_runs, epochs, metric, algo, seed):
         hp.uniform("momentum", 0.0, 1.0),
     ]
 
-    with mlflow.start_run() as run:
+    with mlflux.start_run() as run:
         experiment_id = run.info.experiment_id
         # Evaluate null model first.
         train_null_loss, valid_null_loss, test_null_loss = new_eval(
@@ -131,11 +131,11 @@ def train(training_data, max_runs, epochs, metric, algo, seed):
             algo=tpe.suggest if algo == "tpe.suggest" else rand.suggest,
             max_evals=max_runs,
         )
-        mlflow.set_tag("best params", str(best))
+        mlflux.set_tag("best params", str(best))
         # find the best run, log its metrics as the final metrics of this run.
         client = MlflowClient()
         runs = client.search_runs(
-            [experiment_id], "tags.mlflow.parentRunId = '{run_id}' ".format(run_id=run.info.run_id)
+            [experiment_id], "tags.mlflux.parentRunId = '{run_id}' ".format(run_id=run.info.run_id)
         )
         best_val_train = _inf
         best_val_valid = _inf
@@ -147,8 +147,8 @@ def train(training_data, max_runs, epochs, metric, algo, seed):
                 best_val_train = r.data.metrics["train_rmse"]
                 best_val_valid = r.data.metrics["val_rmse"]
                 best_val_test = r.data.metrics["test_rmse"]
-        mlflow.set_tag("best_run", best_run.info.run_id)
-        mlflow.log_metrics(
+        mlflux.set_tag("best_run", best_run.info.run_id)
+        mlflux.log_metrics(
             {
                 "train_{}".format(metric): best_val_train,
                 "val_{}".format(metric): best_val_valid,

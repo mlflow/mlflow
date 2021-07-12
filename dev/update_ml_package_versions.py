@@ -1,5 +1,5 @@
 """
-A script to update the maximum package versions in 'mlflow/ml-package-versions.yml'.
+A script to update the maximum package versions in 'mlflux/ml-package-versions.yml'.
 
 # Prerequisites:
 $ pip install packaging pyyaml
@@ -94,8 +94,8 @@ def parse_args(args):
     parser.add_argument(
         "-p",
         "--path",
-        help="Path to the ML package versions yaml (default: mlflow/ml-package-versions.yml)",
-        default="mlflow/ml-package-versions.yml",
+        help="Path to the ML package versions yaml (default: mlflux/ml-package-versions.yml)",
+        default="mlflux/ml-package-versions.yml",
         required=False,
     )
     return parser.parse_args(args)

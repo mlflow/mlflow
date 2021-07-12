@@ -1,4 +1,4 @@
-import mlflow.paddle
+import mlflux.paddle
 import paddle
 from paddle.nn import Linear
 import paddle.nn.functional as F
@@ -71,13 +71,13 @@ if __name__ == "__main__":
             opt.step()
             opt.clear_grad()
 
-    with mlflow.start_run() as run:
-        mlflow.log_param("learning_rate", 0.01)
-        mlflow.paddle.log_model(model, "model")
-        print("Model saved in run %s" % mlflow.active_run().info.run_uuid)
+    with mlflux.start_run() as run:
+        mlflux.log_param("learning_rate", 0.01)
+        mlflux.paddle.log_model(model, "model")
+        print("Model saved in run %s" % mlflux.active_run().info.run_uuid)
 
         # load model
-        model_path = mlflow.get_artifact_uri("model")
-        pd_model = mlflow.paddle.load_model(model_path)
+        model_path = mlflux.get_artifact_uri("model")
+        pd_model = mlflux.paddle.load_model(model_path)
         np_test_data = np.array(test_data).astype("float32")
         print(pd_model(np_test_data[:, :-1]))

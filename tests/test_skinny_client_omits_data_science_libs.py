@@ -9,9 +9,9 @@ def is_skinny():
 
 
 def test_fails_import_flask():
-    import mlflow
+    import mlflux
 
-    assert mlflow is not None
+    assert mlflux is not None
 
     with pytest.raises(ImportError):
         import flask
@@ -20,9 +20,9 @@ def test_fails_import_flask():
 
 
 def test_fails_import_pandas():
-    import mlflow
+    import mlflux
 
-    assert mlflow is not None
+    assert mlflux is not None
 
     with pytest.raises(ImportError):
         import pandas
@@ -31,9 +31,9 @@ def test_fails_import_pandas():
 
 
 def test_fails_import_numpy():
-    import mlflow
+    import mlflux
 
-    assert mlflow is not None
+    assert mlflux is not None
 
     with pytest.raises(ImportError):
         import numpy

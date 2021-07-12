@@ -1,4 +1,4 @@
-# Import a dependency in MLflow's setup.py that's not included by default in conda environments,
+# Import a dependency in mlflux's setup.py that's not included by default in conda environments,
 # verify that it fails
 
 import argparse

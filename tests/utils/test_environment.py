@@ -1,7 +1,7 @@
 import os
 import pytest
 
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflux.utils.environment import _mlflow_conda_env
 
 
 @pytest.fixture
