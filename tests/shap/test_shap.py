@@ -71,7 +71,7 @@ def classifier():
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("np_obj", [np.float(0.0), np.array([0.0])])
+@pytest.mark.parametrize("np_obj", [float(0.0), np.array([0.0])])
 def test_log_numpy(np_obj):
 
     with mlflow.start_run() as run:

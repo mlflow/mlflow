@@ -250,8 +250,8 @@ def test_load_model_from_remote_uri_succeeds(saved_tf_iris_model, model_path, mo
     pred_dict = {column_name: raw_preds[column_name].numpy() for column_name in raw_preds.keys()}
     for col in pred_dict:
         assert np.allclose(
-            np.array(pred_dict[col], dtype=np.float),
-            np.array(saved_tf_iris_model.raw_results[col], dtype=np.float),
+            np.array(pred_dict[col], dtype=float),
+            np.array(saved_tf_iris_model.raw_results[col], dtype=float),
         )
 
 

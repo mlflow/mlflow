@@ -189,7 +189,7 @@ def _infer_numpy_dtype(dtype) -> DataType:
         return DataType.binary
     elif dtype.kind == "O":
         raise Exception(
-            "Can not infer np.object without looking at the values, call "
+            "Can not infer object without looking at the values, call "
             "_map_numpy_array instead."
         )
     elif dtype.kind == "M":
@@ -229,7 +229,7 @@ def _infer_pandas_column(col: pd.Series) -> DataType:
             return DataType.string
         else:
             raise MlflowException(
-                "Unable to map 'np.object' type to MLflow DataType. np.object can"
+                "Unable to map 'object' type to MLflow DataType. object can"
                 "be mapped iff all values have identical data type which is one "
                 "of (string, (bytes or byterray),  int, float)."
             )

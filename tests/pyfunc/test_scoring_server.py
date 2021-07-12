@@ -439,10 +439,10 @@ def test_parse_with_schema(pandas_df_with_all_types):
     assert df["bad_float"].dtype == np.float32
     assert all(df["bad_float"] == np.array([1.1, 9007199254740992, 3.3], dtype=np.float32))
     # However bad string is recognized as int64:
-    assert all(df["bad_string"] == np.array([1, 2, 3], dtype=np.object))
+    assert all(df["bad_string"] == np.array([1, 2, 3], dtype=object))
 
     # Boolean is forced - zero and empty string is false, everything else is true:
-    assert df["bad_boolean"].dtype == np.bool
+    assert df["bad_boolean"].dtype == bool
     assert all(df["bad_boolean"] == [True, False, True])
 
 

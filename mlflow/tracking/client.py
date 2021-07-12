@@ -1217,7 +1217,7 @@ class MlflowClient(object):
         def _normalize_to_uint8(x):
             # Based on: https://github.com/matplotlib/matplotlib/blob/06567e021f21be046b6d6dcf00380c1cb9adaf3c/lib/matplotlib/image.py#L684  # noqa
 
-            is_int = np.issubdtype(x.dtype, np.integer)
+            is_int = np.issubdtype(x.dtype, int)
             low = 0
             high = 255 if is_int else 1
             if x.min() < low or x.max() > high:
