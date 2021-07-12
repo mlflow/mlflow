@@ -477,9 +477,28 @@ class _AutologTrainingStatus:
         self.in_model_score_call_scope = False
 
     def register_model(self, model, run_id):
+        """
+        In `patched_fit`, we need register the model with the run_id used in `patched_fit`
+        So that in following metric autologging, the metric will be logged into the registered
+        run_id
+        """
         self.model_id_to_run_id_map[id(model)] = run_id
 
     def register_predition_result(self, model, eval_dataset_name, predict_result):
+        """
+        In `patched_predict`, register the prediction result instance with the model id and eval
+        dataset name. e.g.
+
+        ```
+        prediction_result = model_1.predict(eval_X)
+        ```
+        then we need register an item into the `dataset_id_to_dataset_name_and_model_id` map like
+        below:
+        id(prediction_result) --> (inspected_original_var_name_of(eval_X), id(model_1))
+
+        With this map `dataset_id_to_dataset_name_and_model_id`, in following patched metric API,
+        we can query the eval dataset name and the model id via the `y_pred` argument instance.
+        """
         value = (eval_dataset_name, id(model))
         self.dataset_id_to_dataset_name_and_model_id[id(predict_result)] = value
 
@@ -996,9 +1015,19 @@ def autolog(
 
         return metric
 
+    # we still need patch model.score method because:
+    #  some model.score() implementation won't call metric APIs in `sklearn.metrics`
+    #  e.g.
+    #  https://github.com/scikit-learn/scikit-learn/blob/82df48934eba1df9a1ed3be98aaace8eada59e6e/sklearn/covariance/_empirical_covariance.py#L220
     def patched_model_score(original, self, *args, **kwargs):
-        if id(self) in _autolog_training_status.model_id_to_run_id_map:
-            score_value = original(self, *args, **kwargs)
+        if not _autolog_training_status.in_fit_call_scope and \
+                not _autolog_training_status.in_eval_and_log_metrics_scope and \
+                id(self) in _autolog_training_status.model_id_to_run_id_map:
+            try:
+                _autolog_training_status.in_model_score_call_scope = True
+                score_value = original(self, *args, **kwargs)
+            finally:
+                _autolog_training_status.in_model_score_call_scope = False
             if np.isscalar(score_value):
                 eval_dataset = args[0] if len(args) >= 1 else kwargs.get('X')
                 eval_dataset_name = _inspect_original_var_name(eval_dataset)
@@ -1086,8 +1115,6 @@ def autolog(
             )
 
     from sklearn import metrics
-    # Note:
-    #  don't need patch model.score() because internally model.score() will call the concrete metric API
     for metric_method_name in metrics.__all__:
         # excludes plot_* methods
         # exclude class (e.g. metrics.ConfusionMatrixDisplay)
