@@ -1,6 +1,8 @@
-=============================================
-MLflow: A Machine Learning Lifecycle Platform
-=============================================
+==============================================================
+MLflux: A Machine Learning Lifecycle Platform Based on MLflow
+==============================================================
+
+Below is the original README for MLflow. As I change code, I will start removing sections that no longer apply.
 
 MLflow is a platform to streamline machine learning development, including tracking experiments, packaging code
 into reproducible runs, and sharing and deploying models. MLflow offers a set of lightweight APIs that can be
