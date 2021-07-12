@@ -474,6 +474,7 @@ class _AutologTrainingStatus:
         self.in_fit_call_scope = False
         self.in_scorer_call_scope = False
         self.in_eval_and_log_metrics_scope = False
+        self.in_model_score_call_scope = False
 
     def register_model(self, model, run_id):
         self.model_id_to_run_id_map[id(model)] = run_id
@@ -733,6 +734,7 @@ def autolog(
         _create_child_runs_for_parameter_search,
     )
     from mlflow.tracking.context import registry as context_registry
+    from mlflow.utils import _inspect_original_var_name
 
     if max_tuning_runs is not None and max_tuning_runs < 0:
         raise MlflowException(
@@ -944,9 +946,9 @@ def autolog(
                 return original(self, *args, **kwargs)
 
     def patched_predict(original, self, *args, **kwargs):
-        from mlflow.utils import _inspect_original_var_name
         global _autolog_training_status
-        if id(self) in _autolog_training_status.model_id_to_run_id_map:
+        if not _autolog_training_status.in_model_score_call_scope and \
+                id(self) in _autolog_training_status.model_id_to_run_id_map:
             predict_result = original(self, *args, **kwargs)
             eval_dataset = args[0] if len(args) >= 1 else kwargs.get('X')
             eval_dataset_name = _inspect_original_var_name(eval_dataset)
@@ -985,13 +987,34 @@ def autolog(
         print('DGB: run patched_metric_api #1')
         if not _autolog_training_status.in_fit_call_scope and \
                 not _autolog_training_status.in_scorer_call_scope and \
-                not _autolog_training_status.in_eval_and_log_metrics_scope:
+                not _autolog_training_status.in_eval_and_log_metrics_scope and \
+                not _autolog_training_status.in_model_score_call_scope:
             print('DGB: run patched_metric_api #2')
             metric_name = original.__name__
             arg_list = list(args) + list(kwargs.values())
             log_eval_metric(metric_name, metric, arg_list)
 
         return metric
+
+    def patched_model_score(original, self, *args, **kwargs):
+        if id(self) in _autolog_training_status.model_id_to_run_id_map:
+            score_value = original(self, *args, **kwargs)
+            if np.isscalar(score_value):
+                eval_dataset = args[0] if len(args) >= 1 else kwargs.get('X')
+                eval_dataset_name = _inspect_original_var_name(eval_dataset)
+                metric_name = f'{self.__class__.__name__}_score'
+
+                run_id = _autolog_training_status.model_id_to_run_id_map[id(self)]
+                client = mlflow.tracking.MlflowClient()
+                # TODO: exception handling ?
+                client.log_metric(
+                    run_id=run_id,
+                    key=f'{metric_name}_on_{eval_dataset_name}',
+                    value=score_value
+                )
+            return score_value
+        else:
+            return original(self, *args, **kwargs)
 
     _, estimators_to_patch = zip(*_all_estimators())
     # Ensure that relevant meta estimators (e.g. GridSearchCV, Pipeline) are selected
@@ -1057,6 +1080,11 @@ def autolog(
                     FLAVOR_NAME, class_def, func_name, patched_predict, manage_run=False,
                 )
 
+        if hasattr(class_def, 'score'):
+            safe_patch(
+                FLAVOR_NAME, class_def, 'score', patched_model_score, manage_run=False,
+            )
+
     from sklearn import metrics
     # Note:
     #  don't need patch model.score() because internally model.score() will call the concrete metric API
@@ -1080,7 +1108,8 @@ def autolog(
             _autolog_training_status.in_scorer_call_scope = False
 
         if not _autolog_training_status.in_fit_call_scope and \
-                not _autolog_training_status.in_eval_and_log_metrics_scope:
+                not _autolog_training_status.in_eval_and_log_metrics_scope and \
+                not _autolog_training_status.in_model_score_call_scope:
             # TODO: refine metric_name to make it include arguments set for the metric
             metric_name = self._score_func.__name__
             if metric_name.strip() == '<lambda>':
