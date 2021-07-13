@@ -28,6 +28,7 @@ from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils import _inspect_original_var_name
 from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
@@ -495,8 +496,8 @@ class _AutologTrainingStatus:
 
         return CallScope()
 
-    def is_model_registered(self, model):
-        return id(model) in self.model_id_to_run_id_map
+    def get_run_id_for_model(self, model):
+        return self.model_id_to_run_id_map.get(id(model), None)
 
     def should_log_eval_metrics(self):
         return not self.scope_flag_dict[self.fit_scope_key] and \
@@ -548,6 +549,27 @@ _autolog_training_status = _AutologTrainingStatus()
 _metric_api_excluding_list = [
     'check_scoring', 'get_scorer', 'make_scorer'
 ]
+
+
+def _inspect_dataset_var_name(X):
+    name = _inspect_original_var_name(X)
+    if name:
+        return name
+    else:
+        return f'dataset_{id(X)}'
+
+
+def _log_metric_into_run(run_id, key, value):
+    # Note: if the case log the same metric key multiple times,
+    #  newer value will overwrite old value
+    client = mlflow.tracking.MlflowClient()
+
+    client.log_metric(
+        run_id=run_id,
+        key=key,
+        value=value
+    )
+
 
 @experimental
 @autologging_integration(FLAVOR_NAME)
@@ -781,7 +803,6 @@ def autolog(
         _create_child_runs_for_parameter_search,
     )
     from mlflow.tracking.context import registry as context_registry
-    from mlflow.utils import _inspect_original_var_name
 
     if max_tuning_runs is not None and max_tuning_runs < 0:
         raise MlflowException(
@@ -992,10 +1013,10 @@ def autolog(
     def patched_predict(original, self, *args, **kwargs):
         status = _get_autolog_training_status()
         if status.should_log_eval_metrics() and \
-                status.is_model_registered(self):
+                status.get_run_id_for_model(self):
             predict_result = original(self, *args, **kwargs)
             eval_dataset = args[0] if len(args) >= 1 else kwargs.get('X')
-            eval_dataset_name = _inspect_original_var_name(eval_dataset)
+            eval_dataset_name = _inspect_dataset_var_name(eval_dataset)
             status.register_prediction_result(
                 self, eval_dataset_name, predict_result)
             return predict_result
@@ -1013,16 +1034,7 @@ def autolog(
             )
         if eval_dataset_name and run_id:
             print('DGB: run patched_metric_api #4')
-            # Note: if the case log the same metric key multiple times,
-            #  newer value will overwrite old value
-            client = mlflow.tracking.MlflowClient()
-
-            # TODO: exception handling ?
-            client.log_metric(
-                run_id=run_id,
-                key=f'{metric_name}_on_{eval_dataset_name}',
-                value=metric
-            )
+            _log_metric_into_run(run_id, f'{metric_name}_on_{eval_dataset_name}', metric)
 
     def patched_metric_api(original, *args, **kwargs):
         status = _get_autolog_training_status()
@@ -1044,22 +1056,18 @@ def autolog(
     def patched_model_score(original, self, *args, **kwargs):
         status = _get_autolog_training_status()
         if status.should_log_eval_metrics() and \
-                status.is_model_registered(self):
+                status.get_run_id_for_model(self):
             with status.call_scope(status.model_score_scope_key):
                 score_value = original(self, *args, **kwargs)
+
             if np.isscalar(score_value):
                 eval_dataset = args[0] if len(args) >= 1 else kwargs.get('X')
-                eval_dataset_name = _inspect_original_var_name(eval_dataset)
+                eval_dataset_name = _inspect_dataset_var_name(eval_dataset)
                 metric_name = f'{self.__class__.__name__}_score'
 
-                run_id = status.model_id_to_run_id_map[id(self)]
-                client = mlflow.tracking.MlflowClient()
-                # TODO: exception handling ?
-                client.log_metric(
-                    run_id=run_id,
-                    key=f'{metric_name}_on_{eval_dataset_name}',
-                    value=score_value
-                )
+                run_id = status.get_run_id_for_model(self)
+                _log_metric_into_run(run_id, f'{metric_name}_on_{eval_dataset_name}', score_value)
+
             return score_value
         else:
             return original(self, *args, **kwargs)

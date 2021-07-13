@@ -151,5 +151,5 @@ def _inspect_original_var_name(var):
 
         return original_var_name
 
-    except BaseException:
+    except Exception:
         pass
