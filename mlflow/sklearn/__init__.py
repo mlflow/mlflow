@@ -473,13 +473,25 @@ def _get_autolog_training_status():
 
 
 class _AutologTrainingStatus:
+    """
+    This class is designed for holding information which is used by autologging metrics
+    It will hold information of:
+    (1) a map of model_id to run_id, this information is registered during `patched_fit`
+    (2) a map of "prediction result object id" to a tuple of dataset name(the dataset is
+       the one which generate the prediction result) and model id.
+    (3) some scope flags which indicates currently in which method scope, we record scope
+       flags for method `model.fit`, `eval_and_log_metrics`, `model.score`.
+       In order to avoid nested/duplicated autologging metric, when run into these scopes,
+       we need temporarily disable the metric autologging.
+    """
+
     fit_scope_key = 'fit'
     eval_and_log_metrics_scope_key = 'eval_and_log_metrics'
     model_score_scope_key = 'model_score'
 
     def __init__(self):
         self.model_id_to_run_id_map = {}
-        self.dataset_id_to_dataset_name_and_model_id = {}
+        self.pred_result_id_to_dataset_name_and_model_id = {}
         self.scope_flag_dict = {
             self.fit_scope_key: False,
             self.eval_and_log_metrics_scope_key: False,
@@ -520,7 +532,7 @@ class _AutologTrainingStatus:
         ```
         prediction_result = model_1.predict(eval_X)
         ```
-        then we need register an item into the `dataset_id_to_dataset_name_and_model_id` map like
+        then we need register an item into the `pred_result_id_to_dataset_name_and_model_id` map like
         below:
         id(prediction_result) --> (inspected_original_var_name_of(eval_X), id(model_1))
 
@@ -528,17 +540,21 @@ class _AutologTrainingStatus:
         we can query the eval dataset name and the model id via the `y_pred` argument instance.
         """
         value = (eval_dataset_name, id(model))
-        self.dataset_id_to_dataset_name_and_model_id[id(predict_result)] = value
+        self.pred_result_id_to_dataset_name_and_model_id[id(predict_result)] = value
 
     def get_eval_dataset_name_and_run_id_from_metric_api_arglist(self, metric_api_call_arg_list):
+        """
+        Given the arguments list of metric API, find the registered dataset name and model id.
+        See `register_prediction_result` method doc for registered information.
+        """
         # Note: some metric API the arguments is not `y_true`, `y_pred`
         #  e.g.
         #    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.roc_auc_score.html#sklearn.metrics.roc_auc_score
         #    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.silhouette_score.html#sklearn.metrics.silhouette_score
-        dataset_id_list = self.dataset_id_to_dataset_name_and_model_id.keys()
+        dataset_id_list = self.pred_result_id_to_dataset_name_and_model_id.keys()
         for arg in metric_api_call_arg_list:
             if id(arg) in dataset_id_list:
-                dataset_name, model_id = self.dataset_id_to_dataset_name_and_model_id[id(arg)]
+                dataset_name, model_id = self.pred_result_id_to_dataset_name_and_model_id[id(arg)]
                 return dataset_name, self.model_id_to_run_id_map.get(model_id, None)
         return None, None
 
