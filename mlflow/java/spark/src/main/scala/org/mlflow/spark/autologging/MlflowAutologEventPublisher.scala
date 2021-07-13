@@ -43,10 +43,6 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
       "autologging."))
   }
 
-  // Exposed for testing
-  private[autologging] val databricksConfigProviderClassName =
-    "com.databricks.config.DatabricksClientSettingsProvider"
-
   /**
    * @returns True if Spark is running in a REPL-aware context. False otherwise.
    */
@@ -60,15 +56,14 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
     }
 
     // If the `spark.databricks.replId` is absent, we may still be in a Databricks environment,
-    // which is REPL-aware. To check, we look for the presence of a Databricks-specific
-    // configuration class on the classpath
-    val configProviderFetchResult = Try {
-      Class.forName(databricksConfigProviderClassName);
+    // which is REPL-aware. To check, we look for the presence of a Databricks-specific cluster ID
+    // tag in the Spark configuration
+    val clusterId = spark.conf.getOption("spark.databricks.clusterUsageTags.clusterId")
+    if (clusterId.isDefined) {
+      return true
     }
-    configProviderFetchResult match {
-      case Success(_) => true
-      case Failure(_) => false
-    }
+
+    false
   }
 
   // Exposed for testing
