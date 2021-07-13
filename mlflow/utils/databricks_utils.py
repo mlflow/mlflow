@@ -171,6 +171,27 @@ def get_job_group_id():
         return None
 
 
+def get_repl_id():
+    """
+    :return: The ID of the current Databricks Python REPL
+    """
+    try:
+        from pyspark import SparkContext
+        repl_id = SparkContext.getOrCreate().getLocalProperty("spark.databricks.replId")
+        if repl_id is not None:
+            return repl_id
+    except Exception:
+        pass
+
+    try:
+        dbutils = _get_dbutils()
+        repl_id = dbutils.entry_point.getReplId()
+        if repl_id is not None:
+            return repl_id
+    except Exception:
+        pass
+
+
 def get_job_id():
     try:
         return _get_command_context().jobId().get()
