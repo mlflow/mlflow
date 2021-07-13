@@ -16,7 +16,7 @@ from mlflow.utils.autologging_utils import (
     autologging_is_disabled,
     ExceptionSafeClass,
 )
-from mlflow.utils.databricks_utils import get_repl_id as get_databricks_repl_id 
+from mlflow.utils.databricks_utils import get_repl_id as get_databricks_repl_id
 from mlflow.spark import FLAVOR_NAME
 
 _JAVA_PACKAGE = "org.mlflow.spark.autologging"

@@ -224,7 +224,7 @@ def test_is_in_databricks_runtime():
 def test_get_repl_id():
     # Outside of Databricks environments, the Databricks REPL ID should be absent
     assert databricks_utils.get_repl_id() is None
-   
+
     mock_sparkcontext_inst = mock.MagicMock()
     mock_sparkcontext_inst.getLocalProperty.return_value = "testReplId1"
     mock_sparkcontext_class = mock.MagicMock()

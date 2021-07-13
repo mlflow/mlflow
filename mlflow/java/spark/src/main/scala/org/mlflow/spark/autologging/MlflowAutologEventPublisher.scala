@@ -56,7 +56,7 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
     val sc = spark.sparkContext
     val replId = Option(sc.getLocalProperty("spark.databricks.replId"))
     if (replId.isDefined) {
-      return true 
+      return true
     }
 
     // If the `spark.databricks.replId` is absent, we may still be in a Databricks environment,
