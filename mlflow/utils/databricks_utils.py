@@ -177,6 +177,7 @@ def get_repl_id():
     """
     try:
         from pyspark import SparkContext
+
         repl_id = SparkContext.getOrCreate().getLocalProperty("spark.databricks.replId")
         if repl_id is not None:
             return repl_id
