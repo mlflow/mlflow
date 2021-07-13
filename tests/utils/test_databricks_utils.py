@@ -1,3 +1,4 @@
+import sys
 from unittest import mock
 import pytest
 
@@ -20,6 +21,7 @@ def test_no_throw():
     assert not databricks_utils.is_in_databricks_notebook()
     assert not databricks_utils.is_in_databricks_job()
     assert not databricks_utils.is_dbfs_fuse_available()
+    assert not databricks_utils.is_in_databricks_runtime()
 
 
 @mock.patch("databricks_cli.configure.provider.get_config")
@@ -200,3 +202,20 @@ def test_databricks_params_throws_errors(ProfileConfigProvider):
     ProfileConfigProvider.return_value = mock_provider
     with pytest.raises(Exception):
         databricks_utils.get_databricks_host_creds()
+
+
+def test_is_in_databricks_runtime():
+    with mock.patch(
+        "sys.modules",
+        new={**sys.modules, "pyspark": mock.MagicMock(), "pyspark.databricks": mock.MagicMock()},
+    ):
+        # pylint: disable=unused-import,import-error,no-name-in-module,unused-variable
+        import pyspark.databricks
+
+        assert databricks_utils.is_in_databricks_runtime()
+
+    with mock.patch("sys.modules", new={**sys.modules, "pyspark": mock.MagicMock()}):
+        with pytest.raises(ModuleNotFoundError, match="No module named 'pyspark.databricks'"):
+            # pylint: disable=unused-import,import-error,no-name-in-module,unused-variable
+            import pyspark.databricks
+        assert not databricks_utils.is_in_databricks_runtime()

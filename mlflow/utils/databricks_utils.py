@@ -88,6 +88,16 @@ def is_in_databricks_job():
         return False
 
 
+def is_in_databricks_runtime():
+    try:
+        # pylint: disable=unused-import,import-error,no-name-in-module,unused-variable
+        import pyspark.databricks
+
+        return True
+    except ModuleNotFoundError:
+        return False
+
+
 def is_dbfs_fuse_available():
     with open(os.devnull, "w") as devnull_stderr, open(os.devnull, "w") as devnull_stdout:
         try:
@@ -135,7 +145,7 @@ def get_notebook_path():
 
 
 def get_databricks_runtime():
-    if is_in_databricks_notebook() or is_in_databricks_job():
+    if is_in_databricks_runtime():
         spark_session = _get_active_spark_session()
         if spark_session is not None:
             return spark_session.conf.get(
