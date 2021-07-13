@@ -171,6 +171,33 @@ def get_job_group_id():
         return None
 
 
+def get_repl_id():
+    """
+    :return: The ID of the current Databricks Python REPL
+    """
+    # Attempt to fetch the REPL ID from the Python REPL's entrypoint object. This REPL ID
+    # is guaranteed to be set upon REPL startup in DBR / MLR 9.0
+    try:
+        dbutils = _get_dbutils()
+        repl_id = dbutils.entry_point.getReplId()
+        if repl_id is not None:
+            return repl_id
+    except Exception:
+        pass
+
+    # If the REPL ID entrypoint property is unavailable due to an older runtime version (< 9.0),
+    # attempt to fetch the REPL ID from the Spark Context. This property may not be available
+    # until several seconds after REPL startup
+    try:
+        from pyspark import SparkContext
+
+        repl_id = SparkContext.getOrCreate().getLocalProperty("spark.databricks.replId")
+        if repl_id is not None:
+            return repl_id
+    except Exception:
+        pass
+
+
 def get_job_id():
     try:
         return _get_command_context().jobId().get()
