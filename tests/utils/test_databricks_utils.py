@@ -219,3 +219,24 @@ def test_is_in_databricks_runtime():
             # pylint: disable=unused-import,import-error,no-name-in-module,unused-variable
             import pyspark.databricks
         assert not databricks_utils.is_in_databricks_runtime()
+
+
+def test_get_repl_id():
+    # Outside of Databricks environments, the Databricks REPL ID should be absent
+    assert databricks_utils.get_repl_id() is None
+   
+    mock_sparkcontext_inst = mock.MagicMock()
+    mock_sparkcontext_inst.getLocalProperty.return_value = "testReplId1"
+    mock_sparkcontext_class = mock.MagicMock()
+    mock_sparkcontext_class.getOrCreate.return_value = mock_sparkcontext_inst
+    mock_spark = mock.MagicMock()
+    mock_spark.SparkContext = mock_sparkcontext_class
+    with mock.patch(
+        "builtins.__import__", side_effect=lambda *args, **kwargs: mock_spark,
+    ):
+        assert databricks_utils.get_repl_id() == "testReplId1"
+
+    mock_dbutils = mock.MagicMock()
+    mock_dbutils.entry_point.getReplId.return_value = "testReplId2"
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+        assert databricks_utils.get_repl_id() == "testReplId2"
