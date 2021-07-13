@@ -841,17 +841,10 @@ def test_dev_version_pyspark_is_supported_in_databricks(flavor, module_version, 
     with mock.patch(module_name + ".__version__", module_version):
         # In Databricks
         with mock.patch(
-            "mlflow.utils.autologging_utils.versioning.is_in_databricks_notebook",
-            return_value=True,
-        ) as mock_notebook:
+            "mlflow.utils.autologging_utils.versioning.is_in_databricks_runtime", return_value=True,
+        ) as mock_runtime:
             assert is_flavor_supported_for_associated_package_versions(flavor) == expected_result
-            mock_notebook.assert_called()
-
-        with mock.patch(
-            "mlflow.utils.autologging_utils.versioning.is_in_databricks_job", return_value=True,
-        ) as mock_job:
-            assert is_flavor_supported_for_associated_package_versions(flavor) == expected_result
-            mock_job.assert_called()
+            mock_runtime.assert_called()
 
         # Not in Databricks
         assert is_flavor_supported_for_associated_package_versions(flavor) is False

@@ -500,19 +500,3 @@ def test_get_databricks_runtime_nondb(mock_spark_session):
     runtime = get_databricks_runtime()
     assert runtime is None
     mock_spark_session.conf.get.assert_not_called()
-
-
-def test_get_databricks_runtime_in_notebook(mock_spark_session):
-    with mock.patch("mlflow.utils.databricks_utils.is_in_databricks_notebook", return_value=True):
-        get_databricks_runtime()
-        mock_spark_session.conf.get.assert_called_once_with(
-            "spark.databricks.clusterUsageTags.sparkVersion", default=None
-        )
-
-
-def test_get_databricks_runtime_in_job(mock_spark_session):
-    with mock.patch("mlflow.utils.databricks_utils.is_in_databricks_job", return_value=True):
-        get_databricks_runtime()
-        mock_spark_session.conf.get.assert_called_once_with(
-            "spark.databricks.clusterUsageTags.sparkVersion", default=None
-        )
