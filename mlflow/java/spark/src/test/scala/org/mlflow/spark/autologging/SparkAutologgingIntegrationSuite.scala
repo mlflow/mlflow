@@ -281,4 +281,18 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
     assert(MlflowAutologEventPublisher.sparkQueryListener.isInstanceOf[SparkDataSourceListener])
   }
 
+  test("Delegates to repl-ID-aware listener if Databricks environment is detected via classpath") {
+    // Verify instance created by init() in beforeEach is not REPL-ID-aware
+    assert(MlflowAutologEventPublisher.sparkQueryListener.isInstanceOf[SparkDataSourceListener])
+    assert(!MlflowAutologEventPublisher.sparkQueryListener.isInstanceOf[ReplAwareSparkDataSourceListener])
+    MlflowAutologEventPublisher.stop()
+
+    object MockPublisher extends MlflowAutologEventPublisherImpl {
+      // Mock the Databricks-specific class name that is checked on the classpath, replacing
+      // it with a Java-native class that is guaranteed to be resolvable 
+      override val databricksConfigProviderClassName = "java.io.File"
+    }
+    MockPublisher.init()
+    assert(MockPublisher.sparkQueryListener.isInstanceOf[ReplAwareSparkDataSourceListener])
+  }
 }
