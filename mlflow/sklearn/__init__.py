@@ -475,6 +475,14 @@ class _AutologTrainingStatus:
         self.in_eval_and_log_metrics_scope = False
         self.in_model_score_call_scope = False
 
+    def is_model_registered(self, model):
+        return id(model) in self.model_id_to_run_id_map
+
+    def should_log_eval_metrics(self):
+        return not self.in_fit_call_scope and \
+                not self.in_eval_and_log_metrics_scope and \
+                not self.in_model_score_call_scope
+
     def register_model(self, model, run_id):
         """
         In `patched_fit`, we need register the model with the run_id used in `patched_fit`
@@ -483,7 +491,7 @@ class _AutologTrainingStatus:
         """
         self.model_id_to_run_id_map[id(model)] = run_id
 
-    def register_predition_result(self, model, eval_dataset_name, predict_result):
+    def register_prediction_result(self, model, eval_dataset_name, predict_result):
         """
         In `patched_predict`, register the prediction result instance with the model id and eval
         dataset name. e.g.
@@ -965,12 +973,12 @@ def autolog(
 
     def patched_predict(original, self, *args, **kwargs):
         global _autolog_training_status
-        if not _autolog_training_status.in_model_score_call_scope and \
-                id(self) in _autolog_training_status.model_id_to_run_id_map:
+        if _autolog_training_status.should_log_eval_metrics() and \
+                _autolog_training_status.is_model_registered(self):
             predict_result = original(self, *args, **kwargs)
             eval_dataset = args[0] if len(args) >= 1 else kwargs.get('X')
             eval_dataset_name = _inspect_original_var_name(eval_dataset)
-            _autolog_training_status.register_predition_result(
+            _autolog_training_status.register_prediction_result(
                 self, eval_dataset_name, predict_result)
             return predict_result
         else:
@@ -1003,9 +1011,7 @@ def autolog(
         metric = original(*args, **kwargs)
 
         print('DGB: run patched_metric_api #1')
-        if not _autolog_training_status.in_fit_call_scope and \
-                not _autolog_training_status.in_eval_and_log_metrics_scope and \
-                not _autolog_training_status.in_model_score_call_scope:
+        if _autolog_training_status.should_log_eval_metrics():
             print('DGB: run patched_metric_api #2')
             metric_name = original.__name__
             arg_list = list(args) + list(kwargs.values())
@@ -1018,9 +1024,8 @@ def autolog(
     #  e.g.
     #  https://github.com/scikit-learn/scikit-learn/blob/82df48934eba1df9a1ed3be98aaace8eada59e6e/sklearn/covariance/_empirical_covariance.py#L220
     def patched_model_score(original, self, *args, **kwargs):
-        if not _autolog_training_status.in_fit_call_scope and \
-                not _autolog_training_status.in_eval_and_log_metrics_scope and \
-                id(self) in _autolog_training_status.model_id_to_run_id_map:
+        if _autolog_training_status.should_log_eval_metrics() and \
+                _autolog_training_status.is_model_registered(self):
             try:
                 _autolog_training_status.in_model_score_call_scope = True
                 score_value = original(self, *args, **kwargs)
