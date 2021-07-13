@@ -472,7 +472,6 @@ class _AutologTrainingStatus:
         self.model_id_to_run_id_map = {}
         self.dataset_id_to_dataset_name_and_model_id = {}
         self.in_fit_call_scope = False
-        self.in_scorer_call_scope = False
         self.in_eval_and_log_metrics_scope = False
         self.in_model_score_call_scope = False
 
@@ -1005,7 +1004,6 @@ def autolog(
 
         print('DGB: run patched_metric_api #1')
         if not _autolog_training_status.in_fit_call_scope and \
-                not _autolog_training_status.in_scorer_call_scope and \
                 not _autolog_training_status.in_eval_and_log_metrics_scope and \
                 not _autolog_training_status.in_model_score_call_scope:
             print('DGB: run patched_metric_api #2')
@@ -1124,38 +1122,6 @@ def autolog(
                 and callable(metric_method) \
                 and not metric_method_name.startswith('plot_'):
             safe_patch(FLAVOR_NAME, metrics, metric_method_name, patched_metric_api, manage_run=False)
-
-    def patched_scorer_call(original, self, *args, **kwargs):
-        global _autolog_training_status
-
-        try:
-            _autolog_training_status.in_scorer_call_scope = True
-            metric = original(self, *args, **kwargs)
-        finally:
-            _autolog_training_status.in_scorer_call_scope = False
-
-        if not _autolog_training_status.in_fit_call_scope and \
-                not _autolog_training_status.in_eval_and_log_metrics_scope and \
-                not _autolog_training_status.in_model_score_call_scope:
-            # TODO: refine metric_name to make it include arguments set for the metric
-            metric_name = self._score_func.__name__
-            if metric_name.strip() == '<lambda>':
-                metric_name = f'unknown_metric_{id(self)}'
-            arg_list = list(args) + list(kwargs.values())
-            log_eval_metric(metric_name, metric, arg_list)
-
-        return metric
-
-    def patched_make_scorer(original, *args, **kwargs):
-        global _autolog_training_status
-        scorer = original(*args, **kwargs)
-        safe_patch(
-            FLAVOR_NAME, scorer, '__call__', patched_scorer_call, manage_run=False,
-        )
-        return scorer
-
-    # Patch metrics.make_scorer
-    safe_patch(FLAVOR_NAME, metrics, 'make_scorer', patched_make_scorer, manage_run=False)
 
 
 def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
