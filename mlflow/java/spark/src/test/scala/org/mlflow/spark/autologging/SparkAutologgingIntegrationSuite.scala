@@ -281,4 +281,14 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
     assert(MlflowAutologEventPublisher.sparkQueryListener.isInstanceOf[SparkDataSourceListener])
   }
 
+  test("Delegates to repl-ID-aware listener if Databricks cluster ID is set in Spark Conf") {
+    // Verify instance created by init() in beforeEach is not REPL-ID-aware
+    assert(MlflowAutologEventPublisher.sparkQueryListener.isInstanceOf[SparkDataSourceListener])
+    assert(!MlflowAutologEventPublisher.sparkQueryListener.isInstanceOf[ReplAwareSparkDataSourceListener])
+    MlflowAutologEventPublisher.stop()
+
+    spark.conf.set("spark.databricks.clusterUsageTags.clusterId", "myCoolClusterId")
+    MlflowAutologEventPublisher.init()
+    assert(MlflowAutologEventPublisher.sparkQueryListener.isInstanceOf[ReplAwareSparkDataSourceListener])
+  }
 }
