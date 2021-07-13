@@ -467,21 +467,41 @@ def load_model(model_uri):
     )
 
 
+def _get_autolog_training_status():
+    return _autolog_training_status
+
+
 class _AutologTrainingStatus:
+    fit_scope_key = 'fit'
+    eval_and_log_metrics_scope_key = 'eval_and_log_metrics'
+    model_score_scope_key = 'model_score'
+
     def __init__(self):
         self.model_id_to_run_id_map = {}
         self.dataset_id_to_dataset_name_and_model_id = {}
-        self.in_fit_call_scope = False
-        self.in_eval_and_log_metrics_scope = False
-        self.in_model_score_call_scope = False
+        self.scope_flag_dict = {
+            self.fit_scope_key: False,
+            self.eval_and_log_metrics_scope_key: False,
+            self.model_score_scope_key: False
+        }
+
+    def call_scope(self, scope_key):
+        class CallScope:
+            def __enter__(inner_self):
+                self.scope_flag_dict[scope_key] = True
+
+            def __exit__(inner_self, exc_type, exc_val, exc_tb):
+                self.scope_flag_dict[scope_key] = False
+
+        return CallScope()
 
     def is_model_registered(self, model):
         return id(model) in self.model_id_to_run_id_map
 
     def should_log_eval_metrics(self):
-        return not self.in_fit_call_scope and \
-                not self.in_eval_and_log_metrics_scope and \
-                not self.in_model_score_call_scope
+        return not self.scope_flag_dict[self.fit_scope_key] and \
+            not self.scope_flag_dict[self.eval_and_log_metrics_scope_key] and \
+            not self.scope_flag_dict[self.model_score_scope_key]
 
     def register_model(self, model, run_id):
         """
@@ -523,6 +543,7 @@ class _AutologTrainingStatus:
 
 
 _autolog_training_status = _AutologTrainingStatus()
+
 
 _metric_api_excluding_list = [
     'check_scoring', 'get_scorer', 'make_scorer'
@@ -958,27 +979,24 @@ def autolog(
                           for autologging (e.g., specify "fit" in order to indicate that
                           `sklearn.linear_model.LogisticRegression.fit()` is being patched)
         """
-        global _autolog_training_status
+        status = _get_autolog_training_status()
         with _SklearnTrainingSession(clazz=self.__class__, allow_children=False) as t:
             if t.should_log():
-                _autolog_training_status.register_model(self, mlflow.active_run().info.run_id)
-                try:
-                    _autolog_training_status.in_fit_call_scope = True
+                status.register_model(self, mlflow.active_run().info.run_id)
+                with status.call_scope(status.fit_scope_key):
                     result = fit_mlflow(original, self, *args, **kwargs)
-                finally:
-                    _autolog_training_status.in_fit_call_scope = False
                 return result
             else:
                 return original(self, *args, **kwargs)
 
     def patched_predict(original, self, *args, **kwargs):
-        global _autolog_training_status
-        if _autolog_training_status.should_log_eval_metrics() and \
-                _autolog_training_status.is_model_registered(self):
+        status = _get_autolog_training_status()
+        if status.should_log_eval_metrics() and \
+                status.is_model_registered(self):
             predict_result = original(self, *args, **kwargs)
             eval_dataset = args[0] if len(args) >= 1 else kwargs.get('X')
             eval_dataset_name = _inspect_original_var_name(eval_dataset)
-            _autolog_training_status.register_prediction_result(
+            status.register_prediction_result(
                 self, eval_dataset_name, predict_result)
             return predict_result
         else:
@@ -1007,11 +1025,11 @@ def autolog(
             )
 
     def patched_metric_api(original, *args, **kwargs):
-        global _autolog_training_status
+        status = _get_autolog_training_status()
         metric = original(*args, **kwargs)
 
         print('DGB: run patched_metric_api #1')
-        if _autolog_training_status.should_log_eval_metrics():
+        if status.should_log_eval_metrics():
             print('DGB: run patched_metric_api #2')
             metric_name = original.__name__
             arg_list = list(args) + list(kwargs.values())
@@ -1024,19 +1042,17 @@ def autolog(
     #  e.g.
     #  https://github.com/scikit-learn/scikit-learn/blob/82df48934eba1df9a1ed3be98aaace8eada59e6e/sklearn/covariance/_empirical_covariance.py#L220
     def patched_model_score(original, self, *args, **kwargs):
-        if _autolog_training_status.should_log_eval_metrics() and \
-                _autolog_training_status.is_model_registered(self):
-            try:
-                _autolog_training_status.in_model_score_call_scope = True
+        status = _get_autolog_training_status()
+        if status.should_log_eval_metrics() and \
+                status.is_model_registered(self):
+            with status.call_scope(status.model_score_scope_key):
                 score_value = original(self, *args, **kwargs)
-            finally:
-                _autolog_training_status.in_model_score_call_scope = False
             if np.isscalar(score_value):
                 eval_dataset = args[0] if len(args) >= 1 else kwargs.get('X')
                 eval_dataset_name = _inspect_original_var_name(eval_dataset)
                 metric_name = f'{self.__class__.__name__}_score'
 
-                run_id = _autolog_training_status.model_id_to_run_id_map[id(self)]
+                run_id = status.model_id_to_run_id_map[id(self)]
                 client = mlflow.tracking.MlflowClient()
                 # TODO: exception handling ?
                 client.log_metric(
@@ -1176,12 +1192,10 @@ def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
       - prefix is empty
       - model is not an sklearn estimator or does not support the 'predict' method
     """
-    try:
-        _autolog_training_status.in_eval_and_log_metrics_scope = True
+    status = _get_autolog_training_status()
+    with status.call_scope(status.eval_and_log_metrics_scope_key):
         return _eval_and_log_metrics_impl(
             model, X, y_true, prefix=prefix, sample_weight=sample_weight)
-    finally:
-        _autolog_training_status.in_eval_and_log_metrics_scope = False
 
 
 def _eval_and_log_metrics_impl(model, X, y_true, *, prefix, sample_weight=None):
