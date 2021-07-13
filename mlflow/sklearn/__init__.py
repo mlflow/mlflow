@@ -1011,56 +1011,55 @@ def autolog(
                 return original(self, *args, **kwargs)
 
     def patched_predict(original, self, *args, **kwargs):
-        status = _get_autolog_training_status()
-        if status.should_log_eval_metrics() and \
-                status.get_run_id_for_model(self):
+        if _SklearnTrainingSession.in_top_level():
             predict_result = original(self, *args, **kwargs)
-            eval_dataset = args[0] if len(args) >= 1 else kwargs.get('X')
-            eval_dataset_name = _inspect_dataset_var_name(eval_dataset)
-            status.register_prediction_result(
-                self, eval_dataset_name, predict_result)
+            status = _get_autolog_training_status()
+            if status.should_log_eval_metrics() and \
+                    status.get_run_id_for_model(self):
+                eval_dataset = args[0] if len(args) >= 1 else kwargs.get('X')
+                eval_dataset_name = _inspect_dataset_var_name(eval_dataset)
+                status.register_prediction_result(
+                    self, eval_dataset_name, predict_result)
             return predict_result
         else:
             return original(self, *args, **kwargs)
 
-    def log_eval_metric(metric_name, metric, metric_api_call_arg_list):
-        if not np.isscalar(metric):
-            # Skip logging metric which is non-scalar value
-            return
-
-        eval_dataset_name, run_id = \
-            _autolog_training_status.get_eval_dataset_name_and_run_id_from_metric_api_arglist(
-                metric_api_call_arg_list
-            )
-        if eval_dataset_name and run_id:
-            print('DGB: run patched_metric_api #4')
-            _log_metric_into_run(run_id, f'{metric_name}_on_{eval_dataset_name}', metric)
-
     def patched_metric_api(original, *args, **kwargs):
-        status = _get_autolog_training_status()
-        metric = original(*args, **kwargs)
+        if _SklearnTrainingSession.in_top_level():
+            status = _get_autolog_training_status()
+            metric = original(*args, **kwargs)
 
-        print('DGB: run patched_metric_api #1')
-        if status.should_log_eval_metrics():
-            print('DGB: run patched_metric_api #2')
-            metric_name = original.__name__
-            arg_list = list(args) + list(kwargs.values())
-            log_eval_metric(metric_name, metric, arg_list)
+            print('DGB: run patched_metric_api #1')
+            if status.should_log_eval_metrics() and np.isscalar(metric):
+                print('DGB: run patched_metric_api #2')
+                metric_name = original.__name__
+                arg_list = list(args) + list(kwargs.values())
+                eval_dataset_name, run_id = \
+                    _autolog_training_status.get_eval_dataset_name_and_run_id_from_metric_api_arglist(
+                        arg_list
+                    )
+                if eval_dataset_name and run_id:
+                    print('DGB: run patched_metric_api #4')
+                    _log_metric_into_run(run_id, f'{metric_name}_on_{eval_dataset_name}', metric)
 
-        return metric
+            return metric
+        else:
+            return original(*args, **kwargs)
 
     # we still need patch model.score method because:
     #  some model.score() implementation won't call metric APIs in `sklearn.metrics`
     #  e.g.
     #  https://github.com/scikit-learn/scikit-learn/blob/82df48934eba1df9a1ed3be98aaace8eada59e6e/sklearn/covariance/_empirical_covariance.py#L220
     def patched_model_score(original, self, *args, **kwargs):
-        status = _get_autolog_training_status()
-        if status.should_log_eval_metrics() and \
-                status.get_run_id_for_model(self):
+        if _SklearnTrainingSession.in_top_level():
+            status = _get_autolog_training_status()
             with status.call_scope(status.model_score_scope_key):
                 score_value = original(self, *args, **kwargs)
 
-            if np.isscalar(score_value):
+            if status.should_log_eval_metrics() and \
+                    status.get_run_id_for_model(self) and \
+                    np.isscalar(score_value):
+
                 eval_dataset = args[0] if len(args) >= 1 else kwargs.get('X')
                 eval_dataset_name = _inspect_dataset_var_name(eval_dataset)
                 metric_name = f'{self.__class__.__name__}_score'

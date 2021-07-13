@@ -543,4 +543,8 @@ def _get_new_training_session_class():
                 self._parent.allow_children and self._parent.clazz != self.clazz
             )
 
+        @staticmethod
+        def in_top_level():
+            return len(_TrainingSession._session_stack.size) == 0
+
     return _TrainingSession
