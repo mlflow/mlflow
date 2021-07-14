@@ -1057,8 +1057,8 @@ def autolog(
                 eval_dataset_name = _inspect_dataset_var_name(eval_dataset)
                 predict_result = status.register_prediction_result(
                     self, eval_dataset_name, predict_result)
-            print(f'DBG: patched_predict result uuid {_get_obj_uuid(predict_result)}:')
-            return predict_result
+            print(f'DBG: patched_predict result uuid {_get_obj_uuid(predict_result)}')
+            return 1001
         else:
             return original(self, *args, **kwargs)
 
