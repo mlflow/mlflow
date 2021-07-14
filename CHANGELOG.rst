@@ -10,6 +10,7 @@ Features:
 - Add ``mlflow_create_registered_model`` and ``mlflow_delete_registered_model`` for R to create/delete registered models.
 - Add support for setting tags while resuming a run (#4497, @dbczumar)
 - MLflow UI updates (#4490, @sunishsheth2009)
+
   - Add i18n support.
   - Move metric columns before parameter and tag columns in the runs table.
   - Change the display format of start time to elapsed time (e.g. 3 minutes ago) from timestamp (e.g. 2021-07-14 14:02:10) in the runs table.
