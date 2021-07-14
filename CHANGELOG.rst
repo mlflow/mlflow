@@ -1,5 +1,26 @@
 Changelog
 =========
+1.19.0 (2021-07-14)
+-------------------
+MLflow 1.19.0 includes several major features and improvements:
+
+Features:
+
+- Add support for plotting per-class feature importance computed on linear boosters in XGBoost autologging (#4523, @dbczumar)
+- Add ``mlflow_create_registered_model`` and ``mlflow_delete_registered_model`` for R to create/delete registered models.
+- Add support for setting tags while resuming a run (#4497, @dbczumar)
+- MLflow UI updates (#4490, @sunishsheth2009)
+
+  - Add framework for internationalization support.
+  - Move metric columns before parameter and tag columns in the runs table.
+  - Change the display format of run start time to elapsed time (e.g. 3 minutes ago) from timestamp (e.g. 2021-07-14 14:02:10) in the runs table.
+
+Bug fixes and documentation updates:
+
+- Fix a bug causing MLflow UI to crash when sorting a column containing both `NaN` and empty values (#3409, @harupy)
+
+Small bug fixes and doc updates (#4541, #4534, #4533, #4517, #4508, #4513, #4512, #4509, #4503, #4486, #4493, #4469, @harupy; #4458, @KasirajanA; #4501, @jimmyxu-db; #4521, #4515, @jerrylian-db; #4359, @shrinath-suresh; #4544, @WeichenXu123; #4549, @smurching; #4554, @derkomai; #4506, @tomasatdatabricks; #4551, #4516, #4494, @dbczumar; #4511, @keypointt)
+
 1.18.0 (2021-06-18)
 -------------------
 MLflow 1.18.0 includes several major features and improvements:
