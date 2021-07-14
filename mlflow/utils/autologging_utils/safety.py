@@ -539,7 +539,7 @@ def safe_patch(
                         )
 
                 if original_has_been_called:
-                    return patch_fn_result if patch_fn_result else original_result
+                    return patch_fn_result if patch_fn_result is not None else original_result
                 else:
                     return original(*args, **kwargs)
 
