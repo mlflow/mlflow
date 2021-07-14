@@ -1,4 +1,5 @@
 import logging
+import numpy as np
 from itertools import islice
 from sys import version_info
 
@@ -153,3 +154,46 @@ def _inspect_original_var_name(var):
 
     except Exception:
         pass
+
+
+class _NumpyArrayWithUUID(np.ndarray):
+    """
+    An numpy array with additional attributes.
+    See https://numpy.org/doc/stable/user/basics.subclassing.html#simple-example-adding-an-extra-attribute-to-ndarray
+    for reference.
+    """
+    def __new__(cls, input_array, uuid=None):
+        # Input array is an already formed ndarray instance
+        # We first cast to be our class type
+        obj = np.asarray(input_array).view(cls)
+        # add the new attribute to the created instance
+        obj._mlflow_uuid = uuid
+        # Finally, we must return the newly created object:
+        return obj
+
+    def __array_finalize__(self, obj):
+        # see InfoArray.__array_finalize__ for comments
+        if obj is None: return
+        self.info = getattr(obj, '_mlflow_uuid', None)
+
+
+def _assign_obj_uuid(obj):
+    from uuid import uuid4
+    """
+    assign an object with uuid. Return a tuple of (obj, uuid)
+    """
+    obj_uuid = uuid4().int
+    if isinstance(obj, np.ndarray):
+        # numpy object cannot add new attributes directly.
+        # Use the approach described here:
+        # https://numpy.org/doc/stable/user/basics.subclassing.html#simple-example-adding-an-extra-attribute-to-ndarray
+        return _NumpyArrayWithUUID(obj, obj_uuid), obj_uuid
+    try:
+        obj._mlflow_uuid = obj_uuid
+        return obj, obj_uuid
+    except Exception:
+        return obj, None
+
+
+def _get_obj_uuid(obj):
+    return getattr(obj, '_mlflow_uuid', default=None)

@@ -28,7 +28,7 @@ from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils import _inspect_original_var_name
+from mlflow.utils import _assign_obj_uuid, _get_obj_uuid, _inspect_original_var_name
 from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
@@ -509,7 +509,11 @@ class _AutologTrainingStatus:
         return CallScope()
 
     def get_run_id_for_model(self, model):
-        return self.model_id_to_run_id_map.get(id(model), None)
+        model_uuid = _get_obj_uuid(model)
+        if model_uuid:
+            return self.model_id_to_run_id_map.get(model_uuid, None)
+        else:
+            return None
 
     def should_log_eval_metrics(self):
         return not self.scope_flag_dict[self.fit_scope_key] and \
@@ -522,7 +526,9 @@ class _AutologTrainingStatus:
         So that in following metric autologging, the metric will be logged into the registered
         run_id
         """
-        self.model_id_to_run_id_map[id(model)] = run_id
+        obj, model_uuid = _assign_obj_uuid(model)
+        if obj is model and model_uuid:
+            self.model_id_to_run_id_map[model_uuid] = run_id
 
     def register_prediction_result(self, model, eval_dataset_name, predict_result):
         """
@@ -539,8 +545,14 @@ class _AutologTrainingStatus:
         With this map `dataset_id_to_dataset_name_and_model_id`, in following patched metric API,
         we can query the eval dataset name and the model id via the `y_pred` argument instance.
         """
-        value = (eval_dataset_name, id(model))
-        self.pred_result_id_to_dataset_name_and_model_id[id(predict_result)] = value
+        model_uuid = _get_obj_uuid(model)
+        if model_uuid:
+            value = (eval_dataset_name, model_uuid)
+            predict_result, prediction_result_uuid = _assign_obj_uuid(predict_result)
+            self.pred_result_id_to_dataset_name_and_model_id[prediction_result_uuid] = value
+            return predict_result
+        else:
+            return predict_result
 
     def get_eval_dataset_name_and_run_id_from_metric_api_arglist(self, metric_api_call_arg_list):
         """
@@ -553,8 +565,9 @@ class _AutologTrainingStatus:
         #    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.silhouette_score.html#sklearn.metrics.silhouette_score
         dataset_id_list = self.pred_result_id_to_dataset_name_and_model_id.keys()
         for arg in metric_api_call_arg_list:
-            if id(arg) in dataset_id_list:
-                dataset_name, model_id = self.pred_result_id_to_dataset_name_and_model_id[id(arg)]
+            arg_uuid = _get_obj_uuid(arg)
+            if arg_uuid and arg_uuid in dataset_id_list:
+                dataset_name, model_id = self.pred_result_id_to_dataset_name_and_model_id[arg_uuid]
                 return dataset_name, self.model_id_to_run_id_map.get(model_id, None)
         return None, None
 
@@ -1034,7 +1047,7 @@ def autolog(
                     status.get_run_id_for_model(self):
                 eval_dataset = args[0] if len(args) >= 1 else kwargs.get('X')
                 eval_dataset_name = _inspect_dataset_var_name(eval_dataset)
-                status.register_prediction_result(
+                predict_result = status.register_prediction_result(
                     self, eval_dataset_name, predict_result)
             return predict_result
         else:
