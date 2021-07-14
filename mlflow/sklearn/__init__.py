@@ -1049,17 +1049,20 @@ def autolog(
 
     def patched_predict(original, self, *args, **kwargs):
         if _SklearnTrainingSession.in_top_level():
+            print(f'DBG: patched_predict # 1')
             predict_result = original(self, *args, **kwargs)
             status = _get_autolog_training_status()
             if status.should_log_eval_metrics() and \
                     status.get_run_id_for_model(self):
+                print(f'DBG: patched_predict # 1.5')
                 eval_dataset = args[0] if len(args) >= 1 else kwargs.get('X')
                 eval_dataset_name = _inspect_dataset_var_name(eval_dataset)
                 predict_result = status.register_prediction_result(
                     self, eval_dataset_name, predict_result)
-            print(f'DBG: patched_predict result uuid {_get_obj_uuid(predict_result)}')
-            return 1001
+            print(f'DBG: patched_predict #2 result uuid {_get_obj_uuid(predict_result)}')
+            return predict_result
         else:
+            print(f'DBG: patched_predict # 3')
             return original(self, *args, **kwargs)
 
     def patched_metric_api(original, *args, **kwargs):
