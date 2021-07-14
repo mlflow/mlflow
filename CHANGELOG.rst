@@ -12,7 +12,7 @@ Features:
 - MLflow UI updates (#4490, @sunishsheth2009)
   - Add i18n support.
   - Move metric columns before parameter and tag columns in the runs table.
-  - Change the display format of `startTime` to elapsed time in the runs table.
+  - Change the display format of start time to elapsed time (e.g. 3 minutes ago) from timestamp (e.g. 2021-07-14 14:02:10) in the runs table.
 
 Bug fixes and documentation updates:
 
