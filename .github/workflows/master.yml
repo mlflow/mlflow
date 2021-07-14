@@ -102,10 +102,10 @@ jobs:
         # Hack to get around this issue:
         # https://stat.ethz.ch/pipermail/r-package-devel/2020q3/005930.html
         #
-        # By setting this environment variable to false, we can skip the system clock check
-        # that relies on two external web APIs and fails when they are unavailable:
+        # The system clock check during `R CMD check` relies on two external web APIs and fails
+        # when they are unavailable. By setting `_R_CHECK_SYSTEM_CLOCK_` to FALSE, we can skip it:
         # https://github.com/wch/r-source/blob/59a1965239143ca6242b9cc948d8834e1194e84a/src/library/tools/R/check.R#L511
-        _R_CHECK_SYSTEM_CLOCK_: false
+        _R_CHECK_SYSTEM_CLOCK_: FALSE
       run: |
         export LINTR_COMMENT_BOT=false
         cd mlflow/R/mlflow/tests
