@@ -78,6 +78,7 @@ jobs:
           else
             python_version=3.6
           fi
+          $CONDA/bin/conda search python | grep $python_version
           latest_micro_version=$($CONDA/bin/conda search python | grep $python_version | tail -1 | tr -s ' ' | cut -d' ' -f2)
           echo "::set-output name=python-version::$latest_micro_version"
       - uses: actions/setup-python@v2
