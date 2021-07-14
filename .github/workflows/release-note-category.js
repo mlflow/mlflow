@@ -33,7 +33,7 @@ module.exports = async ({ core, context, github }) => {
     .map(({ name }) => name)
     .filter(name => releaseNoteLabels.includes(name));
 
-  console.log("release note category labels applied to this PR:");
+  console.log("Release note category labels applied to this PR:");
   console.log(appliedLabels);
 
   // If no release note category label is applied to this PR, set the action status to "failed"
@@ -45,7 +45,7 @@ module.exports = async ({ core, context, github }) => {
     const anchorUrl = `${pr_url}#user-content-${anchorName}`;
     const message = [
       "No release note category label is applied to this PR. ",
-      `Please select a checkbox in the release note category section: ${anchorUrl}, `,
+      `Please select a checkbox in the release note category section: ${anchorUrl} `,
       "or manually apply a release note category label (e.g. 'rn/bug-fix') ",
       "if you're a maintainer of this repository. ",
       "If this workflow failed when a release note category label has been already applied, ",
