@@ -11,7 +11,7 @@ Features:
 - Add support for setting tags while resuming a run (#4497, @dbczumar)
 - MLflow UI updates (#4490, @sunishsheth2009)
 
-  - Add i18n support.
+  - Add framework for internationalization support.
   - Move metric columns before parameter and tag columns in the runs table.
   - Change the display format of run start time to elapsed time (e.g. 3 minutes ago) from timestamp (e.g. 2021-07-14 14:02:10) in the runs table.
 
