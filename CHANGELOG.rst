@@ -19,7 +19,7 @@ Bug fixes and documentation updates:
 
 - Fix a bug causing MLflow UI to crash when sorting a column containing both `NaN` and empty values (#3409, @harupy)
 
-Small bug fixes and doc updates (#4541, #4534, #4533, #4517, #4508, #4513, #4512, #4509, #4503, #4486, #4493, #4469, @harupy; #4458, @KasirajanA; #4501, @jimmyxu-db; #4521, #4515, @jerrylian-db; #4359, @shrinath-suresh; #4544, @WeichenXu123; #4549, @smurching; #4554, @derkomai; #4506, @tomasatdatabricks; #4551, #4516, #4494, @dbczumar, @dbczumar, #4511, @keypointt)
+Small bug fixes and doc updates (#4541, #4534, #4533, #4517, #4508, #4513, #4512, #4509, #4503, #4486, #4493, #4469, @harupy; #4458, @KasirajanA; #4501, @jimmyxu-db; #4521, #4515, @jerrylian-db; #4359, @shrinath-suresh; #4544, @WeichenXu123; #4549, @smurching; #4554, @derkomai; #4506, @tomasatdatabricks; #4551, #4516, #4494, @dbczumar; #4511, @keypointt)
 
 1.18.0 (2021-06-18)
 -------------------
