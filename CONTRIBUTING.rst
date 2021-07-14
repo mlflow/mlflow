@@ -149,6 +149,7 @@ If you plan on doing development and testing, you will also need to install the 
     pip install -r dev-requirements.txt
     pip install -r test-requirements.txt
     pip install -e .[extras]  # installs mlflow from current checkout
+    pip install -e tests/resources/mlflow-test-plugin # installs `mlflow-test-plugin` that is required for running certain MLflow tests
 
 You may need to run ``conda install cmake`` for the test requirements to properly install, as ``onnx`` needs ``cmake``.
 
