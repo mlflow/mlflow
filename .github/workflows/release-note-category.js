@@ -48,7 +48,7 @@ module.exports = async ({ core, context, github }) => {
       `Please select a checkbox in the release note category section: ${anchorUrl} `,
       "or manually apply a release note category label (e.g. 'rn/bug-fix') ",
       "if you're a maintainer of this repository. ",
-      "If this workflow failed when a release note category label has been already applied, ",
+      "If this workflow failed when a release note category label is already applied, ",
       "please re-run it.",
     ].join("");
     core.setFailed(message);
