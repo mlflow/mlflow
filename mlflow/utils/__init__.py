@@ -196,4 +196,4 @@ def _assign_obj_uuid(obj):
 
 
 def _get_obj_uuid(obj):
-    return getattr(obj, '_mlflow_uuid', default=None)
+    return getattr(obj, '_mlflow_uuid', None)
