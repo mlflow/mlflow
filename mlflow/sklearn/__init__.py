@@ -568,11 +568,15 @@ class _AutologTrainingStatus:
         #    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.roc_auc_score.html#sklearn.metrics.roc_auc_score
         #    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.silhouette_score.html#sklearn.metrics.silhouette_score
         dataset_id_list = self.pred_result_id_to_dataset_name_and_model_id.keys()
+        print(f'DGB: get_eval_dataset_name: # 1')
         for arg in metric_api_call_arg_list:
             arg_uuid = _get_obj_uuid(arg)
+            print(f'DGB: get_eval_dataset_name: # 2, arg_uuid={arg_uuid}')
             if arg_uuid and arg_uuid in dataset_id_list:
+                print(f'DGB: get_eval_dataset_name: # 3')
                 dataset_name, model_id = self.pred_result_id_to_dataset_name_and_model_id[arg_uuid]
                 return dataset_name, self.model_id_to_run_id_map.get(model_id, None)
+        print(f'DGB: get_eval_dataset_name: # 4')
         return None, None
 
 
@@ -1062,7 +1066,6 @@ def autolog(
             status = _get_autolog_training_status()
             metric = original(*args, **kwargs)
 
-            print('DGB: run patched_metric_api #1')
             if status.should_log_eval_metrics() and np.isscalar(metric):
                 print('DGB: run patched_metric_api #2')
                 metric_name = original.__name__
@@ -1071,6 +1074,7 @@ def autolog(
                     _autolog_training_status.get_eval_dataset_name_and_run_id_from_metric_api_arglist(
                         arg_list
                     )
+                print(f'DGB: patched_metric_api: eval_dataset_name={eval_dataset_name}, run_id={run_id}')
                 if eval_dataset_name and run_id:
                     print('DGB: run patched_metric_api #4')
                     _log_metric_into_run(run_id, f'{metric_name}_on_{eval_dataset_name}', metric)
