@@ -546,10 +546,14 @@ class _AutologTrainingStatus:
         we can query the eval dataset name and the model id via the `y_pred` argument instance.
         """
         model_uuid = _get_obj_uuid(model)
+        print('DGB: register_prediction_result # 1')
         if model_uuid:
+            print('DGB: register_prediction_result # 2')
             value = (eval_dataset_name, model_uuid)
             predict_result, prediction_result_uuid = _assign_obj_uuid(predict_result)
-            self.pred_result_id_to_dataset_name_and_model_id[prediction_result_uuid] = value
+            if prediction_result_uuid:
+                print('DGB: register_prediction_result # 3')
+                self.pred_result_id_to_dataset_name_and_model_id[prediction_result_uuid] = value
             return predict_result
         else:
             return predict_result
