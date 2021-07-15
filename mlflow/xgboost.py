@@ -35,9 +35,10 @@ from mlflow.models.utils import _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import (
     _mlflow_conda_env,
-    _log_pip_requirements,
-    _parse_pip_requirements,
     _validate_env_arguments,
+    _process_pip_requirements,
+    _process_conda_env,
+    _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
 )
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -168,6 +169,8 @@ def save_model(
     """
     import xgboost as xgb
 
+    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise MlflowException("Path '{}' already exists".format(path))
@@ -184,35 +187,25 @@ def save_model(
     # Save an XGBoost model
     xgb_model.save_model(model_data_path)
 
-    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+    conda_env, pip_requirements, pip_constraints = (
+        _process_pip_requirements(
+            pip_requirements, extra_pip_requirements, _get_default_pip_requirements(),
+        )
+        if conda_env is None
+        else _process_conda_env(conda_env)
+    )
 
     conda_env_subpath = "conda.yaml"
-    if conda_env is None:
-        # TODO: Consider pulling these lines out in a function
-        # ====================================================
-        if pip_requirements is not None:
-            pip_reqs, constraints = _parse_pip_requirements(pip_requirements)
-        elif extra_pip_requirements is not None:
-            extra_pip_requirements, constraints = _parse_pip_requirements(extra_pip_requirements)
-            pip_reqs = _get_default_pip_requirements() + extra_pip_requirements
-        else:
-            constraints = None
-            pip_reqs = _get_default_pip_requirements()
-
-        if constraints:
-            pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
-            with open(os.path.join(path, _CONSTRAINTS_FILE_NAME), "w") as f:
-                f.write("\n".join(constraints))
-        # ====================================================
-
-        conda_env = _mlflow_conda_env(additional_pip_deps=pip_reqs)
-    elif not isinstance(conda_env, dict):
-        with open(conda_env, "r") as f:
-            conda_env = yaml.safe_load(f)
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    _log_pip_requirements(conda_env, path)
+    for name, lines in {
+        _REQUIREMENTS_FILE_NAME: pip_requirements,
+        _CONSTRAINTS_FILE_NAME: pip_constraints,
+    }.items():
+        if lines:
+            with open(os.path.join(path, name), "w") as f:
+                f.write("\n".join(lines))
 
     pyfunc.add_to_model(
         mlflow_model, loader_module="mlflow.xgboost", data=model_data_subpath, env=conda_env_subpath

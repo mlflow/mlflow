@@ -73,15 +73,40 @@ def _mlflow_additional_pip_env(
         return requirements
 
 
+def _is_pip_deps(dep):
+    return isinstance(dep, dict) and "pip" in dep
+
+
 def _get_pip_deps(conda_env):
     """
     :return: The pip dependencies from the conda env
     """
     if conda_env is not None:
         for dep in conda_env["dependencies"]:
-            if isinstance(dep, dict) and "pip" in dep:
+            if _is_pip_deps(dep):
                 return dep["pip"]
     return []
+
+
+def _overwrite_pip_deps(conda_env, new_pip_deps):
+    """
+    Overwrites the pip dependencies in the given conda env dictionary.
+    """
+    deps = conda_env.get("dependencies", [])
+    new_deps = []
+    contains_pip_deps = False
+    # Preserve the location of the pip dependencies
+    for dep in deps:
+        if _is_pip_deps(dep):
+            contains_pip_deps = True
+            new_deps.append({"pip": new_pip_deps})
+        else:
+            new_deps.append(dep)
+
+    if not contains_pip_deps:
+        new_deps.append({"pip": new_pip_deps})
+
+    return {**conda_env, "dependencies": new_deps}
 
 
 def _log_pip_requirements(conda_env, path, requirements_file=_REQUIREMENTS_FILE_NAME):
@@ -165,3 +190,38 @@ def _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
             "Only one of `conda_env`, `pip_requirements`, and "
             "`extra_pip_requirements` can be specified"
         )
+
+
+def _process_pip_requirements(pip_requirements, extra_pip_requirements, default_pip_requirements):
+    constraints = []
+    if pip_requirements is not None:
+        pip_reqs, constraints = _parse_pip_requirements(pip_requirements)
+    elif extra_pip_requirements is not None:
+        extra_pip_requirements, constraints = _parse_pip_requirements(extra_pip_requirements)
+        pip_reqs = default_pip_requirements + extra_pip_requirements
+    else:
+        pip_reqs = default_pip_requirements
+
+    if "mlflow" not in pip_reqs:
+        pip_reqs.insert(0, "mlflow")
+
+    if constraints:
+        pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
+
+    conda_env = _mlflow_conda_env(additional_pip_deps=pip_reqs, install_mlflow=False)
+    return conda_env, pip_reqs, constraints
+
+
+def _process_conda_env(conda_env):
+    if isinstance(conda_env, str):
+        with open(conda_env, "r") as f:
+            conda_env = yaml.safe_load(f)
+
+    pip_reqs = _get_pip_deps(conda_env)
+    pip_reqs, constraints = _parse_pip_requirements(pip_reqs)
+
+    if constraints:
+        pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
+
+    conda_env = _overwrite_pip_deps(conda_env, pip_reqs)
+    return conda_env, pip_reqs, constraints
