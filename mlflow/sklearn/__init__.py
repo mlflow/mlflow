@@ -492,10 +492,8 @@ class _AutologTrainingStatus:
        This data structure is used for:
         * generating unique dataset name key when autologging metric
         * storing the dataset row samples, we need log it into metric_info artifact file.
-    (5) metric_api_call_info_map, it is a map, key is metric api function name,
-       and value is a list of call arguments string, the string format is like:
-        "arg1=value1,arg2=value2,...", will excludes non-scalar value arguments and default value
-        arguments.
+    (5) metric_api_call_arg_dict_list_map, it is a map, key is metric api function name,
+       and value is a list of call arguments dict.
     """
 
     fit_scope_key = 'fit'
@@ -511,7 +509,7 @@ class _AutologTrainingStatus:
             self.model_score_scope_key: False
         }
         self.eval_dataset_info_map = defaultdict(lambda: defaultdict(list))
-        self.metric_api_call_info_map = defaultdict(list)
+        self.metric_api_call_arg_dict_list_map = defaultdict(list)
 
     def call_scope(self, scope_key):
         class CallScope:
@@ -526,8 +524,9 @@ class _AutologTrainingStatus:
     def get_run_id_for_model(self, model):
         return self.model_id_to_run_id_map.get(model._mlflow_uuid, None)
 
-    def should_log_eval_metrics(self):
-        return not self.scope_flag_dict[self.fit_scope_key] and \
+    def should_log_eval_metrics(self, metric_value):
+        return np.isscalar(metric_value) and \
+            not self.scope_flag_dict[self.fit_scope_key] and \
             not self.scope_flag_dict[self.eval_and_log_metrics_scope_key] and \
             not self.scope_flag_dict[self.model_score_scope_key]
 
@@ -539,6 +538,49 @@ class _AutologTrainingStatus:
         """
         model._mlflow_uuid = uuid4()
         self.model_id_to_run_id_map[model._mlflow_uuid] = run_id
+
+    @staticmethod
+    def gen_name_with_index(name, index):
+        assert index >= 0
+        if index == 0:
+            return name
+        else:
+            return f'name_{index + 1}'
+
+    @staticmethod
+    def gen_dataset_sample_rows(eval_dataset):
+        n_sample = max(len(eval_dataset), INPUT_EXAMPLE_SAMPLE_ROWS)
+        return eval_dataset[:n_sample]
+
+    def register_eval_dataset(self, model, eval_dataset):
+        """
+        Register eval dataset into eval_dataset_info_map, it will do:
+         1. inspect eval dataset var name.
+         2. check whether eval_dataset_info_map already registered this eval dataset.
+            will check by object id and comparing row samples.
+            Note: only check object id is not sufficient, id may be reused.
+         3. register eval dataset (with id and row samples information)
+         4. return eval dataset name with index.
+        """
+        eval_dataset_name = _inspect_original_var_name(eval_dataset)
+        eval_dataset_id = id(eval_dataset)
+        if eval_dataset_name is None:
+            eval_dataset_name = 'unknown_dataset'
+
+        registered_dataset_list = self.eval_dataset_info_map[model._mlflow_uuid][eval_dataset_name]
+
+        row_samples = self.gen_dataset_sample_rows(eval_dataset)
+        index = len(registered_dataset_list)
+        for i, id_i, row_samples_i in enumerate(registered_dataset_list):
+            if eval_dataset_id == id_i and np.array_equal(row_samples, row_samples_i):
+                index = i
+                break
+
+        if index == len(registered_dataset_list):
+            # register new eval dataset
+            registered_dataset_list.append((eval_dataset_id, row_samples))
+
+        return self.gen_name_with_index(eval_dataset_name, index)
 
     def register_prediction_result(self, model, eval_dataset_name, predict_result):
         """
@@ -569,6 +611,44 @@ class _AutologTrainingStatus:
 
         return predict_result
 
+    def register_metric_api_call(self, metric_fn, call_pos_args, call_kwargs):
+        call_arg_list = list(call_pos_args) + list(call_kwargs.values())
+
+        dataset_id_list = self.pred_result_id_to_dataset_name_and_model_id.keys()
+        print(f'DGB: get_eval_dataset_name: # 1')
+
+        dataset_name = None
+        model_id = None
+
+        for arg in call_arg_list:
+            if id(arg) in dataset_id_list:
+                print(f'DGB: get_eval_dataset_name: # 3')
+                dataset_name, model_id = self.pred_result_id_to_dataset_name_and_model_id[id(arg)]
+                break
+
+        if dataset_name is None or model_id is None:
+            return None
+
+        run_id = self.model_id_to_run_id_map.get(model_id, None)
+        if run_id is None:
+            return None
+
+        call_arg_dict = _extract_metric_api_call_arg_dict(metric_fn, call_pos_args, call_kwargs)
+        metric_name = metric_fn.__name__
+
+        registered_call_arg_dict_list = self.metric_api_call_arg_dict_list_map[metric_name]
+
+        index = len(registered_call_arg_dict_list)
+        for i, call_arg_dict_i in enumerate(registered_call_arg_dict_list):
+            if call_arg_dict == call_arg_dict_i:
+                index = i
+                break
+
+        if index == len(registered_call_arg_dict_list):
+            registered_call_arg_dict_list.append(call_arg_dict)
+
+        return self.gen_name_with_index(metric_name, index), run_id
+
     def get_eval_dataset_name_and_run_id_from_metric_api_arglist(self, metric_api_call_arg_list):
         """
         Given the arguments list of metric API, find the registered dataset name and model id.
@@ -597,14 +677,6 @@ _metric_api_excluding_list = [
 ]
 
 
-def _inspect_dataset_var_name(X):
-    name = _inspect_original_var_name(X)
-    if name:
-        return name
-    else:
-        return f'dataset_{id(X)}'
-
-
 def _log_metric_into_run(run_id, key, value):
     # Note: if the case log the same metric key multiple times,
     #  newer value will overwrite old value
@@ -615,6 +687,51 @@ def _log_metric_into_run(run_id, key, value):
         key=key,
         value=value
     )
+
+
+def _extract_metric_api_call_arg_dict(metric_fn, call_pos_args, call_kwargs):
+    """
+    Extract argument dict from a metric API call. It will do:
+      * inspect the argument name for positional arguments
+      * fill default argument value
+      * filter out non-scalar arguments (dataset arguments)
+    and return a dict (key is argument name and value is argument) of call arguments
+    """
+    sig = inspect.signature(metric_fn)
+    sig_args = list(sig.parameters.items())
+
+    if sig_args[-1][1].kind == sig_args[-1][1].VAR_KEYWORD:
+        sig_args.pop()
+
+    if sig_args[-1][1].kind == sig_args[-1][1].VAR_POSITIONAL:
+        sig_args.pop()
+
+    # inspect arg default values
+    default_arg_dict = {}
+    for sig_arg in sig_args:
+        arg_name = sig_arg[0]
+        default_val = sig_arg[1].default
+        if default_val is not inspect.Parameter.empty:
+            default_arg_dict[arg_name] = default_val
+
+    arg_dict = {}
+    assert len(call_pos_args) <= len(sig_args)
+    for i in len(call_pos_args):
+        arg_dict[sig_args[i][0]] = call_pos_args[i]
+
+    arg_dict.update(call_kwargs)
+
+    # fill default arg values into arg dict
+    for k, v in default_arg_dict:
+        if k not in arg_dict:
+            arg_dict[k] = v
+
+    # filter out non scalar value args. (they are args of dataset)
+    for k, v in arg_dict:
+        if v is not None and not np.isscalar(v):
+            del arg_dict[k]
+
+    return arg_dict
 
 
 @experimental
@@ -1065,7 +1182,7 @@ def autolog(
                     status.get_run_id_for_model(self):
                 print(f'DBG: patched_predict # 1.5')
                 eval_dataset = args[0] if len(args) >= 1 else kwargs.get('X')
-                eval_dataset_name = _inspect_dataset_var_name(eval_dataset)
+                eval_dataset_name = status.register_eval_dataset(self, eval_dataset)
                 predict_result = status.register_prediction_result(
                     self, eval_dataset_name, predict_result)
             return predict_result
@@ -1078,16 +1195,12 @@ def autolog(
             status = _get_autolog_training_status()
             metric = original(*args, **kwargs)
 
-            if status.should_log_eval_metrics() and np.isscalar(metric):
+            if status.should_log_eval_metrics(metric):
                 print('DGB: run patched_metric_api #2')
                 metric_name = original.__name__
-                arg_list = list(args) + list(kwargs.values())
-                eval_dataset_name, run_id = \
-                    _autolog_training_status.get_eval_dataset_name_and_run_id_from_metric_api_arglist(
-                        arg_list
-                    )
-                print(f'DGB: patched_metric_api: eval_dataset_name={eval_dataset_name}, run_id={run_id}')
-                if eval_dataset_name and run_id:
+                register_result = status.register_metric_api_call(original, args, kwargs)
+                if register_result:
+                    eval_dataset_name, run_id = register_result
                     print('DGB: run patched_metric_api #4')
                     _log_metric_into_run(run_id, f'{metric_name}_on_{eval_dataset_name}', metric)
 
@@ -1095,7 +1208,7 @@ def autolog(
         else:
             return original(*args, **kwargs)
 
-    # we still need patch model.score method because:
+    # we need patch model.score method because:
     #  some model.score() implementation won't call metric APIs in `sklearn.metrics`
     #  e.g.
     #  https://github.com/scikit-learn/scikit-learn/blob/82df48934eba1df9a1ed3be98aaace8eada59e6e/sklearn/covariance/_empirical_covariance.py#L220
@@ -1105,12 +1218,11 @@ def autolog(
             with status.call_scope(status.model_score_scope_key):
                 score_value = original(self, *args, **kwargs)
 
-            if status.should_log_eval_metrics() and \
-                    status.get_run_id_for_model(self) and \
-                    np.isscalar(score_value):
+            if status.should_log_eval_metrics(score_value) and \
+                    status.get_run_id_for_model(self):
 
                 eval_dataset = args[0] if len(args) >= 1 else kwargs.get('X')
-                eval_dataset_name = _inspect_dataset_var_name(eval_dataset)
+                eval_dataset_name = status.register_eval_dataset(self, eval_dataset)
                 metric_name = f'{self.__class__.__name__}_score'
 
                 run_id = status.get_run_id_for_model(self)
