@@ -38,6 +38,7 @@ from mlflow.utils.environment import (
     _log_pip_requirements,
     _parse_pip_requirements,
     _validate_env_arguments,
+    _CONSTRAINTS_FILE_NAME,
 )
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
@@ -187,9 +188,23 @@ def save_model(
 
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
-        pip_requirements = _parse_pip_requirements(pip_requirements)
-        extra_pip_requirements = _parse_pip_requirements(extra_pip_requirements)
-        pip_reqs = pip_requirements or (_get_default_pip_requirements() + extra_pip_requirements)
+        # TODO: Consider pulling these lines out in a function
+        # ====================================================
+        if pip_requirements is not None:
+            pip_reqs, constraints = _parse_pip_requirements(pip_requirements)
+        elif extra_pip_requirements is not None:
+            extra_pip_requirements, constraints = _parse_pip_requirements(extra_pip_requirements)
+            pip_reqs = _get_default_pip_requirements() + extra_pip_requirements
+        else:
+            constraints = None
+            pip_reqs = _get_default_pip_requirements()
+
+        if constraints:
+            pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
+            with open(os.path.join(path, _CONSTRAINTS_FILE_NAME), "w") as f:
+                f.write("\n".join(constraints))
+        # ====================================================
+
         conda_env = _mlflow_conda_env(additional_pip_deps=pip_reqs)
     elif not isinstance(conda_env, dict):
         with open(conda_env, "r") as f:
@@ -216,7 +231,7 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements=None,
     extra_pip_requirements=None,
-    **kwargs
+    **kwargs,
 ):
     """
     Log an XGBoost model as an MLflow artifact for the current run.
@@ -306,7 +321,7 @@ def log_model(
         await_registration_for=await_registration_for,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
-        **kwargs
+        **kwargs,
     )
 
 

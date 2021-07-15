@@ -11,6 +11,9 @@ channels:
   - conda-forge
 """
 
+_REQUIREMENTS_FILE_NAME = "requirements.txt"
+_CONSTRAINTS_FILE_NAME = "constraints.txt"
+
 
 def _mlflow_conda_env(
     path=None,
@@ -81,7 +84,7 @@ def _get_pip_deps(conda_env):
     return []
 
 
-def _log_pip_requirements(conda_env, path, requirements_file="requirements.txt"):
+def _log_pip_requirements(conda_env, path, requirements_file=_REQUIREMENTS_FILE_NAME):
     pip_deps = _get_pip_deps(conda_env)
     _mlflow_additional_pip_env(pip_deps, path=os.path.join(path, requirements_file))
 
@@ -94,10 +97,10 @@ def _parse_pip_requirements(pip_requirements):
         (e.g. ``["scikit-learn", "-r requirements.txt"]``) or the string path to a pip requirements
         file on the local filesystem (e.g. ``"requirements.txt"``). If ``None``, an empty list will
         be returned.
-    :return: A list of pip requirement strings.
+    :return: A tuple of parsed requirements and constraints.
     """
     if pip_requirements is None:
-        return []
+        return [], []
 
     def _is_string(x):
         return isinstance(x, str)
@@ -110,7 +113,15 @@ def _parse_pip_requirements(pip_requirements):
             return False
 
     if _is_string(pip_requirements):
-        return list(_parse_requirements(pip_requirements))
+        requirements = []
+        constraints = []
+        for req_or_con in _parse_requirements(pip_requirements, is_constraint=False):
+            if req_or_con.is_constraint:
+                constraints.append(req_or_con.req_str)
+            else:
+                requirements.append(req_or_con.req_str)
+
+        return requirements, constraints
     elif _is_iterable(pip_requirements) and all(map(_is_string, pip_requirements)):
         try:
             # Create a temporary requirements file in the current working directory
