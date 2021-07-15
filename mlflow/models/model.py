@@ -94,9 +94,6 @@ class Model(object):
         databricks_runtime = get_databricks_runtime()
         if databricks_runtime:
             res["databricks_runtime"] = databricks_runtime
-
-        if not res.get("databricks_runtime"):
-            res.pop("databricks_runtime")
         if self.signature is not None:
             res["signature"] = self.signature.to_dict()
         if self.saved_input_example_info is not None:
