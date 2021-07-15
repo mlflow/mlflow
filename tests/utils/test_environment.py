@@ -57,21 +57,24 @@ def test_mlflow_conda_env_includes_pip_dependencies_and_pip_is_specified(pip_spe
 
 
 def test_parse_pip_requirements(tmpdir):
-    assert _parse_pip_requirements(None) == []
-    assert _parse_pip_requirements([]) == []
+    assert _parse_pip_requirements(None) == ([], [])
+    assert _parse_pip_requirements([]) == ([], [])
     # Without version specifiers
-    assert _parse_pip_requirements(["a", "b"]) == ["a", "b"]
+    assert _parse_pip_requirements(["a", "b"]) == (["a", "b"], [])
     # With version specifiers
-    assert _parse_pip_requirements(["a==0.0", "b>1.1"]) == ["a==0.0", "b>1.1"]
+    assert _parse_pip_requirements(["a==0.0", "b>1.1"]) == (["a==0.0", "b>1.1"], [])
     # Environment marker (https://www.python.org/dev/peps/pep-0508/#environment-markers)
-    assert _parse_pip_requirements(['a; python_version < "3.8"']) == ['a; python_version < "3.8"']
+    assert _parse_pip_requirements(['a; python_version < "3.8"']) == (
+        ['a; python_version < "3.8"'],
+        [],
+    )
     # GitHub URI
     mlflow_repo_uri = "git+https://github.com/mlflow/mlflow.git"
-    assert _parse_pip_requirements([mlflow_repo_uri]) == [mlflow_repo_uri]
+    assert _parse_pip_requirements([mlflow_repo_uri]) == ([mlflow_repo_uri], [])
     # Local file
     fake_whl = tmpdir.join("fake.whl")
     fake_whl.write("")
-    assert _parse_pip_requirements([fake_whl.strpath]) == [fake_whl.strpath]
+    assert _parse_pip_requirements([fake_whl.strpath]) == ([fake_whl.strpath], [])
 
 
 def test_parse_pip_requirements_with_relative_requirements_files(request, tmpdir):
@@ -79,15 +82,15 @@ def test_parse_pip_requirements_with_relative_requirements_files(request, tmpdir
         os.chdir(tmpdir)
         f1 = tmpdir.join("requirements1.txt")
         f1.write("b")
-        assert _parse_pip_requirements(f1.basename) == ["b"]
-        assert _parse_pip_requirements(["a", f"-r {f1.basename}"]) == ["a", "b"]
+        assert _parse_pip_requirements(f1.basename) == (["b"], [])
+        assert _parse_pip_requirements(["a", f"-r {f1.basename}"]) == (["a", "b"], [])
 
         f2 = tmpdir.join("requirements2.txt")
         f3 = tmpdir.join("requirements3.txt")
         f2.write(f"b\n-r {f3.basename}")
         f3.write("c")
-        assert _parse_pip_requirements(f2.basename) == ["b", "c"]
-        assert _parse_pip_requirements(["a", f"-r {f2.basename}"]) == ["a", "b", "c"]
+        assert _parse_pip_requirements(f2.basename) == (["b", "c"], [])
+        assert _parse_pip_requirements(["a", f"-r {f2.basename}"]) == (["a", "b", "c"], [])
     finally:
         os.chdir(request.config.invocation_dir)
 
@@ -95,15 +98,25 @@ def test_parse_pip_requirements_with_relative_requirements_files(request, tmpdir
 def test_parse_pip_requirements_with_absolute_requirements_files(tmpdir):
     f1 = tmpdir.join("requirements1.txt")
     f1.write("b")
-    assert _parse_pip_requirements(f1.strpath) == ["b"]
-    assert _parse_pip_requirements(["a", f"-r {f1.strpath}"]) == ["a", "b"]
+    assert _parse_pip_requirements(f1.strpath) == (["b"], [])
+    assert _parse_pip_requirements(["a", f"-r {f1.strpath}"]) == (["a", "b"], [])
 
     f2 = tmpdir.join("requirements2.txt")
     f3 = tmpdir.join("requirements3.txt")
     f2.write(f"b\n-r {f3.strpath}")
     f3.write("c")
-    assert _parse_pip_requirements(f2.strpath) == ["b", "c"]
-    assert _parse_pip_requirements(["a", f"-r {f2.strpath}"]) == ["a", "b", "c"]
+    assert _parse_pip_requirements(f2.strpath) == (["b", "c"], [])
+    assert _parse_pip_requirements(["a", f"-r {f2.strpath}"]) == (["a", "b", "c"], [])
+
+
+def test_parse_pip_requirements_with_constraints_files(tmpdir):
+    con_file = tmpdir.join("constraints.txt")
+    con_file.write("b")
+    assert _parse_pip_requirements(["a", f"-c {con_file.strpath}"]) == (["a"], ["b"])
+
+    req_file = tmpdir.join("requirements.txt")
+    req_file.write(f"-c {con_file.strpath}\n")
+    assert _parse_pip_requirements(["a", f"-r {req_file.strpath}"]) == (["a"], ["b"])
 
 
 def test_parse_pip_requirements_ignores_comments_and_blank_lines(tmpdir):
@@ -116,12 +129,12 @@ def test_parse_pip_requirements_ignores_comments_and_blank_lines(tmpdir):
     ]
     f = tmpdir.join("requirements.txt")
     f.write("\n".join(reqs))
-    assert _parse_pip_requirements(reqs) == ["a"]
-    assert _parse_pip_requirements(f.strpath) == ["a"]
+    assert _parse_pip_requirements(reqs) == (["a"], [])
+    assert _parse_pip_requirements(f.strpath) == (["a"], [])
 
 
 def test_parse_pip_requirements_removes_temporary_requirements_file():
-    assert _parse_pip_requirements(["a"]) == ["a"]
+    assert _parse_pip_requirements(["a"]) == (["a"], [])
     assert all(not x.endswith(".tmp.requirements.txt") for x in os.listdir())
 
     with pytest.raises(Exception):
