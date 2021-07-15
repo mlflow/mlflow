@@ -57,7 +57,15 @@ def test_model_save_load():
 
 class TestFlavor(object):
     @classmethod
-    def save_model(cls, path, mlflow_model, signature=None, input_example=None):
+    def save_model(
+        cls,
+        path,
+        mlflow_model,
+        signature=None,
+        input_example=None,
+        pip_requirements=None,  # pylint: disable=unused-argument
+        additional_pip_requirements=None,  # pylint: disable=unused-argument
+    ):
         mlflow_model.flavors["flavor1"] = {"a": 1, "b": 2}
         mlflow_model.flavors["flavor2"] = {"x": 1, "y": 2}
         os.makedirs(path)

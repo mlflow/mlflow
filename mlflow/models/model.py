@@ -143,6 +143,8 @@ class Model(object):
         flavor,
         registered_model_name=None,
         await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+        pip_requirements=None,
+        additional_pip_requirements=None,
         **kwargs
     ):
         """
@@ -184,7 +186,13 @@ class Model(object):
             local_path = tmp.path("model")
             run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id)
-            flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
+            flavor.save_model(
+                path=local_path,
+                mlflow_model=mlflow_model,
+                pip_requirements=pip_requirements,
+                additional_pip_requirements=additional_pip_requirements,
+                **kwargs
+            )
             mlflow.tracking.fluent.log_artifacts(local_path, artifact_path)
             try:
                 mlflow.tracking.fluent._record_logged_model(mlflow_model)
