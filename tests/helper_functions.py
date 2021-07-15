@@ -22,7 +22,6 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import read_yaml, write_yaml
 from mlflow.utils.environment import _get_pip_deps
 
-
 LOCALHOST = "127.0.0.1"
 
 
