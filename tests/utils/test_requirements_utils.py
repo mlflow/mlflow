@@ -155,7 +155,6 @@ line-cont-eof\
             "rel-req-xxx",
             "rel-req-yyy",
             "abs-req-zzz",
-            *expected_cons,
             "line-cont==1.0",
             "line-cont-space == 1.0",
             "line-cont-blank",
@@ -164,9 +163,9 @@ line-cont-eof\
 
         parsed_reqs = list(_parse_requirements(root_req.basename, is_constraint=False))
         pip_reqs = list(pip_parse_requirements(root_req.basename, session=PipSession()))
-        # Requirements + Constraints
-        assert [r.req_str for r in parsed_reqs] == expected_reqs
-        assert [r.requirement for r in pip_reqs] == expected_reqs
+        # Requirements
+        assert [r.req_str for r in parsed_reqs if not r.is_constraint] == expected_reqs
+        assert [r.requirement for r in pip_reqs if not r.constraint] == expected_reqs
         # Constraints
         assert [r.req_str for r in parsed_reqs if r.is_constraint] == expected_cons
         assert [r.requirement for r in pip_reqs if r.constraint] == expected_cons
