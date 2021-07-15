@@ -486,11 +486,10 @@ def safe_patch(
                         kwargs,
                     )
 
-                    patch_fn_result = None
                     if patch_is_class:
-                        patch_fn_result = patch_function.call(call_original, *args, **kwargs)
+                        patch_function.call(call_original, *args, **kwargs)
                     else:
-                        patch_fn_result = patch_function(call_original, *args, **kwargs)
+                        patch_function(call_original, *args, **kwargs)
 
                     session.state = "succeeded"
 
@@ -539,7 +538,7 @@ def safe_patch(
                         )
 
                 if original_has_been_called:
-                    return patch_fn_result if patch_fn_result is not None else original_result
+                    return original_result
                 else:
                     return original(*args, **kwargs)
 

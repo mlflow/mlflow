@@ -17,6 +17,8 @@ import numpy as np
 import pickle
 import yaml
 import warnings
+from uuid import uuid4
+import weakref
 
 import mlflow
 from mlflow import pyfunc
@@ -28,7 +30,6 @@ from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils import _assign_obj_uuid, _get_obj_uuid, _inspect_original_var_name
 from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
@@ -509,11 +510,7 @@ class _AutologTrainingStatus:
         return CallScope()
 
     def get_run_id_for_model(self, model):
-        model_uuid = _get_obj_uuid(model)
-        if model_uuid:
-            return self.model_id_to_run_id_map.get(model_uuid, None)
-        else:
-            return None
+        return self.model_id_to_run_id_map.get(model._mlflow_uuid, None)
 
     def should_log_eval_metrics(self):
         return not self.scope_flag_dict[self.fit_scope_key] and \
@@ -526,9 +523,8 @@ class _AutologTrainingStatus:
         So that in following metric autologging, the metric will be logged into the registered
         run_id
         """
-        obj, model_uuid = _assign_obj_uuid(model)
-        if obj is model and model_uuid:
-            self.model_id_to_run_id_map[model_uuid] = run_id
+        model._mlflow_uuid = uuid4()
+        self.model_id_to_run_id_map[model._mlflow_uuid] = run_id
 
     def register_prediction_result(self, model, eval_dataset_name, predict_result):
         """
@@ -545,18 +541,19 @@ class _AutologTrainingStatus:
         With this map `dataset_id_to_dataset_name_and_model_id`, in following patched metric API,
         we can query the eval dataset name and the model id via the `y_pred` argument instance.
         """
-        model_uuid = _get_obj_uuid(model)
-        print('DGB: register_prediction_result # 1')
-        if model_uuid:
-            print('DGB: register_prediction_result # 2')
-            value = (eval_dataset_name, model_uuid)
-            predict_result, prediction_result_uuid = _assign_obj_uuid(predict_result)
-            if prediction_result_uuid:
-                print('DGB: register_prediction_result # 3')
-                self.pred_result_id_to_dataset_name_and_model_id[prediction_result_uuid] = value
-            return predict_result
-        else:
-            return predict_result
+        value = (eval_dataset_name, model._mlflow_uuid)
+        prediction_result_id = id(predict_result)
+        self.pred_result_id_to_dataset_name_and_model_id[prediction_result_id] = value
+
+        def clean_id(id_):
+            _get_autolog_training_status().pred_result_id_to_dataset_name_and_model_id \
+                .pop(id_, None)
+
+        # When the `predict_result` object being GCed, its ID may be reused, so register a finalizer
+        # to clear the ID from the dict for preventing wrong ID mapping.
+        weakref.finalize(predict_result, clean_id, prediction_result_id)
+
+        return predict_result
 
     def get_eval_dataset_name_and_run_id_from_metric_api_arglist(self, metric_api_call_arg_list):
         """
@@ -570,11 +567,9 @@ class _AutologTrainingStatus:
         dataset_id_list = self.pred_result_id_to_dataset_name_and_model_id.keys()
         print(f'DGB: get_eval_dataset_name: # 1')
         for arg in metric_api_call_arg_list:
-            arg_uuid = _get_obj_uuid(arg)
-            print(f'DGB: get_eval_dataset_name: # 2, arg_uuid={arg_uuid}')
-            if arg_uuid and arg_uuid in dataset_id_list:
+            if id(arg) in dataset_id_list:
                 print(f'DGB: get_eval_dataset_name: # 3')
-                dataset_name, model_id = self.pred_result_id_to_dataset_name_and_model_id[arg_uuid]
+                dataset_name, model_id = self.pred_result_id_to_dataset_name_and_model_id[id(arg)]
                 return dataset_name, self.model_id_to_run_id_map.get(model_id, None)
         print(f'DGB: get_eval_dataset_name: # 4')
         return None, None
@@ -1059,7 +1054,6 @@ def autolog(
                 eval_dataset_name = _inspect_dataset_var_name(eval_dataset)
                 predict_result = status.register_prediction_result(
                     self, eval_dataset_name, predict_result)
-            print(f'DBG: patched_predict #2 result uuid {_get_obj_uuid(predict_result)}')
             return predict_result
         else:
             print(f'DBG: patched_predict # 3')
