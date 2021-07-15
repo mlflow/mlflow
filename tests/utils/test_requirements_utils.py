@@ -87,7 +87,7 @@ git+https://github.com/sub/dir#subdirectory=subdir
 -r {relative_req}
 --requirement {absolute_req}
 
-# Constraint files
+# Constraints files
 -c {relative_con}
 --constraint {absolute_con}
 
