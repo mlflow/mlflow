@@ -138,19 +138,19 @@ def _parse_pip_requirements(pip_requirements):
         )
 
 
-def _validate_env_arguments(conda_env, pip_requirements, additional_pip_requirements):
+def _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements):
     """
     Validates that only one or none of `conda_env`, `pip_requirements`, and
-    `additional_pip_requirements` is specified.
+    `extra_pip_requirements` is specified.
     """
     args = [
         conda_env,
         pip_requirements,
-        additional_pip_requirements,
+        extra_pip_requirements,
     ]
     specified = [arg for arg in args if arg is not None]
     if len(specified) > 1:
         raise ValueError(
             "Only one of `conda_env`, `pip_requirements`, and "
-            "`additional_pip_requirements` can be specified"
+            "`extra_pip_requirements` can be specified"
         )

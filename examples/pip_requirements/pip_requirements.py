@@ -1,6 +1,6 @@
 """
 This example demonstrates how to specify pip requirements using `pip_requirements` and
-`additional_pip_requirements` when logging a model via `mlflow.*.log_model`.
+`extra_pip_requirements` when logging a model via `mlflow.*.log_model`.
 """
 
 import tempfile
@@ -29,7 +29,7 @@ def main():
     with mlflow.start_run() as run:
         run_id = run.info.run_id
 
-        # Default (both `pip_requirements` and `additional_pip_requirements` are unspecified)
+        # Default (both `pip_requirements` and `extra_pip_requirements` are unspecified)
         artifact_path = "default"
         mlflow.xgboost.log_model(model, artifact_path)
         pip_reqs = get_pip_requirements(run_id, artifact_path)
@@ -42,9 +42,9 @@ def main():
         assert pip_reqs == ["mlflow", sklearn_req], pip_reqs
 
         # Add extra pip requirements on top of the default set of pip requirements
-        # using `additional_pip_requirements`
-        artifact_path = "additional_pip_requirements"
-        mlflow.xgboost.log_model(model, artifact_path, additional_pip_requirements=[sklearn_req])
+        # using `extra_pip_requirements`
+        artifact_path = "extra_pip_requirements"
+        mlflow.xgboost.log_model(model, artifact_path, extra_pip_requirements=[sklearn_req])
         pip_reqs = get_pip_requirements(run_id, artifact_path)
         assert pip_reqs == ["mlflow", xgb_req, sklearn_req], pip_reqs
 

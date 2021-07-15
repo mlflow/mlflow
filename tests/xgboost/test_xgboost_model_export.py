@@ -231,14 +231,12 @@ def test_save_model_with_pip_requirements(xgb_model, tmpdir):
 
 
 @pytest.mark.large
-def test_save_model_with_additional_pip_requirements(xgb_model, tmpdir):
+def test_save_model_with_extra_pip_requirements(xgb_model, tmpdir):
     # Path to a requirements file
     tmpdir1 = tmpdir.join("1")
     f = tmpdir.join("requirements.txt")
     f.write("a")
-    mlflow.xgboost.save_model(
-        xgb_model.model, tmpdir1.strpath, additional_pip_requirements=f.strpath
-    )
+    mlflow.xgboost.save_model(xgb_model.model, tmpdir1.strpath, extra_pip_requirements=f.strpath)
     _assert_pip_requirements(
         tmpdir1.strpath, ["mlflow", *mlflow.xgboost._get_default_pip_requirements(), "a"]
     )
@@ -246,7 +244,7 @@ def test_save_model_with_additional_pip_requirements(xgb_model, tmpdir):
     # List of requirements
     tmpdir2 = tmpdir.join("2")
     mlflow.xgboost.save_model(
-        xgb_model.model, tmpdir2.strpath, additional_pip_requirements=[f"-r {f.strpath}", "b"]
+        xgb_model.model, tmpdir2.strpath, extra_pip_requirements=[f"-r {f.strpath}", "b"]
     )
     _assert_pip_requirements(
         tmpdir2.strpath, ["mlflow", *mlflow.xgboost._get_default_pip_requirements(), "a", "b"]
@@ -271,12 +269,12 @@ def test_log_model_with_pip_requirements(xgb_model, tmpdir):
 
 
 @pytest.mark.large
-def test_log_model_with_additional_pip_requirements(xgb_model, tmpdir):
+def test_log_model_with_extra_pip_requirements(xgb_model, tmpdir):
     with mlflow.start_run():
         # Path to a requirements file
         f = tmpdir.join("requirements.txt")
         f.write("a")
-        mlflow.xgboost.log_model(xgb_model.model, "model", additional_pip_requirements=f.strpath)
+        mlflow.xgboost.log_model(xgb_model.model, "model", extra_pip_requirements=f.strpath)
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
             ["mlflow", *mlflow.xgboost._get_default_pip_requirements(), "a"],
@@ -285,7 +283,7 @@ def test_log_model_with_additional_pip_requirements(xgb_model, tmpdir):
     # List of requirements
     with mlflow.start_run():
         mlflow.xgboost.log_model(
-            xgb_model.model, "model", additional_pip_requirements=[f"-r {f.strpath}", "b"]
+            xgb_model.model, "model", extra_pip_requirements=[f"-r {f.strpath}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),

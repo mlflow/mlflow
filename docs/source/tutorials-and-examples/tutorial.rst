@@ -242,7 +242,7 @@ Now that you have your training code, you can package it so that other data scie
 
 .. _pip-requirements-example:
 
-Specifying pip requirements using ``pip_requirements`` and ``additional_pip_requirements``
+Specifying pip requirements using ``pip_requirements`` and ``extra_pip_requirements``
 ------------------------------------------------------------------------------------------
 
 .. literalinclude:: ../../../examples/pip_requirements/pip_requirements.py

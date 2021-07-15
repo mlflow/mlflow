@@ -144,7 +144,7 @@ class Model(object):
         registered_model_name=None,
         await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
         pip_requirements=None,
-        additional_pip_requirements=None,
+        extra_pip_requirements=None,
         **kwargs
     ):
         """
@@ -190,7 +190,7 @@ class Model(object):
                 path=local_path,
                 mlflow_model=mlflow_model,
                 pip_requirements=pip_requirements,
-                additional_pip_requirements=additional_pip_requirements,
+                extra_pip_requirements=extra_pip_requirements,
                 **kwargs
             )
             mlflow.tracking.fluent.log_artifacts(local_path, artifact_path)

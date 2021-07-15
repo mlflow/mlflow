@@ -91,7 +91,7 @@ def save_model(
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     pip_requirements=None,
-    additional_pip_requirements=None,
+    extra_pip_requirements=None,
 ):
     """
     Save an XGBoost model to a path on the local file system.
@@ -148,7 +148,7 @@ def save_model(
         written to a ``requirements.txt`` file that is stored as part of the model. These
         requirements are also written to the ``pip`` section of the model's conda environment
         (``conda.yaml``) file.
-    :param additional_pip_requirements: Either an iterable of pip requirement strings
+    :param extra_pip_requirements: Either an iterable of pip requirement strings
         (e.g. ``["scikit-learn", "-r requirements.txt"]``) or the string path to a pip requirements
         file on the local filesystem (e.g. ``"requirements.txt"``). If provided, this specifies
         additional pip requirements that are appended to a default set of pip requirements generated
@@ -160,10 +160,10 @@ def save_model(
 
             - ``conda_env``
             - ``pip_requirements``
-            - ``additional_pip_requirements``
+            - ``extra_pip_requirements``
 
         :ref:`This example<pip-requirements-example>` demonstrates how to specify pip requirements
-        using ``pip_requirements`` and ``additional_pip_requirements``.
+        using ``pip_requirements`` and ``extra_pip_requirements``.
     """
     import xgboost as xgb
 
@@ -183,15 +183,13 @@ def save_model(
     # Save an XGBoost model
     xgb_model.save_model(model_data_path)
 
-    _validate_env_arguments(conda_env, pip_requirements, additional_pip_requirements)
+    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
         pip_requirements = _parse_pip_requirements(pip_requirements)
-        additional_pip_requirements = _parse_pip_requirements(additional_pip_requirements)
-        pip_reqs = pip_requirements or (
-            _get_default_pip_requirements() + additional_pip_requirements
-        )
+        extra_pip_requirements = _parse_pip_requirements(extra_pip_requirements)
+        pip_reqs = pip_requirements or (_get_default_pip_requirements() + extra_pip_requirements)
         conda_env = _mlflow_conda_env(additional_pip_deps=pip_reqs)
     elif not isinstance(conda_env, dict):
         with open(conda_env, "r") as f:
@@ -217,7 +215,7 @@ def log_model(
     input_example: ModelInputExample = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements=None,
-    additional_pip_requirements=None,
+    extra_pip_requirements=None,
     **kwargs
 ):
     """
@@ -279,7 +277,7 @@ def log_model(
         written to a ``requirements.txt`` file that is stored as part of the model. These
         requirements are also written to the ``pip`` section of the model's conda environment
         (``conda.yaml``) file.
-    :param additional_pip_requirements: Either an iterable of pip requirement strings
+    :param extra_pip_requirements: Either an iterable of pip requirement strings
         (e.g. ``["scikit-learn", "-r requirements.txt"]``) or the string path to a pip requirements
         file on the local filesystem (e.g. ``"requirements.txt"``). If provided, this specifies
         additional pip requirements that are appended to a default set of pip requirements generated
@@ -291,10 +289,10 @@ def log_model(
 
             - ``conda_env``
             - ``pip_requirements``
-            - ``additional_pip_requirements``
+            - ``extra_pip_requirements``
 
         :ref:`This example<pip-requirements-example>` demonstrates how to specify pip requirements
-        using ``pip_requirements`` and ``additional_pip_requirements``.
+        using ``pip_requirements`` and ``extra_pip_requirements``.
     :param kwargs: kwargs to pass to `xgboost.Booster.save_model`_ method.
     """
     Model.log(
@@ -307,7 +305,7 @@ def log_model(
         input_example=input_example,
         await_registration_for=await_registration_for,
         pip_requirements=pip_requirements,
-        additional_pip_requirements=additional_pip_requirements,
+        extra_pip_requirements=extra_pip_requirements,
         **kwargs
     )
 
