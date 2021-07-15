@@ -285,13 +285,14 @@ def log_model(
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
     :param pip_requirements: Either an iterable of pip requirement strings
-        (e.g. ``["scikit-learn", "-r requirements.txt"]``) or the string path to a pip requirements
-        file on the local filesystem (e.g. ``"requirements.txt"``). If provided, this describes the
-        environment this model should be run in. If ``None``, a default list of requirements is
-        inferred from the current software environment. Requirements are automatically parsed and
-        written to a ``requirements.txt`` file that is stored as part of the model. These
-        requirements are also written to the ``pip`` section of the model's conda environment
-        (``conda.yaml``) file.
+        (e.g. ``["scikit-learn", "-r requirements.txt", "-c constrants.txt"]``) or the string path
+        to a pip requirements file on the local filesystem (e.g. ``"requirements.txt"``).
+        If provided, this describes the environment this model should be run in. If ``None``,
+        a default list of requirements is inferred from the current software environment. Both
+        requirements and constraints are automatically parsed and written to ``requirements.txt``
+        and ``constraints.txt`` files, respectively, and stored as part of the model. Requirements
+        are also written to the ``pip`` section of the model's conda environment (``conda.yaml``)
+        file.
     :param extra_pip_requirements: Either an iterable of pip requirement strings
         (e.g. ``["scikit-learn", "-r requirements.txt"]``) or the string path to a pip requirements
         file on the local filesystem (e.g. ``"requirements.txt"``). If provided, this specifies
