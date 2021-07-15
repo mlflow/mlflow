@@ -33,7 +33,12 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
+from mlflow.utils.environment import (
+    _mlflow_conda_env,
+    _log_pip_requirements,
+    _parse_pip_requirements,
+    _validate_env_arguments,
+)
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
@@ -64,17 +69,18 @@ FLAVOR_NAME = "xgboost"
 _logger = logging.getLogger(__name__)
 
 
+def _get_default_pip_requirements():
+    import xgboost as xgb
+
+    return ["xgboost=={}".format(xgb.__version__)]
+
+
 def get_default_conda_env():
     """
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
-    import xgboost as xgb
-
-    return _mlflow_conda_env(
-        # XGBoost is not yet available via the default conda channels, so we install it via pip
-        additional_pip_deps=["xgboost=={}".format(xgb.__version__)]
-    )
+    return _mlflow_conda_env(additional_pip_deps=_get_default_pip_requirements())
 
 
 def save_model(
@@ -84,6 +90,8 @@ def save_model(
     mlflow_model=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
+    pip_requirements=None,
+    extra_pip_requirements=None,
 ):
     """
     Save an XGBoost model to a path on the local file system.
@@ -95,7 +103,9 @@ def save_model(
                       Conda environment yaml file. If provided, this describes the environment
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in :func:`get_default_conda_env()`. If ``None``, the default
-                      :func:`get_default_conda_env()` environment is added to the model.
+                      :func:`get_default_conda_env()` environment is added to the model. pip
+                      requirements from ``conda_env`` are written to a pip ``requirements.txt``
+                      file and the full conda environment is written to ``conda.yaml``.
                       The following is an *example* dictionary representation of a Conda
                       environment::
 
@@ -130,7 +140,30 @@ def save_model(
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
+    :param pip_requirements: Either an iterable of pip requirement strings
+        (e.g. ``["scikit-learn", "-r requirements.txt"]``) or the string path to a pip requirements
+        file on the local filesystem (e.g. ``"requirements.txt"``). If provided, this describes the
+        environment this model should be run in. If ``None``, a default list of requirements is
+        inferred from the current software environment. Requirements are automatically parsed and
+        written to a ``requirements.txt`` file that is stored as part of the model. These
+        requirements are also written to the ``pip`` section of the model's conda environment
+        (``conda.yaml``) file.
+    :param extra_pip_requirements: Either an iterable of pip requirement strings
+        (e.g. ``["scikit-learn", "-r requirements.txt"]``) or the string path to a pip requirements
+        file on the local filesystem (e.g. ``"requirements.txt"``). If provided, this specifies
+        additional pip requirements that are appended to a default set of pip requirements generated
+        automatically based on the user's current software environment. Requirements are also
+        written to the ``pip`` section of the model's conda environment (``conda.yaml``) file.
 
+        .. warning::
+            The following arguments can't be specified at the same time:
+
+            - ``conda_env``
+            - ``pip_requirements``
+            - ``extra_pip_requirements``
+
+        :ref:`This example<pip-requirements-example>` demonstrates how to specify pip requirements
+        using ``pip_requirements`` and ``extra_pip_requirements``.
     """
     import xgboost as xgb
 
@@ -150,9 +183,14 @@ def save_model(
     # Save an XGBoost model
     xgb_model.save_model(model_data_path)
 
+    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
-        conda_env = get_default_conda_env()
+        pip_requirements = _parse_pip_requirements(pip_requirements)
+        extra_pip_requirements = _parse_pip_requirements(extra_pip_requirements)
+        pip_reqs = pip_requirements or (_get_default_pip_requirements() + extra_pip_requirements)
+        conda_env = _mlflow_conda_env(additional_pip_deps=pip_reqs)
     elif not isinstance(conda_env, dict):
         with open(conda_env, "r") as f:
             conda_env = yaml.safe_load(f)
@@ -176,6 +214,8 @@ def log_model(
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+    pip_requirements=None,
+    extra_pip_requirements=None,
     **kwargs
 ):
     """
@@ -188,7 +228,9 @@ def log_model(
                       Conda environment yaml file. If provided, this describes the environment
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in :func:`get_default_conda_env()`. If ``None``, the default
-                      :func:`get_default_conda_env()` environment is added to the model.
+                      :func:`get_default_conda_env()` environment is added to the model. pip
+                      requirements from ``conda_env`` are written to a pip ``requirements.txt``
+                      file and the full conda environment is written to ``conda.yaml``.
                       The following is an *example* dictionary representation of a Conda
                       environment::
 
@@ -227,6 +269,30 @@ def log_model(
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
+    :param pip_requirements: Either an iterable of pip requirement strings
+        (e.g. ``["scikit-learn", "-r requirements.txt"]``) or the string path to a pip requirements
+        file on the local filesystem (e.g. ``"requirements.txt"``). If provided, this describes the
+        environment this model should be run in. If ``None``, a default list of requirements is
+        inferred from the current software environment. Requirements are automatically parsed and
+        written to a ``requirements.txt`` file that is stored as part of the model. These
+        requirements are also written to the ``pip`` section of the model's conda environment
+        (``conda.yaml``) file.
+    :param extra_pip_requirements: Either an iterable of pip requirement strings
+        (e.g. ``["scikit-learn", "-r requirements.txt"]``) or the string path to a pip requirements
+        file on the local filesystem (e.g. ``"requirements.txt"``). If provided, this specifies
+        additional pip requirements that are appended to a default set of pip requirements generated
+        automatically based on the user's current software environment. Requirements are also
+        written to the ``pip`` section of the model's conda environment (``conda.yaml``) file.
+
+        .. warning::
+            The following arguments can't be specified at the same time:
+
+            - ``conda_env``
+            - ``pip_requirements``
+            - ``extra_pip_requirements``
+
+        :ref:`This example<pip-requirements-example>` demonstrates how to specify pip requirements
+        using ``pip_requirements`` and ``extra_pip_requirements``.
     :param kwargs: kwargs to pass to `xgboost.Booster.save_model`_ method.
     """
     Model.log(
@@ -238,6 +304,8 @@ def log_model(
         signature=signature,
         input_example=input_example,
         await_registration_for=await_registration_for,
+        pip_requirements=pip_requirements,
+        extra_pip_requirements=extra_pip_requirements,
         **kwargs
     )
 
