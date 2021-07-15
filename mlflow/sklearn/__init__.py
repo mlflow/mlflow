@@ -19,6 +19,7 @@ import yaml
 import warnings
 from uuid import uuid4
 import weakref
+from collections import defaultdict
 
 import mlflow
 from mlflow import pyfunc
@@ -485,6 +486,16 @@ class _AutologTrainingStatus:
        flags for method `model.fit`, `eval_and_log_metrics`, `model.score`.
        In order to avoid nested/duplicated autologging metric, when run into these scopes,
        we need temporarily disable the metric autologging.
+    (4) eval_dataset_info_map, it is a double level map:
+       `eval_dataset_info_map[model_uuid][eval_dataset_var_name]` will get a list, each
+       element in the list is a tuple of `(id(eval_dataset_instance), eval_dataset_sample_rows)`
+       This data structure is used for:
+        * generating unique dataset name key when autologging metric
+        * storing the dataset row samples, we need log it into metric_info artifact file.
+    (5) metric_api_call_info_map, it is a map, key is metric api function name,
+       and value is a list of call arguments string, the string format is like:
+        "arg1=value1,arg2=value2,...", will excludes non-scalar value arguments and default value
+        arguments.
     """
 
     fit_scope_key = 'fit'
@@ -499,6 +510,8 @@ class _AutologTrainingStatus:
             self.eval_and_log_metrics_scope_key: False,
             self.model_score_scope_key: False
         }
+        self.eval_dataset_info_map = defaultdict(lambda: defaultdict(list))
+        self.metric_api_call_info_map = defaultdict(list)
 
     def call_scope(self, scope_key):
         class CallScope:
