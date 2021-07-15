@@ -72,11 +72,11 @@ def _parse_requirements(requirements_file, is_constraint):
 
     References:
     - `pip._internal.req.parse_requirements`:
-        https://github.com/pypa/pip/blob/7a77484a492c8f1e1f5ef24eaf71a43df9ea47eb/src/pip/_internal/req/req_file.py#L118
+      https://github.com/pypa/pip/blob/7a77484a492c8f1e1f5ef24eaf71a43df9ea47eb/src/pip/_internal/req/req_file.py#L118
     - Requirements File Format:
-        https://pip.pypa.io/en/stable/cli/pip_install/#requirements-file-format
+      https://pip.pypa.io/en/stable/cli/pip_install/#requirements-file-format
     - Constraints Files:
-        https://pip.pypa.io/en/stable/user_guide/#constraints-files
+      https://pip.pypa.io/en/stable/user_guide/#constraints-files
     """
     with open(requirements_file) as f:
         lines = f.read().splitlines()
