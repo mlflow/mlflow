@@ -662,7 +662,7 @@ class _AutologTrainingStatus:
         if index == len(registered_call_arg_dict_list):
             registered_call_arg_dict_list.append(call_arg_dict)
 
-        return self.gen_name_with_index(metric_name, index), run_id
+        return self.gen_name_with_index(dataset_name, index), run_id
 
 
 _autolog_training_status = _AutologTrainingStatus()
