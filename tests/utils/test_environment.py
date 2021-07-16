@@ -287,3 +287,6 @@ def test_process_conda_env(tmpdir):
     assert _get_pip_deps(conda_env) == ["mlflow", "a", "-c constraints.txt"]
     assert reqs == ["mlflow", "a", "-c constraints.txt"]
     assert cons == ["c"]
+
+    with pytest.raises(TypeError, match=r"Expected .+, but got `int`"):
+        _process_conda_env(0)

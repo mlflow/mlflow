@@ -259,8 +259,8 @@ def _process_conda_env(conda_env):
         pass
     else:
         raise TypeError(
-            "Expected a string path to a conda env yaml file or a `dict` representing a conda env "
-            "for `conda_env`, but got `{}`".type(conda_env)
+            "Expected a string path to a conda env yaml file or a `dict` representing a conda env, "
+            "but got `{}`".format(type(conda_env).__name__)
         )
 
     # User-specified `conda_env` may contain requirements/constraints file references
