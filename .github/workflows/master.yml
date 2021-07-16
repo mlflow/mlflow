@@ -13,6 +13,10 @@ on:
 env:
   CONDA_DIR: /usr/share/miniconda
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   lint:
     runs-on: ubuntu-latest
