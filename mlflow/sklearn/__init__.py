@@ -712,7 +712,7 @@ def _extract_metric_api_call_arg_dict(metric_fn, call_pos_args, call_kwargs):
 
     arg_dict = {}
     assert len(call_pos_args) <= len(sig_args)
-    for i in len(call_pos_args):
+    for i in range(len(call_pos_args)):
         arg_dict[sig_args[i][0]] = call_pos_args[i]
 
     arg_dict.update(call_kwargs)
