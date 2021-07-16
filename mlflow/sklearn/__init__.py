@@ -578,7 +578,7 @@ class _AutologTrainingStatus:
 
         row_samples = self.gen_dataset_sample_rows(eval_dataset)
         index = len(registered_dataset_list)
-        for i, id_i, row_samples_i in enumerate(registered_dataset_list):
+        for i, (id_i, row_samples_i) in enumerate(registered_dataset_list):
             if eval_dataset_id == id_i and np.array_equal(row_samples, row_samples_i):
                 index = i
                 break
