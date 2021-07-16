@@ -516,6 +516,7 @@ class _AutologTrainingStatus:
         self._metric_api_call_arg_dict_list_map = defaultdict(lambda: defaultdict(list))
         self._log_post_training_metrics_enabled = True
         self._metric_info_artifact_need_update = defaultdict(lambda: False)
+        self._eval_dataset_row_samples_artifact_need_update = defaultdict(lambda: False)
 
     def should_log_post_training_metrics(self):
         """
@@ -596,7 +597,8 @@ class _AutologTrainingStatus:
         if eval_dataset_name is None:
             eval_dataset_name = 'unknown_dataset'
 
-        registered_dataset_list = self._eval_dataset_info_map[model._mlflow_uuid][eval_dataset_name]
+        model_id = self.get_model_id(model)
+        registered_dataset_list = self._eval_dataset_info_map[model_id][eval_dataset_name]
 
         row_samples = self.gen_dataset_sample_rows(eval_dataset)
         index = len(registered_dataset_list)
@@ -608,7 +610,7 @@ class _AutologTrainingStatus:
         if index == len(registered_dataset_list):
             # register new eval dataset
             registered_dataset_list.append((eval_dataset_id, row_samples))
-            self._metric_info_artifact_need_update[model._mlflow_uuid] = True
+            self._eval_dataset_row_samples_artifact_need_update[model_id] = True
 
         return self.gen_name_with_index(eval_dataset_name, index)
 
@@ -627,7 +629,7 @@ class _AutologTrainingStatus:
         With this map `dataset_id_to_dataset_name_and_model_id`, in following patched metric API,
         we can query the eval dataset name and the model id via the `y_pred` argument instance.
         """
-        value = (eval_dataset_name, model._mlflow_uuid)
+        value = (eval_dataset_name, self.get_model_id(model))
         prediction_result_id = id(predict_result)
         self._pred_result_id_to_dataset_name_and_model_id[prediction_result_id] = value
 
@@ -692,7 +694,7 @@ class _AutologTrainingStatus:
         metric_key = f'{self.gen_name_with_index(metric_name, index)}_on_{dataset_name}'
         return True, model_id, metric_key
 
-    def log_eval_metric(self, model_id, key, value):
+    def log_eval_metric(self, model_id, key, value, log_input_examples):
         # Note: if the case log the same metric key multiple times,
         #  newer value will overwrite old value
         client = mlflow.tracking.MlflowClient()
@@ -702,6 +704,19 @@ class _AutologTrainingStatus:
             key=key,
             value=value
         )
+        if self._metric_info_artifact_need_update[model_id]:
+            metric_info_dict = {}
+            for metric_name, call_dict_list in \
+                    self._metric_api_call_arg_dict_list_map[model_id].items():
+                for i, call_dict in enumerate(call_dict_list):
+                    metric_info_dict[self.gen_name_with_index(metric_name, i)] = call_dict
+
+            client.log_dict(
+                run_id=run_id, dictionary=metric_info_dict, artifact_file='metric_info.json'
+            )
+        if log_input_examples and self._eval_dataset_row_samples_artifact_need_update:
+            # TODO: log eval dataset {dataset_key -> row_samples} to an extra artifact file.
+            pass
 
 
 _autolog_training_status = _AutologTrainingStatus()
@@ -1229,7 +1244,7 @@ def autolog(
                     status.register_metric_api_call(original, args, kwargs)
                 if is_register_ok:
                     print('DGB: run patched_metric_api #4')
-                    status.log_eval_metric(model_id, metric_key, metric)
+                    status.log_eval_metric(model_id, metric_key, metric, log_input_examples)
 
             return metric
         else:
@@ -1250,7 +1265,9 @@ def autolog(
                 eval_dataset_name = status.register_eval_dataset(self, eval_dataset)
                 metric_name = f'{self.__class__.__name__}_score'
                 metric_key = f'{metric_name}_on_{eval_dataset_name}'
-                status.log_eval_metric(status.get_model_id(self), metric_key, score_value)
+                status.log_eval_metric(
+                    status.get_model_id(self), metric_key, score_value, log_input_examples
+                )
 
             return score_value
         else:
