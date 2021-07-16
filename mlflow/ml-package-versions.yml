@@ -219,8 +219,22 @@ onnx:
   package_info:
     pip_release: "onnx"
     install_dev: |
-      sudo apt-get install protobuf-compiler libprotoc-dev
-      pip install git+https://github.com/onnx/onnx.git
+      # This workflow describes how to build a wheel for Linux:
+      # https://github.com/onnx/onnx/blob/51a7d932356cbb1205341660a4a52f8c121d8f4b/.github/workflows/release_linux_x86_64.yml
+
+      auth_header="$(git config --local --get http.https://github.com/.extraheader)"
+      tmp_dir=$(mktemp -d)
+      git clone https://github.com/onnx/onnx.git $tmp_dir
+      cd $tmp_dir
+      git submodule sync --recursive
+      git -c "http.extraheader=$auth_header" -c protocol.version=2 submodule update --init --force --recursive --depth=1
+
+      # Build wheel
+      docker run --rm -v $(pwd):/github/workspace --workdir /github/workspace --entrypoint bash \
+        quay.io/pypa/manylinux2010_x86_64 .github/workflows/manylinux/entrypoint.sh 3.6 manylinux2010_x86_64 pull_request
+
+      # Install wheel
+      pip install dist/*manylinux2010_x86_64.whl
 
   models:
     minimum: "1.5.0"
