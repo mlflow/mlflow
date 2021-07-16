@@ -718,12 +718,12 @@ def _extract_metric_api_call_arg_dict(metric_fn, call_pos_args, call_kwargs):
     arg_dict.update(call_kwargs)
 
     # fill default arg values into arg dict
-    for k, v in default_arg_dict:
+    for k, v in default_arg_dict.items():
         if k not in arg_dict:
             arg_dict[k] = v
 
     # filter out non scalar value args. (they are args of dataset)
-    for k, v in arg_dict:
+    for k, v in arg_dict.items():
         if v is not None and not np.isscalar(v):
             arg_dict[k] = '<data>'
 
