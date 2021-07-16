@@ -549,7 +549,10 @@ class _AutologTrainingStatus:
         if index == 0:
             return name
         else:
-            return f'name_{index + 1}'
+            # Use '-' as the separator between name and index,
+            # The '-' is not valid character in python var name
+            # so it can prevent name conflicts after appending index.
+            return f'name-{index + 1}'
 
     @staticmethod
     def gen_dataset_sample_rows(eval_dataset):
