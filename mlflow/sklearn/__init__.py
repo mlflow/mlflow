@@ -471,10 +471,6 @@ def load_model(model_uri):
     )
 
 
-def _get_autolog_training_status():
-    return _autolog_training_status
-
-
 class _AutologTrainingStatus:
     """
     This class is designed for holding information which is used by autologging metrics
@@ -495,44 +491,45 @@ class _AutologTrainingStatus:
     (5) metric_api_call_arg_dict_list_map, it is a map, key is metric api function name,
        and value is a list of call arguments dict.
     """
-
-    fit_scope_key = 'fit'
-    eval_and_log_metrics_scope_key = 'eval_and_log_metrics'
-    model_score_scope_key = 'model_score'
-
     def __init__(self):
         self.model_id_to_run_id_map = {}
         self.pred_result_id_to_dataset_name_and_model_id = {}
-        self.scope_flag_dict = {
-            self.fit_scope_key: False,
-            self.eval_and_log_metrics_scope_key: False,
-            self.model_score_scope_key: False
-        }
         self.eval_dataset_info_map = defaultdict(lambda: defaultdict(list))
         self.metric_api_call_arg_dict_list_map = defaultdict(list)
+        self._log_post_training_metrics_enabled = True
 
-    def call_scope(self, scope_key):
-        class CallScope:
+    def should_log_post_training_metrics(self):
+        """
+        Check whether we should run patching code for autologging post training metrics.
+        This checking should surround the whole patched code due to the safe guard checking,
+        See following note.
+
+        Note: It includes checking `_SklearnTrainingSession.is_active()`, This is a safe guarding
+        for cross validator/grid search case:
+          running cross validator/grid search, the nested model.fit will be called in parallel,
+          but, the _autolog_training_status is a global status without thread-safe lock protecting.
+          This safe guarding will prevent code run into this case.
+        """
+        return _SklearnTrainingSession.is_active() and self._log_post_training_metrics_enabled
+
+    def disable_log_post_training_metrics(self):
+        old_status = self._log_post_training_metrics_enabled
+
+        class LogPostTrainingMetricsDisabledScope:
             def __enter__(inner_self):
-                self.scope_flag_dict[scope_key] = True
+                self._log_post_training_metrics_enabled = False
 
             def __exit__(inner_self, exc_type, exc_val, exc_tb):
-                self.scope_flag_dict[scope_key] = False
+                self._log_post_training_metrics_enabled = old_status
 
-        return CallScope()
+        return LogPostTrainingMetricsDisabledScope()
 
     def get_run_id_for_model(self, model):
         return self.model_id_to_run_id_map.get(model._mlflow_uuid, None)
 
-    def should_log_eval_metrics(self, metric_value=None):
-        """
-        Test whether we should log metric. will check metric value types (if provided)
-        and scope flags
-        """
-        return (np.isscalar(metric_value) if metric_value is not None else True) and \
-            not self.scope_flag_dict[self.fit_scope_key] and \
-            not self.scope_flag_dict[self.eval_and_log_metrics_scope_key] and \
-            not self.scope_flag_dict[self.model_score_scope_key]
+    @staticmethod
+    def is_metrics_value_loggable(self, metric_value):
+        return np.isscalar(metric_value)
 
     def register_model(self, model, run_id):
         """
@@ -616,8 +613,6 @@ class _AutologTrainingStatus:
         # to clear the ID from the dict for preventing wrong ID mapping.
         weakref.finalize(predict_result, clean_id, prediction_result_id)
 
-        return predict_result
-
     def register_metric_api_call(self, metric_fn, call_pos_args, call_kwargs):
         """
         Given a metric api call (include the called metric function, and call arguments)
@@ -674,9 +669,8 @@ class _AutologTrainingStatus:
 _autolog_training_status = _AutologTrainingStatus()
 
 
-_metric_api_excluding_list = [
-    'check_scoring', 'get_scorer', 'make_scorer'
-]
+def _get_autolog_training_status():
+    return _autolog_training_status
 
 
 def _log_metric_into_run(run_id, key, value):
@@ -734,6 +728,11 @@ def _extract_metric_api_call_arg_dict(metric_fn, call_pos_args, call_kwargs):
             arg_dict[k] = '<data>'
 
     return arg_dict
+
+
+_metric_api_excluding_list = [
+    'check_scoring', 'get_scorer', 'make_scorer'
+]
 
 
 @experimental
@@ -1168,36 +1167,36 @@ def autolog(
         status = _get_autolog_training_status()
         with _SklearnTrainingSession(clazz=self.__class__, allow_children=False) as t:
             if t.should_log():
-                status.register_model(self, mlflow.active_run().info.run_id)
-                with status.call_scope(status.fit_scope_key):
+                with status.disable_log_post_training_metrics():
                     result = fit_mlflow(original, self, *args, **kwargs)
                 return result
             else:
                 return original(self, *args, **kwargs)
 
     def patched_predict(original, self, *args, **kwargs):
-        if _SklearnTrainingSession.in_top_level():
+        status = _get_autolog_training_status() and status.get_run_id_for_model(self):
+        if status.should_log_post_training_metrics():
             print(f'DBG: patched_predict # 1')
             predict_result = original(self, *args, **kwargs)
-            status = _get_autolog_training_status()
-            if status.should_log_eval_metrics() and \
-                    status.get_run_id_for_model(self):
-                print(f'DBG: patched_predict # 1.5')
-                eval_dataset = args[0] if len(args) >= 1 else kwargs.get('X')
-                eval_dataset_name = status.register_eval_dataset(self, eval_dataset)
-                predict_result = status.register_prediction_result(
-                    self, eval_dataset_name, predict_result)
+            print(f'DBG: patched_predict # 1.5')
+            eval_dataset = args[0] if len(args) >= 1 else kwargs.get('X')
+            eval_dataset_name = status.register_eval_dataset(self, eval_dataset)
+            status.register_prediction_result(
+                self, eval_dataset_name, predict_result)
             return predict_result
         else:
             print(f'DBG: patched_predict # 3')
             return original(self, *args, **kwargs)
 
     def patched_metric_api(original, *args, **kwargs):
-        if _SklearnTrainingSession.in_top_level():
-            status = _get_autolog_training_status()
-            metric = original(*args, **kwargs)
+        status = _get_autolog_training_status()
+        if status.should_log_post_training_metrics():
+            # one metric api may call another metric api,
+            # to avoid this, call disable_log_post_training_metrics to avoid nested patch
+            with status.disable_log_post_training_metrics():
+                metric = original(*args, **kwargs)
 
-            if status.should_log_eval_metrics(metric):
+            if status.is_metrics_value_loggable(metric):
                 print('DGB: run patched_metric_api #2')
                 register_result = status.register_metric_api_call(original, args, kwargs)
                 if register_result:
@@ -1214,14 +1213,12 @@ def autolog(
     #  e.g.
     #  https://github.com/scikit-learn/scikit-learn/blob/82df48934eba1df9a1ed3be98aaace8eada59e6e/sklearn/covariance/_empirical_covariance.py#L220
     def patched_model_score(original, self, *args, **kwargs):
-        if _SklearnTrainingSession.in_top_level():
-            status = _get_autolog_training_status()
-            with status.call_scope(status.model_score_scope_key):
+        status = _get_autolog_training_status()
+        if status.should_log_post_training_metrics() and status.get_run_id_for_model(self):
+            with status.disable_log_post_training_metrics():
                 score_value = original(self, *args, **kwargs)
 
-            if status.should_log_eval_metrics(score_value) and \
-                    status.get_run_id_for_model(self):
-
+            if status.is_metrics_value_loggable(score_value):
                 eval_dataset = args[0] if len(args) >= 1 else kwargs.get('X')
                 eval_dataset_name = status.register_eval_dataset(self, eval_dataset)
                 metric_name = f'{self.__class__.__name__}_score'
@@ -1362,7 +1359,7 @@ def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
       - model is not an sklearn estimator or does not support the 'predict' method
     """
     status = _get_autolog_training_status()
-    with status.call_scope(status.eval_and_log_metrics_scope_key):
+    with status.disable_log_post_training_metrics():
         return _eval_and_log_metrics_impl(
             model, X, y_true, prefix=prefix, sample_weight=sample_weight)
 

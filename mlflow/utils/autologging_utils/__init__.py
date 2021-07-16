@@ -544,7 +544,7 @@ def _get_new_training_session_class():
             )
 
         @staticmethod
-        def in_top_level():
+        def is_active():
             return len(_TrainingSession._session_stack) == 0
 
     return _TrainingSession
