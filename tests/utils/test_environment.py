@@ -240,7 +240,7 @@ def test_process_pip_requirements(tmpdir):
     assert reqs == ["mlflow", "b"]
     assert cons == []
 
-    # Ensure an mlflow requirement is respected
+    # Ensure a requirement for mlflow is preserved
     conda_env, reqs, cons = _process_pip_requirements(["a"], pip_requirements=["mlflow==1.2.3"])
     assert _get_pip_deps(conda_env) == ["mlflow==1.2.3"]
     assert reqs == ["mlflow==1.2.3"]
@@ -279,6 +279,12 @@ def test_process_conda_env(tmpdir):
     conda_env, reqs, cons = _process_conda_env(conda_env_file.strpath)
     assert _get_pip_deps(conda_env) == ["mlflow", "a"]
     assert reqs == ["mlflow", "a"]
+    assert cons == []
+
+    # Ensure a requirement for mlflow is preserved
+    conda_env, reqs, cons = _process_conda_env(make_conda_env(["mlflow==1.2.3"]))
+    assert _get_pip_deps(conda_env) == ["mlflow==1.2.3"]
+    assert reqs == ["mlflow==1.2.3"]
     assert cons == []
 
     con_file = tmpdir.join("constraints.txt")
