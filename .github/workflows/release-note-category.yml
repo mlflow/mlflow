@@ -11,6 +11,10 @@ on:
       - labeled
       - unlabeled
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   validate:
     runs-on: ubuntu-latest
