@@ -524,8 +524,12 @@ class _AutologTrainingStatus:
     def get_run_id_for_model(self, model):
         return self.model_id_to_run_id_map.get(model._mlflow_uuid, None)
 
-    def should_log_eval_metrics(self, metric_value):
-        return np.isscalar(metric_value) and \
+    def should_log_eval_metrics(self, metric_value=None):
+        """
+        Test whether we should log metric. will check metric value types (if provided)
+        and scope flags
+        """
+        return (np.isscalar(metric_value) if metric_value is not None else True) and \
             not self.scope_flag_dict[self.fit_scope_key] and \
             not self.scope_flag_dict[self.eval_and_log_metrics_scope_key] and \
             not self.scope_flag_dict[self.model_score_scope_key]
@@ -632,7 +636,7 @@ class _AutologTrainingStatus:
         #    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.roc_auc_score.html#sklearn.metrics.roc_auc_score
         #    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.silhouette_score.html#sklearn.metrics.silhouette_score
         for arg in call_arg_list:
-            if id(arg) in dataset_id_list:
+            if arg is not None and not np.isscalar(arg) and id(arg) in dataset_id_list:
                 print(f'DGB: get_eval_dataset_name: # 3')
                 dataset_name, model_id = self.pred_result_id_to_dataset_name_and_model_id[id(arg)]
                 break
@@ -721,7 +725,7 @@ def _extract_metric_api_call_arg_dict(metric_fn, call_pos_args, call_kwargs):
     # filter out non scalar value args. (they are args of dataset)
     for k, v in arg_dict:
         if v is not None and not np.isscalar(v):
-            del arg_dict[k]
+            arg_dict[k] = '<data>'
 
     return arg_dict
 
