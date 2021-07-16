@@ -544,7 +544,9 @@ class _AutologTrainingStatus:
         return LogPostTrainingMetricsDisabledScope()
 
     def get_run_id_for_model(self, model):
-        return self._model_id_to_run_id_map.get(model._mlflow_uuid, None)
+        if hasattr(model, '_mlflow_uuid'):
+            return self._model_id_to_run_id_map.get(model._mlflow_uuid, None)
+        return None
 
     @staticmethod
     def get_model_id(model):
@@ -1193,6 +1195,7 @@ def autolog(
             if t.should_log():
                 with status.disable_log_post_training_metrics():
                     result = fit_mlflow(original, self, *args, **kwargs)
+                status.register_model(self)
                 return result
             else:
                 return original(self, *args, **kwargs)
