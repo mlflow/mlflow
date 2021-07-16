@@ -1,10 +1,18 @@
 import os
 import pytest
+import yaml
 
 from mlflow.utils.environment import (
     _mlflow_conda_env,
+    _is_pip_deps,
+    _get_pip_deps,
+    _overwrite_pip_deps,
     _parse_pip_requirements,
     _validate_env_arguments,
+    _is_mlflow_requirement,
+    _contains_mlflow_requirement,
+    _process_pip_requirements,
+    _process_conda_env,
 )
 
 
@@ -54,6 +62,30 @@ def test_mlflow_conda_env_includes_pip_dependencies_and_pip_is_specified(pip_spe
         assert conda_dep in env["dependencies"]
     assert pip_specification in env["dependencies"]
     assert env["dependencies"].count("pip") == (2 if pip_specification == "pip" else 1)
+
+
+def test_is_pip_deps():
+    assert _is_pip_deps({"pip": ["a"]})
+    assert not _is_pip_deps({"ipi": ["a"]})
+    assert not _is_pip_deps("")
+    assert not _is_pip_deps([])
+
+
+def test_overwrite_pip_deps():
+    # dependencies field doesn't exist
+    name_and_channels = {"name": "env", "channels": ["conda-forge"]}
+    expected = {**name_and_channels, "dependencies": [{"pip": ["scipy"]}]}
+    assert _overwrite_pip_deps(name_and_channels, ["scipy"]) == expected
+
+    # dependencies field doesn't contain pip dependencies
+    conda_env = {**name_and_channels, "dependencies": ["pip"]}
+    expected = {**name_and_channels, "dependencies": ["pip", {"pip": ["scipy"]}]}
+    assert _overwrite_pip_deps(conda_env, ["scipy"]) == expected
+
+    # dependencies field contains pip dependencies
+    conda_env = {**name_and_channels, "dependencies": ["pip", {"pip": ["numpy"]}, "pandas"]}
+    expected = {**name_and_channels, "dependencies": ["pip", {"pip": ["scipy"]}, "pandas"]}
+    assert _overwrite_pip_deps(conda_env, ["scipy"]) == expected
 
 
 def test_parse_pip_requirements(tmpdir):
@@ -174,3 +206,84 @@ def test_validate_env_arguments():
         _validate_env_arguments(
             conda_env={}, pip_requirements=[], extra_pip_requirements=[],
         )
+
+
+def test_is_mlflow_requirement():
+    assert _is_mlflow_requirement("mlflow")
+    assert _is_mlflow_requirement("MLFLOW")
+    assert _is_mlflow_requirement("MLflow")
+    assert _is_mlflow_requirement("mlflow==1.2.3")
+    assert _is_mlflow_requirement("mlflow < 1.2.3")
+    assert _is_mlflow_requirement("mlflow; python_version < '3.8'")
+    assert not _is_mlflow_requirement("foo")
+    # Ensure packages that look like mlflow are NOT considered as mlflow.
+    assert not _is_mlflow_requirement("mlflow-foo")
+    assert not _is_mlflow_requirement("mlflow_foo")
+
+
+def test_contains_mlflow_requirement():
+    assert _contains_mlflow_requirement(["mlflow"])
+    assert _contains_mlflow_requirement(["mlflow==1.2.3"])
+    assert _contains_mlflow_requirement(["mlflow", "foo"])
+    assert not _contains_mlflow_requirement([])
+    assert not _contains_mlflow_requirement(["foo"])
+
+
+def test_process_pip_requirements(tmpdir):
+    conda_env, reqs, cons = _process_pip_requirements(["a"])
+    assert _get_pip_deps(conda_env) == ["mlflow", "a"]
+    assert reqs == ["mlflow", "a"]
+    assert cons == []
+
+    conda_env, reqs, cons = _process_pip_requirements(["a"], pip_requirements=["b"])
+    assert _get_pip_deps(conda_env) == ["mlflow", "b"]
+    assert reqs == ["mlflow", "b"]
+    assert cons == []
+
+    # Ensure an mlflow requirement is respected
+    conda_env, reqs, cons = _process_pip_requirements(["a"], pip_requirements=["mlflow==1.2.3"])
+    assert _get_pip_deps(conda_env) == ["mlflow==1.2.3"]
+    assert reqs == ["mlflow==1.2.3"]
+    assert cons == []
+
+    conda_env, reqs, cons = _process_pip_requirements(["a"], extra_pip_requirements=["b"])
+    assert _get_pip_deps(conda_env) == ["mlflow", "a", "b"]
+    assert reqs == ["mlflow", "a", "b"]
+    assert cons == []
+
+    con_file = tmpdir.join("constraints.txt")
+    con_file.write("c")
+    conda_env, reqs, cons = _process_pip_requirements(
+        ["a"], pip_requirements=["b", f"-c {con_file.strpath}"]
+    )
+    assert _get_pip_deps(conda_env) == ["mlflow", "b", "-c constraints.txt"]
+    assert reqs == ["mlflow", "b", "-c constraints.txt"]
+    assert cons == ["c"]
+
+
+def test_process_conda_env(tmpdir):
+    def make_conda_env(pip_deps):
+        return {
+            "name": "mlflow-env",
+            "channels": ["conda-forge"],
+            "dependencies": ["python=3.7.9", "pip", {"pip": pip_deps}],
+        }
+
+    conda_env, reqs, cons = _process_conda_env(make_conda_env(["a"]))
+    assert _get_pip_deps(conda_env) == ["mlflow", "a"]
+    assert reqs == ["mlflow", "a"]
+    assert cons == []
+
+    conda_env_file = tmpdir.join("conda_env.yaml")
+    conda_env_file.write(yaml.dump(make_conda_env(["a"])))
+    conda_env, reqs, cons = _process_conda_env(conda_env_file.strpath)
+    assert _get_pip_deps(conda_env) == ["mlflow", "a"]
+    assert reqs == ["mlflow", "a"]
+    assert cons == []
+
+    con_file = tmpdir.join("constraints.txt")
+    con_file.write("c")
+    conda_env, reqs, cons = _process_conda_env(make_conda_env(["a", f"-c {con_file.strpath}"]))
+    assert _get_pip_deps(conda_env) == ["mlflow", "a", "-c constraints.txt"]
+    assert reqs == ["mlflow", "a", "-c constraints.txt"]
+    assert cons == ["c"]

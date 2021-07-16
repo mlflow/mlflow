@@ -189,7 +189,7 @@ def save_model(
 
     conda_env, pip_requirements, pip_constraints = (
         _process_pip_requirements(
-            pip_requirements, extra_pip_requirements, _get_default_pip_requirements(),
+            _get_default_pip_requirements(), pip_requirements, extra_pip_requirements,
         )
         if conda_env is None
         else _process_conda_env(conda_env)

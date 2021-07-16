@@ -4,6 +4,8 @@ import os
 
 from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.requirements_utils import _parse_requirements
+from packaging.requirements import Requirement
+
 
 _conda_header = """\
 name: mlflow-env
@@ -74,6 +76,9 @@ def _mlflow_additional_pip_env(
 
 
 def _is_pip_deps(dep):
+    """
+    Returns True if `dep` is a dict representing pip dependencies
+    """
     return isinstance(dep, dict) and "pip" in dep
 
 
@@ -90,12 +95,21 @@ def _get_pip_deps(conda_env):
 
 def _overwrite_pip_deps(conda_env, new_pip_deps):
     """
-    Overwrites the pip dependencies in the given conda env dictionary.
+    Overwrites the pip dependencies section in the given conda env dictionary.
+
+    {
+        "name": "env",
+        "channels": [...],
+        "dependencies": [
+            ...,
+            "pip",
+            {"pip": [...]},  <- Overwrite this
+        ],
+    }
     """
     deps = conda_env.get("dependencies", [])
     new_deps = []
     contains_pip_deps = False
-    # Preserve the location of the pip dependencies
     for dep in deps:
         if _is_pip_deps(dep):
             contains_pip_deps = True
@@ -192,7 +206,27 @@ def _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
         )
 
 
-def _process_pip_requirements(pip_requirements, extra_pip_requirements, default_pip_requirements):
+def _is_mlflow_requirement(requirement_string):
+    """
+    Returns True if `requirement_string` represents a requirement for mlflow (e.g. 'mlflow==1.2.3').
+    """
+    return Requirement(requirement_string).name.lower() == "mlflow"
+
+
+def _contains_mlflow_requirement(requirements):
+    """
+    Returns True if `requirements` contains a requirement for mlflow (e.g. 'mlflow==1.2.3').
+    """
+    return any(map(_is_mlflow_requirement, requirements))
+
+
+def _process_pip_requirements(
+    default_pip_requirements, pip_requirements=None, extra_pip_requirements=None
+):
+    """
+    Processes `pip_requirements` and `extra_pip_requirements` passed to `mlflow.*.save_model` or
+    `mlflow.*.log_model`, and returns a tuple of (conda_env, pip_requirements, pip_constraints).
+    """
     constraints = []
     if pip_requirements is not None:
         pip_reqs, constraints = _parse_pip_requirements(pip_requirements)
@@ -202,23 +236,39 @@ def _process_pip_requirements(pip_requirements, extra_pip_requirements, default_
     else:
         pip_reqs = default_pip_requirements
 
-    if "mlflow" not in pip_reqs:
+    if not _contains_mlflow_requirement(pip_reqs):
         pip_reqs.insert(0, "mlflow")
 
     if constraints:
         pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
 
+    # Set `install_mlflow` to False because `pip_reqs` already contains `mlflow`
     conda_env = _mlflow_conda_env(additional_pip_deps=pip_reqs, install_mlflow=False)
     return conda_env, pip_reqs, constraints
 
 
 def _process_conda_env(conda_env):
+    """
+    Processes `conda_env` passed to `mlflow.*.save_model` or `mlflow.*.log_model`, and returns
+    a tuple of (conda_env, pip_requirements, pip_constraints).
+    """
     if isinstance(conda_env, str):
         with open(conda_env, "r") as f:
             conda_env = yaml.safe_load(f)
+    elif isinstance(conda_env, dict):
+        pass
+    else:
+        raise TypeError(
+            "Expected a string path to a conda env yaml file or a `dict` representing a conda env "
+            "for `conda_env`, but got `{}`".type(conda_env)
+        )
 
+    # User-specified `conda_env` may contain requirements/constraints file references
     pip_reqs = _get_pip_deps(conda_env)
     pip_reqs, constraints = _parse_pip_requirements(pip_reqs)
+
+    if not _contains_mlflow_requirement(pip_reqs):
+        pip_reqs.insert(0, "mlflow")
 
     if constraints:
         pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
