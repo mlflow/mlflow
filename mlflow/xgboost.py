@@ -44,6 +44,7 @@ from mlflow.utils.environment import (
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
+from mlflow.utils.file_utils import write_to
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
@@ -199,13 +200,12 @@ def save_model(
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    for name, lines in {
-        _REQUIREMENTS_FILE_NAME: pip_requirements,
-        _CONSTRAINTS_FILE_NAME: pip_constraints,
-    }.items():
-        if lines:
-            with open(os.path.join(path, name), "w") as f:
-                f.write("\n".join(lines))
+    # Save `constraints.txt` if necessary
+    if pip_constraints:
+        write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_constraints))
+
+    # Save `requirements.txt`
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
     pyfunc.add_to_model(
         mlflow_model, loader_module="mlflow.xgboost", data=model_data_subpath, env=conda_env_subpath
