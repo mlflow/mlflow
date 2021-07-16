@@ -1195,7 +1195,7 @@ def autolog(
             if t.should_log():
                 with status.disable_log_post_training_metrics():
                     result = fit_mlflow(original, self, *args, **kwargs)
-                status.register_model(self)
+                status.register_model(self, mlflow.active_run().info.run_id)
                 return result
             else:
                 return original(self, *args, **kwargs)
