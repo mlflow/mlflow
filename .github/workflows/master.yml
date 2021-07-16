@@ -10,8 +10,14 @@ on:
       - master
       - branch-[0-9]+.[0-9]+
 
+# Use `bash` by default for all `run` steps in this workflow:
+# https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#defaultsrun
 defaults:
   run:
+    # GitHub Actions runner executes commands specified in a run step via:
+    # $ bash --noprofile --norc -eo pipefail < commands >
+    #
+    # https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#using-a-specific-shell
     shell: bash
 
 env:
