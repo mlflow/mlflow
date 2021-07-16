@@ -9,6 +9,10 @@ on:
     branches:
       - master
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   set-matrix:
     runs-on: ubuntu-latest
