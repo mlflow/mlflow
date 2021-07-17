@@ -33,6 +33,7 @@ pytest dev/set_matrix.py --doctest-modules
 ```
 """
 
+import sys
 import argparse
 from packaging.version import Version
 import json
@@ -41,6 +42,7 @@ import os
 import re
 import shutil
 import urllib.request
+import functools
 
 import yaml
 
@@ -77,6 +79,7 @@ def read_yaml(location, if_error=None):
         raise
 
 
+@functools.lru_cache()
 def get_released_versions(package_name):
     """
     Fetches the released versions & datetimes of the specified Python package.
@@ -99,7 +102,7 @@ def get_released_versions(package_name):
         #
         # > pip install 'xgboost==0.7'
         # ERROR: Could not find a version that satisfies the requirement xgboost==0.7
-        if len(dist_files) > 0 and (not dist_files[0]["yanked"])
+        if len(dist_files) > 0 and (not dist_files[0].get("yanked", False))
     }
     return versions
 
@@ -362,14 +365,22 @@ def split_by_comma(x):
     return list(map(str.strip, stripped.split(","))) if stripped != "" else []
 
 
-def parse_args():
+def parse_args(args):
     parser = argparse.ArgumentParser(description="Set a test matrix for the cross version tests")
+    parser.add_argument(
+        "--versions-yaml",
+        required=False,
+        default="mlflow/ml-package-versions.yml",
+        help=(
+            "URL or local path of the config yaml file. Defaults to 'mlflow/ml-package-versions.yml'"
+        ),
+    )
     parser.add_argument(
         "--ref-versions-yaml",
         required=False,
         default=None,
         help=(
-            "URL or local file path of the reference config which will be compared with the config "
+            "URL or local path of the reference config yaml file which will be compared with the config "
             "on the branch where this script is running in order to identify version YAML updates"
         ),
     )
@@ -402,7 +413,7 @@ def parse_args():
         help="If True, exclude dev versions from the test matrix",
     )
 
-    return parser.parse_args()
+    return parser.parse_args(args)
 
 
 class Hashabledict(dict):
@@ -418,7 +429,6 @@ def expand_config(config, exclude_dev=False):
         all_versions = get_released_versions(package_info["pip_release"])
 
         for key, cfg in cfgs.items():
-            print("Processing", flavor_key, key)
             # Released versions
             min_ver = cfg["minimum"]
             max_ver = cfg["maximum"]
@@ -472,15 +482,10 @@ def expand_config(config, exclude_dev=False):
     return matrix
 
 
-def main():
-    args = parse_args()
-
-    print(divider("Parameters"))
-    print(json.dumps(vars(args), indent=2))
-
-    print(divider("Logs"))
+def generate_matrix(args):
+    args = parse_args(args)
     changed_files = [] if (args.changed_files is None) else args.changed_files
-    config = read_yaml(VERSIONS_YAML_PATH)
+    config = read_yaml(args.versions_yaml)
     config_ref = (
         {} if args.ref_versions_yaml is None else read_yaml(args.ref_versions_yaml, if_error={})
     )
@@ -509,10 +514,17 @@ def main():
     if args.versions:
         include = filter(lambda x: x["version"] in args.versions, include)
 
-    include = sorted(include, key=lambda x: x["job_name"])
-    job_names = [x["job_name"] for x in include]
+    return set(include)
 
-    matrix = {"job_name": job_names, "include": include}
+
+def main(args):
+    print(divider("Parameters:"))
+    print(json.dumps(args, indent=2))
+    matrix = generate_matrix(args)
+    matrix = sorted(matrix, key=lambda x: x["job_name"])
+    job_names = [x["job_name"] for x in matrix]
+    matrix = {"job_name": job_names, "include": matrix}
+
     print(divider("Result"))
     print(json.dumps(matrix, indent=2))
 
@@ -528,4 +540,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])
