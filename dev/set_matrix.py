@@ -357,6 +357,11 @@ def divider(title, length=None):
     return "\n{} {} {}".format("=" * left, title, "=" * (rest - left))
 
 
+def split_by_comma(x):
+    stripped = x.strip()
+    return list(map(str.strip, stripped.split(","))) if stripped != "" else []
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Set a test matrix for the cross version tests")
     parser.add_argument(
@@ -374,6 +379,19 @@ def parse_args():
         required=False,
         default=None,
         help=("A string that represents a list of changed files"),
+    )
+
+    parser.add_argument(
+        "--flavors",
+        required=False,
+        type=split_by_comma,
+        help="Comma-separated string specifying which flavors to test (e.g. 'keras, scikit-learn')",
+    )
+    parser.add_argument(
+        "--versions",
+        required=False,
+        type=split_by_comma,
+        help="Comma-separated string specifying which versions to test (e.g. '1.2.3, 4.5.6')",
     )
 
     parser.add_argument(
@@ -484,6 +502,13 @@ def main():
 
     # If this file contains changes, re-run all the tests, otherwise re-run the affected tests.
     include = matrix if (__file__ in changed_files) else diff_config.union(diff_flavor)
+
+    if args.flavors:
+        include = filter(lambda x: x["flavor"] in args.flavors, include)
+
+    if args.versions:
+        include = filter(lambda x: x["version"] in args.versions, include)
+
     include = sorted(include, key=lambda x: x["job_name"])
     job_names = [x["job_name"] for x in include]
 
