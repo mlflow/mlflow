@@ -203,7 +203,6 @@ def gee_model():
 @pytest.fixture(scope="session")
 def glm_model():
     # Generalized Linear Model (GLM)
-
     data = get_dataset("scotland")
     data.exog = sm.add_constant(data.exog)
     glm = sm.GLM(data.endog, data.exog, family=sm.families.Gamma())
