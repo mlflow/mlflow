@@ -6,6 +6,8 @@ from collections import namedtuple
 from statsmodels.tsa.arima_process import arma_generate_sample
 from statsmodels.tsa.arima.model import ARIMA
 from scipy.linalg import toeplitz
+from packaging.version import Version
+
 
 ModelWithResults = namedtuple("ModelWithResults", ["model", "alg", "inference_dataframe"])
 
@@ -51,10 +53,18 @@ def failing_logit_model():
     return ModelWithResults(model=model, alg=log_reg, inference_dataframe=X)
 
 
+def get_dataset(name):
+    # `as_pandas` argument for `statsmodel.datasets.*.load` has been removed by this PR after
+    # the v0.12.2 release: https://github.com/statsmodels/statsmodels/pull/7578
+    as_pandas_supported = Version(sm.__version__) <= Version("0.12.2")
+    dataset_module = getattr(sm.datasets, name)
+    return dataset_module.load(as_pandas=False) if as_pandas_supported else dataset_module.load()
+
+
 @pytest.fixture(scope="session")
 def gls_model():
     # Generalized Least Squares (GLS)
-    data = sm.datasets.longley.load(as_pandas=False)
+    data = get_dataset("longley")
     data.exog = sm.add_constant(data.exog)
     ols_resid = sm.OLS(data.endog, data.exog).fit().resid
     res_fit = sm.OLS(ols_resid[1:], ols_resid[:-1]).fit()
@@ -114,7 +124,7 @@ def rolling_ols_model():
     # Rolling Ordinary Least Squares (Rolling OLS)
     from statsmodels.regression.rolling import RollingOLS
 
-    data = sm.datasets.longley.load(as_pandas=False)
+    data = get_dataset("longley")
     exog = sm.add_constant(data.exog, prepend=False)
     rolling_ols = RollingOLS(data.endog, exog)
     model = rolling_ols.fit(reset=50)
@@ -127,7 +137,7 @@ def rolling_wls_model():
     # Rolling Weighted Least Squares (Rolling WLS)
     from statsmodels.regression.rolling import RollingWLS
 
-    data = sm.datasets.longley.load(as_pandas=False)
+    data = get_dataset("longley")
     exog = sm.add_constant(data.exog, prepend=False)
     rolling_wls = RollingWLS(data.endog, exog)
     model = rolling_wls.fit(reset=50)
@@ -187,7 +197,8 @@ def gee_model():
 @pytest.fixture(scope="session")
 def glm_model():
     # Generalized Linear Model (GLM)
-    data = sm.datasets.scotland.load(as_pandas=False)
+
+    data = get_dataset("scotland")
     data.exog = sm.add_constant(data.exog)
     glm = sm.GLM(data.endog, data.exog, family=sm.families.Gamma())
     model = glm.fit()
