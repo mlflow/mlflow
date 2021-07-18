@@ -372,7 +372,8 @@ def parse_args(args):
         required=False,
         default="mlflow/ml-package-versions.yml",
         help=(
-            "URL or local path of the config yaml file. Defaults to 'mlflow/ml-package-versions.yml'"
+            "URL or local file path of the config yaml. Defaults to "
+            "'mlflow/ml-package-versions.yml' on the branch where this script is running",
         ),
     )
     parser.add_argument(
@@ -380,8 +381,8 @@ def parse_args(args):
         required=False,
         default=None,
         help=(
-            "URL or local path of the reference config yaml file which will be compared with the config "
-            "on the branch where this script is running in order to identify version YAML updates"
+            "URL or local file path of the reference config yaml which will be compared with the "
+            "config specified by `--versions-yaml` in order to identify the config updates"
         ),
     )
     parser.add_argument(
@@ -421,7 +422,7 @@ class Hashabledict(dict):
         return hash(frozenset(self))
 
 
-def expand_config(config, exclude_dev=False):
+def expand_config(config):
     matrix = []
     for flavor_key, cfgs in config.items():
         flavor = flavor_key.split("-")[0]
@@ -460,7 +461,7 @@ def expand_config(config, exclude_dev=False):
                 )
 
             # Development version
-            if not exclude_dev and "install_dev" in package_info:
+            if "install_dev" in package_info:
                 job_name = " / ".join([flavor_key, DEV_VERSION, key])
                 requirements = process_requirements(cfg.get("requirements"), DEV_VERSION)
                 install = (
@@ -482,43 +483,61 @@ def expand_config(config, exclude_dev=False):
     return matrix
 
 
+def process_ref_versions_yaml(ref_versions_yaml, matrix_base):
+    if ref_versions_yaml is None:
+        return set()
+
+    config_ref = read_yaml(ref_versions_yaml, if_error={})
+    matrix_ref = set(expand_config(config_ref))
+    return matrix_base.difference(matrix_ref)
+
+
+def process_changed_files(changed_files, matrix_base):
+    if changed_files is None:
+        return set()
+
+    flavors = set(x["flavors"] for x in matrix_base)
+    changed_flavors = (
+        # If this file (`dev/set_matrix.py`) has been changed, re-run all tests
+        flavors
+        if (__file__ in changed_files)
+        else get_changed_flavors(changed_files, flavors)
+    )
+    return set(filter(lambda x: x["flavor"] in changed_flavors, matrix_base))
+
+
 def generate_matrix(args):
     args = parse_args(args)
-    changed_files = [] if (args.changed_files is None) else args.changed_files
-    config = read_yaml(args.versions_yaml)
-    config_ref = (
-        {} if args.ref_versions_yaml is None else read_yaml(args.ref_versions_yaml, if_error={})
-    )
+    config_base = read_yaml(args.versions_yaml)
+    matrix_base = set(expand_config(config_base))
 
-    # Assuming that the top-level keys in `ml-package-versions.yml` have the format:
-    # <flavor name>(-<suffix>) (e.g. sklearn, tensorflow-1.x, keras-tf1.x)
-    flavors = set(x.split("-")[0] for x in config.keys())
-    changed_flavors = get_changed_flavors(changed_files, flavors)
+    # If both `--ref-versions-yaml` and `--changed-files` are unspecified, no further processing is
+    # required.
+    if args.ref_versions_yaml is None and args.changed_files is None:
+        matrix_final = matrix_base
+    else:
+        # Matrix entries for changes on `ml-package-versions.yml`
+        matrix_diff_config = process_ref_versions_yaml(args.ref_versions_yaml, matrix_base)
+        # Matrix entries for changes on python scripts under `mlflow` and `tests`
+        matrix_diff_flavors = process_changed_files(args.changed_files, matrix_base)
+        # Merge `matrix_diff_config` and `matrix_diff_flavors`
+        matrix_final = matrix_diff_config.union(matrix_diff_flavors)
 
-    matrix = set(expand_config(config, args.exclude_dev_versions))
-    matrix_ref = set(expand_config(config_ref, args.exclude_dev_versions))
-
-    diff_config = (
-        set()
-        if (args.changed_files is not None and args.ref_versions_yaml is None)
-        else matrix.difference(matrix_ref)
-    )
-    diff_flavor = set(filter(lambda x: x["flavor"] in changed_flavors, matrix))
-
-    # If this file contains changes, re-run all the tests, otherwise re-run the affected tests.
-    include = matrix if (__file__ in changed_files) else diff_config.union(diff_flavor)
+    # Apply the filtering arguments
+    if args.exclude_dev_versions:
+        matrix_final = filter(lambda x: x["version"] != DEV_VERSION, matrix_final)
 
     if args.flavors:
-        include = filter(lambda x: x["flavor"] in args.flavors, include)
+        matrix_final = filter(lambda x: x["flavor"] in args.flavors, matrix_final)
 
     if args.versions:
-        include = filter(lambda x: x["version"] in args.versions, include)
+        matrix_final = filter(lambda x: x["version"] in args.versions, matrix_final)
 
-    return set(include)
+    return set(matrix_final)
 
 
 def main(args):
-    print(divider("Parameters:"))
+    print(divider("Parameters"))
     print(json.dumps(args, indent=2))
     matrix = generate_matrix(args)
     matrix = sorted(matrix, key=lambda x: x["job_name"])
