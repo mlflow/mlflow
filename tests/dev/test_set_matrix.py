@@ -4,6 +4,8 @@ from unittest import mock
 import tempfile
 from contextlib import contextmanager
 import functools
+from pathlib import Path
+
 import pytest
 
 from dev.set_matrix import generate_matrix
@@ -46,15 +48,13 @@ def mock_pypi_api(mock_responses):
 
 
 @contextmanager
-def mock_ml_package_versions_yml(src, src_ref):
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".yml") as yml, tempfile.NamedTemporaryFile(
-        mode="w", suffix=".yml"
-    ) as yml_ref:
-        yml.write(src)
-        yml.flush()
-        yml_ref.write(src_ref)
-        yml_ref.flush()
-        yield ["--versions-yaml", yml.name, "--ref-versions-yaml", yml_ref.name]
+def mock_ml_package_versions_yml(src_base, src_ref):
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        yml_base = Path(tmp_dir).joinpath("base.yml")
+        yml_ref = Path(tmp_dir).joinpath("ref.yml")
+        yml_base.write_text(src_base)
+        yml_ref.write_text(src_ref)
+        yield ["--versions-yaml", str(yml_base), "--ref-versions-yaml", str(yml_ref)]
 
 
 MOCK_YAML_SOURCE = """
