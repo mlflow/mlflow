@@ -55,7 +55,6 @@ def load_model(model_uri, ctx):
         model = mlflow.gluon.load_model("runs:/" + gluon_random_data_run.info.run_id + "/model")
         model(nd.array(np.random.rand(1000, 1, 32)))
     """
-    import mxnet
     from mxnet import gluon
     from mxnet import sym
 
@@ -63,12 +62,15 @@ def load_model(model_uri, ctx):
 
     model_arch_path = os.path.join(local_model_path, "data", _MODEL_SAVE_PATH) + "-symbol.json"
     model_params_path = os.path.join(local_model_path, "data", _MODEL_SAVE_PATH) + "-0000.params"
-    symbol = sym.load(model_arch_path)
-    inputs = sym.var("data", dtype="float32")
-    net = gluon.SymbolBlock(symbol, inputs)
-    if Version(mxnet.__version__) >= Version("2.0.0"):
-        net.load_parameters(model_params_path, ctx)
+
+    if Version(mx.__version__) >= Version("2.0.0"):
+        return gluon.SymbolBlock.imports(
+            model_arch_path, input_names=["data"], param_file=model_params_path, ctx=ctx
+        )
     else:
+        symbol = sym.load(model_arch_path)
+        inputs = sym.var("data", dtype="float32")
+        net = gluon.SymbolBlock(symbol, inputs)
         net.collect_params().load(model_params_path, ctx)
     return net
 

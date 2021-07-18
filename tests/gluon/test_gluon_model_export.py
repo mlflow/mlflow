@@ -30,8 +30,12 @@ from tests.helper_functions import pyfunc_serve_and_score_model, _compare_conda_
 
 if Version(mx.__version__) >= Version("2.0.0"):
     from mxnet.gluon.metric import Accuracy  # pylint: disable=import-error
+
+    array_module = mx.np
 else:
     from mxnet.metric import Accuracy  # pylint: disable=import-error
+
+    array_module = mx.nd
 
 
 @pytest.fixture
@@ -49,18 +53,17 @@ def gluon_custom_env(tmpdir):
 @pytest.fixture(scope="module")
 def model_data():
     mnist = mx.test_utils.get_mnist()
-    train_data = nd.array(mnist["train_data"].reshape(-1, 784))
-    train_label = nd.array(mnist["train_label"])
-    test_data = nd.array(mnist["test_data"].reshape(-1, 784))
+    train_data = array_module.array(mnist["train_data"].reshape(-1, 784))
+    train_label = array_module.array(mnist["train_label"])
+    test_data = array_module.array(mnist["test_data"].reshape(-1, 784))
     return train_data, train_label, test_data
 
 
 @pytest.fixture(scope="module")
 def gluon_model(model_data):
     train_data, train_label, _ = model_data
-    train_data_loader = DataLoader(
-        list(zip(train_data, train_label)), batch_size=128, last_batch="discard"
-    )
+    dataset = mx.gluon.data.ArrayDataset(train_data, train_label)
+    train_data_loader = DataLoader(dataset, batch_size=128, last_batch="discard")
     model = HybridSequential()
     model.add(Dense(128, activation="relu"))
     model.add(Dense(64, activation="relu"))
@@ -85,12 +88,12 @@ def gluon_model(model_data):
 @pytest.mark.large
 def test_model_save_load(gluon_model, model_data, model_path):
     _, _, test_data = model_data
-    expected = nd.argmax(gluon_model(test_data), axis=1)
+    expected = array_module.argmax(gluon_model(test_data), axis=1)
 
     mlflow.gluon.save_model(gluon_model, model_path)
     # Loading Gluon model
     model_loaded = mlflow.gluon.load_model(model_path, ctx.cpu())
-    actual = nd.argmax(model_loaded(test_data), axis=1)
+    actual = array_module.argmax(model_loaded(test_data), axis=1)
     assert all(expected == actual)
     # Loading pyfunc model
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
@@ -128,7 +131,7 @@ def test_signature_and_examples_are_saved_correctly(gluon_model, model_data):
 def test_model_log_load(gluon_model, model_data, model_path):
     # pylint: disable=unused-argument
     _, _, test_data = model_data
-    expected = nd.argmax(gluon_model(test_data), axis=1)
+    expected = array_module.argmax(gluon_model(test_data), axis=1)
 
     artifact_path = "model"
     with mlflow.start_run():
@@ -139,7 +142,7 @@ def test_model_log_load(gluon_model, model_data, model_path):
 
     # Loading Gluon model
     model_loaded = mlflow.gluon.load_model(model_uri, ctx.cpu())
-    actual = nd.argmax(model_loaded(test_data), axis=1)
+    actual = array_module.argmax(model_loaded(test_data), axis=1)
     assert all(expected == actual)
     # Loading pyfunc model
     pyfunc_loaded = mlflow.pyfunc.load_model(model_uri)
@@ -238,7 +241,7 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(gluon_model, 
 @pytest.mark.large
 def test_gluon_model_serving_and_scoring_as_pyfunc(gluon_model, model_data):
     _, _, test_data = model_data
-    expected = nd.argmax(gluon_model(test_data), axis=1)
+    expected = array_module.argmax(gluon_model(test_data), axis=1)
 
     artifact_path = "model"
     with mlflow.start_run():
