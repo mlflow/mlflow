@@ -205,6 +205,7 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_from_
     pretrained_model, sagemaker_client
 ):
     app_name = "test-app"
+    env = {"KEY1": "VALUE1", "KEY2": "VALUE2"}
     result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
         mfscli.commands,
         [
@@ -215,6 +216,12 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_from_
             pretrained_model.model_uri,
             "--mode",
             mfs.DEPLOYMENT_MODE_CREATE,
+            "--env",
+            "KEY1",
+            env["KEY1"],
+            "--env",
+            "KEY2",
+            env["KEY2"],
         ],
     )
     assert result.exit_code == 0
@@ -227,6 +234,9 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_from_
     assert len(endpoint_production_variants) == 1
     model_name = endpoint_production_variants[0]["VariantName"]
     assert model_name in [model["ModelName"] for model in sagemaker_client.list_models()["Models"]]
+    model = sagemaker_client.describe_model(ModelName=model_name)
+    assert model["PrimaryContainer"]["Environment"]["KEY1"] == env["KEY1"]
+    assert model["PrimaryContainer"]["Environment"]["KEY2"] == env["KEY2"]
     object_names = [
         entry["Key"] for entry in s3_client.list_objects(Bucket=default_bucket)["Contents"]
     ]
@@ -298,9 +308,24 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_from_
     )
 
     app_name = "test-app"
+    env = {"KEY1": "VALUE1", "KEY2": "VALUE2"}
     result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
         mfscli.commands,
-        ["deploy", "-a", app_name, "-m", model_s3_uri, "--mode", mfs.DEPLOYMENT_MODE_CREATE],
+        [
+            "deploy",
+            "-a",
+            app_name,
+            "-m",
+            model_s3_uri,
+            "--mode",
+            mfs.DEPLOYMENT_MODE_CREATE,
+            "--env",
+            "KEY1",
+            env["KEY1"],
+            "--env",
+            "KEY2",
+            env["KEY2"],
+        ],
     )
     assert result.exit_code == 0
 
@@ -312,6 +337,9 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_from_
     assert len(endpoint_production_variants) == 1
     model_name = endpoint_production_variants[0]["VariantName"]
     assert model_name in [model["ModelName"] for model in sagemaker_client.list_models()["Models"]]
+    model = sagemaker_client.describe_model(ModelName=model_name)
+    assert model["PrimaryContainer"]["Environment"]["KEY1"] == env["KEY1"]
+    assert model["PrimaryContainer"]["Environment"]["KEY2"] == env["KEY2"]
     object_names = [
         entry["Key"] for entry in s3_client.list_objects(Bucket=default_bucket)["Contents"]
     ]

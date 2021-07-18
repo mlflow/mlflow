@@ -9,6 +9,20 @@ from mlflow.sagemaker import DEFAULT_IMAGE_NAME as IMAGE
 from mlflow.utils import cli_args
 import mlflow.models.docker_utils
 
+_OPTION_ENV = click.option(
+    "--env",
+    default=None,
+    nargs=2,
+    type=click.Tuple([str, str]),
+    callback=lambda ctx, opt, value: {k: v for (k, v) in value},
+    multiple=True,
+    help=(
+        "Enviroment variable to be added to the docker container. "
+        "Can be repeated to set multiple variables. "
+        "Syntax is `--env key1 value1 --env key2 value2 ...`"
+    ),
+)
+
 
 @click.group("sagemaker")
 def commands():
@@ -109,6 +123,7 @@ def commands():
         " asynchronously using the `--async` flag, this value is ignored."
     ),
 )
+@_OPTION_ENV
 def deploy(
     app_name,
     model_uri,
@@ -124,6 +139,7 @@ def deploy(
     flavor,
     asynchronous,
     timeout,
+    env,
 ):
     """
     Deploy model on Sagemaker as a REST API endpoint. Current active AWS account needs to have
@@ -156,6 +172,7 @@ def deploy(
         flavor=flavor,
         synchronous=(not asynchronous),
         timeout_seconds=timeout,
+        env=env,
     )
 
 
@@ -236,11 +253,12 @@ def delete(app_name, region_name, archive, asynchronous, timeout):
         )
     ),
 )
-def run_local(model_uri, port, image, flavor):
+@_OPTION_ENV
+def run_local(model_uri, port, image, flavor, env):
     """
     Serve model locally running in a Sagemaker-compatible Docker container.
     """
-    mlflow.sagemaker.run_local(model_uri=model_uri, port=port, image=image, flavor=flavor)
+    mlflow.sagemaker.run_local(model_uri=model_uri, port=port, image=image, flavor=flavor, env=env)
 
 
 @commands.command("build-and-push-container")

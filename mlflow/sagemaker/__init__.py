@@ -169,6 +169,7 @@ def deploy(
     flavor=None,
     synchronous=True,
     timeout_seconds=1200,
+    env=None,
 ):
     """
     Deploy an MLflow model on AWS SageMaker.
@@ -281,6 +282,7 @@ def deploy(
                             responsible for monitoring the health and status of the pending
                             deployment using native SageMaker APIs or the AWS console. If
                             ``synchronous`` is ``False``, this parameter is ignored.
+    :param env: Optional dict of environment variables that will be injected into Docker container.
     """
     import boto3
 
@@ -370,6 +372,7 @@ def deploy(
             role=execution_role_arn,
             sage_client=sage_client,
             s3_client=s3_client,
+            env=env,
         )
     else:
         deployment_operation = _create_sagemaker_endpoint(
@@ -384,6 +387,7 @@ def deploy(
             vpc_config=vpc_config,
             role=execution_role_arn,
             sage_client=sage_client,
+            env=env,
         )
 
     if synchronous:
@@ -491,7 +495,7 @@ def delete(app_name, region_name="us-west-2", archive=False, synchronous=True, t
             delete_operation.clean_up()
 
 
-def run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
+def run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None, env=None):
     """
     Serve model locally in a SageMaker compatible Docker container.
 
@@ -515,6 +519,7 @@ def run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
                    a flavor is automatically selected from the model's available flavors. If the
                    specified flavor is not present or not supported for deployment, an exception
                    is thrown.
+    :param env: Optional dict of environment variables that will be injected into Docker container.
     """
     model_path = _download_artifact_from_uri(model_uri)
     model_config_path = os.path.join(model_path, MLMODEL_FILE_NAME)
@@ -526,7 +531,7 @@ def run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
         _validate_deployment_flavor(model_config, flavor)
     print("Using the {selected_flavor} flavor for local serving!".format(selected_flavor=flavor))
 
-    deployment_config = _get_deployment_config(flavor_name=flavor)
+    deployment_config = _get_deployment_config(flavor_name=flavor, env=env)
 
     _logger.info("launching docker image with path %s", model_path)
     cmd = ["docker", "run", "-v", "{}:/opt/ml/model/".format(model_path), "-p", "%d:8080" % port]
@@ -665,11 +670,13 @@ def _upload_s3(local_model_path, bucket, prefix, region_name, s3_client):
             return "{}/{}/{}".format(s3_client.meta.endpoint_url, bucket, key)
 
 
-def _get_deployment_config(flavor_name):
+def _get_deployment_config(flavor_name, env):
     """
     :return: The deployment configuration as a dictionary
     """
     deployment_config = {DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME: flavor_name}
+    if env:
+        deployment_config.update(env)
     return deployment_config
 
 
@@ -693,6 +700,7 @@ def _create_sagemaker_endpoint(
     instance_count,
     role,
     sage_client,
+    env,
 ):
     """
     :param endpoint_name: The name of the SageMaker endpoint to create.
@@ -708,6 +716,7 @@ def _create_sagemaker_endpoint(
                        new SageMaker model associated with this SageMaker endpoint.
     :param role: SageMaker execution ARN role.
     :param sage_client: A boto3 client for SageMaker.
+    :param env: dict of environment variables
     """
     _logger.info("Creating new endpoint with name: %s ...", endpoint_name)
 
@@ -720,6 +729,7 @@ def _create_sagemaker_endpoint(
         image_url=image_url,
         execution_role=role,
         sage_client=sage_client,
+        env=env,
     )
     _logger.info("Created model with arn: %s", model_response["ModelArn"])
 
@@ -791,6 +801,7 @@ def _update_sagemaker_endpoint(
     role,
     sage_client,
     s3_client,
+    env,
 ):
     """
     :param endpoint_name: The name of the SageMaker endpoint to update.
@@ -809,6 +820,7 @@ def _update_sagemaker_endpoint(
     :param role: SageMaker execution ARN role.
     :param sage_client: A boto3 client for SageMaker.
     :param s3_client: A boto3 client for S3.
+    :param env: dict of environment variables
     """
     if mode not in [DEPLOYMENT_MODE_ADD, DEPLOYMENT_MODE_REPLACE]:
         msg = "Invalid mode `{md}` for deployment to a pre-existing application".format(md=mode)
@@ -834,6 +846,7 @@ def _update_sagemaker_endpoint(
         image_url=image_url,
         execution_role=role,
         sage_client=sage_client,
+        env=env,
     )
     _logger.info("Created new model with arn: %s", new_model_response["ModelArn"])
 
@@ -918,7 +931,15 @@ def _update_sagemaker_endpoint(
 
 
 def _create_sagemaker_model(
-    model_name, model_s3_path, model_uri, flavor, vpc_config, image_url, execution_role, sage_client
+    model_name,
+    model_s3_path,
+    model_uri,
+    flavor,
+    vpc_config,
+    image_url,
+    execution_role,
+    sage_client,
+    env,
 ):
     """
     :param model_name: The name to assign the new SageMaker model that is created.
@@ -931,6 +952,7 @@ def _create_sagemaker_model(
                       model's container,
     :param execution_role: The ARN of the role that SageMaker will assume when creating the model.
     :param sage_client: A boto3 client for SageMaker.
+    :param env: dict of environment variables
     :return: AWS response containing metadata associated with the new model.
     """
     create_model_args = {
@@ -938,7 +960,7 @@ def _create_sagemaker_model(
         "PrimaryContainer": {
             "Image": image_url,
             "ModelDataUrl": model_s3_path,
-            "Environment": _get_deployment_config(flavor_name=flavor),
+            "Environment": _get_deployment_config(flavor_name=flavor, env=env),
         },
         "ExecutionRoleArn": execution_role,
         "Tags": [{"Key": "model_uri", "Value": str(model_uri)}],
