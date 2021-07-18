@@ -496,7 +496,7 @@ def process_changed_files(changed_files, matrix_base):
     if changed_files is None:
         return set()
 
-    flavors = set(x["flavors"] for x in matrix_base)
+    flavors = set(x["flavor"] for x in matrix_base)
     changed_flavors = (
         # If this file (`dev/set_matrix.py`) has been changed, re-run all tests
         flavors
