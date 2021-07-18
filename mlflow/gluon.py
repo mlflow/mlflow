@@ -55,6 +55,7 @@ def load_model(model_uri, ctx):
         model = mlflow.gluon.load_model("runs:/" + gluon_random_data_run.info.run_id + "/model")
         model(nd.array(np.random.rand(1000, 1, 32)))
     """
+    import mxnet as mx
     from mxnet import gluon
     from mxnet import sym
 
