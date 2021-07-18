@@ -32,7 +32,7 @@ class MockResponse:
 
 
 def mock_pypi_api(mock_responses):
-    def urlopen_patch(url, *args, **kwargs):
+    def urlopen_patch(url, *args, **kwargs):  # pylint: disable=unused-argument
         package_name = re.search(r"https://pypi.python.org/pypi/(.+)/json", url).group(1)
         return mock_responses[package_name]
 
@@ -107,7 +107,7 @@ def test_flavors(flavors, expected):
 @pytest.mark.parametrize(
     "versions, expected",
     [
-        ("1.0.0", {"1.0.0",}),
+        ("1.0.0", {"1.0.0"}),
         ("1.0.0,1.1.1", {"1.0.0", "1.1.1"}),
         ("1.3, 1.4", {"1.3", "1.4"}),  # Contains a space after a comma
         ("", {"1.0.0", "1.1.1", "1.2.0", "1.3", "1.4", "dev"}),
