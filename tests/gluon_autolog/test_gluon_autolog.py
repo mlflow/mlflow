@@ -3,7 +3,6 @@ import random
 import warnings
 
 import mxnet as mx
-import mxnet.ndarray as nd
 import numpy as np
 import pytest
 from mxnet.gluon import Trainer
