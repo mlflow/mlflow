@@ -4,7 +4,6 @@ import warnings
 import yaml
 
 import mxnet as mx
-import mxnet.ndarray as nd
 import numpy as np
 import pandas as pd
 import pytest

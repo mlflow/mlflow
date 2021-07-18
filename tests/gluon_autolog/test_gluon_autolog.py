@@ -1,4 +1,3 @@
-from mxnet.numpy.multiarray import array
 from packaging.version import Version
 import random
 import warnings
