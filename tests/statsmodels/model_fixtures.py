@@ -6,7 +6,6 @@ from collections import namedtuple
 from statsmodels.tsa.arima_process import arma_generate_sample
 from statsmodels.tsa.arima.model import ARIMA
 from scipy.linalg import toeplitz
-from packaging.version import Version
 
 
 ModelWithResults = namedtuple("ModelWithResults", ["model", "alg", "inference_dataframe"])
