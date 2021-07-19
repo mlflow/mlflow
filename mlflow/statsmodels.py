@@ -51,9 +51,7 @@ _logger = logging.getLogger(__name__)
 def _get_default_pip_requirements():
     import statsmodels
 
-    return _mlflow_conda_env(
-        additional_pip_deps=["statsmodels=={}".format(statsmodels.__version__)]
-    )
+    return ["statsmodels=={}".format(statsmodels.__version__)]
 
 
 def get_default_conda_env():

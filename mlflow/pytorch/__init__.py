@@ -12,7 +12,6 @@ import logging
 import os
 import yaml
 
-import cloudpickle
 import numpy as np
 import pandas as pd
 from packaging.version import Version
@@ -48,6 +47,7 @@ _logger = logging.getLogger(__name__)
 
 
 def _get_default_pip_requirements():
+    import cloudpickle
     import torch
     import torchvision
 
@@ -90,7 +90,7 @@ def get_default_conda_env():
                                              'mlflow',
                                              'cloudpickle==1.6.0']}]}
     """
-    return _mlflow_conda_env(additional_pip_deps=[_get_default_pip_requirements()])
+    return _mlflow_conda_env(additional_pip_deps=_get_default_pip_requirements())
 
 
 def log_model(
