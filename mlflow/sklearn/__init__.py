@@ -490,10 +490,9 @@ class _AutologTrainingStatus:
           then they will be assigned different name (via appending index to the
           eval_dataset_var_name) when autologging.
         * storing the dataset row samples, we need log them into metric_info artifact file.
-    (4) metric_api_call_arg_dict_list_map, it is a double level map:
-       `metric_api_call_arg_dict_list_map[run_id][metric_function_name]` wil get a list of
-        call arguments dict. The "call arguments dict" is a dict of: arg_name --> arg_value,
-        but exclude non-scalar type arguments value.
+    (4) metric_api_call_arg_dict_list_map, it is a map:
+       `metric_api_call_arg_dict_list_map[run_id]` wil get a list of tuples, each tuple is like:
+        (metric_logged_key, metric_call_command)
         This data structure is used for:
          * storing the call arguments dict for each metric call, we need log them into metric_info
            artifact file.
@@ -507,7 +506,7 @@ class _AutologTrainingStatus:
     def __init__(self):
         self._pred_result_id_to_dataset_name_and_run_id = {}
         self._eval_dataset_info_map = defaultdict(lambda: defaultdict(list))
-        self._metric_api_call_arg_dict_list_map = defaultdict(lambda: defaultdict(list))
+        self._metric_api_call_info = defaultdict(list)
         self._log_post_training_metrics_enabled = True
         self._metric_info_artifact_need_update = defaultdict(lambda: False)
 
@@ -574,10 +573,9 @@ class _AutologTrainingStatus:
          3. register eval dataset (with id and row samples information)
          4. return eval dataset name with index.
         """
-        eval_dataset_name = _inspect_original_var_name(eval_dataset)
+        eval_dataset_name = _inspect_original_var_name(
+            eval_dataset, fallback_name='unknown_dataset')
         eval_dataset_id = id(eval_dataset)
-        if eval_dataset_name is None:
-            eval_dataset_name = 'unknown_dataset'
 
         run_id = self.get_run_id_for_model(model)
         registered_dataset_list = self._eval_dataset_info_map[run_id][eval_dataset_name]
@@ -621,6 +619,42 @@ class _AutologTrainingStatus:
         # to clear the ID from the dict for preventing wrong ID mapping.
         weakref.finalize(predict_result, clean_id, prediction_result_id)
 
+    @staticmethod
+    def _gen_call_command_arg_list(call_pos_args, call_kwargs):
+        arg_list = []
+
+        def arg_to_str(arg):
+            if arg is not None and not np.isscalar(arg):
+                # dataset arguments
+                return _inspect_original_var_name(arg, fallback_name=f'<{arg.__class__.__name__}>')
+            elif np.isscalar(arg):
+                return str(arg)
+            else:
+                return arg.__class__.__name__
+
+        for arg in call_pos_args:
+            arg_list.append(arg_to_str(arg))
+
+        for arg_name, arg in call_kwargs:
+            arg_list.append(f'{arg_name}={arg_to_str(arg)}')
+
+        return ','.join(arg_list)
+
+    def _register_metric_info(self,
+            run_id, metric_name, dataset_name, call_fn_name, call_pos_args, call_kwargs):
+
+        arg_list_str = self._gen_call_command_arg_list(call_pos_args, call_kwargs)
+        metric_call_command = f'{call_fn_name}({arg_list_str})'
+
+        call_info_list = self._metric_api_call_info[run_id]
+
+        index = len(call_info_list)
+        metric_key = \
+            f'metric_call_{index}_{metric_name}_on_{dataset_name}'
+        call_info_list.append((metric_key, metric_call_command))
+        self._metric_info_artifact_need_update[run_id] = True
+        return metric_key
+
     def register_metric_api_call(self, metric_fn, call_pos_args, call_kwargs):
         """
         Given a metric api call (include the called metric function, and call arguments)
@@ -651,18 +685,29 @@ class _AutologTrainingStatus:
         if dataset_name is None or run_id is None:
             return False, None, None
 
-        call_arg_dict = _gen_metric_call_info(metric_fn, call_pos_args, call_kwargs)
         metric_name = metric_fn.__name__
+        if metric_name.strip() == '<lambda>':
+            metric_name = 'unknown_metric'
 
-        registered_call_arg_dict_list = \
-            self._metric_api_call_arg_dict_list_map[run_id][metric_name]
+        call_fn_name = metric_name
+        metric_key = self._register_metric_info(
+            run_id, metric_name, dataset_name, call_fn_name, call_pos_args, call_kwargs
+        )
 
-        index = len(registered_call_arg_dict_list)
-        registered_call_arg_dict_list.append(call_arg_dict)
-        self._metric_info_artifact_need_update[run_id] = True
-
-        metric_key = f'{dataset_name}_{self.gen_name_with_index(metric_name, index)}'
         return True, run_id, metric_key
+
+    def register_model_score_call(self, model, call_pos_args, call_kwargs):
+        eval_dataset = call_pos_args[0] if len(call_pos_args) >= 1 else call_kwargs.get('X')
+        eval_dataset_name = self.register_eval_dataset(self, eval_dataset)
+        metric_name = f'{self.__class__.__name__}_score'
+
+        run_id = self.get_run_id_for_model(model)
+        call_fn_name = f'{self.__class__.__name__}.score'
+        self._register_metric_info(
+            run_id, metric_name, eval_dataset_name, call_fn_name, call_pos_args, call_kwargs)
+
+        metric_key = f'{metric_name}_on_{eval_dataset_name}'
+        return metric_key
 
     def log_eval_metric(self, run_id, key, value):
         # Note: if the case log the same metric key multiple times,
@@ -676,7 +721,7 @@ class _AutologTrainingStatus:
         if self._metric_info_artifact_need_update[run_id]:
             metric_info_dict = {}
             for metric_name, call_dict_list in \
-                    self._metric_api_call_arg_dict_list_map[run_id].items():
+                    self._metric_api_call_info[run_id].items():
                 for i, call_dict in enumerate(call_dict_list):
                     metric_info_dict[self.gen_name_with_index(metric_name, i)] = call_dict
 
@@ -690,35 +735,6 @@ _autolog_training_status = _AutologTrainingStatus()
 
 def _get_autolog_training_status():
     return _autolog_training_status
-
-
-def _gen_metric_call_info(metric_fn, call_pos_args, call_kwargs):
-    """
-    Extract argument dict (argument name -> value) from a metric API call. It will do:
-      * inspect and fill the argument name for positional arguments
-      * filter out non-scalar arguments (dataset arguments)
-    and return a dict (key is argument name and value is argument) of call arguments
-    """
-    sig = inspect.signature(metric_fn)
-    sig_args = list(sig.parameters.items())
-
-    if sig_args[-1][1].kind == sig_args[-1][1].VAR_KEYWORD:
-        sig_args.pop()
-
-    if sig_args[-1][1].kind == sig_args[-1][1].VAR_POSITIONAL:
-        sig_args.pop()
-
-    arg_dict = {}
-    assert len(call_pos_args) <= len(sig_args)
-    for i in range(len(call_pos_args)):
-        arg_dict[sig_args[i][0]] = call_pos_args[i]
-
-    arg_dict.update(call_kwargs)
-
-    # filter out non scalar value args. (they are args of dataset)
-    arg_dict = {k: v for k, v in arg_dict.items() if v is None or np.isscalar(v)}
-
-    return arg_dict
 
 
 _metric_api_excluding_list = [
@@ -1211,10 +1227,7 @@ def autolog(
                 score_value = original(self, *args, **kwargs)
 
             if status.is_metrics_value_loggable(score_value):
-                eval_dataset = args[0] if len(args) >= 1 else kwargs.get('X')
-                eval_dataset_name = status.register_eval_dataset(self, eval_dataset)
-                metric_name = f'{self.__class__.__name__}_score'
-                metric_key = f'{eval_dataset_name}_{metric_name}'
+                metric_key = status.register_model_score_call(self, args, kwargs)
                 status.log_eval_metric(
                     status.get_run_id_for_model(self), metric_key, score_value
                 )

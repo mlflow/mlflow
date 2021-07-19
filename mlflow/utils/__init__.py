@@ -122,10 +122,10 @@ def _get_fully_qualified_class_name(obj):
     return obj.__class__.__module__ + "." + obj.__class__.__name__
 
 
-def _inspect_original_var_name(var):
+def _inspect_original_var_name(var, fallback_name):
     import inspect
     try:
-        original_var_name = None
+        original_var_name = fallback_name
 
         frame = inspect.currentframe().f_back
         while frame is not None:
@@ -153,4 +153,4 @@ def _inspect_original_var_name(var):
         return original_var_name
 
     except Exception:
-        pass
+        return fallback_name
