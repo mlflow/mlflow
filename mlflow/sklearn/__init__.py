@@ -635,7 +635,7 @@ class _AutologTrainingStatus:
         for arg in call_pos_args:
             arg_list.append(arg_to_str(arg))
 
-        for arg_name, arg in call_kwargs:
+        for arg_name, arg in call_kwargs.items():
             arg_list.append(f'{arg_name}={arg_to_str(arg)}')
 
         return ','.join(arg_list)
