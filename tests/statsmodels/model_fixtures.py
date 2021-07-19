@@ -54,18 +54,11 @@ def failing_logit_model():
 
 
 def get_dataset(name):
-    # `as_pandas` for `statsmodels.datasets.*.load` has been removed by the PR below and is only
-    # available in statsmodels <= 0.12.2:
-    # https://github.com/statsmodels/statsmodels/pull/7578
-    as_pandas_supported = Version(sm.__version__) <= Version("0.12.2")
     dataset_module = getattr(sm.datasets, name)
-    if as_pandas_supported:
-        return dataset_module.load(as_pandas=False)
-    else:
-        data = dataset_module.load()
-        data.exog = np.asarray(data.exog)
-        data.endog = np.asarray(data.endog)
-        return data
+    data = dataset_module.load()
+    data.exog = np.asarray(data.exog)
+    data.endog = np.asarray(data.endog)
+    return data
 
 
 @pytest.fixture(scope="session")
