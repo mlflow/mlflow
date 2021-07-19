@@ -490,9 +490,9 @@ class _AutologTrainingStatus:
           then they will be assigned different name (via appending index to the
           eval_dataset_var_name) when autologging.
         * storing the dataset row samples, we need log them into metric_info artifact file.
-    (4) metric_api_call_arg_dict_list_map, it is a map:
-       `metric_api_call_arg_dict_list_map[run_id]` wil get a list of tuples, each tuple is like:
-        (metric_logged_key, metric_call_command)
+    (4) _metric_api_call_info, it is a double level map:
+       `metric_api_call_arg_dict_list_map[run_id]` wil get a map of
+        (metric_logged_key -> metric_call_command)
         This data structure is used for:
          * storing the call arguments dict for each metric call, we need log them into metric_info
            artifact file.
@@ -506,7 +506,7 @@ class _AutologTrainingStatus:
     def __init__(self):
         self._pred_result_id_to_dataset_name_and_run_id = {}
         self._eval_dataset_info_map = defaultdict(lambda: defaultdict(list))
-        self._metric_api_call_info = defaultdict(list)
+        self._metric_api_call_info = defaultdict(dict)
         self._log_post_training_metrics_enabled = True
         self._metric_info_artifact_need_update = defaultdict(lambda: False)
 
@@ -646,12 +646,11 @@ class _AutologTrainingStatus:
         arg_list_str = self._gen_call_command_arg_list(call_pos_args, call_kwargs)
         metric_call_command = f'{call_fn_name}({arg_list_str})'
 
-        call_info_list = self._metric_api_call_info[run_id]
+        call_cmd_map = self._metric_api_call_info[run_id]
 
-        index = len(call_info_list)
-        metric_key = \
-            f'metric_call_{index}_{metric_name}_on_{dataset_name}'
-        call_info_list.append((metric_key, metric_call_command))
+        index = len(call_cmd_map)
+        metric_key = f'metric_call_{index + 1}_{metric_name}_on_{dataset_name}'
+        call_cmd_map[metric_key] = metric_call_command
         self._metric_info_artifact_need_update[run_id] = True
         return metric_key
 
@@ -702,7 +701,7 @@ class _AutologTrainingStatus:
         metric_name = f'{self.__class__.__name__}_score'
 
         run_id = self.get_run_id_for_model(model)
-        call_fn_name = f'{self.__class__.__name__}.score'
+        call_fn_name = f'{model.__class__.__name__}.score'
         self._register_metric_info(
             run_id, metric_name, eval_dataset_name, call_fn_name, call_pos_args, call_kwargs)
 
@@ -719,10 +718,7 @@ class _AutologTrainingStatus:
             value=value
         )
         if self._metric_info_artifact_need_update[run_id]:
-            metric_info_dict = {}
-            for metric_name, call_command in self._metric_api_call_info[run_id]:
-                metric_info_dict[metric_name] = call_command
-
+            metric_info_dict = self._metric_api_call_info[run_id]
             client.log_dict(
                 run_id=run_id, dictionary=metric_info_dict, artifact_file='metric_info.json'
             )
