@@ -285,7 +285,6 @@ spark:
         git clone --depth 1 https://github.com/apache/spark.git $temp_dir
         git --git-dir=$temp_dir/.git rev-parse HEAD
         cd $temp_dir
-        export MAVEN_OPTS="-Xss256m -Xmx2g -XX:ReservedCodeCacheSize=1g"
         ./build/mvn -DskipTests --no-transfer-progress clean package
         cd python
         python setup.py bdist_wheel
