@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       flavors:
-        description: "[Optional] Comma-separated string specifying which flavors to test (e.g. 'keras, scikit-learn'). If unspecified, all flavors are tested."
+        description: "[Optional] Comma-separated string specifying which flavors to test (e.g. 'sklearn, xgboost'). If unspecified, all flavors are tested."
         required: false
         default: ""
       versions:

@@ -373,7 +373,7 @@ def parse_args(args):
         default="mlflow/ml-package-versions.yml",
         help=(
             "URL or local file path of the config yaml. Defaults to "
-            "'mlflow/ml-package-versions.yml' on the branch where this script is running",
+            "'mlflow/ml-package-versions.yml' on the branch where this script is running."
         ),
     )
     parser.add_argument(
@@ -382,7 +382,7 @@ def parse_args(args):
         default=None,
         help=(
             "URL or local file path of the reference config yaml which will be compared with the "
-            "config specified by `--versions-yaml` in order to identify the config updates"
+            "config specified by `--versions-yaml` in order to identify the config updates."
         ),
     )
     parser.add_argument(
@@ -397,13 +397,19 @@ def parse_args(args):
         "--flavors",
         required=False,
         type=split_by_comma,
-        help="Comma-separated string specifying which flavors to test (e.g. 'keras, scikit-learn')",
+        help=(
+            "Comma-separated string specifying which flavors to test (e.g. 'sklearn, xgboost'). "
+            "If unspecified, all flavors are tested."
+        ),
     )
     parser.add_argument(
         "--versions",
         required=False,
         type=split_by_comma,
-        help="Comma-separated string specifying which versions to test (e.g. '1.2.3, 4.5.6')",
+        help=(
+            "Comma-separated string specifying which versions to test (e.g. '1.2.3, 4.5.6'). "
+            "If unspecified, all versions are tested."
+        ),
     )
 
     parser.add_argument(
@@ -411,7 +417,7 @@ def parse_args(args):
         action="store_true",
         required=False,
         default=False,
-        help="If True, exclude dev versions from the test matrix",
+        help="If True, exclude dev versions from the test matrix.",
     )
 
     return parser.parse_args(args)
