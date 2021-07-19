@@ -698,14 +698,13 @@ class _AutologTrainingStatus:
     def register_model_score_call(self, model, call_pos_args, call_kwargs):
         eval_dataset = call_pos_args[0] if len(call_pos_args) >= 1 else call_kwargs.get('X')
         eval_dataset_name = self.register_eval_dataset(self, eval_dataset)
-        metric_name = f'{self.__class__.__name__}_score'
+        metric_name = f'{model.__class__.__name__}_score'
 
         run_id = self.get_run_id_for_model(model)
         call_fn_name = f'{model.__class__.__name__}.score'
-        self._register_metric_info(
+        metric_key = self._register_metric_info(
             run_id, metric_name, eval_dataset_name, call_fn_name, call_pos_args, call_kwargs)
 
-        metric_key = f'{metric_name}_on_{eval_dataset_name}'
         return metric_key
 
     def log_eval_metric(self, run_id, key, value):
