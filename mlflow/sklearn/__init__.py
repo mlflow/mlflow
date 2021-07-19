@@ -720,10 +720,8 @@ class _AutologTrainingStatus:
         )
         if self._metric_info_artifact_need_update[run_id]:
             metric_info_dict = {}
-            for metric_name, call_dict_list in \
-                    self._metric_api_call_info[run_id].items():
-                for i, call_dict in enumerate(call_dict_list):
-                    metric_info_dict[self.gen_name_with_index(metric_name, i)] = call_dict
+            for metric_name, call_command in self._metric_api_call_info[run_id]:
+                metric_info_dict[metric_name] = call_command
 
             client.log_dict(
                 run_id=run_id, dictionary=metric_info_dict, artifact_file='metric_info.json'
