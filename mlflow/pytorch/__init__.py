@@ -47,6 +47,20 @@ _REQUIREMENTS_FILE_KEY = "requirements_file"
 _logger = logging.getLogger(__name__)
 
 
+def _get_default_pip_requirements():
+    import torch
+    import torchvision
+
+    return [
+        "torch=={}".format(torch.__version__),
+        "torchvision=={}".format(torchvision.__version__),
+        # We include CloudPickle in the default environment because
+        # it's required by the default pickle module used by `save_model()`
+        # and `log_model()`: `mlflow.pytorch.pickle_module`.
+        "cloudpickle=={}".format(cloudpickle.__version__),
+    ]
+
+
 def get_default_conda_env():
     """
     :return: The default Conda environment as a dictionary for MLflow Models produced by calls to
@@ -76,19 +90,7 @@ def get_default_conda_env():
                                              'mlflow',
                                              'cloudpickle==1.6.0']}]}
     """
-    import torch
-    import torchvision
-
-    return _mlflow_conda_env(
-        additional_pip_deps=[
-            "torch=={}".format(torch.__version__),
-            "torchvision=={}".format(torchvision.__version__),
-            # We include CloudPickle in the default environment because
-            # it's required by the default pickle module used by `save_model()`
-            # and `log_model()`: `mlflow.pytorch.pickle_module`.
-            "cloudpickle=={}".format(cloudpickle.__version__),
-        ]
-    )
+    return _mlflow_conda_env(additional_pip_deps=[_get_default_pip_requirements()])
 
 
 def log_model(

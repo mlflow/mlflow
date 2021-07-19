@@ -56,6 +56,15 @@ FLAVOR_NAME = "lightgbm"
 _logger = logging.getLogger(__name__)
 
 
+def _get_default_pip_requirements():
+    import lightgbm as lgb
+
+    return _mlflow_conda_env(
+        # LightGBM is not yet available via the default conda channels, so we install it via pip
+        additional_pip_deps=["lightgbm=={}".format(lgb.__version__)],
+    )
+
+
 def get_default_conda_env():
     """
     :return: The default Conda environment for MLflow Models produced by calls to
@@ -63,10 +72,7 @@ def get_default_conda_env():
     """
     import lightgbm as lgb
 
-    return _mlflow_conda_env(
-        # LightGBM is not yet available via the default conda channels, so we install it via pip
-        additional_pip_deps=["lightgbm=={}".format(lgb.__version__)],
-    )
+    return _mlflow_conda_env(additional_pip_deps=_get_default_pip_requirements())
 
 
 def save_model(

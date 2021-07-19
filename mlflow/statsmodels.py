@@ -48,16 +48,20 @@ STATSMODELS_DATA_SUBPATH = "model.statsmodels"
 _logger = logging.getLogger(__name__)
 
 
-def get_default_conda_env():
-    """
-    :return: The default Conda environment for MLflow Models produced by calls to
-             :func:`save_model()` and :func:`log_model()`.
-    """
+def _get_default_pip_requirements():
     import statsmodels
 
     return _mlflow_conda_env(
         additional_pip_deps=["statsmodels=={}".format(statsmodels.__version__)]
     )
+
+
+def get_default_conda_env():
+    """
+    :return: The default Conda environment for MLflow Models produced by calls to
+             :func:`save_model()` and :func:`log_model()`.
+    """
+    return _mlflow_conda_env(additional_pip_deps=_get_default_pip_requirements())
 
 
 def save_model(

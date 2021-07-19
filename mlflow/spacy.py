@@ -30,14 +30,18 @@ FLAVOR_NAME = "spacy"
 _logger = logging.getLogger(__name__)
 
 
+def _get_default_pip_requirements():
+    import spacy
+
+    return ["spacy=={}".format(spacy.__version__)]
+
+
 def get_default_conda_env():
     """
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
-    import spacy
-
-    return _mlflow_conda_env(additional_pip_deps=["spacy=={}".format(spacy.__version__)])
+    return _mlflow_conda_env(additional_pip_deps=_get_default_pip_requirements())
 
 
 def save_model(

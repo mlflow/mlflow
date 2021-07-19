@@ -29,6 +29,10 @@ CONFIG_KEY_PYTHON_MODEL = "python_model"
 CONFIG_KEY_CLOUDPICKLE_VERSION = "cloudpickle_version"
 
 
+def _get_default_pip_requirements():
+    return ["cloudpickle=={}".format(cloudpickle.__version__)]
+
+
 def get_default_conda_env():
     """
     :return: The default Conda environment for MLflow Models produced by calls to
@@ -36,9 +40,7 @@ def get_default_conda_env():
              and :func:`log_model() <mlflow.pyfunc.log_model>` when a user-defined subclass of
              :class:`PythonModel` is provided.
     """
-    return _mlflow_conda_env(
-        additional_pip_deps=["cloudpickle=={}".format(cloudpickle.__version__)],
-    )
+    return _mlflow_conda_env(additional_pip_deps=_get_default_pip_requirements())
 
 
 class PythonModel(object):

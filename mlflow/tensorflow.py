@@ -67,14 +67,18 @@ _thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 _AUTOLOG_RUN_ID = None
 
 
+def _get_default_pip_requirements():
+    import tensorflow
+
+    return ["tensorflow=={}".format(tensorflow.__version__)]
+
+
 def get_default_conda_env():
     """
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
-    import tensorflow
-
-    return _mlflow_conda_env(additional_pip_deps=["tensorflow=={}".format(tensorflow.__version__)])
+    return _mlflow_conda_env(additional_pip_deps=_get_default_pip_requirements())
 
 
 @keyword_only

@@ -51,11 +51,7 @@ _CONDA_ENV_SUBPATH = "conda.yaml"
 _PIP_ENV_SUBPATH = "requirements.txt"
 
 
-def get_default_conda_env(include_cloudpickle=False, keras_module=None):
-    """
-    :return: The default Conda environment for MLflow Models produced by calls to
-             :func:`save_model()` and :func:`log_model()`.
-    """
+def _get_default_pip_requirements(include_cloudpickle=False, keras_module=None):
     import tensorflow as tf
 
     pip_deps = []
@@ -76,7 +72,18 @@ def get_default_conda_env(include_cloudpickle=False, keras_module=None):
     # see https://github.com/tensorflow/tensorflow/issues/44467
     if Version(tf.__version__) < Version("2.4"):
         pip_deps.append("h5py<3.0.0")
-    return _mlflow_conda_env(additional_pip_deps=pip_deps)
+
+    return pip_deps
+
+
+def get_default_conda_env(include_cloudpickle=False, keras_module=None):
+    """
+    :return: The default Conda environment for MLflow Models produced by calls to
+             :func:`save_model()` and :func:`log_model()`.
+    """
+    return _mlflow_conda_env(
+        additional_pip_deps=_get_default_pip_requirements(include_cloudpickle, keras_module)
+    )
 
 
 def save_model(
