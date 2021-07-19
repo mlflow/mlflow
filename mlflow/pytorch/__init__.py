@@ -12,6 +12,7 @@ import logging
 import os
 import yaml
 
+import cloudpickle
 import numpy as np
 import pandas as pd
 from packaging.version import Version
@@ -47,7 +48,6 @@ _logger = logging.getLogger(__name__)
 
 
 def _get_default_pip_requirements():
-    import cloudpickle
     import torch
     import torchvision
 
