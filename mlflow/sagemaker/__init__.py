@@ -735,8 +735,8 @@ def terminate_transform_job(
     if (not archive) and (not synchronous):
         raise MlflowException(
             message=(
-                "Resources must be archived when `terminate_transform_job()`\
-                    is executed in non-synchronous mode."
+                "Resources must be archived when `terminate_transform_job()`"
+                " is executed in non-synchronous mode."
                 " Either set `synchronous=True` or `archive=True`."
             ),
             error_code=INVALID_PARAMETER_VALUE,
