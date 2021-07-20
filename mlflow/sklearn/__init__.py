@@ -542,7 +542,10 @@ class _AutologTrainingStatus:
 
     @staticmethod
     def is_metrics_value_loggable(metric_value):
-        return np.isscalar(metric_value)
+        """
+        check whether is is a numeric value which can be logged as metric value.
+        """
+        return metric_value is not None and np.isscalar(metric_value) and np.isreal(metric_value)
 
     def register_model(self, model, run_id):
         """
@@ -661,7 +664,7 @@ class _AutologTrainingStatus:
         metric_name_with_index = self.gen_name_with_index(metric_name, index)
         metric_key = f'{metric_name_with_index}_{dataset_name}'
 
-        call_cmd_list.append((metric_name_with_index, call_command))
+        call_cmd_list.append((metric_key, call_command))
 
         self._metric_info_artifact_need_update[run_id] = True
         return metric_key
@@ -679,9 +682,6 @@ class _AutologTrainingStatus:
 
         dataset_id_list = self._pred_result_id_to_dataset_name_and_run_id.keys()
 
-        dataset_name = None
-        run_id = None
-
         # Note: some metric API the arguments is not like `y_true`, `y_pred`
         #  e.g.
         #    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.roc_auc_score.html#sklearn.metrics.roc_auc_score
@@ -690,8 +690,7 @@ class _AutologTrainingStatus:
             if arg is not None and not np.isscalar(arg) and id(arg) in dataset_id_list:
                 dataset_name, run_id = self._pred_result_id_to_dataset_name_and_run_id[id(arg)]
                 break
-
-        if dataset_name is None or run_id is None:
+        else:
             return False, None, None
 
         metric_key = self.register_metric_info(
