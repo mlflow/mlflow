@@ -635,13 +635,14 @@ class _AutologTrainingStatus:
         arg_list = []
 
         def arg_to_str(arg):
-            if arg is not None and not np.isscalar(arg):
-                # dataset arguments
-                return _inspect_original_var_name(arg, fallback_name=f'<{arg.__class__.__name__}>')
-            elif np.isscalar(arg):
-                return str(arg)
+            if arg is None or np.isscalar(arg):
+                if isinstance(arg, str) and len(arg) > 32:
+                    # truncate too long string
+                    return repr(arg[:32] + '...')
+                return repr(arg)
             else:
-                return arg.__class__.__name__
+                # dataset arguments or other non-scalar type argument
+                return _inspect_original_var_name(arg, fallback_name=f'<{arg.__class__.__name__}>')
 
         for arg in call_pos_args:
             arg_list.append(arg_to_str(arg))
@@ -677,7 +678,6 @@ class _AutologTrainingStatus:
         call_arg_list = list(call_pos_args) + list(call_kwargs.values())
 
         dataset_id_list = self._pred_result_id_to_dataset_name_and_run_id.keys()
-        print(f'DGB: get_eval_dataset_name: # 1')
 
         dataset_name = None
         run_id = None
@@ -688,7 +688,6 @@ class _AutologTrainingStatus:
         #    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.silhouette_score.html#sklearn.metrics.silhouette_score
         for arg in call_arg_list:
             if arg is not None and not np.isscalar(arg) and id(arg) in dataset_id_list:
-                print(f'DGB: get_eval_dataset_name: # 3')
                 dataset_name, run_id = self._pred_result_id_to_dataset_name_and_run_id[id(arg)]
                 break
 
@@ -1177,16 +1176,13 @@ def autolog(
     def patched_predict(original, self, *args, **kwargs):
         status = _get_autolog_training_status()
         if status.should_log_post_training_metrics() and status.get_run_id_for_model(self):
-            print(f'DBG: patched_predict # 1')
             predict_result = original(self, *args, **kwargs)
-            print(f'DBG: patched_predict # 1.5')
             eval_dataset = args[0] if len(args) >= 1 else kwargs.get('X')
             eval_dataset_name = status.register_eval_dataset(self, eval_dataset)
             status.register_prediction_result(
                 self, eval_dataset_name, predict_result)
             return predict_result
         else:
-            print(f'DBG: patched_predict # 3')
             return original(self, *args, **kwargs)
 
     def patched_metric_api(original, *args, **kwargs):
@@ -1198,8 +1194,6 @@ def autolog(
                 metric = original(*args, **kwargs)
 
             if status.is_metrics_value_loggable(metric):
-                print('DGB: run patched_metric_api #2')
-
                 metric_name = original.__name__
                 if metric_name.strip() == '<lambda>':
                     metric_name = 'unknown_metric'
@@ -1209,7 +1203,6 @@ def autolog(
                 is_register_ok, run_id, metric_key = \
                     status.register_metric_api_call(metric_name, call_command, args, kwargs)
                 if is_register_ok:
-                    print('DGB: run patched_metric_api #4')
                     status.log_eval_metric(run_id, metric_key, metric)
 
             return metric
