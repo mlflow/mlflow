@@ -652,7 +652,7 @@ class _AutologTrainingStatus:
         arg_list_str = ','.join(arg_list)
         return f'{call_fn_name}({arg_list_str})'
 
-    def _register_metric_info(self, run_id, metric_name, dataset_name, call_command):
+    def register_metric_info(self, run_id, metric_name, dataset_name, call_command):
 
         call_cmd_list = self._metric_api_call_info[run_id][metric_name]
 
@@ -695,7 +695,7 @@ class _AutologTrainingStatus:
         if dataset_name is None or run_id is None:
             return False, None, None
 
-        metric_key = self._register_metric_info(
+        metric_key = self.register_metric_info(
             run_id, metric_name, dataset_name, call_command
         )
 
@@ -1232,9 +1232,9 @@ def autolog(
                 call_command = status.gen_metric_call_command(call_fn_name, *args, **kwargs)
 
                 eval_dataset = args[0] if len(args) >= 1 else kwargs.get('X')
-                eval_dataset_name = self.register_eval_dataset(self, eval_dataset)
-                run_id = self.get_run_id_for_model(self)
-                metric_key = self._register_metric_info(
+                eval_dataset_name = status.register_eval_dataset(self, eval_dataset)
+                run_id = status.get_run_id_for_model(self)
+                metric_key = status.register_metric_info(
                     run_id, metric_name, eval_dataset_name, call_command)
 
                 status.log_eval_metric(
