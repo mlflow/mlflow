@@ -572,6 +572,10 @@ class _AutologTrainingStatus:
             Note: only check object id is not sufficient, id may be reused.
          3. register eval dataset (with id and row samples information)
          4. return eval dataset name with index.
+
+        Note: this method include inspecting argument variable name.
+         So should be called directly from the "patched method", to ensure it capture
+         correct argument variable name.
         """
         eval_dataset_name = _inspect_original_var_name(
             eval_dataset, fallback_name='unknown_dataset')
@@ -620,7 +624,14 @@ class _AutologTrainingStatus:
         weakref.finalize(predict_result, clean_id, prediction_result_id)
 
     @staticmethod
-    def gen_metric_call_command(call_fn_name, call_pos_args, call_kwargs):
+    def gen_metric_call_command(call_fn_name, *call_pos_args, **call_kwargs):
+        """
+        Generate metric function call command string like `metric_fn(arg1, arg2, ...)`
+        Note: this method include inspecting argument variable name.
+         So should be called directly from the "patched method", to ensure it capture
+         correct argument variable name.
+        """
+
         arg_list = []
 
         def arg_to_str(arg):
@@ -638,7 +649,7 @@ class _AutologTrainingStatus:
         for arg_name, arg in call_kwargs.items():
             arg_list.append(f'{arg_name}={arg_to_str(arg)}')
 
-        arg_list_str =  ','.join(arg_list)
+        arg_list_str = ','.join(arg_list)
         return f'{call_fn_name}({arg_list_str})'
 
     def _register_metric_info(self, run_id, metric_name, dataset_name, call_command):
@@ -690,15 +701,6 @@ class _AutologTrainingStatus:
 
         return True, run_id, metric_key
 
-    def register_model_score_call(self, model, metric_name, call_command, call_pos_args, call_kwargs):
-        eval_dataset = call_pos_args[0] if len(call_pos_args) >= 1 else call_kwargs.get('X')
-        eval_dataset_name = self.register_eval_dataset(self, eval_dataset)
-        run_id = self.get_run_id_for_model(model)
-        metric_key = self._register_metric_info(
-            run_id, metric_name, eval_dataset_name, call_command)
-
-        return metric_key
-
     def log_eval_metric(self, run_id, key, value):
         # Note: if the case log the same metric key multiple times,
         #  newer value will overwrite old value
@@ -711,13 +713,14 @@ class _AutologTrainingStatus:
         if self._metric_info_artifact_need_update[run_id]:
             call_commands_list = []
             for _, v in self._metric_api_call_info[run_id].items():
-                call_commands_list.extend(call_commands_list)
+                call_commands_list.extend(v)
 
             call_commands_list.sort(key=lambda x: x[0])
             dict_to_log = OrderedDict(call_commands_list)
             client.log_dict(
                 run_id=run_id, dictionary=dict_to_log, artifact_file='metric_info.json'
             )
+            self._metric_info_artifact_need_update[run_id] = False
 
 
 _autolog_training_status = _AutologTrainingStatus()
@@ -1201,7 +1204,7 @@ def autolog(
                 if metric_name.strip() == '<lambda>':
                     metric_name = 'unknown_metric'
 
-                call_command = status.gen_metric_call_command(metric_name, args, kwargs)
+                call_command = status.gen_metric_call_command(metric_name, *args, **kwargs)
 
                 is_register_ok, run_id, metric_key = \
                     status.register_metric_api_call(metric_name, call_command, args, kwargs)
@@ -1226,9 +1229,14 @@ def autolog(
             if status.is_metrics_value_loggable(score_value):
                 metric_name = f'{self.__class__.__name__}_score'
                 call_fn_name = f'{self.__class__.__name__}.score'
-                call_command = status.gen_metric_call_command(call_fn_name, args, kwargs)
-                metric_key = status.register_model_score_call(
-                    self, metric_name, call_command, args, kwargs)
+                call_command = status.gen_metric_call_command(call_fn_name, *args, **kwargs)
+
+                eval_dataset = args[0] if len(args) >= 1 else kwargs.get('X')
+                eval_dataset_name = self.register_eval_dataset(self, eval_dataset)
+                run_id = self.get_run_id_for_model(self)
+                metric_key = self._register_metric_info(
+                    run_id, metric_name, eval_dataset_name, call_command)
+
                 status.log_eval_metric(
                     status.get_run_id_for_model(self), metric_key, score_value
                 )
