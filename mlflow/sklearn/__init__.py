@@ -721,6 +721,16 @@ class _AutologTrainingStatus:
             )
             self._metric_info_artifact_need_update[run_id] = False
 
+    def get_method_first_arg_value(self, method, call_pos_args, call_kwargs):
+        """
+        Get instance method first argument value (exclude the `self` argument).
+        """
+        if len(call_pos_args) >= 1:
+            return call_pos_args[0]
+        else:
+            first_arg_name = list(inspect.signature(method).parameters.keys())[1]
+            return call_kwargs.get(first_arg_name, None)
+
 
 _autolog_training_status = _AutologTrainingStatus()
 
@@ -1195,8 +1205,6 @@ def autolog(
 
             if status.is_metrics_value_loggable(metric):
                 metric_name = original.__name__
-                if metric_name.strip() == '<lambda>':
-                    metric_name = 'unknown_metric'
 
                 call_command = status.gen_metric_call_command(metric_name, *args, **kwargs)
 
@@ -1297,12 +1305,12 @@ def autolog(
                 )
 
         for func_name in ["predict", "transform", "predict_proba"]:
-            if hasattr(class_def, func_name):
+            if hasattr(class_def, func_name) and callable(getattr(class_def, func_name)):
                 safe_patch(
                     FLAVOR_NAME, class_def, func_name, patched_predict, manage_run=False,
                 )
 
-        if hasattr(class_def, 'score'):
+        if hasattr(class_def, 'score') and callable(class_def.score):
             safe_patch(
                 FLAVOR_NAME, class_def, 'score', patched_model_score, manage_run=False,
             )

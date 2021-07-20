@@ -123,7 +123,14 @@ def _get_fully_qualified_class_name(obj):
 
 
 def _inspect_original_var_name(var, fallback_name):
+    """
+    Inspect variable name, will search above frames and fetch the same instance variable name
+    in the most outer frame.
+    If inspect failed, return fallback_name
+    """
     import inspect
+    if var is None:
+        return fallback_name
     try:
         original_var_name = fallback_name
 
