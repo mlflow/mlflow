@@ -17,7 +17,7 @@ You can use the R API to `install MLflow <install_mlflow_>`_, start the `user in
 
 Install MLflow
 
-Installs auxiliary dependencies of MLflow (e.g. the MLflow CLI). As a
+Installs auxiliary dependencies of MLflow (e.g. the MLflow CLI). As a
 one-time setup step, you must run install_mlflow() to install these
 dependencies before calling other MLflow APIs.
 
@@ -123,6 +123,49 @@ Arguments
 |                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
+``mlflow_create_registered_model``
+==================================
+
+Create registered model
+
+Creates a new registered model in the model registry
+
+.. code:: r
+
+   mlflow_create_registered_model(
+     name,
+     tags = NULL,
+     description = NULL,
+     client = NULL
+   )
+
+.. _arguments-3:
+
+Arguments
+---------
+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``name``                      | The name of the model to create.     |
++-------------------------------+--------------------------------------+
+| ``tags``                      | Additional metadata for the          |
+|                               | registered model (Optional).         |
++-------------------------------+--------------------------------------+
+| ``description``               | Description for the registered model |
+|                               | (Optional).                          |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An MLflow client object   |
+|                               | returned from                        |
+|                               | `mlflow_client <#mlflow-client>`__ . |
+|                               | If specified, MLflow will use the    |
+|                               | tracking server associated with the  |
+|                               | passed-in client. If unspecified     |
+|                               | (the common case), MLflow will use   |
+|                               | the tracking server associated with  |
+|                               | the current tracking URI.            |
++-------------------------------+--------------------------------------+
+
 ``mlflow_delete_experiment``
 ============================
 
@@ -136,7 +179,7 @@ experiment are also deleted.
 
    mlflow_delete_experiment(experiment_id, client = NULL)
 
-.. _arguments-3:
+.. _arguments-4:
 
 Arguments
 ---------
@@ -146,6 +189,38 @@ Arguments
 +===============================+======================================+
 | ``experiment_id``             | ID of the associated experiment.     |
 |                               | This field is required.              |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An MLflow client object   |
+|                               | returned from                        |
+|                               | `mlflow_client <#mlflow-client>`__ . |
+|                               | If specified, MLflow will use the    |
+|                               | tracking server associated with the  |
+|                               | passed-in client. If unspecified     |
+|                               | (the common case), MLflow will use   |
+|                               | the tracking server associated with  |
+|                               | the current tracking URI.            |
++-------------------------------+--------------------------------------+
+
+``mlflow_delete_registered_model``
+==================================
+
+Delete registered model
+
+Deletes an existing registered model by name
+
+.. code:: r
+
+   mlflow_delete_registered_model(name, client = NULL)
+
+.. _arguments-5:
+
+Arguments
+---------
+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``name``                      | The name of the model to delete      |
 +-------------------------------+--------------------------------------+
 | ``client``                    | (Optional) An MLflow client object   |
 |                               | returned from                        |
@@ -169,7 +244,7 @@ Deletes the run with the specified ID.
 
    mlflow_delete_run(run_id, client = NULL)
 
-.. _arguments-4:
+.. _arguments-6:
 
 Arguments
 ---------
@@ -202,7 +277,7 @@ can be updated during a run and after a run completes.
 
    mlflow_delete_tag(key, run_id = NULL, client = NULL)
 
-.. _arguments-5:
+.. _arguments-7:
 
 Arguments
 ---------
@@ -238,7 +313,7 @@ if applicable, and return a local path for it.
 
    mlflow_download_artifacts(path, run_id = NULL, client = NULL)
 
-.. _arguments-6:
+.. _arguments-8:
 
 Arguments
 ---------
@@ -279,7 +354,7 @@ is not specified.
      client = NULL
    )
 
-.. _arguments-7:
+.. _arguments-9:
 
 Arguments
 ---------
@@ -320,7 +395,7 @@ Attempts to obtain the active experiment if both ``experiment_id`` and
 
    mlflow_get_experiment(experiment_id = NULL, name = NULL, client = NULL)
 
-.. _arguments-8:
+.. _arguments-10:
 
 Arguments
 ---------
@@ -356,7 +431,7 @@ Get a list of all values for the specified metric for a given run.
 
    mlflow_get_metric_history(metric_key, run_id = NULL, client = NULL)
 
-.. _arguments-9:
+.. _arguments-11:
 
 Arguments
 ---------
@@ -392,7 +467,7 @@ largest step.
 
    mlflow_get_run(run_id = NULL, client = NULL)
 
-.. _arguments-10:
+.. _arguments-12:
 
 Arguments
 ---------
@@ -437,7 +512,7 @@ Extracts the ID of the run or experiment.
    list(list("mlflow_id"), list("mlflow_run"))(object)
    list(list("mlflow_id"), list("mlflow_experiment"))(object)
 
-.. _arguments-11:
+.. _arguments-13:
 
 Arguments
 ---------
@@ -459,7 +534,7 @@ Gets a list of artifacts.
 
    mlflow_list_artifacts(path = NULL, run_id = NULL, client = NULL)
 
-.. _arguments-12:
+.. _arguments-14:
 
 Arguments
 ---------
@@ -498,7 +573,7 @@ Gets a list of all experiments.
      client = NULL
    )
 
-.. _arguments-13:
+.. _arguments-15:
 
 Arguments
 ---------
@@ -537,7 +612,7 @@ all runs under the specified experiment.
      client = NULL
    )
 
-.. _arguments-14:
+.. _arguments-16:
 
 Arguments
 ---------
@@ -576,7 +651,7 @@ on MLflow model flavors.
 
    mlflow_load_flavor(flavor, model_path)
 
-.. _arguments-15:
+.. _arguments-17:
 
 Arguments
 ---------
@@ -585,8 +660,8 @@ Arguments
 | Argument                      | Description                          |
 +===============================+======================================+
 | ``flavor``                    | An MLflow flavor object loaded by    |
-|                               | `mlflo                               |
-|                               | w_load_model <#mlflow-load-model>`__ |
+|                               | `mlflow_load_model <#mlflow-load-mod |
+|                               | el>`__                               |
 |                               | , with class loaded from the flavor  |
 |                               | field in an MLmodel file.            |
 +-------------------------------+--------------------------------------+
@@ -607,7 +682,7 @@ searches for a flavor supported by R/MLflow.
 
    mlflow_load_model(model_uri, flavor = NULL, client = mlflow_client())
 
-.. _arguments-16:
+.. _arguments-18:
 
 Arguments
 ---------
@@ -639,7 +714,7 @@ Arguments
 Details
 -------
 
-The URI scheme must be supported by MLflow - i.e. there has to be an
+The URI scheme must be supported by MLflow - i.e. there has to be an
 MLflow artifact repository corresponding to the scheme of the URI. The
 content is expected to point to a directory containing MLmodel. The
 following are examples of valid model uris:
@@ -666,7 +741,7 @@ Logs a specific file or directory as an artifact for a run.
 
    mlflow_log_artifact(path, artifact_path = NULL, run_id = NULL, client = NULL)
 
-.. _arguments-17:
+.. _arguments-19:
 
 Arguments
 ---------
@@ -726,7 +801,7 @@ request), partial data may be written.
      client = NULL
    )
 
-.. _arguments-18:
+.. _arguments-20:
 
 Arguments
 ---------
@@ -786,7 +861,7 @@ historical metric values along two axes: timestamp and step.
      client = NULL
    )
 
-.. _arguments-19:
+.. _arguments-21:
 
 Arguments
 ---------
@@ -835,7 +910,7 @@ model as an artifact within the active run.
 
    mlflow_log_model(model, artifact_path, ...)
 
-.. _arguments-20:
+.. _arguments-22:
 
 Arguments
 ---------
@@ -855,7 +930,7 @@ Arguments
 |                               | ``conda_env = /path/to/conda.yaml``  |
 |                               | may be passed to specify a conda     |
 |                               | dependencies file for flavors        |
-|                               | (e.g. keras) that support conda      |
+|                               | (e.g. keras) that support conda      |
 |                               | environments.                        |
 +-------------------------------+--------------------------------------+
 
@@ -873,7 +948,7 @@ allowed to be logged only once.
 
    mlflow_log_param(key, value, run_id = NULL, client = NULL)
 
-.. _arguments-21:
+.. _arguments-23:
 
 Arguments
 ---------
@@ -909,7 +984,7 @@ Create conda env used by MLflow if it doesn’t already exist
 
    mlflow_maybe_create_conda_env(python_version)
 
-.. _arguments-22:
+.. _arguments-24:
 
 Arguments
 ---------
@@ -929,14 +1004,14 @@ Read Command-Line Parameter
 
 Reads a command-line parameter passed to an MLflow project MLflow allows
 you to define named, typed input parameters to your R scripts via the
-mlflow_param API. This is useful for experimentation, e.g. tracking
+mlflow_param API. This is useful for experimentation, e.g. tracking
 multiple invocations of the same script with different parameters.
 
 .. code:: r
 
    mlflow_param(name, default = NULL, type = NULL, description = NULL)
 
-.. _arguments-23:
+.. _arguments-25:
 
 Arguments
 ---------
@@ -990,21 +1065,18 @@ to be used by package authors to extend the supported MLflow models.
 
    mlflow_predict(model, data, ...)
 
-.. _arguments-24:
+.. _arguments-26:
 
 Arguments
 ---------
 
-+-----------+---------------------------------------------------------+
-| Argument  | Description                                             |
-+===========+=========================================================+
-| ``model`` | The loaded MLflow model flavor.                         |
-+-----------+---------------------------------------------------------+
-| ``data``  | A data frame to perform scoring.                        |
-+-----------+---------------------------------------------------------+
-| ``...``   | Optional additional arguments passed to underlying      |
-|           | predict methods.                                        |
-+-----------+---------------------------------------------------------+
+========= ===================================================================
+Argument  Description
+========= ===================================================================
+``model`` The loaded MLflow model flavor.
+``data``  A data frame to perform scoring.
+``...``   Optional additional arguments passed to underlying predict methods.
+========= ===================================================================
 
 ``mlflow_register_external_observer``
 =====================================
@@ -1025,7 +1097,7 @@ ignored.
 
    mlflow_register_external_observer(observer)
 
-.. _arguments-25:
+.. _arguments-27:
 
 Arguments
 ---------
@@ -1063,7 +1135,7 @@ Renames an experiment.
 
    mlflow_rename_experiment(new_name, experiment_id = NULL, client = NULL)
 
-.. _arguments-26:
+.. _arguments-28:
 
 Arguments
 ---------
@@ -1103,7 +1175,7 @@ restored.
 
    mlflow_restore_experiment(experiment_id, client = NULL)
 
-.. _arguments-27:
+.. _arguments-29:
 
 Arguments
 ---------
@@ -1144,7 +1216,7 @@ Restores the run with the specified ID.
 
    mlflow_restore_run(run_id, client = NULL)
 
-.. _arguments-28:
+.. _arguments-30:
 
 Arguments
 ---------
@@ -1189,7 +1261,7 @@ endpoint will be removed in a future version of mlflow.
      ...
    )
 
-.. _arguments-29:
+.. _arguments-31:
 
 Arguments
 ---------
@@ -1226,7 +1298,7 @@ Arguments
 Details
 -------
 
-The URI scheme must be supported by MLflow - i.e. there has to be an
+The URI scheme must be supported by MLflow - i.e. there has to be an
 MLflow artifact repository corresponding to the scheme of the URI. The
 content is expected to point to a directory containing MLmodel. The
 following are examples of valid model uris:
@@ -1283,7 +1355,7 @@ https://www.mlflow.org/docs/latest/cli.html#mlflow-run for more info.
      storage_dir = NULL
    )
 
-.. _arguments-30:
+.. _arguments-32:
 
 Arguments
 ---------
@@ -1384,7 +1456,7 @@ model types.
    )
    list(list("mlflow_save_model"), list("xgb.Booster"))(model, path, model_spec = list(), conda_env = NULL, ...)
 
-.. _arguments-31:
+.. _arguments-33:
 
 Arguments
 ---------
@@ -1429,7 +1501,7 @@ Metric and Param keys.
      client = NULL
    )
 
-.. _arguments-32:
+.. _arguments-34:
 
 Arguments
 ---------
@@ -1484,7 +1556,7 @@ Wrapper for ``mlflow server``.
      static_prefix = NULL
    )
 
-.. _arguments-33:
+.. _arguments-35:
 
 Arguments
 ---------
@@ -1529,7 +1601,7 @@ provided name. Returns the ID of the active experiment.
      artifact_location = NULL
    )
 
-.. _arguments-34:
+.. _arguments-36:
 
 Arguments
 ---------
@@ -1559,7 +1631,7 @@ metadata that can be updated.
 
    mlflow_set_experiment_tag(key, value, experiment_id = NULL, client = NULL)
 
-.. _arguments-35:
+.. _arguments-37:
 
 Arguments
 ---------
@@ -1603,7 +1675,7 @@ run and after a run completes.
 
    mlflow_set_tag(key, value, run_id = NULL, client = NULL)
 
-.. _arguments-36:
+.. _arguments-38:
 
 Arguments
 ---------
@@ -1643,7 +1715,7 @@ experiments.
 
    mlflow_set_tracking_uri(uri)
 
-.. _arguments-37:
+.. _arguments-39:
 
 Arguments
 ---------
@@ -1666,7 +1738,7 @@ called via ``Rscript`` from the terminal or through the MLflow CLI.
 
    mlflow_source(uri)
 
-.. _arguments-38:
+.. _arguments-40:
 
 Arguments
 ---------
@@ -1699,7 +1771,7 @@ can be provided.
      nested = FALSE
    )
 
-.. _arguments-39:
+.. _arguments-41:
 
 Arguments
 ---------
@@ -1766,7 +1838,7 @@ Launches the MLflow user interface.
 
    mlflow_ui(client, ...)
 
-.. _arguments-40:
+.. _arguments-42:
 
 Arguments
 ---------

@@ -1,5 +1,4 @@
 import React from 'react';
-import { mount } from 'enzyme';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import configureStore from 'redux-mock-store';
@@ -10,6 +9,7 @@ import { Experiment, RunInfo, RunTag, Param } from '../sdk/MlflowMessages';
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import { mockModelVersionDetailed } from '../../model-registry/test-utils';
 import { ModelVersionStatus, Stages } from '../../model-registry/constants';
+import { mountWithIntl } from '../../common/utils/TestUtils';
 
 describe('RunView', () => {
   let minimalProps;
@@ -73,7 +73,7 @@ describe('RunView', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <RunView {...minimalProps} />
@@ -84,7 +84,7 @@ describe('RunView', () => {
   });
 
   test('With no tags, params, duration - getRunCommand & metadata list', () => {
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <RunView {...minimalProps} />
@@ -154,7 +154,7 @@ describe('RunView', () => {
         },
       },
     });
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={store}>
         <BrowserRouter>
           <RunView {...minimalProps} />
@@ -175,7 +175,7 @@ describe('RunView', () => {
   });
 
   test('state: showNoteEditor false/true -> edit button shown/hidden', () => {
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <RunView {...minimalProps} />
@@ -190,21 +190,21 @@ describe('RunView', () => {
   });
 
   test('should set showRunRenameModal when Rename menu item is clicked', () => {
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <RunView {...minimalProps} />
         </BrowserRouter>
       </Provider>,
-    ).find(BrowserRouter);
+    );
 
     expect(wrapper.find(RunViewImpl).instance().state.showRunRenameModal).toBe(false);
     wrapper
-      .find('.mlflow-dropdown-button')
-      .hostNodes()
+      .find("[data-test-id='breadCrumbMenuDropdown']")
+      .at(0)
       .simulate('click');
     wrapper
-      .find('.mlflow-menu-item a')
+      .find('[data-test-id="rename"]')
       .hostNodes()
       .simulate('click');
     expect(wrapper.find(RunViewImpl).instance().state.showRunRenameModal).toBe(true);

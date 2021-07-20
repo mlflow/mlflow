@@ -22,6 +22,7 @@ from mlflow.store.tracking.dbmodels.models import (
 from mlflow.store.db.base_sql_model import Base
 from mlflow.entities import RunStatus, SourceType, Experiment
 from mlflow.store.tracking.abstract_store import AbstractStore
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -43,6 +44,7 @@ from mlflow.utils.validation import (
     _validate_metric,
     _validate_experiment_tag,
     _validate_tag,
+    _validate_list_experiments_max_results,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS
 
@@ -233,7 +235,13 @@ class SqlAlchemyStore(AbstractStore):
             return str(experiment.experiment_id)
 
     def _list_experiments(
-        self, session, ids=None, names=None, view_type=ViewType.ACTIVE_ONLY, eager=False
+        self,
+        ids=None,
+        names=None,
+        view_type=ViewType.ACTIVE_ONLY,
+        max_results=None,
+        page_token=None,
+        eager=False,
     ):
         """
         :param eager: If ``True``, eagerly loads each experiments's tags. If ``False``, these tags
@@ -248,15 +256,58 @@ class SqlAlchemyStore(AbstractStore):
         if names and len(names) > 0:
             conditions.append(SqlExperiment.name.in_(names))
 
-        query_options = self._get_eager_experiment_query_options() if eager else []
-        return session.query(SqlExperiment).options(*query_options).filter(*conditions).all()
+        max_results_for_query = None
+        if max_results is not None:
+            max_results_for_query = max_results + 1
 
-    def list_experiments(self, view_type=ViewType.ACTIVE_ONLY):
+            def compute_next_token(current_size):
+                next_token = None
+                if max_results_for_query == current_size:
+                    final_offset = offset + max_results
+                    next_token = SearchUtils.create_page_token(final_offset)
+
+                return next_token
+
         with self.ManagedSessionMaker() as session:
-            return [
-                exp.to_mlflow_entity()
-                for exp in self._list_experiments(session=session, view_type=view_type, eager=True)
-            ]
+            query_options = self._get_eager_experiment_query_options() if eager else []
+            if max_results is not None:
+                offset = SearchUtils.parse_start_offset_from_page_token(page_token)
+                queried_experiments = (
+                    session.query(SqlExperiment)
+                    .options(*query_options)
+                    .filter(*conditions)
+                    .offset(offset)
+                    .limit(max_results_for_query)
+                    .all()
+                )
+            else:
+                queried_experiments = (
+                    session.query(SqlExperiment).options(*query_options).filter(*conditions).all()
+                )
+
+            experiments = [exp.to_mlflow_entity() for exp in queried_experiments]
+        if max_results is not None:
+            return PagedList(experiments[:max_results], compute_next_token(len(experiments)))
+        else:
+            return PagedList(experiments, None)
+
+    def list_experiments(
+        self, view_type=ViewType.ACTIVE_ONLY, max_results=None, page_token=None,
+    ):
+        """
+        :param view_type: Qualify requested type of experiments.
+        :param max_results: If passed, specifies the maximum number of experiments desired. If not
+                            passed, all experiments will be returned.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                            a ``list_experiments`` call.
+        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+                 :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
+                 for the next page can be obtained via the ``token`` attribute of the object.
+        """
+        _validate_list_experiments_max_results(max_results)
+        return self._list_experiments(
+            view_type=view_type, max_results=max_results, page_token=page_token, eager=True
+        )
 
     def _get_experiment(self, session, experiment_id, view_type, eager=False):
         """

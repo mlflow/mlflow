@@ -18,7 +18,9 @@ import pytest
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.pyfunc
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import read_yaml, write_yaml
+from mlflow.utils.environment import _get_pip_deps
 
 LOCALHOST = "127.0.0.1"
 
@@ -317,12 +319,26 @@ def create_mock_response(status_code, text):
     return response
 
 
+def _read_yaml(path):
+    with open(path, "r") as f:
+        return yaml.safe_load(f)
+
+
+def _read_lines(path):
+    with open(path, "r") as f:
+        return f.read().splitlines()
+
+
 def _compare_conda_env_requirements(env_path, req_path):
     assert os.path.exists(req_path)
+    custom_env_parsed = _read_yaml(env_path)
+    requirements = _read_lines(req_path)
+    assert _get_pip_deps(custom_env_parsed) == requirements
 
-    with open(env_path, "r") as f:
-        custom_env_parsed = yaml.safe_load(f)
-    with open(req_path, "r") as f:
-        requirements = f.read().split("\n")
 
-    assert custom_env_parsed["dependencies"][-1]["pip"] == requirements
+def _assert_pip_requirements(model_uri, expected_pip_reqs):
+    local_path = _download_artifact_from_uri(model_uri)
+    txt_reqs = _read_lines(os.path.join(local_path, "requirements.txt"))
+    conda_reqs = _get_pip_deps(_read_yaml(os.path.join(local_path, "conda.yaml")))
+    assert txt_reqs == expected_pip_reqs
+    assert conda_reqs == expected_pip_reqs

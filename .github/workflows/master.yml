@@ -10,6 +10,16 @@ on:
       - master
       - branch-[0-9]+.[0-9]+
 
+# Use `bash` by default for all `run` steps in this workflow:
+# https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#defaultsrun
+defaults:
+  run:
+    # GitHub Actions runner executes commands specified in a run step via:
+    # $ bash --noprofile --norc -eo pipefail < commands >
+    #
+    # https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#using-a-specific-shell
+    shell: bash
+
 env:
   CONDA_DIR: /usr/share/miniconda
 
@@ -98,6 +108,14 @@ jobs:
         cd tests
         Rscript ../.create-test-env.R
     - name: Run tests
+      env:
+        # Hack to get around this issue:
+        # https://stat.ethz.ch/pipermail/r-package-devel/2020q3/005930.html
+        #
+        # The system clock check during `R CMD check` relies on two external web APIs and fails
+        # when they are unavailable. By setting `_R_CHECK_SYSTEM_CLOCK_` to FALSE, we can skip it:
+        # https://github.com/wch/r-source/blob/59a1965239143ca6242b9cc948d8834e1194e84a/src/library/tools/R/check.R#L511
+        _R_CHECK_SYSTEM_CLOCK_: FALSE
       run: |
         export LINTR_COMMENT_BOT=false
         cd mlflow/R/mlflow/tests

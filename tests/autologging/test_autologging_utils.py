@@ -466,7 +466,7 @@ def test_autologging_integration_forwards_positional_and_keyword_arguments_as_ex
     def autolog(foo=7, bar=10, disable=False, silent=False):
         return foo, bar, disable
 
-    assert autolog(1, bar=2, disable=True) == (1, 2, True)
+    assert autolog(1, bar=2, disable=False) == (1, 2, False)
 
 
 def test_autologging_integration_validates_structure_of_autolog_function():
@@ -604,6 +604,43 @@ def test_autologging_is_disabled_returns_expected_values():
     autolog(disable=False)
 
     assert autologging_is_disabled("test_integration_for_disable_check") is False
+
+
+def test_autologging_disable_restores_behavior():
+    import pandas as pd
+    from sklearn.datasets import load_boston
+    from sklearn.linear_model import LinearRegression
+
+    mlflow.sklearn.autolog()
+
+    dataset = load_boston()
+    X = pd.DataFrame(dataset.data[:50, :8], columns=dataset.feature_names[:8])
+    y = dataset.target[:50]
+
+    # train a model
+    model = LinearRegression()
+
+    run = mlflow.start_run()
+    model.fit(X, y)
+    mlflow.end_run()
+    run = MlflowClient().get_run(run.info.run_id)
+    assert run.data.metrics
+    assert run.data.params
+
+    run = mlflow.start_run()
+    with mlflow.utils.autologging_utils.disable_autologging():
+        model.fit(X, y)
+    mlflow.end_run()
+    run = MlflowClient().get_run(run.info.run_id)
+    assert not run.data.metrics
+    assert not run.data.params
+
+    run = mlflow.start_run()
+    model.fit(X, y)
+    mlflow.end_run()
+    run = MlflowClient().get_run(run.info.run_id)
+    assert run.data.metrics
+    assert run.data.params
 
 
 def test_autologging_event_logger_default_implementation_does_not_throw_for_valid_inputs():
@@ -804,17 +841,10 @@ def test_dev_version_pyspark_is_supported_in_databricks(flavor, module_version, 
     with mock.patch(module_name + ".__version__", module_version):
         # In Databricks
         with mock.patch(
-            "mlflow.utils.autologging_utils.versioning.is_in_databricks_notebook",
-            return_value=True,
-        ) as mock_notebook:
+            "mlflow.utils.autologging_utils.versioning.is_in_databricks_runtime", return_value=True,
+        ) as mock_runtime:
             assert is_flavor_supported_for_associated_package_versions(flavor) == expected_result
-            mock_notebook.assert_called()
-
-        with mock.patch(
-            "mlflow.utils.autologging_utils.versioning.is_in_databricks_job", return_value=True,
-        ) as mock_job:
-            assert is_flavor_supported_for_associated_package_versions(flavor) == expected_result
-            mock_job.assert_called()
+            mock_runtime.assert_called()
 
         # Not in Databricks
         assert is_flavor_supported_for_associated_package_versions(flavor) is False

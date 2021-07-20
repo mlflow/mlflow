@@ -1,5 +1,5 @@
 div.artifact-view {
-  height: 558px;
+  height: 690px;
   border: solid 1px #ccc;
   display: flex;
   overflow-x: scroll;
@@ -37,13 +37,21 @@ div.artifact-view {
   margin-left: auto;
 }
 
+.artifact-info-path {
+  display: flex;
+}
+
+.artifact-info-text {
+  min-width: 0;
+}
+
 .artifact-info-link {
   height: 40px;
   padding-top: 5px;
   font-size: 21px;
 }
 
-.artifact-info-path, .artifact-info-size {
+.artifact-info-size {
   overflow: hidden;
   text-overflow: ellipsis;
 }

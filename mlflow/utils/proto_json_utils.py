@@ -49,7 +49,7 @@ def parse_dict(js_dict, message):
 
 
 class NumpyEncoder(JSONEncoder):
-    """ Special json encoder for numpy types.
+    """Special json encoder for numpy types.
     Note that some numpy types doesn't have native python equivalence,
     hence json.dumps will raise TypeError.
     In this case, you'll need to convert your numpy types into its closest python equivalence.
@@ -64,7 +64,7 @@ class NumpyEncoder(JSONEncoder):
 
         if isinstance(o, np.ndarray):
             if o.dtype == np.object:
-                return [self.try_convert(x)[0] for x in o.tolist()]
+                return [self.try_convert(x)[0] for x in o.tolist()], True
             elif o.dtype == np.bytes_:
                 return np.vectorize(encode_binary)(o), True
             else:

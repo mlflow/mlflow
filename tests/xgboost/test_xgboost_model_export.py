@@ -29,6 +29,7 @@ from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-impo
 from tests.helper_functions import (
     score_model_in_sagemaker_docker_container,
     _compare_conda_env_requirements,
+    _assert_pip_requirements,
 )
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe", "inference_dmatrix"])
@@ -210,6 +211,84 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
 
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
     _compare_conda_env_requirements(xgb_custom_env, saved_pip_req_path)
+
+
+@pytest.mark.large
+def test_save_model_with_pip_requirements(xgb_model, tmpdir):
+    # Path to a requirements file
+    tmpdir1 = tmpdir.join("1")
+    f = tmpdir.join("requirements.txt")
+    f.write("a")
+    mlflow.xgboost.save_model(xgb_model.model, tmpdir1.strpath, pip_requirements=f.strpath)
+    _assert_pip_requirements(tmpdir1.strpath, ["mlflow", "a"])
+
+    # List of requirements
+    tmpdir2 = tmpdir.join("2")
+    mlflow.xgboost.save_model(
+        xgb_model.model, tmpdir2.strpath, pip_requirements=[f"-r {f.strpath}", "b"]
+    )
+    _assert_pip_requirements(tmpdir2.strpath, ["mlflow", "a", "b"])
+
+
+@pytest.mark.large
+def test_save_model_with_extra_pip_requirements(xgb_model, tmpdir):
+    # Path to a requirements file
+    tmpdir1 = tmpdir.join("1")
+    f = tmpdir.join("requirements.txt")
+    f.write("a")
+    mlflow.xgboost.save_model(xgb_model.model, tmpdir1.strpath, extra_pip_requirements=f.strpath)
+    _assert_pip_requirements(
+        tmpdir1.strpath, ["mlflow", *mlflow.xgboost._get_default_pip_requirements(), "a"]
+    )
+
+    # List of requirements
+    tmpdir2 = tmpdir.join("2")
+    mlflow.xgboost.save_model(
+        xgb_model.model, tmpdir2.strpath, extra_pip_requirements=[f"-r {f.strpath}", "b"]
+    )
+    _assert_pip_requirements(
+        tmpdir2.strpath, ["mlflow", *mlflow.xgboost._get_default_pip_requirements(), "a", "b"]
+    )
+
+
+@pytest.mark.large
+def test_log_model_with_pip_requirements(xgb_model, tmpdir):
+    with mlflow.start_run():
+        # Path to a requirements file
+        f = tmpdir.join("requirements.txt")
+        f.write("a")
+        mlflow.xgboost.log_model(xgb_model.model, "model", pip_requirements=f.strpath)
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"])
+
+    # List of requirements
+    with mlflow.start_run():
+        mlflow.xgboost.log_model(
+            xgb_model.model, "model", pip_requirements=[f"-r {f.strpath}", "b"]
+        )
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"])
+
+
+@pytest.mark.large
+def test_log_model_with_extra_pip_requirements(xgb_model, tmpdir):
+    with mlflow.start_run():
+        # Path to a requirements file
+        f = tmpdir.join("requirements.txt")
+        f.write("a")
+        mlflow.xgboost.log_model(xgb_model.model, "model", extra_pip_requirements=f.strpath)
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"),
+            ["mlflow", *mlflow.xgboost._get_default_pip_requirements(), "a"],
+        )
+
+    # List of requirements
+    with mlflow.start_run():
+        mlflow.xgboost.log_model(
+            xgb_model.model, "model", extra_pip_requirements=[f"-r {f.strpath}", "b"]
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"),
+            ["mlflow", *mlflow.xgboost._get_default_pip_requirements(), "a", "b"],
+        )
 
 
 @pytest.mark.large

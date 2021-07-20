@@ -43,6 +43,7 @@ describe('GenericInputModal', () => {
     minimalProps = {
       isOpen: false,
       onClose: jest.fn(),
+      onCancel: jest.fn(),
       // Mock submission handler that sleeps 1s then resolves
       handleSubmit: (values) =>
         new Promise((resolve) => {

@@ -6,6 +6,7 @@ import {
   X_AXIS_STEP,
   X_AXIS_WALL,
 } from '../../experiment-tracking/components/MetricsPlotControls';
+import { RunTag } from '../../experiment-tracking/sdk/MlflowMessages';
 
 test('formatMetric', () => {
   expect(Utils.formatMetric(0)).toEqual('0');
@@ -76,6 +77,70 @@ test('baseName', () => {
   expect(Utils.baseName('file:///foo/bar/baz')).toEqual('baz');
 });
 
+test('renderNotebookSource', () => {
+  const notebookId = '12345678';
+  const revisionId = '987654';
+  const runUuid = '1133557799';
+  const sourceName = '/Users/test/iris_feature';
+
+  expect(Utils.renderNotebookSource(null, null, null, null, sourceName)).toEqual('iris_feature');
+  expect(Utils.renderNotebookSource(null, notebookId, null, null, sourceName)).toEqual(
+    <a title={sourceName} href={`http://localhost/#notebook/${notebookId}`} target='_top'>
+      iris_feature
+    </a>,
+  );
+  expect(Utils.renderNotebookSource(null, notebookId, revisionId, null, sourceName)).toEqual(
+    <a
+      title={sourceName}
+      href={`http://localhost/#notebook/${notebookId}/revision/${revisionId}`}
+      target='_top'
+    >
+      iris_feature
+    </a>,
+  );
+  expect(Utils.renderNotebookSource(null, notebookId, revisionId, runUuid, sourceName)).toEqual(
+    <a
+      title={sourceName}
+      href={`http://localhost/#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
+      target='_top'
+    >
+      iris_feature
+    </a>,
+  );
+});
+
+test('renderJobSource', () => {
+  const jobId = '123456';
+  const jobRunId = '98765';
+  const jobName = 'job xxx';
+
+  expect(Utils.renderJobSource(null, null, null, jobName)).toEqual(jobName);
+  expect(Utils.renderJobSource(null, jobId, null, jobName)).toEqual(
+    <a title={jobName} href={`http://localhost/#job/${jobId}`} target='_top'>
+      {jobName}
+    </a>,
+  );
+  expect(Utils.renderJobSource(null, jobId, null, null)).toEqual(
+    <a title={`job ${jobId}`} href={`http://localhost/#job/${jobId}`} target='_top'>
+      {`job ${jobId}`}
+    </a>,
+  );
+  expect(Utils.renderJobSource(null, jobId, jobRunId, jobName)).toEqual(
+    <a title={jobName} href={`http://localhost/#job/${jobId}/run/${jobRunId}`} target='_top'>
+      {jobName}
+    </a>,
+  );
+  expect(Utils.renderJobSource(null, jobId, jobRunId, null)).toEqual(
+    <a
+      title={`run ${jobRunId} of job ${jobId}`}
+      href={`http://localhost/#job/${jobId}/run/${jobRunId}`}
+      target='_top'
+    >
+      {`run ${jobRunId} of job ${jobId}`}
+    </a>,
+  );
+});
+
 test('formatSource & renderSource', () => {
   const source_with_name = {
     'mlflow.source.name': { value: 'source' },
@@ -108,16 +173,17 @@ test('formatSource & renderSource', () => {
   expect(Utils.formatSource(non_project_source)).toEqual('source3');
   expect(Utils.renderSource(non_project_source)).toEqual('source3');
 
-  // formatSource should return a string, renderSource should return an HTML element.
+  // formatSource should return a string, renderSource should return an HTML element
+  // with the correct source url.
   const github_url = {
-    'mlflow.source.name': { value: 'git@github.com:mlflow/mlflow-apps.git' },
+    'mlflow.source.name': { value: 'git@github.com:mlflow/mlflow-apps-git.git' },
     'mlflow.source.type': { value: 'PROJECT' },
     'mlflow.project.entryPoint': { value: 'entry' },
   };
-  expect(Utils.formatSource(github_url)).toEqual('mlflow-apps:entry');
+  expect(Utils.formatSource(github_url)).toEqual('mlflow-apps-git:entry');
   expect(Utils.renderSource(github_url)).toEqual(
-    <a href='https://github.com/mlflow/mlflow-apps' target='_top'>
-      mlflow-apps:entry
+    <a href='https://github.com/mlflow/mlflow-apps-git' target='_top'>
+      mlflow-apps-git:entry
     </a>,
   );
 
@@ -134,14 +200,14 @@ test('formatSource & renderSource', () => {
   );
 
   const bitbucket_url = {
-    'mlflow.source.name': { value: 'git@bitbucket.org:mlflow/mlflow-apps.git' },
+    'mlflow.source.name': { value: 'git@bitbucket.org:mlflow/mlflow-apps-git.git' },
     'mlflow.source.type': { value: 'PROJECT' },
     'mlflow.project.entryPoint': { value: 'entry' },
   };
-  expect(Utils.formatSource(bitbucket_url)).toEqual('mlflow-apps:entry');
+  expect(Utils.formatSource(bitbucket_url)).toEqual('mlflow-apps-git:entry');
   expect(Utils.renderSource(bitbucket_url)).toEqual(
-    <a href='https://bitbucket.org/mlflow/mlflow-apps' target='_top'>
-      mlflow-apps:entry
+    <a href='https://bitbucket.org/mlflow/mlflow-apps-git' target='_top'>
+      mlflow-apps-git:entry
     </a>,
   );
 
@@ -356,9 +422,316 @@ test('normalize', () => {
   expect(Utils.normalize('http://mlflow.org/resource')).toEqual('http://mlflow.org/resource');
   expect(Utils.normalize('s3:/bucket/resource')).toEqual('s3:/bucket/resource');
   expect(Utils.normalize('C:\\Windows\\Filesystem\\Path')).toEqual('C:\\Windows\\Filesystem\\Path');
-
   expect(Utils.normalize('///redundant//absolute/path')).toEqual('/redundant/absolute/path');
   expect(Utils.normalize('redundant//relative///path///')).toEqual('redundant/relative/path');
   expect(Utils.normalize('http://mlflow.org///redundant/')).toEqual('http://mlflow.org/redundant');
   expect(Utils.normalize('s3:///bucket/resource/')).toEqual('s3:/bucket/resource');
+});
+
+test('getLoggedModelsFromTags correctly parses run tag for logged models', () => {
+  const tags = {
+    'mlflow.log-model.history': RunTag.fromJs({
+      key: 'mlflow.log-model.history',
+      value: JSON.stringify([
+        {
+          run_id: 'run-uuid',
+          artifact_path: 'somePath',
+          utc_time_created: '2020-10-31',
+          flavors: { keras: {}, python_function: {} },
+        },
+      ]),
+    }),
+  };
+  const parsed = Utils.getLoggedModelsFromTags(tags);
+  expect(parsed).toHaveLength(1);
+  expect(parsed[0].artifactPath).toEqual('somePath');
+  expect(parsed[0].flavors).toHaveLength(1);
+  expect(parsed[0].flavors[0]).toEqual('keras');
+});
+
+test('getLoggedModelsFromTags should correctly dedup and sort logged models', () => {
+  const tags = {
+    'mlflow.log-model.history': RunTag.fromJs({
+      key: 'mlflow.log-model.history',
+      value: JSON.stringify([
+        {
+          run_id: 'run-uuid',
+          artifact_path: 'somePath',
+          utc_time_created: '2020-10-29',
+          flavors: { keras: {}, python_function: {} },
+        },
+        {
+          run_id: 'run-uuid',
+          artifact_path: 'somePath',
+          utc_time_created: '2020-10-30',
+          flavors: { sklearn: {}, python_function: {} },
+        },
+        {
+          run_id: 'run-uuid',
+          artifact_path: 'someOtherPath',
+          utc_time_created: '2020-10-31',
+          flavors: { python_function: {} },
+        },
+      ]),
+    }),
+  };
+
+  const filtered = Utils.getLoggedModelsFromTags(tags);
+  expect(filtered.length).toEqual(2);
+  expect(filtered).toEqual([
+    {
+      artifactPath: 'someOtherPath',
+      flavors: ['pyfunc'],
+      utcTimeCreated: 1604102400,
+    },
+    {
+      artifactPath: 'somePath',
+      flavors: ['sklearn'],
+      utcTimeCreated: 1604016000,
+    },
+  ]);
+});
+
+test('mergeLoggedAndRegisteredModels should merge logged and registered model', () => {
+  const tags = {
+    'mlflow.log-model.history': RunTag.fromJs({
+      key: 'mlflow.log-model.history',
+      value: JSON.stringify([
+        {
+          run_id: 'run-uuid',
+          artifact_path: 'somePath',
+          utc_time_created: '2020-10-31',
+          flavors: { keras: {}, python_function: {} },
+        },
+      ]),
+    }),
+  };
+  const modelVersions = [
+    {
+      name: 'someModel',
+      version: '3',
+      source: 'nananaBatman/artifacts/somePath',
+      creation_timestamp: 123456,
+      run_id: 'run-uuid',
+    },
+  ];
+  const loggedModels = Utils.getLoggedModelsFromTags(tags);
+  const models = Utils.mergeLoggedAndRegisteredModels(loggedModels, modelVersions);
+  expect(models).toEqual([
+    {
+      artifactPath: 'somePath',
+      flavors: ['keras'],
+      utcTimeCreated: 1604102400,
+      registeredModelName: 'someModel',
+      registeredModelVersion: '3',
+      registeredModelCreationTimestamp: 123456,
+    },
+  ]);
+});
+
+test('mergeLoggedAndRegisteredModels should output 2 logged and 1 registered model', () => {
+  const tags = {
+    'mlflow.log-model.history': RunTag.fromJs({
+      key: 'mlflow.log-model.history',
+      value: JSON.stringify([
+        {
+          run_id: 'run-uuid',
+          artifact_path: 'somePath',
+          utc_time_created: '2020-10-31',
+          flavors: { keras: {}, python_function: {} },
+        },
+        {
+          run_id: 'run-uuid',
+          artifact_path: 'someOtherPath',
+          utc_time_created: '2020-10-31',
+          flavors: { sklearn: {}, python_function: {} },
+        },
+      ]),
+    }),
+  };
+
+  const modelVersions = [
+    {
+      name: 'someModel',
+      version: '3',
+      source: 'nananaBatman/artifacts/somePath',
+      run_id: 'run-uuid',
+      creation_timestamp: 123456,
+    },
+  ];
+  const loggedModels = Utils.getLoggedModelsFromTags(tags);
+  const models = Utils.mergeLoggedAndRegisteredModels(loggedModels, modelVersions);
+  expect(models).toEqual([
+    {
+      artifactPath: 'somePath',
+      flavors: ['keras'],
+      utcTimeCreated: 1604102400,
+      registeredModelName: 'someModel',
+      registeredModelVersion: '3',
+      registeredModelCreationTimestamp: 123456,
+    },
+    {
+      artifactPath: 'someOtherPath',
+      utcTimeCreated: 1604102400,
+      flavors: ['sklearn'],
+    },
+  ]);
+});
+
+test('mergeLoggedAndRegisteredModels should output registered models in order', () => {
+  const tags = {
+    'mlflow.log-model.history': RunTag.fromJs({
+      key: 'mlflow.log-model.history',
+      value: JSON.stringify([
+        {
+          run_id: 'run-uuid',
+          artifact_path: 'somePath',
+          utc_time_created: '2020-10-30',
+          flavors: { keras: {}, python_function: {} },
+        },
+        {
+          run_id: 'run-uuid',
+          artifact_path: 'someOtherPath',
+          utc_time_created: '2020-10-31',
+          flavors: { sklearn: {}, python_function: {} },
+        },
+      ]),
+    }),
+  };
+
+  const loggedModels = Utils.getLoggedModelsFromTags(tags);
+
+  // Both registered - newer timestamp first
+  let modelVersions = [
+    {
+      name: 'someModel',
+      version: '3',
+      source: 'nananaBatman/artifacts/somePath',
+      run_id: 'run-uuid',
+      creation_timestamp: 12345,
+    },
+    {
+      name: 'someNewerModel',
+      version: '4',
+      source: 'nananaBatman/artifacts/someOtherPath',
+      run_id: 'run-uuid',
+      creation_timestamp: 67890,
+    },
+  ];
+
+  let models = Utils.mergeLoggedAndRegisteredModels(loggedModels, modelVersions);
+  expect(models.length).toEqual(2);
+  expect(models[0]).toEqual({
+    artifactPath: 'someOtherPath',
+    flavors: ['sklearn'],
+    utcTimeCreated: 1604102400,
+    registeredModelName: 'someNewerModel',
+    registeredModelVersion: '4',
+    registeredModelCreationTimestamp: 67890,
+  });
+  expect(models[1]).toEqual({
+    artifactPath: 'somePath',
+    flavors: ['keras'],
+    utcTimeCreated: 1604016000,
+    registeredModelName: 'someModel',
+    registeredModelVersion: '3',
+    registeredModelCreationTimestamp: 12345,
+  });
+
+  // Change order
+  modelVersions[1].name = 'someModel';
+  modelVersions[1].version = '2';
+  modelVersions[1].creation_timestamp = 1000;
+  models = Utils.mergeLoggedAndRegisteredModels(loggedModels, modelVersions);
+  expect(models[0].registeredModelVersion).toEqual('3');
+
+  // Only one registered
+  modelVersions = [modelVersions[0]];
+  models = Utils.mergeLoggedAndRegisteredModels(loggedModels, modelVersions);
+  expect(models[0]).toEqual({
+    artifactPath: 'somePath',
+    flavors: ['keras'],
+    utcTimeCreated: 1604016000,
+    registeredModelName: 'someModel',
+    registeredModelVersion: '3',
+    registeredModelCreationTimestamp: 12345,
+  });
+  expect(models[1]).toEqual({
+    artifactPath: 'someOtherPath',
+    flavors: ['sklearn'],
+    utcTimeCreated: 1604102400,
+  });
+
+  // No registered; newest logged model first
+  modelVersions = [];
+  models = Utils.mergeLoggedAndRegisteredModels(loggedModels, modelVersions);
+  expect(models[0]).toEqual({
+    artifactPath: 'someOtherPath',
+    flavors: ['sklearn'],
+    utcTimeCreated: 1604102400,
+  });
+  expect(models[1]).toEqual({
+    artifactPath: 'somePath',
+    flavors: ['keras'],
+    utcTimeCreated: 1604016000,
+  });
+});
+
+test('concatAndGroupArraysById', () => {
+  let arr;
+  let concatArr;
+
+  // sanity test
+  arr = [];
+  concatArr = [];
+  expect(Utils.concatAndGroupArraysById(arr, concatArr, '')).toEqual([]);
+
+  // basic functionality
+  arr = [
+    { name: 'harry', house: 'gryffindor', wand: 'holly' },
+    { name: 'luna', house: 'ravenclaw', wand: 'unknown' },
+    { name: 'draco', house: 'slytherin', wand: 'hawthorne' },
+  ];
+  concatArr = [
+    { name: 'harry', enemy: 'voldemort' },
+    { name: 'draco', enemy: 'harry' },
+  ];
+  expect(Utils.concatAndGroupArraysById(arr, concatArr, 'name')).toEqual([
+    { name: 'harry', house: 'gryffindor', wand: 'holly', enemy: 'voldemort' },
+    { name: 'luna', house: 'ravenclaw', wand: 'unknown' },
+    { name: 'draco', house: 'slytherin', wand: 'hawthorne', enemy: 'harry' },
+  ]);
+
+  // no common ids - just concatenate
+  arr = [
+    { name: 'harry', house: 'gryffindor', wand: 'holly' },
+    { name: 'luna', house: 'ravenclaw', wand: 'unknown' },
+    { name: 'draco', house: 'slytherin', wand: 'hawthorne' },
+  ];
+  concatArr = [
+    { name: 'ron', enemy: 'spiders' },
+    { name: 'hermione', enemy: 'unknown' },
+  ];
+  expect(Utils.concatAndGroupArraysById(arr, concatArr, 'name')).toEqual([
+    { name: 'harry', house: 'gryffindor', wand: 'holly' },
+    { name: 'luna', house: 'ravenclaw', wand: 'unknown' },
+    { name: 'draco', house: 'slytherin', wand: 'hawthorne' },
+    { name: 'ron', enemy: 'spiders' },
+    { name: 'hermione', enemy: 'unknown' },
+  ]);
+
+  // one common id, no additional fields
+  arr = [{ name: 'harry', house: 'gryffindor', wand: 'holly' }];
+  concatArr = [{ name: 'harry' }];
+  expect(Utils.concatAndGroupArraysById(arr, concatArr, 'name')).toEqual([
+    { name: 'harry', house: 'gryffindor', wand: 'holly' },
+  ]);
+
+  // different fields altogether
+  arr = [{ name: 'harry', house: 'gryffindor', wand: 'holly' }];
+  concatArr = [{ id: 123, year: 2020 }];
+  expect(Utils.concatAndGroupArraysById(arr, concatArr, 'name')).toEqual([
+    { name: 'harry', house: 'gryffindor', wand: 'holly' },
+    { id: 123, year: 2020 },
+  ]);
 });

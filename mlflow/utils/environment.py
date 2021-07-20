@@ -1,7 +1,9 @@
 import yaml
+import tempfile
 import os
 
 from mlflow.utils import PYTHON_VERSION
+from mlflow.utils.requirements_utils import _parse_requirements
 
 _conda_header = """\
 name: mlflow-env
@@ -68,9 +70,9 @@ def _mlflow_additional_pip_env(
         return requirements
 
 
-def _get_additional_pip_dep(conda_env):
+def _get_pip_deps(conda_env):
     """
-    :return: The additional pip dependencies from the conda env
+    :return: The pip dependencies from the conda env
     """
     if conda_env is not None:
         for dep in conda_env["dependencies"]:
@@ -80,5 +82,75 @@ def _get_additional_pip_dep(conda_env):
 
 
 def _log_pip_requirements(conda_env, path, requirements_file="requirements.txt"):
-    pip_deps = _get_additional_pip_dep(conda_env)
+    pip_deps = _get_pip_deps(conda_env)
     _mlflow_additional_pip_env(pip_deps, path=os.path.join(path, requirements_file))
+
+
+def _parse_pip_requirements(pip_requirements):
+    """
+    Parses an iterable of pip requirement strings or a pip requirements file.
+
+    :param pip_requirements: Either an iterable of pip requirement strings
+        (e.g. ``["scikit-learn", "-r requirements.txt"]``) or the string path to a pip requirements
+        file on the local filesystem (e.g. ``"requirements.txt"``). If ``None``, an empty list will
+        be returned.
+    :return: A list of pip requirement strings.
+    """
+    if pip_requirements is None:
+        return []
+
+    def _is_string(x):
+        return isinstance(x, str)
+
+    def _is_iterable(x):
+        try:
+            iter(x)
+            return True
+        except Exception:
+            return False
+
+    if _is_string(pip_requirements):
+        return list(_parse_requirements(pip_requirements))
+    elif _is_iterable(pip_requirements) and all(map(_is_string, pip_requirements)):
+        try:
+            # Create a temporary requirements file in the current working directory
+            tmp_req_file = tempfile.NamedTemporaryFile(
+                mode="w",
+                prefix="mlflow.",
+                suffix=".tmp.requirements.txt",
+                dir=os.getcwd(),
+                # Setting `delete` to True causes a permission-denied error on Windows
+                # while trying to read the generated temporary file.
+                delete=False,
+            )
+            tmp_req_file.write("\n".join(pip_requirements))
+            tmp_req_file.close()
+            return _parse_pip_requirements(tmp_req_file.name)
+        finally:
+            # Clean up the temporary requirements file
+            os.remove(tmp_req_file.name)
+    else:
+        raise TypeError(
+            "`pip_requirements` must be either a string path to a pip requirements file on the "
+            "local filesystem or an iterable of pip requirement strings, but got `{}`".format(
+                type(pip_requirements)
+            )
+        )
+
+
+def _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements):
+    """
+    Validates that only one or none of `conda_env`, `pip_requirements`, and
+    `extra_pip_requirements` is specified.
+    """
+    args = [
+        conda_env,
+        pip_requirements,
+        extra_pip_requirements,
+    ]
+    specified = [arg for arg in args if arg is not None]
+    if len(specified) > 1:
+        raise ValueError(
+            "Only one of `conda_env`, `pip_requirements`, and "
+            "`extra_pip_requirements` can be specified"
+        )

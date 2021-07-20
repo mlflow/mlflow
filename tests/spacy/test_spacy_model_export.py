@@ -84,6 +84,10 @@ def test_model_save_load(spacy_model_with_data, model_path):
     mlflow.spacy.save_model(spacy_model=spacy_model, path=model_path)
     loaded_model = mlflow.spacy.load_model(model_path)
 
+    # Remove a `_sourced_vectors_hashes` field which is added when spaCy loads a model:
+    # https://github.com/explosion/spaCy/blob/e8ef4a46d5dbc9bb6d629ecd0b02721d6bdf2f87/spacy/language.py#L1701
+    loaded_model.meta.pop("_sourced_vectors_hashes", None)
+
     # Comparing the meta dictionaries for the original and loaded models
     assert spacy_model.meta == loaded_model.meta
 
