@@ -7,6 +7,7 @@ import mlflow
 import mlflow.sagemaker
 from mlflow.sagemaker import DEFAULT_IMAGE_NAME as IMAGE
 from mlflow.utils import cli_args
+from mlflow.utils.annotations import experimental
 import mlflow.models.docker_utils
 
 
@@ -224,10 +225,10 @@ def delete(app_name, region_name, archive, asynchronous, timeout):
 @click.option("--job-name", "-n", help="Transform job name", required=True)
 @cli_args.MODEL_URI
 @click.option(
-    "--input-data-type", "-dt", help="Input data type for the transform job", required=True
+    "--input-data-type", help="Input data type for the transform job", required=True
 )
 @click.option(
-    "--input-uri", "-in", help="S3 key name prefix or manifest of the input data", required=True
+    "--input-uri", "-u", help="S3 key name prefix or manifest of the input data", required=True
 )
 @click.option(
     "--content-type",
@@ -236,7 +237,7 @@ def delete(app_name, region_name, archive, asynchronous, timeout):
 )
 @click.option(
     "--output-path",
-    "-out",
+    "-o",
     help="The S3 path to store the output results of the Sagemaker transform job",
     required=True,
 )
@@ -245,7 +246,7 @@ def delete(app_name, region_name, archive, asynchronous, timeout):
 )
 @click.option(
     "--split-type",
-    "-st",
+    "-s",
     default="Line",
     help="The method to split the transform job's data files into smaller batches",
 )
@@ -257,25 +258,22 @@ def delete(app_name, region_name, archive, asynchronous, timeout):
 )
 @click.option(
     "--assemble-with",
-    "-aw",
     default="Line",
     help="The method to assemble the results of the transform job as a single S3 object",
 )
 @click.option(
     "--input-filter",
-    "-if",
     default="$",
     help="A JSONPath expression used to select a portion of the input data for the transform job",
 )
 @click.option(
     "--output-filter",
-    "-of",
     default="$",
     help="A JSONPath expression used to select a portion of the output data from the transform job",
 )
 @click.option(
     "--join-resource",
-    "-jr",
+    "-j",
     default="None",
     help="The source of the data to join with the transformed data",
 )
@@ -344,6 +342,7 @@ def delete(app_name, region_name, archive, asynchronous, timeout):
         " asynchronously using the `--async` flag, this value is ignored."
     ),
 )
+@experimental
 def deploy_transform_job(
     job_name,
     model_uri,
@@ -414,11 +413,10 @@ def deploy_transform_job(
     "--region-name",
     "-r",
     default="us-west-2",
-    help="Name of the AWS region in which to deploy the transform job",
+    help="Name of the AWS region in which the transform job is deployed",
 )
 @click.option(
     "--archive",
-    "-ar",
     is_flag=True,
     help=(
         "If specified, resources associated with the application are preserved."
@@ -450,6 +448,7 @@ def deploy_transform_job(
         " asynchronously using the `--async` flag, this value is ignored."
     ),
 )
+@experimental
 def terminate_transform_job(job_name, region_name, archive, asynchronous, timeout):
     """
     Terminate the specified Sagemaker batch transform job. Unless ``--archive`` is specified,
