@@ -17,9 +17,8 @@ import numpy as np
 import pickle
 import yaml
 import warnings
-from uuid import uuid4
 import weakref
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 
 import mlflow
 from mlflow import pyfunc
@@ -491,8 +490,9 @@ class _AutologTrainingStatus:
           eval_dataset_var_name) when autologging.
         * storing the dataset row samples, we need log them into metric_info artifact file.
     (4) _metric_api_call_info, it is a double level map:
-       `metric_api_call_arg_dict_list_map[run_id]` wil get a map of
-        (metric_logged_key -> metric_call_command)
+       `_metric_api_call_info[run_id][metric_name]` wil get a list of tuples, each tuple is:
+         (logged_metric_key, metric_call_command_string)
+        each call command string is like `metric_fn(arg1, arg2, ...)`
         This data structure is used for:
          * storing the call arguments dict for each metric call, we need log them into metric_info
            artifact file.
@@ -506,7 +506,7 @@ class _AutologTrainingStatus:
     def __init__(self):
         self._pred_result_id_to_dataset_name_and_run_id = {}
         self._eval_dataset_info_map = defaultdict(lambda: defaultdict(list))
-        self._metric_api_call_info = defaultdict(dict)
+        self._metric_api_call_info = defaultdict(lambda: defaultdict(list))
         self._log_post_training_metrics_enabled = True
         self._metric_info_artifact_need_update = defaultdict(lambda: False)
 
@@ -517,22 +517,22 @@ class _AutologTrainingStatus:
         See following note.
 
         Note: It includes checking `_SklearnTrainingSession.is_active()`, This is a safe guarding
-        for cross validator/grid search case:
-          running cross validator/grid search, the nested model.fit will be called in parallel,
+        for meta-estimator (e.g. GridSearchCV) case:
+          running GridSearchCV.fit, the nested `estimator.fit` will be called in parallel,
           but, the _autolog_training_status is a global status without thread-safe lock protecting.
           This safe guarding will prevent code run into this case.
         """
         return _SklearnTrainingSession.is_active() and self._log_post_training_metrics_enabled
 
     def disable_log_post_training_metrics(self):
-        old_status = self._log_post_training_metrics_enabled
 
         class LogPostTrainingMetricsDisabledScope:
             def __enter__(inner_self):
+                inner_self.old_status = self._log_post_training_metrics_enabled
                 self._log_post_training_metrics_enabled = False
 
             def __exit__(inner_self, exc_type, exc_val, exc_tb):
-                self._log_post_training_metrics_enabled = old_status
+                self._log_post_training_metrics_enabled = inner_self.old_status
 
         return LogPostTrainingMetricsDisabledScope()
 
@@ -620,7 +620,7 @@ class _AutologTrainingStatus:
         weakref.finalize(predict_result, clean_id, prediction_result_id)
 
     @staticmethod
-    def _gen_call_command_arg_list(call_pos_args, call_kwargs):
+    def gen_metric_call_command(call_fn_name, call_pos_args, call_kwargs):
         arg_list = []
 
         def arg_to_str(arg):
@@ -638,23 +638,23 @@ class _AutologTrainingStatus:
         for arg_name, arg in call_kwargs.items():
             arg_list.append(f'{arg_name}={arg_to_str(arg)}')
 
-        return ','.join(arg_list)
+        arg_list_str =  ','.join(arg_list)
+        return f'{call_fn_name}({arg_list_str})'
 
-    def _register_metric_info(self,
-            run_id, metric_name, dataset_name, call_fn_name, call_pos_args, call_kwargs):
+    def _register_metric_info(self, run_id, metric_name, dataset_name, call_command):
 
-        arg_list_str = self._gen_call_command_arg_list(call_pos_args, call_kwargs)
-        metric_call_command = f'{call_fn_name}({arg_list_str})'
+        call_cmd_list = self._metric_api_call_info[run_id][metric_name]
 
-        call_cmd_map = self._metric_api_call_info[run_id]
+        index = len(call_cmd_list)
+        metric_name_with_index = self.gen_name_with_index(metric_name, index)
+        metric_key = f'{metric_name_with_index}_{dataset_name}'
 
-        index = len(call_cmd_map)
-        metric_key = f'metric_call_{index + 1}_{metric_name}_on_{dataset_name}'
-        call_cmd_map[metric_key] = metric_call_command
+        call_cmd_list.append((metric_name_with_index, call_command))
+
         self._metric_info_artifact_need_update[run_id] = True
         return metric_key
 
-    def register_metric_api_call(self, metric_fn, call_pos_args, call_kwargs):
+    def register_metric_api_call(self, metric_name, call_command, call_pos_args, call_kwargs):
         """
         Given a metric api call (include the called metric function, and call arguments)
         Register the call information (arguments dict) into the `metric_api_call_arg_dict_list_map`
@@ -684,26 +684,18 @@ class _AutologTrainingStatus:
         if dataset_name is None or run_id is None:
             return False, None, None
 
-        metric_name = metric_fn.__name__
-        if metric_name.strip() == '<lambda>':
-            metric_name = 'unknown_metric'
-
-        call_fn_name = metric_name
         metric_key = self._register_metric_info(
-            run_id, metric_name, dataset_name, call_fn_name, call_pos_args, call_kwargs
+            run_id, metric_name, dataset_name, call_command
         )
 
         return True, run_id, metric_key
 
-    def register_model_score_call(self, model, call_pos_args, call_kwargs):
+    def register_model_score_call(self, model, metric_name, call_command, call_pos_args, call_kwargs):
         eval_dataset = call_pos_args[0] if len(call_pos_args) >= 1 else call_kwargs.get('X')
         eval_dataset_name = self.register_eval_dataset(self, eval_dataset)
-        metric_name = f'{model.__class__.__name__}_score'
-
         run_id = self.get_run_id_for_model(model)
-        call_fn_name = f'{model.__class__.__name__}.score'
         metric_key = self._register_metric_info(
-            run_id, metric_name, eval_dataset_name, call_fn_name, call_pos_args, call_kwargs)
+            run_id, metric_name, eval_dataset_name, call_command)
 
         return metric_key
 
@@ -717,9 +709,14 @@ class _AutologTrainingStatus:
             value=value
         )
         if self._metric_info_artifact_need_update[run_id]:
-            metric_info_dict = self._metric_api_call_info[run_id]
+            call_commands_list = []
+            for _, v in self._metric_api_call_info[run_id].items():
+                call_commands_list.extend(call_commands_list)
+
+            call_commands_list.sort(key=lambda x: x[0])
+            dict_to_log = OrderedDict(call_commands_list)
             client.log_dict(
-                run_id=run_id, dictionary=metric_info_dict, artifact_file='metric_info.json'
+                run_id=run_id, dictionary=dict_to_log, artifact_file='metric_info.json'
             )
 
 
@@ -1199,8 +1196,15 @@ def autolog(
 
             if status.is_metrics_value_loggable(metric):
                 print('DGB: run patched_metric_api #2')
+
+                metric_name = original.__name__
+                if metric_name.strip() == '<lambda>':
+                    metric_name = 'unknown_metric'
+
+                call_command = status.gen_metric_call_command(metric_name, args, kwargs)
+
                 is_register_ok, run_id, metric_key = \
-                    status.register_metric_api_call(original, args, kwargs)
+                    status.register_metric_api_call(metric_name, call_command, args, kwargs)
                 if is_register_ok:
                     print('DGB: run patched_metric_api #4')
                     status.log_eval_metric(run_id, metric_key, metric)
@@ -1220,7 +1224,11 @@ def autolog(
                 score_value = original(self, *args, **kwargs)
 
             if status.is_metrics_value_loggable(score_value):
-                metric_key = status.register_model_score_call(self, args, kwargs)
+                metric_name = f'{self.__class__.__name__}_score'
+                call_fn_name = f'{self.__class__.__name__}.score'
+                call_command = status.gen_metric_call_command(call_fn_name, args, kwargs)
+                metric_key = status.register_model_score_call(
+                    self, metric_name, call_command, args, kwargs)
                 status.log_eval_metric(
                     status.get_run_id_for_model(self), metric_key, score_value
                 )
