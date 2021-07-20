@@ -545,7 +545,8 @@ class _AutologTrainingStatus:
         """
         check whether is is a numeric value which can be logged as metric value.
         """
-        return metric_value is not None and np.isscalar(metric_value) and np.isreal(metric_value)
+        return isinstance(metric_value, (int, float, np.number)) and \
+            not isinstance(metric_value, (bool, np.bool))
 
     def register_model(self, model, run_id):
         """
@@ -653,7 +654,7 @@ class _AutologTrainingStatus:
         for arg_name, arg in call_kwargs.items():
             arg_list.append(f'{arg_name}={arg_to_str(arg)}')
 
-        arg_list_str = ','.join(arg_list)
+        arg_list_str = ', '.join(arg_list)
         return f'{call_fn_name}({arg_list_str})'
 
     def register_metric_info(self, run_id, metric_name, dataset_name, call_command):
