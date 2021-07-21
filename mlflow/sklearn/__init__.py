@@ -543,7 +543,8 @@ class _AutologTrainingStatus:
     @staticmethod
     def is_metrics_value_loggable(metric_value):
         """
-        check whether is is a numeric value which can be logged as metric value.
+        check whether the specified `metric_value` is a numeric value which can be logged
+        as an MLflow metric.
         """
         return isinstance(metric_value, (int, float, np.number)) and \
             not isinstance(metric_value, (bool, np.bool))
@@ -711,7 +712,7 @@ class _AutologTrainingStatus:
         )
         if self._metric_info_artifact_need_update[run_id]:
             call_commands_list = []
-            for _, v in self._metric_api_call_info[run_id].items():
+            for v in self._metric_api_call_info[run_id].values():
                 call_commands_list.extend(v)
 
             call_commands_list.sort(key=lambda x: x[0])
@@ -729,19 +730,41 @@ class _AutologTrainingStatus:
             return call_pos_args[0]
         else:
             first_arg_name = list(inspect.signature(method).parameters.keys())[1]
-            return call_kwargs.get(first_arg_name, None)
+            return call_kwargs.get(first_arg_name)
 
 
 _autolog_training_status = _AutologTrainingStatus()
 
 
 def _get_autolog_training_status():
+    """
+    Get the global `_AutologTrainingStatus` instance which holds information used in post-training
+    metric autologging. See doc of class `_AutologTrainingStatus` for details.
+    """
     return _autolog_training_status
 
 
 _metric_api_excluding_list = [
     'check_scoring', 'get_scorer', 'make_scorer'
 ]
+
+
+def _get_metric_name_list():
+    """
+    Return metric function name list in `sklearn.metrics` module
+    """
+    from sklearn import metrics
+    metric_list = []
+    for metric_method_name in metrics.__all__:
+        # excludes plot_* methods
+        # exclude class (e.g. metrics.ConfusionMatrixDisplay)
+        metric_method = getattr(metrics, metric_method_name)
+        if metric_method_name not in _metric_api_excluding_list \
+                and not inspect.isclass(metric_method) \
+                and callable(metric_method) \
+                and not metric_method_name.startswith('plot_'):
+            metric_list.append(metric_method)
+    return metric_list
 
 
 @experimental
@@ -1187,7 +1210,7 @@ def autolog(
         status = _get_autolog_training_status()
         if status.should_log_post_training_metrics() and status.get_run_id_for_model(self):
             predict_result = original(self, *args, **kwargs)
-            eval_dataset = args[0] if len(args) >= 1 else kwargs.get('X')
+            eval_dataset = status.get_method_first_arg_value(original, args, kwargs)
             eval_dataset_name = status.register_eval_dataset(self, eval_dataset)
             status.register_prediction_result(
                 self, eval_dataset_name, predict_result)
@@ -1232,7 +1255,7 @@ def autolog(
                 call_fn_name = f'{self.__class__.__name__}.score'
                 call_command = status.gen_metric_call_command(call_fn_name, *args, **kwargs)
 
-                eval_dataset = args[0] if len(args) >= 1 else kwargs.get('X')
+                eval_dataset = status.get_method_first_arg_value(original, args, kwargs)
                 eval_dataset_name = status.register_eval_dataset(self, eval_dataset)
                 run_id = status.get_run_id_for_model(self)
                 metric_key = status.register_metric_info(
@@ -1316,15 +1339,8 @@ def autolog(
             )
 
     from sklearn import metrics
-    for metric_method_name in metrics.__all__:
-        # excludes plot_* methods
-        # exclude class (e.g. metrics.ConfusionMatrixDisplay)
-        metric_method = getattr(metrics, metric_method_name)
-        if metric_method_name not in _metric_api_excluding_list \
-                and not inspect.isclass(metric_method) \
-                and callable(metric_method) \
-                and not metric_method_name.startswith('plot_'):
-            safe_patch(FLAVOR_NAME, metrics, metric_method_name, patched_metric_api, manage_run=False)
+    for metric_name in _get_metric_name_list():
+        safe_patch(FLAVOR_NAME, metrics, metric_name, patched_metric_api, manage_run=False)
 
 
 def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
