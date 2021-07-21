@@ -75,7 +75,7 @@ def get_underlying_model_flavor(model):
 def get_default_pip_requirements():
     """
     :return: A list of default pip requirements for MLflow Models produced by this flavor.
-             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+             Calls to :func:`save_explainer()` and :func:`log_explainer()` produce a pip environment
              that, at minimum, contains these requirements.
     """
     import shap
