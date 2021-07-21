@@ -56,17 +56,23 @@ FLAVOR_NAME = "lightgbm"
 _logger = logging.getLogger(__name__)
 
 
+def get_default_pip_requirements():
+    """
+    :return: A list of default pip requirements for MLflow Models produced by this flavor.
+             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+             that, at minimum, contains these requirements.
+    """
+    import lightgbm as lgb
+
+    return ["lightgbm=={}".format(lgb.__version__)]
+
+
 def get_default_conda_env():
     """
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
-    import lightgbm as lgb
-
-    return _mlflow_conda_env(
-        # LightGBM is not yet available via the default conda channels, so we install it via pip
-        additional_pip_deps=["lightgbm=={}".format(lgb.__version__)],
-    )
+    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
 def save_model(

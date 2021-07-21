@@ -72,7 +72,12 @@ FLAVOR_NAME = "xgboost"
 _logger = logging.getLogger(__name__)
 
 
-def _get_default_pip_requirements():
+def get_default_pip_requirements():
+    """
+    :return: A list of default pip requirements for MLflow Models produced by this flavor.
+             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+             that, at minimum, contains these requirements.
+    """
     import xgboost as xgb
 
     return ["xgboost=={}".format(xgb.__version__)]
@@ -83,7 +88,7 @@ def get_default_conda_env():
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
-    return _mlflow_conda_env(additional_pip_deps=_get_default_pip_requirements())
+    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
 def save_model(
@@ -190,7 +195,7 @@ def save_model(
 
     conda_env, pip_requirements, pip_constraints = (
         _process_pip_requirements(
-            _get_default_pip_requirements(), pip_requirements, extra_pip_requirements,
+            get_default_pip_requirements(), pip_requirements, extra_pip_requirements,
         )
         if conda_env is None
         else _process_conda_env(conda_env)

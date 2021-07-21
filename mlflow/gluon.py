@@ -232,16 +232,23 @@ def save_model(
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
+def get_default_pip_requirements():
+    """
+    :return: A list of default pip requirements for MLflow Models produced by this flavor.
+             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+             that, at minimum, contains these requirements.
+    """
+    import mxnet as mx
+
+    return ["mxnet=={}".format(mx.__version__)]
+
+
 def get_default_conda_env():
     """
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
-    import mxnet as mx
-
-    pip_deps = ["mxnet=={}".format(mx.__version__)]
-
-    return _mlflow_conda_env(additional_pip_deps=pip_deps)
+    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
 @experimental

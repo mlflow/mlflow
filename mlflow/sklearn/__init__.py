@@ -51,10 +51,11 @@ _logger = logging.getLogger(__name__)
 _SklearnTrainingSession = _get_new_training_session_class()
 
 
-def get_default_conda_env(include_cloudpickle=False):
+def get_default_pip_requirements(include_cloudpickle=False):
     """
-    :return: The default Conda environment for MLflow Models produced by calls to
-             :func:`save_model()` and :func:`log_model()`.
+    :return: A list of default pip requirements for MLflow Models produced by this flavor.
+             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+             that, at minimum, contains these requirements.
     """
     import sklearn
 
@@ -63,7 +64,16 @@ def get_default_conda_env(include_cloudpickle=False):
         import cloudpickle
 
         pip_deps += ["cloudpickle=={}".format(cloudpickle.__version__)]
-    return _mlflow_conda_env(additional_pip_deps=pip_deps)
+
+    return pip_deps
+
+
+def get_default_conda_env(include_cloudpickle=False):
+    """
+    :return: The default Conda environment for MLflow Models produced by calls to
+             :func:`save_model()` and :func:`log_model()`.
+    """
+    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements(include_cloudpickle))
 
 
 def save_model(
