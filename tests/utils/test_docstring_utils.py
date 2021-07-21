@@ -4,23 +4,31 @@ from mlflow.utils.docstring_utils import _get_minimum_indentation, _format_param
 
 
 def test_get_minimum_indentation():
-    _get_minimum_indentation(
-        """
+    assert (
+        _get_minimum_indentation(
+            """
     # 4 spaces
       # 6 spaces
         # 8 spaces
 """
-    ) == " " * 4
+        )
+        == " " * 4
+    )
 
-    _get_minimum_indentation(
-        """
+    assert (
+        _get_minimum_indentation(
+            """
 # no indent
 """
-    ) == ""
-    _get_minimum_indentation("") == ""
+        )
+        == ""
+    )
+
+    assert _get_minimum_indentation("") == ""
 
 
 def test_format_param_docs():
+    # pylint: disable=W
     @_format_param_docs({"p": "param doc"})
     def single_param(p):
         """
