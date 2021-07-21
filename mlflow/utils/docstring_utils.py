@@ -3,6 +3,15 @@ import re
 from functools import reduce
 
 
+def _create_placeholder(key):
+    return "{{ " + key + " }}"
+
+
+def _replace_placeholder(template, key, value):
+    placeholder = _create_placeholder(key)
+    return template.replace(placeholder, value)
+
+
 class ParamDocs(dict):
     """
     Represents a set of parameter documents.
@@ -10,15 +19,6 @@ class ParamDocs(dict):
 
     def __repr__(self):
         return f"ParamDocs({super().__repr__()})"
-
-    @classmethod
-    def _create_placeholder(cls, key):
-        return "{{ " + key + " }}"
-
-    @classmethod
-    def _replace_placeholder(cls, template, key, value):
-        placeholder = ParamDocs._create_placeholder(key)
-        return template.replace(placeholder, value)
 
     def format(self, **kwargs):
         """
@@ -36,7 +36,7 @@ class ParamDocs(dict):
         new_param_docs = {}
         for param_name, param_doc in self.items():
             for key, value in kwargs.items():
-                param_doc = ParamDocs._replace_placeholder(param_doc, key, value)
+                param_doc = _replace_placeholder(param_doc, key, value)
             new_param_docs[param_name] = param_doc
 
         return ParamDocs(new_param_docs)
@@ -66,7 +66,7 @@ class ParamDocs(dict):
             param_doc = textwrap.indent(param_doc, min_indent + " " * 4)
             if not param_doc.startswith("\n"):
                 param_doc = "\n" + param_doc
-            docstring = ParamDocs._replace_placeholder(docstring, param_name, param_doc)
+            docstring = _replace_placeholder(docstring, param_name, param_doc)
 
         return docstring
 
