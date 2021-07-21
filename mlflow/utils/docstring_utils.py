@@ -2,10 +2,45 @@ import textwrap
 import re
 
 
-LOG_MODEL_PARAM_DOCS = {
-    "pip_requirements": """
+class ParamDocs(dict):
+    def __repr__(self):
+        return f"ParamDocs({super().__repr__()})"
+
+    @classmethod
+    def _create_placeholder(cls, key):
+        return "{{ " + key + " }}"
+
+    @classmethod
+    def _fill_placeholder(cls, template, key, value):
+        placeholder = ParamDocs._create_placeholder(key)
+        assert placeholder in template
+        return template.replace(placeholder, value)
+
+    def format(self, **kwargs):
+        return ParamDocs(
+            {
+                param_name: ParamDocs._fill_placeholder(param_doc, key, value)
+                for param_name, param_doc in self.items()
+                for key, value in kwargs.items()
+            }
+        )
+
+    def format_docstring(self, docstring):
+        min_indent = _get_minimum_indentation(docstring)
+        for param_name, param_doc in self.items():
+            param_doc = textwrap.indent(param_doc, min_indent + " " * 4)
+            if not param_doc.startswith("\n"):
+                param_doc = "\n" + param_doc
+            docstring = ParamDocs._fill_placeholder(docstring, param_name, param_doc)
+
+        return docstring
+
+
+LOG_MODEL_PARAM_DOCS = ParamDocs(
+    {
+        "pip_requirements": """
 Either an iterable of pip requirement strings
-(e.g. ``["scikit-learn", "-r requirements.txt"]``) or the string path to a pip requirements
+(e.g. ``["{{ package_name }}", "-r requirements.txt"]``) or the string path to a pip requirements
 file on the local filesystem (e.g. ``"requirements.txt"``). If provided, this describes the
 environment this model should be run in. If ``None``, a default list of requirements is
 inferred from the current software environment. Requirements are automatically parsed and
@@ -13,9 +48,9 @@ written to a ``requirements.txt`` file that is stored as part of the model. Thes
 requirements are also written to the ``pip`` section of the model's conda environment
 (``conda.yaml``) file.
 """,
-    "extra_pip_requirements": """
+        "extra_pip_requirements": """
 Either an iterable of pip requirement strings
-(e.g. ``["scikit-learn", "-r requirements.txt"]``) or the string path to a pip requirements
+(e.g. ``["{{ package_name }}", "-r requirements.txt"]``) or the string path to a pip requirements
 file on the local filesystem (e.g. ``"requirements.txt"``). If provided, this specifies
 additional pip requirements that are appended to a default set of pip requirements generated
 automatically based on the user's current software environment. Requirements are also
@@ -31,7 +66,8 @@ written to the ``pip`` section of the model's conda environment (``conda.yaml``)
 :ref:`This example<pip-requirements-example>` demonstrates how to specify pip requirements
 using ``pip_requirements`` and ``extra_pip_requirements``.
 """,
-}
+    }
+)
 
 
 _leading_whitespace_re = re.compile("(^[ ]*)(?:[^ \n])", re.MULTILINE)
@@ -69,22 +105,10 @@ def _format_param_docs(param_docs):
             bar
         =====================
     """
+    param_docs = ParamDocs(param_docs)
 
     def decorator(func):
-        new_doc = func.__doc__
-        min_indent = _get_minimum_indentation(func.__doc__)
-
-        for param_name, param_doc in param_docs.items():
-            placeholder = "{{ " + param_name + " }}"
-            assert placeholder in new_doc
-
-            param_doc = textwrap.indent(param_doc, min_indent + " " * 4)
-            if not param_doc.startswith("\n"):
-                param_doc = "\n" + param_doc
-
-            new_doc = new_doc.replace(placeholder, param_doc)
-
-        func.__doc__ = new_doc
+        func.__doc__ = param_docs.format_docstring(func.__doc__)
         return func
 
     return decorator

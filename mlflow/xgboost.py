@@ -84,7 +84,7 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=_get_default_pip_requirements())
 
 
-@_format_param_docs(LOG_MODEL_PARAM_DOCS)
+@_format_param_docs(LOG_MODEL_PARAM_DOCS.format(package_name="xgboost"))
 def save_model(
     xgb_model,
     path,
