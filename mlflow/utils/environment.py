@@ -255,9 +255,7 @@ def _process_conda_env(conda_env):
     if isinstance(conda_env, str):
         with open(conda_env, "r") as f:
             conda_env = yaml.safe_load(f)
-    elif isinstance(conda_env, dict):
-        pass
-    else:
+    elif not isinstance(conda_env, dict):
         raise TypeError(
             "Expected a string path to a conda env yaml file or a `dict` representing a conda env, "
             "but got `{}`".format(type(conda_env).__name__)
