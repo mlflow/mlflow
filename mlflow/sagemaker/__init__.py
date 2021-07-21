@@ -19,6 +19,7 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import get_unique_resource_id
+from mlflow.utils.annotations import experimental
 from mlflow.utils.file_utils import TempDir
 from mlflow.models.container import SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS
 from mlflow.models.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME
@@ -491,6 +492,7 @@ def delete(app_name, region_name="us-west-2", archive=False, synchronous=True, t
             delete_operation.clean_up()
 
 
+@experimental
 def deploy_transform_job(
     job_name,
     model_uri,
@@ -704,6 +706,7 @@ def deploy_transform_job(
             )
 
 
+@experimental
 def terminate_transform_job(
     job_name, region_name="us-west-2", archive=True, synchronous=True, timeout_seconds=300,
 ):
