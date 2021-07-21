@@ -31,24 +31,31 @@ FLAVOR_NAME = "onnx"
 # TEMPORARY CHANGE to trigger cross version tests
 
 
+def get_default_pip_requirements():
+    """
+    :return: A list of default pip requirements for MLflow Models produced by this flavor.
+             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+             that, at minimum, contains these requirements.
+    """
+    import onnx
+    import onnxruntime
+
+    return [
+        "onnx=={}".format(onnx.__version__),
+        # The ONNX pyfunc representation requires the OnnxRuntime
+        # inference engine. Therefore, the conda environment must
+        # include OnnxRuntime
+        "onnxruntime=={}".format(onnxruntime.__version__),
+    ]
+
+
 @experimental
 def get_default_conda_env():
     """
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
-    import onnx
-    import onnxruntime
-
-    return _mlflow_conda_env(
-        additional_pip_deps=[
-            "onnx=={}".format(onnx.__version__),
-            # The ONNX pyfunc representation requires the OnnxRuntime
-            # inference engine. Therefore, the conda environment must
-            # include OnnxRuntime
-            "onnxruntime=={}".format(onnxruntime.__version__),
-        ],
-    )
+    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
 @experimental

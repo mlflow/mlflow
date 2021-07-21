@@ -239,7 +239,7 @@ def test_save_model_with_pip_requirements(xgb_model, tmpdir):
 
 @pytest.mark.large
 def test_save_model_with_extra_pip_requirements(xgb_model, tmpdir):
-    default_reqs = mlflow.xgboost._get_default_pip_requirements()
+    default_reqs = mlflow.xgboost.get_default_pip_requirements()
 
     # Path to a requirements file
     tmpdir1 = tmpdir.join("1")
@@ -295,7 +295,7 @@ def test_log_model_with_pip_requirements(xgb_model, tmpdir):
 
 @pytest.mark.large
 def test_log_model_with_extra_pip_requirements(xgb_model, tmpdir):
-    default_reqs = mlflow.xgboost._get_default_pip_requirements()
+    default_reqs = mlflow.xgboost.get_default_pip_requirements()
 
     # Path to a requirements file
     req_file = tmpdir.join("requirements.txt")

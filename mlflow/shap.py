@@ -72,17 +72,24 @@ def get_underlying_model_flavor(model):
     return _UNKNOWN_MODEL_FLAVOR
 
 
+def get_default_pip_requirements():
+    """
+    :return: A list of default pip requirements for MLflow Models produced by this flavor.
+             Calls to :func:`save_explainer()` and :func:`log_explainer()` produce a pip environment
+             that, at minimum, contains these requirements.
+    """
+    import shap
+
+    return ["shap=={}".format(shap.__version__)]
+
+
 def get_default_conda_env():
     """
     :return: The default Conda environment for
              MLflow Models produced by calls to
              :func:`save_explainer()` and :func:`log_explainer()`.
     """
-    import shap
-
-    pip_deps = ["shap=={}".format(shap.__version__)]
-
-    return _mlflow_conda_env(additional_pip_deps=pip_deps)
+    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
 def _load_pyfunc(path):

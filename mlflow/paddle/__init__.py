@@ -33,15 +33,23 @@ FLAVOR_NAME = "paddle"
 _logger = logging.getLogger(__name__)
 
 
+def get_default_pip_requirements():
+    """
+    :return: A list of default pip requirements for MLflow Models produced by this flavor.
+             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+             that, at minimum, contains these requirements.
+    """
+    import paddle
+
+    return ["paddlepaddle=={}".format(paddle.__version__)]
+
+
 def get_default_conda_env():
     """
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
-    import paddle
-
-    pip_deps = ["paddlepaddle=={}".format(paddle.__version__)]
-    return _mlflow_conda_env(additional_pip_deps=pip_deps, additional_conda_channels=None)
+    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
 def save_model(

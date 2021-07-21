@@ -43,6 +43,23 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 FLAVOR_NAME = "fastai"
 
 
+def get_default_pip_requirements(include_cloudpickle=False):
+    """
+    :return: A list of default pip requirements for MLflow Models produced by this flavor.
+             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+             that, at minimum, contains these requirements.
+    """
+    import fastai
+
+    pip_deps = ["fastai=={}".format(fastai.__version__)]
+    if include_cloudpickle:
+        import cloudpickle
+
+        pip_deps.append("cloudpickle=={}".format(cloudpickle.__version__))
+
+    return pip_deps
+
+
 def get_default_conda_env(include_cloudpickle=False):
     """
     :return: The default Conda environment as a dictionary for MLflow Models produced by calls to
@@ -71,15 +88,7 @@ def get_default_conda_env(include_cloudpickle=False):
                             'dependencies': ['python=3.7.5', 'fastai=1.0.61',
                                              'pip', {'pip': ['mlflow']}]}
     """
-
-    import fastai
-
-    pip_deps = ["fastai=={}".format(fastai.__version__)]
-    if include_cloudpickle:
-        import cloudpickle
-
-        pip_deps.append("cloudpickle=={}".format(cloudpickle.__version__))
-    return _mlflow_conda_env(additional_pip_deps=pip_deps)
+    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements(include_cloudpickle))
 
 
 def save_model(
