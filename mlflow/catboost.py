@@ -27,7 +27,7 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -39,19 +39,23 @@ _MODEL_BINARY_KEY = "data"
 _MODEL_BINARY_FILE_NAME = "model.cb"
 
 
+def get_default_pip_requirements():
+    """
+    :return: A list of default pip requirements for MLflow Models produced by this flavor.
+             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+             that, at minimum, contains these requirements.
+    """
+    import catboost as cb
+
+    return ["catboost=={}".format(cb.__version__)]
+
+
 def get_default_conda_env():
     """
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
-    import catboost as cb
-
-    return _mlflow_conda_env(
-        additional_conda_deps=None,
-        # CatBoost is not yet available via the default conda channels, so we install it via pip
-        additional_pip_deps=["catboost=={}".format(cb.__version__)],
-        additional_conda_channels=None,
-    )
+    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
 def save_model(
@@ -135,6 +139,8 @@ def save_model(
             conda_env = yaml.safe_load(f)
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    _log_pip_requirements(conda_env, path)
 
     model_bin_kwargs = {_MODEL_BINARY_KEY: _MODEL_BINARY_FILE_NAME}
     pyfunc.add_to_model(

@@ -23,11 +23,30 @@ from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import experimental
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 FLAVOR_NAME = "onnx"
+# TEMPORARY CHANGE to trigger cross version tests
+
+
+def get_default_pip_requirements():
+    """
+    :return: A list of default pip requirements for MLflow Models produced by this flavor.
+             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+             that, at minimum, contains these requirements.
+    """
+    import onnx
+    import onnxruntime
+
+    return [
+        "onnx=={}".format(onnx.__version__),
+        # The ONNX pyfunc representation requires the OnnxRuntime
+        # inference engine. Therefore, the conda environment must
+        # include OnnxRuntime
+        "onnxruntime=={}".format(onnxruntime.__version__),
+    ]
 
 
 @experimental
@@ -36,20 +55,7 @@ def get_default_conda_env():
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
-    import onnx
-    import onnxruntime
-
-    return _mlflow_conda_env(
-        additional_conda_deps=None,
-        additional_pip_deps=[
-            "onnx=={}".format(onnx.__version__),
-            # The ONNX pyfunc representation requires the OnnxRuntime
-            # inference engine. Therefore, the conda environment must
-            # include OnnxRuntime
-            "onnxruntime=={}".format(onnxruntime.__version__),
-        ],
-        additional_conda_channels=None,
-    )
+    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
 @experimental
@@ -135,6 +141,8 @@ def save_model(
             conda_env = yaml.safe_load(f)
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    _log_pip_requirements(conda_env, path)
 
     pyfunc.add_to_model(
         mlflow_model, loader_module="mlflow.onnx", data=model_data_subpath, env=conda_env_subpath

@@ -7,9 +7,10 @@ import string
 import time
 import signal
 import socket
-from subprocess import Popen
+import subprocess
 import uuid
 import sys
+import yaml
 
 import pandas as pd
 import pytest
@@ -17,7 +18,9 @@ import pytest
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.pyfunc
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import read_yaml, write_yaml
+from mlflow.utils.environment import _get_pip_deps, _CONSTRAINTS_FILE_NAME
 
 LOCALHOST = "127.0.0.1"
 
@@ -79,7 +82,7 @@ def pyfunc_build_image(model_uri, extra_args=None):
     cmd = ["mlflow", "models", "build-docker", "-m", model_uri, "-n", name]
     if extra_args:
         cmd += extra_args
-    p = Popen(cmd,)
+    p = subprocess.Popen(cmd,)
     assert p.wait() == 0, "Failed to build docker image to serve model from %s" % model_uri
     return name
 
@@ -172,18 +175,28 @@ def _get_mlflow_home():
 
 
 def _start_scoring_proc(cmd, env, stdout=sys.stdout, stderr=sys.stderr):
-    proc = Popen(
-        cmd,
-        stdout=stdout,
-        stderr=stderr,
-        universal_newlines=True,
-        env=env,
-        # Assign the scoring process to a process group. All child processes of the
-        # scoring process will be assigned to this group as well. This allows child
-        # processes of the scoring process to be terminated successfully
-        preexec_fn=os.setsid,
-    )
-    return proc
+    if os.name != "nt":
+        return subprocess.Popen(
+            cmd,
+            stdout=stdout,
+            stderr=stderr,
+            universal_newlines=True,
+            env=env,
+            # Assign the scoring process to a process group. All child processes of the
+            # scoring process will be assigned to this group as well. This allows child
+            # processes of the scoring process to be terminated successfully
+            preexec_fn=os.setsid,
+        )
+    else:
+        return subprocess.Popen(
+            cmd,
+            stdout=stdout,
+            stderr=stderr,
+            universal_newlines=True,
+            env=env,
+            # On Windows, `os.setsid` and `preexec_fn` are unavailable
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+        )
 
 
 class RestEndpoint:
@@ -213,8 +226,13 @@ class RestEndpoint:
         if self._proc.poll() is None:
             # Terminate the process group containing the scoring process.
             # This will terminate all child processes of the scoring process
-            pgrp = os.getpgid(self._proc.pid)
-            os.killpg(pgrp, signal.SIGTERM)
+            if os.name != "nt":
+                pgrp = os.getpgid(self._proc.pid)
+                os.killpg(pgrp, signal.SIGTERM)
+            else:
+                # https://stackoverflow.com/questions/47016723/windows-equivalent-for-spawning-and-killing-separate-process-group-in-python-3  # noqa
+                self._proc.send_signal(signal.CTRL_BREAK_EVENT)
+                self._proc.kill()
 
     def invoke(self, data, content_type):
         if type(data) == pd.DataFrame:
@@ -299,3 +317,34 @@ def create_mock_response(status_code, text):
     response.status_code = status_code
     response.text = text
     return response
+
+
+def _read_yaml(path):
+    with open(path, "r") as f:
+        return yaml.safe_load(f)
+
+
+def _read_lines(path):
+    with open(path, "r") as f:
+        return f.read().splitlines()
+
+
+def _compare_conda_env_requirements(env_path, req_path):
+    assert os.path.exists(req_path)
+    custom_env_parsed = _read_yaml(env_path)
+    requirements = _read_lines(req_path)
+    assert _get_pip_deps(custom_env_parsed) == requirements
+
+
+def _assert_pip_requirements(model_uri, requirements, constraints=None):
+    local_path = _download_artifact_from_uri(model_uri)
+    txt_reqs = _read_lines(os.path.join(local_path, "requirements.txt"))
+    conda_reqs = _get_pip_deps(_read_yaml(os.path.join(local_path, "conda.yaml")))
+    assert txt_reqs == requirements
+    assert conda_reqs == requirements
+
+    if constraints:
+        assert txt_reqs[-1] == f"-c {_CONSTRAINTS_FILE_NAME}"
+        assert conda_reqs[-1] == f"-c {_CONSTRAINTS_FILE_NAME}"
+        cons = _read_lines(os.path.join(local_path, _CONSTRAINTS_FILE_NAME))
+        assert cons == constraints

@@ -27,16 +27,16 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import experimental
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
-    try_mlflow_log,
     INPUT_EXAMPLE_SAMPLE_ROWS,
     resolve_input_example_and_signature,
     _get_new_training_session_class,
+    MlflowAutologgingQueueingClient,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -51,10 +51,11 @@ _logger = logging.getLogger(__name__)
 _SklearnTrainingSession = _get_new_training_session_class()
 
 
-def get_default_conda_env(include_cloudpickle=False):
+def get_default_pip_requirements(include_cloudpickle=False):
     """
-    :return: The default Conda environment for MLflow Models produced by calls to
-             :func:`save_model()` and :func:`log_model()`.
+    :return: A list of default pip requirements for MLflow Models produced by this flavor.
+             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+             that, at minimum, contains these requirements.
     """
     import sklearn
 
@@ -63,7 +64,16 @@ def get_default_conda_env(include_cloudpickle=False):
         import cloudpickle
 
         pip_deps += ["cloudpickle=={}".format(cloudpickle.__version__)]
-    return _mlflow_conda_env(additional_pip_deps=pip_deps, additional_conda_channels=None)
+
+    return pip_deps
+
+
+def get_default_conda_env(include_cloudpickle=False):
+    """
+    :return: The default Conda environment for MLflow Models produced by calls to
+             :func:`save_model()` and :func:`log_model()`.
+    """
+    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements(include_cloudpickle))
 
 
 def save_model(
@@ -197,6 +207,8 @@ def save_model(
             conda_env = yaml.safe_load(f)
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    _log_pip_requirements(conda_env, path)
 
     # `PyFuncModel` only works for sklearn models that define `predict()`.
     if hasattr(sk_model, "predict"):
@@ -463,6 +475,7 @@ def autolog(
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
+    max_tuning_runs=5,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for scikit-learn estimators.
@@ -654,6 +667,16 @@ def autolog(
     :param silent: If ``True``, suppress all event logs and warnings from MLflow during scikit-learn
                    autologging. If ``False``, show all events and warnings during scikit-learn
                    autologging.
+    :param max_tuning_runs: The maximum number of child Mlflow runs created for hyperparameter
+                            search estimators. To create child runs for the best `k` results from
+                            the search, set `max_tuning_runs` to `k`. The default value is to track
+                            the best 5 search parameter sets. If `max_tuning_runs=None`, then
+                            a child run is created for each search parameter set. Note: The best k
+                            results is based on ordering in `rank_test_score`. In the case of
+                            multi-metric evaluation with a custom scorer, the first scorer’s
+                            `rank_test_score_<scorer_name>` will be used to select the best k
+                            results. To change metric used for selecting best k results, change
+                            ordering of dict passed as `scoring` parameter for estimator.
     """
     import pandas as pd
     import sklearn
@@ -663,11 +686,9 @@ def autolog(
         _MIN_SKLEARN_VERSION,
         _TRAINING_PREFIX,
         _is_supported_version,
-        _chunk_dict,
         _get_args_for_metrics,
         _log_estimator_content,
         _all_estimators,
-        _truncate_dict,
         _get_arg_names,
         _get_estimator_info_tags,
         _get_meta_estimators_for_autologging,
@@ -676,11 +697,14 @@ def autolog(
         _create_child_runs_for_parameter_search,
     )
     from mlflow.tracking.context import registry as context_registry
-    from mlflow.utils.validation import (
-        MAX_PARAMS_TAGS_PER_BATCH,
-        MAX_PARAM_VAL_LENGTH,
-        MAX_ENTITY_KEY_LENGTH,
-    )
+
+    if max_tuning_runs is not None and max_tuning_runs < 0:
+        raise MlflowException(
+            message=(
+                "`max_tuning_runs` must be non-negative, instead got {}.".format(max_tuning_runs)
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     if not _is_supported_version():
         warnings.warn(
@@ -697,18 +721,26 @@ def autolog(
         referred to be `func_name` on the instance of `clazz` referred to by `self` & records
         MLflow parameters, metrics, tags, and artifacts to a corresponding MLflow Run.
         """
-        _log_pretraining_metadata(self, *args, **kwargs)
+        autologging_client = MlflowAutologgingQueueingClient()
+        _log_pretraining_metadata(autologging_client, self, *args, **kwargs)
+        params_logging_future = autologging_client.flush(synchronous=False)
         fit_output = original(self, *args, **kwargs)
-        _log_posttraining_metadata(self, *args, **kwargs)
+        _log_posttraining_metadata(autologging_client, self, *args, **kwargs)
+        autologging_client.flush(synchronous=True)
+        params_logging_future.await_completion()
         return fit_output
 
-    def _log_pretraining_metadata(estimator, *args, **kwargs):  # pylint: disable=unused-argument
+    def _log_pretraining_metadata(
+        autologging_client, estimator, *args, **kwargs
+    ):  # pylint: disable=unused-argument
         """
         Records metadata (e.g., params and tags) for a scikit-learn estimator prior to training.
         This is intended to be invoked within a patched scikit-learn training routine
         (e.g., `fit()`, `fit_transform()`, ...) and assumes the existence of an active
         MLflow run that can be referenced via the fluent Tracking API.
 
+        :param autologging_client: An instance of `MlflowAutologgingQueueingClient` used for
+                                   efficiently logging run data to MLflow Tracking.
         :param estimator: The scikit-learn estimator for which to log metadata.
         :param args: The arguments passed to the scikit-learn training routine (e.g.,
                      `fit()`, `fit_transform()`, ...).
@@ -721,23 +753,24 @@ def autolog(
         # process; accordingly, we avoid logging initial, untuned parameters
         # for these seed estimators.
         should_log_params_deeply = not _is_parameter_search_estimator(estimator)
-        # Chunk model parameters to avoid hitting the log_batch API limit
-        for chunk in _chunk_dict(
-            estimator.get_params(deep=should_log_params_deeply),
-            chunk_size=MAX_PARAMS_TAGS_PER_BATCH,
-        ):
-            truncated = _truncate_dict(chunk, MAX_ENTITY_KEY_LENGTH, MAX_PARAM_VAL_LENGTH)
-            try_mlflow_log(mlflow.log_params, truncated)
+        run_id = mlflow.active_run().info.run_id
+        autologging_client.log_params(
+            run_id=mlflow.active_run().info.run_id,
+            params=estimator.get_params(deep=should_log_params_deeply),
+        )
+        autologging_client.set_tags(
+            run_id=run_id, tags=_get_estimator_info_tags(estimator),
+        )
 
-        try_mlflow_log(mlflow.set_tags, _get_estimator_info_tags(estimator))
-
-    def _log_posttraining_metadata(estimator, *args, **kwargs):
+    def _log_posttraining_metadata(autologging_client, estimator, *args, **kwargs):
         """
         Records metadata for a scikit-learn estimator after training has completed.
         This is intended to be invoked within a patched scikit-learn training routine
         (e.g., `fit()`, `fit_transform()`, ...) and assumes the existence of an active
         MLflow run that can be referenced via the fluent Tracking API.
 
+        :param autologging_client: An instance of `MlflowAutologgingQueueingClient` used for
+                                   efficiently logging run data to MLflow Tracking.
         :param estimator: The scikit-learn estimator for which to log metadata.
         :param args: The arguments passed to the scikit-learn training routine (e.g.,
                      `fit()`, `fit_transform()`, ...).
@@ -756,7 +789,8 @@ def autolog(
         (X, y_true, sample_weight) = _get_args_for_metrics(estimator.fit, args, kwargs)
 
         # log common metrics and artifacts for estimators (classifier, regressor)
-        _log_estimator_content(
+        logged_metrics = _log_estimator_content(
+            autologging_client=autologging_client,
             estimator=estimator,
             prefix=_TRAINING_PREFIX,
             run_id=mlflow.active_run().info.run_id,
@@ -764,6 +798,12 @@ def autolog(
             y_true=y_true,
             sample_weight=sample_weight,
         )
+        if y_true is None and not logged_metrics:
+            _logger.warning(
+                "Training metrics will not be recorded because training labels were not specified."
+                " To automatically record training metrics, provide training labels as inputs to"
+                " the model training function."
+            )
 
         def get_input_example():
             # Fetch an input example using the first several rows of the array-like
@@ -781,18 +821,13 @@ def autolog(
                 _logger,
             )
 
-            try_mlflow_log(
-                log_model,
-                estimator,
-                artifact_path="model",
-                signature=signature,
-                input_example=input_example,
+            log_model(
+                estimator, artifact_path="model", signature=signature, input_example=input_example,
             )
 
         if _is_parameter_search_estimator(estimator):
             if hasattr(estimator, "best_estimator_") and log_models:
-                try_mlflow_log(
-                    log_model,
+                log_model(
                     estimator.best_estimator_,
                     artifact_path="best_estimator",
                     signature=signature,
@@ -800,14 +835,19 @@ def autolog(
                 )
 
             if hasattr(estimator, "best_score_"):
-                try_mlflow_log(mlflow.log_metric, "best_cv_score", estimator.best_score_)
+                autologging_client.log_metrics(
+                    run_id=mlflow.active_run().info.run_id,
+                    metrics={"best_cv_score": estimator.best_score_},
+                )
 
             if hasattr(estimator, "best_params_"):
                 best_params = {
                     "best_{param_name}".format(param_name=param_name): param_value
                     for param_name, param_value in estimator.best_params_.items()
                 }
-                try_mlflow_log(mlflow.log_params, best_params)
+                autologging_client.log_params(
+                    run_id=mlflow.active_run().info.run_id, params=best_params,
+                )
 
             if hasattr(estimator, "cv_results_"):
                 try:
@@ -816,8 +856,10 @@ def autolog(
                     child_tags = context_registry.resolve_tags()
                     child_tags.update({MLFLOW_AUTOLOGGING: FLAVOR_NAME})
                     _create_child_runs_for_parameter_search(
+                        autologging_client=autologging_client,
                         cv_estimator=estimator,
                         parent_run=mlflow.active_run(),
+                        max_tuning_runs=max_tuning_runs,
                         child_tags=child_tags,
                     )
                 except Exception as e:
@@ -876,14 +918,17 @@ def autolog(
         "sklearn.feature_selection",
     ]
 
+    excluded_class_names = [
+        "sklearn.compose._column_transformer.ColumnTransformer",
+    ]
+
     estimators_to_patch = [
         estimator
         for estimator in estimators_to_patch
         if not any(
-            [
-                estimator.__module__.startswith(excluded_module_name)
-                for excluded_module_name in excluded_module_names
-            ]
+            estimator.__module__.startswith(excluded_module_name)
+            or (estimator.__module__ + "." + estimator.__name__) in excluded_class_names
+            for excluded_module_name in excluded_module_names
         )
     ]
 
@@ -982,13 +1027,15 @@ def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
     active_run = mlflow.active_run()
     run = active_run if active_run is not None else mlflow.start_run()
 
-    metrics = _log_estimator_content(
-        estimator=model,
-        run_id=run.info.run_id,
-        prefix=prefix,
-        X=X,
-        y_true=y_true,
-        sample_weight=sample_weight,
-    )
+    with MlflowAutologgingQueueingClient() as autologging_client:
+        metrics = _log_estimator_content(
+            autologging_client=autologging_client,
+            estimator=model,
+            run_id=run.info.run_id,
+            prefix=prefix,
+            X=X,
+            y_true=y_true,
+            sample_weight=sample_weight,
+        )
 
     return metrics

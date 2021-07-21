@@ -174,11 +174,13 @@ def test_mlflow_run_example(directory, params, tmpdir):
         ("sklearn_autolog", ["python", "grid_search_cv.py"]),
         ("pyspark_ml_autologging", ["python", "logistic_regression.py"]),
         ("pyspark_ml_autologging", ["python", "one_vs_rest.py"]),
+        ("pyspark_ml_autologging", ["python", "pipeline.py"]),
         ("shap", ["python", "regression.py"]),
         ("shap", ["python", "binary_classification.py"]),
         ("shap", ["python", "multiclass_classification.py"]),
         ("shap", ["python", "explainer_logging.py"]),
         ("ray_serve", ["python", "train_model.py"]),
+        ("pip_requirements", ["python", "pip_requirements.py"]),
     ],
 )
 def test_command_example(directory, command):

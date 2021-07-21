@@ -36,7 +36,7 @@ from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.utils.file_utils import TempDir
@@ -66,6 +66,21 @@ def _format_exception(ex):
     return "".join(traceback.format_exception(type(ex), ex, ex.__traceback__))
 
 
+def get_default_pip_requirements():
+    """
+    :return: A list of default pip requirements for MLflow Models produced by this flavor.
+             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+             that, at minimum, contains these requirements.
+    """
+    import pyspark
+
+    # Strip the suffix from `dev` versions of PySpark, which are not
+    # available for installation from Anaconda or PyPI
+    pyspark_version = re.sub(r"(\.?)dev.*", "", pyspark.__version__)
+
+    return ["pyspark=={}".format(pyspark_version)]
+
+
 def get_default_conda_env():
     """
     :return: The default Conda environment for MLflow Models produced by calls to
@@ -76,17 +91,7 @@ def get_default_conda_env():
              ``2.4.5.dev0``, invoking this method produces a Conda environment with a
              dependency on PySpark version ``2.4.5``).
     """
-    import pyspark
-
-    # Strip the suffix from `dev` versions of PySpark, which are not
-    # available for installation from Anaconda or PyPI
-    pyspark_version = re.sub(r"(\.?)dev.*", "", pyspark.__version__)
-
-    return _mlflow_conda_env(
-        additional_conda_deps=["pyspark={}".format(pyspark_version)],
-        additional_pip_deps=None,
-        additional_conda_channels=None,
-    )
+    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
 def log_model(
@@ -180,7 +185,7 @@ def log_model(
         model = pipeline.fit(training)
         mlflow.spark.log_model(model, "spark-model")
     """
-    from py4j.protocol import Py4JJavaError
+    from py4j.protocol import Py4JError
 
     _validate_model(spark_model)
     from pyspark.ml import PipelineModel
@@ -212,7 +217,7 @@ def log_model(
     # to persist the model
     try:
         spark_model.save(posixpath.join(model_dir, _SPARK_MODEL_PATH_SUB))
-    except Py4JJavaError:
+    except Py4JError:
         return Model.log(
             artifact_path=artifact_path,
             flavor=mlflow.spark,
@@ -387,6 +392,8 @@ def _save_model_metadata(
             conda_env = yaml.safe_load(f)
     with open(os.path.join(dst_dir, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    _log_pip_requirements(conda_env, dst_dir)
 
     mlflow_model.add_flavor(
         FLAVOR_NAME, pyspark_version=pyspark.__version__, model_data=_SPARK_MODEL_PATH_SUB

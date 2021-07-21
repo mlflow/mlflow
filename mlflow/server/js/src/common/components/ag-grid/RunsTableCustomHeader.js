@@ -41,6 +41,18 @@ export class RunsTableCustomHeader extends React.Component {
     onSortBy: () => {},
   };
 
+  handleSortBy() {
+    const { canonicalSortKey, orderByAsc, orderByKey } = this.props;
+    let newOrderByAsc = !orderByAsc;
+
+    // If the new sortKey is not equal to the previous sortKey, reset the orderByAsc
+    if (canonicalSortKey !== orderByKey) {
+      newOrderByAsc = false;
+    }
+
+    this.props.onSortBy(canonicalSortKey, newOrderByAsc);
+  }
+
   render() {
     const {
       enableSorting,
@@ -49,14 +61,13 @@ export class RunsTableCustomHeader extends React.Component {
       style = '{}',
       orderByKey,
       orderByAsc,
-      onSortBy,
     } = this.props;
 
     return (
       <div
         role='columnheader'
         style={{ ...styles.headerLabelWrapper, ...JSON.parse(style) }}
-        onClick={enableSorting ? () => onSortBy(canonicalSortKey, !orderByAsc) : undefined}
+        onClick={enableSorting ? () => this.handleSortBy() : undefined}
       >
         {enableSorting && canonicalSortKey === orderByKey ? (
           <SortByIcon orderByAsc={orderByAsc} />

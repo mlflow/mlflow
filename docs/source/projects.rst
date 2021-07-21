@@ -299,7 +299,7 @@ float
 path
     A path on the local file system. MLflow converts any relative ``path`` parameters to absolute 
     paths. MLflow also downloads any paths passed as distributed storage URIs 
-    (``s3://``, ``dbfs://``, gs://, etc.) to local files. Use this type for programs that can only read local
+    (``s3://``, ``dbfs://``, ``gs://``, etc.) to local files. Use this type for programs that can only read local
     files.
 
 uri
@@ -535,7 +535,7 @@ steps. Each call to :py:func:`mlflow.projects.run` returns a run object, that yo
 :py:mod:`mlflow.tracking` to determine when the run has ended and get its output artifacts. These artifacts
 can then be passed into another step that takes ``path`` or ``uri`` parameters. You can coordinate
 all of the workflow in a single Python program that looks at the results of each step and decides
-what to submit next using custom code. Some example uses cases for multi-step workflows include:
+what to submit next using custom code. Some example use cases for multi-step workflows include:
 
 Modularizing Your Data Science Code
   Different users can publish reusable steps for data featurization, training, validation, and so on, that other users or team can run in their workflows. Because MLflow supports Git versioning, another team can lock their workflow to a specific version of a project, or upgrade to a new one on their own schedule.

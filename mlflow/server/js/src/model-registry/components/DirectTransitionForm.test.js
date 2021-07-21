@@ -1,9 +1,9 @@
 import React from 'react';
-import { shallow } from 'enzyme';
-import { DirectTransitionFormImpl } from './DirectTransitionForm';
+import { DirectTransitionForm } from './DirectTransitionForm';
 import { ACTIVE_STAGES, Stages } from '../constants';
 import { Checkbox } from 'antd';
 import _ from 'lodash';
+import { mountWithIntl } from '../../common/utils/TestUtils';
 
 describe('DirectTransitionForm', () => {
   let wrapper;
@@ -16,7 +16,7 @@ describe('DirectTransitionForm', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<DirectTransitionFormImpl {...minimalProps} />);
+    wrapper = mountWithIntl(<DirectTransitionForm {...minimalProps} />);
     expect(wrapper.length).toBe(1);
   });
 
@@ -25,13 +25,13 @@ describe('DirectTransitionForm', () => {
 
     activeStages.forEach((toStage) => {
       const props = { ...minimalProps, toStage };
-      wrapper = shallow(<DirectTransitionFormImpl {...props} />);
+      wrapper = mountWithIntl(<DirectTransitionForm {...props} />);
       expect(wrapper.find(Checkbox).length).toBe(1);
     });
 
     nonActiveStages.forEach((toStage) => {
       const props = { ...minimalProps, toStage };
-      wrapper = shallow(<DirectTransitionFormImpl {...props} />);
+      wrapper = mountWithIntl(<DirectTransitionForm {...props} />);
       expect(wrapper.find(Checkbox).length).toBe(0);
     });
   });

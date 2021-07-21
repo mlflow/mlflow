@@ -1,25 +1,15 @@
 import collections
-from distutils.version import LooseVersion
+from packaging.version import Version
 import inspect
 import logging
 from numbers import Number
 import numpy as np
 import time
+import warnings
 
-import mlflow
-from mlflow.entities import Metric, Param
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils import _chunk_dict, _truncate_dict
-from mlflow.utils.autologging_utils import try_mlflow_log
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
-from mlflow.utils.validation import (
-    MAX_PARAMS_TAGS_PER_BATCH,
-    MAX_METRICS_PER_BATCH,
-    MAX_ENTITIES_PER_BATCH,
-    MAX_ENTITY_KEY_LENGTH,
-    MAX_PARAM_VAL_LENGTH,
-)
 
 _logger = logging.getLogger(__name__)
 
@@ -73,7 +63,9 @@ def _get_args_for_metrics(fit_func, fit_args, fit_kwargs):
     :param fit_args: Positional arguments given to fit_func.
     :param fit_kwargs: Keyword arguments given to fit_func.
 
-    :returns: A tuple of either (X, y, sample_weight) or (X, y).
+    :returns: A tuple of either (X, y, sample_weight), where `y` and `sample_weight` may be
+              `None` if the specified `fit_args` and `fit_kwargs` do not specify labels or
+              a sample weighting.
     """
 
     def _get_Xy(args, kwargs, X_var_name, y_var_name):
@@ -83,10 +75,10 @@ def _get_args_for_metrics(fit_func, fit_args, fit_kwargs):
 
         # corresponds to: model.fit(X, <y_var_name>=y)
         if len(args) == 1:
-            return args[0], kwargs[y_var_name]
+            return args[0], kwargs.get(y_var_name)
 
         # corresponds to: model.fit(<X_var_name>=X, <y_var_name>=y)
-        return kwargs[X_var_name], kwargs[y_var_name]
+        return kwargs[X_var_name], kwargs.get(y_var_name)
 
     def _get_sample_weight(arg_names, args, kwargs):
         sample_weight_index = arg_names.index(_SAMPLE_WEIGHT)
@@ -409,35 +401,30 @@ def _log_warning_for_artifacts(func_name, func_call, err):
 
 
 def _log_specialized_estimator_content(
-    fitted_estimator, run_id, prefix, X, y_true, sample_weight=None
+    autologging_client, fitted_estimator, run_id, prefix, X, y_true=None, sample_weight=None
 ):
     import sklearn
 
-    mlflow_client = MlflowClient()
     metrics = dict()
-    try:
-        if sklearn.base.is_classifier(fitted_estimator):
-            metrics = _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight)
-        elif sklearn.base.is_regressor(fitted_estimator):
-            metrics = _get_regressor_metrics(fitted_estimator, prefix, X, y_true, sample_weight)
-    except Exception as err:
-        msg = (
-            "Failed to autolog metrics for "
-            + fitted_estimator.__class__.__name__
-            + ". Logging error: "
-            + str(err)
-        )
-        _logger.warning(msg)
-    else:
-        # batch log all metrics
-        try_mlflow_log(
-            mlflow_client.log_batch,
-            run_id,
-            metrics=[
-                Metric(key=str(key), value=value, timestamp=int(time.time() * 1000), step=0)
-                for key, value in metrics.items()
-            ],
-        )
+
+    if y_true is not None:
+        try:
+            if sklearn.base.is_classifier(fitted_estimator):
+                metrics = _get_classifier_metrics(
+                    fitted_estimator, prefix, X, y_true, sample_weight
+                )
+            elif sklearn.base.is_regressor(fitted_estimator):
+                metrics = _get_regressor_metrics(fitted_estimator, prefix, X, y_true, sample_weight)
+        except Exception as err:
+            msg = (
+                "Failed to autolog metrics for "
+                + fitted_estimator.__class__.__name__
+                + ". Logging error: "
+                + str(err)
+            )
+            _logger.warning(msg)
+        else:
+            autologging_client.log_metrics(run_id=run_id, metrics=metrics)
 
     if sklearn.base.is_classifier(fitted_estimator):
         try:
@@ -468,16 +455,21 @@ def _log_specialized_estimator_content(
                 except Exception as e:
                     _log_warning_for_artifacts(artifact.name, artifact.function, e)
 
-            try_mlflow_log(mlflow_client.log_artifacts, run_id, tmp_dir.path())
+            MlflowClient().log_artifacts(run_id, tmp_dir.path())
 
     return metrics
 
 
-def _log_estimator_content(estimator, run_id, prefix, X, y_true, sample_weight):
+def _log_estimator_content(
+    autologging_client, estimator, run_id, prefix, X, y_true=None, sample_weight=None
+):
     """
     Logs content for the given estimator, which includes metrics and artifacts that might be
-    tailored to the estimator's type (e.g., regression vs classification).
+    tailored to the estimator's type (e.g., regression vs classification). Training labels
+    are required for metric computation; metrics will be omitted if labels are not available.
 
+    :param autologging_client: An instance of `MlflowAutologgingQueueingClient` used for
+                               efficiently logging run data to MLflow Tracking.
     :param estimator: The estimator used to compute metrics and artifacts.
     :param run_id: The run under which the content is logged.
     :param prefix: A prefix used to name the logged content. Typically it's 'training_' for
@@ -488,6 +480,7 @@ def _log_estimator_content(estimator, run_id, prefix, X, y_true, sample_weight):
     :return: A dict of the computed metrics.
     """
     metrics = _log_specialized_estimator_content(
+        autologging_client=autologging_client,
         fitted_estimator=estimator,
         run_id=run_id,
         prefix=prefix,
@@ -496,7 +489,7 @@ def _log_estimator_content(estimator, run_id, prefix, X, y_true, sample_weight):
         sample_weight=sample_weight,
     )
 
-    if hasattr(estimator, "score"):
+    if hasattr(estimator, "score") and y_true is not None:
         try:
             # Use the sample weight only if it is present in the score args
             score_arg_names = _get_arg_names(estimator.score)
@@ -513,7 +506,7 @@ def _log_estimator_content(estimator, run_id, prefix, X, y_true, sample_weight):
             _logger.warning(msg)
         else:
             score_key = prefix + "score"
-            try_mlflow_log(mlflow.log_metric, score_key, score)
+            autologging_client.log_metrics(run_id=run_id, metrics={score_key: score})
             metrics[score_key] = score
 
     return metrics
@@ -569,10 +562,35 @@ def _log_parameter_search_results_as_artifact(cv_results_df, run_id):
     with TempDir() as t:
         results_path = t.path("cv_results.csv")
         cv_results_df.to_csv(results_path, index=False)
-        try_mlflow_log(MlflowClient().log_artifact, run_id, results_path)
+        MlflowClient().log_artifact(run_id, results_path)
 
 
-def _create_child_runs_for_parameter_search(cv_estimator, parent_run, child_tags=None):
+# Log how many child runs will be created vs omitted based on `max_tuning_runs`.
+def _log_child_runs_info(max_tuning_runs, total_runs):
+    rest = total_runs - max_tuning_runs
+
+    # Set logging statement for runs to be logged.
+    if max_tuning_runs == 0:
+        logging_phrase = "no runs"
+    elif max_tuning_runs == 1:
+        logging_phrase = "the best run"
+    else:
+        logging_phrase = "the {} best runs".format(max_tuning_runs)
+
+    # Set logging statement for runs to be omitted.
+    if rest <= 0:
+        omitting_phrase = "no runs"
+    elif rest == 1:
+        omitting_phrase = "one run"
+    else:
+        omitting_phrase = "{} runs".format(rest)
+
+    _logger.info("Logging %s, %s will be omitted.", logging_phrase, omitting_phrase)
+
+
+def _create_child_runs_for_parameter_search(
+    autologging_client, cv_estimator, parent_run, max_tuning_runs, child_tags=None
+):
     """
     Creates a collection of child runs for a parameter search training session.
     Runs are reconstructed from the `cv_results_` attribute of the specified trained
@@ -581,6 +599,8 @@ def _create_child_runs_for_parameter_search(cv_estimator, parent_run, child_tags
     for each point in the parameter search space. For additional information, see
     `https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html`_. # noqa: E501
 
+    :param autologging_client: An instance of `MlflowAutologgingQueueingClient` used for
+                               efficiently logging run data to MLflow Tracking.
     :param cv_estimator: The trained parameter search estimator for which to create
                          child runs.
     :param parent_run: A py:class:`mlflow.entities.Run` object referring to the parent
@@ -590,7 +610,12 @@ def _create_child_runs_for_parameter_search(cv_estimator, parent_run, child_tags
     """
     import pandas as pd
 
-    client = MlflowClient()
+    def first_custom_rank_column(df):
+        column_names = df.columns.values
+        for col_name in column_names:
+            if "rank_test_" in col_name:
+                return col_name
+
     # Use the start time of the parent parameter search run as a rough estimate for the
     # start time of child runs, since we cannot precisely determine when each point
     # in the parameter search space was explored
@@ -608,23 +633,38 @@ def _create_child_runs_for_parameter_search(cv_estimator, parent_run, child_tags
     # the seed estimator and update them with parameter subset specified
     # in the result row
     base_params = seed_estimator.get_params(deep=should_log_params_deeply)
-
     cv_results_df = pd.DataFrame.from_dict(cv_estimator.cv_results_)
-    for _, result_row in cv_results_df.iterrows():
+
+    if max_tuning_runs is None:
+        cv_results_best_n_df = cv_results_df
+    else:
+        rank_column_name = "rank_test_score"
+        if rank_column_name not in cv_results_df.columns.values:
+            rank_column_name = first_custom_rank_column(cv_results_df)
+            warnings.warn(
+                "Top {} child runs will be created based on ordering in {} column.".format(
+                    max_tuning_runs, rank_column_name,
+                )
+                + " You can choose not to limit the number of child runs created by"
+                + " setting `max_tuning_runs=None`."
+            )
+        cv_results_best_n_df = cv_results_df.nsmallest(max_tuning_runs, rank_column_name)
+        # Log how many child runs will be created vs omitted.
+        _log_child_runs_info(max_tuning_runs, len(cv_results_df))
+
+    for _, result_row in cv_results_best_n_df.iterrows():
         tags_to_log = dict(child_tags) if child_tags else {}
         tags_to_log.update({MLFLOW_PARENT_RUN_ID: parent_run.info.run_id})
         tags_to_log.update(_get_estimator_info_tags(seed_estimator))
-        child_run = client.create_run(
+        pending_child_run_id = autologging_client.create_run(
             experiment_id=parent_run.info.experiment_id,
             start_time=child_run_start_time,
             tags=tags_to_log,
         )
 
-        from itertools import zip_longest
-
         params_to_log = dict(base_params)
         params_to_log.update(result_row.get("params", {}))
-        param_batches_to_log = _chunk_dict(params_to_log, chunk_size=MAX_PARAMS_TAGS_PER_BATCH)
+        autologging_client.log_params(run_id=pending_child_run_id, params=params_to_log)
 
         # Parameters values are recorded twice in the set of search `cv_results_`:
         # once within a `params` column with dictionary values and once within
@@ -635,47 +675,23 @@ def _create_child_runs_for_parameter_search(cv_estimator, parent_run, child_tags
         # metrics for each training split, which is fairly verbose; accordingly, we filter
         # out per-split metrics in favor of aggregate metrics (mean, std, etc.)
         excluded_metric_prefixes = ["param", "split"]
-        metric_batches_to_log = _chunk_dict(
-            {
-                key: value
-                for key, value in result_row.iteritems()
-                if not any([key.startswith(prefix) for prefix in excluded_metric_prefixes])
-                and isinstance(value, Number)
-            },
-            chunk_size=min(
-                MAX_ENTITIES_PER_BATCH - MAX_PARAMS_TAGS_PER_BATCH, MAX_METRICS_PER_BATCH
-            ),
+        metrics_to_log = {
+            key: value
+            for key, value in result_row.iteritems()
+            if not any([key.startswith(prefix) for prefix in excluded_metric_prefixes])
+            and isinstance(value, Number)
+        }
+        autologging_client.log_metrics(
+            run_id=pending_child_run_id, metrics=metrics_to_log,
         )
 
-        for params_batch, metrics_batch in zip_longest(
-            param_batches_to_log, metric_batches_to_log, fillvalue={}
-        ):
-            # Trim any parameter keys / values and metric keys that exceed the limits
-            # imposed by corresponding MLflow Tracking APIs (e.g., LogParam, LogMetric)
-            truncated_params_batch = _truncate_dict(
-                params_batch, MAX_ENTITY_KEY_LENGTH, MAX_PARAM_VAL_LENGTH
-            )
-            truncated_metrics_batch = _truncate_dict(
-                metrics_batch, max_key_length=MAX_ENTITY_KEY_LENGTH
-            )
-            client.log_batch(
-                run_id=child_run.info.run_id,
-                params=[
-                    Param(str(key), str(value)) for key, value in truncated_params_batch.items()
-                ],
-                metrics=[
-                    Metric(key=str(key), value=value, timestamp=child_run_end_time, step=0)
-                    for key, value in truncated_metrics_batch.items()
-                ],
-            )
-
-        client.set_terminated(run_id=child_run.info.run_id, end_time=child_run_end_time)
+        autologging_client.set_terminated(run_id=pending_child_run_id, end_time=child_run_end_time)
 
 
 def _is_supported_version():
     import sklearn
 
-    return LooseVersion(sklearn.__version__) >= LooseVersion(_MIN_SKLEARN_VERSION)
+    return Version(sklearn.__version__) >= Version(_MIN_SKLEARN_VERSION)
 
 
 # Util function to check whether a metric is able to be computed in given sklearn version
@@ -685,7 +701,7 @@ def _is_metric_supported(metric_name):
     # This dict can be extended to store special metrics' specific supported versions
     _metric_supported_version = {"roc_auc_score": "0.22.2"}
 
-    return LooseVersion(sklearn.__version__) >= LooseVersion(_metric_supported_version[metric_name])
+    return Version(sklearn.__version__) >= Version(_metric_supported_version[metric_name])
 
 
 # Util function to check whether artifact plotting functions are able to be computed
@@ -693,7 +709,7 @@ def _is_metric_supported(metric_name):
 def _is_plotting_supported():
     import sklearn
 
-    return LooseVersion(sklearn.__version__) >= LooseVersion("0.22.0")
+    return Version(sklearn.__version__) >= Version("0.22.0")
 
 
 def _all_estimators():

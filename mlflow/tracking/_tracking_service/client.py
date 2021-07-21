@@ -22,12 +22,15 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri
+from collections import OrderedDict
 
 
 class TrackingServiceClient(object):
     """
     Client of an MLflow Tracking Server that creates and manages experiments and runs.
     """
+
+    _artifact_repos_cache = OrderedDict()
 
     def __init__(self, tracking_uri):
         """
@@ -101,17 +104,41 @@ class TrackingServiceClient(object):
         order_by=None,
         page_token=None,
     ):
-        """:return: List of :py:class:`mlflow.entities.RunInfo`"""
+        """
+        Return run information for runs which belong to the experiment_id.
+
+        :param experiment_id: The experiment id which to search
+        :param run_view_type: ACTIVE_ONLY, DELETED_ONLY, or ALL runs
+        :param max_results: Maximum number of results desired.
+        :param order_by: List of order_by clauses. Currently supported values are
+            are ``metric.key``, ``parameter.key``, ``tag.key``, ``attribute.key``.
+            For example, ``order_by=["tag.release ASC", "metric.click_rate DESC"]``.
+
+        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`RunInfo <mlflow.entities.RunInfo>` objects that satisfy the search
+            expressions. If the underlying tracking store supports pagination, the token for the
+            next page may be obtained via the ``token`` attribute of the returned object.
+        """
         return self.store.list_run_infos(
             experiment_id, run_view_type, max_results, order_by, page_token
         )
 
-    def list_experiments(self, view_type=None):
+    def list_experiments(self, view_type=ViewType.ACTIVE_ONLY, max_results=None, page_token=None):
         """
-        :return: List of :py:class:`mlflow.entities.Experiment`
+        :param view_type: Qualify requested type of experiments.
+        :param max_results: If passed, specifies the maximum number of experiments desired.
+                            If not passed, all experiments will be returned for the File and
+                            SQLAlchemy backends. For the REST backend, the server will determine
+                            an appropriate number of experiments to return.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                            a ``list_experiments`` call.
+        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+                 :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
+                 for the next page can be obtained via the ``token`` attribute of the object.
         """
-        final_view_type = ViewType.ACTIVE_ONLY if view_type is None else view_type
-        return self.store.list_experiments(view_type=final_view_type)
+        return self.store.list_experiments(
+            view_type=view_type, max_results=max_results, page_token=page_token
+        )
 
     def get_experiment(self, experiment_id):
         """
@@ -255,11 +282,22 @@ class TrackingServiceClient(object):
         self.store.record_logged_model(run_id, mlflow_model)
 
     def _get_artifact_repo(self, run_id):
-        run = self.get_run(run_id)
-        artifact_uri = add_databricks_profile_info_to_artifact_uri(
-            run.info.artifact_uri, self.tracking_uri
-        )
-        return get_artifact_repository(artifact_uri)
+        # Attempt to fetch the artifact repo from a local cache
+        cached_repo = TrackingServiceClient._artifact_repos_cache.get(run_id)
+        if cached_repo is not None:
+            return cached_repo
+        else:
+            run = self.get_run(run_id)
+            artifact_uri = add_databricks_profile_info_to_artifact_uri(
+                run.info.artifact_uri, self.tracking_uri
+            )
+            artifact_repo = get_artifact_repository(artifact_uri)
+            # Cache the artifact repo to avoid a future network call, removing the oldest
+            # entry in the cache if there are too many elements
+            if len(TrackingServiceClient._artifact_repos_cache) > 1024:
+                TrackingServiceClient._artifact_repos_cache.popitem(last=False)
+            TrackingServiceClient._artifact_repos_cache[run_id] = artifact_repo
+            return artifact_repo
 
     def log_artifact(self, run_id, local_path, artifact_path=None):
         """
@@ -361,9 +399,10 @@ class TrackingServiceClient(object):
         :param page_token: Token specifying the next page of results. It should be obtained from
             a ``search_runs`` call.
 
-        :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
-            expressions. If the underlying tracking store supports pagination, the token for
-            the next page may be obtained via the ``token`` attribute of the returned object.
+        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`Run <mlflow.entities.Run>` objects that satisfy the search expressions.
+            If the underlying tracking store supports pagination, the token for the next page may
+            be obtained via the ``token`` attribute of the returned object.
         """
         if isinstance(experiment_ids, int) or is_string_type(experiment_ids):
             experiment_ids = [experiment_ids]

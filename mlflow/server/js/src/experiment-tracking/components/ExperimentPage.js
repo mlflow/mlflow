@@ -1,9 +1,12 @@
 import React, { Component } from 'react';
-import './ExperimentPage.css';
 import PropTypes from 'prop-types';
-import { getExperimentApi, searchRunsApi, loadMoreRunsApi } from '../actions';
-import { searchModelVersionsApi } from '../../model-registry/actions';
 import { connect } from 'react-redux';
+import _ from 'lodash';
+import { withRouter } from 'react-router-dom';
+
+import './ExperimentPage.css';
+import { getExperimentApi, searchRunsApi, loadMoreRunsApi, searchRunsPayload } from '../actions';
+import { searchModelVersionsApi } from '../../model-registry/actions';
 import ExperimentView from './ExperimentView';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import KeyFilter from '../utils/KeyFilter';
@@ -13,10 +16,10 @@ import Utils from '../../common/utils/Utils';
 import { ErrorCodes } from '../../common/constants';
 import { PermissionDeniedView } from './PermissionDeniedView';
 import { Spinner } from '../../common/components/Spinner';
-import { withRouter } from 'react-router-dom';
 import { getUUID } from '../../common/utils/ActionUtils';
 import { MAX_RUNS_IN_SEARCH_MODEL_VERSIONS_FILTER } from '../../model-registry/constants';
-import _ from 'lodash';
+import { getExperiment } from '../reducers/Reducers';
+import { Experiment } from '../sdk/MlflowMessages';
 
 export const LIFECYCLE_FILTER = { ACTIVE: 'Active', DELETED: 'Deleted' };
 export const MODEL_VERSION_FILTER = {
@@ -31,11 +34,47 @@ export const PAGINATION_DEFAULT_STATE = {
   loadingMore: false,
 };
 
+export const MAX_DETECT_NEW_RUNS_RESULTS = 26; // so the refresh button badge can be 25+
+export const DETECT_NEW_RUNS_INTERVAL = 15000;
+
+export const isNewRun = (lastRunsRefreshTime, run) => {
+  if (run && run.info) {
+    const { start_time, end_time } = run.info;
+
+    return start_time >= lastRunsRefreshTime || (end_time !== 0 && end_time >= lastRunsRefreshTime);
+  }
+
+  return false;
+};
+
 export class ExperimentPage extends Component {
+  static propTypes = {
+    experimentId: PropTypes.string.isRequired,
+    experiment: PropTypes.instanceOf(Experiment),
+    getExperimentApi: PropTypes.func.isRequired,
+    searchRunsApi: PropTypes.func.isRequired,
+    searchModelVersionsApi: PropTypes.func.isRequired,
+    loadMoreRunsApi: PropTypes.func.isRequired,
+    history: PropTypes.object.isRequired,
+    location: PropTypes.object,
+    searchForNewRuns: PropTypes.func,
+  };
+
+  static defaultProps = {
+    /*
+      The runs table reads directly from the redux store, so we are intentionally not using a redux
+      action to search for new runs. We do not want to change the runs displayed on the runs table
+      when searching for new runs.
+     */
+    searchForNewRuns: searchRunsPayload,
+  };
+
   constructor(props) {
     super(props);
     const urlState = Utils.getSearchParamsFromUrl(props.location.search);
     this.state = {
+      lastRunsRefreshTime: Date.now(),
+      numberOfNewRuns: 0,
       // Last experiment, if any, displayed by this instance of ExperimentPage
       lastExperimentId: undefined,
       // Lifecycle filter of runs to display
@@ -53,6 +92,34 @@ export class ExperimentPage extends Component {
     };
   }
 
+  componentDidMount() {
+    this.loadData();
+    this.detectNewRunsTimer = setInterval(() => this.detectNewRuns(), DETECT_NEW_RUNS_INTERVAL);
+  }
+
+  componentDidUpdate(prevProps) {
+    this.maybeReloadData(prevProps);
+  }
+
+  static getDerivedStateFromProps(props, state) {
+    if (props.experimentId !== state.lastExperimentId) {
+      return {
+        persistedState:
+          state.lastExperimentId === undefined
+            ? state.persistedState
+            : new ExperimentPagePersistedState().toJSON(),
+        lastExperimentId: props.experimentId,
+        lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
+      };
+    }
+    return null;
+  }
+
+  componentWillUnmount() {
+    clearInterval(this.detectNewRunsTimer);
+    this.detectNewRunsTimer = null;
+  }
+
   getExperimentRequestId = getUUID();
   searchRunsRequestId = getUUID();
   searchModelVersionsRequestId = getUUID();
@@ -64,6 +131,12 @@ export class ExperimentPage extends Component {
     });
 
     this.handleGettingRuns(this.props.searchRunsApi, this.searchRunsRequestId);
+  }
+
+  maybeReloadData(prevProps) {
+    if (this.props.experimentId !== prevProps.experimentId) {
+      this.loadData();
+    }
   }
 
   updateNumRunsFromLatestSearch = (response = {}) => {
@@ -130,52 +203,14 @@ export class ExperimentPage extends Component {
     this.handleGettingRuns(this.props.loadMoreRunsApi, this.loadMoreRunsRequestId);
   };
 
-  static propTypes = {
-    experimentId: PropTypes.string.isRequired,
-    getExperimentApi: PropTypes.func.isRequired,
-    searchRunsApi: PropTypes.func.isRequired,
-    searchModelVersionsApi: PropTypes.func.isRequired,
-    loadMoreRunsApi: PropTypes.func.isRequired,
-    history: PropTypes.object.isRequired,
-    location: PropTypes.object,
-  };
-
-  componentDidMount() {
-    this.loadData();
-  }
-
-  componentDidUpdate(prevProps) {
-    this.maybeReloadData(prevProps);
-  }
-
-  static getDerivedStateFromProps(props, state) {
-    if (props.experimentId !== state.lastExperimentId) {
-      return {
-        persistedState:
-          state.lastExperimentId === undefined
-            ? state.persistedState
-            : new ExperimentPagePersistedState().toJSON(),
-        lastExperimentId: props.experimentId,
-        lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
-      };
-    }
-    return null;
-  }
-
   /*
-    If this function returns true, the ExperimentViews should nest children underneath their parents
+    If this function returns true, the ExperimentView should nest children underneath their parents
     and fetch all root level parents of visible runs. If this function returns false, the views will
-    not nest children nor fetch any additional parents.
+    not nest children or fetch any additional parents.
   */
   shouldNestChildrenAndFetchParents() {
     const { orderByKey, searchInput } = this.state.persistedState;
     return !orderByKey && !searchInput;
-  }
-
-  maybeReloadData(prevProps) {
-    if (this.props.experimentId !== prevProps.experimentId) {
-      this.loadData();
-    }
   }
 
   onSearch = (
@@ -197,6 +232,8 @@ export class ExperimentPage extends Component {
 
     this.setState(
       {
+        lastRunsRefreshTime: Date.now(),
+        numberOfNewRuns: 0,
         persistedState: new ExperimentPagePersistedState({
           paramKeyFilterString,
           metricKeyFilterString,
@@ -208,9 +245,46 @@ export class ExperimentPage extends Component {
         modelVersionFilter: modelVersionFilterInput,
         nextPageToken: null,
       },
-      () => this.handleGettingRuns(this.props.searchRunsApi, this.searchRunsRequestId),
+      () => {
+        this.handleGettingRuns(this.props.searchRunsApi, this.searchRunsRequestId);
+        if (!this.detectNewRunsTimer) {
+          this.detectNewRunsTimer = setInterval(
+            () => this.detectNewRuns(),
+            DETECT_NEW_RUNS_INTERVAL,
+          );
+        }
+      },
     );
   };
+
+  async detectNewRuns() {
+    if (Utils.isBrowserTabVisible()) {
+      const lastRunsRefreshTime = this.state.lastRunsRefreshTime || 0;
+      const latestRuns = await this.props.searchForNewRuns({
+        experimentIds: [this.props.experimentId],
+        maxResults: MAX_DETECT_NEW_RUNS_RESULTS,
+      });
+      let numberOfNewRuns = 0;
+      if (latestRuns && latestRuns.runs) {
+        numberOfNewRuns = latestRuns.runs.filter((run) => isNewRun(lastRunsRefreshTime, run))
+          .length;
+
+        if (numberOfNewRuns >= MAX_DETECT_NEW_RUNS_RESULTS) {
+          clearInterval(this.detectNewRunsTimer);
+          this.detectNewRunsTimer = null;
+        }
+      }
+
+      this.setState((previousState) => {
+        if (previousState.numberOfNewRuns !== numberOfNewRuns) {
+          return { numberOfNewRuns };
+        }
+
+        // Don't re-render the component if the state is exactly the same
+        return null;
+      });
+    }
+  }
 
   getOrderByExpr() {
     const { orderByKey, orderByAsc } = this.state.persistedState;
@@ -286,27 +360,29 @@ export class ExperimentPage extends Component {
       orderByAsc,
     } = this.state.persistedState;
 
-    return (
-      <ExperimentView
-        paramKeyFilter={new KeyFilter(paramKeyFilterString)}
-        metricKeyFilter={new KeyFilter(metricKeyFilterString)}
-        experimentId={this.props.experimentId}
-        searchRunsRequestId={this.searchRunsRequestId}
-        modelVersionFilter={this.state.modelVersionFilter}
-        lifecycleFilter={this.state.lifecycleFilter}
-        onSearch={this.onSearch}
-        searchRunsError={searchRunsError}
-        searchInput={searchInput}
-        isLoading={isLoading && !searchRunsError}
-        orderByKey={orderByKey}
-        orderByAsc={orderByAsc}
-        nextPageToken={this.state.nextPageToken}
-        numRunsFromLatestSearch={this.state.numRunsFromLatestSearch}
-        handleLoadMoreRuns={this.handleLoadMoreRuns}
-        loadingMore={this.state.loadingMore}
-        nestChildren={this.shouldNestChildrenAndFetchParents(orderByKey, searchInput)}
-      />
-    );
+    const experimentViewProps = {
+      paramKeyFilter: new KeyFilter(paramKeyFilterString),
+      metricKeyFilter: new KeyFilter(metricKeyFilterString),
+      experimentId: this.props.experimentId,
+      experiment: this.props.experiment,
+      searchRunsRequestId: this.searchRunsRequestId,
+      modelVersionFilter: this.state.modelVersionFilter,
+      lifecycleFilter: this.state.lifecycleFilter,
+      onSearch: this.onSearch,
+      searchRunsError: searchRunsError,
+      searchInput: searchInput,
+      isLoading: isLoading && !searchRunsError,
+      orderByKey: orderByKey,
+      orderByAsc: orderByAsc,
+      nextPageToken: this.state.nextPageToken,
+      numRunsFromLatestSearch: this.state.numRunsFromLatestSearch,
+      handleLoadMoreRuns: this.handleLoadMoreRuns,
+      loadingMore: this.state.loadingMore,
+      nestChildren: this.shouldNestChildrenAndFetchParents(orderByKey, searchInput),
+      numberOfNewRuns: this.state.numberOfNewRuns,
+    };
+
+    return <ExperimentView {...experimentViewProps} />;
   };
 
   render() {
@@ -324,6 +400,11 @@ export class ExperimentPage extends Component {
   }
 }
 
+const mapStateToProps = (state, ownProps) => {
+  const experiment = getExperiment(ownProps.experimentId, state);
+  return { experiment };
+};
+
 const mapDispatchToProps = {
   getExperimentApi,
   searchRunsApi,
@@ -339,4 +420,4 @@ export const lifecycleFilterToRunViewType = (lifecycleFilter) => {
   }
 };
 
-export default withRouter(connect(undefined, mapDispatchToProps)(ExperimentPage));
+export default withRouter(connect(mapStateToProps, mapDispatchToProps)(ExperimentPage));

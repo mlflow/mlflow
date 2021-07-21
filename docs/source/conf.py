@@ -196,7 +196,7 @@ html_show_sourcelink = False
 # If true, "Created using Sphinx" is shown in the HTML footer. Default is True.
 html_show_sphinx = False
 
-html_add_permalinks = " "
+html_permalinks_icon = " "
 
 # If true, "(C) Copyright ..." is shown in the HTML footer. Default is True.
 # html_show_copyright = True
@@ -337,6 +337,7 @@ nitpick_ignore = [
     ("py:class", "mlflow.types.schema.Schema"),
     ("py:class", "mlflow.models.model.Model"),
     ("py:class", "mlflow.models.signature.ModelSignature"),
+    ("py:class", "MlflowInferableDataset"),
 ]
 
 

@@ -1,4 +1,4 @@
-from distutils.version import LooseVersion
+from packaging.version import Version
 import os
 
 import numpy as np
@@ -14,7 +14,7 @@ from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import experimental
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
@@ -55,7 +55,7 @@ def load_model(model_uri, ctx):
         model = mlflow.gluon.load_model("runs:/" + gluon_random_data_run.info.run_id + "/model")
         model(nd.array(np.random.rand(1000, 1, 32)))
     """
-    import mxnet
+    import mxnet as mx
     from mxnet import gluon
     from mxnet import sym
 
@@ -63,12 +63,15 @@ def load_model(model_uri, ctx):
 
     model_arch_path = os.path.join(local_model_path, "data", _MODEL_SAVE_PATH) + "-symbol.json"
     model_params_path = os.path.join(local_model_path, "data", _MODEL_SAVE_PATH) + "-0000.params"
-    symbol = sym.load(model_arch_path)
-    inputs = sym.var("data", dtype="float32")
-    net = gluon.SymbolBlock(symbol, inputs)
-    if LooseVersion(mxnet.__version__) >= LooseVersion("2.0.0"):
-        net.load_parameters(model_params_path, ctx)
+
+    if Version(mx.__version__) >= Version("2.0.0"):
+        return gluon.SymbolBlock.imports(
+            model_arch_path, input_names=["data"], param_file=model_params_path, ctx=ctx
+        )
     else:
+        symbol = sym.load(model_arch_path)
+        inputs = sym.var("data", dtype="float32")
+        net = gluon.SymbolBlock(symbol, inputs)
         net.collect_params().load(model_params_path, ctx)
     return net
 
@@ -210,7 +213,7 @@ def save_model(
         _save_example(mlflow_model, input_example, path)
 
     # The epoch argument of the export method does not play any role in selecting
-    # a specific epoch's paramaters, and is there only for display purposes.
+    # a specific epoch's parameters, and is there only for display purposes.
     gluon_model.export(os.path.join(data_path, _MODEL_SAVE_PATH))
     with open(os.path.join(path, "architecture.txt"), "w") as fp:
         fp.write(str(gluon_model))
@@ -222,8 +225,22 @@ def save_model(
             conda_env = yaml.safe_load(f)
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    _log_pip_requirements(conda_env, path)
+
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.gluon", env=conda_env_subpath)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+
+
+def get_default_pip_requirements():
+    """
+    :return: A list of default pip requirements for MLflow Models produced by this flavor.
+             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+             that, at minimum, contains these requirements.
+    """
+    import mxnet as mx
+
+    return ["mxnet=={}".format(mx.__version__)]
 
 
 def get_default_conda_env():
@@ -231,11 +248,7 @@ def get_default_conda_env():
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
-    import mxnet as mx
-
-    pip_deps = ["mxnet=={}".format(mx.__version__)]
-
-    return _mlflow_conda_env(additional_pip_deps=pip_deps)
+    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
 @experimental

@@ -230,6 +230,7 @@ from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
 from mlflow.utils.annotations import deprecated
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.environment import _log_pip_requirements
 from mlflow.exceptions import MlflowException
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.protos.databricks_pb2 import (
@@ -267,20 +268,22 @@ def add_to_model(model, loader_module, data=None, code=None, env=None, **kwargs)
     :param data: Path to the model data.
     :param code: Path to the code dependencies.
     :param env: Conda environment.
+    :param req: pip requirements file.
     :param kwargs: Additional key-value pairs to include in the ``pyfunc`` flavor specification.
                    Values must be YAML-serializable.
     :return: Updated model configuration.
     """
-    parms = deepcopy(kwargs)
-    parms[MAIN] = loader_module
-    parms[PY_VERSION] = PYTHON_VERSION
+    params = deepcopy(kwargs)
+    params[MAIN] = loader_module
+    params[PY_VERSION] = PYTHON_VERSION
     if code:
-        parms[CODE] = code
+        params[CODE] = code
     if data:
-        parms[DATA] = data
+        params[DATA] = data
     if env:
-        parms[ENV] = env
-    return model.add_flavor(FLAVOR_NAME, **parms)
+        params[ENV] = env
+
+    return model.add_flavor(FLAVOR_NAME, **params)
 
 
 def _load_model_env(path):
@@ -1218,7 +1221,7 @@ def log_model(
 
 
 def _save_model_with_loader_module_and_data_path(
-    path, loader_module, data_path=None, code_paths=None, conda_env=None, mlflow_model=Model()
+    path, loader_module, data_path=None, code_paths=None, conda_env=None, mlflow_model=None
 ):
     """
     Export model as a generic Python function model.
@@ -1248,6 +1251,9 @@ def _save_model_with_loader_module_and_data_path(
             _copy_file_or_tree(src=code_path, dst=path, dst_dir="code")
         code = "code"
 
+    if mlflow_model is None:
+        mlflow_model = Model()
+
     conda_env_subpath = "mlflow_env.yml"
     if conda_env is None:
         conda_env = get_default_conda_env()
@@ -1256,6 +1262,8 @@ def _save_model_with_loader_module_and_data_path(
             conda_env = yaml.safe_load(f)
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    _log_pip_requirements(conda_env, path)
 
     mlflow.pyfunc.add_to_model(
         mlflow_model, loader_module=loader_module, code=code, data=data, env=conda_env_subpath

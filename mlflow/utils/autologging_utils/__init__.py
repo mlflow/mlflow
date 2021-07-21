@@ -23,6 +23,7 @@ from mlflow.utils.autologging_utils.logging_and_warnings import (  # noqa: E402
 from mlflow.utils.autologging_utils.safety import (  # noqa: E402
     try_mlflow_log,
     update_wrapper_extended,
+    revert_patches,
 )
 from mlflow.utils.autologging_utils.versioning import (  # noqa: E402
     FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY,
@@ -35,6 +36,7 @@ from mlflow.utils.autologging_utils.versioning import (  # noqa: E402
 # `mlflow.utils.autologging_utils` module
 from mlflow.utils.autologging_utils.safety import *  # noqa: E402
 from mlflow.utils.autologging_utils.events import *  # noqa: E402
+from mlflow.utils.autologging_utils.client import *  # noqa: E402
 
 
 INPUT_EXAMPLE_SAMPLE_ROWS = 5
@@ -43,15 +45,19 @@ ENSURE_AUTOLOGGING_ENABLED_TEXT = (
 )
 _AUTOLOGGING_TEST_MODE_ENV_VAR = "MLFLOW_AUTOLOGGING_TESTING"
 
+# Flag indicating whether autologging is globally disabled for all integrations.
+_AUTOLOGGING_GLOBALLY_DISABLED = False
+
 # Dict mapping integration name to its config.
 AUTOLOGGING_INTEGRATIONS = {}
 
 _logger = logging.getLogger(__name__)
 
 
-def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W0102
+def get_mlflow_run_params_for_fn_args(fn, args, kwargs, unlogged=None):
     """
-    Log parameters explicitly passed to a function.
+    Given arguments explicitly passed to a function, generate a dictionary of MLflow Run
+    parameter key / value pairs.
 
     :param fn: function whose parameters are to be logged
     :param args: arguments explicitly passed into fn. If `fn` is defined on a class,
@@ -59,8 +65,9 @@ def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W01
                  filtering out `self` before calling this function.
     :param kwargs: kwargs explicitly passed into fn
     :param unlogged: parameters not to be logged
-    :return: None
+    :return: A dictionary of MLflow Run parameter key / value pairs.
     """
+    unlogged = unlogged or []
     param_spec = inspect.signature(fn).parameters
     # Filter out `self` from the signature under the assumption that it is not contained
     # within the specified `args`, as stipulated by the documentation
@@ -85,7 +92,24 @@ def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W01
     )
     # Filter out any parameters that should not be logged, as specified by the `unlogged` parameter
     params_to_log = {key: value for key, value in params_to_log.items() if key not in unlogged}
-    try_mlflow_log(mlflow.log_params, params_to_log)
+    return params_to_log
+
+
+def log_fn_args_as_params(fn, args, kwargs, unlogged=None):  # pylint: disable=W0102
+    """
+    Log arguments explicitly passed to a function as MLflow Run parameters to the current active
+    MLflow Run.
+
+    :param fn: function whose parameters are to be logged
+    :param args: arguments explicitly passed into fn. If `fn` is defined on a class,
+                 `self` should not be part of `args`; the caller is responsible for
+                 filtering out `self` before calling this function.
+    :param kwargs: kwargs explicitly passed into fn
+    :param unlogged: parameters not to be logged
+    :return: None
+    """
+    params_to_log = get_mlflow_run_params_for_fn_args(fn, args, kwargs, unlogged)
+    mlflow.log_params(params_to_log)
 
 
 class InputExampleInfo:
@@ -343,6 +367,22 @@ def autologging_integration(name):
             config_to_store.update(kwargs)
             AUTOLOGGING_INTEGRATIONS[name] = config_to_store
 
+            try:
+                # Pass `autolog()` arguments to `log_autolog_called` in keyword format to enable
+                # event loggers to more easily identify important configuration parameters
+                # (e.g., `disable`) without examining positional arguments. Passing positional
+                # arguments to `log_autolog_called` is deprecated in MLflow > 1.13.1
+                AutologgingEventLogger.get_logger().log_autolog_called(name, (), config_to_store)
+            except Exception:
+                pass
+
+            # If disabling autologging using fluent api, then every active integration's autolog
+            # needs to be called with disable=True. So do not short circuit and let
+            # `mlflow.autolog()` invoke all active integrations with disable=True.
+            if name != "mlflow" and get_autologging_config(name, "disable", True):
+                revert_patches(name)
+                return
+
             is_silent_mode = get_autologging_config(name, "silent", False)
             # Reroute non-MLflow warnings encountered during autologging enablement to an
             # MLflow event logger, and enforce silent mode if applicable (i.e. if the corresponding
@@ -364,18 +404,6 @@ def autologging_integration(name):
                 reroute_warnings=True,
                 disable_warnings=is_silent_mode,
             ):
-
-                try:
-                    # Pass `autolog()` arguments to `log_autolog_called` in keyword format to enable
-                    # event loggers to more easily identify important configuration parameters
-                    # (e.g., `disable`) without examining positional arguments. Passing positional
-                    # arguments to `log_autolog_called` is deprecated in MLflow > 1.13.1
-                    AutologgingEventLogger.get_logger().log_autolog_called(
-                        name, (), config_to_store
-                    )
-                except Exception:
-                    pass
-
                 _check_and_log_warning_for_unsupported_package_versions(name)
 
                 return _autolog(*args, **kwargs)
@@ -429,6 +457,18 @@ def autologging_is_disabled(integration_name):
         return get_autologging_config(integration_name, "disable_for_unsupported_versions", False)
 
     return False
+
+
+@contextlib.contextmanager
+def disable_autologging():
+    """
+    Context manager that temporarily disables autologging globally for all integrations upon
+    entry and restores the previous autologging configuration upon exit.
+    """
+    global _AUTOLOGGING_GLOBALLY_DISABLED
+    _AUTOLOGGING_GLOBALLY_DISABLED = True
+    yield None
+    _AUTOLOGGING_GLOBALLY_DISABLED = False
 
 
 def _get_new_training_session_class():

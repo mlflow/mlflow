@@ -3,9 +3,9 @@ import React from 'react';
 import Utils from '../../common/utils/Utils';
 import { Link } from 'react-router-dom';
 import Routes from '../routes';
-import { getModelVersionPageURL } from '../../model-registry/routes';
+import { getModelVersionPageRoute } from '../../model-registry/routes';
 import { DEFAULT_EXPANDED_VALUE } from './ExperimentView';
-import { CollapsibleTagsCell } from './CollapsibleTagsCell';
+import { CollapsibleTagsCell } from '../../common/components/CollapsibleTagsCell';
 import _ from 'lodash';
 import ExpandableList from '../../common/components/ExpandableList';
 import registryIcon from '../../common/static/registryIcon.svg';
@@ -19,7 +19,7 @@ export default class ExperimentViewUtil {
     return (
       <CellComponent key='meta-check' className='run-table-container'>
         <div>
-          <input type='checkbox' checked={selected} onClick={checkboxHandler} />
+          <input type='checkbox' checked={selected} onChange={checkboxHandler} />
         </div>
       </CellComponent>
     );
@@ -335,7 +335,7 @@ export default class ExperimentViewUtil {
         <img src={registryIcon} alt='MLflow Model Registry Icon' />
         <span className='model-link-text'>
           <a
-            href={getModelVersionPageURL(name, version)}
+            href={Utils.getIframeCorrectedRoute(getModelVersionPageRoute(name, version))}
             className='model-version-link'
             title={`${name}, v${version}`}
             style={{ verticalAlign: 'middle' }}

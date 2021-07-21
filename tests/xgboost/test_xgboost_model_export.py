@@ -26,7 +26,11 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
-from tests.helper_functions import score_model_in_sagemaker_docker_container
+from tests.helper_functions import (
+    score_model_in_sagemaker_docker_container,
+    _compare_conda_env_requirements,
+    _assert_pip_requirements,
+)
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe", "inference_dmatrix"])
 
@@ -200,6 +204,128 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
 
 
 @pytest.mark.large
+def test_model_save_persists_requirements_in_mlflow_model_directory(
+    xgb_model, model_path, xgb_custom_env
+):
+    mlflow.xgboost.save_model(xgb_model=xgb_model.model, path=model_path, conda_env=xgb_custom_env)
+
+    saved_pip_req_path = os.path.join(model_path, "requirements.txt")
+    _compare_conda_env_requirements(xgb_custom_env, saved_pip_req_path)
+
+
+@pytest.mark.large
+def test_save_model_with_pip_requirements(xgb_model, tmpdir):
+    # Path to a requirements file
+    tmpdir1 = tmpdir.join("1")
+    req_file = tmpdir.join("requirements.txt")
+    req_file.write("a")
+    mlflow.xgboost.save_model(xgb_model.model, tmpdir1.strpath, pip_requirements=req_file.strpath)
+    _assert_pip_requirements(tmpdir1.strpath, ["mlflow", "a"])
+
+    # List of requirements
+    tmpdir2 = tmpdir.join("2")
+    mlflow.xgboost.save_model(
+        xgb_model.model, tmpdir2.strpath, pip_requirements=[f"-r {req_file.strpath}", "b"]
+    )
+    _assert_pip_requirements(tmpdir2.strpath, ["mlflow", "a", "b"])
+
+    # Constraints file
+    tmpdir3 = tmpdir.join("3")
+    mlflow.xgboost.save_model(
+        xgb_model.model, tmpdir3.strpath, pip_requirements=[f"-c {req_file.strpath}", "b"]
+    )
+    _assert_pip_requirements(tmpdir3.strpath, ["mlflow", "b", "-c constraints.txt"], ["a"])
+
+
+@pytest.mark.large
+def test_save_model_with_extra_pip_requirements(xgb_model, tmpdir):
+    default_reqs = mlflow.xgboost.get_default_pip_requirements()
+
+    # Path to a requirements file
+    tmpdir1 = tmpdir.join("1")
+    req_file = tmpdir.join("requirements.txt")
+    req_file.write("a")
+    mlflow.xgboost.save_model(
+        xgb_model.model, tmpdir1.strpath, extra_pip_requirements=req_file.strpath
+    )
+    _assert_pip_requirements(tmpdir1.strpath, ["mlflow", *default_reqs, "a"])
+
+    # List of requirements
+    tmpdir2 = tmpdir.join("2")
+    mlflow.xgboost.save_model(
+        xgb_model.model, tmpdir2.strpath, extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
+    )
+    _assert_pip_requirements(tmpdir2.strpath, ["mlflow", *default_reqs, "a", "b"])
+
+    # Constraints file
+    tmpdir3 = tmpdir.join("3")
+    mlflow.xgboost.save_model(
+        xgb_model.model, tmpdir3.strpath, extra_pip_requirements=[f"-c {req_file.strpath}", "b"]
+    )
+    _assert_pip_requirements(
+        tmpdir3.strpath, ["mlflow", *default_reqs, "b", "-c constraints.txt"], ["a"]
+    )
+
+
+@pytest.mark.large
+def test_log_model_with_pip_requirements(xgb_model, tmpdir):
+    # Path to a requirements file
+    req_file = tmpdir.join("requirements.txt")
+    req_file.write("a")
+    with mlflow.start_run():
+        mlflow.xgboost.log_model(xgb_model.model, "model", pip_requirements=req_file.strpath)
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"])
+
+    # List of requirements
+    with mlflow.start_run():
+        mlflow.xgboost.log_model(
+            xgb_model.model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"]
+        )
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"])
+
+    # Constraints file
+    with mlflow.start_run():
+        mlflow.xgboost.log_model(
+            xgb_model.model, "model", pip_requirements=[f"-c {req_file.strpath}", "b"]
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), ["mlflow", "b", "-c constraints.txt"], ["a"]
+        )
+
+
+@pytest.mark.large
+def test_log_model_with_extra_pip_requirements(xgb_model, tmpdir):
+    default_reqs = mlflow.xgboost.get_default_pip_requirements()
+
+    # Path to a requirements file
+    req_file = tmpdir.join("requirements.txt")
+    req_file.write("a")
+    with mlflow.start_run():
+        mlflow.xgboost.log_model(xgb_model.model, "model", extra_pip_requirements=req_file.strpath)
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a"])
+
+    # List of requirements
+    with mlflow.start_run():
+        mlflow.xgboost.log_model(
+            xgb_model.model, "model", extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a", "b"]
+        )
+
+    # Constraints file
+    with mlflow.start_run():
+        mlflow.xgboost.log_model(
+            xgb_model.model, "model", extra_pip_requirements=[f"-c {req_file.strpath}", "b"]
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"),
+            ["mlflow", *default_reqs, "b", "-c constraints.txt"],
+            ["a"],
+        )
+
+
+@pytest.mark.large
 def test_model_save_accepts_conda_env_as_dict(xgb_model, model_path):
     conda_env = dict(mlflow.xgboost.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
@@ -238,6 +364,22 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     with open(saved_conda_env_path, "r") as f:
         saved_conda_env_parsed = yaml.safe_load(f)
     assert saved_conda_env_parsed == xgb_custom_env_parsed
+
+
+@pytest.mark.large
+def test_model_log_persists_requirements_in_mlflow_model_directory(xgb_model, xgb_custom_env):
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.xgboost.log_model(
+            xgb_model=xgb_model.model, artifact_path=artifact_path, conda_env=xgb_custom_env
+        )
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+        )
+
+    model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    saved_pip_req_path = os.path.join(model_path, "requirements.txt")
+    _compare_conda_env_requirements(xgb_custom_env, saved_pip_req_path)
 
 
 @pytest.mark.large

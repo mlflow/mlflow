@@ -325,7 +325,7 @@ Here is an example plot of the :ref:`quick start tutorial <quickstart>` with the
 Automatic Logging
 =================
 
-Automatic logging allows you to log metrics, parameters, and models without the need for explicit log statements.
+Automatic logging allows you to log metrics, parameters, and models without the need for explicit log statements. 
 
 There are two ways to use autologging:
 
@@ -337,6 +337,8 @@ The following libraries support autologging:
 .. contents::
   :local:
   :depth: 1
+
+For flavors that automatically save models as an artifact, `additional files <https://mlflow.org/docs/latest/models.html#storage-format>`_ for dependency management are logged.
 
 
 Scikit-learn (experimental)
@@ -748,6 +750,9 @@ file system) and is where clients log their artifact output (for example, models
 default location to store artifacts for all runs in this experiment. Additional, ``artifact_uri``
 is a property on :py:class:`mlflow.entities.RunInfo` to indicate location where all artifacts for
 this run are stored.
+
+The MLflow client caches artifact location information on a per-run basis.
+It is therefore not recommended to alter a run's artifact location before it has terminated.
 
 In addition to local file paths, MLflow supports the following storage systems as artifact
 stores: Amazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NFS.

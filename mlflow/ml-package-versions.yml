@@ -2,18 +2,17 @@ sklearn:
   package_info:
     pip_release: "scikit-learn"
     install_dev: |
-      # This installs scikit-learn from the default branch
       pip install git+https://github.com/scikit-learn/scikit-learn.git
 
   models:
     minimum: "0.20.3"
-    maximum: "0.24.1"
+    maximum: "0.24.2"
     run: |
       pytest tests/sklearn/test_sklearn_model_export.py --large
 
   autologging:
     minimum: "0.20.3"
-    maximum: "0.24.1"
+    maximum: "0.24.2"
     requirements: ["matplotlib"]
     run: |
       pytest tests/sklearn/test_sklearn_autolog.py --large
@@ -22,11 +21,11 @@ pytorch:
   package_info:
     pip_release: "torch"
     install_dev: |
-      pip install --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
+      pip install --upgrade --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
 
   models:
     minimum: "1.4.0"
-    maximum: "1.8.1"
+    maximum: "1.9.0"
     requirements: ["torchvision", "scikit-learn"]
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py --large
@@ -35,12 +34,11 @@ pytorch-lightning:
   package_info:
     pip_release: "pytorch-lightning"
     install_dev: |
-      # This installs pytorch-lightning from the default branch
       pip install git+https://github.com/PytorchLightning/pytorch-lightning.git
 
   autologging:
     minimum: "1.0.5"
-    maximum: "1.2.8"
+    maximum: "1.3.8"
     requirements: ["torchvision", "scikit-learn"]
     run: |
       pytest tests/pytorch/test_pytorch_autolog.py --large
@@ -49,13 +47,11 @@ tensorflow:
   package_info:
     pip_release: "tensorflow"
     install_dev: |
-      # Unpin `tf-nightly` once the following issue is addressed:
-      # https://github.com/tensorflow/tensorflow/issues/46429
-      pip install 'tf-nightly==2.5.0.dev20210112'
+      pip install tf-nightly
 
   models:
     minimum: "1.15.4"
-    maximum: "2.4.1"
+    maximum: "2.5.0"
     requirements:
       "< 2.2": ["h5py<3.0", "scikit-learn"]
     run: |
@@ -75,7 +71,7 @@ tensorflow:
 
   autologging:
     minimum: "1.15.4"
-    maximum: "2.4.1"
+    maximum: "2.5.0"
     requirements:
       "< 2.2": ["h5py<3.0"]
     run: |
@@ -96,12 +92,6 @@ tensorflow:
 keras:
   package_info:
     pip_release: "keras"
-    install_dev: |
-      # In keras >= 2.4.0, `keras` simply redirects to `tensorflow.keras`:
-      # https://github.com/keras-team/keras#multi-backend-keras-and-tfkeras
-      # Unpin `tf-nightly` once the following issue is addressed:
-      # https://github.com/tensorflow/tensorflow/issues/46429
-      pip install 'tf-nightly==2.5.0.dev20210112' 'keras>=2.4.0'
 
   models:
     minimum: "2.2.4"
@@ -109,8 +99,7 @@ keras:
     requirements:
       "< 2.3.1": ["tensorflow==1.15.4", "h5py<3.0", "scikit-learn", "pyspark", "pyarrow"]
       "== 2.3.1": ["tensorflow==2.2.1", "scikit-learn", "pyspark", "pyarrow"]
-      "> 2.3.1": ["tensorflow", "scikit-learn", "pyspark", "pyarrow"]
-      "== dev": ["scikit-learn", "pyspark", "pyarrow"]
+      "> 2.3.1": ["tensorflow<2.5.0", "scikit-learn", "pyspark", "pyarrow"]
     run: |
       pytest tests/keras/test_keras_model_export.py --large
 
@@ -122,29 +111,26 @@ keras:
       # keras 2.3.1 is incompatible with tensorflow > 2.2.1 and causes the issue reported here:
       # https://github.com/tensorflow/tensorflow/issues/38589
       "== 2.3.1": ["tensorflow==2.2.1"]
-      "> 2.3.1, != dev": ["tensorflow"]
+      "> 2.3.1": ["tensorflow<2.5.0"]
     run: |
-      pytest --verbose tests/keras_autolog/test_keras_autolog.py --large
+      pytest tests/keras_autolog/test_keras_autolog.py --large
 
 xgboost:
   package_info:
     pip_release: "xgboost"
     install_dev: |
-      temp_dir=$(mktemp -d)
-      git clone --recursive https://github.com/dmlc/xgboost $temp_dir
-      cd $temp_dir/python-package
-      python setup.py install
+      pip install git+https://github.com/dmlc/xgboost.git#subdirectory=python-package
 
   models:
     minimum: "0.90"
-    maximum: "1.4.1"
+    maximum: "1.4.2"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/xgboost/test_xgboost_model_export.py --large
 
   autologging:
     minimum: "0.90"
-    maximum: "1.4.1"
+    maximum: "1.4.2"
     requirements: ["scikit-learn", "matplotlib"]
     run: |
       pytest tests/xgboost/test_xgboost_autolog.py --large
@@ -153,10 +139,7 @@ lightgbm:
   package_info:
     pip_release: "lightgbm"
     install_dev: |
-      temp_dir=$(mktemp -d)
-      git clone --recursive https://github.com/microsoft/LightGBM.git $temp_dir
-      cd $temp_dir/python-package
-      python setup.py install
+      pip install git+https://github.com/microsoft/LightGBM.git#subdirectory=python-package
 
   models:
     minimum: "2.3.1"
@@ -176,11 +159,17 @@ catboost:
   package_info:
     pip_release: "catboost"
     install_dev: |
-      pip install git+https://github.com/catboost/catboost.git#subdirectory=catboost/python-package
+      # The cross-version-tests workflow runs this command with the environment variable `CACHE_DIR`
+      if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "catboost-*.whl") ]; then
+        head_sha=$(git ls-remote https://github.com/catboost/catboost.git HEAD | cut -f1)
+        pip wheel --no-deps --wheel-dir $CACHE_DIR \
+          git+https://github.com/catboost/catboost.git@$head_sha#subdirectory=catboost/python-package
+      fi
+      pip install $(find $CACHE_DIR -type f -name "catboost-*.whl")
 
   models:
     minimum: "0.23.1"
-    maximum: "0.25.1"
+    maximum: "0.26"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/catboost/test_catboost_model_export.py --large
@@ -210,6 +199,8 @@ fastai-1.x:
     pip_release: "fastai"
 
   models:
+    # Avoid updating the maximum version to 2.x which isn't supported yet
+    pin_maximum: True
     minimum: "1.0.60"
     maximum: "1.0.61"
     requirements: ["scikit-learn"]
@@ -217,6 +208,7 @@ fastai-1.x:
       pytest tests/fastai/test_fastai_model_export.py --large
 
   autologging:
+    pin_maximum: True
     minimum: "1.0.60"
     maximum: "1.0.61"
     requirements: ["scikit-learn"]
@@ -227,12 +219,22 @@ onnx:
   package_info:
     pip_release: "onnx"
     install_dev: |
-      sudo apt-get install protobuf-compiler libprotoc-dev
-      temp_dir=$(mktemp -d)
-      git clone https://github.com/onnx/onnx.git $temp_dir
-      cd $temp_dir
-      git submodule update --init --recursive
-      python setup.py install
+      # This workflow describes how to build a wheel for Linux:
+      # https://github.com/onnx/onnx/blob/51a7d932356cbb1205341660a4a52f8c121d8f4b/.github/workflows/release_linux_x86_64.yml
+
+      auth_header="$(git config --local --get http.https://github.com/.extraheader)"
+      tmp_dir=$(mktemp -d)
+      git clone https://github.com/onnx/onnx.git $tmp_dir
+      cd $tmp_dir
+      git submodule sync --recursive
+      git -c "http.extraheader=$auth_header" -c protocol.version=2 submodule update --init --force --recursive --depth=1
+
+      # Build wheel
+      docker run --rm -v $(pwd):/github/workspace --workdir /github/workspace --entrypoint bash \
+        quay.io/pypa/manylinux2010_x86_64 .github/workflows/manylinux/entrypoint.sh 3.6 manylinux2010_x86_64 pull_request
+
+      # Install wheel
+      pip install dist/*manylinux2010_x86_64.whl
 
   models:
     minimum: "1.5.0"
@@ -245,11 +247,11 @@ spacy:
   package_info:
     pip_release: "spacy"
     install_dev: |
-      pip install spacy-nightly
+      pip install git+https://github.com/explosion/spaCy.git
 
   models:
     minimum: "2.2.4"
-    maximum: "3.0.5"
+    maximum: "3.1.0"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/spacy/test_spacy_model_export.py --large
@@ -258,13 +260,13 @@ statsmodels:
   package_info:
     pip_release: "statsmodels"
     install_dev: |
-      pip install git+https://github.com/statsmodels/statsmodels
+      pip install git+https://github.com/statsmodels/statsmodels.git
 
   models:
     minimum: "0.11.1"
     maximum: "0.12.2"
     run: |
-        pytest tests/statsmodels/test_statsmodels_model_export.py --large
+      pytest tests/statsmodels/test_statsmodels_model_export.py --large
 
   autologging:
     minimum: "0.11.1"
@@ -276,20 +278,27 @@ spark:
   package_info:
     pip_release: "pyspark"
     install_dev: |
-      # TODO: Consider using cache because it takes long (20 ~ 30 min) to build spark from source
-      # on GitHub Actions environment.
-      temp_dir=$(mktemp -d)
-      git clone --depth 1 https://github.com/apache/spark $temp_dir
-      cd $temp_dir
-      export MAVEN_OPTS="-Xmx2g -XX:ReservedCodeCacheSize=1g"
-      ./build/mvn -DskipTests --no-transfer-progress clean package
-      cd python
-      python setup.py bdist_wheel
-      pip install dist/*.whl
+      # The cross-version-tests workflow runs this command with the environment variable `CACHE_DIR`
+      if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "pyspark-*.whl") ]; then
+        # Build wheel from source
+        temp_dir=$(mktemp -d)
+        git clone --depth 1 https://github.com/apache/spark.git $temp_dir
+        git --git-dir=$temp_dir/.git rev-parse HEAD
+        cd $temp_dir
+        ./build/mvn -DskipTests --no-transfer-progress clean package
+        cd python
+        python setup.py bdist_wheel
+
+        # Copy wheel in cache directory
+        wheel_path=$(find dist -type f -name "pyspark-*.whl")
+        mkdir -p $CACHE_DIR
+        cp $wheel_path $CACHE_DIR
+      fi
+      pip install $(find $CACHE_DIR -type f -name "pyspark-*.whl")
 
   models:
     minimum: "3.0.0"
-    maximum: "3.1.1"
+    maximum: "3.1.2"
     requirements: ["boto3", "scikit-learn", "pyarrow"]
     run: |
       SAGEMAKER_OUT=$(mktemp)
@@ -300,11 +309,11 @@ spark:
         cat $SAGEMAKER_OUT;
         exit 1
       fi
-      pytest --verbose tests/spark --large --ignore tests/spark/test_mleap_model_export.py
+      pytest tests/spark --large --ignore tests/spark/test_mleap_model_export.py
 
   autologging:
     minimum: "3.0.0"
-    maximum: "3.1.1"
+    maximum: "3.1.2"
     run: |
       # TODO: Add datasource autologging tests
-      find tests/spark_autologging/ml -name 'test*.py' | xargs -L 1 pytest --verbose --large
+      find tests/spark_autologging/ml -name 'test*.py' | xargs -L 1 pytest --large

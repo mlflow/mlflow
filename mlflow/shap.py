@@ -8,6 +8,7 @@ import numpy as np
 
 import mlflow
 import types
+import mlflow.utils.autologging_utils
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
@@ -18,7 +19,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -71,19 +72,24 @@ def get_underlying_model_flavor(model):
     return _UNKNOWN_MODEL_FLAVOR
 
 
+def get_default_pip_requirements():
+    """
+    :return: A list of default pip requirements for MLflow Models produced by this flavor.
+             Calls to :func:`save_explainer()` and :func:`log_explainer()` produce a pip environment
+             that, at minimum, contains these requirements.
+    """
+    import shap
+
+    return ["shap=={}".format(shap.__version__)]
+
+
 def get_default_conda_env():
     """
     :return: The default Conda environment for
              MLflow Models produced by calls to
              :func:`save_explainer()` and :func:`log_explainer()`.
     """
-    import shap
-
-    pip_deps = ["shap=={}".format(shap.__version__)]
-
-    return _mlflow_conda_env(
-        additional_conda_deps=[], additional_pip_deps=pip_deps, additional_conda_channels=None,
-    )
+    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
 def _load_pyfunc(path):
@@ -242,18 +248,19 @@ def log_explanation(predict_function, features, artifact_path=None):
     import shap
 
     artifact_path = _DEFAULT_ARTIFACT_PATH if artifact_path is None else artifact_path
-    background_data = shap.kmeans(features, min(_MAXIMUM_BACKGROUND_DATA_SIZE, len(features)))
-    explainer = shap.KernelExplainer(predict_function, background_data)
-    shap_values = explainer.shap_values(features)
+    with mlflow.utils.autologging_utils.disable_autologging():
+        background_data = shap.kmeans(features, min(_MAXIMUM_BACKGROUND_DATA_SIZE, len(features)))
+        explainer = shap.KernelExplainer(predict_function, background_data)
+        shap_values = explainer.shap_values(features)
 
-    _log_numpy(explainer.expected_value, _BASE_VALUES_FILE_NAME, artifact_path)
-    _log_numpy(shap_values, _SHAP_VALUES_FILE_NAME, artifact_path)
+        _log_numpy(explainer.expected_value, _BASE_VALUES_FILE_NAME, artifact_path)
+        _log_numpy(shap_values, _SHAP_VALUES_FILE_NAME, artifact_path)
 
-    shap.summary_plot(shap_values, features, plot_type="bar", show=False)
-    fig = plt.gcf()
-    fig.tight_layout()
-    _log_matplotlib_figure(fig, _SUMMARY_BAR_PLOT_FILE_NAME, artifact_path)
-    plt.close(fig)
+        shap.summary_plot(shap_values, features, plot_type="bar", show=False)
+        fig = plt.gcf()
+        fig.tight_layout()
+        _log_matplotlib_figure(fig, _SUMMARY_BAR_PLOT_FILE_NAME, artifact_path)
+        plt.close(fig)
 
     return append_to_uri_path(mlflow.active_run().info.artifact_uri, artifact_path)
 
@@ -461,6 +468,8 @@ def save_explainer(
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
+    _log_pip_requirements(conda_env, path)
+
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.shap",
@@ -517,8 +526,7 @@ def _merge_environments(shap_environment, model_environment):
     # channels if present since its added later in `_mlflow_conda_env`
 
     merged_conda_channels = list(
-        set(shap_environment["channels"] + model_environment["channels"])
-        - set(["defaults", "conda-forge"])
+        set(shap_environment["channels"] + model_environment["channels"]) - set(["conda-forge"])
     )
 
     shap_conda_deps, shap_pip_deps = _get_conda_and_pip_dependencies(shap_environment)

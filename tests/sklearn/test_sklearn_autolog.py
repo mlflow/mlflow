@@ -13,6 +13,7 @@ import sklearn.datasets
 import sklearn.model_selection
 from scipy.stats import uniform
 
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.signature import infer_signature
 from mlflow.models.utils import _read_example
@@ -23,17 +24,16 @@ from mlflow.sklearn.utils import (
     _is_metric_supported,
     _is_plotting_supported,
     _get_arg_names,
-    _truncate_dict,
+    _log_child_runs_info,
 )
-from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_AUTOLOGGING
+from mlflow.utils import _truncate_dict
+from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
     MAX_METRICS_PER_BATCH,
     MAX_PARAM_VAL_LENGTH,
     MAX_ENTITY_KEY_LENGTH,
 )
-
-from tests.autologging.fixtures import test_mode_off
 
 FIT_FUNC_NAMES = ["fit", "fit_transform", "fit_predict"]
 TRAINING_SCORE = "training_score"
@@ -140,6 +140,31 @@ def test_autolog_preserves_original_function_attributes():
 
     for b, a in zip(before, after):
         assert b == a
+
+
+def test_autolog_throws_error_with_negative_max_tuning_runs():
+    with pytest.raises(
+        MlflowException, match="`max_tuning_runs` must be non-negative, instead got -1."
+    ):
+        mlflow.sklearn.autolog(max_tuning_runs=-1)
+
+
+@pytest.mark.parametrize(
+    "max_tuning_runs, total_runs, output_statment",
+    [
+        (0, 4, "Logging no runs, all will be omitted"),
+        (0, 1, "Logging no runs, one run will be omitted"),
+        (1, 1, "Logging the best run, no runs will be omitted"),
+        (5, 4, "Logging all runs, no runs will be omitted"),
+        (4, 4, "Logging all runs, no runs will be omitted"),
+        (2, 5, "Logging the 2 best runs, 3 runs will be omitted"),
+    ],
+)
+def test_autolog_max_tuning_runs_logs_info_correctly(max_tuning_runs, total_runs, output_statment):
+    with mock.patch("mlflow.sklearn.utils._logger.info") as mock_info:
+        _log_child_runs_info(max_tuning_runs, total_runs)
+        mock_info.assert_called_once()
+        mock_info.called_once_with(output_statment)
 
 
 @pytest.mark.skipif(
@@ -674,56 +699,6 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
         assert call_count == call_count_expected
 
 
-def test_fit_xxx_performs_logging_only_once(fit_func_name):
-    mlflow.sklearn.autolog()
-
-    model = sklearn.cluster.KMeans()
-    X, y = get_iris()
-
-    with mock.patch("mlflow.log_params") as mock_log_params, mock.patch(
-        "mlflow.log_metric"
-    ) as mock_log_metric, mock.patch("mlflow.set_tags") as mock_set_tags, mock.patch(
-        "mlflow.sklearn.log_model"
-    ) as mock_log_model:
-        with mlflow.start_run() as run:
-            model = fit_model(model, X, y, fit_func_name)
-            mock_log_params.assert_called_once()
-            mock_log_metric.assert_called_once()
-            mock_set_tags.assert_called_once()
-            mock_log_model.assert_called_once()
-
-        query = "tags.{} = '{}'".format(MLFLOW_PARENT_RUN_ID, run.info.run_id)
-        assert len(mlflow.search_runs([run.info.experiment_id])) == 1
-        assert len(mlflow.search_runs([run.info.experiment_id], query)) == 0
-
-
-def test_meta_estimator_fit_performs_logging_only_once():
-    mlflow.sklearn.autolog()
-
-    estimators = [
-        ("std_scaler", sklearn.preprocessing.StandardScaler()),
-        ("svc", sklearn.svm.SVC()),
-    ]
-    model = sklearn.pipeline.Pipeline(estimators)
-    X, y = get_iris()
-
-    with mock.patch("mlflow.log_params") as mock_log_params, mock.patch(
-        "mlflow.log_metric"
-    ) as mock_log_metric, mock.patch("mlflow.set_tags") as mock_set_tags, mock.patch(
-        "mlflow.sklearn.log_model"
-    ) as mock_log_model:
-        with mlflow.start_run() as run:
-            model.fit(X, y)
-            mock_log_params.assert_called_once()
-            mock_log_metric.assert_called_once()
-            mock_set_tags.assert_called_once()
-            mock_log_model.assert_called_once()
-
-        query = "tags.{} = '{}'".format(MLFLOW_PARENT_RUN_ID, run.info.run_id)
-        assert len(mlflow.search_runs([run.info.experiment_id])) == 1
-        assert len(mlflow.search_runs([run.info.experiment_id], query)) == 0
-
-
 @pytest.mark.parametrize(
     "cv_class, search_space",
     [
@@ -732,8 +707,13 @@ def test_meta_estimator_fit_performs_logging_only_once():
     ],
 )
 @pytest.mark.parametrize("backend", [None, "threading", "loky"])
-def test_parameter_search_estimators_produce_expected_outputs(cv_class, search_space, backend):
-    mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
+@pytest.mark.parametrize("max_tuning_runs", [None, 3])
+def test_parameter_search_estimators_produce_expected_outputs(
+    cv_class, search_space, backend, max_tuning_runs
+):
+    mlflow.sklearn.autolog(
+        log_input_examples=True, log_model_signatures=True, max_tuning_runs=max_tuning_runs,
+    )
 
     svc = sklearn.svm.SVC()
     cv_model = cv_class(svc, search_space, n_jobs=5, return_train_score=True)
@@ -786,12 +766,22 @@ def test_parameter_search_estimators_produce_expected_outputs(cv_class, search_s
         run.info.experiment_id, "tags.`mlflow.parentRunId` = '{}'".format(run_id)
     )
     cv_results = pd.DataFrame.from_dict(cv_model.cv_results_)
-    # We expect to have created a child run for each point in the parameter search space
-    assert len(child_runs) == len(cv_results)
+    num_total_results = len(cv_results)
+    if max_tuning_runs is None:
+        cv_results_best_n_df = cv_results
+        cv_results_rest_df = pd.DataFrame()
+    else:
+        num_rest = max(0, num_total_results - max_tuning_runs)
+        cv_results_best_n_df = cv_results.nsmallest(max_tuning_runs, "rank_test_score")
+        cv_results_rest_df = cv_results.nlargest(num_rest, "rank_test_score", keep="last")
+        # We expect to have created a child run for each point in the parameter search space
+        # up to max_tuning_runs.
+        assert len(child_runs) == max_tuning_runs
+        assert len(child_runs) + num_rest == num_total_results
 
-    # Verify that each set of parameter search results has a corresponding MLflow run
-    # with the expected data
-    for _, result in cv_results.iterrows():
+    # Verify that the best max_tuning_runs of parameter search results
+    # have a corresponding MLflow run with the expected data
+    for _, result in cv_results_best_n_df.iterrows():
         result_params = result.get("params", {})
         params_search_clause = " and ".join(
             ["params.`{}` = '{}'".format(key, value) for key, value in result_params.items()]
@@ -811,6 +801,19 @@ def test_parameter_search_estimators_produce_expected_outputs(cv_class, search_s
         # Ensure that we do not capture separate metrics for each cross validation split, which
         # would produce very noisy metrics results
         assert len([metric for metric in child_metrics.keys() if metric.startswith("split")]) == 0
+
+    # Verify that the rest of the parameter search results do not have
+    # a corresponding MLflow run.
+    for _, result in cv_results_rest_df.iterrows():
+        result_params = result.get("params", {})
+        params_search_clause = " and ".join(
+            ["params.`{}` = '{}'".format(key, value) for key, value in result_params.items()]
+        )
+        search_filter = "tags.`mlflow.parentRunId` = '{}' and {}".format(
+            run_id, params_search_clause
+        )
+        child_runs = client.search_runs(run.info.experiment_id, search_filter)
+        assert len(child_runs) == 0
 
 
 def test_parameter_search_handles_large_volume_of_metric_outputs():
@@ -838,43 +841,6 @@ def test_parameter_search_handles_large_volume_of_metric_outputs():
     child_run = child_runs[0]
 
     assert len(child_run.data.metrics) >= metrics_size
-
-
-@pytest.mark.usefixtures(test_mode_off.__name__)
-@pytest.mark.parametrize(
-    "failing_specialization",
-    [
-        "mlflow.sklearn.utils._log_parameter_search_results_as_artifact",
-        "mlflow.sklearn.utils._create_child_runs_for_parameter_search",
-    ],
-)
-def test_autolog_does_not_throw_when_parameter_search_logging_fails(failing_specialization):
-    with mock.patch(failing_specialization, side_effect=Exception("Failed")) as mock_func:
-        # Enable autologging after mocking the parameter search specialization function
-        # to ensure that the mock is applied before the function is imported
-        mlflow.sklearn.autolog()
-        svc = sklearn.svm.SVC()
-        cv_model = sklearn.model_selection.GridSearchCV(svc, {"C": [1]}, n_jobs=1)
-        cv_model.fit(*get_iris())
-        mock_func.assert_called_once()
-
-
-@pytest.mark.usefixtures(test_mode_off.__name__)
-@pytest.mark.parametrize(
-    "func_to_fail",
-    ["mlflow.log_params", "mlflow.log_metric", "mlflow.set_tags", "mlflow.sklearn.log_model"],
-)
-def test_autolog_does_not_throw_when_mlflow_logging_fails(func_to_fail):
-    mlflow.sklearn.autolog()
-
-    model = sklearn.cluster.KMeans()
-    X, y = get_iris()
-
-    with mlflow.start_run(), mock.patch(
-        func_to_fail, side_effect=Exception(func_to_fail)
-    ) as mock_func:
-        model.fit(X, y)
-        mock_func.assert_called_once()
 
 
 @pytest.mark.parametrize("data_type", [pd.DataFrame, np.array])
@@ -1046,6 +1012,7 @@ def test_autolog_does_not_capture_runs_for_preprocessing_or_feature_manipulation
     from sklearn.impute import SimpleImputer
     from sklearn.feature_extraction.text import TfidfVectorizer
     from sklearn.feature_selection import VarianceThreshold
+    from sklearn.compose import ColumnTransformer
 
     with mlflow.start_run(run_id=run_id):
         Normalizer().fit_transform(np.random.random((5, 5)))
@@ -1059,6 +1026,7 @@ def test_autolog_does_not_capture_runs_for_preprocessing_or_feature_manipulation
             ]
         )
         VarianceThreshold().fit_transform([[0, 2, 0, 3], [0, 1, 4, 3], [0, 1, 1, 3]])
+        ColumnTransformer([("norm", Normalizer(), [0])]).fit_transform([[0]])
 
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert len(params) == 0
@@ -1472,3 +1440,25 @@ def test_eval_and_log_metrics_throws_with_invalid_args():
         mlflow.sklearn.eval_and_log_metrics(
             model=SpectralClustering(), X=X, y_true=y_true, prefix="val_"
         )
+
+
+def test_metric_computation_handles_absent_labels():
+    """
+    Verifies that autologging metric computation does not fail For models that do not require
+    labels as inputs to training, such as clustering models and other unsupervised techniques.
+    """
+    mlflow.sklearn.autolog()
+
+    model = sklearn.cluster.KMeans()
+
+    with mlflow.start_run() as run:
+        # Train a clustering model solely on samples, without specifying labels
+        model.fit(X=get_iris()[0])
+
+    params, metrics, tags, artifacts = get_run_data(run.info.run_id)
+    assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
+    # We expect metrics to be absent because labels are required to compute autologging metrics
+    # for sklearn models
+    assert not metrics
+    assert tags == get_expected_class_tags(model)
+    assert MODEL_DIR in artifacts

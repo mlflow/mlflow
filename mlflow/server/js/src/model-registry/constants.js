@@ -2,6 +2,7 @@ import React from 'react';
 import { Tag } from 'antd';
 // eslint-disable-next-line
 import * as overrides from './constant-overrides'; // eslint-disable-line import/no-namespace
+import { FormattedMessage } from 'react-intl';
 
 export const Stages = {
   NONE: 'None',
@@ -55,11 +56,21 @@ export const ModelVersionStatus = {
 };
 
 export const DefaultModelVersionStatusMessages = {
-  [ModelVersionStatus.READY]: 'Ready.',
+  [ModelVersionStatus.READY]: (
+    <FormattedMessage
+      defaultMessage='Ready.'
+      description='Default status message for model versions that are ready'
+    />
+  ),
 };
 
 export const modelVersionStatusIconTooltips = {
-  [ModelVersionStatus.READY]: 'Ready',
+  [ModelVersionStatus.READY]: (
+    <FormattedMessage
+      defaultMessage='Ready'
+      description='Tooltip text for ready model version status icon in model view page'
+    />
+  ),
 };
 
 export const ModelVersionStatusIcons = {
@@ -78,6 +89,8 @@ export const REGISTERED_MODELS_SEARCH_NAME_FIELD = 'name';
 
 export const REGISTERED_MODELS_SEARCH_TIMESTAMP_FIELD = 'timestamp';
 
+export const MODEL_SCHEMA_TENSOR_TYPE = 'tensor';
+
 export const AntdTableSortOrder = {
   ASC: 'ascend',
   DESC: 'descend',
@@ -90,5 +103,12 @@ export const REGISTERED_MODEL_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT = `You cann
 registered model with versions in active stages ('Staging' or 'Production'). To delete this
 registered model, transition versions in active stages to the 'Archived' stage.`;
 
-export const archiveExistingVersionToolTipText = (currentStage) => `Model versions in the
-'${currentStage}' stage will be moved to the 'Archived' stage.`;
+export const archiveExistingVersionToolTipText = (currentStage) => (
+  <FormattedMessage
+    defaultMessage='Model versions in the `{currentStage}` stage will be moved to the
+       `Archived` stage.'
+    description='Tooltip text for transitioning existing model versions in stage to archived
+       in the model versions page'
+    values={{ currentStage: currentStage }}
+  />
+);
