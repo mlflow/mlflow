@@ -655,11 +655,12 @@ class _AutologTrainingStatus:
         if hasattr(metric_fn, '__self__'):
             param_sig_keys.pop(0)
 
-        param_sig_keys = filter(
-            lambda key: param_sig[key].kind in [
+        param_sig_keys = [
+            key for key in param_sig_keys
+            if param_sig[key].kind in [
                 inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD
-            ],
-            param_sig_keys)
+            ]
+        ]
 
         if hasattr(metric_fn, '__self__'):
             call_fn_name = f'{metric_fn.__self__.__class__.__name__}.{metric_fn.__name__}'
