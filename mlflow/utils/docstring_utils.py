@@ -1,6 +1,5 @@
 import textwrap
 import re
-from functools import reduce
 
 
 def _create_placeholder(key):

@@ -1,5 +1,3 @@
-import pytest
-
 from mlflow.utils.docstring_utils import _get_minimum_indentation, format_docstring
 
 
