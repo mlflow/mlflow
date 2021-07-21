@@ -2,6 +2,38 @@ import textwrap
 import re
 
 
+LOG_MODEL_PARAM_DOCS = {
+    "pip_requirements": """
+Either an iterable of pip requirement strings
+(e.g. ``["scikit-learn", "-r requirements.txt"]``) or the string path to a pip requirements
+file on the local filesystem (e.g. ``"requirements.txt"``). If provided, this describes the
+environment this model should be run in. If ``None``, a default list of requirements is
+inferred from the current software environment. Requirements are automatically parsed and
+written to a ``requirements.txt`` file that is stored as part of the model. These
+requirements are also written to the ``pip`` section of the model's conda environment
+(``conda.yaml``) file.
+""",
+    "extra_pip_requirements": """
+Either an iterable of pip requirement strings
+(e.g. ``["scikit-learn", "-r requirements.txt"]``) or the string path to a pip requirements
+file on the local filesystem (e.g. ``"requirements.txt"``). If provided, this specifies
+additional pip requirements that are appended to a default set of pip requirements generated
+automatically based on the user's current software environment. Requirements are also
+written to the ``pip`` section of the model's conda environment (``conda.yaml``) file.
+
+.. warning::
+    The following arguments can't be specified at the same time:
+
+    - ``conda_env``
+    - ``pip_requirements``
+    - ``extra_pip_requirements``
+
+:ref:`This example<pip-requirements-example>` demonstrates how to specify pip requirements
+using ``pip_requirements`` and ``extra_pip_requirements``.
+""",
+}
+
+
 _leading_whitespace_re = re.compile("(^[ ]*)(?:[^ \n])", re.MULTILINE)
 
 
@@ -56,35 +88,3 @@ def _format_param_docs(param_docs):
         return func
 
     return decorator
-
-
-LOG_MODEL_PARAM_DOCS = {
-    "pip_requirements": """
-Either an iterable of pip requirement strings
-(e.g. ``["scikit-learn", "-r requirements.txt"]``) or the string path to a pip requirements
-file on the local filesystem (e.g. ``"requirements.txt"``). If provided, this describes the
-environment this model should be run in. If ``None``, a default list of requirements is
-inferred from the current software environment. Requirements are automatically parsed and
-written to a ``requirements.txt`` file that is stored as part of the model. These
-requirements are also written to the ``pip`` section of the model's conda environment
-(``conda.yaml``) file.
-""",
-    "extra_pip_requirements": """
-Either an iterable of pip requirement strings
-(e.g. ``["scikit-learn", "-r requirements.txt"]``) or the string path to a pip requirements
-file on the local filesystem (e.g. ``"requirements.txt"``). If provided, this specifies
-additional pip requirements that are appended to a default set of pip requirements generated
-automatically based on the user's current software environment. Requirements are also
-written to the ``pip`` section of the model's conda environment (``conda.yaml``) file.
-
-.. warning::
-    The following arguments can't be specified at the same time:
-
-    - ``conda_env``
-    - ``pip_requirements``
-    - ``extra_pip_requirements``
-
-:ref:`This example<pip-requirements-example>` demonstrates how to specify pip requirements
-using ``pip_requirements`` and ``extra_pip_requirements``.
-""",
-}
