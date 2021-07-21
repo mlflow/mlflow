@@ -629,7 +629,7 @@ class _AutologTrainingStatus:
         weakref.finalize(predict_result, clean_id, prediction_result_id)
 
     @staticmethod
-    def gen_metric_call_command(metric_fn, *call_pos_args, **call_kwargs):
+    def gen_metric_call_command(self_obj, metric_fn, *call_pos_args, **call_kwargs):
         """
         Generate metric function call command string like `metric_fn(arg1, arg2, ...)`
         Note: this method include inspecting argument variable name.
@@ -652,7 +652,7 @@ class _AutologTrainingStatus:
         param_sig = inspect.signature(metric_fn).parameters
         param_sig_keys = list(param_sig.keys())
 
-        if hasattr(metric_fn, '__self__'):
+        if self_obj is not None:
             param_sig_keys.pop(0)
 
         param_sig_keys = [
@@ -662,8 +662,8 @@ class _AutologTrainingStatus:
             ]
         ]
 
-        if hasattr(metric_fn, '__self__'):
-            call_fn_name = f'{metric_fn.__self__.__class__.__name__}.{metric_fn.__name__}'
+        if self_obj is not None:
+            call_fn_name = f'{self_obj.__class__.__name__}.{metric_fn.__name__}'
         else:
             call_fn_name = metric_fn.__name__
 
@@ -1247,7 +1247,7 @@ def autolog(
                 metric = original(*args, **kwargs)
 
             if status.is_metrics_value_loggable(metric):
-                call_command = status.gen_metric_call_command(original, *args, **kwargs)
+                call_command = status.gen_metric_call_command(None, original, *args, **kwargs)
 
                 is_register_ok, run_id, metric_key = \
                     status.register_metric_api_call(metric_name, call_command, args, kwargs)
@@ -1270,7 +1270,7 @@ def autolog(
 
             if status.is_metrics_value_loggable(score_value):
                 metric_name = f'{self.__class__.__name__}_score'
-                call_command = status.gen_metric_call_command(original, *args, **kwargs)
+                call_command = status.gen_metric_call_command(self, original, *args, **kwargs)
 
                 eval_dataset = status.get_method_first_arg_value(original, args, kwargs)
                 eval_dataset_name = status.register_eval_dataset(self, eval_dataset)
