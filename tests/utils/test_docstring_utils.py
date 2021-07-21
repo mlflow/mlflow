@@ -4,26 +4,17 @@ from mlflow.utils.docstring_utils import _get_minimum_indentation, _format_param
 
 
 def test_get_minimum_indentation():
-    assert (
-        _get_minimum_indentation(
-            """
+    text = """
     # 4 spaces
       # 6 spaces
         # 8 spaces
 """
-        )
-        == " " * 4
-    )
+    assert _get_minimum_indentation(text) == " " * 4
 
-    assert (
-        _get_minimum_indentation(
-            """
+    text = """
 # no indent
 """
-        )
-        == ""
-    )
-
+    assert _get_minimum_indentation(text) == ""
     assert _get_minimum_indentation("") == ""
 
 
