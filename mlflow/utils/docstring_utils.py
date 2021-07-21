@@ -1,8 +1,13 @@
 import textwrap
 import re
+from functools import reduce
 
 
 class ParamDocs(dict):
+    """
+    Represents a set of parameter documents.
+    """
+
     def __repr__(self):
         return f"ParamDocs({super().__repr__()})"
 
@@ -11,27 +16,57 @@ class ParamDocs(dict):
         return "{{ " + key + " }}"
 
     @classmethod
-    def _fill_placeholder(cls, template, key, value):
+    def _replace_placeholder(cls, template, key, value):
         placeholder = ParamDocs._create_placeholder(key)
-        assert placeholder in template
         return template.replace(placeholder, value)
 
     def format(self, **kwargs):
-        return ParamDocs(
-            {
-                param_name: ParamDocs._fill_placeholder(param_doc, key, value)
-                for param_name, param_doc in self.items()
-                for key, value in kwargs.items()
-            }
-        )
+        """
+        Replaces placeholders in param docs.
+
+        :param kwargs: A `dict` in the form of `{"< placeholder name >": "< value >"}`.
+        :return: A new `ParamDocs` instance with the formatted param docs.
+
+        Examples
+        --------
+        >>> p = ParamDocs(p1="{{ doc1 }}", p2="{{ doc2 }}")
+        >>> p.format(doc1="foo", doc2="bar")
+        ParamDocs({'p1': 'foo', 'p2': 'bar'})
+        """
+        new_param_docs = {}
+        for param_name, param_doc in self.items():
+            for key, value in kwargs.items():
+                param_doc = ParamDocs._replace_placeholder(param_doc, key, value)
+            new_param_docs[param_name] = param_doc
+
+        return ParamDocs(new_param_docs)
 
     def format_docstring(self, docstring):
+        """
+        Replaces param doc placeholders in `docstring`.
+
+        :param docstring: Docstring to format.
+        :return: Formatted docstring.
+
+        Examples
+        --------
+        >>> p = ParamDocs(p1="doc1", p2="doc2")
+        >>> docstring = '''
+        ... :param p1: {{ p1 }}
+        ... :param p2: {{ p2 }}
+        ... '''.strip()
+        >>> print(p.format_docstring(docstring))
+        :param p1:
+            doc1
+        :param p2:
+            doc2
+        """
         min_indent = _get_minimum_indentation(docstring)
         for param_name, param_doc in self.items():
             param_doc = textwrap.indent(param_doc, min_indent + " " * 4)
             if not param_doc.startswith("\n"):
                 param_doc = "\n" + param_doc
-            docstring = ParamDocs._fill_placeholder(docstring, param_name, param_doc)
+            docstring = ParamDocs._replace_placeholder(docstring, param_name, param_doc)
 
         return docstring
 
@@ -83,29 +118,29 @@ def _get_minimum_indentation(text):
     return min(indents, key=len) if indents else ""
 
 
-def _format_param_docs(param_docs):
+def format_docstring(param_docs):
     """
-    Returns a decorator that replaces param document placeholders (e.g. '{{ param_name }}') in the
+    Returns a decorator that replaces param doc placeholders (e.g. '{{ param_name }}') in the
     docstring of the decorated function.
 
-    :param param_docs: A dict in the form of `{"param_name": "param_doc"}`.
+    :param param_docs: A `ParamDocs` instance or `dict`.
+    :return: A decorator to apply the formatting.
 
     Examples
     --------
-    >>> param_docs = {"foo": "bar"}
-    >>> @_format_param_docs(param_docs)
-    ... def func(foo):
+    >>> param_docs = {"p1": "doc1", "p2": "doc2"}
+    >>> @format_docstring(param_docs)
+    ... def func(p1, p2):
     ...     '''
-    ...     =====================
-    ...     :param foo: {{ foo }}
-    ...     =====================
+    ...     :param p1: {{ p1 }}
+    ...     :param p2: {{ p2 }}
     ...     '''
-    >>> print(func.__doc__)
-
-        =====================
-        :param foo:
-            bar
-        =====================
+    >>> import textwrap
+    >>> print(textwrap.dedent(func.__doc__).strip())
+    :param p1:
+        doc1
+    :param p2:
+        doc2
     """
     param_docs = ParamDocs(param_docs)
 

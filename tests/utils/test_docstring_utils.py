@@ -1,6 +1,6 @@
 import pytest
 
-from mlflow.utils.docstring_utils import _get_minimum_indentation, _format_param_docs
+from mlflow.utils.docstring_utils import _get_minimum_indentation, format_docstring
 
 
 def test_get_minimum_indentation():
@@ -18,9 +18,9 @@ def test_get_minimum_indentation():
     assert _get_minimum_indentation("") == ""
 
 
-def test_format_param_docs():
+def test_format_docstring():
     # pylint: disable=W
-    @_format_param_docs({"p": "param doc"})
+    @format_docstring({"p": "param doc"})
     def single_param(p):
         """
         :param p:{{ p }}
@@ -34,7 +34,7 @@ def test_format_param_docs():
     assert single_param.__doc__ == expected_doc
     assert single_param.__name__ == "single_param"
 
-    @_format_param_docs({"p1": "param1 doc", "p2": "param2 doc"})
+    @format_docstring({"p1": "param1 doc", "p2": "param2 doc"})
     def multiple_params(p1, p2):
         """
         :param p1:{{ p1 }}
@@ -50,11 +50,3 @@ def test_format_param_docs():
 
     assert multiple_params.__doc__ == expected_doc
     assert multiple_params.__name__ == "multiple_params"
-
-    with pytest.raises(AssertionError):
-
-        @_format_param_docs({"p": "param doc"})
-        def no_placeholder(p):
-            """
-            :param p: param doc
-            """
