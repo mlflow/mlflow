@@ -147,7 +147,6 @@ def save_model(
                           base64-encoded.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param kwargs: kwargs to pass to `xgboost.Booster.save_model`_ method.
     """
     import xgboost as xgb
 
