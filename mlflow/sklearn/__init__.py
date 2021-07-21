@@ -52,6 +52,11 @@ _SklearnTrainingSession = _get_new_training_session_class()
 
 
 def get_default_pip_requirements(include_cloudpickle=False):
+    """
+    :return: A list of default pip requirements for MLflow Models produced by this flavor.
+             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+             that, at minimum, contains these requirements.
+    """
     import sklearn
 
     pip_deps = ["scikit-learn=={}".format(sklearn.__version__)]

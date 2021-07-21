@@ -52,6 +52,11 @@ _PIP_ENV_SUBPATH = "requirements.txt"
 
 
 def get_default_pip_requirements(include_cloudpickle=False, keras_module=None):
+    """
+    :return: A list of default pip requirements for MLflow Models produced by this flavor.
+             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+             that, at minimum, contains these requirements.
+    """
     import tensorflow as tf
 
     pip_deps = []
