@@ -87,6 +87,10 @@ git+https://github.com/sub/dir#subdirectory=subdir
 -r {relative_req}
 --requirement {absolute_req}
 
+# Constraints files
+-c {relative_con}
+--constraint {absolute_con}
+
 # Line continuation
 line-cont\
 ==\
@@ -107,18 +111,36 @@ line-cont-eof\
     try:
         os.chdir(tmpdir)
         root_req = tmpdir.join("requirements.txt")
-        rel_req = tmpdir.join("relative.txt")
-        abs_req = tmpdir.join("absolute.txt")
+        # Requirements files
+        rel_req = tmpdir.join("relative_req.txt")
+        abs_req = tmpdir.join("absolute_req.txt")
+        # Constraints files
+        rel_con = tmpdir.join("relative_con.txt")
+        abs_con = tmpdir.join("absolute_con.txt")
 
         # pip's requirements parser collapses an absolute requirements file path:
         # https://github.com/pypa/pip/issues/10121
         # As a workaround, use a relative path on Windows.
         absolute_req = abs_req.basename if os.name == "nt" else abs_req.strpath
+        absolute_con = abs_con.basename if os.name == "nt" else abs_con.strpath
         root_req.write(
-            root_req_src.format(relative_req=rel_req.basename, absolute_req=absolute_req)
+            root_req_src.format(
+                relative_req=rel_req.basename,
+                absolute_req=absolute_req,
+                relative_con=rel_con.basename,
+                absolute_con=absolute_con,
+            )
         )
-        rel_req.write("rel-xxx\nrel-yyy")
-        abs_req.write("abs-zzz")
+        rel_req.write("rel-req-xxx\nrel-req-yyy")
+        abs_req.write("abs-req-zzz")
+        rel_con.write("rel-con-xxx\nrel-con-yyy")
+        abs_con.write("abs-con-zzz")
+
+        expected_cons = [
+            "rel-con-xxx",
+            "rel-con-yyy",
+            "abs-con-zzz",
+        ]
 
         expected_reqs = [
             "noverspec",
@@ -130,20 +152,22 @@ line-cont-eof\
             "inlinecomm",
             "git+https://github.com/git/uri",
             "git+https://github.com/sub/dir#subdirectory=subdir",
-            "rel-xxx",
-            "rel-yyy",
-            "abs-zzz",
+            "rel-req-xxx",
+            "rel-req-yyy",
+            "abs-req-zzz",
             "line-cont==1.0",
             "line-cont-space == 1.0",
             "line-cont-blank",
             "line-cont-eof",
         ]
-        parsed_reqs = list(_parse_requirements(root_req.basename))
-        pip_reqs = [
-            req.requirement
-            for req in pip_parse_requirements(root_req.basename, session=PipSession())
-        ]
-        assert pip_reqs == expected_reqs
-        assert parsed_reqs == expected_reqs
+
+        parsed_reqs = list(_parse_requirements(root_req.basename, is_constraint=False))
+        pip_reqs = list(pip_parse_requirements(root_req.basename, session=PipSession()))
+        # Requirements
+        assert [r.req_str for r in parsed_reqs if not r.is_constraint] == expected_reqs
+        assert [r.requirement for r in pip_reqs if not r.constraint] == expected_reqs
+        # Constraints
+        assert [r.req_str for r in parsed_reqs if r.is_constraint] == expected_cons
+        assert [r.requirement for r in pip_reqs if r.constraint] == expected_cons
     finally:
         os.chdir(request.config.invocation_dir)
