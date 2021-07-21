@@ -11,11 +11,22 @@ import xgboost as xgb
 import mlflow
 
 
-def get_pip_requirements(run_id, artifact_path):
-    client = mlflow.tracking.MlflowClient()
-    local_path = client.download_artifacts(run_id, f"{artifact_path}/requirements.txt")
-    with open(local_path) as f:
+def read_lines(path):
+    with open(path) as f:
         return f.read().splitlines()
+
+
+def get_pip_requirements(run_id, artifact_path, return_constraints=False):
+    client = mlflow.tracking.MlflowClient()
+    req_path = client.download_artifacts(run_id, f"{artifact_path}/requirements.txt")
+    reqs = read_lines(req_path)
+
+    if return_constraints:
+        con_path = client.download_artifacts(run_id, f"{artifact_path}/constraints.txt")
+        cons = read_lines(con_path)
+        return reqs, cons
+
+    return reqs
 
 
 def main():
@@ -34,12 +45,14 @@ def main():
         mlflow.xgboost.log_model(model, artifact_path)
         pip_reqs = get_pip_requirements(run_id, artifact_path)
         assert pip_reqs == ["mlflow", xgb_req], pip_reqs
+        print("Model URI:", mlflow.get_artifact_uri(artifact_path))
 
         # Overwrite the default set of pip requirements using `pip_requirements`
         artifact_path = "pip_requirements"
         mlflow.xgboost.log_model(model, artifact_path, pip_requirements=[sklearn_req])
         pip_reqs = get_pip_requirements(run_id, artifact_path)
         assert pip_reqs == ["mlflow", sklearn_req], pip_reqs
+        print("Model URI:", mlflow.get_artifact_uri(artifact_path))
 
         # Add extra pip requirements on top of the default set of pip requirements
         # using `extra_pip_requirements`
@@ -47,6 +60,7 @@ def main():
         mlflow.xgboost.log_model(model, artifact_path, extra_pip_requirements=[sklearn_req])
         pip_reqs = get_pip_requirements(run_id, artifact_path)
         assert pip_reqs == ["mlflow", xgb_req, sklearn_req], pip_reqs
+        print("Model URI:", mlflow.get_artifact_uri(artifact_path))
 
         # Specify pip requirements using a requirements file
         with tempfile.NamedTemporaryFile("w", suffix=".requirements.txt") as f:
@@ -58,6 +72,7 @@ def main():
             mlflow.xgboost.log_model(model, artifact_path, pip_requirements=f.name)
             pip_reqs = get_pip_requirements(run_id, artifact_path)
             assert pip_reqs == ["mlflow", sklearn_req], pip_reqs
+            print("Model URI:", mlflow.get_artifact_uri(artifact_path))
 
             # List of pip requirement strings
             artifact_path = "requirements_file_list"
@@ -66,6 +81,23 @@ def main():
             )
             pip_reqs = get_pip_requirements(run_id, artifact_path)
             assert pip_reqs == ["mlflow", xgb_req, sklearn_req], pip_reqs
+            print("Model URI:", mlflow.get_artifact_uri(artifact_path))
+
+        # Using a constraints file
+        with tempfile.NamedTemporaryFile("w", suffix=".constraints.txt") as f:
+            f.write(sklearn_req)
+            f.flush()
+
+            artifact_path = "constraints_file"
+            mlflow.xgboost.log_model(
+                model, artifact_path, pip_requirements=[xgb_req, f"-c {f.name}"]
+            )
+            pip_reqs, pip_cons = get_pip_requirements(
+                run_id, artifact_path, return_constraints=True
+            )
+            assert pip_reqs == ["mlflow", xgb_req, "-c constraints.txt"], pip_reqs
+            assert pip_cons == [sklearn_req], pip_cons
+            print("Model URI:", mlflow.get_artifact_uri(artifact_path))
 
 
 if __name__ == "__main__":
