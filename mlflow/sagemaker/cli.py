@@ -224,9 +224,7 @@ def delete(app_name, region_name, archive, asynchronous, timeout):
 @commands.command("deploy-transform-job")
 @click.option("--job-name", "-n", help="Transform job name", required=True)
 @cli_args.MODEL_URI
-@click.option(
-    "--input-data-type", help="Input data type for the transform job", required=True
-)
+@click.option("--input-data-type", help="Input data type for the transform job", required=True)
 @click.option(
     "--input-uri", "-u", help="S3 key name prefix or manifest of the input data", required=True
 )
