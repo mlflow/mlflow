@@ -66,7 +66,12 @@ def _format_exception(ex):
     return "".join(traceback.format_exception(type(ex), ex, ex.__traceback__))
 
 
-def _get_default_pip_requirements():
+def get_default_pip_requirements():
+    """
+    :return: A list of default pip requirements for MLflow Models produced by this flavor.
+             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+             that, at minimum, contains these requirements.
+    """
     """
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`. This Conda environment
@@ -95,7 +100,7 @@ def get_default_conda_env():
              ``2.4.5.dev0``, invoking this method produces a Conda environment with a
              dependency on PySpark version ``2.4.5``).
     """
-    return _mlflow_conda_env(additional_pip_deps=_get_default_pip_requirements())
+    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
 def log_model(

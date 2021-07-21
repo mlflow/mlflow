@@ -51,7 +51,7 @@ _CONDA_ENV_SUBPATH = "conda.yaml"
 _PIP_ENV_SUBPATH = "requirements.txt"
 
 
-def _get_default_pip_requirements(include_cloudpickle=False, keras_module=None):
+def get_default_pip_requirements(include_cloudpickle=False, keras_module=None):
     import tensorflow as tf
 
     pip_deps = []
@@ -82,7 +82,7 @@ def get_default_conda_env(include_cloudpickle=False, keras_module=None):
              :func:`save_model()` and :func:`log_model()`.
     """
     return _mlflow_conda_env(
-        additional_pip_deps=_get_default_pip_requirements(include_cloudpickle, keras_module)
+        additional_pip_deps=get_default_pip_requirements(include_cloudpickle, keras_module)
     )
 
 

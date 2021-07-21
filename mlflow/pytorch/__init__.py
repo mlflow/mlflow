@@ -47,7 +47,12 @@ _REQUIREMENTS_FILE_KEY = "requirements_file"
 _logger = logging.getLogger(__name__)
 
 
-def _get_default_pip_requirements():
+def get_default_pip_requirements():
+    """
+    :return: A list of default pip requirements for MLflow Models produced by this flavor.
+             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+             that, at minimum, contains these requirements.
+    """
     import torch
     import torchvision
 
@@ -90,7 +95,7 @@ def get_default_conda_env():
                                              'mlflow',
                                              'cloudpickle==1.6.0']}]}
     """
-    return _mlflow_conda_env(additional_pip_deps=_get_default_pip_requirements())
+    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
 def log_model(

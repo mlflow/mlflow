@@ -43,7 +43,7 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 FLAVOR_NAME = "fastai"
 
 
-def _get_default_pip_requirements(include_cloudpickle=False):
+def get_default_pip_requirements(include_cloudpickle=False):
     import fastai
 
     pip_deps = ["fastai=={}".format(fastai.__version__)]
@@ -83,7 +83,7 @@ def get_default_conda_env(include_cloudpickle=False):
                             'dependencies': ['python=3.7.5', 'fastai=1.0.61',
                                              'pip', {'pip': ['mlflow']}]}
     """
-    return _mlflow_conda_env(additional_pip_deps=_get_default_pip_requirements(include_cloudpickle))
+    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements(include_cloudpickle))
 
 
 def save_model(
