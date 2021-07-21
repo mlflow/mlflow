@@ -35,13 +35,16 @@ from mlflow.models.utils import _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import (
     _mlflow_conda_env,
-    _log_pip_requirements,
-    _parse_pip_requirements,
     _validate_env_arguments,
+    _process_pip_requirements,
+    _process_conda_env,
+    _REQUIREMENTS_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
 )
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
+from mlflow.utils.file_utils import write_to
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
@@ -172,6 +175,8 @@ def save_model(
     """
     import xgboost as xgb
 
+    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise MlflowException("Path '{}' already exists".format(path))
@@ -188,21 +193,24 @@ def save_model(
     # Save an XGBoost model
     xgb_model.save_model(model_data_path)
 
-    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+    conda_env, pip_requirements, pip_constraints = (
+        _process_pip_requirements(
+            get_default_pip_requirements(), pip_requirements, extra_pip_requirements,
+        )
+        if conda_env is None
+        else _process_conda_env(conda_env)
+    )
 
     conda_env_subpath = "conda.yaml"
-    if conda_env is None:
-        pip_requirements = _parse_pip_requirements(pip_requirements)
-        extra_pip_requirements = _parse_pip_requirements(extra_pip_requirements)
-        pip_reqs = pip_requirements or (get_default_pip_requirements() + extra_pip_requirements)
-        conda_env = _mlflow_conda_env(additional_pip_deps=pip_reqs)
-    elif not isinstance(conda_env, dict):
-        with open(conda_env, "r") as f:
-            conda_env = yaml.safe_load(f)
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    _log_pip_requirements(conda_env, path)
+    # Save `constraints.txt` if necessary
+    if pip_constraints:
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
+
+    # Save `requirements.txt`
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
     pyfunc.add_to_model(
         mlflow_model, loader_module="mlflow.xgboost", data=model_data_subpath, env=conda_env_subpath
@@ -221,7 +229,7 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements=None,
     extra_pip_requirements=None,
-    **kwargs
+    **kwargs,
 ):
     """
     Log an XGBoost model as an MLflow artifact for the current run.
@@ -275,13 +283,14 @@ def log_model(
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
     :param pip_requirements: Either an iterable of pip requirement strings
-        (e.g. ``["scikit-learn", "-r requirements.txt"]``) or the string path to a pip requirements
-        file on the local filesystem (e.g. ``"requirements.txt"``). If provided, this describes the
-        environment this model should be run in. If ``None``, a default list of requirements is
-        inferred from the current software environment. Requirements are automatically parsed and
-        written to a ``requirements.txt`` file that is stored as part of the model. These
-        requirements are also written to the ``pip`` section of the model's conda environment
-        (``conda.yaml``) file.
+        (e.g. ``["scikit-learn", "-r requirements.txt", "-c constrants.txt"]``) or the string path
+        to a pip requirements file on the local filesystem (e.g. ``"requirements.txt"``).
+        If provided, this describes the environment this model should be run in. If ``None``,
+        a default list of requirements is inferred from the current software environment. Both
+        requirements and constraints are automatically parsed and written to ``requirements.txt``
+        and ``constraints.txt`` files, respectively, and stored as part of the model. Requirements
+        are also written to the ``pip`` section of the model's conda environment (``conda.yaml``)
+        file.
     :param extra_pip_requirements: Either an iterable of pip requirement strings
         (e.g. ``["scikit-learn", "-r requirements.txt"]``) or the string path to a pip requirements
         file on the local filesystem (e.g. ``"requirements.txt"``). If provided, this specifies
@@ -311,7 +320,7 @@ def log_model(
         await_registration_for=await_registration_for,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
-        **kwargs
+        **kwargs,
     )
 
 

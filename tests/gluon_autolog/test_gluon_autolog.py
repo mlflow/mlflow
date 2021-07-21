@@ -3,7 +3,6 @@ import random
 import warnings
 
 import mxnet as mx
-import mxnet.ndarray as nd
 import numpy as np
 import pytest
 from mxnet.gluon import Trainer
@@ -19,8 +18,12 @@ from unittest.mock import patch
 
 if Version(mx.__version__) >= Version("2.0.0"):
     from mxnet.gluon.metric import Accuracy  # pylint: disable=import-error
+
+    array_module = mx.np
 else:
     from mxnet.metric import Accuracy  # pylint: disable=import-error
+
+    array_module = mx.nd
 
 
 class LogsDataset(Dataset):
@@ -28,7 +31,10 @@ class LogsDataset(Dataset):
         self.len = 1000
 
     def __getitem__(self, idx):
-        return nd.array(np.random.rand(1, 32)), nd.full(1, random.randint(0, 10), dtype="float32")
+        return (
+            array_module.array(np.random.rand(1, 32)),
+            array_module.full(1, random.randint(0, 10), dtype="float32"),
+        )
 
     def __len__(self):
         return self.len
@@ -139,7 +145,7 @@ def test_gluon_autolog_model_can_load_from_artifact(gluon_random_data_run):
     assert "model" in artifacts
     ctx = mx.cpu()
     model = mlflow.gluon.load_model("runs:/" + gluon_random_data_run.info.run_id + "/model", ctx)
-    model(nd.array(np.random.rand(1000, 1, 32)))
+    model(array_module.array(np.random.rand(1000, 1, 32)))
 
 
 @pytest.mark.large
