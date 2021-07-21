@@ -89,8 +89,8 @@ jobs:
       - name: Get python version
         id: get-python-version
         run: |
-          if [ "${{ matrix.package }}" = "scikit-learn" && "${{ matrix.version }}" = "dev" ] || \
-             [ "${{ matrix.package }}" = "statsmodels" ]
+          if [[ "${{ matrix.package }}" = "scikit-learn" && "${{ matrix.version }}" = "dev" ]] || \
+             [[ "${{ matrix.package }}" = "statsmodels" ]]
           then
             python_version=3.7
           else
