@@ -629,7 +629,7 @@ class _AutologTrainingStatus:
         weakref.finalize(predict_result, clean_id, prediction_result_id)
 
     @staticmethod
-    def gen_metric_call_command(call_fn_name, *call_pos_args, **call_kwargs):
+    def gen_metric_call_command(metric_fn, *call_pos_args, **call_kwargs):
         """
         Generate metric function call command string like `metric_fn(arg1, arg2, ...)`
         Note: this method include inspecting argument variable name.
@@ -649,13 +649,32 @@ class _AutologTrainingStatus:
                 # dataset arguments or other non-scalar type argument
                 return _inspect_original_var_name(arg, fallback_name=f'<{arg.__class__.__name__}>')
 
-        for arg in call_pos_args:
-            arg_list.append(arg_to_str(arg))
+        param_sig = inspect.signature(metric_fn).parameters
+        param_sig_keys = list(param_sig.keys())
+
+        if hasattr(metric_fn, '__self__'):
+            param_sig_keys.pop(0)
+
+        param_sig_keys = filter(
+            lambda key: param_sig[key].kind in [
+                inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD
+            ],
+            param_sig_keys)
+
+        if hasattr(metric_fn, '__self__'):
+            call_fn_name = f'{metric_fn.__self__.__class__.__name__}.{metric_fn.__name__}'
+        else:
+            call_fn_name = metric_fn.__name__
+
+        assert len(param_sig_keys) >= len(call_pos_args), 'Found too many positional arguments.'
+        for arg_name, arg in zip(param_sig_keys, call_pos_args):
+            arg_list.append(f'{arg_name}={arg_to_str(arg)}')
 
         for arg_name, arg in call_kwargs.items():
             arg_list.append(f'{arg_name}={arg_to_str(arg)}')
 
         arg_list_str = ', '.join(arg_list)
+
         return f'{call_fn_name}({arg_list_str})'
 
     def register_metric_info(self, run_id, metric_name, dataset_name, call_command):
@@ -763,7 +782,7 @@ def _get_metric_name_list():
                 and not inspect.isclass(metric_method) \
                 and callable(metric_method) \
                 and not metric_method_name.startswith('plot_'):
-            metric_list.append(metric_method)
+            metric_list.append(metric_method_name)
     return metric_list
 
 
@@ -1227,9 +1246,7 @@ def autolog(
                 metric = original(*args, **kwargs)
 
             if status.is_metrics_value_loggable(metric):
-                metric_name = original.__name__
-
-                call_command = status.gen_metric_call_command(metric_name, *args, **kwargs)
+                call_command = status.gen_metric_call_command(original, *args, **kwargs)
 
                 is_register_ok, run_id, metric_key = \
                     status.register_metric_api_call(metric_name, call_command, args, kwargs)
@@ -1252,8 +1269,7 @@ def autolog(
 
             if status.is_metrics_value_loggable(score_value):
                 metric_name = f'{self.__class__.__name__}_score'
-                call_fn_name = f'{self.__class__.__name__}.score'
-                call_command = status.gen_metric_call_command(call_fn_name, *args, **kwargs)
+                call_command = status.gen_metric_call_command(original, *args, **kwargs)
 
                 eval_dataset = status.get_method_first_arg_value(original, args, kwargs)
                 eval_dataset_name = status.register_eval_dataset(self, eval_dataset)
