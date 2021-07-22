@@ -1472,76 +1472,72 @@ def load_json_artifact(artifact_path):
 
 
 def test_baisc_post_training_metric():
-    from sklearn.metrics import r2_score, mean_squared_error
     mlflow.sklearn.autolog()
+    from sklearn.metrics import r2_score, mean_squared_error, make_scorer
 
-    model = sklearn.linear_model.LogisticRegression(solver="saga", max_iter=10, random_state=0)
+    model = sklearn.linear_model.LogisticRegression(solver="saga", max_iter=100, random_state=0)
     X, y = get_iris()
 
     with mlflow.start_run() as run:
         model.fit(X, y)
 
-    eval1_X, eval1_y = X[:50], y[:50]
-    eval2_X, eval2_y = X[50:100], y[50:100]
+        eval1_X, eval1_y = X[:50], y[:50]
+        eval2_X, eval2_y = X[50:100], y[50:100]
 
-    pred1_y = model.predict(eval1_X)
-    pred2_y = model.predict(eval2_X)
+        pred1_y = model.predict(eval1_X)
+        pred2_y = model.predict(eval2_X)
 
-    r2_score_data1 = r2_score(eval1_y, pred1_y)
-    mean_squared_error_data1 = mean_squared_error(eval1_y, pred1_y)
-    r2_score_data2 = r2_score(eval2_y, pred2_y)
-    lor_score_data1 = model.score(eval1_X, eval1_y)
-    mean_squared_error_data2 = mean_squared_error(eval2_y, pred2_y)
+        r2_score_data1 = r2_score(eval1_y, pred1_y)
+        mean_squared_error_data1 = mean_squared_error(eval1_y, pred1_y)
+        r2_score_data2 = r2_score(eval2_y, pred2_y)
+        lor_score_data1 = model.score(eval1_X, eval1_y)
+        mean_squared_error_data2 = mean_squared_error(eval2_y, pred2_y, squared=False)
 
-    eval1_X, eval1_y = eval1_X.copy(), eval1_y.copy()
-    # In metric key, it will include dataset name as "eval1_X-2"
-    lor_score_data1_2 = model.score(eval1_X, eval1_y)
+        scorer1 = make_scorer(mean_squared_error, squared=False)
+        mean_squared_error3_data2 = scorer1(model, eval2_X, eval2_y)
 
-    # In metric key, it will include dataset name as "unknown_dataset"
-    lor_score_data1_3 = model.score(eval1_X.copy(), eval1_y.copy())
-    # In metric key, it will include dataset name as "unknown_dataset-2"
-    lor_score_data1_4 = model.score(eval1_X.copy(), eval1_y.copy())
+        eval1_X, eval1_y = eval1_X.copy(), eval1_y.copy()
+        # In metric key, it will include dataset name as "eval1_X-2"
+        lor_score_data1_2 = model.score(eval1_X, eval1_y)
+
+        # In metric key, it will include dataset name as "unknown_dataset"
+        lor_score_data1_3 = model.score(eval1_X.copy(), eval1_y.copy())
+
+        metric_info = load_json_artifact("metric_info.json")
 
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     post_training_metrics = {k: v for k, v in metrics.items() if not k.startswith('training_')}
+
     assert post_training_metrics == {
         'r2_score_eval1_X': r2_score_data1,
         'mean_squared_error_eval1_X': mean_squared_error_data1,
         'r2_score-2_eval2_X': r2_score_data2,
         'LogisticRegression_score_eval1_X': lor_score_data1,
         'mean_squared_error-2_eval2_X': mean_squared_error_data2,
+        'mean_squared_error-3_eval2_X': mean_squared_error3_data2,
         'LogisticRegression_score-2_eval1_X-2': lor_score_data1_2,
         'LogisticRegression_score-3_unknown_dataset': lor_score_data1_3,
-        'LogisticRegression_score-4_unknown_dataset-2': lor_score_data1_4,
     }
-    metric_info_artifact_path = "metric_info.json"
-    assert metric_info_artifact_path in artifacts
 
-    metric_info = load_json_artifact(metric_info_artifact_path)
-    print(metric_info)
+    assert metric_info == {
+        'LogisticRegression_score-2_eval1_X-2': 'LogisticRegression.score(X=eval1_X, y=eval1_y)',
+        'LogisticRegression_score-3_unknown_dataset': 'LogisticRegression.score(X=<ndarray>, y=<ndarray>)',
+        'LogisticRegression_score_eval1_X': 'LogisticRegression.score(X=eval1_X, y=eval1_y)',
+        'mean_squared_error-2_eval2_X': 'mean_squared_error(y_true=eval2_y, y_pred=pred2_y, squared=False)',
+        'mean_squared_error-3_eval2_X': 'mean_squared_error(y_true=eval2_y, y_pred=y_pred, squared=False)',
+        'mean_squared_error_eval1_X': 'mean_squared_error(y_true=eval1_y, y_pred=pred1_y)',
+        'r2_score-2_eval2_X': 'r2_score(y_true=eval2_y, y_pred=pred2_y)',
+        'r2_score_eval1_X': 'r2_score(y_true=eval1_y, y_pred=pred1_y)'
+    }
 
 
+def test_run_all_metric_examples():
+    import doctest
+    from sklearn import metrics
+    mlflow.sklearn.autolog()
+    for metric_name in mlflow.sklearn._get_metric_name_list():
+        metric_api = getattr(metrics, metric_name)
+        doctest.run_docstring_examples(metric_api.__doc__, {}, verbose=True)
 
-# test basic eval, metric_info artifact
-
-# test flag scope in fit/eval_and_log_metric/nested metric call/model.score
-
-# test predict model.score first arg name is T, test predict is an property
-
-# test inspect var name
-
-# test all metric fn works
-
-# test make_scorer
-
-# test interleaved model fit/eval metric call
-
-# test dataset mapped to same name, dataset name unknown case
-
-# test metric calls log.
-
-# test meta estimator disable eval metric log
-
-# test logged metric key
 

@@ -604,6 +604,9 @@ class _AutologgingMetricsManager:
             # register new eval dataset
             registered_dataset_list.append(eval_dataset_id)
 
+        if eval_dataset_name == 'unknown_dataset':
+            print(f'DBG1234: id={eval_dataset_id}, index={index}')
+
         return self.gen_name_with_index(eval_dataset_name, index)
 
     def register_prediction_result(self, run_id, eval_dataset_name, predict_result):
