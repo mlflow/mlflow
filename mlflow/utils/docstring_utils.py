@@ -13,7 +13,7 @@ def _replace_placeholder(template, key, value):
 
 class ParamDocs(dict):
     """
-    Represents a set of parameter documents.
+    Represents a set of parameter documents in the docstring.
     """
 
     def __repr__(self):
@@ -21,15 +21,15 @@ class ParamDocs(dict):
 
     def format(self, **kwargs):
         """
-        Replaces placeholders in param docs.
+        Formats placeholders in this instance with `kwargs`.
 
         :param kwargs: A `dict` in the form of `{"< placeholder name >": "< value >"}`.
         :return: A new `ParamDocs` instance with the formatted param docs.
 
         Examples
         --------
-        >>> p = ParamDocs(p1="{{ doc1 }}", p2="{{ doc2 }}")
-        >>> p.format(doc1="foo", doc2="bar")
+        >>> pd = ParamDocs(p1="{{ doc1 }}", p2="{{ doc2 }}")
+        >>> pd.format(doc1="foo", doc2="bar")
         ParamDocs({'p1': 'foo', 'p2': 'bar'})
         """
         new_param_docs = {}
@@ -42,19 +42,19 @@ class ParamDocs(dict):
 
     def format_docstring(self, docstring):
         """
-        Replaces param doc placeholders in `docstring`.
+        Formats placeholders in `docstring`.
 
         :param docstring: Docstring to format.
         :return: Formatted docstring.
 
         Examples
         --------
-        >>> p = ParamDocs(p1="doc1", p2="doc2")
+        >>> pd = ParamDocs(p1="doc1", p2="doc2")
         >>> docstring = '''
         ... :param p1: {{ p1 }}
         ... :param p2: {{ p2 }}
         ... '''.strip()
-        >>> print(p.format_docstring(docstring))
+        >>> print(pd.format_docstring(docstring))
         :param p1:
             doc1
         :param p2:

@@ -1,4 +1,11 @@
-from mlflow.utils.docstring_utils import _get_minimum_indentation, format_docstring
+from mlflow.utils.docstring_utils import ParamDocs, _get_minimum_indentation, format_docstring
+
+
+def test_param_docs_format():
+    pd = ParamDocs({"x": "{{ x }}", "y": "{{ y }}", "z": "{{ x }}, {{ y }}"})
+    formatted = pd.format(x="a", y="b")
+    assert isinstance(formatted, ParamDocs)
+    assert formatted == {"x": "a", "y": "b", "z": "a, b"}
 
 
 def test_get_minimum_indentation():
