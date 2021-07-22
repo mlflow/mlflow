@@ -1464,6 +1464,64 @@ def test_metric_computation_handles_absent_labels():
     assert MODEL_DIR in artifacts
 
 
+def load_json_artifact(artifact_path):
+    import json
+    fpath = mlflow.get_artifact_uri(artifact_path).replace("file://", "")
+    with open(fpath, "r") as f:
+        return json.load(f)
+
+
+def test_baisc_post_training_metric():
+    from sklearn.metrics import r2_score, mean_squared_error
+    mlflow.sklearn.autolog()
+
+    model = sklearn.linear_model.LogisticRegression(solver="saga", max_iter=10, random_state=0)
+    X, y = get_iris()
+
+    with mlflow.start_run() as run:
+        model.fit(X, y)
+
+    eval1_X, eval1_y = X[:50], y[:50]
+    eval2_X, eval2_y = X[50:100], y[50:100]
+
+    pred1_y = model.predict(eval1_X)
+    pred2_y = model.predict(eval2_X)
+
+    r2_score_data1 = r2_score(eval1_y, pred1_y)
+    mean_squared_error_data1 = mean_squared_error(eval1_y, pred1_y)
+    r2_score_data2 = r2_score(eval2_y, pred2_y)
+    lor_score_data1 = model.score(eval1_X, eval1_y)
+    mean_squared_error_data2 = mean_squared_error(eval2_y, pred2_y)
+
+    eval1_X, eval1_y = eval1_X.copy(), eval1_y.copy()
+    # In metric key, it will include dataset name as "eval1_X-2"
+    lor_score_data1_2 = model.score(eval1_X, eval1_y)
+
+    # In metric key, it will include dataset name as "unknown_dataset"
+    lor_score_data1_3 = model.score(eval1_X.copy(), eval1_y.copy())
+    # In metric key, it will include dataset name as "unknown_dataset-2"
+    lor_score_data1_4 = model.score(eval1_X.copy(), eval1_y.copy())
+
+    run_id = run.info.run_id
+    params, metrics, tags, artifacts = get_run_data(run_id)
+    post_training_metrics = {k: v for k, v in metrics.items() if not k.startswith('training_')}
+    assert post_training_metrics == {
+        'r2_score_eval1_X': r2_score_data1,
+        'mean_squared_error_eval1_X': mean_squared_error_data1,
+        'r2_score-2_eval2_X': r2_score_data2,
+        'LogisticRegression_score_eval1_X': lor_score_data1,
+        'mean_squared_error-2_eval2_X': mean_squared_error_data2,
+        'LogisticRegression_score-2_eval1_X-2': lor_score_data1_2,
+        'LogisticRegression_score-3_unknown_dataset': lor_score_data1_3,
+        'LogisticRegression_score-4_unknown_dataset-2': lor_score_data1_4,
+    }
+    metric_info_artifact_path = "metric_info.json"
+    assert metric_info_artifact_path in artifacts
+
+    metric_info = load_json_artifact(metric_info_artifact_path)
+    print(metric_info)
+
+
 
 # test basic eval, metric_info artifact
 
