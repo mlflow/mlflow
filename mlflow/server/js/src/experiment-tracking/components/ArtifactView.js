@@ -376,7 +376,12 @@ function ModelVersionInfoSection(props) {
             <FormattedMessage
               defaultMessage='Registered on {registeredDate}'
               description='Label to display at what date the model was registered'
-              values={Utils.formatTimestamp(modelVersion.creation_timestamp, 'yyyy/mm/dd')}
+              values={{
+                registeredDate: Utils.formatTimestamp(
+                  modelVersion.creation_timestamp,
+                  'yyyy/mm/dd',
+                ),
+              }}
             />
           </React.Fragment>
         ) : (
