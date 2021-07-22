@@ -544,3 +544,16 @@ def _get_new_training_session_class():
             )
 
     return _TrainingSession
+
+
+def temporarily_disable_autologging(name):
+    class DisableAutologgingScope:
+        def __enter__(self):
+            self.config = AUTOLOGGING_INTEGRATIONS.get(name)
+            if self.config is not None:
+                self.old_status = self.config.get('disable', False)
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            if self.config is not None and self.old_status:
+                self.config.set('disable', True)
+    return DisableAutologgingScope()

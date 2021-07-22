@@ -37,6 +37,7 @@ from mlflow.utils.autologging_utils import (
     resolve_input_example_and_signature,
     _get_new_training_session_class,
     MlflowAutologgingQueueingClient,
+    temporarily_disable_autologging,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -957,6 +958,22 @@ def autolog(
                 safe_patch(
                     FLAVOR_NAME, class_def, func_name, patched_fit, manage_run=True,
                 )
+
+    def patched_fn_with_autolog_disabled(original, *args, **kwargs):
+        with temporarily_disable_autologging(FLAVOR_NAME):
+            return original(*args, **kwargs)
+
+    from sklearn import model_selection
+    for disable_autolog_func_name in [
+        'cross_validate',
+        'cross_val_predict',
+        'cross_val_score',
+    ]:
+        safe_patch(
+            FLAVOR_NAME, model_selection, disable_autolog_func_name,
+            patched_fn_with_autolog_disabled,
+            manage_run=False
+        )
 
 
 def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
