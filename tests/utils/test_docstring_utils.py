@@ -28,7 +28,6 @@ def test_format_docstring():
         :param p:
             param doc
         """
-
     assert single_param.__doc__ == expected_doc
     assert single_param.__name__ == "single_param"
 
@@ -45,6 +44,5 @@ def test_format_docstring():
         :param p2:
             param2 doc
         """
-
     assert multiple_params.__doc__ == expected_doc
     assert multiple_params.__name__ == "multiple_params"
