@@ -148,6 +148,26 @@ def test_batch_deployment_of_model_with_no_supported_flavors_raises_exception(pr
 
 
 @pytest.mark.large
+def test_deploy_sagemaker_transform_job_in_asynchronous_mode_without_archiving_throws_exception(
+    pretrained_model,
+):
+    with pytest.raises(MlflowException) as exc:
+        mfs.deploy_transform_job(
+            job_name="test-job",
+            model_uri=pretrained_model.model_uri,
+            s3_input_data_type="Some Data Type",
+            s3_input_uri="Some Input Uri",
+            content_type="Some Content Type",
+            s3_output_path="Some Output Path",
+            archive=False,
+            synchronous=False,
+        )
+
+    assert "Resources must be archived" in exc.value.message
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_deploy_creates_sagemaker_transform_job_and_s3_resources_with_expected_names_from_local(
     pretrained_model, sagemaker_client
@@ -200,6 +220,7 @@ def test_deploy_cli_creates_sagemaker_transform_job_and_s3_resources_with_expect
             "Some Content Type",
             "--output-path",
             "Some Output Path",
+            "--archive",
         ],
     )
     assert result.exit_code == 0
@@ -292,6 +313,7 @@ def test_deploy_cli_creates_sagemaker_transform_job_and_s3_resources_with_expect
             "Some Content Type",
             "--output-path",
             "Some Output Path",
+            "--archive",
         ],
     )
     assert result.exit_code == 0
