@@ -1462,3 +1462,28 @@ def test_metric_computation_handles_absent_labels():
     assert not metrics
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
+
+
+
+# test basic eval, metric_info artifact
+
+# test flag scope in fit/eval_and_log_metric/nested metric call/model.score
+
+# test predict model.score first arg name is T, test predict is an property
+
+# test inspect var name
+
+# test all metric fn works
+
+# test make_scorer
+
+# test interleaved model fit/eval metric call
+
+# test dataset mapped to same name, dataset name unknown case
+
+# test metric calls log.
+
+# test meta estimator disable eval metric log
+
+# test logged metric key
+

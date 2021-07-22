@@ -32,6 +32,7 @@ from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _inspect_original_var_name
 from mlflow.utils.annotations import experimental
+from mlflow.utils.autologging_utils import get_instance_method_first_arg_value
 from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -470,18 +471,21 @@ def load_model(model_uri):
     )
 
 
-class _AutologTrainingStatus:
+class _AutologgingMetricsManager:
     """
     This class is designed for holding information which is used by autologging metrics
     It will hold information of:
     (1) a map of "prediction result object id" to a tuple of dataset name(the dataset is
        the one which generate the prediction result) and run_id.
+       Note: We need this map instead of setting the run_id into the "prediction result object"
+       because the object maybe a numpy array which does not support additional attribute
+       assignment.
     (2) _log_post_training_metrics_enabled flag, in the following method scope:
        `model.fit`, `eval_and_log_metrics`, `model.score`,
        in order to avoid nested/duplicated autologging metric, when run into these scopes,
        we need temporarily disable the metric autologging.
-    (3) eval_dataset_info_map, it is a double level map:
-       `eval_dataset_info_map[run_id][eval_dataset_var_name]` will get a list, each
+    (3) _eval_dataset_info_map, it is a double level map:
+       `_eval_dataset_info_map[run_id][eval_dataset_var_name]` will get a list, each
        element in the list is an id of "eval_dataset" instance.
        This data structure is used for:
         * generating unique dataset name key when autologging metric. For each eval dataset object,
@@ -568,9 +572,9 @@ class _AutologTrainingStatus:
             # so it can prevent name conflicts after appending index.
             return f'{name}-{index + 1}'
 
-    def register_eval_dataset(self, model, eval_dataset):
+    def register_prediction_input_dataset(self, model, eval_dataset):
         """
-        Register eval dataset into eval_dataset_info_map, it will do:
+        Register prediction input dataset into eval_dataset_info_map, it will do:
          1. inspect eval dataset var name.
          2. check whether eval_dataset_info_map already registered this eval dataset.
             will check by object id and comparing row samples.
@@ -589,11 +593,12 @@ class _AutologTrainingStatus:
         run_id = self.get_run_id_for_model(model)
         registered_dataset_list = self._eval_dataset_info_map[run_id][eval_dataset_name]
 
-        index = len(registered_dataset_list)
         for i, id_i in enumerate(registered_dataset_list):
             if eval_dataset_id == id_i:
                 index = i
                 break
+        else:
+            index = len(registered_dataset_list)
 
         if index == len(registered_dataset_list):
             # register new eval dataset
@@ -601,27 +606,18 @@ class _AutologTrainingStatus:
 
         return self.gen_name_with_index(eval_dataset_name, index)
 
-    def register_prediction_result(self, model, eval_dataset_name, predict_result):
+    def register_prediction_result(self, run_id, eval_dataset_name, predict_result):
         """
-        In `patched_predict`, register the prediction result instance with the model id and eval
-        dataset name. e.g.
-
-        ```
-        prediction_result = model_1.predict(eval_X)
-        ```
-        then we need register an item into the `pred_result_id_to_dataset_name_and_run_id` map like
-        below:
-        id(prediction_result) --> (inspected_original_var_name_of(eval_X), id(model_1))
-
-        With this map `dataset_id_to_dataset_name_and_run_id`, in following patched metric API,
-        we can query the eval dataset name and the model id via the `y_pred` argument instance.
+        Register the relationship
+         id(prediction_result) --> (eval_dataset_name, run_id)
+        into map `_pred_result_id_to_dataset_name_and_run_id`
         """
-        value = (eval_dataset_name, self.get_run_id_for_model(model))
+        value = (eval_dataset_name, run_id)
         prediction_result_id = id(predict_result)
         self._pred_result_id_to_dataset_name_and_run_id[prediction_result_id] = value
 
         def clean_id(id_):
-            _get_autolog_training_status()._pred_result_id_to_dataset_name_and_run_id \
+            _get_autologging_metrics_manager()._pred_result_id_to_dataset_name_and_run_id \
                 .pop(id_, None)
 
         # When the `predict_result` object being GCed, its ID may be reused, so register a finalizer
@@ -635,6 +631,13 @@ class _AutologTrainingStatus:
         Note: this method include inspecting argument variable name.
          So should be called directly from the "patched method", to ensure it capture
          correct argument variable name.
+
+        :param self_obj: If the metric_fn is a method of an instance (e.g. `model.score`),
+           the `self_obj` represent the instance.
+        :param metric_fn: metric function.
+        :param call_pos_args: the positional arguments of the metric function call. If `metric_fn`
+          is instance method, then the `call_pos_args` should exclude the first `self` argument.
+        :param call_kwargs: the keyword arguments ofthe metric function call.
         """
 
         arg_list = []
@@ -650,13 +653,16 @@ class _AutologTrainingStatus:
                 return _inspect_original_var_name(arg, fallback_name=f'<{arg.__class__.__name__}>')
 
         param_sig = inspect.signature(metric_fn).parameters
-        param_sig_keys = list(param_sig.keys())
+        pos_param_sig_keys = list(param_sig.keys())
 
         if self_obj is not None:
-            param_sig_keys.pop(0)
+            # If metric_fn is a method of an instance, e.g. `model.score`,
+            # then the first argument is `self` which we need exclude it.
+            pos_param_sig_keys.pop(0)
 
-        param_sig_keys = [
-            key for key in param_sig_keys
+        # Get positional argument signature keys
+        pos_param_sig_keys = [
+            key for key in pos_param_sig_keys
             if param_sig[key].kind in [
                 inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD
             ]
@@ -667,8 +673,10 @@ class _AutologTrainingStatus:
         else:
             call_fn_name = metric_fn.__name__
 
-        assert len(param_sig_keys) >= len(call_pos_args), 'Found too many positional arguments.'
-        for arg_name, arg in zip(param_sig_keys, call_pos_args):
+        assert len(pos_param_sig_keys) >= len(call_pos_args), 'Found too many positional arguments.'
+
+        # Attach param signature key for positinal param values
+        for arg_name, arg in zip(pos_param_sig_keys, call_pos_args):
             arg_list.append(f'{arg_name}={arg_to_str(arg)}')
 
         for arg_name, arg in call_kwargs.items():
@@ -678,7 +686,17 @@ class _AutologTrainingStatus:
 
         return f'{call_fn_name}({arg_list_str})'
 
-    def register_metric_info(self, run_id, metric_name, dataset_name, call_command):
+    def register_metric_api_call(self, run_id, metric_name, dataset_name, call_command):
+        """
+        This method will do:
+        (1) Generate and return metric key, format is:
+          {metric_name}[_{call_index}]_{eval_dataset_name}
+          metric_name is generated by metric function name, if multiple calls on this
+          method happen, the following calls will be assigned with an increasing call_index.
+        (2) Register the metric key with the "call command" information into
+          `_autologging_metrics_manager`. See doc of `gen_metric_call_command` method for
+          details of "call command".
+        """
 
         call_cmd_list = self._metric_api_call_info[run_id][metric_name]
 
@@ -688,17 +706,19 @@ class _AutologTrainingStatus:
 
         call_cmd_list.append((metric_key, call_command))
 
+        # Set the flag to true, represent the metric info in this run need update.
+        # Later when `log_eval_metric` called, it will generate a new metric_info artifact
+        # and overwrite the old artifact.
         self._metric_info_artifact_need_update[run_id] = True
         return metric_key
 
-    def register_metric_api_call(self, metric_name, call_command, call_pos_args, call_kwargs):
+    def get_run_id_and_dataset_name_for_metric_api_call(
+            self, call_pos_args, call_kwargs
+    ):
         """
         Given a metric api call (include the called metric function, and call arguments)
         Register the call information (arguments dict) into the `metric_api_call_arg_dict_list_map`
-        and return a tuple of (is_ok, run_id, metric_key)
-        - metric key format is: {eval_dataset_name}_{metric_name}
-          metric_name is generated by metric function name, if there're multiple calls with
-          different call arguments, then appending index to the name.
+        and return a tuple of (run_id, eval_dataset_name)
         """
         call_arg_list = list(call_pos_args) + list(call_kwargs.values())
 
@@ -713,15 +733,15 @@ class _AutologTrainingStatus:
                 dataset_name, run_id = self._pred_result_id_to_dataset_name_and_run_id[id(arg)]
                 break
         else:
-            return False, None, None
+            return None, None
 
-        metric_key = self.register_metric_info(
-            run_id, metric_name, dataset_name, call_command
-        )
+        return run_id, dataset_name
 
-        return True, run_id, metric_key
-
-    def log_eval_metric(self, run_id, key, value):
+    def log_post_training_metric(self, run_id, key, value):
+        """
+        Log the metric into the specified mlflow run.
+        and it will also update the metric_info artifact if needed.
+        """
         # Note: if the case log the same metric key multiple times,
         #  newer value will overwrite old value
         client = mlflow.tracking.MlflowClient()
@@ -742,26 +762,16 @@ class _AutologTrainingStatus:
             )
             self._metric_info_artifact_need_update[run_id] = False
 
-    def get_method_first_arg_value(self, method, call_pos_args, call_kwargs):
-        """
-        Get instance method first argument value (exclude the `self` argument).
-        """
-        if len(call_pos_args) >= 1:
-            return call_pos_args[0]
-        else:
-            first_arg_name = list(inspect.signature(method).parameters.keys())[1]
-            return call_kwargs.get(first_arg_name)
+
+_autologging_metrics_manager = _AutologgingMetricsManager()
 
 
-_autolog_training_status = _AutologTrainingStatus()
-
-
-def _get_autolog_training_status():
+def _get_autologging_metrics_manager():
     """
-    Get the global `_AutologTrainingStatus` instance which holds information used in post-training
-    metric autologging. See doc of class `_AutologTrainingStatus` for details.
+    Get the global `_AutologgingMetricsManager` instance which holds information used in post-training
+    metric autologging. See doc of class `_AutologgingMetricsManager` for details.
     """
-    return _autolog_training_status
+    return _autologging_metrics_manager
 
 
 _metric_api_excluding_list = [
@@ -1216,9 +1226,11 @@ def autolog(
                           for autologging (e.g., specify "fit" in order to indicate that
                           `sklearn.linear_model.LogisticRegression.fit()` is being patched)
         """
-        status = _get_autolog_training_status()
+        status = _get_autologging_metrics_manager()
         with _SklearnTrainingSession(clazz=self.__class__, allow_children=False) as t:
             if t.should_log():
+                # In `fit_mlflow` call, it will also call metric API for computing training metrics
+                # so we need temporarily disable the post_training_metrics patching.
                 with status.disable_log_post_training_metrics():
                     result = fit_mlflow(original, self, *args, **kwargs)
                 status.register_model(self, mlflow.active_run().info.run_id)
@@ -1227,19 +1239,38 @@ def autolog(
                 return original(self, *args, **kwargs)
 
     def patched_predict(original, self, *args, **kwargs):
-        status = _get_autolog_training_status()
+        status = _get_autologging_metrics_manager()
         if status.should_log_post_training_metrics() and status.get_run_id_for_model(self):
             predict_result = original(self, *args, **kwargs)
-            eval_dataset = status.get_method_first_arg_value(original, args, kwargs)
-            eval_dataset_name = status.register_eval_dataset(self, eval_dataset)
+            eval_dataset = get_instance_method_first_arg_value(original, args, kwargs)
+            eval_dataset_name = status.register_prediction_input_dataset(self, eval_dataset)
+
+            """
+            In `patched_predict`, register the prediction result instance with the run id and
+             eval dataset name. e.g.
+    
+            ```
+            prediction_result = model_1.predict(eval_X)
+            ```
+            then we need register the following relatinoship into the
+            `_autologging_metrics_manager`:
+            id(prediction_result) --> (eval_dataset_name, run_id)
+            
+            Note: we cannot set additional attributes "eval_dataset_name" and "run_id" into
+            the prediction_result object, because certain dataset type like numpy does not support
+            additional attribute assignment.
+            """
             status.register_prediction_result(
-                self, eval_dataset_name, predict_result)
+                status.get_run_id_for_model(self),
+                eval_dataset_name,
+                predict_result
+            )
             return predict_result
         else:
             return original(self, *args, **kwargs)
 
     def patched_metric_api(original, *args, **kwargs):
-        status = _get_autolog_training_status()
+        status = _get_autologging_metrics_manager()
         if status.should_log_post_training_metrics():
             # one metric api may call another metric api,
             # to avoid this, call disable_log_post_training_metrics to avoid nested patch
@@ -1247,12 +1278,17 @@ def autolog(
                 metric = original(*args, **kwargs)
 
             if status.is_metrics_value_loggable(metric):
+                metric_name = original.__name__
                 call_command = status.gen_metric_call_command(None, original, *args, **kwargs)
 
-                is_register_ok, run_id, metric_key = \
-                    status.register_metric_api_call(metric_name, call_command, args, kwargs)
-                if is_register_ok:
-                    status.log_eval_metric(run_id, metric_key, metric)
+                run_id, dataset_name = status.get_run_id_and_dataset_name_for_metric_api_call(
+                    args, kwargs
+                )
+                if run_id and dataset_name:
+                    metric_key = status.register_metric_api_call(
+                        run_id, metric_name, dataset_name, call_command
+                    )
+                    status.log_post_training_metric(run_id, metric_key, metric)
 
             return metric
         else:
@@ -1263,8 +1299,10 @@ def autolog(
     #  e.g.
     #  https://github.com/scikit-learn/scikit-learn/blob/82df48934eba1df9a1ed3be98aaace8eada59e6e/sklearn/covariance/_empirical_covariance.py#L220
     def patched_model_score(original, self, *args, **kwargs):
-        status = _get_autolog_training_status()
+        status = _get_autologging_metrics_manager()
         if status.should_log_post_training_metrics() and status.get_run_id_for_model(self):
+            # `model.score` may call metric APIs internally, in order to prevent nested metric call
+            # being logged, temporarily disable post_training_metrics patching.
             with status.disable_log_post_training_metrics():
                 score_value = original(self, *args, **kwargs)
 
@@ -1272,13 +1310,13 @@ def autolog(
                 metric_name = f'{self.__class__.__name__}_score'
                 call_command = status.gen_metric_call_command(self, original, *args, **kwargs)
 
-                eval_dataset = status.get_method_first_arg_value(original, args, kwargs)
-                eval_dataset_name = status.register_eval_dataset(self, eval_dataset)
+                eval_dataset = get_instance_method_first_arg_value(original, args, kwargs)
+                eval_dataset_name = status.register_prediction_input_dataset(self, eval_dataset)
                 run_id = status.get_run_id_for_model(self)
-                metric_key = status.register_metric_info(
+                metric_key = status.register_metric_api_call(
                     run_id, metric_name, eval_dataset_name, call_command)
 
-                status.log_eval_metric(
+                status.log_post_training_metric(
                     status.get_run_id_for_model(self), metric_key, score_value
                 )
 
@@ -1407,7 +1445,7 @@ def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
       - prefix is empty
       - model is not an sklearn estimator or does not support the 'predict' method
     """
-    status = _get_autolog_training_status()
+    status = _get_autologging_metrics_manager()
     with status.disable_log_post_training_metrics():
         return _eval_and_log_metrics_impl(
             model, X, y_true, prefix=prefix, sample_weight=sample_weight)

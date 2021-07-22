@@ -548,3 +548,14 @@ def _get_new_training_session_class():
             return len(_TrainingSession._session_stack) == 0
 
     return _TrainingSession
+
+
+def get_instance_method_first_arg_value(method, call_pos_args, call_kwargs):
+    """
+    Get instance method first argument value (exclude the `self` argument).
+    """
+    if len(call_pos_args) >= 1:
+        return call_pos_args[0]
+    else:
+        first_arg_name = list(inspect.signature(method).parameters.keys())[1]
+        return call_kwargs.get(first_arg_name)
