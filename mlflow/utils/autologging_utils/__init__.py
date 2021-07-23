@@ -551,9 +551,11 @@ def temporarily_disable_autologging(name):
         def __enter__(self):
             self.config = AUTOLOGGING_INTEGRATIONS.get(name)
             if self.config is not None:
-                self.old_status = self.config.get('disable', False)
+                self.old_status = self.config.get("disable", False)
+                self.config["disable"] = True
 
         def __exit__(self, exc_type, exc_val, exc_tb):
-            if self.config is not None and self.old_status:
-                self.config.set('disable', True)
+            if self.config is not None:
+                self.config["disable"] = self.old_status
+
     return DisableAutologgingScope()

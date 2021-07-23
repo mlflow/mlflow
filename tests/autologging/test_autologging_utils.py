@@ -21,6 +21,7 @@ from mlflow.utils.autologging_utils import (
     autologging_integration,
     get_autologging_config,
     autologging_is_disabled,
+    temporarily_disable_autologging,
 )
 from mlflow.utils.autologging_utils.safety import _wrap_patch, AutologgingSession
 from mlflow.utils.autologging_utils.versioning import (
@@ -921,3 +922,30 @@ def test_disable_for_unsupported_versions_warning_sklearn_integration():
         with mock.patch(log_warn_fn_name) as log_warn_fn:
             mlflow.sklearn.autolog(disable_for_unsupported_versions=False)
             assert log_warn_fn.call_count == 1 and is_sklearn_warning_fired(log_warn_fn.call_args)
+
+
+def test_temporarily_disable_autologging():
+    AUTOLOGGING_INTEGRATIONS.clear()
+
+    flavor_name = "sklearn"
+    with temporarily_disable_autologging(flavor_name):
+        assert autologging_is_disabled(flavor_name)
+
+    assert autologging_is_disabled(flavor_name)
+
+    mlflow.sklearn.autolog()
+    assert not autologging_is_disabled(flavor_name)
+
+    with temporarily_disable_autologging(flavor_name):
+        assert autologging_is_disabled(flavor_name)
+
+    assert not autologging_is_disabled(flavor_name)
+
+    mlflow.sklearn.autolog(disable=True)
+
+    assert autologging_is_disabled(flavor_name)
+
+    with temporarily_disable_autologging(flavor_name):
+        assert autologging_is_disabled(flavor_name)
+
+    assert autologging_is_disabled(flavor_name)

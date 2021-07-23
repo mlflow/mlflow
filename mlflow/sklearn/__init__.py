@@ -964,15 +964,18 @@ def autolog(
             return original(*args, **kwargs)
 
     from sklearn import model_selection
+
     for disable_autolog_func_name in [
-        'cross_validate',
-        'cross_val_predict',
-        'cross_val_score',
+        "cross_validate",
+        "cross_val_predict",
+        "cross_val_score",
     ]:
         safe_patch(
-            FLAVOR_NAME, model_selection, disable_autolog_func_name,
+            FLAVOR_NAME,
+            model_selection,
+            disable_autolog_func_name,
             patched_fn_with_autolog_disabled,
-            manage_run=False
+            manage_run=False,
         )
 
 
