@@ -1313,8 +1313,6 @@ def autolog(
             with status.disable_log_post_training_metrics():
                 metric = original(*args, **kwargs)
 
-            print(f'DBG234:patched_metric_api #1 {original.__name__}, metric={metric}')
-
             if status.is_metrics_value_loggable(metric):
                 metric_name = original.__name__
                 call_command = status.gen_metric_call_command(None, original, *args, **kwargs)
@@ -1322,8 +1320,6 @@ def autolog(
                 run_id, dataset_name = status.get_run_id_and_dataset_name_for_metric_api_call(
                     args, kwargs
                 )
-                print(f'DBG234:patched_metric_api #2: run_id={run_id}, dataset_name={dataset_name}')
-
                 if run_id and dataset_name:
                     metric_key = status.register_metric_api_call(
                         run_id, metric_name, dataset_name, call_command

@@ -558,8 +558,6 @@ def get_instance_method_first_arg_value(method, call_pos_args, call_kwargs):
         return call_pos_args[0]
     else:
         param_sig = inspect.signature(method).parameters
-        print(param_sig)
         first_arg_name = list(param_sig.keys())[1]
-        print(f'first_arg_name: {first_arg_name}')
         assert param_sig[first_arg_name].kind != inspect.Parameter.VAR_KEYWORD
         return call_kwargs.get(first_arg_name)

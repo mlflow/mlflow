@@ -1472,8 +1472,9 @@ def load_json_artifact(artifact_path):
 
 
 def test_baisc_post_training_metric_autologging():
+    from sklearn import metrics as sklmetrics
+
     mlflow.sklearn.autolog()
-    from sklearn.metrics import r2_score, mean_squared_error, make_scorer
 
     model = sklearn.linear_model.LogisticRegression(solver="saga", max_iter=100, random_state=0)
     X, y = get_iris()
@@ -1487,13 +1488,13 @@ def test_baisc_post_training_metric_autologging():
         pred1_y = model.predict(X=eval1_X)
         pred2_y = model.predict(eval2_X)
 
-        r2_score_data1 = r2_score(eval1_y, pred1_y)
-        mean_squared_error_data1 = mean_squared_error(eval1_y, pred1_y)
-        r2_score_data2 = r2_score(eval2_y, pred2_y)
+        r2_score_data1 = sklmetrics.r2_score(eval1_y, pred1_y)
+        mean_squared_error_data1 = sklmetrics.mean_squared_error(eval1_y, pred1_y)
+        r2_score_data2 = sklmetrics.r2_score(eval2_y, pred2_y)
         lor_score_data1 = model.score(eval1_X, eval1_y)
-        mean_squared_error_data2 = mean_squared_error(eval2_y, pred2_y, squared=False)
+        mean_squared_error_data2 = sklmetrics.mean_squared_error(eval2_y, pred2_y, squared=False)
 
-        scorer1 = make_scorer(mean_squared_error, squared=False)
+        scorer1 = sklmetrics.make_scorer(sklmetrics.mean_squared_error, squared=False)
         mean_squared_error3_data2 = scorer1(model, eval2_X, eval2_y)
 
         eval1_X, eval1_y = eval1_X.copy(), eval1_y.copy()
@@ -1530,6 +1531,18 @@ def test_baisc_post_training_metric_autologging():
         'r2_score-2_eval2_X': 'r2_score(y_true=eval2_y, y_pred=pred2_y)',
         'r2_score_eval1_X': 'r2_score(y_true=eval1_y, y_pred=pred1_y)'
     }
+
+    mlflow.sklearn.autolog(disable=True)
+
+    # Test patched methods generate the same results with unpatched methods.
+    mean_squared_error_data1_original = sklmetrics.mean_squared_error(eval1_y, pred1_y)
+    assert np.isclose(mean_squared_error_data1_original, mean_squared_error_data1)
+
+    lor_score_data1_original = model.score(eval1_X, eval1_y)
+    assert np.isclose(lor_score_data1_original, lor_score_data1)
+
+    pred1_y_original = model.predict(eval1_X)
+    assert np.allclose(pred1_y_original, pred1_y)
 
 
 def test_run_all_metric_examples():
