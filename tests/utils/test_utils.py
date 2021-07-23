@@ -125,3 +125,4 @@ def test_inspect_original_var_name():
 
     assert cap_name_pos0 == 'xyz2'
     assert cap_name_kw_a1 == 'xyz3'
+

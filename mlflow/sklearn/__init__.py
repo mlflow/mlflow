@@ -604,9 +604,6 @@ class _AutologgingMetricsManager:
             # register new eval dataset
             registered_dataset_list.append(eval_dataset_id)
 
-        if eval_dataset_name == 'unknown_dataset':
-            print(f'DBG1234: id={eval_dataset_id}, index={index}')
-
         return self.gen_name_with_index(eval_dataset_name, index)
 
     def register_prediction_result(self, run_id, eval_dataset_name, predict_result):
@@ -907,6 +904,10 @@ def autolog(
             inspected dataset name.
 
         **Limitations**
+          - If user after calling prediction api (including predict/predict_proba), then do some
+            transformation on the prediction result instance, and then compute metric based on the
+            transformed prediction result instance, then post training metric autologging for this metric
+            API call is invalid.
           - If user importing metric API in `sklearn.metrics` first, then enable autologging, then post
             training metric autologging for this metric API is invalid.
           - If user define a scorer which is not based on metric APIs in `sklearn.metrics`, then then post
@@ -1312,6 +1313,8 @@ def autolog(
             with status.disable_log_post_training_metrics():
                 metric = original(*args, **kwargs)
 
+            print(f'DBG234:patched_metric_api #1 {original.__name__}, metric={metric}')
+
             if status.is_metrics_value_loggable(metric):
                 metric_name = original.__name__
                 call_command = status.gen_metric_call_command(None, original, *args, **kwargs)
@@ -1319,6 +1322,8 @@ def autolog(
                 run_id, dataset_name = status.get_run_id_and_dataset_name_for_metric_api_call(
                     args, kwargs
                 )
+                print(f'DBG234:patched_metric_api #2: run_id={run_id}, dataset_name={dataset_name}')
+
                 if run_id and dataset_name:
                     metric_key = status.register_metric_api_call(
                         run_id, metric_name, dataset_name, call_command
@@ -1417,7 +1422,7 @@ def autolog(
                     FLAVOR_NAME, class_def, func_name, patched_fit, manage_run=True,
                 )
 
-        for func_name in ["predict", "transform", "predict_proba"]:
+        for func_name in ["predict", "predict_proba"]:
             if hasattr(class_def, func_name) and callable(getattr(class_def, func_name)):
                 safe_patch(
                     FLAVOR_NAME, class_def, func_name, patched_predict, manage_run=False,

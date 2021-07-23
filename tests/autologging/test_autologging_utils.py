@@ -21,6 +21,7 @@ from mlflow.utils.autologging_utils import (
     autologging_integration,
     get_autologging_config,
     autologging_is_disabled,
+    get_instance_method_first_arg_value,
 )
 from mlflow.utils.autologging_utils.safety import _wrap_patch, AutologgingSession
 from mlflow.utils.autologging_utils.versioning import (
@@ -921,3 +922,23 @@ def test_disable_for_unsupported_versions_warning_sklearn_integration():
         with mock.patch(log_warn_fn_name) as log_warn_fn:
             mlflow.sklearn.autolog(disable_for_unsupported_versions=False)
             assert log_warn_fn.call_count == 1 and is_sklearn_warning_fired(log_warn_fn.call_args)
+
+
+def test_get_instance_method_first_arg_value():
+    class Test:
+        def f1(self, ab1, cd2):
+            pass
+
+        def f2(self, *args):
+            pass
+
+        def f3(self, *kwargs):
+            pass
+
+    t1 = Test()
+    assert 3 == get_instance_method_first_arg_value(Test.f1, [3, 4], {})
+    assert 3 == get_instance_method_first_arg_value(Test.f1, [3], {'cd2': 4})
+    assert 3 == get_instance_method_first_arg_value(Test.f1, [], {'ab1': 3, 'cd2': 4})
+    assert 3 == get_instance_method_first_arg_value(Test.f2, [3, 4], {})
+    with pytest.raises(AssertionError):
+        get_instance_method_first_arg_value(t1.f3, {'ab1': 3, 'cd2': 4})

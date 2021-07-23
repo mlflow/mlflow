@@ -1471,7 +1471,7 @@ def load_json_artifact(artifact_path):
         return json.load(f)
 
 
-def test_baisc_post_training_metric():
+def test_baisc_post_training_metric_autologging():
     mlflow.sklearn.autolog()
     from sklearn.metrics import r2_score, mean_squared_error, make_scorer
 
@@ -1481,10 +1481,10 @@ def test_baisc_post_training_metric():
     with mlflow.start_run() as run:
         model.fit(X, y)
 
-        eval1_X, eval1_y = X[:50], y[:50]
-        eval2_X, eval2_y = X[50:100], y[50:100]
+        eval1_X, eval1_y = X[0::3], y[0::3]
+        eval2_X, eval2_y = X[1::3], y[1::3]
 
-        pred1_y = model.predict(eval1_X)
+        pred1_y = model.predict(X=eval1_X)
         pred2_y = model.predict(eval2_X)
 
         r2_score_data1 = r2_score(eval1_y, pred1_y)
@@ -1541,3 +1541,99 @@ def test_run_all_metric_examples():
         doctest.run_docstring_examples(metric_api.__doc__, {}, verbose=True)
 
 
+def test_post_training_post_training_metric_autologging_for_predict_prob():
+    import sklearn.linear_model
+
+    mlflow.sklearn.autolog()
+    from sklearn.metrics import roc_auc_score
+
+    X, y = get_iris()
+    lor_model = sklearn.linear_model.LogisticRegression(
+        solver="saga", max_iter=100, random_state=0
+    )
+    with mlflow.start_run() as run:
+        lor_model.fit(X, y)
+        y_prob = lor_model.predict_proba(X)
+        y_true_onehot = np.eye(3)[y]
+        roc_auc_metric = roc_auc_score(y_true_onehot, y_prob)
+
+    params, metrics, tags, artifacts = get_run_data(run.info.run_id)
+    assert metrics['roc_auc_score_X'] == roc_auc_metric
+
+
+def test_is_metrics_value_loggable():
+    is_metrics_value_loggable = \
+        mlflow.sklearn._autologging_metrics_manager.is_metrics_value_loggable
+    assert is_metrics_value_loggable(3)
+    assert is_metrics_value_loggable(3.5)
+    assert is_metrics_value_loggable(np.int(3))
+    assert is_metrics_value_loggable(np.float32(3.5))
+    assert not is_metrics_value_loggable(True)
+    assert not is_metrics_value_loggable(np.bool(True))
+    assert not is_metrics_value_loggable([1, 2])
+    assert not is_metrics_value_loggable(np.array([1, 2]))
+
+
+def test_nested_metric_call_is_disabled():
+    import sklearn.linear_model
+    mlflow.sklearn.autolog()
+
+    X, y = get_iris()
+    eval1_X, eval1_y = X[0::3], y[0::3]
+    lr_model = sklearn.linear_model.LinearRegression()
+
+    with mlflow.start_run():
+        # test post training metric logging disabled in fit scope
+        with mock.patch('mlflow.sklearn._AutologgingMetricsManager.log_post_training_metric') \
+                as patched_log_post_training_metric:
+            lr_model.fit(X, y)
+            patched_log_post_training_metric.assert_not_called()
+
+        # test post training metric logging called only once in model.score
+        with mock.patch('mlflow.sklearn._AutologgingMetricsManager.log_post_training_metric') \
+                as patched_log_post_training_metric:
+            lr_model.score(eval1_X, eval1_y)
+            patched_log_post_training_metric.call_count == 1 and \
+                patched_log_post_training_metric.call_args[0][1] == 'r2_score_eval1_X'
+
+        # test post training metric logging disabled in eval_and_log_metrics
+        with mock.patch('mlflow.sklearn._AutologgingMetricsManager.log_post_training_metric') \
+                as patched_log_post_training_metric:
+            mlflow.sklearn.eval_and_log_metrics(lr_model, eval1_X, eval1_y, prefix='test1')
+            patched_log_post_training_metric.assert_not_called()
+
+
+def test_multi_model_interleaved_fit_and_post_train_metric_call():
+    import sklearn.linear_model
+    mlflow.sklearn.autolog()
+    from sklearn.metrics import mean_squared_error
+
+    X, y = get_iris()
+    eval1_X, eval1_y = X[0::3], y[0::3]
+    eval2_X, eval2_y = X[1::3], y[1::3]
+
+    lr_model1 = sklearn.linear_model.LinearRegression(positive=False)
+    lr_model2 = sklearn.linear_model.LinearRegression(positive=True)
+
+    with mlflow.start_run() as run1:
+        lr_model1.fit(X, y)
+
+    with mlflow.start_run() as run2:
+        lr_model2.fit(X, y)
+
+    model1_r2_score = lr_model1.score(eval1_X, eval1_y)
+    model2_r2_score = lr_model2.score(eval2_X, eval2_y)
+
+    pred1_y = lr_model1.predict(eval1_X)
+    model1_mse = mean_squared_error(eval1_y, pred1_y)
+
+    pred2_y = lr_model2.predict(eval2_X)
+    model2_mse = mean_squared_error(eval2_y, pred2_y)
+
+    _, metrics1, _, _ = get_run_data(run1.info.run_id)
+    assert metrics1['LinearRegression_score_eval1_X'] == model1_r2_score
+    assert metrics1['mean_squared_error_eval1_X'] == model1_mse
+
+    _, metrics2, _, _ = get_run_data(run2.info.run_id)
+    assert metrics2['LinearRegression_score_eval2_X'] == model2_r2_score
+    assert metrics2['mean_squared_error_eval2_X'] == model2_mse
