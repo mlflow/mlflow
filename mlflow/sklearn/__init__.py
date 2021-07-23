@@ -912,6 +912,7 @@ def autolog(
             training metric autologging for this metric API is invalid.
           - If user define a scorer which is not based on metric APIs in `sklearn.metrics`, then then post
             training metric autologging for the scorer is invalid.
+          - Do not support `LocalOutlierFactor` estimator.
 
       **Tags**
         - An estimator class name (e.g. "LinearRegression").

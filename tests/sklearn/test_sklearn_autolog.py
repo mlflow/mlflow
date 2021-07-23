@@ -1650,3 +1650,69 @@ def test_multi_model_interleaved_fit_and_post_train_metric_call():
     _, metrics2, _, _ = get_run_data(run2.info.run_id)
     assert metrics2['LinearRegression_score_eval2_X'] == model2_r2_score
     assert metrics2['mean_squared_error_eval2_X'] == model2_mse
+
+
+def test_meta_estimator_disable_post_training_autologging():
+    import sklearn.svm
+    mlflow.sklearn.autolog()
+
+    with mock.patch("mlflow.sklearn._AutologgingMetricsManager.register_metric_api_call") as mock_register_metric_api_call, \
+            mock.patch("mlflow.sklearn._AutologgingMetricsManager.log_post_training_metric") as mock_log_post_training_metric, \
+            mock.patch("mlflow.sklearn._AutologgingMetricsManager.register_prediction_input_dataset") as mock_register_prediction_input_dataset:
+
+        for scoring in [None, sklearn.metrics.accuracy_score]:
+            with mlflow.start_run():
+                svc = sklearn.svm.SVC()
+                cv_model = sklearn.model_selection.GridSearchCV(
+                    svc, {"C": [1, 0.5]}, n_jobs=1, scoring=scoring
+                )
+                cv_model.fit(*get_iris())
+
+                mock_register_metric_api_call.assert_not_called()
+                mock_log_post_training_metric.assert_not_called()
+                mock_register_prediction_input_dataset.assert_not_called()
+
+
+def test_gen_metric_call_commands():
+    import pandas as pd
+    import sklearn.linear_model
+
+    def metric_fn1(a1, b1, *, c2=3, d1=None, d2=True, d3='abc', **kwargs):
+        pass
+
+    cmd1 = mlflow.sklearn._AutologgingMetricsManager.gen_metric_call_command(
+        None, metric_fn1,
+        *[np.array([1.0]), pd.DataFrame(data={'c1': [1]})],
+        **{'c2': 4, 'd1': None, 'd2': False, 'd3': 'def',
+           'randarg1': 'a' * 100, 'randarg2': '0.1'}
+    )
+
+    assert cmd1 == "metric_fn1(a1=<ndarray>, b1=<DataFrame>, c2=4, d1=None, d2=False, d3='def'," \
+                   " randarg1='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa...', randarg2='0.1')"
+
+    data1 = np.array([1.0])
+    data2 = pd.DataFrame(data={'c1': [1]})
+
+    cmd2 = mlflow.sklearn._AutologgingMetricsManager.gen_metric_call_command(
+            None, metric_fn1,
+            *[data1, data2],
+            **{'randarg1': '\'xyz\"abc'}
+        )
+    assert cmd2 == "metric_fn1(a1=data1, b1=data2, randarg1=\'\\\'xyz\"abc')"
+
+    lr_model = sklearn.linear_model.LinearRegression()
+    cmd3 = mlflow.sklearn._AutologgingMetricsManager.gen_metric_call_command(
+        lr_model, sklearn.linear_model.LinearRegression.score,
+        data1, data2
+    )
+
+    assert cmd3 == 'LinearRegression.score(X=data1, y=data2)'
+
+
+def test_autolog_patching_do_not_break_LocalOutlierFactor():
+    mlflow.sklearn.autolog()
+    from sklearn.neighbors import LocalOutlierFactor
+    X = [[-1.1], [0.2], [101.1], [0.3]]
+    clf = LocalOutlierFactor(n_neighbors=2, novelty=True)
+    clf.fit(X)
+    assert np.allclose(clf.predict(X), np.array([ 1,  1, -1,  1]))
