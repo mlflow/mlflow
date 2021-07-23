@@ -97,8 +97,11 @@ def test_inspect_original_var_name():
     assert cap_name == 'xyz1'
 
     cap_name = None
-
     f1(str(xyz1))
+    assert cap_name == 'unknown'
+
+    cap_name = None
+    f1(None)
     assert cap_name == 'unknown'
 
     cap_name = None
