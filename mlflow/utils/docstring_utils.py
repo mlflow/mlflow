@@ -129,7 +129,7 @@ of the model's conda environment (``conda.yaml``) file.
 """,
         "extra_pip_requirements": """
 Either an iterable of pip requirement strings
-(e.g. ``["{{ package_name }}", "-r requirements.txt", "-c constraints.txt"]``) or the string path to
+(e.g. ``["pandas", "-r requirements.txt", "-c constraints.txt"]``) or the string path to
 a pip requirements file on the local filesystem (e.g. ``"requirements.txt"``). If provided, this
 describes additional pip requirements that are appended to a default set of pip requirements
 generated automatically based on the user's current software environment. Both requirements and
