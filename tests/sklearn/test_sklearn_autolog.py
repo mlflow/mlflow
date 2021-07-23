@@ -1466,14 +1466,14 @@ def test_metric_computation_handles_absent_labels():
 
 def test_autolog_disabled_on_sklearn_cross_val_api():
     mlflow.sklearn.autolog()
-    from sklearn import datasets, linear_model
+    from sklearn import linear_model
     from sklearn.model_selection import cross_validate, cross_val_predict, cross_val_score
 
     def assert_autolog_disabled(run_):
         params, metrics, tags, artifacts = get_run_data(run_.info.run_id)
         assert params == {} and metrics == {} and tags == {} and artifacts == []
 
-    diabetes = datasets.load_diabetes()
+    diabetes = sklearn.datasets.load_diabetes()
     X = diabetes.data[:150]
     y = diabetes.target[:150]
     lasso = linear_model.Lasso()
