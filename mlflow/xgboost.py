@@ -44,6 +44,7 @@ from mlflow.utils.environment import (
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
+from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.autologging_utils import (
     autologging_integration,
@@ -91,6 +92,7 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="xgboost"))
 def save_model(
     xgb_model,
     path,
@@ -148,30 +150,8 @@ def save_model(
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
-    :param pip_requirements: Either an iterable of pip requirement strings
-        (e.g. ``["scikit-learn", "-r requirements.txt"]``) or the string path to a pip requirements
-        file on the local filesystem (e.g. ``"requirements.txt"``). If provided, this describes the
-        environment this model should be run in. If ``None``, a default list of requirements is
-        inferred from the current software environment. Requirements are automatically parsed and
-        written to a ``requirements.txt`` file that is stored as part of the model. These
-        requirements are also written to the ``pip`` section of the model's conda environment
-        (``conda.yaml``) file.
-    :param extra_pip_requirements: Either an iterable of pip requirement strings
-        (e.g. ``["scikit-learn", "-r requirements.txt"]``) or the string path to a pip requirements
-        file on the local filesystem (e.g. ``"requirements.txt"``). If provided, this specifies
-        additional pip requirements that are appended to a default set of pip requirements generated
-        automatically based on the user's current software environment. Requirements are also
-        written to the ``pip`` section of the model's conda environment (``conda.yaml``) file.
-
-        .. warning::
-            The following arguments can't be specified at the same time:
-
-            - ``conda_env``
-            - ``pip_requirements``
-            - ``extra_pip_requirements``
-
-        :ref:`This example<pip-requirements-example>` demonstrates how to specify pip requirements
-        using ``pip_requirements`` and ``extra_pip_requirements``.
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
     """
     import xgboost as xgb
 
@@ -219,6 +199,7 @@ def save_model(
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="xgboost"))
 def log_model(
     xgb_model,
     artifact_path,
@@ -282,31 +263,8 @@ def log_model(
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
-    :param pip_requirements: Either an iterable of pip requirement strings
-        (e.g. ``["scikit-learn", "-r requirements.txt", "-c constrants.txt"]``) or the string path
-        to a pip requirements file on the local filesystem (e.g. ``"requirements.txt"``).
-        If provided, this describes the environment this model should be run in. If ``None``,
-        a default list of requirements is inferred from the current software environment. Both
-        requirements and constraints are automatically parsed and written to ``requirements.txt``
-        and ``constraints.txt`` files, respectively, and stored as part of the model. Requirements
-        are also written to the ``pip`` section of the model's conda environment (``conda.yaml``)
-        file.
-    :param extra_pip_requirements: Either an iterable of pip requirement strings
-        (e.g. ``["scikit-learn", "-r requirements.txt"]``) or the string path to a pip requirements
-        file on the local filesystem (e.g. ``"requirements.txt"``). If provided, this specifies
-        additional pip requirements that are appended to a default set of pip requirements generated
-        automatically based on the user's current software environment. Requirements are also
-        written to the ``pip`` section of the model's conda environment (``conda.yaml``) file.
-
-        .. warning::
-            The following arguments can't be specified at the same time:
-
-            - ``conda_env``
-            - ``pip_requirements``
-            - ``extra_pip_requirements``
-
-        :ref:`This example<pip-requirements-example>` demonstrates how to specify pip requirements
-        using ``pip_requirements`` and ``extra_pip_requirements``.
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param kwargs: kwargs to pass to `xgboost.Booster.save_model`_ method.
     """
     Model.log(
