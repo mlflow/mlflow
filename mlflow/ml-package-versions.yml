@@ -289,7 +289,7 @@ spark:
         cd $temp_dir
         ./build/mvn -DskipTests --no-transfer-progress clean package
         cd python
-        python setup.py bdist_wheel --dist-dir $CACHEDIR
+        python setup.py bdist_wheel --dist-dir $CACHE_DIR
       fi
       pip install $CACHE_DIR/pyspark-*.whl
 
