@@ -2,10 +2,10 @@ sklearn:
   package_info:
     pip_release: "scikit-learn"
     install_dev: |
-      if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "sklearn-*.whl") ]; then
+      if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "scikit_learn-*.whl") ]; then
         pip wheel --no-deps --wheel-dir $CACHE_DIR git+https://github.com/scikit-learn/scikit-learn.git
       fi
-      pip install $CACHE_DIR/sklearn-*.whl
+      pip install $CACHE_DIR/scikit_learn-*.whl
 
   models:
     minimum: "0.20.3"
