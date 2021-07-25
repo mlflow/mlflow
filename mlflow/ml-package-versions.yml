@@ -2,7 +2,10 @@ sklearn:
   package_info:
     pip_release: "scikit-learn"
     install_dev: |
-      pip install git+https://github.com/scikit-learn/scikit-learn.git
+      if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "sklearn-*.whl") ]; then
+        pip wheel --no-deps --wheel-dir $CACHE_DIR git+https://github.com/scikit-learn/scikit-learn.git
+      fi
+      pip install $CACHE_DIR/sklearn-*.whl
 
   models:
     minimum: "0.20.3"
@@ -161,11 +164,10 @@ catboost:
     install_dev: |
       # The cross-version-tests workflow runs this command with the environment variable `CACHE_DIR`
       if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "catboost-*.whl") ]; then
-        head_sha=$(git ls-remote https://github.com/catboost/catboost.git HEAD | cut -f1)
         pip wheel --no-deps --wheel-dir $CACHE_DIR \
-          git+https://github.com/catboost/catboost.git@$head_sha#subdirectory=catboost/python-package
+          git+https://github.com/catboost/catboost.git#subdirectory=catboost/python-package
       fi
-      pip install $(find $CACHE_DIR -type f -name "catboost-*.whl")
+      pip install $CACHE_DIR/catboost-*.whl
 
   models:
     minimum: "0.23.1"
@@ -287,14 +289,9 @@ spark:
         cd $temp_dir
         ./build/mvn -DskipTests --no-transfer-progress clean package
         cd python
-        python setup.py bdist_wheel
-
-        # Copy wheel in cache directory
-        wheel_path=$(find dist -type f -name "pyspark-*.whl")
-        mkdir -p $CACHE_DIR
-        cp $wheel_path $CACHE_DIR
+        python setup.py bdist_wheel --dist-dir $CACHEDIR
       fi
-      pip install $(find $CACHE_DIR -type f -name "pyspark-*.whl")
+      pip install $CACHE_DIR/pyspark-*.whl
 
   models:
     minimum: "3.0.0"
