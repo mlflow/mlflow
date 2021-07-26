@@ -1,3 +1,3 @@
-FROM continuumio/miniconda3:4.6.14
+FROM continuumio/miniconda3:latest
 
 RUN pip install mlflow && pip install sqlalchemy
