@@ -228,7 +228,7 @@ def save_model(
     """
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
-    os.makedirs(path)
+    os.makedirs(path, exist_ok=True)
     if mlflow_model is None:
         mlflow_model = Model()
 
