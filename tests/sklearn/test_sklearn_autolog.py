@@ -1663,25 +1663,29 @@ def test_multi_model_interleaved_fit_and_post_train_metric_call():
     assert metrics2['mean_squared_error_eval2_X'] == model2_mse
 
 
-def test_meta_estimator_disable_post_training_autologging():
+@pytest.mark.parametrize('scoring', [None, sklearn.metrics.make_scorer(sklearn.metrics.accuracy_score)])
+def test_meta_estimator_disable_post_training_autologging(scoring):
     import sklearn.svm
+    import sklearn.metrics
     mlflow.sklearn.autolog()
 
-    with mock.patch("mlflow.sklearn._AutologgingMetricsManager.register_metric_api_call") as mock_register_metric_api_call, \
+    X, y = get_iris()
+    with mock.patch("mlflow.sklearn._AutologgingMetricsManager.register_model") as mock_register_model, \
+            mock.patch("mlflow.sklearn._AutologgingMetricsManager.is_metric_value_loggable") as mock_is_metric_value_loggable, \
             mock.patch("mlflow.sklearn._AutologgingMetricsManager.log_post_training_metric") as mock_log_post_training_metric, \
             mock.patch("mlflow.sklearn._AutologgingMetricsManager.register_prediction_input_dataset") as mock_register_prediction_input_dataset:
 
-        for scoring in [None, sklearn.metrics.accuracy_score]:
-            with mlflow.start_run():
-                svc = sklearn.svm.SVC()
-                cv_model = sklearn.model_selection.GridSearchCV(
-                    svc, {"C": [1, 0.5]}, n_jobs=1, scoring=scoring
-                )
-                cv_model.fit(*get_iris())
-
-                mock_register_metric_api_call.assert_not_called()
-                mock_log_post_training_metric.assert_not_called()
-                mock_register_prediction_input_dataset.assert_not_called()
+        with mlflow.start_run():
+            svc = sklearn.svm.SVC()
+            cv_model = sklearn.model_selection.GridSearchCV(
+                svc, {"C": [1, 0.5]}, n_jobs=1, scoring=scoring
+            )
+            cv_model.fit(X, y)
+            cv_model.score(X, y)
+            mock_register_model.assert_called_once()
+            mock_is_metric_value_loggable.call_count <= 1
+            mock_log_post_training_metric.call_count <= 1
+            mock_register_prediction_input_dataset.call_count <= 1
 
 
 def test_gen_metric_call_commands():

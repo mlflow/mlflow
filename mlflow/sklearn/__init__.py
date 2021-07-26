@@ -1259,13 +1259,15 @@ def autolog(
                           `sklearn.linear_model.LogisticRegression.fit()` is being patched)
         """
         status = _get_autologging_metrics_manager()
+        should_log_post_training_metrics = status.should_log_post_training_metrics()
         with _SklearnTrainingSession(clazz=self.__class__, allow_children=False) as t:
             if t.should_log():
                 # In `fit_mlflow` call, it will also call metric API for computing training metrics
                 # so we need temporarily disable the post_training_metrics patching.
                 with status.disable_log_post_training_metrics():
                     result = fit_mlflow(original, self, *args, **kwargs)
-                status.register_model(self, mlflow.active_run().info.run_id)
+                if should_log_post_training_metrics:
+                    status.register_model(self, mlflow.active_run().info.run_id)
                 return result
             else:
                 return original(self, *args, **kwargs)
