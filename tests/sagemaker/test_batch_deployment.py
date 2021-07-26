@@ -180,6 +180,7 @@ def test_deploy_creates_sagemaker_transform_job_and_s3_resources_with_expected_n
         s3_input_uri="Some Input Uri",
         content_type="Some Content Type",
         s3_output_path="Some Output Path",
+        archive=True,
     )
 
     region_name = sagemaker_client.meta.region_name
@@ -264,6 +265,7 @@ def test_deploy_creates_sagemaker_transform_job_and_s3_resources_with_expected_n
         s3_input_uri="Some Input Uri",
         content_type="Some Content Type",
         s3_output_path="Some Output Path",
+        archive=True,
     )
 
     transform_job_description = sagemaker_client.describe_transform_job(TransformJobName=job_name)
@@ -410,6 +412,7 @@ def test_deploy_create_in_asynchronous_mode_returns_before_transform_job_creatio
         s3_input_uri="Some Input Uri",
         content_type="Some Content Type",
         s3_output_path="Some Output Path",
+        archive=True,
         synchronous=False,
     )
     deployment_end_time = time.time()
@@ -507,6 +510,7 @@ def test_terminate_in_sync_mode_waits_for_transform_job_termination_to_complete_
         s3_input_uri="Some Input Uri",
         content_type="Some Content Type",
         s3_output_path="Some Output Path",
+        archive=True,
         synchronous=True,
     )
 
@@ -539,11 +543,12 @@ def test_terminate_in_asynchronous_mode_returns_before_transform_job_termination
         s3_input_uri="Some Input Uri",
         content_type="Some Content Type",
         s3_output_path="Some Output Path",
+        archive=True,
         synchronous=False,
     )
 
     mfs.terminate_transform_job(
-        job_name=job_name, synchronous=False,
+        job_name=job_name, archive=True, synchronous=False,
     )
     termination_end_time = time.time()
 

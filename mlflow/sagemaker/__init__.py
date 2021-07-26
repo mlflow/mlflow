@@ -515,7 +515,7 @@ def deploy_transform_job(
     instance_count=DEFAULT_SAGEMAKER_INSTANCE_COUNT,
     vpc_config=None,
     flavor=None,
-    archive=True,
+    archive=False,
     synchronous=True,
     timeout_seconds=1200,
 ):
@@ -727,7 +727,7 @@ def deploy_transform_job(
 
 @experimental
 def terminate_transform_job(
-    job_name, region_name="us-west-2", archive=True, synchronous=True, timeout_seconds=300,
+    job_name, region_name="us-west-2", archive=False, synchronous=True, timeout_seconds=300,
 ):
     """
     Terminate a SageMaker batch transform job.
