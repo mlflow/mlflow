@@ -205,6 +205,8 @@ def save_model(
     """
     import paddle
 
+    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+
     if os.path.exists(path):
         raise MlflowException(
             message="Path '{}' already exists".format(path), error_code=RESOURCE_ALREADY_EXISTS
