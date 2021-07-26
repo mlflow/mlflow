@@ -41,11 +41,11 @@ from mlflow.utils.environment import (
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
 )
+from mlflow.utils.file_utils import write_to
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.file_utils import write_to
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
@@ -92,7 +92,7 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="xgboost"))
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     xgb_model,
     path,
@@ -199,7 +199,7 @@ def save_model(
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
-@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="xgboost"))
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     xgb_model,
     artifact_path,

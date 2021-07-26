@@ -36,6 +36,7 @@ from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-impo
 from tests.helper_functions import (
     score_model_in_sagemaker_docker_container,
     _compare_conda_env_requirements,
+    _assert_pip_requirements,
 )
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
@@ -166,10 +167,10 @@ def test_model_log(sklearn_logreg_model, model_path):
                     run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
                 )
 
-                reloaded_logreg_model = mlflow.sklearn.load_model(model_uri=model_uri)
+                reloaded_logsklearn_knn_model = mlflow.sklearn.load_model(model_uri=model_uri)
                 np.testing.assert_array_equal(
                     sklearn_logreg_model.model.predict(sklearn_logreg_model.inference_data),
-                    reloaded_logreg_model.predict(sklearn_logreg_model.inference_data),
+                    reloaded_logsklearn_knn_model.predict(sklearn_logreg_model.inference_data),
                 )
 
                 model_path = _download_artifact_from_uri(artifact_uri=model_uri)
@@ -211,7 +212,7 @@ def test_log_model_no_registered_model_name(sklearn_logreg_model):
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn"])
         mlflow.sklearn.log_model(
-            sk_model=sklearn_logreg_model.model, artifact_path=artifact_path, conda_env=conda_env
+            sk_model=sklearn_logreg_model.model, artifact_path=artifact_path, conda_env=conda_env,
         )
         mlflow.register_model.assert_not_called()
 
@@ -285,6 +286,68 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
 
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
     _compare_conda_env_requirements(sklearn_custom_env, saved_pip_req_path)
+
+
+@pytest.mark.large
+def test_log_model_with_pip_requirements(sklearn_knn_model, tmpdir):
+    # Path to a requirements file
+    req_file = tmpdir.join("requirements.txt")
+    req_file.write("a")
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(
+            sklearn_knn_model.model, "model", pip_requirements=req_file.strpath
+        )
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"])
+
+    # List of requirements
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(
+            sklearn_knn_model.model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"]
+        )
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"])
+
+    # Constraints file
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(
+            sklearn_knn_model.model, "model", pip_requirements=[f"-c {req_file.strpath}", "b"]
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), ["mlflow", "b", "-c constraints.txt"], ["a"]
+        )
+
+
+@pytest.mark.large
+def test_log_model_with_extra_pip_requirements(sklearn_knn_model, tmpdir):
+    default_reqs = mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True)
+
+    # Path to a requirements file
+    req_file = tmpdir.join("requirements.txt")
+    req_file.write("a")
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(
+            sklearn_knn_model.model, "model", extra_pip_requirements=req_file.strpath
+        )
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a"])
+
+    # List of requirements
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(
+            sklearn_knn_model.model, "model", extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a", "b"]
+        )
+
+    # Constraints file
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(
+            sklearn_knn_model.model, "model", extra_pip_requirements=[f"-c {req_file.strpath}", "b"]
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"),
+            ["mlflow", *default_reqs, "b", "-c constraints.txt"],
+            ["a"],
+        )
 
 
 @pytest.mark.large

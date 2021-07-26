@@ -56,6 +56,8 @@ def save_model(
     mlflow_model=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
+    pip_requirements=None,
+    extra_pip_requirements=None,
 ):
     """
     Save a spaCy model to a path on the local file system.
@@ -170,6 +172,8 @@ def log_model(
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
+    pip_requirements=None,
+    extra_pip_requirements=None,
     **kwargs
 ):
     """

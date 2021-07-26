@@ -36,10 +36,18 @@ from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
+from mlflow.utils.environment import (
+    _mlflow_conda_env,
+    _validate_env_arguments,
+    _process_pip_requirements,
+    _process_conda_env,
+    _REQUIREMENTS_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
+)
+from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
-from mlflow.utils.file_utils import TempDir
+from mlflow.utils.file_utils import TempDir, write_to
 from mlflow.utils.uri import (
     is_local_uri,
     append_to_uri_path,
@@ -94,6 +102,7 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="pyspark"))
 def log_model(
     spark_model,
     artifact_path,
@@ -104,6 +113,8 @@ def log_model(
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+    pip_requirements=None,
+    extra_pip_requirements=None,
 ):
     """
     Log a Spark MLlib model as an MLflow artifact for the current run. This uses the
@@ -164,8 +175,8 @@ def log_model(
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
-
-
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
 
     .. code-block:: python
         :caption: Example
@@ -211,6 +222,8 @@ def log_model(
             signature=signature,
             input_example=input_example,
             await_registration_for=await_registration_for,
+            pip_requirements=pip_requirements,
+            extra_pip_requirements=extra_pip_requirements,
         )
     model_dir = os.path.join(run_root_artifact_uri, artifact_path)
     # Try to write directly to the artifact repo via Spark. If this fails, defer to Model.log()
@@ -229,6 +242,8 @@ def log_model(
             signature=signature,
             input_example=input_example,
             await_registration_for=await_registration_for,
+            pip_requirements=pip_requirements,
+            extra_pip_requirements=extra_pip_requirements,
         )
 
     # Otherwise, override the default model log behavior and save model directly to artifact repo
@@ -364,7 +379,15 @@ class _HadoopFileSystem:
 
 
 def _save_model_metadata(
-    dst_dir, spark_model, mlflow_model, sample_input, conda_env, signature=None, input_example=None
+    dst_dir,
+    spark_model,
+    mlflow_model,
+    sample_input,
+    conda_env,
+    signature=None,
+    input_example=None,
+    pip_requirements=None,
+    extra_pip_requirements=None,
 ):
     """
     Saves model metadata into the passed-in directory. The persisted metadata assumes that a
@@ -384,16 +407,25 @@ def _save_model_metadata(
         mlflow_model.signature = signature
     if input_example is not None:
         _save_example(mlflow_model, input_example, dst_dir)
+
+    conda_env, pip_requirements, pip_constraints = (
+        _process_pip_requirements(
+            get_default_pip_requirements(), pip_requirements, extra_pip_requirements,
+        )
+        if conda_env is None
+        else _process_conda_env(conda_env)
+    )
+
     conda_env_subpath = "conda.yaml"
-    if conda_env is None:
-        conda_env = get_default_conda_env()
-    elif not isinstance(conda_env, dict):
-        with open(conda_env, "r") as f:
-            conda_env = yaml.safe_load(f)
     with open(os.path.join(dst_dir, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    _log_pip_requirements(conda_env, dst_dir)
+    # Save `constraints.txt` if necessary
+    if pip_constraints:
+        write_to(os.path.join(dst_dir, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
+
+    # Save `requirements.txt`
+    write_to(os.path.join(dst_dir, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
     mlflow_model.add_flavor(
         FLAVOR_NAME, pyspark_version=pyspark.__version__, model_data=_SPARK_MODEL_PATH_SUB
@@ -423,6 +455,7 @@ def _validate_model(spark_model):
         )
 
 
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="pyspark"))
 def save_model(
     spark_model,
     path,
@@ -432,6 +465,8 @@ def save_model(
     sample_input=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
+    pip_requirements=None,
+    extra_pip_requirements=None,
 ):
     """
     Save a Spark MLlib Model to a local path.
@@ -488,8 +523,8 @@ def save_model(
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
-
-
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
 
     .. code-block:: python
         :caption: Example
@@ -502,6 +537,8 @@ def save_model(
         mlflow.spark.save_model(model, "spark-model")
     """
     _validate_model(spark_model)
+    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+
     from pyspark.ml import PipelineModel
 
     if not isinstance(spark_model, PipelineModel):
@@ -535,6 +572,8 @@ def save_model(
         conda_env=conda_env,
         signature=signature,
         input_example=input_example,
+        pip_requirements=pip_requirements,
+        extra_pip_requirements=extra_pip_requirements,
     )
 
 
