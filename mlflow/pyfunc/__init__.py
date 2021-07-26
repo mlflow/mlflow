@@ -221,11 +221,12 @@ import mlflow.pyfunc.utils
 from mlflow.models import Model, ModelSignature, ModelInputExample
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
-from mlflow.pyfunc.model import PythonModel, PythonModelContext  # pylint: disable=unused-import
-from mlflow.pyfunc.model import (
-    get_default_pip_requirements,
-    get_default_conda_env,  # pylint: disable=unused-import
+from mlflow.pyfunc.model import (  # pylint: disable=unused-import
+    PythonModel,
+    PythonModelContext,
+    get_default_conda_env,
 )
+from mlflow.pyfunc.model import get_default_pip_requirements
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType, Schema, TensorSpec
 from mlflow.types.utils import clean_tensor_type
