@@ -1,5 +1,5 @@
 FROM continuumio/miniconda3
-FROM python --version
+RUN python --version
 
 WORKDIR /app
 
