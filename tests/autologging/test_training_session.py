@@ -50,21 +50,30 @@ def test_should_log_always_returns_true_in_root_session(allow_children):
 
 
 def test_nested_sessions(allow_children):
-    assert _TrainingSession.is_active()
     with _TrainingSession(Parent, allow_children=allow_children) as p:
         assert_session_stack([(None, Parent)])
-        assert not _TrainingSession.is_active()
 
         with _TrainingSession(Child, allow_children=True) as c:
             assert_session_stack([(None, Parent), (Parent, Child)])
             assert p.should_log()
             assert c.should_log() == allow_children
-            assert not _TrainingSession.is_active()
 
         assert_session_stack([(None, Parent)])
-        assert not _TrainingSession.is_active()
     assert_session_stack([])
-    assert _TrainingSession.is_active()
+
+
+def test_session_is_active():
+    assert not _TrainingSession.is_active()
+    with _TrainingSession(Parent, allow_children=True):
+        assert _TrainingSession.is_active()
+
+        with _TrainingSession(Child, allow_children=False):
+            assert _TrainingSession.is_active()
+
+        assert _TrainingSession.is_active()
+
+    assert_session_stack([])
+    assert not _TrainingSession.is_active()
 
 
 def test_parent_session_overrides_child_session():

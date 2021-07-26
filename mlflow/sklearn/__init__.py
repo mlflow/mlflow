@@ -526,7 +526,7 @@ class _AutologgingMetricsManager:
           but, the _autolog_training_status is a global status without thread-safe lock protecting.
           This safe guarding will prevent code run into this case.
         """
-        return _SklearnTrainingSession.is_active() and self._log_post_training_metrics_enabled
+        return not _SklearnTrainingSession.is_active() and self._log_post_training_metrics_enabled
 
     def disable_log_post_training_metrics(self):
 
@@ -545,7 +545,7 @@ class _AutologgingMetricsManager:
         return getattr(model, '_mlflow_run_id', None)
 
     @staticmethod
-    def is_metrics_value_loggable(metric_value):
+    def is_metric_value_loggable(metric_value):
         """
         check whether the specified `metric_value` is a numeric value which can be logged
         as an MLflow metric.
@@ -660,20 +660,10 @@ class _AutologgingMetricsManager:
             # then the first argument is `self` which we need exclude it.
             pos_param_sig_keys.pop(0)
 
-        # Get positional argument signature keys
-        pos_param_sig_keys = [
-            key for key in pos_param_sig_keys
-            if param_sig[key].kind in [
-                inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD
-            ]
-        ]
-
         if self_obj is not None:
             call_fn_name = f'{self_obj.__class__.__name__}.{metric_fn.__name__}'
         else:
             call_fn_name = metric_fn.__name__
-
-        assert len(pos_param_sig_keys) >= len(call_pos_args), 'Found too many positional arguments.'
 
         # Attach param signature key for positinal param values
         for arg_name, arg in zip(pos_param_sig_keys, call_pos_args):
@@ -882,36 +872,40 @@ def autolog(
               https://scikit-learn.org/stable/modules/generated/sklearn.metrics.r2_score.html
 
      **Post training metrics**
-      When user call metric APIs after model training, mlflow will try best to capture the metric API
-      calls and log the post training metrics. The post training metrics autologging supported the
-      following metrics APIs:
+      When users call metric APIs after model training, MLflow tries to capture the metric API
+      results and log them as MLflow metrics to the Run associated with the model. The following
+      types of scikit-learn metric APIs are supported:
         - model.score
-        - metric APIs in `sklearn.metrics` module
+        - metric APIs defined in the `sklearn.metrics` module
       For post training metrics autologging, the metric key format is:
       {metric_name}[-{call_index}]_{dataset_name}
-        (1) If it is metric function in `sklearn.metrics`, the "metric_name" will be metric API name.
-            If it is `model.score` call, then "metric_name" will be "{model_class_name}_score".
-        (2) If multiple calls on the same metric API happen, the subsequent calls logging will add
-            "call_index" (starting from 2) to the metric key.
-        (3) We will inspect the prediction input dataset variable name as the "dataset_name" in the
-            metric key. The "prediction input dataset variable" refers to the variable which was used
-            as the first argument of `model.predict` call or `model.score` call.
-            Note: We will capture the "prediction input dataset" instance in the outermost call frame,
-            and fetch the variable name in the outermost call frame. If the "prediction input dataset"
-            instance is an intermediate expression then there's no variable name for it, this case the
-            dataset name will be "unknown_dataset". If multiple "prediction input dataset" instances own
-            the same variable name, then subsequent ones will append index (starting from 2) to the
-            inspected dataset name.
+        (1) If the metric function is from `sklearn.metrics`, the MLflow "metric_name" is the
+            metric function name. If the metric function is `model.score`, then "metric_name" is
+            "{model_class_name}_score".
+        (2) If multiple calls are made to the same scikit-learn metric API, each subsequent call
+            adds a "call_index" (starting from 2) to the metric key.
+        (3) MLflow uses the prediction input dataset variable name as the "dataset_name" in the
+            metric key. The "prediction input dataset variable" refers to the variable which was
+            used as the first argument of the associated `model.predict` or `model.score` call.
+            Note: MLflow captures the "prediction input dataset" instance in the outermost call
+            frame and fetches the variable name in the outermost call frame. If the "prediction
+            input dataset" instance is an intermediate expression without a defined variable
+            name, the dataset name is set to "unknown_dataset". If multiple "prediction input
+            dataset" instances have the same variable name, then subsequent ones will append an
+            index (starting from 2) to the inspected dataset name.
 
         **Limitations**
-          - If user after calling prediction api (including predict/predict_proba), then do some
-            transformation on the prediction result instance, and then compute metric based on the
-            transformed prediction result instance, then post training metric autologging for this metric
-            API call is invalid.
-          - If user importing metric API in `sklearn.metrics` first, then enable autologging, then post
-            training metric autologging for this metric API is invalid.
-          - If user define a scorer which is not based on metric APIs in `sklearn.metrics`, then then post
-            training metric autologging for the scorer is invalid.
+          - MLflow can only map the original prediction result object returned by a model
+            prediction API (including predict / predict_proba / transform, but excluding
+            fit_predict / fit_transform.) to an MLflow run. MLflow cannot find run information
+            for other objects derived from a given prediction result (e.g. by copying or selecting
+            a subset of the prediction result). scikit-learn metric APIs invoked on derived objects
+            do not log metrics to MLflow.
+          - Autologging must be enabled before scikit-learn metric APIs are imported from
+            `sklearn.metrics`. Metric APIs imported before autologging is enabled do not log
+            metrics to MLflow runs.
+          - If user define a scorer which is not based on metric APIs in `sklearn.metrics`, then
+            then post training metric autologging for the scorer is invalid.
           - Do not support `LocalOutlierFactor` estimator.
 
       **Tags**
@@ -923,10 +917,11 @@ def autolog(
         - An MLflow Model with the :py:mod:`mlflow.sklearn` flavor containing a fitted estimator
           (logged by :py:func:`mlflow.sklearn.log_model()`). The Model also contains the
           :py:mod:`mlflow.pyfunc` flavor when the scikit-learn estimator defines `predict()`.
-        - For post training metrics API calls, an artifact "metric_info.json" will be logged,
-          including a dict, dict key is the metric key (see "Post training metrics" section for the
-          key format), dict value is the metric call command, like:
-            accuracy_score(y_true=test_iris_y, y_pred=pred_iris_y, normalize=False)
+        - For post training metrics API calls, a "metric_info.json" artifact is logged. This is a
+          JSON object whose keys are MLflow post training metric names (see "Post training metrics"
+          section for the key format) and whose values are the corresponding metric call commands
+          that produced the metrics, e.g.
+           ``accuracy_score(y_true=test_iris_y, y_pred=pred_iris_y, normalize=False)``.
 
     **How does autologging work for meta estimators?**
       When a meta estimator (e.g. `Pipeline`_, `GridSearchCV`_) calls ``fit()``, it internally calls
@@ -1314,7 +1309,7 @@ def autolog(
             with status.disable_log_post_training_metrics():
                 metric = original(*args, **kwargs)
 
-            if status.is_metrics_value_loggable(metric):
+            if status.is_metric_value_loggable(metric):
                 metric_name = original.__name__
                 call_command = status.gen_metric_call_command(None, original, *args, **kwargs)
 
@@ -1343,7 +1338,7 @@ def autolog(
             with status.disable_log_post_training_metrics():
                 score_value = original(self, *args, **kwargs)
 
-            if status.is_metrics_value_loggable(score_value):
+            if status.is_metric_value_loggable(score_value):
                 metric_name = f'{self.__class__.__name__}_score'
                 call_command = status.gen_metric_call_command(self, original, *args, **kwargs)
 
@@ -1419,7 +1414,7 @@ def autolog(
                     FLAVOR_NAME, class_def, func_name, patched_fit, manage_run=True,
                 )
 
-        for func_name in ["predict", "predict_proba"]:
+        for func_name in ["predict", "predict_proba", "transform"]:
             if hasattr(class_def, func_name) and callable(getattr(class_def, func_name)):
                 safe_patch(
                     FLAVOR_NAME, class_def, func_name, patched_predict, manage_run=False,

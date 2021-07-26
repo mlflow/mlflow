@@ -1471,7 +1471,7 @@ def load_json_artifact(artifact_path):
         return json.load(f)
 
 
-def test_baisc_post_training_metric_autologging():
+def test_basic_post_training_metric_autologging():
     from sklearn import metrics as sklmetrics
 
     mlflow.sklearn.autolog()
@@ -1545,13 +1545,13 @@ def test_baisc_post_training_metric_autologging():
     assert np.allclose(pred1_y_original, pred1_y)
 
 
-def test_run_all_metric_examples():
+@pytest.mark.parametrize('metric_name', mlflow.sklearn._get_metric_name_list())
+def test_run_metric_api_doc_example(metric_name):
     import doctest
     from sklearn import metrics
     mlflow.sklearn.autolog()
-    for metric_name in mlflow.sklearn._get_metric_name_list():
-        metric_api = getattr(metrics, metric_name)
-        doctest.run_docstring_examples(metric_api.__doc__, {}, verbose=True)
+    metric_api = getattr(metrics, metric_name)
+    doctest.run_docstring_examples(metric_api.__doc__, {}, verbose=True)
 
 
 def test_post_training_post_training_metric_autologging_for_predict_prob():
@@ -1574,9 +1574,20 @@ def test_post_training_post_training_metric_autologging_for_predict_prob():
     assert metrics['roc_auc_score_X'] == roc_auc_metric
 
 
+def test_post_training_post_training_metric_autologging_patch_transform():
+    import sklearn.cluster
+    mlflow.sklearn.autolog()
+    X, y = get_iris()
+    kmeans_model = sklearn.cluster.KMeans().fit(X, y)
+    with mock.patch(
+            "mlflow.sklearn._AutologgingMetricsManager.register_prediction_input_dataset") as mock_register_prediction_input_dataset:
+        kmeans_model.transform(X)
+        mock_register_prediction_input_dataset.assert_called_once()
+
+
 def test_is_metrics_value_loggable():
     is_metrics_value_loggable = \
-        mlflow.sklearn._autologging_metrics_manager.is_metrics_value_loggable
+        mlflow.sklearn._autologging_metrics_manager.is_metric_value_loggable
     assert is_metrics_value_loggable(3)
     assert is_metrics_value_loggable(3.5)
     assert is_metrics_value_loggable(np.int(3))
@@ -1606,8 +1617,8 @@ def test_nested_metric_call_is_disabled():
         with mock.patch('mlflow.sklearn._AutologgingMetricsManager.log_post_training_metric') \
                 as patched_log_post_training_metric:
             lr_model.score(eval1_X, eval1_y)
-            patched_log_post_training_metric.call_count == 1 and \
-                patched_log_post_training_metric.call_args[0][1] == 'r2_score_eval1_X'
+            assert patched_log_post_training_metric.call_count == 1
+            assert patched_log_post_training_metric.call_args[0][1] == 'LinearRegression_score_eval1_X'
 
         # test post training metric logging disabled in eval_and_log_metrics
         with mock.patch('mlflow.sklearn._AutologgingMetricsManager.log_post_training_metric') \
@@ -1642,6 +1653,8 @@ def test_multi_model_interleaved_fit_and_post_train_metric_call():
 
     pred2_y = lr_model2.predict(eval2_X)
     model2_mse = mean_squared_error(eval2_y, pred2_y)
+
+    raise RuntimeError(f'model1_r2_score={model1_r2_score}, model2_r2_score={model2_r2_score}, model1_mse={model1_mse}, model2_mse={model2_mse}')
 
     _, metrics1, _, _ = get_run_data(run1.info.run_id)
     assert metrics1['LinearRegression_score_eval1_X'] == model1_r2_score
@@ -1709,7 +1722,11 @@ def test_gen_metric_call_commands():
     assert cmd3 == 'LinearRegression.score(X=data1, y=data2)'
 
 
-def test_autolog_patching_do_not_break_LocalOutlierFactor():
+def test_autolog_skip_patch_LocalOutlierFactor_predict():
+    """
+    LocalOutlierFactor.predict is a property (delegate to an internal `_predict` method)
+    So we cannot patch it. This test is for covering this edge case.
+    """
     mlflow.sklearn.autolog()
     from sklearn.neighbors import LocalOutlierFactor
     X = [[-1.1], [0.2], [101.1], [0.3]]
