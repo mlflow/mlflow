@@ -352,7 +352,7 @@ def test_add_to_model_adds_specified_kwargs_to_mlmodel_configuration():
         data="data",
         code="code",
         env=None,
-        **custom_kwargs
+        **custom_kwargs,
     )
 
     assert mlflow.pyfunc.FLAVOR_NAME in model_config.flavors
