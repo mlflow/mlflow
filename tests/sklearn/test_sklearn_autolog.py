@@ -1654,8 +1654,6 @@ def test_multi_model_interleaved_fit_and_post_train_metric_call():
     pred2_y = lr_model2.predict(eval2_X)
     model2_mse = mean_squared_error(eval2_y, pred2_y)
 
-    raise RuntimeError(f'model1_r2_score={model1_r2_score}, model2_r2_score={model2_r2_score}, model1_mse={model1_mse}, model2_mse={model2_mse}')
-
     _, metrics1, _, _ = get_run_data(run1.info.run_id)
     assert metrics1['LinearRegression_score_eval1_X'] == model1_r2_score
     assert metrics1['mean_squared_error_eval1_X'] == model1_mse
