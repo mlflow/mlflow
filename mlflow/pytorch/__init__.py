@@ -106,7 +106,7 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="torch"))
 def log_model(
     pytorch_model,
     artifact_path,
@@ -309,7 +309,7 @@ def log_model(
     )
 
 
-@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="torch"))
 def save_model(
     pytorch_model,
     path,
