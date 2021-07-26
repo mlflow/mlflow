@@ -20,7 +20,11 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import infer_signature, Model
 from mlflow.models.utils import _read_example
 from mlflow.utils.file_utils import TempDir
-from tests.helper_functions import pyfunc_serve_and_score_model, _compare_conda_env_requirements
+from tests.helper_functions import (
+    pyfunc_serve_and_score_model,
+    _compare_conda_env_requirements,
+    _assert_pip_requirements,
+)
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -479,6 +483,60 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
     mlflow.onnx.save_model(onnx_model=onnx_model, path=model_path, conda_env=onnx_custom_env)
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
     _compare_conda_env_requirements(onnx_custom_env, saved_pip_req_path)
+
+
+@pytest.mark.large
+def test_log_model_with_pip_requirements(onnx_model, tmpdir):
+    # Path to a requirements file
+    req_file = tmpdir.join("requirements.txt")
+    req_file.write("a")
+    with mlflow.start_run():
+        mlflow.onnx.log_model(onnx_model, "model", pip_requirements=req_file.strpath)
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"])
+
+    # List of requirements
+    with mlflow.start_run():
+        mlflow.onnx.log_model(onnx_model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"])
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"])
+
+    # Constraints file
+    with mlflow.start_run():
+        mlflow.onnx.log_model(onnx_model, "model", pip_requirements=[f"-c {req_file.strpath}", "b"])
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), ["mlflow", "b", "-c constraints.txt"], ["a"]
+        )
+
+
+@pytest.mark.large
+def test_log_model_with_extra_pip_requirements(onnx_model, tmpdir):
+    default_reqs = mlflow.onnx.get_default_pip_requirements()
+
+    # Path to a requirements file
+    req_file = tmpdir.join("requirements.txt")
+    req_file.write("a")
+    with mlflow.start_run():
+        mlflow.onnx.log_model(onnx_model, "model", extra_pip_requirements=req_file.strpath)
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a"])
+
+    # List of requirements
+    with mlflow.start_run():
+        mlflow.onnx.log_model(
+            onnx_model, "model", extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a", "b"]
+        )
+
+    # Constraints file
+    with mlflow.start_run():
+        mlflow.onnx.log_model(
+            onnx_model, "model", extra_pip_requirements=[f"-c {req_file.strpath}", "b"]
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"),
+            ["mlflow", *default_reqs, "b", "-c constraints.txt"],
+            ["a"],
+        )
 
 
 @pytest.mark.large

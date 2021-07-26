@@ -306,6 +306,8 @@ def save_model(
     input_example: ModelInputExample = None,
     requirements_file=None,
     extra_files=None,
+    pip_requirements=None,
+    extra_pip_requirements=None,
     **kwargs
 ):
     """
