@@ -86,10 +86,6 @@
     min-width: 800px;
 }
 
-.ExperimentView-info {
-    margin-top: 8px;
-}
-
 .ExperimentView-info .note-view-outer-container {
     width: 100%;
     height: auto;
@@ -414,7 +410,10 @@ span.error-message {
 }
 
 .ExperimentView .ag-react-container {
+    display: flex;
+    align-items: center;
     width: inherit;
+    justify-content: center;
 }
 
 .ExperimentView .version-link {

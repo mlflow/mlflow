@@ -10,6 +10,7 @@ import socket
 import subprocess
 import uuid
 import sys
+import yaml
 
 import pandas as pd
 import pytest
@@ -17,7 +18,9 @@ import pytest
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.pyfunc
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import read_yaml, write_yaml
+from mlflow.utils.environment import _get_pip_deps, _CONSTRAINTS_FILE_NAME
 
 LOCALHOST = "127.0.0.1"
 
@@ -314,3 +317,34 @@ def create_mock_response(status_code, text):
     response.status_code = status_code
     response.text = text
     return response
+
+
+def _read_yaml(path):
+    with open(path, "r") as f:
+        return yaml.safe_load(f)
+
+
+def _read_lines(path):
+    with open(path, "r") as f:
+        return f.read().splitlines()
+
+
+def _compare_conda_env_requirements(env_path, req_path):
+    assert os.path.exists(req_path)
+    custom_env_parsed = _read_yaml(env_path)
+    requirements = _read_lines(req_path)
+    assert _get_pip_deps(custom_env_parsed) == requirements
+
+
+def _assert_pip_requirements(model_uri, requirements, constraints=None):
+    local_path = _download_artifact_from_uri(model_uri)
+    txt_reqs = _read_lines(os.path.join(local_path, "requirements.txt"))
+    conda_reqs = _get_pip_deps(_read_yaml(os.path.join(local_path, "conda.yaml")))
+    assert txt_reqs == requirements
+    assert conda_reqs == requirements
+
+    if constraints:
+        assert txt_reqs[-1] == f"-c {_CONSTRAINTS_FILE_NAME}"
+        assert conda_reqs[-1] == f"-c {_CONSTRAINTS_FILE_NAME}"
+        cons = _read_lines(os.path.join(local_path, _CONSTRAINTS_FILE_NAME))
+        assert cons == constraints

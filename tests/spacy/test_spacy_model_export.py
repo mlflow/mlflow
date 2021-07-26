@@ -21,6 +21,7 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from tests.conftest import tracking_uri_mock  # pylint: disable=unused-import, E0611
+from tests.helper_functions import _compare_conda_env_requirements
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
@@ -68,7 +69,7 @@ def spacy_model_with_data():
 @pytest.fixture
 def spacy_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
-    _mlflow_conda_env(conda_env, additional_conda_deps=["pytest"], additional_pip_deps=["spacy"])
+    _mlflow_conda_env(conda_env, additional_pip_deps=["pytest", "spacy"])
     return conda_env
 
 
@@ -82,6 +83,10 @@ def test_model_save_load(spacy_model_with_data, model_path):
     spacy_model = spacy_model_with_data.model
     mlflow.spacy.save_model(spacy_model=spacy_model, path=model_path)
     loaded_model = mlflow.spacy.load_model(model_path)
+
+    # Remove a `_sourced_vectors_hashes` field which is added when spaCy loads a model:
+    # https://github.com/explosion/spaCy/blob/e8ef4a46d5dbc9bb6d629ecd0b02721d6bdf2f87/spacy/language.py#L1701
+    loaded_model.meta.pop("_sourced_vectors_hashes", None)
 
     # Comparing the meta dictionaries for the original and loaded models
     assert spacy_model.meta == loaded_model.meta
@@ -158,6 +163,18 @@ def test_model_log(spacy_model_with_data, tracking_uri_mock):  # pylint: disable
 
 
 @pytest.mark.large
+def test_model_save_persists_requirements_in_mlflow_model_directory(
+    spacy_model_with_data, model_path, spacy_custom_env
+):
+    mlflow.spacy.save_model(
+        spacy_model=spacy_model_with_data.model, path=model_path, conda_env=spacy_custom_env
+    )
+
+    saved_pip_req_path = os.path.join(model_path, "requirements.txt")
+    _compare_conda_env_requirements(spacy_custom_env, saved_pip_req_path)
+
+
+@pytest.mark.large
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     spacy_model_with_data, model_path, spacy_custom_env
 ):
@@ -221,6 +238,27 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     with open(saved_conda_env_path, "r") as f:
         saved_conda_env_text = f.read()
     assert saved_conda_env_text == spacy_custom_env_text
+
+
+@pytest.mark.large
+def test_model_log_persists_requirements_in_mlflow_model_directory(
+    spacy_model_with_data, spacy_custom_env
+):
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.spacy.log_model(
+            spacy_model=spacy_model_with_data.model,
+            artifact_path=artifact_path,
+            conda_env=spacy_custom_env,
+        )
+        model_path = _download_artifact_from_uri(
+            "runs:/{run_id}/{artifact_path}".format(
+                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+            )
+        )
+
+    saved_pip_req_path = os.path.join(model_path, "requirements.txt")
+    _compare_conda_env_requirements(spacy_custom_env, saved_pip_req_path)
 
 
 @pytest.mark.large

@@ -33,7 +33,7 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
@@ -41,13 +41,13 @@ from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
     exception_safe_function,
-    try_mlflow_log,
-    log_fn_args_as_params,
+    get_mlflow_run_params_for_fn_args,
     INPUT_EXAMPLE_SAMPLE_ROWS,
     resolve_input_example_and_signature,
     InputExampleInfo,
     ENSURE_AUTOLOGGING_ENABLED_TEXT,
     batch_metrics_logger,
+    MlflowAutologgingQueueingClient,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -56,19 +56,23 @@ FLAVOR_NAME = "lightgbm"
 _logger = logging.getLogger(__name__)
 
 
+def get_default_pip_requirements():
+    """
+    :return: A list of default pip requirements for MLflow Models produced by this flavor.
+             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+             that, at minimum, contains these requirements.
+    """
+    import lightgbm as lgb
+
+    return ["lightgbm=={}".format(lgb.__version__)]
+
+
 def get_default_conda_env():
     """
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
-    import lightgbm as lgb
-
-    return _mlflow_conda_env(
-        additional_conda_deps=None,
-        # LightGBM is not yet available via the default conda channels, so we install it via pip
-        additional_pip_deps=["lightgbm=={}".format(lgb.__version__)],
-        additional_conda_channels=None,
-    )
+    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
 def save_model(
@@ -151,6 +155,8 @@ def save_model(
             conda_env = yaml.safe_load(f)
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    _log_pip_requirements(conda_env, path)
 
     pyfunc.add_to_model(
         mlflow_model,
@@ -408,15 +414,17 @@ def autolog(
                 # pylint: disable=undefined-loop-variable
                 filepath = os.path.join(tmpdir, "feature_importance_{}.png".format(imp_type))
                 fig.savefig(filepath)
-                try_mlflow_log(mlflow.log_artifact, filepath)
+                mlflow.log_artifact(filepath)
             finally:
                 plt.close(fig)
                 shutil.rmtree(tmpdir)
 
+        autologging_client = MlflowAutologgingQueueingClient()
+
         # logging booster params separately via mlflow.log_params to extract key/value pairs
         # and make it easier to compare them across runs.
-        params = args[0] if len(args) > 0 else kwargs["params"]
-        try_mlflow_log(mlflow.log_params, params)
+        booster_params = args[0] if len(args) > 0 else kwargs["params"]
+        autologging_client.log_params(run_id=mlflow.active_run().info.run_id, params=booster_params)
 
         unlogged_params = [
             "params",
@@ -431,7 +439,14 @@ def autolog(
             "callbacks",
         ]
 
-        log_fn_args_as_params(original, args, kwargs, unlogged_params)
+        params_to_log_for_fn = get_mlflow_run_params_for_fn_args(
+            original, args, kwargs, unlogged_params
+        )
+        autologging_client.log_params(
+            run_id=mlflow.active_run().info.run_id, params=params_to_log_for_fn
+        )
+
+        param_logging_operations = autologging_client.flush(synchronous=False)
 
         all_arg_names = inspect.getargspec(original)[0]  # pylint: disable=W1505
         num_pos_args = len(args)
@@ -462,13 +477,22 @@ def autolog(
             )
             if early_stopping:
                 extra_step = len(eval_results)
-
-                metrics_logger.record_metrics({"stopped_iteration": extra_step})
-                # best_iteration is set even if training does not stop early.
-                metrics_logger.record_metrics({"best_iteration": model.best_iteration})
+                autologging_client.log_metrics(
+                    run_id=mlflow.active_run().info.run_id,
+                    metrics={
+                        "stopped_iteration": extra_step,
+                        # best_iteration is set even if training does not stop early.
+                        "best_iteration": model.best_iteration,
+                    },
+                )
                 # iteration starts from 1 in LightGBM.
-                results = eval_results[model.best_iteration - 1]
-                metrics_logger.record_metrics(results, step=extra_step)
+                last_iter_results = eval_results[model.best_iteration - 1]
+                autologging_client.log_metrics(
+                    run_id=mlflow.active_run().info.run_id,
+                    metrics=last_iter_results,
+                    step=extra_step,
+                )
+                early_stopping_logging_operations = autologging_client.flush(synchronous=False)
 
         # logging feature importance as artifacts.
         for imp_type in ["split", "gain"]:
@@ -488,7 +512,7 @@ def autolog(
                 filepath = os.path.join(tmpdir, "feature_importance_{}.json".format(imp_type))
                 with open(filepath, "w") as f:
                     json.dump(imp, f, indent=2)
-                try_mlflow_log(mlflow.log_artifact, filepath)
+                mlflow.log_artifact(filepath)
             finally:
                 shutil.rmtree(tmpdir)
 
@@ -522,13 +546,13 @@ def autolog(
                 _logger,
             )
 
-            try_mlflow_log(
-                log_model,
-                model,
-                artifact_path="model",
-                signature=signature,
-                input_example=input_example,
+            log_model(
+                model, artifact_path="model", signature=signature, input_example=input_example,
             )
+
+        param_logging_operations.await_completion()
+        if early_stopping:
+            early_stopping_logging_operations.await_completion()
 
         return model
 

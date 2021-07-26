@@ -11,7 +11,7 @@ jobs:
           name: Install dev tools
           command: |
             apt-get update --yes
-            apt-get install sudo git wget curl software-properties-common apt-transport-https --yes
+            apt-get install sudo git wget curl jq software-properties-common apt-transport-https --yes
 
       - run:
           name: Install Java
@@ -38,13 +38,13 @@ jobs:
 
       - run:
           name: Dump R dependencies
+          working_directory: mlflow/R/mlflow
           command: |
-            Rscript .circleci/dump-r-dependencies.R
-            ls .circleci
+            Rscript .dump-r-dependencies.R
 
       - restore_cache:
           keys:
-            - r-cache-{{ checksum ".circleci/R-version" }}
+            - r-cache-{{ checksum "mlflow/R/mlflow/R-version" }}
 
       - run:
           name: Build documentation
@@ -53,17 +53,34 @@ jobs:
             ./build-rdoc.sh
 
       - run:
-          name: Show diff
+          name: Check diff
           command: |
-            git --no-pager diff
+            set +e
+            git add .
+            PATCH_FILE="<< pipeline.git.revision >>.patch"
+            git --no-pager diff --cached --exit-code > $PATCH_FILE
+            failed=$?
+
+            if [[ "$failed" == "1" ]]; then
+              cat $PATCH_FILE
+              MLFLOW_REPO_ID=$(curl -s -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/mlflow/mlflow | jq '.id')
+              PATCH_FILE_URL="https://${CIRCLE_BUILD_NUM}-${MLFLOW_REPO_ID}-gh.circle-artifacts.com/0/${PATCH_FILE}"
+              echo "========== Run the following commands to apply the diff above =========="
+              echo "PATCH_FILE_URL=\"$PATCH_FILE_URL\""
+              echo 'REDIRECTED_URL=$(curl -Ls -o /dev/null -w %{url_effective} $PATCH_FILE_URL)'
+              echo 'curl -s $REDIRECTED_URL | git apply --verbose'
+              echo "========================================================================"
+            fi
+
+            exit $failed
 
       - save_cache:
-          key: r-cache-{{ checksum ".circleci/R-version" }}-{{ checksum ".circleci/depends.Rds" }}
+          key: r-cache-{{ checksum "mlflow/R/mlflow/R-version" }}-{{ checksum "mlflow/R/mlflow/depends.Rds" }}
           paths:
             - /usr/local/lib/R/site-library
 
       - store_artifacts:
-          path: docs/source/R-api.rst
+          path: << pipeline.git.revision >>.patch
 
   build_doc:
     docker:

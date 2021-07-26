@@ -1,20 +1,20 @@
 name: hyperparam_example
 channels:
-  - defaults
-  - anaconda
   - conda-forge
 dependencies:
   - python=3.6
-  - numpy=1.14.3
-  - pandas=0.22.0
-  - scikit-learn=0.19.1
-  - matplotlib=2.2.2
-  - keras==2.2.2
   - pip
   - pip:
-    - mlflow>=1.0
-    - Gpy==1.9.2
+    - numpy==1.19.5
+    - click
+    - pandas==0.22.0
+    - scipy==1.4.1
+    - scikit-learn==0.19.1
+    - tensorflow==1.13.1
+    - matplotlib==2.2.2
+    - keras==2.3.1
+    - mlflow>=1.6
+    - Gpy==1.9.5
     - GpyOpt==1.2.5
     - pyDOE==0.3.8
     - hyperopt==0.1
-

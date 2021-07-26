@@ -88,6 +88,16 @@ def is_in_databricks_job():
         return False
 
 
+def is_in_databricks_runtime():
+    try:
+        # pylint: disable=unused-import,import-error,no-name-in-module,unused-variable
+        import pyspark.databricks
+
+        return True
+    except ModuleNotFoundError:
+        return False
+
+
 def is_dbfs_fuse_available():
     with open(os.devnull, "w") as devnull_stderr, open(os.devnull, "w") as devnull_stdout:
         try:
@@ -134,11 +144,58 @@ def get_notebook_path():
         return _get_extra_context("notebook_path")
 
 
+def get_databricks_runtime():
+    if is_in_databricks_runtime():
+        spark_session = _get_active_spark_session()
+        if spark_session is not None:
+            return spark_session.conf.get(
+                "spark.databricks.clusterUsageTags.sparkVersion", default=None
+            )
+    return None
+
+
 def get_cluster_id():
     spark_session = _get_active_spark_session()
     if spark_session is None:
         return None
     return spark_session.conf.get("spark.databricks.clusterUsageTags.clusterId")
+
+
+def get_job_group_id():
+    try:
+        dbutils = _get_dbutils()
+        job_group_id = dbutils.entry_point.getJobGroupId()
+        if job_group_id is not None:
+            return job_group_id
+    except Exception:
+        return None
+
+
+def get_repl_id():
+    """
+    :return: The ID of the current Databricks Python REPL
+    """
+    # Attempt to fetch the REPL ID from the Python REPL's entrypoint object. This REPL ID
+    # is guaranteed to be set upon REPL startup in DBR / MLR 9.0
+    try:
+        dbutils = _get_dbutils()
+        repl_id = dbutils.entry_point.getReplId()
+        if repl_id is not None:
+            return repl_id
+    except Exception:
+        pass
+
+    # If the REPL ID entrypoint property is unavailable due to an older runtime version (< 9.0),
+    # attempt to fetch the REPL ID from the Spark Context. This property may not be available
+    # until several seconds after REPL startup
+    try:
+        from pyspark import SparkContext
+
+        repl_id = SparkContext.getOrCreate().getLocalProperty("spark.databricks.replId")
+        if repl_id is not None:
+            return repl_id
+    except Exception:
+        pass
 
 
 def get_job_id():
@@ -161,6 +218,14 @@ def get_job_type():
         return _get_command_context().jobTaskType().get()
     except Exception:
         return _get_context_tag("jobTaskType")
+
+
+def get_command_run_id():
+    try:
+        return _get_command_context().commandRunId().get()
+    except Exception:
+        # Older runtimes may not have the commandRunId available
+        return None
 
 
 def get_webapp_url():

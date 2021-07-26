@@ -1,8 +1,10 @@
 import mlflow
 import shap
 import numpy as np
+import pandas as pd
 import sklearn
 from mlflow.utils import PYTHON_VERSION
+from mlflow.tracking import MlflowClient
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.model_utils import _get_flavor_configuration
 
@@ -106,6 +108,25 @@ def test_sklearn_log_explainer_pyfunc():
         np.testing.assert_allclose(shap_values_original.values, shap_values_new, rtol=100, atol=100)
 
 
+def test_log_explanation_doesnt_create_autologged_run():
+    mlflow.sklearn.autolog(disable=False, exclusive=False)
+    dataset = sklearn.datasets.load_boston()
+    X = pd.DataFrame(dataset.data[:50, :8], columns=dataset.feature_names[:8])
+    y = dataset.target[:50]
+    model = sklearn.linear_model.LinearRegression()
+    model.fit(X, y)
+
+    with mlflow.start_run() as run:
+        mlflow.shap.log_explanation(model.predict, X)
+
+    run_data = MlflowClient().get_run(run.info.run_id).data
+    metrics, params, tags = run_data.metrics, run_data.params, run_data.tags
+    assert not metrics
+    assert not params
+    assert all("mlflow." in key for key in tags)
+    assert "mlflow.autologging" not in tags
+
+
 def test_load_pyfunc(tmpdir):
 
     X, y = shap.datasets.boston()
@@ -126,12 +147,12 @@ def test_load_pyfunc(tmpdir):
 def test_merge_environment():
 
     test_shap_env = {
-        "channels": ["defaults", "conda-forge"],
+        "channels": ["conda-forge"],
         "dependencies": ["python=3.8.5", "pip", {"pip": ["mlflow", "shap==0.38.0"]}],
     }
 
     test_model_env = {
-        "channels": ["defaults", "conda-forge"],
+        "channels": ["conda-forge"],
         "dependencies": [
             "python=3.8.5",
             "pip",
@@ -141,7 +162,7 @@ def test_merge_environment():
 
     expected_merged_env = {
         "name": "mlflow-env",
-        "channels": ["defaults", "conda-forge"],
+        "channels": ["conda-forge"],
         "dependencies": [
             "python={}".format(PYTHON_VERSION),
             "pip",

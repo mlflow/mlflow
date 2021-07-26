@@ -1,7 +1,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import Utils from '../../common/utils/Utils';
-import { Button } from 'antd';
+import Utils from '../utils/Utils';
+import { css } from 'emotion';
 
 // Number of tags shown when cell is collapsed
 export const NUM_TAGS_ON_COLLAPSED = 3;
@@ -28,8 +28,18 @@ export class CollapsibleTagsCell extends React.Component {
     const tagsToDisplay = this.state.collapsed
       ? visibleTags.slice(0, NUM_TAGS_ON_COLLAPSED)
       : visibleTags;
+    const showLess = (
+      <div onClick={this.handleToggleCollapse} className='expander-text'>
+        Less
+      </div>
+    );
+    const showMore = (
+      <div onClick={this.handleToggleCollapse} className='expander-text'>
+        +{visibleTags.length - NUM_TAGS_ON_COLLAPSED} more
+      </div>
+    );
     return (
-      <div>
+      <div className={expandableListClassName}>
         {tagsToDisplay.map((entry) => {
           const tagName = entry[0];
           const value = entry[1];
@@ -46,14 +56,15 @@ export class CollapsibleTagsCell extends React.Component {
             </div>
           );
         })}
-        {visibleTags.length > 3 ? (
-          <Button type='link' className='tag-cell-toggle-link' onClick={this.handleToggleCollapse}>
-            {this.state.collapsed
-              ? `${visibleTags.length - NUM_TAGS_ON_COLLAPSED} more`
-              : `Show less`}
-          </Button>
-        ) : null}
+        {visibleTags.length > 3 ? (this.state.collapsed ? showMore : showLess) : null}
       </div>
     );
   }
 }
+
+const expandableListClassName = css({
+  '.expander-text': {
+    textDecoration: 'underline',
+    cursor: 'pointer',
+  },
+});

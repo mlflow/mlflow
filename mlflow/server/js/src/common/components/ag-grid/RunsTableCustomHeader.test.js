@@ -38,4 +38,30 @@ describe('RunsTableCustomHeader', () => {
     wrapper = shallow(<RunsTableCustomHeader {...minimalProps} />);
     expect(wrapper.find("[role='columnheader']").length).toBe(1);
   });
+
+  test('should handleSortBy correctly', () => {
+    const onSortBy = jest.fn();
+    const props = {
+      ...minimalProps,
+      enableSorting: true,
+      canonicalSortKey: 'user',
+      orderByKey: 'username',
+      orderByAsc: false,
+      onSortBy,
+    };
+    wrapper = mount(<RunsTableCustomHeader {...props} />);
+    let instance = wrapper.instance();
+    instance.handleSortBy();
+
+    expect(onSortBy).toHaveBeenCalledTimes(1);
+    expect(onSortBy).toBeCalledWith(props.canonicalSortKey, false);
+
+    props.orderByKey = 'user';
+    wrapper = mount(<RunsTableCustomHeader {...props} />);
+    instance = wrapper.instance();
+    instance.handleSortBy();
+
+    expect(onSortBy).toHaveBeenCalledTimes(2);
+    expect(onSortBy).toBeCalledWith(props.canonicalSortKey, true);
+  });
 });

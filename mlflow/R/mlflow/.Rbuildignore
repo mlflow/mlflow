@@ -6,6 +6,7 @@ packrat
 ^\.run-tests\.R$
 ^\.create-test-env\.R$
 ^\.spark-version$
+^\.dump-r-dependencies\.R$
 ^README.Rmd$
 ^docs$
 ^model$
@@ -16,3 +17,5 @@ Reference_Manual_mlflow.md
 ^man-roxygen/
 ^internal/
 ^logs/
+^depends\.Rds
+^R-version

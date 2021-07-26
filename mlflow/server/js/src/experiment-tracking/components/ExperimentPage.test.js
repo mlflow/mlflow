@@ -1,26 +1,33 @@
 import React from 'react';
 import qs from 'qs';
 import { shallow } from 'enzyme';
+import { MemoryRouter as Router } from 'react-router-dom';
+
 import { ErrorCodes } from '../../common/constants';
 import {
-  PAGINATION_DEFAULT_STATE,
+  DETECT_NEW_RUNS_INTERVAL,
   ExperimentPage,
+  MAX_DETECT_NEW_RUNS_RESULTS,
+  PAGINATION_DEFAULT_STATE,
+  isNewRun,
   lifecycleFilterToRunViewType,
 } from './ExperimentPage';
 import ExperimentView from './ExperimentView';
 import { PermissionDeniedView } from './PermissionDeniedView';
 import { ViewType } from '../sdk/MlflowEnums';
-import { MemoryRouter as Router } from 'react-router-dom';
 import { ErrorWrapper } from '../../common/utils/ActionUtils';
 import { MAX_RUNS_IN_SEARCH_MODEL_VERSIONS_FILTER } from '../../model-registry/constants';
 
 const BASE_PATH = '/experiments/17/s';
 const EXPERIMENT_ID = '17';
 
+jest.useFakeTimers();
+
 let searchRunsApi;
 let getExperimentApi;
 let loadMoreRunsApi;
 let searchModelVersionsApi;
+let searchForNewRuns;
 let history;
 let location;
 
@@ -29,6 +36,7 @@ beforeEach(() => {
   getExperimentApi = jest.fn(() => Promise.resolve());
   searchModelVersionsApi = jest.fn(() => Promise.resolve());
   loadMoreRunsApi = jest.fn(() => Promise.resolve());
+  searchForNewRuns = jest.fn(() => Promise.resolve());
   location = {};
 
   history = {};
@@ -38,7 +46,7 @@ beforeEach(() => {
   history.push = jest.fn();
 });
 
-const getExperimentPageMock = () => {
+const getExperimentPageMock = (additionalProps) => {
   return shallow(
     <ExperimentPage
       experimentId={EXPERIMENT_ID}
@@ -46,8 +54,10 @@ const getExperimentPageMock = () => {
       getExperimentApi={getExperimentApi}
       searchModelVersionsApi={searchModelVersionsApi}
       loadMoreRunsApi={loadMoreRunsApi}
+      searchForNewRuns={searchForNewRuns}
       history={history}
       location={location}
+      {...additionalProps}
     />,
   );
 };
@@ -439,4 +449,198 @@ describe('handleGettingRuns', () => {
 test('lifecycleFilterToRunViewType', () => {
   expect(lifecycleFilterToRunViewType('Active')).toBe('ACTIVE_ONLY');
   expect(lifecycleFilterToRunViewType('Deleted')).toBe('DELETED_ONLY');
+});
+
+describe('detectNewRuns', () => {
+  describe('refresh behaviour', () => {
+    test('Should refresh once after DETECT_NEW_RUNS_INTERVAL', () => {
+      getExperimentPageMock();
+      jest.advanceTimersByTime(DETECT_NEW_RUNS_INTERVAL - 1);
+      expect(searchForNewRuns).toHaveBeenCalledTimes(0);
+      jest.advanceTimersByTime(1);
+      expect(searchForNewRuns).toHaveBeenCalledTimes(1);
+    });
+
+    test('Should refresh every DETECT_NEW_RUNS_INTERVAL', () => {
+      getExperimentPageMock();
+      jest.advanceTimersByTime(DETECT_NEW_RUNS_INTERVAL - 1);
+      expect(searchForNewRuns).toHaveBeenCalledTimes(0);
+      jest.advanceTimersByTime(1);
+      expect(searchForNewRuns).toHaveBeenCalledTimes(1);
+      jest.advanceTimersByTime(DETECT_NEW_RUNS_INTERVAL);
+      expect(searchForNewRuns).toHaveBeenCalledTimes(2);
+    });
+
+    test('Should not keep refreshing after unmount', () => {
+      const mock = getExperimentPageMock();
+
+      mock.unmount();
+
+      jest.advanceTimersByTime(DETECT_NEW_RUNS_INTERVAL);
+      expect(searchForNewRuns).toHaveBeenCalledTimes(0);
+      jest.advanceTimersByTime(DETECT_NEW_RUNS_INTERVAL);
+      expect(searchForNewRuns).toHaveBeenCalledTimes(0);
+      jest.advanceTimersByTime(DETECT_NEW_RUNS_INTERVAL * 100);
+      expect(searchForNewRuns).toHaveBeenCalledTimes(0);
+    });
+
+    describe('Interval clearing behaviour', () => {
+      const maxNewRuns = [];
+      for (let i = 0; i < MAX_DETECT_NEW_RUNS_RESULTS; i++) {
+        maxNewRuns.push({ info: { start_time: Date.now() + 10000 } });
+      }
+
+      test('Should stop polling if there are already max new runs', async () => {
+        const mockSearchForNewRuns = jest.fn(() => Promise.resolve({ runs: maxNewRuns }));
+
+        const instance = getExperimentPageMock({
+          searchForNewRuns: mockSearchForNewRuns,
+        }).instance();
+
+        expect(mockSearchForNewRuns).toHaveBeenCalledTimes(0);
+        await instance.detectNewRuns();
+        expect(mockSearchForNewRuns).toHaveBeenCalledTimes(1);
+        expect(instance.detectNewRunsTimer).toEqual(null);
+        jest.advanceTimersByTime(DETECT_NEW_RUNS_INTERVAL * 100);
+        expect(mockSearchForNewRuns).toHaveBeenCalledTimes(1);
+      });
+
+      test('Should resume polling if a new search is triggered', async () => {
+        const mockSearchForNewRuns = jest.fn(() => Promise.resolve({ runs: maxNewRuns }));
+
+        const instance = getExperimentPageMock({
+          searchForNewRuns: mockSearchForNewRuns,
+        }).instance();
+
+        await instance.detectNewRuns();
+        expect(mockSearchForNewRuns).toHaveBeenCalledTimes(1);
+        expect(instance.detectNewRunsTimer).toEqual(null);
+        jest.advanceTimersByTime(DETECT_NEW_RUNS_INTERVAL * 100);
+        expect(mockSearchForNewRuns).toHaveBeenCalledTimes(1);
+
+        await instance.onSearch();
+
+        jest.advanceTimersByTime(DETECT_NEW_RUNS_INTERVAL);
+        expect(mockSearchForNewRuns).toHaveBeenCalledTimes(2);
+        jest.advanceTimersByTime(DETECT_NEW_RUNS_INTERVAL);
+        expect(mockSearchForNewRuns).toHaveBeenCalledTimes(3);
+      });
+    });
+  });
+
+  describe('numberOfNewRuns state', () => {
+    test('numberOfNewRuns should be 0 be default', () => {
+      const instance = getExperimentPageMock().instance();
+      expect(instance.state.numberOfNewRuns).toEqual(0);
+    });
+
+    test('numberOfNewRuns should be 0 if no new runs', async () => {
+      const instance = getExperimentPageMock({
+        searchForNewRuns: () => Promise.resolve({ runs: [] }),
+      }).instance();
+
+      await instance.detectNewRuns();
+      expect(instance.state.numberOfNewRuns).toEqual(0);
+    });
+
+    test('Should update numberOfNewRuns correctly', async () => {
+      const mockSearchForNewRuns = jest.fn(() =>
+        Promise.resolve({
+          runs: [
+            {
+              info: {
+                start_time: Date.now() + 10000,
+              },
+            },
+            {
+              info: {
+                end_time: Date.now() + 10000,
+              },
+            },
+            {
+              info: {
+                end_time: 0,
+              },
+            },
+          ],
+        }),
+      );
+
+      const instance = getExperimentPageMock({
+        searchForNewRuns: mockSearchForNewRuns,
+      }).instance();
+
+      await instance.detectNewRuns();
+      expect(instance.state.numberOfNewRuns).toEqual(2);
+    });
+
+    test('Should not explode if no runs', async () => {
+      const instance = getExperimentPageMock().instance();
+
+      await instance.detectNewRuns();
+      expect(instance.state.numberOfNewRuns).toEqual(0);
+    });
+  });
+});
+
+describe('isNewRun', () => {
+  test('should return false if run undefined', () => {
+    expect(isNewRun(2, undefined)).toEqual(false);
+  });
+
+  test('should return false if run info undefined', () => {
+    expect(isNewRun(2, {})).toEqual(false);
+  });
+
+  test('should return false if start time and end time undefined', () => {
+    expect(
+      isNewRun(2, {
+        info: {},
+      }),
+    ).toEqual(false);
+  });
+
+  test('should return false if start time and end time are < lastRunsRefreshTime', () => {
+    expect(
+      isNewRun(2, {
+        info: {
+          start_time: 1,
+          end_time: 1,
+        },
+      }),
+    ).toEqual(false);
+  });
+
+  test('should return false if start time < lastRunsRefreshTime and end time is 0', () => {
+    expect(
+      isNewRun(2, {
+        info: {
+          start_time: 1,
+          end_time: 0,
+        },
+      }),
+    ).toEqual(false);
+  });
+
+  test('should return true if start time >= lastRunsRefreshTime', () => {
+    expect(
+      isNewRun(1, {
+        info: {
+          start_time: 1,
+          end_time: 0,
+        },
+      }),
+    ).toEqual(true);
+  });
+
+  test('should return true if end time not 0 and <= lastRunsRefreshTime', () => {
+    expect(
+      isNewRun(2, {
+        info: {
+          start_time: 1,
+          end_time: 3,
+        },
+      }),
+    ).toEqual(true);
+  });
 });

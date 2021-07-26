@@ -145,8 +145,9 @@ def start_run(
     :param run_name: Name of new run (stored as a ``mlflow.runName`` tag).
                      Used only when ``run_id`` is unspecified.
     :param nested: Controls whether run is nested in parent run. ``True`` creates a nested run.
-    :param tags: An optional dictionary of string keys and values to set as tags on the new run.
-                 If an existing run is being resumed, this argument is ignored.
+    :param tags: An optional dictionary of string keys and values to set as tags on the run.
+                 If a run is being resumed, these tags are set on the resumed run. If a new run is
+                 being created, these tags are set on the new run.
     :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping
              the run's state.
 
@@ -190,6 +191,7 @@ def start_run(
                 + "run, call start_run with nested=True"
             ).format(_active_run_stack[0].info.run_id)
         )
+    client = MlflowClient()
     if run_id:
         existing_run_id = run_id
     elif _RUN_ID_ENV_VAR in os.environ:
@@ -199,7 +201,7 @@ def start_run(
         existing_run_id = None
     if existing_run_id:
         _validate_run_id(existing_run_id)
-        active_run_obj = MlflowClient().get_run(existing_run_id)
+        active_run_obj = client.get_run(existing_run_id)
         # Check to see if experiment_id from environment matches experiment_id from set_experiment()
         if (
             _active_experiment_id is not None
@@ -223,7 +225,12 @@ def start_run(
         _get_store().update_run_info(
             existing_run_id, run_status=RunStatus.RUNNING, end_time=end_time
         )
-        active_run_obj = MlflowClient().get_run(existing_run_id)
+        if tags:
+            client.log_batch(
+                run_id=existing_run_id,
+                tags=[RunTag(key, str(value)) for key, value in tags.items()],
+            )
+        active_run_obj = client.get_run(existing_run_id)
     else:
         if len(_active_run_stack) > 0:
             parent_run_id = _active_run_stack[-1].info.run_id
@@ -240,7 +247,7 @@ def start_run(
 
         tags = context_registry.resolve_tags(user_specified_tags)
 
-        active_run_obj = MlflowClient().create_run(experiment_id=exp_id_for_run, tags=tags)
+        active_run_obj = client.create_run(experiment_id=exp_id_for_run, tags=tags)
 
     _active_run_stack.append(ActiveRun(active_run_obj))
     return _active_run_stack[-1]
@@ -815,6 +822,24 @@ def get_experiment_by_name(name: str) -> Optional[Experiment]:
     return MlflowClient().get_experiment_by_name(name)
 
 
+def list_experiments(
+    view_type: int = ViewType.ACTIVE_ONLY, max_results: Optional[int] = None,
+) -> List[Experiment]:
+    """
+        :param view_type: Qualify requested type of experiments.
+        :param max_results: If passed, specifies the maximum number of experiments desired. If not
+                            passed, all experiments will be returned.
+        :return: A list of :py:class:`Experiment <mlflow.entities.Experiment>` objects.
+        """
+
+    def pagination_wrapper_func(number_to_get, next_page_token):
+        return MlflowClient().list_experiments(
+            view_type=view_type, max_results=number_to_get, page_token=next_page_token,
+        )
+
+    return _paginate(pagination_wrapper_func, SEARCH_MAX_RESULTS_DEFAULT, max_results)
+
+
 def create_experiment(name: str, artifact_location: Optional[str] = None) -> str:
     """
     Create an experiment.
@@ -1129,7 +1154,7 @@ def list_run_infos(
            are ``metric.key``, ``parameter.key``, ``tag.key``, ``attribute.key``.
            For example, ``order_by=["tag.release ASC", "metric.click_rate DESC"]``.
 
-    :return: A list of :py:class:`mlflow.entities.RunInfo` objects that satisfy the
+    :return: A list of :py:class:`RunInfo <mlflow.entities.RunInfo>` objects that satisfy the
         search expressions.
 
     .. code-block:: python
@@ -1182,7 +1207,7 @@ def list_run_infos(
     return _paginate(pagination_wrapper_func, SEARCH_MAX_RESULTS_DEFAULT, max_results)
 
 
-def _paginate(paginated_fn, max_results_per_page, max_results):
+def _paginate(paginated_fn, max_results_per_page, max_results=None):
     """
     Intended to be a general use pagination utility.
 
@@ -1192,15 +1217,17 @@ def _paginate(paginated_fn, max_results_per_page, max_results):
     :param max_results_per_page:
     :type max_results_per_page: The maximum number of results to retrieve per page
     :param max_results:
-    :type max_results: The maximum number of results to retrieve overall
+    :type max_results: The maximum number of results to retrieve overall. If unspecified,
+                       all results will be retrieved.
     :return: Returns a list of entities, as determined by the paginated_fn parameter, with no more
         entities than specified by max_results
     :rtype: list[object]
     """
     all_results = []
     next_page_token = None
-    while len(all_results) < max_results:
-        num_to_get = max_results - len(all_results)
+    returns_all = max_results is None
+    while returns_all or len(all_results) < max_results:
+        num_to_get = max_results_per_page if returns_all else max_results - len(all_results)
         if num_to_get < max_results_per_page:
             page_results = paginated_fn(num_to_get, next_page_token)
         else:

@@ -24,18 +24,16 @@ from mlflow.sklearn.utils import (
     _is_metric_supported,
     _is_plotting_supported,
     _get_arg_names,
-    _truncate_dict,
     _log_child_runs_info,
 )
-from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_AUTOLOGGING
+from mlflow.utils import _truncate_dict
+from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
     MAX_METRICS_PER_BATCH,
     MAX_PARAM_VAL_LENGTH,
     MAX_ENTITY_KEY_LENGTH,
 )
-
-from tests.autologging.fixtures import test_mode_off
 
 FIT_FUNC_NAMES = ["fit", "fit_transform", "fit_predict"]
 TRAINING_SCORE = "training_score"
@@ -701,56 +699,6 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
         assert call_count == call_count_expected
 
 
-def test_fit_xxx_performs_logging_only_once(fit_func_name):
-    mlflow.sklearn.autolog()
-
-    model = sklearn.cluster.KMeans()
-    X, y = get_iris()
-
-    with mock.patch("mlflow.log_params") as mock_log_params, mock.patch(
-        "mlflow.log_metric"
-    ) as mock_log_metric, mock.patch("mlflow.set_tags") as mock_set_tags, mock.patch(
-        "mlflow.sklearn.log_model"
-    ) as mock_log_model:
-        with mlflow.start_run() as run:
-            model = fit_model(model, X, y, fit_func_name)
-            mock_log_params.assert_called_once()
-            mock_log_metric.assert_called_once()
-            mock_set_tags.assert_called_once()
-            mock_log_model.assert_called_once()
-
-        query = "tags.{} = '{}'".format(MLFLOW_PARENT_RUN_ID, run.info.run_id)
-        assert len(mlflow.search_runs([run.info.experiment_id])) == 1
-        assert len(mlflow.search_runs([run.info.experiment_id], query)) == 0
-
-
-def test_meta_estimator_fit_performs_logging_only_once():
-    mlflow.sklearn.autolog()
-
-    estimators = [
-        ("std_scaler", sklearn.preprocessing.StandardScaler()),
-        ("svc", sklearn.svm.SVC()),
-    ]
-    model = sklearn.pipeline.Pipeline(estimators)
-    X, y = get_iris()
-
-    with mock.patch("mlflow.log_params") as mock_log_params, mock.patch(
-        "mlflow.log_metric"
-    ) as mock_log_metric, mock.patch("mlflow.set_tags") as mock_set_tags, mock.patch(
-        "mlflow.sklearn.log_model"
-    ) as mock_log_model:
-        with mlflow.start_run() as run:
-            model.fit(X, y)
-            mock_log_params.assert_called_once()
-            mock_log_metric.assert_called_once()
-            mock_set_tags.assert_called_once()
-            mock_log_model.assert_called_once()
-
-        query = "tags.{} = '{}'".format(MLFLOW_PARENT_RUN_ID, run.info.run_id)
-        assert len(mlflow.search_runs([run.info.experiment_id])) == 1
-        assert len(mlflow.search_runs([run.info.experiment_id], query)) == 0
-
-
 @pytest.mark.parametrize(
     "cv_class, search_space",
     [
@@ -893,43 +841,6 @@ def test_parameter_search_handles_large_volume_of_metric_outputs():
     child_run = child_runs[0]
 
     assert len(child_run.data.metrics) >= metrics_size
-
-
-@pytest.mark.usefixtures(test_mode_off.__name__)
-@pytest.mark.parametrize(
-    "failing_specialization",
-    [
-        "mlflow.sklearn.utils._log_parameter_search_results_as_artifact",
-        "mlflow.sklearn.utils._create_child_runs_for_parameter_search",
-    ],
-)
-def test_autolog_does_not_throw_when_parameter_search_logging_fails(failing_specialization):
-    with mock.patch(failing_specialization, side_effect=Exception("Failed")) as mock_func:
-        # Enable autologging after mocking the parameter search specialization function
-        # to ensure that the mock is applied before the function is imported
-        mlflow.sklearn.autolog()
-        svc = sklearn.svm.SVC()
-        cv_model = sklearn.model_selection.GridSearchCV(svc, {"C": [1]}, n_jobs=1)
-        cv_model.fit(*get_iris())
-        mock_func.assert_called_once()
-
-
-@pytest.mark.usefixtures(test_mode_off.__name__)
-@pytest.mark.parametrize(
-    "func_to_fail",
-    ["mlflow.log_params", "mlflow.log_metric", "mlflow.set_tags", "mlflow.sklearn.log_model"],
-)
-def test_autolog_does_not_throw_when_mlflow_logging_fails(func_to_fail):
-    mlflow.sklearn.autolog()
-
-    model = sklearn.cluster.KMeans()
-    X, y = get_iris()
-
-    with mlflow.start_run(), mock.patch(
-        func_to_fail, side_effect=Exception(func_to_fail)
-    ) as mock_func:
-        model.fit(X, y)
-        mock_func.assert_called_once()
 
 
 @pytest.mark.parametrize("data_type", [pd.DataFrame, np.array])
@@ -1101,6 +1012,7 @@ def test_autolog_does_not_capture_runs_for_preprocessing_or_feature_manipulation
     from sklearn.impute import SimpleImputer
     from sklearn.feature_extraction.text import TfidfVectorizer
     from sklearn.feature_selection import VarianceThreshold
+    from sklearn.compose import ColumnTransformer
 
     with mlflow.start_run(run_id=run_id):
         Normalizer().fit_transform(np.random.random((5, 5)))
@@ -1114,6 +1026,7 @@ def test_autolog_does_not_capture_runs_for_preprocessing_or_feature_manipulation
             ]
         )
         VarianceThreshold().fit_transform([[0, 2, 0, 3], [0, 1, 4, 3], [0, 1, 1, 3]])
+        ColumnTransformer([("norm", Normalizer(), [0])]).fit_transform([[0]])
 
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert len(params) == 0

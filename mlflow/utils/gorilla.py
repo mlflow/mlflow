@@ -29,7 +29,6 @@ import pkgutil
 import sys
 import types
 
-
 __version__ = "0.3.0"
 
 
@@ -61,7 +60,8 @@ _PATTERN = "_gorilla_%s"
 # Pattern for the name of the overidden attributes to be stored.
 _ORIGINAL_NAME = _PATTERN % ("original_%s",)
 
-_ACTIVE_PATCH = "_gorilla_active_patch"
+# Pattern for the name of the patch attributes to be stored.
+_ACTIVE_PATCH = "_gorilla_active_patch_%s"
 
 # Attribute for the decorator data.
 _DECORATOR_DATA = _PATTERN % ("decorator_data",)
@@ -231,6 +231,9 @@ class Patch(object):
         is_equal = self.__eq__(other)
         return is_equal if is_equal is NotImplemented else not is_equal
 
+    def __hash__(self):  # pylint: disable=useless-super-delegation
+        return super().__hash__()
+
     def _update(self, **kwargs):
         """Update some attributes.
 
@@ -309,6 +312,7 @@ def apply(patch):
 
         if settings.store_hit:
             original_name = _ORIGINAL_NAME % (patch.name,)
+            curr_active_patch = _ACTIVE_PATCH % (patch.name,)
             # For certain MLflow Models use cases, such as scikit-learn autologging, we patch
             # a method on a parent class
             # (e.g., `sklearn.feature_extraction.text.CountVectorizer.fit_transform()`) and
@@ -319,7 +323,8 @@ def apply(patch):
             # overriden method (e.g., `feature_extraction.text.TfidfVectorizer.fit_transform()`),
             # rather than the parent method
             # (e.g., `sklearn.feature_extraction.text.CountVectorizer.fit_transform()`)
-            prev_patch = getattr(patch.destination, _ACTIVE_PATCH, None)
+            prev_patch = getattr(patch.destination, curr_active_patch, None)
+
             if not hasattr(patch.destination, original_name) or (
                 prev_patch
                 and prev_patch.destination != patch.destination
@@ -328,7 +333,55 @@ def apply(patch):
                 setattr(patch.destination, original_name, target)
 
     setattr(patch.destination, patch.name, patch.obj)
-    setattr(patch.destination, _ACTIVE_PATCH, patch)
+    setattr(patch.destination, curr_active_patch, patch)
+
+
+def revert(patch):
+    """Revert a patch.
+    Parameters
+    ----------
+    patch : gorilla.Patch
+        Patch.
+    Note
+    ----
+    This is only possible if the attribute :attr:`Settings.store_hit` was set
+    to ``True`` when applying the patch and overriding an existing attribute.
+
+    Notice:
+    This method is taken from
+    https://github.com/christophercrouzet/gorilla/blob/v0.4.0/gorilla.py#L318-L351
+    with modifictions for autologging disablement purposes.
+    """
+    # If an curr_active_patch has not been set on destination class for the current patch,
+    # then there is no reverting to do.
+    curr_active_patch = _ACTIVE_PATCH % (patch.name,)
+    if not hasattr(patch.destination, curr_active_patch):
+        return
+
+    try:
+        original = get_original_attribute(patch.destination, patch.name)
+    except AttributeError:
+        raise RuntimeError(
+            "Cannot revert the attribute named '%s' since the setting "
+            "'store_hit' was not set to True when applying the patch."
+            % (patch.destination.__name__,)
+        )
+
+    original_name = _ORIGINAL_NAME % (patch.name,)
+    if not getattr(patch.destination, original_name, None):
+        return
+
+    setattr(patch.destination, patch.name, original)
+
+    # We are only deleting the attribute if it is defined on the
+    # destination class as opposed to being inherited from parent class.
+    if original_name in patch.destination.__dict__:
+        delattr(patch.destination, original_name)
+    # If an curr_active_patch has been set on the destination class,
+    # then remove that attribute as well to properly clean up patched code.
+    # This is undoing the custom changes to gorilla.py's code in the `apply()`.
+    if curr_active_patch in patch.destination.__dict__:
+        delattr(patch.destination, curr_active_patch)
 
 
 def patch(destination, name=None, settings=None):

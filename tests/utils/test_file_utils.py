@@ -49,6 +49,37 @@ def test_yaml_read_and_write(tmpdir):
     assert "more_text" not in file_utils.read_yaml(temp_dir, yaml_file)
 
 
+def test_yaml_write_sorting(tmpdir):
+    temp_dir = str(tmpdir)
+    data = {
+        "a": 1,
+        "c": 2,
+        "b": 3,
+    }
+
+    sorted_yaml_file = random_file("yaml")
+    file_utils.write_yaml(temp_dir, sorted_yaml_file, data, sort_keys=True)
+    expected_sorted = """a: 1
+b: 3
+c: 2
+"""
+    with open(os.path.join(temp_dir, sorted_yaml_file), "r") as f:
+        actual_sorted = f.read()
+
+    assert actual_sorted == expected_sorted
+
+    unsorted_yaml_file = random_file("yaml")
+    file_utils.write_yaml(temp_dir, unsorted_yaml_file, data, sort_keys=False)
+    expected_unsorted = """a: 1
+c: 2
+b: 3
+"""
+    with open(os.path.join(temp_dir, unsorted_yaml_file), "r") as f:
+        actual_unsorted = f.read()
+
+    assert actual_unsorted == expected_unsorted
+
+
 def test_mkdir(tmpdir):
     temp_dir = str(tmpdir)
     new_dir_name = "mkdir_test_%d" % random_int()

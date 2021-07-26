@@ -38,10 +38,14 @@ class FbProphetWrapper(mlflow.pyfunc.PythonModel):
 
 
 conda_env = {
-    "channels": ["defaults", "conda-forge"],
+    "channels": ["conda-forge"],
     "dependencies": [
-        "fbprophet={}".format(fbprophet.__version__),
-        "cloudpickle={}".format(cloudpickle.__version__),
+        {
+            "pip": [
+                "fbprophet=={}".format(fbprophet.__version__),
+                "cloudpickle=={}".format(cloudpickle.__version__),
+            ]
+        }
     ],
     "name": "fbp_env",
 }

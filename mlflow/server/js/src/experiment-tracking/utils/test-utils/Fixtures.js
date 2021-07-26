@@ -5,7 +5,8 @@ const createExperiment = ({
   name = 'Default',
   artifact_location = 'dbfs:/databricks/mlflow/0',
   lifecycle_stage = 'active',
-} = {}) => Experiment.fromJs({ experiment_id, name, artifact_location, lifecycle_stage });
+  tags = [],
+} = {}) => Experiment.fromJs({ experiment_id, name, artifact_location, lifecycle_stage, tags });
 
 const createRunInfo = () => {
   return RunInfo.fromJs({ run_uuid: 0 });

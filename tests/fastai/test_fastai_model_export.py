@@ -25,7 +25,7 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
-
+from tests.helper_functions import _compare_conda_env_requirements
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
 
@@ -237,6 +237,18 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
 
 
 @pytest.mark.large
+def test_model_save_persists_requirements_in_mlflow_model_directory(
+    fastai_model, model_path, fastai_custom_env
+):
+    mlflow.fastai.save_model(
+        fastai_learner=fastai_model.model, path=model_path, conda_env=fastai_custom_env
+    )
+
+    saved_pip_req_path = os.path.join(model_path, "requirements.txt")
+    _compare_conda_env_requirements(fastai_custom_env, saved_pip_req_path)
+
+
+@pytest.mark.large
 def test_model_save_accepts_conda_env_as_dict(fastai_model, model_path):
     conda_env = dict(mlflow.fastai.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
@@ -279,6 +291,25 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     with open(saved_conda_env_path, "r") as f:
         saved_conda_env_parsed = yaml.safe_load(f)
     assert saved_conda_env_parsed == fastai_custom_env_parsed
+
+
+@pytest.mark.large
+def test_model_log_persists_requirements_in_mlflow_model_directory(fastai_model, fastai_custom_env):
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.fastai.log_model(
+            fastai_learner=fastai_model.model,
+            artifact_path=artifact_path,
+            conda_env=fastai_custom_env,
+        )
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+        )
+
+    model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+
+    saved_pip_req_path = os.path.join(model_path, "requirements.txt")
+    _compare_conda_env_requirements(fastai_custom_env, saved_pip_req_path)
 
 
 @pytest.mark.large

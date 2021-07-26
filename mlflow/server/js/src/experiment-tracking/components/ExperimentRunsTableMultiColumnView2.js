@@ -25,7 +25,7 @@ import LocalStorageUtils from '../../common/utils/LocalStorageUtils';
 import { AgGridPersistedState } from '../sdk/MlflowLocalStorageMessages';
 import { ColumnTypes } from '../constants';
 import { TrimmedText } from '../../common/components/TrimmedText';
-import { getModelVersionPageURL } from '../../model-registry/routes';
+import { getModelVersionPageRoute } from '../../model-registry/routes';
 import { css } from 'emotion';
 
 const PARAM_PREFIX = '$$$param$$$';
@@ -146,7 +146,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
           headerName: 'Start Time',
           field: 'startTime',
           pinned: 'left',
-          width: 216,
+          width: 150,
           cellRenderer: 'dateCellRenderer',
           sortable: true,
           headerComponentParams: {
@@ -201,27 +201,6 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
         },
       ].filter((c) => !categorizedUncheckedKeys[ColumnTypes.ATTRIBUTES].includes(c.headerName)),
       {
-        headerName: 'Parameters',
-        children: paramKeyList.map((paramKey, i) => {
-          const columnKey = ExperimentViewUtil.makeCanonicalKey(ColumnTypes.PARAMS, paramKey);
-          return {
-            headerName: paramKey,
-            headerTooltip: paramKey,
-            field: `${PARAM_PREFIX}-${paramKey}`,
-            // `columnGroupShow` controls whether to show the column when the group is open/closed.
-            // Setting it to null means always show this column.
-            // Here we want to show the first 3 columns plus the current orderByKey column if it
-            // happens to be inside this column group.
-            columnGroupShow: i >= MAX_PARAMS_COLS && columnKey !== orderByKey ? 'open' : null,
-            sortable: true,
-            headerComponentParams: {
-              ...commonSortOrderProps,
-              canonicalSortKey: columnKey,
-            },
-          };
-        }),
-      },
-      {
         headerName: 'Metrics',
         children: metricKeyList.map((metricKey, i) => {
           const columnKey = ExperimentViewUtil.makeCanonicalKey(ColumnTypes.METRICS, metricKey);
@@ -234,6 +213,27 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
             // Here we want to show the first 3 columns plus the current orderByKey column if it
             // happens to be inside this column group.
             columnGroupShow: i >= MAX_METRICS_COLS && columnKey !== orderByKey ? 'open' : null,
+            sortable: true,
+            headerComponentParams: {
+              ...commonSortOrderProps,
+              canonicalSortKey: columnKey,
+            },
+          };
+        }),
+      },
+      {
+        headerName: 'Parameters',
+        children: paramKeyList.map((paramKey, i) => {
+          const columnKey = ExperimentViewUtil.makeCanonicalKey(ColumnTypes.PARAMS, paramKey);
+          return {
+            headerName: paramKey,
+            headerTooltip: paramKey,
+            field: `${PARAM_PREFIX}-${paramKey}`,
+            // `columnGroupShow` controls whether to show the column when the group is open/closed.
+            // Setting it to null means always show this column.
+            // Here we want to show the first 3 columns plus the current orderByKey column if it
+            // happens to be inside this column group.
+            columnGroupShow: i >= MAX_PARAMS_COLS && columnKey !== orderByKey ? 'open' : null,
             sortable: true,
             headerComponentParams: {
               ...commonSortOrderProps,
@@ -449,7 +449,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
       isFullWidthCell,
     } = ExperimentRunsTableMultiColumnView2;
     return (
-      <div className='ag-theme-balham multi-column-view'>
+      <div className='ag-theme-balham multi-column-view' data-test-id='detailed-runs-table-view'>
         <AgGridReact
           defaultColDef={defaultColDef}
           columnDefs={columnDefs}
@@ -539,8 +539,9 @@ function DateCellRenderer(props) {
       <Link
         to={Routes.getRunPageRoute(runInfo.experiment_id, runInfo.run_uuid)}
         style={{ paddingLeft: isParent ? 0 : 16 }}
+        title={Utils.formatTimestamp(startTime)}
       >
-        {ExperimentViewUtil.getRunStatusIcon(runInfo.status)} {Utils.formatTimestamp(startTime)}
+        {ExperimentViewUtil.getRunStatusIcon(runInfo.status)} {Utils.timeSinceStr(startTime)}
       </Link>
     </div>
   );
@@ -570,9 +571,9 @@ function VersionCellRenderer(props) {
 
 export function ModelsCellRenderer(props) {
   const { runInfo, tags, modelVersionsByRunUuid } = props.data;
-  const runId = runInfo.run_uuid;
-  const registeredModels = modelVersionsByRunUuid[runId];
+  const registeredModels = modelVersionsByRunUuid[runInfo.run_uuid] || [];
   const loggedModels = Utils.getLoggedModelsFromTags(tags);
+  const models = Utils.mergeLoggedAndRegisteredModels(loggedModels, registeredModels);
   const imageStyle = {
     wrapper: css({
       img: {
@@ -582,57 +583,51 @@ export function ModelsCellRenderer(props) {
       },
     }),
   };
-  if (loggedModels && loggedModels.length) {
-    let loggedModel = loggedModels[0];
-    let registeredModelDiv;
-    if (registeredModels && registeredModels.length) {
-      const {
-        name: registeredModelName,
-        source: registeredModelSource,
-        version,
-      } = registeredModels[0];
-
-      const normalizedSourceArtifactPath = Utils.normalize(registeredModelSource).split(
-        `${runId}/artifacts/`,
-      )[1];
-      const matchingModels = loggedModels.filter(
-        (model) => Utils.normalize(model['artifact_path']) === normalizedSourceArtifactPath,
+  if (models && models.length) {
+    const modelToRender = models[0];
+    let modelDiv;
+    if (modelToRender.registeredModelName) {
+      const { registeredModelName, registeredModelVersion } = modelToRender;
+      modelDiv = (
+        <>
+          <img
+            data-test-id='registered-model-icon'
+            alt=''
+            title='Registered Model'
+            src={registeredModelSvg}
+          />
+          <a
+            href={Utils.getIframeCorrectedRoute(
+              getModelVersionPageRoute(registeredModelName, registeredModelVersion),
+            )}
+            className='registered-model-link'
+            target='_blank'
+          >
+            <TrimmedText text={registeredModelName} maxSize={10} className={'model-name'} />
+            {`/${registeredModelVersion}`}
+          </a>
+        </>
       );
-      if (matchingModels.length > 0) {
-        [loggedModel] = matchingModels;
-        registeredModelDiv = (
-          <>
-            {' - '}
-            <img
-              data-test-id='registered-model-icon'
-              alt='registered model icon'
-              title='Registered Model'
-              src={registeredModelSvg}
-            />
-            <a
-              href={getModelVersionPageURL(registeredModelName, version)}
-              className='model-version-link'
-              title={`${registeredModelName}, v${version}`}
-              target='_blank'
-            >
-              <TrimmedText text={registeredModelName} maxSize={10} className={'model-name'} />
-              {`/${version}`}
-            </a>
-          </>
-        );
-      }
+    } else if (modelToRender.flavors) {
+      const loggedModelFlavorText = modelToRender.flavors ? modelToRender.flavors[0] : 'Model';
+      const loggedModelLink = Utils.getIframeCorrectedRoute(
+        `${Routes.getRunPageRoute(runInfo.experiment_id, runInfo.run_uuid)}/artifactPath/${
+          modelToRender.artifactPath
+        }`,
+      );
+      modelDiv = (
+        <>
+          <img data-test-id='logged-model-icon' alt='' title='Logged Model' src={loggedModelSvg} />
+          <a href={loggedModelLink} target='_blank' className='logged-model-link'>
+            {loggedModelFlavorText}
+          </a>
+        </>
+      );
     }
-    const loggedModelFlavorText = loggedModel['flavors'] ? loggedModel['flavors'][0] : 'Model';
-    const loggedModelLink = Routes.getRunArtifactRoute(
-      runInfo.experiment_id,
-      runInfo.run_uuid,
-      loggedModel['artifact_path'],
-    );
+
     return (
       <div className={`logged-model-cell ${imageStyle.wrapper}`}>
-        <img data-test-id='logged-model-icon' alt='' title='Logged Model' src={loggedModelSvg} />
-        <Link to={loggedModelLink}>{loggedModelFlavorText}</Link>
-        {registeredModelDiv}
+        {modelDiv}
         {loggedModels.length > 1 ? `, ${loggedModels.length - 1} more` : ''}
       </div>
     );

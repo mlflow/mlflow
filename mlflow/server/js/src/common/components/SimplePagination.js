@@ -2,6 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { Button, Dropdown, Icon, Menu } from 'antd';
 import { css } from 'emotion';
+import { FormattedMessage } from 'react-intl';
 
 const ButtonGroup = Button.Group;
 
@@ -46,7 +47,13 @@ export class SimplePagination extends React.Component {
           >
             <Icon type='left' />
           </Button>
-          <span>Page {currentPage}</span>
+          <span>
+            <FormattedMessage
+              defaultMessage='Page {currentPage}'
+              description='Text for page number for pagination in MLflow'
+              values={{ currentPage: currentPage }}
+            />
+          </span>
           <Button
             disabled={isLastPage}
             className='next-page-btn'
@@ -60,7 +67,12 @@ export class SimplePagination extends React.Component {
             <Dropdown disabled={this.props.loading} overlay={this.constructDropdown()}>
               <Button>
                 <span>
-                  {this.props.getSelectedPerPageSelection()} / page <Icon type='down' />
+                  <FormattedMessage
+                    defaultMessage='{numEntries} / page'
+                    description='Text for number of entries in pagination in MLflow'
+                    values={{ numEntries: this.props.getSelectedPerPageSelection() }}
+                  />{' '}
+                  <Icon type='down' />
                 </span>
               </Button>
             </Dropdown>

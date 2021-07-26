@@ -1,5 +1,5 @@
 import React from 'react';
-import { shallow } from 'enzyme';
+import { mountWithIntl } from '../../../common/utils/TestUtils';
 import ShowArtifactPage from './ShowArtifactPage';
 import ShowArtifactImageView from './ShowArtifactImageView';
 import ShowArtifactTextView from './ShowArtifactTextView';
@@ -22,19 +22,20 @@ describe('ShowArtifactPage', () => {
   beforeEach(() => {
     minimalProps = {
       runUuid: 'fakeUuid',
+      artifactRootUri: 'path/to/root/artifact',
     };
     ShowArtifactPage.prototype.fetchArtifacts = jest.fn();
     commonProps = { ...minimalProps, path: 'fakepath' };
-    wrapper = shallow(<ShowArtifactPage {...commonProps} />);
+    wrapper = mountWithIntl(<ShowArtifactPage {...commonProps} />);
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<ShowArtifactPage {...minimalProps} />);
+    wrapper = mountWithIntl(<ShowArtifactPage {...minimalProps} />);
     expect(wrapper.length).toBe(1);
   });
 
   test('should render select-to-preview view when path is unspecified', () => {
-    wrapper = shallow(<ShowArtifactPage {...minimalProps} />);
+    wrapper = mountWithIntl(<ShowArtifactPage {...minimalProps} />);
     expect(wrapper.find('.select-preview-outer-container').length).toBe(1);
   });
 
@@ -44,7 +45,13 @@ describe('ShowArtifactPage', () => {
       runTags: {
         'mlflow.log-model.history': RunTag.fromJs({
           key: 'mlflow.log-model.history',
-          value: '[{"artifact_path":"somePath","flavors":{"keras":{},"python_function":{}}}]',
+          value: JSON.stringify([
+            {
+              run_id: 'run-uuid',
+              artifact_path: 'somePath',
+              flavors: { keras: {}, python_function: {} },
+            },
+          ]),
         }),
       },
     });

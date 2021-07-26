@@ -33,7 +33,7 @@ from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY
 from mlflow.tracking import MlflowClient
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, get_artifact_uri
 from mlflow.utils.annotations import keyword_only, experimental
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
 from mlflow.utils.file_utils import _copy_file_or_tree, TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.autologging_utils import (
@@ -67,18 +67,23 @@ _thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 _AUTOLOG_RUN_ID = None
 
 
+def get_default_pip_requirements():
+    """
+    :return: A list of default pip requirements for MLflow Models produced by this flavor.
+             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+             that, at minimum, contains these requirements.
+    """
+    import tensorflow
+
+    return ["tensorflow=={}".format(tensorflow.__version__)]
+
+
 def get_default_conda_env():
     """
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
-    import tensorflow
-
-    return _mlflow_conda_env(
-        additional_conda_deps=["tensorflow={}".format(tensorflow.__version__)],
-        additional_pip_deps=None,
-        additional_conda_channels=None,
-    )
+    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
 @keyword_only
@@ -277,6 +282,8 @@ def save_model(
             conda_env = yaml.safe_load(f)
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    _log_pip_requirements(conda_env, path)
 
     mlflow_model.add_flavor(
         FLAVOR_NAME,
@@ -493,7 +500,7 @@ def _load_pyfunc(path):
         loaded_model = tensorflow.saved_model.load(  # pylint: disable=no-value-for-parameter
             export_dir=tf_saved_model_dir, tags=tf_meta_graph_tags
         )
-        return _TF2Wrapper(infer=loaded_model.signatures[tf_signature_def_key])
+        return _TF2Wrapper(model=loaded_model, infer=loaded_model.signatures[tf_signature_def_key])
 
 
 class _TFWrapper(object):
@@ -554,10 +561,16 @@ class _TF2Wrapper(object):
     ``predict(data: pandas.DataFrame) -> pandas.DataFrame``. For TensorFlow versions >= 2.0.0.
     """
 
-    def __init__(self, infer):
+    def __init__(self, model, infer):
         """
+        :param model: A Tensorflow SavedModel.
         :param infer: Tensorflow function returned by a saved model that is used for inference.
         """
+        # Note: we need to retain the model reference in TF2Wrapper object, because the infer
+        #  function in tensorflow will be `ConcreteFunction` which only retains WeakRefs to the
+        #  variables they close over.
+        #  See https://www.tensorflow.org/guide/function#deleting_tfvariables_between_function_calls
+        self.model = model
         self.infer = infer
 
     def predict(self, data):
