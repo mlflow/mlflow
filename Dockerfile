@@ -13,7 +13,7 @@ RUN apt-get update && \
     pip install -r dev-requirements.txt --no-cache-dir && \
     pip install -r test-requirements.txt --no-cache-dir && \
     # install mlflow in editable form
-    pip install --no-cache-dir -e . && \
+    pip install --no-cache-dir -e .[extras] && \
     # mkdir required to support install openjdk-11-jre-headless
     mkdir -p /usr/share/man/man1 && apt-get install -y openjdk-11-jre-headless && \
     # install npm for node.js support
