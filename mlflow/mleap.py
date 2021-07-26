@@ -9,7 +9,6 @@ NOTE:
     using the method ``MLeapLoader.loadPipeline(String modelRootPath)``.
 """
 import logging
-from operator import mod
 import os
 import sys
 import traceback
@@ -229,6 +228,7 @@ def save_model(
     """
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
+    os.makedirs(path)
     if mlflow_model is None:
         mlflow_model = Model()
 
