@@ -128,6 +128,8 @@ def save_model(
     """
     import onnx
 
+    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise MlflowException(
