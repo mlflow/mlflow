@@ -1489,13 +1489,13 @@ def test_basic_post_training_metric_autologging():
         pred2_y = model.predict(eval2_X)
 
         r2_score_data1 = sklmetrics.r2_score(eval1_y, pred1_y)
-        mean_squared_error_data1 = sklmetrics.mean_squared_error(eval1_y, pred1_y)
+        recall_score_data1 = sklmetrics.recall_score(eval1_y, pred1_y, average='macro')
         r2_score_data2 = sklmetrics.r2_score(eval2_y, pred2_y)
         lor_score_data1 = model.score(eval1_X, eval1_y)
-        mean_squared_error_data2 = sklmetrics.mean_squared_error(eval2_y, pred2_y, squared=False)
+        recall_score2_data2 = sklmetrics.recall_score(eval2_y, pred2_y, average='micro')
 
-        scorer1 = sklmetrics.make_scorer(sklmetrics.mean_squared_error, squared=False)
-        mean_squared_error3_data2 = scorer1(model, eval2_X, eval2_y)
+        scorer1 = sklmetrics.make_scorer(sklmetrics.recall_score, average='micro')
+        recall_score3_data2 = scorer1(model, eval2_X, eval2_y)
 
         eval1_X, eval1_y = eval1_X.copy(), eval1_y.copy()
         # In metric key, it will include dataset name as "eval1_X-2"
@@ -1512,31 +1512,31 @@ def test_basic_post_training_metric_autologging():
 
     assert post_training_metrics == {
         'r2_score_eval1_X': r2_score_data1,
-        'mean_squared_error_eval1_X': mean_squared_error_data1,
+        'recall_score_eval1_X': recall_score_data1,
         'r2_score-2_eval2_X': r2_score_data2,
         'LogisticRegression_score_eval1_X': lor_score_data1,
-        'mean_squared_error-2_eval2_X': mean_squared_error_data2,
-        'mean_squared_error-3_eval2_X': mean_squared_error3_data2,
+        'recall_score-2_eval2_X': recall_score2_data2,
+        'recall_score-3_eval2_X': recall_score3_data2,
         'LogisticRegression_score-2_eval1_X-2': lor_score_data1_2,
         'LogisticRegression_score-3_unknown_dataset': lor_score_data1_3,
     }
 
     assert metric_info == {
-        'LogisticRegression_score-2_eval1_X-2': 'LogisticRegression.score(X=eval1_X, y=eval1_y)',
-        'LogisticRegression_score-3_unknown_dataset': 'LogisticRegression.score(X=<ndarray>, y=<ndarray>)',
-        'LogisticRegression_score_eval1_X': 'LogisticRegression.score(X=eval1_X, y=eval1_y)',
-        'mean_squared_error-2_eval2_X': 'mean_squared_error(y_true=eval2_y, y_pred=pred2_y, squared=False)',
-        'mean_squared_error-3_eval2_X': 'mean_squared_error(y_true=eval2_y, y_pred=y_pred, squared=False)',
-        'mean_squared_error_eval1_X': 'mean_squared_error(y_true=eval1_y, y_pred=pred1_y)',
-        'r2_score-2_eval2_X': 'r2_score(y_true=eval2_y, y_pred=pred2_y)',
-        'r2_score_eval1_X': 'r2_score(y_true=eval1_y, y_pred=pred1_y)'
+        "LogisticRegression_score-2_eval1_X-2": "LogisticRegression.score(X=eval1_X, y=eval1_y)",
+        "LogisticRegression_score-3_unknown_dataset": "LogisticRegression.score(X=<ndarray>, y=<ndarray>)",
+        "LogisticRegression_score_eval1_X": "LogisticRegression.score(X=eval1_X, y=eval1_y)",
+        "r2_score-2_eval2_X": "r2_score(y_true=eval2_y, y_pred=pred2_y)",
+        "r2_score_eval1_X": "r2_score(y_true=eval1_y, y_pred=pred1_y)",
+        "recall_score-2_eval2_X": "recall_score(y_true=eval2_y, y_pred=pred2_y, average='micro')",
+        "recall_score-3_eval2_X": "recall_score(y_true=eval2_y, y_pred=y_pred, average='micro')",
+        "recall_score_eval1_X": "recall_score(y_true=eval1_y, y_pred=pred1_y, average='macro')"
     }
 
     mlflow.sklearn.autolog(disable=True)
 
     # Test patched methods generate the same results with unpatched methods.
-    mean_squared_error_data1_original = sklmetrics.mean_squared_error(eval1_y, pred1_y)
-    assert np.isclose(mean_squared_error_data1_original, mean_squared_error_data1)
+    recall_score_data1_original = sklmetrics.recall_score(eval1_y, pred1_y, average='macro')
+    assert np.isclose(recall_score_data1_original, recall_score_data1)
 
     lor_score_data1_original = model.score(eval1_X, eval1_y)
     assert np.isclose(lor_score_data1_original, lor_score_data1)
@@ -1636,8 +1636,8 @@ def test_multi_model_interleaved_fit_and_post_train_metric_call():
     eval1_X, eval1_y = X[0::3], y[0::3]
     eval2_X, eval2_y = X[1::3], y[1::3]
 
-    lr_model1 = sklearn.linear_model.LinearRegression(positive=False)
-    lr_model2 = sklearn.linear_model.LinearRegression(positive=True)
+    lr_model1 = sklearn.linear_model.LinearRegression(fit_intercept=True)
+    lr_model2 = sklearn.linear_model.LinearRegression(fit_intercept=False)
 
     with mlflow.start_run() as run1:
         lr_model1.fit(X, y)
@@ -1735,4 +1735,3 @@ def test_autolog_skip_patch_LocalOutlierFactor_predict():
     X = [[-1.1], [0.2], [101.1], [0.3]]
     clf = LocalOutlierFactor(n_neighbors=2, novelty=True)
     clf.fit(X)
-    assert np.allclose(clf.predict(X), np.array([ 1,  1, -1,  1]))
