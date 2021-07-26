@@ -30,8 +30,16 @@ from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import experimental
-from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
-from mlflow.utils.file_utils import _copy_file_or_tree, TempDir
+from mlflow.utils.environment import (
+    _mlflow_conda_env,
+    _validate_env_arguments,
+    _process_pip_requirements,
+    _process_conda_env,
+    _REQUIREMENTS_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
+)
+from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
+from mlflow.utils.file_utils import _copy_file_or_tree, TempDir, write_to
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
@@ -98,6 +106,7 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     pytorch_model,
     artifact_path,
@@ -110,6 +119,8 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     requirements_file=None,
     extra_files=None,
+    pip_requirements=None,
+    extra_pip_requirements=None,
     **kwargs
 ):
     """
@@ -202,7 +213,8 @@ def log_model(
                       In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
 
                       If ``None``, no extra files are added to the model.
-
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
     .. code-block:: python
@@ -291,10 +303,13 @@ def log_model(
         await_registration_for=await_registration_for,
         requirements_file=requirements_file,
         extra_files=extra_files,
+        pip_requirements=pip_requirements,
+        extra_pip_requirements=extra_pip_requirements,
         **kwargs,
     )
 
 
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     pytorch_model,
     path,
@@ -304,6 +319,7 @@ def save_model(
     pickle_module=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
+    # TODO: Deprecate `requirements_file` and recommend using `pip_requirement` instead.
     requirements_file=None,
     extra_files=None,
     pip_requirements=None,
@@ -395,7 +411,8 @@ def save_model(
                       In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
 
                       If ``None``, no extra files are added to the model.
-
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
     .. code-block:: python
@@ -451,6 +468,8 @@ def save_model(
         predict X: 30.0, y_pred: 60.13
     """
     import torch
+
+    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     pickle_module = pickle_module or mlflow_pytorch_pickle_module
 
@@ -510,14 +529,21 @@ def save_model(
                 tmp_extra_files_dir.path(), posixpath.join(path, _EXTRA_FILES_KEY),
             )
 
+    conda_env, pip_requirements, pip_constraints = (
+        _process_pip_requirements(
+            get_default_pip_requirements(), pip_requirements, extra_pip_requirements,
+        )
+        if conda_env is None
+        else _process_conda_env(conda_env)
+    )
+
     conda_env_subpath = "conda.yaml"
-    if conda_env is None:
-        conda_env = get_default_conda_env()
-    elif not isinstance(conda_env, dict):
-        with open(conda_env, "r") as f:
-            conda_env = yaml.safe_load(f)
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    # Save `constraints.txt` if necessary
+    if pip_constraints:
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
 
     if requirements_file:
         if not isinstance(requirements_file, str):
@@ -531,7 +557,8 @@ def save_model(
             torchserve_artifacts_config[_REQUIREMENTS_FILE_KEY] = {"path": rel_path}
             shutil.move(tmp_requirements_dir.path(rel_path), path)
     else:
-        _log_pip_requirements(conda_env, path)
+        # Save `requirements.txt`
+        write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
     if code_paths is not None:
         code_dir_subpath = "code"
