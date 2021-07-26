@@ -10,6 +10,7 @@ RUN apt-get update && \
     # cmake and protobuf-compiler required for onnx install
     cmake protobuf-compiler &&  \
     # install required python packages
+    conda install python=3.6 && \
     pip install -r dev-requirements.txt --no-cache-dir && \
     pip install -r test-requirements.txt --no-cache-dir && \
     # install mlflow in editable form
