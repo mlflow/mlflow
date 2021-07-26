@@ -14,7 +14,10 @@ from mlflow.models import Model
 from mlflow.utils.file_utils import TempDir
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from tests.helper_functions import score_model_in_sagemaker_docker_container
+from tests.helper_functions import (
+    score_model_in_sagemaker_docker_container,
+    _assert_pip_requirements,
+)
 from tests.pyfunc.test_spark import get_spark_session
 
 
@@ -162,3 +165,63 @@ def test_spark_module_model_save_with_relative_path_and_valid_sample_input_produ
         assert os.path.exists(config_path)
         config = Model.load(config_path)
         assert mlflow.mleap.FLAVOR_NAME in config.flavors
+
+
+@pytest.mark.large
+def test_log_model_with_pip_requirements(spark_model_iris, tmpdir):
+    # Path to a requirements file
+    req_file = tmpdir.join("requirements.txt")
+    req_file.write("a")
+    with mlflow.start_run():
+        mlflow.mleap.log_model(spark_model_iris.model, "model", pip_requirements=req_file.strpath)
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"])
+
+    # List of requirements
+    with mlflow.start_run():
+        mlflow.mleap.log_model(
+            spark_model_iris.model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"]
+        )
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"])
+
+    # Constraints file
+    with mlflow.start_run():
+        mlflow.mleap.log_model(
+            spark_model_iris.model, "model", pip_requirements=[f"-c {req_file.strpath}", "b"]
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), ["mlflow", "b", "-c constraints.txt"], ["a"]
+        )
+
+
+@pytest.mark.large
+def test_log_model_with_extra_pip_requirements(spark_model_iris, tmpdir):
+    default_reqs = mlflow.mleap.get_default_pip_requirements()
+
+    # Path to a requirements file
+    req_file = tmpdir.join("requirements.txt")
+    req_file.write("a")
+    with mlflow.start_run():
+        mlflow.mleap.log_model(
+            spark_model_iris.model, "model", extra_pip_requirements=req_file.strpath
+        )
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a"])
+
+    # List of requirements
+    with mlflow.start_run():
+        mlflow.mleap.log_model(
+            spark_model_iris.model, "model", extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a", "b"]
+        )
+
+    # Constraints file
+    with mlflow.start_run():
+        mlflow.mleap.log_model(
+            spark_model_iris.model, "model", extra_pip_requirements=[f"-c {req_file.strpath}", "b"]
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"),
+            ["mlflow", *default_reqs, "b", "-c constraints.txt"],
+            ["a"],
+        )
