@@ -446,6 +446,9 @@ def autologging_is_disabled(integration_name):
 
     :param integration_name: An autologging integration flavor name.
     """
+    if _AUTOLOGGING_GLOBALLY_DISABLED:
+        return True
+
     explicit_disabled = get_autologging_config(integration_name, "disable", True)
     if explicit_disabled:
         return True
@@ -544,22 +547,3 @@ def _get_new_training_session_class():
             )
 
     return _TrainingSession
-
-
-def temporarily_disable_autologging(name):
-    class DisableAutologgingScope:
-        def __init__(self):
-            self.config = None
-            self.old_status = None
-
-        def __enter__(self):
-            self.config = AUTOLOGGING_INTEGRATIONS.get(name)
-            if self.config is not None:
-                self.old_status = self.config.get("disable", False)
-                self.config["disable"] = True
-
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            if self.config is not None:
-                self.config["disable"] = self.old_status
-
-    return DisableAutologgingScope()
