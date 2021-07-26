@@ -173,20 +173,31 @@ def test_log_model_with_pip_requirements(spark_model_iris, tmpdir):
     req_file = tmpdir.join("requirements.txt")
     req_file.write("a")
     with mlflow.start_run():
-        mlflow.mleap.log_model(spark_model_iris.model, "model", pip_requirements=req_file.strpath)
+        mlflow.mleap.log_model(
+            spark_model=spark_model_iris.model,
+            sample_input=spark_model_iris.spark_df,
+            artifact_path="model",
+            pip_requirements=req_file.strpath,
+        )
         _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"])
 
     # List of requirements
     with mlflow.start_run():
         mlflow.mleap.log_model(
-            spark_model_iris.model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"]
+            spark_model=spark_model_iris.model,
+            sample_input=spark_model_iris.spark_df,
+            artifact_path="model",
+            pip_requirements=[f"-r {req_file.strpath}", "b"],
         )
         _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"])
 
     # Constraints file
     with mlflow.start_run():
         mlflow.mleap.log_model(
-            spark_model_iris.model, "model", pip_requirements=[f"-c {req_file.strpath}", "b"]
+            spark_model=spark_model_iris.model,
+            sample_input=spark_model_iris.spark_df,
+            artifact_path="model",
+            pip_requirements=[f"-c {req_file.strpath}", "b"],
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), ["mlflow", "b", "-c constraints.txt"], ["a"]
@@ -202,14 +213,20 @@ def test_log_model_with_extra_pip_requirements(spark_model_iris, tmpdir):
     req_file.write("a")
     with mlflow.start_run():
         mlflow.mleap.log_model(
-            spark_model_iris.model, "model", extra_pip_requirements=req_file.strpath
+            spark_model=spark_model_iris.model,
+            sample_input=spark_model_iris.spark_df,
+            artifact_path="model",
+            extra_pip_requirements=req_file.strpath,
         )
         _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a"])
 
     # List of requirements
     with mlflow.start_run():
         mlflow.mleap.log_model(
-            spark_model_iris.model, "model", extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
+            spark_model=spark_model_iris.model,
+            sample_input=spark_model_iris.spark_df,
+            artifact_path="model",
+            extra_pip_requirements=[f"-r {req_file.strpath}", "b"],
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a", "b"]
@@ -218,7 +235,10 @@ def test_log_model_with_extra_pip_requirements(spark_model_iris, tmpdir):
     # Constraints file
     with mlflow.start_run():
         mlflow.mleap.log_model(
-            spark_model_iris.model, "model", extra_pip_requirements=[f"-c {req_file.strpath}", "b"]
+            spark_model=spark_model_iris.model,
+            sample_input=spark_model_iris.spark_df,
+            artifact_path="model",
+            extra_pip_requirements=[f"-c {req_file.strpath}", "b"],
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
