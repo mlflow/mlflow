@@ -325,9 +325,7 @@ def delete(app_name, region_name, archive, asynchronous, timeout):
         " batch transform job are preserved. These resources may include the associated"
         " SageMaker models and model artifacts. Otherwise, if `--archive` is unspecified,"
         " these resources are deleted. `--archive` must be specified when deploying"
-        " asynchronously with `--async`.".format(
-            mode_replace=mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE
-        )
+        " asynchronously with `--async`."
     ),
 )
 @click.option(
