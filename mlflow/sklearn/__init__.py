@@ -30,7 +30,7 @@ from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils import _inspect_original_var_name
+from mlflow.utils import _inspect_original_var_name, _has_decorator
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import get_instance_method_first_arg_value
 from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
@@ -1390,9 +1390,18 @@ def autolog(
         )
     ]
 
+    def should_patch_class_method(class_def, func_name):
+        try:
+            if hasattr(class_def, func_name):
+                method = getattr(class_def, func_name)
+                return callable(method) and not _has_decorator(method, 'if_delegate_has_method')
+            return False
+        except:
+            return False
+
     for class_def in estimators_to_patch:
         for func_name in ["fit", "fit_transform", "fit_predict"]:
-            if hasattr(class_def, func_name):
+            if should_patch_class_method(class_def, func_name):
                 original = getattr(class_def, func_name)
 
                 # A couple of estimators use property methods to return fitting functions,
@@ -1417,12 +1426,12 @@ def autolog(
                 )
 
         for func_name in ["predict", "predict_proba", "transform"]:
-            if hasattr(class_def, func_name) and callable(getattr(class_def, func_name)):
+            if should_patch_class_method(class_def, func_name):
                 safe_patch(
                     FLAVOR_NAME, class_def, func_name, patched_predict, manage_run=False,
                 )
 
-        if hasattr(class_def, 'score') and callable(class_def.score):
+        if should_patch_class_method(class_def, 'score'):
             safe_patch(
                 FLAVOR_NAME, class_def, 'score', patched_model_score, manage_run=False,
             )

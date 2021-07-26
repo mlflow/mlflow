@@ -1681,6 +1681,7 @@ def test_meta_estimator_disable_post_training_autologging(scoring):
                 svc, {"C": [1, 0.5]}, n_jobs=1, scoring=scoring
             )
             cv_model.fit(X, y)
+            cv_model.predict(X)
             cv_model.score(X, y)
             mock_register_model.assert_called_once()
             mock_is_metric_value_loggable.call_count <= 1

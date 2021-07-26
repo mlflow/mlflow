@@ -161,3 +161,9 @@ def _inspect_original_var_name(var, fallback_name):
 
     except Exception:
         return fallback_name
+
+
+def _has_decorator(function, decorator):
+    import inspect
+    source = inspect.getsource(function)
+    return ('@' + decorator) in source
