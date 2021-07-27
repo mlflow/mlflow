@@ -12,7 +12,6 @@ import logging
 import os
 import sys
 import traceback
-import yaml
 
 import mlflow
 from mlflow.models import Model
@@ -20,16 +19,6 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
-from mlflow.utils.environment import (
-    _mlflow_conda_env,
-    _validate_env_arguments,
-    _process_pip_requirements,
-    _process_conda_env,
-    _REQUIREMENTS_FILE_NAME,
-    _CONSTRAINTS_FILE_NAME,
-)
-from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.file_utils import write_to
 from mlflow.utils import reraise
 from mlflow.utils.annotations import keyword_only
 
@@ -38,37 +27,14 @@ FLAVOR_NAME = "mleap"
 _logger = logging.getLogger(__name__)
 
 
-def get_default_pip_requirements():
-    """
-    :return: A list of default pip requirements for MLflow Models produced by this flavor.
-             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
-             that, at minimum, contains these requirements.
-    """
-    import mleap
-
-    return ["mleap=={}".format(mleap.__version__)]
-
-
-def get_default_conda_env():
-    """
-    :return: The default Conda environment for MLflow Models produced by calls to
-             :func:`save_model()` and :func:`log_model()`.
-    """
-    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
-
-
 @keyword_only
-@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     spark_model,
     sample_input,
     artifact_path,
-    conda_env=None,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
-    pip_requirements=None,
-    extra_pip_requirements=None,
 ):
     """
     Log a Spark MLLib model in MLeap format as an MLflow artifact
@@ -107,8 +73,8 @@ def log_model(
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
+
+
 
     .. code-block:: python
         :caption: Example
@@ -148,27 +114,20 @@ def log_model(
         flavor=mlflow.mleap,
         spark_model=spark_model,
         sample_input=sample_input,
-        conda_env=conda_env,
         registered_model_name=registered_model_name,
         signature=signature,
         input_example=input_example,
-        pip_requirements=pip_requirements,
-        extra_pip_requirements=extra_pip_requirements,
     )
 
 
 @keyword_only
-@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     spark_model,
     sample_input,
     path,
-    conda_env=None,
     mlflow_model=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
-    pip_requirements=None,
-    extra_pip_requirements=None,
 ):
     """
     Save a Spark MLlib PipelineModel in MLeap format at a local path.
@@ -223,33 +182,11 @@ def save_model(
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    """
-    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
-    os.makedirs(path, exist_ok=True)
+
+    """
     if mlflow_model is None:
         mlflow_model = Model()
-
-    conda_env, pip_requirements, pip_constraints = (
-        _process_pip_requirements(
-            get_default_pip_requirements(), pip_requirements, extra_pip_requirements,
-        )
-        if conda_env is None
-        else _process_conda_env(conda_env)
-    )
-
-    conda_env_subpath = "conda.yaml"
-    with open(os.path.join(path, conda_env_subpath), "w") as f:
-        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
-
-    # Save `constraints.txt` if necessary
-    if pip_constraints:
-        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
-
-    # Save `requirements.txt`
-    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
     add_to_model(
         mlflow_model=mlflow_model, path=path, spark_model=spark_model, sample_input=sample_input
