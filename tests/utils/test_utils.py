@@ -86,46 +86,28 @@ def test_get_fully_qualified_class_name():
 
 def test_inspect_original_var_name():
     from mlflow.utils import _inspect_original_var_name
-    cap_name = None
 
-    def f1(a1):
-        nonlocal cap_name
-        cap_name = _inspect_original_var_name(a1, 'unknown')
+    def f1(a1, expected_name):
+        assert _inspect_original_var_name(a1, 'unknown') == expected_name
 
     xyz1 = object()
-    f1(xyz1)
-    assert cap_name == 'xyz1'
+    f1(xyz1, 'xyz1')
 
-    cap_name = None
-    f1(str(xyz1))
-    assert cap_name == 'unknown'
+    f1(str(xyz1), 'unknown')
 
-    cap_name = None
-    f1(None)
-    assert cap_name == 'unknown'
+    f1(None, 'unknown')
 
-    cap_name = None
+    def f2(b1, expected_name):
+        f1(b1, expected_name)
 
-    def f2(b1):
-        f1(b1)
+    f2(xyz1, 'xyz1')
 
-    f2(xyz1)
-    assert cap_name == 'xyz1'
-
-    cap_name_pos0 = None
-    cap_name_kw_a1 = None
-
-    def f3(a1, *, b1):
-        nonlocal cap_name_pos0
-        nonlocal cap_name_kw_a1
-        cap_name_pos0 = _inspect_original_var_name(a1, None)
-        cap_name_kw_a1 = _inspect_original_var_name(b1, None)
+    def f3(a1, *, b1, expected_a1_name, expected_ab_name):
+        assert _inspect_original_var_name(a1, None) == expected_a1_name
+        assert _inspect_original_var_name(b1, None) == expected_ab_name
 
     xyz2 = object()
     xyz3 = object()
 
-    f3(*[xyz2], **{'b1': xyz3})
-
-    assert cap_name_pos0 == 'xyz2'
-    assert cap_name_kw_a1 == 'xyz3'
+    f3(*[xyz2], **{'b1': xyz3, 'expected_a1_name': 'xyz2', 'expected_ab_name': 'xyz3'})
 

@@ -1607,22 +1607,20 @@ def test_nested_metric_call_is_disabled():
     lr_model = sklearn.linear_model.LinearRegression()
 
     with mlflow.start_run():
-        # test post training metric logging disabled in fit scope
         with mock.patch('mlflow.sklearn._AutologgingMetricsManager.log_post_training_metric') \
                 as patched_log_post_training_metric:
+            # test post training metric logging disabled in fit scope
             lr_model.fit(X, y)
             patched_log_post_training_metric.assert_not_called()
 
-        # test post training metric logging called only once in model.score
-        with mock.patch('mlflow.sklearn._AutologgingMetricsManager.log_post_training_metric') \
-                as patched_log_post_training_metric:
+            patched_log_post_training_metric.reset_mock()
+            # test post training metric logging called only once in model.score
             lr_model.score(eval1_X, eval1_y)
             assert patched_log_post_training_metric.call_count == 1
             assert patched_log_post_training_metric.call_args[0][1] == 'LinearRegression_score_eval1_X'
 
-        # test post training metric logging disabled in eval_and_log_metrics
-        with mock.patch('mlflow.sklearn._AutologgingMetricsManager.log_post_training_metric') \
-                as patched_log_post_training_metric:
+            patched_log_post_training_metric.reset_mock()
+            # test post training metric logging disabled in eval_and_log_metrics
             mlflow.sklearn.eval_and_log_metrics(lr_model, eval1_X, eval1_y, prefix='test1')
             patched_log_post_training_metric.assert_not_called()
 
@@ -1725,13 +1723,14 @@ def test_gen_metric_call_commands():
     assert cmd3 == 'LinearRegression.score(X=data1, y=data2)'
 
 
-def test_autolog_skip_patch_LocalOutlierFactor_predict():
+def test_autolog_skip_patch_non_callable_attribute():
     """
     LocalOutlierFactor.predict is a property (delegate to an internal `_predict` method)
     So we cannot patch it. This test is for covering this edge case.
     """
-    mlflow.sklearn.autolog()
     from sklearn.neighbors import LocalOutlierFactor
-    X = [[-1.1], [0.2], [101.1], [0.3]]
-    clf = LocalOutlierFactor(n_neighbors=2, novelty=True)
-    clf.fit(X)
+    if not callable(LocalOutlierFactor.predict):
+        old_predict = LocalOutlierFactor.predict
+        mlflow.sklearn.autolog()
+        new_predict = LocalOutlierFactor.predict
+        assert new_predict is old_predict

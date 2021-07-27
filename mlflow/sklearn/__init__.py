@@ -30,7 +30,7 @@ from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils import _inspect_original_var_name, _has_decorator
+from mlflow.utils import _inspect_original_var_name
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import get_instance_method_first_arg_value
 from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
@@ -653,12 +653,12 @@ class _AutologgingMetricsManager:
                 return _inspect_original_var_name(arg, fallback_name=f'<{arg.__class__.__name__}>')
 
         param_sig = inspect.signature(metric_fn).parameters
-        pos_param_sig_keys = list(param_sig.keys())
+        arg_names = list(param_sig.keys())
 
         if self_obj is not None:
             # If metric_fn is a method of an instance, e.g. `model.score`,
             # then the first argument is `self` which we need exclude it.
-            pos_param_sig_keys.pop(0)
+            arg_names.pop(0)
 
         if self_obj is not None:
             call_fn_name = f'{self_obj.__class__.__name__}.{metric_fn.__name__}'
@@ -666,7 +666,7 @@ class _AutologgingMetricsManager:
             call_fn_name = metric_fn.__name__
 
         # Attach param signature key for positinal param values
-        for arg_name, arg in zip(pos_param_sig_keys, call_pos_args):
+        for arg_name, arg in zip(arg_names, call_pos_args):
             arg_list.append(f'{arg_name}={arg_to_str(arg)}')
 
         for arg_name, arg in call_kwargs.items():
@@ -1043,7 +1043,7 @@ def autolog(
                             ordering of dict passed as `scoring` parameter for estimator.
     """
     import pandas as pd
-    import sklearn
+    import sklearn.utils.metaestimators
 
     from mlflow.models import infer_signature
     from mlflow.sklearn.utils import (
@@ -1394,10 +1394,44 @@ def autolog(
         try:
             if hasattr(class_def, func_name):
                 method = getattr(class_def, func_name)
-                return callable(method) and not _has_decorator(method, 'if_delegate_has_method')
+                return callable(method)
             return False
         except:
             return False
+
+    def patched_IffHasAttrDescriptor_get(self, obj, type=None):
+        from functools import update_wrapper
+        # raise an AttributeError if the attribute is not present on the object
+        if obj is not None:
+            # delegate only on instances, not the classes.
+            # this is to allow access to the docstrings.
+            for delegate_name in self.delegate_names:
+                try:
+                    delegate = sklearn.utils.metaestimators.attrgetter(delegate_name)(obj)
+                except AttributeError:
+                    continue
+                else:
+                    getattr(delegate, self.attribute_name)
+                    break
+            else:
+                sklearn.utils.metaestimators.attrgetter(self.delegate_names[-1])(obj)
+
+        # lambda, but not partial, allows help() to work with update_wrapper
+        if obj is None:  # `cls.method`
+            out = lambda *args, **kwargs: self.fn(*args, **kwargs)
+        else:  # `instance.method`
+            out = lambda *args, **kwargs: self.fn(obj, *args, **kwargs)
+        # update the docstring of the returned function
+        update_wrapper(out, self.fn)
+        return out
+
+    safe_patch(
+        FLAVOR_NAME,
+        sklearn.utils.metaestimators._IffHasAttrDescriptor,
+        '__get__',
+        patched_IffHasAttrDescriptor_get,
+        manage_run=False
+    )
 
     for class_def in estimators_to_patch:
         for func_name in ["fit", "fit_transform", "fit_predict"]:
