@@ -1043,7 +1043,6 @@ def autolog(
                             ordering of dict passed as `scoring` parameter for estimator.
     """
     import pandas as pd
-    import sklearn.utils.metaestimators
 
     from mlflow.models import infer_signature
     from mlflow.sklearn.utils import (
@@ -1399,6 +1398,8 @@ def autolog(
         except:
             return False
 
+    """
+    import sklearn.utils.metaestimators
     def patched_IffHasAttrDescriptor_get(self, obj, type=None):
         from functools import update_wrapper
         # raise an AttributeError if the attribute is not present on the object
@@ -1424,8 +1425,9 @@ def autolog(
         # update the docstring of the returned function
         update_wrapper(out, self.fn)
         return out
-
+    
     sklearn.utils.metaestimators._IffHasAttrDescriptor.__get__ = patched_IffHasAttrDescriptor_get
+    """
 
     for class_def in estimators_to_patch:
         for func_name in ["fit", "fit_transform", "fit_predict"]:

@@ -1083,6 +1083,7 @@ def test_autolog_produces_expected_results_for_estimator_when_parent_also_define
 
 
 def test_eval_and_log_metrics_for_regressor():
+    import sklearn.linear_model
     # disable autologging so that we can check for the sole existence of eval-time metrics
     mlflow.sklearn.autolog(disable=True)
 
@@ -1314,7 +1315,24 @@ def test_eval_and_log_metrics_with_estimator(fit_func_name):
     assert len(artifacts) == 0
 
 
+def test_bug_delegate_attr_has_attr_true():
+    import sklearn.preprocessing
+    import sklearn
+    import sklearn.svm
+    import sklearn.pipeline
+    mlflow.sklearn.autolog()
+    mlflow.sklearn.autolog(disable=True)
+
+    estimators = [
+        ("std_scaler", sklearn.preprocessing.StandardScaler()),
+        ("svc", sklearn.svm.SVC()),
+    ]
+    model = sklearn.pipeline.Pipeline(estimators)
+    assert not hasattr(model, 'predict_proba')
+
+
 def test_eval_and_log_metrics_with_meta_estimator():
+    import sklearn.pipeline
     # disable autologging so that we can check for the sole existence of eval-time metrics
     mlflow.sklearn.autolog(disable=True)
 
