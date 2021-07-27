@@ -541,7 +541,7 @@ def save_model(
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         model_data=model_data_subpath,
-        pytorch_version=torch.__version__,
+        pytorch_version=str(torch.__version__),
         **torchserve_artifacts_config,
     )
     pyfunc.add_to_model(
