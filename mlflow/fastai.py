@@ -100,6 +100,7 @@ def get_default_conda_env(include_cloudpickle=False):
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements(include_cloudpickle))
 
 
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     fastai_learner,
     path,
@@ -226,6 +227,7 @@ def save_model(
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     fastai_learner,
     artifact_path,
