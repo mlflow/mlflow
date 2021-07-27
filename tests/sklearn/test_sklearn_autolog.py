@@ -1492,7 +1492,7 @@ def test_autolog_disabled_on_sklearn_cross_val_api(cross_val_func_name):
 
     # Ensure cross_val_func doesn't start a new run
     exp_id = mlflow.tracking.fluent._get_experiment_id()
-    runs_info = mlflow.list_run_infos(exp_id)
+    runs_info_before = mlflow.list_run_infos(exp_id)
     cross_val_func(lasso, X, y, cv=3, **extra_params)
-    runs_info2 = mlflow.list_run_infos(exp_id)
-    assert len(runs_info) == len(runs_info2)
+    runs_info_after = mlflow.list_run_infos(exp_id)
+    assert len(runs_info_before) == len(runs_info_after)
