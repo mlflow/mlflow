@@ -466,6 +466,16 @@ def load_model(model_uri):
     )
 
 
+_api_requiring_disabling_autolog_list = [
+    "cross_validate",
+    "cross_val_predict",
+    "cross_val_score",
+    "learning_curve",
+    "permutation_test_score",
+    "validation_curve",
+]
+
+
 @experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
@@ -965,11 +975,7 @@ def autolog(
 
     from sklearn import model_selection
 
-    for disable_autolog_func_name in [
-        "cross_validate",
-        "cross_val_predict",
-        "cross_val_score",
-    ]:
+    for disable_autolog_func_name in _api_requiring_disabling_autolog_list:
         safe_patch(
             FLAVOR_NAME,
             model_selection,

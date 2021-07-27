@@ -1465,7 +1465,7 @@ def test_metric_computation_handles_absent_labels():
 
 
 @pytest.mark.parametrize(
-    "cross_val_func_name", ["cross_validate", "cross_val_score", "cross_val_predict"]
+    "cross_val_func_name", mlflow.sklearn._api_requiring_disabling_autolog_list
 )
 def test_autolog_disabled_on_sklearn_cross_val_api(cross_val_func_name):
     mlflow.sklearn.autolog()
@@ -1480,14 +1480,19 @@ def test_autolog_disabled_on_sklearn_cross_val_api(cross_val_func_name):
     y = diabetes.target[:150]
     lasso = linear_model.Lasso()
 
+    if cross_val_func_name == "validation_curve":
+        extra_params = {"param_name": "max_iter", "param_range": [10, 100]}
+    else:
+        extra_params = {}
+
     cross_val_func = getattr(sklearn.model_selection, cross_val_func_name)
     with mlflow.start_run() as run:
-        cross_val_func(lasso, X, y, cv=3)
+        cross_val_func(lasso, X, y, cv=3, **extra_params)
         assert_autolog_disabled_during_exec_cross_val_fun(run)
 
     exp_id = mlflow.tracking.fluent._get_experiment_id()
     runs_info = mlflow.list_run_infos(exp_id)
-    cross_val_func(lasso, X, y, cv=3)
+    cross_val_func(lasso, X, y, cv=3, **extra_params)
     runs_info2 = mlflow.list_run_infos(exp_id)
 
     # assert before cross_val_func executing and after cross_val_func executed,
