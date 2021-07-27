@@ -446,9 +446,6 @@ def autologging_is_disabled(integration_name):
 
     :param integration_name: An autologging integration flavor name.
     """
-    if _AUTOLOGGING_GLOBALLY_DISABLED:
-        return True
-
     explicit_disabled = get_autologging_config(integration_name, "disable", True)
     if explicit_disabled:
         return True

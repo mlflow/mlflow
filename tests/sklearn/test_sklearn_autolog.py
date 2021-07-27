@@ -1471,7 +1471,7 @@ def test_autolog_disabled_on_sklearn_cross_val_api(cross_val_func_name):
     mlflow.sklearn.autolog()
     from sklearn import linear_model
 
-    def assert_autolog_disabled(run_):
+    def assert_autolog_disabled_during_exec_cross_val_fun(run_):
         params, metrics, tags, artifacts = get_run_data(run_.info.run_id)
         assert params == {} and metrics == {} and tags == {} and artifacts == []
 
@@ -1483,11 +1483,14 @@ def test_autolog_disabled_on_sklearn_cross_val_api(cross_val_func_name):
     cross_val_func = getattr(sklearn.model_selection, cross_val_func_name)
     with mlflow.start_run() as run:
         cross_val_func(lasso, X, y, cv=3)
-        assert_autolog_disabled(run)
+        assert_autolog_disabled_during_exec_cross_val_fun(run)
 
     exp_id = mlflow.tracking.fluent._get_experiment_id()
     runs_info = mlflow.list_run_infos(exp_id)
     cross_val_func(lasso, X, y, cv=3)
     runs_info2 = mlflow.list_run_infos(exp_id)
 
+    # assert before cross_val_func executing and after cross_val_func executed,
+    # mlflow run info counts are the same, which proves that cross_val_func executing
+    # does not generate new mlflow runs.
     assert len(runs_info) == len(runs_info2)
