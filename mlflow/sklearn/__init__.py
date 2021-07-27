@@ -1425,13 +1425,7 @@ def autolog(
         update_wrapper(out, self.fn)
         return out
 
-    safe_patch(
-        FLAVOR_NAME,
-        sklearn.utils.metaestimators._IffHasAttrDescriptor,
-        '__get__',
-        patched_IffHasAttrDescriptor_get,
-        manage_run=False
-    )
+    sklearn.utils.metaestimators._IffHasAttrDescriptor.__get__ = patched_IffHasAttrDescriptor_get
 
     for class_def in estimators_to_patch:
         for func_name in ["fit", "fit_transform", "fit_predict"]:
