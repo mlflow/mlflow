@@ -258,7 +258,9 @@ def test_build_image_passes_model_conda_environment_to_azure_image_creation_rout
     sklearn_conda_env_text = """\
     name: sklearn-env
     dependencies:
-        - scikit-learn
+        - pip:
+          - mlflow
+          - scikit-learn
     """
     with TempDir(chdr=True) as tmp:
         sklearn_conda_env_path = tmp.path("conda.yaml")
