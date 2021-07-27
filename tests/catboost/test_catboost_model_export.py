@@ -21,7 +21,7 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
-from tests.helper_functions import _compare_conda_env_requirements
+from tests.helper_functions import _compare_conda_env_requirements, _assert_pip_requirements
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
 
@@ -284,6 +284,64 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(reg_model, cu
     local_path = _download_artifact_from_uri(artifact_uri=model_uri)
     saved_pip_req_path = os.path.join(local_path, "requirements.txt")
     _compare_conda_env_requirements(custom_env, saved_pip_req_path)
+
+
+@pytest.mark.large
+def test_log_model_with_pip_requirements(reg_model, tmpdir):
+    # Path to a requirements file
+    req_file = tmpdir.join("requirements.txt")
+    req_file.write("a")
+    with mlflow.start_run():
+        mlflow.catboost.log_model(reg_model.model, "model", pip_requirements=req_file.strpath)
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"])
+
+    # List of requirements
+    with mlflow.start_run():
+        mlflow.catboost.log_model(
+            reg_model.model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"]
+        )
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"])
+
+    # Constraints file
+    with mlflow.start_run():
+        mlflow.catboost.log_model(
+            reg_model.model, "model", pip_requirements=[f"-c {req_file.strpath}", "b"]
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), ["mlflow", "b", "-c constraints.txt"], ["a"]
+        )
+
+
+@pytest.mark.large
+def test_log_model_with_extra_pip_requirements(reg_model, tmpdir):
+    default_reqs = mlflow.catboost.get_default_pip_requirements()
+
+    # Path to a requirements file
+    req_file = tmpdir.join("requirements.txt")
+    req_file.write("a")
+    with mlflow.start_run():
+        mlflow.catboost.log_model(reg_model.model, "model", extra_pip_requirements=req_file.strpath)
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a"])
+
+    # List of requirements
+    with mlflow.start_run():
+        mlflow.catboost.log_model(
+            reg_model.model, "model", extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a", "b"]
+        )
+
+    # Constraints file
+    with mlflow.start_run():
+        mlflow.catboost.log_model(
+            reg_model.model, "model", extra_pip_requirements=[f"-c {req_file.strpath}", "b"]
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"),
+            ["mlflow", *default_reqs, "b", "-c constraints.txt"],
+            ["a"],
+        )
 
 
 @pytest.mark.large
