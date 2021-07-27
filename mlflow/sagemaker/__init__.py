@@ -601,11 +601,10 @@ def deploy_transform_job(
                    a flavor is automatically selected from the model's available flavors. If the
                    specified flavor is not present or not supported for deployment, an exception
                    will be thrown.
-    :param archive: If ``True``, resources associated with the specified batch transform job,
-                    such as its associated models and model artifacts, are preserved.
-                    If ``False``, these resources are deleted. In order to use ``archive=False``,
-                    ``deploy_transform_job()`` must be executed synchronously
-                    with ``synchronous=True``.
+    :param archive: If ``True``, resources like Sagemaker models and model artifacts in S3 are
+                    preserved after the finished batch transform job. If ``False``, these resources
+                    are deleted. In order to use ``archive=False``, ``deploy_transform_job()`` must
+                    be executed synchronously with ``synchronous=True``.
     :param synchronous: If ``True``, this function will block until the deployment process succeeds
                         or encounters an irrecoverable failure. If ``False``, this function will
                         return immediately after starting the deployment process. It will not wait
