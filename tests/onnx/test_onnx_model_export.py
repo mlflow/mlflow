@@ -273,6 +273,7 @@ def test_model_save_load_evaluate_pyfunc_format(onnx_model, model_path, data, pr
         model_uri=os.path.abspath(model_path),
         data=x,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        extra_args=["--no-conda"],
     )
     assert np.allclose(
         pd.read_json(scoring_response.content, orient="records")
@@ -314,6 +315,7 @@ def test_model_save_load_evaluate_pyfunc_format_multiple_inputs(
         model_uri=os.path.abspath(model_path),
         data=data_multiple_inputs,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        extra_args=["--no-conda"],
     )
     assert np.allclose(
         pd.read_json(scoring_response.content, orient="records").values,
