@@ -115,3 +115,6 @@ def _build_image(image_name, entrypoint, mlflow_home=None, custom_setup_steps_ho
         )
         for x in iter(proc.stdout.readline, ""):
             eprint(x, end="")
+
+        if proc.wait():
+            raise RuntimeError("Docker build failed.")
