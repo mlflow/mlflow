@@ -319,7 +319,7 @@ def save_model(
     pickle_module=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
-    # TODO: Deprecate `requirements_file` and recommend using `pip_requirement` instead.
+    # TODO: Deprecate `requirements_file` and recommend using `pip_requirements` instead.
     requirements_file=None,
     extra_files=None,
     pip_requirements=None,
