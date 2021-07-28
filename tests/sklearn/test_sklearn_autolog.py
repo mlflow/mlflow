@@ -1701,18 +1701,18 @@ def test_meta_estimator_disable_post_training_autologging(scoring):
             cv_model.predict(X)  # pylint: disable=pointless-statement
             cv_model.score(X, y)  # pylint: disable=pointless-statement
             mock_register_model.assert_called_once()
-            mock_is_metric_value_loggable.call_count <= 1
-            mock_log_post_training_metric.call_count <= 1
-            mock_register_prediction_input_dataset.call_count <= 1
+            assert mock_is_metric_value_loggable.call_count <= 1
+            assert mock_log_post_training_metric.call_count <= 1
+            assert mock_register_prediction_input_dataset.call_count <= 1
 
 
 def test_gen_metric_call_commands():
     import sklearn.linear_model
 
+    # pylint: disable=unused-argument
     def metric_fn1(a1, b1, *, c2=3, d1=None, d2=True, d3="abc", **kwargs):
         pass
 
-    # pylint: disable=unused-argument
     cmd1 = mlflow.sklearn._AutologgingMetricsManager.gen_metric_call_command(
         None,
         metric_fn1,

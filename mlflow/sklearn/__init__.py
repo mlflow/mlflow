@@ -1307,26 +1307,25 @@ def autolog(
                 return original(self, *args, **kwargs)
 
     def patched_predict(original, self, *args, **kwargs):
+        """
+        In `patched_predict`, register the prediction result instance with the run id and
+         eval dataset name. e.g.
+        ```
+        prediction_result = model_1.predict(eval_X)
+        ```
+        then we need register the following relatinoship into the
+        `_autologging_metrics_manager`:
+        id(prediction_result) --> (eval_dataset_name, run_id)
+
+        Note: we cannot set additional attributes "eval_dataset_name" and "run_id" into
+        the prediction_result object, because certain dataset type like numpy does not support
+        additional attribute assignment.
+        """
         status = _get_autologging_metrics_manager()
         if status.should_log_post_training_metrics() and status.get_run_id_for_model(self):
             predict_result = original(self, *args, **kwargs)
             eval_dataset = get_instance_method_first_arg_value(original, args, kwargs)
             eval_dataset_name = status.register_prediction_input_dataset(self, eval_dataset)
-
-            """
-            In `patched_predict`, register the prediction result instance with the run id and
-             eval dataset name. e.g.
-            ```
-            prediction_result = model_1.predict(eval_X)
-            ```
-            then we need register the following relatinoship into the
-            `_autologging_metrics_manager`:
-            id(prediction_result) --> (eval_dataset_name, run_id)
-
-            Note: we cannot set additional attributes "eval_dataset_name" and "run_id" into
-            the prediction_result object, because certain dataset type like numpy does not support
-            additional attribute assignment.
-            """
             status.register_prediction_result(
                 status.get_run_id_for_model(self), eval_dataset_name, predict_result
             )
