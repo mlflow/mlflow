@@ -344,7 +344,7 @@ def _assert_pip_requirements(model_uri, requirements, constraints=None):
     assert conda_reqs == requirements
 
     if constraints:
-        assert txt_reqs[-1] == f"-c {_CONSTRAINTS_FILE_NAME}"
-        assert conda_reqs[-1] == f"-c {_CONSTRAINTS_FILE_NAME}"
+        assert f"-c {_CONSTRAINTS_FILE_NAME}" in txt_reqs
+        assert f"-c {_CONSTRAINTS_FILE_NAME}" in conda_reqs
         cons = _read_lines(os.path.join(local_path, _CONSTRAINTS_FILE_NAME))
         assert cons == constraints

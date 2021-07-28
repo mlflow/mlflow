@@ -18,7 +18,14 @@ from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
+from mlflow.utils.environment import (
+    _mlflow_conda_env,
+    _process_pip_requirements,
+    _process_conda_env,
+    _REQUIREMENTS_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
+)
+from mlflow.utils.file_utils import write_to
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
 
@@ -111,7 +118,14 @@ class PythonModelContext(object):
 
 
 def _save_model_with_class_artifacts_params(
-    path, python_model, artifacts=None, conda_env=None, code_paths=None, mlflow_model=None
+    path,
+    python_model,
+    artifacts=None,
+    conda_env=None,
+    code_paths=None,
+    mlflow_model=None,
+    pip_requirements=None,
+    extra_pip_requirements=None,
 ):
     """
     :param path: The path to which to save the Python model.
@@ -176,16 +190,24 @@ def _save_model_with_class_artifacts_params(
             shutil.move(tmp_artifacts_dir.path(), os.path.join(path, saved_artifacts_dir_subpath))
         custom_model_config_kwargs[CONFIG_KEY_ARTIFACTS] = saved_artifacts_config
 
+    conda_env, pip_requirements, pip_constraints = (
+        _process_pip_requirements(
+            get_default_pip_requirements(), pip_requirements, extra_pip_requirements,
+        )
+        if conda_env is None
+        else _process_conda_env(conda_env)
+    )
+
     conda_env_subpath = "conda.yaml"
-    if conda_env is None:
-        conda_env = get_default_conda_env()
-    elif not isinstance(conda_env, dict):
-        with open(conda_env, "r") as f:
-            conda_env = yaml.safe_load(f)
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    _log_pip_requirements(conda_env, path)
+    # Save `constraints.txt` if necessary
+    if pip_constraints:
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
+
+    # Save `requirements.txt`
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
     saved_code_subpath = None
     if code_paths is not None:

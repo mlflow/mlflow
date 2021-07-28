@@ -4,7 +4,7 @@ import os
 
 from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.requirements_utils import _parse_requirements
-from packaging.requirements import Requirement
+from packaging.requirements import Requirement, InvalidRequirement
 
 
 _conda_header = """\
@@ -210,7 +210,16 @@ def _is_mlflow_requirement(requirement_string):
     """
     Returns True if `requirement_string` represents a requirement for mlflow (e.g. 'mlflow==1.2.3').
     """
-    return Requirement(requirement_string).name.lower() == "mlflow"
+    try:
+        # `Requirement` throws an `InvalidRequirement` exception if `requirement_string` doesn't
+        # conform to PEP 508 (https://www.python.org/dev/peps/pep-0508).
+        return Requirement(requirement_string).name.lower() == "mlflow"
+    except InvalidRequirement:
+        # A local file path or URL falls into this branch.
+
+        # TODO: Return True if `requirement_string` represents a project directory for MLflow
+        # (e.g. '/path/to/mlflow') or git repository URL (e.g. 'https://github.com/mlflow/mlflow').
+        return False
 
 
 def _contains_mlflow_requirement(requirements):

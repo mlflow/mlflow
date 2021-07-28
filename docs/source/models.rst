@@ -1379,3 +1379,46 @@ For more info, see:
     mlflow deployments get --help
     mlflow deployments run-local --help
     mlflow deployments help --help
+
+
+Community Model Flavors
+-----------------------
+
+MLflow VizMod
+^^^^^^^^^^^^^
+
+The `mlflow-vizmod <https://github.com/JHibbard/mlflow-vizmod/>`_ project allows data scientists
+to be more productive with their visualizations. We treat visualizations as models - just like ML
+models - thus being able to use the same infrastructure as MLflow to track, create projects,
+register, and deploy visualizations.
+
+Installation:
+
+.. code-block:: bash
+
+    pip install mlflow-vizmod
+
+Example:
+
+.. code-block:: python
+
+    from sklearn.datasets import load_iris
+    import altair as alt
+    import mlflow_vismod
+
+    df_iris = load_iris(as_frame=True)
+
+    viz_iris = (
+        alt.Chart(df_iris)
+          .mark_circle(size=60)
+          .encode(x="x", y="y", color="z:N")
+          .properties(height=375, width=575)
+          .interactive()
+    )
+
+    mlflow_vismod.log_model(
+        model=viz_iris,
+        artifact_path="viz",
+        style="vegalite",
+        input_example=df_iris.head(5),
+    )

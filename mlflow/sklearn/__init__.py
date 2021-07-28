@@ -33,7 +33,16 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _inspect_original_var_name
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import get_instance_method_first_arg_value
-from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
+from mlflow.utils.environment import (
+    _mlflow_conda_env,
+    _validate_env_arguments,
+    _process_pip_requirements,
+    _process_conda_env,
+    _REQUIREMENTS_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
+)
+from mlflow.utils.file_utils import write_to
+from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.autologging_utils import (
@@ -82,6 +91,7 @@ def get_default_conda_env(include_cloudpickle=False):
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements(include_cloudpickle))
 
 
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
 def save_model(
     sk_model,
     path,
@@ -90,6 +100,8 @@ def save_model(
     serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
+    pip_requirements=None,
+    extra_pip_requirements=None,
 ):
     """
     Save a scikit-learn model to a path on the local file system. Produces an MLflow Model
@@ -144,7 +156,8 @@ def save_model(
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
-
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
 
     .. code-block:: python
         :caption: Example
@@ -171,6 +184,8 @@ def save_model(
                                   serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE)
     """
     import sklearn
+
+    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     if serialization_format not in SUPPORTED_SERIALIZATION_FORMATS:
         raise MlflowException(
@@ -203,18 +218,27 @@ def save_model(
         serialization_format=serialization_format,
     )
 
-    conda_env_subpath = "conda.yaml"
-    if conda_env is None:
-        conda_env = get_default_conda_env(
-            include_cloudpickle=serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE
+    include_cloudpickle = serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE
+    conda_env, pip_requirements, pip_constraints = (
+        _process_pip_requirements(
+            get_default_pip_requirements(include_cloudpickle=include_cloudpickle),
+            pip_requirements,
+            extra_pip_requirements,
         )
-    elif not isinstance(conda_env, dict):
-        with open(conda_env, "r") as f:
-            conda_env = yaml.safe_load(f)
+        if conda_env is None
+        else _process_conda_env(conda_env)
+    )
+
+    conda_env_subpath = "conda.yaml"
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    _log_pip_requirements(conda_env, path)
+    # Save `constraints.txt` if necessary
+    if pip_constraints:
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
+
+    # Save `requirements.txt`
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
     # `PyFuncModel` only works for sklearn models that define `predict()`.
     if hasattr(sk_model, "predict"):
@@ -233,6 +257,7 @@ def save_model(
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
 def log_model(
     sk_model,
     artifact_path,
@@ -242,6 +267,8 @@ def log_model(
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+    pip_requirements=None,
+    extra_pip_requirements=None,
 ):
     """
     Log a scikit-learn model as an MLflow artifact for the current run. Produces an MLflow Model
@@ -301,7 +328,8 @@ def log_model(
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
-
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
 
     .. code-block:: python
         :caption: Example
@@ -333,6 +361,8 @@ def log_model(
         signature=signature,
         input_example=input_example,
         await_registration_for=await_registration_for,
+        pip_requirements=pip_requirements,
+        extra_pip_requirements=extra_pip_requirements,
     )
 
 

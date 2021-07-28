@@ -33,6 +33,7 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from tests.helper_functions import (
     score_model_in_sagemaker_docker_container,
     _compare_conda_env_requirements,
+    _assert_pip_requirements,
 )
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
@@ -460,6 +461,92 @@ def test_save_model_persists_requirements_in_mlflow_model_directory(
 
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
     _compare_conda_env_requirements(tf_custom_env, saved_pip_req_path)
+
+
+@pytest.mark.large
+def test_log_model_with_pip_requirements(saved_tf_iris_model, tmpdir):
+    # Path to a requirements file
+    req_file = tmpdir.join("requirements.txt")
+    req_file.write("a")
+    with mlflow.start_run():
+        mlflow.tensorflow.log_model(
+            tf_saved_model_dir=saved_tf_iris_model.path,
+            tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+            tf_signature_def_key=saved_tf_iris_model.signature_def_key,
+            artifact_path="model",
+            pip_requirements=req_file.strpath,
+        )
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"])
+
+    # List of requirements
+    with mlflow.start_run():
+        mlflow.tensorflow.log_model(
+            tf_saved_model_dir=saved_tf_iris_model.path,
+            tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+            tf_signature_def_key=saved_tf_iris_model.signature_def_key,
+            artifact_path="model",
+            pip_requirements=[f"-r {req_file.strpath}", "b"],
+        )
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"])
+
+    # Constraints file
+    with mlflow.start_run():
+        mlflow.tensorflow.log_model(
+            tf_saved_model_dir=saved_tf_iris_model.path,
+            tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+            tf_signature_def_key=saved_tf_iris_model.signature_def_key,
+            artifact_path="model",
+            pip_requirements=[f"-c {req_file.strpath}", "b"],
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), ["mlflow", "b", "-c constraints.txt"], ["a"]
+        )
+
+
+@pytest.mark.large
+def test_log_model_with_extra_pip_requirements(saved_tf_iris_model, tmpdir):
+    default_reqs = mlflow.tensorflow.get_default_pip_requirements()
+
+    # Path to a requirements file
+    req_file = tmpdir.join("requirements.txt")
+    req_file.write("a")
+    with mlflow.start_run():
+        mlflow.tensorflow.log_model(
+            tf_saved_model_dir=saved_tf_iris_model.path,
+            tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+            tf_signature_def_key=saved_tf_iris_model.signature_def_key,
+            artifact_path="model",
+            extra_pip_requirements=req_file.strpath,
+        )
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a"])
+
+    # List of requirements
+    with mlflow.start_run():
+        mlflow.tensorflow.log_model(
+            tf_saved_model_dir=saved_tf_iris_model.path,
+            tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+            tf_signature_def_key=saved_tf_iris_model.signature_def_key,
+            artifact_path="model",
+            extra_pip_requirements=[f"-r {req_file.strpath}", "b"],
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a", "b"]
+        )
+
+    # Constraints file
+    with mlflow.start_run():
+        mlflow.tensorflow.log_model(
+            tf_saved_model_dir=saved_tf_iris_model.path,
+            tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+            tf_signature_def_key=saved_tf_iris_model.signature_def_key,
+            artifact_path="model",
+            extra_pip_requirements=[f"-c {req_file.strpath}", "b"],
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"),
+            ["mlflow", *default_reqs, "b", "-c constraints.txt"],
+            ["a"],
+        )
 
 
 @pytest.mark.large
