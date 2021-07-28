@@ -56,8 +56,6 @@ _KERAS_MODULE_SPEC_PATH = "keras_module.txt"
 _KERAS_SAVE_FORMAT_PATH = "save_format.txt"
 # File name to which keras model is saved
 _MODEL_SAVE_PATH = "model"
-# Conda env subpath when saving/loading model
-_
 _PIP_ENV_SUBPATH = "requirements.txt"
 
 
@@ -306,7 +304,7 @@ def save_model(
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
     # append loader_module, data and env data to mlflow_model
     pyfunc.add_to_model(
-        mlflow_model, loader_module="mlflow.keras", data=data_subpath, env=__CONDA_ENV_FILE_NAME
+        mlflow_model, loader_module="mlflow.keras", data=data_subpath, env=_CONDA_ENV_FILE_NAME
     )
 
     # save mlflow_model to path/MLmodel
