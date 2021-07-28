@@ -788,7 +788,7 @@ def get_original_attribute(obj, name):
     --------
     :attr:`Settings.allow_hit`.
     """
-    return getattr(obj, _ORIGINAL_NAME % (name,))
+    return getattr(obj, _ORIGINAL_NAME % (name,), getattr(obj, name))
 
 
 def get_decorator_data(obj, set_default=False):
