@@ -1512,7 +1512,7 @@ def test_basic_post_training_metric_autologging():
         metric_info = load_json_artifact("metric_info.json")
 
     run_id = run.info.run_id
-    params, metrics, tags, artifacts = get_run_data(run_id)
+    _, metrics, _, _ = get_run_data(run_id)
     post_training_metrics = {k: v for k, v in metrics.items() if not k.startswith("training_")}
 
     assert post_training_metrics == {
@@ -1528,7 +1528,8 @@ def test_basic_post_training_metric_autologging():
 
     assert metric_info == {
         "LogisticRegression_score-2_eval1_X-2": "LogisticRegression.score(X=eval1_X, y=eval1_y)",
-        "LogisticRegression_score-3_unknown_dataset": "LogisticRegression.score(X=<ndarray>, y=<ndarray>)",
+        "LogisticRegression_score-3_unknown_dataset":
+            "LogisticRegression.score(X=<ndarray>, y=<ndarray>)",
         "LogisticRegression_score_eval1_X": "LogisticRegression.score(X=eval1_X, y=eval1_y)",
         "r2_score-2_eval2_X": "r2_score(y_true=eval2_y, y_pred=pred2_y)",
         "r2_score_eval1_X": "r2_score(y_true=eval1_y, y_pred=pred1_y)",
@@ -1574,7 +1575,7 @@ def test_post_training_post_training_metric_autologging_for_predict_prob():
         y_true_onehot = np.eye(3)[y]
         roc_auc_metric = roc_auc_score(y_true_onehot, y_prob)
 
-    params, metrics, tags, artifacts = get_run_data(run.info.run_id)
+    _, metrics, _, _ = get_run_data(run.info.run_id)
     assert metrics["roc_auc_score_X"] == roc_auc_metric
 
 
@@ -1696,9 +1697,9 @@ def test_meta_estimator_disable_post_training_autologging(scoring):
             cv_model = sklearn.model_selection.GridSearchCV(
                 svc, {"C": [1, 0.5]}, n_jobs=1, scoring=scoring
             )
-            cv_model.fit(X, y)
-            cv_model.predict(X)
-            cv_model.score(X, y)
+            cv_model.fit(X, y)  # pylint: disable=pointless-statement
+            cv_model.predict(X)  # pylint: disable=pointless-statement
+            cv_model.score(X, y)  # pylint: disable=pointless-statement
             mock_register_model.assert_called_once()
             mock_is_metric_value_loggable.call_count <= 1
             mock_log_post_training_metric.call_count <= 1
@@ -1706,12 +1707,12 @@ def test_meta_estimator_disable_post_training_autologging(scoring):
 
 
 def test_gen_metric_call_commands():
-    import pandas as pd
     import sklearn.linear_model
 
     def metric_fn1(a1, b1, *, c2=3, d1=None, d2=True, d3="abc", **kwargs):
         pass
 
+    # pylint: disable=unused-argument
     cmd1 = mlflow.sklearn._AutologgingMetricsManager.gen_metric_call_command(
         None,
         metric_fn1,

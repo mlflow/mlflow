@@ -935,10 +935,14 @@ def test_get_instance_method_first_arg_value():
         def f3(self, *kwargs):
             pass
 
-    t1 = Test()
+        def f4(self, *args, **kwargs):
+            pass
+
     assert 3 == get_instance_method_first_arg_value(Test.f1, [3, 4], {})
     assert 3 == get_instance_method_first_arg_value(Test.f1, [3], {"cd2": 4})
     assert 3 == get_instance_method_first_arg_value(Test.f1, [], {"ab1": 3, "cd2": 4})
     assert 3 == get_instance_method_first_arg_value(Test.f2, [3, 4], {})
     with pytest.raises(AssertionError):
-        get_instance_method_first_arg_value(t1.f3, {"ab1": 3, "cd2": 4})
+        get_instance_method_first_arg_value(Test.f3, [], {"ab1": 3, "cd2": 4})
+    with pytest.raises(AssertionError):
+        get_instance_method_first_arg_value(Test.f4, [], {"ab1": 3, "cd2": 4})

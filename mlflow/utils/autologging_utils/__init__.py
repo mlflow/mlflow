@@ -553,11 +553,17 @@ def _get_new_training_session_class():
 def get_instance_method_first_arg_value(method, call_pos_args, call_kwargs):
     """
     Get instance method first argument value (exclude the `self` argument).
+    :param method A `cls.method` object which includes the `self` argument.
+    :param call_pos_args: positional arguments excluding the first `self` argument.
+    :param call_kwargs: keywords arguments.
     """
     if len(call_pos_args) >= 1:
         return call_pos_args[0]
     else:
         param_sig = inspect.signature(method).parameters
         first_arg_name = list(param_sig.keys())[1]
-        assert param_sig[first_arg_name].kind != inspect.Parameter.VAR_KEYWORD
+        assert param_sig[first_arg_name].kind not in [
+            inspect.Parameter.VAR_KEYWORD,
+            inspect.Parameter.VAR_POSITIONAL
+        ]
         return call_kwargs.get(first_arg_name)

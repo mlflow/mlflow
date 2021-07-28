@@ -561,10 +561,12 @@ class _AutologgingMetricsManager:
 
     def disable_log_post_training_metrics(self):
         class LogPostTrainingMetricsDisabledScope:
-            def __enter__(inner_self):
+            def __enter__(inner_self):  # pylint: disable=no-self-argument
+                # pylint: disable=attribute-defined-outside-init
                 inner_self.old_status = self._log_post_training_metrics_enabled
                 self._log_post_training_metrics_enabled = False
 
+            # pylint: disable=no-self-argument
             def __exit__(inner_self, exc_type, exc_val, exc_tb):
                 self._log_post_training_metrics_enabled = inner_self.old_status
 
@@ -783,8 +785,8 @@ _autologging_metrics_manager = _AutologgingMetricsManager()
 
 def _get_autologging_metrics_manager():
     """
-    Get the global `_AutologgingMetricsManager` instance which holds information used in post-training
-    metric autologging. See doc of class `_AutologgingMetricsManager` for details.
+    Get the global `_AutologgingMetricsManager` instance which holds information used in
+    post-training metric autologging. See doc of class `_AutologgingMetricsManager` for details.
     """
     return _autologging_metrics_manager
 
@@ -907,7 +909,7 @@ def autolog(
 
         For post training metrics autologging, the metric key format is:
         "{metric_name}[-{call_index}]_{dataset_name}"
-        
+
         - If the metric function is from `sklearn.metrics`, the MLflow "metric_name" is the
           metric function name. If the metric function is `model.score`, then "metric_name" is
           "{model_class_name}_score".
@@ -950,9 +952,9 @@ def autolog(
             (logged by :py:func:`mlflow.sklearn.log_model()`). The Model also contains the
             :py:mod:`mlflow.pyfunc` flavor when the scikit-learn estimator defines `predict()`.
           - For post training metrics API calls, a "metric_info.json" artifact is logged. This is a
-            JSON object whose keys are MLflow post training metric names (see "Post training metrics"
-            section for the key format) and whose values are the corresponding metric call commands
-            that produced the metrics, e.g.
+            JSON object whose keys are MLflow post training metric names
+            (see "Post training metrics" section for the key format) and whose values are the
+            corresponding metric call commands that produced the metrics, e.g.
             ``accuracy_score(y_true=test_iris_y, y_pred=pred_iris_y, normalize=False)``.
 
     **How does autologging work for meta estimators?**
@@ -1075,6 +1077,7 @@ def autolog(
                             ordering of dict passed as `scoring` parameter for estimator.
     """
     import pandas as pd
+    import sklearn
 
     from mlflow.models import infer_signature
     from mlflow.sklearn.utils import (
@@ -1313,14 +1316,13 @@ def autolog(
             """
             In `patched_predict`, register the prediction result instance with the run id and
              eval dataset name. e.g.
-    
             ```
             prediction_result = model_1.predict(eval_X)
             ```
             then we need register the following relatinoship into the
             `_autologging_metrics_manager`:
             id(prediction_result) --> (eval_dataset_name, run_id)
-            
+
             Note: we cannot set additional attributes "eval_dataset_name" and "run_id" into
             the prediction_result object, because certain dataset type like numpy does not support
             additional attribute assignment.
@@ -1439,7 +1441,7 @@ def autolog(
                     method
                 )
             return False
-        except:
+        except Exception:  # pylint: disable=broad-except
             return False
 
     for class_def in estimators_to_patch:
