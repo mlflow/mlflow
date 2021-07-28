@@ -937,8 +937,8 @@ def test_get_instance_method_first_arg_value():
 
     t1 = Test()
     assert 3 == get_instance_method_first_arg_value(Test.f1, [3, 4], {})
-    assert 3 == get_instance_method_first_arg_value(Test.f1, [3], {'cd2': 4})
-    assert 3 == get_instance_method_first_arg_value(Test.f1, [], {'ab1': 3, 'cd2': 4})
+    assert 3 == get_instance_method_first_arg_value(Test.f1, [3], {"cd2": 4})
+    assert 3 == get_instance_method_first_arg_value(Test.f1, [], {"ab1": 3, "cd2": 4})
     assert 3 == get_instance_method_first_arg_value(Test.f2, [3, 4], {})
     with pytest.raises(AssertionError):
-        get_instance_method_first_arg_value(t1.f3, {'ab1': 3, 'cd2': 4})
+        get_instance_method_first_arg_value(t1.f3, {"ab1": 3, "cd2": 4})

@@ -88,19 +88,19 @@ def test_inspect_original_var_name():
     from mlflow.utils import _inspect_original_var_name
 
     def f1(a1, expected_name):
-        assert _inspect_original_var_name(a1, 'unknown') == expected_name
+        assert _inspect_original_var_name(a1, "unknown") == expected_name
 
     xyz1 = object()
-    f1(xyz1, 'xyz1')
+    f1(xyz1, "xyz1")
 
-    f1(str(xyz1), 'unknown')
+    f1(str(xyz1), "unknown")
 
-    f1(None, 'unknown')
+    f1(None, "unknown")
 
     def f2(b1, expected_name):
         f1(b1, expected_name)
 
-    f2(xyz1, 'xyz1')
+    f2(xyz1, "xyz1")
 
     def f3(a1, *, b1, expected_a1_name, expected_b1_name):
         assert _inspect_original_var_name(a1, None) == expected_a1_name
@@ -109,4 +109,4 @@ def test_inspect_original_var_name():
     xyz2 = object()
     xyz3 = object()
 
-    f3(*[xyz2], **{'b1': xyz3, 'expected_a1_name': 'xyz2', 'expected_b1_name': 'xyz3'})
+    f3(*[xyz2], **{"b1": xyz3, "expected_a1_name": "xyz2", "expected_b1_name": "xyz3"})

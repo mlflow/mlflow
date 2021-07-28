@@ -129,6 +129,7 @@ def _inspect_original_var_name(var, fallback_name):
     If inspect failed, return fallback_name
     """
     import inspect
+
     if var is None:
         return fallback_name
     try:
@@ -140,7 +141,9 @@ def _inspect_original_var_name(var, fallback_name):
 
             fixed_args = [arg_info.locals[arg_name] for arg_name in arg_info.args]
             varlen_args = list(arg_info.locals[arg_info.varargs]) if arg_info.varargs else []
-            keyword_args = list(arg_info.locals[arg_info.keywords].values()) if arg_info.keywords else []
+            keyword_args = (
+                list(arg_info.locals[arg_info.keywords].values()) if arg_info.keywords else []
+            )
 
             all_args = fixed_args + varlen_args + keyword_args
 

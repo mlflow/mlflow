@@ -1084,6 +1084,7 @@ def test_autolog_produces_expected_results_for_estimator_when_parent_also_define
 
 def test_eval_and_log_metrics_for_regressor():
     import sklearn.linear_model
+
     # disable autologging so that we can check for the sole existence of eval-time metrics
     mlflow.sklearn.autolog(disable=True)
 
@@ -1317,6 +1318,7 @@ def test_eval_and_log_metrics_with_estimator(fit_func_name):
 
 def test_eval_and_log_metrics_with_meta_estimator():
     import sklearn.pipeline
+
     # disable autologging so that we can check for the sole existence of eval-time metrics
     mlflow.sklearn.autolog(disable=True)
 
@@ -1468,6 +1470,7 @@ def test_metric_computation_handles_absent_labels():
 
 def load_json_artifact(artifact_path):
     import json
+
     fpath = mlflow.get_artifact_uri(artifact_path).replace("file://", "")
     with open(fpath, "r") as f:
         return json.load(f)
@@ -1491,12 +1494,12 @@ def test_basic_post_training_metric_autologging():
         pred2_y = model.predict(eval2_X)
 
         r2_score_data1 = sklmetrics.r2_score(eval1_y, pred1_y)
-        recall_score_data1 = sklmetrics.recall_score(eval1_y, pred1_y, average='macro')
+        recall_score_data1 = sklmetrics.recall_score(eval1_y, pred1_y, average="macro")
         r2_score_data2 = sklmetrics.r2_score(eval2_y, pred2_y)
         lor_score_data1 = model.score(eval1_X, eval1_y)
-        recall_score2_data2 = sklmetrics.recall_score(eval2_y, pred2_y, average='micro')
+        recall_score2_data2 = sklmetrics.recall_score(eval2_y, pred2_y, average="micro")
 
-        scorer1 = sklmetrics.make_scorer(sklmetrics.recall_score, average='micro')
+        scorer1 = sklmetrics.make_scorer(sklmetrics.recall_score, average="micro")
         recall_score3_data2 = scorer1(model, eval2_X, eval2_y)
 
         eval1_X, eval1_y = eval1_X.copy(), eval1_y.copy()
@@ -1510,17 +1513,17 @@ def test_basic_post_training_metric_autologging():
 
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
-    post_training_metrics = {k: v for k, v in metrics.items() if not k.startswith('training_')}
+    post_training_metrics = {k: v for k, v in metrics.items() if not k.startswith("training_")}
 
     assert post_training_metrics == {
-        'r2_score_eval1_X': r2_score_data1,
-        'recall_score_eval1_X': recall_score_data1,
-        'r2_score-2_eval2_X': r2_score_data2,
-        'LogisticRegression_score_eval1_X': lor_score_data1,
-        'recall_score-2_eval2_X': recall_score2_data2,
-        'recall_score-3_eval2_X': recall_score3_data2,
-        'LogisticRegression_score-2_eval1_X-2': lor_score_data1_2,
-        'LogisticRegression_score-3_unknown_dataset': lor_score_data1_3,
+        "r2_score_eval1_X": r2_score_data1,
+        "recall_score_eval1_X": recall_score_data1,
+        "r2_score-2_eval2_X": r2_score_data2,
+        "LogisticRegression_score_eval1_X": lor_score_data1,
+        "recall_score-2_eval2_X": recall_score2_data2,
+        "recall_score-3_eval2_X": recall_score3_data2,
+        "LogisticRegression_score-2_eval1_X-2": lor_score_data1_2,
+        "LogisticRegression_score-3_unknown_dataset": lor_score_data1_3,
     }
 
     assert metric_info == {
@@ -1531,13 +1534,13 @@ def test_basic_post_training_metric_autologging():
         "r2_score_eval1_X": "r2_score(y_true=eval1_y, y_pred=pred1_y)",
         "recall_score-2_eval2_X": "recall_score(y_true=eval2_y, y_pred=pred2_y, average='micro')",
         "recall_score-3_eval2_X": "recall_score(y_true=eval2_y, y_pred=y_pred, average='micro')",
-        "recall_score_eval1_X": "recall_score(y_true=eval1_y, y_pred=pred1_y, average='macro')"
+        "recall_score_eval1_X": "recall_score(y_true=eval1_y, y_pred=pred1_y, average='macro')",
     }
 
     mlflow.sklearn.autolog(disable=True)
 
     # Test patched methods generate the same results with unpatched methods.
-    recall_score_data1_original = sklmetrics.recall_score(eval1_y, pred1_y, average='macro')
+    recall_score_data1_original = sklmetrics.recall_score(eval1_y, pred1_y, average="macro")
     assert np.isclose(recall_score_data1_original, recall_score_data1)
 
     lor_score_data1_original = model.score(eval1_X, eval1_y)
@@ -1547,10 +1550,11 @@ def test_basic_post_training_metric_autologging():
     assert np.allclose(pred1_y_original, pred1_y)
 
 
-@pytest.mark.parametrize('metric_name', mlflow.sklearn._get_metric_name_list())
+@pytest.mark.parametrize("metric_name", mlflow.sklearn._get_metric_name_list())
 def test_run_metric_api_doc_example(metric_name):
     import doctest
     from sklearn import metrics
+
     mlflow.sklearn.autolog()
     metric_api = getattr(metrics, metric_name)
     doctest.run_docstring_examples(metric_api.__doc__, {}, verbose=True)
@@ -1563,9 +1567,7 @@ def test_post_training_post_training_metric_autologging_for_predict_prob():
     from sklearn.metrics import roc_auc_score
 
     X, y = get_iris()
-    lor_model = sklearn.linear_model.LogisticRegression(
-        solver="saga", max_iter=100, random_state=0
-    )
+    lor_model = sklearn.linear_model.LogisticRegression(solver="saga", max_iter=100, random_state=0)
     with mlflow.start_run() as run:
         lor_model.fit(X, y)
         y_prob = lor_model.predict_proba(X)
@@ -1573,23 +1575,24 @@ def test_post_training_post_training_metric_autologging_for_predict_prob():
         roc_auc_metric = roc_auc_score(y_true_onehot, y_prob)
 
     params, metrics, tags, artifacts = get_run_data(run.info.run_id)
-    assert metrics['roc_auc_score_X'] == roc_auc_metric
+    assert metrics["roc_auc_score_X"] == roc_auc_metric
 
 
 def test_post_training_post_training_metric_autologging_patch_transform():
     import sklearn.cluster
+
     mlflow.sklearn.autolog()
     X, y = get_iris()
     kmeans_model = sklearn.cluster.KMeans().fit(X, y)
     with mock.patch(
-            "mlflow.sklearn._AutologgingMetricsManager.register_prediction_input_dataset") as mock_register_prediction_input_dataset:
+        "mlflow.sklearn._AutologgingMetricsManager.register_prediction_input_dataset"
+    ) as mock_register_prediction_input_dataset:
         kmeans_model.transform(X)
         mock_register_prediction_input_dataset.assert_called_once()
 
 
 def test_is_metrics_value_loggable():
-    is_metrics_value_loggable = \
-        mlflow.sklearn._autologging_metrics_manager.is_metric_value_loggable
+    is_metrics_value_loggable = mlflow.sklearn._autologging_metrics_manager.is_metric_value_loggable
     assert is_metrics_value_loggable(3)
     assert is_metrics_value_loggable(3.5)
     assert is_metrics_value_loggable(np.int(3))
@@ -1602,6 +1605,7 @@ def test_is_metrics_value_loggable():
 
 def test_nested_metric_call_is_disabled():
     import sklearn.linear_model
+
     mlflow.sklearn.autolog()
 
     X, y = get_iris()
@@ -1609,8 +1613,9 @@ def test_nested_metric_call_is_disabled():
     lr_model = sklearn.linear_model.LinearRegression()
 
     with mlflow.start_run():
-        with mock.patch('mlflow.sklearn._AutologgingMetricsManager.log_post_training_metric') \
-                as patched_log_post_training_metric:
+        with mock.patch(
+            "mlflow.sklearn._AutologgingMetricsManager.log_post_training_metric"
+        ) as patched_log_post_training_metric:
             # test post training metric logging disabled in fit scope
             lr_model.fit(X, y)
             patched_log_post_training_metric.assert_not_called()
@@ -1619,16 +1624,19 @@ def test_nested_metric_call_is_disabled():
             # test post training metric logging called only once in model.score
             lr_model.score(eval1_X, eval1_y)
             assert patched_log_post_training_metric.call_count == 1
-            assert patched_log_post_training_metric.call_args[0][1] == 'LinearRegression_score_eval1_X'
+            assert (
+                patched_log_post_training_metric.call_args[0][1] == "LinearRegression_score_eval1_X"
+            )
 
             patched_log_post_training_metric.reset_mock()
             # test post training metric logging disabled in eval_and_log_metrics
-            mlflow.sklearn.eval_and_log_metrics(lr_model, eval1_X, eval1_y, prefix='test1')
+            mlflow.sklearn.eval_and_log_metrics(lr_model, eval1_X, eval1_y, prefix="test1")
             patched_log_post_training_metric.assert_not_called()
 
 
 def test_multi_model_interleaved_fit_and_post_train_metric_call():
     import sklearn.linear_model
+
     mlflow.sklearn.autolog()
     from sklearn.metrics import mean_squared_error
 
@@ -1655,25 +1663,33 @@ def test_multi_model_interleaved_fit_and_post_train_metric_call():
     model2_mse = mean_squared_error(eval2_y, pred2_y)
 
     _, metrics1, _, _ = get_run_data(run1.info.run_id)
-    assert metrics1['LinearRegression_score_eval1_X'] == model1_r2_score
-    assert metrics1['mean_squared_error_eval1_X'] == model1_mse
+    assert metrics1["LinearRegression_score_eval1_X"] == model1_r2_score
+    assert metrics1["mean_squared_error_eval1_X"] == model1_mse
 
     _, metrics2, _, _ = get_run_data(run2.info.run_id)
-    assert metrics2['LinearRegression_score_eval2_X'] == model2_r2_score
-    assert metrics2['mean_squared_error_eval2_X'] == model2_mse
+    assert metrics2["LinearRegression_score_eval2_X"] == model2_r2_score
+    assert metrics2["mean_squared_error_eval2_X"] == model2_mse
 
 
-@pytest.mark.parametrize('scoring', [None, sklearn.metrics.make_scorer(sklearn.metrics.accuracy_score)])
+@pytest.mark.parametrize(
+    "scoring", [None, sklearn.metrics.make_scorer(sklearn.metrics.accuracy_score)]
+)
 def test_meta_estimator_disable_post_training_autologging(scoring):
     import sklearn.svm
     import sklearn.metrics
+
     mlflow.sklearn.autolog()
 
     X, y = get_iris()
-    with mock.patch("mlflow.sklearn._AutologgingMetricsManager.register_model") as mock_register_model, \
-            mock.patch("mlflow.sklearn._AutologgingMetricsManager.is_metric_value_loggable") as mock_is_metric_value_loggable, \
-            mock.patch("mlflow.sklearn._AutologgingMetricsManager.log_post_training_metric") as mock_log_post_training_metric, \
-            mock.patch("mlflow.sklearn._AutologgingMetricsManager.register_prediction_input_dataset") as mock_register_prediction_input_dataset:
+    with mock.patch(
+        "mlflow.sklearn._AutologgingMetricsManager.register_model"
+    ) as mock_register_model, mock.patch(
+        "mlflow.sklearn._AutologgingMetricsManager.is_metric_value_loggable"
+    ) as mock_is_metric_value_loggable, mock.patch(
+        "mlflow.sklearn._AutologgingMetricsManager.log_post_training_metric"
+    ) as mock_log_post_training_metric, mock.patch(
+        "mlflow.sklearn._AutologgingMetricsManager.register_prediction_input_dataset"
+    ) as mock_register_prediction_input_dataset:
 
         with mlflow.start_run():
             svc = sklearn.svm.SVC()
@@ -1693,36 +1709,35 @@ def test_gen_metric_call_commands():
     import pandas as pd
     import sklearn.linear_model
 
-    def metric_fn1(a1, b1, *, c2=3, d1=None, d2=True, d3='abc', **kwargs):
+    def metric_fn1(a1, b1, *, c2=3, d1=None, d2=True, d3="abc", **kwargs):
         pass
 
     cmd1 = mlflow.sklearn._AutologgingMetricsManager.gen_metric_call_command(
-        None, metric_fn1,
-        *[np.array([1.0]), pd.DataFrame(data={'c1': [1]})],
-        **{'c2': 4, 'd1': None, 'd2': False, 'd3': 'def',
-           'randarg1': 'a' * 100, 'randarg2': '0.1'}
+        None,
+        metric_fn1,
+        *[np.array([1.0]), pd.DataFrame(data={"c1": [1]})],
+        **{"c2": 4, "d1": None, "d2": False, "d3": "def", "randarg1": "a" * 100, "randarg2": "0.1"}
     )
 
-    assert cmd1 == "metric_fn1(a1=<ndarray>, b1=<DataFrame>, c2=4, d1=None, d2=False, d3='def'," \
-                   " randarg1='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa...', randarg2='0.1')"
+    assert (
+        cmd1 == "metric_fn1(a1=<ndarray>, b1=<DataFrame>, c2=4, d1=None, d2=False, d3='def',"
+        " randarg1='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa...', randarg2='0.1')"
+    )
 
     data1 = np.array([1.0])
-    data2 = pd.DataFrame(data={'c1': [1]})
+    data2 = pd.DataFrame(data={"c1": [1]})
 
     cmd2 = mlflow.sklearn._AutologgingMetricsManager.gen_metric_call_command(
-            None, metric_fn1,
-            *[data1, data2],
-            **{'randarg1': '\'xyz\"abc'}
-        )
-    assert cmd2 == "metric_fn1(a1=data1, b1=data2, randarg1=\'\\\'xyz\"abc')"
+        None, metric_fn1, *[data1, data2], **{"randarg1": "'xyz\"abc"}
+    )
+    assert cmd2 == "metric_fn1(a1=data1, b1=data2, randarg1='\\'xyz\"abc')"
 
     lr_model = sklearn.linear_model.LinearRegression()
     cmd3 = mlflow.sklearn._AutologgingMetricsManager.gen_metric_call_command(
-        lr_model, sklearn.linear_model.LinearRegression.score,
-        data1, data2
+        lr_model, sklearn.linear_model.LinearRegression.score, data1, data2
     )
 
-    assert cmd3 == 'LinearRegression.score(X=data1, y=data2)'
+    assert cmd3 == "LinearRegression.score(X=data1, y=data2)"
 
 
 def test_autolog_skip_patch_non_callable_attribute():
@@ -1731,6 +1746,7 @@ def test_autolog_skip_patch_non_callable_attribute():
     So we cannot patch it. This test is for covering this edge case.
     """
     from sklearn.neighbors import LocalOutlierFactor
+
     assert isinstance(LocalOutlierFactor.predict, property)
     old_predict = LocalOutlierFactor.predict
     mlflow.sklearn.autolog()
