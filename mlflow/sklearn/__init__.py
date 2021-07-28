@@ -466,7 +466,9 @@ def load_model(model_uri):
     )
 
 
-_api_requiring_disabling_autolog_list = [
+# The `_sklearn_api_autolog_blocklist` contains APIs which is incompatible with autologging,
+# when user call these APIs, autolog is temporarily disabled.
+_sklearn_api_autolog_blocklist = [
     "cross_validate",
     "cross_val_predict",
     "cross_val_score",
@@ -975,7 +977,7 @@ def autolog(
 
     from sklearn import model_selection
 
-    for disable_autolog_func_name in _api_requiring_disabling_autolog_list:
+    for disable_autolog_func_name in _sklearn_api_autolog_blocklist:
         safe_patch(
             FLAVOR_NAME,
             model_selection,
