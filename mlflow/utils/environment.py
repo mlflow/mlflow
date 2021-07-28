@@ -1,11 +1,14 @@
 import yaml
 import tempfile
 import os
+import logging
+
 
 from mlflow.utils import PYTHON_VERSION
-from mlflow.utils.requirements_utils import _parse_requirements
+from mlflow.utils.requirements_utils import _parse_requirements, _infer_requirements
 from packaging.requirements import Requirement, InvalidRequirement
 
+_logger = logging.getLogger(__name__)
 
 _conda_header = """\
 name: mlflow-env
@@ -186,6 +189,30 @@ def _parse_pip_requirements(pip_requirements):
                 type(pip_requirements)
             )
         )
+
+
+def infer_pip_requirements(model_uri, flavor, fallback=None):
+    """
+    Attempts to infer the pip requirements of the specified MLflow model.
+
+    :param model_uri: The URI of the MLflow model.
+    :param flavor: The flavor name of the MLflow model.
+    :param fallback: If provided, an unexpected error during the inference procedure is swallowed
+                     and the value of ``fallback`` will be returned.
+    :return: Inferred pip requirements (e.g. ``["scikit-learn==0.24.2", ...]``).
+    """
+    try:
+        return _infer_requirements(model_uri, flavor)
+    except Exception:
+        if fallback is not None:
+            _logger.exception(
+                "Encountered an unexpected error while inferring pip requirements "
+                "(model URI: %s, flavor: %s)",
+                model_uri,
+                flavor,
+            )
+            return fallback
+        raise
 
 
 def _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements):

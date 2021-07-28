@@ -293,11 +293,16 @@ def save_model(
         _save_example(mlflow_model, input_example, path)
     root_relative_path = _copy_file_or_tree(src=tf_saved_model_dir, dst=path, dst_dir=None)
     model_dir_subpath = "tfmodel"
-    shutil.move(os.path.join(path, root_relative_path), os.path.join(path, model_dir_subpath))
+    model_dir_path = os.path.join(path, model_dir_subpath)
+    shutil.move(os.path.join(path, root_relative_path), model_dir_path)
 
     conda_env, pip_requirements, pip_constraints = (
         _process_pip_requirements(
-            get_default_pip_requirements(), pip_requirements, extra_pip_requirements,
+            mlflow.infer_pip_requirements(
+                model_dir_path, FLAVOR_NAME, get_default_pip_requirements()
+            ),
+            pip_requirements,
+            extra_pip_requirements,
         )
         if conda_env is None
         else _process_conda_env(conda_env)

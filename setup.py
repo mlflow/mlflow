@@ -47,6 +47,9 @@ SKINNY_REQUIREMENTS = [
     "pytz",
     "requests>=2.17.3",
     "packaging",
+    # 3.7.0 or newer is required to use `importlib_metadata.packages_distributions`:
+    # https://github.com/python/importlib_metadata/blob/main/CHANGES.rst#v370
+    "importlib_metadata>3.7.0",
 ]
 
 """

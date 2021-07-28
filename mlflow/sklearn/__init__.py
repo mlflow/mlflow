@@ -206,16 +206,19 @@ def save_model(
         _save_example(mlflow_model, input_example, path)
 
     model_data_subpath = "model.pkl"
+    model_data_path = os.path.join(path, model_data_subpath)
     _save_model(
-        sk_model=sk_model,
-        output_path=os.path.join(path, model_data_subpath),
-        serialization_format=serialization_format,
+        sk_model=sk_model, output_path=model_data_path, serialization_format=serialization_format,
     )
 
     include_cloudpickle = serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE
     conda_env, pip_requirements, pip_constraints = (
         _process_pip_requirements(
-            get_default_pip_requirements(include_cloudpickle=include_cloudpickle),
+            mlflow.infer_pip_requirements(
+                model_data_path,
+                FLAVOR_NAME,
+                fallback=get_default_pip_requirements(include_cloudpickle=include_cloudpickle),
+            ),
             pip_requirements,
             extra_pip_requirements,
         )

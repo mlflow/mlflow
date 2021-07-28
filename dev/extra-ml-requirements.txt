@@ -45,3 +45,5 @@ shap
 paddlepaddle
 # Remove `ipython` once this issue: https://github.com/slundberg/shap/pull/1749 has been addressed
 ipython
+# Required when testing `mlflow.infer_pip_requirements`
+transformers

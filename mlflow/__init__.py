@@ -31,6 +31,7 @@ from mlflow.version import VERSION as __version__  # pylint: disable=unused-impo
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
 import mlflow.tracking._model_registry.fluent
 import mlflow.tracking.fluent
+from mlflow.utils.environment import infer_pip_requirements  # noqa: E402
 
 # Filter annoying Cython warnings that serve no good purpose, and so before
 # importing other modules.
@@ -188,5 +189,6 @@ __all__ = [
     "get_registry_uri",
     "set_registry_uri",
     "list_run_infos",
+    "infer_pip_requirements",
     "autolog",
 ] + _model_flavors_supported
