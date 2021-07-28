@@ -564,6 +564,6 @@ def get_instance_method_first_arg_value(method, call_pos_args, call_kwargs):
         first_arg_name = list(param_sig.keys())[1]
         assert param_sig[first_arg_name].kind not in [
             inspect.Parameter.VAR_KEYWORD,
-            inspect.Parameter.VAR_POSITIONAL
+            inspect.Parameter.VAR_POSITIONAL,
         ]
         return call_kwargs.get(first_arg_name)
