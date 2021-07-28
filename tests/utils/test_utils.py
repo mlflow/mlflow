@@ -102,12 +102,11 @@ def test_inspect_original_var_name():
 
     f2(xyz1, 'xyz1')
 
-    def f3(a1, *, b1, expected_a1_name, expected_ab_name):
+    def f3(a1, *, b1, expected_a1_name, expected_b1_name):
         assert _inspect_original_var_name(a1, None) == expected_a1_name
-        assert _inspect_original_var_name(b1, None) == expected_ab_name
+        assert _inspect_original_var_name(b1, None) == expected_b1_name
 
     xyz2 = object()
     xyz3 = object()
 
-    f3(*[xyz2], **{'b1': xyz3, 'expected_a1_name': 'xyz2', 'expected_ab_name': 'xyz3'})
-
+    f3(*[xyz2], **{'b1': xyz3, 'expected_a1_name': 'xyz2', 'expected_b1_name': 'xyz3'})

@@ -907,6 +907,9 @@ def autolog(
           - If user define a scorer which is not based on metric APIs in `sklearn.metrics`, then
             then post training metric autologging for the scorer is invalid.
           - Do not support `LocalOutlierFactor` estimator.
+          - For several meta-estimators, if there target methods are decorated by
+            "@if_delegate_has_method", then post training metric autologging patching for that
+            method is invalid.
 
       **Tags**
         - An estimator class name (e.g. "LinearRegression").
@@ -1389,49 +1392,29 @@ def autolog(
         )
     ]
 
-    def should_patch_class_method(class_def, func_name):
+    def should_patch_estimator_method(class_def, func_name):
+        """
+        Check whether we should patch the estimator method, will check:
+         * the estimator has the "func_name" attribute
+         * the attribute is callable, this is for filtering out cases like
+           `LocalOutlierFactor.predict` which is a property
+         * the callable attribute is not decorated by "@if_delegate_has_method",
+           the mlflow safe patching will break "@if_delegate_has_method" decorated methods
+           behavior.
+
+        TODO: make mlflow safe patching support @if_delegate_has_method decorator.
+        """
         try:
             if hasattr(class_def, func_name):
                 method = getattr(class_def, func_name)
-                return callable(method)
+                return callable(method) and '@if_delegate_has_method' not in inspect.getsource(method)
             return False
         except:
             return False
 
-    """
-    import sklearn.utils.metaestimators
-    def patched_IffHasAttrDescriptor_get(self, obj, type=None):
-        from functools import update_wrapper
-        # raise an AttributeError if the attribute is not present on the object
-        if obj is not None:
-            # delegate only on instances, not the classes.
-            # this is to allow access to the docstrings.
-            for delegate_name in self.delegate_names:
-                try:
-                    delegate = sklearn.utils.metaestimators.attrgetter(delegate_name)(obj)
-                except AttributeError:
-                    continue
-                else:
-                    getattr(delegate, self.attribute_name)
-                    break
-            else:
-                sklearn.utils.metaestimators.attrgetter(self.delegate_names[-1])(obj)
-
-        # lambda, but not partial, allows help() to work with update_wrapper
-        if obj is None:  # `cls.method`
-            out = lambda *args, **kwargs: self.fn(*args, **kwargs)
-        else:  # `instance.method`
-            out = lambda *args, **kwargs: self.fn(obj, *args, **kwargs)
-        # update the docstring of the returned function
-        update_wrapper(out, self.fn)
-        return out
-    
-    sklearn.utils.metaestimators._IffHasAttrDescriptor.__get__ = patched_IffHasAttrDescriptor_get
-    """
-
     for class_def in estimators_to_patch:
         for func_name in ["fit", "fit_transform", "fit_predict"]:
-            if should_patch_class_method(class_def, func_name):
+            if should_patch_estimator_method(class_def, func_name):
                 original = getattr(class_def, func_name)
 
                 # A couple of estimators use property methods to return fitting functions,
@@ -1456,12 +1439,12 @@ def autolog(
                 )
 
         for func_name in ["predict", "predict_proba", "transform"]:
-            if should_patch_class_method(class_def, func_name):
+            if should_patch_estimator_method(class_def, func_name):
                 safe_patch(
                     FLAVOR_NAME, class_def, func_name, patched_predict, manage_run=False,
                 )
 
-        if should_patch_class_method(class_def, 'score'):
+        if should_patch_estimator_method(class_def, 'score'):
             safe_patch(
                 FLAVOR_NAME, class_def, 'score', patched_model_score, manage_run=False,
             )
