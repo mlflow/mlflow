@@ -1468,6 +1468,38 @@ def test_metric_computation_handles_absent_labels():
     assert MODEL_DIR in artifacts
 
 
+@pytest.mark.parametrize("cross_val_func_name", mlflow.sklearn._apis_autologging_disabled)
+def test_autolog_disabled_on_sklearn_cross_val_api(cross_val_func_name):
+    mlflow.sklearn.autolog()
+    from sklearn import linear_model
+
+    def assert_autolog_disabled_during_exec_cross_val_fun(run_):
+        params, metrics, tags, artifacts = get_run_data(run_.info.run_id)
+        assert params == {} and metrics == {} and tags == {} and artifacts == []
+
+    diabetes = sklearn.datasets.load_diabetes()
+    X = diabetes.data[:150]
+    y = diabetes.target[:150]
+    lasso = linear_model.Lasso()
+
+    if cross_val_func_name == "validation_curve":
+        extra_params = {"param_name": "max_iter", "param_range": [10, 100]}
+    else:
+        extra_params = {}
+
+    cross_val_func = getattr(sklearn.model_selection, cross_val_func_name)
+    with mlflow.start_run() as run:
+        cross_val_func(lasso, X, y, cv=3, **extra_params)
+        assert_autolog_disabled_during_exec_cross_val_fun(run)
+
+    # Ensure cross_val_func doesn't start a new run
+    exp_id = mlflow.tracking.fluent._get_experiment_id()
+    runs_info_before = mlflow.list_run_infos(exp_id)
+    cross_val_func(lasso, X, y, cv=3, **extra_params)
+    runs_info_after = mlflow.list_run_infos(exp_id)
+    assert len(runs_info_before) == len(runs_info_after)
+
+
 def load_json_artifact(artifact_path):
     import json
 

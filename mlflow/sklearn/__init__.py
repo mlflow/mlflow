@@ -52,6 +52,7 @@ from mlflow.utils.autologging_utils import (
     resolve_input_example_and_signature,
     _get_new_training_session_class,
     MlflowAutologgingQueueingClient,
+    disable_autologging,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -499,6 +500,18 @@ def load_model(model_uri):
     return _load_model_from_local_file(
         path=sklearn_model_artifacts_path, serialization_format=serialization_format
     )
+
+
+# The `_apis_autologging_disabled` contains APIs which is incompatible with autologging,
+# when user call these APIs, autolog is temporarily disabled.
+_apis_autologging_disabled = [
+    "cross_validate",
+    "cross_val_predict",
+    "cross_val_score",
+    "learning_curve",
+    "permutation_test_score",
+    "validation_curve",
+]
 
 
 class _AutologgingMetricsManager:
@@ -1078,6 +1091,7 @@ def autolog(
     """
     import pandas as pd
     import sklearn
+    import sklearn.model_selection
 
     from mlflow.models import infer_signature
     from mlflow.sklearn.utils import (
@@ -1484,6 +1498,19 @@ def autolog(
 
     for metric_name in _get_metric_name_list():
         safe_patch(FLAVOR_NAME, metrics, metric_name, patched_metric_api, manage_run=False)
+
+    def patched_fn_with_autolog_disabled(original, *args, **kwargs):
+        with disable_autologging():
+            return original(*args, **kwargs)
+
+    for disable_autolog_func_name in _apis_autologging_disabled:
+        safe_patch(
+            FLAVOR_NAME,
+            sklearn.model_selection,
+            disable_autolog_func_name,
+            patched_fn_with_autolog_disabled,
+            manage_run=False,
+        )
 
 
 def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
