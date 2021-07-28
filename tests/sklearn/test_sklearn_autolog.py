@@ -1464,9 +1464,7 @@ def test_metric_computation_handles_absent_labels():
     assert MODEL_DIR in artifacts
 
 
-@pytest.mark.parametrize(
-    "cross_val_func_name", mlflow.sklearn._sklearn_api_autolog_blocklist
-)
+@pytest.mark.parametrize("cross_val_func_name", mlflow.sklearn._sklearn_api_autolog_blocklist)
 def test_autolog_disabled_on_sklearn_cross_val_api(cross_val_func_name):
     mlflow.sklearn.autolog()
     from sklearn import linear_model
