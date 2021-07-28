@@ -1526,9 +1526,10 @@ def test_basic_post_training_metric_autologging():
         "LogisticRegression_score-3_unknown_dataset": lor_score_data1_3,
     }
 
+    lor_score_3_cmd = "LogisticRegression.score(X=<ndarray>, y=<ndarray>)"
     assert metric_info == {
         "LogisticRegression_score-2_eval1_X-2": "LogisticRegression.score(X=eval1_X, y=eval1_y)",
-        "LogisticRegression_score-3_unknown_dataset": "LogisticRegression.score(X=<ndarray>, y=<ndarray>)",
+        "LogisticRegression_score-3_unknown_dataset": lor_score_3_cmd,
         "LogisticRegression_score_eval1_X": "LogisticRegression.score(X=eval1_X, y=eval1_y)",
         "r2_score-2_eval2_X": "r2_score(y_true=eval2_y, y_pred=pred2_y)",
         "r2_score_eval1_X": "r2_score(y_true=eval1_y, y_pred=pred1_y)",
