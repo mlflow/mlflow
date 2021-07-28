@@ -14,7 +14,16 @@ from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import experimental
-from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
+from mlflow.utils.environment import (
+    _mlflow_conda_env,
+    _validate_env_arguments,
+    _process_pip_requirements,
+    _process_conda_env,
+    _REQUIREMENTS_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
+)
+from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
+from mlflow.utils.file_utils import write_to
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
@@ -122,6 +131,7 @@ def _load_pyfunc(path):
 
 
 @experimental
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="mxnet"))
 def save_model(
     gluon_model,
     path,
@@ -129,6 +139,8 @@ def save_model(
     conda_env=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
+    pip_requirements=None,
+    extra_pip_requirements=None,
 ):
     """
     Save a Gluon model to a path on the local file system.
@@ -173,8 +185,8 @@ def save_model(
                           example will be serialized to json using the Pandas split-oriented
                           format, or a numpy array where the example will be serialized to json
                           by converting it to a list. Bytes are base64-encoded.
-
-
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
 
     .. code-block:: python
         :caption: Example
@@ -199,6 +211,7 @@ def save_model(
         # Save the model as an MLflow Model
         mlflow.gluon.save_model(net, gluon_model_path)
     """
+    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise MlflowException("Path '{}' already exists".format(path))
@@ -215,18 +228,25 @@ def save_model(
     # The epoch argument of the export method does not play any role in selecting
     # a specific epoch's parameters, and is there only for display purposes.
     gluon_model.export(os.path.join(data_path, _MODEL_SAVE_PATH))
-    with open(os.path.join(path, "architecture.txt"), "w") as fp:
-        fp.write(str(gluon_model))
+
+    conda_env, pip_requirements, pip_constraints = (
+        _process_pip_requirements(
+            get_default_pip_requirements(), pip_requirements, extra_pip_requirements,
+        )
+        if conda_env is None
+        else _process_conda_env(conda_env)
+    )
+
     conda_env_subpath = "conda.yaml"
-    if conda_env is None:
-        conda_env = get_default_conda_env()
-    elif not isinstance(conda_env, dict):
-        with open(conda_env, "r") as f:
-            conda_env = yaml.safe_load(f)
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    _log_pip_requirements(conda_env, path)
+    # Save `constraints.txt` if necessary
+    if pip_constraints:
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
+
+    # Save `requirements.txt`
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.gluon", env=conda_env_subpath)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
@@ -252,6 +272,7 @@ def get_default_conda_env():
 
 
 @experimental
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="mxnet"))
 def log_model(
     gluon_model,
     artifact_path,
@@ -259,6 +280,8 @@ def log_model(
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
+    pip_requirements=None,
+    extra_pip_requirements=None,
 ):
     """
     Log a Gluon model as an MLflow artifact for the current run.
@@ -305,8 +328,8 @@ def log_model(
                           example will be serialized to json using the Pandas split-oriented
                           format, or a numpy array where the example will be serialized to json
                           by converting it to a list. Bytes are base64-encoded.
-
-
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
 
     .. code-block:: python
         :caption: Example
@@ -339,6 +362,8 @@ def log_model(
         registered_model_name=registered_model_name,
         signature=signature,
         input_example=input_example,
+        pip_requirements=pip_requirements,
+        extra_pip_requirements=extra_pip_requirements,
     )
 
 

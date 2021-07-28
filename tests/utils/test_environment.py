@@ -215,6 +215,8 @@ def test_is_mlflow_requirement():
     assert _is_mlflow_requirement("mlflow==1.2.3")
     assert _is_mlflow_requirement("mlflow < 1.2.3")
     assert _is_mlflow_requirement("mlflow; python_version < '3.8'")
+    assert _is_mlflow_requirement("mlflow @ https://github.com/mlflow/mlflow.git")
+    assert _is_mlflow_requirement("mlflow @ file:///path/to/mlflow")
     assert not _is_mlflow_requirement("foo")
     # Ensure packages that look like mlflow are NOT considered as mlflow.
     assert not _is_mlflow_requirement("mlflow-foo")

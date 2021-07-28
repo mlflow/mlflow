@@ -48,9 +48,6 @@ class Model(object):
             self.run_id = run_id
             self.artifact_path = artifact_path
 
-        databricks_runtime = get_databricks_runtime()
-        if databricks_runtime:
-            self.databricks_runtime = databricks_runtime
         self.utc_time_created = str(utc_time_created or datetime.utcnow())
         self.flavors = flavors if flavors is not None else {}
         self.signature = signature
@@ -94,6 +91,9 @@ class Model(object):
     def to_dict(self):
         """Serialize the model to a dictionary."""
         res = {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
+        databricks_runtime = get_databricks_runtime()
+        if databricks_runtime:
+            res["databricks_runtime"] = databricks_runtime
         if self.signature is not None:
             res["signature"] = self.signature.to_dict()
         if self.saved_input_example_info is not None:
