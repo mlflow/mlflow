@@ -1,5 +1,7 @@
 import os
+import importlib
 
+from mlflow.utils._capture_modules import _CaptureImportedModules
 from mlflow.utils.requirements_utils import (
     _is_comment,
     _is_empty,
@@ -178,3 +180,33 @@ def test_prune_packages():
     assert _prune_packages(["mlflow"]) == {"mlflow"}
     assert _prune_packages(["mlflow", "packaging"]) == {"mlflow"}
     assert _prune_packages(["mlflow", "scikit-learn"]) == {"mlflow", "scikit-learn"}
+
+
+def test_capture_imported_modules(tmpdir):
+    with _CaptureImportedModules() as cap:
+        # pylint: disable=unused-import
+        import mlflow
+
+        __import__("pandas")
+        importlib.import_module("numpy")
+
+    assert "mlflow" in cap.imported_modules
+    assert "pandas" in cap.imported_modules
+    assert "numpy" in cap.imported_modules
+
+
+def test_capture_imported_modules_with_pickle(tmpdir):
+    import pickle
+    from sklearn.svm import SVC
+
+    model_path = tmpdir.join("model.pkl")
+    with open(model_path, "wb") as f:
+        pickle.dump(SVC(), f)
+
+    with _CaptureImportedModules() as cap:
+        assert "sklearn" not in cap.imported_modules
+
+        with open(model_path, "rb") as f:
+            pickle.load(f)
+
+    assert "sklearn" in cap.imported_modules

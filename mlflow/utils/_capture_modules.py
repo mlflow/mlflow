@@ -5,75 +5,56 @@ import argparse
 import builtins
 import functools
 import importlib
+import os
 
 import mlflow
-
-
-IMPORTED_MODULES = set()
+from mlflow.utils.file_utils import write_to
+from mlflow.pyfunc import DATA
+from mlflow.models.model import MLMODEL_FILE_NAME
 
 
 def _get_top_level_module(full_module_name):
     return full_module_name.split(".")[0]
 
 
-def _wrap_import(original_import):
+class _CaptureImportedModules:
     """
-    Wraps `builtins.__import__` to capture imported modules in `IMPORTED_MODULES`.
-    """
-
-    # pylint: disable=redefined-builtin
-    @functools.wraps(original_import)
-    def wrapper(name, globals=None, locals=None, fromlist=(), level=0):
-        is_absolute_import = level == 0
-        if not name.startswith("_") and is_absolute_import:
-            top_level_module = _get_top_level_module(name)
-            IMPORTED_MODULES.add(top_level_module)
-        return original_import(name, globals, locals, fromlist, level)
-
-    return wrapper
-
-
-def _wrap_import_module(original_import_module):
-    """
-    Wraps `importlib.import_module` to capture imported modules in `IMPORTED_MODULES`.
+    A context manager to capture imported modules in `IMPORTED_MODULES` by temporarily
+    applying a patch to `builtins.__import__` and `importlib.import_module`.
     """
 
-    @functools.wraps(original_import_module)
-    def wrapper(name, *args, **kwargs):
-        if not name.startswith("_"):
-            top_level_module = _get_top_level_module(name)
-            IMPORTED_MODULES.add(top_level_module)
-        return original_import_module(name, *args, **kwargs)
+    def _wrap_import(self, original_import):
+        @functools.wraps(original_import)
+        def wrapper(name, globals=None, locals=None, fromlist=(), level=0):
+            is_absolute_import = level == 0
+            if not name.startswith("_") and is_absolute_import:
+                top_level_module = _get_top_level_module(name)
+                self.imported_modules.add(top_level_module)
+            return original_import(name, globals, locals, fromlist, level)
 
-    return wrapper
+        return wrapper
 
+    def _wrap_import_module(self, original_import_module):
+        @functools.wraps(original_import_module)
+        def wrapper(name, *args, **kwargs):
+            if not name.startswith("_"):
+                top_level_module = _get_top_level_module(name)
+                self.imported_modules.add(top_level_module)
+            return original_import_module(name, *args, **kwargs)
 
-def _wrap_load_pyfunc(original_load_pyfunc):
-    """
-    Wraps `mlflow.*._load_pyfunc` to capture modules imported during the loading procedure
-    by temporarily applying a patch to `builtins.__import__`.
-    """
+        return wrapper
 
-    @functools.wraps(original_load_pyfunc)
-    def wrapper(*args, **kwargs):
-        original_import = builtins.__import__
-        original_import_module = importlib.import_module
-        builtins.__import__ = _wrap_import(original_import)
-        importlib.import_module = _wrap_import_module(original_import_module)
-        result = original_load_pyfunc(*args, **kwargs)
-        builtins.__import__ = original_import
-        importlib.import_module = original_import_module
-        return result
+    def __enter__(self):
+        self.imported_modules = set()
+        self.original_import = builtins.__import__
+        self.original_import_module = importlib.import_module
+        builtins.__import__ = self._wrap_import(self.original_import)
+        importlib.import_module = self._wrap_import_module(self.original_import_module)
+        return self
 
-    return wrapper
-
-
-def _is_mlflow_model(model_path):
-    try:
-        mlflow.models.Model.load(model_path)
-        return True
-    except Exception:
-        return False
+    def __exit__(self, *_, **__):
+        builtins.__import__ = self.original_import
+        importlib.import_module = self.original_import_module
 
 
 def parse_args():
@@ -90,18 +71,22 @@ def main():
     flavor = args.flavor
     output_file = args.output_file
 
-    flavor_module = getattr(mlflow, flavor)
-    wrapped_load_pyfunc = _wrap_load_pyfunc(flavor_module._load_pyfunc)
-    # Load the model and capture modules imported during the loading procedure.
-    if _is_mlflow_model(model_path):
-        flavor_module._load_pyfunc = wrapped_load_pyfunc
-        mlflow.pyfunc.load_model(model_path)
+    # If `model_path` is a directory containing an `MLmodel` file, attempt to get the model data
+    # path from it.
+    if os.path.isdir(model_path) and MLMODEL_FILE_NAME in os.listdir(model_path):
+        conf = mlflow.models.Model.load(model_path).flavors.get(flavor)
+        data_path = os.path.join(model_path, conf[DATA]) if (DATA in conf) else model_path
+    # Otherwise, assume `model_path` is a file or directory storing the model data.
     else:
-        wrapped_load_pyfunc(model_path)
+        data_path = model_path
+
+    # Load the model and capture modules imported during the loading procedure.
+    flavor_module = getattr(mlflow, flavor)
+    with _CaptureImportedModules() as cap:
+        flavor_module._load_pyfunc(data_path)
 
     # Store the imported modules in `output_file`.
-    with open(output_file, "w") as f:
-        f.write("\n".join(IMPORTED_MODULES))
+    write_to(output_file, "\n".join(cap.imported_modules))
 
 
 if __name__ == "__main__":

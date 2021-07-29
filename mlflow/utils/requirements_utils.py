@@ -16,7 +16,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.autologging_utils.versioning import _strip_dev_version_suffix
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
-from mlflow.utils import _capture_modules
 
 
 def _is_comment(line):
@@ -198,6 +197,9 @@ def _infer_requirements(model_uri, flavor):
     :param: flavor: The flavor name of the model.
     :return: A list of inferred pip requirements.
     """
+    # Import `_capture_module` here to avoid causing circular imports.
+    from mlflow.utils import _capture_modules
+
     local_model_path = _download_artifact_from_uri(model_uri)
 
     # Run `_capture_modules.py` to capture modules imported during the loading procedure
@@ -221,10 +223,13 @@ def _infer_requirements(model_uri, flavor):
     packages = _flatten(map(_module_to_packages, modules))
     packages = map(_canonicalize_package_name, packages)
     excluded_packages = [
+        # Certain packages (e.g. scikit-learn 0.24.2) imports `setuptools` or `pkg_resources`
+        # (a module provided by `setuptools`) to process or interact with package metadata.
         # It should be safe to exclude `setuptools` because it's rare to encounter a python
-        # environment where `setuptools` is not installed.
+        # environment where `setuptools` is not pre-installed.
         "setuptools",
-        # Certain flavors (e.g. pytorch) import mlflow while loading a model.
+        # Certain flavors (e.g. pytorch) import mlflow while loading a model, but mlflow should
+        # not be counted as a model requirement.
         "mlflow",
     ]
     packages = set(packages) - set(excluded_packages)
