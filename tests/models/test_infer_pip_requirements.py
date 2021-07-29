@@ -66,9 +66,10 @@ def show_inferred_pip_requirements(request):
 
         capture_manager = request.config.pluginmanager.getplugin("capturemanager")
         capture_manager.suspendcapture()
-        print("\n" + "=" * 30)
+        title = "=" * 30 + " Inferred pip requirements " + "=" * 30
+        print("\n" + title)
         print("\n".join(res))
-        print("=" * 30)
+        print("=" * len(title))
         capture_manager.resumecapture()
 
         return res
@@ -174,6 +175,31 @@ def test_infer_pip_requirements_catboost(cb_model):
     data = X.head(3)
     resp = pyfunc_serve_and_score_model(model_uri, data, CONTENT_TYPE_JSON_SPLIT_ORIENTED)
     np.testing.assert_array_equal(json.loads(resp.content), cb_model.predict(data))
+
+
+@required_modules("keras")
+def test_infer_pip_requirements_keras():
+    import keras
+    import numpy as np
+
+    model = keras.models.Sequential()
+    model.add(keras.layers.Dense(3, input_dim=4, activation="softmax"))
+    model.compile(loss="categorical_crossentropy", optimizer="adam")
+
+    X, y = load_iris(return_X_y=True)
+    y = np.eye(3)[y]  # one-hot encoding
+    model.fit(X, y)
+
+    with mlflow.start_run(), assert_did_not_fallback():
+        mlflow.keras.log_model(model, artifact_path="model", keras_module=keras)
+        model_uri = mlflow.get_artifact_uri("model")
+
+    reqs = _read_requirements(model_uri)
+    assert _get_pinned_requirement("keras") in reqs
+
+    data = X[:3]
+    resp = pyfunc_serve_and_score_model(model_uri, data, CONTENT_TYPE_JSON_SPLIT_ORIENTED)
+    np.testing.assert_array_equal(json.loads(resp.content), model.predict(data))
 
 
 def _get_tiny_bert_config():
