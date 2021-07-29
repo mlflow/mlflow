@@ -79,34 +79,62 @@ def show_inferred_pip_requirements(request):
 
 
 @contextmanager
-def assert_did_not_fallback():
+def disable_fallback():
     def side_effect(*args, **kwargs):
         err_msg = (
             "Encountered an unexpected error while inferring pip requirements "
             "(model URI: %s, flavor: %s)"
         )
         if args[0] == err_msg:
-            raise Exception("SHOULD NOT FALLBACK")
+            raise Exception("FALLBACK IS DISABLED")
 
     with mock.patch("mlflow.utils.environment._logger.exception", side_effect=side_effect):
         yield
 
 
+@required_modules("xgboost")
+def test_infer_pip_requirements_xgboost():
+    import xgboost as xgb
+
+    X, y = load_iris(return_X_y=True, as_frame=True)
+    params = {
+        "objective": "multi:softprob",
+        "num_class": 3,
+    }
+    model = xgb.train(params, xgb.DMatrix(X, y))
+
+    with mlflow.start_run(), disable_fallback():
+        mlflow.xgboost.log_model(model, artifact_path="model")
+        model_uri = mlflow.get_artifact_uri("model")
+
+    reqs = _read_requirements(model_uri)
+    assert _get_pinned_requirement("xgboost") in reqs
+
+    data = X.head(3)
+    resp = pyfunc_serve_and_score_model(model_uri, data, CONTENT_TYPE_JSON_SPLIT_ORIENTED)
+    np.testing.assert_array_equal(json.loads(resp.content), model.predict(xgb.DMatrix(data)))
+
+
+def _to_pipeline(model):
+    return Pipeline([("model", model)])
+
+
 @pytest.fixture(params=range(2))
-def xgb_model(request):
+def xgb_sklearn_model(request):
     import xgboost as xgb
 
     model = xgb.XGBClassifier(objective="multi:softmax", n_estimators=10)
-    return [model, Pipeline([("model", model)])][request.param]
+    return [model, _to_pipeline(model)][request.param]
 
 
 @required_modules("xgboost")
-def test_infer_pip_requirements_xgboost(xgb_model):
+def test_infer_pip_requirements_xgboost_sklearn(xgb_sklearn_model):
+    model = xgb_sklearn_model
     X, y = load_iris(return_X_y=True, as_frame=True)
-    xgb_model.fit(X, y)
+    model.fit(X, y)
 
-    with mlflow.start_run(), assert_did_not_fallback():
-        mlflow.sklearn.log_model(xgb_model, artifact_path="model")
+    with mlflow.start_run(), disable_fallback():
+        mlflow.sklearn.log_model(model, artifact_path="model")
         model_uri = mlflow.get_artifact_uri("model")
 
     reqs = _read_requirements(model_uri)
@@ -115,24 +143,48 @@ def test_infer_pip_requirements_xgboost(xgb_model):
 
     data = X.head(3)
     resp = pyfunc_serve_and_score_model(model_uri, data, CONTENT_TYPE_JSON_SPLIT_ORIENTED)
-    np.testing.assert_array_equal(json.loads(resp.content), xgb_model.predict(data))
-
-
-@pytest.fixture(params=range(2))
-def lgb_model(request):
-    import lightgbm as lgb
-
-    model = lgb.LGBMClassifier(n_estimators=10)
-    return [model, Pipeline([("model", model)])][request.param]
+    np.testing.assert_array_equal(json.loads(resp.content), model.predict(data))
 
 
 @required_modules("lightgbm")
-def test_infer_pip_requirements_lightgbm(lgb_model):
-    X, y = load_iris(return_X_y=True, as_frame=True)
-    lgb_model.fit(X, y)
+def test_infer_pip_requirements_lightgbm():
+    import lightgbm as lgb
 
-    with mlflow.start_run(), assert_did_not_fallback():
-        mlflow.sklearn.log_model(lgb_model, artifact_path="model")
+    X, y = load_iris(return_X_y=True, as_frame=True)
+    params = {
+        "objective": "multiclass",
+        "num_class": 3,
+    }
+    model = lgb.train(params, lgb.Dataset(X, y), num_boost_round=10)
+
+    with mlflow.start_run(), disable_fallback():
+        mlflow.lightgbm.log_model(model, artifact_path="model")
+        model_uri = mlflow.get_artifact_uri("model")
+
+    reqs = _read_requirements(model_uri)
+    assert _get_pinned_requirement("lightgbm") in reqs
+
+    data = X.head(3)
+    resp = pyfunc_serve_and_score_model(model_uri, data, CONTENT_TYPE_JSON_SPLIT_ORIENTED)
+    np.testing.assert_array_equal(json.loads(resp.content), model.predict(data))
+
+
+@pytest.fixture(params=range(2))
+def lgb_sklearn_model(request):
+    import lightgbm as lgb
+
+    model = lgb.LGBMClassifier(n_estimators=10)
+    return [model, _to_pipeline(model)][request.param]
+
+
+@required_modules("lightgbm")
+def test_infer_pip_requirements_lightgbm_sklearn(lgb_sklearn_model):
+    model = lgb_sklearn_model
+    X, y = load_iris(return_X_y=True, as_frame=True)
+    model.fit(X, y)
+
+    with mlflow.start_run(), disable_fallback():
+        mlflow.sklearn.log_model(model, artifact_path="model")
         model_uri = mlflow.get_artifact_uri("model")
 
     reqs = _read_requirements(model_uri)
@@ -143,38 +195,50 @@ def test_infer_pip_requirements_lightgbm(lgb_model):
 
     data = X.head(3)
     resp = pyfunc_serve_and_score_model(model_uri, data, CONTENT_TYPE_JSON_SPLIT_ORIENTED)
-    np.testing.assert_array_equal(json.loads(resp.content), lgb_model.predict(data))
+    np.testing.assert_array_equal(json.loads(resp.content), model.predict(data))
 
 
-@pytest.fixture(params=range(2))
-def cb_model(request):
+def _create_catboost_classifier():
     import catboost
 
-    model = catboost.CatBoostClassifier(allow_writing_files=False, iterations=10)
-    return [model, Pipeline([("model", model)])][request.param]
+    return catboost.CatBoostClassifier(allow_writing_files=False, iterations=10)
 
 
 @required_modules("catboost")
-def test_infer_pip_requirements_catboost(cb_model):
+def test_infer_pip_requirements_catboost():
+    model = _create_catboost_classifier()
     X, y = load_iris(return_X_y=True, as_frame=True)
-    cb_model.fit(X, y)
+    model.fit(X, y)
 
-    with mlflow.start_run(), assert_did_not_fallback():
-        mlflow.sklearn.log_model(cb_model, artifact_path="model")
+    with mlflow.start_run(), disable_fallback():
+        mlflow.sklearn.log_model(model, artifact_path="model")
         model_uri = mlflow.get_artifact_uri("model")
 
     reqs = _read_requirements(model_uri)
     assert _get_pinned_requirement("catboost") in reqs
 
-    # `CatBoostClassifier` doesn't require scikit-learn
-    if cb_model.__class__.__name__ == "CatBoostClassifier":
-        assert _get_pinned_requirement("scikit-learn") not in reqs
-    else:
-        assert _get_pinned_requirement("scikit-learn") in reqs
+    data = X.head(3)
+    resp = pyfunc_serve_and_score_model(model_uri, data, CONTENT_TYPE_JSON_SPLIT_ORIENTED)
+    np.testing.assert_array_equal(json.loads(resp.content), model.predict(data))
+
+
+@required_modules("catboost")
+def test_infer_pip_requirements_catboost_sklearn():
+    model = _to_pipeline(_create_catboost_classifier())
+    X, y = load_iris(return_X_y=True, as_frame=True)
+    model.fit(X, y)
+
+    with mlflow.start_run(), disable_fallback():
+        mlflow.sklearn.log_model(model, artifact_path="model")
+        model_uri = mlflow.get_artifact_uri("model")
+
+    reqs = _read_requirements(model_uri)
+    assert _get_pinned_requirement("catboost") in reqs
+    assert _get_pinned_requirement("scikit-learn") in reqs
 
     data = X.head(3)
     resp = pyfunc_serve_and_score_model(model_uri, data, CONTENT_TYPE_JSON_SPLIT_ORIENTED)
-    np.testing.assert_array_equal(json.loads(resp.content), cb_model.predict(data))
+    np.testing.assert_array_equal(json.loads(resp.content), model.predict(data))
 
 
 @required_modules("keras")
@@ -182,24 +246,25 @@ def test_infer_pip_requirements_keras():
     import keras
     import numpy as np
 
-    model = keras.models.Sequential()
-    model.add(keras.layers.Dense(3, input_dim=4, activation="softmax"))
-    model.compile(loss="categorical_crossentropy", optimizer="adam")
+    model = keras.models.Sequential([keras.layers.Dense(1, input_dim=1)])
+    model.compile()
 
-    X, y = load_iris(return_X_y=True)
-    y = np.eye(3)[y]  # one-hot encoding
-    model.fit(X, y)
-
-    with mlflow.start_run(), assert_did_not_fallback():
-        mlflow.keras.log_model(model, artifact_path="model", keras_module=keras)
+    with mlflow.start_run(), disable_fallback():
+        mlflow.keras.log_model(
+            model,
+            artifact_path="model",
+            keras_module=keras,
+            extra_pip_requirements=["tensorflow==2.4.0"],
+        )
         model_uri = mlflow.get_artifact_uri("model")
 
     reqs = _read_requirements(model_uri)
     assert _get_pinned_requirement("keras") in reqs
 
-    data = X[:3]
-    resp = pyfunc_serve_and_score_model(model_uri, data, CONTENT_TYPE_JSON_SPLIT_ORIENTED)
-    np.testing.assert_array_equal(json.loads(resp.content), model.predict(data))
+    inputs = [0.0, 1.0, 2.0]
+    data = json.dumps({"inputs": inputs})
+    resp = pyfunc_serve_and_score_model(model_uri, data, CONTENT_TYPE_JSON)
+    np.testing.assert_array_equal(json.loads(resp.content), model.predict(inputs))
 
 
 def _get_tiny_bert_config():
@@ -214,8 +279,30 @@ def _get_tiny_bert_config():
     )
 
 
+@required_modules("torch")
+def test_infer_pip_requirements_pytorch():
+    import torch
+
+    model = torch.nn.Linear(1, 1, dtype=torch.double)
+    model.eval()
+
+    with mlflow.start_run(), disable_fallback():
+        mlflow.pytorch.log_model(model, artifact_path="model")
+        model_uri = mlflow.get_artifact_uri("model")
+
+    reqs = _read_requirements(model_uri)
+    assert _get_pinned_requirement("torch") in reqs
+
+    inputs = [[0.0], [1.0], [2.0]]
+    data = json.dumps({"inputs": inputs})
+    resp = pyfunc_serve_and_score_model(model_uri, data, CONTENT_TYPE_JSON)
+    np.testing.assert_array_equal(
+        json.loads(resp.content), model(torch.tensor(inputs).double()).detach().numpy(),
+    )
+
+
 @required_modules("torch", "torchvision", "transformers")
-def test_infer_pip_requirements_transformers_pytorch():
+def test_infer_pip_requirements_pytorch_transformers():
     from transformers import BertModel
 
     class MyBertModel(BertModel):
@@ -225,7 +312,7 @@ def test_infer_pip_requirements_transformers_pytorch():
     model = MyBertModel(_get_tiny_bert_config())
     model.eval()
 
-    with mlflow.start_run(), assert_did_not_fallback():
+    with mlflow.start_run(), disable_fallback():
         mlflow.pytorch.log_model(model, artifact_path="model")
         model_uri = mlflow.get_artifact_uri("model")
 
@@ -240,7 +327,7 @@ def test_infer_pip_requirements_transformers_pytorch():
 
 
 @required_modules("tensorflow", "transformers")
-def test_infer_pip_requirements_transformers_tensorflow():
+def test_infer_pip_requirements_tensorflow_transformers():
     import tensorflow as tf
     from transformers import TFBertModel
 
@@ -250,7 +337,7 @@ def test_infer_pip_requirements_transformers_tensorflow():
     model = tf.keras.Model(inputs=[input_ids], outputs=[bert(input_ids).last_hidden_state])
     model.compile()
 
-    with mlflow.start_run(), assert_did_not_fallback():
+    with mlflow.start_run(), disable_fallback():
         mlflow.keras.log_model(model, artifact_path="model", keras_module=tf.keras)
         model_uri = mlflow.get_artifact_uri("model")
 

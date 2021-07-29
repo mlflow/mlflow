@@ -529,17 +529,17 @@ def save_model(
                 tmp_extra_files_dir.path(), posixpath.join(path, _EXTRA_FILES_KEY),
             )
 
-    conda_env, pip_requirements, pip_constraints = (
-        _process_pip_requirements(
-            mlflow.infer_pip_requirements(
-                model_data_path, FLAVOR_NAME, fallback=get_default_pip_requirements()
-            ),
-            pip_requirements,
-            extra_pip_requirements,
+    if conda_env is None:
+        default_requirements = get_default_pip_requirements()
+        if not pip_requirements:
+            default_requirements = mlflow.infer_pip_requirements(
+                model_data_path, FLAVOR_NAME, fallback=default_requirements,
+            )
+        conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
+            default_requirements, pip_requirements, extra_pip_requirements,
         )
-        if conda_env is None
-        else _process_conda_env(conda_env)
-    )
+    else:
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
 
     conda_env_subpath = "conda.yaml"
     with open(os.path.join(path, conda_env_subpath), "w") as f:

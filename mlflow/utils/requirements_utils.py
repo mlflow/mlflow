@@ -215,6 +215,6 @@ def _infer_requirements(model_uri, flavor):
 
     packages = _flatten(map(_module_to_packages, modules))
     packages = map(_canonicalize_package_name, packages)
-    packages = set(packages) - set(["setuptools", "pkg_resources"])
+    packages = set(packages) - set(["setuptools", "pkg_resources", "mlflow"])
     packages = _prune_packages(packages)
     return ["{}=={}".format(p, _get_package_version(p)) for p in sorted(packages)]
