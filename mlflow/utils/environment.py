@@ -16,6 +16,7 @@ channels:
   - conda-forge
 """
 
+_CONDA_ENV_FILE_NAME = "conda.yaml"
 _REQUIREMENTS_FILE_NAME = "requirements.txt"
 _CONSTRAINTS_FILE_NAME = "constraints.txt"
 
