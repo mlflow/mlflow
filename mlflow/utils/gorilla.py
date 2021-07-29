@@ -336,6 +336,14 @@ def apply(patch):
     setattr(patch.destination, curr_active_patch, patch)
 
 
+def _get_class_raw_attribute(class_def, name):
+    for cls in class_def.mro():
+        if name in cls.__dict__:
+            return cls.__dict__[name]
+    else:
+        return None
+
+
 def revert(patch):
     """Revert a patch.
     Parameters
@@ -358,18 +366,22 @@ def revert(patch):
     if not hasattr(patch.destination, curr_active_patch):
         return
 
-    try:
-        original = get_original_attribute(patch.destination, patch.name)
-    except AttributeError:
+    original_name = _ORIGINAL_NAME % (patch.name,)
+
+    if inspect.isclass(patch.destination):
+        # support get raw attribute which attribute with a custom getter
+        # (e.g. @property attribute)
+        # getting raw attribute only support class type for now.
+        original = _get_class_raw_attribute(patch.destination, original_name)
+    else:
+        original = getattr(patch.destination, original_name, None)
+
+    if not original:
         raise RuntimeError(
             "Cannot revert the attribute named '%s' since the setting "
             "'store_hit' was not set to True when applying the patch."
             % (patch.destination.__name__,)
         )
-
-    original_name = _ORIGINAL_NAME % (patch.name,)
-    if not getattr(patch.destination, original_name, None):
-        return
 
     setattr(patch.destination, patch.name, original)
 
@@ -788,7 +800,7 @@ def get_original_attribute(obj, name):
     --------
     :attr:`Settings.allow_hit`.
     """
-    return getattr(obj, _ORIGINAL_NAME % (name,))
+    return getattr(obj, _ORIGINAL_NAME % (name,), getattr(obj, name))
 
 
 def get_decorator_data(obj, set_default=False):

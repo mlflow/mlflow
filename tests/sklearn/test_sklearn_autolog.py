@@ -931,6 +931,7 @@ def test_autolog_logs_signature_only_when_estimator_defines_predict():
 
 
 def test_autolog_does_not_throw_when_predict_fails():
+    mlflow.sklearn.autolog()
     X, y = get_iris()
 
     # Note that `mock_warning` will be called twice because if `predict` throws, `score` also throws
