@@ -66,7 +66,7 @@ def show_inferred_pip_requirements(request):
 
         capture_manager = request.config.pluginmanager.getplugin("capturemanager")
         capture_manager.suspendcapture()
-        title = "=" * 30 + " Inferred pip requirements " + "=" * 30
+        title = "=" * 20 + " Inferred pip requirements " + "=" * 20
         print("\n" + title)
         print("\n".join(res))
         print("=" * len(title))
