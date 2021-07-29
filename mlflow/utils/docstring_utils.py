@@ -120,12 +120,12 @@ LOG_MODEL_PARAM_DOCS = ParamDocs(
         "conda_env": """
 Either a dictionary representation of a Conda environment or the path to a conda environment yaml
 file. If provided, this describes the environment this model should be run in. At minimum, it
-should specify the dependencies contained in :func:`get_default_conda_env()`. If ``None``, pip
-requirements are automatically inferred using :func:`mlflow.infer_pip_requirements`. If the
-auto requirement inference fails, it falls back to using :func:`get_default_pip_requirements`.
-pip requirements from ``conda_env`` are written to a pip ``requirements.txt`` file and the full
-conda environment is written to ``conda.yaml``. The following is an *example* dictionary
-representation of a conda environment::
+should specify the dependencies contained in :func:`get_default_conda_env()`. If ``None``, a conda
+environment with pip requirements inferred by :func:`mlflow.infer_pip_requirements` is added to
+the model. If the auto requirements inference fails, it falls back to using
+:func:`get_default_pip_requirements`. pip requirements from ``conda_env`` are written to a pip
+``requirements.txt`` file and the full conda environment is written to ``conda.yaml``.
+The following is an *example* dictionary representation of a conda environment::
 
 {
     "name": "mlflow-env",
