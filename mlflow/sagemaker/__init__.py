@@ -515,6 +515,7 @@ def deploy_transform_job(
     instance_count=DEFAULT_SAGEMAKER_INSTANCE_COUNT,
     vpc_config=None,
     flavor=None,
+    archive=False,
     synchronous=True,
     timeout_seconds=1200,
 ):
@@ -600,6 +601,10 @@ def deploy_transform_job(
                    a flavor is automatically selected from the model's available flavors. If the
                    specified flavor is not present or not supported for deployment, an exception
                    will be thrown.
+    :param archive: If ``True``, resources like Sagemaker models and model artifacts in S3 are
+                    preserved after the finished batch transform job. If ``False``, these resources
+                    are deleted. In order to use ``archive=False``, ``deploy_transform_job()`` must
+                    be executed synchronously with ``synchronous=True``.
     :param synchronous: If ``True``, this function will block until the deployment process succeeds
                         or encounters an irrecoverable failure. If ``False``, this function will
                         return immediately after starting the deployment process. It will not wait
@@ -614,6 +619,16 @@ def deploy_transform_job(
                             ``synchronous`` is ``False``, this parameter is ignored.
     """
     import boto3
+
+    if (not archive) and (not synchronous):
+        raise MlflowException(
+            message=(
+                "Resources must be archived when `deploy_transform_job()`"
+                " is executed in non-synchronous mode."
+                " Either set `synchronous=True` or `archive=True`."
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     model_path = _download_artifact_from_uri(model_uri)
     model_config_path = os.path.join(model_path, MLMODEL_FILE_NAME)
@@ -676,6 +691,7 @@ def deploy_transform_job(
         vpc_config=vpc_config,
         role=execution_role_arn,
         sage_client=sage_client,
+        s3_client=s3_client,
         instance_type=instance_type,
         instance_count=instance_count,
         s3_input_data_type=s3_input_data_type,
@@ -704,11 +720,13 @@ def deploy_transform_job(
                 "The batch transform job failed with the following error message:"
                 ' "{error_message}"'.format(error_message=operation_status.message)
             )
+        if not archive:
+            deployment_operation.clean_up()
 
 
 @experimental
 def terminate_transform_job(
-    job_name, region_name="us-west-2", archive=True, synchronous=True, timeout_seconds=300,
+    job_name, region_name="us-west-2", archive=False, synchronous=True, timeout_seconds=300,
 ):
     """
     Terminate a SageMaker batch transform job.
@@ -998,6 +1016,7 @@ def _create_sagemaker_transform_job(
     vpc_config,
     role,
     sage_client,
+    s3_client,
     instance_type,
     instance_count,
     s3_input_data_type,
@@ -1025,6 +1044,7 @@ def _create_sagemaker_transform_job(
                        new SageMaker model associated with this SageMaker batch transform job.
     :param role: SageMaker execution ARN role.
     :param sage_client: A boto3 client for SageMaker.
+    :param s3_client: A boto3 client for S3.
     :param instance_type: The type of SageMaker ML instance on which to deploy the model.
     :param instance_count: The number of SageMaker ML instances on which to deploy the model.
     :param s3_input_data_type: Input data type for the transform job.
@@ -1120,7 +1140,11 @@ def _create_sagemaker_transform_job(
             return _SageMakerOperationStatus.failed(failure_reason)
 
     def cleanup_fn():
-        pass
+        _logger.info("Cleaning up Sagemaker model and S3 model artifacts...")
+        transform_job_info = sage_client.describe_transform_job(TransformJobName=job_name)
+        model_name = transform_job_info["ModelName"]
+        model_arn = _delete_sagemaker_model(model_name, sage_client, s3_client)
+        _logger.info("Deleted associated model with arn: %s", model_arn)
 
     return _SageMakerOperation(status_check_fn=status_check_fn, cleanup_fn=cleanup_fn)
 
