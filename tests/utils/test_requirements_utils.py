@@ -7,6 +7,7 @@ from mlflow.utils.requirements_utils import (
     _strip_inline_comment,
     _join_continued_lines,
     _parse_requirements,
+    _prune_packages,
 )
 
 
@@ -171,3 +172,9 @@ line-cont-eof\
         assert [r.requirement for r in pip_reqs if r.constraint] == expected_cons
     finally:
         os.chdir(request.config.invocation_dir)
+
+
+def test_prune_packages():
+    assert _prune_packages(["mlflow"]) == {"mlflow"}
+    assert _prune_packages(["mlflow", "packaging"]) == {"mlflow"}
+    assert _prune_packages(["mlflow", "scikit-learn"]) == {"mlflow", "scikit-learn"}
