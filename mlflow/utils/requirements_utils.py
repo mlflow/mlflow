@@ -191,7 +191,12 @@ def _get_package_version(package):
 
 def _infer_requirements(model_uri, flavor):
     """
-    Infers the pip requirements of the specified model.
+    Infers the pip requirements of the specified model by creating a subprocess and loading
+    the model in it to determine which packages are imported.
+
+    :param model_uri: The URI of the model.
+    :param: flavor: The flavor name of the model.
+    :return: A list of inferred pip requirements.
     """
     local_model_path = _download_artifact_from_uri(model_uri)
 

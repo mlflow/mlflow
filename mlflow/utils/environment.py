@@ -193,13 +193,14 @@ def _parse_pip_requirements(pip_requirements):
 
 def infer_pip_requirements(model_uri, flavor, fallback=None):
     """
-    Attempts to infer the pip requirements of the specified MLflow model.
+    Infers the pip requirements of the specified model by creating a subprocess and loading
+    the model in it to determine which packages are imported.
 
-    :param model_uri: The URI of the MLflow model.
-    :param flavor: The flavor name of the MLflow model.
+    :param model_uri: The URI of the model.
+    :param flavor: The flavor name of the model.
     :param fallback: If provided, an unexpected error during the inference procedure is swallowed
                      and the value of ``fallback`` is returned. Otherwise, the error is raised.
-    :return: Inferred pip requirements (e.g. ``["scikit-learn==0.24.2", ...]``).
+    :return: A list of inferred pip requirements (e.g. ``["scikit-learn==0.24.2", ...]``).
     """
     try:
         return _infer_requirements(model_uri, flavor)
