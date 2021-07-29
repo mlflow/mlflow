@@ -26,6 +26,7 @@ from mlflow.utils.environment import (
     _process_pip_requirements,
     _process_conda_env,
     _CONSTRAINTS_FILE_NAME,
+    _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
 )
 from mlflow.utils.file_utils import write_to
@@ -494,8 +495,7 @@ def save_explainer(
         conda_env = _merge_environments(conda_env, underlying_model_conda_env)
         pip_requirements = _get_pip_deps(conda_env)
 
-    conda_env_subpath = "conda.yaml"
-    with open(os.path.join(path, conda_env_subpath), "w") as f:
+    with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     # Save `constraints.txt` if necessary
@@ -510,7 +510,7 @@ def save_explainer(
         loader_module="mlflow.shap",
         model_path=explainer_data_subpath,
         underlying_model_flavor=underlying_model_flavor,
-        env=conda_env_subpath,
+        env=_CONDA_ENV_FILE_NAME,
     )
 
     mlflow_model.add_flavor(
