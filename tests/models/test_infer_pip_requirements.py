@@ -220,7 +220,7 @@ def test_infer_pip_requirements_transformers_tensorflow():
 
     bert = TFBertModel(_get_tiny_bert_config())
     dummy_inputs = bert.dummy_inputs["input_ids"].numpy()
-    input_ids = tf.keras.layers.Input(shape=(dummy_inputs.shape[1]), dtype=tf.int32)
+    input_ids = tf.keras.layers.Input(shape=(dummy_inputs.shape[1],), dtype=tf.int32)
     model = tf.keras.Model(inputs=[input_ids], outputs=[bert(input_ids).last_hidden_state])
     model.compile()
 
