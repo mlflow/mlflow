@@ -22,6 +22,7 @@ from mlflow.utils.environment import (
     _mlflow_conda_env,
     _process_pip_requirements,
     _process_conda_env,
+    _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
 )
@@ -198,8 +199,7 @@ def _save_model_with_class_artifacts_params(
         else _process_conda_env(conda_env)
     )
 
-    conda_env_subpath = "conda.yaml"
-    with open(os.path.join(path, conda_env_subpath), "w") as f:
+    with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     # Save `constraints.txt` if necessary
@@ -219,7 +219,7 @@ def _save_model_with_class_artifacts_params(
         model=mlflow_model,
         loader_module=__name__,
         code=saved_code_subpath,
-        env=conda_env_subpath,
+        env=_CONDA_ENV_FILE_NAME,
         **custom_model_config_kwargs
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
