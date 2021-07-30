@@ -1743,6 +1743,7 @@ def test_gen_metric_call_commands():
     assert cmd3 == "LinearRegression.score(X=data1, y=data2)"
 
 
+@pytest.mark.skip(reason='to be updated.')
 def test_autolog_skip_patch_non_callable_attribute():
     """
     LocalOutlierFactor.predict is a property (delegate to an internal `_predict` method)

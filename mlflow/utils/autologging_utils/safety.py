@@ -270,7 +270,8 @@ def is_testing():
 
 
 def safe_patch(
-    autologging_integration, destination, function_name, patch_function, manage_run=False
+    autologging_integration, destination, function_name, patch_function, manage_run=False,
+    original_fn=None
 ):
     """
     Patches the specified `function_name` on the specified `destination` class for autologging
@@ -294,6 +295,9 @@ def safe_patch(
                        active run during patch code execution if necessary. If `False`,
                        does not apply the `with_managed_run` wrapper to the specified
                        `patch_function`.
+    :param original_fn: If None, will fetch the original function via
+                        `gorilla.get_original_attribute(destination, function_name)`, otherwise,
+                        use the provided `original_fn` as the original function.
     """
     from mlflow.utils.autologging_utils import get_autologging_config, autologging_is_disabled
 
@@ -359,7 +363,10 @@ def safe_patch(
             if is_testing():
                 preexisting_run_for_testing = mlflow.active_run()
 
-            original = gorilla.get_original_attribute(destination, function_name)
+            if original_fn is not None:
+                original = original_fn
+            else:
+                original = gorilla.get_original_attribute(destination, function_name)
 
             # Whether or not to exclude autologged content from user-created fluent runs
             # (i.e. runs created manually via `mlflow.start_run()`)

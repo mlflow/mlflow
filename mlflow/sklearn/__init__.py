@@ -35,6 +35,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _inspect_original_var_name
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import get_instance_method_first_arg_value
+from mlflow.utils.autologging_utils.safety import update_wrapper_extended
 from mlflow.utils.environment import (
     _mlflow_conda_env,
     _validate_env_arguments,
@@ -1467,53 +1468,48 @@ def autolog(
             return
 
         original = getattr(class_def, func_name)
-        if isinstance(original, property):
-            # Check whether we should patch the estimator method, will check:
-            # * the estimator has the "func_name" attribute
-            # * the attribute is not a property, this is for filtering out cases like
-            #   `LocalOutlierFactor.predict` which is a property
-            #   A couple of estimators use property methods to return fitting functions,
-            #   rather than defining the fitting functions on the estimator class directly.
-            #
-            #   Example: https://github.com/scikit-learn/scikit-learn/blob/0.23.2/sklearn/neighbors/_lof.py#L183  # noqa
-            #
-            #   We currently exclude these property fitting/inference methods from patching because
-            #   it's challenging to patch them correctly.
-            #
-            #   Excluded fitting/inference methods:
-            #   - sklearn.cluster._agglomerative.FeatureAgglomeration.fit_predict
-            #   - sklearn.neighbors._lof.LocalOutlierFactor.fit_predict
-            #   - sklearn.neighbors._lof.LocalOutlierFactor.predict
-            #   - sklearn.multioutput.MultiOutputClassifier.predict_proba
-            #   - sklearn.svm._classes.NuSVC.predict_proba
-            #   - sklearn.linear_model._stochastic_gradient.SGDClassifier.predict_proba
-            #   - sklearn.svm._classes.SVC.predict_proba
-            #   - sklearn.ensemble._voting.VotingClassifier.predict_proba
-            #   - sklearn.svm._classes.NuSVC.predict_log_proba
-            #   - sklearn.linear_model._stochastic_gradient.SGDClassifier.predict_log_proba
-            #   - sklearn.svm._classes.SVC.predict_log_proba
-            #
-            #   You can list property fitting methods by inserting "print(class_def, func_name)"
-            #   in the if clause below.
-            #
-            #   TODO: Convert these property methods into normal methods decorated by `@available_if`
-            #     See https://github.com/scikit-learn/scikit-learn/issues/20630
-            return
-
         # Retrieve raw attribute while bypassing the descriptor protocol
         raw_original_obj = gorilla.get_attribute(class_def, func_name)
 
-        if original is not raw_original_obj and \
-                not hasattr(raw_original_obj, 'delegate_names') and \
-                not hasattr(raw_original_obj, 'check'):
-            # Unknown getter found. Cannot patch.
-            return
+        if isinstance(raw_original_obj, property):
+            def real_original(self, *args, **kwargs):
+                bound_delegate_method = raw_original_obj.fget(self)
+                return bound_delegate_method(*args, **kwargs)
 
-        safe_patch(
-            FLAVOR_NAME, class_def, func_name, patched_fn, manage_run=manage_run,
-        )
+            safe_patch(
+                FLAVOR_NAME, class_def, func_name, patched_fn, manage_run=manage_run,
+                original_fn=real_original
+            )
+            safe_patch_fn = getattr(class_def, func_name)
 
-        if original is not raw_original_obj:
+            def get_bound_safe_patch_fn(self):
+                # This `raw_original_obj.fget` call is for availability check, if it raise error
+                # then `hasattr(obj, {func_name})` will return False
+                # so it mimic the original property behavior.
+                raw_original_obj.fget(self)
+
+                def bound_safe_patch_fn(*args, **kwargs):
+                    return safe_patch_fn(self, *args, **kwargs)
+
+                bound_safe_patch_fn = update_wrapper_extended(
+                    bound_safe_patch_fn, raw_original_obj.fget
+                )
+                return bound_safe_patch_fn
+
+            get_bound_safe_patch_fn = update_wrapper_extended(
+                get_bound_safe_patch_fn, raw_original_obj.fget
+            )
+            setattr(class_def, func_name, property(get_bound_safe_patch_fn))
+
+        elif raw_original_obj is original and callable(original):
+            # normal method
+            safe_patch(
+                FLAVOR_NAME, class_def, func_name, patched_fn, manage_run=manage_run,
+            )
+        elif hasattr(raw_original_obj, 'delegate_names') or hasattr(raw_original_obj, 'check'):
+            safe_patch(
+                FLAVOR_NAME, class_def, func_name, patched_fn, manage_run=manage_run,
+            )
             safe_patch_fn = getattr(class_def, func_name)
 
             if hasattr(raw_original_obj, 'delegate_names'):
@@ -1528,6 +1524,9 @@ def autolog(
                     safe_patch_fn, raw_original_obj.check, func_name
                 )
             setattr(class_def, func_name, decorated_safe_patch_fn)
+        else:
+            # unsupported method type. skip patching
+            pass
 
     for class_def in estimators_to_patch:
         # Patch fitting methods
