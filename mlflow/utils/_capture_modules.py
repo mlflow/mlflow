@@ -19,33 +19,36 @@ def _get_top_level_module(full_module_name):
 
 class _CaptureImportedModules:
     """
-    A context manager to capture imported modules in `IMPORTED_MODULES` by temporarily
-    applying a patch to `builtins.__import__` and `importlib.import_module`.
+    A context manager to capture imported modules by temporarily applying a patch to
+    `builtins.__import__` and `importlib.import_module`.
     """
 
-    def _wrap_import(self, original_import):
-        @functools.wraps(original_import)
+    def __init__(self):
+        self.imported_modules = set()
+
+    def _wrap_import(self, original):
+        @functools.wraps(original)
         def wrapper(name, globals=None, locals=None, fromlist=(), level=0):
             is_absolute_import = level == 0
             if not name.startswith("_") and is_absolute_import:
                 top_level_module = _get_top_level_module(name)
                 self.imported_modules.add(top_level_module)
-            return original_import(name, globals, locals, fromlist, level)
+            return original(name, globals, locals, fromlist, level)
 
         return wrapper
 
-    def _wrap_import_module(self, original_import_module):
-        @functools.wraps(original_import_module)
+    def _wrap_import_module(self, original):
+        @functools.wraps(original)
         def wrapper(name, *args, **kwargs):
             if not name.startswith("_"):
                 top_level_module = _get_top_level_module(name)
                 self.imported_modules.add(top_level_module)
-            return original_import_module(name, *args, **kwargs)
+            return original(name, *args, **kwargs)
 
         return wrapper
 
     def __enter__(self):
-        self.imported_modules = set()
+        # Patch `builtins.__import__` and `importlib.import_module`
         self.original_import = builtins.__import__
         self.original_import_module = importlib.import_module
         builtins.__import__ = self._wrap_import(self.original_import)
@@ -53,6 +56,7 @@ class _CaptureImportedModules:
         return self
 
     def __exit__(self, *_, **__):
+        # Revert the patches
         builtins.__import__ = self.original_import
         importlib.import_module = self.original_import_module
 
@@ -71,21 +75,17 @@ def main():
     flavor = args.flavor
     output_file = args.output_file
 
-    # If `model_path` is a directory containing an `MLmodel` file, attempt to get the model data
-    # path from it.
+    # If `model_path` is a directory containing an `MLmodel` file, get the model data path from it
     if os.path.isdir(model_path) and MLMODEL_FILE_NAME in os.listdir(model_path):
         conf = mlflow.models.Model.load(model_path).flavors.get(flavor)
-        data_path = os.path.join(model_path, conf[DATA]) if (DATA in conf) else model_path
-    # Otherwise, assume `model_path` is a file or directory storing the model data.
-    else:
-        data_path = model_path
+        model_path = os.path.join(model_path, conf[DATA]) if (DATA in conf) else model_path
 
-    # Load the model and capture modules imported during the loading procedure.
+    # Load the model and capture modules imported during the loading procedure
     flavor_module = getattr(mlflow, flavor)
     with _CaptureImportedModules() as cap:
-        flavor_module._load_pyfunc(data_path)
+        flavor_module._load_pyfunc(model_path)
 
-    # Store the imported modules in `output_file`.
+    # Store the imported modules in `output_file`
     write_to(output_file, "\n".join(cap.imported_modules))
 
 
