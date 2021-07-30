@@ -179,10 +179,12 @@ def _run_command(cmd):
 
 def _get_package_version(package):
     """
-    Returns the version of the specified packages.
+    Returns the version of the specified package.
     """
     version = importlib_metadata.version(package)
-    # Strips a dev version suffix (e.g. '.dev0') for pyspark in Databricks.
+
+    # In Databricks, strip a dev version suffix for pyspark (e.g. '3.1.2.dev0' -> '3.1.2')
+    # and make it installable from PyPI.
     if package == "pyspark" and is_in_databricks_runtime():
         version = _strip_dev_version_suffix(version)
     return version
