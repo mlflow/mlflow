@@ -43,7 +43,7 @@ from mlflow.utils.environment import (
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
 )
-from mlflow.utils.gorilla import _get_class_raw_attribute
+from mlflow.utils import gorilla
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
@@ -1500,7 +1500,7 @@ def autolog(
             #     See https://github.com/scikit-learn/scikit-learn/issues/20630
             return
 
-        raw_original_obj = _get_class_raw_attribute(class_def, func_name)
+        raw_original_obj = gorilla.get_attribute(class_def, func_name)
 
         if original is not raw_original_obj and \
                 not hasattr(raw_original_obj, 'delegate_names') and \
