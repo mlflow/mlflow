@@ -51,7 +51,9 @@ except ImportError:
         "Failed to import test helper functions. Tests depending on these functions may fail!"
     )
 
-EXTRA_ARGS = ["--no-conda"] if _is_available_on_pypi("torch", str(torch.__version__)) else []
+# Avoid creating a conda environment in `pyfunc_serve_and_score_model` if the installed version of
+# torch is not available on PyPI.
+EXTRA_ARGS = [] if _is_available_on_pypi("torch", str(torch.__version__)) else ["--no-conda"]
 
 
 @pytest.fixture(scope="module")

@@ -350,7 +350,7 @@ def _assert_pip_requirements(model_uri, requirements, constraints=None):
         assert cons == constraints
 
 
-def _is_available_on_pypi(package, version=None):
+def _is_available_on_pypi(package, version):
     """
     Returns True if the specified package version is available on PyPI.
     """
