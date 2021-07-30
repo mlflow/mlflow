@@ -1500,6 +1500,7 @@ def autolog(
             #     See https://github.com/scikit-learn/scikit-learn/issues/20630
             return
 
+        # Retrieve raw attribute while bypassing the descriptor protocol
         raw_original_obj = gorilla.get_attribute(class_def, func_name)
 
         if original is not raw_original_obj and \
