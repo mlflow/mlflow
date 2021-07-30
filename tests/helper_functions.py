@@ -348,3 +348,19 @@ def _assert_pip_requirements(model_uri, requirements, constraints=None):
         assert f"-c {_CONSTRAINTS_FILE_NAME}" in conda_reqs
         cons = _read_lines(os.path.join(local_path, _CONSTRAINTS_FILE_NAME))
         assert cons == constraints
+
+
+def _is_available_on_pypi(package, version=None):
+    """
+    Returns True if the specified package version is available on PyPI.
+    """
+    resp = requests.get("https://pypi.python.org/pypi/{}/json".format(package))
+    if not resp.ok:
+        return False
+
+    dist_files = resp.json()["releases"].get(version)
+    return (
+        dist_files is not None  # specified version exists
+        and (len(dist_files) > 0)  # at least one distribution file exists
+        and dist_files[0].get("yanked", False)  # specified version is not yanked
+    )

@@ -30,7 +30,11 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
-from tests.helper_functions import _compare_conda_env_requirements, _assert_pip_requirements
+from tests.helper_functions import (
+    _compare_conda_env_requirements,
+    _assert_pip_requirements,
+    _is_available_on_pypi,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -46,6 +50,8 @@ except ImportError:
     _logger.warning(
         "Failed to import test helper functions. Tests depending on these functions may fail!"
     )
+
+EXTRA_ARGS = ["--no-conda"] if _is_available_on_pypi("torch", str(torch.__version__)) else []
 
 
 @pytest.fixture(scope="module")
@@ -604,7 +610,7 @@ def test_pyfunc_model_serving_with_module_scoped_subclassed_model_and_default_co
         model_uri=model_path,
         data=data[0],
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        extra_args=["--no-conda"],
+        extra_args=EXTRA_ARGS,
     )
     assert scoring_response.status_code == 200
 
@@ -648,7 +654,7 @@ def test_pyfunc_model_serving_with_main_scoped_subclassed_model_and_custom_pickl
         model_uri=model_path,
         data=data[0],
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        extra_args=["--no-conda"],
+        extra_args=EXTRA_ARGS,
     )
     assert scoring_response.status_code == 200
 
@@ -706,7 +712,7 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
         model_uri=pyfunc_model_path,
         data=data[0],
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        extra_args=["--no-conda"],
+        extra_args=EXTRA_ARGS,
     )
     assert scoring_response.status_code == 200
 
