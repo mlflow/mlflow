@@ -87,23 +87,7 @@ def save_model(
     :param training: Only valid when saving a model trained using the PaddlePaddle high level API.
                      If set to True, the saved model supports both re-training and
                      inference. If set to False, it only supports inference.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decsribes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If `None`, the default
-                      :func:`get_default_conda_env()` environment is added to the model.
-                      The following is an *example* dictionary representation of a Conda
-                      environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.8.2',
-                                'paddle=2.1.0'
-                            ]
-                        }
-
+    :param conda_env: {{ conda_env }}
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
@@ -344,23 +328,7 @@ def log_model(
     :param training: Only valid when saving a model trained using the PaddlePaddle high level API.
                      If set to True, the saved model supports both re-training and
                      inference. If set to False, it only supports inference.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decsribes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If `None`, the default
-                      :func:`get_default_conda_env()` environment is added to the model.
-                      The following is an *example* dictionary representation of a Conda
-                      environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.8.2',
-                                'paddlepaddle=2.1.0'
-                            ]
-                        }
-
+    :param conda_env: {{ conda_env }}
     :param registered_model_name: (Experimental) If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
