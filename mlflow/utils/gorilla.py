@@ -357,17 +357,13 @@ def revert(patch):
             % (patch.destination.__name__,)
         )
 
-    original = get_original_attribute(
-        patch.destination, patch.name, bypass_descriptor_protocal=True)
+    # get original attribute bypassing descriptor protocal
+    original = object.__getattribute__(patch.destination, original_name)
 
     if patch.is_inplace_patch:
         setattr(patch.destination, patch.name, original)
 
-    # We are only deleting the attribute if it is defined on the
-    # destination class as opposed to being inherited from parent class.
-    if original_name in patch.destination.__dict__:
-        delattr(patch.destination, original_name)
-
+    delattr(patch.destination, original_name)
     delattr(patch.destination, curr_active_patch)
 
 
