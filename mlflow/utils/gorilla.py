@@ -777,14 +777,21 @@ def get_original_attribute(obj, name, bypass_descriptor_protocal=False):
         if bypass_descriptor_protocal:
             return object.__getattribute__(obj_, name_)
         else:
-            return getattr(obj_, name)
+            return getattr(obj_, name_)
 
     objs = inspect.getmro(obj) if inspect.isclass(obj) else [obj]
     original_name = _ORIGINAL_NAME % (name,)
+    curr_active_patch = _ACTIVE_PATCH % (name,)
+
     for obj_ in objs:
         if original_name in obj_.__dict__:
             return _get_attr(obj_, original_name)
         elif name in obj_.__dict__:
+            if curr_active_patch in obj_.__dict__:
+                # safety guarding check
+                raise RuntimeError(
+                    f'{obj_.__name__}.{name} has been patched, but original methods was not '
+                    f'stored. Turn on setting `allow_hit` when patching to address this.')
             return _get_attr(obj_, name)
         else:
             continue
