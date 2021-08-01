@@ -159,7 +159,7 @@ def _prune_packages(packages):
 
 def _run_command(cmd):
     """
-    Runs the specified command.
+    Runs the specified command. If it exits with non-zero status, `MlflowException` is raised.
     """
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = proc.communicate()
