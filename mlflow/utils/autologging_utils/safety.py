@@ -633,7 +633,7 @@ def _wrap_patch(destination, name, patch, settings=None):
     if settings is None:
         settings = gorilla.Settings(allow_hit=True, store_hit=True)
 
-    original = getattr(destination, name)
+    original = gorilla.get_original_attribute(destination, name)
     wrapped = update_wrapper_extended(patch, original)
 
     patch = gorilla.Patch(destination, name, wrapped, settings=settings)

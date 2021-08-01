@@ -211,6 +211,7 @@ class Patch(object):
         self.name = name
         self.obj = obj
         self.settings = settings
+        self.is_inplace_patch = self.name in self.destination.__dict__
 
     def __repr__(self):
         return "%s(destination=%r, name=%r, obj=%r, settings=%r)" % (
@@ -292,10 +293,18 @@ def apply(patch):
     """
     settings = Settings() if patch.settings is None else patch.settings
 
+    curr_active_patch = _ACTIVE_PATCH % (patch.name,)
+    if curr_active_patch in patch.destination.__dict__:
+        # safe guarding checking.
+        raise RuntimeError(
+            f'Patch {patch.name} on {destination.__name__} already existed.'
+            f'Revert old patch first if you want to patch it again.')
+
     # When a hit occurs due to an attribute at the destination already existing
     # with the patch's name, the existing attribute is referred to as 'target'.
     try:
-        target = get_attribute(patch.destination, patch.name)
+        target = get_original_attribute(
+            patch.destination, patch.name, bypass_descriptor_protocal=True)
     except AttributeError:
         pass
     else:
@@ -312,25 +321,7 @@ def apply(patch):
 
         if settings.store_hit:
             original_name = _ORIGINAL_NAME % (patch.name,)
-            curr_active_patch = _ACTIVE_PATCH % (patch.name,)
-            # For certain MLflow Models use cases, such as scikit-learn autologging, we patch
-            # a method on a parent class
-            # (e.g., `sklearn.feature_extraction.text.CountVectorizer.fit_transform()`) and
-            # subsequently patch a corresponding overridden method on one of its children
-            # (e.g., `feature_extraction.text.TfidfVectorizer.fit_transform()`)
-            # to provide a different implementation. In these cases, we wish to swap out the
-            # "original function" attribute stored on the child in order to refer to the child's
-            # overriden method (e.g., `feature_extraction.text.TfidfVectorizer.fit_transform()`),
-            # rather than the parent method
-            # (e.g., `sklearn.feature_extraction.text.CountVectorizer.fit_transform()`)
-            prev_patch = getattr(patch.destination, curr_active_patch, None)
-
-            if not hasattr(patch.destination, original_name) or (
-                prev_patch
-                and prev_patch.destination != patch.destination
-                and issubclass(patch.destination, prev_patch.destination)
-            ):
-                setattr(patch.destination, original_name, target)
+            setattr(patch.destination, original_name, target)
 
     setattr(patch.destination, patch.name, patch.obj)
     setattr(patch.destination, curr_active_patch, patch)
@@ -353,35 +344,31 @@ def revert(patch):
     with modifictions for autologging disablement purposes.
     """
     # If an curr_active_patch has not been set on destination class for the current patch,
-    # then there is no reverting to do.
+    # then there is no patching exist.
     curr_active_patch = _ACTIVE_PATCH % (patch.name,)
-    if not hasattr(patch.destination, curr_active_patch):
-        return
+    if curr_active_patch not in patch.destination.__dict__:
+        raise RuntimeError(f'The patch does not exist or has been reverted.')
 
-    try:
-        original = get_original_attribute(patch.destination, patch.name)
-    except AttributeError:
+    original_name = _ORIGINAL_NAME % (patch.name,)
+    if original_name not in patch.destination.__dict__:
         raise RuntimeError(
             "Cannot revert the attribute named '%s' since the setting "
             "'store_hit' was not set to True when applying the patch."
             % (patch.destination.__name__,)
         )
 
-    original_name = _ORIGINAL_NAME % (patch.name,)
-    if not getattr(patch.destination, original_name, None):
-        return
+    original = get_original_attribute(
+        patch.destination, patch.name, bypass_descriptor_protocal=True)
 
-    setattr(patch.destination, patch.name, original)
+    if patch.is_inplace_patch:
+        setattr(patch.destination, patch.name, original)
 
     # We are only deleting the attribute if it is defined on the
     # destination class as opposed to being inherited from parent class.
     if original_name in patch.destination.__dict__:
         delattr(patch.destination, original_name)
-    # If an curr_active_patch has been set on the destination class,
-    # then remove that attribute as well to properly clean up patched code.
-    # This is undoing the custom changes to gorilla.py's code in the `apply()`.
-    if curr_active_patch in patch.destination.__dict__:
-        delattr(patch.destination, curr_active_patch)
+
+    delattr(patch.destination, curr_active_patch)
 
 
 def patch(destination, name=None, settings=None):
@@ -764,7 +751,7 @@ def get_attribute(obj, name):
     raise AttributeError("'%s' object has no attribute '%s'" % (type(obj), name))
 
 
-def get_original_attribute(obj, name):
+def get_original_attribute(obj, name, bypass_descriptor_protocal=False):
     """Retrieve an overriden attribute that has been stored.
 
     Parameters
@@ -773,6 +760,8 @@ def get_original_attribute(obj, name):
         Object to search the attribute in.
     name : str
         Name of the attribute.
+    bypass_descriptor_protocal: boolean
+        bypassing descriptor protocal if true.
 
     Returns
     -------
@@ -788,7 +777,23 @@ def get_original_attribute(obj, name):
     --------
     :attr:`Settings.allow_hit`.
     """
-    return getattr(obj, _ORIGINAL_NAME % (name,))
+    def _get_attr(obj_, name_):
+        if bypass_descriptor_protocal:
+            return object.__getattribute__(obj_, name_)
+        else:
+            return getattr(obj_, name)
+
+    objs = inspect.getmro(obj) if inspect.isclass(obj) else [obj]
+    original_name = _ORIGINAL_NAME % (name,)
+    for obj_ in objs:
+        if original_name in obj_.__dict__:
+            return _get_attr(obj_, original_name)
+        elif name in obj_.__dict__:
+            return _get_attr(obj_, name)
+        else:
+            continue
+    else:
+        raise AttributeError("'%s' object has no attribute '%s'" % (type(obj), name))
 
 
 def get_decorator_data(obj, set_default=False):
