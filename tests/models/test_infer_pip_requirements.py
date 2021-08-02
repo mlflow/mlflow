@@ -1,8 +1,9 @@
 import logging
 import posixpath
 import json
+import inspect
+import os
 from unittest import mock
-from contextlib import contextmanager
 
 import importlib_metadata
 import numpy as np
@@ -78,18 +79,35 @@ def show_inferred_pip_requirements(request):
         yield
 
 
-@contextmanager
-def disable_fallback():
-    def side_effect(*args, **kwargs):
-        err_msg = (
-            "Encountered an unexpected error while inferring pip requirements "
-            "(model URI: %s, flavor: %s)"
-        )
-        if args[0] == err_msg:
-            raise Exception("FALLBACK IS DISABLED")
+def _is_in_save_model():
+    for frame in inspect.stack()[::-1]:
+        if frame.function == "save_model":
+            return True
+    return False
 
-    with mock.patch("mlflow.utils.environment._logger.exception", side_effect=side_effect):
+
+@pytest.fixture(scope="session", autouse=True)
+def prevent_fallback_in_save_model():
+    """
+    Prevents `mlflow.infer_pip_requirements` from falling back in `mlflow.*.save_model`.
+    """
+    from mlflow.utils.environment import _INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE
+
+    def new_exception(msg, *_, **__):
+        if msg == _INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE and _is_in_save_model():
+            raise Exception(
+                "`mlflow.infer_pip_requirements` should not fall back in `mlflow.*.save_model`"
+                " while testing"
+            )
+
+    with mock.patch("mlflow.utils.environment._logger.exception", new=new_exception):
         yield
+
+
+def test_infer_pip_requirements_fallback(tmpdir):
+    assert os.listdir(tmpdir) == []
+    # `tmpdir` is empty so `infer_pip_requirements` should fail to infer requirements and fall back.
+    assert mlflow.infer_pip_requirements(tmpdir, "sklearn", fallback=["a", "b"]) == ["a", "b"]
 
 
 @required_modules("xgboost")
@@ -103,7 +121,7 @@ def test_infer_pip_requirements_xgboost():
     }
     model = xgb.train(params, xgb.DMatrix(X, y))
 
-    with mlflow.start_run(), disable_fallback():
+    with mlflow.start_run():
         mlflow.xgboost.log_model(model, artifact_path="model")
         model_uri = mlflow.get_artifact_uri("model")
 
@@ -133,7 +151,7 @@ def test_infer_pip_requirements_xgboost_sklearn(xgb_sklearn_model):
     X, y = load_iris(return_X_y=True, as_frame=True)
     model.fit(X, y)
 
-    with mlflow.start_run(), disable_fallback():
+    with mlflow.start_run():
         mlflow.sklearn.log_model(model, artifact_path="model")
         model_uri = mlflow.get_artifact_uri("model")
 
@@ -157,7 +175,7 @@ def test_infer_pip_requirements_lightgbm():
     }
     model = lgb.train(params, lgb.Dataset(X, y), num_boost_round=10)
 
-    with mlflow.start_run(), disable_fallback():
+    with mlflow.start_run():
         mlflow.lightgbm.log_model(model, artifact_path="model")
         model_uri = mlflow.get_artifact_uri("model")
 
@@ -183,7 +201,7 @@ def test_infer_pip_requirements_lightgbm_sklearn(lgb_sklearn_model):
     X, y = load_iris(return_X_y=True, as_frame=True)
     model.fit(X, y)
 
-    with mlflow.start_run(), disable_fallback():
+    with mlflow.start_run():
         mlflow.sklearn.log_model(model, artifact_path="model")
         model_uri = mlflow.get_artifact_uri("model")
 
@@ -210,7 +228,7 @@ def test_infer_pip_requirements_catboost():
     X, y = load_iris(return_X_y=True, as_frame=True)
     model.fit(X, y)
 
-    with mlflow.start_run(), disable_fallback():
+    with mlflow.start_run():
         mlflow.sklearn.log_model(model, artifact_path="model")
         model_uri = mlflow.get_artifact_uri("model")
 
@@ -228,7 +246,7 @@ def test_infer_pip_requirements_catboost_sklearn():
     X, y = load_iris(return_X_y=True, as_frame=True)
     model.fit(X, y)
 
-    with mlflow.start_run(), disable_fallback():
+    with mlflow.start_run():
         mlflow.sklearn.log_model(model, artifact_path="model")
         model_uri = mlflow.get_artifact_uri("model")
 
@@ -249,7 +267,7 @@ def test_infer_pip_requirements_keras():
     model = keras.models.Sequential([keras.layers.Dense(1, input_dim=1)])
     model.compile()
 
-    with mlflow.start_run(), disable_fallback():
+    with mlflow.start_run():
         mlflow.keras.log_model(
             model,
             artifact_path="model",
@@ -286,7 +304,7 @@ def test_infer_pip_requirements_pytorch():
     model = torch.nn.Linear(1, 1, dtype=torch.double)
     model.eval()
 
-    with mlflow.start_run(), disable_fallback():
+    with mlflow.start_run():
         mlflow.pytorch.log_model(model, artifact_path="model")
         model_uri = mlflow.get_artifact_uri("model")
 
@@ -312,7 +330,7 @@ def test_infer_pip_requirements_pytorch_transformers():
     model = MyBertModel(_get_tiny_bert_config())
     model.eval()
 
-    with mlflow.start_run(), disable_fallback():
+    with mlflow.start_run():
         mlflow.pytorch.log_model(model, artifact_path="model")
         model_uri = mlflow.get_artifact_uri("model")
 
@@ -337,7 +355,7 @@ def test_infer_pip_requirements_tensorflow_transformers():
     model = tf.keras.Model(inputs=[input_ids], outputs=[bert(input_ids).last_hidden_state])
     model.compile()
 
-    with mlflow.start_run(), disable_fallback():
+    with mlflow.start_run():
         mlflow.keras.log_model(model, artifact_path="model", keras_module=tf.keras)
         model_uri = mlflow.get_artifact_uri("model")
 

@@ -192,6 +192,11 @@ def _parse_pip_requirements(pip_requirements):
         )
 
 
+_INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE = (
+    "Encountered an unexpected error while inferring pip requirements (model URI: %s, flavor: %s)"
+)
+
+
 def infer_pip_requirements(model_uri, flavor, fallback=None):
     """
     Infers the pip requirements of the specified model by creating a subprocess and loading
@@ -207,12 +212,7 @@ def infer_pip_requirements(model_uri, flavor, fallback=None):
         return _infer_requirements(model_uri, flavor)
     except Exception:
         if fallback is not None:
-            _logger.exception(
-                "Encountered an unexpected error while inferring pip requirements "
-                "(model URI: %s, flavor: %s)",
-                model_uri,
-                flavor,
-            )
+            _logger.exception(_INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE, model_uri, flavor)
             return fallback
         raise
 
