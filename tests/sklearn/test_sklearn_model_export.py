@@ -35,6 +35,7 @@ from tests.helper_functions import set_boto_credentials  # pylint: disable=unuse
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.helper_functions import (
     score_model_in_sagemaker_docker_container,
+    pyfunc_serve_and_score_model,
     _compare_conda_env_requirements,
     _assert_pip_requirements,
 )
@@ -647,3 +648,19 @@ def test_add_pyfunc_flavor_only_when_model_defines_predict(model_path):
     model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)
     assert pyfunc.FLAVOR_NAME not in model_conf.flavors
+
+
+def test_pyfunc_serve_and_score(sklearn_knn_model):
+    model, inference_dataframe = sklearn_knn_model
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(model, artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    resp = pyfunc_serve_and_score_model(
+        model_uri,
+        data=pd.DataFrame(inference_dataframe),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+    )
+    scores = pd.read_json(resp.content, orient="records").values.squeeze()
+    np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe))

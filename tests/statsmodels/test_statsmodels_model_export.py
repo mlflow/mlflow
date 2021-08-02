@@ -430,7 +430,7 @@ def test_pyfunc_serve_and_score(ols_model):
 
     resp = pyfunc_serve_and_score_model(
         model_uri,
-        data=pd.DataFrame(ols_model.inference_dataframe),
+        data=pd.DataFrame(inference_dataframe),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
     )
     scores = pd.read_json(resp.content, orient="records").values.squeeze()
