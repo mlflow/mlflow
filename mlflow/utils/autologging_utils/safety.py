@@ -310,8 +310,6 @@ def safe_patch(
     else:
         assert callable(patch_function)
 
-    original = gorilla.get_original_attribute(destination, function_name)
-
     def safe_patch_function(*args, **kwargs):
         """
         A safe wrapper around the specified `patch_function` implementation designed to
@@ -360,6 +358,8 @@ def safe_patch(
 
             if is_testing():
                 preexisting_run_for_testing = mlflow.active_run()
+
+            original = gorilla.get_original_attribute(destination, function_name)
 
             # Whether or not to exclude autologged content from user-created fluent runs
             # (i.e. runs created manually via `mlflow.start_run()`)

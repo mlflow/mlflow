@@ -297,14 +297,16 @@ def apply(patch):
     if curr_active_patch in patch.destination.__dict__:
         # safe guarding checking.
         raise RuntimeError(
-            f'Patch {patch.name} on {destination.__name__} already existed.'
-            f'Revert old patch first if you want to patch it again.')
+            f"Patch {patch.name} on {destination.__name__} already existed."
+            f"Revert old patch first if you want to patch it again."
+        )
 
     # When a hit occurs due to an attribute at the destination already existing
     # with the patch's name, the existing attribute is referred to as 'target'.
     try:
         target = get_original_attribute(
-            patch.destination, patch.name, bypass_descriptor_protocal=True)
+            patch.destination, patch.name, bypass_descriptor_protocal=True
+        )
     except AttributeError:
         pass
     else:
@@ -347,7 +349,7 @@ def revert(patch):
     # then there is no patching exist.
     curr_active_patch = _ACTIVE_PATCH % (patch.name,)
     if curr_active_patch not in patch.destination.__dict__:
-        raise RuntimeError(f'The patch does not exist or has been reverted.')
+        raise RuntimeError(f"The patch does not exist or has been reverted.")
 
     original_name = _ORIGINAL_NAME % (patch.name,)
     if original_name not in patch.destination.__dict__:
@@ -361,7 +363,11 @@ def revert(patch):
     original = object.__getattribute__(patch.destination, original_name)
 
     if patch.is_inplace_patch:
+        # restore original method
         setattr(patch.destination, patch.name, original)
+    else:
+        # delete patched method
+        delattr(patch.destination, patch.name)
 
     delattr(patch.destination, original_name)
     delattr(patch.destination, curr_active_patch)
@@ -773,30 +779,30 @@ def get_original_attribute(obj, name, bypass_descriptor_protocal=False):
     --------
     :attr:`Settings.allow_hit`.
     """
+
+    original_name = _ORIGINAL_NAME % (name,)
+
     def _get_attr(obj_, name_):
         if bypass_descriptor_protocal:
-            return object.__getattribute__(obj_, name_)
+            return get_attribute(obj_, name_)
         else:
             return getattr(obj_, name_)
 
-    objs = inspect.getmro(obj) if inspect.isclass(obj) else [obj]
-    original_name = _ORIGINAL_NAME % (name,)
-    curr_active_patch = _ACTIVE_PATCH % (name,)
-
-    for obj_ in objs:
-        if original_name in obj_.__dict__:
-            return _get_attr(obj_, original_name)
-        elif name in obj_.__dict__:
-            if curr_active_patch in obj_.__dict__:
-                # safety guarding check
-                raise RuntimeError(
-                    f'{obj_.__name__}.{name} has been patched, but original methods was not '
-                    f'stored. Turn on setting `allow_hit` when patching to address this.')
-            return _get_attr(obj_, name)
-        else:
-            continue
-    else:
+    if inspect.isclass(obj):
+        for obj_ in inspect.getmro(obj):
+            if original_name in obj_.__dict__:
+                return _get_attr(obj_, original_name)
+            elif name in obj_.__dict__:
+                return _get_attr(obj_, name)
+            else:
+                # go on checking parent classes
+                continue
         raise AttributeError("'%s' object has no attribute '%s'" % (type(obj), name))
+    else:
+        try:
+            return _get_attr(obj, original_name)
+        except AttributeError:
+            return _get_attr(obj, name)
 
 
 def get_decorator_data(obj, set_default=False):
