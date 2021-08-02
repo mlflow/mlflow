@@ -277,7 +277,6 @@ def create_identity_function():
     return identity
 
 
-@pytest.mark.large
 def test_pyfunc_serve_and_score():
     X, y = shap.datasets.boston()
     reg = sklearn.ensemble.RandomForestRegressor(n_estimators=10).fit(X, y)
