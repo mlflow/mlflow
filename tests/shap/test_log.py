@@ -285,8 +285,12 @@ def test_pyfunc_serve_and_score():
         reg.predict,
         masker=X,
         algorithm="permutation",
-        # Specify `link` (which defaults to `shap.links.indentity`) to avoid the following error:
+        # `link` defaults to `shap.links.identity` which is decorated by `numba.jit` and causes
+        # the following error when loading the explainer for serving:
+        # ```
         # Exception: The passed link function needs to be callable and have a callable .inverse property!  # noqa
+        # ```
+        # As a workaround, use an identify function that's NOT decorated by `numba.jit`.
         link=create_identity_function(),
     )
     artifact_path = "model"
