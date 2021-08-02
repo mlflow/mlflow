@@ -28,6 +28,7 @@ import inspect
 import pkgutil
 import sys
 import types
+import warnings
 
 __version__ = "0.3.0"
 
@@ -296,9 +297,8 @@ def apply(patch):
     curr_active_patch = _ACTIVE_PATCH % (patch.name,)
     if curr_active_patch in patch.destination.__dict__:
         # safe guarding checking.
-        raise RuntimeError(
-            f"Patch {patch.name} on {destination.__name__} already existed."
-            f"Revert old patch first if you want to patch it again."
+        warnings.warn(
+            f"Patch {patch.name} on {destination.__name__} already existed. Overwrite old patch."
         )
 
     # When a hit occurs due to an attribute at the destination already existing
