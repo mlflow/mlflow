@@ -1499,6 +1499,9 @@ def autolog(
     for metric_name in _get_metric_name_list():
         safe_patch(FLAVOR_NAME, sklearn.metrics, metric_name, patched_metric_api, manage_run=False)
 
+    def scorer_finalizer(scorer_, original_score_fn_):
+        scorer_._score_func = original_score_fn_
+
     for scorer in sklearn.metrics.SCORERS.values():
         scorer_fn = scorer._score_func
         scorer_fn_name = scorer_fn.__name__
@@ -1508,12 +1511,8 @@ def autolog(
             original_metric_fn = None
         if scorer_fn is original_metric_fn:
             scorer._score_func = getattr(sklearn.metrics, scorer_fn_name)
-
-            def finalizer(scorer_, original_score_fn_):
-                scorer_._score_func = original_score_fn_
-
-            gorilla.get_active_patch(sklearn.metrics, scorer_fn_name).set_finalizer(
-                finalizer, scorer, original_metric_fn
+            gorilla.get_active_patch(sklearn.metrics, scorer_fn_name).add_finalizer(
+                scorer_finalizer, scorer, original_metric_fn
             )
 
     def patched_fn_with_autolog_disabled(original, *args, **kwargs):

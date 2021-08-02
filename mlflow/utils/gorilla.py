@@ -211,7 +211,7 @@ class Patch(object):
         self.name = name
         self.obj = obj
         self.settings = settings
-        self.finalizer = None
+        self.finalizer_list = []
 
     def __repr__(self):
         return "%s(destination=%r, name=%r, obj=%r, settings=%r)" % (
@@ -263,8 +263,8 @@ class Patch(object):
             else:
                 setattr(self, key, value)
 
-    def set_finalizer(self, fn, *args):
-        self.finalizer = lambda: fn(*args)
+    def add_finalizer(self, fn, *args):
+        self.finalizer_list.append(lambda: fn(*args))
 
 
 def get_active_patch(destination, name):
@@ -391,8 +391,8 @@ def revert(patch):
     if curr_active_patch in patch.destination.__dict__:
         delattr(patch.destination, curr_active_patch)
 
-    if patch.finalizer:
-        patch.finalizer()
+    for finalizer in patch.finalizer_list:
+        finalizer()
 
 
 def patch(destination, name=None, settings=None):

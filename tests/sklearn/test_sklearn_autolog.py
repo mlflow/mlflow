@@ -1535,7 +1535,7 @@ def test_basic_post_training_metric_autologging():
         scorer1 = sklmetrics.make_scorer(sklmetrics.recall_score, average="micro")
         recall_score3_data2 = scorer1(model, eval2_X, eval2_y)
 
-        recall_score4_data2 = sklearn.metrics.SCORERS['recall_macro'](model, eval2_X, eval2_y)
+        recall_score4_data2 = sklearn.metrics.SCORERS["recall_macro"](model, eval2_X, eval2_y)
 
         eval1_X, eval1_y = eval1_X.copy(), eval1_y.copy()
         # In metric key, it will include dataset name as "eval1_X-2"
@@ -1563,8 +1563,9 @@ def test_basic_post_training_metric_autologging():
     }
 
     lor_score_3_cmd = "LogisticRegression.score(X=<ndarray>, y=<ndarray>)"
-    recall_score4_eval2_X_cmd = \
+    recall_score4_eval2_X_cmd = (
         "recall_score(y_true=eval2_y, y_pred=y_pred, pos_label=None, average='macro')"
+    )
     assert metric_info == {
         "LogisticRegression_score-2_eval1_X-2": "LogisticRegression.score(X=eval1_X, y=eval1_y)",
         "LogisticRegression_score-3_unknown_dataset": lor_score_3_cmd,
@@ -1573,7 +1574,7 @@ def test_basic_post_training_metric_autologging():
         "r2_score_eval1_X": "r2_score(y_true=eval1_y, y_pred=pred1_y)",
         "recall_score-2_eval2_X": "recall_score(y_true=eval2_y, y_pred=pred2_y, average='micro')",
         "recall_score-3_eval2_X": "recall_score(y_true=eval2_y, y_pred=y_pred, average='micro')",
-        'recall_score-4_eval2_X': recall_score4_eval2_X_cmd,
+        "recall_score-4_eval2_X": recall_score4_eval2_X_cmd,
         "recall_score_eval1_X": "recall_score(y_true=eval1_y, y_pred=pred1_y, average='macro')",
     }
 
@@ -1590,7 +1591,8 @@ def test_basic_post_training_metric_autologging():
     assert np.allclose(pred1_y_original, pred1_y)
 
     assert sklearn.metrics.recall_score is original_recall_score_fn
-    assert sklearn.metrics.SCORERS['recall_macro']._score_func is original_recall_score_fn
+    for score_name in ["recall", "recall_macro", "recall_micro", "recall_samples"]:
+        assert sklearn.metrics.SCORERS[score_name]._score_func is original_recall_score_fn
 
 
 @pytest.mark.parametrize("metric_name", mlflow.sklearn._get_metric_name_list())
