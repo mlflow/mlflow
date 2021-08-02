@@ -349,7 +349,8 @@ def revert(patch):
     # then there is no patching exist.
     curr_active_patch = _ACTIVE_PATCH % (patch.name,)
     if curr_active_patch not in patch.destination.__dict__:
-        raise RuntimeError(f"The patch does not exist or has been reverted.")
+        # already reverted.
+        return
 
     original_name = _ORIGINAL_NAME % (patch.name,)
     if original_name not in patch.destination.__dict__:
