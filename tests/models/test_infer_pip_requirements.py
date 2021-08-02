@@ -79,7 +79,7 @@ def show_inferred_pip_requirements(request):
         yield
 
 
-def _is_in_save_model():
+def _called_in_save_model():
     for frame in inspect.stack()[::-1]:
         if frame.function == "save_model":
             return True
@@ -94,7 +94,7 @@ def prevent_fallback_in_save_model():
     from mlflow.utils.environment import _INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE
 
     def new_exception(msg, *_, **__):
-        if msg == _INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE and _is_in_save_model():
+        if msg == _INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE and _called_in_save_model():
             raise Exception(
                 "`mlflow.infer_pip_requirements` should not fall back in `mlflow.*.save_model`"
                 " while testing"
