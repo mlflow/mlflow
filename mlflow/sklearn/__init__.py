@@ -30,6 +30,7 @@ from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils import gorilla
 from mlflow.utils import _inspect_original_var_name
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import get_instance_method_first_arg_value
@@ -1091,6 +1092,7 @@ def autolog(
     """
     import pandas as pd
     import sklearn
+    import sklearn.metrics
     import sklearn.model_selection
 
     from mlflow.models import infer_signature
@@ -1494,10 +1496,25 @@ def autolog(
                 FLAVOR_NAME, class_def, "score", patched_model_score, manage_run=False,
             )
 
-    from sklearn import metrics
-
     for metric_name in _get_metric_name_list():
-        safe_patch(FLAVOR_NAME, metrics, metric_name, patched_metric_api, manage_run=False)
+        safe_patch(FLAVOR_NAME, sklearn.metrics, metric_name, patched_metric_api, manage_run=False)
+
+    for scorer in sklearn.metrics.SCORERS.values():
+        scorer_fn = scorer._score_func
+        scorer_fn_name = scorer_fn.__name__
+        try:
+            original_metric_fn = gorilla.get_original_attribute(sklearn.metrics, scorer_fn_name)
+        except AttributeError:
+            original_metric_fn = None
+        if scorer_fn is original_metric_fn:
+            scorer._score_func = getattr(sklearn.metrics, scorer_fn_name)
+
+            def finalizer(scorer_, original_score_fn_):
+                scorer_._score_func = original_score_fn_
+
+            gorilla.get_active_patch(sklearn.metrics, scorer_fn_name).set_finalizer(
+                finalizer, scorer, original_metric_fn
+            )
 
     def patched_fn_with_autolog_disabled(original, *args, **kwargs):
         with disable_autologging():

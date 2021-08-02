@@ -211,6 +211,7 @@ class Patch(object):
         self.name = name
         self.obj = obj
         self.settings = settings
+        self.finalizer = None
 
     def __repr__(self):
         return "%s(destination=%r, name=%r, obj=%r, settings=%r)" % (
@@ -261,6 +262,13 @@ class Patch(object):
                     self.settings = copy.deepcopy(value)
             else:
                 setattr(self, key, value)
+
+    def set_finalizer(self, fn, *args):
+        self.finalizer = lambda: fn(*args)
+
+
+def get_active_patch(destination, name):
+    return getattr(destination, _ACTIVE_PATCH % (name,))
 
 
 def apply(patch):
@@ -382,6 +390,9 @@ def revert(patch):
     # This is undoing the custom changes to gorilla.py's code in the `apply()`.
     if curr_active_patch in patch.destination.__dict__:
         delattr(patch.destination, curr_active_patch)
+
+    if patch.finalizer:
+        patch.finalizer()
 
 
 def patch(destination, name=None, settings=None):
