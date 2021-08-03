@@ -38,6 +38,11 @@ from tests.helper_functions import (
     pyfunc_serve_and_score_model,
     _compare_conda_env_requirements,
     _assert_pip_requirements,
+    _is_available_on_pypi,
+)
+
+EXTRA_PYFUNC_SERVING_TEST_ARGS = (
+    [] if _is_available_on_pypi("scikit-learn", module="sklearn") else ["--no-conda"]
 )
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
