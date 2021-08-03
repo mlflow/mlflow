@@ -1,5 +1,7 @@
 import os
+from unittest import mock
 
+import mlflow
 from mlflow.utils.requirements_utils import (
     _is_comment,
     _is_empty,
@@ -7,6 +9,9 @@ from mlflow.utils.requirements_utils import (
     _strip_inline_comment,
     _join_continued_lines,
     _parse_requirements,
+    _strip_local_version_identifier,
+    _get_installed_version,
+    _get_pinned_requirement,
 )
 
 
@@ -171,3 +176,30 @@ line-cont-eof\
         assert [r.requirement for r in pip_reqs if r.constraint] == expected_cons
     finally:
         os.chdir(request.config.invocation_dir)
+
+
+def test_strip_local_version_identifier():
+    assert _strip_local_version_identifier("1.2.3") == "1.2.3"
+    assert _strip_local_version_identifier("1.2.3+ab") == "1.2.3"
+    assert _strip_local_version_identifier("1.2.3rc0+ab") == "1.2.3rc0"
+    assert _strip_local_version_identifier("1.2.3.dev0+ab") == "1.2.3.dev0"
+    assert _strip_local_version_identifier("1.2.3.post0+ab") == "1.2.3.post0"
+    assert _strip_local_version_identifier("invalid") == "invalid"
+
+
+def test_get_installed_version():
+    import numpy as np
+    import pandas as pd
+
+    assert _get_installed_version("mlflow") == mlflow.__version__
+    assert _get_installed_version("numpy") == np.__version__
+    assert _get_installed_version("pandas") == pd.__version__
+
+
+def test_get_pinned_requirement():
+    assert _get_pinned_requirement("mlflow") == f"mlflow=={mlflow.__version__}"
+    assert _get_pinned_requirement("mlflow", version="1.2.3") == "mlflow==1.2.3"
+    assert _get_pinned_requirement("foo", module="mlflow") == f"foo=={mlflow.__version__}"
+
+    with mock.patch("mlflow.__version__", new="1.2.3+abc"):
+        assert _get_pinned_requirement("mlflow") == "mlflow==1.2.3"

@@ -1034,6 +1034,15 @@ def test_log_model_invalid_requirement_file_type(sequential_model):
         )
 
 
+def test_save_model_emits_deprecation_warning_for_requirements_file(tmpdir):
+    reqs_file = tmpdir.join("requirements.txt")
+    reqs_file.write("torch")
+    with pytest.warns(FutureWarning, match="`requirements_file` has been deprecated"):
+        mlflow.pytorch.save_model(
+            get_sequential_model(), tmpdir.join("model"), requirements_file=reqs_file.strpath,
+        )
+
+
 @pytest.fixture
 def create_extra_files(tmpdir):
     fp1 = tmpdir.join("extra1.txt")
