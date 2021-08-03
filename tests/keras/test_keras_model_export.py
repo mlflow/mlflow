@@ -666,3 +666,29 @@ def test_load_without_save_format(tf_keras_model, model_path):
 
     model_loaded = mlflow.keras.load_model(model_path)
     assert tf_keras_model.to_json() == model_loaded.to_json()
+
+
+def test_pyfunc_serve_and_score_transformers():
+    from transformers import BertConfig, TFBertModel
+
+    bert = TFBertModel(
+        BertConfig(
+            vocab_size=16,
+            hidden_size=2,
+            num_hidden_layers=2,
+            num_attention_heads=2,
+            intermediate_size=2,
+        )
+    )
+    dummy_inputs = bert.dummy_inputs["input_ids"].numpy()
+    input_ids = tf.keras.layers.Input(shape=(dummy_inputs.shape[1],), dtype=tf.int32)
+    model = tf.keras.Model(inputs=[input_ids], outputs=[bert(input_ids).last_hidden_state])
+    model.compile()
+
+    with mlflow.start_run():
+        mlflow.keras.log_model(model, artifact_path="model", keras_module=tf.keras)
+        model_uri = mlflow.get_artifact_uri("model")
+
+    data = json.dumps({"inputs": dummy_inputs.tolist()})
+    resp = pyfunc_serve_and_score_model(model_uri, data, pyfunc_scoring_server.CONTENT_TYPE_JSON)
+    np.testing.assert_array_equal(json.loads(resp.content), model.predict(dummy_inputs))

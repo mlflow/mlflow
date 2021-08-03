@@ -1,4 +1,6 @@
 import os
+import inspect
+from unittest import mock
 
 import pytest
 
@@ -65,3 +67,53 @@ def clean_up_leaked_runs():
     finally:
         while mlflow.active_run():
             mlflow.end_run()
+
+
+# REMOVE THIS FIXTURE BEFORE MERGING THE PR
+@pytest.fixture(scope="session", autouse=True)
+def show_inferred_pip_requirements(request):
+    import functools
+
+    original = mlflow.infer_pip_requirements
+
+    @functools.wraps(original)
+    def patch(*args, **kwargs):
+        res = original(*args, **kwargs)
+
+        capture_manager = request.config.pluginmanager.getplugin("capturemanager")
+        capture_manager.suspendcapture()
+        title = "=" * 20 + " Inferred pip requirements " + "=" * 20
+        print("\n" + title)
+        print("\n".join(res))
+        print("=" * len(title))
+        capture_manager.resumecapture()
+
+        return res
+
+    with mock.patch("mlflow.infer_pip_requirements", new=patch):
+        yield
+
+
+def _called_in_save_model():
+    for frame in inspect.stack()[::-1]:
+        if frame.function == "save_model":
+            return True
+    return False
+
+
+@pytest.fixture(scope="session", autouse=True)
+def prevent_fallback_in_save_model():
+    """
+    Prevents `mlflow.infer_pip_requirements` from falling back in `mlflow.*.save_model`.
+    """
+    from mlflow.utils.environment import _INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE
+
+    def new_exception(msg, *_, **__):
+        if msg == _INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE and _called_in_save_model():
+            raise Exception(
+                "`mlflow.infer_pip_requirements` should not fall back in `mlflow.*.save_model`"
+                " while testing"
+            )
+
+    with mock.patch("mlflow.utils.environment._logger.exception", new=new_exception):
+        yield

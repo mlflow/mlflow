@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import pandas.testing
 import sklearn.datasets as datasets
+from sklearn.pipeline import Pipeline
 import lightgbm as lgb
 
 import mlflow.lightgbm
@@ -28,6 +29,7 @@ from tests.helper_functions import set_boto_credentials  # pylint: disable=unuse
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.helper_functions import (
     score_model_in_sagemaker_docker_container,
+    pyfunc_serve_and_score_model,
     _compare_conda_env_requirements,
     _assert_pip_requirements,
 )
@@ -385,3 +387,25 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(lgb_model, model_
         check_dtype=False,
         check_less_precise=6,
     )
+
+
+def get_sklearn_models():
+    model = lgb.LGBMClassifier(n_estimators=10)
+    pipe = Pipeline([("model", model)])
+    return [model, pipe]
+
+
+@pytest.mark.parametrize("model", get_sklearn_models())
+def test_pyfunc_serve_and_score_sklearn(model):
+    X, y = datasets.load_iris(return_X_y=True, as_frame=True)
+    model.fit(X, y)
+
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(model, artifact_path="model")
+        model_uri = mlflow.get_artifact_uri("model")
+
+    resp = pyfunc_serve_and_score_model(
+        model_uri, X.head(3), pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+    )
+    np.testing.assert_array_equal(json.loads(resp.content), model.predict(X.head(3)))
+
