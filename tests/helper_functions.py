@@ -21,6 +21,7 @@ import mlflow.pyfunc
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import read_yaml, write_yaml
 from mlflow.utils.environment import _get_pip_deps, _CONSTRAINTS_FILE_NAME
+from mlflow.utils.requirements_utils import _strip_local_version_identifier, _get_installed_version
 
 LOCALHOST = "127.0.0.1"
 
@@ -350,13 +351,23 @@ def _assert_pip_requirements(model_uri, requirements, constraints=None):
         assert cons == constraints
 
 
-def _is_available_on_pypi(package, version):
+def _is_available_on_pypi(package, version=None, module=None):
     """
     Returns True if the specified package version is available on PyPI.
+
+    :param package: The name of the package.
+    :param version: The version of the package. If None, defaults to the installed version.
+    :param module: The name of the top-level module provided by the package . For example,
+                   if `package` is 'scikit-learn', `module` should be 'sklearn'. If None, defaults
+                   to `package`.
     """
     resp = requests.get("https://pypi.python.org/pypi/{}/json".format(package))
     if not resp.ok:
         return False
+
+    module = module or package
+    version = version or _get_installed_version(module)
+    version = _strip_local_version_identifier(version)
 
     dist_files = resp.json()["releases"].get(version)
     return (

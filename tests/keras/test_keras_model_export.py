@@ -41,11 +41,15 @@ from tests.helper_functions import (
     score_model_in_sagemaker_docker_container,
     _compare_conda_env_requirements,
     _assert_pip_requirements,
+    _is_available_on_pypi,
 )
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.pyfunc.test_spark import score_model_as_udf
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+
+
+EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("keras") else ["--no-conda"]
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -261,7 +265,7 @@ def test_model_save_load(build_model, save_format, model_path, data):
         model_uri=os.path.abspath(model_path),
         data=pd.DataFrame(x),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        extra_args=["--no-conda"],
+        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
     print(scoring_response.content)
     actual_scoring_response = pd.read_json(
@@ -309,7 +313,7 @@ def test_custom_model_save_load(custom_model, custom_layer, data, custom_predict
         model_uri=os.path.abspath(model_path),
         data=pd.DataFrame(x),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        extra_args=["--no-conda"],
+        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
     assert np.allclose(
         pd.read_json(scoring_response.content, orient="records", encoding="utf8").values.astype(
