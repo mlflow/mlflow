@@ -68,8 +68,8 @@ def get_default_pip_requirements():
     import torchvision
 
     return [
-        # `torch.__version__` and `torchvision.__version__`contains a local version identifier
-        # (e.g. '1.9.0+cu102') which causes the installation from PyPI to fail.
+        # `torch.__version__` and `torchvision.__version__`contain a local version identifier
+        # (e.g. "cpu" in "1.9.0+cpu") which causes the installation from PyPI to fail.
         "torch=={}".format(_strip_local_version_identifier(torch.__version__)),
         "torchvision=={}".format(_strip_local_version_identifier(torchvision.__version__)),
         # We include CloudPickle in the default environment because
