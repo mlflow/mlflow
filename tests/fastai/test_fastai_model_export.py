@@ -13,6 +13,7 @@ from fastai.metrics import accuracy
 import mlflow.fastai
 import mlflow.utils
 from mlflow import pyfunc
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -25,7 +26,11 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
-from tests.helper_functions import _compare_conda_env_requirements, _assert_pip_requirements
+from tests.helper_functions import (
+    pyfunc_serve_and_score_model,
+    _compare_conda_env_requirements,
+    _assert_pip_requirements,
+)
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
 
@@ -400,3 +405,23 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
         conda_env = yaml.safe_load(f)
 
     assert conda_env == mlflow.fastai.get_default_conda_env()
+
+
+@pytest.mark.large
+def test_pyfunc_serve_and_score(fastai_model):
+    model, inference_dataframe = fastai_model
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.fastai.log_model(model, artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    resp = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_dataframe,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+    )
+    # `[:, -1]` extracts the prediction column
+    scores = pd.read_json(resp.content, orient="records").values[:, -1]
+    np.testing.assert_array_almost_equal(
+        scores, mlflow.fastai._FastaiModelWrapper(model).predict(inference_dataframe).values[:, -1]
+    )

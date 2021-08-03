@@ -28,6 +28,7 @@ from tests.helper_functions import set_boto_credentials  # pylint: disable=unuse
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.helper_functions import (
     score_model_in_sagemaker_docker_container,
+    pyfunc_serve_and_score_model,
     _compare_conda_env_requirements,
     _assert_pip_requirements,
 )
@@ -416,6 +417,23 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
         conda_env = yaml.safe_load(f)
 
     assert conda_env == mlflow.xgboost.get_default_conda_env()
+
+
+@pytest.mark.large
+def test_pyfunc_serve_and_score(xgb_model):
+    model, inference_dataframe, inference_dmatrix = xgb_model
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.xgboost.log_model(model, artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    resp = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_dataframe,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+    )
+    scores = pd.read_json(resp.content, orient="records").values.squeeze()
+    np.testing.assert_array_almost_equal(scores, model.predict(inference_dmatrix))
 
 
 @pytest.mark.release

@@ -8,6 +8,7 @@ import pandas as pd
 import pandas.testing
 from collections import namedtuple
 
+import numpy as np
 import sklearn.datasets as datasets
 import h2o
 from h2o.estimators.gbm import H2OGradientBoostingEstimator
@@ -25,6 +26,7 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 
 from tests.helper_functions import (
     score_model_in_sagemaker_docker_container,
+    pyfunc_serve_and_score_model,
     _compare_conda_env_requirements,
     _assert_pip_requirements,
 )
@@ -330,6 +332,24 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
         conda_env = yaml.safe_load(f)
 
     assert conda_env == mlflow.h2o.get_default_conda_env()
+
+
+@pytest.mark.large
+def test_pyfunc_serve_and_score(h2o_iris_model):
+    model, inference_dataframe = h2o_iris_model
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.h2o.log_model(model, artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    resp = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_dataframe.as_data_frame(),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+    )
+    scores = pd.read_json(resp.content, orient="records").drop("predict", axis=1)
+    preds = model.predict(inference_dataframe).as_data_frame().drop("predict", axis=1)
+    np.testing.assert_array_almost_equal(scores, preds)
 
 
 @pytest.mark.release
