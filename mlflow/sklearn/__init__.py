@@ -1088,6 +1088,7 @@ def autolog(
     """
     import pandas as pd
     import sklearn
+    import sklearn.metrics
     import sklearn.model_selection
 
     from mlflow.models import infer_signature
@@ -1491,10 +1492,11 @@ def autolog(
                 FLAVOR_NAME, class_def, "score", patched_model_score, manage_run=False,
             )
 
-    from sklearn import metrics
-
     for metric_name in _get_metric_name_list():
-        safe_patch(FLAVOR_NAME, metrics, metric_name, patched_metric_api, manage_run=False)
+        safe_patch(FLAVOR_NAME, sklearn.metrics, metric_name, patched_metric_api, manage_run=False)
+
+    for scorer in sklearn.metrics.SCORERS.values():
+        safe_patch(FLAVOR_NAME, scorer, "_score_func", patched_metric_api, manage_run=False)
 
     def patched_fn_with_autolog_disabled(original, *args, **kwargs):
         with disable_autologging():
