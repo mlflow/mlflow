@@ -1511,7 +1511,6 @@ def load_json_artifact(artifact_path):
 def test_basic_post_training_metric_autologging():
     from sklearn import metrics as sklmetrics
 
-    original_recall_score_fn = sklmetrics.recall_score
     mlflow.sklearn.autolog()
 
     model = sklearn.linear_model.LogisticRegression(solver="saga", max_iter=100, random_state=0)
@@ -1589,10 +1588,6 @@ def test_basic_post_training_metric_autologging():
 
     pred1_y_original = model.predict(eval1_X)
     assert np.allclose(pred1_y_original, pred1_y)
-
-    assert sklearn.metrics.recall_score is original_recall_score_fn
-    for score_name in ["recall", "recall_macro", "recall_micro", "recall_samples"]:
-        assert sklearn.metrics.SCORERS[score_name]._score_func is original_recall_score_fn
 
 
 @pytest.mark.parametrize("metric_name", mlflow.sklearn._get_metric_name_list())
