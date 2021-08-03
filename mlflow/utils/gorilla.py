@@ -41,7 +41,6 @@ import logging
 import pkgutil
 import sys
 import types
-import warnings
 
 __version__ = "0.3.0"
 _logger = logging.getLogger(__name__)

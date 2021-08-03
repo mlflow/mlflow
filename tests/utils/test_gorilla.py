@@ -49,13 +49,13 @@ def test_basic_patch_for_class(gorilla_setting):
     original_A_f2 = A.f2
     original_B_f1 = B.f1
 
-    def patched_A_f1(self):
+    def patched_A_f1(self):  # pylint: disable=unused-argument
         pass
 
-    def patched_A_f2(self):
+    def patched_A_f2(self):  # pylint: disable=unused-argument
         pass
 
-    def patched_B_f1(self):
+    def patched_B_f1(self):  # pylint: disable=unused-argument
         pass
 
     patch_A_f1 = gorilla.Patch(A, "f1", patched_A_f1, gorilla_setting)
@@ -107,7 +107,7 @@ def test_patch_for_descriptor(gorilla_setting):
 
     original_A_f3_raw = object.__getattribute__(A, "f3")
 
-    def patched_A_f3(self):
+    def patched_A_f3(self):  # pylint: disable=unused-argument
         pass
 
     patch_A_f3 = gorilla.Patch(A, "f3", patched_A_f3, gorilla_setting)
@@ -136,7 +136,7 @@ def test_patch_for_descriptor(gorilla_setting):
 
     # test patch a descriptor
     @delegate(patched_A_f3)
-    def new_patched_A_f3(self):
+    def new_patched_A_f3(self):  # pylint: disable=unused-argument
         pass
 
     new_patch_A_f3 = gorilla.Patch(A, "f3", new_patched_A_f3, gorilla_setting)
@@ -155,7 +155,7 @@ def test_patch_on_inherit_method(gorilla_setting):
 
     original_A_f2 = A.f2
 
-    def patched_B_f2(self):
+    def patched_B_f2(self):  # pylint: disable=unused-argument
         pass
 
     patch_B_f2 = gorilla.Patch(B, "f2", patched_B_f2, gorilla_setting)
