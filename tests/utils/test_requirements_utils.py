@@ -7,6 +7,7 @@ from mlflow.utils.requirements_utils import (
     _strip_inline_comment,
     _join_continued_lines,
     _parse_requirements,
+    _strip_local_version_identifier,
 )
 
 
@@ -171,3 +172,11 @@ line-cont-eof\
         assert [r.requirement for r in pip_reqs if r.constraint] == expected_cons
     finally:
         os.chdir(request.config.invocation_dir)
+
+
+def test_strip_local_version_identifier():
+    assert _strip_local_version_identifier("1.2.3") == "1.2.3"
+    assert _strip_local_version_identifier("1.2.3+ab") == "1.2.3"
+    assert _strip_local_version_identifier("1.2.3rc0+ab") == "1.2.3rc0"
+    assert _strip_local_version_identifier("1.2.3.dev0+ab") == "1.2.3.dev0"
+    assert _strip_local_version_identifier("1.2.3.post0+ab") == "1.2.3.post0"

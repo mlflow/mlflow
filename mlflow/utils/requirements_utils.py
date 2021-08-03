@@ -3,8 +3,11 @@ This module provides a set of utilities for interpreting and creating requiremen
 (e.g. pip's `requirements.txt`), which is useful for managing ML software environments.
 """
 import os
+import importlib_metadata
 from itertools import filterfalse
 from collections import namedtuple
+
+from packaging.version import Version
 
 
 def _is_comment(line):
@@ -100,3 +103,21 @@ def _parse_requirements(requirements_file, is_constraint):
             yield from _parse_requirements(abs_path, is_constraint=True)
         else:
             yield _Requirement(line, is_constraint)
+
+
+def _strip_local_version_identifier(version):
+    """
+    Strips a local version identifer in `version`.
+
+    Local version identifiers:
+    https://www.python.org/dev/peps/pep-0440/#local-version-identifiers
+
+    :param version: A string package version.
+    """
+
+    class IgnoreLocal(Version):
+        @property
+        def local(self):
+            return None
+
+    return str(IgnoreLocal(version))
