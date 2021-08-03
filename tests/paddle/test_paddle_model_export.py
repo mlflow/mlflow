@@ -1,6 +1,7 @@
 from collections import namedtuple
 import pytest
 import numpy as np
+import pandas as pd
 import os
 from unittest import mock
 import yaml
@@ -13,6 +14,7 @@ from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
 
 import mlflow.pyfunc as pyfunc
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.paddle
 from mlflow.models import Model
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -24,7 +26,7 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
-from tests.helper_functions import _assert_pip_requirements
+from tests.helper_functions import pyfunc_serve_and_score_model, _assert_pip_requirements
 
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
@@ -585,3 +587,20 @@ def test_log_model_with_extra_pip_requirements(pd_model, tmpdir):
             ["mlflow", *default_reqs, "b", "-c constraints.txt"],
             ["a"],
         )
+
+
+@pytest.mark.large
+def test_pyfunc_serve_and_score(pd_model):
+    model, inference_dataframe = pd_model
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.paddle.log_model(model, artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    resp = pyfunc_serve_and_score_model(
+        model_uri,
+        data=pd.DataFrame(inference_dataframe),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+    )
+    scores = pd.read_json(resp.content, orient="records").values.squeeze()
+    np.testing.assert_array_almost_equal(scores, model(inference_dataframe).squeeze())
