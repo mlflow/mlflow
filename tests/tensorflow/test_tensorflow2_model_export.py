@@ -769,7 +769,7 @@ def test_pyfunc_serve_and_score(saved_tf_iris_model):
     actual = pd.DataFrame(json.loads(resp.content))["class_ids"].values
     expected = (
         saved_tf_iris_model.expected_results_df["predictions"]
-        .map(lambda name: iris_data_utils.SPECIES.index(name))
+        .map(iris_data_utils.SPECIES.index)
         .values
     )
     np.testing.assert_array_almost_equal(actual, expected)
