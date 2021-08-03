@@ -326,7 +326,8 @@ def apply(patch):
             original_name = _ORIGINAL_NAME % (patch.name,)
             setattr(patch.destination, original_name, target)
 
-    setattr(patch.destination, patch.name, patch.obj)
+    patch_obj = object.__getattribute__(patch, 'obj')  # bypass descriptor protocol
+    setattr(patch.destination, patch.name, patch_obj)
     setattr(patch.destination, curr_active_patch, patch)
 
 
