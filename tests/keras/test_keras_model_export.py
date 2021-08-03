@@ -48,7 +48,6 @@ from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-impo
 from tests.pyfunc.test_spark import score_model_as_udf
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
-
 EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("keras") else ["--no-conda"]
 
 

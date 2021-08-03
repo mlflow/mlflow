@@ -42,7 +42,6 @@ from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-impo
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("tensorflow") else ["--no-conda"]
 
-
 SavedModelInfo = collections.namedtuple(
     "SavedModelInfo",
     [
