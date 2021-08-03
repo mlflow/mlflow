@@ -51,7 +51,7 @@ def get_default_pip_requirements():
         map(
             _get_pinned_requirement,
             [
-                "onnx"
+                "onnx",
                 # The ONNX pyfunc representation requires the OnnxRuntime
                 # inference engine. Therefore, the conda environment must
                 # include OnnxRuntime
