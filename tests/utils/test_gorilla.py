@@ -16,7 +16,6 @@ def delegate(delegated_fn):
 
 
 def gen_class_A_B():
-
     class A:
         def f1(self):
             pass
@@ -59,92 +58,96 @@ def test_basic_patch_for_class(gorilla_setting):
     def patched_B_f1(self):
         pass
 
-    patch_A_f1 = gorilla.Patch(A, 'f1', patched_A_f1, gorilla_setting)
-    patch_A_f2 = gorilla.Patch(A, 'f2', patched_A_f2, gorilla_setting)
-    patch_B_f1 = gorilla.Patch(B, 'f1', patched_B_f1, gorilla_setting)
+    patch_A_f1 = gorilla.Patch(A, "f1", patched_A_f1, gorilla_setting)
+    patch_A_f2 = gorilla.Patch(A, "f2", patched_A_f2, gorilla_setting)
+    patch_B_f1 = gorilla.Patch(B, "f1", patched_B_f1, gorilla_setting)
 
-    assert gorilla.get_original_attribute(A, 'f1') is original_A_f1
-    assert gorilla.get_original_attribute(B, 'f1') is original_B_f1
-    assert gorilla.get_original_attribute(B, 'f2') is original_A_f2
+    assert gorilla.get_original_attribute(A, "f1") is original_A_f1
+    assert gorilla.get_original_attribute(B, "f1") is original_B_f1
+    assert gorilla.get_original_attribute(B, "f2") is original_A_f2
 
     gorilla.apply(patch_A_f1)
     assert A.f1 is patched_A_f1
-    assert gorilla.get_original_attribute(A, 'f1') is original_A_f1
-    assert gorilla.get_original_attribute(B, 'f1') is original_B_f1
+    assert gorilla.get_original_attribute(A, "f1") is original_A_f1
+    assert gorilla.get_original_attribute(B, "f1") is original_B_f1
 
     gorilla.apply(patch_B_f1)
     assert A.f1 is patched_A_f1
     assert B.f1 is patched_B_f1
-    assert gorilla.get_original_attribute(A, 'f1') is original_A_f1
-    assert gorilla.get_original_attribute(B, 'f1') is original_B_f1
+    assert gorilla.get_original_attribute(A, "f1") is original_A_f1
+    assert gorilla.get_original_attribute(B, "f1") is original_B_f1
 
     gorilla.apply(patch_A_f2)
     assert A.f2 is patched_A_f2
     assert B.f2 is patched_A_f2
-    assert gorilla.get_original_attribute(A, 'f2') is original_A_f2
-    assert gorilla.get_original_attribute(B, 'f2') is original_A_f2
+    assert gorilla.get_original_attribute(A, "f2") is original_A_f2
+    assert gorilla.get_original_attribute(B, "f2") is original_A_f2
 
     gorilla.revert(patch_A_f2)
     assert A.f2 is original_A_f2
     assert B.f2 is original_A_f2
-    assert gorilla.get_original_attribute(A, 'f2') == original_A_f2
-    assert gorilla.get_original_attribute(B, 'f2') == original_A_f2
+    assert gorilla.get_original_attribute(A, "f2") == original_A_f2
+    assert gorilla.get_original_attribute(B, "f2") == original_A_f2
 
     gorilla.revert(patch_B_f1)
     assert A.f1 is patched_A_f1
     assert B.f1 is original_B_f1
-    assert gorilla.get_original_attribute(A, 'f1') == original_A_f1
-    assert gorilla.get_original_attribute(B, 'f1') == original_B_f1
+    assert gorilla.get_original_attribute(A, "f1") == original_A_f1
+    assert gorilla.get_original_attribute(B, "f1") == original_B_f1
 
     gorilla.revert(patch_A_f1)
     assert A.f1 is original_A_f1
     assert B.f1 is original_B_f1
-    assert gorilla.get_original_attribute(A, 'f1') == original_A_f1
-    assert gorilla.get_original_attribute(B, 'f1') == original_B_f1
+    assert gorilla.get_original_attribute(A, "f1") == original_A_f1
+    assert gorilla.get_original_attribute(B, "f1") == original_B_f1
 
 
 def test_patch_for_descriptor(gorilla_setting):
-    A,_ = gen_class_A_B()
+    A, _ = gen_class_A_B()
 
-    original_A_f3_raw = object.__getattribute__(A, 'f3')
+    original_A_f3_raw = object.__getattribute__(A, "f3")
 
     def patched_A_f3(self):
         pass
 
-    patch_A_f3 = gorilla.Patch(A, 'f3', patched_A_f3, gorilla_setting)
+    patch_A_f3 = gorilla.Patch(A, "f3", patched_A_f3, gorilla_setting)
 
-    assert gorilla.get_original_attribute(A, 'f3') is A.delegated_f3
-    assert gorilla.get_original_attribute(
-        A, 'f3', bypass_descriptor_protocol=True
-    ) is original_A_f3_raw
+    assert gorilla.get_original_attribute(A, "f3") is A.delegated_f3
+    assert (
+        gorilla.get_original_attribute(A, "f3", bypass_descriptor_protocol=True)
+        is original_A_f3_raw
+    )
 
     gorilla.apply(patch_A_f3)
     assert A.f3 is patched_A_f3
-    assert gorilla.get_original_attribute(A, 'f3') is A.delegated_f3
-    assert gorilla.get_original_attribute(
-        A, 'f3', bypass_descriptor_protocol=True
-    ) is original_A_f3_raw
+    assert gorilla.get_original_attribute(A, "f3") is A.delegated_f3
+    assert (
+        gorilla.get_original_attribute(A, "f3", bypass_descriptor_protocol=True)
+        is original_A_f3_raw
+    )
 
     gorilla.revert(patch_A_f3)
     assert A.f3 is A.delegated_f3
-    assert gorilla.get_original_attribute(A, 'f3') is A.delegated_f3
-    assert gorilla.get_original_attribute(
-        A, 'f3', bypass_descriptor_protocol=True
-    ) is original_A_f3_raw
+    assert gorilla.get_original_attribute(A, "f3") is A.delegated_f3
+    assert (
+        gorilla.get_original_attribute(A, "f3", bypass_descriptor_protocol=True)
+        is original_A_f3_raw
+    )
 
     # test patch a descriptor
     @delegate(patched_A_f3)
     def new_patched_A_f3(self):
         pass
 
-    new_patch_A_f3 = gorilla.Patch(A, 'f3', new_patched_A_f3, gorilla_setting)
+    new_patch_A_f3 = gorilla.Patch(A, "f3", new_patched_A_f3, gorilla_setting)
     gorilla.apply(new_patch_A_f3)
     assert A.f3 is patched_A_f3
-    assert object.__getattribute__(A, 'f3') is new_patched_A_f3
-    assert gorilla.get_original_attribute(A, 'f3') is A.delegated_f3
-    assert gorilla.get_original_attribute(
-        A, 'f3', bypass_descriptor_protocol=True
-    ) is original_A_f3_raw
+    assert object.__getattribute__(A, "f3") is new_patched_A_f3
+    assert gorilla.get_original_attribute(A, "f3") is A.delegated_f3
+    assert (
+        gorilla.get_original_attribute(A, "f3", bypass_descriptor_protocol=True)
+        is original_A_f3_raw
+    )
 
 
 def test_patch_on_inherit_method(gorilla_setting):
@@ -155,15 +158,13 @@ def test_patch_on_inherit_method(gorilla_setting):
     def patched_B_f2(self):
         pass
 
-    patch_B_f2 = gorilla.Patch(B, 'f2', patched_B_f2, gorilla_setting)
+    patch_B_f2 = gorilla.Patch(B, "f2", patched_B_f2, gorilla_setting)
     gorilla.apply(patch_B_f2)
 
     assert B.f2 is patched_B_f2
-    assert gorilla.get_original_attribute(B, 'f2') is original_A_f2
+    assert gorilla.get_original_attribute(B, "f2") is original_A_f2
 
     gorilla.revert(patch_B_f2)
     assert B.f2 is original_A_f2
-    assert gorilla.get_original_attribute(B, 'f2') is original_A_f2
-    assert 'f2' not in B.__dict__  # assert no side effect after reverting
-
-
+    assert gorilla.get_original_attribute(B, "f2") is original_A_f2
+    assert "f2" not in B.__dict__  # assert no side effect after reverting
