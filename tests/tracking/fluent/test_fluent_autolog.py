@@ -291,17 +291,6 @@ def test_autolog_obeys_silent_mode(
     stream = StringIO()
     sys.stderr = stream
 
-    if (
-        disable
-        and not disable_for_unsupported_versions
-        and not exclusive
-        and library is keras
-        and not log_input_examples
-        and not log_model_signatures
-        and not log_models
-    ):
-        print("DBG1")
-
     mlflow.autolog(
         silent=True,
         disable=disable,
