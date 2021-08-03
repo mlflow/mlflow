@@ -373,5 +373,5 @@ def _is_available_on_pypi(package, version=None, module=None):
     return (
         dist_files is not None  # specified version exists
         and (len(dist_files) > 0)  # at least one distribution file exists
-        and dist_files[0].get("yanked", False)  # specified version is not yanked
+        and not dist_files[0].get("yanked", False)  # specified version is not yanked
     )
