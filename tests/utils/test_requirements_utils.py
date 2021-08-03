@@ -184,6 +184,7 @@ def test_strip_local_version_identifier():
     assert _strip_local_version_identifier("1.2.3rc0+ab") == "1.2.3rc0"
     assert _strip_local_version_identifier("1.2.3.dev0+ab") == "1.2.3.dev0"
     assert _strip_local_version_identifier("1.2.3.post0+ab") == "1.2.3.post0"
+    assert _strip_local_version_identifier("invalid") == "invalid"
 
 
 def test_get_installed_version():
