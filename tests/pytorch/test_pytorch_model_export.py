@@ -604,7 +604,7 @@ def test_pyfunc_model_serving_with_module_scoped_subclassed_model_and_default_co
     mlflow.pytorch.save_model(
         path=model_path,
         pytorch_model=module_scoped_subclassed_model,
-        conda_env=None,
+        extra_pip_requirements=["pytest"],
         code_paths=[__file__],
     )
 
@@ -678,7 +678,7 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
     mlflow.pytorch.save_model(
         path=model_path,
         pytorch_model=module_scoped_subclassed_model,
-        conda_env=None,
+        extra_pip_requirements=["pytest"],
         code_paths=[__file__],
     )
 
