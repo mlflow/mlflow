@@ -6,7 +6,7 @@ import os
 from itertools import filterfalse
 from collections import namedtuple
 
-from packaging.version import Version
+from packaging.version import Version, InvalidVersion
 
 
 def _is_comment(line):
@@ -119,7 +119,10 @@ def _strip_local_version_identifier(version):
         def local(self):
             return None
 
-    return str(IgnoreLocal(version))
+    try:
+        return str(IgnoreLocal(version))
+    except InvalidVersion:
+        return version
 
 
 def _get_installed_version(module):
