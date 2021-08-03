@@ -111,7 +111,7 @@ def _strip_local_version_identifier(version):
     Local version identifiers:
     https://www.python.org/dev/peps/pep-0440/#local-version-identifiers
 
-    :param version: A string package version.
+    :param version: A version string to strip.
     """
 
     class IgnoreLocal(Version):
