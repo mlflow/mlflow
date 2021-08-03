@@ -916,25 +916,22 @@ def test_load_model_raises_exception_when_pickle_module_cannot_be_imported(
 
 
 @pytest.mark.large
-def test_pyfunc_serve_and_score():
-    model = torch.nn.Linear(1, 1, dtype=torch.double)
-    model.eval()
+def test_pyfunc_serve_and_score(data):
+    model = torch.nn.Linear(4, 1)
+    train_model(model=model, data=data)
 
     with mlflow.start_run():
         mlflow.pytorch.log_model(model, artifact_path="model")
         model_uri = mlflow.get_artifact_uri("model")
 
-    inputs = [[0.0], [1.0], [2.0]]
-    data = json.dumps({"inputs": inputs})
     resp = pyfunc_serve_and_score_model(
         model_uri,
-        data,
-        pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        data[0],
+        pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    np.testing.assert_array_equal(
-        json.loads(resp.content), model(torch.tensor(inputs).double()).detach().numpy(),
-    )
+    scores = pd.DataFrame(json.loads(resp.content))
+    np.testing.assert_array_almost_equal(scores.values[:, 0], _predict(model=model, data=data))
 
 
 @pytest.mark.release
