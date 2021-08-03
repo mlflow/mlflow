@@ -120,3 +120,28 @@ def _strip_local_version_identifier(version):
             return None
 
     return str(IgnoreLocal(version))
+
+
+def _get_installed_version(module):
+    """
+    Returns the installed version of the specified module.
+
+    :param module: The name of the module.
+    """
+    return __import__(module).__version__
+
+
+def _get_pinned_requirement(package, version=None, module=None):
+    """
+    Returns a string representing a pinned pip requirement to install the specified package and
+    version (e.g. 'mlflow==1.2.3').
+
+    :param package: The name of the package.
+    :param version: The version of the package. If None, defaults to the installed version.
+    :param module: The name of the top-level module provided by the package . For example,
+                   if `package` is 'scikit-learn', `module` should be 'sklearn'.
+    """
+    module = module or package
+    version = version or _get_installed_version(module)
+    version = _strip_local_version_identifier(version)
+    return f"{package}=={version}"
