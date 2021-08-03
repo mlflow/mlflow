@@ -35,6 +35,7 @@ from mlflow.utils.environment import (
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
 )
+from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -59,13 +60,9 @@ def get_default_pip_requirements(include_cloudpickle=False):
              Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
              that, at minimum, contains these requirements.
     """
-    import fastai
-
-    pip_deps = ["fastai=={}".format(fastai.__version__)]
+    pip_deps = [_get_pinned_requirement("fastai")]
     if include_cloudpickle:
-        import cloudpickle
-
-        pip_deps.append("cloudpickle=={}".format(cloudpickle.__version__))
+        pip_deps.append(_get_pinned_requirement("cloudpickle"))
 
     return pip_deps
 

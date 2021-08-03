@@ -13,7 +13,6 @@ import os
 import yaml
 import warnings
 
-import cloudpickle
 import numpy as np
 import pandas as pd
 from packaging.version import Version
@@ -40,6 +39,7 @@ from mlflow.utils.environment import (
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
 )
+from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.file_utils import _copy_file_or_tree, TempDir, write_to
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -63,17 +63,19 @@ def get_default_pip_requirements():
              Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
              that, at minimum, contains these requirements.
     """
-    import torch
-    import torchvision
-
-    return [
-        "torch=={}".format(torch.__version__),
-        "torchvision=={}".format(torchvision.__version__),
-        # We include CloudPickle in the default environment because
-        # it's required by the default pickle module used by `save_model()`
-        # and `log_model()`: `mlflow.pytorch.pickle_module`.
-        "cloudpickle=={}".format(cloudpickle.__version__),
-    ]
+    return list(
+        map(
+            _get_pinned_requirement,
+            [
+                "torch",
+                "torchvision",
+                # We include CloudPickle in the default environment because
+                # it's required by the default pickle module used by `save_model()`
+                # and `log_model()`: `mlflow.pytorch.pickle_module`.
+                "cloudpickle",
+            ],
+        )
+    )
 
 
 def get_default_conda_env():
