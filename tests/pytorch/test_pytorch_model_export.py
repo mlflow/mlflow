@@ -51,8 +51,6 @@ except ImportError:
         "Failed to import test helper functions. Tests depending on these functions may fail!"
     )
 
-# Avoid creating a conda environment in `pyfunc_serve_and_score_model` if the installed version of
-# torch is not available on PyPI.
 EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("torch") else ["--no-conda"]
 
 
@@ -602,10 +600,7 @@ def test_pyfunc_model_serving_with_module_scoped_subclassed_model_and_default_co
     module_scoped_subclassed_model, model_path, data
 ):
     mlflow.pytorch.save_model(
-        path=model_path,
-        pytorch_model=module_scoped_subclassed_model,
-        extra_pip_requirements=["pytest"],
-        code_paths=[__file__],
+        path=model_path, pytorch_model=module_scoped_subclassed_model, code_paths=[__file__],
     )
 
     scoring_response = pyfunc_serve_and_score_model(
@@ -676,10 +671,7 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
     # `tests` module is not available when the model is deployed for local scoring, we include
     # the test suite file as a code dependency
     mlflow.pytorch.save_model(
-        path=model_path,
-        pytorch_model=module_scoped_subclassed_model,
-        extra_pip_requirements=["pytest"],
-        code_paths=[__file__],
+        path=model_path, pytorch_model=module_scoped_subclassed_model, code_paths=[__file__],
     )
 
     # Define a custom pyfunc model that loads a PyTorch model artifact using
