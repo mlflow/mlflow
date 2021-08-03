@@ -3,7 +3,6 @@ This module provides a set of utilities for interpreting and creating requiremen
 (e.g. pip's `requirements.txt`), which is useful for managing ML software environments.
 """
 import os
-import importlib_metadata
 from itertools import filterfalse
 from collections import namedtuple
 
