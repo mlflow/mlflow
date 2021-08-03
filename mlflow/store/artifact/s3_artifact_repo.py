@@ -58,6 +58,7 @@ class S3ArtifactRepository(ArtifactRepository):
         # Workaround for https://github.com/boto/botocore/issues/2442
         if signature_version.lower() == "unsigned":
             from botocore import UNSIGNED
+
             signature_version = UNSIGNED
         return boto3.client(
             "s3",
