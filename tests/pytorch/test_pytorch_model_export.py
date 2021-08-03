@@ -612,7 +612,7 @@ def test_pyfunc_model_serving_with_module_scoped_subclassed_model_and_default_co
         model_uri=model_path,
         data=data[0],
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
+        extra_args=["--no-conda"],
     )
     assert scoring_response.status_code == 200
 
@@ -656,7 +656,7 @@ def test_pyfunc_model_serving_with_main_scoped_subclassed_model_and_custom_pickl
         model_uri=model_path,
         data=data[0],
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
+        extra_args=["--no-conda"],
     )
     assert scoring_response.status_code == 200
 
@@ -714,7 +714,7 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
         model_uri=pyfunc_model_path,
         data=data[0],
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
+        extra_args=["--no-conda"],
     )
     assert scoring_response.status_code == 200
 
@@ -913,6 +913,28 @@ def test_load_model_raises_exception_when_pickle_module_cannot_be_imported(
 
     assert "Failed to import the pickle module" in str(exc_info)
     assert bad_pickle_module_name in str(exc_info)
+
+
+@pytest.mark.large
+def test_pyfunc_serve_and_score():
+    model = torch.nn.Linear(1, 1, dtype=torch.double)
+    model.eval()
+
+    with mlflow.start_run():
+        mlflow.pytorch.log_model(model, artifact_path="model")
+        model_uri = mlflow.get_artifact_uri("model")
+
+    inputs = [[0.0], [1.0], [2.0]]
+    data = json.dumps({"inputs": inputs})
+    resp = pyfunc_serve_and_score_model(
+        model_uri,
+        data,
+        pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
+    )
+    np.testing.assert_array_equal(
+        json.loads(resp.content), model(torch.tensor(inputs).double()).detach().numpy(),
+    )
 
 
 @pytest.mark.release
