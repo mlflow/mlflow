@@ -139,7 +139,8 @@ def _get_pinned_requirement(package, version=None, module=None):
     :param package: The name of the package.
     :param version: The version of the package. If None, defaults to the installed version.
     :param module: The name of the top-level module provided by the package . For example,
-                   if `package` is 'scikit-learn', `module` should be 'sklearn'.
+                   if `package` is 'scikit-learn', `module` should be 'sklearn'. If None, defaults
+                   to `package`.
     """
     module = module or package
     version = version or _get_installed_version(module)
