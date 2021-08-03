@@ -47,9 +47,9 @@ SKINNY_REQUIREMENTS = [
     "pytz",
     "requests>=2.17.3",
     "packaging",
-    # `mlflow.infer_pip_requirements` relies on `importlib_metadata.packages_distributions`
-    # to resolve a module name to its package name (e.g. 'sklearn' -> 'scikit-learn').
-    # Only importlib_metadata >= 3.7.0 supports this function:
+    # Automated dependency detection in MLflow Models relies on
+    # `importlib_metadata.packages_distributions` to resolve a module name to its package name
+    # (e.g. 'sklearn' -> 'scikit-learn'). importlib_metadata 3.7.0 or newer supports this function:
     # https://github.com/python/importlib_metadata/blob/main/CHANGES.rst#v370
     "importlib_metadata>=3.7.0",
 ]
