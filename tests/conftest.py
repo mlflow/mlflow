@@ -112,7 +112,7 @@ def prevent_fallback_in_save_model():
         if msg == _INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE and _called_in_save_model():
             raise Exception(
                 "`mlflow.infer_pip_requirements` should not fall back in `mlflow.*.save_model`"
-                " while testing"
+                " during test"
             )
 
     with mock.patch("mlflow.utils.environment._logger.exception", new=new_exception):
