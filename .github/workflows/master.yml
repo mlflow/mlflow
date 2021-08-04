@@ -314,6 +314,8 @@ jobs:
         run: |
           export PATH="$CONDA_DIR/bin:$PATH"
           source activate test-environment
+          # Install libopenblas-dev for mxnet 1.8.0.post0
+          sudo apt-get install libopenblas-dev
           ./dev/run-python-flavor-tests.sh;
 
   import:
