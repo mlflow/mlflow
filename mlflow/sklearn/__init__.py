@@ -1479,9 +1479,13 @@ def autolog(
         if not hasattr(class_def, func_name):
             return
 
-        original = getattr(class_def, func_name)
+        original = gorilla.get_original_attribute(
+            class_def, func_name, bypass_descriptor_protocol=False
+        )
         # Retrieve raw attribute while bypassing the descriptor protocol
-        raw_original_obj = gorilla.get_attribute(class_def, func_name)
+        raw_original_obj = gorilla.get_original_attribute(
+            class_def, func_name, bypass_descriptor_protocol=True
+        )
 
         if isinstance(raw_original_obj, property):
             def real_original(self, *args, **kwargs):
