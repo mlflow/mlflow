@@ -634,7 +634,6 @@ def test_save_model_without_specified_conda_env_uses_default_env_with_expected_d
         tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
         tf_signature_def_key=saved_tf_iris_model.signature_def_key,
         path=model_path,
-        conda_env=None,
     )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -656,7 +655,6 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
             tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
             tf_signature_def_key=saved_tf_iris_model.signature_def_key,
             artifact_path=artifact_path,
-            conda_env=None,
         )
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
