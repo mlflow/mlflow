@@ -354,7 +354,7 @@ def _assert_pip_requirements(model_uri, requirements, constraints=None):
     assert requirements.issubset(txt_reqs)
     assert requirements.issubset(conda_reqs)
 
-    if constraints is None:
+    if constraints is not None:
         assert f"-c {_CONSTRAINTS_FILE_NAME}" in txt_reqs
         assert f"-c {_CONSTRAINTS_FILE_NAME}" in conda_reqs
         cons = _read_lines(os.path.join(local_path, _CONSTRAINTS_FILE_NAME))

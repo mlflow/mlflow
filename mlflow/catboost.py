@@ -146,12 +146,23 @@ def save_model(
     model_data_path = os.path.join(path, _MODEL_BINARY_FILE_NAME)
     cb_model.save_model(model_data_path, **kwargs)
 
+    flavor_conf = {
+        _MODEL_TYPE_KEY: cb_model.__class__.__name__,
+        _SAVE_FORMAT_KEY: kwargs.get("format", "cbm"),
+    }
+
     if conda_env is None:
         default_requirements = get_default_pip_requirements()
         if not pip_requirements:
+            # HACK: Temporarily create an MLmodel file because `mlflow.catboost._load_pyfunc`
+            # requires it to get model type and save format.
+            save_path = os.path.join(path, MLMODEL_FILE_NAME)
+            Model().add_flavor(FLAVOR_NAME, **flavor_conf).save(save_path)
             default_requirements = mlflow.infer_pip_requirements(
                 model_data_path, FLAVOR_NAME, fallback=default_requirements,
             )
+            os.remove(save_path)  # Clean up the MLmodel file
+
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
             default_requirements, pip_requirements, extra_pip_requirements,
         )
@@ -172,14 +183,8 @@ def save_model(
     pyfunc.add_to_model(
         mlflow_model, loader_module="mlflow.catboost", env=_CONDA_ENV_FILE_NAME, **model_bin_kwargs,
     )
-
-    flavor_conf = {
-        _MODEL_TYPE_KEY: cb_model.__class__.__name__,
-        _SAVE_FORMAT_KEY: kwargs.get("format", "cbm"),
-        **model_bin_kwargs,
-    }
     mlflow_model.add_flavor(
-        FLAVOR_NAME, catboost_version=cb.__version__, **flavor_conf,
+        FLAVOR_NAME, catboost_version=cb.__version__, **flavor_conf, **model_bin_kwargs,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 

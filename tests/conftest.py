@@ -101,10 +101,11 @@ def _called_in_save_model():
     return False
 
 
-@pytest.fixture(scope="session", autouse=True)
-def prevent_fallback_in_save_model():
+@pytest.fixture(autouse=True)
+def prevent_fallback_in_save_model(request):
     """
-    Prevents `mlflow.infer_pip_requirements` from falling back in `mlflow.*.save_model`.
+    Prevents `mlflow.infer_pip_requirements` from falling back in `mlflow.*.save_model` unless
+    explicitly disabled via `pytest.mark.disable_prevent_fallback_in_save_model`.
     """
     from mlflow.utils.environment import _INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE
 
@@ -115,5 +116,8 @@ def prevent_fallback_in_save_model():
                 " during test"
             )
 
-    with mock.patch("mlflow.utils.environment._logger.exception", new=new_exception):
+    if "disable_prevent_fallback_in_save_model" not in request.keywords:
+        with mock.patch("mlflow.utils.environment._logger.exception", new=new_exception):
+            yield
+    else:
         yield
