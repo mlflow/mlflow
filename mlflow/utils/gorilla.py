@@ -292,6 +292,8 @@ def apply(patch):
     to have already been stored, then it won't be stored again to avoid losing
     the original attribute that was stored the first time around.
     """
+    # is_inplace_patch = True represents the patch object will overwrite the original
+    # attribute
     patch.is_inplace_patch = patch.name in patch.destination.__dict__
     settings = Settings() if patch.settings is None else patch.settings
 
@@ -356,19 +358,18 @@ def revert(patch):
 
     # check whether original_name is in destination. We cannot use hasattr because it will
     # try to get attribute from parent classes if attribute not found in destination class.
-    if original_name not in patch.destination.__dict__ and not patch.is_inplace_patch:
+    if original_name not in patch.destination.__dict__ and patch.is_inplace_patch:
         raise RuntimeError(
             "Cannot revert the attribute named '%s' since the setting "
             "'store_hit' was not set to True when applying the patch."
             % (patch.destination.__name__,)
         )
 
-    # during reverting patch, we need restore the raw attribute to the patch point
-    # so get original attribute bypassing descriptor protocal
-    original = object.__getattribute__(patch.destination, original_name)
-
     if patch.is_inplace_patch:
         # restore original method
+        # during reverting patch, we need restore the raw attribute to the patch point
+        # so get original attribute bypassing descriptor protocal
+        original = object.__getattribute__(patch.destination, original_name)
         setattr(patch.destination, patch.name, original)
     else:
         # delete patched method
