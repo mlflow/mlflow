@@ -34,9 +34,8 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Validate
-      uses: actions/github-script@v3
+      uses: actions/github-script@v4
       with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
           const script = require(
             `${process.env.GITHUB_WORKSPACE}/.github/workflows/notify-dco-failure.js`
