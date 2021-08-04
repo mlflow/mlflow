@@ -9,7 +9,7 @@ module.exports = async ({ context, github }) => {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  function getDcoCheck() {
+  async function getDcoCheck() {
     for (const sec of [0, 2, 4, 6, 8]) {
       await sleep(sec * 1000);
       const resp = await github.checks.listForRef({
@@ -26,7 +26,7 @@ module.exports = async ({ context, github }) => {
     }
   }
 
-  const dcoCheck = getDcoCheck();
+  const dcoCheck = await getDcoCheck();
   const { html_url, conclusion } = dcoCheck;
 
   if (conclusion !== "success") {
