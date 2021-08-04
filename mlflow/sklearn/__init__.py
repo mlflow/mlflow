@@ -217,19 +217,18 @@ def save_model(
     )
 
     include_cloudpickle = serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE
-    conda_env, pip_requirements, pip_constraints = (
-        _process_pip_requirements(
-            mlflow.infer_pip_requirements(
-                model_data_path,
-                FLAVOR_NAME,
-                fallback=get_default_pip_requirements(include_cloudpickle=include_cloudpickle),
-            ),
-            pip_requirements,
-            extra_pip_requirements,
+    if conda_env is None:
+        default_reqs = get_default_pip_requirements(include_cloudpickle)
+        if not pip_requirements:
+            inferred_reqs = mlflow.infer_pip_requirements(
+                model_data_path, FLAVOR_NAME, fallback=default_reqs,
+            )
+            default_reqs = list(set(inferred_reqs).union(default_reqs))
+        conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
+            default_reqs, pip_requirements, extra_pip_requirements,
         )
-        if conda_env is None
-        else _process_conda_env(conda_env)
-    )
+    else:
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
 
     with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)

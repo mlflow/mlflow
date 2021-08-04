@@ -279,17 +279,17 @@ def save_model(
         save_format=save_format,
         data=data_subpath,
     )
-
+    include_cloudpickle = custom_objects is not None
     if conda_env is None:
-        default_requirements = get_default_pip_requirements(
-            include_cloudpickle=custom_objects is not None, keras_module=keras_module
-        )
-        if not pip_requirements:
-            default_requirements = mlflow.infer_pip_requirements(
-                data_path, FLAVOR_NAME, fallback=default_requirements,
+        default_reqs = get_default_pip_requirements(include_cloudpickle, keras_module)
+        if pip_requirements is None:
+            inferred_reqs = mlflow.infer_pip_requirements(
+                data_path, FLAVOR_NAME, fallback=default_reqs
             )
+            default_reqs = list(set(inferred_reqs).union(default_reqs))
+
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
-            default_requirements, pip_requirements, extra_pip_requirements,
+            default_reqs, pip_requirements, extra_pip_requirements,
         )
     else:
         conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)

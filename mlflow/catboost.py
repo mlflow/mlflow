@@ -152,19 +152,20 @@ def save_model(
     }
 
     if conda_env is None:
-        default_requirements = get_default_pip_requirements()
+        default_reqs = get_default_pip_requirements()
         if not pip_requirements:
             # HACK: Temporarily create an MLmodel file because `mlflow.catboost._load_pyfunc`
             # requires it to get model type and save format.
             save_path = os.path.join(path, MLMODEL_FILE_NAME)
             Model().add_flavor(FLAVOR_NAME, **flavor_conf).save(save_path)
-            default_requirements = mlflow.infer_pip_requirements(
-                model_data_path, FLAVOR_NAME, fallback=default_requirements,
+            inferred_reqs = mlflow.infer_pip_requirements(
+                model_data_path, FLAVOR_NAME, fallback=default_reqs,
             )
             os.remove(save_path)  # Clean up the MLmodel file
+            default_reqs = list(set(inferred_reqs).union(default_reqs))
 
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
-            default_requirements, pip_requirements, extra_pip_requirements,
+            default_reqs, pip_requirements, extra_pip_requirements,
         )
     else:
         conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
