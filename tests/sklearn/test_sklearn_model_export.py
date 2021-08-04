@@ -666,6 +666,7 @@ def test_pyfunc_serve_and_score(sklearn_knn_model):
         model_uri,
         data=pd.DataFrame(inference_dataframe),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
     scores = pd.read_json(resp.content, orient="records").values.squeeze()
     np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe))
