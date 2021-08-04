@@ -3,9 +3,7 @@
 import os
 import pytest
 import yaml
-import json
 import pandas as pd
-import pandas.testing
 from collections import namedtuple
 
 import numpy as np

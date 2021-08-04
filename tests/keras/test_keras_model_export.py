@@ -3,7 +3,6 @@
 from packaging.version import Version
 import h5py
 import os
-import json
 import pytest
 import shutil
 import importlib

@@ -5,7 +5,6 @@ import os
 import shutil
 import pytest
 import yaml
-import json
 from unittest import mock
 
 import numpy as np
@@ -16,7 +15,6 @@ import tensorflow as tf
 
 import mlflow
 import mlflow.tensorflow
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.exceptions import MlflowException
 from mlflow import pyfunc
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository

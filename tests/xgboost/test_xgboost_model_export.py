@@ -2,12 +2,10 @@ from unittest import mock
 import os
 import pytest
 import yaml
-import json
 from collections import namedtuple
 
 import numpy as np
 import pandas as pd
-import pandas.testing
 import sklearn.datasets as datasets
 import xgboost as xgb
 

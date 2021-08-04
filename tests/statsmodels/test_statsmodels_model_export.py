@@ -4,8 +4,6 @@ import pandas as pd
 from unittest import mock
 import os
 import yaml
-import json
-import pandas.testing
 
 import mlflow.statsmodels
 import mlflow.utils
