@@ -29,7 +29,7 @@ env:
 
 jobs:
   notify-dco-failure:
-    if: ${{ github.event_name == 'pull_request' }}
+    if: ${{ github.event_name == 'pull_request' && github.event.action == 'opened' }}
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
