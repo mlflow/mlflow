@@ -11,6 +11,7 @@ module.exports = async ({ context, github }) => {
     ref,
     app_id: 1861, // ID of the DCO check app
   });
+  console.log(resp);
   const dcoCheck = resp.data.check_runs[0];
   const { html_url, conclusion } = dcoCheck;
 
