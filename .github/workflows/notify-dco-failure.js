@@ -1,5 +1,6 @@
 module.exports = async ({ context, github }) => {
   console.log(context);
+
   const { after: ref } = context.payload;
   const { owner, repo } = context.repo;
   const { number: issue_number } = context.issue;
