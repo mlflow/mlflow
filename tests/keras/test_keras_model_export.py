@@ -169,6 +169,7 @@ def keras_custom_env(tmpdir):
     return conda_env
 
 
+@pytest.mark.disable_prevent_infer_pip_requirements_fallback
 def test_that_keras_module_arg_works(model_path):
     class MyModel(object):
         def __init__(self, x):
@@ -604,6 +605,7 @@ def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_p
     assert all(model_loaded.predict(data[0].values) == tf_keras_model.predict(data[0].values))
 
 
+@pytest.mark.disable_prevent_infer_pip_requirements_fallback
 def test_save_model_with_tf_save_format(model_path):
     """Ensures that Keras models can be saved with SavedModel format.
 
