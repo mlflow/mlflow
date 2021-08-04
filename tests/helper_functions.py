@@ -20,7 +20,12 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.pyfunc
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import read_yaml, write_yaml
-from mlflow.utils.environment import _get_pip_deps, _CONSTRAINTS_FILE_NAME
+from mlflow.utils.environment import (
+    _get_pip_deps,
+    _CONDA_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
+)
 from mlflow.utils.requirements_utils import _strip_local_version_identifier, _get_installed_version
 
 LOCALHOST = "127.0.0.1"
@@ -338,13 +343,18 @@ def _compare_conda_env_requirements(env_path, req_path):
 
 
 def _assert_pip_requirements(model_uri, requirements, constraints=None):
+    """
+    Asserts the pip requirements of the specified MLflow model *contain* `requirements`.
+    If `constraints` is passed, asserts the pip constraints *match* `constraints`.
+    """
     local_path = _download_artifact_from_uri(model_uri)
-    txt_reqs = _read_lines(os.path.join(local_path, "requirements.txt"))
-    conda_reqs = _get_pip_deps(_read_yaml(os.path.join(local_path, "conda.yaml")))
-    assert txt_reqs == requirements
-    assert conda_reqs == requirements
+    txt_reqs = _read_lines(os.path.join(local_path, _REQUIREMENTS_FILE_NAME))
+    conda_reqs = _get_pip_deps(_read_yaml(os.path.join(local_path, _CONDA_ENV_FILE_NAME)))
+    requirements = set(requirements)
+    assert requirements.issubset(txt_reqs)
+    assert requirements.issubset(conda_reqs)
 
-    if constraints:
+    if constraints is None:
         assert f"-c {_CONSTRAINTS_FILE_NAME}" in txt_reqs
         assert f"-c {_CONSTRAINTS_FILE_NAME}" in conda_reqs
         cons = _read_lines(os.path.join(local_path, _CONSTRAINTS_FILE_NAME))
