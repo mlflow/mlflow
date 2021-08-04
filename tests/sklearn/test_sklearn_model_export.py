@@ -4,12 +4,10 @@ import os
 import pickle
 import pytest
 import yaml
-import json
 from collections import namedtuple
 
 import numpy as np
 import pandas as pd
-import pandas.testing
 import sklearn.datasets as datasets
 import sklearn.linear_model as glm
 import sklearn.neighbors as knn
