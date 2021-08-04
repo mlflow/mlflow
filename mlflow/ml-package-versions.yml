@@ -104,6 +104,7 @@ keras:
       "== 2.3.1": ["tensorflow==2.2.1", "scikit-learn", "pyspark", "pyarrow"]
       "> 2.3.1": ["tensorflow<2.5.0", "scikit-learn", "pyspark", "pyarrow"]
     run: |
+      pip install transformers
       pytest tests/keras/test_keras_model_export.py --large
 
   autologging:
