@@ -356,16 +356,15 @@ def revert(patch):
 
     original_name = _ORIGINAL_NAME % (patch.name,)
 
-    # check whether original_name is in destination. We cannot use hasattr because it will
-    # try to get attribute from parent classes if attribute not found in destination class.
-    if original_name not in patch.destination.__dict__ and patch.is_inplace_patch:
-        raise RuntimeError(
-            "Cannot revert the attribute named '%s' since the setting "
-            "'store_hit' was not set to True when applying the patch."
-            % (patch.destination.__name__,)
-        )
-
     if patch.is_inplace_patch:
+        # check whether original_name is in destination. We cannot use hasattr because it will
+        # try to get attribute from parent classes if attribute not found in destination class.
+        if original_name not in patch.destination.__dict__:
+            raise RuntimeError(
+                "Cannot revert the attribute named '%s' since the setting "
+                "'store_hit' was not set to True when applying the patch."
+                % (patch.destination.__name__,)
+            )
         # restore original method
         # during reverting patch, we need restore the raw attribute to the patch point
         # so get original attribute bypassing descriptor protocal
