@@ -1520,3 +1520,26 @@ def test_nested_call_autologging_disabled_when_top_level_call_autologging_failed
             patch_destination.recursive_fn(level=0, max_depth=max_depth)
         assert patch_impl_call_count == 1
         assert patch_destination.recurse_fn_call_count == max_depth + 1
+
+
+def test_old_patch_reverted_before_run_autolog_fn():
+    class PatchDestination:
+        def f1(self):
+            pass
+
+    original_f1 = PatchDestination.f1
+
+    @autologging_integration("test_old_patch_reverted_before_run_autolog_fn")
+    def autolog(disable=False, exclusive=False, silent=False):
+        assert PatchDestination.f1 is original_f1  # assert old patch has been reverted.
+
+        def patch_impl(original, *args, **kwargs):
+            pass
+
+        safe_patch(
+            "test_old_patch_reverted_before_run_autolog_fn", PatchDestination, "f1", patch_impl,
+        )
+
+    autolog(disable=True)
+    autolog()
+    autolog()  # Test second time call autolog will revert first autolog call installed patch

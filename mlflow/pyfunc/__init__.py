@@ -238,6 +238,7 @@ from mlflow.utils.environment import (
     _validate_env_arguments,
     _process_pip_requirements,
     _process_conda_env,
+    _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
 )
@@ -811,7 +812,7 @@ def spark_udf(spark, model_uri, result_type="double"):
     if not any([isinstance(elem_type, x) for x in supported_types]):
         raise MlflowException(
             message="Invalid result_type '{}'. Result type can only be one of or an array of one "
-            "of the following types types: {}".format(str(elem_type), str(supported_types)),
+            "of the following types: {}".format(str(elem_type), str(supported_types)),
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -1298,8 +1299,7 @@ def _save_model_with_loader_module_and_data_path(
         else _process_conda_env(conda_env)
     )
 
-    conda_env_subpath = "conda.yaml"
-    with open(os.path.join(path, conda_env_subpath), "w") as f:
+    with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     # Save `constraints.txt` if necessary
@@ -1310,7 +1310,7 @@ def _save_model_with_loader_module_and_data_path(
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
     mlflow.pyfunc.add_to_model(
-        mlflow_model, loader_module=loader_module, code=code, data=data, env=conda_env_subpath
+        mlflow_model, loader_module=loader_module, code=code, data=data, env=_CONDA_ENV_FILE_NAME
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
     return mlflow_model

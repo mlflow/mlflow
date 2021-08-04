@@ -11,6 +11,7 @@ import sklearn.datasets as datasets
 
 import mlflow.catboost
 from mlflow import pyfunc
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.models.utils import _read_example
 from mlflow.models import Model, infer_signature
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -21,7 +22,14 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
-from tests.helper_functions import _compare_conda_env_requirements, _assert_pip_requirements
+from tests.helper_functions import (
+    pyfunc_serve_and_score_model,
+    _compare_conda_env_requirements,
+    _assert_pip_requirements,
+    _is_available_on_pypi,
+)
+
+EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("catboost") else ["--no-conda"]
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
 
@@ -367,3 +375,20 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     pyfunc_conf = _get_flavor_configuration(model_path=local_path, flavor_name=pyfunc.FLAVOR_NAME)
     conda_env_path = os.path.join(local_path, pyfunc_conf[pyfunc.ENV])
     assert read_yaml(conda_env_path) == mlflow.catboost.get_default_conda_env()
+
+
+@pytest.mark.large
+def test_pyfunc_serve_and_score(reg_model):
+    model, inference_dataframe = reg_model
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.catboost.log_model(model, artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    resp = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_dataframe,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+    )
+    scores = pd.read_json(resp.content, orient="records").values.squeeze()
+    np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe))

@@ -41,10 +41,12 @@ from mlflow.utils.environment import (
     _validate_env_arguments,
     _process_pip_requirements,
     _process_conda_env,
+    _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
 )
 from mlflow.utils import gorilla
+from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
@@ -56,6 +58,7 @@ from mlflow.utils.autologging_utils import (
     resolve_input_example_and_signature,
     _get_new_training_session_class,
     MlflowAutologgingQueueingClient,
+    disable_autologging,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -76,13 +79,9 @@ def get_default_pip_requirements(include_cloudpickle=False):
              Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
              that, at minimum, contains these requirements.
     """
-    import sklearn
-
-    pip_deps = ["scikit-learn=={}".format(sklearn.__version__)]
+    pip_deps = [_get_pinned_requirement("scikit-learn", module="sklearn")]
     if include_cloudpickle:
-        import cloudpickle
-
-        pip_deps += ["cloudpickle=={}".format(cloudpickle.__version__)]
+        pip_deps += [_get_pinned_requirement("cloudpickle")]
 
     return pip_deps
 
@@ -233,8 +232,7 @@ def save_model(
         else _process_conda_env(conda_env)
     )
 
-    conda_env_subpath = "conda.yaml"
-    with open(os.path.join(path, conda_env_subpath), "w") as f:
+    with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     # Save `constraints.txt` if necessary
@@ -250,7 +248,7 @@ def save_model(
             mlflow_model,
             loader_module="mlflow.sklearn",
             model_path=model_data_subpath,
-            env=conda_env_subpath,
+            env=_CONDA_ENV_FILE_NAME,
         )
     mlflow_model.add_flavor(
         FLAVOR_NAME,
@@ -503,6 +501,18 @@ def load_model(model_uri):
     return _load_model_from_local_file(
         path=sklearn_model_artifacts_path, serialization_format=serialization_format
     )
+
+
+# The `_apis_autologging_disabled` contains APIs which is incompatible with autologging,
+# when user call these APIs, autolog is temporarily disabled.
+_apis_autologging_disabled = [
+    "cross_validate",
+    "cross_val_predict",
+    "cross_val_score",
+    "learning_curve",
+    "permutation_test_score",
+    "validation_curve",
+]
 
 
 class _AutologgingMetricsManager:
@@ -1082,6 +1092,8 @@ def autolog(
     """
     import pandas as pd
     import sklearn
+    import sklearn.metrics
+    import sklearn.model_selection
 
     from mlflow.models import infer_signature
     from mlflow.sklearn.utils import (
@@ -1546,10 +1558,24 @@ def autolog(
             class_def, 'score', patched_model_score, manage_run=False,
         )
 
-    from sklearn import metrics
-
     for metric_name in _get_metric_name_list():
-        safe_patch(FLAVOR_NAME, metrics, metric_name, patched_metric_api, manage_run=False)
+        safe_patch(FLAVOR_NAME, sklearn.metrics, metric_name, patched_metric_api, manage_run=False)
+
+    for scorer in sklearn.metrics.SCORERS.values():
+        safe_patch(FLAVOR_NAME, scorer, "_score_func", patched_metric_api, manage_run=False)
+
+    def patched_fn_with_autolog_disabled(original, *args, **kwargs):
+        with disable_autologging():
+            return original(*args, **kwargs)
+
+    for disable_autolog_func_name in _apis_autologging_disabled:
+        safe_patch(
+            FLAVOR_NAME,
+            sklearn.model_selection,
+            disable_autolog_func_name,
+            patched_fn_with_autolog_disabled,
+            manage_run=False,
+        )
 
 
 def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):

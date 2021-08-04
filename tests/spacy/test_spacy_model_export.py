@@ -13,6 +13,7 @@ import mlflow.spacy
 from sklearn.datasets import fetch_20newsgroups
 
 from mlflow import pyfunc
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
@@ -21,7 +22,14 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from tests.conftest import tracking_uri_mock  # pylint: disable=unused-import, E0611
-from tests.helper_functions import _compare_conda_env_requirements, _assert_pip_requirements
+from tests.helper_functions import (
+    pyfunc_serve_and_score_model,
+    _compare_conda_env_requirements,
+    _assert_pip_requirements,
+    _is_available_on_pypi,
+)
+
+EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("spacy") else ["--no-conda"]
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
@@ -400,6 +408,24 @@ def test_model_log_without_pyfunc_flavor():
 
         loaded_model = Model.load(model_path)
         assert loaded_model.flavors.keys() == {"spacy"}
+
+
+@pytest.mark.large
+def test_pyfunc_serve_and_score(spacy_model_with_data):
+    model, inference_dataframe = spacy_model_with_data
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.spacy.log_model(model, artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    resp = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_dataframe,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
+    )
+    scores = pd.read_json(resp.content, orient="records")
+    pd.testing.assert_frame_equal(scores, _predict(model, inference_dataframe))
 
 
 def _train_model(nlp, train_data, n_iter=5):

@@ -2,12 +2,10 @@ from unittest import mock
 import os
 import pytest
 import yaml
-import json
 from collections import namedtuple
 
 import numpy as np
 import pandas as pd
-import pandas.testing
 import sklearn.datasets as datasets
 import xgboost as xgb
 
@@ -27,10 +25,13 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.helper_functions import (
-    score_model_in_sagemaker_docker_container,
+    pyfunc_serve_and_score_model,
     _compare_conda_env_requirements,
     _assert_pip_requirements,
+    _is_available_on_pypi,
 )
+
+EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("xgboost") else ["--no-conda"]
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe", "inference_dmatrix"])
 
@@ -418,22 +419,19 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     assert conda_env == mlflow.xgboost.get_default_conda_env()
 
 
-@pytest.mark.release
-def test_sagemaker_docker_model_scoring_with_default_conda_env(xgb_model, model_path):
-    mlflow.xgboost.save_model(xgb_model=xgb_model.model, path=model_path, conda_env=None)
-    reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+@pytest.mark.large
+def test_pyfunc_serve_and_score(xgb_model):
+    model, inference_dataframe, inference_dmatrix = xgb_model
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.xgboost.log_model(model, artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    scoring_response = score_model_in_sagemaker_docker_container(
-        model_uri=model_path,
-        data=xgb_model.inference_dataframe,
+    resp = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_dataframe,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        flavor=mlflow.pyfunc.FLAVOR_NAME,
+        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
-
-    pandas.testing.assert_frame_equal(
-        deployed_model_preds,
-        pd.DataFrame(reloaded_pyfunc.predict(xgb_model.inference_dataframe)),
-        check_dtype=False,
-        check_less_precise=6,
-    )
+    scores = pd.read_json(resp.content, orient="records").values.squeeze()
+    np.testing.assert_array_almost_equal(scores, model.predict(inference_dmatrix))

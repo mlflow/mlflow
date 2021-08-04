@@ -933,11 +933,12 @@ def test_autolog_logs_signature_only_when_estimator_defines_predict():
 def test_autolog_does_not_throw_when_predict_fails():
     X, y = get_iris()
 
+    mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
+
     # Note that `mock_warning` will be called twice because if `predict` throws, `score` also throws
     with mlflow.start_run() as run, mock.patch(
         "sklearn.linear_model.LinearRegression.predict", side_effect=Exception("Failed")
     ), mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
-        mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
 
@@ -1468,6 +1469,38 @@ def test_metric_computation_handles_absent_labels():
     assert MODEL_DIR in artifacts
 
 
+@pytest.mark.parametrize("cross_val_func_name", mlflow.sklearn._apis_autologging_disabled)
+def test_autolog_disabled_on_sklearn_cross_val_api(cross_val_func_name):
+    mlflow.sklearn.autolog()
+    from sklearn import linear_model
+
+    def assert_autolog_disabled_during_exec_cross_val_fun(run_):
+        params, metrics, tags, artifacts = get_run_data(run_.info.run_id)
+        assert params == {} and metrics == {} and tags == {} and artifacts == []
+
+    diabetes = sklearn.datasets.load_diabetes()
+    X = diabetes.data[:150]
+    y = diabetes.target[:150]
+    lasso = linear_model.Lasso()
+
+    if cross_val_func_name == "validation_curve":
+        extra_params = {"param_name": "max_iter", "param_range": [10, 100]}
+    else:
+        extra_params = {}
+
+    cross_val_func = getattr(sklearn.model_selection, cross_val_func_name)
+    with mlflow.start_run() as run:
+        cross_val_func(lasso, X, y, cv=3, **extra_params)
+        assert_autolog_disabled_during_exec_cross_val_fun(run)
+
+    # Ensure cross_val_func doesn't start a new run
+    exp_id = mlflow.tracking.fluent._get_experiment_id()
+    runs_info_before = mlflow.list_run_infos(exp_id)
+    cross_val_func(lasso, X, y, cv=3, **extra_params)
+    runs_info_after = mlflow.list_run_infos(exp_id)
+    assert len(runs_info_before) == len(runs_info_after)
+
+
 def load_json_artifact(artifact_path):
     import json
 
@@ -1502,6 +1535,8 @@ def test_basic_post_training_metric_autologging():
         scorer1 = sklmetrics.make_scorer(sklmetrics.recall_score, average="micro")
         recall_score3_data2 = scorer1(model, eval2_X, eval2_y)
 
+        recall_score4_data2 = sklearn.metrics.SCORERS["recall_macro"](model, eval2_X, eval2_y)
+
         eval1_X, eval1_y = eval1_X.copy(), eval1_y.copy()
         # In metric key, it will include dataset name as "eval1_X-2"
         lor_score_data1_2 = model.score(eval1_X, eval1_y)
@@ -1522,11 +1557,15 @@ def test_basic_post_training_metric_autologging():
         "LogisticRegression_score_eval1_X": lor_score_data1,
         "recall_score-2_eval2_X": recall_score2_data2,
         "recall_score-3_eval2_X": recall_score3_data2,
+        "recall_score-4_eval2_X": recall_score4_data2,
         "LogisticRegression_score-2_eval1_X-2": lor_score_data1_2,
         "LogisticRegression_score-3_unknown_dataset": lor_score_data1_3,
     }
 
     lor_score_3_cmd = "LogisticRegression.score(X=<ndarray>, y=<ndarray>)"
+    recall_score4_eval2_X_cmd = (
+        "recall_score(y_true=eval2_y, y_pred=y_pred, pos_label=None, average='macro')"
+    )
     assert metric_info == {
         "LogisticRegression_score-2_eval1_X-2": "LogisticRegression.score(X=eval1_X, y=eval1_y)",
         "LogisticRegression_score-3_unknown_dataset": lor_score_3_cmd,
@@ -1535,6 +1574,7 @@ def test_basic_post_training_metric_autologging():
         "r2_score_eval1_X": "r2_score(y_true=eval1_y, y_pred=pred1_y)",
         "recall_score-2_eval2_X": "recall_score(y_true=eval2_y, y_pred=pred2_y, average='micro')",
         "recall_score-3_eval2_X": "recall_score(y_true=eval2_y, y_pred=y_pred, average='micro')",
+        "recall_score-4_eval2_X": recall_score4_eval2_X_cmd,
         "recall_score_eval1_X": "recall_score(y_true=eval1_y, y_pred=pred1_y, average='macro')",
     }
 

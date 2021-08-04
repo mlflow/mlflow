@@ -30,9 +30,11 @@ from mlflow.utils.environment import (
     _validate_env_arguments,
     _process_pip_requirements,
     _process_conda_env,
+    _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
 )
+from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -55,8 +57,6 @@ _KERAS_MODULE_SPEC_PATH = "keras_module.txt"
 _KERAS_SAVE_FORMAT_PATH = "save_format.txt"
 # File name to which keras model is saved
 _MODEL_SAVE_PATH = "model"
-# Conda env subpath when saving/loading model
-_CONDA_ENV_SUBPATH = "conda.yaml"
 _PIP_ENV_SUBPATH = "requirements.txt"
 
 
@@ -74,13 +74,11 @@ def get_default_pip_requirements(include_cloudpickle=False, keras_module=None):
 
         keras_module = keras
     if keras_module.__name__ == "keras":
-        pip_deps.append("keras=={}".format(keras_module.__version__))
+        pip_deps.append(_get_pinned_requirement("keras"))
     if include_cloudpickle:
-        import cloudpickle
+        pip_deps.append(_get_pinned_requirement("cloudpickle"))
 
-        pip_deps.append("cloudpickle=={}".format(cloudpickle.__version__))
-
-    pip_deps.append("tensorflow=={}".format(tf.__version__))
+    pip_deps.append(_get_pinned_requirement("tensorflow"))
 
     # Tensorflow<2.4 does not work with h5py>=3.0.0
     # see https://github.com/tensorflow/tensorflow/issues/44467
@@ -294,8 +292,7 @@ def save_model(
         else _process_conda_env(conda_env)
     )
 
-    conda_env_subpath = "conda.yaml"
-    with open(os.path.join(path, conda_env_subpath), "w") as f:
+    with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     # Save `constraints.txt` if necessary
@@ -306,7 +303,7 @@ def save_model(
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
     # append loader_module, data and env data to mlflow_model
     pyfunc.add_to_model(
-        mlflow_model, loader_module="mlflow.keras", data=data_subpath, env=_CONDA_ENV_SUBPATH
+        mlflow_model, loader_module="mlflow.keras", data=data_subpath, env=_CONDA_ENV_FILE_NAME
     )
 
     # save mlflow_model to path/MLmodel

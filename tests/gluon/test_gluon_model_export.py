@@ -29,6 +29,7 @@ from tests.helper_functions import (
     pyfunc_serve_and_score_model,
     _compare_conda_env_requirements,
     _assert_pip_requirements,
+    _is_available_on_pypi,
 )
 
 if Version(mx.__version__) >= Version("2.0.0"):
@@ -39,6 +40,9 @@ else:
     from mxnet.metric import Accuracy  # pylint: disable=import-error
 
     array_module = mx.nd
+
+
+EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("mxnet") else ["--no-conda"]
 
 
 @pytest.fixture
@@ -309,7 +313,7 @@ def test_gluon_model_serving_and_scoring_as_pyfunc(gluon_model, model_data):
         model_uri=model_uri,
         data=pd.DataFrame(test_data.asnumpy()),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        extra_args=["--no-conda"],
+        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
     response_values = pd.read_json(scoring_response.content, orient="records").values.astype(
         np.float32
