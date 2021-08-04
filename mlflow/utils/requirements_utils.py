@@ -158,11 +158,14 @@ def _prune_packages(packages):
     return set(packages) - set(requires)
 
 
-def _run_command(cmd):
+def _run_command(cmd, env=None):
     """
     Runs the specified command. If it exits with non-zero status, `MlflowException` is raised.
     """
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    env = env or {}
+    proc = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env={**os.environ, **env}
+    )
     stdout, stderr = proc.communicate()
     stdout = stdout.decode("utf-8")
     stderr = stderr.decode("utf-8")
@@ -218,7 +221,8 @@ def _infer_requirements(model_uri, flavor):
                 flavor,
                 "--output-file",
                 output_file,
-            ]
+            ],
+            env={"PYTHONPATH": ":".join(sys.path)},
         )
         with open(output_file) as f:
             modules = f.read().splitlines()
