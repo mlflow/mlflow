@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
+from packaging.version import Version
 
 import sklearn
 import sklearn.base
@@ -1781,16 +1782,125 @@ def test_gen_metric_call_commands():
     assert cmd3 == "LinearRegression.score(X=data1, y=data2)"
 
 
-@pytest.mark.skip(reason='to be updated.')
-def test_autolog_skip_patch_non_callable_attribute():
-    """
-    LocalOutlierFactor.predict is a property (delegate to an internal `_predict` method)
-    So we cannot patch it. This test is for covering this edge case.
-    """
-    from sklearn.neighbors import LocalOutlierFactor
+def gen_if_delegate_has_method_decorator_test_class():
+    from sklearn.utils.metaestimators import if_delegate_has_method
 
-    assert isinstance(LocalOutlierFactor.predict, property)
-    old_predict = LocalOutlierFactor.predict
-    mlflow.sklearn.autolog()
-    new_predict = LocalOutlierFactor.predict
-    assert new_predict is old_predict
+    class GoodDelegatedEstimator:
+        def predict(self, X, a, b):
+            return {"X": X, "a": a, "b": b}
+
+    class BadDelegatedEstimator:
+        pass
+
+    class BaseEstimator:
+        def __init__(self, delegated_estimator):
+            self._delegated_estimator = delegated_estimator
+
+        @if_delegate_has_method("_delegated_estimator")
+        def predict(self, X, a, b):
+            return self._delegated_estimator.predict(X, a, b)
+
+    return (
+        BaseEstimator,
+        lambda cls: cls(GoodDelegatedEstimator()),
+        lambda cls: cls(BadDelegatedEstimator()),
+    )
+
+
+def gen_property_decorator_test_class():
+    class BaseEstimator:
+        def __init__(self, has_predict):
+            self._has_predict = has_predict
+
+        def _predict(self, X, a, b):
+            return {"X": X, "a": a, "b": b}
+
+        @property
+        def predict(self):
+            if not self._has_predict:
+                raise AttributeError()
+            return self._predict
+
+    return BaseEstimator, lambda cls: cls(has_predict=True), lambda cls: cls(has_predict=False)
+
+
+def gen_available_if_decorator_test_class():
+    from sklearn.utils.metaestimators import available_if
+
+    class BaseEstimator:
+        def __init__(self, has_predict):
+            self._has_predict = has_predict
+
+        def _can_predict(self):
+            return self._has_predict
+
+        @available_if(_can_predict)
+        def predict(self, X, a, b):
+            return {"X": X, "a": a, "b": b}
+
+    return BaseEstimator, lambda cls: cls(has_predict=True), lambda cls: cls(has_predict=False)
+
+
+@pytest.mark.parametrize(
+    "gen_test_class_fn",
+    [gen_if_delegate_has_method_decorator_test_class, gen_property_decorator_test_class]
+    + [gen_available_if_decorator_test_class]
+    if Version(sklearn.__version__) > Version("0.24.2")
+    else [],
+)
+def test_decorated_method_patch(gen_test_class_fn):
+    from mlflow.utils.autologging_utils import autologging_integration
+
+    BaseEstimator, gen_good_estimator_fn, gen_bad_estimator_fn = gen_test_class_fn()
+
+    class ExtendedEstimator(BaseEstimator):
+        pass
+
+    def patched_predict(original, self, *args, **kwargs):
+        result = original(self, *args, **kwargs)
+        if "patch_count" not in result:
+            result["patch_count"] = 1
+        else:
+            result["patch_count"] += 1
+        return result
+
+    flavor_name = "test_if_delegate_has_method_decorated_method_patch"
+
+    @autologging_integration(flavor_name)
+    def autolog(disable=False, exclusive=False, silent=False):
+        mlflow.sklearn._patch_estimator_method_if_available(
+            flavor_name, BaseEstimator, "predict", patched_predict, manage_run=False,
+        )
+        mlflow.sklearn._patch_estimator_method_if_available(
+            flavor_name, ExtendedEstimator, "predict", patched_predict, manage_run=False,
+        )
+
+    mlflow.sklearn.setup_sklearn_hot_patch()
+    autolog()
+
+    for EstimatorCls in [BaseEstimator, ExtendedEstimator]:
+        good_estimator = gen_good_estimator_fn(EstimatorCls)
+
+        expected_result = {"X": 1, "a": 2, "b": 3, "patch_count": 1}
+        assert hasattr(good_estimator, "predict")
+        assert good_estimator.predict(X=1, a=2, b=3) == expected_result
+        assert good_estimator.predict(1, a=2, b=3) == expected_result
+        assert good_estimator.predict(1, 2, b=3) == expected_result
+        assert good_estimator.predict(1, 2, 3) == expected_result
+
+        bad_estimator = gen_bad_estimator_fn(EstimatorCls)
+        assert not hasattr(bad_estimator, "predict")
+        with pytest.raises(AttributeError):
+            bad_estimator.predict(X=1, a=2, b=3)
+
+        if gen_test_class_fn is gen_if_delegate_has_method_decorator_test_class:
+            # Test chained delegation
+            expected_result2 = {"X": 1, "a": 2, "b": 3, "patch_count": 2}
+            good_estimator2 = EstimatorCls(good_estimator)
+            assert hasattr(good_estimator2, "predict")
+            assert good_estimator2.predict(X=1, a=2, b=3) == expected_result2
+
+            bad_estimator2 = EstimatorCls(bad_estimator)
+            assert not hasattr(bad_estimator2, "predict")
+            with pytest.raises(AttributeError):
+                bad_estimator2.predict(X=1, a=2, b=3)

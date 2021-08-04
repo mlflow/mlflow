@@ -270,8 +270,12 @@ def is_testing():
 
 
 def safe_patch(
-    autologging_integration, destination, function_name, patch_function, manage_run=False,
-    original_fn=None
+    autologging_integration,
+    destination,
+    function_name,
+    patch_function,
+    manage_run=False,
+    original_fn=None,
 ):
     """
     Patches the specified `function_name` on the specified `destination` class for autologging

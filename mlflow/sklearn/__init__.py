@@ -829,6 +829,124 @@ def _get_metric_name_list():
     return metric_list
 
 
+def _patch_estimator_method_if_available(flavor_name, class_def, func_name, patched_fn, manage_run):
+    if not hasattr(class_def, func_name):
+        return
+
+    original = gorilla.get_original_attribute(
+        class_def, func_name, bypass_descriptor_protocol=False
+    )
+    # Retrieve raw attribute while bypassing the descriptor protocol
+    raw_original_obj = gorilla.get_original_attribute(
+        class_def, func_name, bypass_descriptor_protocol=True
+    )
+
+    if isinstance(raw_original_obj, property):
+
+        def real_original(self, *args, **kwargs):
+            bound_delegate_method = raw_original_obj.fget(self)
+            return bound_delegate_method(*args, **kwargs)
+
+        safe_patch(
+            flavor_name,
+            class_def,
+            func_name,
+            patched_fn,
+            manage_run=manage_run,
+            original_fn=real_original,
+        )
+        safe_patch_fn = getattr(class_def, func_name)
+
+        def get_bound_safe_patch_fn(self):
+            # This `raw_original_obj.fget` call is for availability check, if it raise error
+            # then `hasattr(obj, {func_name})` will return False
+            # so it mimic the original property behavior.
+            raw_original_obj.fget(self)
+
+            def bound_safe_patch_fn(*args, **kwargs):
+                return safe_patch_fn(self, *args, **kwargs)
+
+            bound_safe_patch_fn = update_wrapper_extended(
+                bound_safe_patch_fn, raw_original_obj.fget
+            )
+            return bound_safe_patch_fn
+
+        get_bound_safe_patch_fn = update_wrapper_extended(
+            get_bound_safe_patch_fn, raw_original_obj.fget
+        )
+        setattr(class_def, func_name, property(get_bound_safe_patch_fn))
+
+    elif raw_original_obj is original and callable(original):
+        # normal method
+        safe_patch(
+            flavor_name, class_def, func_name, patched_fn, manage_run=manage_run,
+        )
+    elif hasattr(raw_original_obj, "delegate_names") or hasattr(raw_original_obj, "check"):
+        safe_patch(
+            flavor_name, class_def, func_name, patched_fn, manage_run=manage_run,
+        )
+        safe_patch_fn = getattr(class_def, func_name)
+
+        if hasattr(raw_original_obj, "delegate_names"):
+            # the method is decorated by `@if_delegate_has_method`
+            decorated_safe_patch_fn = raw_original_obj.__class__(
+                safe_patch_fn, raw_original_obj.delegate_names, func_name
+            )
+        elif hasattr(raw_original_obj, "check"):
+            # the method is decorated by `@available_if`
+            # Note: this case only happen in sklearn > 0.24.2
+            decorated_safe_patch_fn = raw_original_obj.__class__(
+                safe_patch_fn, raw_original_obj.check, func_name
+            )
+        setattr(class_def, func_name, decorated_safe_patch_fn)
+    else:
+        # unsupported method type. skip patching
+        pass
+
+
+def setup_sklearn_hot_patch():
+    import sklearn
+
+    if Version(sklearn.__version__) <= Version("0.24.2"):
+        import sklearn.utils.metaestimators
+
+        def patched_IffHasAttrDescriptor__get__(self, obj, type=None):
+            """
+            For sklearn version <= 0.24.2, `_IffHasAttrDescriptor.__get__` method does not support
+            unbound method call. See https://github.com/scikit-learn/scikit-learn/issues/20614
+            This patched function is for hot patch.
+            """
+
+            # raise an AttributeError if the attribute is not present on the object
+            if obj is not None:
+                # delegate only on instances, not the classes.
+                # this is to allow access to the docstrings.
+                for delegate_name in self.delegate_names:
+                    try:
+                        delegate = sklearn.utils.metaestimators.attrgetter(delegate_name)(obj)
+                    except AttributeError:
+                        continue
+                    else:
+                        getattr(delegate, self.attribute_name)
+                        break
+                else:
+                    sklearn.utils.metaestimators.attrgetter(self.delegate_names[-1])(obj)
+
+                # lambda, but not partial, allows help() to work with update_wrapper
+                out = lambda *args, **kwargs: self.fn(obj, *args, **kwargs)
+            else:
+                # This makes it possible to use the decorated method as an unbound method,
+                # for instance when monkeypatching.
+                out = lambda *args, **kwargs: self.fn(*args, **kwargs)  # noqa
+            # update the docstring of the returned function
+            functools.update_wrapper(out, self.fn)
+            return out
+
+        sklearn.utils.metaestimators._IffHasAttrDescriptor.__get__ = (
+            patched_IffHasAttrDescriptor__get__
+        )
+
+
 @experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
@@ -1339,7 +1457,9 @@ def autolog(
         """
         status = _get_autologging_metrics_manager()
         if status.should_log_post_training_metrics() and status.get_run_id_for_model(self):
-            predict_result = original(self, *args, **kwargs)
+            # Avoid nested patch when nested inference calls happens.
+            with status.disable_log_post_training_metrics():
+                predict_result = original(self, *args, **kwargs)
             eval_dataset = get_instance_method_first_arg_value(original, args, kwargs)
             eval_dataset_name = status.register_prediction_input_dataset(self, eval_dataset)
             status.register_prediction_result(
@@ -1437,129 +1557,24 @@ def autolog(
         )
     ]
 
-    if Version(sklearn.__version__) <= Version('0.24.2'):
-        import sklearn.utils.metaestimators
-
-        def patched_IffHasAttrDescriptor__get__(self, obj, type=None):
-            """
-            For sklearn version <= 0.24.2, `_IffHasAttrDescriptor.__get__` method does not support
-            unbound method call. See https://github.com/scikit-learn/scikit-learn/issues/20614
-            This patched function is for hot patch.
-            """
-
-            # raise an AttributeError if the attribute is not present on the object
-            if obj is not None:
-                # delegate only on instances, not the classes.
-                # this is to allow access to the docstrings.
-                for delegate_name in self.delegate_names:
-                    try:
-                        delegate = sklearn.utils.metaestimators.attrgetter(delegate_name)(obj)
-                    except AttributeError:
-                        continue
-                    else:
-                        getattr(delegate, self.attribute_name)
-                        break
-                else:
-                    sklearn.utils.metaestimators.attrgetter(self.delegate_names[-1])(obj)
-
-                # lambda, but not partial, allows help() to work with update_wrapper
-                out = lambda *args, **kwargs: self.fn(obj, *args, **kwargs)
-            else:
-                # This makes it possible to use the decorated method as an unbound method,
-                # for instance when monkeypatching.
-                out = lambda *args, **kwargs: self.fn(*args, **kwargs)  # noqa
-            # update the docstring of the returned function
-            functools.update_wrapper(out, self.fn)
-            return out
-
-        sklearn.utils.metaestimators._IffHasAttrDescriptor.__get__ = \
-            patched_IffHasAttrDescriptor__get__
-
-    def patch_estimator_method_if_available(class_def, func_name, patched_fn, manage_run):
-        if not hasattr(class_def, func_name):
-            return
-
-        original = gorilla.get_original_attribute(
-            class_def, func_name, bypass_descriptor_protocol=False
-        )
-        # Retrieve raw attribute while bypassing the descriptor protocol
-        raw_original_obj = gorilla.get_original_attribute(
-            class_def, func_name, bypass_descriptor_protocol=True
-        )
-
-        if isinstance(raw_original_obj, property):
-            def real_original(self, *args, **kwargs):
-                bound_delegate_method = raw_original_obj.fget(self)
-                return bound_delegate_method(*args, **kwargs)
-
-            safe_patch(
-                FLAVOR_NAME, class_def, func_name, patched_fn, manage_run=manage_run,
-                original_fn=real_original
-            )
-            safe_patch_fn = getattr(class_def, func_name)
-
-            def get_bound_safe_patch_fn(self):
-                # This `raw_original_obj.fget` call is for availability check, if it raise error
-                # then `hasattr(obj, {func_name})` will return False
-                # so it mimic the original property behavior.
-                raw_original_obj.fget(self)
-
-                def bound_safe_patch_fn(*args, **kwargs):
-                    return safe_patch_fn(self, *args, **kwargs)
-
-                bound_safe_patch_fn = update_wrapper_extended(
-                    bound_safe_patch_fn, raw_original_obj.fget
-                )
-                return bound_safe_patch_fn
-
-            get_bound_safe_patch_fn = update_wrapper_extended(
-                get_bound_safe_patch_fn, raw_original_obj.fget
-            )
-            setattr(class_def, func_name, property(get_bound_safe_patch_fn))
-
-        elif raw_original_obj is original and callable(original):
-            # normal method
-            safe_patch(
-                FLAVOR_NAME, class_def, func_name, patched_fn, manage_run=manage_run,
-            )
-        elif hasattr(raw_original_obj, 'delegate_names') or hasattr(raw_original_obj, 'check'):
-            safe_patch(
-                FLAVOR_NAME, class_def, func_name, patched_fn, manage_run=manage_run,
-            )
-            safe_patch_fn = getattr(class_def, func_name)
-
-            if hasattr(raw_original_obj, 'delegate_names'):
-                # the method is decorated by `@if_delegate_has_method`
-                decorated_safe_patch_fn = raw_original_obj.__class__(
-                    safe_patch_fn, raw_original_obj.delegate_names, func_name
-                )
-            elif hasattr(raw_original_obj, 'check'):
-                # the method is decorated by `@available_if`
-                # Note: this case only happen in sklearn > 0.24.2
-                decorated_safe_patch_fn = raw_original_obj.__class__(
-                    safe_patch_fn, raw_original_obj.check, func_name
-                )
-            setattr(class_def, func_name, decorated_safe_patch_fn)
-        else:
-            # unsupported method type. skip patching
-            pass
+    setup_sklearn_hot_patch()
 
     for class_def in estimators_to_patch:
         # Patch fitting methods
         for func_name in ["fit", "fit_transform", "fit_predict"]:
-            patch_estimator_method_if_available(
-                class_def, func_name, patched_fit, manage_run=True,
+            _patch_estimator_method_if_available(
+                FLAVOR_NAME, class_def, func_name, patched_fit, manage_run=True,
             )
 
         # Patch inference methods
         for func_name in ["predict", "predict_proba", "transform", "predict_log_proba"]:
-            patch_estimator_method_if_available(
-                class_def, func_name, patched_predict, manage_run=False,
+            _patch_estimator_method_if_available(
+                FLAVOR_NAME, class_def, func_name, patched_predict, manage_run=False,
             )
 
         # Patch scoring methods
-        patch_estimator_method_if_available(
-            class_def, 'score', patched_model_score, manage_run=False,
+        _patch_estimator_method_if_available(
+            FLAVOR_NAME, class_def, "score", patched_model_score, manage_run=False,
         )
 
     for metric_name in _get_metric_name_list():
