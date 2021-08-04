@@ -31,7 +31,6 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 from tests.helper_functions import (
-    score_model_in_sagemaker_docker_container,
     _compare_conda_env_requirements,
     _assert_pip_requirements,
 )
@@ -740,62 +739,3 @@ def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(
         inp_list.append(saved_tf_categorical_model.inference_df[df_col_name].values)
     with pytest.raises(TypeError):
         results = pyfunc_wrapper.predict(inp_list)
-
-
-@pytest.mark.release
-def test_model_deployment_with_default_conda_env(saved_tf_iris_model, model_path):
-    mlflow.tensorflow.save_model(
-        tf_saved_model_dir=saved_tf_iris_model.path,
-        tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-        tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-        path=model_path,
-        conda_env=None,
-    )
-
-    scoring_response = score_model_in_sagemaker_docker_container(
-        model_uri=model_path,
-        data=saved_tf_iris_model.inference_df,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        flavor=mlflow.pyfunc.FLAVOR_NAME,
-    )
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
-
-    pandas.testing.assert_frame_equal(
-        deployed_model_preds,
-        saved_tf_iris_model.expected_results_df,
-        check_dtype=False,
-        check_less_precise=6,
-    )
-
-
-@pytest.mark.large
-def test_tf_saved_model_model_with_tf_keras_api(tmpdir):
-    tf.random.set_seed(1337)
-
-    mlflow_model_path = os.path.join(str(tmpdir), "mlflow_model")
-    tf_model_path = os.path.join(str(tmpdir), "tf_model")
-
-    # Build TensorFlow model.
-    inputs = tf.keras.layers.Input(shape=1, name="feature1", dtype=tf.float32)
-    outputs = tf.keras.layers.Dense(1)(inputs)
-    model = tf.keras.Model(inputs=inputs, outputs=[outputs])
-
-    # Save model in TensorFlow SavedModel format.
-    tf.saved_model.save(model, tf_model_path)
-
-    # Save TensorFlow SavedModel as MLflow model.
-    mlflow.tensorflow.save_model(
-        tf_saved_model_dir=tf_model_path,
-        tf_meta_graph_tags=["serve"],
-        tf_signature_def_key="serving_default",
-        path=mlflow_model_path,
-    )
-
-    def load_and_predict():
-        model_uri = mlflow_model_path
-        mlflow_model = mlflow.pyfunc.load_model(model_uri)
-        feed_dict = {"feature1": tf.constant([[2.0]])}
-        predictions = mlflow_model.predict(feed_dict)
-        assert np.allclose(predictions["dense"], np.asarray([-0.09599352]))
-
-    load_and_predict()

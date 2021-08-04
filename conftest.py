@@ -19,13 +19,6 @@ def pytest_addoption(parser):
         help="Run tests decorated with 'large' annotation",
     )
     parser.addoption(
-        "--release",
-        action="store_true",
-        dest="release",
-        default=False,
-        help="Run tests decorated with 'release' annotation",
-    )
-    parser.addoption(
         "--requires-ssh",
         action="store_true",
         dest="requires_ssh",

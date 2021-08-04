@@ -25,10 +25,7 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
-from tests.helper_functions import (
-    score_model_in_sagemaker_docker_container,
-    _compare_conda_env_requirements,
-)
+from tests.helper_functions import _compare_conda_env_requirements
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 
@@ -682,29 +679,3 @@ def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(
         inp_list.append(saved_tf_categorical_model.inference_df[df_col_name].values)
     with pytest.raises(TypeError):
         results = pyfunc_wrapper.predict(inp_list)
-
-
-@pytest.mark.release
-def test_model_deployment_with_default_conda_env(saved_tf_iris_model, model_path):
-    mlflow.tensorflow.save_model(
-        tf_saved_model_dir=saved_tf_iris_model.path,
-        tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-        tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-        path=model_path,
-        conda_env=None,
-    )
-
-    scoring_response = score_model_in_sagemaker_docker_container(
-        model_uri=model_path,
-        data=saved_tf_iris_model.inference_df,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        flavor=mlflow.pyfunc.FLAVOR_NAME,
-    )
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
-
-    pandas.testing.assert_frame_equal(
-        deployed_model_preds,
-        saved_tf_iris_model.expected_results_df,
-        check_dtype=False,
-        check_less_precise=6,
-    )

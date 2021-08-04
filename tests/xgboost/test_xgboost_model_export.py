@@ -27,7 +27,6 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.helper_functions import (
-    score_model_in_sagemaker_docker_container,
     pyfunc_serve_and_score_model,
     _compare_conda_env_requirements,
     _assert_pip_requirements,
@@ -434,24 +433,3 @@ def test_pyfunc_serve_and_score(xgb_model):
     )
     scores = pd.read_json(resp.content, orient="records").values.squeeze()
     np.testing.assert_array_almost_equal(scores, model.predict(inference_dmatrix))
-
-
-@pytest.mark.release
-def test_sagemaker_docker_model_scoring_with_default_conda_env(xgb_model, model_path):
-    mlflow.xgboost.save_model(xgb_model=xgb_model.model, path=model_path, conda_env=None)
-    reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
-
-    scoring_response = score_model_in_sagemaker_docker_container(
-        model_uri=model_path,
-        data=xgb_model.inference_dataframe,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        flavor=mlflow.pyfunc.FLAVOR_NAME,
-    )
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
-
-    pandas.testing.assert_frame_equal(
-        deployed_model_preds,
-        pd.DataFrame(reloaded_pyfunc.predict(xgb_model.inference_dataframe)),
-        check_dtype=False,
-        check_less_precise=6,
-    )

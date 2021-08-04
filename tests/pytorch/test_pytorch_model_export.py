@@ -39,7 +39,6 @@ _logger = logging.getLogger(__name__)
 # Therefore, we attempt to import from `tests` and gracefully emit a warning if it's unavailable.
 try:
     from tests.helper_functions import pyfunc_serve_and_score_model
-    from tests.helper_functions import score_model_in_sagemaker_docker_container
     from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
     from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 except ImportError:
@@ -905,26 +904,6 @@ def test_load_model_raises_exception_when_pickle_module_cannot_be_imported(
 
     assert "Failed to import the pickle module" in str(exc_info)
     assert bad_pickle_module_name in str(exc_info)
-
-
-@pytest.mark.release
-def test_sagemaker_docker_model_scoring_with_sequential_model_and_default_conda_env(
-    model, model_path, data, sequential_predicted
-):
-    mlflow.pytorch.save_model(pytorch_model=model, path=model_path, conda_env=None)
-
-    scoring_response = score_model_in_sagemaker_docker_container(
-        model_uri=model_path,
-        data=data[0],
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        flavor=mlflow.pyfunc.FLAVOR_NAME,
-        activity_polling_timeout_seconds=360,
-    )
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
-
-    np.testing.assert_array_almost_equal(
-        deployed_model_preds.values[:, 0], sequential_predicted, decimal=4
-    )
 
 
 @pytest.fixture
