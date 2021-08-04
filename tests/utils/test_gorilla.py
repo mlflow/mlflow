@@ -170,3 +170,19 @@ def test_patch_on_inherit_method(store_hit):
     assert B.f2 is original_A_f2
     assert gorilla.get_original_attribute(B, "f2") is original_A_f2
     assert "f2" not in B.__dict__  # assert no side effect after reverting
+
+
+@pytest.mark.parametrize("store_hit", [True, False])
+def test_patch_on_attribute_not_exist(store_hit):
+    A, _ = gen_class_A_B()
+
+    def patched_fx(self):
+        return 101
+
+    gorilla_setting = gorilla.Settings(allow_hit=True, store_hit=store_hit)
+    fx_patch = gorilla.Patch(A, "fx", patched_fx, gorilla_setting)
+    gorilla.apply(fx_patch)
+    a1 = A()
+    assert a1.fx() == 101
+    gorilla.revert(fx_patch)
+    assert not hasattr(A, "fx")
