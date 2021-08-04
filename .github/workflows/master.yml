@@ -28,19 +28,6 @@ env:
   CONDA_DIR: /usr/share/miniconda
 
 jobs:
-  notify-dco-failure:
-    if: ${{ github.event_name == 'pull_request' && github.event.action == 'opened' }}
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    - name: Validate
-      uses: actions/github-script@v4
-      with:
-        script: |
-          const script = require(
-            `${process.env.GITHUB_WORKSPACE}/.github/workflows/notify-dco-failure.js`
-          );
-          script({ context, github });
   lint:
     runs-on: ubuntu-latest
     steps:
