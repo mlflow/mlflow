@@ -1,7 +1,7 @@
 module.exports = async ({ context, github }) => {
   const { owner, repo } = context.repo;
   const { number: issue_number } = context.issue;
-  const { sha: ref } = context.payload.pull_request.head;
+  const { sha: ref, user } = context.payload.pull_request.head;
 
   function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -33,7 +33,7 @@ module.exports = async ({ context, github }) => {
   const dcoCheck = await getDcoCheck();
   const { html_url, conclusion } = dcoCheck;
   if (conclusion !== "success") {
-    const body = `The DCO check failed. Please sign off your commits:\n${html_url}`;
+    const body = `@${user.login} The DCO check failed. Please sign off your commits:\n${html_url}`;
     await github.issues.createComment({
       owner,
       repo,
