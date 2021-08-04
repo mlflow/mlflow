@@ -463,4 +463,3 @@ def _predict(spacy_model, test_x):
     return pd.DataFrame(
         {"predictions": test_x.iloc[:, 0].apply(lambda text: spacy_model(text).cats)}
     )
-
