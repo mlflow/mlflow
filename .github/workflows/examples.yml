@@ -9,7 +9,7 @@ on:
 
 defaults:
   run:
-    shell: bash
+    shell: bash --noprofile --norc -eox pipefail {0}
 
 env:
   CONDA_DIR: /usr/share/miniconda

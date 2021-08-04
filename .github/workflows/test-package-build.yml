@@ -8,7 +8,7 @@ on:
 
 defaults:
   run:
-    shell: bash
+    shell: bash --noprofile --norc -eox pipefail {0}
 
 jobs:
   build:

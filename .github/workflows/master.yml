@@ -14,15 +14,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# Use `bash` by default for all `run` steps in this workflow:
-# https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#defaultsrun
 defaults:
   run:
-    # GitHub Actions runner executes commands specified in a run step via:
-    # $ bash --noprofile --norc -eo pipefail < commands >
-    #
+    # The default bash entry point doesn't set '-x' which is useful for debugging:
     # https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#using-a-specific-shell
-    shell: bash
+    shell: bash --noprofile --norc -eox pipefail {0}
 
 env:
   CONDA_DIR: /usr/share/miniconda
