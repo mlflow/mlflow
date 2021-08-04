@@ -557,7 +557,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(model,
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     model, model_path
 ):
-    mlflow.keras.save_model(keras_model=model, path=model_path, conda_env=None)
+    mlflow.keras.save_model(keras_model=model, path=model_path)
     _assert_pip_requirements(model_path, mlflow.keras.get_default_pip_requirements())
 
 
@@ -565,7 +565,7 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(model):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.keras.log_model(keras_model=model, artifact_path=artifact_path, conda_env=None)
+        mlflow.keras.log_model(keras_model=model, artifact_path=artifact_path)
         model_uri = mlflow.get_artifact_uri(artifact_path)
     _assert_pip_requirements(model_uri, mlflow.keras.get_default_pip_requirements())
 

@@ -342,23 +342,20 @@ def _compare_conda_env_requirements(env_path, req_path):
     assert _get_pip_deps(custom_env_parsed) == requirements
 
 
-def _assert_pip_requirements(model_uri, requirements, constraints=None):
-    """
-    Asserts the pip requirements of the specified MLflow model *contain* `requirements`.
-    If `constraints` is passed, asserts the pip constraints *match* `constraints`.
-    """
+def _assert_pip_requirements(model_uri, requirements, constraints=None, strict=False):
     local_path = _download_artifact_from_uri(model_uri)
     txt_reqs = _read_lines(os.path.join(local_path, _REQUIREMENTS_FILE_NAME))
     conda_reqs = _get_pip_deps(_read_yaml(os.path.join(local_path, _CONDA_ENV_FILE_NAME)))
+    compare_func = set.__eq__ if strict else set.__le__
     requirements = set(requirements)
-    assert requirements.issubset(txt_reqs)
-    assert requirements.issubset(conda_reqs)
+    assert compare_func(requirements, set(txt_reqs))
+    assert compare_func(requirements, set(conda_reqs))
 
     if constraints is not None:
         assert f"-c {_CONSTRAINTS_FILE_NAME}" in txt_reqs
         assert f"-c {_CONSTRAINTS_FILE_NAME}" in conda_reqs
         cons = _read_lines(os.path.join(local_path, _CONSTRAINTS_FILE_NAME))
-        assert cons == constraints
+        assert compare_func(set(constraints), set(cons))
 
 
 def _is_available_on_pypi(package, version=None, module=None):

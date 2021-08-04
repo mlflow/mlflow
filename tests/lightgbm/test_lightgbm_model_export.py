@@ -336,14 +336,8 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(lgb_model, lg
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     lgb_model, model_path
 ):
-    mlflow.lightgbm.save_model(lgb_model=lgb_model.model, path=model_path, conda_env=None)
-
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
-
-    assert conda_env == mlflow.lightgbm.get_default_conda_env()
+    mlflow.lightgbm.save_model(lgb_model=lgb_model.model, path=model_path)
+    _assert_pip_requirements(model_path, mlflow.lightgbm.get_default_pip_requirements())
 
 
 @pytest.mark.large
@@ -352,20 +346,10 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.lightgbm.log_model(
-            lgb_model=lgb_model.model, artifact_path=artifact_path, conda_env=None
-        )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        mlflow.lightgbm.log_model(lgb_model.model, artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
-
-    assert conda_env == mlflow.lightgbm.get_default_conda_env()
+    _assert_pip_requirements(model_uri, mlflow.lightgbm.get_default_pip_requirements())
 
 
 @pytest.mark.large

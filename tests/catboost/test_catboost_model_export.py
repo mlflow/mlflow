@@ -358,12 +358,14 @@ def test_log_model_with_extra_pip_requirements(reg_model, tmpdir):
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     reg_model, model_path
 ):
-    mlflow.catboost.save_model(reg_model.model, model_path, conda_env=None)
+    mlflow.catboost.save_model(reg_model.model, model_path)
     _assert_pip_requirements(model_path, mlflow.catboost.get_default_pip_requirements())
 
 
 @pytest.mark.large
-def test_model_log_without_env_arguments_uses_default_env_with_expected_dependencies(reg_model,):
+def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
+    reg_model,
+):
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.catboost.log_model(reg_model.model, artifact_path)
