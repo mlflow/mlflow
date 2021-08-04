@@ -154,8 +154,9 @@ def _prune_packages(packages):
     Prunes packages required by other packages. For example, `["scikit-learn", "numpy"]` is pruned
     to `["scikit-learn"]`.
     """
-    requires = _flatten(map(_get_requires_recursive, packages))
-    return set(packages) - set(requires)
+    packages = set(packages)
+    requires = set(_flatten(map(_get_requires_recursive, packages)))
+    return packages - requires
 
 
 def _run_command(cmd, env=None):
@@ -239,8 +240,7 @@ def _infer_requirements(model_uri, flavor):
         # not be counted as a model requirement.
         "mlflow",
     ]
-    packages = set(packages) - set(excluded_packages)
-    packages = _prune_packages(packages)
+    packages = _prune_packages(packages) - set(excluded_packages)
     return ["{}=={}".format(p, _get_package_version_from_metadata(p)) for p in sorted(packages)]
 
 
