@@ -164,8 +164,7 @@ def test_patch_on_inherit_method(store_hit):
 
     assert B.f2 is patched_B_f2
 
-    if store_hit:
-        assert gorilla.get_original_attribute(B, "f2") is original_A_f2
+    assert gorilla.get_original_attribute(B, "f2") is original_A_f2
 
     gorilla.revert(patch_B_f2)
     assert B.f2 is original_A_f2
