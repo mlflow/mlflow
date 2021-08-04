@@ -3,9 +3,7 @@
 import os
 import pytest
 import yaml
-import json
 import pandas as pd
-import pandas.testing
 from collections import namedtuple
 
 import numpy as np
@@ -25,7 +23,6 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 
 from tests.helper_functions import (
-    score_model_in_sagemaker_docker_container,
     pyfunc_serve_and_score_model,
     _compare_conda_env_requirements,
     _assert_pip_requirements,
@@ -350,26 +347,3 @@ def test_pyfunc_serve_and_score(h2o_iris_model):
     scores = pd.read_json(resp.content, orient="records").drop("predict", axis=1)
     preds = model.predict(inference_dataframe).as_data_frame().drop("predict", axis=1)
     np.testing.assert_array_almost_equal(scores, preds)
-
-
-@pytest.mark.release
-def test_sagemaker_docker_model_scoring_with_default_conda_env(h2o_iris_model, model_path):
-    mlflow.h2o.save_model(h2o_model=h2o_iris_model.model, path=model_path, conda_env=None)
-    reloaded_h2o_pyfunc = mlflow.pyfunc.load_pyfunc(model_path)
-
-    scoring_response = score_model_in_sagemaker_docker_container(
-        model_uri=model_path,
-        data=h2o_iris_model.inference_data.as_data_frame(),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        flavor=mlflow.pyfunc.FLAVOR_NAME,
-    )
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
-
-    pandas.testing.assert_frame_equal(
-        deployed_model_preds["predict"].to_frame(),
-        reloaded_h2o_pyfunc.predict(h2o_iris_model.inference_data.as_data_frame())[
-            "predict"
-        ].to_frame(),
-        check_dtype=False,
-        check_less_precise=6,
-    )
