@@ -398,7 +398,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.pytorch.log_model(xgb_model.model, artifact_path)
+        mlflow.xgboost.log_model(xgb_model.model, artifact_path)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     _assert_pip_requirements(model_uri, mlflow.xgboost.get_default_pip_requirements())
