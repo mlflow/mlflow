@@ -200,23 +200,6 @@ def test_capture_imported_modules():
     assert "numpy" in cap.imported_modules
 
 
-def test_capture_imported_modules_with_pickle(tmpdir):
-    import pickle
-    from sklearn.svm import SVC
-
-    model_path = tmpdir.join("model.pkl")
-    with open(model_path, "wb") as f:
-        pickle.dump(SVC(), f)
-
-    with _CaptureImportedModules() as cap:
-        assert "sklearn" not in cap.imported_modules
-
-        with open(model_path, "rb") as f:
-            pickle.load(f)
-
-    assert "sklearn" in cap.imported_modules
-
-
 def test_strip_local_version_identifier():
     assert _strip_local_version_identifier("1.2.3") == "1.2.3"
     assert _strip_local_version_identifier("1.2.3+ab") == "1.2.3"
