@@ -296,12 +296,18 @@ def save_model(
     model_dir_path = os.path.join(path, model_dir_subpath)
     shutil.move(os.path.join(path, root_relative_path), model_dir_path)
 
+    flavor_conf = dict(
+        saved_model_dir=model_dir_subpath,
+        meta_graph_tags=tf_meta_graph_tags,
+        signature_def_key=tf_signature_def_key,
+    )
     if conda_env is None:
         default_reqs = get_default_pip_requirements()
         if pip_requirements is None:
-            inferred_reqs = mlflow.infer_pip_requirements(
-                model_dir_path, FLAVOR_NAME, fallback=default_reqs,
-            )
+            save_path = os.path.join(path, MLMODEL_FILE_NAME)
+            Model().add_flavor(FLAVOR_NAME, **flavor_conf).save(save_path)
+            inferred_reqs = mlflow.infer_pip_requirements(path, FLAVOR_NAME, fallback=default_reqs,)
+            os.remove(save_path)
             default_reqs = list(set(inferred_reqs).union(default_reqs))
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
             default_reqs, pip_requirements, extra_pip_requirements,
@@ -319,12 +325,7 @@ def save_model(
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
-    mlflow_model.add_flavor(
-        FLAVOR_NAME,
-        saved_model_dir=model_dir_subpath,
-        meta_graph_tags=tf_meta_graph_tags,
-        signature_def_key=tf_signature_def_key,
-    )
+    mlflow_model.add_flavor(FLAVOR_NAME, **flavor_conf)
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.tensorflow", env=_CONDA_ENV_FILE_NAME)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
