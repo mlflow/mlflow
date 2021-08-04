@@ -3,7 +3,6 @@ from unittest import mock
 import os
 import pytest
 import yaml
-import json
 
 import catboost as cb
 import numpy as np
@@ -412,4 +411,3 @@ def test_pyfunc_serve_and_score_sklearn(reg_model):
     )
     scores = pd.read_json(resp.content, orient="records").values.squeeze()
     np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe.head(3)))
-

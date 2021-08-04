@@ -1207,7 +1207,7 @@ def test_pyfunc_serve_and_score_transformers():
     from transformers import BertModel, BertConfig
 
     class MyBertModel(BertModel):
-        def forward(self, *args, **kwargs):
+        def forward(self, *args, **kwargs):  # pylint: disable=arguments-differ
             return super().forward(*args, **kwargs).last_hidden_state
 
     model = MyBertModel(

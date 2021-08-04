@@ -187,20 +187,20 @@ def test_prune_packages():
     assert _prune_packages(["mlflow", "scikit-learn"]) == {"mlflow", "scikit-learn"}
 
 
-def test_capture_imported_modules(tmpdir):
+def test_capture_imported_modules():
     with _CaptureImportedModules() as cap:
-        # pylint: disable=unused-import
-        import mlflow
+        # pylint: disable=unused-import,unused-variable
+        import math
 
         __import__("pandas")
         importlib.import_module("numpy")
 
-    assert "mlflow" in cap.imported_modules
+    assert "math" in cap.imported_modules
     assert "pandas" in cap.imported_modules
     assert "numpy" in cap.imported_modules
 
 
-def test_capture_imported_modules_with_pickle(tmpdir):
+def test_capture_imported_modules_with_pickle():
     import pickle
     from sklearn.svm import SVC
 
