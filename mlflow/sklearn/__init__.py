@@ -219,7 +219,7 @@ def save_model(
     include_cloudpickle = serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE
     if conda_env is None:
         default_reqs = get_default_pip_requirements(include_cloudpickle)
-        if not pip_requirements:
+        if pip_requirements is None:
             inferred_reqs = mlflow.infer_pip_requirements(
                 model_data_path, FLAVOR_NAME, fallback=default_reqs,
             )

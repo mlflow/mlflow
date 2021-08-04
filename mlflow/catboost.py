@@ -153,7 +153,7 @@ def save_model(
 
     if conda_env is None:
         default_reqs = get_default_pip_requirements()
-        if not pip_requirements:
+        if pip_requirements is None:
             # HACK: Temporarily create an MLmodel file because `mlflow.catboost._load_pyfunc`
             # requires it to get model type and save format.
             save_path = os.path.join(path, MLMODEL_FILE_NAME)

@@ -298,7 +298,7 @@ def save_model(
 
     if conda_env is None:
         default_reqs = get_default_pip_requirements()
-        if not pip_requirements:
+        if pip_requirements is None:
             inferred_reqs = mlflow.infer_pip_requirements(
                 model_dir_path, FLAVOR_NAME, fallback=default_reqs,
             )
