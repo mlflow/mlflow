@@ -56,8 +56,6 @@ def pytest_configure(config):
         markexpr.append("large")
     if not config.option.lazy_import:
         markexpr.append("not lazy_import")
-    if not config.option.release:
-        markexpr.append("not release")
     if not config.option.requires_ssh:
         markexpr.append("not requires_ssh")
     if len(markexpr) > 0:
