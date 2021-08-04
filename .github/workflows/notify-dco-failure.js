@@ -2,8 +2,6 @@ module.exports = async ({ context, github }) => {
   const { after: ref } = context.payload;
   const { owner, repo } = context.repo;
   const { number: issue_number } = context.issue;
-  console.log(context);
-  console.log(ref, owner, repo);
 
   function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -29,7 +27,7 @@ module.exports = async ({ context, github }) => {
   const dcoCheck = await getDcoCheck();
   const { html_url, conclusion } = dcoCheck;
 
-  if (conclusion !== "success") {
+  if (conclusion === "success") {
     const body = `The DCO check failed. Please sign off your commits:\n${html_url}`;
     await github.issues.createComment({
       owner,
