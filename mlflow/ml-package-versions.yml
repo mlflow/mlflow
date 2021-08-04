@@ -24,7 +24,6 @@ pytorch:
   package_info:
     pip_release: "torch"
     install_dev: |
-      pip install transformers
       pip install --upgrade --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
 
   models:
@@ -32,6 +31,7 @@ pytorch:
     maximum: "1.9.0"
     requirements: ["torchvision", "scikit-learn"]
     run: |
+      pip install transformers
       pytest tests/pytorch/test_pytorch_model_export.py --large
 
 pytorch-lightning:

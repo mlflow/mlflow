@@ -908,6 +908,40 @@ def test_pyfunc_serve_and_score(data):
     np.testing.assert_array_almost_equal(scores.values[:, 0], _predict(model=model, data=data))
 
 
+@pytest.mark.large
+def test_pyfunc_serve_and_score_transformers():
+    from transformers import BertModel, BertConfig
+
+    class MyBertModel(BertModel):
+        def forward(self, *args, **kwargs):  # pylint: disable=arguments-differ
+            return super().forward(*args, **kwargs).last_hidden_state
+
+    model = MyBertModel(
+        BertConfig(
+            vocab_size=16,
+            hidden_size=2,
+            num_hidden_layers=2,
+            num_attention_heads=2,
+            intermediate_size=2,
+        )
+    )
+    model.eval()
+
+    with mlflow.start_run():
+        mlflow.pytorch.log_model(model, artifact_path="model")
+        model_uri = mlflow.get_artifact_uri("model")
+
+    input_ids = model.dummy_inputs["input_ids"]
+    data = json.dumps({"inputs": input_ids.tolist()})
+    resp = pyfunc_serve_and_score_model(
+        model_uri,
+        data,
+        pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
+    )
+    np.testing.assert_array_equal(json.loads(resp.content), model(input_ids).detach().numpy())
+
+
 @pytest.fixture
 def create_requirements_file(tmpdir):
     requirement_file_name = "requirements.txt"
@@ -1184,31 +1218,3 @@ def test_log_state_dict(sequential_model, data):
     np.testing.assert_array_almost_equal(
         _predict(model, data), _predict(sequential_model, data), decimal=4,
     )
-
-
-def test_pyfunc_serve_and_score_transformers():
-    from transformers import BertModel, BertConfig
-
-    class MyBertModel(BertModel):
-        def forward(self, *args, **kwargs):  # pylint: disable=arguments-differ
-            return super().forward(*args, **kwargs).last_hidden_state
-
-    model = MyBertModel(
-        BertConfig(
-            vocab_size=16,
-            hidden_size=2,
-            num_hidden_layers=2,
-            num_attention_heads=2,
-            intermediate_size=2,
-        )
-    )
-    model.eval()
-
-    with mlflow.start_run():
-        mlflow.pytorch.log_model(model, artifact_path="model")
-        model_uri = mlflow.get_artifact_uri("model")
-
-    input_ids = model.dummy_inputs["input_ids"]
-    data = json.dumps({"inputs": input_ids.tolist()})
-    resp = pyfunc_serve_and_score_model(model_uri, data, pyfunc_scoring_server.CONTENT_TYPE_JSON)
-    np.testing.assert_array_equal(json.loads(resp.content), model(input_ids).detach().numpy())
