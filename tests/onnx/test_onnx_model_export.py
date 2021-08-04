@@ -24,6 +24,7 @@ from tests.helper_functions import (
     pyfunc_serve_and_score_model,
     _compare_conda_env_requirements,
     _assert_pip_requirements,
+    _is_available_on_pypi,
 )
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -36,6 +37,8 @@ TEST_ONNX_RESOURCES_DIR = os.path.join(TEST_DIR, "resources", "onnx")
 pytestmark = pytest.mark.skipif(
     (sys.version_info < (3, 6)), reason="Tests require Python 3 to run!"
 )
+
+EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("onnx") else ["--no-conda"]
 
 
 @pytest.fixture(scope="module")
@@ -277,7 +280,7 @@ def test_model_save_load_evaluate_pyfunc_format(onnx_model, model_path, data, pr
         model_uri=os.path.abspath(model_path),
         data=x,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        extra_args=["--no-conda"],
+        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
     assert np.allclose(
         pd.read_json(scoring_response.content, orient="records")
@@ -319,7 +322,7 @@ def test_model_save_load_evaluate_pyfunc_format_multiple_inputs(
         model_uri=os.path.abspath(model_path),
         data=data_multiple_inputs,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        extra_args=["--no-conda"],
+        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
     assert np.allclose(
         pd.read_json(scoring_response.content, orient="records").values,

@@ -318,6 +318,17 @@ def delete(app_name, region_name, archive, asynchronous, timeout):
     ),
 )
 @click.option(
+    "--archive",
+    is_flag=True,
+    help=(
+        "If specified, any SageMaker resources that become inactive after the finished"
+        " batch transform job are preserved. These resources may include the associated"
+        " SageMaker models and model artifacts. Otherwise, if `--archive` is unspecified,"
+        " these resources are deleted. `--archive` must be specified when deploying"
+        " asynchronously with `--async`."
+    ),
+)
+@click.option(
     "--async",
     "asynchronous",
     is_flag=True,
@@ -363,6 +374,7 @@ def deploy_transform_job(
     instance_count,
     vpc_config,
     flavor,
+    archive,
     asynchronous,
     timeout,
 ):
@@ -400,6 +412,7 @@ def deploy_transform_job(
         instance_count=instance_count,
         vpc_config=vpc_config,
         flavor=flavor,
+        archive=archive,
         synchronous=(not asynchronous),
         timeout_seconds=timeout,
     )

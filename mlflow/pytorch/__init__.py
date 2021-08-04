@@ -11,8 +11,8 @@ import importlib
 import logging
 import os
 import yaml
+import warnings
 
-import cloudpickle
 import numpy as np
 import pandas as pd
 from packaging.version import Version
@@ -39,6 +39,7 @@ from mlflow.utils.environment import (
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
 )
+from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.file_utils import _copy_file_or_tree, TempDir, write_to
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -62,17 +63,19 @@ def get_default_pip_requirements():
              Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
              that, at minimum, contains these requirements.
     """
-    import torch
-    import torchvision
-
-    return [
-        "torch=={}".format(torch.__version__),
-        "torchvision=={}".format(torchvision.__version__),
-        # We include CloudPickle in the default environment because
-        # it's required by the default pickle module used by `save_model()`
-        # and `log_model()`: `mlflow.pytorch.pickle_module`.
-        "cloudpickle=={}".format(cloudpickle.__version__),
-    ]
+    return list(
+        map(
+            _get_pinned_requirement,
+            [
+                "torch",
+                "torchvision",
+                # We include CloudPickle in the default environment because
+                # it's required by the default pickle module used by `save_model()`
+                # and `log_model()`: `mlflow.pytorch.pickle_module`.
+                "cloudpickle",
+            ],
+        )
+    )
 
 
 def get_default_conda_env():
@@ -194,15 +197,21 @@ def log_model(
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
 
-    :param requirements_file: A string containing the path to requirements file. Remote URIs
-                      are resolved to absolute filesystem paths.
-                      For example, consider the following ``requirements_file`` string -
+    :param requirements_file:
 
-                      requirements_file = "s3://my-bucket/path/to/my_file"
+        .. warning::
 
-                      In this case, the ``"my_file"`` requirements file is downloaded from S3.
+            ``requirements_file`` has been deprecated. Please use ``pip_requirements`` instead.
 
-                      If ``None``, no requirements file is added to the model.
+        A string containing the path to requirements file. Remote URIs are resolved to absolute
+        filesystem paths. For example, consider the following ``requirements_file`` string:
+
+        .. code-block:: python
+
+            requirements_file = "s3://my-bucket/path/to/my_file"
+
+        In this case, the ``"my_file"`` requirements file is downloaded from S3. If ``None``,
+        no requirements file is added to the model.
 
     :param extra_files: A list containing the paths to corresponding extra files. Remote URIs
                       are resolved to absolute filesystem paths.
@@ -320,7 +329,6 @@ def save_model(
     pickle_module=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
-    # TODO: Deprecate `requirements_file` and recommend using `pip_requirements` instead.
     requirements_file=None,
     extra_files=None,
     pip_requirements=None,
@@ -392,15 +400,21 @@ def save_model(
                           format, or a numpy array where the example will be serialized to json
                           by converting it to a list. Bytes are base64-encoded.
 
-    :param requirements_file: A string containing the path to requirements file. Remote URIs
-                      are resolved to absolute filesystem paths.
-                      For example, consider the following ``requirements_file`` string -
+    :param requirements_file:
 
-                      requirements_file = "s3://my-bucket/path/to/my_file"
+        .. warning::
 
-                      In this case, the ``"my_file"`` requirements file is downloaded from S3.
+            ``requirements_file`` has been deprecated. Please use ``pip_requirements`` instead.
 
-                      If ``None``, no requirements file is added to the model.
+        A string containing the path to requirements file. Remote URIs are resolved to absolute
+        filesystem paths. For example, consider the following ``requirements_file`` string:
+
+        .. code-block:: python
+
+            requirements_file = "s3://my-bucket/path/to/my_file"
+
+        In this case, the ``"my_file"`` requirements file is downloaded from S3. If ``None``,
+        no requirements file is added to the model.
 
     :param extra_files: A list containing the paths to corresponding extra files. Remote URIs
                       are resolved to absolute filesystem paths.
@@ -550,6 +564,13 @@ def save_model(
         write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
 
     if requirements_file:
+
+        warnings.warn(
+            "`requirements_file` has been deprecated. Please use `pip_requirements` instead.",
+            FutureWarning,
+            stacklevel=2,
+        )
+
         if not isinstance(requirements_file, str):
             raise TypeError("Path to requirements file should be a string")
 

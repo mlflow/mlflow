@@ -4,11 +4,13 @@ import numpy as np
 import pandas as pd
 import sklearn
 import pytest
+
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.utils import PYTHON_VERSION
 from mlflow.tracking import MlflowClient
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.model_utils import _get_flavor_configuration
-from tests.helper_functions import _assert_pip_requirements
+from tests.helper_functions import pyfunc_serve_and_score_model, _assert_pip_requirements
 
 
 @pytest.fixture(scope="module")
@@ -261,3 +263,44 @@ def test_log_model_with_extra_pip_requirements(shap_model, tmpdir):
             ["mlflow", *shap_default_reqs, "b", "-c constraints.txt", *sklearn_default_reqs],
             ["a"],
         )
+
+
+def create_identity_function():
+    def identity(x):
+        return x
+
+    def _identity_inverse(x):
+        return x
+
+    identity.inverse = _identity_inverse
+
+    return identity
+
+
+def test_pyfunc_serve_and_score():
+    X, y = shap.datasets.boston()
+    reg = sklearn.ensemble.RandomForestRegressor(n_estimators=10).fit(X, y)
+    model = shap.Explainer(
+        reg.predict,
+        masker=X,
+        algorithm="permutation",
+        # `link` defaults to `shap.links.identity` which is decorated by `numba.jit` and causes
+        # the following error when loading the explainer for serving:
+        # ```
+        # Exception: The passed link function needs to be callable and have a callable .inverse property!  # noqa
+        # ```
+        # As a workaround, use an identify function that's NOT decorated by `numba.jit`.
+        link=create_identity_function(),
+    )
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.shap.log_explainer(model, artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    resp = pyfunc_serve_and_score_model(
+        model_uri,
+        data=pd.DataFrame(X[:3]),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+    )
+    scores = pd.read_json(resp.content, orient="records").values
+    np.testing.assert_allclose(scores, model(X[:3]).values, rtol=100, atol=100)

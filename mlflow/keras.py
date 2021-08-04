@@ -34,6 +34,7 @@ from mlflow.utils.environment import (
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
 )
+from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -73,13 +74,11 @@ def get_default_pip_requirements(include_cloudpickle=False, keras_module=None):
 
         keras_module = keras
     if keras_module.__name__ == "keras":
-        pip_deps.append("keras=={}".format(keras_module.__version__))
+        pip_deps.append(_get_pinned_requirement("keras"))
     if include_cloudpickle:
-        import cloudpickle
+        pip_deps.append(_get_pinned_requirement("cloudpickle"))
 
-        pip_deps.append("cloudpickle=={}".format(cloudpickle.__version__))
-
-    pip_deps.append("tensorflow=={}".format(tf.__version__))
+    pip_deps.append(_get_pinned_requirement("tensorflow"))
 
     # Tensorflow<2.4 does not work with h5py>=3.0.0
     # see https://github.com/tensorflow/tensorflow/issues/44467

@@ -28,7 +28,10 @@ from tests.helper_functions import (
     pyfunc_serve_and_score_model,
     _compare_conda_env_requirements,
     _assert_pip_requirements,
+    _is_available_on_pypi,
 )
+
+EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("catboost") else ["--no-conda"]
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
 
@@ -376,6 +379,24 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     assert read_yaml(conda_env_path) == mlflow.catboost.get_default_conda_env()
 
 
+@pytest.mark.large
+def test_pyfunc_serve_and_score(reg_model):
+    model, inference_dataframe = reg_model
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.catboost.log_model(model, artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    resp = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_dataframe,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+    )
+    scores = pd.read_json(resp.content, orient="records").values.squeeze()
+    np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe))
+
+
+@pytest.mark.large
 def test_pyfunc_serve_and_score_sklearn(reg_model):
     model, inference_dataframe = reg_model
     model = Pipeline([("model", reg_model.model)])
@@ -389,6 +410,6 @@ def test_pyfunc_serve_and_score_sklearn(reg_model):
         inference_dataframe.head(3),
         pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
     )
-    np.testing.assert_array_equal(
-        json.loads(resp.content), model.predict(inference_dataframe.head(3))
-    )
+    scores = pd.read_json(resp.content, orient="records").values.squeeze()
+    np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe.head(3)))
+

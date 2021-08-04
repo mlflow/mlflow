@@ -4,12 +4,10 @@ import os
 import pickle
 import pytest
 import yaml
-import json
 from collections import namedtuple
 
 import numpy as np
 import pandas as pd
-import pandas.testing
 import sklearn.datasets as datasets
 import sklearn.linear_model as glm
 import sklearn.neighbors as knn
@@ -34,9 +32,14 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.helper_functions import (
-    score_model_in_sagemaker_docker_container,
+    pyfunc_serve_and_score_model,
     _compare_conda_env_requirements,
     _assert_pip_requirements,
+    _is_available_on_pypi,
+)
+
+EXTRA_PYFUNC_SERVING_TEST_ARGS = (
+    [] if _is_available_on_pypi("scikit-learn", module="sklearn") else ["--no-conda"]
 )
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
@@ -578,28 +581,6 @@ def test_model_save_without_cloudpickle_format_does_not_add_cloudpickle_to_conda
         )
 
 
-@pytest.mark.release
-def test_sagemaker_docker_model_scoring_with_default_conda_env(sklearn_knn_model, model_path):
-    mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path, conda_env=None)
-    reloaded_knn_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
-
-    inference_df = pd.DataFrame(sklearn_knn_model.inference_data)
-    scoring_response = score_model_in_sagemaker_docker_container(
-        model_uri=model_path,
-        data=inference_df,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        flavor=mlflow.pyfunc.FLAVOR_NAME,
-    )
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
-
-    pandas.testing.assert_frame_equal(
-        deployed_model_preds,
-        pd.DataFrame(reloaded_knn_pyfunc.predict(inference_df)),
-        check_dtype=False,
-        check_less_precise=6,
-    )
-
-
 @pytest.mark.large
 def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(
     sklearn_knn_model, model_path
@@ -647,3 +628,20 @@ def test_add_pyfunc_flavor_only_when_model_defines_predict(model_path):
     model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)
     assert pyfunc.FLAVOR_NAME not in model_conf.flavors
+
+
+def test_pyfunc_serve_and_score(sklearn_knn_model):
+    model, inference_dataframe = sklearn_knn_model
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(model, artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    resp = pyfunc_serve_and_score_model(
+        model_uri,
+        data=pd.DataFrame(inference_dataframe),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
+    )
+    scores = pd.read_json(resp.content, orient="records").values.squeeze()
+    np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe))

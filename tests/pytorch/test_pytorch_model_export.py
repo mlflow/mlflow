@@ -30,7 +30,11 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
-from tests.helper_functions import _compare_conda_env_requirements, _assert_pip_requirements
+from tests.helper_functions import (
+    _compare_conda_env_requirements,
+    _assert_pip_requirements,
+    _is_available_on_pypi,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -39,13 +43,14 @@ _logger = logging.getLogger(__name__)
 # Therefore, we attempt to import from `tests` and gracefully emit a warning if it's unavailable.
 try:
     from tests.helper_functions import pyfunc_serve_and_score_model
-    from tests.helper_functions import score_model_in_sagemaker_docker_container
     from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
     from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 except ImportError:
     _logger.warning(
         "Failed to import test helper functions. Tests depending on these functions may fail!"
     )
+
+EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("torch") else ["--no-conda"]
 
 
 @pytest.fixture(scope="module")
@@ -594,10 +599,7 @@ def test_pyfunc_model_serving_with_module_scoped_subclassed_model_and_default_co
     module_scoped_subclassed_model, model_path, data
 ):
     mlflow.pytorch.save_model(
-        path=model_path,
-        pytorch_model=module_scoped_subclassed_model,
-        conda_env=None,
-        code_paths=[__file__],
+        path=model_path, pytorch_model=module_scoped_subclassed_model, code_paths=[__file__],
     )
 
     scoring_response = pyfunc_serve_and_score_model(
@@ -668,10 +670,7 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
     # `tests` module is not available when the model is deployed for local scoring, we include
     # the test suite file as a code dependency
     mlflow.pytorch.save_model(
-        path=model_path,
-        pytorch_model=module_scoped_subclassed_model,
-        conda_env=None,
-        code_paths=[__file__],
+        path=model_path, pytorch_model=module_scoped_subclassed_model, code_paths=[__file__],
     )
 
     # Define a custom pyfunc model that loads a PyTorch model artifact using
@@ -907,24 +906,23 @@ def test_load_model_raises_exception_when_pickle_module_cannot_be_imported(
     assert bad_pickle_module_name in str(exc_info)
 
 
-@pytest.mark.release
-def test_sagemaker_docker_model_scoring_with_sequential_model_and_default_conda_env(
-    model, model_path, data, sequential_predicted
-):
-    mlflow.pytorch.save_model(pytorch_model=model, path=model_path, conda_env=None)
+@pytest.mark.large
+def test_pyfunc_serve_and_score(data):
+    model = torch.nn.Linear(4, 1)
+    train_model(model=model, data=data)
 
-    scoring_response = score_model_in_sagemaker_docker_container(
-        model_uri=model_path,
-        data=data[0],
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        flavor=mlflow.pyfunc.FLAVOR_NAME,
-        activity_polling_timeout_seconds=360,
-    )
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+    with mlflow.start_run():
+        mlflow.pytorch.log_model(model, artifact_path="model")
+        model_uri = mlflow.get_artifact_uri("model")
 
-    np.testing.assert_array_almost_equal(
-        deployed_model_preds.values[:, 0], sequential_predicted, decimal=4
+    resp = pyfunc_serve_and_score_model(
+        model_uri,
+        data[0],
+        pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
+    scores = pd.DataFrame(json.loads(resp.content))
+    np.testing.assert_array_almost_equal(scores.values[:, 0], _predict(model=model, data=data))
 
 
 @pytest.fixture
@@ -1023,6 +1021,15 @@ def test_log_model_invalid_requirement_file_type(sequential_model):
             artifact_path="models",
             conda_env=None,
             requirements_file=["inexistent_file.txt"],
+        )
+
+
+def test_save_model_emits_deprecation_warning_for_requirements_file(tmpdir):
+    reqs_file = tmpdir.join("requirements.txt")
+    reqs_file.write("torch")
+    with pytest.warns(FutureWarning, match="`requirements_file` has been deprecated"):
+        mlflow.pytorch.save_model(
+            get_sequential_model(), tmpdir.join("model"), requirements_file=reqs_file.strpath,
         )
 
 

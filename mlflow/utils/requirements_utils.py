@@ -16,6 +16,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.autologging_utils.versioning import _strip_dev_version_suffix
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from packaging.version import Version, InvalidVersion
 
 
 def _is_comment(line):
@@ -177,9 +178,9 @@ def _run_command(cmd):
         raise MlflowException(msg)
 
 
-def _get_package_version(package):
+def _get_package_version_from_metadata(package):
     """
-    Returns the version of the specified package.
+    Obtains the version of the specified package from its metadata.
     """
     version = importlib_metadata.version(package)
 
@@ -236,4 +237,51 @@ def _infer_requirements(model_uri, flavor):
     ]
     packages = set(packages) - set(excluded_packages)
     packages = _prune_packages(packages)
-    return ["{}=={}".format(p, _get_package_version(p)) for p in sorted(packages)]
+    return ["{}=={}".format(p, _get_package_version_from_metadata(p)) for p in sorted(packages)]
+
+
+def _strip_local_version_identifier(version):
+    """
+    Strips a local version identifer in `version`.
+
+    Local version identifiers:
+    https://www.python.org/dev/peps/pep-0440/#local-version-identifiers
+
+    :param version: A version string to strip.
+    """
+
+    class IgnoreLocal(Version):
+        @property
+        def local(self):
+            return None
+
+    try:
+        return str(IgnoreLocal(version))
+    except InvalidVersion:
+        return version
+
+
+def _get_installed_version(module):
+    """
+    Returns the installed version of the specified module.
+
+    :param module: The name of the module.
+    """
+    return __import__(module).__version__
+
+
+def _get_pinned_requirement(package, version=None, module=None):
+    """
+    Returns a string representing a pinned pip requirement to install the specified package and
+    version (e.g. 'mlflow==1.2.3').
+
+    :param package: The name of the package.
+    :param version: The version of the package. If None, defaults to the installed version.
+    :param module: The name of the top-level module provided by the package . For example,
+                   if `package` is 'scikit-learn', `module` should be 'sklearn'. If None, defaults
+                   to `package`.
+    """
+    module = module or package
+    version = version or _get_installed_version(module)
+    version = _strip_local_version_identifier(version)
+    return f"{package}=={version}"

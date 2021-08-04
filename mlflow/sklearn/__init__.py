@@ -42,6 +42,7 @@ from mlflow.utils.environment import (
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
 )
+from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
@@ -74,13 +75,9 @@ def get_default_pip_requirements(include_cloudpickle=False):
              Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
              that, at minimum, contains these requirements.
     """
-    import sklearn
-
-    pip_deps = ["scikit-learn=={}".format(sklearn.__version__)]
+    pip_deps = [_get_pinned_requirement("scikit-learn", module="sklearn")]
     if include_cloudpickle:
-        import cloudpickle
-
-        pip_deps += ["cloudpickle=={}".format(cloudpickle.__version__)]
+        pip_deps += [_get_pinned_requirement("cloudpickle")]
 
     return pip_deps
 
@@ -1094,6 +1091,7 @@ def autolog(
     """
     import pandas as pd
     import sklearn
+    import sklearn.metrics
     import sklearn.model_selection
 
     from mlflow.models import infer_signature
@@ -1497,10 +1495,11 @@ def autolog(
                 FLAVOR_NAME, class_def, "score", patched_model_score, manage_run=False,
             )
 
-    from sklearn import metrics
-
     for metric_name in _get_metric_name_list():
-        safe_patch(FLAVOR_NAME, metrics, metric_name, patched_metric_api, manage_run=False)
+        safe_patch(FLAVOR_NAME, sklearn.metrics, metric_name, patched_metric_api, manage_run=False)
+
+    for scorer in sklearn.metrics.SCORERS.values():
+        safe_patch(FLAVOR_NAME, scorer, "_score_func", patched_metric_api, manage_run=False)
 
     def patched_fn_with_autolog_disabled(original, *args, **kwargs):
         with disable_autologging():
