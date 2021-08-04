@@ -149,7 +149,8 @@ def test_patch_for_descriptor(gorilla_setting):
     )
 
 
-def test_patch_on_inherit_method(gorilla_setting):
+@pytest.mark.parametrize("store_hit", [True, False])
+def test_patch_on_inherit_method(store_hit):
     A, B = gen_class_A_B()
 
     original_A_f2 = A.f2
@@ -157,11 +158,14 @@ def test_patch_on_inherit_method(gorilla_setting):
     def patched_B_f2(self):  # pylint: disable=unused-argument
         pass
 
+    gorilla_setting = gorilla.Settings(allow_hit=True, store_hit=store_hit)
     patch_B_f2 = gorilla.Patch(B, "f2", patched_B_f2, gorilla_setting)
     gorilla.apply(patch_B_f2)
 
     assert B.f2 is patched_B_f2
-    assert gorilla.get_original_attribute(B, "f2") is original_A_f2
+
+    if store_hit:
+        assert gorilla.get_original_attribute(B, "f2") is original_A_f2
 
     gorilla.revert(patch_B_f2)
     assert B.f2 is original_A_f2

@@ -374,7 +374,8 @@ def revert(patch):
         # delete patched method
         delattr(patch.destination, patch.name)
 
-    delattr(patch.destination, original_name)
+    if original_name in patch.destination.__dict__:
+        delattr(patch.destination, original_name)
     delattr(patch.destination, curr_active_patch)
 
 
