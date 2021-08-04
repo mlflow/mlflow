@@ -176,7 +176,7 @@ def test_patch_on_inherit_method(store_hit):
 def test_patch_on_attribute_not_exist(store_hit):
     A, _ = gen_class_A_B()
 
-    def patched_fx(self):
+    def patched_fx(self):  # pylint: disable=unused-argument
         return 101
 
     gorilla_setting = gorilla.Settings(allow_hit=True, store_hit=store_hit)
