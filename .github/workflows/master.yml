@@ -206,7 +206,6 @@ jobs:
         ./dev/run-large-python-tests.sh
     - name: Run database initialization tests
       run: |
-        set -x
         # Build wheel and copy it under tests/db
         python setup.py bdist_wheel
         cp -r dist tests/db

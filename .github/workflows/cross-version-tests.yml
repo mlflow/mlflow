@@ -125,7 +125,6 @@ jobs:
             ${{ steps.get-cache-key.outputs.key }}
       - name: Install mlflow & test dependencies
         run: |
-          set -x
           python --version
           pip install --upgrade pip wheel
           pip install -e .
@@ -134,7 +133,6 @@ jobs:
         env:
           CACHE_DIR: /home/runner/.cache/wheels
         run: |
-          set -x
           ${{ matrix.install }}
       - name: Check package versions
         run: |
