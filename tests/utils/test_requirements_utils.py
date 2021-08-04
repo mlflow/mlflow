@@ -200,7 +200,7 @@ def test_capture_imported_modules():
     assert "numpy" in cap.imported_modules
 
 
-def test_capture_imported_modules_with_pickle():
+def test_capture_imported_modules_with_pickle(tmpdir):
     import pickle
     from sklearn.svm import SVC
 
