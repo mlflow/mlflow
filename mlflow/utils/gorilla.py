@@ -325,8 +325,7 @@ def apply(patch):
             original_name = _ORIGINAL_NAME % (patch.name,)
             setattr(patch.destination, original_name, target)
 
-    patch_obj = object.__getattribute__(patch, "obj")  # bypass descriptor protocol
-    setattr(patch.destination, patch.name, patch_obj)
+    setattr(patch.destination, patch.name, patch.obj)
     setattr(patch.destination, curr_active_patch, patch)
 
 
@@ -357,7 +356,7 @@ def revert(patch):
 
     # check whether original_name is in destination. We cannot use hasattr because it will
     # try to get attribute from parent classes if attribute not found in destination class.
-    if original_name not in patch.destination.__dict__:
+    if original_name not in patch.destination.__dict__ and not patch.is_inplace_patch:
         raise RuntimeError(
             "Cannot revert the attribute named '%s' since the setting "
             "'store_hit' was not set to True when applying the patch."
