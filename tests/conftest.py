@@ -69,31 +69,6 @@ def clean_up_leaked_runs():
             mlflow.end_run()
 
 
-# REMOVE THIS FIXTURE BEFORE MERGING THE PR
-# @pytest.fixture(scope="session", autouse=True)
-# def show_inferred_pip_requirements(request):
-#     import functools
-
-#     original = mlflow.infer_pip_requirements
-
-#     @functools.wraps(original)
-#     def patch(*args, **kwargs):
-#         res = original(*args, **kwargs)
-
-#         capture_manager = request.config.pluginmanager.getplugin("capturemanager")
-#         capture_manager.suspendcapture()
-#         title = "=" * 20 + " Inferred pip requirements " + "=" * 20
-#         print("\n" + title)
-#         print("\n".join(res))
-#         print("=" * len(title))
-#         capture_manager.resumecapture()
-
-#         return res
-
-#     with mock.patch("mlflow.infer_pip_requirements", new=patch):
-#         yield
-
-
 def _called_in_save_model():
     for frame in inspect.stack()[::-1]:
         if frame.function == "save_model":
