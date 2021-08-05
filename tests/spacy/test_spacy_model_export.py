@@ -337,7 +337,9 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     spacy_model_with_data, model_path
 ):
-    mlflow.spacy.save_model(spacy_model=spacy_model_with_data.model, path=model_path)
+    mlflow.spacy.save_model(
+        spacy_model=spacy_model_with_data.model, path=model_path, conda_env=None
+    )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
