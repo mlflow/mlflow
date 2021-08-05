@@ -11,6 +11,7 @@ In particular, a valid deployment plugin module must implement:
 
 import abc
 
+from mlflow.utils.annotations import experimental
 from mlflow.exceptions import MlflowException
 
 
@@ -183,6 +184,7 @@ class BaseDeploymentClient(abc.ABC):
         """
         pass
 
+    @experimental
     def explain(self, deployment_name, df):  # pylint: disable=unused-argument
         """
         Generate explanations of model predictions on the specified input pandas Dataframe
