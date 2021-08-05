@@ -34,6 +34,7 @@ from tests.helper_functions import (
     _compare_conda_env_requirements,
     _assert_pip_requirements,
     _is_available_on_pypi,
+    _is_importable,
 )
 
 _logger = logging.getLogger(__name__)
@@ -909,6 +910,7 @@ def test_pyfunc_serve_and_score(data):
 
 
 @pytest.mark.large
+@pytest.mark.skipif(not _is_importable("transformers"), reason="This test requires transformers")
 def test_pyfunc_serve_and_score_transformers():
     from transformers import BertModel, BertConfig
 

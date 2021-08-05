@@ -41,6 +41,7 @@ from tests.helper_functions import (
     _compare_conda_env_requirements,
     _assert_pip_requirements,
     _is_available_on_pypi,
+    _is_importable,
 )
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
@@ -642,6 +643,8 @@ def test_load_without_save_format(tf_keras_model, model_path):
     assert tf_keras_model.to_json() == model_loaded.to_json()
 
 
+@pytest.mark.large
+@pytest.mark.skipif(not _is_importable("transformers"), reason="This test requires transformers")
 def test_pyfunc_serve_and_score_transformers():
     from transformers import BertConfig, TFBertModel
 
