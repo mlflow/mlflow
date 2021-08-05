@@ -10,9 +10,11 @@ set -euo pipefail
 
 . ~/.bashrc
 
-pip freeze > /tmp/before.txt
+IGNORE_PATTERN="^importlib-metadata"
+
+pip freeze | grep -v "$IGNORE_PATTERN" > /tmp/before.txt
 pip install --upgrade-strategy only-if-needed -e /mnt/mlflow
-pip freeze > /tmp/after.txt
+pip freeze | grep -v "$IGNORE_PATTERN" > /tmp/after.txt
 diff /tmp/before.txt /tmp/after.txt > /tmp/diff.txt || true
 if [[ ! -z $(grep "<" /tmp/diff.txt) ]]; then
   echo "MLflow installation modified the Anaconda distribution:" 1>&2
