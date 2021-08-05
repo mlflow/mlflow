@@ -7,7 +7,6 @@ from unittest import mock
 import numpy as np
 import pandas as pd
 import pandas.testing
-from pyspark import ml
 import pytest
 import sklearn.datasets
 import sklearn.linear_model
