@@ -186,4 +186,5 @@ def create_sqlalchemy_engine(db_uri):
         pool_kwargs["max_overflow"] = int(pool_max_overflow)
     if pool_kwargs:
         _logger.info("Create SQLAlchemy engine with pool options %s", pool_kwargs)
-    return sqlalchemy.create_engine(db_uri, pool_pre_ping=True, **pool_kwargs)
+        return sqlalchemy.create_engine(db_uri, pool_pre_ping=True, **pool_kwargs)
+    return sqlalchemy.create_engine(db_uri, poolclass=sqlalchemy.pool.NullPool)
