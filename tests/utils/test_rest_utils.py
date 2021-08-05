@@ -77,10 +77,12 @@ def test_http_request_hostonly(request):
     )
 
 
+@pytest.mark.parametrize(
+    "host_url", ["http://my-host/", "http://my-host/?o=123", "http://my-host/?o=123/",],
+)
 @mock.patch("requests.request")
-def test_http_request_cleans_hostname(request):
-    # Add a trailing slash, should be removed.
-    host_only = MlflowHostCreds("http://my-host/")
+def test_http_request_cleans_hostname(request, host_url):
+    host_only = MlflowHostCreds(host_url)
     response = mock.MagicMock()
     response.status_code = 200
     request.return_value = response

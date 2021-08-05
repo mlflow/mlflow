@@ -5,6 +5,7 @@ import json
 import requests
 from contextlib import contextmanager
 from requests.adapters import HTTPAdapter
+from six.moves.urllib.parse import urlparse
 from urllib3.util import Retry
 
 from mlflow import __version__
@@ -281,7 +282,8 @@ class MlflowHostCreds(object):
                 ),
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        self.host = host
+        parsed_url = urlparse(host)
+        self.host = f"{parsed_url.scheme}://{parsed_url.hostname}"
         self.username = username
         self.password = password
         self.token = token
