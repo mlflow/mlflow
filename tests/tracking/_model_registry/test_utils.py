@@ -81,15 +81,17 @@ def test_get_store_sqlalchemy_store(db_type):
     uri = "{}://hostname/database".format(db_type)
     env = {_TRACKING_URI_ENV_VAR: uri}
 
-    with mock.patch.dict(os.environ, env), patch_create_engine as mock_create_engine, mock.patch(
-        "mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore."
-        "_verify_registry_tables_exist"
-    ):
-        store = _get_store()
-        assert isinstance(store, SqlAlchemyStore)
-        assert store.db_uri == uri
-
-    mock_create_engine.assert_called_once_with(uri, pool_pre_ping=True)
+    with mock.patch("sqlalchemy.pool.NullPool") as nullpool:
+        with mock.patch.dict(
+            os.environ, env
+        ), patch_create_engine as mock_create_engine, mock.patch(
+            "mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore."
+            "_verify_registry_tables_exist"
+        ):
+            store = _get_store()
+            assert isinstance(store, SqlAlchemyStore)
+            assert store.db_uri == uri
+        mock_create_engine.assert_called_once_with(uri, poolclass=nullpool)
 
 
 @pytest.mark.parametrize("bad_uri", ["badsql://imfake", "yoursql://hi"])
