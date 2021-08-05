@@ -10,7 +10,7 @@ module.exports = async ({ context, github }) => {
   async function getDcoCheck() {
     const backoffs = [0, 2, 4, 6, 8];
     const numAttempts = backoffs.length;
-    for (const [index, backoff] of backoff.entries()) {
+    for (const [index, backoff] of backoffs.entries()) {
       await sleep(backoff * 1000);
       const resp = await github.checks.listForRef({
         owner,
@@ -31,9 +31,11 @@ module.exports = async ({ context, github }) => {
   }
 
   const dcoCheck = await getDcoCheck();
-  const { html_url, conclusion } = dcoCheck;
-  if (conclusion !== "success") {
-    const body = `@${user.login} The DCO check failed. Please sign off your commits:\n${html_url}`;
+  if (dcoCheck.conclusion !== "success") {
+    const body = [
+      `@${user.login} The DCO check failed. `,
+      `Please sign off your commits: ${dcoCheck.html_url}`,
+    ].join("");
     await github.issues.createComment({
       owner,
       repo,
