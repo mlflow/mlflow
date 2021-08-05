@@ -910,6 +910,7 @@ def setup_sklearn_hot_patch():
     if Version(sklearn.__version__) <= Version("0.24.2"):
         import sklearn.utils.metaestimators
 
+        # pylint: disable=redefined-builtin,unused-argument
         def patched_IffHasAttrDescriptor__get__(self, obj, type=None):
             """
             For sklearn version <= 0.24.2, `_IffHasAttrDescriptor.__get__` method does not support
@@ -937,6 +938,7 @@ def setup_sklearn_hot_patch():
             else:
                 # This makes it possible to use the decorated method as an unbound method,
                 # for instance when monkeypatching.
+                # pylint: disable=unnecessary-lambda
                 out = lambda *args, **kwargs: self.fn(*args, **kwargs)  # noqa
             # update the docstring of the returned function
             functools.update_wrapper(out, self.fn)

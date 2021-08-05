@@ -1825,7 +1825,7 @@ def gen_property_decorator_test_class():
 
 
 def gen_available_if_decorator_test_class():
-    from sklearn.utils.metaestimators import available_if
+    from sklearn.utils.metaestimators import available_if  # pylint: disable=no-name-in-module
 
     class BaseEstimator:
         def __init__(self, has_predict):
@@ -1844,9 +1844,11 @@ def gen_available_if_decorator_test_class():
 @pytest.mark.parametrize(
     "gen_test_class_fn",
     [gen_if_delegate_has_method_decorator_test_class, gen_property_decorator_test_class]
-    + [gen_available_if_decorator_test_class]
-    if Version(sklearn.__version__) > Version("0.24.2")
-    else [],
+    + (
+        [gen_available_if_decorator_test_class]
+        if Version(sklearn.__version__) > Version("0.24.2")
+        else []
+    ),
 )
 def test_decorated_method_patch(gen_test_class_fn):
     from mlflow.utils.autologging_utils import autologging_integration
@@ -1855,6 +1857,8 @@ def test_decorated_method_patch(gen_test_class_fn):
 
     class ExtendedEstimator(BaseEstimator):
         pass
+
+    original_base_estimator_predict = object.__getattribute__(BaseEstimator, "predict")
 
     def patched_predict(original, self, *args, **kwargs):
         result = original(self, *args, **kwargs)
@@ -1867,7 +1871,7 @@ def test_decorated_method_patch(gen_test_class_fn):
     flavor_name = "test_if_delegate_has_method_decorated_method_patch"
 
     @autologging_integration(flavor_name)
-    def autolog(disable=False, exclusive=False, silent=False):
+    def autolog(disable=False, exclusive=False, silent=False):  # pylint: disable=unused-argument
         mlflow.sklearn._patch_estimator_method_if_available(
             flavor_name, BaseEstimator, "predict", patched_predict, manage_run=False,
         )
@@ -1904,3 +1908,7 @@ def test_decorated_method_patch(gen_test_class_fn):
             assert not hasattr(bad_estimator2, "predict")
             with pytest.raises(AttributeError):
                 bad_estimator2.predict(X=1, a=2, b=3)
+
+    autolog(disable=True)
+    assert original_base_estimator_predict is object.__getattribute__(BaseEstimator, "predict")
+    assert "predict" not in ExtendedEstimator.__dict__
