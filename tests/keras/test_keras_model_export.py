@@ -646,7 +646,7 @@ def test_load_without_save_format(tf_keras_model, model_path):
 @pytest.mark.large
 @pytest.mark.skipif(not _is_importable("transformers"), reason="This test requires transformers")
 def test_pyfunc_serve_and_score_transformers():
-    from transformers import BertConfig, TFBertModel
+    from transformers import BertConfig, TFBertModel  # pylint: disable=import-error
 
     bert = TFBertModel(
         BertConfig(

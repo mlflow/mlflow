@@ -912,7 +912,7 @@ def test_pyfunc_serve_and_score(data):
 @pytest.mark.large
 @pytest.mark.skipif(not _is_importable("transformers"), reason="This test requires transformers")
 def test_pyfunc_serve_and_score_transformers():
-    from transformers import BertModel, BertConfig
+    from transformers import BertModel, BertConfig  # pylint: disable=import-error
 
     class MyBertModel(BertModel):
         def forward(self, *args, **kwargs):  # pylint: disable=arguments-differ
