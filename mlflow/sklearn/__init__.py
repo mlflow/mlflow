@@ -934,12 +934,13 @@ def setup_sklearn_hot_patch():
                     sklearn.utils.metaestimators.attrgetter(self.delegate_names[-1])(obj)
 
                 # lambda, but not partial, allows help() to work with update_wrapper
-                out = lambda *args, **kwargs: self.fn(obj, *args, **kwargs)
+                # pylint: disable=unnecessary-lambda
+                out = lambda *args, **kwargs: self.fn(obj, *args, **kwargs)  # noqa: E731
             else:
                 # This makes it possible to use the decorated method as an unbound method,
                 # for instance when monkeypatching.
                 # pylint: disable=unnecessary-lambda
-                out = lambda *args, **kwargs: self.fn(*args, **kwargs)  # noqa
+                out = lambda *args, **kwargs: self.fn(*args, **kwargs)  # noqa: E731
             # update the docstring of the returned function
             functools.update_wrapper(out, self.fn)
             return out

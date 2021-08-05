@@ -1883,7 +1883,9 @@ def test_decorated_method_patch(gen_test_class_fn):
     autolog()
 
     for EstimatorCls in [BaseEstimator, ExtendedEstimator]:
+        assert EstimatorCls.predict.__doc__ == original_base_estimator_predict.__doc__
         good_estimator = gen_good_estimator_fn(EstimatorCls)
+        assert good_estimator.predict.__doc__ == original_base_estimator_predict.__doc__
 
         expected_result = {"X": 1, "a": 2, "b": 3, "patch_count": 1}
         assert hasattr(good_estimator, "predict")
