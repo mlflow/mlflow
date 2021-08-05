@@ -15,7 +15,6 @@ from mlflow.store.db.db_types import SQLITE
 
 _logger = logging.getLogger(__name__)
 
-
 MLFLOW_SQLALCHEMYSTORE_POOL_SIZE = "MLFLOW_SQLALCHEMYSTORE_POOL_SIZE"
 MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW = "MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW"
 MAX_RETRY_COUNT = 15
@@ -184,7 +183,9 @@ def create_sqlalchemy_engine(db_uri):
         pool_kwargs["pool_size"] = int(pool_size)
     if pool_max_overflow:
         pool_kwargs["max_overflow"] = int(pool_max_overflow)
-    if pool_kwargs:
+    if pool_kwargs:  # If pool parameters are specified, create the SQLAlchemy engine with a QueuePool.
         _logger.info("Create SQLAlchemy engine with pool options %s", pool_kwargs)
         return sqlalchemy.create_engine(db_uri, pool_pre_ping=True, **pool_kwargs)
+    # Otherwise, create the SQLAlchemy engine with a NullPool to prevent connection pooling
+    # so that closing sessions will also close the connections.
     return sqlalchemy.create_engine(db_uri, poolclass=sqlalchemy.pool.NullPool)
