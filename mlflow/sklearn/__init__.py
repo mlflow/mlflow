@@ -866,11 +866,13 @@ def _patch_estimator_method_if_available(flavor_name, class_def, func_name, patc
             def bound_safe_patch_fn(*args, **kwargs):
                 return safe_patch_fn(self, *args, **kwargs)
 
+            # Make bound method `instance.target_method` keep the same doc and signature
             bound_safe_patch_fn = update_wrapper_extended(
                 bound_safe_patch_fn, raw_original_obj.fget
             )
             return bound_safe_patch_fn
 
+        # Make unbound method `class.target_method` keep the same doc and signature
         get_bound_safe_patch_fn = update_wrapper_extended(
             get_bound_safe_patch_fn, raw_original_obj.fget
         )

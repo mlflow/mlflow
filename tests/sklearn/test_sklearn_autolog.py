@@ -11,6 +11,7 @@ from packaging.version import Version
 import sklearn
 import sklearn.base
 import sklearn.datasets
+import sklearn.linear_model
 import sklearn.model_selection
 from scipy.stats import uniform
 
@@ -1716,7 +1717,7 @@ def test_multi_model_interleaved_fit_and_post_train_metric_call():
 @pytest.mark.parametrize(
     "scoring", [None, sklearn.metrics.make_scorer(sklearn.metrics.accuracy_score)]
 )
-def test_meta_estimator_disable_post_training_autologging(scoring):
+def test_meta_estimator_disable_nested_post_training_autologging(scoring):
     import sklearn.svm
     import sklearn.metrics
 
@@ -1745,6 +1746,31 @@ def test_meta_estimator_disable_post_training_autologging(scoring):
             assert mock_is_metric_value_loggable.call_count <= 1
             assert mock_log_post_training_metric.call_count <= 1
             assert mock_register_prediction_input_dataset.call_count <= 1
+
+
+@pytest.mark.parametrize(
+    "scoring", [None, sklearn.metrics.make_scorer(sklearn.metrics.accuracy_score)]
+)
+def test_meta_estimator_post_training_autologging(scoring):
+    X, y = get_iris()
+    eval1_X, eval1_y = X[0::3], y[0::3]
+
+    mlflow.sklearn.autolog()
+
+    with mlflow.start_run() as run:
+        lor = sklearn.linear_model.LogisticRegression(solver="saga", random_state=0)
+        cv_model = sklearn.model_selection.GridSearchCV(
+            lor, {"max_iter": [5, 10, 15]}, n_jobs=1, scoring=scoring
+        )
+        cv_model.fit(X, y)  # pylint: disable=pointless-statement
+        pred1_y = cv_model.predict(eval1_X)
+        accuracy_score = sklearn.metrics.accuracy_score(eval1_y, pred1_y, normalize=False)
+        cv_score = cv_model.score(eval1_X, eval1_y)
+
+        _, metrics, _, _ = get_run_data(run.info.run_id)
+
+        assert metrics["accuracy_score_eval1_X"] == accuracy_score
+        assert metrics["GridSearchCV_score_eval1_X"] == cv_score
 
 
 def test_gen_metric_call_commands():
