@@ -15,7 +15,7 @@ IGNORE_PATTERN="^importlib-metadata"
 pip freeze | grep -v "$IGNORE_PATTERN" > /tmp/before.txt
 pip install --upgrade-strategy only-if-needed -e /mnt/mlflow
 pip freeze | grep -v "$IGNORE_PATTERN" > /tmp/after.txt
-git diff --no-index --color /tmp/before.txt /tmp/after.txt > /tmp/diff.txt || true
+git --no-pager diff --no-index --color /tmp/before.txt /tmp/after.txt > /tmp/diff.txt || true
 if [[ -s /tmp/diff.txt ]]; then
   echo "MLflow installation modified the Anaconda distribution:" 1>&2
   cat /tmp/diff.txt 1>&2
