@@ -79,7 +79,7 @@ def main():
     args = parse_args()
     model_path = args.model_path
     flavor = args.flavor
-    # Mirror `sys.path` of the caller
+    # Mirror `sys.path` of the parent process
     sys.path = json.loads(args.sys_path)
 
     # If `model_path` is a directory containing an `MLmodel` file, get the model data path from it
