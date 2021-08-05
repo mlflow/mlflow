@@ -223,7 +223,9 @@ def _infer_requirements(model_uri, flavor):
                 "--output-file",
                 output_file,
             ],
-            env={"PYTHONPATH": ":".join(sys.path)},
+            # If the Python interperter is invoked interactively, the first element in `sys.path`
+            # becomes an emptry string. `filter(None, sys.path)` removes it.
+            env={"PYTHONPATH": ":".join(filter(None, sys.path))},
         )
         with open(output_file) as f:
             modules = f.read().splitlines()
