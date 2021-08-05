@@ -388,7 +388,7 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(xgb_model, xg
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     xgb_model, model_path
 ):
-    mlflow.xgboost.save_model(xgb_model=xgb_model.model, path=model_path, conda_env=None)
+    mlflow.xgboost.save_model(xgb_model=xgb_model.model, path=model_path)
     _assert_pip_requirements(model_path, mlflow.xgboost.get_default_pip_requirements())
 
 

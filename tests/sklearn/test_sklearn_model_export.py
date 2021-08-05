@@ -463,7 +463,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 
 @pytest.mark.large
 def test_model_save_uses_cloudpickle_serialization_format_by_default(sklearn_knn_model, model_path):
-    mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path, conda_env=None)
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path)
 
     sklearn_conf = _get_flavor_configuration(
         model_path=model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME
@@ -476,9 +476,7 @@ def test_model_save_uses_cloudpickle_serialization_format_by_default(sklearn_knn
 def test_model_log_uses_cloudpickle_serialization_format_by_default(sklearn_knn_model):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.sklearn.log_model(
-            sk_model=sklearn_knn_model.model, artifact_path=artifact_path, conda_env=None
-        )
+        mlflow.sklearn.log_model(sk_model=sklearn_knn_model.model, artifact_path=artifact_path)
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
         )
@@ -498,7 +496,6 @@ def test_model_save_with_cloudpickle_format_adds_cloudpickle_to_conda_environmen
     mlflow.sklearn.save_model(
         sk_model=sklearn_knn_model.model,
         path=model_path,
-        conda_env=None,
         serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
     )
 
@@ -534,7 +531,6 @@ def test_model_save_without_cloudpickle_format_does_not_add_cloudpickle_to_conda
         mlflow.sklearn.save_model(
             sk_model=sklearn_knn_model.model,
             path=model_path,
-            conda_env=None,
             serialization_format=serialization_format,
         )
 

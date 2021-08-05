@@ -248,7 +248,6 @@ def test_log_model_calls_register_model(module_scoped_subclassed_model):
         mlflow.pytorch.log_model(
             artifact_path=artifact_path,
             pytorch_model=module_scoped_subclassed_model,
-            conda_env=None,
             pickle_module=custom_pickle_module,
             registered_model_name="AdsModel1",
         )
@@ -268,7 +267,6 @@ def test_log_model_no_registered_model_name(module_scoped_subclassed_model):
         mlflow.pytorch.log_model(
             artifact_path=artifact_path,
             pytorch_model=module_scoped_subclassed_model,
-            conda_env=None,
             pickle_module=custom_pickle_module,
         )
         mlflow.register_model.assert_not_called()
@@ -608,10 +606,7 @@ def test_save_model_with_wrong_codepaths_fails_corrrectly(
     # pylint: disable=unused-argument
     with pytest.raises(TypeError) as exc_info:
         mlflow.pytorch.save_model(
-            path=model_path,
-            pytorch_model=module_scoped_subclassed_model,
-            conda_env=None,
-            code_paths="some string",
+            path=model_path, pytorch_model=module_scoped_subclassed_model, code_paths="some string"
         )
     assert "TypeError: Argument code_paths should be a list, not {}".format(type("")) in str(
         exc_info
@@ -626,7 +621,6 @@ def test_pyfunc_model_serving_with_main_scoped_subclassed_model_and_custom_pickl
     mlflow.pytorch.save_model(
         path=model_path,
         pytorch_model=main_scoped_subclassed_model,
-        conda_env=None,
         pickle_module=mlflow_pytorch_pickle_module,
     )
 
@@ -710,7 +704,6 @@ def test_load_pyfunc_loads_torch_model_using_pickle_module_specified_at_save_tim
     mlflow.pytorch.save_model(
         path=model_path,
         pytorch_model=module_scoped_subclassed_model,
-        conda_env=None,
         pickle_module=custom_pickle_module,
     )
 
@@ -742,7 +735,6 @@ def test_load_model_loads_torch_model_using_pickle_module_specified_at_save_time
         mlflow.pytorch.log_model(
             artifact_path=artifact_path,
             pytorch_model=module_scoped_subclassed_model,
-            conda_env=None,
             pickle_module=custom_pickle_module,
         )
         model_uri = "runs:/{run_id}/{artifact_path}".format(
@@ -776,9 +768,7 @@ def test_load_pyfunc_succeeds_when_data_is_model_file_instead_of_directory(
     serialized PyTorch model file, as opposed to the current format: a directory containing a
     serialized model file and pickle module information.
     """
-    mlflow.pytorch.save_model(
-        path=model_path, pytorch_model=module_scoped_subclassed_model, conda_env=None
-    )
+    mlflow.pytorch.save_model(path=model_path, pytorch_model=module_scoped_subclassed_model)
 
     model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)
@@ -814,9 +804,7 @@ def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
     artifact_path = "pytorch_model"
     with mlflow.start_run():
         mlflow.pytorch.log_model(
-            artifact_path=artifact_path,
-            pytorch_model=module_scoped_subclassed_model,
-            conda_env=None,
+            artifact_path=artifact_path, pytorch_model=module_scoped_subclassed_model
         )
         model_path = _download_artifact_from_uri(
             "runs:/{run_id}/{artifact_path}".format(
@@ -850,10 +838,7 @@ def test_load_model_allows_user_to_override_pickle_module_via_keyword_argument(
     module_scoped_subclassed_model, model_path
 ):
     mlflow.pytorch.save_model(
-        path=model_path,
-        pytorch_model=module_scoped_subclassed_model,
-        conda_env=None,
-        pickle_module=pickle,
+        path=model_path, pytorch_model=module_scoped_subclassed_model, pickle_module=pickle
     )
 
     with mock.patch("torch.load") as torch_load_mock, mock.patch(
@@ -868,9 +853,7 @@ def test_load_model_allows_user_to_override_pickle_module_via_keyword_argument(
 def test_load_model_raises_exception_when_pickle_module_cannot_be_imported(
     main_scoped_subclassed_model, model_path
 ):
-    mlflow.pytorch.save_model(
-        path=model_path, pytorch_model=main_scoped_subclassed_model, conda_env=None
-    )
+    mlflow.pytorch.save_model(path=model_path, pytorch_model=main_scoped_subclassed_model)
 
     bad_pickle_module_name = "not.a.real.module"
 
@@ -961,7 +944,6 @@ def test_requirements_file_log_model(create_requirements_file, sequential_model)
         mlflow.pytorch.log_model(
             pytorch_model=sequential_model,
             artifact_path="models",
-            conda_env=None,
             requirements_file=requirements_file,
         )
 
@@ -1025,7 +1007,6 @@ def test_log_model_invalid_requirement_file_path(sequential_model):
         mlflow.pytorch.log_model(
             pytorch_model=sequential_model,
             artifact_path="models",
-            conda_env=None,
             requirements_file="inexistent_file.txt",
         )
 
@@ -1038,7 +1019,6 @@ def test_log_model_invalid_requirement_file_type(sequential_model):
         mlflow.pytorch.log_model(
             pytorch_model=sequential_model,
             artifact_path="models",
-            conda_env=None,
             requirements_file=["inexistent_file.txt"],
         )
 
@@ -1067,10 +1047,7 @@ def test_extra_files_log_model(create_extra_files, sequential_model):
     extra_files, contents_expected = create_extra_files
     with mlflow.start_run():
         mlflow.pytorch.log_model(
-            pytorch_model=sequential_model,
-            artifact_path="models",
-            conda_env=None,
-            extra_files=extra_files,
+            pytorch_model=sequential_model, artifact_path="models", extra_files=extra_files
         )
 
         model_uri = "runs:/{run_id}/{model_path}".format(
@@ -1121,7 +1098,6 @@ def test_log_model_invalid_extra_file_path(sequential_model):
         mlflow.pytorch.log_model(
             pytorch_model=sequential_model,
             artifact_path="models",
-            conda_env=None,
             extra_files=["inexistent_file.txt"],
         )
 
@@ -1134,7 +1110,6 @@ def test_log_model_invalid_extra_file_type(sequential_model):
         mlflow.pytorch.log_model(
             pytorch_model=sequential_model,
             artifact_path="models",
-            conda_env=None,
             extra_files="inexistent_file.txt",
         )
 
