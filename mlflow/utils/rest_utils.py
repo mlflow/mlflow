@@ -283,7 +283,7 @@ class MlflowHostCreds(object):
                 error_code=INVALID_PARAMETER_VALUE,
             )
         parsed_url = urlparse(host)
-        self.host = f"{parsed_url.scheme}://{parsed_url.hostname}"
+        self.host = f"{parsed_url.scheme}://{parsed_url.netloc}"
         self.username = username
         self.password = password
         self.token = token
