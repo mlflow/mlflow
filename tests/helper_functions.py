@@ -342,7 +342,15 @@ def _compare_conda_env_requirements(env_path, req_path):
     assert _get_pip_deps(custom_env_parsed) == requirements
 
 
+# TODO: Set `strict` to True for `pip_requirements` tests to strictly check its behavior.
 def _assert_pip_requirements(model_uri, requirements, constraints=None, strict=False):
+    """
+    Loads the pip requirements (and optionally constraints) from `model_uri` and compares them
+    to `requirements` (and `constraints`).
+
+    If `strict` is True, evalute `set(loaded_requirements) == set(requirements)`.
+    Otherwise, evalute `set(requirements) <= set(loaded_requirements)`.
+    """
     local_path = _download_artifact_from_uri(model_uri)
     txt_reqs = _read_lines(os.path.join(local_path, _REQUIREMENTS_FILE_NAME))
     conda_reqs = _get_pip_deps(_read_yaml(os.path.join(local_path, _CONDA_ENV_FILE_NAME)))
@@ -382,3 +390,11 @@ def _is_available_on_pypi(package, version=None, module=None):
         and (len(dist_files) > 0)  # at least one distribution file exists
         and not dist_files[0].get("yanked", False)  # specified version is not yanked
     )
+
+
+def _is_importable(module_name):
+    try:
+        __import__(module_name)
+        return True
+    except ImportError:
+        return False
