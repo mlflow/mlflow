@@ -162,7 +162,7 @@ def save_model(
                 model_data_path, FLAVOR_NAME, fallback=default_reqs,
             )
             os.remove(save_path)  # Clean up the MLmodel file
-            default_reqs = list(set(inferred_reqs).union(default_reqs))
+            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
 
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
             default_reqs, pip_requirements, extra_pip_requirements,
