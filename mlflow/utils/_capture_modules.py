@@ -5,7 +5,9 @@ import argparse
 import builtins
 import functools
 import importlib
+import json
 import os
+import sys
 
 import mlflow
 from mlflow.utils.file_utils import write_to
@@ -69,6 +71,7 @@ def parse_args():
     parser.add_argument("--model-path", required=True)
     parser.add_argument("--flavor", required=True)
     parser.add_argument("--output-file", required=True)
+    parser.add_argument("--sys-path", required=True)
     return parser.parse_args()
 
 
@@ -76,7 +79,8 @@ def main():
     args = parse_args()
     model_path = args.model_path
     flavor = args.flavor
-    output_file = args.output_file
+    # Mirror `sys.path` of the caller
+    sys.path = json.loads(args.sys_path)
 
     # If `model_path` is a directory containing an `MLmodel` file, get the model data path from it
     if os.path.isdir(model_path) and MLMODEL_FILE_NAME in os.listdir(model_path):
@@ -89,7 +93,7 @@ def main():
         flavor_module._load_pyfunc(model_path)
 
     # Store the imported modules in `output_file`
-    write_to(output_file, "\n".join(cap.imported_modules))
+    write_to(args.output_file, "\n".join(cap.imported_modules))
 
 
 if __name__ == "__main__":

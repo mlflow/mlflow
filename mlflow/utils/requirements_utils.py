@@ -3,6 +3,7 @@ This module provides a set of utilities for interpreting and creating requiremen
 (e.g. pip's `requirements.txt`), which is useful for managing ML software environments.
 """
 
+import json
 import sys
 import subprocess
 import tempfile
@@ -159,14 +160,11 @@ def _prune_packages(packages):
     return packages - requires
 
 
-def _run_command(cmd, env=None):
+def _run_command(cmd):
     """
     Runs the specified command. If it exits with non-zero status, `MlflowException` is raised.
     """
-    env = env or {}
-    proc = subprocess.Popen(
-        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env={**os.environ, **env}
-    )
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = proc.communicate()
     stdout = stdout.decode("utf-8")
     stderr = stderr.decode("utf-8")
@@ -222,10 +220,9 @@ def _infer_requirements(model_uri, flavor):
                 flavor,
                 "--output-file",
                 output_file,
+                "--sys-path",
+                json.dumps(sys.path),
             ],
-            # If the Python interperter is invoked interactively, the first element in `sys.path`
-            # becomes an emptry string. `filter(None, sys.path)` removes it.
-            env={"PYTHONPATH": ":".join(filter(None, sys.path))},
         )
         with open(output_file) as f:
             modules = f.read().splitlines()
