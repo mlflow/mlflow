@@ -43,5 +43,3 @@ pyspark
 shap
 # Required by mlflow.paddle
 paddlepaddle
-# Required when testing `mlflow.infer_pip_requirements`
-transformers
