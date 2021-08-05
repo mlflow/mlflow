@@ -11,11 +11,9 @@ In particular, a valid deployment plugin module must implement:
 
 import abc
 
-from mlflow.utils.annotations import experimental
 from mlflow.exceptions import MlflowException
 
 
-@experimental
 def run_local(target, name, model_uri, flavor=None, config=None):  # pylint: disable=W0613
     """
     .. Note::
@@ -44,7 +42,6 @@ def run_local(target, name, model_uri, flavor=None, config=None):  # pylint: dis
     )
 
 
-@experimental
 def target_help():
     """
     .. Note::
@@ -89,7 +86,6 @@ class BaseDeploymentClient(abc.ABC):
         self.target_uri = target_uri
 
     @abc.abstractmethod
-    @experimental
     def create_deployment(self, name, model_uri, flavor=None, config=None):
         """
         Deploy a model to the specified target. By default, this method should block until
@@ -112,7 +108,6 @@ class BaseDeploymentClient(abc.ABC):
         pass
 
     @abc.abstractmethod
-    @experimental
     def update_deployment(self, name, model_uri=None, flavor=None, config=None):
         """
         Update the deployment with the specified name. You can update the URI of the model, the
@@ -135,7 +130,6 @@ class BaseDeploymentClient(abc.ABC):
         pass
 
     @abc.abstractmethod
-    @experimental
     def delete_deployment(self, name):
         """
         Delete the deployment with name ``name`` from the specified target. Deletion should be
@@ -147,7 +141,6 @@ class BaseDeploymentClient(abc.ABC):
         pass
 
     @abc.abstractmethod
-    @experimental
     def list_deployments(self):
         """
         List deployments. This method is expected to return an unpaginated list of all
@@ -163,7 +156,6 @@ class BaseDeploymentClient(abc.ABC):
         pass
 
     @abc.abstractmethod
-    @experimental
     def get_deployment(self, name):
         """
         Returns a dictionary describing the specified deployment, throwing a
@@ -178,7 +170,6 @@ class BaseDeploymentClient(abc.ABC):
         pass
 
     @abc.abstractmethod
-    @experimental
     def predict(self, deployment_name, df):
         """
         Compute predictions on the pandas DataFrame ``df`` using the specified deployment.
@@ -192,7 +183,6 @@ class BaseDeploymentClient(abc.ABC):
         """
         pass
 
-    @experimental
     def explain(self, deployment_name, df):  # pylint: disable=unused-argument
         """
         Generate explanations of model predictions on the specified input pandas Dataframe
