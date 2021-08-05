@@ -356,7 +356,7 @@ def test_log_model_with_extra_pip_requirements(reg_model, tmpdir):
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     reg_model, model_path
 ):
-    mlflow.catboost.save_model(reg_model.model, model_path, conda_env=None)
+    mlflow.catboost.save_model(reg_model.model, model_path)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
     assert read_yaml(conda_env_path) == mlflow.catboost.get_default_conda_env()
@@ -368,7 +368,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.catboost.log_model(reg_model.model, artifact_path, conda_env=None)
+        mlflow.catboost.log_model(reg_model.model, artifact_path)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     local_path = _download_artifact_from_uri(artifact_uri=model_uri)
