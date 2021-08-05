@@ -348,8 +348,8 @@ def _assert_pip_requirements(model_uri, requirements, constraints=None, strict=F
     Loads the pip requirements (and optionally constraints) from `model_uri` and compares them
     to `requirements` (and `constraints`).
 
-    If `strict` is True, evalute `set(loaded_requirements) == set(requirements)`.
-    Otherwise, evalute `set(requirements) <= set(loaded_requirements)`.
+    If `strict` is True, evaluate `set(loaded_requirements) == set(requirements)`.
+    Otherwise, evaluate `set(requirements) <= set(loaded_requirements)`.
     """
     local_path = _download_artifact_from_uri(model_uri)
     txt_reqs = _read_lines(os.path.join(local_path, _REQUIREMENTS_FILE_NAME))
