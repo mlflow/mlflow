@@ -78,7 +78,7 @@ def test_http_request_hostonly(request):
 
 
 @pytest.mark.parametrize(
-    "host_url", ["http://my-host/", "http://my-host/abc/?o=123", "http://my-host/?o=123/",],
+    "host_url", ["http://my-host/", "http://my-host/?o=123", "http://my-host/?o=123/",],
 )
 @mock.patch("requests.request")
 def test_http_request_cleans_hostname(request, host_url):
@@ -89,22 +89,6 @@ def test_http_request_cleans_hostname(request, host_url):
     http_request(host_only, "/my/endpoint")
     request.assert_called_with(
         url="http://my-host/my/endpoint", verify=True, headers=_DEFAULT_HEADERS,
-    )
-
-
-@pytest.mark.parametrize(
-    "host_url",
-    ["http://my-host:80/", "http://my-host:80/abc/?o=123", "http://my-host:80/?o=123/",],
-)
-@mock.patch("requests.request")
-def test_http_request_cleans_hostname_with_port(request, host_url):
-    host_only = MlflowHostCreds(host_url)
-    response = mock.MagicMock()
-    response.status_code = 200
-    request.return_value = response
-    http_request(host_only, "/my/endpoint")
-    request.assert_called_with(
-        url="http://my-host:80/my/endpoint", verify=True, headers=_DEFAULT_HEADERS,
     )
 
 
