@@ -104,13 +104,14 @@ class SqlAlchemyStore(AbstractStore):
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
         self.artifact_root_uri = default_artifact_root
-        # Quick check to see if the corresponding SQLAlchemy database engine has already been created.
+        # Quick check to see if the respective SQLAlchemy database engine has already been created.
         if db_uri not in SqlAlchemyStore._db_uri_sql_alchemy_engine_map:
             with SqlAlchemyStore._db_uri_sql_alchemy_engine_map_lock:
-                # Repeat check to prevent race conditions where one thread checks for an existing engine
-                # while another is creating the respective one, resulting in multiple engines being created.
-                # It isn't combined with the above check to prevent inefficiency from multiple threads waiting
-                # for the lock to check for engine existence if it has already been created.
+                # Repeat check to prevent race conditions where one thread checks for an existing
+                # engine while another is creating the respective one, resulting in multiple
+                # engines being created. It isn't combined with the above check to prevent
+                # inefficiency from multiple threads waiting for the lock to check for engine
+                # existence if it has already been created.
                 if db_uri not in SqlAlchemyStore._db_uri_sql_alchemy_engine_map:
                     SqlAlchemyStore._db_uri_sql_alchemy_engine_map[
                         db_uri
