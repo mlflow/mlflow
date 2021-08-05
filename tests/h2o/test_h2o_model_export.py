@@ -301,13 +301,7 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
     h2o_iris_model, model_path
 ):
     mlflow.h2o.save_model(h2o_model=h2o_iris_model.model, path=model_path)
-
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
-
-    assert conda_env == mlflow.h2o.get_default_conda_env()
+    _assert_pip_requirements(model_path, mlflow.h2o.get_default_pip_requirements())
 
 
 @pytest.mark.large
@@ -317,18 +311,8 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.h2o.log_model(h2o_model=h2o_iris_model.model, artifact_path=artifact_path)
-        model_path = _download_artifact_from_uri(
-            "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-            )
-        )
-
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
-
-    assert conda_env == mlflow.h2o.get_default_conda_env()
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+    _assert_pip_requirements(model_uri, mlflow.h2o.get_default_pip_requirements())
 
 
 @pytest.mark.large

@@ -7,6 +7,7 @@ from unittest import mock
 import numpy as np
 import pandas as pd
 import pandas.testing
+from pyspark import ml
 import pytest
 import sklearn.datasets
 import sklearn.linear_model
@@ -764,15 +765,7 @@ def test_save_model_without_specified_conda_env_uses_default_env_with_expected_d
         python_model=main_scoped_model_class(predict_fn=None),
         conda_env=_conda_env(),
     )
-
-    pyfunc_conf = _get_flavor_configuration(
-        model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
-    )
-    conda_env_path = os.path.join(pyfunc_model_path, pyfunc_conf[mlflow.pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
-
-    assert conda_env == _conda_env()
+    _assert_pip_requirements(model_path, mlflow.pyfunc.get_default_pip_requirements())
 
 
 @pytest.mark.large
@@ -795,20 +788,8 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
             },
             python_model=main_scoped_model_class(predict_fn=None),
         )
-        pyfunc_model_path = _download_artifact_from_uri(
-            "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path
-            )
-        )
-
-    pyfunc_conf = _get_flavor_configuration(
-        model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
-    )
-    conda_env_path = os.path.join(pyfunc_model_path, pyfunc_conf[mlflow.pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
-
-    assert conda_env == mlflow.pyfunc.model.get_default_conda_env()
+        model_uri = mlflow.get_artifact_uri(pyfunc_artifact_path)
+    _assert_pip_requirements(model_uri, mlflow.pyfunc.get_default_pip_requirements())
 
 
 @pytest.mark.large
