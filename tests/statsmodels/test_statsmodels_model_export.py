@@ -386,7 +386,9 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
     ols_model, model_path
 ):
 
-    mlflow.statsmodels.save_model(statsmodels_model=ols_model.model, path=model_path)
+    mlflow.statsmodels.save_model(
+        statsmodels_model=ols_model.model, path=model_path, conda_env=None
+    )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -402,7 +404,9 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.statsmodels.log_model(statsmodels_model=ols_model.model, artifact_path=artifact_path)
+        mlflow.statsmodels.log_model(
+            statsmodels_model=ols_model.model, artifact_path=artifact_path, conda_env=None
+        )
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
         )

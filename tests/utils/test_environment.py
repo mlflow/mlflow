@@ -182,7 +182,9 @@ def test_parse_pip_requirements_with_invalid_argument_types(invalid_argument):
 
 
 def test_validate_env_arguments():
-    _validate_env_arguments(pip_requirements=None, extra_pip_requirements=None, conda_env=None)
+    _validate_env_arguments(
+        conda_env=None, pip_requirements=None, extra_pip_requirements=None,
+    )
 
     match = "Only one of `conda_env`, `pip_requirements`, and `extra_pip_requirements`"
     with pytest.raises(ValueError, match=match):
@@ -196,7 +198,9 @@ def test_validate_env_arguments():
         )
 
     with pytest.raises(ValueError, match=match):
-        _validate_env_arguments(conda_env=None, pip_requirements=[], extra_pip_requirements=[])
+        _validate_env_arguments(
+            conda_env=None, pip_requirements=[], extra_pip_requirements=[],
+        )
 
     with pytest.raises(ValueError, match=match):
         _validate_env_arguments(

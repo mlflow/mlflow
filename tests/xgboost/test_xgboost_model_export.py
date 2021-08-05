@@ -387,7 +387,7 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(xgb_model, xg
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     xgb_model, model_path
 ):
-    mlflow.xgboost.save_model(xgb_model=xgb_model.model, path=model_path)
+    mlflow.xgboost.save_model(xgb_model=xgb_model.model, path=model_path, conda_env=None)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -403,7 +403,9 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.xgboost.log_model(xgb_model=xgb_model.model, artifact_path=artifact_path)
+        mlflow.xgboost.log_model(
+            xgb_model=xgb_model.model, artifact_path=artifact_path, conda_env=None
+        )
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
         )
