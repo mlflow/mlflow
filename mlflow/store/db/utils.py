@@ -183,9 +183,6 @@ def create_sqlalchemy_engine(db_uri):
         pool_kwargs["pool_size"] = int(pool_size)
     if pool_max_overflow:
         pool_kwargs["max_overflow"] = int(pool_max_overflow)
-    # If pool parameters are specified, create the SQLAlchemy engine with a QueuePool.
     if pool_kwargs:
         _logger.info("Create SQLAlchemy engine with pool options %s", pool_kwargs)
     return sqlalchemy.create_engine(db_uri, pool_pre_ping=True, **pool_kwargs)
-    # Otherwise, create the SQLAlchemy engine with a NullPool to prevent connection pooling
-    # so that closing sessions will also close the connections.
