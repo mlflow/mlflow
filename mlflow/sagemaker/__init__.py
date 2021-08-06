@@ -812,6 +812,143 @@ def terminate_transform_job(
             stop_operation.clean_up()
 
 
+@experimental
+def push_sagemaker_model(
+    model_name,
+    model_uri,
+    execution_role_arn=None,
+    bucket=None,
+    image_url=None,
+    region_name="us-west-2",
+    vpc_config=None,
+    flavor=None,
+):
+    """
+    Deploy an MLflow model to AWS SageMaker model registry.
+    The currently active AWS account must have correct permissions set up.
+
+    :param model_name: Name of the Sagemaker model.
+    :param model_uri: The location, in URI format, of the MLflow model to deploy to SageMaker.
+                      For example:
+
+                      - ``/Users/me/path/to/local/model``
+                      - ``relative/path/to/local/model``
+                      - ``s3://my_bucket/path/to/model``
+                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+                      - ``models:/<model_name>/<model_version>``
+                      - ``models:/<model_name>/<stage>``
+
+                      For more information about supported URI schemes, see
+                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+                      artifact-locations>`_.
+
+    :param execution_role_arn: The name of an IAM role granting the SageMaker service permissions to
+                               access the specified Docker image and S3 bucket containing MLflow
+                               model artifacts. If unspecified, the currently-assumed role will be
+                               used. This execution role is passed to the SageMaker service when
+                               creating a SageMaker model from the specified MLflow model. It is
+                               passed as the ``ExecutionRoleArn`` parameter of the `SageMaker
+                               CreateModel API call <https://docs.aws.amazon.com/sagemaker/latest/
+                               dg/API_CreateModel.html>`_. This role is *not* assumed for any other
+                               call. For more information about SageMaker execution roles for model
+                               creation, see
+                               https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html.
+    :param bucket: S3 bucket where model artifacts will be stored. Defaults to a
+                   SageMaker-compatible bucket name.
+    :param image_url: URL of the ECR-hosted Docker image the model should be deployed into, produced
+                      by ``mlflow sagemaker build-and-push-container``. This parameter can also
+                      be specified by the environment variable ``MLFLOW_SAGEMAKER_DEPLOY_IMG_URL``.
+    :param region_name: Name of the AWS region to which to deploy the application.
+    :param vpc_config: A dictionary specifying the VPC configuration to use when creating the
+                       new SageMaker model. The acceptable values for this parameter are identical
+                       to those of the ``VpcConfig`` parameter in the `SageMaker boto3 client's
+                       create_model method
+                       <https://boto3.readthedocs.io/en/latest/reference/services/sagemaker.html
+                       #SageMaker.Client.create_model>`_. For more information, see
+                       https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow.sagemaker as mfs
+        vpc_config = {
+                        'SecurityGroupIds': [
+                            'sg-123456abc',
+                        ],
+                        'Subnets': [
+                            'subnet-123456abc',
+                        ]
+                     }
+        mfs.push_sagemaker_model(..., vpc_config=vpc_config)
+
+    :param flavor: The name of the flavor of the model to use for deployment. Must be either
+                   ``None`` or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS. If ``None``,
+                   a flavor is automatically selected from the model's available flavors. If the
+                   specified flavor is not present or not supported for deployment, an exception
+                   will be thrown.
+    """
+    import boto3
+
+    model_path = _download_artifact_from_uri(model_uri)
+    model_config_path = os.path.join(model_path, MLMODEL_FILE_NAME)
+    if not os.path.exists(model_config_path):
+        raise MlflowException(
+            message=(
+                "Failed to find {} configuration within the specified model's" " root directory."
+            ).format(MLMODEL_FILE_NAME),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    model_config = Model.load(model_config_path)
+
+    if flavor is None:
+        flavor = _get_preferred_deployment_flavor(model_config)
+    else:
+        _validate_deployment_flavor(model_config, flavor)
+    _logger.info("Using the %s flavor for deployment!", flavor)
+
+    sage_client = boto3.client("sagemaker", region_name=region_name)
+    s3_client = boto3.client("s3", region_name=region_name)
+
+    model_exists = _find_model(model_name=model_name, sage_client=sage_client) is not None
+    if model_exists:
+        raise MlflowException(
+            message=(
+                "You are attempting to create a Sagemaker model with name: {model_name}."
+                "However, a model with the same name already exists.".format(model_name=model_name)
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    if not image_url:
+        image_url = _get_default_image_url(region_name=region_name)
+    if not execution_role_arn:
+        execution_role_arn = _get_assumed_role_arn()
+    if not bucket:
+        _logger.info("No model data bucket specified, using the default bucket")
+        bucket = _get_default_s3_bucket(region_name)
+
+    model_s3_path = _upload_s3(
+        local_model_path=model_path,
+        bucket=bucket,
+        prefix=model_name,
+        region_name=region_name,
+        s3_client=s3_client,
+    )
+
+    model_response = _create_sagemaker_model(
+        model_name=model_name,
+        model_s3_path=model_s3_path,
+        model_uri=model_uri,
+        flavor=flavor,
+        vpc_config=vpc_config,
+        image_url=image_url,
+        execution_role=execution_role_arn,
+        sage_client=sage_client,
+    )
+
+    _logger.info("Created Sagemaker model with arn: %s", model_response["ModelArn"])
+
+
 def run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
     """
     Serve model locally in a SageMaker compatible Docker container.
@@ -1498,6 +1635,30 @@ def _find_transform_job(job_name, sage_client):
         if "NextToken" in transform_jobs_page:
             transform_jobs_page = sage_client.list_transform_jobs(
                 MaxResults=100, NextToken=transform_jobs_page["NextToken"], NameContains=job_name,
+            )
+        else:
+            return None
+
+
+def _find_model(model_name, sage_client):
+    """
+    Finds a SageMaker model with the specified name in the caller's AWS account,
+    returning a NoneType if the model is not found.
+
+    :param sage_client: A boto3 client for SageMaker.
+    :return: If the model exists, a dictionary of model attributes. If the model does not
+             exist, ``None``.
+    """
+    models_page = sage_client.list_models(MaxResults=100, NameContains=model_name)
+
+    while True:
+        for model in models_page["Models"]:
+            if model["ModelName"] == model_name:
+                return model
+
+        if "NextToken" in models_page:
+            models_page = sage_client.list_models(
+                MaxResults=100, NextToken=models_page["NextToken"], NameContains=model_name,
             )
         else:
             return None
