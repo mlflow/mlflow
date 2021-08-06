@@ -544,6 +544,25 @@ def save_model(
                 tmp_extra_files_dir.path(), posixpath.join(path, _EXTRA_FILES_KEY),
             )
 
+    if requirements_file:
+
+        warnings.warn(
+            "`requirements_file` has been deprecated. Please use `pip_requirements` instead.",
+            FutureWarning,
+            stacklevel=2,
+        )
+
+        if not isinstance(requirements_file, str):
+            raise TypeError("Path to requirements file should be a string")
+
+        with TempDir() as tmp_requirements_dir:
+            _download_artifact_from_uri(
+                artifact_uri=requirements_file, output_path=tmp_requirements_dir.path()
+            )
+            rel_path = os.path.basename(requirements_file)
+            torchserve_artifacts_config[_REQUIREMENTS_FILE_KEY] = {"path": rel_path}
+            shutil.move(tmp_requirements_dir.path(rel_path), path)
+
     if code_paths is not None:
         code_dir_subpath = "code"
         for code_path in code_paths:
@@ -587,25 +606,7 @@ def save_model(
     if pip_constraints:
         write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
 
-    if requirements_file:
-
-        warnings.warn(
-            "`requirements_file` has been deprecated. Please use `pip_requirements` instead.",
-            FutureWarning,
-            stacklevel=2,
-        )
-
-        if not isinstance(requirements_file, str):
-            raise TypeError("Path to requirements file should be a string")
-
-        with TempDir() as tmp_requirements_dir:
-            _download_artifact_from_uri(
-                artifact_uri=requirements_file, output_path=tmp_requirements_dir.path()
-            )
-            rel_path = os.path.basename(requirements_file)
-            torchserve_artifacts_config[_REQUIREMENTS_FILE_KEY] = {"path": rel_path}
-            shutil.move(tmp_requirements_dir.path(rel_path), path)
-    else:
+    if not requirements_file:
         # Save `requirements.txt`
         write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 

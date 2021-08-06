@@ -237,7 +237,7 @@ def save_model(
         default_reqs = get_default_pip_requirements(include_cloudpickle)
         if pip_requirements is None:
             inferred_reqs = mlflow.models.infer_pip_requirements(
-                path, FLAVOR_NAME, fallback=default_reqs,
+                model_data_path, FLAVOR_NAME, fallback=default_reqs,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
