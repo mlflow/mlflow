@@ -813,7 +813,7 @@ def terminate_transform_job(
 
 
 @experimental
-def push_sagemaker_model(
+def push_model_to_sagemaker(
     model_name,
     model_uri,
     execution_role_arn=None,
@@ -824,7 +824,7 @@ def push_sagemaker_model(
     flavor=None,
 ):
     """
-    Deploy an MLflow model to AWS SageMaker model registry.
+    Push an MLflow model to AWS SageMaker model registry.
     The currently active AWS account must have correct permissions set up.
 
     :param model_name: Name of the Sagemaker model.
@@ -879,7 +879,7 @@ def push_sagemaker_model(
                             'subnet-123456abc',
                         ]
                      }
-        mfs.push_sagemaker_model(..., vpc_config=vpc_config)
+        mfs.push_model_to_sagemaker(..., vpc_config=vpc_config)
 
     :param flavor: The name of the flavor of the model to use for deployment. Must be either
                    ``None`` or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS. If ``None``,
