@@ -35,7 +35,6 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _inspect_original_var_name
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import get_instance_method_first_arg_value
-from mlflow.utils.autologging_utils.safety import update_wrapper_extended
 from mlflow.utils.environment import (
     _mlflow_conda_env,
     _validate_env_arguments,
@@ -840,67 +839,12 @@ def _patch_estimator_method_if_available(flavor_name, class_def, func_name, patc
     raw_original_obj = gorilla.get_original_attribute(
         class_def, func_name, bypass_descriptor_protocol=True
     )
-
-    if isinstance(raw_original_obj, property):
-
-        def real_original(self, *args, **kwargs):
-            bound_delegate_method = raw_original_obj.fget(self)
-            return bound_delegate_method(*args, **kwargs)
-
-        safe_patch(
-            flavor_name,
-            class_def,
-            func_name,
-            patched_fn,
-            manage_run=manage_run,
-            original_fn=real_original,
-        )
-        safe_patch_fn = getattr(class_def, func_name)
-
-        def get_bound_safe_patch_fn(self):
-            # This `raw_original_obj.fget` call is for availability check, if it raise error
-            # then `hasattr(obj, {func_name})` will return False
-            # so it mimic the original property behavior.
-            raw_original_obj.fget(self)
-
-            def bound_safe_patch_fn(*args, **kwargs):
-                return safe_patch_fn(self, *args, **kwargs)
-
-            # Make bound method `instance.target_method` keep the same doc and signature
-            bound_safe_patch_fn = update_wrapper_extended(
-                bound_safe_patch_fn, raw_original_obj.fget
-            )
-            return bound_safe_patch_fn
-
-        # Make unbound method `class.target_method` keep the same doc and signature
-        get_bound_safe_patch_fn = update_wrapper_extended(
-            get_bound_safe_patch_fn, raw_original_obj.fget
-        )
-        setattr(class_def, func_name, property(get_bound_safe_patch_fn))
-
-    elif raw_original_obj is original and callable(original):
-        # normal method
-        safe_patch(
-            flavor_name, class_def, func_name, patched_fn, manage_run=manage_run,
-        )
+    if raw_original_obj == original and (callable(original) or isinstance(original, property)):
+        # normal method or property decorated method
+        safe_patch(flavor_name, class_def, func_name, patched_fn, manage_run=manage_run)
     elif hasattr(raw_original_obj, "delegate_names") or hasattr(raw_original_obj, "check"):
-        safe_patch(
-            flavor_name, class_def, func_name, patched_fn, manage_run=manage_run,
-        )
-        safe_patch_fn = getattr(class_def, func_name)
-
-        if hasattr(raw_original_obj, "delegate_names"):
-            # the method is decorated by `@if_delegate_has_method`
-            decorated_safe_patch_fn = raw_original_obj.__class__(
-                safe_patch_fn, raw_original_obj.delegate_names, func_name
-            )
-        elif hasattr(raw_original_obj, "check"):
-            # the method is decorated by `@available_if`
-            # Note: this case only happen in sklearn > 0.24.2
-            decorated_safe_patch_fn = raw_original_obj.__class__(
-                safe_patch_fn, raw_original_obj.check, func_name
-            )
-        setattr(class_def, func_name, decorated_safe_patch_fn)
+        # sklearn delegated method
+        safe_patch(flavor_name, raw_original_obj, 'fn', patched_fn, manage_run=manage_run)
     else:
         # unsupported method type. skip patching
         pass

@@ -270,12 +270,7 @@ def is_testing():
 
 
 def safe_patch(
-    autologging_integration,
-    destination,
-    function_name,
-    patch_function,
-    manage_run=False,
-    original_fn=None,
+    autologging_integration, destination, function_name, patch_function, manage_run=False
 ):
     """
     Patches the specified `function_name` on the specified `destination` class for autologging
@@ -299,9 +294,6 @@ def safe_patch(
                        active run during patch code execution if necessary. If `False`,
                        does not apply the `with_managed_run` wrapper to the specified
                        `patch_function`.
-    :param original_fn: If None, will fetch the original function via
-                        `gorilla.get_original_attribute(destination, function_name)`, otherwise,
-                        use the provided `original_fn` as the original function.
     """
     from mlflow.utils.autologging_utils import get_autologging_config, autologging_is_disabled
 
@@ -317,6 +309,25 @@ def safe_patch(
         assert issubclass(patch_function, PatchFunction)
     else:
         assert callable(patch_function)
+
+    original_fn = gorilla.get_original_attribute(
+        destination, function_name, bypass_descriptor_protocol=False
+    )
+    # Retrieve raw attribute while bypassing the descriptor protocol
+    raw_original_obj = gorilla.get_original_attribute(
+        destination, function_name, bypass_descriptor_protocol=True
+    )
+    if original_fn != raw_original_obj:
+        raise RuntimeError(f'Unsupport patch on {str(destination)}.{str}')
+    elif isinstance(raw_original_obj, property):
+        is_property_method = True
+
+        def original(self, *args, **kwargs):
+            bound_delegate_method = raw_original_obj.fget(self)
+            return bound_delegate_method(*args, **kwargs)
+    else:
+        original = original_fn
+        is_property_method = False
 
     def safe_patch_function(*args, **kwargs):
         """
@@ -366,11 +377,6 @@ def safe_patch(
 
             if is_testing():
                 preexisting_run_for_testing = mlflow.active_run()
-
-            if original_fn is not None:
-                original = original_fn
-            else:
-                original = gorilla.get_original_attribute(destination, function_name)
 
             # Whether or not to exclude autologged content from user-created fluent runs
             # (i.e. runs created manually via `mlflow.start_run()`)
@@ -553,7 +559,31 @@ def safe_patch(
                 else:
                     return original(*args, **kwargs)
 
-    new_patch = _wrap_patch(destination, function_name, safe_patch_function)
+    if is_property_method:
+        def get_bound_safe_patch_fn(self):
+            # This `raw_original_obj.fget` call is for availability check, if it raise error
+            # then `hasattr(obj, {func_name})` will return False
+            # so it mimic the original property behavior.
+            raw_original_obj.fget(self)
+
+            def bound_safe_patch_fn(*args, **kwargs):
+                return safe_patch_function(self, *args, **kwargs)
+
+            # Make bound method `instance.target_method` keep the same doc and signature
+            bound_safe_patch_fn = update_wrapper_extended(
+                bound_safe_patch_fn, raw_original_obj.fget
+            )
+            return bound_safe_patch_fn
+
+        # Make unbound method `class.target_method` keep the same doc and signature
+        get_bound_safe_patch_fn = update_wrapper_extended(
+            get_bound_safe_patch_fn, raw_original_obj.fget
+        )
+        safe_patch_obj = property(get_bound_safe_patch_fn)
+    else:
+        safe_patch_obj = update_wrapper_extended(safe_patch_function, original)
+
+    new_patch = _wrap_patch(destination, function_name, safe_patch_obj)
     _store_patch(autologging_integration, new_patch)
 
 
@@ -632,22 +662,19 @@ def update_wrapper_extended(wrapper, wrapped):
     return updated_wrapper
 
 
-def _wrap_patch(destination, name, patch, settings=None):
+def _wrap_patch(destination, name, patch_obj, settings=None):
     """
-    Apply a patch while preserving the attributes (e.g. __doc__) of an original function.
+    Apply a patch.
 
     :param destination: Patch destination
     :param name: Name of the attribute at the destination
-    :param patch: Patch function
+    :param patch_obj: Patch object
     :param settings: Settings for gorilla.Patch
     """
     if settings is None:
         settings = gorilla.Settings(allow_hit=True, store_hit=True)
 
-    original = gorilla.get_original_attribute(destination, name)
-    wrapped = update_wrapper_extended(patch, original)
-
-    patch = gorilla.Patch(destination, name, wrapped, settings=settings)
+    patch = gorilla.Patch(destination, name, patch_obj, settings=settings)
     gorilla.apply(patch)
     return patch
 
