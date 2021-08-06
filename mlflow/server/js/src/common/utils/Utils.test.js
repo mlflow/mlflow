@@ -224,7 +224,9 @@ test('formatSource & renderSource', () => {
   );
 
   const bitbucket_self_http_url = {
-    'mlflow.source.name': { value: 'https://bitbucket.Anyword.balabizoo.com/scm/~user/mlflow-docker.git' },
+    'mlflow.source.name': {
+      value: 'https://bitbucket.Anyword.balabizoo.com/scm/~user/mlflow-docker.git',
+    },
     'mlflow.source.type': { value: 'PROJECT' },
     'mlflow.project.entryPoint': { value: 'main' },
   };
@@ -236,13 +238,18 @@ test('formatSource & renderSource', () => {
   );
 
   const bitbucket_self_url = {
-    'mlflow.source.name': { value: 'ssh://git@bitbucket.Anyword.balabizoo.com:1234/projectname/mlflow-docker.git' },
+    'mlflow.source.name': {
+      value: 'ssh://git@bitbucket.Anyword.balabizoo.com:1234/projectname/mlflow-docker.git',
+    },
     'mlflow.source.type': { value: 'PROJECT' },
     'mlflow.project.entryPoint': { value: 'entry' },
   };
   expect(Utils.formatSource(bitbucket_self_url)).toEqual('mlflow-docker:entry');
   expect(Utils.renderSource(bitbucket_self_url)).toEqual(
-    <a href='https://bitbucket.Anyword.balabizoo.com/projects/projectname/repos/mlflow-docker' target='_top'>
+    <a
+      href='https://bitbucket.Anyword.balabizoo.com/projects/projectname/repos/mlflow-docker'
+      target='_top'
+    >
       mlflow-docker:entry
     </a>,
   );
@@ -321,7 +328,7 @@ test('dropExtension', () => {
 test('getGitHubRegex', () => {
   const gitHubRegex = Utils.getGitHubRegex();
   const urlAndExpected = [
-    [ 
+    [
       'http://github.com/mlflow/mlflow-apps',
       ['/github.com/mlflow/mlflow-apps', 'mlflow', 'mlflow-apps', ''],
     ],
@@ -367,11 +374,21 @@ test('getBitbucketSelfhostedRegex', () => {
   const urlAndExpected = [
     [
       'https://bitbucket.Anyword.balabizoo.com/scm/~user/mlflow-docker.git',
-      ['/bitbucket.Anyword.balabizoo.com/scm/~user/mlflow-docker.git', 'bitbucket.Anyword.balabizoo.com', '~user', '/mlflow-docker.git'],
+      [
+        '/bitbucket.Anyword.balabizoo.com/scm/~user/mlflow-docker.git',
+        'bitbucket.Anyword.balabizoo.com',
+        '~user',
+        '/mlflow-docker.git',
+      ],
     ],
     [
       'ssh://git@bitbucket.Anyword.balabizoo.com:1234/projectname/mlflow-docker.git',
-      ['@bitbucket.Anyword.balabizoo.com:1234/projectname/mlflow-docker.git', 'bitbucket.Anyword.balabizoo.com', 'projectname', '/mlflow-docker.git'],
+      [
+        '@bitbucket.Anyword.balabizoo.com:1234/projectname/mlflow-docker.git',
+        'bitbucket.Anyword.balabizoo.com',
+        'projectname',
+        '/mlflow-docker.git',
+      ],
     ],
   ];
   urlAndExpected.forEach((lst) => {
