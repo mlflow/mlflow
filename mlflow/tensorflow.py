@@ -308,6 +308,8 @@ def save_model(
     if conda_env is None:
         default_reqs = get_default_pip_requirements()
         if pip_requirements is None:
+            # To ensure `_load_pyfunc` can successfully load the model during the dependency
+            # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
                 path, FLAVOR_NAME, fallback=default_reqs,
             )
