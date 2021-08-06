@@ -87,8 +87,8 @@ def prevent_infer_pip_requirements_fallback(request):
     def new_exception(msg, *_, **__):
         if msg == _INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE and _called_in_save_model():
             raise Exception(
-                "`mlflow.models.infer_pip_requirements` should not fall back in `mlflow.*.save_model`"
-                " during test"
+                "`mlflow.models.infer_pip_requirements` should not fall back in"
+                "`mlflow.*.save_model` during test"
             )
 
     if "disable_prevent_infer_pip_requirements_fallback" not in request.keywords:

@@ -173,11 +173,20 @@ def save_model(
     # Save an XGBoost model
     xgb_model.save_model(model_data_path)
 
+    pyfunc.add_to_model(
+        mlflow_model,
+        loader_module="mlflow.xgboost",
+        data=model_data_subpath,
+        env=_CONDA_ENV_FILE_NAME,
+    )
+    mlflow_model.add_flavor(FLAVOR_NAME, xgb_version=xgb.__version__, data=model_data_subpath)
+    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+
     if conda_env is None:
         default_reqs = get_default_pip_requirements()
         if pip_requirements is None:
             inferred_reqs = mlflow.models.infer_pip_requirements(
-                model_data_path, FLAVOR_NAME, fallback=default_reqs,
+                path, FLAVOR_NAME, fallback=default_reqs,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
@@ -195,15 +204,6 @@ def save_model(
 
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
-
-    pyfunc.add_to_model(
-        mlflow_model,
-        loader_module="mlflow.xgboost",
-        data=model_data_subpath,
-        env=_CONDA_ENV_FILE_NAME,
-    )
-    mlflow_model.add_flavor(FLAVOR_NAME, xgb_version=xgb.__version__, data=model_data_subpath)
-    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))

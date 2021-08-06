@@ -146,22 +146,27 @@ def save_model(
     model_data_path = os.path.join(path, _MODEL_BINARY_FILE_NAME)
     cb_model.save_model(model_data_path, **kwargs)
 
+    model_bin_kwargs = {_MODEL_BINARY_KEY: _MODEL_BINARY_FILE_NAME}
+    pyfunc.add_to_model(
+        mlflow_model, loader_module="mlflow.catboost", env=_CONDA_ENV_FILE_NAME, **model_bin_kwargs,
+    )
+
     flavor_conf = {
         _MODEL_TYPE_KEY: cb_model.__class__.__name__,
         _SAVE_FORMAT_KEY: kwargs.get("format", "cbm"),
+        **model_bin_kwargs,
     }
+    mlflow_model.add_flavor(
+        FLAVOR_NAME, catboost_version=cb.__version__, **flavor_conf,
+    )
+    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
         default_reqs = get_default_pip_requirements()
         if pip_requirements is None:
-            # HACK: Temporarily create an MLmodel file because `mlflow.catboost._load_pyfunc`
-            # requires it to get model type and save format.
-            save_path = os.path.join(path, MLMODEL_FILE_NAME)
-            Model().add_flavor(FLAVOR_NAME, **flavor_conf).save(save_path)
             inferred_reqs = mlflow.models.infer_pip_requirements(
-                model_data_path, FLAVOR_NAME, fallback=default_reqs,
+                path, FLAVOR_NAME, fallback=default_reqs,
             )
-            os.remove(save_path)  # Clean up the MLmodel file
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
 
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
@@ -179,15 +184,6 @@ def save_model(
 
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
-
-    model_bin_kwargs = {_MODEL_BINARY_KEY: _MODEL_BINARY_FILE_NAME}
-    pyfunc.add_to_model(
-        mlflow_model, loader_module="mlflow.catboost", env=_CONDA_ENV_FILE_NAME, **model_bin_kwargs,
-    )
-    mlflow_model.add_flavor(
-        FLAVOR_NAME, catboost_version=cb.__version__, **flavor_conf, **model_bin_kwargs,
-    )
-    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))

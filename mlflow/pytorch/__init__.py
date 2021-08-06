@@ -544,6 +544,29 @@ def save_model(
                 tmp_extra_files_dir.path(), posixpath.join(path, _EXTRA_FILES_KEY),
             )
 
+    if code_paths is not None:
+        code_dir_subpath = "code"
+        for code_path in code_paths:
+            _copy_file_or_tree(src=code_path, dst=path, dst_dir=code_dir_subpath)
+    else:
+        code_dir_subpath = None
+
+    mlflow_model.add_flavor(
+        FLAVOR_NAME,
+        model_data=model_data_subpath,
+        pytorch_version=str(torch.__version__),
+        **torchserve_artifacts_config,
+    )
+    pyfunc.add_to_model(
+        mlflow_model,
+        loader_module="mlflow.pytorch",
+        data=model_data_subpath,
+        pickle_module_name=pickle_module.__name__,
+        code=code_dir_subpath,
+        env=_CONDA_ENV_FILE_NAME,
+    )
+    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+
     if conda_env is None:
         default_reqs = get_default_pip_requirements()
         if pip_requirements is None:
@@ -585,29 +608,6 @@ def save_model(
     else:
         # Save `requirements.txt`
         write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
-
-    if code_paths is not None:
-        code_dir_subpath = "code"
-        for code_path in code_paths:
-            _copy_file_or_tree(src=code_path, dst=path, dst_dir=code_dir_subpath)
-    else:
-        code_dir_subpath = None
-
-    mlflow_model.add_flavor(
-        FLAVOR_NAME,
-        model_data=model_data_subpath,
-        pytorch_version=str(torch.__version__),
-        **torchserve_artifacts_config,
-    )
-    pyfunc.add_to_model(
-        mlflow_model,
-        loader_module="mlflow.pytorch",
-        data=model_data_subpath,
-        pickle_module_name=pickle_module.__name__,
-        code=code_dir_subpath,
-        env=_CONDA_ENV_FILE_NAME,
-    )
-    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
 def _load_model(path, **kwargs):
