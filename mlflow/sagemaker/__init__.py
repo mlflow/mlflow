@@ -1120,7 +1120,7 @@ def _upload_s3(local_model_path, bucket, prefix, region_name, s3_client):
                 Bucket=bucket, Key=key, Tagging={"TagSet": [{"Key": "SageMaker", "Value": "true"}]}
             )
             _logger.info("tag response: %s", response)
-            return "{}/{}/{}".format(s3_client.meta.endpoint_url, bucket, key)
+            return "s3://{}/{}".format(bucket, key)
 
 
 def _get_deployment_config(flavor_name):
@@ -1570,9 +1570,8 @@ def _delete_sagemaker_model(model_name, sage_client, s3_client):
     # procedure is safe due to the well-documented structure of the `ModelDataUrl`
     # (see https://docs.aws.amazon.com/sagemaker/latest/dg/API_ContainerDefinition.html)
     parsed_data_url = urllib.parse.urlparse(model_data_url)
-    bucket_data_path = parsed_data_url.path.split("/")
-    bucket_name = bucket_data_path[1]
-    bucket_key = "/".join(bucket_data_path[2:])
+    bucket_name = parsed_data_url.netloc
+    bucket_key = parsed_data_url.path.lstrip("/")
 
     s3_client.delete_object(Bucket=bucket_name, Key=bucket_key)
     sage_client.delete_model(ModelName=model_name)
