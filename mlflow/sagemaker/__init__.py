@@ -1619,11 +1619,11 @@ def _find_endpoint(endpoint_name, sage_client):
 def _find_transform_job(job_name, sage_client):
     """
     Finds a SageMaker batch transform job with the specified name in the caller's AWS account,
-    returning a NoneType if the endpoint is not found.
+    returning a NoneType if the transform job is not found.
 
     :param sage_client: A boto3 client for SageMaker.
-    :return: If the endpoint exists, a dictionary of endpoint attributes. If the endpoint does not
-             exist, ``None``.
+    :return: If the transform job exists, a dictionary of transform job attributes. If the
+             transform job does not exist, ``None``.
     """
     transform_jobs_page = sage_client.list_transform_jobs(MaxResults=100, NameContains=job_name)
 
