@@ -79,15 +79,15 @@ def _called_in_save_model():
 @pytest.fixture(autouse=True)
 def prevent_infer_pip_requirements_fallback(request):
     """
-    Prevents `mlflow.infer_pip_requirements` from falling back in `mlflow.*.save_model` unless
-    explicitly disabled via `pytest.mark.disable_prevent_infer_pip_requirements_fallback`.
+    Prevents `mlflow.models.infer_pip_requirements` from falling back in `mlflow.*.save_model`
+    unless explicitly disabled via `pytest.mark.disable_prevent_infer_pip_requirements_fallback`.
     """
     from mlflow.utils.environment import _INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE
 
     def new_exception(msg, *_, **__):
         if msg == _INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE and _called_in_save_model():
             raise Exception(
-                "`mlflow.infer_pip_requirements` should not fall back in `mlflow.*.save_model`"
+                "`mlflow.models.infer_pip_requirements` should not fall back in `mlflow.*.save_model`"
                 " during test"
             )
 

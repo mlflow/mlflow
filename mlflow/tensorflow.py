@@ -306,7 +306,9 @@ def save_model(
         if pip_requirements is None:
             save_path = os.path.join(path, MLMODEL_FILE_NAME)
             Model().add_flavor(FLAVOR_NAME, **flavor_conf).save(save_path)
-            inferred_reqs = mlflow.infer_pip_requirements(path, FLAVOR_NAME, fallback=default_reqs,)
+            inferred_reqs = mlflow.models.infer_pip_requirements(
+                path, FLAVOR_NAME, fallback=default_reqs,
+            )
             os.remove(save_path)
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(

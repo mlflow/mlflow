@@ -158,7 +158,7 @@ def save_model(
             # requires it to get model type and save format.
             save_path = os.path.join(path, MLMODEL_FILE_NAME)
             Model().add_flavor(FLAVOR_NAME, **flavor_conf).save(save_path)
-            inferred_reqs = mlflow.infer_pip_requirements(
+            inferred_reqs = mlflow.models.infer_pip_requirements(
                 model_data_path, FLAVOR_NAME, fallback=default_reqs,
             )
             os.remove(save_path)  # Clean up the MLmodel file

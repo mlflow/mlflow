@@ -166,7 +166,7 @@ def save_model(
     if conda_env is None:
         default_reqs = get_default_pip_requirements()
         if pip_requirements is None:
-            inferred_reqs = mlflow.infer_pip_requirements(
+            inferred_reqs = mlflow.models.infer_pip_requirements(
                 model_data_path, FLAVOR_NAME, fallback=default_reqs,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
