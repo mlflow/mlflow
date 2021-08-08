@@ -110,4 +110,10 @@ class SFTPArtifactRepository(ArtifactRepository):
         self.sftp.get(remote_full_path, local_path)
 
     def delete_artifacts(self, artifact_path=None):
-        raise MlflowException("Not implemented yet")
+        if self.sftp.isdir(artifact_path):
+            with self.sftp.cd(artifact_path):
+                for element in self.sftp.listdir():
+                    self.delete_artifacts(element)
+            self.sftp.rmdir(artifact_path)
+        elif self.sftp.isfile(artifact_path):
+            self.sftp.remove(artifact_path)
