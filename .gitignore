@@ -70,6 +70,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+my_env/
 .python-version
 
 # Editor files
