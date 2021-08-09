@@ -1494,6 +1494,7 @@ def autolog(
 
                     def out(*args, **kwargs):
                         return self.fn(obj, *args, **kwargs)
+
                 else:
                     # This makes it possible to use the decorated method as an unbound method,
                     # for instance when monkeypatching.
