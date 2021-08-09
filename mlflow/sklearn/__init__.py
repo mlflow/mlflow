@@ -963,8 +963,9 @@ def autolog(
 
         **Limitations**
            - MLflow can only map the original prediction result object returned by a model
-             prediction API (including predict / predict_proba / transform, but excluding
-             fit_predict / fit_transform.) to an MLflow run. MLflow cannot find run information
+             prediction API (including predict / predict_proba / predict_log_proba / transform,
+             but excluding fit_predict / fit_transform.) to an MLflow run.
+             MLflow cannot find run information
              for other objects derived from a given prediction result (e.g. by copying or selecting
              a subset of the prediction result). scikit-learn metric APIs invoked on derived objects
              do not log metrics to MLflow.
@@ -1470,8 +1471,9 @@ def autolog(
             # pylint: disable=redefined-builtin,unused-argument
             def patched_IffHasAttrDescriptor__get__(self, obj, type=None):
                 """
-                For sklearn version <= 0.24.2, `_IffHasAttrDescriptor.__get__` method does not support
-                unbound method call. See https://github.com/scikit-learn/scikit-learn/issues/20614
+                For sklearn version <= 0.24.2, `_IffHasAttrDescriptor.__get__` method does not
+                support unbound method call.
+                See https://github.com/scikit-learn/scikit-learn/issues/20614
                 This patched function is for hot patch.
                 """
 
@@ -1490,14 +1492,14 @@ def autolog(
                     else:
                         sklearn.utils.metaestimators.attrgetter(self.delegate_names[-1])(obj)
 
-                    # lambda, but not partial, allows help() to work with update_wrapper
-                    # pylint: disable=unnecessary-lambda
-                    out = lambda *args, **kwargs: self.fn(obj, *args, **kwargs)  # noqa: E731
+                    def out(*args, **kwargs):
+                        return self.fn(obj, *args, **kwargs)
                 else:
                     # This makes it possible to use the decorated method as an unbound method,
                     # for instance when monkeypatching.
-                    # pylint: disable=unnecessary-lambda
-                    out = lambda *args, **kwargs: self.fn(*args, **kwargs)  # noqa: E731
+                    def out(*args, **kwargs):
+                        return self.fn(*args, **kwargs)
+
                 # update the docstring of the returned function
                 functools.update_wrapper(out, self.fn)
                 return out
