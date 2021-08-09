@@ -850,52 +850,6 @@ def _patch_estimator_method_if_available(flavor_name, class_def, func_name, patc
         pass
 
 
-def setup_sklearn_hot_patch():
-    import sklearn
-
-    if Version(sklearn.__version__) <= Version("0.24.2"):
-        import sklearn.utils.metaestimators
-
-        # pylint: disable=redefined-builtin,unused-argument
-        def patched_IffHasAttrDescriptor__get__(self, obj, type=None):
-            """
-            For sklearn version <= 0.24.2, `_IffHasAttrDescriptor.__get__` method does not support
-            unbound method call. See https://github.com/scikit-learn/scikit-learn/issues/20614
-            This patched function is for hot patch.
-            """
-
-            # raise an AttributeError if the attribute is not present on the object
-            if obj is not None:
-                # delegate only on instances, not the classes.
-                # this is to allow access to the docstrings.
-                for delegate_name in self.delegate_names:
-                    try:
-                        delegate = sklearn.utils.metaestimators.attrgetter(delegate_name)(obj)
-                    except AttributeError:
-                        continue
-                    else:
-                        getattr(delegate, self.attribute_name)
-                        break
-                else:
-                    sklearn.utils.metaestimators.attrgetter(self.delegate_names[-1])(obj)
-
-                # lambda, but not partial, allows help() to work with update_wrapper
-                # pylint: disable=unnecessary-lambda
-                out = lambda *args, **kwargs: self.fn(obj, *args, **kwargs)  # noqa: E731
-            else:
-                # This makes it possible to use the decorated method as an unbound method,
-                # for instance when monkeypatching.
-                # pylint: disable=unnecessary-lambda
-                out = lambda *args, **kwargs: self.fn(*args, **kwargs)  # noqa: E731
-            # update the docstring of the returned function
-            functools.update_wrapper(out, self.fn)
-            return out
-
-        sklearn.utils.metaestimators._IffHasAttrDescriptor.__get__ = (
-            patched_IffHasAttrDescriptor__get__
-        )
-
-
 @experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
@@ -1506,7 +1460,52 @@ def autolog(
         )
     ]
 
-    setup_sklearn_hot_patch()
+    def _apply_sklearn_descriptor_unbound_method_call_fix():
+        import sklearn
+
+        if Version(sklearn.__version__) <= Version("0.24.2"):
+            import sklearn.utils.metaestimators
+
+            # pylint: disable=redefined-builtin,unused-argument
+            def patched_IffHasAttrDescriptor__get__(self, obj, type=None):
+                """
+                For sklearn version <= 0.24.2, `_IffHasAttrDescriptor.__get__` method does not support
+                unbound method call. See https://github.com/scikit-learn/scikit-learn/issues/20614
+                This patched function is for hot patch.
+                """
+
+                # raise an AttributeError if the attribute is not present on the object
+                if obj is not None:
+                    # delegate only on instances, not the classes.
+                    # this is to allow access to the docstrings.
+                    for delegate_name in self.delegate_names:
+                        try:
+                            delegate = sklearn.utils.metaestimators.attrgetter(delegate_name)(obj)
+                        except AttributeError:
+                            continue
+                        else:
+                            getattr(delegate, self.attribute_name)
+                            break
+                    else:
+                        sklearn.utils.metaestimators.attrgetter(self.delegate_names[-1])(obj)
+
+                    # lambda, but not partial, allows help() to work with update_wrapper
+                    # pylint: disable=unnecessary-lambda
+                    out = lambda *args, **kwargs: self.fn(obj, *args, **kwargs)  # noqa: E731
+                else:
+                    # This makes it possible to use the decorated method as an unbound method,
+                    # for instance when monkeypatching.
+                    # pylint: disable=unnecessary-lambda
+                    out = lambda *args, **kwargs: self.fn(*args, **kwargs)  # noqa: E731
+                # update the docstring of the returned function
+                functools.update_wrapper(out, self.fn)
+                return out
+
+            sklearn.utils.metaestimators._IffHasAttrDescriptor.__get__ = (
+                patched_IffHasAttrDescriptor__get__
+            )
+
+    _apply_sklearn_descriptor_unbound_method_call_fix()
 
     for class_def in estimators_to_patch:
         # Patch fitting methods

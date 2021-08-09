@@ -12,6 +12,7 @@ import sklearn
 import sklearn.base
 import sklearn.datasets
 import sklearn.linear_model
+import sklearn.pipeline
 import sklearn.model_selection
 from scipy.stats import uniform
 
@@ -1086,8 +1087,6 @@ def test_autolog_produces_expected_results_for_estimator_when_parent_also_define
 
 
 def test_eval_and_log_metrics_for_regressor():
-    import sklearn.linear_model
-
     # disable autologging so that we can check for the sole existence of eval-time metrics
     mlflow.sklearn.autolog(disable=True)
 
@@ -1320,8 +1319,6 @@ def test_eval_and_log_metrics_with_estimator(fit_func_name):
 
 
 def test_eval_and_log_metrics_with_meta_estimator():
-    import sklearn.pipeline
-
     # disable autologging so that we can check for the sole existence of eval-time metrics
     mlflow.sklearn.autolog(disable=True)
 
@@ -1604,8 +1601,6 @@ def test_run_metric_api_doc_example(metric_name):
 
 
 def test_post_training_post_training_metric_autologging_for_predict_prob():
-    import sklearn.linear_model
-
     mlflow.sklearn.autolog()
     from sklearn.metrics import roc_auc_score
 
@@ -1647,8 +1642,6 @@ def test_is_metrics_value_loggable():
 
 
 def test_nested_metric_call_is_disabled():
-    import sklearn.linear_model
-
     mlflow.sklearn.autolog()
 
     X, y = get_iris()
@@ -1678,8 +1671,6 @@ def test_nested_metric_call_is_disabled():
 
 
 def test_multi_model_interleaved_fit_and_post_train_metric_call():
-    import sklearn.linear_model
-
     mlflow.sklearn.autolog()
     from sklearn.metrics import mean_squared_error
 
@@ -1762,7 +1753,7 @@ def test_meta_estimator_post_training_autologging(scoring):
         cv_model = sklearn.model_selection.GridSearchCV(
             lor, {"max_iter": [5, 10, 15]}, n_jobs=1, scoring=scoring
         )
-        cv_model.fit(X, y)  # pylint: disable=pointless-statement
+        cv_model.fit(X, y)
         pred1_y = cv_model.predict(eval1_X)
         accuracy_score = sklearn.metrics.accuracy_score(eval1_y, pred1_y, normalize=False)
         cv_score = cv_model.score(eval1_X, eval1_y)
@@ -1774,8 +1765,6 @@ def test_meta_estimator_post_training_autologging(scoring):
 
 
 def test_gen_metric_call_commands():
-    import sklearn.linear_model
-
     # pylint: disable=unused-argument
     def metric_fn1(a1, b1, *, c2=3, d1=None, d2=True, d3="abc", **kwargs):
         pass
@@ -1808,135 +1797,63 @@ def test_gen_metric_call_commands():
     assert cmd3 == "LinearRegression.score(X=data1, y=data2)"
 
 
-def gen_if_delegate_has_method_decorator_test_class():
-    from sklearn.utils.metaestimators import if_delegate_has_method
+def test_patch_for_delegated_method():
+    from tests.autologging.test_autologging_utils import get_func_attrs
+    original_predict = sklearn.pipeline.Pipeline.predict
+    mlflow.sklearn.autolog()
 
-    class GoodDelegatedEstimator:
-        def predict(self, X, a, b):
-            return {"X": X, "a": a, "b": b}
+    assert get_func_attrs(sklearn.pipeline.Pipeline.predict) == \
+           get_func_attrs(original_predict)
 
-    class BadDelegatedEstimator:
-        pass
+    estimators = [
+        ("svc", sklearn.svm.SVC()),
+    ]
+    model = sklearn.pipeline.Pipeline(estimators)
+    X, y = get_iris()
 
-    class BaseEstimator:
-        def __init__(self, delegated_estimator):
-            self._delegated_estimator = delegated_estimator
+    with mlflow.start_run():
+        model.fit(X, y)
 
-        @if_delegate_has_method("_delegated_estimator")
-        def predict(self, X, a, b):
-            return self._delegated_estimator.predict(X, a, b)
+    eval1_X = X[0::3]
 
-    return (
-        BaseEstimator,
-        lambda cls: cls(GoodDelegatedEstimator()),
-        lambda cls: cls(BadDelegatedEstimator()),
-    )
+    with mock.patch(
+        "mlflow.sklearn._AutologgingMetricsManager.register_prediction_input_dataset"
+    ) as mock_register_prediction_input_dataset:
+        pred1_y = model.predict(eval1_X)
+        # assert `register_prediction_input_dataset` was called and called only once.
+        # the `pipeline.predict` call nested `svc.predict`, but sklearn patching function
+        # will disable nested call autologging, so the autolog routine is only enabled
+        # at `pipeline.predict` level.
+        assert mock_register_prediction_input_dataset.call_count <= 1
 
+    mlflow.sklearn.autolog(disable=True)
+    pred1_y_original = model.predict(eval1_X)
 
-def gen_property_decorator_test_class():
-    class BaseEstimator:
-        def __init__(self, has_predict):
-            self._has_predict = has_predict
-
-        def _predict(self, X, a, b):
-            return {"X": X, "a": a, "b": b}
-
-        @property
-        def predict(self):
-            if not self._has_predict:
-                raise AttributeError()
-            return self._predict
-
-    return BaseEstimator, lambda cls: cls(has_predict=True), lambda cls: cls(has_predict=False)
+    assert np.allclose(pred1_y, pred1_y_original)
 
 
-def gen_available_if_decorator_test_class():
-    from sklearn.utils.metaestimators import available_if  # pylint: disable=no-name-in-module
+def test_patch_for_available_if_decorated_method():
+    from tests.autologging.test_autologging_utils import get_func_attrs
+    original_transform = sklearn.pipeline.Pipeline.transform
+    mlflow.sklearn.autolog()
 
-    class BaseEstimator:
-        def __init__(self, has_predict):
-            self._has_predict = has_predict
+    assert get_func_attrs(sklearn.pipeline.Pipeline.transform) == \
+           get_func_attrs(original_transform)
 
-        def _can_predict(self):
-            return self._has_predict
+    estimators = [
+        ("kmeans", sklearn.cluster.KMeans()),
+    ]
+    model = sklearn.pipeline.Pipeline(estimators)
+    X, y = get_iris()
 
-        @available_if(_can_predict)
-        def predict(self, X, a, b):
-            return {"X": X, "a": a, "b": b}
+    with mlflow.start_run():
+        model.fit(X, y)
 
-    return BaseEstimator, lambda cls: cls(has_predict=True), lambda cls: cls(has_predict=False)
+    eval1_X = X[0::3]
+    transform1_y = model.transform(eval1_X)
 
+    mlflow.sklearn.autolog(disable=True)
 
-@pytest.mark.parametrize(
-    "gen_test_class_fn",
-    [gen_if_delegate_has_method_decorator_test_class, gen_property_decorator_test_class]
-    + (
-        [gen_available_if_decorator_test_class]
-        if Version(sklearn.__version__) > Version("0.24.2")
-        else []
-    ),
-)
-def test_decorated_method_patch(gen_test_class_fn):
-    from mlflow.utils.autologging_utils import autologging_integration
+    transform1_y_original = model.transform(eval1_X)
 
-    BaseEstimator, gen_good_estimator_fn, gen_bad_estimator_fn = gen_test_class_fn()
-
-    class ExtendedEstimator(BaseEstimator):
-        pass
-
-    original_base_estimator_predict = object.__getattribute__(BaseEstimator, "predict")
-
-    def patched_predict(original, self, *args, **kwargs):
-        result = original(self, *args, **kwargs)
-        if "patch_count" not in result:
-            result["patch_count"] = 1
-        else:
-            result["patch_count"] += 1
-        return result
-
-    flavor_name = "test_if_delegate_has_method_decorated_method_patch"
-
-    @autologging_integration(flavor_name)
-    def autolog(disable=False, exclusive=False, silent=False):  # pylint: disable=unused-argument
-        mlflow.sklearn._patch_estimator_method_if_available(
-            flavor_name, BaseEstimator, "predict", patched_predict, manage_run=False,
-        )
-        mlflow.sklearn._patch_estimator_method_if_available(
-            flavor_name, ExtendedEstimator, "predict", patched_predict, manage_run=False,
-        )
-
-    mlflow.sklearn.setup_sklearn_hot_patch()
-    autolog()
-
-    for EstimatorCls in [BaseEstimator, ExtendedEstimator]:
-        assert EstimatorCls.predict.__doc__ == original_base_estimator_predict.__doc__
-        good_estimator = gen_good_estimator_fn(EstimatorCls)
-        assert good_estimator.predict.__doc__ == original_base_estimator_predict.__doc__
-
-        expected_result = {"X": 1, "a": 2, "b": 3, "patch_count": 1}
-        assert hasattr(good_estimator, "predict")
-        assert good_estimator.predict(X=1, a=2, b=3) == expected_result
-        assert good_estimator.predict(1, a=2, b=3) == expected_result
-        assert good_estimator.predict(1, 2, b=3) == expected_result
-        assert good_estimator.predict(1, 2, 3) == expected_result
-
-        bad_estimator = gen_bad_estimator_fn(EstimatorCls)
-        assert not hasattr(bad_estimator, "predict")
-        with pytest.raises(AttributeError):
-            bad_estimator.predict(X=1, a=2, b=3)
-
-        if gen_test_class_fn is gen_if_delegate_has_method_decorator_test_class:
-            # Test chained delegation
-            expected_result2 = {"X": 1, "a": 2, "b": 3, "patch_count": 2}
-            good_estimator2 = EstimatorCls(good_estimator)
-            assert hasattr(good_estimator2, "predict")
-            assert good_estimator2.predict(X=1, a=2, b=3) == expected_result2
-
-            bad_estimator2 = EstimatorCls(bad_estimator)
-            assert not hasattr(bad_estimator2, "predict")
-            with pytest.raises(AttributeError):
-                bad_estimator2.predict(X=1, a=2, b=3)
-
-    autolog(disable=True)
-    assert original_base_estimator_predict is object.__getattribute__(BaseEstimator, "predict")
-    assert "predict" not in ExtendedEstimator.__dict__
+    assert np.allclose(transform1_y, transform1_y_original)
