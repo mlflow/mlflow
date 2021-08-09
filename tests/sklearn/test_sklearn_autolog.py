@@ -6,12 +6,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
-from packaging.version import Version
+from packaging.version import Version  # pylint: disable=unused-import
 
 import sklearn
 import sklearn.base
 import sklearn.datasets
-import sklearn.linear_model
 import sklearn.pipeline
 import sklearn.model_selection
 from scipy.stats import uniform
@@ -1799,11 +1798,11 @@ def test_gen_metric_call_commands():
 
 def test_patch_for_delegated_method():
     from tests.autologging.test_autologging_utils import get_func_attrs
+
     original_predict = sklearn.pipeline.Pipeline.predict
     mlflow.sklearn.autolog()
 
-    assert get_func_attrs(sklearn.pipeline.Pipeline.predict) == \
-           get_func_attrs(original_predict)
+    assert get_func_attrs(sklearn.pipeline.Pipeline.predict) == get_func_attrs(original_predict)
 
     estimators = [
         ("svc", sklearn.svm.SVC()),
@@ -1832,13 +1831,14 @@ def test_patch_for_delegated_method():
     assert np.allclose(pred1_y, pred1_y_original)
 
 
+@pytest.mark.skipif("Version(sklearn.__version__) <= Version('0.24.2')")
 def test_patch_for_available_if_decorated_method():
     from tests.autologging.test_autologging_utils import get_func_attrs
+
     original_transform = sklearn.pipeline.Pipeline.transform
     mlflow.sklearn.autolog()
 
-    assert get_func_attrs(sklearn.pipeline.Pipeline.transform) == \
-           get_func_attrs(original_transform)
+    assert get_func_attrs(sklearn.pipeline.Pipeline.transform) == get_func_attrs(original_transform)
 
     estimators = [
         ("kmeans", sklearn.cluster.KMeans()),

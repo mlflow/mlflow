@@ -58,6 +58,7 @@ from mlflow.utils.autologging_utils import (
     _get_new_training_session_class,
     MlflowAutologgingQueueingClient,
     disable_autologging,
+    update_wrapper_extended,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -844,7 +845,7 @@ def _patch_estimator_method_if_available(flavor_name, class_def, func_name, patc
         safe_patch(flavor_name, class_def, func_name, patched_fn, manage_run=manage_run)
     elif hasattr(raw_original_obj, "delegate_names") or hasattr(raw_original_obj, "check"):
         # sklearn delegated method
-        safe_patch(flavor_name, raw_original_obj, 'fn', patched_fn, manage_run=manage_run)
+        safe_patch(flavor_name, raw_original_obj, "fn", patched_fn, manage_run=manage_run)
     else:
         # unsupported method type. skip patching
         pass
@@ -1500,6 +1501,11 @@ def autolog(
                 # update the docstring of the returned function
                 functools.update_wrapper(out, self.fn)
                 return out
+
+            update_wrapper_extended(
+                patched_IffHasAttrDescriptor__get__,
+                sklearn.utils.metaestimators._IffHasAttrDescriptor.__get__,
+            )
 
             sklearn.utils.metaestimators._IffHasAttrDescriptor.__get__ = (
                 patched_IffHasAttrDescriptor__get__

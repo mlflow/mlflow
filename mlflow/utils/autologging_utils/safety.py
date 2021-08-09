@@ -318,13 +318,14 @@ def safe_patch(
         destination, function_name, bypass_descriptor_protocol=True
     )
     if original_fn != raw_original_obj:
-        raise RuntimeError(f'Unsupport patch on {str(destination)}.{str}')
+        raise RuntimeError(f"Unsupport patch on {str(destination)}.{str}")
     elif isinstance(raw_original_obj, property):
         is_property_method = True
 
         def original(self, *args, **kwargs):
             bound_delegate_method = raw_original_obj.fget(self)
             return bound_delegate_method(*args, **kwargs)
+
     else:
         original = original_fn
         is_property_method = False
@@ -560,6 +561,7 @@ def safe_patch(
                     return original(*args, **kwargs)
 
     if is_property_method:
+
         def get_bound_safe_patch_fn(self):
             # This `raw_original_obj.fget` call is for availability check, if it raise error
             # then `hasattr(obj, {func_name})` will return False

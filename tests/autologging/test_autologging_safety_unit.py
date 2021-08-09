@@ -1622,7 +1622,7 @@ def test_safe_patch_preserves_original_function_attributes():
 
     @autologging_integration(flavor_name)
     def autolog(disable=False, exclusive=False, silent=False):  # pylint: disable=unused-argument
-        safe_patch(flavor_name, Test1, 'predict', patched_predict, manage_run=False)
+        safe_patch(flavor_name, Test1, "predict", patched_predict, manage_run=False)
 
     original_predict = Test1.predict
     autolog()
