@@ -213,6 +213,8 @@ def save_model(
         # Save the model as an MLflow Model
         mlflow.gluon.save_model(net, gluon_model_path)
     """
+    import mxnet as mx
+
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
     path = os.path.abspath(path)
     if os.path.exists(path):
@@ -232,6 +234,7 @@ def save_model(
     gluon_model.export(os.path.join(data_path, _MODEL_SAVE_PATH))
 
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.gluon", env=_CONDA_ENV_FILE_NAME)
+    mlflow_model.add_flavor(FLAVOR_NAME, mxnet_version=mx.__version__, data=data_subpath)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
