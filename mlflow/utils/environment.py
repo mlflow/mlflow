@@ -193,7 +193,8 @@ def _parse_pip_requirements(pip_requirements):
 
 
 _INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE = (
-    "Encountered an unexpected error while inferring pip requirements (model URI: %s, flavor: %s)"
+    "Encountered an unexpected error while inferring pip requirements (model URI: %s, flavor: %s)."
+    " To disable the auto dependency inference, specify `conda_env` or `pip_requirements`."
 )
 
 
