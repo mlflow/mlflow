@@ -441,19 +441,10 @@ def test_model_save_throws_exception_if_serialization_format_is_unrecognized(
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     sklearn_knn_model, model_path
 ):
-    knn_model = sklearn_knn_model.model
-    mlflow.sklearn.save_model(
-        sk_model=knn_model,
-        path=model_path,
-        serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE,
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path)
+    _assert_pip_requirements(
+        model_path, mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True)
     )
-
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
-
-    assert conda_env == mlflow.sklearn.get_default_conda_env()
 
 
 @pytest.mark.large
@@ -461,24 +452,13 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     sklearn_knn_model,
 ):
     artifact_path = "model"
-    knn_model = sklearn_knn_model.model
     with mlflow.start_run():
-        mlflow.sklearn.log_model(
-            sk_model=knn_model,
-            artifact_path=artifact_path,
-            serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE,
-        )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        mlflow.sklearn.log_model(sk_model=sklearn_knn_model.model, artifact_path=artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
-
-    assert conda_env == mlflow.sklearn.get_default_conda_env()
+    _assert_pip_requirements(
+        model_uri, mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True)
+    )
 
 
 @pytest.mark.large
