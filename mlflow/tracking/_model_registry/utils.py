@@ -1,4 +1,5 @@
 import os
+from functools import partial
 
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.rest_store import RestStore
@@ -133,7 +134,7 @@ def _get_rest_store(store_uri, **_):
 
 
 def _get_databricks_rest_store(store_uri, **_):
-    return RestStore(lambda: get_databricks_host_creds(store_uri))
+    return RestStore(partial(get_databricks_host_creds, store_uri))
 
 
 _model_registry_store_registry = ModelRegistryStoreRegistry()
