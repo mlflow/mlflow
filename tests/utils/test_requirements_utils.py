@@ -1,7 +1,9 @@
 import os
+import importlib
 from unittest import mock
 
 import mlflow
+from mlflow.utils._capture_modules import _CaptureImportedModules
 from mlflow.utils.requirements_utils import (
     _is_comment,
     _is_empty,
@@ -9,6 +11,7 @@ from mlflow.utils.requirements_utils import (
     _strip_inline_comment,
     _join_continued_lines,
     _parse_requirements,
+    _prune_packages,
     _strip_local_version_identifier,
     _get_installed_version,
     _get_pinned_requirement,
@@ -176,6 +179,25 @@ line-cont-eof\
         assert [r.requirement for r in pip_reqs if r.constraint] == expected_cons
     finally:
         os.chdir(request.config.invocation_dir)
+
+
+def test_prune_packages():
+    assert _prune_packages(["mlflow"]) == {"mlflow"}
+    assert _prune_packages(["mlflow", "packaging"]) == {"mlflow"}
+    assert _prune_packages(["mlflow", "scikit-learn"]) == {"mlflow", "scikit-learn"}
+
+
+def test_capture_imported_modules():
+    with _CaptureImportedModules() as cap:
+        # pylint: disable=unused-import,unused-variable
+        import math
+
+        __import__("pandas")
+        importlib.import_module("numpy")
+
+    assert "math" in cap.imported_modules
+    assert "pandas" in cap.imported_modules
+    assert "numpy" in cap.imported_modules
 
 
 def test_strip_local_version_identifier():
