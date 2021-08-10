@@ -25,7 +25,8 @@ jobs:
             sudo add-apt-repository ppa:cran/libgit2 --yes
             sudo apt-get update --yes
             sudo apt-get install --yes --allow-unauthenticated \
-              r-base r-base-dev libssl-dev libcurl4-openssl-dev texlive-latex-base libxml2-dev libssh2-1-dev libgit2-dev
+              r-base r-base-dev libssl-dev libcurl4-openssl-dev libcurl4-gnutls-dev \
+              texlive-latex-base libxml2-dev libssh2-1-dev libgit2-dev
 
       - run:
           name: Install pandoc
