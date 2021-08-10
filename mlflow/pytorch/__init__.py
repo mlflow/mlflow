@@ -544,21 +544,6 @@ def save_model(
                 tmp_extra_files_dir.path(), posixpath.join(path, _EXTRA_FILES_KEY),
             )
 
-    conda_env, pip_requirements, pip_constraints = (
-        _process_pip_requirements(
-            get_default_pip_requirements(), pip_requirements, extra_pip_requirements,
-        )
-        if conda_env is None
-        else _process_conda_env(conda_env)
-    )
-
-    with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
-        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
-
-    # Save `constraints.txt` if necessary
-    if pip_constraints:
-        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
-
     if requirements_file:
 
         warnings.warn(
@@ -577,9 +562,6 @@ def save_model(
             rel_path = os.path.basename(requirements_file)
             torchserve_artifacts_config[_REQUIREMENTS_FILE_KEY] = {"path": rel_path}
             shutil.move(tmp_requirements_dir.path(rel_path), path)
-    else:
-        # Save `requirements.txt`
-        write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
     if code_paths is not None:
         code_dir_subpath = "code"
@@ -603,6 +585,32 @@ def save_model(
         env=_CONDA_ENV_FILE_NAME,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+
+    if conda_env is None:
+        default_reqs = get_default_pip_requirements()
+        if pip_requirements is None:
+            # To ensure `_load_pyfunc` can successfully load the model during the dependency
+            # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
+            inferred_reqs = mlflow.models.infer_pip_requirements(
+                model_data_path, FLAVOR_NAME, fallback=default_reqs,
+            )
+            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+        conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
+            default_reqs, pip_requirements, extra_pip_requirements,
+        )
+    else:
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
+
+    with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
+        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    # Save `constraints.txt` if necessary
+    if pip_constraints:
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
+
+    if not requirements_file:
+        # Save `requirements.txt`
+        write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
 
 def _load_model(path, **kwargs):

@@ -8,16 +8,11 @@ export MLFLOW_HOME=$(pwd)
 
 # Run ML framework tests in their own Python processes to avoid OOM issues due to per-framework
 # overhead
-pytest tests/pytorch --large
 pytest tests/h2o --large
 pytest tests/onnx --large
 pytest tests/pyfunc --large
-pytest tests/sklearn --large
 pytest tests/azureml --large
 pytest tests/models --large
-pytest tests/xgboost --large
-pytest tests/lightgbm --large
-pytest tests/catboost --large
 pytest tests/statsmodels --large
 pytest tests/gluon --large
 pytest tests/gluon_autolog --large

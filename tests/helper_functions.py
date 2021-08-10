@@ -20,7 +20,12 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.pyfunc
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import read_yaml, write_yaml
-from mlflow.utils.environment import _get_pip_deps, _CONSTRAINTS_FILE_NAME
+from mlflow.utils.environment import (
+    _get_pip_deps,
+    _CONDA_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
+)
 from mlflow.utils.requirements_utils import _strip_local_version_identifier, _get_installed_version
 
 LOCALHOST = "127.0.0.1"
@@ -337,18 +342,28 @@ def _compare_conda_env_requirements(env_path, req_path):
     assert _get_pip_deps(custom_env_parsed) == requirements
 
 
-def _assert_pip_requirements(model_uri, requirements, constraints=None):
-    local_path = _download_artifact_from_uri(model_uri)
-    txt_reqs = _read_lines(os.path.join(local_path, "requirements.txt"))
-    conda_reqs = _get_pip_deps(_read_yaml(os.path.join(local_path, "conda.yaml")))
-    assert txt_reqs == requirements
-    assert conda_reqs == requirements
+# TODO: Set `strict` to True for `pip_requirements` tests to strictly check its behavior.
+def _assert_pip_requirements(model_uri, requirements, constraints=None, strict=False):
+    """
+    Loads the pip requirements (and optionally constraints) from `model_uri` and compares them
+    to `requirements` (and `constraints`).
 
-    if constraints:
+    If `strict` is True, evaluate `set(requirements) == set(loaded_requirements)`.
+    Otherwise, evaluate `set(requirements) <= set(loaded_requirements)`.
+    """
+    local_path = _download_artifact_from_uri(model_uri)
+    txt_reqs = _read_lines(os.path.join(local_path, _REQUIREMENTS_FILE_NAME))
+    conda_reqs = _get_pip_deps(_read_yaml(os.path.join(local_path, _CONDA_ENV_FILE_NAME)))
+    compare_func = set.__eq__ if strict else set.__le__
+    requirements = set(requirements)
+    assert compare_func(requirements, set(txt_reqs))
+    assert compare_func(requirements, set(conda_reqs))
+
+    if constraints is not None:
         assert f"-c {_CONSTRAINTS_FILE_NAME}" in txt_reqs
         assert f"-c {_CONSTRAINTS_FILE_NAME}" in conda_reqs
         cons = _read_lines(os.path.join(local_path, _CONSTRAINTS_FILE_NAME))
-        assert cons == constraints
+        assert compare_func(set(constraints), set(cons))
 
 
 def _is_available_on_pypi(package, version=None, module=None):
@@ -375,3 +390,11 @@ def _is_available_on_pypi(package, version=None, module=None):
         and (len(dist_files) > 0)  # at least one distribution file exists
         and not dist_files[0].get("yanked", False)  # specified version is not yanked
     )
+
+
+def _is_importable(module_name):
+    try:
+        __import__(module_name)
+        return True
+    except ImportError:
+        return False

@@ -29,7 +29,7 @@ pytorch:
   models:
     minimum: "1.4.0"
     maximum: "1.9.0"
-    requirements: ["torchvision", "scikit-learn"]
+    requirements: ["torchvision", "scikit-learn", "transformers"]
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py --large
 
@@ -101,8 +101,8 @@ keras:
     maximum: "2.4.3"
     requirements:
       "< 2.3.1": ["tensorflow==1.15.4", "h5py<3.0", "scikit-learn", "pyspark", "pyarrow"]
-      "== 2.3.1": ["tensorflow==2.2.1", "scikit-learn", "pyspark", "pyarrow"]
-      "> 2.3.1": ["tensorflow<2.5.0", "scikit-learn", "pyspark", "pyarrow"]
+      "== 2.3.1": ["tensorflow==2.2.1", "scikit-learn", "pyspark", "pyarrow", "transformers"]
+      "> 2.3.1": ["tensorflow<2.5.0", "scikit-learn", "pyspark", "pyarrow", "transformers"]
     run: |
       pytest tests/keras/test_keras_model_export.py --large
 
