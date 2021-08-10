@@ -237,7 +237,7 @@ def build_image(
         return image, registered_model
 
 
-@deprecated("the azureml deployment plugin", since="1.19.0")
+@deprecated("the azureml deployment plugin, https://aka.ms/aml-mlflow-deploy", since="1.19.0")
 def deploy(
     model_uri,
     workspace,
