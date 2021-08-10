@@ -134,7 +134,7 @@ def _get_rest_store(store_uri, **_):
 
 
 def _get_databricks_rest_store(store_uri, **_):
-    return DatabricksRestStore(partial(get_databricks_host_creds, partial))
+    return DatabricksRestStore(partial(get_databricks_host_creds, store_uri))
 
 
 _tracking_store_registry = TrackingStoreRegistry()
