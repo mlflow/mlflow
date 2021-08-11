@@ -5,7 +5,7 @@ dependencies:
 - pip
 - pip:
   - mlflow
-  - pytorch-lightning
+  - pytorch-lightning==1.4.0
   - ax-platform
-  - torch>=1.6.0
-  - torchvision
+  - torchvision>=0.9.1
+  - torch==1.9.0

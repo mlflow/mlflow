@@ -7,6 +7,7 @@ from mlflow.tracking.context.git_context import GitRunContext
 from mlflow.tracking.context.databricks_notebook_context import DatabricksNotebookRunContext
 from mlflow.tracking.context.databricks_job_context import DatabricksJobRunContext
 from mlflow.tracking.context.databricks_cluster_context import DatabricksClusterRunContext
+from mlflow.tracking.context.databricks_command_context import DatabricksCommandRunContext
 
 
 _logger = logging.getLogger(__name__)
@@ -53,6 +54,7 @@ _run_context_provider_registry.register(GitRunContext)
 _run_context_provider_registry.register(DatabricksNotebookRunContext)
 _run_context_provider_registry.register(DatabricksJobRunContext)
 _run_context_provider_registry.register(DatabricksClusterRunContext)
+_run_context_provider_registry.register(DatabricksCommandRunContext)
 
 _run_context_provider_registry.register_entrypoints()
 

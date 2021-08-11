@@ -26,7 +26,18 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _save_example
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
+from mlflow.utils.environment import (
+    _mlflow_conda_env,
+    _validate_env_arguments,
+    _process_pip_requirements,
+    _process_conda_env,
+    _CONDA_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
+)
+from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.file_utils import write_to
+from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
@@ -41,6 +52,19 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 
 FLAVOR_NAME = "fastai"
+
+
+def get_default_pip_requirements(include_cloudpickle=False):
+    """
+    :return: A list of default pip requirements for MLflow Models produced by this flavor.
+             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+             that, at minimum, contains these requirements.
+    """
+    pip_deps = [_get_pinned_requirement("fastai")]
+    if include_cloudpickle:
+        pip_deps.append(_get_pinned_requirement("cloudpickle"))
+
+    return pip_deps
 
 
 def get_default_conda_env(include_cloudpickle=False):
@@ -71,17 +95,10 @@ def get_default_conda_env(include_cloudpickle=False):
                             'dependencies': ['python=3.7.5', 'fastai=1.0.61',
                                              'pip', {'pip': ['mlflow']}]}
     """
-
-    import fastai
-
-    pip_deps = ["fastai=={}".format(fastai.__version__)]
-    if include_cloudpickle:
-        import cloudpickle
-
-        pip_deps.append("cloudpickle=={}".format(cloudpickle.__version__))
-    return _mlflow_conda_env(additional_pip_deps=pip_deps)
+    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements(include_cloudpickle))
 
 
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     fastai_learner,
     path,
@@ -89,6 +106,8 @@ def save_model(
     mlflow_model=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
+    pip_requirements=None,
+    extra_pip_requirements=None,
     **kwargs
 ):
     """
@@ -114,7 +133,7 @@ def save_model(
                         }
     :param mlflow_model: MLflow model config this flavor is being added to.
 
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -127,11 +146,13 @@ def save_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
 
     :param kwargs: kwargs to pass to ``Learner.save`` method.
 
@@ -158,6 +179,8 @@ def save_model(
     import fastai
     from pathlib import Path
 
+    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise MlflowException("Path '{}' already exists".format(path))
@@ -176,25 +199,35 @@ def save_model(
     # Save an Learner
     fastai_learner.export(model_data_path, **kwargs)
 
-    conda_env_subpath = "conda.yaml"
+    conda_env, pip_requirements, pip_constraints = (
+        _process_pip_requirements(
+            get_default_pip_requirements(), pip_requirements, extra_pip_requirements,
+        )
+        if conda_env is None
+        else _process_conda_env(conda_env)
+    )
 
-    if conda_env is None:
-        conda_env = get_default_conda_env()
-    elif not isinstance(conda_env, dict):
-        with open(conda_env, "r") as f:
-            conda_env = yaml.safe_load(f)
-    with open(os.path.join(path, conda_env_subpath), "w") as f:
+    with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    _log_pip_requirements(conda_env, path)
+    # Save `constraints.txt` if necessary
+    if pip_constraints:
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
+
+    # Save `requirements.txt`
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
     pyfunc.add_to_model(
-        mlflow_model, loader_module="mlflow.fastai", data=model_data_subpath, env=conda_env_subpath
+        mlflow_model,
+        loader_module="mlflow.fastai",
+        data=model_data_subpath,
+        env=_CONDA_ENV_FILE_NAME,
     )
     mlflow_model.add_flavor(FLAVOR_NAME, fastai_version=fastai.__version__, data=model_data_subpath)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     fastai_learner,
     artifact_path,
@@ -203,6 +236,8 @@ def log_model(
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+    pip_requirements=None,
+    extra_pip_requirements=None,
     **kwargs
 ):
     """
@@ -226,12 +261,12 @@ def log_model(
                                 'fastai=1.0.60',
                             ]
                         }
-    :param registered_model_name: Note:: Experimental: This argument may change or be removed in a
+    :param registered_model_name: This argument may change or be removed in a
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a
                                   registered model if one with the given name does not exist.
 
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -244,7 +279,7 @@ def log_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
@@ -254,6 +289,8 @@ def log_model(
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
 
     .. code-block:: python
         :caption: Example
@@ -298,7 +335,9 @@ def log_model(
         signature=signature,
         input_example=input_example,
         await_registration_for=await_registration_for,
-        **kwargs
+        pip_requirements=pip_requirements,
+        extra_pip_requirements=extra_pip_requirements,
+        **kwargs,
     )
 
 

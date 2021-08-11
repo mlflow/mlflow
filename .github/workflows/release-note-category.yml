@@ -8,7 +8,12 @@ on:
       - opened
       - synchronize
       - reopened
-      - edited
+      - labeled
+      - unlabeled
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   validate:
@@ -24,4 +29,4 @@ jobs:
             const script = require(
               `${process.env.GITHUB_WORKSPACE}/.github/workflows/release-note-category.js`
             );
-            script({ core, context });
+            script({ core, context, github });

@@ -376,11 +376,12 @@ def autologging_integration(name):
             except Exception:
                 pass
 
+            revert_patches(name)
+
             # If disabling autologging using fluent api, then every active integration's autolog
             # needs to be called with disable=True. So do not short circuit and let
             # `mlflow.autolog()` invoke all active integrations with disable=True.
             if name != "mlflow" and get_autologging_config(name, "disable", True):
-                revert_patches(name)
                 return
 
             is_silent_mode = get_autologging_config(name, "silent", False)
@@ -543,4 +544,27 @@ def _get_new_training_session_class():
                 self._parent.allow_children and self._parent.clazz != self.clazz
             )
 
+        @staticmethod
+        def is_active():
+            return len(_TrainingSession._session_stack) != 0
+
     return _TrainingSession
+
+
+def get_instance_method_first_arg_value(method, call_pos_args, call_kwargs):
+    """
+    Get instance method first argument value (exclude the `self` argument).
+    :param method A `cls.method` object which includes the `self` argument.
+    :param call_pos_args: positional arguments excluding the first `self` argument.
+    :param call_kwargs: keywords arguments.
+    """
+    if len(call_pos_args) >= 1:
+        return call_pos_args[0]
+    else:
+        param_sig = inspect.signature(method).parameters
+        first_arg_name = list(param_sig.keys())[1]
+        assert param_sig[first_arg_name].kind not in [
+            inspect.Parameter.VAR_KEYWORD,
+            inspect.Parameter.VAR_POSITIONAL,
+        ]
+        return call_kwargs.get(first_arg_name)

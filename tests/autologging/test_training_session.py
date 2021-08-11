@@ -62,6 +62,20 @@ def test_nested_sessions(allow_children):
     assert_session_stack([])
 
 
+def test_session_is_active():
+    assert not _TrainingSession.is_active()
+    with _TrainingSession(Parent, allow_children=True):
+        assert _TrainingSession.is_active()
+
+        with _TrainingSession(Child, allow_children=False):
+            assert _TrainingSession.is_active()
+
+        assert _TrainingSession.is_active()
+
+    assert_session_stack([])
+    assert not _TrainingSession.is_active()
+
+
 def test_parent_session_overrides_child_session():
     with _TrainingSession(Parent, allow_children=False) as p:
         assert_session_stack([(None, Parent)])

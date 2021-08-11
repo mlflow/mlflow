@@ -37,7 +37,6 @@ from mlflow.utils.databricks_utils import (
 )
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import is_databricks_uri, construct_run_url
-from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
     import matplotlib  # pylint: disable=unused-import
@@ -1026,7 +1025,6 @@ class MlflowClient(object):
             with open(tmp_path, "w") as f:
                 f.write(text)
 
-    @experimental
     def log_dict(self, run_id: str, dictionary: Any, artifact_file: str) -> None:
         """
         Log a JSON/YAML-serializable object (e.g. `dict`) as an artifact. The serialization
@@ -1071,7 +1069,6 @@ class MlflowClient(object):
                 else:
                     json.dump(dictionary, f, indent=2)
 
-    @experimental
     def log_figure(
         self,
         run_id: str,
@@ -1140,7 +1137,6 @@ class MlflowClient(object):
             else:
                 raise TypeError("Unsupported figure object type: '{}'".format(type(figure)))
 
-    @experimental
     def log_image(
         self, run_id: str, image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: str
     ) -> None:

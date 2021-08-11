@@ -459,10 +459,20 @@ def test_param_search_estimator(  # pylint: disable=unused-argument
 
         metric_name = estimator.getEvaluator().getMetricName()
         if isinstance(estimator, CrossValidator):
-            metric_name = f"avg_{metric_name}"
-        assert math.isclose(
-            run_data.metrics[metric_name], float(row.get(metric_name)), rel_tol=1e-6
-        )
+            avg_metric_value = model.avgMetrics[row_index]
+            avg_metric_name = f"avg_{metric_name}"
+        else:
+            avg_metric_value = model.validationMetrics[row_index]
+            avg_metric_name = metric_name
+
+        assert math.isclose(avg_metric_value, run_data.metrics[avg_metric_name], rel_tol=1e-6)
+        assert math.isclose(avg_metric_value, float(row.get(avg_metric_name)), rel_tol=1e-6)
+
+        if isinstance(estimator, CrossValidator) and Version(pyspark.__version__) > Version("3.2"):
+            std_metric_name = f"std_{metric_name}"
+            std_metric_value = model.stdMetrics[row_index]
+            assert math.isclose(std_metric_value, run_data.metrics[std_metric_name], rel_tol=1e-6)
+            assert math.isclose(std_metric_value, float(row.get(std_metric_name)), rel_tol=1e-6)
 
 
 def test_get_params_to_log(spark_session):  # pylint: disable=unused-argument

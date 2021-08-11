@@ -28,7 +28,6 @@ from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_noteboo
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 from mlflow.utils.validation import _validate_run_id
-from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
     import pandas  # pylint: disable=unused-import
@@ -611,7 +610,6 @@ def log_text(text: str, artifact_file: str) -> None:
     MlflowClient().log_text(run_id, text, artifact_file)
 
 
-@experimental
 def log_dict(dictionary: Any, artifact_file: str) -> None:
     """
     Log a JSON/YAML-serializable object (e.g. `dict`) as an artifact. The serialization
@@ -646,7 +644,6 @@ def log_dict(dictionary: Any, artifact_file: str) -> None:
     MlflowClient().log_dict(run_id, dictionary, artifact_file)
 
 
-@experimental
 def log_figure(
     figure: Union["matplotlib.figure.Figure", "plotly.graph_objects.Figure"], artifact_file: str
 ) -> None:
@@ -693,7 +690,6 @@ def log_figure(
     MlflowClient().log_figure(run_id, figure, artifact_file)
 
 
-@experimental
 def log_image(image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: str) -> None:
     """
     Log an image as an artifact. The following image objects are supported:

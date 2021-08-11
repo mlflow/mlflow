@@ -34,6 +34,7 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from tests.helper_functions import (
     score_model_in_sagemaker_docker_container,
     _compare_conda_env_requirements,
+    _assert_pip_requirements,
 )
 from tests.pyfunc.test_spark import score_model_as_udf, get_spark_session
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
@@ -286,7 +287,7 @@ def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
     reason="The dev version of pyspark built from the source doesn't exist on PyPI or Anaconda",
 )
 def test_sagemaker_docker_model_scoring_with_default_conda_env(spark_model_iris, model_path):
-    sparkm.save_model(spark_model_iris.model, path=model_path, conda_env=None)
+    sparkm.save_model(spark_model_iris.model, path=model_path)
 
     scoring_response = score_model_in_sagemaker_docker_container(
         model_uri=model_path,
@@ -476,6 +477,66 @@ def test_sparkml_model_save_persists_requirements_in_mlflow_model_directory(
 
 
 @pytest.mark.large
+def test_log_model_with_pip_requirements(spark_model_iris, tmpdir):
+    # Path to a requirements file
+    req_file = tmpdir.join("requirements.txt")
+    req_file.write("a")
+    with mlflow.start_run():
+        mlflow.spark.log_model(spark_model_iris.model, "model", pip_requirements=req_file.strpath)
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"])
+
+    # List of requirements
+    with mlflow.start_run():
+        mlflow.spark.log_model(
+            spark_model_iris.model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"]
+        )
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"])
+
+    # Constraints file
+    with mlflow.start_run():
+        mlflow.spark.log_model(
+            spark_model_iris.model, "model", pip_requirements=[f"-c {req_file.strpath}", "b"]
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), ["mlflow", "b", "-c constraints.txt"], ["a"]
+        )
+
+
+@pytest.mark.large
+def test_log_model_with_extra_pip_requirements(spark_model_iris, tmpdir):
+    default_reqs = mlflow.spark.get_default_pip_requirements()
+
+    # Path to a requirements file
+    req_file = tmpdir.join("requirements.txt")
+    req_file.write("a")
+    with mlflow.start_run():
+        mlflow.spark.log_model(
+            spark_model_iris.model, "model", extra_pip_requirements=req_file.strpath
+        )
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a"])
+
+    # List of requirements
+    with mlflow.start_run():
+        mlflow.spark.log_model(
+            spark_model_iris.model, "model", extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a", "b"]
+        )
+
+    # Constraints file
+    with mlflow.start_run():
+        mlflow.spark.log_model(
+            spark_model_iris.model, "model", extra_pip_requirements=[f"-c {req_file.strpath}", "b"]
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"),
+            ["mlflow", *default_reqs, "b", "-c constraints.txt"],
+            ["a"],
+        )
+
+
+@pytest.mark.large
 def test_sparkml_model_save_accepts_conda_env_as_dict(spark_model_iris, model_path):
     conda_env = dict(mlflow.spark.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
@@ -542,7 +603,7 @@ def test_sparkml_model_log_persists_requirements_in_mlflow_model_directory(
 def test_sparkml_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     spark_model_iris, model_path
 ):
-    sparkm.save_model(spark_model=spark_model_iris.model, path=model_path, conda_env=None)
+    sparkm.save_model(spark_model=spark_model_iris.model, path=model_path)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -558,9 +619,7 @@ def test_sparkml_model_log_without_specified_conda_env_uses_default_env_with_exp
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        sparkm.log_model(
-            spark_model=spark_model_iris.model, artifact_path=artifact_path, conda_env=None
-        )
+        sparkm.log_model(spark_model=spark_model_iris.model, artifact_path=artifact_path)
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
         )
@@ -587,9 +646,7 @@ def test_default_conda_env_strips_dev_suffix_from_pyspark_version(spark_model_ir
             assert default_conda_env_dev == default_conda_env_standard
 
             with mlflow.start_run():
-                sparkm.log_model(
-                    spark_model=spark_model_iris.model, artifact_path="model", conda_env=None
-                )
+                sparkm.log_model(spark_model=spark_model_iris.model, artifact_path="model")
                 model_uri = "runs:/{run_id}/{artifact_path}".format(
                     run_id=mlflow.active_run().info.run_id, artifact_path="model"
                 )

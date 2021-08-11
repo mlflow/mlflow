@@ -30,7 +30,7 @@ RUN apt-get -y update && apt-get install -y --no-install-recommends \
 
 # Download and setup miniconda
 RUN curl -L https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh >> miniconda.sh
-RUN bash ./miniconda.sh -b -p /miniconda; rm ./miniconda.sh;
+RUN bash ./miniconda.sh -b -p /miniconda && rm ./miniconda.sh
 ENV PATH="/miniconda/bin:$PATH"
 ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 ENV GUNICORN_CMD_ARGS="--timeout 60 -k gevent"
@@ -115,3 +115,6 @@ def _build_image(image_name, entrypoint, mlflow_home=None, custom_setup_steps_ho
         )
         for x in iter(proc.stdout.readline, ""):
             eprint(x, end="")
+
+        if proc.wait():
+            raise RuntimeError("Docker build failed.")
