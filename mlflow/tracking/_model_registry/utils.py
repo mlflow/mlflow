@@ -1,4 +1,5 @@
 import os
+from functools import partial
 
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.rest_store import RestStore
@@ -119,21 +120,22 @@ def _get_sqlalchemy_store(store_uri):
     return SqlAlchemyStore(store_uri)
 
 
-def _get_rest_store(store_uri, **_):
-    def get_default_host_creds():
-        return rest_utils.MlflowHostCreds(
-            host=store_uri,
-            username=os.environ.get(_TRACKING_USERNAME_ENV_VAR),
-            password=os.environ.get(_TRACKING_PASSWORD_ENV_VAR),
-            token=os.environ.get(_TRACKING_TOKEN_ENV_VAR),
-            ignore_tls_verification=os.environ.get(_TRACKING_INSECURE_TLS_ENV_VAR) == "true",
-        )
+def get_default_host_creds(store_uri):
+    return rest_utils.MlflowHostCreds(
+        host=store_uri,
+        username=os.environ.get(_TRACKING_USERNAME_ENV_VAR),
+        password=os.environ.get(_TRACKING_PASSWORD_ENV_VAR),
+        token=os.environ.get(_TRACKING_TOKEN_ENV_VAR),
+        ignore_tls_verification=os.environ.get(_TRACKING_INSECURE_TLS_ENV_VAR) == "true",
+    )
 
-    return RestStore(get_default_host_creds)
+
+def _get_rest_store(store_uri, **_):
+    return RestStore(partial(get_default_host_creds, store_uri))
 
 
 def _get_databricks_rest_store(store_uri, **_):
-    return RestStore(lambda: get_databricks_host_creds(store_uri))
+    return RestStore(partial(get_databricks_host_creds, store_uri))
 
 
 _model_registry_store_registry = ModelRegistryStoreRegistry()
