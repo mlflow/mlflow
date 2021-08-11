@@ -290,6 +290,5 @@ def _get_pinned_requirement(package, version=None, module=None):
                    if `package` is 'scikit-learn', `module` should be 'sklearn'. If None, defaults
                    to `package`.
     """
-    module = module or package
-    version = version or _get_installed_version(module)
+    version = version or _get_installed_version(module or package)
     return f"{package}=={version}"
