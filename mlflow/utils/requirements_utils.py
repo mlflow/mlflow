@@ -180,17 +180,16 @@ def _run_command(cmd):
         raise MlflowException(msg)
 
 
-def _get_package_version_from_metadata(package):
+def _get_installed_version(package):
     """
     Obtains the version of the specified package from its metadata.
     """
-    version = importlib_metadata.version(package)
-
     # In Databricks, strip a dev version suffix for pyspark (e.g. '3.1.2.dev0' -> '3.1.2')
     # and make it installable from PyPI.
     if package == "pyspark" and is_in_databricks_runtime():
-        version = _strip_dev_version_suffix(version)
-    return version
+        return _strip_dev_version_suffix(__import__("pyspark").__version__)
+
+    return importlib_metadata.version(package)
 
 
 def _infer_requirements(model_uri, flavor):
@@ -240,7 +239,7 @@ def _infer_requirements(model_uri, flavor):
         "mlflow",
     ]
     packages = _prune_packages(packages) - set(excluded_packages)
-    return ["{}=={}".format(p, _get_package_version_from_metadata(p)) for p in sorted(packages)]
+    return ["{}=={}".format(p, _get_installed_version(p)) for p in sorted(packages)]
 
 
 def _strip_local_version_identifier(version):
@@ -264,27 +263,13 @@ def _strip_local_version_identifier(version):
         return version
 
 
-def _get_installed_version(module):
-    """
-    Returns the installed version of the specified module.
-
-    :param module: The name of the module.
-    """
-    return __import__(module).__version__
-
-
-def _get_pinned_requirement(package, version=None, module=None):
+def _get_pinned_requirement(package, version=None):
     """
     Returns a string representing a pinned pip requirement to install the specified package and
     version (e.g. 'mlflow==1.2.3').
 
     :param package: The name of the package.
     :param version: The version of the package. If None, defaults to the installed version.
-    :param module: The name of the top-level module provided by the package . For example,
-                   if `package` is 'scikit-learn', `module` should be 'sklearn'. If None, defaults
-                   to `package`.
     """
-    module = module or package
-    version = version or _get_installed_version(module)
-    version = _strip_local_version_identifier(version)
+    version = version or _get_installed_version(package)
     return f"{package}=={version}"

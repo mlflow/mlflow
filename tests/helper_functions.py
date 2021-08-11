@@ -26,7 +26,7 @@ from mlflow.utils.environment import (
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
 )
-from mlflow.utils.requirements_utils import _strip_local_version_identifier, _get_installed_version
+from mlflow.utils.requirements_utils import _get_installed_version
 
 LOCALHOST = "127.0.0.1"
 
@@ -366,24 +366,18 @@ def _assert_pip_requirements(model_uri, requirements, constraints=None, strict=F
         assert compare_func(set(constraints), set(cons))
 
 
-def _is_available_on_pypi(package, version=None, module=None):
+def _is_available_on_pypi(package, version=None):
     """
     Returns True if the specified package version is available on PyPI.
 
     :param package: The name of the package.
     :param version: The version of the package. If None, defaults to the installed version.
-    :param module: The name of the top-level module provided by the package . For example,
-                   if `package` is 'scikit-learn', `module` should be 'sklearn'. If None, defaults
-                   to `package`.
     """
     resp = requests.get("https://pypi.python.org/pypi/{}/json".format(package))
     if not resp.ok:
         return False
 
-    module = module or package
-    version = version or _get_installed_version(module)
-    version = _strip_local_version_identifier(version)
-
+    version = version or _get_installed_version(package)
     dist_files = resp.json()["releases"].get(version)
     return (
         dist_files is not None  # specified version exists
