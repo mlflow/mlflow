@@ -599,6 +599,15 @@ class _AutologgingMetricsManager:
         #  newer value will overwrite old value
         client = mlflow.tracking.MlflowClient()
         client.log_metric(run_id=run_id, key=key, value=value)
+        if self._metric_info_artifact_need_update[run_id]:
+            evaluator_call_list = []
+            for v in self._metric_api_call_info[run_id].values():
+                evaluator_call_list.extend(v)
+
+            evaluator_call_list.sort(key=lambda x: x[0])
+            dict_to_log = OrderedDict(evaluator_call_list)
+            client.log_dict(run_id=run_id, dictionary=dict_to_log, artifact_file="metric_info.json")
+            self._metric_info_artifact_need_update[run_id] = False
 
 
 _autologging_metrics_manager = _AutologgingMetricsManager()
