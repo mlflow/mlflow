@@ -119,7 +119,7 @@ def add_databricks_profile_info_to_artifact_uri(artifact_uri, databricks_profile
     Throws an exception if ``databricks_profile_uri`` is not valid.
     """
     if not databricks_profile_uri or not is_databricks_uri(databricks_profile_uri):
-        _logger.info("No databricks profile available ")
+        logging.info("No databricks profile available ")
         return artifact_uri
     artifact_uri_parsed = urllib.parse.urlparse(artifact_uri)
     # Do not overwrite the authority section if there is already one

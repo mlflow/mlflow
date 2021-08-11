@@ -11,7 +11,7 @@ _logger.setLevel(logging.INFO)
 
 def is_using_databricks_registry(uri):
     profile_uri = get_databricks_profile_uri_from_artifact_uri(uri) or mlflow.get_registry_uri()
-    _logger.info("Checkpoint for databricks_registry === profile_uri: " + str(profile_uri))
+    logging.info("Checkpoint for databricks_registry === profile_uri: " + str(profile_uri))
     return is_databricks_uri(profile_uri)
 
 

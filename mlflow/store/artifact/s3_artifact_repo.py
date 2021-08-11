@@ -157,12 +157,12 @@ class S3ArtifactRepository(ArtifactRepository):
             )
 
     def _download_file(self, remote_file_path, local_path):
-        _logger.info("\t\t\t Downloading --> " + str(remote_file_path))
+        logging.info("\t\t\t Downloading --> " + str(remote_file_path))
         (bucket, s3_root_path) = data.parse_s3_uri(self.artifact_uri)
         s3_full_path = posixpath.join(s3_root_path, remote_file_path)
         starts3 = time.time()
         s3_client = self._get_s3_client()
-        _logger.info("\t\t\t Time taken to get_s3_client: " + str(time.time() - starts3))
+        logging.info("\t\t\t Time taken to get_s3_client: " + str(time.time() - starts3))
         s3_client.download_file(bucket, s3_full_path, local_path)
 
     def delete_artifacts(self, artifact_path=None):

@@ -72,7 +72,7 @@ def set_tracking_uri(uri: str) -> None:
     """
     global _tracking_uri
     _tracking_uri = uri
-    _logger.info("Tracking URI is : ====================> "+_tracking_uri)
+    logging.info("Tracking URI is : ====================> "+_tracking_uri)
 
 
 def _resolve_tracking_uri(tracking_uri=None):
