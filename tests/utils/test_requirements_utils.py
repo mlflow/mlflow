@@ -227,7 +227,7 @@ def test_get_installed_version(tmpdir):
     sys.path.insert(0, tmpdir.strpath)
     with pytest.raises(importlib_metadata.PackageNotFoundError):
         importlib_metadata.version("not_found")
-    assert _get_pinned_requirement("not_found") == "1.2.3"
+    assert _get_installed_version("not_found") == "1.2.3"
 
 
 def test_get_pinned_requirement(tmpdir):
