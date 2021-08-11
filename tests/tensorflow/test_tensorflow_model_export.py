@@ -26,6 +26,7 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from tests.helper_functions import _compare_conda_env_requirements
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
+from tests.helper_functions import _assert_pip_requirements
 
 SavedModelInfo = collections.namedtuple(
     "SavedModelInfo",
@@ -565,18 +566,12 @@ def test_save_model_without_specified_conda_env_uses_default_env_with_expected_d
         tf_signature_def_key=saved_tf_iris_model.signature_def_key,
         path=model_path,
     )
-
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
-
-    assert conda_env == mlflow.tensorflow.get_default_conda_env()
+    _assert_pip_requirements(model_path, mlflow.tensorflow.get_default_pip_requirements())
 
 
 @pytest.mark.large
 def test_log_model_without_specified_conda_env_uses_default_env_with_expected_dependencies(
-    saved_tf_iris_model, model_path
+    saved_tf_iris_model,
 ):
     artifact_path = "model"
     with mlflow.start_run():
@@ -586,17 +581,9 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
             tf_signature_def_key=saved_tf_iris_model.signature_def_key,
             artifact_path=artifact_path,
         )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
-
-    assert conda_env == mlflow.tensorflow.get_default_conda_env()
+    _assert_pip_requirements(model_uri, mlflow.tensorflow.get_default_pip_requirements())
 
 
 @pytest.mark.large

@@ -307,7 +307,7 @@ def _create_child_runs_for_parameter_search(parent_estimator, parent_model, pare
     estimator_param_maps = parent_estimator.getEstimatorParamMaps()
     tuned_estimator = parent_estimator.getEstimator()
 
-    metric_key, metrics = _get_param_search_metrics(parent_estimator, parent_model)
+    metrics_dict, _ = _get_param_search_metrics_and_best_index(parent_estimator, parent_model)
     for i in range(len(estimator_param_maps)):
         child_estimator = tuned_estimator.copy(estimator_param_maps[i])
         tags_to_log = dict(child_tags) if child_tags else {}
@@ -324,7 +324,7 @@ def _create_child_runs_for_parameter_search(parent_estimator, parent_model, pare
             child_estimator, parent_estimator._autologging_metadata.uid_to_indexed_name_map
         )
         param_batches_to_log = _chunk_dict(params_to_log, chunk_size=MAX_PARAMS_TAGS_PER_BATCH)
-        metrics_to_log = {metric_key: metrics[i]}
+        metrics_to_log = {k: v[i] for k, v in metrics_dict.items()}
         for params_batch, metrics_batch in zip_longest(
             param_batches_to_log, [metrics_to_log], fillvalue={}
         ):
@@ -349,13 +349,13 @@ def _create_child_runs_for_parameter_search(parent_estimator, parent_model, pare
         client.set_terminated(run_id=child_run.info.run_id, end_time=child_run_end_time)
 
 
-def _log_parameter_search_results_as_artifact(param_maps, metrics, metric_name, run_id):
+def _log_parameter_search_results_as_artifact(param_maps, metrics_dict, run_id):
     import pandas as pd
     import json
 
     result_dict = defaultdict(list)
     result_dict["params"] = []
-    result_dict[metric_name] = metrics
+    result_dict.update(metrics_dict)
     for param_map in param_maps:
         result_dict["params"].append(json.dumps(param_map))
         for param_name, param_value in param_map.items():
@@ -386,22 +386,38 @@ def _get_tuning_param_maps(param_search_estimator, uid_to_indexed_name_map):
     return tuning_param_maps
 
 
-def _get_param_search_metrics(param_search_estimator, param_search_model):
+def _get_param_search_metrics_and_best_index(param_search_estimator, param_search_model):
     """
-    Return a tuple of (metric_key, metrics: Array)
+    Return a tuple of `(metrics_dict, best_index)`
+    `metrics_dict` is a dict of metric_name --> metric_values for each param map
+    - For CrossValidatorModel, the result dict contains metrics of avg_metris and std_metrics
+      for each param map.
+    - For TrainValidationSplitModel, the result dict contains metrics for each param map.
+
+    `best_index` is the best index of trials.
     """
     from pyspark.ml.tuning import CrossValidatorModel, TrainValidationSplitModel
 
+    metrics_dict = {}
+
     metric_key = param_search_estimator.getEvaluator().getMetricName()
     if isinstance(param_search_model, CrossValidatorModel):
-        metric_key = "avg_" + metric_key
-        metrics = param_search_model.avgMetrics
+        avg_metrics = param_search_model.avgMetrics
+        metrics_dict["avg_" + metric_key] = avg_metrics
+        if hasattr(param_search_model, "stdMetrics"):
+            metrics_dict["std_" + metric_key] = param_search_model.stdMetrics
     elif isinstance(param_search_model, TrainValidationSplitModel):
-        metrics = param_search_model.validationMetrics
+        avg_metrics = param_search_model.validationMetrics
+        metrics_dict[metric_key] = avg_metrics
     else:
         raise RuntimeError(f"Unknown parameter search model type {type(param_search_model)}.")
 
-    return metric_key, metrics
+    if param_search_estimator.getEvaluator().isLargerBetter():
+        best_index = np.argmax(avg_metrics)
+    else:
+        best_index = np.argmin(avg_metrics)
+
+    return metrics_dict, best_index
 
 
 def _log_estimator_params(param_map):
@@ -578,15 +594,12 @@ def autolog(
                 estimator, estimator._autologging_metadata.uid_to_indexed_name_map
             )
 
-            metric_key, metrics = _get_param_search_metrics(estimator, spark_model)
-            _log_parameter_search_results_as_artifact(
-                estimator_param_maps, metrics, metric_key, mlflow.active_run().info.run_id
+            metrics_dict, best_index = _get_param_search_metrics_and_best_index(
+                estimator, spark_model
             )
-
-            if estimator.getEvaluator().isLargerBetter():
-                best_index = np.argmax(metrics)
-            else:
-                best_index = np.argmin(metrics)
+            _log_parameter_search_results_as_artifact(
+                estimator_param_maps, metrics_dict, mlflow.active_run().info.run_id
+            )
 
             # Log best_param_map as JSON artifact
             best_param_map = estimator_param_maps[best_index]

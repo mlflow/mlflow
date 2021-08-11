@@ -34,6 +34,7 @@ from tests.helper_functions import (
     _compare_conda_env_requirements,
     _assert_pip_requirements,
     _is_available_on_pypi,
+    _is_importable,
 )
 
 _logger = logging.getLogger(__name__)
@@ -527,13 +528,7 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
     sequential_model, model_path
 ):
     mlflow.pytorch.save_model(pytorch_model=sequential_model, path=model_path)
-
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
-
-    assert conda_env == mlflow.pytorch.get_default_conda_env()
+    _assert_pip_requirements(model_path, mlflow.pytorch.get_default_pip_requirements())
 
 
 @pytest.mark.large
@@ -543,19 +538,10 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.pytorch.log_model(pytorch_model=sequential_model, artifact_path=artifact_path)
-        model_path = _download_artifact_from_uri(
-            "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-            )
-        )
+        mlflow.pytorch.log_model(sequential_model, artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
-
-    assert conda_env == mlflow.pytorch.get_default_conda_env()
+    _assert_pip_requirements(model_uri, mlflow.pytorch.get_default_pip_requirements())
 
 
 @pytest.mark.large
@@ -620,7 +606,7 @@ def test_save_model_with_wrong_codepaths_fails_corrrectly(
     # pylint: disable=unused-argument
     with pytest.raises(TypeError) as exc_info:
         mlflow.pytorch.save_model(
-            path=model_path, pytorch_model=module_scoped_subclassed_model, code_paths="some string",
+            path=model_path, pytorch_model=module_scoped_subclassed_model, code_paths="some string"
         )
     assert "TypeError: Argument code_paths should be a list, not {}".format(type("")) in str(
         exc_info
@@ -818,7 +804,7 @@ def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
     artifact_path = "pytorch_model"
     with mlflow.start_run():
         mlflow.pytorch.log_model(
-            artifact_path=artifact_path, pytorch_model=module_scoped_subclassed_model,
+            artifact_path=artifact_path, pytorch_model=module_scoped_subclassed_model
         )
         model_path = _download_artifact_from_uri(
             "runs:/{run_id}/{artifact_path}".format(
@@ -852,7 +838,7 @@ def test_load_model_allows_user_to_override_pickle_module_via_keyword_argument(
     module_scoped_subclassed_model, model_path
 ):
     mlflow.pytorch.save_model(
-        path=model_path, pytorch_model=module_scoped_subclassed_model, pickle_module=pickle,
+        path=model_path, pytorch_model=module_scoped_subclassed_model, pickle_module=pickle
     )
 
     with mock.patch("torch.load") as torch_load_mock, mock.patch(
@@ -904,6 +890,41 @@ def test_pyfunc_serve_and_score(data):
     )
     scores = pd.DataFrame(json.loads(resp.content))
     np.testing.assert_array_almost_equal(scores.values[:, 0], _predict(model=model, data=data))
+
+
+@pytest.mark.large
+@pytest.mark.skipif(not _is_importable("transformers"), reason="This test requires transformers")
+def test_pyfunc_serve_and_score_transformers():
+    from transformers import BertModel, BertConfig  # pylint: disable=import-error
+
+    class MyBertModel(BertModel):
+        def forward(self, *args, **kwargs):  # pylint: disable=arguments-differ
+            return super().forward(*args, **kwargs).last_hidden_state
+
+    model = MyBertModel(
+        BertConfig(
+            vocab_size=16,
+            hidden_size=2,
+            num_hidden_layers=2,
+            num_attention_heads=2,
+            intermediate_size=2,
+        )
+    )
+    model.eval()
+
+    with mlflow.start_run():
+        mlflow.pytorch.log_model(model, artifact_path="model")
+        model_uri = mlflow.get_artifact_uri("model")
+
+    input_ids = model.dummy_inputs["input_ids"]
+    data = json.dumps({"inputs": input_ids.tolist()})
+    resp = pyfunc_serve_and_score_model(
+        model_uri,
+        data,
+        pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
+    )
+    np.testing.assert_array_equal(json.loads(resp.content), model(input_ids).detach().numpy())
 
 
 @pytest.fixture
@@ -1026,7 +1047,7 @@ def test_extra_files_log_model(create_extra_files, sequential_model):
     extra_files, contents_expected = create_extra_files
     with mlflow.start_run():
         mlflow.pytorch.log_model(
-            pytorch_model=sequential_model, artifact_path="models", extra_files=extra_files,
+            pytorch_model=sequential_model, artifact_path="models", extra_files=extra_files
         )
 
         model_uri = "runs:/{run_id}/{model_path}".format(
