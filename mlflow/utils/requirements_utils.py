@@ -182,7 +182,7 @@ def _run_command(cmd):
 
 def _get_installed_version(package, module=None):
     """
-    Obtains the package version using `importlib_metadata.version`. If it fails, use
+    Obtains the installed package version using `importlib_metadata.version`. If it fails, use
     `__import__(module or package).__version__`.
     """
     try:

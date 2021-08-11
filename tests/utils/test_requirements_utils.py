@@ -1,6 +1,9 @@
 import os
+import sys
 import importlib
-from unittest import mock
+
+import importlib_metadata
+import pytest
 
 import mlflow
 from mlflow.utils._capture_modules import _CaptureImportedModules
@@ -209,19 +212,31 @@ def test_strip_local_version_identifier():
     assert _strip_local_version_identifier("invalid") == "invalid"
 
 
-def test_get_installed_version():
+def test_get_installed_version(tmpdir):
     import numpy as np
     import pandas as pd
+    import sklearn
 
     assert _get_installed_version("mlflow") == mlflow.__version__
     assert _get_installed_version("numpy") == np.__version__
     assert _get_installed_version("pandas") == pd.__version__
+    assert _get_installed_version("scikit-learn", module="sklearn") == sklearn.__version__
+
+    not_found_package = tmpdir.join("not_found.py")
+    not_found_package.write("__version__ = '1.2.3'")
+    sys.path.insert(0, tmpdir.strpath)
+    with pytest.raises(importlib_metadata.PackageNotFoundError):
+        importlib_metadata.version("not_found")
+    assert _get_pinned_requirement("not_found") == "1.2.3"
 
 
-def test_get_pinned_requirement():
+def test_get_pinned_requirement(tmpdir):
     assert _get_pinned_requirement("mlflow") == f"mlflow=={mlflow.__version__}"
     assert _get_pinned_requirement("mlflow", version="1.2.3") == "mlflow==1.2.3"
-    assert _get_pinned_requirement("foo", module="mlflow") == f"foo=={mlflow.__version__}"
 
-    with mock.patch("mlflow.__version__", new="1.2.3+abc"):
-        assert _get_pinned_requirement("mlflow") == "mlflow==1.2.3"
+    not_found_package = tmpdir.join("not_found.py")
+    not_found_package.write("__version__ = '1.2.3'")
+    sys.path.insert(0, tmpdir.strpath)
+    with pytest.raises(importlib_metadata.PackageNotFoundError):
+        importlib_metadata.version("not_found")
+    assert _get_pinned_requirement("not_found") == "not_found==1.2.3"
