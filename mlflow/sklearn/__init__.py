@@ -11,6 +11,7 @@ Python (native) `pickle <https://scikit-learn.org/stable/modules/model_persisten
     since `predict()` is required for pyfunc model inference.
 """
 import inspect
+import functools
 import os
 import logging
 import numpy as np
@@ -19,6 +20,7 @@ import yaml
 import warnings
 import weakref
 from collections import defaultdict, OrderedDict
+from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
@@ -42,6 +44,7 @@ from mlflow.utils.environment import (
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
 )
+from mlflow.utils import gorilla
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
@@ -55,6 +58,7 @@ from mlflow.utils.autologging_utils import (
     _get_new_training_session_class,
     MlflowAutologgingQueueingClient,
     disable_autologging,
+    update_wrapper_extended,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -829,6 +833,28 @@ def _get_metric_name_list():
     return metric_list
 
 
+def _patch_estimator_method_if_available(flavor_name, class_def, func_name, patched_fn, manage_run):
+    if not hasattr(class_def, func_name):
+        return
+
+    original = gorilla.get_original_attribute(
+        class_def, func_name, bypass_descriptor_protocol=False
+    )
+    # Retrieve raw attribute while bypassing the descriptor protocol
+    raw_original_obj = gorilla.get_original_attribute(
+        class_def, func_name, bypass_descriptor_protocol=True
+    )
+    if raw_original_obj == original and (callable(original) or isinstance(original, property)):
+        # normal method or property decorated method
+        safe_patch(flavor_name, class_def, func_name, patched_fn, manage_run=manage_run)
+    elif hasattr(raw_original_obj, "delegate_names") or hasattr(raw_original_obj, "check"):
+        # sklearn delegated method
+        safe_patch(flavor_name, raw_original_obj, "fn", patched_fn, manage_run=manage_run)
+    else:
+        # unsupported method type. skip patching
+        pass
+
+
 @experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
@@ -941,8 +967,9 @@ def autolog(
 
         **Limitations**
            - MLflow can only map the original prediction result object returned by a model
-             prediction API (including predict / predict_proba / transform, but excluding
-             fit_predict / fit_transform.) to an MLflow run. MLflow cannot find run information
+             prediction API (including predict / predict_proba / predict_log_proba / transform,
+             but excluding fit_predict / fit_transform.) to an MLflow run.
+             MLflow cannot find run information
              for other objects derived from a given prediction result (e.g. by copying or selecting
              a subset of the prediction result). scikit-learn metric APIs invoked on derived objects
              do not log metrics to MLflow.
@@ -1339,7 +1366,9 @@ def autolog(
         """
         status = _get_autologging_metrics_manager()
         if status.should_log_post_training_metrics() and status.get_run_id_for_model(self):
-            predict_result = original(self, *args, **kwargs)
+            # Avoid nested patch when nested inference calls happens.
+            with status.disable_log_post_training_metrics():
+                predict_result = original(self, *args, **kwargs)
             eval_dataset = get_instance_method_first_arg_value(original, args, kwargs)
             eval_dataset_name = status.register_prediction_input_dataset(self, eval_dataset)
             status.register_prediction_result(
@@ -1437,64 +1466,77 @@ def autolog(
         )
     ]
 
-    def should_patch_estimator_method(class_def, func_name):
-        """
-        Check whether we should patch the estimator method, will check:
-         * the estimator has the "func_name" attribute
-         * the attribute is callable, this is for filtering out cases like
-           `LocalOutlierFactor.predict` which is a property
-         * the callable attribute is not decorated by "@if_delegate_has_method",
-           the mlflow safe patching will break "@if_delegate_has_method" decorated methods
-           behavior.
+    def _apply_sklearn_descriptor_unbound_method_call_fix():
+        import sklearn
 
-        TODO: make mlflow safe patching support @if_delegate_has_method decorator.
-        """
-        try:
-            if hasattr(class_def, func_name):
-                method = getattr(class_def, func_name)
-                return callable(method) and "@if_delegate_has_method" not in inspect.getsource(
-                    method
-                )
-            return False
-        except Exception:  # pylint: disable=broad-except
-            return False
+        if Version(sklearn.__version__) <= Version("0.24.2"):
+            import sklearn.utils.metaestimators
+
+            # pylint: disable=redefined-builtin,unused-argument
+            def patched_IffHasAttrDescriptor__get__(self, obj, type=None):
+                """
+                For sklearn version <= 0.24.2, `_IffHasAttrDescriptor.__get__` method does not
+                support unbound method call.
+                See https://github.com/scikit-learn/scikit-learn/issues/20614
+                This patched function is for hot patch.
+                """
+
+                # raise an AttributeError if the attribute is not present on the object
+                if obj is not None:
+                    # delegate only on instances, not the classes.
+                    # this is to allow access to the docstrings.
+                    for delegate_name in self.delegate_names:
+                        try:
+                            delegate = sklearn.utils.metaestimators.attrgetter(delegate_name)(obj)
+                        except AttributeError:
+                            continue
+                        else:
+                            getattr(delegate, self.attribute_name)
+                            break
+                    else:
+                        sklearn.utils.metaestimators.attrgetter(self.delegate_names[-1])(obj)
+
+                    def out(*args, **kwargs):
+                        return self.fn(obj, *args, **kwargs)
+
+                else:
+                    # This makes it possible to use the decorated method as an unbound method,
+                    # for instance when monkeypatching.
+                    def out(*args, **kwargs):
+                        return self.fn(*args, **kwargs)
+
+                # update the docstring of the returned function
+                functools.update_wrapper(out, self.fn)
+                return out
+
+            update_wrapper_extended(
+                patched_IffHasAttrDescriptor__get__,
+                sklearn.utils.metaestimators._IffHasAttrDescriptor.__get__,
+            )
+
+            sklearn.utils.metaestimators._IffHasAttrDescriptor.__get__ = (
+                patched_IffHasAttrDescriptor__get__
+            )
+
+    _apply_sklearn_descriptor_unbound_method_call_fix()
 
     for class_def in estimators_to_patch:
+        # Patch fitting methods
         for func_name in ["fit", "fit_transform", "fit_predict"]:
-            if should_patch_estimator_method(class_def, func_name):
-                original = getattr(class_def, func_name)
-
-                # A couple of estimators use property methods to return fitting functions,
-                # rather than defining the fitting functions on the estimator class directly.
-                #
-                # Example: https://github.com/scikit-learn/scikit-learn/blob/0.23.2/sklearn/neighbors/_lof.py#L183  # noqa
-                #
-                # We currently exclude these property fitting methods from patching because
-                # it's challenging to patch them correctly.
-                #
-                # Excluded fitting methods:
-                # - sklearn.cluster._agglomerative.FeatureAgglomeration.fit_predict
-                # - sklearn.neighbors._lof.LocalOutlierFactor.fit_predict
-                #
-                # You can list property fitting methods by inserting "print(class_def, func_name)"
-                # in the if clause below.
-                if isinstance(original, property):
-                    continue
-
-                safe_patch(
-                    FLAVOR_NAME, class_def, func_name, patched_fit, manage_run=True,
-                )
-
-        for func_name in ["predict", "predict_proba", "transform"]:
-            if should_patch_estimator_method(class_def, func_name):
-                safe_patch(
-                    FLAVOR_NAME, class_def, func_name, patched_predict, manage_run=False,
-                )
-
-        if should_patch_estimator_method(class_def, "score"):
-            safe_patch(
-                FLAVOR_NAME, class_def, "score", patched_model_score, manage_run=False,
+            _patch_estimator_method_if_available(
+                FLAVOR_NAME, class_def, func_name, patched_fit, manage_run=True,
             )
+
+        # Patch inference methods
+        for func_name in ["predict", "predict_proba", "transform", "predict_log_proba"]:
+            _patch_estimator_method_if_available(
+                FLAVOR_NAME, class_def, func_name, patched_predict, manage_run=False,
+            )
+
+        # Patch scoring methods
+        _patch_estimator_method_if_available(
+            FLAVOR_NAME, class_def, "score", patched_model_score, manage_run=False,
+        )
 
     for metric_name in _get_metric_name_list():
         safe_patch(FLAVOR_NAME, sklearn.metrics, metric_name, patched_metric_api, manage_run=False)
