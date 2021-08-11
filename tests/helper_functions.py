@@ -373,8 +373,8 @@ def _is_available_on_pypi(package, version=None, module=None):
     :param package: The name of the package.
     :param version: The version of the package. If None, defaults to the installed version.
     :param module: The name of the top-level module provided by the package . For example,
-                if `package` is 'scikit-learn', `module` should be 'sklearn'. If None, defaults
-                to `package`.
+                   if `package` is 'scikit-learn', `module` should be 'sklearn'. If None, defaults
+                   to `package`.
     """
     resp = requests.get("https://pypi.python.org/pypi/{}/json".format(package))
     if not resp.ok:
