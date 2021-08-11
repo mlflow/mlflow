@@ -83,9 +83,7 @@ test_that("mlflow can get a registered model", {
       expect_equal(args$verb, "GET")
       expect_equal(args$query$name, "test_model")
       return(list(
-        registered_model = list(
-          name = "test_model"
-        )
+        registered_model = list(name = "test_model")
       ))
     }, {
       mock_client <- get_mock_client()
@@ -98,16 +96,13 @@ test_that("mlflow can rename a registered model", {
   with_mock(.env = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
-      expect_true(paste(args[1:2], collapse = "/")
-                  == "registered-models/rename")
+      expect_equal(paste(args[1:2], collapse = "/"), "registered-models/rename")
       expect_equal(args$verb, "POST")
       expect_equal(args$data$name, "old_model_name")
       expect_equal(args$data$new_name, "new_model_name")
 
       return(list(
-        registered_model = list(
-          name = "new_model_name"
-        )
+        registered_model = list(name = "new_model_name")
       ))
     }, {
       mock_client <- get_mock_client()
@@ -120,8 +115,7 @@ test_that("mlflow can update a model", {
   with_mock(.env = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
-      expect_true(paste(args[1:2], collapse = "/")
-                  == "registered-models/update")
+      expect_equal(paste(args[1:2], collapse = "/"), "registered-models/update")
       expect_equal(args$verb, "PATCH")
       expect_equal(args$data$name, "test_model")
       return(list(
@@ -141,7 +135,7 @@ test_that("mlflow can delete a model", {
   with_mock(.env = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
-      expect_true(paste(args[1:2], collapse = "/") == "registered-models/delete")
+      expect_equivalent(paste(args[1:2], collapse = "/"), "registered-models/delete")
       expect_equal(args$data$name, "test_model")
   }, {
     mock_client <- get_mock_client()
