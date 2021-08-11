@@ -97,9 +97,8 @@ def main():
         loader_module._load_pyfunc = _load_pyfunc_patch
         mlflow.pyfunc.load_model(model_path)
     else:
-        # This branch allows directly specifying a path to a model data file or directory for
-        # models that don't contain pyfunc flavor. For example, we exclude pyfunc flavor for
-        # scikit-learn estimators that don't implement a predict method.
+        # Allow directly specifying a path to a model data file or directory for
+        # models that don't contain pyfunc flavor.
         with cap:
             importlib.import_module(f"mlflow.{flavor}")._load_pyfunc(model_path)
 
