@@ -368,6 +368,9 @@ def test_model_log_with_pyfunc_flavor(spacy_model_with_data):
 
 
 @pytest.mark.large
+# `infer_pip_requirements`fails when loading a model in this test for spacy < 3.0.0 due to:
+# https://github.com/explosion/spaCy/issues/4658
+@pytest.mark.disable_prevent_infer_pip_requirements_fallback
 def test_model_log_without_pyfunc_flavor():
     artifact_path = "model"
     nlp = spacy.blank("en")
