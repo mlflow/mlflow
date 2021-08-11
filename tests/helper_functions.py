@@ -366,12 +366,15 @@ def _assert_pip_requirements(model_uri, requirements, constraints=None, strict=F
         assert compare_func(set(constraints), set(cons))
 
 
-def _is_available_on_pypi(package, version=None):
+def _is_available_on_pypi(package, version=None, module=None):
     """
     Returns True if the specified package version is available on PyPI.
 
     :param package: The name of the package.
     :param version: The version of the package. If None, defaults to the installed version.
+    :param module: The name of the top-level module provided by the package . For example,
+                if `package` is 'scikit-learn', `module` should be 'sklearn'. If None, defaults
+                to `package`.
     """
     resp = requests.get("https://pypi.python.org/pypi/{}/json".format(package))
     if not resp.ok:
