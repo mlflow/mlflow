@@ -8,8 +8,12 @@ import weakref
 import mlflow
 from mlflow.entities import Metric, Param
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils import _chunk_dict, _truncate_dict, _get_fully_qualified_class_name, \
-    _inspect_original_var_name
+from mlflow.utils import (
+    _chunk_dict,
+    _truncate_dict,
+    _get_fully_qualified_class_name,
+    _inspect_original_var_name,
+)
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     _get_new_training_session_class,
@@ -435,7 +439,6 @@ def _log_estimator_params(param_map):
 
 
 class _AutologgingMetricsManager:
-
     def __init__(self):
         self._pred_result_id_to_dataset_name_and_run_id = {}
         self._eval_dataset_info_map = defaultdict(lambda: defaultdict(list))
@@ -570,10 +573,7 @@ class _AutologgingMetricsManager:
     def gen_evaluator_info(self, evaluator):
         class_name = _get_fully_qualified_class_name(evaluator)
         param_map = _get_param_map(evaluator)
-        return {
-            'evaluator_class': class_name,
-            'params': param_map
-        }
+        return {"evaluator_class": class_name, "params": param_map}
 
     def register_evaluator_call(self, run_id, metric_name, dataset_name, evaluator_info):
         evaluator_call_info_list = self._evaluator_call_info[run_id][metric_name]
@@ -813,9 +813,7 @@ def autolog(
                 _logger.warning(_get_warning_msg_for_skip_log_model(spark_model))
 
     def fit_mlflow(original, self, *args, **kwargs):
-        params = get_instance_method_arg_value(
-            1, 'params', None, args, kwargs
-        )
+        params = get_instance_method_arg_value(1, "params", None, args, kwargs)
 
         # Do not perform autologging on direct calls to fit() for featurizers.
         # Note that featurizers will be autologged when they're fit as part of a Pipeline.
@@ -850,9 +848,7 @@ def autolog(
         status = _get_autologging_metrics_manager()
         if status.should_log_post_training_metrics() and status.get_run_id_for_model(self):
             predict_result = original(self, *args, **kwargs)
-            eval_dataset = get_instance_method_arg_value(
-                0, 'dataset', None, args, kwargs
-            )
+            eval_dataset = get_instance_method_arg_value(0, "dataset", None, args, kwargs)
             eval_dataset_name = status.register_prediction_input_dataset(self, eval_dataset)
             status.register_prediction_result(
                 status.get_run_id_for_model(self), eval_dataset_name, predict_result
@@ -865,20 +861,18 @@ def autolog(
         status = _get_autologging_metrics_manager()
         if status.should_log_post_training_metrics():
             with status.disable_log_post_training_metrics():
-                metric = original(*args, **kwargs)
+                metric = original(self, *args, **kwargs)
 
             if status.is_metric_value_loggable(metric):
 
                 metric_name = self.getMetricName()
 
-                params = get_instance_method_arg_value(
-                    1, 'params', None, args, kwargs
-                )
+                params = get_instance_method_arg_value(1, "params", None, args, kwargs)
                 evaluator = self.copy(params) if params is not None else self
                 evaluator_info = status.gen_evaluator_info(evaluator)
 
                 pred_result_dataset = get_instance_method_arg_value(
-                    0, 'dataset', None, args, kwargs
+                    0, "dataset", None, args, kwargs
                 )
                 run_id, dataset_name = status.get_run_id_and_dataset_name_for_evaluator_call(
                     pred_result_dataset
@@ -890,7 +884,7 @@ def autolog(
                     status.log_post_training_metric(run_id, metric_key, metric)
             return metric
         else:
-            return original(*args, **kwargs)
+            return original(self, *args, **kwargs)
 
     safe_patch(
         AUTOLOGGING_INTEGRATION_NAME, Estimator, "fit", patched_fit, manage_run=True,
