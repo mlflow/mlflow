@@ -84,7 +84,6 @@ def main():
 
     cap = _CaptureImportedModules()
 
-    # If `model_path` is a directory containing an `MLmodel` file, get the model data path from it
     if os.path.isdir(model_path) and MLMODEL_FILE_NAME in os.listdir(model_path):
         pyfunc_conf = Model.load(model_path).flavors.get(mlflow.pyfunc.FLAVOR_NAME)
         loader_module = importlib.import_module(pyfunc_conf[MAIN])
@@ -98,6 +97,9 @@ def main():
         loader_module._load_pyfunc = _load_pyfunc_patch
         mlflow.pyfunc.load_model(model_path)
     else:
+        # This branch allows directly specifying a path to a model data file or directory for
+        # models that don't contain pyfunc flavor. For example, we exclude pyfunc flavor for
+        # scikit-learn estimators that don't implement a predict method.
         with cap:
             importlib.import_module(f"mlflow.{flavor}")._load_pyfunc(model_path)
 
