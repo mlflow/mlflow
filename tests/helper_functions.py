@@ -380,7 +380,7 @@ def _is_available_on_pypi(package, version=None, module=None):
     if not resp.ok:
         return False
 
-    version = version or _get_installed_version(package)
+    version = version or _get_installed_version(module or package)
     dist_files = resp.json()["releases"].get(version)
     return (
         dist_files is not None  # specified version exists
