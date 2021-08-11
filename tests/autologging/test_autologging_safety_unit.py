@@ -33,7 +33,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 
 from tests.autologging.fixtures import test_mode_off, test_mode_on
 from tests.autologging.fixtures import patch_destination  # pylint: disable=unused-import
-
+from tests.autologging.test_autologging_utils import get_func_attrs
 
 pytestmark = pytest.mark.large
 
@@ -1543,3 +1543,87 @@ def test_old_patch_reverted_before_run_autolog_fn():
     autolog(disable=True)
     autolog()
     autolog()  # Test second time call autolog will revert first autolog call installed patch
+
+
+def test_safe_patch_support_property_decorated_method():
+    class BaseEstimator:
+        def __init__(self, has_predict):
+            self._has_predict = has_predict
+
+        def _predict(self, X, a, b):
+            return {"X": X, "a": a, "b": b}
+
+        @property
+        def predict(self):
+            if not self._has_predict:
+                raise AttributeError()
+            return self._predict
+
+    class ExtendedEstimator(BaseEstimator):
+        pass
+
+    original_base_estimator_predict = object.__getattribute__(BaseEstimator, "predict")
+
+    def patched_predict(original, self, *args, **kwargs):
+        result = original(self, *args, **kwargs)
+        if "patch_count" not in result:
+            result["patch_count"] = 1
+        else:
+            result["patch_count"] += 1
+        return result
+
+    flavor_name = "test_if_delegate_has_method_decorated_method_patch"
+
+    @autologging_integration(flavor_name)
+    def autolog(disable=False, exclusive=False, silent=False):  # pylint: disable=unused-argument
+        mlflow.sklearn._patch_estimator_method_if_available(
+            flavor_name, BaseEstimator, "predict", patched_predict, manage_run=False,
+        )
+        mlflow.sklearn._patch_estimator_method_if_available(
+            flavor_name, ExtendedEstimator, "predict", patched_predict, manage_run=False,
+        )
+
+    autolog()
+
+    for EstimatorCls in [BaseEstimator, ExtendedEstimator]:
+        assert EstimatorCls.predict.__doc__ == original_base_estimator_predict.__doc__
+        good_estimator = EstimatorCls(has_predict=True)
+        assert good_estimator.predict.__doc__ == original_base_estimator_predict.__doc__
+
+        expected_result = {"X": 1, "a": 2, "b": 3, "patch_count": 1}
+        assert hasattr(good_estimator, "predict")
+        assert good_estimator.predict(X=1, a=2, b=3) == expected_result
+        assert good_estimator.predict(1, a=2, b=3) == expected_result
+        assert good_estimator.predict(1, 2, b=3) == expected_result
+        assert good_estimator.predict(1, 2, 3) == expected_result
+
+        bad_estimator = EstimatorCls(has_predict=False)
+        assert not hasattr(bad_estimator, "predict")
+        with pytest.raises(AttributeError):
+            bad_estimator.predict(X=1, a=2, b=3)
+
+    autolog(disable=True)
+    assert original_base_estimator_predict is object.__getattribute__(BaseEstimator, "predict")
+    assert "predict" not in ExtendedEstimator.__dict__
+
+
+def test_safe_patch_preserves_original_function_attributes():
+    class Test1:
+        def predict(self, X, a, b):
+            """
+            Test doc for Test1.predict
+            """
+            pass
+
+    def patched_predict(original, self, *args, **kwargs):
+        return original(self, *args, **kwargs)
+
+    flavor_name = "test_safe_patch_preserves_original_function_attributes"
+
+    @autologging_integration(flavor_name)
+    def autolog(disable=False, exclusive=False, silent=False):  # pylint: disable=unused-argument
+        safe_patch(flavor_name, Test1, "predict", patched_predict, manage_run=False)
+
+    original_predict = Test1.predict
+    autolog()
+    assert get_func_attrs(Test1.predict) == get_func_attrs(original_predict)
