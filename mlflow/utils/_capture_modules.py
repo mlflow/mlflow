@@ -8,7 +8,6 @@ import importlib
 import json
 import os
 import sys
-import importlib
 
 import mlflow
 from mlflow.utils.file_utils import write_to
