@@ -185,13 +185,8 @@ def _get_installed_version(package, module=None):
     Obtains the package version using `importlib_metadata.version`. If it fails, use
     `__import__(module or package).__version__`.
     """
-    # In Databricks, strip a dev version suffix for pyspark (e.g. '3.1.2.dev0' -> '3.1.2')
-    # and make it installable from PyPI.
-    if package == "pyspark" and is_in_databricks_runtime():
-        return _strip_dev_version_suffix(__import__("pyspark").__version__)
-
     try:
-        return importlib_metadata.version(package)
+        version = importlib_metadata.version(package)
     except importlib_metadata.PackageNotFoundError:
         # Note `importlib_metadata.version(package)` is not necessarily equal to
         # `__import__(package).__version__`. See the example for pytorch below.
@@ -203,7 +198,14 @@ def _get_installed_version(package, module=None):
         # 1.9.0+cu102
         # $ python -c "import importlib_metadata; print(importlib_metadata.version('torch'))"
         # 1.9.0
-        return __import__(module or package).__version__
+        version = __import__(module or package).__version__
+
+    # In Databricks, strip a dev version suffix for pyspark (e.g. '3.1.2.dev0' -> '3.1.2')
+    # and make it installable from PyPI.
+    if package == "pyspark" and is_in_databricks_runtime():
+        version = _strip_dev_version_suffix(version)
+
+    return version
 
 
 def _infer_requirements(model_uri, flavor):
@@ -277,13 +279,17 @@ def _strip_local_version_identifier(version):
         return version
 
 
-def _get_pinned_requirement(package, version=None):
+def _get_pinned_requirement(package, version=None, module=None):
     """
     Returns a string representing a pinned pip requirement to install the specified package and
     version (e.g. 'mlflow==1.2.3').
 
     :param package: The name of the package.
     :param version: The version of the package. If None, defaults to the installed version.
+    :param module: The name of the top-level module provided by the package . For example,
+                if `package` is 'scikit-learn', `module` should be 'sklearn'. If None, defaults
+                to `package`.
     """
-    version = version or _get_installed_version(package)
+    module = module or package
+    version = version or _get_installed_version(module)
     return f"{package}=={version}"
