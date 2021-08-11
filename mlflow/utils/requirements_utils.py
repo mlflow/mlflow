@@ -263,7 +263,7 @@ def _infer_requirements(model_uri, flavor):
 
 def _get_local_version_label(version):
     """
-    Extracts a local version label in `version`.
+    Extracts a local version label from `version`.
 
     :param version: A version string.
     """
