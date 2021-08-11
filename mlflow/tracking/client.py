@@ -2156,6 +2156,7 @@ class MlflowClient(object):
             :caption: Example
 
             import mlflow.sklearn
+            from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
             from mlflow.tracking import MlflowClient
             from sklearn.ensemble import RandomForestRegressor
 
@@ -2174,8 +2175,9 @@ class MlflowClient(object):
 
             # Create a new version of the rfr model under the registered model name
             desc = "A new version of the model"
-            model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
-            mv = client.create_model_version(name, model_uri, run.info.run_id, description=desc)
+            runs_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
+            model_src = RunsArtifactRepository.get_underlying_uri(runs_uri)
+            mv = client.create_model_version(name, model_src, run.info.run_id, description=desc)
             print("Name: {}".format(mv.name))
             print("Version: {}".format(mv.version))
             print("Description: {}".format(mv.description))
