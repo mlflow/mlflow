@@ -8,10 +8,11 @@ import importlib
 import json
 import os
 import sys
+import importlib
 
 import mlflow
 from mlflow.utils.file_utils import write_to
-from mlflow.pyfunc import DATA
+from mlflow.pyfunc import DATA, MAIN
 from mlflow.models.model import MLMODEL_FILE_NAME
 
 
@@ -86,11 +87,13 @@ def main():
     if os.path.isdir(model_path) and MLMODEL_FILE_NAME in os.listdir(model_path):
         conf = mlflow.models.Model.load(model_path).flavors.get(flavor)
         model_path = os.path.join(model_path, conf[DATA]) if (DATA in conf) else model_path
+        loader_module = importlib.import_module(conf[MAIN])
+    else:
+        loader_module = importlib.import_module(f"mlflow.{flavor}")
 
     # Load the model and capture modules imported during the loading procedure
-    flavor_module = getattr(mlflow, flavor)
     with _CaptureImportedModules() as cap:
-        flavor_module._load_pyfunc(model_path)
+        loader_module._load_pyfunc(model_path)
 
     # Store the imported modules in `output_file`
     write_to(args.output_file, "\n".join(cap.imported_modules))
