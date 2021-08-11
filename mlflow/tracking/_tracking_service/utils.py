@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 from functools import partial
@@ -30,6 +31,8 @@ _TRACKING_CLIENT_CERT_PATH_ENV_VAR = "MLFLOW_TRACKING_CLIENT_CERT_PATH"
 
 _tracking_uri = None
 
+_logger = logging.getLogger(__name__)
+_logger.setLevel(logging.INFO)
 
 def is_tracking_uri_set():
     """Returns True if the tracking URI has been set, False otherwise."""
@@ -69,6 +72,7 @@ def set_tracking_uri(uri: str) -> None:
     """
     global _tracking_uri
     _tracking_uri = uri
+    _logger.info("Tracking URI is : ====================> "+_tracking_uri)
 
 
 def _resolve_tracking_uri(tracking_uri=None):

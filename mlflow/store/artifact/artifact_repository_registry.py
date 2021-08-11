@@ -1,5 +1,6 @@
 import entrypoints
 import warnings
+import logging
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
@@ -14,6 +15,9 @@ from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.artifact.sftp_artifact_repo import SFTPArtifactRepository
 
 from mlflow.utils.uri import get_uri_scheme
+
+_logger = logging.getLogger(__name__)
+_logger.setLevel(logging.INFO)
 
 
 class ArtifactRepositoryRegistry:
@@ -59,8 +63,23 @@ class ArtifactRepositoryRegistry:
         :return: An instance of `mlflow.store.ArtifactRepository` that fulfills the artifact URI
                  requirements.
         """
+
+        _logger.info(
+            "========>  Started getting artifact repository from class ArtifactRepositoryRegistry object : ========> ")
         scheme = get_uri_scheme(artifact_uri)
         repository = self._registry.get(scheme)
+
+        if scheme is not None:
+            _logger.info(" scheme: " + scheme)
+        else:
+            _logger.info(" scheme is None !!!!! ")
+
+        _logger.info("Checkpoint for repository: " + str(type(repository)) + str(repository))
+        if repository is not None:
+            _logger.info(" repository: " + str(repository))
+        else:
+            _logger.info(" repository is None !!!!! ")
+
         if repository is None:
             raise MlflowException(
                 "Could not find a registered artifact repository for: {}. "
@@ -68,6 +87,7 @@ class ArtifactRepositoryRegistry:
                     artifact_uri, list(self._registry.keys())
                 )
             )
+        _logger.info("========> Checkpoint for returning the repository: " + str(type(repository)) + str(repository))
         return repository(artifact_uri)
 
 
@@ -99,4 +119,8 @@ def get_artifact_repository(artifact_uri):
     :return: An instance of `mlflow.store.ArtifactRepository` that fulfills the artifact URI
              requirements.
     """
-    return _artifact_repository_registry.get_artifact_repository(artifact_uri)
+
+    _logger.info(
+        "========>  Started getting artifact repository : ========> ")
+    repository = _artifact_repository_registry.get_artifact_repository(artifact_uri)
+    return repository

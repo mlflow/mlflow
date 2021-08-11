@@ -100,3 +100,7 @@ travis_wait*.log
 
 # Pytorch logs
 lightning_logs
+
+# Additional
+sample*.py
+sample-code.py

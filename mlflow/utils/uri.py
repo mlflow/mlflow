@@ -1,5 +1,6 @@
 import posixpath
 import urllib.parse
+import logging
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -14,6 +15,9 @@ _INVALID_DB_URI_MSG = (
 _DBFS_FUSE_PREFIX = "/dbfs/"
 _DBFS_HDFS_URI_PREFIX = "dbfs:/"
 
+
+_logger = logging.getLogger(__name__)
+_logger.setLevel(logging.INFO)
 
 def is_local_uri(uri):
     """Returns true if this is a local file path (/foo or file:/foo)."""
@@ -115,6 +119,7 @@ def add_databricks_profile_info_to_artifact_uri(artifact_uri, databricks_profile
     Throws an exception if ``databricks_profile_uri`` is not valid.
     """
     if not databricks_profile_uri or not is_databricks_uri(databricks_profile_uri):
+        _logger.info("No databricks profile available ")
         return artifact_uri
     artifact_uri_parsed = urllib.parse.urlparse(artifact_uri)
     # Do not overwrite the authority section if there is already one
