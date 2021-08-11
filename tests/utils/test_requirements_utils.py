@@ -1,6 +1,7 @@
 import os
 import sys
 import importlib
+from unittest import mock
 
 import importlib_metadata
 import pytest
@@ -15,7 +16,7 @@ from mlflow.utils.requirements_utils import (
     _join_continued_lines,
     _parse_requirements,
     _prune_packages,
-    _strip_local_version_identifier,
+    _strip_local_version_label,
     _get_installed_version,
     _get_pinned_requirement,
 )
@@ -203,13 +204,13 @@ def test_capture_imported_modules():
     assert "numpy" in cap.imported_modules
 
 
-def test_strip_local_version_identifier():
-    assert _strip_local_version_identifier("1.2.3") == "1.2.3"
-    assert _strip_local_version_identifier("1.2.3+ab") == "1.2.3"
-    assert _strip_local_version_identifier("1.2.3rc0+ab") == "1.2.3rc0"
-    assert _strip_local_version_identifier("1.2.3.dev0+ab") == "1.2.3.dev0"
-    assert _strip_local_version_identifier("1.2.3.post0+ab") == "1.2.3.post0"
-    assert _strip_local_version_identifier("invalid") == "invalid"
+def test_strip_local_version_label():
+    assert _strip_local_version_label("1.2.3") == "1.2.3"
+    assert _strip_local_version_label("1.2.3+ab") == "1.2.3"
+    assert _strip_local_version_label("1.2.3rc0+ab") == "1.2.3rc0"
+    assert _strip_local_version_label("1.2.3.dev0+ab") == "1.2.3.dev0"
+    assert _strip_local_version_label("1.2.3.post0+ab") == "1.2.3.post0"
+    assert _strip_local_version_label("invalid") == "invalid"
 
 
 def test_get_installed_version(tmpdir):
@@ -240,3 +241,19 @@ def test_get_pinned_requirement(tmpdir):
     with pytest.raises(importlib_metadata.PackageNotFoundError):
         importlib_metadata.version("not_found")
     assert _get_pinned_requirement("not_found") == "not_found==1.2.3"
+
+
+def test_get_pinned_requirement_local_version_label(tmpdir):
+    package = tmpdir.join("my_package.py")
+    lvl = "abc.def.ghi"  # Local version label
+    package.write(f"__version__ = '1.2.3+{lvl}'")
+    sys.path.insert(0, tmpdir.strpath)
+
+    with mock.patch("mlflow.utils.requirements_utils._logger.warning") as mock_warning:
+        req = _get_pinned_requirement("my_package")
+        mock_warning.assert_called_once()
+        (first_pos_arg,) = mock_warning.call_args[0]
+        assert first_pos_arg.startswith(
+            f"Found my_package version (1.2.3+{lvl}) contains a local version label (+{lvl})."
+        )
+    assert req == "my_package==1.2.3"

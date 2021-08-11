@@ -12,12 +12,15 @@ import pkg_resources
 import importlib_metadata
 from itertools import filterfalse, chain
 from collections import namedtuple
+import logging
 
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.autologging_utils.versioning import _strip_dev_version_suffix
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from packaging.version import Version, InvalidVersion
+
+_logger = logging.getLogger(__name__)
 
 
 def _is_comment(line):
@@ -255,12 +258,24 @@ def _infer_requirements(model_uri, flavor):
         "mlflow",
     ]
     packages = _prune_packages(packages) - set(excluded_packages)
-    return ["{}=={}".format(p, _get_installed_version(p)) for p in sorted(packages)]
+    return sorted(map(_get_pinned_requirement, packages))
 
 
-def _strip_local_version_identifier(version):
+def _get_local_version_label(version):
     """
-    Strips a local version identifer in `version`.
+    Extracts a local version label in `version`.
+
+    :param version: A version string.
+    """
+    try:
+        return Version(version).local
+    except InvalidVersion:
+        return None
+
+
+def _strip_local_version_label(version):
+    """
+    Strips a local version label in `version`.
 
     Local version identifiers:
     https://www.python.org/dev/peps/pep-0440/#local-version-identifiers
@@ -290,5 +305,26 @@ def _get_pinned_requirement(package, version=None, module=None):
                    if `package` is 'scikit-learn', `module` should be 'sklearn'. If None, defaults
                    to `package`.
     """
-    version = version or _get_installed_version(module or package)
+    if version is None:
+        version_raw = _get_installed_version(module or package)
+        local_version_label = _get_local_version_label(version_raw)
+        if local_version_label:
+            version = _strip_local_version_label(version_raw)
+            msg = (
+                "Found {package} version ({version_raw}) contains a local version label "
+                "(+{local_version_label}). MLflow logged a pip requirement for this package as "
+                "'{package}=={version_logged}' without the local version label to make it "
+                "installable from PyPI. To specify pip requirements containing local version "
+                "labels, please use `conda_env` or `pip_requirements`."
+            ).format(
+                package=package,
+                version_raw=version_raw,
+                version_logged=version,
+                local_version_label=local_version_label,
+            )
+            _logger.warning(msg)
+
+        else:
+            version = version_raw
+
     return f"{package}=={version}"
