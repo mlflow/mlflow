@@ -568,3 +568,12 @@ def get_instance_method_first_arg_value(method, call_pos_args, call_kwargs):
             inspect.Parameter.VAR_POSITIONAL,
         ]
         return call_kwargs.get(first_arg_name)
+
+
+def get_instance_method_arg_value(arg_index, arg_name, default_value, call_pos_args, call_kwargs):
+    if arg_name in call_kwargs:
+        return call_kwargs[arg_name]
+    elif arg_index < len(call_pos_args):
+        return call_pos_args[arg_index]
+    else:
+        return default_value

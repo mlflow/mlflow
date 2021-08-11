@@ -536,7 +536,6 @@ class _AutologgingMetricsManager:
           if they have the same eval_dataset_var_name, but object ids are different,
           then they will be assigned different name (via appending index to the
           eval_dataset_var_name) when autologging.
-        * storing the dataset row samples, we need log them into metric_info artifact file.
     (4) _metric_api_call_info, it is a double level map:
        `_metric_api_call_info[run_id][metric_name]` wil get a list of tuples, each tuple is:
          (logged_metric_key, metric_call_command_string)
@@ -624,9 +623,8 @@ class _AutologgingMetricsManager:
         Register prediction input dataset into eval_dataset_info_map, it will do:
          1. inspect eval dataset var name.
          2. check whether eval_dataset_info_map already registered this eval dataset.
-            will check by object id and comparing row samples.
-            Note: only check object id is not sufficient, id may be reused.
-         3. register eval dataset (with id and row samples information)
+            will check by object id.
+         3. register eval dataset with id.
          4. return eval dataset name with index.
 
         Note: this method include inspecting argument variable name.

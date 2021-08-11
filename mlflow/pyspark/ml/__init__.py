@@ -1,13 +1,15 @@
-from collections import defaultdict, namedtuple
+from collections import defaultdict, namedtuple, OrderedDict
 import logging
 import numpy as np
 import time
 from pkg_resources import resource_filename
+import weakref
 
 import mlflow
 from mlflow.entities import Metric, Param
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils import _chunk_dict, _truncate_dict, _get_fully_qualified_class_name
+from mlflow.utils import _chunk_dict, _truncate_dict, _get_fully_qualified_class_name, \
+    _inspect_original_var_name
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     _get_new_training_session_class,
@@ -15,6 +17,7 @@ from mlflow.utils.autologging_utils import (
     safe_patch,
     try_mlflow_log,
 )
+from mlflow.utils.autologging_utils import get_instance_method_arg_value
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING, MLFLOW_PARENT_RUN_ID
 from mlflow.utils.validation import (
@@ -235,15 +238,19 @@ def _gen_estimator_metadata(estimator):
     return metadata
 
 
-def _get_instance_param_map_recursively(instance, level, uid_to_indexed_name_map):
-    from pyspark.ml.param import Params
-    from pyspark.ml.pipeline import Pipeline
-
-    param_map = {
+def _get_param_map(instance):
+    return {
         param.name: instance.getOrDefault(param)
         for param in instance.params
         if instance.isDefined(param)
     }
+
+
+def _get_instance_param_map_recursively(instance, level, uid_to_indexed_name_map):
+    from pyspark.ml.param import Params
+    from pyspark.ml.pipeline import Pipeline
+
+    param_map = _get_param_map(instance)
     expanded_param_map = {}
 
     is_pipeline = isinstance(instance, Pipeline)
@@ -427,6 +434,184 @@ def _log_estimator_params(param_map):
         try_mlflow_log(mlflow.log_params, truncated)
 
 
+class _AutologgingMetricsManager:
+
+    def __init__(self):
+        self._pred_result_id_to_dataset_name_and_run_id = {}
+        self._eval_dataset_info_map = defaultdict(lambda: defaultdict(list))
+        self._evaluator_call_info = defaultdict(lambda: defaultdict(list))
+        self._log_post_training_metrics_enabled = True
+        self._metric_info_artifact_need_update = defaultdict(lambda: False)
+
+    def should_log_post_training_metrics(self):
+        """
+        Check whether we should run patching code for autologging post training metrics.
+        This checking should surround the whole patched code due to the safe guard checking,
+        See following note.
+
+        Note: It includes checking `_SklearnTrainingSession.is_active()`, This is a safe guarding
+        for meta-estimator (e.g. GridSearchCV) case:
+          running GridSearchCV.fit, the nested `estimator.fit` will be called in parallel,
+          but, the _autolog_training_status is a global status without thread-safe lock protecting.
+          This safe guarding will prevent code run into this case.
+        """
+        return not _SparkTrainingSession.is_active() and self._log_post_training_metrics_enabled
+
+    def disable_log_post_training_metrics(self):
+        class LogPostTrainingMetricsDisabledScope:
+            def __enter__(inner_self):  # pylint: disable=no-self-argument
+                # pylint: disable=attribute-defined-outside-init
+                inner_self.old_status = self._log_post_training_metrics_enabled
+                self._log_post_training_metrics_enabled = False
+
+            # pylint: disable=no-self-argument
+            def __exit__(inner_self, exc_type, exc_val, exc_tb):
+                self._log_post_training_metrics_enabled = inner_self.old_status
+
+        return LogPostTrainingMetricsDisabledScope()
+
+    @staticmethod
+    def get_run_id_for_model(model):
+        return getattr(model, "_mlflow_run_id", None)
+
+    @staticmethod
+    def is_metric_value_loggable(metric_value):
+        """
+        check whether the specified `metric_value` is a numeric value which can be logged
+        as an MLflow metric.
+        """
+        return isinstance(metric_value, (int, float, np.number)) and not isinstance(
+            metric_value, (bool, np.bool)
+        )
+
+    def register_model(self, model, run_id):
+        """
+        In `patched_fit`, we need register the model with the run_id used in `patched_fit`
+        So that in following metric autologging, the metric will be logged into the registered
+        run_id
+        """
+        model._mlflow_run_id = run_id
+
+    @staticmethod
+    def gen_name_with_index(name, index):
+        assert index >= 0
+        if index == 0:
+            return name
+        else:
+            # Use '-' as the separator between name and index,
+            # The '-' is not valid character in python var name
+            # so it can prevent name conflicts after appending index.
+            return f"{name}-{index + 1}"
+
+    def register_prediction_input_dataset(self, model, eval_dataset):
+        """
+        Register prediction input dataset into eval_dataset_info_map, it will do:
+         1. inspect eval dataset var name.
+         2. check whether eval_dataset_info_map already registered this eval dataset.
+            will check by object id.
+         3. register eval dataset with id.
+         4. return eval dataset name with index.
+
+        Note: this method include inspecting argument variable name.
+         So should be called directly from the "patched method", to ensure it capture
+         correct argument variable name.
+        """
+        eval_dataset_name = _inspect_original_var_name(
+            eval_dataset, fallback_name="unknown_dataset"
+        )
+        eval_dataset_id = id(eval_dataset)
+
+        run_id = self.get_run_id_for_model(model)
+        registered_dataset_list = self._eval_dataset_info_map[run_id][eval_dataset_name]
+
+        for i, id_i in enumerate(registered_dataset_list):
+            if eval_dataset_id == id_i:
+                index = i
+                break
+        else:
+            index = len(registered_dataset_list)
+
+        if index == len(registered_dataset_list):
+            # register new eval dataset
+            registered_dataset_list.append(eval_dataset_id)
+
+        return self.gen_name_with_index(eval_dataset_name, index)
+
+    def register_prediction_result(self, run_id, eval_dataset_name, predict_result):
+        """
+        Register the relationship
+         id(prediction_result) --> (eval_dataset_name, run_id)
+        into map `_pred_result_id_to_dataset_name_and_run_id`
+        """
+        value = (eval_dataset_name, run_id)
+        prediction_result_id = id(predict_result)
+        self._pred_result_id_to_dataset_name_and_run_id[prediction_result_id] = value
+
+        def clean_id(id_):
+            _get_autologging_metrics_manager()._pred_result_id_to_dataset_name_and_run_id.pop(
+                id_, None
+            )
+
+        # When the `predict_result` object being GCed, its ID may be reused, so register a finalizer
+        # to clear the ID from the dict for preventing wrong ID mapping.
+        weakref.finalize(predict_result, clean_id, prediction_result_id)
+
+    def get_run_id_and_dataset_name_for_evaluator_call(self, pred_result_dataset):
+        """
+        Given a metric api call (include the called metric function, and call arguments)
+        Register the call information (arguments dict) into the `metric_api_call_arg_dict_list_map`
+        and return a tuple of (run_id, eval_dataset_name)
+        """
+        if id(pred_result_dataset) in self._pred_result_id_to_dataset_name_and_run_id:
+            return self._pred_result_id_to_dataset_name_and_run_id[id(pred_result_dataset)]
+        else:
+            return None, None
+
+    def gen_evaluator_info(self, evaluator):
+        class_name = _get_fully_qualified_class_name(evaluator)
+        param_map = _get_param_map(evaluator)
+        return {
+            'evaluator_class': class_name,
+            'params': param_map
+        }
+
+    def register_evaluator_call(self, run_id, metric_name, dataset_name, evaluator_info):
+        evaluator_call_info_list = self._evaluator_call_info[run_id][metric_name]
+
+        index = len(evaluator_call_info_list)
+        metric_name_with_index = self.gen_name_with_index(metric_name, index)
+        metric_key = f"{metric_name_with_index}_{dataset_name}"
+
+        evaluator_call_info_list.append((metric_key, evaluator_info))
+
+        # Set the flag to true, represent the metric info in this run need update.
+        # Later when `log_eval_metric` called, it will generate a new metric_info artifact
+        # and overwrite the old artifact.
+        self._metric_info_artifact_need_update[run_id] = True
+        return metric_key
+
+    def log_post_training_metric(self, run_id, key, value):
+        """
+        Log the metric into the specified mlflow run.
+        and it will also update the metric_info artifact if needed.
+        """
+        # Note: if the case log the same metric key multiple times,
+        #  newer value will overwrite old value
+        client = mlflow.tracking.MlflowClient()
+        client.log_metric(run_id=run_id, key=key, value=value)
+
+
+_autologging_metrics_manager = _AutologgingMetricsManager()
+
+
+def _get_autologging_metrics_manager():
+    """
+    Get the global `_AutologgingMetricsManager` instance which holds information used in
+    post-training metric autologging. See doc of class `_AutologgingMetricsManager` for details.
+    """
+    return _autologging_metrics_manager
+
+
 @experimental
 @autologging_integration(AUTOLOGGING_INTEGRATION_NAME)
 def autolog(
@@ -521,7 +706,8 @@ def autolog(
            :language: text
     """
     from mlflow.tracking.context import registry as context_registry
-    from pyspark.ml.base import Estimator
+    from pyspark.ml.base import Estimator, Model
+    from pyspark.ml.evaluation import Evaluator
 
     global _log_model_allowlist
 
@@ -627,11 +813,9 @@ def autolog(
                 _logger.warning(_get_warning_msg_for_skip_log_model(spark_model))
 
     def fit_mlflow(original, self, *args, **kwargs):
-        params = None
-        if len(args) > 1:
-            params = args[1]
-        elif "params" in kwargs:
-            params = kwargs["params"]
+        params = get_instance_method_arg_value(
+            1, 'params', None, args, kwargs
+        )
 
         # Do not perform autologging on direct calls to fit() for featurizers.
         # Note that featurizers will be autologged when they're fit as part of a Pipeline.
@@ -643,19 +827,77 @@ def autolog(
             _logger.warning(_get_warning_msg_for_fit_call_with_a_list_of_params(self))
             return original(self, *args, **kwargs)
         else:
-            estimator = self.copy(params)
+            estimator = self.copy(params) if params is not None else self
             _log_pretraining_metadata(estimator, params)
             spark_model = original(self, *args, **kwargs)
             _log_posttraining_metadata(estimator, spark_model, params)
             return spark_model
 
     def patched_fit(original, self, *args, **kwargs):
+
+        status = _get_autologging_metrics_manager()
+        should_log_post_training_metrics = status.should_log_post_training_metrics()
         with _SparkTrainingSession(clazz=self.__class__, allow_children=False) as t:
             if t.should_log():
-                return fit_mlflow(original, self, *args, **kwargs)
+                with status.disable_log_post_training_metrics():
+                    return fit_mlflow(original, self, *args, **kwargs)
+                if should_log_post_training_metrics:
+                    status.register_model(self, mlflow.active_run().info.run_id)
             else:
                 return original(self, *args, **kwargs)
 
+    def patched_transform(original, self, *args, **kwargs):
+        status = _get_autologging_metrics_manager()
+        if status.should_log_post_training_metrics() and status.get_run_id_for_model(self):
+            predict_result = original(self, *args, **kwargs)
+            eval_dataset = get_instance_method_arg_value(
+                0, 'dataset', None, args, kwargs
+            )
+            eval_dataset_name = status.register_prediction_input_dataset(self, eval_dataset)
+            status.register_prediction_result(
+                status.get_run_id_for_model(self), eval_dataset_name, predict_result
+            )
+            return predict_result
+        else:
+            return original(self, *args, **kwargs)
+
+    def patched_evaluate(original, self, *args, **kwargs):
+        status = _get_autologging_metrics_manager()
+        if status.should_log_post_training_metrics():
+            with status.disable_log_post_training_metrics():
+                metric = original(*args, **kwargs)
+
+            if status.is_metric_value_loggable(metric):
+
+                metric_name = self.getMetricName()
+
+                params = get_instance_method_arg_value(
+                    1, 'params', None, args, kwargs
+                )
+                evaluator = self.copy(params) if params is not None else self
+                evaluator_info = status.gen_evaluator_info(evaluator)
+
+                pred_result_dataset = get_instance_method_arg_value(
+                    0, 'dataset', None, args, kwargs
+                )
+                run_id, dataset_name = status.get_run_id_and_dataset_name_for_evaluator_call(
+                    pred_result_dataset
+                )
+                if run_id and dataset_name:
+                    metric_key = status.register_evaluator_call(
+                        run_id, metric_name, dataset_name, evaluator_info
+                    )
+                    status.log_post_training_metric(run_id, metric_key, metric)
+            return metric
+        else:
+            return original(*args, **kwargs)
+
     safe_patch(
         AUTOLOGGING_INTEGRATION_NAME, Estimator, "fit", patched_fit, manage_run=True,
+    )
+    safe_patch(
+        AUTOLOGGING_INTEGRATION_NAME, Model, "transform", patched_transform, manage_run=False,
+    )
+    safe_patch(
+        AUTOLOGGING_INTEGRATION_NAME, Evaluator, "evaluate", patched_evaluate, manage_run=False,
     )
