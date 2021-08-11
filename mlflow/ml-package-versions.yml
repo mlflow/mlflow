@@ -2,7 +2,10 @@ sklearn:
   package_info:
     pip_release: "scikit-learn"
     install_dev: |
-      pip install git+https://github.com/scikit-learn/scikit-learn.git
+      if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "scikit_learn-*.whl") ]; then
+        pip wheel --no-deps --wheel-dir $CACHE_DIR git+https://github.com/scikit-learn/scikit-learn.git
+      fi
+      pip install $CACHE_DIR/scikit_learn-*.whl
 
   models:
     minimum: "0.20.3"
@@ -26,7 +29,7 @@ pytorch:
   models:
     minimum: "1.4.0"
     maximum: "1.9.0"
-    requirements: ["torchvision", "scikit-learn"]
+    requirements: ["torchvision", "scikit-learn", "transformers"]
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py --large
 
@@ -98,8 +101,8 @@ keras:
     maximum: "2.4.3"
     requirements:
       "< 2.3.1": ["tensorflow==1.15.4", "h5py<3.0", "scikit-learn", "pyspark", "pyarrow"]
-      "== 2.3.1": ["tensorflow==2.2.1", "scikit-learn", "pyspark", "pyarrow"]
-      "> 2.3.1": ["tensorflow<2.5.0", "scikit-learn", "pyspark", "pyarrow"]
+      "== 2.3.1": ["tensorflow==2.2.1", "scikit-learn", "pyspark", "pyarrow", "transformers"]
+      "> 2.3.1": ["tensorflow<2.5.0", "scikit-learn", "pyspark", "pyarrow", "transformers"]
     run: |
       pytest tests/keras/test_keras_model_export.py --large
 
@@ -161,11 +164,10 @@ catboost:
     install_dev: |
       # The cross-version-tests workflow runs this command with the environment variable `CACHE_DIR`
       if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "catboost-*.whl") ]; then
-        head_sha=$(git ls-remote https://github.com/catboost/catboost.git HEAD | cut -f1)
         pip wheel --no-deps --wheel-dir $CACHE_DIR \
-          git+https://github.com/catboost/catboost.git@$head_sha#subdirectory=catboost/python-package
+          git+https://github.com/catboost/catboost.git#subdirectory=catboost/python-package
       fi
-      pip install $(find $CACHE_DIR -type f -name "catboost-*.whl")
+      pip install $CACHE_DIR/catboost-*.whl
 
   models:
     minimum: "0.23.1"
@@ -185,6 +187,8 @@ gluon:
     maximum: "1.8.0.post0"
     unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
     run: |
+      # Install libopenblas-dev for mxnet 1.8.0.post0
+      sudo apt-get install libopenblas-dev
       pytest tests/gluon/test_gluon_model_export.py --large
 
   autologging:
@@ -287,14 +291,9 @@ spark:
         cd $temp_dir
         ./build/mvn -DskipTests --no-transfer-progress clean package
         cd python
-        python setup.py bdist_wheel
-
-        # Copy wheel in cache directory
-        wheel_path=$(find dist -type f -name "pyspark-*.whl")
-        mkdir -p $CACHE_DIR
-        cp $wheel_path $CACHE_DIR
+        python setup.py bdist_wheel --dist-dir $CACHE_DIR
       fi
-      pip install $(find $CACHE_DIR -type f -name "pyspark-*.whl")
+      pip install $CACHE_DIR/pyspark-*.whl
 
   models:
     minimum: "3.0.0"

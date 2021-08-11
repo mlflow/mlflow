@@ -38,13 +38,16 @@ from mlflow.utils.environment import (
     _validate_env_arguments,
     _process_pip_requirements,
     _process_conda_env,
+    _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
 )
+from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.file_utils import write_to
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
-from mlflow.utils.file_utils import write_to
+from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
@@ -78,9 +81,7 @@ def get_default_pip_requirements():
              Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
              that, at minimum, contains these requirements.
     """
-    import xgboost as xgb
-
-    return ["xgboost=={}".format(xgb.__version__)]
+    return [_get_pinned_requirement("xgboost")]
 
 
 def get_default_conda_env():
@@ -91,6 +92,7 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     xgb_model,
     path,
@@ -130,7 +132,7 @@ def save_model(
 
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
 
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -143,35 +145,13 @@ def save_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
-    :param pip_requirements: Either an iterable of pip requirement strings
-        (e.g. ``["scikit-learn", "-r requirements.txt"]``) or the string path to a pip requirements
-        file on the local filesystem (e.g. ``"requirements.txt"``). If provided, this describes the
-        environment this model should be run in. If ``None``, a default list of requirements is
-        inferred from the current software environment. Requirements are automatically parsed and
-        written to a ``requirements.txt`` file that is stored as part of the model. These
-        requirements are also written to the ``pip`` section of the model's conda environment
-        (``conda.yaml``) file.
-    :param extra_pip_requirements: Either an iterable of pip requirement strings
-        (e.g. ``["scikit-learn", "-r requirements.txt"]``) or the string path to a pip requirements
-        file on the local filesystem (e.g. ``"requirements.txt"``). If provided, this specifies
-        additional pip requirements that are appended to a default set of pip requirements generated
-        automatically based on the user's current software environment. Requirements are also
-        written to the ``pip`` section of the model's conda environment (``conda.yaml``) file.
-
-        .. warning::
-            The following arguments can't be specified at the same time:
-
-            - ``conda_env``
-            - ``pip_requirements``
-            - ``extra_pip_requirements``
-
-        :ref:`This example<pip-requirements-example>` demonstrates how to specify pip requirements
-        using ``pip_requirements`` and ``extra_pip_requirements``.
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
     """
     import xgboost as xgb
 
@@ -193,16 +173,31 @@ def save_model(
     # Save an XGBoost model
     xgb_model.save_model(model_data_path)
 
-    conda_env, pip_requirements, pip_constraints = (
-        _process_pip_requirements(
-            get_default_pip_requirements(), pip_requirements, extra_pip_requirements,
-        )
-        if conda_env is None
-        else _process_conda_env(conda_env)
+    pyfunc.add_to_model(
+        mlflow_model,
+        loader_module="mlflow.xgboost",
+        data=model_data_subpath,
+        env=_CONDA_ENV_FILE_NAME,
     )
+    mlflow_model.add_flavor(FLAVOR_NAME, xgb_version=xgb.__version__, data=model_data_subpath)
+    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
-    conda_env_subpath = "conda.yaml"
-    with open(os.path.join(path, conda_env_subpath), "w") as f:
+    if conda_env is None:
+        default_reqs = get_default_pip_requirements()
+        if pip_requirements is None:
+            # To ensure `_load_pyfunc` can successfully load the model during the dependency
+            # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
+            inferred_reqs = mlflow.models.infer_pip_requirements(
+                path, FLAVOR_NAME, fallback=default_reqs,
+            )
+            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+        conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
+            default_reqs, pip_requirements, extra_pip_requirements,
+        )
+    else:
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
+
+    with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     # Save `constraints.txt` if necessary
@@ -212,13 +207,8 @@ def save_model(
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
-    pyfunc.add_to_model(
-        mlflow_model, loader_module="mlflow.xgboost", data=model_data_subpath, env=conda_env_subpath
-    )
-    mlflow_model.add_flavor(FLAVOR_NAME, xgb_version=xgb.__version__, data=model_data_subpath)
-    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
-
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     xgb_model,
     artifact_path,
@@ -257,11 +247,11 @@ def log_model(
                                 ]
                             ]
                         }
-    :param registered_model_name: (Experimental) If given, create a model version under
+    :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
 
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -274,7 +264,7 @@ def log_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
@@ -282,31 +272,8 @@ def log_model(
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
-    :param pip_requirements: Either an iterable of pip requirement strings
-        (e.g. ``["scikit-learn", "-r requirements.txt", "-c constrants.txt"]``) or the string path
-        to a pip requirements file on the local filesystem (e.g. ``"requirements.txt"``).
-        If provided, this describes the environment this model should be run in. If ``None``,
-        a default list of requirements is inferred from the current software environment. Both
-        requirements and constraints are automatically parsed and written to ``requirements.txt``
-        and ``constraints.txt`` files, respectively, and stored as part of the model. Requirements
-        are also written to the ``pip`` section of the model's conda environment (``conda.yaml``)
-        file.
-    :param extra_pip_requirements: Either an iterable of pip requirement strings
-        (e.g. ``["scikit-learn", "-r requirements.txt"]``) or the string path to a pip requirements
-        file on the local filesystem (e.g. ``"requirements.txt"``). If provided, this specifies
-        additional pip requirements that are appended to a default set of pip requirements generated
-        automatically based on the user's current software environment. Requirements are also
-        written to the ``pip`` section of the model's conda environment (``conda.yaml``) file.
-
-        .. warning::
-            The following arguments can't be specified at the same time:
-
-            - ``conda_env``
-            - ``pip_requirements``
-            - ``extra_pip_requirements``
-
-        :ref:`This example<pip-requirements-example>` demonstrates how to specify pip requirements
-        using ``pip_requirements`` and ``extra_pip_requirements``.
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param kwargs: kwargs to pass to `xgboost.Booster.save_model`_ method.
     """
     Model.log(

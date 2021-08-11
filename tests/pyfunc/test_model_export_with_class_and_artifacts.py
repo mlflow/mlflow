@@ -34,8 +34,8 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 import tests
 from tests.helper_functions import pyfunc_serve_and_score_model
 from tests.helper_functions import (
-    score_model_in_sagemaker_docker_container,
     _compare_conda_env_requirements,
+    _assert_pip_requirements,
 )
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
@@ -110,13 +110,7 @@ def model_path(tmpdir):
 def pyfunc_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
     _mlflow_conda_env(
-        conda_env,
-        additional_pip_deps=[
-            "scikit-learn",
-            "pytest",
-            "cloudpickle",
-            "-e " + os.path.dirname(mlflow.__path__[0]),
-        ],
+        conda_env, additional_pip_deps=["scikit-learn", "pytest", "cloudpickle"],
     )
     return conda_env
 
@@ -124,9 +118,7 @@ def pyfunc_custom_env(tmpdir):
 def _conda_env():
     # NB: We need mlflow as a dependency in the environment.
     return _mlflow_conda_env(
-        install_mlflow=False,
         additional_pip_deps=[
-            "-e " + os.path.dirname(mlflow.__path__[0]),
             "cloudpickle=={}".format(cloudpickle.__version__),
             "scikit-learn=={}".format(sklearn.__version__),
         ],
@@ -359,7 +351,7 @@ def test_add_to_model_adds_specified_kwargs_to_mlmodel_configuration():
         data="data",
         code="code",
         env=None,
-        **custom_kwargs
+        **custom_kwargs,
     )
 
     assert mlflow.pyfunc.FLAVOR_NAME in model_config.flavors
@@ -616,6 +608,74 @@ def test_save_model_persists_requirements_in_mlflow_model_directory(
 
     saved_pip_req_path = os.path.join(pyfunc_model_path, "requirements.txt")
     _compare_conda_env_requirements(pyfunc_custom_env, saved_pip_req_path)
+
+
+@pytest.mark.large
+def test_log_model_with_pip_requirements(main_scoped_model_class, tmpdir):
+    python_model = main_scoped_model_class(predict_fn=None)
+    # Path to a requirements file
+    req_file = tmpdir.join("requirements.txt")
+    req_file.write("a")
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model(
+            "model", python_model=python_model, pip_requirements=req_file.strpath
+        )
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"])
+
+    # List of requirements
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model(
+            "model", python_model=python_model, pip_requirements=[f"-r {req_file.strpath}", "b"]
+        )
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"])
+
+    # Constraints file
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model(
+            "model", python_model=python_model, pip_requirements=[f"-c {req_file.strpath}", "b"]
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), ["mlflow", "b", "-c constraints.txt"], ["a"]
+        )
+
+
+@pytest.mark.large
+def test_log_model_with_extra_pip_requirements(main_scoped_model_class, tmpdir):
+    python_model = main_scoped_model_class(predict_fn=None)
+    default_reqs = mlflow.pyfunc.get_default_pip_requirements()
+
+    # Path to a requirements file
+    req_file = tmpdir.join("requirements.txt")
+    req_file.write("a")
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model(
+            "model", python_model=python_model, extra_pip_requirements=req_file.strpath
+        )
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a"])
+
+    # List of requirements
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model(
+            "model",
+            python_model=python_model,
+            extra_pip_requirements=[f"-r {req_file.strpath}", "b"],
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a", "b"]
+        )
+
+    # Constraints file
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model(
+            "model",
+            python_model=python_model,
+            extra_pip_requirements=[f"-c {req_file.strpath}", "b"],
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"),
+            ["mlflow", *default_reqs, "b", "-c constraints.txt"],
+            ["a"],
+        )
 
 
 @pytest.mark.large
@@ -978,43 +1038,4 @@ def test_load_model_with_missing_cloudpickle_version_logs_warning(model_path):
             in log_message
             for log_message in log_messages
         ]
-    )
-
-
-# TODO(czumar) Re-mark this test as "large" instead of "release" after SageMaker docker container
-# build issues have been debugged
-# @pytest.mark.large
-@pytest.mark.release
-def test_sagemaker_docker_model_scoring_with_default_conda_env(
-    sklearn_logreg_model, main_scoped_model_class, iris_data, tmpdir
-):
-    sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
-    mlflow.sklearn.save_model(sk_model=sklearn_logreg_model, path=sklearn_model_path)
-
-    def test_predict(sk_model, model_input):
-        return sk_model.predict(model_input) * 2
-
-    pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_model")
-    mlflow.pyfunc.save_model(
-        path=pyfunc_model_path,
-        artifacts={"sk_model": sklearn_model_path},
-        python_model=main_scoped_model_class(test_predict),
-        conda_env=_conda_env(),
-    )
-    reloaded_pyfunc = mlflow.pyfunc.load_pyfunc(model_uri=pyfunc_model_path)
-
-    inference_df = pd.DataFrame(iris_data[0])
-    scoring_response = score_model_in_sagemaker_docker_container(
-        model_uri=pyfunc_model_path,
-        data=inference_df,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        flavor=mlflow.pyfunc.FLAVOR_NAME,
-    )
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
-
-    pandas.testing.assert_frame_equal(
-        deployed_model_preds,
-        pd.DataFrame(reloaded_pyfunc.predict(inference_df)),
-        check_dtype=False,
-        check_less_precise=6,
     )

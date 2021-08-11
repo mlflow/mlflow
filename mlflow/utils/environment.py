@@ -1,11 +1,14 @@
 import yaml
 import tempfile
 import os
+import logging
+
 
 from mlflow.utils import PYTHON_VERSION
-from mlflow.utils.requirements_utils import _parse_requirements
-from packaging.requirements import Requirement
+from mlflow.utils.requirements_utils import _parse_requirements, _infer_requirements
+from packaging.requirements import Requirement, InvalidRequirement
 
+_logger = logging.getLogger(__name__)
 
 _conda_header = """\
 name: mlflow-env
@@ -13,6 +16,7 @@ channels:
   - conda-forge
 """
 
+_CONDA_ENV_FILE_NAME = "conda.yaml"
 _REQUIREMENTS_FILE_NAME = "requirements.txt"
 _CONSTRAINTS_FILE_NAME = "constraints.txt"
 
@@ -188,6 +192,31 @@ def _parse_pip_requirements(pip_requirements):
         )
 
 
+_INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE = (
+    "Encountered an unexpected error while inferring pip requirements (model URI: %s, flavor: %s)"
+)
+
+
+def infer_pip_requirements(model_uri, flavor, fallback=None):
+    """
+    Infers the pip requirements of the specified model by creating a subprocess and loading
+    the model in it to determine which packages are imported.
+
+    :param model_uri: The URI of the model.
+    :param flavor: The flavor name of the model.
+    :param fallback: If provided, an unexpected error during the inference procedure is swallowed
+                     and the value of ``fallback`` is returned. Otherwise, the error is raised.
+    :return: A list of inferred pip requirements (e.g. ``["scikit-learn==0.24.2", ...]``).
+    """
+    try:
+        return _infer_requirements(model_uri, flavor)
+    except Exception:
+        if fallback is not None:
+            _logger.exception(_INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE, model_uri, flavor)
+            return fallback
+        raise
+
+
 def _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements):
     """
     Validates that only one or none of `conda_env`, `pip_requirements`, and
@@ -210,7 +239,16 @@ def _is_mlflow_requirement(requirement_string):
     """
     Returns True if `requirement_string` represents a requirement for mlflow (e.g. 'mlflow==1.2.3').
     """
-    return Requirement(requirement_string).name.lower() == "mlflow"
+    try:
+        # `Requirement` throws an `InvalidRequirement` exception if `requirement_string` doesn't
+        # conform to PEP 508 (https://www.python.org/dev/peps/pep-0508).
+        return Requirement(requirement_string).name.lower() == "mlflow"
+    except InvalidRequirement:
+        # A local file path or URL falls into this branch.
+
+        # TODO: Return True if `requirement_string` represents a project directory for MLflow
+        # (e.g. '/path/to/mlflow') or git repository URL (e.g. 'https://github.com/mlflow/mlflow').
+        return False
 
 
 def _contains_mlflow_requirement(requirements):
