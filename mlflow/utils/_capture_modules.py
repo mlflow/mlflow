@@ -98,7 +98,9 @@ def main():
 
         loader_module._load_pyfunc = _load_pyfunc_patch
         mlflow.pyfunc.load_model(model_path)
-    # Otherwise, load the model using `mlflow.<flavor>._load_pyfunc`
+    # Otherwise, load the model using `mlflow.<flavor>._load_pyfunc`. For models that don't contain
+    # pyfunc flavor (e.g. scikit-learn estimator that doesn't implement a `predict` method),
+    # we need to directly pass a model data path to this script.
     else:
         with cap_cm:
             importlib.import_module(f"mlflow.{flavor}")._load_pyfunc(model_path)
