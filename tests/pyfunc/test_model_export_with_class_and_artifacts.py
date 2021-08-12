@@ -48,10 +48,6 @@ def get_model_class():
     Alternatively, it can be invoked within a module to define the class in the module's scope.
     """
 
-    class IdentityModel:
-        def predict(self, X):
-            return X
-
     class CustomSklearnModel(mlflow.pyfunc.PythonModel):
         def __init__(self, predict_fn):
             self.predict_fn = predict_fn
@@ -59,10 +55,7 @@ def get_model_class():
         def load_context(self, context):
             super().load_context(context)
             # pylint: disable=attribute-defined-outside-init
-            if "sk_model" in context.artifacts:
-                self.model = mlflow.sklearn.load_model(model_uri=context.artifacts["sk_model"])
-            else:
-                self.model = IdentityModel()
+            self.model = mlflow.sklearn.load_model(model_uri=context.artifacts["sk_model"])
 
         def predict(self, context, model_input):
             return self.predict_fn(self.model, model_input)
@@ -224,7 +217,10 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
 
 
 @pytest.mark.large
-def test_signature_and_examples_are_saved_correctly(iris_data, main_scoped_model_class):
+def test_signature_and_examples_are_saved_correctly(iris_data, main_scoped_model_class, tmpdir):
+    sklearn_model_path = tmpdir.join("sklearn_model").strpath
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
+
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
 
@@ -239,7 +235,7 @@ def test_signature_and_examples_are_saved_correctly(iris_data, main_scoped_model
                 path = tmp.path("model")
                 mlflow.pyfunc.save_model(
                     path=path,
-                    artifacts={},
+                    artifacts={"sk_model": sklearn_model_path},
                     python_model=main_scoped_model_class(test_predict),
                     signature=signature,
                     input_example=example,
@@ -647,7 +643,10 @@ def test_log_model_with_pip_requirements(main_scoped_model_class, tmpdir):
 
 
 @pytest.mark.large
-def test_log_model_with_extra_pip_requirements(main_scoped_model_class, tmpdir):
+def test_log_model_with_extra_pip_requirements(sklearn_knn_model, main_scoped_model_class, tmpdir):
+    sklearn_model_path = tmpdir.join("sklearn_model").strpath
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
+
     python_model = main_scoped_model_class(predict_fn=None)
     default_reqs = mlflow.pyfunc.get_default_pip_requirements()
 
@@ -656,7 +655,10 @@ def test_log_model_with_extra_pip_requirements(main_scoped_model_class, tmpdir):
     req_file.write("a")
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
-            "model", python_model=python_model, extra_pip_requirements=req_file.strpath
+            "model",
+            python_model=python_model,
+            artifacts={"sk_model": sklearn_model_path},
+            extra_pip_requirements=req_file.strpath,
         )
         _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a"])
 
@@ -664,6 +666,7 @@ def test_log_model_with_extra_pip_requirements(main_scoped_model_class, tmpdir):
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
             "model",
+            artifacts={"sk_model": sklearn_model_path},
             python_model=python_model,
             extra_pip_requirements=[f"-r {req_file.strpath}", "b"],
         )
@@ -675,6 +678,7 @@ def test_log_model_with_extra_pip_requirements(main_scoped_model_class, tmpdir):
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
             "model",
+            artifacts={"sk_model": sklearn_model_path},
             python_model=python_model,
             extra_pip_requirements=[f"-c {req_file.strpath}", "b"],
         )
