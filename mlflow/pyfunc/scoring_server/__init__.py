@@ -15,6 +15,7 @@ import flask
 import json
 import logging
 import numpy as np
+import os
 import pandas as pd
 import sys
 import traceback
@@ -61,6 +62,8 @@ CONTENT_TYPES = [
     CONTENT_TYPE_JSON_SPLIT_ORIENTED,
     CONTENT_TYPE_JSON_SPLIT_NUMPY,
 ]
+
+PREDICTIONS_WRAPPER_ATTR_NAME_ENV_KEY = "PREDICTIONS_WRAPPER_ATTR_NAME"
 
 _logger = logging.getLogger(__name__)
 
@@ -173,6 +176,9 @@ def parse_split_oriented_json_input_to_numpy(json_input):
 
 def predictions_to_json(raw_predictions, output):
     predictions = _get_jsonable_obj(raw_predictions, pandas_orient="records")
+    wrapper_attr_name = os.environ.get(PREDICTIONS_WRAPPER_ATTR_NAME_ENV_KEY, None)
+    if wrapper_attr_name:
+        predictions = {wrapper_attr_name: predictions}
     json.dump(predictions, output, cls=NumpyEncoder)
 
 
