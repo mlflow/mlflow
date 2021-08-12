@@ -48,6 +48,10 @@ def get_model_class():
     Alternatively, it can be invoked within a module to define the class in the module's scope.
     """
 
+    class IdentityModel:
+        def predict(self, X):
+            return X
+
     class CustomSklearnModel(mlflow.pyfunc.PythonModel):
         def __init__(self, predict_fn):
             self.predict_fn = predict_fn
@@ -55,7 +59,10 @@ def get_model_class():
         def load_context(self, context):
             super().load_context(context)
             # pylint: disable=attribute-defined-outside-init
-            self.model = mlflow.sklearn.load_model(model_uri=context.artifacts["sk_model"])
+            if "sk_model" in context.artifacts:
+                self.model = mlflow.sklearn.load_model(model_uri=context.artifacts["sk_model"])
+            else:
+                self.model = IdentityModel()
 
         def predict(self, context, model_input):
             return self.predict_fn(self.model, model_input)
@@ -764,7 +771,7 @@ def test_save_model_without_specified_conda_env_uses_default_env_with_expected_d
         python_model=main_scoped_model_class(predict_fn=None),
         conda_env=_conda_env(),
     )
-    _assert_pip_requirements(model_path, mlflow.pyfunc.get_default_pip_requirements())
+    _assert_pip_requirements(pyfunc_model_path, mlflow.pyfunc.get_default_pip_requirements())
 
 
 @pytest.mark.large
