@@ -64,21 +64,21 @@ class ArtifactRepositoryRegistry:
                  requirements.
         """
 
-        logging.info(
+        _logger.info(
             "========>  Started getting artifact repository from class ArtifactRepositoryRegistry object : ========> ")
         scheme = get_uri_scheme(artifact_uri)
         repository = self._registry.get(scheme)
 
         if scheme is not None:
-            logging.info(" scheme: " + scheme)
+            _logger.info(" scheme: " + scheme)
         else:
-            logging.info(" scheme is None !!!!! ")
+            _logger.info(" scheme is None !!!!! ")
 
-        logging.info("Checkpoint for repository: " + str(type(repository)) + str(repository))
+        _logger.info("Checkpoint for repository: " + str(type(repository)) + str(repository))
         if repository is not None:
-            logging.info(" repository: " + str(repository))
+            _logger.info(" repository: " + str(repository))
         else:
-            logging.info(" repository is None !!!!! ")
+            _logger.info(" repository is None !!!!! ")
 
         if repository is None:
             raise MlflowException(
@@ -87,7 +87,7 @@ class ArtifactRepositoryRegistry:
                     artifact_uri, list(self._registry.keys())
                 )
             )
-        logging.info("========> Checkpoint for returning the repository: " + str(type(repository)) + str(repository))
+        _logger.info("========> Checkpoint for returning the repository: " + str(type(repository)) + str(repository))
         return repository(artifact_uri)
 
 
@@ -120,7 +120,7 @@ def get_artifact_repository(artifact_uri):
              requirements.
     """
 
-    logging.info(
+    _logger.info(
         "========>  Started getting artifact repository : ========> ")
     repository = _artifact_repository_registry.get_artifact_repository(artifact_uri)
     return repository
