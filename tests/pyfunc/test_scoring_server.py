@@ -212,6 +212,21 @@ def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_re
     )
     assert response_records_content_type.status_code == 200
 
+    # Testing the charset parameter
+    response_records_content_type = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=pandas_record_content,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON + "; charset=UTF-8",
+    )
+    assert response_records_content_type.status_code == 200
+
+    response_records_content_type = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=pandas_record_content,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED + "; charset=UTF-8",
+    )
+    assert response_records_content_type.status_code == 200
+
 
 @pytest.mark.large
 def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_split_orientation(
