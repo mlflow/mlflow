@@ -147,11 +147,8 @@ def test_wrap_patch_with_class():
         orig = gorilla.get_original_attribute(self, "add")
         return 2 * orig(*args, **kwargs)
 
-    before = get_func_attrs(Math.add)
     _wrap_patch(Math, Math.add.__name__, new_add)
-    after = get_func_attrs(Math.add)
 
-    assert after == before
     assert Math().add(1, 2) == 6
 
 
@@ -168,12 +165,8 @@ def test_wrap_patch_with_module():
         """new mlflow.log_param"""
         return a - b
 
-    before_attrs = get_func_attrs(mlflow.log_param)
     assert sample_function_to_patch(10, 5) == 15
-
     _wrap_patch(this_module, sample_function_to_patch.__name__, new_sample_function)
-    after_attrs = get_func_attrs(mlflow.log_param)
-    assert after_attrs == before_attrs
     assert sample_function_to_patch(10, 5) == 5
 
 
