@@ -1601,7 +1601,7 @@ def test_run_metric_api_doc_example(metric_name):
     doctest.run_docstring_examples(metric_api.__doc__, {}, verbose=True)
 
 
-def test_post_training_post_training_metric_autologging_for_predict_prob():
+def test_post_training_metric_autologging_for_predict_prob():
     import sklearn.linear_model
 
     mlflow.sklearn.autolog()
@@ -1619,7 +1619,7 @@ def test_post_training_post_training_metric_autologging_for_predict_prob():
     assert metrics["roc_auc_score_X"] == roc_auc_metric
 
 
-def test_post_training_post_training_metric_autologging_patch_transform():
+def test_post_training_metric_autologging_patch_transform():
     import sklearn.cluster
 
     mlflow.sklearn.autolog()

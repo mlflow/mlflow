@@ -566,13 +566,17 @@ class _AutologgingMetricsManager:
         and return a tuple of (run_id, eval_dataset_name)
         """
         if id(pred_result_dataset) in self._pred_result_id_to_dataset_name_and_run_id:
-            return self._pred_result_id_to_dataset_name_and_run_id[id(pred_result_dataset)]
+            dataset_name, run_id = \
+                self._pred_result_id_to_dataset_name_and_run_id[id(pred_result_dataset)]
+            return run_id, dataset_name
         else:
             return None, None
 
     def gen_evaluator_info(self, evaluator):
         class_name = _get_fully_qualified_class_name(evaluator)
-        param_map = _get_param_map(evaluator)
+        param_map = _truncate_dict(
+            _get_param_map(evaluator), MAX_ENTITY_KEY_LENGTH, MAX_PARAM_VAL_LENGTH
+        )
         return {"evaluator_class": class_name, "params": param_map}
 
     def register_evaluator_call(self, run_id, metric_name, dataset_name, evaluator_info):
@@ -601,7 +605,7 @@ class _AutologgingMetricsManager:
         client.log_metric(run_id=run_id, key=key, value=value)
         if self._metric_info_artifact_need_update[run_id]:
             evaluator_call_list = []
-            for v in self._metric_api_call_info[run_id].values():
+            for v in self._evaluator_call_info[run_id].values():
                 evaluator_call_list.extend(v)
 
             evaluator_call_list.sort(key=lambda x: x[0])
@@ -847,9 +851,10 @@ def autolog(
         with _SparkTrainingSession(clazz=self.__class__, allow_children=False) as t:
             if t.should_log():
                 with status.disable_log_post_training_metrics():
-                    return fit_mlflow(original, self, *args, **kwargs)
+                    spark_model = fit_mlflow(original, self, *args, **kwargs)
                 if should_log_post_training_metrics:
-                    status.register_model(self, mlflow.active_run().info.run_id)
+                    status.register_model(spark_model, mlflow.active_run().info.run_id)
+                return spark_model
             else:
                 return original(self, *args, **kwargs)
 
@@ -873,11 +878,9 @@ def autolog(
                 metric = original(self, *args, **kwargs)
 
             if status.is_metric_value_loggable(metric):
-
-                metric_name = self.getMetricName()
-
                 params = get_instance_method_arg_value(1, "params", None, args, kwargs)
                 evaluator = self.copy(params) if params is not None else self
+                metric_name = evaluator.getMetricName()
                 evaluator_info = status.gen_evaluator_info(evaluator)
 
                 pred_result_dataset = get_instance_method_arg_value(

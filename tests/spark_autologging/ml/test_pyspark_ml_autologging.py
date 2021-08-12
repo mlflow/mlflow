@@ -100,6 +100,18 @@ def dataset_regression(spark_session):
     return spark_session.createDataFrame(rows, ["label", "features"],).cache()
 
 
+@pytest.fixture(scope="module")
+def dataset_iris_binomial(spark_session):
+    from pyspark.ml.feature import VectorAssembler
+    from sklearn.datasets import load_iris
+    df = load_iris(as_frame=True).frame.rename(columns={"target": "label"})
+    df = spark_session.createDataFrame(df)
+    df = VectorAssembler(inputCols=df.columns[:-1], outputCol="features").transform(df)
+    df = df.filter(df.label < 2).select('features', 'label')
+    df.cache()
+    return df
+
+
 def truncate_param_dict(d):
     return _truncate_dict(d, MAX_ENTITY_KEY_LENGTH, MAX_PARAM_VAL_LENGTH)
 
@@ -582,3 +594,122 @@ def test_gen_estimator_metadata(spark_session):  # pylint: disable=unused-argume
         metadata.uid_to_indexed_name_map[metadata.param_search_estimators[0].uid]
         == "CrossValidator"
     )
+
+
+def test_basic_post_training_metric_autologging(dataset_iris_binomial):
+    from pyspark.ml.evaluation import MulticlassClassificationEvaluator, \
+        BinaryClassificationEvaluator
+    mlflow.pyspark.ml.autolog()
+
+    estimator = LogisticRegression(maxIter=1, family='binomial', regParam=5.0, fitIntercept=False)
+    eval_dataset = dataset_iris_binomial.sample(fraction=0.3, seed=1)
+
+    with mlflow.start_run() as run:
+        model = estimator.fit(dataset_iris_binomial)
+        mce = MulticlassClassificationEvaluator(metricName='logLoss')
+        pred_result = model.transform(eval_dataset)
+        logloss = mce.evaluate(pred_result)
+
+        # test calling evaluate with extra params
+        accuracy = mce.evaluate(pred_result, params={mce.metricName: 'accuracy'})
+
+        # generate a new validation dataset but reuse the variable name 'eval_dataset'
+        # test the autologged metric use dataset name 'eval_dataset-2'
+        eval_dataset = dataset_iris_binomial.sample(fraction=0.3, seed=1)
+        bce = BinaryClassificationEvaluator(metricName='areaUnderROC')
+        pred_result = model.transform(eval_dataset)
+        areaUnderROC = bce.evaluate(pred_result)
+
+        # test computing the same metric twice
+        bce.evaluate(pred_result)
+
+        metric_info = load_json_artifact("metric_info.json")
+
+    run_data = get_run_data(run.info.run_id)
+
+    assert np.isclose(logloss, run_data.metrics['logLoss_eval_dataset'])
+    assert np.isclose(accuracy, run_data.metrics['accuracy_eval_dataset'])
+    assert np.isclose(areaUnderROC, run_data.metrics['areaUnderROC_eval_dataset-2'])
+    assert np.isclose(areaUnderROC, run_data.metrics['areaUnderROC-2_eval_dataset-2'])
+
+    assert metric_info == {
+        "accuracy_eval_dataset": {
+            "evaluator_class": "pyspark.ml.evaluation.MulticlassClassificationEvaluator",
+            "params": {
+                "beta": 1.0,
+                "eps": 1e-15,
+                "labelCol": "label",
+                "metricLabel": 0.0,
+                "metricName": "accuracy",
+                "predictionCol": "prediction",
+                "probabilityCol": "probability"
+            }
+        },
+        "areaUnderROC-2_eval_dataset-2": {
+            "evaluator_class": "pyspark.ml.evaluation.BinaryClassificationEvaluator",
+            "params": {
+                "labelCol": "label",
+                "metricName": "areaUnderROC",
+                "numBins": 1000,
+                "rawPredictionCol": "rawPrediction"
+            }
+        },
+        "areaUnderROC_eval_dataset-2": {
+            "evaluator_class": "pyspark.ml.evaluation.BinaryClassificationEvaluator",
+            "params": {
+                "labelCol": "label",
+                "metricName": "areaUnderROC",
+                "numBins": 1000,
+                "rawPredictionCol": "rawPrediction"
+            }
+        },
+        "logLoss_eval_dataset": {
+            "evaluator_class": "pyspark.ml.evaluation.MulticlassClassificationEvaluator",
+            "params": {
+                "beta": 1.0,
+                "eps": 1e-15,
+                "labelCol": "label",
+                "metricLabel": 0.0,
+                "metricName": "logLoss",
+                "predictionCol": "prediction",
+                "probabilityCol": "probability"
+            }
+        }
+    }
+
+    mlflow.pyspark.ml.autolog(disable=True)
+    recall_original = mce.evaluate(pred_result)
+    assert logloss == recall_original
+    accruacy_original = mce.evaluate(pred_result, params={mce.metricName: 'accuracy'})
+    assert accuracy == accruacy_original
+    areaUnderROC_original = bce.evaluate(pred_result)
+    assert areaUnderROC == areaUnderROC_original
+
+
+def test_multi_model_interleaved_fit_and_post_train_metric_call(dataset_iris_binomial):
+    from pyspark.ml.evaluation import MulticlassClassificationEvaluator
+    mlflow.pyspark.ml.autolog()
+
+    estimator1 = LogisticRegression(maxIter=1, family='binomial', regParam=5.0, fitIntercept=False)
+    estimator2 = LogisticRegression(maxIter=5, family='binomial', regParam=5.0, fitIntercept=False)
+    eval_dataset1 = dataset_iris_binomial.sample(fraction=0.3, seed=1)
+    eval_dataset2 = dataset_iris_binomial.sample(fraction=0.3, seed=2)
+    mce = MulticlassClassificationEvaluator(metricName='logLoss')
+
+    with mlflow.start_run() as run1:
+        model1 = estimator1.fit(dataset_iris_binomial)
+
+    with mlflow.start_run() as run2:
+        model2 = estimator2.fit(dataset_iris_binomial)
+
+    pred1_result = model1.transform(eval_dataset1)
+    pred2_result = model2.transform(eval_dataset2)
+
+    logloss1 = mce.evaluate(pred1_result)
+    logloss2 = mce.evaluate(pred2_result)
+
+    metrics1 = get_run_data(run1.info.run_id).metrics
+    assert np.isclose(logloss1, metrics1["logLoss_eval_dataset1"])
+
+    metrics2 = get_run_data(run2.info.run_id).metrics
+    assert np.isclose(logloss2, metrics2["logLoss_eval_dataset2"])
