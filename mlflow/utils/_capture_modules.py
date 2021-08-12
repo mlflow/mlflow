@@ -82,8 +82,10 @@ def main():
     # Mirror `sys.path` of the parent process
     sys.path = json.loads(args.sys_path)
 
-    cap = _CaptureImportedModules()
+    cap_cm = _CaptureImportedModules()
 
+    # If `model_path` refers to an MLflow model directory, load the model using
+    # `mlflow.pyfunc.load_model`
     if os.path.isdir(model_path) and MLMODEL_FILE_NAME in os.listdir(model_path):
         pyfunc_conf = Model.load(model_path).flavors.get(mlflow.pyfunc.FLAVOR_NAME)
         loader_module = importlib.import_module(pyfunc_conf[MAIN])
@@ -91,19 +93,18 @@ def main():
 
         @functools.wraps(original)
         def _load_pyfunc_patch(*args, **kwargs):
-            with cap:
+            with cap_cm:
                 return original(*args, **kwargs)
 
         loader_module._load_pyfunc = _load_pyfunc_patch
         mlflow.pyfunc.load_model(model_path)
+    # Otherwise, load the model using `mlflow.<flavor>._load_pyfunc`
     else:
-        # Allow directly specifying a path to a model data file or directory for
-        # models that don't contain pyfunc flavor.
-        with cap:
+        with cap_cm:
             importlib.import_module(f"mlflow.{flavor}")._load_pyfunc(model_path)
 
     # Store the imported modules in `output_file`
-    write_to(args.output_file, "\n".join(cap.imported_modules))
+    write_to(args.output_file, "\n".join(cap_cm.imported_modules))
 
 
 if __name__ == "__main__":

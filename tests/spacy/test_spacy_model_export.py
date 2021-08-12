@@ -369,7 +369,7 @@ def test_model_log_with_pyfunc_flavor(spacy_model_with_data):
 
 
 @pytest.mark.large
-# For spacy < 3.0.0, `infer_pip_requirements`fails when loading a model in this test  due to:
+# For spacy < 3.0.0, `infer_pip_requirements`fails when loading a model in this test due to:
 # https://github.com/explosion/spaCy/issues/4658
 @disable_prevent_infer_pip_requirements_fallback_if(
     not IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0
