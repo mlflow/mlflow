@@ -94,7 +94,7 @@ def test_model_save_load(sklearn_knn_model, iris_data, tmpdir, model_path):
     mlflow.pyfunc.save_model(
         path=model_path,
         data_path=sk_model_path,
-        loader_module=os.path.basename(__file__)[:-3],
+        loader_module=__name__,
         code_path=[__file__],
         mlflow_model=model_config,
     )
@@ -125,7 +125,7 @@ def test_signature_and_examples_are_saved_correctly(sklearn_knn_model, iris_data
                 mlflow.pyfunc.save_model(
                     path=path,
                     data_path=tmp.path("skmodel"),
-                    loader_module=os.path.basename(__file__)[:-3],
+                    loader_module=__name__,
                     code_path=[__file__],
                     signature=signature,
                     input_example=example,
@@ -618,7 +618,7 @@ def test_model_log_load(sklearn_knn_model, iris_data, tmpdir):
         mlflow.pyfunc.log_model(
             artifact_path=pyfunc_artifact_path,
             data_path=sk_model_path,
-            loader_module=os.path.basename(__file__)[:-3],
+            loader_module=__name__,
             code_path=[__file__],
         )
         pyfunc_model_path = _download_artifact_from_uri(
@@ -648,7 +648,7 @@ def test_model_log_load_no_active_run(sklearn_knn_model, iris_data, tmpdir):
     mlflow.pyfunc.log_model(
         artifact_path=pyfunc_artifact_path,
         data_path=sk_model_path,
-        loader_module=os.path.basename(__file__)[:-3],
+        loader_module=__name__,
         code_path=[__file__],
     )
     pyfunc_model_path = _download_artifact_from_uri(
@@ -694,7 +694,7 @@ def test_log_model_persists_specified_conda_env_file_in_mlflow_model_directory(
         mlflow.pyfunc.log_model(
             artifact_path=pyfunc_artifact_path,
             data_path=sk_model_path,
-            loader_module=os.path.basename(__file__)[:-3],
+            loader_module=__name__,
             code_path=[__file__],
             conda_env=pyfunc_custom_env_file,
         )
@@ -731,7 +731,7 @@ def test_log_model_persists_specified_conda_env_dict_in_mlflow_model_directory(
         mlflow.pyfunc.log_model(
             artifact_path=pyfunc_artifact_path,
             data_path=sk_model_path,
-            loader_module=os.path.basename(__file__)[:-3],
+            loader_module=__name__,
             code_path=[__file__],
             conda_env=pyfunc_custom_env_dict,
         )
@@ -765,7 +765,7 @@ def test_log_model_persists_requirements_in_mlflow_model_directory(
         mlflow.pyfunc.log_model(
             artifact_path=pyfunc_artifact_path,
             data_path=sk_model_path,
-            loader_module=os.path.basename(__file__)[:-3],
+            loader_module=__name__,
             code_path=[__file__],
             conda_env=pyfunc_custom_env_dict,
         )
@@ -797,7 +797,7 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
         mlflow.pyfunc.log_model(
             artifact_path=pyfunc_artifact_path,
             data_path=sk_model_path,
-            loader_module=os.path.basename(__file__)[:-3],
+            loader_module=__name__,
             code_path=[__file__],
         )
         model_uri = mlflow.get_artifact_uri(pyfunc_artifact_path)
