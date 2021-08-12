@@ -34,7 +34,7 @@ jobs:
             # add the R 4.0 repo from CRAN -- adjust 'focal' to 'groovy' or 'bionic' as needed
             sudo add-apt-repository -y "deb https://cloud.r-project.org/bin/linux/ubuntu $(lsb_release -cs)-cran40/"
             # Install R and its dependencies.
-            sudo apt install --no-install-recommends -y r-base
+            sudo apt install --no-install-recommends -y r-base libcurl4-openssl-dev libssl-dev
 
       - run:
           name: Install pandoc
