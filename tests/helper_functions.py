@@ -398,3 +398,10 @@ def _is_importable(module_name):
         return True
     except ImportError:
         return False
+
+
+def disable_prevent_infer_pip_requirements_fallback_if(condition):
+    def decorator(f):
+        return pytest.mark.disable_prevent_infer_pip_requirements_fallback(f) if condition else f
+
+    return decorator

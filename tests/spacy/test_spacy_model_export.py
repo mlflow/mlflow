@@ -27,6 +27,7 @@ from tests.helper_functions import (
     _compare_conda_env_requirements,
     _assert_pip_requirements,
     _is_available_on_pypi,
+    disable_prevent_infer_pip_requirements_fallback_if,
 )
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("spacy") else ["--no-conda"]
@@ -368,9 +369,11 @@ def test_model_log_with_pyfunc_flavor(spacy_model_with_data):
 
 
 @pytest.mark.large
-# `infer_pip_requirements`fails when loading a model in this test for spacy < 3.0.0 due to:
+# For spacy < 3.0.0, `infer_pip_requirements`fails when loading a model in this test  due to:
 # https://github.com/explosion/spaCy/issues/4658
-@pytest.mark.disable_prevent_infer_pip_requirements_fallback
+@disable_prevent_infer_pip_requirements_fallback_if(
+    not IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0
+)
 def test_model_log_without_pyfunc_flavor():
     artifact_path = "model"
     nlp = spacy.blank("en")
