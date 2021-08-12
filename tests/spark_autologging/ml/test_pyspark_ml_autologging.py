@@ -713,3 +713,35 @@ def test_multi_model_interleaved_fit_and_post_train_metric_call(dataset_iris_bin
 
     metrics2 = get_run_data(run2.info.run_id).metrics
     assert np.isclose(logloss2, metrics2["logLoss_eval_dataset2"])
+
+
+def test_meta_estimator_disable_post_training_autologging(dataset_regression):
+    mlflow.pyspark.ml.autolog()
+    lr = LinearRegression(solver="l-bfgs", regParam=0.01)
+    eval_dataset = dataset_regression.sample(fraction=0.3, seed=1)
+    lrParamMaps = [
+        {lr.maxIter: 1, lr.standardization: False},
+        {lr.maxIter: 200, lr.standardization: True},
+        {lr.maxIter: 2, lr.standardization: False},
+    ]
+    eva = RegressionEvaluator(metricName='rmse')
+    estimator = TrainValidationSplit(estimator=lr, estimatorParamMaps=lrParamMaps, evaluator=eva)
+
+    with mock.patch(
+        "mlflow.pyspark.ml._AutologgingMetricsManager.register_model"
+    ) as mock_register_model, mock.patch(
+        "mlflow.pyspark.ml._AutologgingMetricsManager.is_metric_value_loggable"
+    ) as mock_is_metric_value_loggable, mock.patch(
+        "mlflow.pyspark.ml._AutologgingMetricsManager.log_post_training_metric"
+    ) as mock_log_post_training_metric, mock.patch(
+        "mlflow.pyspark.ml._AutologgingMetricsManager.register_prediction_input_dataset"
+    ) as mock_register_prediction_input_dataset:
+        with mlflow.start_run():
+            model = estimator.fit(dataset_regression)
+
+        model.transform(eval_dataset)
+
+        mock_register_model.assert_called_once()
+        mock_is_metric_value_loggable.assert_not_called()
+        mock_register_prediction_input_dataset.assert_not_called()
+        mock_log_post_training_metric.assert_not_called()
