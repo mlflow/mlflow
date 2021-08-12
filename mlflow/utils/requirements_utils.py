@@ -16,7 +16,6 @@ import logging
 
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.autologging_utils.versioning import _strip_dev_version_suffix
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from packaging.version import Version, InvalidVersion
@@ -223,9 +222,6 @@ def _infer_requirements(model_uri, flavor):
     """
     # Import `_capture_module` here to avoid causing circular imports.
     from mlflow.utils import _capture_modules
-
-    if os.path.exists(model_uri):
-        model_uri = path_to_local_file_uri(model_uri)
 
     local_model_path = _download_artifact_from_uri(model_uri)
 
