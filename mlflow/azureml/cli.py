@@ -79,7 +79,7 @@ def commands():
         " that include the model path, the model run id (if specified), and more."
     ),
 )
-@deprecated(since="1.19.0")
+@deprecated("the azureml deployment plugin, https://aka.ms/aml-mlflow-deploy", since="1.19.0")
 def build_image(
     model_uri,
     workspace_name,

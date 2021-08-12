@@ -28,7 +28,7 @@ from pathlib import Path
 _logger = logging.getLogger(__name__)
 
 
-@deprecated(since="1.19.0")
+@deprecated("the azureml deployment plugin, https://aka.ms/aml-mlflow-deploy", since="1.19.0")
 def build_image(
     model_uri,
     workspace,
