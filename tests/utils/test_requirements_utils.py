@@ -19,6 +19,8 @@ from mlflow.utils.requirements_utils import (
     _strip_local_version_label,
     _get_installed_version,
     _get_pinned_requirement,
+    _module_to_packages,
+    _infer_requirements,
 )
 
 
@@ -257,3 +259,13 @@ def test_get_pinned_requirement_local_version_label(tmpdir):
             f"Found my_package version (1.2.3+{lvl}) contains a local version label (+{lvl})."
         )
     assert req == "my_package==1.2.3"
+
+
+def test_infer_requirements_excludes_mlflow():
+    with mock.patch(
+        "mlflow.utils.requirements_utils._capture_imported_modules",
+        return_value=["mlflow", "pytest"],
+    ):
+        mlflow_package = "mlflow-skinny" if "MLFLOW_SKINNY" in os.environ else "mlflow"
+        assert mlflow_package in _module_to_packages("mlflow")
+        assert _infer_requirements("/path/to/model", "mlflow") == [f"pytest=={pytest.__version__}"]
