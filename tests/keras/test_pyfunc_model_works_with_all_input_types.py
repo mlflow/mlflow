@@ -4,24 +4,21 @@
 import os
 import pytest
 from packaging.version import Version
-
-import keras
-
-if Version(keras.__version__) >= Version("2.6.0"):
-    from tensorflow.keras.models import Model
-    from tensorflow.keras.layers import Dense, Input, Concatenate
-    from tensorflow.keras.optimizers import SGD
-else:
-    from keras.models import Model
-    from keras.layers import Dense, Input, Concatenate
-    from keras.optimizers import SGD
-
+from importlib import import_module
 
 import sklearn.datasets as datasets
 import pandas as pd
 import numpy as np
 
 import mlflow
+import keras
+
+keras_mod = "tensorflow.keras" if Version(keras.__version__) >= Version("2.6.0") else "keras"
+Model = import_module(f"{keras_mod}.models.Model")
+Dense = import_module(f"{keras_mod}.layers.Dense")
+Input = import_module(f"{keras_mod}.layers.Input")
+Concatenate = import_module(f"{keras_mod}.layers.Concatenate")
+SGD = import_module(f"{keras_mod}.optimizers.SGD")
 
 
 @pytest.fixture

@@ -5,17 +5,7 @@ import os
 import pandas as pd
 from collections import namedtuple, OrderedDict
 from packaging.version import Version
-
-import keras
-
-if Version(keras.__version__) >= Version("2.6.0"):
-    from tensorflow.keras.models import Model
-    from tensorflow.keras.layers import Dense, Input, Concatenate
-    from tensorflow.keras.optimizers import SGD
-else:
-    from keras.models import Model
-    from keras.layers import Dense, Input, Concatenate
-    from keras.optimizers import SGD
+from importlib import import_module
 
 import pytest
 import random
@@ -33,6 +23,15 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import NumpyEncoder
 
 from tests.helper_functions import pyfunc_serve_and_score_model, random_int, random_str
+
+import keras
+
+keras_mod = "tensorflow.keras" if Version(keras.__version__) >= Version("2.6.0") else "keras"
+Model = import_module(f"{keras_mod}.models.Model")
+Dense = import_module(f"{keras_mod}.layers.Dense")
+Input = import_module(f"{keras_mod}.layers.Input")
+Concatenate = import_module(f"{keras_mod}.layers.Concatenate")
+SGD = import_module(f"{keras_mod}.optimizers.SGD")
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
