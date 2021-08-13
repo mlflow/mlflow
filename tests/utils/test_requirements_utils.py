@@ -269,4 +269,4 @@ def test_infer_requirements_excludes_mlflow():
     ):
         mlflow_package = "mlflow-skinny" if "MLFLOW_SKINNY" in os.environ else "mlflow"
         assert mlflow_package in _module_to_packages("mlflow")
-        assert _infer_requirements("/path/to/model", "mlflow") == [f"pytest=={pytest.__version__}"]
+        assert _infer_requirements("path/to/model", "sklearn") == [f"pytest=={pytest.__version__}"]
