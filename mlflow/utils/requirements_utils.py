@@ -211,23 +211,15 @@ def _get_installed_version(package, module=None):
     return version
 
 
-def _infer_requirements(model_uri, flavor):
-    """
-    Infers the pip requirements of the specified model by creating a subprocess and loading
-    the model in it to determine which packages are imported.
-
-    :param model_uri: The URI of the model.
-    :param: flavor: The flavor name of the model.
-    :return: A list of inferred pip requirements.
-    """
-    # Import `_capture_module` here to avoid causing circular imports.
+def _capture_imported_modules(model_uri, flavor):
+    # Lazily import `_capture_module` here to avoid circular imports.
     from mlflow.utils import _capture_modules
 
     local_model_path = _download_artifact_from_uri(model_uri)
 
     # Run `_capture_modules.py` to capture modules imported during the loading procedure
     with tempfile.TemporaryDirectory() as tmpdir:
-        output_file = os.path.join(tmpdir, "output.txt")
+        output_file = os.path.join(tmpdir, "imported_modules.txt")
         _run_command(
             [
                 sys.executable,
@@ -243,21 +235,34 @@ def _infer_requirements(model_uri, flavor):
             ],
         )
         with open(output_file) as f:
-            modules = f.read().splitlines()
+            return f.read().splitlines()
 
+
+def _infer_requirements(model_uri, flavor):
+    """
+    Infers the pip requirements of the specified model by creating a subprocess and loading
+    the model in it to determine which packages are imported.
+
+    :param model_uri: The URI of the model.
+    :param: flavor: The flavor name of the model.
+    :return: A list of inferred pip requirements.
+    """
+    modules = _capture_imported_modules(model_uri, flavor)
     packages = _flatten(map(_module_to_packages, modules))
     packages = map(_canonicalize_package_name, packages)
+    packages = _prune_packages(packages)
     excluded_packages = [
         # Certain packages (e.g. scikit-learn 0.24.2) imports `setuptools` or `pkg_resources`
         # (a module provided by `setuptools`) to process or interact with package metadata.
         # It should be safe to exclude `setuptools` because it's rare to encounter a python
         # environment where `setuptools` is not pre-installed.
         "setuptools",
+        # Exclude a package that provides the mlflow module (e.g. mlflow, mlflow-skinny).
         # Certain flavors (e.g. pytorch) import mlflow while loading a model, but mlflow should
         # not be counted as a model requirement.
-        "mlflow",
+        *_MODULE_TO_PACKAGES.get("mlflow", []),
     ]
-    packages = _prune_packages(packages) - set(excluded_packages)
+    packages = packages - set(excluded_packages)
     return sorted(map(_get_pinned_requirement, packages))
 
 
