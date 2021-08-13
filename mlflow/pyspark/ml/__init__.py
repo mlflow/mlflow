@@ -21,7 +21,7 @@ from mlflow.utils.autologging_utils import (
     safe_patch,
     try_mlflow_log,
 )
-from mlflow.utils.autologging_utils import get_instance_method_arg_value
+from mlflow.utils.autologging_utils import get_method_call_arg_value
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING, MLFLOW_PARENT_RUN_ID
 from mlflow.utils.validation import (
@@ -439,6 +439,39 @@ def _log_estimator_params(param_map):
 
 
 class _AutologgingMetricsManager:
+    """
+    This class is designed for holding information which is used by autologging metrics
+    It will hold information of:
+    (1) a map of "prediction result object id" to a tuple of dataset name(the dataset is
+       the one which generate the prediction result) and run_id.
+       Note: We need this map instead of setting the run_id into the "prediction result object"
+       because the object maybe a numpy array which does not support additional attribute
+       assignment.
+    (2) _log_post_training_metrics_enabled flag, in the following method scope:
+       `Estimator.fit`, `Model.transform`, `Evaluator.evaluate`,
+       in order to avoid nested/duplicated autologging metric, when run into these scopes,
+       we need temporarily disable the metric autologging.
+    (3) _eval_dataset_info_map, it is a double level map:
+       `_eval_dataset_info_map[run_id][eval_dataset_var_name]` will get a list, each
+       element in the list is an id of "eval_dataset" instance.
+       This data structure is used for:
+        * generating unique dataset name key when autologging metric. For each eval dataset object,
+          if they have the same eval_dataset_var_name, but object ids are different,
+          then they will be assigned different name (via appending index to the
+          eval_dataset_var_name) when autologging.
+    (4) _evaluator_call_info, it is a double level map:
+       `_metric_api_call_info[run_id][metric_name]` wil get a list of tuples, each tuple is:
+         (logged_metric_key, evaluator_information)
+        Evaluator information includes evaluator class name and params, these information
+        will also be logged into "metric_info.json" artifacts.
+
+    Note: this class is not thread-safe.
+    Design rule for this class:
+     Because this class instance is a global instance, in order to prevent memory leak, it should
+     only holds IDs and other small objects references. This class internal data structure should
+     avoid reference to user dataset variables or model variables.
+    """
+
     def __init__(self):
         self._pred_result_id_to_dataset_name_and_run_id = {}
         self._eval_dataset_info_map = defaultdict(lambda: defaultdict(list))
@@ -452,9 +485,9 @@ class _AutologgingMetricsManager:
         This checking should surround the whole patched code due to the safe guard checking,
         See following note.
 
-        Note: It includes checking `_SklearnTrainingSession.is_active()`, This is a safe guarding
-        for meta-estimator (e.g. GridSearchCV) case:
-          running GridSearchCV.fit, the nested `estimator.fit` will be called in parallel,
+        Note: It includes checking `_SparkTrainingSession.is_active()`, This is a safe guarding
+        for meta-estimator (e.g. CrossValidator/TrainValidationSplit) case:
+          running CrossValidator.fit, the nested `estimator.fit` will be called in parallel,
           but, the _autolog_training_status is a global status without thread-safe lock protecting.
           This safe guarding will prevent code run into this case.
         """
@@ -561,18 +594,21 @@ class _AutologgingMetricsManager:
 
     def get_run_id_and_dataset_name_for_evaluator_call(self, pred_result_dataset):
         """
-        Given a metric api call (include the called metric function, and call arguments)
-        Register the call information (arguments dict) into the `metric_api_call_arg_dict_list_map`
-        and return a tuple of (run_id, eval_dataset_name)
+        Given a registered prediction result dataset object,
+        return a tuple of (run_id, eval_dataset_name)
         """
         if id(pred_result_dataset) in self._pred_result_id_to_dataset_name_and_run_id:
-            dataset_name, run_id = \
-                self._pred_result_id_to_dataset_name_and_run_id[id(pred_result_dataset)]
+            dataset_name, run_id = self._pred_result_id_to_dataset_name_and_run_id[
+                id(pred_result_dataset)
+            ]
             return run_id, dataset_name
         else:
             return None, None
 
     def gen_evaluator_info(self, evaluator):
+        """
+        Generate evaluator information, include evaluator class name and params.
+        """
         class_name = _get_fully_qualified_class_name(evaluator)
         param_map = _truncate_dict(
             _get_param_map(evaluator), MAX_ENTITY_KEY_LENGTH, MAX_PARAM_VAL_LENGTH
@@ -580,6 +616,11 @@ class _AutologgingMetricsManager:
         return {"evaluator_class": class_name, "params": param_map}
 
     def register_evaluator_call(self, run_id, metric_name, dataset_name, evaluator_info):
+        """
+        Register the `Evaluator.evaluate` call, including register the evaluator information
+        (See doc of `gen_evaluator_info` method) into the corresponding run_id and metric_name
+        entry in the registry table.
+        """
         evaluator_call_info_list = self._evaluator_call_info[run_id][metric_name]
 
         index = len(evaluator_call_info_list)
@@ -826,7 +867,7 @@ def autolog(
                 _logger.warning(_get_warning_msg_for_skip_log_model(spark_model))
 
     def fit_mlflow(original, self, *args, **kwargs):
-        params = get_instance_method_arg_value(1, "params", None, args, kwargs)
+        params = get_method_call_arg_value(1, "params", None, args, kwargs)
 
         # Do not perform autologging on direct calls to fit() for featurizers.
         # Note that featurizers will be autologged when they're fit as part of a Pipeline.
@@ -846,54 +887,59 @@ def autolog(
 
     def patched_fit(original, self, *args, **kwargs):
 
-        status = _get_autologging_metrics_manager()
-        should_log_post_training_metrics = status.should_log_post_training_metrics()
+        metrics_manager = _get_autologging_metrics_manager()
+        should_log_post_training_metrics = metrics_manager.should_log_post_training_metrics()
         with _SparkTrainingSession(clazz=self.__class__, allow_children=False) as t:
             if t.should_log():
-                with status.disable_log_post_training_metrics():
+                with metrics_manager.disable_log_post_training_metrics():
                     spark_model = fit_mlflow(original, self, *args, **kwargs)
                 if should_log_post_training_metrics:
-                    status.register_model(spark_model, mlflow.active_run().info.run_id)
+                    metrics_manager.register_model(spark_model, mlflow.active_run().info.run_id)
                 return spark_model
             else:
                 return original(self, *args, **kwargs)
 
     def patched_transform(original, self, *args, **kwargs):
-        status = _get_autologging_metrics_manager()
-        if status.should_log_post_training_metrics() and status.get_run_id_for_model(self):
+        metrics_manager = _get_autologging_metrics_manager()
+        if metrics_manager.should_log_post_training_metrics() and metrics_manager.get_run_id_for_model(
+            self
+        ):
             predict_result = original(self, *args, **kwargs)
-            eval_dataset = get_instance_method_arg_value(0, "dataset", None, args, kwargs)
-            eval_dataset_name = status.register_prediction_input_dataset(self, eval_dataset)
-            status.register_prediction_result(
-                status.get_run_id_for_model(self), eval_dataset_name, predict_result
+            eval_dataset = get_method_call_arg_value(0, "dataset", None, args, kwargs)
+            eval_dataset_name = metrics_manager.register_prediction_input_dataset(
+                self, eval_dataset
+            )
+            metrics_manager.register_prediction_result(
+                metrics_manager.get_run_id_for_model(self), eval_dataset_name, predict_result
             )
             return predict_result
         else:
             return original(self, *args, **kwargs)
 
     def patched_evaluate(original, self, *args, **kwargs):
-        status = _get_autologging_metrics_manager()
-        if status.should_log_post_training_metrics():
-            with status.disable_log_post_training_metrics():
+        metrics_manager = _get_autologging_metrics_manager()
+        if metrics_manager.should_log_post_training_metrics():
+            with metrics_manager.disable_log_post_training_metrics():
                 metric = original(self, *args, **kwargs)
 
-            if status.is_metric_value_loggable(metric):
-                params = get_instance_method_arg_value(1, "params", None, args, kwargs)
+            if metrics_manager.is_metric_value_loggable(metric):
+                params = get_method_call_arg_value(1, "params", None, args, kwargs)
                 evaluator = self.copy(params) if params is not None else self
                 metric_name = evaluator.getMetricName()
-                evaluator_info = status.gen_evaluator_info(evaluator)
+                evaluator_info = metrics_manager.gen_evaluator_info(evaluator)
 
-                pred_result_dataset = get_instance_method_arg_value(
-                    0, "dataset", None, args, kwargs
-                )
-                run_id, dataset_name = status.get_run_id_and_dataset_name_for_evaluator_call(
+                pred_result_dataset = get_method_call_arg_value(0, "dataset", None, args, kwargs)
+                (
+                    run_id,
+                    dataset_name,
+                ) = metrics_manager.get_run_id_and_dataset_name_for_evaluator_call(
                     pred_result_dataset
                 )
                 if run_id and dataset_name:
-                    metric_key = status.register_evaluator_call(
+                    metric_key = metrics_manager.register_evaluator_call(
                         run_id, metric_name, dataset_name, evaluator_info
                     )
-                    status.log_post_training_metric(run_id, metric_key, metric)
+                    metrics_manager.log_post_training_metric(run_id, metric_key, metric)
             return metric
         else:
             return original(self, *args, **kwargs)

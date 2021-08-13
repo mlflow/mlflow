@@ -1306,16 +1306,16 @@ def autolog(
                           for autologging (e.g., specify "fit" in order to indicate that
                           `sklearn.linear_model.LogisticRegression.fit()` is being patched)
         """
-        status = _get_autologging_metrics_manager()
-        should_log_post_training_metrics = status.should_log_post_training_metrics()
+        metrics_manager = _get_autologging_metrics_manager()
+        should_log_post_training_metrics = metrics_manager.should_log_post_training_metrics()
         with _SklearnTrainingSession(clazz=self.__class__, allow_children=False) as t:
             if t.should_log():
                 # In `fit_mlflow` call, it will also call metric API for computing training metrics
                 # so we need temporarily disable the post_training_metrics patching.
-                with status.disable_log_post_training_metrics():
+                with metrics_manager.disable_log_post_training_metrics():
                     result = fit_mlflow(original, self, *args, **kwargs)
                 if should_log_post_training_metrics:
-                    status.register_model(self, mlflow.active_run().info.run_id)
+                    metrics_manager.register_model(self, mlflow.active_run().info.run_id)
                 return result
             else:
                 return original(self, *args, **kwargs)
@@ -1335,38 +1335,45 @@ def autolog(
         the prediction_result object, because certain dataset type like numpy does not support
         additional attribute assignment.
         """
-        status = _get_autologging_metrics_manager()
-        if status.should_log_post_training_metrics() and status.get_run_id_for_model(self):
+        metrics_manager = _get_autologging_metrics_manager()
+        if metrics_manager.should_log_post_training_metrics() and metrics_manager.get_run_id_for_model(
+            self
+        ):
             predict_result = original(self, *args, **kwargs)
             eval_dataset = get_instance_method_first_arg_value(original, args, kwargs)
-            eval_dataset_name = status.register_prediction_input_dataset(self, eval_dataset)
-            status.register_prediction_result(
-                status.get_run_id_for_model(self), eval_dataset_name, predict_result
+            eval_dataset_name = metrics_manager.register_prediction_input_dataset(
+                self, eval_dataset
+            )
+            metrics_manager.register_prediction_result(
+                metrics_manager.get_run_id_for_model(self), eval_dataset_name, predict_result
             )
             return predict_result
         else:
             return original(self, *args, **kwargs)
 
     def patched_metric_api(original, *args, **kwargs):
-        status = _get_autologging_metrics_manager()
-        if status.should_log_post_training_metrics():
+        metrics_manager = _get_autologging_metrics_manager()
+        if metrics_manager.should_log_post_training_metrics():
             # one metric api may call another metric api,
             # to avoid this, call disable_log_post_training_metrics to avoid nested patch
-            with status.disable_log_post_training_metrics():
+            with metrics_manager.disable_log_post_training_metrics():
                 metric = original(*args, **kwargs)
 
-            if status.is_metric_value_loggable(metric):
+            if metrics_manager.is_metric_value_loggable(metric):
                 metric_name = original.__name__
-                call_command = status.gen_metric_call_command(None, original, *args, **kwargs)
-
-                run_id, dataset_name = status.get_run_id_and_dataset_name_for_metric_api_call(
-                    args, kwargs
+                call_command = metrics_manager.gen_metric_call_command(
+                    None, original, *args, **kwargs
                 )
+
+                (
+                    run_id,
+                    dataset_name,
+                ) = metrics_manager.get_run_id_and_dataset_name_for_metric_api_call(args, kwargs)
                 if run_id and dataset_name:
-                    metric_key = status.register_metric_api_call(
+                    metric_key = metrics_manager.register_metric_api_call(
                         run_id, metric_name, dataset_name, call_command
                     )
-                    status.log_post_training_metric(run_id, metric_key, metric)
+                    metrics_manager.log_post_training_metric(run_id, metric_key, metric)
 
             return metric
         else:
@@ -1377,26 +1384,32 @@ def autolog(
     #  e.g.
     #  https://github.com/scikit-learn/scikit-learn/blob/82df48934eba1df9a1ed3be98aaace8eada59e6e/sklearn/covariance/_empirical_covariance.py#L220
     def patched_model_score(original, self, *args, **kwargs):
-        status = _get_autologging_metrics_manager()
-        if status.should_log_post_training_metrics() and status.get_run_id_for_model(self):
+        metrics_manager = _get_autologging_metrics_manager()
+        if metrics_manager.should_log_post_training_metrics() and metrics_manager.get_run_id_for_model(
+            self
+        ):
             # `model.score` may call metric APIs internally, in order to prevent nested metric call
             # being logged, temporarily disable post_training_metrics patching.
-            with status.disable_log_post_training_metrics():
+            with metrics_manager.disable_log_post_training_metrics():
                 score_value = original(self, *args, **kwargs)
 
-            if status.is_metric_value_loggable(score_value):
+            if metrics_manager.is_metric_value_loggable(score_value):
                 metric_name = f"{self.__class__.__name__}_score"
-                call_command = status.gen_metric_call_command(self, original, *args, **kwargs)
+                call_command = metrics_manager.gen_metric_call_command(
+                    self, original, *args, **kwargs
+                )
 
                 eval_dataset = get_instance_method_first_arg_value(original, args, kwargs)
-                eval_dataset_name = status.register_prediction_input_dataset(self, eval_dataset)
-                run_id = status.get_run_id_for_model(self)
-                metric_key = status.register_metric_api_call(
+                eval_dataset_name = metrics_manager.register_prediction_input_dataset(
+                    self, eval_dataset
+                )
+                run_id = metrics_manager.get_run_id_for_model(self)
+                metric_key = metrics_manager.register_metric_api_call(
                     run_id, metric_name, eval_dataset_name, call_command
                 )
 
-                status.log_post_training_metric(
-                    status.get_run_id_for_model(self), metric_key, score_value
+                metrics_manager.log_post_training_metric(
+                    metrics_manager.get_run_id_for_model(self), metric_key, score_value
                 )
 
             return score_value
@@ -1561,8 +1574,8 @@ def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
       - prefix is empty
       - model is not an sklearn estimator or does not support the 'predict' method
     """
-    status = _get_autologging_metrics_manager()
-    with status.disable_log_post_training_metrics():
+    metrics_manager = _get_autologging_metrics_manager()
+    with metrics_manager.disable_log_post_training_metrics():
         return _eval_and_log_metrics_impl(
             model, X, y_true, prefix=prefix, sample_weight=sample_weight
         )
