@@ -4,7 +4,6 @@ import inspect
 import logging
 import time
 import contextlib
-import numpy as np
 
 import mlflow
 from mlflow.entities import Metric
@@ -586,13 +585,3 @@ def get_method_call_arg_value(arg_index, arg_name, default_value, call_pos_args,
         return call_pos_args[arg_index]
     else:
         return default_value
-
-
-def is_metric_value_loggable(metric_value):
-    """
-    check whether the specified `metric_value` is a numeric value which can be logged
-    as an MLflow metric.
-    """
-    return isinstance(metric_value, (int, float, np.number)) and not isinstance(
-        metric_value, (bool, np.bool)
-    )

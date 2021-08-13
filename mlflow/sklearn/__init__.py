@@ -59,7 +59,6 @@ from mlflow.utils.autologging_utils import (
     MlflowAutologgingQueueingClient,
     disable_autologging,
     update_wrapper_extended,
-    is_metric_value_loggable,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -593,6 +592,16 @@ class _AutologgingMetricsManager:
     @staticmethod
     def get_run_id_for_model(model):
         return getattr(model, "_mlflow_run_id", None)
+
+    @staticmethod
+    def is_metric_value_loggable(metric_value):
+        """
+        check whether the specified `metric_value` is a numeric value which can be logged
+        as an MLflow metric.
+        """
+        return isinstance(metric_value, (int, float, np.number)) and not isinstance(
+            metric_value, (bool, np.bool)
+        )
 
     def register_model(self, model, run_id):
         """
@@ -1366,7 +1375,7 @@ def autolog(
             with _AUTOLOGGING_METRICS_MANAGER.disable_log_post_training_metrics():
                 metric = original(*args, **kwargs)
 
-            if is_metric_value_loggable(metric):
+            if _AUTOLOGGING_METRICS_MANAGER.is_metric_value_loggable(metric):
                 metric_name = original.__name__
                 call_command = _AUTOLOGGING_METRICS_MANAGER.gen_metric_call_command(
                     None, original, *args, **kwargs
@@ -1402,7 +1411,7 @@ def autolog(
             with _AUTOLOGGING_METRICS_MANAGER.disable_log_post_training_metrics():
                 score_value = original(self, *args, **kwargs)
 
-            if is_metric_value_loggable(score_value):
+            if _AUTOLOGGING_METRICS_MANAGER.is_metric_value_loggable(score_value):
                 metric_name = f"{self.__class__.__name__}_score"
                 call_command = _AUTOLOGGING_METRICS_MANAGER.gen_metric_call_command(
                     self, original, *args, **kwargs

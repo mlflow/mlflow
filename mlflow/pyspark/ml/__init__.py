@@ -20,7 +20,6 @@ from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
     try_mlflow_log,
-    is_metric_value_loggable,
 )
 from mlflow.utils.autologging_utils import get_method_call_arg_value
 from mlflow.utils.file_utils import TempDir
@@ -521,6 +520,16 @@ class _AutologgingMetricsManager:
             metric_value, (bool, np.bool)
         )
 
+    @staticmethod
+    def is_metric_value_loggable(metric_value):
+        """
+        check whether the specified `metric_value` is a numeric value which can be logged
+        as an MLflow metric.
+        """
+        return isinstance(metric_value, (int, float, np.number)) and not isinstance(
+            metric_value, (bool, np.bool)
+        )
+
     def register_model(self, model, run_id):
         """
         In `patched_fit`, we need register the model with the run_id used in `patched_fit`
@@ -946,7 +955,7 @@ def autolog(
             with _AUTOLOGGING_METRICS_MANAGER.disable_log_post_training_metrics():
                 metric = original(self, *args, **kwargs)
 
-            if is_metric_value_loggable(metric):
+            if _AUTOLOGGING_METRICS_MANAGER.is_metric_value_loggable(metric):
                 params = get_method_call_arg_value(1, "params", None, args, kwargs)
                 # we need generate evaluator param map so we call `self.copy(params)` to construct
                 # an evaluator with the extra evaluation params.

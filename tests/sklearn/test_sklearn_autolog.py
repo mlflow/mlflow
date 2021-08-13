@@ -1707,7 +1707,7 @@ def test_meta_estimator_disable_nested_post_training_autologging(scoring):
     with mock.patch(
         "mlflow.sklearn._AutologgingMetricsManager.register_model"
     ) as mock_register_model, mock.patch(
-        "mlflow.utils.autologging_utils.is_metric_value_loggable"
+        "mlflow.sklearn._AutologgingMetricsManager.is_metric_value_loggable"
     ) as mock_is_metric_value_loggable, mock.patch(
         "mlflow.sklearn._AutologgingMetricsManager.log_post_training_metric"
     ) as mock_log_post_training_metric, mock.patch(
@@ -1847,3 +1847,15 @@ def test_patch_for_available_if_decorated_method():
     transform1_y_original = model.transform(eval1_X)
 
     assert np.allclose(transform1_y, transform1_y_original)
+
+
+def test_is_metrics_value_loggable():
+    is_metric_value_loggable = mlflow.sklearn._AutologgingMetricsManager.is_metric_value_loggable
+    assert is_metric_value_loggable(3)
+    assert is_metric_value_loggable(3.5)
+    assert is_metric_value_loggable(np.int(3))
+    assert is_metric_value_loggable(np.float32(3.5))
+    assert not is_metric_value_loggable(True)
+    assert not is_metric_value_loggable(np.bool(True))
+    assert not is_metric_value_loggable([1, 2])
+    assert not is_metric_value_loggable(np.array([1, 2]))
