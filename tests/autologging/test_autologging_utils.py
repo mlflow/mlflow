@@ -22,6 +22,7 @@ from mlflow.utils.autologging_utils import (
     get_autologging_config,
     autologging_is_disabled,
     get_instance_method_first_arg_value,
+    get_method_call_arg_value,
 )
 from mlflow.utils.autologging_utils.safety import _wrap_patch, AutologgingSession
 from mlflow.utils.autologging_utils.versioning import (
@@ -939,3 +940,10 @@ def test_get_instance_method_first_arg_value():
         get_instance_method_first_arg_value(Test.f3, [], {"ab1": 3, "cd2": 4})
     with pytest.raises(AssertionError):
         get_instance_method_first_arg_value(Test.f4, [], {"ab1": 3, "cd2": 4})
+
+
+def test_get_method_call_arg_value():
+    # suppose we call on a method defined like: `def f1(a, b=3, *, c=4, e=5)`
+    assert 2 == get_method_call_arg_value(1, "b", 3, [1, 2], {})
+    assert 3 == get_method_call_arg_value(1, "b", 3, [1], {})
+    assert 2 == get_method_call_arg_value(1, "b", 3, [1], {"b": 2})

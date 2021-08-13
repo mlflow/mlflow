@@ -1359,7 +1359,9 @@ def autolog(
         additional attribute assignment.
         """
         metrics_manager = _get_autologging_metrics_manager()
-        if metrics_manager.should_log_post_training_metrics() and metrics_manager.get_run_id_for_model(self):
+        if metrics_manager.should_log_post_training_metrics() and metrics_manager.get_run_id_for_model(
+            self
+        ):
             # Avoid nested patch when nested inference calls happens.
             with metrics_manager.disable_log_post_training_metrics():
                 predict_result = original(self, *args, **kwargs)
