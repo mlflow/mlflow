@@ -695,6 +695,31 @@ def autolog(
         - A fully qualified estimator class name
           (e.g. "pyspark.ml.regression.LinearRegression").
 
+      **Post training metrics**
+        When users call evaluator APIs after model training, MLflow tries to capture the
+        `Evaluator.evaluate` results and log them as MLflow metrics to the Run associated with
+        the model. All pyspark ML evaluators are supported.
+
+        For post training metrics autologging, the metric key format is:
+        "{metric_name}[-{call_index}]_{dataset_name}"
+
+        - The metric name is the name returned by `Evaluator.getMetricName()`
+        - If multiple calls are made to the same pyspark ML evaluator metric, each subsequent call
+          adds a "call_index" (starting from 2) to the metric key.
+        - MLflow uses the prediction input dataset variable name as the "dataset_name" in the
+          metric key. The "prediction input dataset variable" refers to the variable which was
+          used as the `dataset` argument of `model.transform` call.
+          Note: MLflow captures the "prediction input dataset" instance in the outermost call
+          frame and fetches the variable name in the outermost call frame. If the "prediction
+          input dataset" instance is an intermediate expression without a defined variable
+          name, the dataset name is set to "unknown_dataset". If multiple "prediction input
+          dataset" instances have the same variable name, then subsequent ones will append an
+          index (starting from 2) to the inspected dataset name.
+
+        **Limitations**
+          - MLflow cannot find run information for other objects derived from a given prediction
+            result (e.g. by doing some tranformation on the prediction result dataset).
+
       **Artifacts**
         - An MLflow Model with the :py:mod:`mlflow.spark` flavor containing a fitted estimator
           (logged by :py:func:`mlflow.spark.log_model()`). Note that large models may not be
@@ -702,6 +727,10 @@ def autolog(
           Pipelines and hyperparameter tuning meta-estimators (e.g. CrossValidator) is not yet
           supported.
           See ``log_models`` param below for details.
+        - For post training metrics API calls, a "metric_info.json" artifact is logged. This is a
+          JSON object whose keys are MLflow post training metric names
+          (see "Post training metrics" section for the key format) and whose values are the
+          corresponding evaluator information, includes evaluator class name and evaluator params.
 
     **How does autologging work for meta estimators?**
           When a meta estimator (e.g. `Pipeline`_, `CrossValidator`_, `TrainValidationSplit`_,
@@ -879,6 +908,8 @@ def autolog(
             _logger.warning(_get_warning_msg_for_fit_call_with_a_list_of_params(self))
             return original(self, *args, **kwargs)
         else:
+            # we need generate estimator param map so we call `self.copy(params)` to construct
+            # an estimator with the extra params.
             estimator = self.copy(params) if params is not None else self
             _log_pretraining_metadata(estimator, params)
             spark_model = original(self, *args, **kwargs)
@@ -886,7 +917,6 @@ def autolog(
             return spark_model
 
     def patched_fit(original, self, *args, **kwargs):
-
         metrics_manager = _get_autologging_metrics_manager()
         should_log_post_training_metrics = metrics_manager.should_log_post_training_metrics()
         with _SparkTrainingSession(clazz=self.__class__, allow_children=False) as t:
@@ -924,6 +954,8 @@ def autolog(
 
             if metrics_manager.is_metric_value_loggable(metric):
                 params = get_method_call_arg_value(1, "params", None, args, kwargs)
+                # we need generate evaluator param map so we call `self.copy(params)` to construct
+                # an evaluator with the extra evaluation params.
                 evaluator = self.copy(params) if params is not None else self
                 metric_name = evaluator.getMetricName()
                 evaluator_info = metrics_manager.gen_evaluator_info(evaluator)

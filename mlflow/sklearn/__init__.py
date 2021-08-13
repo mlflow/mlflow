@@ -949,10 +949,6 @@ def autolog(
              metrics to MLflow runs.
            - If user define a scorer which is not based on metric APIs in `sklearn.metrics`, then
              then post training metric autologging for the scorer is invalid.
-           - Do not support `LocalOutlierFactor` estimator.
-           - For several meta-estimators, if there target methods are decorated by
-             "@if_delegate_has_method", then post training metric autologging patching for that
-             method is invalid.
 
         **Tags**
           - An estimator class name (e.g. "LinearRegression").
