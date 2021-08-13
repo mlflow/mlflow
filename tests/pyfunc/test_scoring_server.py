@@ -4,10 +4,19 @@ import numpy as np
 import os
 import pandas as pd
 from collections import namedtuple, OrderedDict
+from packaging.version import Version
 
-from keras.models import Model
-from keras.layers import Dense, Input, Concatenate
-from keras.optimizers import SGD
+import keras
+
+if Version(keras.__version__) >= Version("2.6.0"):
+    from tensorflow.keras.models import Model
+    from tensorflow.keras.layers import Dense, Input, Concatenate
+    from tensorflow.keras.optimizers import SGD
+else:
+    from keras.models import Model
+    from keras.layers import Dense, Input, Concatenate
+    from keras.optimizers import SGD
+
 import pytest
 import random
 import sklearn.datasets as datasets

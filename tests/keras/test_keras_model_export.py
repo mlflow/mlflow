@@ -14,10 +14,18 @@ from tensorflow.keras.models import Sequential as TfSequential
 from tensorflow.keras.layers import Dense as TfDense
 from tensorflow.keras.optimizers import SGD as TfSGD
 import keras
-from keras.models import Sequential
-from keras.layers import Layer, Dense
-from keras import backend as K
-from keras.optimizers import SGD
+
+if Version(keras.__version__) >= Version("2.6.0"):
+    from tensorflow.keras.models import Sequential
+    from tensorflow.keras.layers import Layer, Dense
+    from tensorflow.keras import backend as K
+    from tensorflow.keras.optimizers import SGD
+else:
+    from keras.models import Sequential
+    from keras.layers import Layer, Dense
+    from keras import backend as K
+    from keras.optimizers import SGD
+
 import sklearn.datasets as datasets
 import pandas as pd
 import numpy as np
