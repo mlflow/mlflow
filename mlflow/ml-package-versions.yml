@@ -115,7 +115,8 @@ keras:
       # keras 2.3.1 is incompatible with tensorflow > 2.2.1 and causes the issue reported here:
       # https://github.com/tensorflow/tensorflow/issues/38589
       "== 2.3.1": ["tensorflow==2.2.1"]
-      "> 2.3.1": ["tensorflow<2.5.0"]
+      "> 2.3.1, < 2.6.0": ["tensorflow<2.5.0"]
+      ">= 2.6.0": ["tensorflow"]
     run: |
       pytest tests/keras_autolog/test_keras_autolog.py --large
 
