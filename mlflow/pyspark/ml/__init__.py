@@ -922,10 +922,11 @@ def autolog(
         with _SparkTrainingSession(clazz=self.__class__, allow_children=False) as t:
             if t.should_log():
                 with metrics_manager.disable_log_post_training_metrics():
-                    spark_model = fit_mlflow(original, self, *args, **kwargs)
-                if should_log_post_training_metrics:
-                    metrics_manager.register_model(spark_model, mlflow.active_run().info.run_id)
-                return spark_model
+                    fit_result = fit_mlflow(original, self, *args, **kwargs)
+                # In some cases the `fit_result` may be an iterator of spark models.
+                if should_log_post_training_metrics and isinstance(fit_result, Model):
+                    metrics_manager.register_model(fit_result, mlflow.active_run().info.run_id)
+                return fit_result
             else:
                 return original(self, *args, **kwargs)
 
