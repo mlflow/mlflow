@@ -731,7 +731,7 @@ def test_meta_estimator_disable_post_training_autologging(dataset_regression):
     with mock.patch(
         "mlflow.pyspark.ml._AutologgingMetricsManager.register_model"
     ) as mock_register_model, mock.patch(
-        "mlflow.pyspark.ml._AutologgingMetricsManager.is_metric_value_loggable"
+        "mlflow.utils.autologging_utils.is_metric_value_loggable"
     ) as mock_is_metric_value_loggable, mock.patch(
         "mlflow.pyspark.ml._AutologgingMetricsManager.log_post_training_metric"
     ) as mock_log_post_training_metric, mock.patch(

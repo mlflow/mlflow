@@ -1630,18 +1630,6 @@ def test_post_training_metric_autologging_patch_transform():
         mock_register_prediction_input_dataset.assert_called_once()
 
 
-def test_is_metrics_value_loggable():
-    is_metrics_value_loggable = mlflow.sklearn._autologging_metrics_manager.is_metric_value_loggable
-    assert is_metrics_value_loggable(3)
-    assert is_metrics_value_loggable(3.5)
-    assert is_metrics_value_loggable(np.int(3))
-    assert is_metrics_value_loggable(np.float32(3.5))
-    assert not is_metrics_value_loggable(True)
-    assert not is_metrics_value_loggable(np.bool(True))
-    assert not is_metrics_value_loggable([1, 2])
-    assert not is_metrics_value_loggable(np.array([1, 2]))
-
-
 def test_nested_metric_call_is_disabled():
     mlflow.sklearn.autolog()
 
@@ -1719,7 +1707,7 @@ def test_meta_estimator_disable_nested_post_training_autologging(scoring):
     with mock.patch(
         "mlflow.sklearn._AutologgingMetricsManager.register_model"
     ) as mock_register_model, mock.patch(
-        "mlflow.sklearn._AutologgingMetricsManager.is_metric_value_loggable"
+        "mlflow.utils.autologging_utils.is_metric_value_loggable"
     ) as mock_is_metric_value_loggable, mock.patch(
         "mlflow.sklearn._AutologgingMetricsManager.log_post_training_metric"
     ) as mock_log_post_training_metric, mock.patch(

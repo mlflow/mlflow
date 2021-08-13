@@ -6,7 +6,7 @@ import pytest
 from collections import namedtuple
 from unittest.mock import Mock, call
 from unittest import mock
-
+import numpy as np
 
 import mlflow
 from mlflow.utils import gorilla
@@ -23,6 +23,7 @@ from mlflow.utils.autologging_utils import (
     autologging_is_disabled,
     get_instance_method_first_arg_value,
     get_method_call_arg_value,
+    is_metric_value_loggable,
 )
 from mlflow.utils.autologging_utils.safety import _wrap_patch, AutologgingSession
 from mlflow.utils.autologging_utils.versioning import (
@@ -947,3 +948,14 @@ def test_get_method_call_arg_value():
     assert 2 == get_method_call_arg_value(1, "b", 3, [1, 2], {})
     assert 3 == get_method_call_arg_value(1, "b", 3, [1], {})
     assert 2 == get_method_call_arg_value(1, "b", 3, [1], {"b": 2})
+
+
+def test_is_metrics_value_loggable():
+    assert is_metric_value_loggable(3)
+    assert is_metric_value_loggable(3.5)
+    assert is_metric_value_loggable(np.int(3))
+    assert is_metric_value_loggable(np.float32(3.5))
+    assert not is_metric_value_loggable(True)
+    assert not is_metric_value_loggable(np.bool(True))
+    assert not is_metric_value_loggable([1, 2])
+    assert not is_metric_value_loggable(np.array([1, 2]))

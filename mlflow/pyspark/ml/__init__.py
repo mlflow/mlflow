@@ -20,6 +20,7 @@ from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
     try_mlflow_log,
+    is_metric_value_loggable,
 )
 from mlflow.utils.autologging_utils import get_method_call_arg_value
 from mlflow.utils.file_utils import TempDir
@@ -584,9 +585,7 @@ class _AutologgingMetricsManager:
         self._pred_result_id_to_dataset_name_and_run_id[prediction_result_id] = value
 
         def clean_id(id_):
-            _get_autologging_metrics_manager()._pred_result_id_to_dataset_name_and_run_id.pop(
-                id_, None
-            )
+            _AUTOLOGGING_METRICS_MANAGER._pred_result_id_to_dataset_name_and_run_id.pop(id_, None)
 
         # When the `predict_result` object being GCed, its ID may be reused, so register a finalizer
         # to clear the ID from the dict for preventing wrong ID mapping.
@@ -655,15 +654,9 @@ class _AutologgingMetricsManager:
             self._metric_info_artifact_need_update[run_id] = False
 
 
-_autologging_metrics_manager = _AutologgingMetricsManager()
-
-
-def _get_autologging_metrics_manager():
-    """
-    Get the global `_AutologgingMetricsManager` instance which holds information used in
-    post-training metric autologging. See doc of class `_AutologgingMetricsManager` for details.
-    """
-    return _autologging_metrics_manager
+# The global `_AutologgingMetricsManager` instance which holds information used in
+# post-training metric autologging. See doc of class `_AutologgingMetricsManager` for details.
+_AUTOLOGGING_METRICS_MANAGER = _AutologgingMetricsManager()
 
 
 @experimental
@@ -917,7 +910,7 @@ def autolog(
             return spark_model
 
     def patched_fit(original, self, *args, **kwargs):
-        metrics_manager = _get_autologging_metrics_manager()
+        metrics_manager = _AUTOLOGGING_METRICS_MANAGER
         should_log_post_training_metrics = metrics_manager.should_log_post_training_metrics()
         with _SparkTrainingSession(clazz=self.__class__, allow_children=False) as t:
             if t.should_log():
@@ -931,28 +924,26 @@ def autolog(
                 return original(self, *args, **kwargs)
 
     def patched_transform(original, self, *args, **kwargs):
-        metrics_manager = _get_autologging_metrics_manager()
-        if metrics_manager.should_log_post_training_metrics() \
-                and metrics_manager.get_run_id_for_model(self):
+        metrics_manager = _AUTOLOGGING_METRICS_MANAGER
+        run_id = metrics_manager.get_run_id_for_model(self)
+        if metrics_manager.should_log_post_training_metrics() and run_id:
             predict_result = original(self, *args, **kwargs)
             eval_dataset = get_method_call_arg_value(0, "dataset", None, args, kwargs)
             eval_dataset_name = metrics_manager.register_prediction_input_dataset(
                 self, eval_dataset
             )
-            metrics_manager.register_prediction_result(
-                metrics_manager.get_run_id_for_model(self), eval_dataset_name, predict_result
-            )
+            metrics_manager.register_prediction_result(run_id, eval_dataset_name, predict_result)
             return predict_result
         else:
             return original(self, *args, **kwargs)
 
     def patched_evaluate(original, self, *args, **kwargs):
-        metrics_manager = _get_autologging_metrics_manager()
+        metrics_manager = _AUTOLOGGING_METRICS_MANAGER
         if metrics_manager.should_log_post_training_metrics():
             with metrics_manager.disable_log_post_training_metrics():
                 metric = original(self, *args, **kwargs)
 
-            if metrics_manager.is_metric_value_loggable(metric):
+            if is_metric_value_loggable(metric):
                 params = get_method_call_arg_value(1, "params", None, args, kwargs)
                 # we need generate evaluator param map so we call `self.copy(params)` to construct
                 # an evaluator with the extra evaluation params.
