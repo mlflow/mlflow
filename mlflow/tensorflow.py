@@ -741,6 +741,7 @@ def _setup_callbacks(lst, log_models, metrics_logger):
     Adds TensorBoard and MlfLowTfKeras callbacks to the
     input list, and returns the new list and appropriate log directory.
     """
+    # pylint: disable=no-name-in-module
     import tensorflow
     from tensorflow.keras.callbacks import Callback, TensorBoard
 

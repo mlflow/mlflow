@@ -1,4 +1,5 @@
-# pep8: disable=E501
+# pylint: disable=no-name-in-module
+# pylint: disable=reimported
 
 from packaging.version import Version
 import h5py
@@ -46,9 +47,8 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 import keras
 
-# pylint: disable=no-name-in-module
-# pylint: disable=reimported
 if Version(keras.__version__) >= Version("2.6.0"):
+    from tensorflow import keras
     from tensorflow.keras.models import Sequential
     from tensorflow.keras.layers import Layer, Dense
     from tensorflow.keras import backend as K
@@ -493,20 +493,23 @@ def test_log_model_with_pip_requirements(model, tmpdir):
 
 @pytest.mark.large
 def test_log_model_with_extra_pip_requirements(model, tmpdir):
-    default_reqs = mlflow.keras.get_default_pip_requirements()
-
-    print(type(model))
+    default_reqs = mlflow.keras.get_default_pip_requirements(keras_module=keras)
     # Path to a requirements file
     req_file = tmpdir.join("requirements.txt")
     req_file.write("a")
     with mlflow.start_run():
-        mlflow.keras.log_model(model, "model", extra_pip_requirements=req_file.strpath)
+        mlflow.keras.log_model(
+            model, "model", keras_module=keras, extra_pip_requirements=req_file.strpath
+        )
         _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a"])
 
     # List of requirements
     with mlflow.start_run():
         mlflow.keras.log_model(
-            model, "model", extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
+            model,
+            "model",
+            keras_module=keras,
+            extra_pip_requirements=[f"-r {req_file.strpath}", "b"],
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a", "b"]
@@ -515,7 +518,10 @@ def test_log_model_with_extra_pip_requirements(model, tmpdir):
     # Constraints file
     with mlflow.start_run():
         mlflow.keras.log_model(
-            model, "model", extra_pip_requirements=[f"-c {req_file.strpath}", "b"]
+            model,
+            "model",
+            keras_module=keras,
+            extra_pip_requirements=[f"-c {req_file.strpath}", "b"],
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
@@ -570,17 +576,21 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(model,
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     model, model_path
 ):
-    mlflow.keras.save_model(keras_model=model, path=model_path)
-    _assert_pip_requirements(model_path, mlflow.keras.get_default_pip_requirements())
+    mlflow.keras.save_model(keras_model=model, path=model_path, keras_module=keras)
+    _assert_pip_requirements(
+        model_path, mlflow.keras.get_default_pip_requirements(keras_module=keras)
+    )
 
 
 @pytest.mark.large
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(model):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.keras.log_model(keras_model=model, artifact_path=artifact_path)
+        mlflow.keras.log_model(keras_model=model, artifact_path=artifact_path, keras_module=keras)
         model_uri = mlflow.get_artifact_uri(artifact_path)
-    _assert_pip_requirements(model_uri, mlflow.keras.get_default_pip_requirements())
+    _assert_pip_requirements(
+        model_uri, mlflow.keras.get_default_pip_requirements(keras_module=keras)
+    )
 
 
 @pytest.mark.large

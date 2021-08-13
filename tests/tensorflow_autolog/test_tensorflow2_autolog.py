@@ -799,6 +799,7 @@ def test_flush_queue_is_thread_safe():
 def get_text_vec_model(train_samples):
     # Taken from: https://github.com/mlflow/mlflow/issues/3910
 
+    # pylint: disable=no-name-in-module
     from tensorflow.keras.layers.experimental.preprocessing import TextVectorization
 
     VOCAB_SIZE = 10
