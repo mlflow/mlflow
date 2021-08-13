@@ -8,13 +8,11 @@ import shutil
 import importlib
 import random
 import json
-from importlib import import_module
 
 import tensorflow as tf
 from tensorflow.keras.models import Sequential as TfSequential
 from tensorflow.keras.layers import Dense as TfDense
 from tensorflow.keras.optimizers import SGD as TfSGD
-
 import sklearn.datasets as datasets
 import pandas as pd
 import numpy as np
@@ -45,15 +43,21 @@ from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-impo
 from tests.pyfunc.test_spark import score_model_as_udf
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
+
 import keras
 
-keras_mod = "tensorflow.keras" if Version(keras.__version__) >= Version("2.6.0") else "keras"
-Sequential = import_module(f"{keras_mod}.models.Sequential")
-Layer = import_module(f"{keras_mod}.layers.Layer")
-Dense = import_module(f"{keras_mod}.layers.Dense")
-K = import_module(f"{keras_mod}.layers.backend")
-Concatenate = import_module(f"{keras_mod}.layers.Concatenate")
-SGD = import_module(f"{keras_mod}.optimizers.SGD")
+# pylint: disable=no-name-in-module
+# pylint: disable=reimported
+if Version(keras.__version__) >= Version("2.6.0"):
+    from tensorflow.keras.models import Sequential
+    from tensorflow.keras.layers import Layer, Dense
+    from tensorflow.keras import backend as K
+    from tensorflow.keras.optimizers import SGD
+else:
+    from keras.models import Sequential
+    from keras.layers import Layer, Dense
+    from keras import backend as K
+    from keras.optimizers import SGD
 
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("keras") else ["--no-conda"]

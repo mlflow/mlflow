@@ -1,21 +1,25 @@
 import pytest
 import numpy as np
-from importlib import import_module
 from packaging.version import Version
 
+
+import mlflow
+import mlflow.keras
+from mlflow.utils.autologging_utils import BatchMetricsLogger
+from unittest.mock import patch
+
+import keras
+
+# pylint: disable=no-name-in-module
+# pylint: disable=reimported
+if Version(keras.__version__) >= Version("2.6.0"):
+    from tensorflow.keras import layers
+    from tensorflow import keras
+else:
+    from keras import layers
+
+
 np.random.seed(1337)
-
-
-import mlflow  # noqa
-import mlflow.keras  # noqa
-from mlflow.utils.autologging_utils import BatchMetricsLogger  # noqa
-from unittest.mock import patch  # noqa
-
-import keras  # noqa
-
-keras_mod = "tensorflow.keras" if Version(keras.__version__) >= Version("2.6.0") else "keras"
-keras = import_module(keras_mod)
-layers = import_module(f"{keras_mod}.layers")
 
 
 @pytest.fixture(autouse=True)
