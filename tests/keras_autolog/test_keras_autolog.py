@@ -15,7 +15,7 @@ import keras  # noqa
 
 keras_mod = "tensorflow.keras" if Version(keras.__version__) >= Version("2.6.0") else "keras"
 keras = import_module(keras_mod)
-leyers = import_module(f"{keras_mod}.layers")
+layers = import_module(f"{keras_mod}.layers")
 
 
 @pytest.fixture(autouse=True)
