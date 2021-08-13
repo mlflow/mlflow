@@ -7,7 +7,8 @@
 #' @param description Description for the registered model (Optional).
 #' @template roxlate-client
 #' @export
-mlflow_create_registered_model <- function(name, tags = NULL, description = NULL, client = NULL) {
+mlflow_create_registered_model <- function(name, tags = NULL,
+                                           description = NULL, client = NULL) {
   client <- resolve_client(client)
 
   response <- mlflow_rest(
@@ -160,7 +161,7 @@ mlflow_list_registered_models <- function(max_results = 100, page_token = NULL,
 #'   latest versions for ALL_STAGES.
 #' @template roxlate-client
 #' @export
-mlflow_get_latest_versions <- function(name, stages = list(), client = NULL) {  # TODO: Fix multiple stage issue
+mlflow_get_latest_versions <- function(name, stages = list(), client = NULL) {
   client <- resolve_client(client)
 
   response <- mlflow_rest(
