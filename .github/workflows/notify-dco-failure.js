@@ -33,8 +33,10 @@ module.exports = async ({ context, github }) => {
   const dcoCheck = await getDcoCheck();
   if (dcoCheck.conclusion !== "success") {
     const body = [
-      `@${user.login} The DCO check failed. `,
-      `Please sign off your commits: ${dcoCheck.html_url}`,
+      `@${user.login} Thanks for the contribution! The DCO check failed. `,
+      `Please sign off your commits by following the instructions here: ${dcoCheck.html_url}. `,
+      "See https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#sign-your-work for more ",
+      "details.",
     ].join("");
     await github.issues.createComment({
       owner,

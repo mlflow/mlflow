@@ -7,7 +7,7 @@ import click
 
 import mlflow.azureml
 from mlflow.utils import cli_args
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import deprecated
 
 
 @click.group("azureml")
@@ -79,7 +79,7 @@ def commands():
         " that include the model path, the model run id (if specified), and more."
     ),
 )
-@experimental
+@deprecated("the azureml deployment plugin, https://aka.ms/aml-mlflow-deploy", since="1.19.0")
 def build_image(
     model_uri,
     workspace_name,
