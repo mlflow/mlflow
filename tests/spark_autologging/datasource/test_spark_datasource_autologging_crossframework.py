@@ -71,7 +71,7 @@ def test_spark_autologging_with_sklearn_autologging(spark_session, data_format, 
         .select("number1", "number2")
     )
     pandas_df = df.toPandas()
-    run = _fit_sklearn_model(pandas_df, epochs=1)
+    run = _fit_sklearn_model(pandas_df)
     _assert_spark_data_logged(run, file_path, data_format)
     assert mlflow.active_run() is None
 
