@@ -7,7 +7,6 @@ import importlib_metadata
 import pytest
 
 import mlflow
-from mlflow.utils._capture_modules import _CaptureImportedModules
 from mlflow.utils.requirements_utils import (
     _is_comment,
     _is_empty,
@@ -194,6 +193,8 @@ def test_prune_packages():
 
 
 def test_capture_imported_modules():
+    from mlflow.utils._capture_modules import _CaptureImportedModules
+
     with _CaptureImportedModules() as cap:
         # pylint: disable=unused-import,unused-variable
         import math
