@@ -80,7 +80,7 @@ def sklearn_model(sklearn_data):
 
 
 class LogisticRegressionPandas(LogisticRegression):
-    def predict(self, *args, **kwargs):
+    def predict(self, *args, **kwargs):  # pylint: disable=arguments-differ
         # Wrap the output with `pandas.DataFrame`
         return pd.DataFrame(super().predict(*args, **kwargs))
 
