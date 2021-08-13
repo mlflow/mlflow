@@ -568,3 +568,20 @@ def get_instance_method_first_arg_value(method, call_pos_args, call_kwargs):
             inspect.Parameter.VAR_POSITIONAL,
         ]
         return call_kwargs.get(first_arg_name)
+
+
+def get_method_call_arg_value(arg_index, arg_name, default_value, call_pos_args, call_kwargs):
+    """
+    Get argument value for a method call.
+    :param arg_index: the argument index in the function signature. start from 0.
+    :param arg_name: the argument name in the function signature.
+    :param default_value: default argument value.
+    :param call_pos_args: the positional argument values in the method call.
+    :param call_kwargs: the keyword argument values in the method call.
+    """
+    if arg_name in call_kwargs:
+        return call_kwargs[arg_name]
+    elif arg_index < len(call_pos_args):
+        return call_pos_args[arg_index]
+    else:
+        return default_value
