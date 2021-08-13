@@ -730,7 +730,7 @@ def autolog(
         - For post training metrics API calls, a "metric_info.json" artifact is logged. This is a
           JSON object whose keys are MLflow post training metric names
           (see "Post training metrics" section for the key format) and whose values are the
-          corresponding evaluator information, includes evaluator class name and evaluator params.
+          corresponding evaluator information, including evaluator class name and evaluator params.
 
     **How does autologging work for meta estimators?**
           When a meta estimator (e.g. `Pipeline`_, `CrossValidator`_, `TrainValidationSplit`_,
@@ -932,9 +932,8 @@ def autolog(
 
     def patched_transform(original, self, *args, **kwargs):
         metrics_manager = _get_autologging_metrics_manager()
-        if metrics_manager.should_log_post_training_metrics() and metrics_manager.get_run_id_for_model(
-            self
-        ):
+        if metrics_manager.should_log_post_training_metrics() \
+                and metrics_manager.get_run_id_for_model(self):
             predict_result = original(self, *args, **kwargs)
             eval_dataset = get_method_call_arg_value(0, "dataset", None, args, kwargs)
             eval_dataset_name = metrics_manager.register_prediction_input_dataset(

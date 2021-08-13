@@ -19,7 +19,11 @@ from mlflow.utils.validation import (
 
 import pyspark
 from pyspark.ml import Pipeline
-from pyspark.ml.evaluation import RegressionEvaluator, MulticlassClassificationEvaluator
+from pyspark.ml.evaluation import (
+    BinaryClassificationEvaluator,
+    MulticlassClassificationEvaluator,
+    RegressionEvaluator,
+)
 from pyspark.ml.linalg import Vectors
 from pyspark.ml.regression import LinearRegression, LinearRegressionModel
 from pyspark.ml.classification import (
@@ -102,7 +106,6 @@ def dataset_regression(spark_session):
 
 @pytest.fixture(scope="module")
 def dataset_iris_binomial(spark_session):
-    from pyspark.ml.feature import VectorAssembler
     from sklearn.datasets import load_iris
 
     df = load_iris(as_frame=True).frame.rename(columns={"target": "label"})
@@ -598,11 +601,6 @@ def test_gen_estimator_metadata(spark_session):  # pylint: disable=unused-argume
 
 
 def test_basic_post_training_metric_autologging(dataset_iris_binomial):
-    from pyspark.ml.evaluation import (
-        MulticlassClassificationEvaluator,
-        BinaryClassificationEvaluator,
-    )
-
     mlflow.pyspark.ml.autolog()
 
     estimator = LogisticRegression(maxIter=1, family="binomial", regParam=5.0, fitIntercept=False)
@@ -691,8 +689,6 @@ def test_basic_post_training_metric_autologging(dataset_iris_binomial):
 
 
 def test_multi_model_interleaved_fit_and_post_train_metric_call(dataset_iris_binomial):
-    from pyspark.ml.evaluation import MulticlassClassificationEvaluator
-
     mlflow.pyspark.ml.autolog()
 
     estimator1 = LogisticRegression(maxIter=1, family="binomial", regParam=5.0, fitIntercept=False)

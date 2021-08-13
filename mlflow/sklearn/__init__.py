@@ -1359,9 +1359,8 @@ def autolog(
         additional attribute assignment.
         """
         metrics_manager = _get_autologging_metrics_manager()
-        if metrics_manager.should_log_post_training_metrics() and metrics_manager.get_run_id_for_model(
-            self
-        ):
+        if metrics_manager.should_log_post_training_metrics() \
+                and metrics_manager.get_run_id_for_model(self):
             # Avoid nested patch when nested inference calls happens.
             with metrics_manager.disable_log_post_training_metrics():
                 predict_result = original(self, *args, **kwargs)
@@ -1410,9 +1409,8 @@ def autolog(
     #  https://github.com/scikit-learn/scikit-learn/blob/82df48934eba1df9a1ed3be98aaace8eada59e6e/sklearn/covariance/_empirical_covariance.py#L220
     def patched_model_score(original, self, *args, **kwargs):
         metrics_manager = _get_autologging_metrics_manager()
-        if metrics_manager.should_log_post_training_metrics() and metrics_manager.get_run_id_for_model(
-            self
-        ):
+        if metrics_manager.should_log_post_training_metrics() \
+                and metrics_manager.get_run_id_for_model(self):
             # `model.score` may call metric APIs internally, in order to prevent nested metric call
             # being logged, temporarily disable post_training_metrics patching.
             with metrics_manager.disable_log_post_training_metrics():
