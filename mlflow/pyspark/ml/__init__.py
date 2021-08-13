@@ -910,37 +910,40 @@ def autolog(
             return spark_model
 
     def patched_fit(original, self, *args, **kwargs):
-        metrics_manager = _AUTOLOGGING_METRICS_MANAGER
-        should_log_post_training_metrics = metrics_manager.should_log_post_training_metrics()
+        should_log_post_training_metrics = (
+            _AUTOLOGGING_METRICS_MANAGER.should_log_post_training_metrics()
+        )
         with _SparkTrainingSession(clazz=self.__class__, allow_children=False) as t:
             if t.should_log():
-                with metrics_manager.disable_log_post_training_metrics():
+                with _AUTOLOGGING_METRICS_MANAGER.disable_log_post_training_metrics():
                     fit_result = fit_mlflow(original, self, *args, **kwargs)
                 # In some cases the `fit_result` may be an iterator of spark models.
                 if should_log_post_training_metrics and isinstance(fit_result, Model):
-                    metrics_manager.register_model(fit_result, mlflow.active_run().info.run_id)
+                    _AUTOLOGGING_METRICS_MANAGER.register_model(
+                        fit_result, mlflow.active_run().info.run_id
+                    )
                 return fit_result
             else:
                 return original(self, *args, **kwargs)
 
     def patched_transform(original, self, *args, **kwargs):
-        metrics_manager = _AUTOLOGGING_METRICS_MANAGER
-        run_id = metrics_manager.get_run_id_for_model(self)
-        if metrics_manager.should_log_post_training_metrics() and run_id:
+        run_id = _AUTOLOGGING_METRICS_MANAGER.get_run_id_for_model(self)
+        if _AUTOLOGGING_METRICS_MANAGER.should_log_post_training_metrics() and run_id:
             predict_result = original(self, *args, **kwargs)
             eval_dataset = get_method_call_arg_value(0, "dataset", None, args, kwargs)
-            eval_dataset_name = metrics_manager.register_prediction_input_dataset(
+            eval_dataset_name = _AUTOLOGGING_METRICS_MANAGER.register_prediction_input_dataset(
                 self, eval_dataset
             )
-            metrics_manager.register_prediction_result(run_id, eval_dataset_name, predict_result)
+            _AUTOLOGGING_METRICS_MANAGER.register_prediction_result(
+                run_id, eval_dataset_name, predict_result
+            )
             return predict_result
         else:
             return original(self, *args, **kwargs)
 
     def patched_evaluate(original, self, *args, **kwargs):
-        metrics_manager = _AUTOLOGGING_METRICS_MANAGER
-        if metrics_manager.should_log_post_training_metrics():
-            with metrics_manager.disable_log_post_training_metrics():
+        if _AUTOLOGGING_METRICS_MANAGER.should_log_post_training_metrics():
+            with _AUTOLOGGING_METRICS_MANAGER.disable_log_post_training_metrics():
                 metric = original(self, *args, **kwargs)
 
             if is_metric_value_loggable(metric):
@@ -949,20 +952,22 @@ def autolog(
                 # an evaluator with the extra evaluation params.
                 evaluator = self.copy(params) if params is not None else self
                 metric_name = evaluator.getMetricName()
-                evaluator_info = metrics_manager.gen_evaluator_info(evaluator)
+                evaluator_info = _AUTOLOGGING_METRICS_MANAGER.gen_evaluator_info(evaluator)
 
                 pred_result_dataset = get_method_call_arg_value(0, "dataset", None, args, kwargs)
                 (
                     run_id,
                     dataset_name,
-                ) = metrics_manager.get_run_id_and_dataset_name_for_evaluator_call(
+                ) = _AUTOLOGGING_METRICS_MANAGER.get_run_id_and_dataset_name_for_evaluator_call(
                     pred_result_dataset
                 )
                 if run_id and dataset_name:
-                    metric_key = metrics_manager.register_evaluator_call(
+                    metric_key = _AUTOLOGGING_METRICS_MANAGER.register_evaluator_call(
                         run_id, metric_name, dataset_name, evaluator_info
                     )
-                    metrics_manager.log_post_training_metric(run_id, metric_key, metric)
+                    _AUTOLOGGING_METRICS_MANAGER.log_post_training_metric(
+                        run_id, metric_key, metric
+                    )
             return metric
         else:
             return original(self, *args, **kwargs)
