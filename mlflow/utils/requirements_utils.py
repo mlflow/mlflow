@@ -212,6 +212,14 @@ def _get_installed_version(package, module=None):
 
 
 def _capture_imported_modules(model_uri, flavor):
+    """
+    Runs `_capture_modules.py` in a subprocess and captures modules imported during the model
+    loading procedure.
+
+    :param model_uri: The URI of the model.
+    :param: flavor: The flavor name of the model.
+    :return: A list of captured modules.
+    """
     # Lazily import `_capture_module` here to avoid circular imports.
     from mlflow.utils import _capture_modules
 
