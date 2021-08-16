@@ -3,7 +3,7 @@ version: 2.1
 jobs:
   build_doc_r:
     docker:
-      - image: ubuntu:18.04
+      - image: ubuntu:20.04
 
     steps:
       - checkout
@@ -21,12 +21,17 @@ jobs:
       - run:
           name: Install R
           command: |
-            sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 51716619E084DAB9
-            echo "deb https://cloud.r-project.org/bin/linux/ubuntu xenial-cran35/" | sudo tee -a /etc/apt/sources.list
-            sudo add-apt-repository ppa:cran/libgit2 --yes
-            sudo apt-get update --yes
-            sudo apt-get install --yes --allow-unauthenticated \
-              r-base r-base-dev libssl-dev libcurl4-openssl-dev texlive-latex-base libxml2-dev libssh2-1-dev libgit2-dev
+            sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9
+            sudo add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu focal-cran40/'
+            sudo apt update -y
+            sudo apt install -y r-base
+
+            # sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 51716619E084DAB9
+            # echo "deb https://cloud.r-project.org/bin/linux/ubuntu xenial-cran35/" | sudo tee -a /etc/apt/sources.list
+            # sudo add-apt-repository ppa:cran/libgit2 --yes
+            # sudo apt-get update --yes
+            # sudo apt-get install --yes --allow-unauthenticated \
+            #   r-base r-base-dev libssl-dev libcurl4-openssl-dev texlive-latex-base libxml2-dev libssh2-1-dev libgit2-dev
 
       - run:
           name: Install pandoc
