@@ -2,13 +2,12 @@ from unittest import mock
 import os
 import pytest
 import yaml
-import json
 from collections import namedtuple
 
 import numpy as np
 import pandas as pd
-import pandas.testing
 import sklearn.datasets as datasets
+from sklearn.pipeline import Pipeline
 import xgboost as xgb
 
 import mlflow.xgboost
@@ -27,10 +26,13 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.helper_functions import (
-    score_model_in_sagemaker_docker_container,
+    pyfunc_serve_and_score_model,
     _compare_conda_env_requirements,
     _assert_pip_requirements,
+    _is_available_on_pypi,
 )
+
+EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("xgboost") else ["--no-conda"]
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe", "inference_dmatrix"])
 
@@ -386,14 +388,8 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(xgb_model, xg
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     xgb_model, model_path
 ):
-    mlflow.xgboost.save_model(xgb_model=xgb_model.model, path=model_path, conda_env=None)
-
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
-
-    assert conda_env == mlflow.xgboost.get_default_conda_env()
+    mlflow.xgboost.save_model(xgb_model=xgb_model.model, path=model_path)
+    _assert_pip_requirements(model_path, mlflow.xgboost.get_default_pip_requirements())
 
 
 @pytest.mark.large
@@ -402,38 +398,50 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.xgboost.log_model(
-            xgb_model=xgb_model.model, artifact_path=artifact_path, conda_env=None
-        )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        mlflow.xgboost.log_model(xgb_model.model, artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
-
-    assert conda_env == mlflow.xgboost.get_default_conda_env()
+    _assert_pip_requirements(model_uri, mlflow.xgboost.get_default_pip_requirements())
 
 
-@pytest.mark.release
-def test_sagemaker_docker_model_scoring_with_default_conda_env(xgb_model, model_path):
-    mlflow.xgboost.save_model(xgb_model=xgb_model.model, path=model_path, conda_env=None)
-    reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+@pytest.mark.large
+def test_pyfunc_serve_and_score(xgb_model):
+    model, inference_dataframe, inference_dmatrix = xgb_model
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.xgboost.log_model(model, artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    scoring_response = score_model_in_sagemaker_docker_container(
-        model_uri=model_path,
-        data=xgb_model.inference_dataframe,
+    resp = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_dataframe,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        flavor=mlflow.pyfunc.FLAVOR_NAME,
+        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+    scores = pd.read_json(resp.content, orient="records").values.squeeze()
+    np.testing.assert_array_almost_equal(scores, model.predict(inference_dmatrix))
 
-    pandas.testing.assert_frame_equal(
-        deployed_model_preds,
-        pd.DataFrame(reloaded_pyfunc.predict(xgb_model.inference_dataframe)),
-        check_dtype=False,
-        check_less_precise=6,
+
+def get_sklearn_models():
+    model = xgb.XGBClassifier(objective="multi:softmax", n_estimators=10)
+    pipe = Pipeline([("model", model)])
+    return [model, pipe]
+
+
+@pytest.mark.parametrize("model", get_sklearn_models())
+def test_pyfunc_serve_and_score_sklearn(model):
+    X, y = datasets.load_iris(return_X_y=True, as_frame=True)
+    model.fit(X, y)
+
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(model, artifact_path="model")
+        model_uri = mlflow.get_artifact_uri("model")
+
+    resp = pyfunc_serve_and_score_model(
+        model_uri,
+        X.head(3),
+        pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
+    scores = pd.read_json(resp.content, orient="records").values.squeeze()
+    np.testing.assert_array_equal(scores, model.predict(X.head(3)))

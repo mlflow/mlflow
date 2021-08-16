@@ -287,7 +287,7 @@ def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
     reason="The dev version of pyspark built from the source doesn't exist on PyPI or Anaconda",
 )
 def test_sagemaker_docker_model_scoring_with_default_conda_env(spark_model_iris, model_path):
-    sparkm.save_model(spark_model_iris.model, path=model_path, conda_env=None)
+    sparkm.save_model(spark_model_iris.model, path=model_path)
 
     scoring_response = score_model_in_sagemaker_docker_container(
         model_uri=model_path,
@@ -603,7 +603,7 @@ def test_sparkml_model_log_persists_requirements_in_mlflow_model_directory(
 def test_sparkml_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     spark_model_iris, model_path
 ):
-    sparkm.save_model(spark_model=spark_model_iris.model, path=model_path, conda_env=None)
+    sparkm.save_model(spark_model=spark_model_iris.model, path=model_path)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -619,9 +619,7 @@ def test_sparkml_model_log_without_specified_conda_env_uses_default_env_with_exp
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        sparkm.log_model(
-            spark_model=spark_model_iris.model, artifact_path=artifact_path, conda_env=None
-        )
+        sparkm.log_model(spark_model=spark_model_iris.model, artifact_path=artifact_path)
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
         )
@@ -637,20 +635,16 @@ def test_sparkml_model_log_without_specified_conda_env_uses_default_env_with_exp
 
 @pytest.mark.large
 def test_default_conda_env_strips_dev_suffix_from_pyspark_version(spark_model_iris, model_path):
-    mock_version_standard = mock.PropertyMock(return_value="2.4.0")
-    with mock.patch("pyspark.__version__", new_callable=mock_version_standard):
+    with mock.patch("importlib_metadata.version", return_value="2.4.0"):
         default_conda_env_standard = sparkm.get_default_conda_env()
 
     for dev_version in ["2.4.0.dev0", "2.4.0.dev", "2.4.0.dev1", "2.4.0dev.a", "2.4.0.devb"]:
-        mock_version_dev = mock.PropertyMock(return_value=dev_version)
-        with mock.patch("pyspark.__version__", new_callable=mock_version_dev):
+        with mock.patch("importlib_metadata.version", return_value=dev_version):
             default_conda_env_dev = sparkm.get_default_conda_env()
             assert default_conda_env_dev == default_conda_env_standard
 
             with mlflow.start_run():
-                sparkm.log_model(
-                    spark_model=spark_model_iris.model, artifact_path="model", conda_env=None
-                )
+                sparkm.log_model(spark_model=spark_model_iris.model, artifact_path="model")
                 model_uri = "runs:/{run_id}/{artifact_path}".format(
                     run_id=mlflow.active_run().info.run_id, artifact_path="model"
                 )
@@ -665,8 +659,7 @@ def test_default_conda_env_strips_dev_suffix_from_pyspark_version(spark_model_ir
             assert persisted_conda_env_dev == default_conda_env_standard
 
     for unaffected_version in ["2.0", "2.3.4", "2"]:
-        mock_version = mock.PropertyMock(return_value=unaffected_version)
-        with mock.patch("pyspark.__version__", new_callable=mock_version):
+        with mock.patch("importlib_metadata.version", return_value=unaffected_version):
             assert unaffected_version in yaml.safe_dump(sparkm.get_default_conda_env())
 
 

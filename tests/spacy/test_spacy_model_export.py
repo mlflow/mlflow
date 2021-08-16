@@ -13,6 +13,7 @@ import mlflow.spacy
 from sklearn.datasets import fetch_20newsgroups
 
 from mlflow import pyfunc
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
@@ -21,7 +22,15 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from tests.conftest import tracking_uri_mock  # pylint: disable=unused-import, E0611
-from tests.helper_functions import _compare_conda_env_requirements, _assert_pip_requirements
+from tests.helper_functions import (
+    pyfunc_serve_and_score_model,
+    _compare_conda_env_requirements,
+    _assert_pip_requirements,
+    _is_available_on_pypi,
+    disable_prevent_infer_pip_requirements_fallback_if,
+)
+
+EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("spacy") else ["--no-conda"]
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
@@ -329,16 +338,8 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     spacy_model_with_data, model_path
 ):
-    mlflow.spacy.save_model(
-        spacy_model=spacy_model_with_data.model, path=model_path, conda_env=None
-    )
-
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
-
-    assert conda_env == mlflow.spacy.get_default_conda_env()
+    mlflow.spacy.save_model(spacy_model=spacy_model_with_data.model, path=model_path)
+    _assert_pip_requirements(model_path, mlflow.spacy.get_default_pip_requirements())
 
 
 @pytest.mark.large
@@ -348,18 +349,8 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.spacy.log_model(spacy_model=spacy_model_with_data.model, artifact_path=artifact_path)
-        model_path = _download_artifact_from_uri(
-            "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-            )
-        )
-
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
-
-    assert conda_env == mlflow.spacy.get_default_conda_env()
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+    _assert_pip_requirements(model_uri, mlflow.spacy.get_default_pip_requirements())
 
 
 @pytest.mark.large
@@ -378,6 +369,11 @@ def test_model_log_with_pyfunc_flavor(spacy_model_with_data):
 
 
 @pytest.mark.large
+# In this test, `infer_pip_requirements` fails to load a spacy model for spacy < 3.0.0 due to:
+# https://github.com/explosion/spaCy/issues/4658
+@disable_prevent_infer_pip_requirements_fallback_if(
+    not IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0
+)
 def test_model_log_without_pyfunc_flavor():
     artifact_path = "model"
     nlp = spacy.blank("en")
@@ -400,6 +396,24 @@ def test_model_log_without_pyfunc_flavor():
 
         loaded_model = Model.load(model_path)
         assert loaded_model.flavors.keys() == {"spacy"}
+
+
+@pytest.mark.large
+def test_pyfunc_serve_and_score(spacy_model_with_data):
+    model, inference_dataframe = spacy_model_with_data
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.spacy.log_model(model, artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    resp = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_dataframe,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
+    )
+    scores = pd.read_json(resp.content, orient="records")
+    pd.testing.assert_frame_equal(scores, _predict(model, inference_dataframe))
 
 
 def _train_model(nlp, train_data, n_iter=5):

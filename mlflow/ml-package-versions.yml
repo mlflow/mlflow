@@ -29,7 +29,7 @@ pytorch:
   models:
     minimum: "1.4.0"
     maximum: "1.9.0"
-    requirements: ["torchvision", "scikit-learn"]
+    requirements: ["torchvision", "scikit-learn", "transformers"]
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py --large
 
@@ -101,8 +101,8 @@ keras:
     maximum: "2.4.3"
     requirements:
       "< 2.3.1": ["tensorflow==1.15.4", "h5py<3.0", "scikit-learn", "pyspark", "pyarrow"]
-      "== 2.3.1": ["tensorflow==2.2.1", "scikit-learn", "pyspark", "pyarrow"]
-      "> 2.3.1": ["tensorflow<2.5.0", "scikit-learn", "pyspark", "pyarrow"]
+      "== 2.3.1": ["tensorflow==2.2.1", "scikit-learn", "pyspark", "pyarrow", "transformers"]
+      "> 2.3.1": ["tensorflow<2.5.0", "scikit-learn", "pyspark", "pyarrow", "transformers"]
     run: |
       pytest tests/keras/test_keras_model_export.py --large
 
@@ -187,6 +187,8 @@ gluon:
     maximum: "1.8.0.post0"
     unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
     run: |
+      # Install libopenblas-dev for mxnet 1.8.0.post0
+      sudo apt-get install libopenblas-dev
       pytest tests/gluon/test_gluon_model_export.py --large
 
   autologging:
@@ -311,6 +313,7 @@ spark:
   autologging:
     minimum: "3.0.0"
     maximum: "3.1.2"
+    requirements: ["scikit-learn"]
     run: |
       # TODO: Add datasource autologging tests
       find tests/spark_autologging/ml -name 'test*.py' | xargs -L 1 pytest --large

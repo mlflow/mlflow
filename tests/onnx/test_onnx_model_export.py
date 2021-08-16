@@ -24,6 +24,7 @@ from tests.helper_functions import (
     pyfunc_serve_and_score_model,
     _compare_conda_env_requirements,
     _assert_pip_requirements,
+    _is_available_on_pypi,
 )
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -36,6 +37,8 @@ TEST_ONNX_RESOURCES_DIR = os.path.join(TEST_DIR, "resources", "onnx")
 pytestmark = pytest.mark.skipif(
     (sys.version_info < (3, 6)), reason="Tests require Python 3 to run!"
 )
+
+EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("onnx") else ["--no-conda"]
 
 
 @pytest.fixture(scope="module")
@@ -277,7 +280,7 @@ def test_model_save_load_evaluate_pyfunc_format(onnx_model, model_path, data, pr
         model_uri=os.path.abspath(model_path),
         data=x,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        extra_args=["--no-conda"],
+        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
     assert np.allclose(
         pd.read_json(scoring_response.content, orient="records")
@@ -319,7 +322,7 @@ def test_model_save_load_evaluate_pyfunc_format_multiple_inputs(
         model_uri=os.path.abspath(model_path),
         data=data_multiple_inputs,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        extra_args=["--no-conda"],
+        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
     assert np.allclose(
         pd.read_json(scoring_response.content, orient="records").values,
@@ -604,13 +607,8 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(onnx_model, o
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     onnx_model, model_path
 ):
-    mlflow.onnx.save_model(onnx_model=onnx_model, path=model_path, conda_env=None)
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
-
-    assert conda_env == mlflow.onnx.get_default_conda_env()
+    mlflow.onnx.save_model(onnx_model=onnx_model, path=model_path)
+    _assert_pip_requirements(model_path, mlflow.onnx.get_default_pip_requirements())
 
 
 @pytest.mark.large
@@ -619,19 +617,9 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.onnx.log_model(onnx_model=onnx_model, artifact_path=artifact_path, conda_env=None)
-        model_path = _download_artifact_from_uri(
-            "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-            )
-        )
-
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
-
-    assert conda_env == mlflow.onnx.get_default_conda_env()
+        mlflow.onnx.log_model(onnx_model=onnx_model, artifact_path=artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+    _assert_pip_requirements(model_uri, mlflow.onnx.get_default_pip_requirements())
 
 
 @pytest.mark.large

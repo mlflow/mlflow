@@ -11,8 +11,8 @@ import importlib
 import logging
 import os
 import yaml
+import warnings
 
-import cloudpickle
 import numpy as np
 import pandas as pd
 from packaging.version import Version
@@ -39,6 +39,7 @@ from mlflow.utils.environment import (
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
 )
+from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.file_utils import _copy_file_or_tree, TempDir, write_to
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -62,17 +63,19 @@ def get_default_pip_requirements():
              Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
              that, at minimum, contains these requirements.
     """
-    import torch
-    import torchvision
-
-    return [
-        "torch=={}".format(torch.__version__),
-        "torchvision=={}".format(torchvision.__version__),
-        # We include CloudPickle in the default environment because
-        # it's required by the default pickle module used by `save_model()`
-        # and `log_model()`: `mlflow.pytorch.pickle_module`.
-        "cloudpickle=={}".format(cloudpickle.__version__),
-    ]
+    return list(
+        map(
+            _get_pinned_requirement,
+            [
+                "torch",
+                "torchvision",
+                # We include CloudPickle in the default environment because
+                # it's required by the default pickle module used by `save_model()`
+                # and `log_model()`: `mlflow.pytorch.pickle_module`.
+                "cloudpickle",
+            ],
+        )
+    )
 
 
 def get_default_conda_env():
@@ -151,11 +154,11 @@ def log_model(
                           ``pytorch_model``. This is passed as the ``pickle_module`` parameter
                           to ``torch.save()``. By default, this module is also used to
                           deserialize ("unpickle") the PyTorch model at load time.
-    :param registered_model_name: (Experimental) If given, create a model version under
+    :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
 
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -168,7 +171,7 @@ def log_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example can be a Pandas DataFrame where the given
                           example will be serialized to json using the Pandas split-oriented
@@ -179,15 +182,21 @@ def log_model(
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
 
-    :param requirements_file: A string containing the path to requirements file. Remote URIs
-                      are resolved to absolute filesystem paths.
-                      For example, consider the following ``requirements_file`` string -
+    :param requirements_file:
 
-                      requirements_file = "s3://my-bucket/path/to/my_file"
+        .. warning::
 
-                      In this case, the ``"my_file"`` requirements file is downloaded from S3.
+            ``requirements_file`` has been deprecated. Please use ``pip_requirements`` instead.
 
-                      If ``None``, no requirements file is added to the model.
+        A string containing the path to requirements file. Remote URIs are resolved to absolute
+        filesystem paths. For example, consider the following ``requirements_file`` string:
+
+        .. code-block:: python
+
+            requirements_file = "s3://my-bucket/path/to/my_file"
+
+        In this case, the ``"my_file"`` requirements file is downloaded from S3. If ``None``,
+        no requirements file is added to the model.
 
     :param extra_files: A list containing the paths to corresponding extra files. Remote URIs
                       are resolved to absolute filesystem paths.
@@ -305,7 +314,6 @@ def save_model(
     pickle_module=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
-    # TODO: Deprecate `requirements_file` and recommend using `pip_requirements` instead.
     requirements_file=None,
     extra_files=None,
     pip_requirements=None,
@@ -341,7 +349,7 @@ def save_model(
                           to ``torch.save()``. By default, this module is also used to
                           deserialize ("unpickle") the PyTorch model at load time.
 
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -354,22 +362,28 @@ def save_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example can be a Pandas DataFrame where the given
                           example will be serialized to json using the Pandas split-oriented
                           format, or a numpy array where the example will be serialized to json
                           by converting it to a list. Bytes are base64-encoded.
 
-    :param requirements_file: A string containing the path to requirements file. Remote URIs
-                      are resolved to absolute filesystem paths.
-                      For example, consider the following ``requirements_file`` string -
+    :param requirements_file:
 
-                      requirements_file = "s3://my-bucket/path/to/my_file"
+        .. warning::
 
-                      In this case, the ``"my_file"`` requirements file is downloaded from S3.
+            ``requirements_file`` has been deprecated. Please use ``pip_requirements`` instead.
 
-                      If ``None``, no requirements file is added to the model.
+        A string containing the path to requirements file. Remote URIs are resolved to absolute
+        filesystem paths. For example, consider the following ``requirements_file`` string:
+
+        .. code-block:: python
+
+            requirements_file = "s3://my-bucket/path/to/my_file"
+
+        In this case, the ``"my_file"`` requirements file is downloaded from S3. If ``None``,
+        no requirements file is added to the model.
 
     :param extra_files: A list containing the paths to corresponding extra files. Remote URIs
                       are resolved to absolute filesystem paths.
@@ -499,22 +513,14 @@ def save_model(
                 tmp_extra_files_dir.path(), posixpath.join(path, _EXTRA_FILES_KEY),
             )
 
-    conda_env, pip_requirements, pip_constraints = (
-        _process_pip_requirements(
-            get_default_pip_requirements(), pip_requirements, extra_pip_requirements,
-        )
-        if conda_env is None
-        else _process_conda_env(conda_env)
-    )
-
-    with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
-        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
-
-    # Save `constraints.txt` if necessary
-    if pip_constraints:
-        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
-
     if requirements_file:
+
+        warnings.warn(
+            "`requirements_file` has been deprecated. Please use `pip_requirements` instead.",
+            FutureWarning,
+            stacklevel=2,
+        )
+
         if not isinstance(requirements_file, str):
             raise TypeError("Path to requirements file should be a string")
 
@@ -525,9 +531,6 @@ def save_model(
             rel_path = os.path.basename(requirements_file)
             torchserve_artifacts_config[_REQUIREMENTS_FILE_KEY] = {"path": rel_path}
             shutil.move(tmp_requirements_dir.path(rel_path), path)
-    else:
-        # Save `requirements.txt`
-        write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
     if code_paths is not None:
         code_dir_subpath = "code"
@@ -551,6 +554,32 @@ def save_model(
         env=_CONDA_ENV_FILE_NAME,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+
+    if conda_env is None:
+        default_reqs = get_default_pip_requirements()
+        if pip_requirements is None:
+            # To ensure `_load_pyfunc` can successfully load the model during the dependency
+            # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
+            inferred_reqs = mlflow.models.infer_pip_requirements(
+                model_data_path, FLAVOR_NAME, fallback=default_reqs,
+            )
+            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+        conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
+            default_reqs, pip_requirements, extra_pip_requirements,
+        )
+    else:
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
+
+    with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
+        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    # Save `constraints.txt` if necessary
+    if pip_constraints:
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
+
+    if not requirements_file:
+        # Save `requirements.txt`
+        write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
 
 def _load_model(path, **kwargs):

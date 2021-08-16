@@ -6,10 +6,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
+from packaging.version import Version  # pylint: disable=unused-import
 
 import sklearn
 import sklearn.base
 import sklearn.datasets
+import sklearn.pipeline
 import sklearn.model_selection
 from scipy.stats import uniform
 
@@ -933,11 +935,12 @@ def test_autolog_logs_signature_only_when_estimator_defines_predict():
 def test_autolog_does_not_throw_when_predict_fails():
     X, y = get_iris()
 
+    mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
+
     # Note that `mock_warning` will be called twice because if `predict` throws, `score` also throws
     with mlflow.start_run() as run, mock.patch(
         "sklearn.linear_model.LinearRegression.predict", side_effect=Exception("Failed")
     ), mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
-        mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
 
@@ -1083,8 +1086,6 @@ def test_autolog_produces_expected_results_for_estimator_when_parent_also_define
 
 
 def test_eval_and_log_metrics_for_regressor():
-    import sklearn.linear_model
-
     # disable autologging so that we can check for the sole existence of eval-time metrics
     mlflow.sklearn.autolog(disable=True)
 
@@ -1317,8 +1318,6 @@ def test_eval_and_log_metrics_with_estimator(fit_func_name):
 
 
 def test_eval_and_log_metrics_with_meta_estimator():
-    import sklearn.pipeline
-
     # disable autologging so that we can check for the sole existence of eval-time metrics
     mlflow.sklearn.autolog(disable=True)
 
@@ -1534,6 +1533,8 @@ def test_basic_post_training_metric_autologging():
         scorer1 = sklmetrics.make_scorer(sklmetrics.recall_score, average="micro")
         recall_score3_data2 = scorer1(model, eval2_X, eval2_y)
 
+        recall_score4_data2 = sklearn.metrics.SCORERS["recall_macro"](model, eval2_X, eval2_y)
+
         eval1_X, eval1_y = eval1_X.copy(), eval1_y.copy()
         # In metric key, it will include dataset name as "eval1_X-2"
         lor_score_data1_2 = model.score(eval1_X, eval1_y)
@@ -1554,11 +1555,15 @@ def test_basic_post_training_metric_autologging():
         "LogisticRegression_score_eval1_X": lor_score_data1,
         "recall_score-2_eval2_X": recall_score2_data2,
         "recall_score-3_eval2_X": recall_score3_data2,
+        "recall_score-4_eval2_X": recall_score4_data2,
         "LogisticRegression_score-2_eval1_X-2": lor_score_data1_2,
         "LogisticRegression_score-3_unknown_dataset": lor_score_data1_3,
     }
 
     lor_score_3_cmd = "LogisticRegression.score(X=<ndarray>, y=<ndarray>)"
+    recall_score4_eval2_X_cmd = (
+        "recall_score(y_true=eval2_y, y_pred=y_pred, pos_label=None, average='macro')"
+    )
     assert metric_info == {
         "LogisticRegression_score-2_eval1_X-2": "LogisticRegression.score(X=eval1_X, y=eval1_y)",
         "LogisticRegression_score-3_unknown_dataset": lor_score_3_cmd,
@@ -1567,6 +1572,7 @@ def test_basic_post_training_metric_autologging():
         "r2_score_eval1_X": "r2_score(y_true=eval1_y, y_pred=pred1_y)",
         "recall_score-2_eval2_X": "recall_score(y_true=eval2_y, y_pred=pred2_y, average='micro')",
         "recall_score-3_eval2_X": "recall_score(y_true=eval2_y, y_pred=y_pred, average='micro')",
+        "recall_score-4_eval2_X": recall_score4_eval2_X_cmd,
         "recall_score_eval1_X": "recall_score(y_true=eval1_y, y_pred=pred1_y, average='macro')",
     }
 
@@ -1593,7 +1599,7 @@ def test_run_metric_api_doc_example(metric_name):
     doctest.run_docstring_examples(metric_api.__doc__, {}, verbose=True)
 
 
-def test_post_training_post_training_metric_autologging_for_predict_prob():
+def test_post_training_metric_autologging_for_predict_prob():
     import sklearn.linear_model
 
     mlflow.sklearn.autolog()
@@ -1611,7 +1617,7 @@ def test_post_training_post_training_metric_autologging_for_predict_prob():
     assert metrics["roc_auc_score_X"] == roc_auc_metric
 
 
-def test_post_training_post_training_metric_autologging_patch_transform():
+def test_post_training_metric_autologging_patch_transform():
     import sklearn.cluster
 
     mlflow.sklearn.autolog()
@@ -1624,21 +1630,7 @@ def test_post_training_post_training_metric_autologging_patch_transform():
         mock_register_prediction_input_dataset.assert_called_once()
 
 
-def test_is_metrics_value_loggable():
-    is_metrics_value_loggable = mlflow.sklearn._autologging_metrics_manager.is_metric_value_loggable
-    assert is_metrics_value_loggable(3)
-    assert is_metrics_value_loggable(3.5)
-    assert is_metrics_value_loggable(np.int(3))
-    assert is_metrics_value_loggable(np.float32(3.5))
-    assert not is_metrics_value_loggable(True)
-    assert not is_metrics_value_loggable(np.bool(True))
-    assert not is_metrics_value_loggable([1, 2])
-    assert not is_metrics_value_loggable(np.array([1, 2]))
-
-
 def test_nested_metric_call_is_disabled():
-    import sklearn.linear_model
-
     mlflow.sklearn.autolog()
 
     X, y = get_iris()
@@ -1668,8 +1660,6 @@ def test_nested_metric_call_is_disabled():
 
 
 def test_multi_model_interleaved_fit_and_post_train_metric_call():
-    import sklearn.linear_model
-
     mlflow.sklearn.autolog()
     from sklearn.metrics import mean_squared_error
 
@@ -1707,7 +1697,7 @@ def test_multi_model_interleaved_fit_and_post_train_metric_call():
 @pytest.mark.parametrize(
     "scoring", [None, sklearn.metrics.make_scorer(sklearn.metrics.accuracy_score)]
 )
-def test_meta_estimator_disable_post_training_autologging(scoring):
+def test_meta_estimator_disable_nested_post_training_autologging(scoring):
     import sklearn.svm
     import sklearn.metrics
 
@@ -1738,9 +1728,32 @@ def test_meta_estimator_disable_post_training_autologging(scoring):
             assert mock_register_prediction_input_dataset.call_count <= 1
 
 
-def test_gen_metric_call_commands():
-    import sklearn.linear_model
+@pytest.mark.parametrize(
+    "scoring", [None, sklearn.metrics.make_scorer(sklearn.metrics.accuracy_score)]
+)
+def test_meta_estimator_post_training_autologging(scoring):
+    X, y = get_iris()
+    eval1_X, eval1_y = X[0::3], y[0::3]
 
+    mlflow.sklearn.autolog()
+
+    with mlflow.start_run() as run:
+        lor = sklearn.linear_model.LogisticRegression(solver="saga", random_state=0)
+        cv_model = sklearn.model_selection.GridSearchCV(
+            lor, {"max_iter": [5, 10, 15]}, n_jobs=1, scoring=scoring
+        )
+        cv_model.fit(X, y)
+        pred1_y = cv_model.predict(eval1_X)
+        accuracy_score = sklearn.metrics.accuracy_score(eval1_y, pred1_y, normalize=False)
+        cv_score = cv_model.score(eval1_X, eval1_y)
+
+        _, metrics, _, _ = get_run_data(run.info.run_id)
+
+        assert metrics["accuracy_score_eval1_X"] == accuracy_score
+        assert metrics["GridSearchCV_score_eval1_X"] == cv_score
+
+
+def test_gen_metric_call_commands():
     # pylint: disable=unused-argument
     def metric_fn1(a1, b1, *, c2=3, d1=None, d2=True, d3="abc", **kwargs):
         pass
@@ -1773,15 +1786,76 @@ def test_gen_metric_call_commands():
     assert cmd3 == "LinearRegression.score(X=data1, y=data2)"
 
 
-def test_autolog_skip_patch_non_callable_attribute():
-    """
-    LocalOutlierFactor.predict is a property (delegate to an internal `_predict` method)
-    So we cannot patch it. This test is for covering this edge case.
-    """
-    from sklearn.neighbors import LocalOutlierFactor
+def test_patch_for_delegated_method():
+    from tests.autologging.test_autologging_utils import get_func_attrs
 
-    assert isinstance(LocalOutlierFactor.predict, property)
-    old_predict = LocalOutlierFactor.predict
+    original_predict = sklearn.pipeline.Pipeline.predict
     mlflow.sklearn.autolog()
-    new_predict = LocalOutlierFactor.predict
-    assert new_predict is old_predict
+
+    assert get_func_attrs(sklearn.pipeline.Pipeline.predict) == get_func_attrs(original_predict)
+
+    estimators = [
+        ("svc", sklearn.svm.SVC()),
+    ]
+    model = sklearn.pipeline.Pipeline(estimators)
+    X, y = get_iris()
+
+    with mlflow.start_run():
+        model.fit(X, y)
+
+    eval1_X = X[0::3]
+
+    with mock.patch(
+        "mlflow.sklearn._AutologgingMetricsManager.register_prediction_input_dataset"
+    ) as mock_register_prediction_input_dataset:
+        pred1_y = model.predict(eval1_X)
+        # assert `register_prediction_input_dataset` was called and called only once.
+        # the `pipeline.predict` call nested `svc.predict`, but sklearn patching function
+        # will disable nested call autologging, so the autolog routine is only enabled
+        # at `pipeline.predict` level.
+        assert mock_register_prediction_input_dataset.call_count <= 1
+
+    mlflow.sklearn.autolog(disable=True)
+    pred1_y_original = model.predict(eval1_X)
+
+    assert np.allclose(pred1_y, pred1_y_original)
+
+
+@pytest.mark.skipif("Version(sklearn.__version__) <= Version('0.24.2')")
+def test_patch_for_available_if_decorated_method():
+    from tests.autologging.test_autologging_utils import get_func_attrs
+
+    original_transform = sklearn.pipeline.Pipeline.transform
+    mlflow.sklearn.autolog()
+
+    assert get_func_attrs(sklearn.pipeline.Pipeline.transform) == get_func_attrs(original_transform)
+
+    estimators = [
+        ("kmeans", sklearn.cluster.KMeans()),
+    ]
+    model = sklearn.pipeline.Pipeline(estimators)
+    X, y = get_iris()
+
+    with mlflow.start_run():
+        model.fit(X, y)
+
+    eval1_X = X[0::3]
+    transform1_y = model.transform(eval1_X)
+
+    mlflow.sklearn.autolog(disable=True)
+
+    transform1_y_original = model.transform(eval1_X)
+
+    assert np.allclose(transform1_y, transform1_y_original)
+
+
+def test_is_metrics_value_loggable():
+    is_metric_value_loggable = mlflow.sklearn._AutologgingMetricsManager.is_metric_value_loggable
+    assert is_metric_value_loggable(3)
+    assert is_metric_value_loggable(3.5)
+    assert is_metric_value_loggable(np.int(3))
+    assert is_metric_value_loggable(np.float32(3.5))
+    assert not is_metric_value_loggable(True)
+    assert not is_metric_value_loggable(np.bool(True))
+    assert not is_metric_value_loggable([1, 2])
+    assert not is_metric_value_loggable(np.array([1, 2]))

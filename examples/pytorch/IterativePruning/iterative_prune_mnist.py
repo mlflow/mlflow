@@ -41,7 +41,7 @@ class IterativePrune:
         trainer.test()
         if os.path.exists(self.base_model_path):
             shutil.rmtree(self.base_model_path)
-        mlflow.pytorch.save_model(trainer.get_model(), self.base_model_path)
+        mlflow.pytorch.save_model(trainer.lightning_module, self.base_model_path)
         return trainer
 
     def load_base_model(self):

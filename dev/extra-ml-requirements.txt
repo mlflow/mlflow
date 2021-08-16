@@ -4,7 +4,8 @@
 # Required by mlflow.azureml
 azureml-sdk==1.2.0
 # Required by mlflow.keras
-keras
+# TODO: Unpin once we fix tests that fail in keras 2.6.0
+keras<2.6.0
 # Required by mlflow.sklearn
 scikit-learn
 # Required by mlflow.gluon
@@ -15,8 +16,9 @@ fastai==1.0.60
 # Required by mlflow.spacy
 spacy
 # Required by mlflow.tensorflow
-# TODO: Unpin once https://github.com/keras-team/keras/issues/14632 is addressed
-tensorflow!=2.5.*
+# TODO: Remove '!=2.5.*' once https://github.com/keras-team/keras/issues/14632
+# TODO: Remove '!=2.6.*' once we fix tests that fail in keras 2.6.0
+tensorflow!=2.5.*,!=2.6.*
 # Required by mlflow.pytorch
 torch
 torchvision
@@ -43,5 +45,3 @@ pyspark
 shap
 # Required by mlflow.paddle
 paddlepaddle
-# Remove `ipython` once this issue: https://github.com/slundberg/shap/pull/1749 has been addressed
-ipython

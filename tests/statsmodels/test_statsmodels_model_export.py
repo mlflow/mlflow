@@ -4,8 +4,6 @@ import pandas as pd
 from unittest import mock
 import os
 import yaml
-import json
-import pandas.testing
 
 import mlflow.statsmodels
 import mlflow.utils
@@ -21,9 +19,10 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 from tests.helper_functions import (
-    score_model_in_sagemaker_docker_container,
+    pyfunc_serve_and_score_model,
     _compare_conda_env_requirements,
     _assert_pip_requirements,
+    _is_available_on_pypi,
 )
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
@@ -41,6 +40,7 @@ from tests.statsmodels.model_fixtures import (
     wls_model,
 )
 
+EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("statsmodels") else ["--no-conda"]
 
 # The code in this file has been adapted from the test cases of the lightgbm flavor.
 
@@ -386,16 +386,8 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
     ols_model, model_path
 ):
 
-    mlflow.statsmodels.save_model(
-        statsmodels_model=ols_model.model, path=model_path, conda_env=None
-    )
-
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
-
-    assert conda_env == mlflow.statsmodels.get_default_conda_env()
+    mlflow.statsmodels.save_model(statsmodels_model=ols_model.model, path=model_path)
+    _assert_pip_requirements(model_path, mlflow.statsmodels.get_default_pip_requirements())
 
 
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
@@ -404,41 +396,23 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.statsmodels.log_model(
-            statsmodels_model=ols_model.model, artifact_path=artifact_path, conda_env=None
-        )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
-
-    model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
-
-    assert conda_env == mlflow.statsmodels.get_default_conda_env()
+        mlflow.statsmodels.log_model(statsmodels_model=ols_model.model, artifact_path=artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+    _assert_pip_requirements(model_uri, mlflow.statsmodels.get_default_pip_requirements())
 
 
-@pytest.mark.release
-def test_sagemaker_docker_model_scoring_with_default_conda_env(ols_model, model_path):
-    mlflow.statsmodels.save_model(
-        statsmodels_model=ols_model.model, path=model_path, conda_env=None
-    )
+def test_pyfunc_serve_and_score(ols_model):
+    model, _, inference_dataframe = ols_model
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.statsmodels.log_model(model, artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
-
-    scoring_response = score_model_in_sagemaker_docker_container(
-        model_uri=model_path,
-        data=ols_model.inference_dataframe,
+    resp = pyfunc_serve_and_score_model(
+        model_uri,
+        data=pd.DataFrame(inference_dataframe),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        flavor=mlflow.pyfunc.FLAVOR_NAME,
+        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
-
-    pandas.testing.assert_frame_equal(
-        deployed_model_preds,
-        pd.DataFrame(reloaded_pyfunc.predict(ols_model.inference_dataframe)),
-        check_dtype=False,
-        check_less_precise=6,
-    )
+    scores = pd.read_json(resp.content, orient="records").values.squeeze()
+    np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe))

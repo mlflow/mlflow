@@ -23,6 +23,7 @@ from mlflow.utils.environment import (
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
 )
+from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.autologging_utils import (
@@ -150,7 +151,7 @@ def save_model(
     :param path: Local path where the model is to be saved.
     :param mlflow_model: MLflow model config this flavor is being added to.
     :param conda_env: {{ conda_env }}
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -163,7 +164,7 @@ def save_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example can be a Pandas DataFrame where the given
                           example will be serialized to json using the Pandas split-oriented
@@ -195,6 +196,8 @@ def save_model(
         # Save the model as an MLflow Model
         mlflow.gluon.save_model(net, gluon_model_path)
     """
+    import mxnet as mx
+
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
     path = os.path.abspath(path)
     if os.path.exists(path):
@@ -213,13 +216,23 @@ def save_model(
     # a specific epoch's parameters, and is there only for display purposes.
     gluon_model.export(os.path.join(data_path, _MODEL_SAVE_PATH))
 
-    conda_env, pip_requirements, pip_constraints = (
-        _process_pip_requirements(
-            get_default_pip_requirements(), pip_requirements, extra_pip_requirements,
+    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.gluon", env=_CONDA_ENV_FILE_NAME)
+    mlflow_model.add_flavor(FLAVOR_NAME, mxnet_version=mx.__version__)
+    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+
+    if conda_env is None:
+        default_reqs = get_default_pip_requirements()
+        if pip_requirements is None:
+            inferred_reqs = mlflow.models.infer_pip_requirements(
+                path, FLAVOR_NAME, fallback=default_reqs,
+            )
+            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+
+        conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
+            default_reqs, pip_requirements, extra_pip_requirements,
         )
-        if conda_env is None
-        else _process_conda_env(conda_env)
-    )
+    else:
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
 
     with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
@@ -231,9 +244,6 @@ def save_model(
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.gluon", env=_CONDA_ENV_FILE_NAME)
-    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
-
 
 def get_default_pip_requirements():
     """
@@ -241,9 +251,7 @@ def get_default_pip_requirements():
              Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
              that, at minimum, contains these requirements.
     """
-    import mxnet as mx
-
-    return ["mxnet=={}".format(mx.__version__)]
+    return [_get_pinned_requirement("mxnet")]
 
 
 def get_default_conda_env():
@@ -272,11 +280,11 @@ def log_model(
     :param gluon_model: Gluon model to be saved. Must be already hybridized.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: {{ conda_env }}
-    :param registered_model_name: (Experimental) If given, create a model version under
+    :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
 
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -289,7 +297,7 @@ def log_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example can be a Pandas DataFrame where the given
                           example will be serialized to json using the Pandas split-oriented

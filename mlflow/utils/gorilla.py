@@ -8,10 +8,22 @@
 """
 NOTE: The contents of this file have been inlined from the gorilla package's source code
 https://github.com/christophercrouzet/gorilla/blob/v0.3.0/gorilla.py
+
+This module has fixes / adaptations for MLflow use cases that make it different from the original
+gorilla library
+
 The following modifications have been made:
-    - When a patch is applied to a method `foo` on parent class `A` and a subsequent
-      patch is applied to `foo` on one of its children `B`, `get_original_attribute(B, "foo")`
-      will now refer to `B.foo`, rather than `A.foo`.
+    - Modify `get_original_attribute` logic, search from children classes to parent classes,
+      and for each class check "_gorilla_original_{attr_name}" attribute first.
+      first. This will ensure get the correct original attribute in any cases, e.g.,
+      the case some classes in the hierarchy haven't been patched, but some others are
+      patched, this case the previous code is risky to get wrong original attribute.
+    - Make `get_original_attribute` support bypassing descriptor protocol.
+    - remove `get_attribute` method, use `get_original_attribute` with
+      `bypass_descriptor_protocol=True` instead of calling it.
+    - After reverting patch, there will be no side-effect, restore object to be exactly the
+      original status.
+    - Remove `create_patches` and `patches` methods.
 
 gorilla
 ~~~~~~~
@@ -25,33 +37,22 @@ Convenient approach to monkey patching.
 import collections
 import copy
 import inspect
+import logging
 import pkgutil
 import sys
 import types
 
 __version__ = "0.3.0"
+_logger = logging.getLogger(__name__)
 
 
-if sys.version_info[0] == 2:
-    _CLASS_TYPES = (type, types.ClassType)
-
-    def _iteritems(d, **kwargs):
-        return d.iteritems(**kwargs)
-
-    def _load_module(finder, name):
-        loader = finder.find_module(name)
-        return loader.load_module(name)
+def _iteritems(d, **kwargs):
+    return iter(d.items(**kwargs))
 
 
-else:
-    _CLASS_TYPES = (type,)
-
-    def _iteritems(d, **kwargs):
-        return iter(d.items(**kwargs))
-
-    def _load_module(finder, name):
-        loader, _ = finder.find_loader(name)
-        return loader.load_module()
+def _load_module(finder, name):
+    loader, _ = finder.find_loader(name)
+    return loader.load_module()
 
 
 # Pattern for each internal attribute name.
@@ -211,6 +212,7 @@ class Patch(object):
         self.name = name
         self.obj = obj
         self.settings = settings
+        self.is_inplace_patch = None
 
     def __repr__(self):
         return "%s(destination=%r, name=%r, obj=%r, settings=%r)" % (
@@ -290,12 +292,23 @@ def apply(patch):
     to have already been stored, then it won't be stored again to avoid losing
     the original attribute that was stored the first time around.
     """
+    # is_inplace_patch = True represents the patch object will overwrite the original
+    # attribute
+    patch.is_inplace_patch = patch.name in patch.destination.__dict__
     settings = Settings() if patch.settings is None else patch.settings
+
+    curr_active_patch = _ACTIVE_PATCH % (patch.name,)
+    if curr_active_patch in patch.destination.__dict__:
+        _logger.debug(
+            f"Patch {patch.name} on {destination.__name__} already existed. Overwrite old patch."
+        )
 
     # When a hit occurs due to an attribute at the destination already existing
     # with the patch's name, the existing attribute is referred to as 'target'.
     try:
-        target = get_attribute(patch.destination, patch.name)
+        target = get_original_attribute(
+            patch.destination, patch.name, bypass_descriptor_protocol=True
+        )
     except AttributeError:
         pass
     else:
@@ -312,25 +325,7 @@ def apply(patch):
 
         if settings.store_hit:
             original_name = _ORIGINAL_NAME % (patch.name,)
-            curr_active_patch = _ACTIVE_PATCH % (patch.name,)
-            # For certain MLflow Models use cases, such as scikit-learn autologging, we patch
-            # a method on a parent class
-            # (e.g., `sklearn.feature_extraction.text.CountVectorizer.fit_transform()`) and
-            # subsequently patch a corresponding overridden method on one of its children
-            # (e.g., `feature_extraction.text.TfidfVectorizer.fit_transform()`)
-            # to provide a different implementation. In these cases, we wish to swap out the
-            # "original function" attribute stored on the child in order to refer to the child's
-            # overriden method (e.g., `feature_extraction.text.TfidfVectorizer.fit_transform()`),
-            # rather than the parent method
-            # (e.g., `sklearn.feature_extraction.text.CountVectorizer.fit_transform()`)
-            prev_patch = getattr(patch.destination, curr_active_patch, None)
-
-            if not hasattr(patch.destination, original_name) or (
-                prev_patch
-                and prev_patch.destination != patch.destination
-                and issubclass(patch.destination, prev_patch.destination)
-            ):
-                setattr(patch.destination, original_name, target)
+            setattr(patch.destination, original_name, target)
 
     setattr(patch.destination, patch.name, patch.obj)
     setattr(patch.destination, curr_active_patch, patch)
@@ -353,35 +348,35 @@ def revert(patch):
     with modifictions for autologging disablement purposes.
     """
     # If an curr_active_patch has not been set on destination class for the current patch,
-    # then there is no reverting to do.
+    # then the patch has not been applied and we do not need to revert anything.
     curr_active_patch = _ACTIVE_PATCH % (patch.name,)
-    if not hasattr(patch.destination, curr_active_patch):
+    if curr_active_patch not in patch.destination.__dict__:
+        # already reverted.
         return
-
-    try:
-        original = get_original_attribute(patch.destination, patch.name)
-    except AttributeError:
-        raise RuntimeError(
-            "Cannot revert the attribute named '%s' since the setting "
-            "'store_hit' was not set to True when applying the patch."
-            % (patch.destination.__name__,)
-        )
 
     original_name = _ORIGINAL_NAME % (patch.name,)
-    if not getattr(patch.destination, original_name, None):
-        return
 
-    setattr(patch.destination, patch.name, original)
+    if patch.is_inplace_patch:
+        # check whether original_name is in destination. We cannot use hasattr because it will
+        # try to get attribute from parent classes if attribute not found in destination class.
+        if original_name not in patch.destination.__dict__:
+            raise RuntimeError(
+                "Cannot revert the attribute named '%s' since the setting "
+                "'store_hit' was not set to True when applying the patch."
+                % (patch.destination.__name__,)
+            )
+        # restore original method
+        # during reverting patch, we need restore the raw attribute to the patch point
+        # so get original attribute bypassing descriptor protocal
+        original = object.__getattribute__(patch.destination, original_name)
+        setattr(patch.destination, patch.name, original)
+    else:
+        # delete patched method
+        delattr(patch.destination, patch.name)
 
-    # We are only deleting the attribute if it is defined on the
-    # destination class as opposed to being inherited from parent class.
     if original_name in patch.destination.__dict__:
         delattr(patch.destination, original_name)
-    # If an curr_active_patch has been set on the destination class,
-    # then remove that attribute as well to properly clean up patched code.
-    # This is undoing the custom changes to gorilla.py's code in the `apply()`.
-    if curr_active_patch in patch.destination.__dict__:
-        delattr(patch.destination, curr_active_patch)
+    delattr(patch.destination, curr_active_patch)
 
 
 def patch(destination, name=None, settings=None):
@@ -416,71 +411,6 @@ def patch(destination, name=None, settings=None):
         patch = Patch(destination, name_, wrapped, settings=settings_)
         data = get_decorator_data(base, set_default=True)
         data.patches.append(patch)
-        return wrapped
-
-    return decorator
-
-
-def patches(
-    destination,
-    settings=None,
-    traverse_bases=True,
-    filter=default_filter,
-    recursive=True,
-    use_decorators=True,
-):
-    """Decorator to create a patch for each member of a module or a class.
-
-    Parameters
-    ----------
-    destination : object
-        Patch destination.
-    settings : gorilla.Settings
-        Settings.
-    traverse_bases : bool
-        If the object is a class, the base classes are also traversed.
-    filter : function
-        Attributes for which the function returns ``False`` are skipped. The
-        function needs to define two parameters: ``name``, the attribute name,
-        and ``obj``, the attribute value. If ``None``, no attribute is skipped.
-    recursive : bool
-        If ``True``, and a hit occurs due to an attribute at the destination
-        already existing with the given name, and both the member and the
-        target attributes are classes, then instead of creating a patch
-        directly with the member attribute value as is, a patch for each of its
-        own members is created with the target as new destination.
-    use_decorators : bool
-        Allows to take any modifier decorator into consideration to allow for
-        more granular customizations.
-
-    Returns
-    -------
-    object
-        The decorated object.
-
-    Note
-    ----
-    A 'target' differs from a 'destination' in that a target represents an
-    existing attribute at the destination about to be hit by a patch.
-
-    See Also
-    --------
-    :class:`Patch`, :func:`create_patches`.
-    """
-
-    def decorator(wrapped):
-        settings_ = copy.deepcopy(settings)
-        patches = create_patches(
-            destination,
-            wrapped,
-            settings=settings_,
-            traverse_bases=traverse_bases,
-            filter=filter,
-            recursive=recursive,
-            use_decorators=use_decorators,
-        )
-        data = get_decorator_data(_get_base(wrapped), set_default=True)
-        data.patches.extend(patches)
         return wrapped
 
     return decorator
@@ -592,100 +522,6 @@ def filter(value):  # pylint: disable=W0622
     return decorator
 
 
-def create_patches(
-    destination,
-    root,
-    settings=None,
-    traverse_bases=True,
-    filter=default_filter,
-    recursive=True,
-    use_decorators=True,
-):
-    """Create a patch for each member of a module or a class.
-
-    Parameters
-    ----------
-    destination : object
-        Patch destination.
-    root : object
-        Root object, either a module or a class.
-    settings : gorilla.Settings
-        Settings.
-    traverse_bases : bool
-        If the object is a class, the base classes are also traversed.
-    filter : function
-        Attributes for which the function returns ``False`` are skipped. The
-        function needs to define two parameters: ``name``, the attribute name,
-        and ``obj``, the attribute value. If ``None``, no attribute is skipped.
-    recursive : bool
-        If ``True``, and a hit occurs due to an attribute at the destination
-        already existing with the given name, and both the member and the
-        target attributes are classes, then instead of creating a patch
-        directly with the member attribute value as is, a patch for each of its
-        own members is created with the target as new destination.
-    use_decorators : bool
-        ``True`` to take any modifier decorator into consideration to allow for
-        more granular customizations.
-
-    Returns
-    -------
-    list of gorilla.Patch
-        The patches.
-
-    Note
-    ----
-    A 'target' differs from a 'destination' in that a target represents an
-    existing attribute at the destination about to be hit by a patch.
-
-    See Also
-    --------
-    :func:`patches`.
-    """
-    if filter is None:
-        filter = _true
-
-    out = []
-    root_patch = Patch(destination, "", root, settings=settings)
-    stack = collections.deque((root_patch,))
-    while stack:
-        parent_patch = stack.popleft()
-        members = _get_members(
-            parent_patch.obj, traverse_bases=traverse_bases, filter=None, recursive=False
-        )
-        for name, value in members:
-            patch = Patch(
-                parent_patch.destination, name, value, settings=copy.deepcopy(parent_patch.settings)
-            )
-            if use_decorators:
-                base = _get_base(value)
-                decorator_data = get_decorator_data(base)
-                filter_override = None if decorator_data is None else decorator_data.filter
-                if (
-                    filter_override is None and not filter(name, value)
-                ) or filter_override is False:
-                    continue
-
-                if decorator_data is not None:
-                    patch._update(**decorator_data.override)
-            elif not filter(name, value):
-                continue
-
-            if recursive and isinstance(value, _CLASS_TYPES):
-                try:
-                    target = get_attribute(patch.destination, patch.name)
-                except AttributeError:
-                    pass
-                else:
-                    if isinstance(target, _CLASS_TYPES):
-                        patch.destination = target
-                        stack.append(patch)
-                        continue
-
-            out.append(patch)
-
-    return out
-
-
 def find_patches(modules, recursive=True):
     """Find all the patches created through decorators.
 
@@ -727,44 +563,7 @@ def find_patches(modules, recursive=True):
     return out
 
 
-def get_attribute(obj, name):
-    """Retrieve an attribute while bypassing the descriptor protocol.
-
-    As per the built-in |getattr()|_ function, if the input object is a class
-    then its base classes might also be searched until the attribute is found.
-
-    Parameters
-    ----------
-    obj : object
-        Object to search the attribute in.
-    name : str
-        Name of the attribute.
-
-    Returns
-    -------
-    object
-        The attribute found.
-
-    Raises
-    ------
-    AttributeError
-        The attribute couldn't be found.
-
-
-    .. |getattr()| replace:: ``getattr()``
-    .. _getattr(): https://docs.python.org/library/functions.html#getattr
-    """
-    objs = inspect.getmro(obj) if isinstance(obj, _CLASS_TYPES) else [obj]
-    for obj_ in objs:
-        try:
-            return object.__getattribute__(obj_, name)
-        except AttributeError:
-            pass
-
-    raise AttributeError("'%s' object has no attribute '%s'" % (type(obj), name))
-
-
-def get_original_attribute(obj, name):
+def get_original_attribute(obj, name, bypass_descriptor_protocol=False):
     """Retrieve an overriden attribute that has been stored.
 
     Parameters
@@ -773,6 +572,10 @@ def get_original_attribute(obj, name):
         Object to search the attribute in.
     name : str
         Name of the attribute.
+    bypass_descriptor_protocol: boolean
+        bypassing descriptor protocol if true. When storing original method during patching or
+        restoring original method during reverting patch, we need set bypass_descriptor_protocol
+        to be True to ensure get the raw attribute object.
 
     Returns
     -------
@@ -784,11 +587,59 @@ def get_original_attribute(obj, name):
     AttributeError
         The attribute couldn't be found.
 
+    Note
+    ----
+    if setting store_hit=False, then after patch applied, this methods may return patched
+    attribute instead of original attribute in specific cases.
+
     See Also
     --------
     :attr:`Settings.allow_hit`.
     """
-    return getattr(obj, _ORIGINAL_NAME % (name,))
+
+    original_name = _ORIGINAL_NAME % (name,)
+    curr_active_patch = _ACTIVE_PATCH % (name,)
+
+    def _get_attr(obj_, name_):
+        if bypass_descriptor_protocol:
+            return object.__getattribute__(obj_, name_)
+        else:
+            return getattr(obj_, name_)
+
+    no_original_stored_err = (
+        "Original attribute %s was not stored when patching, set "
+        "store_hit=True will address this."
+    )
+
+    if inspect.isclass(obj):
+        # Search from children classes to parent classes, and check "original_name" attribute
+        # first. This will ensure get the correct original attribute in any cases, e.g.,
+        # the case some classes in the hierarchy haven't been patched, but some others are
+        # patched, this case the previous code is risky to get wrong original attribute.
+        for obj_ in inspect.getmro(obj):
+            if original_name in obj_.__dict__:
+                return _get_attr(obj_, original_name)
+            elif name in obj_.__dict__:
+                if curr_active_patch in obj_.__dict__:
+                    patch = getattr(obj, curr_active_patch)
+                    if patch.is_inplace_patch:
+                        raise RuntimeError(no_original_stored_err % (f"{obj_.__name__}.{name}",))
+                    else:
+                        # non inplace patch, we can get original methods in parent classes.
+                        # so go on checking parent classes
+                        continue
+                return _get_attr(obj_, name)
+            else:
+                # go on checking parent classes
+                continue
+        raise AttributeError("'%s' object has no attribute '%s'" % (type(obj), name))
+    else:
+        try:
+            return _get_attr(obj, original_name)
+        except AttributeError:
+            if curr_active_patch in obj.__dict__:
+                raise RuntimeError(no_original_stored_err % (f"{type(obj).__name__}.{name}",))
+            return _get_attr(obj, name)
 
 
 def get_decorator_data(obj, set_default=False):
@@ -807,7 +658,7 @@ def get_decorator_data(obj, set_default=False):
     gorilla.DecoratorData
         The decorator data or ``None``.
     """
-    if isinstance(obj, _CLASS_TYPES):
+    if inspect.isclass(obj):
         datas = getattr(obj, _DECORATOR_DATA, {})
         data = datas.setdefault(obj, None)
         if data is None and set_default:
@@ -881,7 +732,7 @@ def _get_members(obj, traverse_bases=True, filter=default_filter, recursive=True
     stack = collections.deque((obj,))
     while stack:
         obj = stack.popleft()
-        if traverse_bases and isinstance(obj, _CLASS_TYPES):
+        if traverse_bases and inspect.isclass(obj):
             roots = [base for base in inspect.getmro(obj) if base not in (type, object)]
         else:
             roots = [obj]
@@ -897,7 +748,7 @@ def _get_members(obj, traverse_bases=True, filter=default_filter, recursive=True
 
         members = sorted(members)
         for _, value in members:
-            if recursive and isinstance(value, _CLASS_TYPES):
+            if recursive and inspect.isclass(value):
                 stack.append(value)
 
         out.extend(members)

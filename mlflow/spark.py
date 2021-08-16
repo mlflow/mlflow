@@ -45,6 +45,7 @@ from mlflow.utils.environment import (
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
 )
+from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
@@ -81,13 +82,10 @@ def get_default_pip_requirements():
              Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
              that, at minimum, contains these requirements.
     """
-    import pyspark
-
     # Strip the suffix from `dev` versions of PySpark, which are not
     # available for installation from Anaconda or PyPI
-    pyspark_version = re.sub(r"(\.?)dev.*", "", pyspark.__version__)
-
-    return ["pyspark=={}".format(pyspark_version)]
+    pyspark_req = re.sub(r"(\.?)dev.*$", "", _get_pinned_requirement("pyspark"))
+    return [pyspark_req]
 
 
 def get_default_conda_env():
@@ -151,11 +149,11 @@ def log_model(
     :param sample_input: A sample input used to add the MLeap flavor to the model.
                          This must be a PySpark DataFrame that the model can evaluate. If
                          ``sample_input`` is ``None``, the MLeap flavor is not added.
-    :param registered_model_name: (Experimental) If given, create a model version under
+    :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
 
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -168,7 +166,7 @@ def log_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
@@ -505,7 +503,7 @@ def save_model(
                          This must be a PySpark DataFrame that the model can evaluate. If
                          ``sample_input`` is ``None``, the MLeap flavor is not added.
 
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -518,7 +516,7 @@ def save_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are

@@ -812,7 +812,7 @@ def spark_udf(spark, model_uri, result_type="double"):
     if not any([isinstance(elem_type, x) for x in supported_types]):
         raise MlflowException(
             message="Invalid result_type '{}'. Result type can only be one of or an array of one "
-            "of the following types types: {}".format(str(elem_type), str(supported_types)),
+            "of the following types: {}".format(str(elem_type), str(supported_types)),
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -1000,7 +1000,7 @@ def save_model(
 
                       If ``None``, no artifacts are added to the model.
 
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -1013,7 +1013,7 @@ def save_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example can be a Pandas DataFrame where the given
                           example will be serialized to json using the Pandas split-oriented
@@ -1169,12 +1169,12 @@ def log_model(
                       path via ``context.artifacts["my_file"]``.
 
                       If ``None``, no artifacts are added to the model.
-    :param registered_model_name: Note:: Experimental: This argument may change or be removed in a
+    :param registered_model_name: This argument may change or be removed in a
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a
                                   registered model if one with the given name does not exist.
 
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -1187,7 +1187,7 @@ def log_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example can be a Pandas DataFrame where the given
                           example will be serialized to json using the Pandas split-oriented
@@ -1258,13 +1258,26 @@ def _save_model_with_loader_module_and_data_path(
     if mlflow_model is None:
         mlflow_model = Model()
 
-    conda_env, pip_requirements, pip_constraints = (
-        _process_pip_requirements(
-            get_default_pip_requirements(), pip_requirements, extra_pip_requirements,
-        )
-        if conda_env is None
-        else _process_conda_env(conda_env)
+    mlflow.pyfunc.add_to_model(
+        mlflow_model, loader_module=loader_module, code=code, data=data, env=_CONDA_ENV_FILE_NAME
     )
+    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+
+    if conda_env is None:
+        default_reqs = get_default_pip_requirements()
+        if pip_requirements is None:
+            # To ensure `_load_pyfunc` can successfully load the model during the dependency
+            # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
+            inferred_reqs = mlflow.models.infer_pip_requirements(
+                path, FLAVOR_NAME, fallback=default_reqs,
+            )
+            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+
+        conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
+            default_reqs, pip_requirements, extra_pip_requirements,
+        )
+    else:
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
 
     with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
@@ -1275,11 +1288,6 @@ def _save_model_with_loader_module_and_data_path(
 
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
-
-    mlflow.pyfunc.add_to_model(
-        mlflow_model, loader_module=loader_module, code=code, data=data, env=_CONDA_ENV_FILE_NAME
-    )
-    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
     return mlflow_model
 
 

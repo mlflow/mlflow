@@ -27,6 +27,7 @@ from mlflow.utils.environment import (
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
 )
+from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -40,9 +41,7 @@ def get_default_pip_requirements():
              Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
              that, at minimum, contains these requirements.
     """
-    import h2o
-
-    return ["h2o=={}".format(h2o.__version__)]
+    return [_get_pinned_requirement("h2o")]
 
 
 def get_default_conda_env():
@@ -71,7 +70,7 @@ def save_model(
     :param h2o_model: H2O model to be saved.
     :param path: Local path where the model is to be saved.
     :param conda_env: {{ conda_env }}
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -84,7 +83,7 @@ def save_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
@@ -130,13 +129,26 @@ def save_model(
     with open(os.path.join(model_data_path, "h2o.yaml"), "w") as settings_file:
         yaml.safe_dump(settings, stream=settings_file)
 
-    conda_env, pip_requirements, pip_constraints = (
-        _process_pip_requirements(
-            get_default_pip_requirements(), pip_requirements, extra_pip_requirements,
-        )
-        if conda_env is None
-        else _process_conda_env(conda_env)
+    pyfunc.add_to_model(
+        mlflow_model, loader_module="mlflow.h2o", data=model_data_subpath, env=_CONDA_ENV_FILE_NAME
     )
+    mlflow_model.add_flavor(FLAVOR_NAME, h2o_version=h2o.__version__, data=model_data_subpath)
+    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+
+    if conda_env is None:
+        default_reqs = get_default_pip_requirements()
+        if pip_requirements is None:
+            # To ensure `_load_pyfunc` can successfully load the model during the dependency
+            # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
+            inferred_reqs = mlflow.models.infer_pip_requirements(
+                path, FLAVOR_NAME, fallback=default_reqs,
+            )
+            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+        conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
+            default_reqs, pip_requirements, extra_pip_requirements,
+        )
+    else:
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
 
     with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
@@ -147,12 +159,6 @@ def save_model(
 
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
-
-    pyfunc.add_to_model(
-        mlflow_model, loader_module="mlflow.h2o", data=model_data_subpath, env=_CONDA_ENV_FILE_NAME
-    )
-    mlflow_model.add_flavor(FLAVOR_NAME, h2o_version=h2o.__version__, data=model_data_subpath)
-    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
@@ -173,11 +179,11 @@ def log_model(
     :param h2o_model: H2O model to be saved.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: {{ conda_env }}
-    :param registered_model_name: (Experimental) If given, create a model version under
+    :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
 
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -190,7 +196,7 @@ def log_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are

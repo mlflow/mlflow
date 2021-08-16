@@ -10,6 +10,10 @@ on:
       - master
       - branch-[0-9]+.[0-9]+
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 # Use `bash` by default for all `run` steps in this workflow:
 # https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#defaultsrun
 defaults:
@@ -310,6 +314,8 @@ jobs:
         run: |
           export PATH="$CONDA_DIR/bin:$PATH"
           source activate test-environment
+          # Install libopenblas-dev for mxnet 1.8.0.post0
+          sudo apt-get install libopenblas-dev
           ./dev/run-python-flavor-tests.sh;
 
   import:

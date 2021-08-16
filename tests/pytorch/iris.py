@@ -6,7 +6,14 @@ import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from pytorch_lightning.metrics import Accuracy
+
+# NB: Older versions of PyTorch Lightning define native APIs for metric computation,
+# (e.g., pytorch_lightning.metrics.Accuracy), while newer versions rely on the `torchmetrics`
+# package (e.g. `torchmetrics.Accuracy)
+try:
+    from torchmetrics import Accuracy
+except ImportError:
+    from pytorch_lightning.metrics import Accuracy
 
 
 class IrisClassificationBase(pl.LightningModule):
