@@ -21,7 +21,7 @@ jobs:
       - run:
           name: Install R
           command: |
-            # sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 51716619E084DAB9
+            sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 51716619E084DAB9
             echo "deb https://cloud.r-project.org/bin/linux/ubuntu xenial-cran35/" | sudo tee -a /etc/apt/sources.list
             sudo add-apt-repository ppa:cran/libgit2 --yes
             sudo apt-get update --yes
