@@ -9,6 +9,8 @@ jobs:
       - checkout
       - run:
           name: Install dev tools
+          environment:
+            DEBIAN_FRONTEND: noninteractive
           command: |
             apt-get update --yes
             apt-get install sudo git wget curl jq software-properties-common apt-transport-https --yes
