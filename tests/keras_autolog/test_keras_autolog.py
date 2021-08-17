@@ -277,9 +277,13 @@ def test_keras_autolog_log_models_configuration(
 @pytest.mark.parametrize("callback", ["early"])
 @pytest.mark.parametrize("patience", [0, 1, 5])
 @pytest.mark.parametrize("initial_epoch", [0, 10])
-def test_keras_autolog_early_stop_logs(keras_random_data_run_with_callback):
+def test_keras_autolog_early_stop_logs(keras_random_data_run_with_callback, capsys):
     run, history, callback = keras_random_data_run_with_callback
     metrics = run.data.metrics
+    with capsys.disabled():
+        print("=" * 30)
+        print(metrics)
+        print("=" * 30)
     params = run.data.params
     assert "patience" in params
     assert params["patience"] == str(callback.patience)
