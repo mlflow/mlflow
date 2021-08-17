@@ -856,6 +856,7 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
     max_tuning_runs=5,
+    log_eval_metrics=True,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for scikit-learn estimators.
@@ -1102,6 +1103,7 @@ def autolog(
                             `rank_test_score_<scorer_name>` will be used to select the best k
                             results. To change metric used for selecting best k results, change
                             ordering of dict passed as `scoring` parameter for estimator.
+    :param log_eval_metrics: If ``True``, evaluation metrics are logged.
     """
     import pandas as pd
     import sklearn
@@ -1536,11 +1538,14 @@ def autolog(
             FLAVOR_NAME, class_def, "score", patched_model_score, manage_run=False,
         )
 
-    for metric_name in _get_metric_name_list():
-        safe_patch(FLAVOR_NAME, sklearn.metrics, metric_name, patched_metric_api, manage_run=False)
+    if log_eval_metrics:
+        for metric_name in _get_metric_name_list():
+            safe_patch(
+                FLAVOR_NAME, sklearn.metrics, metric_name, patched_metric_api, manage_run=False
+            )
 
-    for scorer in sklearn.metrics.SCORERS.values():
-        safe_patch(FLAVOR_NAME, scorer, "_score_func", patched_metric_api, manage_run=False)
+        for scorer in sklearn.metrics.SCORERS.values():
+            safe_patch(FLAVOR_NAME, scorer, "_score_func", patched_metric_api, manage_run=False)
 
     def patched_fn_with_autolog_disabled(original, *args, **kwargs):
         with disable_autologging():
