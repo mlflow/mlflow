@@ -1104,7 +1104,8 @@ def autolog(
                             results. To change metric used for selecting best k results, change
                             ordering of dict passed as `scoring` parameter for estimator.
      :param log_eval_metrics: If ``True``, evaluation metrics are logged. Defaults to ``True``.
-                             See the post training metrics section for details.    """
+                             See the post training metrics section for details.
+    """
     import pandas as pd
     import sklearn
     import sklearn.metrics
