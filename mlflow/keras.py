@@ -69,16 +69,14 @@ def get_default_pip_requirements(include_cloudpickle=False, keras_module=None):
     import tensorflow as tf
 
     pip_deps = []
-    if keras_module is None:
-        import keras
-
-        keras_module = keras
-    if keras_module.__name__ == "keras":
+    keras_module = keras_module or __import__("keras")
+    if keras_module.__name__ == "keras" and Version(keras_module.__version__) < Version("2.6.0"):
         pip_deps.append(_get_pinned_requirement("keras"))
-    if include_cloudpickle:
-        pip_deps.append(_get_pinned_requirement("cloudpickle"))
 
     pip_deps.append(_get_pinned_requirement("tensorflow"))
+
+    if include_cloudpickle:
+        pip_deps.append(_get_pinned_requirement("cloudpickle"))
 
     # Tensorflow<2.4 does not work with h5py>=3.0.0
     # see https://github.com/tensorflow/tensorflow/issues/44467
