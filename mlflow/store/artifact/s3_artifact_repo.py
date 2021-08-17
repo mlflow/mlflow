@@ -1,3 +1,4 @@
+from datetime import datetime as dt
 from functools import lru_cache
 import os
 from mimetypes import guess_type
@@ -12,15 +13,21 @@ from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
 
-@lru_cache(maxsize=1024)
-def _get_boto3_client(signature_version, s3_endpoint_url, verify):
+@lru_cache(maxsize=64)
+def _get_boto3_client(signature_version, s3_endpoint_url, verify, timestamp):
     """Returns a boto3 client, caching to avoid extra boto3 verify calls.
 
     This method is outside of the S3ArtifactRepository as it is
     agnostic and could be used by other instances.
 
     `maxsize` set to avoid excessive memory consmption in the case
-    a user has dynamic endpoints (intentionally or as a bug)."""
+    a user has dynamic endpoints (intentionally or as a bug).
+
+    Some of the boto3 endpoint urls, in very edge cases, might expire
+    after twelve hours as that is the current expiration time. To ensure
+    we throw an error on verification instead of using an expired endpoint
+    we utilise the `timestamp` parameter to invalidate cache.
+    """
 
     import boto3
     from botocore.client import Config
@@ -81,7 +88,11 @@ class S3ArtifactRepository(ArtifactRepository):
         # https://github.com/mlflow/mlflow/issues so we know your use-case!
         signature_version = os.environ.get("MLFLOW_EXPERIMENTAL_S3_SIGNATURE_VERSION", "s3v4")
 
-        return _get_boto3_client(signature_version, s3_endpoint_url, verify)
+        # Invalidate cache every 5 minutes at least
+        max_cache_seconds = 300
+        timestamp = int(dt.utcnow().timestamp() / max_cache_seconds)
+
+        return _get_boto3_client(signature_version, s3_endpoint_url, verify, timestamp)
 
     def _upload_file(self, s3_client, local_file, bucket, key):
         extra_args = dict()
