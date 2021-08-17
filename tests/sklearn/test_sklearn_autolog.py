@@ -1863,18 +1863,19 @@ def test_is_metrics_value_loggable():
 
 @pytest.mark.parametrize("log_eval_metrics", [True, False])
 def test_log_eval_metrics_configuration(log_eval_metrics):
-    from sklearn.metrics import r2_score
-    from sklearn.linear_model import LogisticRegression
-
     mlflow.sklearn.autolog(log_eval_metrics=log_eval_metrics)
 
-    model = LogisticRegression()
+    model = sklearn.linear_model.LogisticRegression()
     X, y = get_iris()
 
     with mlflow.start_run() as run:
         model.fit(X, y)
         y_pred = model.predict(X)
-        r2_score(y, y_pred)
+        sklearn.metrics.r2_score(y, y_pred)
 
     metrics = get_run_data(run.info.run_id)[1]
-    assert all(not k.startswith("r2_score") for k in metrics.keys()) is log_eval_metrics
+    metric_name = sklearn.metrics.r2_score.__name__
+    if log_eval_metrics:
+        assert any(k.startswith(metric_name) for k in metrics.keys())
+    else:
+        assert all(not k.startswith(metric_name) for k in metrics.keys())

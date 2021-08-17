@@ -666,6 +666,7 @@ def autolog(
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
+    log_eval_metrics=True,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for pyspark ml estimators.
@@ -775,6 +776,7 @@ def autolog(
     :param silent: If ``True``, suppress all event logs and warnings from MLflow during pyspark ML
                    autologging. If ``False``, show all events and warnings during pyspark ML
                    autologging.
+    :param log_eval_metrics: If ``True``, evaluation metrics are logged. Defaults to ``True``.
 
     **The default log model allowlist in mlflow**
         .. literalinclude:: ../../../mlflow/pyspark/ml/log_model_allowlist.txt
@@ -974,9 +976,11 @@ def autolog(
     safe_patch(
         AUTOLOGGING_INTEGRATION_NAME, Estimator, "fit", patched_fit, manage_run=True,
     )
-    safe_patch(
-        AUTOLOGGING_INTEGRATION_NAME, Model, "transform", patched_transform, manage_run=False,
-    )
-    safe_patch(
-        AUTOLOGGING_INTEGRATION_NAME, Evaluator, "evaluate", patched_evaluate, manage_run=False,
-    )
+
+    if log_eval_metrics:
+        safe_patch(
+            AUTOLOGGING_INTEGRATION_NAME, Model, "transform", patched_transform, manage_run=False,
+        )
+        safe_patch(
+            AUTOLOGGING_INTEGRATION_NAME, Evaluator, "evaluate", patched_evaluate, manage_run=False,
+        )
