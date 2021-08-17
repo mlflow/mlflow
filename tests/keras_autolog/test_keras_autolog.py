@@ -286,10 +286,6 @@ patience_values = [1, 5] if keras_version == "2.6.0" else [0, 1, 5]
 def test_keras_autolog_early_stop_logs(keras_random_data_run_with_callback, capsys):
     run, history, callback = keras_random_data_run_with_callback
     metrics = run.data.metrics
-    with capsys.disabled():
-        print("=" * 30)
-        print(metrics)
-        print("=" * 30)
     params = run.data.params
     assert "patience" in params
     assert params["patience"] == str(callback.patience)
@@ -317,7 +313,7 @@ def test_keras_autolog_early_stop_logs(keras_random_data_run_with_callback, caps
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 @pytest.mark.parametrize("restore_weights", [True])
 @pytest.mark.parametrize("callback", ["early"])
-@pytest.mark.parametrize("patience", [0, 1, 5])
+@pytest.mark.parametrize("patience", patience_values)
 @pytest.mark.parametrize("initial_epoch", [0, 10])
 def test_keras_autolog_batch_metrics_logger_logs_expected_metrics(
     fit_variant, callback, restore_weights, patience, initial_epoch
