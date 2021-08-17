@@ -1324,8 +1324,9 @@ def autolog(
                           `sklearn.linear_model.LogisticRegression.fit()` is being patched)
         """
         should_log_post_training_metrics = (
-            _AUTOLOGGING_METRICS_MANAGER.should_log_post_training_metrics()
+            log_eval_metrics and _AUTOLOGGING_METRICS_MANAGER.should_log_post_training_metrics()
         )
+
         with _SklearnTrainingSession(clazz=self.__class__, allow_children=False) as t:
             if t.should_log():
                 # In `fit_mlflow` call, it will also call metric API for computing training metrics

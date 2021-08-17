@@ -913,7 +913,7 @@ def autolog(
 
     def patched_fit(original, self, *args, **kwargs):
         should_log_post_training_metrics = (
-            _AUTOLOGGING_METRICS_MANAGER.should_log_post_training_metrics()
+            log_eval_metrics and _AUTOLOGGING_METRICS_MANAGER.should_log_post_training_metrics()
         )
         with _SparkTrainingSession(clazz=self.__class__, allow_children=False) as t:
             if t.should_log():
