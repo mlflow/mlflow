@@ -1861,11 +1861,12 @@ def test_is_metrics_value_loggable():
     assert not is_metric_value_loggable(np.array([1, 2]))
 
 
-def test_eval_metrics_are_not_logged_when_log_eval_metrics_is_false():
+@pytest.mark.parametrize("log_eval_metrics", [True, False])
+def test_log_eval_metrics_configuration(log_eval_metrics):
     from sklearn.metrics import r2_score
     from sklearn.linear_model import LogisticRegression
 
-    mlflow.sklearn.autolog(log_eval_metrics=False)
+    mlflow.sklearn.autolog(log_eval_metrics=log_eval_metrics)
 
     model = LogisticRegression()
     X, y = get_iris()
@@ -1876,4 +1877,4 @@ def test_eval_metrics_are_not_logged_when_log_eval_metrics_is_false():
         r2_score(y, y_pred)
 
     metrics = get_run_data(run.info.run_id)[1]
-    assert all(not k.startswith("r2_score") for k in metrics.keys())
+    assert all(not k.startswith("r2_score") for k in metrics.keys()) is log_eval_metrics
