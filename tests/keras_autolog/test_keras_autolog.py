@@ -10,9 +10,10 @@ from unittest.mock import patch
 
 import keras
 
+keras_version = keras.__version__
 # pylint: disable=no-name-in-module
 # pylint: disable=reimported
-if Version(keras.__version__) >= Version("2.6.0"):
+if Version(keras_version) >= Version("2.6.0"):
     from tensorflow.keras import layers
     from tensorflow import keras
 else:
@@ -271,11 +272,16 @@ def test_keras_autolog_log_models_configuration(
     assert ("model" in artifacts) == log_models
 
 
+# In keras 2.6.0, early stopping doesn't work correctly when `patience` is set to 0:
+# https://github.com/keras-team/keras/pull/14750
+patience_values = [1, 5] if keras_version == "2.6.0" else [0, 1, 5]
+
+
 @pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 @pytest.mark.parametrize("restore_weights", [True])
 @pytest.mark.parametrize("callback", ["early"])
-@pytest.mark.parametrize("patience", [0, 1, 5])
+@pytest.mark.parametrize("patience", patience_values)
 @pytest.mark.parametrize("initial_epoch", [0, 10])
 def test_keras_autolog_early_stop_logs(keras_random_data_run_with_callback, capsys):
     run, history, callback = keras_random_data_run_with_callback
