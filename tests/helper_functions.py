@@ -342,7 +342,6 @@ def _compare_conda_env_requirements(env_path, req_path):
     assert _get_pip_deps(custom_env_parsed) == requirements
 
 
-# TODO: Set `strict` to True for `pip_requirements` tests to strictly check its behavior.
 def _assert_pip_requirements(model_uri, requirements, constraints=None, strict=False):
     """
     Loads the pip requirements (and optionally constraints) from `model_uri` and compares them

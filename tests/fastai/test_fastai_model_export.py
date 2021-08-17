@@ -288,14 +288,14 @@ def test_save_model_with_extra_pip_requirements(fastai_model, tmpdir):
     mlflow.fastai.save_model(
         fastai_model.model, tmpdir1.strpath, extra_pip_requirements=req_file.strpath
     )
-    _assert_pip_requirements(tmpdir1.strpath, ["mlflow", *default_reqs, "a"])
+    _assert_pip_requirements(tmpdir1.strpath, ["mlflow", *default_reqs, "a"], strict=True)
 
     # List of requirements
     tmpdir2 = tmpdir.join("2")
     mlflow.fastai.save_model(
         fastai_model.model, tmpdir2.strpath, extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
     )
-    _assert_pip_requirements(tmpdir2.strpath, ["mlflow", *default_reqs, "a", "b"])
+    _assert_pip_requirements(tmpdir2.strpath, ["mlflow", *default_reqs, "a", "b"], strict=True)
 
     # Constraints file
     tmpdir3 = tmpdir.join("3")
@@ -303,7 +303,7 @@ def test_save_model_with_extra_pip_requirements(fastai_model, tmpdir):
         fastai_model.model, tmpdir3.strpath, extra_pip_requirements=[f"-c {req_file.strpath}", "b"]
     )
     _assert_pip_requirements(
-        tmpdir3.strpath, ["mlflow", *default_reqs, "b", "-c constraints.txt"], ["a"]
+        tmpdir3.strpath, ["mlflow", *default_reqs, "b", "-c constraints.txt"], ["a"], strict=True
     )
 
 
