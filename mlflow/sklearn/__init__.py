@@ -856,7 +856,7 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
     max_tuning_runs=5,
-    log_eval_metrics=True,
+    log_post_training_metrics=True,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for scikit-learn estimators.
@@ -1103,8 +1103,8 @@ def autolog(
                             `rank_test_score_<scorer_name>` will be used to select the best k
                             results. To change metric used for selecting best k results, change
                             ordering of dict passed as `scoring` parameter for estimator.
-     :param log_eval_metrics: If ``True``, evaluation metrics are logged. Defaults to ``True``.
-                             See the post training metrics section for details.
+    :param log_post_training_metrics: If ``True``, post training metrics are logged. Defaults to
+                                      ``True``.
     """
     import pandas as pd
     import sklearn
@@ -1325,7 +1325,8 @@ def autolog(
                           `sklearn.linear_model.LogisticRegression.fit()` is being patched)
         """
         should_log_post_training_metrics = (
-            log_eval_metrics and _AUTOLOGGING_METRICS_MANAGER.should_log_post_training_metrics()
+            log_post_training_metrics
+            and _AUTOLOGGING_METRICS_MANAGER.should_log_post_training_metrics()
         )
 
         with _SklearnTrainingSession(clazz=self.__class__, allow_children=False) as t:
@@ -1540,7 +1541,7 @@ def autolog(
             FLAVOR_NAME, class_def, "score", patched_model_score, manage_run=False,
         )
 
-    if log_eval_metrics:
+    if log_post_training_metrics:
         for metric_name in _get_metric_name_list():
             safe_patch(
                 FLAVOR_NAME, sklearn.metrics, metric_name, patched_metric_api, manage_run=False

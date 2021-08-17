@@ -760,9 +760,9 @@ def test_is_metrics_value_loggable():
     assert not is_metric_value_loggable(np.array([1, 2]))
 
 
-@pytest.mark.parametrize("log_eval_metrics", [True, False])
-def test_log_eval_metrics_configuration(log_eval_metrics, dataset_iris_binomial):
-    mlflow.pyspark.ml.autolog(log_eval_metrics=log_eval_metrics)
+@pytest.mark.parametrize("log_post_training_metrics", [True, False])
+def test_log_post_training_metrics_configuration(log_post_training_metrics, dataset_iris_binomial):
+    mlflow.pyspark.ml.autolog(log_post_training_metrics=log_post_training_metrics)
 
     estimator = LogisticRegression(maxIter=1)
     mce = MulticlassClassificationEvaluator()
@@ -774,7 +774,7 @@ def test_log_eval_metrics_configuration(log_eval_metrics, dataset_iris_binomial)
 
     metrics = get_run_data(run.info.run_id)[1]
     metric_name = mce.getMetricName()
-    if log_eval_metrics:
+    if log_post_training_metrics:
         assert any(k.startswith(metric_name) for k in metrics.keys())
     else:
         assert all(not k.startswith(metric_name) for k in metrics.keys())

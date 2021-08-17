@@ -666,7 +666,7 @@ def autolog(
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
-    log_eval_metrics=True,
+    log_post_training_metrics=True,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for pyspark ml estimators.
@@ -776,8 +776,8 @@ def autolog(
     :param silent: If ``True``, suppress all event logs and warnings from MLflow during pyspark ML
                    autologging. If ``False``, show all events and warnings during pyspark ML
                    autologging.
-    :param log_eval_metrics: If ``True``, evaluation metrics are logged. Defaults to ``True``.
-                             See the post training metrics section for details.
+    :param log_post_training_metrics: If ``True``, post training metrics are logged. Defaults to
+                                      ``True``.
 
     **The default log model allowlist in mlflow**
         .. literalinclude:: ../../../mlflow/pyspark/ml/log_model_allowlist.txt
@@ -913,7 +913,8 @@ def autolog(
 
     def patched_fit(original, self, *args, **kwargs):
         should_log_post_training_metrics = (
-            log_eval_metrics and _AUTOLOGGING_METRICS_MANAGER.should_log_post_training_metrics()
+            log_post_training_metrics
+            and _AUTOLOGGING_METRICS_MANAGER.should_log_post_training_metrics()
         )
         with _SparkTrainingSession(clazz=self.__class__, allow_children=False) as t:
             if t.should_log():
@@ -978,7 +979,7 @@ def autolog(
         AUTOLOGGING_INTEGRATION_NAME, Estimator, "fit", patched_fit, manage_run=True,
     )
 
-    if log_eval_metrics:
+    if log_post_training_metrics:
         safe_patch(
             AUTOLOGGING_INTEGRATION_NAME, Model, "transform", patched_transform, manage_run=False,
         )
