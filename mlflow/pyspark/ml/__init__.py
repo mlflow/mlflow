@@ -777,6 +777,7 @@ def autolog(
                    autologging. If ``False``, show all events and warnings during pyspark ML
                    autologging.
     :param log_eval_metrics: If ``True``, evaluation metrics are logged. Defaults to ``True``.
+                             See the post training metrics section for details.
 
     **The default log model allowlist in mlflow**
         .. literalinclude:: ../../../mlflow/pyspark/ml/log_model_allowlist.txt
