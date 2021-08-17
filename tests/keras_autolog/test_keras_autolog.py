@@ -283,7 +283,7 @@ patience_values = [1, 5] if keras_version == "2.6.0" else [0, 1, 5]
 @pytest.mark.parametrize("callback", ["early"])
 @pytest.mark.parametrize("patience", patience_values)
 @pytest.mark.parametrize("initial_epoch", [0, 10])
-def test_keras_autolog_early_stop_logs(keras_random_data_run_with_callback, capsys):
+def test_keras_autolog_early_stop_logs(keras_random_data_run_with_callback):
     run, history, callback = keras_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params
