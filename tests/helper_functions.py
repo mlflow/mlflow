@@ -26,7 +26,7 @@ from mlflow.utils.environment import (
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
 )
-from mlflow.utils.requirements_utils import _strip_local_version_identifier, _get_installed_version
+from mlflow.utils.requirements_utils import _get_installed_version
 
 LOCALHOST = "127.0.0.1"
 
@@ -380,10 +380,7 @@ def _is_available_on_pypi(package, version=None, module=None):
     if not resp.ok:
         return False
 
-    module = module or package
-    version = version or _get_installed_version(module)
-    version = _strip_local_version_identifier(version)
-
+    version = version or _get_installed_version(module or package)
     dist_files = resp.json()["releases"].get(version)
     return (
         dist_files is not None  # specified version exists
@@ -398,3 +395,10 @@ def _is_importable(module_name):
         return True
     except ImportError:
         return False
+
+
+def disable_prevent_infer_pip_requirements_fallback_if(condition):
+    def decorator(f):
+        return pytest.mark.disable_prevent_infer_pip_requirements_fallback(f) if condition else f
+
+    return decorator

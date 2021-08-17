@@ -117,23 +117,7 @@ def save_model(
 
     :param keras_model: Keras model to be saved.
     :param path: Local path where the model is to be saved.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decsribes the environment
-                      this model should be run in. At minimum, it should specify the
-                      dependencies contained in :func:`get_default_conda_env()`. If
-                      ``None``, the default :func:`get_default_conda_env()` environment is
-                      added to the model. The following is an *example* dictionary
-                      representation of a Conda environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.7.0',
-                                'keras=2.2.4',
-                                'tensorflow=1.8.0'
-                            ]
-                        }
+    :param conda_env: {{ conda_env }}
     :param mlflow_model: MLflow model config this flavor is being added to.
     :param custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
                            custom classes or functions associated with the Keras model. MLflow saves
@@ -335,25 +319,7 @@ def log_model(
 
     :param keras_model: Keras model to be saved.
     :param artifact_path: Run-relative artifact path.
-    :param conda_env: Either a dictionary representation of a Conda environment or
-                      the path to a Conda environment yaml file.
-                      If provided, this describes the environment this model should be
-                      run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If ``None``, the default
-                      :func:`mlflow.keras.get_default_conda_env()` environment is added to
-                      the model. The following is an *example* dictionary representation of a
-                      Conda environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.7.0',
-                                'keras=2.2.4',
-                                'tensorflow=1.8.0'
-                            ]
-                        }
-
+    :param conda_env: {{ conda_env }}
     :param custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
                            custom classes or functions associated with the Keras model. MLflow saves
                            these custom layers using CloudPickle and restores them automatically
