@@ -967,23 +967,7 @@ def save_model(
     :param code_path: A list of local filesystem paths to Python file dependencies (or directories
                       containing file dependencies). These files are *prepended* to the system
                       path before the model is loaded.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. This decsribes the environment this model should
-                      be run in. If ``python_model`` is not ``None``, the Conda environment must
-                      at least specify the dependencies contained in
-                      :func:`get_default_conda_env()`. If ``None``, the default
-                      :func:`get_default_conda_env()` environment is added to the
-                      model. The following is an *example* dictionary representation of a Conda
-                      environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.7.0',
-                                'cloudpickle==0.5.8'
-                            ]
-                        }
+    :param conda_env: {{ conda_env }}
     :param mlflow_model: :py:mod:`mlflow.models.Model` configuration to which to add the
                          **python_function** flavor.
     :param python_model: An instance of a subclass of :class:`~PythonModel`. This class is
@@ -1155,24 +1139,7 @@ def log_model(
     :param code_path: A list of local filesystem paths to Python file dependencies (or directories
                       containing file dependencies). These files are *prepended* to the system
                       path before the model is loaded.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. This decsribes the environment this model should
-                      be run in. If ``python_model`` is not ``None``, the Conda environment must
-                      at least specify the dependencies contained in
-                      :func:`get_default_conda_env()`. If `None`, the default
-                      :func:`get_default_conda_env()` environment is added to the
-                      model. The following is an *example* dictionary representation of a Conda
-                      environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.7.0',
-                                'cloudpickle==0.5.8'
-                            ]
-                        }
-
+    :param conda_env: {{ conda_env }}
     :param python_model: An instance of a subclass of :class:`~PythonModel`. This class is
                          serialized using the CloudPickle library. Any dependencies of the class
                          should be included in one of the following locations:
