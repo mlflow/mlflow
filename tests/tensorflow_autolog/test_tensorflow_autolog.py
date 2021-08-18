@@ -65,7 +65,6 @@ def create_tf_keras_model():
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 def test_tf_keras_autolog_ends_auto_created_run(
     random_train_data, random_one_hot_labels, fit_variant
 ):
@@ -105,7 +104,6 @@ def test_tf_keras_autolog_log_models_configuration(
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 def test_tf_keras_autolog_persists_manually_created_run(
     random_train_data, random_one_hot_labels, fit_variant
 ):
@@ -124,9 +122,7 @@ def test_tf_keras_autolog_persists_manually_created_run(
 
 
 @pytest.fixture
-def tf_keras_random_data_run(
-    random_train_data, random_one_hot_labels, manual_run, fit_variant, initial_epoch
-):
+def tf_keras_random_data_run(random_train_data, random_one_hot_labels, manual_run, initial_epoch):
     # pylint: disable=unused-argument
     mlflow.tensorflow.autolog(every_n_iter=5)
 
@@ -134,27 +130,15 @@ def tf_keras_random_data_run(
     labels = random_one_hot_labels
 
     model = create_tf_keras_model()
-
-    if fit_variant == "fit_generator":
-
-        def generator():
-            while True:
-                yield data, labels
-
-        history = model.fit_generator(
-            generator(), epochs=initial_epoch + 10, steps_per_epoch=1, initial_epoch=initial_epoch
-        )
-    else:
-        history = model.fit(
-            data, labels, epochs=initial_epoch + 10, steps_per_epoch=1, initial_epoch=initial_epoch
-        )
+    history = model.fit(
+        data, labels, epochs=initial_epoch + 10, steps_per_epoch=1, initial_epoch=initial_epoch
+    )
 
     client = mlflow.tracking.MlflowClient()
     return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id), history
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 @pytest.mark.parametrize("initial_epoch", [0, 10])
 def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     run, history = tf_keras_random_data_run
@@ -188,7 +172,6 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 @pytest.mark.parametrize("initial_epoch", [0, 10])
 def test_tf_keras_autolog_model_can_load_from_artifact(tf_keras_random_data_run, random_train_data):
     run, _ = tf_keras_random_data_run
@@ -349,9 +332,8 @@ def test_tf_keras_autolog_non_early_stop_callback_no_log(tf_keras_random_data_ru
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 def test_tf_keras_autolog_does_not_delete_logging_directory_for_tensorboard_callback(
-    tmpdir, random_train_data, random_one_hot_labels, fit_variant
+    tmpdir, random_train_data, random_one_hot_labels
 ):
     tensorboard_callback_logging_dir_path = str(tmpdir.mkdir("tb_logs"))
     tensorboard_callback = tf.keras.callbacks.TensorBoard(
@@ -364,24 +346,12 @@ def test_tf_keras_autolog_does_not_delete_logging_directory_for_tensorboard_call
     labels = random_one_hot_labels
 
     model = create_tf_keras_model()
-
-    if fit_variant == "fit_generator":
-
-        def generator():
-            while True:
-                yield data, labels
-
-        model.fit_generator(
-            generator(), epochs=10, steps_per_epoch=1, callbacks=[tensorboard_callback]
-        )
-    else:
-        model.fit(data, labels, epochs=10, callbacks=[tensorboard_callback])
+    model.fit(data, labels, epochs=10, callbacks=[tensorboard_callback])
 
     assert os.path.exists(tensorboard_callback_logging_dir_path)
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboard_callback_absent(
     tmpdir, random_train_data, random_one_hot_labels, fit_variant
 ):
@@ -398,16 +368,7 @@ def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboa
         labels = random_one_hot_labels
 
         model = create_tf_keras_model()
-
-        if fit_variant == "fit_generator":
-
-            def generator():
-                while True:
-                    yield data, labels
-
-            model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
-        else:
-            model.fit(data, labels, epochs=10)
+        model.fit(data, labels, epochs=10)
 
         assert not os.path.exists(mock_log_dir_inst.location)
 

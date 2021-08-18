@@ -57,7 +57,7 @@ def create_model():
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
+@pytest.mark.parametrize("fit_variant", ["fit"])
 def test_keras_autolog_ends_auto_created_run(random_train_data, random_one_hot_labels, fit_variant):
     mlflow.keras.autolog()
 
@@ -65,25 +65,12 @@ def test_keras_autolog_ends_auto_created_run(random_train_data, random_one_hot_l
     labels = random_one_hot_labels
 
     model = create_model()
-
-    if fit_variant == "fit_generator":
-
-        def generator():
-            while True:
-                yield data, labels
-
-        model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
-    else:
-        model.fit(data, labels, epochs=10)
-
+    model.fit(data, labels, epochs=10)
     assert mlflow.active_run() is None
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
-def test_keras_autolog_persists_manually_created_run(
-    random_train_data, random_one_hot_labels, fit_variant
-):
+def test_keras_autolog_persists_manually_created_run(random_train_data, random_one_hot_labels):
     mlflow.keras.autolog()
 
     with mlflow.start_run() as run:
@@ -91,25 +78,14 @@ def test_keras_autolog_persists_manually_created_run(
         labels = random_one_hot_labels
 
         model = create_model()
-
-        if fit_variant == "fit_generator":
-
-            def generator():
-                while True:
-                    yield data, labels
-
-            model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
-        else:
-            model.fit(data, labels, epochs=10)
+        model.fit(data, labels, epochs=10)
 
         assert mlflow.active_run()
         assert mlflow.active_run().info.run_id == run.info.run_id
 
 
 @pytest.fixture
-def keras_random_data_run(
-    random_train_data, fit_variant, random_one_hot_labels, manual_run, initial_epoch
-):
+def keras_random_data_run(random_train_data, random_one_hot_labels, manual_run, initial_epoch):
     # pylint: disable=unused-argument
     mlflow.keras.autolog()
 
@@ -117,27 +93,15 @@ def keras_random_data_run(
     labels = random_one_hot_labels
 
     model = create_model()
-
-    if fit_variant == "fit_generator":
-
-        def generator():
-            while True:
-                yield data, labels
-
-        history = model.fit_generator(
-            generator(), epochs=initial_epoch + 10, steps_per_epoch=1, initial_epoch=initial_epoch
-        )
-    else:
-        history = model.fit(
-            data, labels, epochs=initial_epoch + 10, steps_per_epoch=1, initial_epoch=initial_epoch
-        )
+    history = model.fit(
+        data, labels, epochs=initial_epoch + 10, steps_per_epoch=1, initial_epoch=initial_epoch
+    )
 
     client = mlflow.tracking.MlflowClient()
     return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id), history
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 @pytest.mark.parametrize("initial_epoch", [0, 10])
 def test_keras_autolog_logs_expected_data(keras_random_data_run):
     run, history = keras_random_data_run
@@ -167,7 +131,6 @@ def test_keras_autolog_logs_expected_data(keras_random_data_run):
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 @pytest.mark.parametrize("initial_epoch", [0, 10])
 def test_keras_autolog_model_can_load_from_artifact(keras_random_data_run, random_train_data):
     run, _ = keras_random_data_run
@@ -183,7 +146,6 @@ def test_keras_autolog_model_can_load_from_artifact(keras_random_data_run, rando
 @pytest.fixture
 def keras_random_data_run_with_callback(
     random_train_data,
-    fit_variant,
     random_one_hot_labels,
     manual_run,
     callback,
@@ -215,28 +177,9 @@ def keras_random_data_run_with_callback(
 
         callback = CustomCallback()
 
-    if fit_variant == "fit_generator":
-
-        def generator():
-            while True:
-                yield data, labels
-
-        history = model.fit_generator(
-            generator(),
-            epochs=initial_epoch + 10,
-            callbacks=[callback],
-            steps_per_epoch=1,
-            shuffle=False,
-            initial_epoch=initial_epoch,
-        )
-    else:
-        history = model.fit(
-            data,
-            labels,
-            epochs=initial_epoch + 10,
-            callbacks=[callback],
-            initial_epoch=initial_epoch,
-        )
+    history = model.fit(
+        data, labels, epochs=initial_epoch + 10, callbacks=[callback], initial_epoch=initial_epoch,
+    )
 
     client = mlflow.tracking.MlflowClient()
     return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id), history, callback
@@ -262,7 +205,6 @@ def test_keras_autolog_log_models_configuration(
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 @pytest.mark.parametrize("restore_weights", [True])
 @pytest.mark.parametrize("callback", ["early"])
 @pytest.mark.parametrize("patience", [0, 1, 5])
@@ -294,7 +236,6 @@ def test_keras_autolog_early_stop_logs(keras_random_data_run_with_callback):
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 @pytest.mark.parametrize("restore_weights", [True])
 @pytest.mark.parametrize("callback", ["early"])
 @pytest.mark.parametrize("patience", [0, 1, 5])
@@ -340,7 +281,6 @@ def test_keras_autolog_batch_metrics_logger_logs_expected_metrics(
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 @pytest.mark.parametrize("restore_weights", [True])
 @pytest.mark.parametrize("callback", ["early"])
 @pytest.mark.parametrize("patience", [11])
@@ -368,7 +308,6 @@ def test_keras_autolog_early_stop_no_stop_does_not_log(keras_random_data_run_wit
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 @pytest.mark.parametrize("restore_weights", [False])
 @pytest.mark.parametrize("callback", ["early"])
 @pytest.mark.parametrize("patience", [5])
@@ -395,7 +334,6 @@ def test_keras_autolog_early_stop_no_restore_does_not_log(keras_random_data_run_
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 @pytest.mark.parametrize("restore_weights", [False])
 @pytest.mark.parametrize("callback", ["not-early"])
 @pytest.mark.parametrize("patience", [5])

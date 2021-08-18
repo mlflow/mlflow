@@ -66,26 +66,14 @@ def create_tf_keras_model():
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
-def test_tf_keras_autolog_ends_auto_created_run(
-    random_train_data, random_one_hot_labels, fit_variant
-):
+def test_tf_keras_autolog_ends_auto_created_run(random_train_data, random_one_hot_labels):
     mlflow.tensorflow.autolog()
 
     data = random_train_data
     labels = random_one_hot_labels
 
     model = create_tf_keras_model()
-
-    if fit_variant == "fit_generator":
-
-        def generator():
-            while True:
-                yield data, labels
-
-        model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
-    else:
-        model.fit(data, labels, epochs=10)
+    model.fit(data, labels, epochs=10)
 
     assert mlflow.active_run() is None
 
@@ -113,35 +101,21 @@ def test_tf_keras_autolog_log_models_configuration(
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
-def test_tf_keras_autolog_persists_manually_created_run(
-    random_train_data, random_one_hot_labels, fit_variant
-):
+def test_tf_keras_autolog_persists_manually_created_run(random_train_data, random_one_hot_labels):
     mlflow.tensorflow.autolog()
     with mlflow.start_run() as run:
         data = random_train_data
         labels = random_one_hot_labels
 
         model = create_tf_keras_model()
-
-        if fit_variant == "fit_generator":
-
-            def generator():
-                while True:
-                    yield data, labels
-
-            model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
-        else:
-            model.fit(data, labels, epochs=10)
+        model.fit(data, labels, epochs=10)
 
         assert mlflow.active_run()
         assert mlflow.active_run().info.run_id == run.info.run_id
 
 
 @pytest.fixture
-def tf_keras_random_data_run(
-    random_train_data, random_one_hot_labels, manual_run, fit_variant, initial_epoch
-):
+def tf_keras_random_data_run(random_train_data, random_one_hot_labels, manual_runs, initial_epoch):
     # pylint: disable=unused-argument
     mlflow.tensorflow.autolog()
 
@@ -149,27 +123,15 @@ def tf_keras_random_data_run(
     labels = random_one_hot_labels
 
     model = create_tf_keras_model()
-
-    if fit_variant == "fit_generator":
-
-        def generator():
-            while True:
-                yield data, labels
-
-        history = model.fit_generator(
-            generator(), epochs=initial_epoch + 10, steps_per_epoch=1, initial_epoch=initial_epoch
-        )
-    else:
-        history = model.fit(
-            data, labels, epochs=initial_epoch + 10, steps_per_epoch=1, initial_epoch=initial_epoch
-        )
+    history = model.fit(
+        data, labels, epochs=initial_epoch + 10, steps_per_epoch=1, initial_epoch=initial_epoch
+    )
 
     client = mlflow.tracking.MlflowClient()
     return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id), history
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 @pytest.mark.parametrize("initial_epoch", [0, 10])
 def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     run, history = tf_keras_random_data_run
@@ -272,7 +234,6 @@ def test_tf_keras_autolog_names_positional_parameters_correctly(
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 @pytest.mark.parametrize("initial_epoch", [0, 10])
 def test_tf_keras_autolog_model_can_load_from_artifact(tf_keras_random_data_run, random_train_data):
     run, _ = tf_keras_random_data_run
@@ -475,10 +436,9 @@ def test_tf_keras_autolog_non_early_stop_callback_no_log(tf_keras_random_data_ru
     assert len(metric_history) == num_of_epochs
 
 
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 @pytest.mark.parametrize("positional", [True, False])
 def test_tf_keras_autolog_does_not_mutate_original_callbacks_list(
-    tmpdir, random_train_data, random_one_hot_labels, fit_variant, positional
+    tmpdir, random_train_data, random_one_hot_labels, positional
 ):
     """
     TensorFlow autologging passes new callbacks to the `fit()` / `fit_generator()` function. If
@@ -495,29 +455,16 @@ def test_tf_keras_autolog_does_not_mutate_original_callbacks_list(
     data = random_train_data
     labels = random_one_hot_labels
 
-    if fit_variant == "fit_generator":
-
-        def generator():
-            while True:
-                yield data, labels
-
-        if positional:
-            model.fit_generator(generator(), 1, 10, 1, callbacks)
-        else:
-            model.fit_generator(generator(), epochs=10, steps_per_epoch=1, callbacks=callbacks)
-
+    if positional:
+        model.fit(data, labels, None, 10, 1, callbacks)
     else:
-        if positional:
-            model.fit(data, labels, None, 10, 1, callbacks)
-        else:
-            model.fit(data, labels, epochs=10, callbacks=callbacks)
+        model.fit(data, labels, epochs=10, callbacks=callbacks)
 
     assert len(callbacks) == 1
     assert callbacks == [tensorboard_callback]
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 def test_tf_keras_autolog_does_not_delete_logging_directory_for_tensorboard_callback(
     tmpdir, random_train_data, random_one_hot_labels, fit_variant
 ):
@@ -532,24 +479,12 @@ def test_tf_keras_autolog_does_not_delete_logging_directory_for_tensorboard_call
     labels = random_one_hot_labels
 
     model = create_tf_keras_model()
-
-    if fit_variant == "fit_generator":
-
-        def generator():
-            while True:
-                yield data, labels
-
-        model.fit_generator(
-            generator(), epochs=10, steps_per_epoch=1, callbacks=[tensorboard_callback]
-        )
-    else:
-        model.fit(data, labels, epochs=10, callbacks=[tensorboard_callback])
+    model.fit(data, labels, epochs=10, callbacks=[tensorboard_callback])
 
     assert os.path.exists(tensorboard_callback_logging_dir_path)
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboard_callback_absent(
     tmpdir, random_train_data, random_one_hot_labels, fit_variant
 ):
@@ -566,16 +501,7 @@ def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboa
         labels = random_one_hot_labels
 
         model = create_tf_keras_model()
-
-        if fit_variant == "fit_generator":
-
-            def generator():
-                while True:
-                    yield data, labels
-
-            model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
-        else:
-            model.fit(data, labels, epochs=10)
+        model.fit(data, labels, epochs=10)
 
         assert not os.path.exists(mock_log_dir_inst.location)
 
