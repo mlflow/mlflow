@@ -739,10 +739,10 @@ def autolog(
             if callback_attrs is None:
                 return
             stopped_epoch, restore_best_weights, patience = callback_attrs
-            metrics_logger.record_metrics({"stopped_epoch": stopped_epoch})
             # Weights are restored only if early stopping occurs
-            if stopped_epoch != 0 and restore_best_weights:
-                restored_epoch = stopped_epoch - max(1, patience)
+            if callback.model.stop_training:
+                metrics_logger.record_metrics({"stopped_epoch": stopped_epoch})
+                restored_epoch = 0 if stopped_epoch == 0 else stopped_epoch - max(1, patience)
                 metrics_logger.record_metrics({"restored_epoch": restored_epoch})
                 restored_index = history.epoch.index(restored_epoch)
                 restored_metrics = {
