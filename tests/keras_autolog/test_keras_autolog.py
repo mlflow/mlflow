@@ -355,8 +355,7 @@ def test_keras_autolog_early_stop_no_stop_does_not_log(keras_random_data_run_wit
     assert params["monitor"] == "loss"
     assert "verbose" not in params
     assert "mode" not in params
-    assert "stopped_epoch" in metrics
-    assert metrics["stopped_epoch"] == 0
+    assert "stopped_epoch" not in metrics
     assert "restored_epoch" not in metrics
     assert "loss" in history.history
     num_of_epochs = len(history.history["loss"])
@@ -417,33 +416,3 @@ def test_keras_autolog_non_early_stop_callback_does_not_log(keras_random_data_ru
     # Check the test epoch numbers are correct
     assert num_of_epochs == 10
     assert len(metric_history) == num_of_epochs
-
-
-def test_stopped_epoch_is_not_logged_when_training_did_not_early_stop():
-    mlflow.keras.autolog()
-
-    model = create_model()
-    patience = 10
-    early_stopping_callback = keras.callbacks.EarlyStopping(
-        monitor="loss", patience=patience, restore_best_weights=True, verbose=1
-    )
-
-    size = 10
-    num_classes = 3
-    X = np.random.random((size, 4))
-    y = np.random.randint(0, num_classes, size)
-    y = np.eye(num_classes)[y]
-
-    with mlflow.start_run() as run:
-        model.fit(
-            X,
-            y,
-            callbacks=[early_stopping_callback],
-            # Set `epochs` to `patience + 1` to avoid early stopping
-            epochs=patience + 1,
-        )
-        assert not model.stop_training
-
-    run = mlflow.tracking.MlflowClient().get_run(run.info.run_id)
-    assert "stopped_epoch" not in run.data.metrics
-    assert "restored_epoch" not in run.data.metrics
