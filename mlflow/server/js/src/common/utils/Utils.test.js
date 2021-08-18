@@ -82,6 +82,8 @@ test('renderNotebookSource', () => {
   const revisionId = '987654';
   const runUuid = '1133557799';
   const sourceName = '/Users/test/iris_feature';
+  const nameOverride = 'some feature';
+  const queryParams = '?o=123456789';
 
   expect(Utils.renderNotebookSource(null, null, null, null, sourceName)).toEqual('iris_feature');
   expect(Utils.renderNotebookSource(null, notebookId, null, null, sourceName)).toEqual(
@@ -107,12 +109,45 @@ test('renderNotebookSource', () => {
       iris_feature
     </a>,
   );
+  expect(Utils.renderNotebookSource(null, notebookId, revisionId, runUuid, null)).toEqual(
+    <a
+      title={Utils.getDefaultNotebookRevisionName(notebookId, revisionId)}
+      href={`http://localhost/#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
+      target='_top'
+    >
+      {Utils.getDefaultNotebookRevisionName(notebookId, revisionId)}
+    </a>,
+  );
+  expect(
+    Utils.renderNotebookSource(null, notebookId, revisionId, runUuid, sourceName, nameOverride),
+  ).toEqual(
+    <a
+      title={sourceName}
+      href={`http://localhost/#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
+      target='_top'
+    >
+      {nameOverride}
+    </a>,
+  );
+  expect(
+    Utils.renderNotebookSource(queryParams, notebookId, revisionId, runUuid, sourceName),
+  ).toEqual(
+    <a
+      title={sourceName}
+      href={`http://localhost/${queryParams}#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
+      target='_top'
+    >
+      iris_feature
+    </a>,
+  );
 });
 
 test('renderJobSource', () => {
   const jobId = '123456';
   const jobRunId = '98765';
   const jobName = 'job xxx';
+  const nameOverride = 'random text';
+  const queryParams = '?o=123456789';
 
   expect(Utils.renderJobSource(null, null, null, jobName)).toEqual(jobName);
   expect(Utils.renderJobSource(null, jobId, null, jobName)).toEqual(
@@ -132,11 +167,25 @@ test('renderJobSource', () => {
   );
   expect(Utils.renderJobSource(null, jobId, jobRunId, null)).toEqual(
     <a
-      title={`run ${jobRunId} of job ${jobId}`}
+      title={Utils.getDefaultJobRunName(jobId, jobRunId)}
       href={`http://localhost/#job/${jobId}/run/${jobRunId}`}
       target='_top'
     >
-      {`run ${jobRunId} of job ${jobId}`}
+      {Utils.getDefaultJobRunName(jobId, jobRunId)}
+    </a>,
+  );
+  expect(Utils.renderJobSource(null, jobId, jobRunId, jobName, nameOverride)).toEqual(
+    <a title={jobName} href={`http://localhost/#job/${jobId}/run/${jobRunId}`} target='_top'>
+      {nameOverride}
+    </a>,
+  );
+  expect(Utils.renderJobSource(queryParams, jobId, jobRunId, jobName)).toEqual(
+    <a
+      title={jobName}
+      href={`http://localhost/${queryParams}#job/${jobId}/run/${jobRunId}`}
+      target='_top'
+    >
+      {jobName}
     </a>,
   );
 });
@@ -173,17 +222,16 @@ test('formatSource & renderSource', () => {
   expect(Utils.formatSource(non_project_source)).toEqual('source3');
   expect(Utils.renderSource(non_project_source)).toEqual('source3');
 
-  // formatSource should return a string, renderSource should return an HTML element
-  // with the correct source url.
+  // formatSource should return a string, renderSource should return an HTML element.
   const github_url = {
-    'mlflow.source.name': { value: 'git@github.com:mlflow/mlflow-apps-git.git' },
+    'mlflow.source.name': { value: 'git@github.com:mlflow/mlflow-apps.git' },
     'mlflow.source.type': { value: 'PROJECT' },
     'mlflow.project.entryPoint': { value: 'entry' },
   };
-  expect(Utils.formatSource(github_url)).toEqual('mlflow-apps-git:entry');
+  expect(Utils.formatSource(github_url)).toEqual('mlflow-apps:entry');
   expect(Utils.renderSource(github_url)).toEqual(
-    <a href='https://github.com/mlflow/mlflow-apps-git' target='_top'>
-      mlflow-apps-git:entry
+    <a href='https://github.com/mlflow/mlflow-apps' target='_top'>
+      mlflow-apps:entry
     </a>,
   );
 
@@ -200,14 +248,14 @@ test('formatSource & renderSource', () => {
   );
 
   const bitbucket_url = {
-    'mlflow.source.name': { value: 'git@bitbucket.org:mlflow/mlflow-apps-git.git' },
+    'mlflow.source.name': { value: 'git@bitbucket.org:mlflow/mlflow-apps.git' },
     'mlflow.source.type': { value: 'PROJECT' },
     'mlflow.project.entryPoint': { value: 'entry' },
   };
-  expect(Utils.formatSource(bitbucket_url)).toEqual('mlflow-apps-git:entry');
+  expect(Utils.formatSource(bitbucket_url)).toEqual('mlflow-apps:entry');
   expect(Utils.renderSource(bitbucket_url)).toEqual(
-    <a href='https://bitbucket.org/mlflow/mlflow-apps-git' target='_top'>
-      mlflow-apps-git:entry
+    <a href='https://bitbucket.org/mlflow/mlflow-apps' target='_top'>
+      mlflow-apps:entry
     </a>,
   );
 
@@ -258,7 +306,7 @@ test('formatSource & renderSource', () => {
   expect(wrapper5.props().href).toEqual('http://localhost/#job/70/run/5');
 });
 
-test('addQueryParams', () => {
+test('setQueryParams', () => {
   expect(Utils.setQueryParams('http://localhost/foo', '?o=123')).toEqual(
     'http://localhost/foo?o=123',
   );
@@ -267,6 +315,31 @@ test('addQueryParams', () => {
   );
   expect(Utils.setQueryParams('http://localhost/foo?param=val', '?param=newval')).toEqual(
     'http://localhost/foo?param=newval',
+  );
+});
+
+test('addQueryParams', () => {
+  expect(Utils.addQueryParams('', { o: null })).toEqual('');
+  expect(Utils.addQueryParams('?param=val', { o: null })).toEqual('?param=val');
+  expect(Utils.addQueryParams('', { o: 123 })).toEqual('?o=123');
+  expect(Utils.addQueryParams('', { o: 123, param: 'val' })).toEqual('?o=123&param=val');
+  expect(Utils.addQueryParams('?param=val', { o: 123 })).toEqual('?param=val&o=123');
+  expect(Utils.addQueryParams('?o=456', { o: 123 })).toEqual('?o=123');
+});
+
+test('getDefaultJobRunName', () => {
+  expect(Utils.getDefaultJobRunName(null, null)).toEqual('-');
+  expect(Utils.getDefaultJobRunName(123, null)).toEqual('job 123');
+  expect(Utils.getDefaultJobRunName(123, 456)).toEqual('run 456 of job 123');
+  expect(Utils.getDefaultJobRunName(123, 456, 7890)).toEqual('workspace 7890: run 456 of job 123');
+});
+
+test('getDefaultNotebookRevisionName', () => {
+  expect(Utils.getDefaultNotebookRevisionName(null, null)).toEqual('-');
+  expect(Utils.getDefaultNotebookRevisionName(123, null)).toEqual('notebook 123');
+  expect(Utils.getDefaultNotebookRevisionName(123, 456)).toEqual('revision 456 of notebook 123');
+  expect(Utils.getDefaultNotebookRevisionName(123, 456, 7890)).toEqual(
+    'workspace 7890: revision 456 of notebook 123',
   );
 });
 
@@ -427,7 +500,6 @@ test('normalize', () => {
   expect(Utils.normalize('http://mlflow.org///redundant/')).toEqual('http://mlflow.org/redundant');
   expect(Utils.normalize('s3:///bucket/resource/')).toEqual('s3:/bucket/resource');
 });
-
 test('getLoggedModelsFromTags correctly parses run tag for logged models', () => {
   const tags = {
     'mlflow.log-model.history': RunTag.fromJs({

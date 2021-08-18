@@ -1,8 +1,8 @@
 import React from 'react';
-import { shallow, mount } from 'enzyme';
 import { RunsTableColumnSelectionDropdown } from './RunsTableColumnSelectionDropdown';
 import { SearchTree } from '../../common/components/SearchTree';
 import { ColumnTypes } from '../constants';
+import { mountWithIntl, shallowWithIntl } from '../../common/utils/TestUtils';
 
 describe('RunsTableColumnSelectionDropdown', () => {
   let wrapper;
@@ -33,12 +33,12 @@ describe('RunsTableColumnSelectionDropdown', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<RunsTableColumnSelectionDropdown {...minimalProps} />);
+    wrapper = shallowWithIntl(<RunsTableColumnSelectionDropdown {...minimalProps} />);
     expect(wrapper.length).toBe(1);
   });
 
   test('should render SearchTree with correct tree data', () => {
-    wrapper = mount(<RunsTableColumnSelectionDropdown {...commonProps} />);
+    wrapper = mountWithIntl(<RunsTableColumnSelectionDropdown {...commonProps} />);
     instance = wrapper.instance();
     instance.setState({ menuVisible: true });
     wrapper.update();
@@ -77,7 +77,7 @@ describe('RunsTableColumnSelectionDropdown', () => {
   });
 
   test('should check all keys by default', () => {
-    wrapper = mount(<RunsTableColumnSelectionDropdown {...commonProps} />);
+    wrapper = mountWithIntl(<RunsTableColumnSelectionDropdown {...commonProps} />);
     instance = wrapper.instance();
     instance.setState({ menuVisible: true });
     wrapper.update();
@@ -107,7 +107,7 @@ describe('RunsTableColumnSelectionDropdown', () => {
         [ColumnTypes.TAGS]: ['t1'],
       },
     };
-    wrapper = mount(<RunsTableColumnSelectionDropdown {...props} />);
+    wrapper = mountWithIntl(<RunsTableColumnSelectionDropdown {...props} />);
     instance = wrapper.instance();
     instance.setState({ menuVisible: true });
     wrapper.update();

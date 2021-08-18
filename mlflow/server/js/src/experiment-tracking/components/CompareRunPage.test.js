@@ -1,11 +1,12 @@
 import React from 'react';
-import { mount } from 'enzyme/build';
 import { BrowserRouter } from 'react-router-dom';
 import CompareRunPage from './CompareRunPage';
 import { Provider } from 'react-redux';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
+
+import { mountWithIntl } from '../../common/utils/TestUtils';
 
 describe('CompareRunPage', () => {
   let wrapper;
@@ -34,7 +35,7 @@ describe('CompareRunPage', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <CompareRunPage {...minimalProps} />

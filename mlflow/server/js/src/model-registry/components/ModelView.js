@@ -303,6 +303,7 @@ export class ModelViewImpl extends React.Component {
           }
           forceOpen={showDescriptionEditor}
           defaultCollapsed={!model.description}
+          data-test-id='model-description-section'
         >
           <EditableNote
             defaultMarkdown={model.description}
@@ -321,6 +322,7 @@ export class ModelViewImpl extends React.Component {
               />
             }
             defaultCollapsed={Utils.getVisibleTagValues(tags).length === 0}
+            data-test-id='model-tags-section'
           >
             <EditableTagsTableView
               wrappedComponentRef={this.saveFormRef}
@@ -388,6 +390,7 @@ export class ModelViewImpl extends React.Component {
               </Spacer>
             </div>
           }
+          data-test-id='model-versions-section'
         >
           <ModelVersionTable
             activeStageOnly={stageFilter === StageFilters.ACTIVE}
