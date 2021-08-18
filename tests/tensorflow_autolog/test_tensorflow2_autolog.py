@@ -115,7 +115,7 @@ def test_tf_keras_autolog_persists_manually_created_run(random_train_data, rando
 
 
 @pytest.fixture
-def tf_keras_random_data_run(random_train_data, random_one_hot_labels, manual_runs, initial_epoch):
+def tf_keras_random_data_run(random_train_data, random_one_hot_labels, manual_run, initial_epoch):
     # pylint: disable=unused-argument
     mlflow.tensorflow.autolog()
 
