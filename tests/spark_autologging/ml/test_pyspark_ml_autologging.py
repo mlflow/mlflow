@@ -776,4 +776,3 @@ def test_log_post_training_metrics_configuration(dataset_iris_binomial):
 
         metrics = get_run_data(run.info.run_id)[1]
         assert any(k.startswith(metric_name) for k in metrics.keys()) is log_post_training_metrics
-
