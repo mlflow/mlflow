@@ -146,8 +146,8 @@ def _should_log_hierarchy(estimator):
     return isinstance(estimator, (Pipeline, OneVsRest)) or _is_parameter_search_estimator(estimator)
 
 
-AutologgingEstimatorMetadata = namedtuple(
-    "AutologgingEstimatorMetadata",
+_AutologgingEstimatorMetadata = namedtuple(
+    "_AutologgingEstimatorMetadata",
     ["hierarchy", "uid_to_indexed_name_map", "param_search_estimators"],
 )
 
@@ -215,8 +215,8 @@ def _gen_stage_hierarchy_recursively(
 
 def _gen_estimator_metadata(estimator):
     """
-    Returns an AutologgingEstimatorMetadata object.
-    The AutologgingEstimatorMetadata object includes:
+    Returns an `_AutologgingEstimatorMetadata` object.
+    The `_AutologgingEstimatorMetadata` object includes:
      - hierarchy: the hierarchy of the estimator, it will expand
          pipeline/meta estimator/param tuning estimator
      - uid_to_indexed_name_map: a map of `uid` -> `name`, each nested instance uid will be
@@ -232,7 +232,7 @@ def _gen_estimator_metadata(estimator):
     ]
     hierarchy = _gen_stage_hierarchy_recursively(estimator, uid_to_indexed_name_map)
 
-    metadata = AutologgingEstimatorMetadata(
+    metadata = _AutologgingEstimatorMetadata(
         hierarchy=hierarchy,
         uid_to_indexed_name_map=uid_to_indexed_name_map,
         param_search_estimators=param_search_estimators,
