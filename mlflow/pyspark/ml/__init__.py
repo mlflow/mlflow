@@ -688,6 +688,8 @@ def autolog(
         - A fully qualified estimator class name
           (e.g. "pyspark.ml.regression.LinearRegression").
 
+      .. _post training metrics:
+
       **Post training metrics**
         When users call evaluator APIs after model training, MLflow tries to capture the
         `Evaluator.evaluate` results and log them as MLflow metrics to the Run associated with
@@ -777,7 +779,8 @@ def autolog(
                    autologging. If ``False``, show all events and warnings during pyspark ML
                    autologging.
     :param log_post_training_metrics: If ``True``, post training metrics are logged. Defaults to
-                                      ``True``.
+                                      ``True``. See the `post training metrics`_ section for more
+                                      details.
 
     **The default log model allowlist in mlflow**
         .. literalinclude:: ../../../mlflow/pyspark/ml/log_model_allowlist.txt

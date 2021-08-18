@@ -930,6 +930,8 @@ def autolog(
           .. _r2 score:
               https://scikit-learn.org/stable/modules/generated/sklearn.metrics.r2_score.html
 
+      .. _post training metrics:
+
       **Post training metrics**
         When users call metric APIs after model training, MLflow tries to capture the metric API
         results and log them as MLflow metrics to the Run associated with the model. The following
@@ -1104,7 +1106,8 @@ def autolog(
                             results. To change metric used for selecting best k results, change
                             ordering of dict passed as `scoring` parameter for estimator.
     :param log_post_training_metrics: If ``True``, post training metrics are logged. Defaults to
-                                      ``True``.
+                                      ``True``. See the `post training metrics`_ section for more
+                                      details.
     """
     import pandas as pd
     import sklearn
