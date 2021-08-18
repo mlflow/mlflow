@@ -14,7 +14,12 @@ from mlflow.utils.file_utils import relative_path_to_artifact_path
 
 
 @lru_cache(maxsize=64)
-def _get_boto3_client(signature_version, s3_endpoint_url, verify, timestamp):
+def _get_boto3_client(
+    signature_version,
+    s3_endpoint_url,
+    verify,
+    timestamp,
+):  # pylint: disable=unused-argument
     """Returns a boto3 client, caching to avoid extra boto3 verify calls.
 
     This method is outside of the S3ArtifactRepository as it is
