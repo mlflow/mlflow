@@ -65,9 +65,7 @@ def create_tf_keras_model():
 
 
 @pytest.mark.large
-def test_tf_keras_autolog_ends_auto_created_run(
-    random_train_data, random_one_hot_labels, fit_variant
-):
+def test_tf_keras_autolog_ends_auto_created_run(random_train_data, random_one_hot_labels):
     # pylint: disable=unused-argument
     mlflow.tensorflow.autolog()
 
@@ -104,9 +102,7 @@ def test_tf_keras_autolog_log_models_configuration(
 
 
 @pytest.mark.large
-def test_tf_keras_autolog_persists_manually_created_run(
-    random_train_data, random_one_hot_labels, fit_variant
-):
+def test_tf_keras_autolog_persists_manually_created_run(random_train_data, random_one_hot_labels):
     # pylint: disable=unused-argument
     mlflow.tensorflow.autolog()
     with mlflow.start_run() as run:
@@ -353,7 +349,7 @@ def test_tf_keras_autolog_does_not_delete_logging_directory_for_tensorboard_call
 
 @pytest.mark.large
 def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboard_callback_absent(
-    tmpdir, random_train_data, random_one_hot_labels, fit_variant
+    tmpdir, random_train_data, random_one_hot_labels
 ):
     from unittest import mock
     from mlflow.tensorflow import _TensorBoardLogDir

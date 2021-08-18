@@ -466,7 +466,7 @@ def test_tf_keras_autolog_does_not_mutate_original_callbacks_list(
 
 @pytest.mark.large
 def test_tf_keras_autolog_does_not_delete_logging_directory_for_tensorboard_callback(
-    tmpdir, random_train_data, random_one_hot_labels, fit_variant
+    tmpdir, random_train_data, random_one_hot_labels
 ):
     tensorboard_callback_logging_dir_path = str(tmpdir.mkdir("tb_logs"))
     tensorboard_callback = tf.keras.callbacks.TensorBoard(
@@ -486,7 +486,7 @@ def test_tf_keras_autolog_does_not_delete_logging_directory_for_tensorboard_call
 
 @pytest.mark.large
 def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboard_callback_absent(
-    tmpdir, random_train_data, random_one_hot_labels, fit_variant
+    tmpdir, random_train_data, random_one_hot_labels
 ):
     from unittest import mock
     from mlflow.tensorflow import _TensorBoardLogDir

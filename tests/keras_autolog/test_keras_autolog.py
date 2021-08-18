@@ -57,8 +57,7 @@ def create_model():
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit"])
-def test_keras_autolog_ends_auto_created_run(random_train_data, random_one_hot_labels, fit_variant):
+def test_keras_autolog_ends_auto_created_run(random_train_data, random_one_hot_labels):
     mlflow.keras.autolog()
 
     data = random_train_data
@@ -241,7 +240,7 @@ def test_keras_autolog_early_stop_logs(keras_random_data_run_with_callback):
 @pytest.mark.parametrize("patience", [0, 1, 5])
 @pytest.mark.parametrize("initial_epoch", [0, 10])
 def test_keras_autolog_batch_metrics_logger_logs_expected_metrics(
-    fit_variant, callback, restore_weights, patience, initial_epoch
+    callback, restore_weights, patience, initial_epoch
 ):
     patched_metrics_data = []
 
@@ -260,7 +259,6 @@ def test_keras_autolog_batch_metrics_logger_logs_expected_metrics(
         record_metrics_mock.side_effect = record_metrics_side_effect
         run, _, callback = keras_random_data_run_with_callback(
             random_train_data(),
-            fit_variant,
             random_one_hot_labels(),
             manual_run,
             callback,
