@@ -734,25 +734,31 @@ def autolog(
             return None
 
     def _log_early_stop_callback_metrics(callback, history, metrics_logger):
-        if callback:
-            callback_attrs = _get_early_stop_callback_attrs(callback)
-            if callback_attrs is None:
-                return
-            stopped_epoch, restore_best_weights, patience = callback_attrs
-            # Weights are restored only if early stopping occurs
-            if callback.model.stop_training:
-                metrics_logger.record_metrics({"stopped_epoch": stopped_epoch})
-                restored_epoch = 0 if stopped_epoch == 0 else stopped_epoch - max(1, patience)
-                metrics_logger.record_metrics({"restored_epoch": restored_epoch})
-                restored_index = history.epoch.index(restored_epoch)
-                restored_metrics = {
-                    key: history.history[key][restored_index] for key in history.history.keys()
-                }
-                # Checking that a metric history exists
-                metric_key = next(iter(history.history), None)
-                if metric_key is not None:
-                    last_epoch = len(history.history[metric_key])
-                    metrics_logger.record_metrics(restored_metrics, last_epoch)
+        if callback is None or not callback.model.stop_training:
+            return
+
+        callback_attrs = _get_early_stop_callback_attrs(callback)
+        if callback_attrs is None:
+            return
+
+        stopped_epoch, restore_best_weights, patience = callback_attrs
+        metrics_logger.record_metrics({"stopped_epoch": stopped_epoch})
+
+        restored_best_weights = restore_best_weights and callback.best_weights is not None
+        if not restored_best_weights:
+            return
+
+        restored_epoch = 0 if stopped_epoch == 0 else stopped_epoch - max(1, patience)
+        metrics_logger.record_metrics({"restored_epoch": restored_epoch})
+        restored_index = history.epoch.index(restored_epoch)
+        restored_metrics = {
+            key: history.history[key][restored_index] for key in history.history.keys()
+        }
+        # Checking that a metric history exists
+        metric_key = next(iter(history.history), None)
+        if metric_key is not None:
+            last_epoch = len(history.history[metric_key])
+            metrics_logger.record_metrics(restored_metrics, last_epoch)
 
     def _run_and_log_function(self, original, args, kwargs, unlogged_params, callback_arg_index):
         log_fn_args_as_params(original, args, kwargs, unlogged_params)
