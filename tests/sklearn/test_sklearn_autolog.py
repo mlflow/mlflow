@@ -1861,9 +1861,8 @@ def test_is_metrics_value_loggable():
     assert not is_metric_value_loggable(np.array([1, 2]))
 
 
-@pytest.mark.parametrize("log_post_training_metrics", [True, False])
-def test_log_post_training_metrics_configuration(log_post_training_metrics):
-    mlflow.sklearn.autolog(log_post_training_metrics=log_post_training_metrics)
+def test_log_post_training_metrics_configuration():
+    mlflow.sklearn.autolog(log_post_training_metrics=True)
 
     model = sklearn.linear_model.LogisticRegression()
     X, y = get_iris()
@@ -1875,7 +1874,15 @@ def test_log_post_training_metrics_configuration(log_post_training_metrics):
 
     metrics = get_run_data(run.info.run_id)[1]
     metric_name = sklearn.metrics.r2_score.__name__
-    if log_post_training_metrics:
-        assert any(k.startswith(metric_name) for k in metrics.keys())
-    else:
-        assert all(not k.startswith(metric_name) for k in metrics.keys())
+    assert any(k.startswith(metric_name) for k in metrics.keys())
+
+    # Ensure post-traning metrics autologging can be toggled off
+    mlflow.sklearn.autolog(log_post_training_metrics=False)
+
+    with mlflow.start_run() as run:
+        model.fit(X, y)
+        y_pred = model.predict(X)
+        sklearn.metrics.r2_score(y, y_pred)
+
+    metrics = get_run_data(run.info.run_id)[1]
+    assert all(not k.startswith(metric_name) for k in metrics.keys())
