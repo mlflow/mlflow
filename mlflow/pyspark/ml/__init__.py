@@ -146,8 +146,8 @@ def _should_log_hierarchy(estimator):
     return isinstance(estimator, (Pipeline, OneVsRest)) or _is_parameter_search_estimator(estimator)
 
 
-AutologgingEstimatorMetadata = namedtuple(
-    "AutologgingEstimatorMetadata",
+_AutologgingEstimatorMetadata = namedtuple(
+    "_AutologgingEstimatorMetadata",
     ["hierarchy", "uid_to_indexed_name_map", "param_search_estimators"],
 )
 
@@ -215,8 +215,8 @@ def _gen_stage_hierarchy_recursively(
 
 def _gen_estimator_metadata(estimator):
     """
-    Returns an AutologgingEstimatorMetadata object.
-    The AutologgingEstimatorMetadata object includes:
+    Returns an `_AutologgingEstimatorMetadata` object.
+    The `_AutologgingEstimatorMetadata` object includes:
      - hierarchy: the hierarchy of the estimator, it will expand
          pipeline/meta estimator/param tuning estimator
      - uid_to_indexed_name_map: a map of `uid` -> `name`, each nested instance uid will be
@@ -232,7 +232,7 @@ def _gen_estimator_metadata(estimator):
     ]
     hierarchy = _gen_stage_hierarchy_recursively(estimator, uid_to_indexed_name_map)
 
-    metadata = AutologgingEstimatorMetadata(
+    metadata = _AutologgingEstimatorMetadata(
         hierarchy=hierarchy,
         uid_to_indexed_name_map=uid_to_indexed_name_map,
         param_search_estimators=param_search_estimators,
@@ -666,6 +666,7 @@ def autolog(
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
+    log_post_training_metrics=True,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for pyspark ml estimators.
@@ -686,6 +687,8 @@ def autolog(
         - An estimator class name (e.g. "LinearRegression").
         - A fully qualified estimator class name
           (e.g. "pyspark.ml.regression.LinearRegression").
+
+      .. _post training metrics:
 
       **Post training metrics**
         When users call evaluator APIs after model training, MLflow tries to capture the
@@ -775,6 +778,9 @@ def autolog(
     :param silent: If ``True``, suppress all event logs and warnings from MLflow during pyspark ML
                    autologging. If ``False``, show all events and warnings during pyspark ML
                    autologging.
+    :param log_post_training_metrics: If ``True``, post training metrics are logged. Defaults to
+                                      ``True``. See the `post training metrics`_ section for more
+                                      details.
 
     **The default log model allowlist in mlflow**
         .. literalinclude:: ../../../mlflow/pyspark/ml/log_model_allowlist.txt
@@ -910,7 +916,8 @@ def autolog(
 
     def patched_fit(original, self, *args, **kwargs):
         should_log_post_training_metrics = (
-            _AUTOLOGGING_METRICS_MANAGER.should_log_post_training_metrics()
+            log_post_training_metrics
+            and _AUTOLOGGING_METRICS_MANAGER.should_log_post_training_metrics()
         )
         with _SparkTrainingSession(clazz=self.__class__, allow_children=False) as t:
             if t.should_log():
@@ -974,9 +981,11 @@ def autolog(
     safe_patch(
         AUTOLOGGING_INTEGRATION_NAME, Estimator, "fit", patched_fit, manage_run=True,
     )
-    safe_patch(
-        AUTOLOGGING_INTEGRATION_NAME, Model, "transform", patched_transform, manage_run=False,
-    )
-    safe_patch(
-        AUTOLOGGING_INTEGRATION_NAME, Evaluator, "evaluate", patched_evaluate, manage_run=False,
-    )
+
+    if log_post_training_metrics:
+        safe_patch(
+            AUTOLOGGING_INTEGRATION_NAME, Model, "transform", patched_transform, manage_run=False,
+        )
+        safe_patch(
+            AUTOLOGGING_INTEGRATION_NAME, Evaluator, "evaluate", patched_evaluate, manage_run=False,
+        )
