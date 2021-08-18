@@ -824,6 +824,7 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
     max_tuning_runs=5,
+    log_post_training_metrics=True,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for scikit-learn estimators.
@@ -896,6 +897,8 @@ def autolog(
 
           .. _r2 score:
               https://scikit-learn.org/stable/modules/generated/sklearn.metrics.r2_score.html
+
+      .. _post training metrics:
 
       **Post training metrics**
         When users call metric APIs after model training, MLflow tries to capture the metric API
@@ -1070,6 +1073,9 @@ def autolog(
                             `rank_test_score_<scorer_name>` will be used to select the best k
                             results. To change metric used for selecting best k results, change
                             ordering of dict passed as `scoring` parameter for estimator.
+    :param log_post_training_metrics: If ``True``, post training metrics are logged. Defaults to
+                                      ``True``. See the `post training metrics`_ section for more
+                                      details.
     """
     import pandas as pd
     import sklearn
@@ -1290,8 +1296,10 @@ def autolog(
                           `sklearn.linear_model.LogisticRegression.fit()` is being patched)
         """
         should_log_post_training_metrics = (
-            _AUTOLOGGING_METRICS_MANAGER.should_log_post_training_metrics()
+            log_post_training_metrics
+            and _AUTOLOGGING_METRICS_MANAGER.should_log_post_training_metrics()
         )
+
         with _SklearnTrainingSession(clazz=self.__class__, allow_children=False) as t:
             if t.should_log():
                 # In `fit_mlflow` call, it will also call metric API for computing training metrics
@@ -1504,11 +1512,14 @@ def autolog(
             FLAVOR_NAME, class_def, "score", patched_model_score, manage_run=False,
         )
 
-    for metric_name in _get_metric_name_list():
-        safe_patch(FLAVOR_NAME, sklearn.metrics, metric_name, patched_metric_api, manage_run=False)
+    if log_post_training_metrics:
+        for metric_name in _get_metric_name_list():
+            safe_patch(
+                FLAVOR_NAME, sklearn.metrics, metric_name, patched_metric_api, manage_run=False
+            )
 
-    for scorer in sklearn.metrics.SCORERS.values():
-        safe_patch(FLAVOR_NAME, scorer, "_score_func", patched_metric_api, manage_run=False)
+        for scorer in sklearn.metrics.SCORERS.values():
+            safe_patch(FLAVOR_NAME, scorer, "_score_func", patched_metric_api, manage_run=False)
 
     def patched_fn_with_autolog_disabled(original, *args, **kwargs):
         with disable_autologging():

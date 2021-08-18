@@ -758,3 +758,21 @@ def test_is_metrics_value_loggable():
     assert not is_metric_value_loggable(np.bool(True))
     assert not is_metric_value_loggable([1, 2])
     assert not is_metric_value_loggable(np.array([1, 2]))
+
+
+def test_log_post_training_metrics_configuration(dataset_iris_binomial):
+    estimator = LogisticRegression(maxIter=1)
+    mce = MulticlassClassificationEvaluator()
+    metric_name = mce.getMetricName()
+
+    # Ensure post-traning metrics autologging can be toggled on / off
+    for log_post_training_metrics in [True, False, True]:
+        mlflow.pyspark.ml.autolog(log_post_training_metrics=log_post_training_metrics)
+
+        with mlflow.start_run() as run:
+            model = estimator.fit(dataset_iris_binomial)
+            pred_result = model.transform(dataset_iris_binomial)
+            mce.evaluate(pred_result)
+
+        metrics = get_run_data(run.info.run_id)[1]
+        assert any(k.startswith(metric_name) for k in metrics.keys()) is log_post_training_metrics
