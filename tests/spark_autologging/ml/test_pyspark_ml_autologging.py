@@ -761,27 +761,19 @@ def test_is_metrics_value_loggable():
 
 
 def test_log_post_training_metrics_configuration(dataset_iris_binomial):
-    mlflow.pyspark.ml.autolog(log_post_training_metrics=True)
-
     estimator = LogisticRegression(maxIter=1)
     mce = MulticlassClassificationEvaluator()
-
-    with mlflow.start_run() as run:
-        model = estimator.fit(dataset_iris_binomial)
-        pred_result = model.transform(dataset_iris_binomial)
-        mce.evaluate(pred_result)
-
-    metrics = get_run_data(run.info.run_id)[1]
     metric_name = mce.getMetricName()
-    assert any(k.startswith(metric_name) for k in metrics.keys())
 
-    # Ensure post-traning metrics autologging can be toggled off
-    mlflow.pyspark.ml.autolog(log_post_training_metrics=False)
+    # Ensure post-traning metrics autologging can be toggled on / off
+    for log_post_training_metrics in [True, False, True]:
+        mlflow.pyspark.ml.autolog(log_post_training_metrics=log_post_training_metrics)
 
-    with mlflow.start_run() as run:
-        model = estimator.fit(dataset_iris_binomial)
-        pred_result = model.transform(dataset_iris_binomial)
-        mce.evaluate(pred_result)
+        with mlflow.start_run() as run:
+            model = estimator.fit(dataset_iris_binomial)
+            pred_result = model.transform(dataset_iris_binomial)
+            mce.evaluate(pred_result)
 
-    metrics = get_run_data(run.info.run_id)[1]
-    assert all(not k.startswith(metric_name) for k in metrics.keys())
+        metrics = get_run_data(run.info.run_id)[1]
+        assert any(k.startswith(metric_name) for k in metrics.keys()) is log_post_training_metrics
+
