@@ -73,7 +73,15 @@ def get_default_pip_requirements(include_cloudpickle=False, keras_module=None):
     keras_module = keras_module or __import__("keras")
     is_plain_keras = keras_module.__name__ == "keras"
     tf_version = Version(tf.__version__)
-    if is_plain_keras or tf_version >= Version("2.6"):
+    if (
+        is_plain_keras
+        # tensorflow >= 2.6.0 requires keras:
+        # https://github.com/tensorflow/tensorflow/blob/v2.6.0/tensorflow/tools/pip_package/setup.py#L106
+        #
+        # To prevent a different version of keras from being installed by tensorflow when creating
+        # a serving environment, add a pinned requirement for keras
+        or tf_version >= Version("2.6")
+    ):
         pip_deps.append(_get_pinned_requirement("keras"))
 
     # Tensorflow<2.4 does not work with h5py>=3.0.0
