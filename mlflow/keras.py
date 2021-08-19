@@ -748,11 +748,11 @@ def autolog(
         if not restored_best_weights:
             return
 
-        restored_epoch = 0 if stopped_epoch == 0 else stopped_epoch - max(1, patience)
+        restored_epoch = history.history[callback.monitor].index(callback.best)
         metrics_logger.record_metrics({"restored_epoch": restored_epoch})
         restored_index = history.epoch.index(restored_epoch)
         restored_metrics = {
-            key: history.history[key][restored_index] for key in history.history.keys()
+            key: metrics[restored_index] for key, metrics in history.history.items()
         }
         # Checking that a metric history exists
         metric_key = next(iter(history.history), None)
