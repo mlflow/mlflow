@@ -83,7 +83,18 @@ def get_default_pip_requirements():
              Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
              that, at minimum, contains these requirements.
     """
-    return [_get_pinned_requirement("tensorflow")]
+    import tensorflow as tf
+
+    pip_deps = [_get_pinned_requirement("tensorflow")]
+
+    # tensorflow >= 2.6.0 requires keras:
+    # https://github.com/tensorflow/tensorflow/blob/v2.6.0/tensorflow/tools/pip_package/setup.py#L106
+    # To prevent a different version of keras from being installed by tensorflow when creating
+    # a serving environment, add a pinned requirement for keras
+    if Version(tf.__version__) >= Version("2.6.0"):
+        pip_deps.append(_get_pinned_requirement("keras"))
+
+    return pip_deps
 
 
 def get_default_conda_env():
@@ -278,14 +289,16 @@ def save_model(
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
-        default_reqs = get_default_pip_requirements()
         if pip_requirements is None:
+            default_reqs = get_default_pip_requirements()
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
                 path, FLAVOR_NAME, fallback=default_reqs,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+        else:
+            default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
             default_reqs, pip_requirements, extra_pip_requirements,
         )
@@ -713,6 +726,7 @@ def _setup_callbacks(lst, log_models, metrics_logger):
     Adds TensorBoard and MlfLowTfKeras callbacks to the
     input list, and returns the new list and appropriate log directory.
     """
+    # pylint: disable=no-name-in-module
     import tensorflow
     from tensorflow.keras.callbacks import Callback, TensorBoard
 

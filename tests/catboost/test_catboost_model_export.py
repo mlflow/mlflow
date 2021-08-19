@@ -132,7 +132,7 @@ save_formats = SUPPORTS_DESERIALIZATION + ["python", "cpp", "pmml"]
 
 
 @pytest.mark.large
-@pytest.mark.disable_prevent_infer_pip_requirements_fallback
+@pytest.mark.allow_infer_pip_requirements_fallback
 @pytest.mark.parametrize("save_format", save_formats)
 def test_log_model_logs_save_format(reg_model, save_format):
     with mlflow.start_run():
@@ -303,14 +303,16 @@ def test_log_model_with_pip_requirements(reg_model, tmpdir):
     req_file.write("a")
     with mlflow.start_run():
         mlflow.catboost.log_model(reg_model.model, "model", pip_requirements=req_file.strpath)
-        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"])
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"], strict=True)
 
     # List of requirements
     with mlflow.start_run():
         mlflow.catboost.log_model(
             reg_model.model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"]
         )
-        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"])
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"], strict=True
+        )
 
     # Constraints file
     with mlflow.start_run():
@@ -318,7 +320,10 @@ def test_log_model_with_pip_requirements(reg_model, tmpdir):
             reg_model.model, "model", pip_requirements=[f"-c {req_file.strpath}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), ["mlflow", "b", "-c constraints.txt"], ["a"]
+            mlflow.get_artifact_uri("model"),
+            ["mlflow", "b", "-c constraints.txt"],
+            ["a"],
+            strict=True,
         )
 
 

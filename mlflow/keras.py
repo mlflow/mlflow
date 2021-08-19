@@ -68,22 +68,28 @@ def get_default_pip_requirements(include_cloudpickle=False, keras_module=None):
     """
     import tensorflow as tf
 
-    pip_deps = []
-    if keras_module is None:
-        import keras
+    pip_deps = [_get_pinned_requirement("tensorflow")]
 
-        keras_module = keras
-    if keras_module.__name__ == "keras":
+    keras_module = keras_module or __import__("keras")
+    is_plain_keras = keras_module.__name__ == "keras"
+    tf_version = Version(tf.__version__)
+    if (
+        is_plain_keras
+        # tensorflow >= 2.6.0 requires keras:
+        # https://github.com/tensorflow/tensorflow/blob/v2.6.0/tensorflow/tools/pip_package/setup.py#L106
+        # To prevent a different version of keras from being installed by tensorflow when creating
+        # a serving environment, add a pinned requirement for keras
+        or tf_version >= Version("2.6.0")
+    ):
         pip_deps.append(_get_pinned_requirement("keras"))
-    if include_cloudpickle:
-        pip_deps.append(_get_pinned_requirement("cloudpickle"))
-
-    pip_deps.append(_get_pinned_requirement("tensorflow"))
 
     # Tensorflow<2.4 does not work with h5py>=3.0.0
     # see https://github.com/tensorflow/tensorflow/issues/44467
-    if Version(tf.__version__) < Version("2.4"):
+    if tf_version < Version("2.4"):
         pip_deps.append("h5py<3.0.0")
+
+    if include_cloudpickle:
+        pip_deps.append(_get_pinned_requirement("cloudpickle"))
 
     return pip_deps
 
@@ -274,14 +280,16 @@ def save_model(
 
     include_cloudpickle = custom_objects is not None
     if conda_env is None:
-        default_reqs = get_default_pip_requirements(include_cloudpickle, keras_module)
         if pip_requirements is None:
+            default_reqs = get_default_pip_requirements(include_cloudpickle, keras_module)
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
                 path, FLAVOR_NAME, fallback=default_reqs
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+        else:
+            default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
             default_reqs, pip_requirements, extra_pip_requirements,
         )
