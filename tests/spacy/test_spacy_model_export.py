@@ -27,7 +27,7 @@ from tests.helper_functions import (
     _compare_conda_env_requirements,
     _assert_pip_requirements,
     _is_available_on_pypi,
-    disable_prevent_infer_pip_requirements_fallback_if,
+    allow_infer_pip_requirements_fallback_if,
 )
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("spacy") else ["--no-conda"]
@@ -192,7 +192,7 @@ def test_save_model_with_pip_requirements(spacy_model_with_data, tmpdir):
     mlflow.spacy.save_model(
         spacy_model_with_data.model, tmpdir1.strpath, pip_requirements=req_file.strpath
     )
-    _assert_pip_requirements(tmpdir1.strpath, ["mlflow", "a"])
+    _assert_pip_requirements(tmpdir1.strpath, ["mlflow", "a"], strict=True)
 
     # List of requirements
     tmpdir2 = tmpdir.join("2")
@@ -201,7 +201,7 @@ def test_save_model_with_pip_requirements(spacy_model_with_data, tmpdir):
         tmpdir2.strpath,
         pip_requirements=[f"-r {req_file.strpath}", "b"],
     )
-    _assert_pip_requirements(tmpdir2.strpath, ["mlflow", "a", "b"])
+    _assert_pip_requirements(tmpdir2.strpath, ["mlflow", "a", "b"], strict=True)
 
     # Constraints file
     tmpdir3 = tmpdir.join("3")
@@ -210,7 +210,9 @@ def test_save_model_with_pip_requirements(spacy_model_with_data, tmpdir):
         tmpdir3.strpath,
         pip_requirements=[f"-c {req_file.strpath}", "b"],
     )
-    _assert_pip_requirements(tmpdir3.strpath, ["mlflow", "b", "-c constraints.txt"], ["a"])
+    _assert_pip_requirements(
+        tmpdir3.strpath, ["mlflow", "b", "-c constraints.txt"], ["a"], strict=True
+    )
 
 
 @pytest.mark.large
@@ -371,9 +373,7 @@ def test_model_log_with_pyfunc_flavor(spacy_model_with_data):
 @pytest.mark.large
 # In this test, `infer_pip_requirements` fails to load a spacy model for spacy < 3.0.0 due to:
 # https://github.com/explosion/spaCy/issues/4658
-@disable_prevent_infer_pip_requirements_fallback_if(
-    not IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0
-)
+@allow_infer_pip_requirements_fallback_if(not IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0)
 def test_model_log_without_pyfunc_flavor():
     artifact_path = "model"
     nlp = spacy.blank("en")
