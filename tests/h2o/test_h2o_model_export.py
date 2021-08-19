@@ -186,14 +186,16 @@ def test_log_model_with_pip_requirements(h2o_iris_model, tmpdir):
     req_file.write("a")
     with mlflow.start_run():
         mlflow.h2o.log_model(h2o_iris_model.model, "model", pip_requirements=req_file.strpath)
-        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"])
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"], strict=True)
 
     # List of requirements
     with mlflow.start_run():
         mlflow.h2o.log_model(
-            h2o_iris_model.model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"]
+            h2o_iris_model.model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"],
         )
-        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"])
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"], strict=True
+        )
 
     # Constraints file
     with mlflow.start_run():
@@ -201,7 +203,10 @@ def test_log_model_with_pip_requirements(h2o_iris_model, tmpdir):
             h2o_iris_model.model, "model", pip_requirements=[f"-c {req_file.strpath}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), ["mlflow", "b", "-c constraints.txt"], ["a"]
+            mlflow.get_artifact_uri("model"),
+            ["mlflow", "b", "-c constraints.txt"],
+            ["a"],
+            strict=True,
         )
 
 
