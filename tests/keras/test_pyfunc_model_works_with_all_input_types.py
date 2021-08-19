@@ -1,17 +1,24 @@
-# pep8: disable=E501
-
-
 import os
 import pytest
+from packaging.version import Version
 
-from keras.models import Sequential, Model
-from keras.layers import Dense, Input, Concatenate
-from keras.optimizers import SGD
 import sklearn.datasets as datasets
 import pandas as pd
 import numpy as np
 
 import mlflow
+
+import keras
+
+# pylint: disable=no-name-in-module,reimported
+if Version(keras.__version__) >= Version("2.6.0"):
+    from tensorflow.keras.models import Sequential, Model
+    from tensorflow.keras.layers import Dense, Input, Concatenate
+    from tensorflow.keras.optimizers import SGD
+else:
+    from keras.models import Sequential, Model
+    from keras.layers import Dense, Input, Concatenate
+    from keras.optimizers import SGD
 
 
 @pytest.fixture

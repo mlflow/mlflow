@@ -1,5 +1,3 @@
-# pep8: disable=E501
-
 from packaging.version import Version
 import h5py
 import os
@@ -10,14 +8,11 @@ import random
 import json
 
 import tensorflow as tf
+
+# pylint: disable=no-name-in-module
 from tensorflow.keras.models import Sequential as TfSequential
 from tensorflow.keras.layers import Dense as TfDense
 from tensorflow.keras.optimizers import SGD as TfSGD
-import keras
-from keras.models import Sequential
-from keras.layers import Layer, Dense
-from keras import backend as K
-from keras.optimizers import SGD
 import sklearn.datasets as datasets
 import pandas as pd
 import numpy as np
@@ -47,6 +42,23 @@ from tests.helper_functions import set_boto_credentials  # pylint: disable=unuse
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.pyfunc.test_spark import score_model_as_udf
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+
+
+import keras
+
+# pylint: disable=no-name-in-module,reimported
+if Version(keras.__version__) >= Version("2.6.0"):
+    from tensorflow import keras
+    from tensorflow.keras.models import Sequential
+    from tensorflow.keras.layers import Layer, Dense
+    from tensorflow.keras import backend as K
+    from tensorflow.keras.optimizers import SGD
+else:
+    from keras.models import Sequential
+    from keras.layers import Layer, Dense
+    from keras import backend as K
+    from keras.optimizers import SGD
+
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("keras") else ["--no-conda"]
 
@@ -487,8 +499,6 @@ def test_log_model_with_pip_requirements(model, tmpdir):
 @pytest.mark.large
 def test_log_model_with_extra_pip_requirements(model, tmpdir):
     default_reqs = mlflow.keras.get_default_pip_requirements()
-
-    print(type(model))
     # Path to a requirements file
     req_file = tmpdir.join("requirements.txt")
     req_file.write("a")
@@ -499,7 +509,7 @@ def test_log_model_with_extra_pip_requirements(model, tmpdir):
     # List of requirements
     with mlflow.start_run():
         mlflow.keras.log_model(
-            model, "model", extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
+            model, "model", extra_pip_requirements=[f"-r {req_file.strpath}", "b"],
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a", "b"]
@@ -508,7 +518,7 @@ def test_log_model_with_extra_pip_requirements(model, tmpdir):
     # Constraints file
     with mlflow.start_run():
         mlflow.keras.log_model(
-            model, "model", extra_pip_requirements=[f"-c {req_file.strpath}", "b"]
+            model, "model", extra_pip_requirements=[f"-c {req_file.strpath}", "b"],
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
