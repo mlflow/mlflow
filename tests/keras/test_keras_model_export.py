@@ -8,6 +8,8 @@ import random
 import json
 
 import tensorflow as tf
+
+# pylint: disable=no-name-in-module
 from tensorflow.keras.models import Sequential as TfSequential
 from tensorflow.keras.layers import Dense as TfDense
 from tensorflow.keras.optimizers import SGD as TfSGD
