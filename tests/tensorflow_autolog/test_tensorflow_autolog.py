@@ -524,7 +524,10 @@ def test_duplicate_autolog_second_overrides(tf_estimator_random_data_run):
 def test_fit_generator(random_train_data, random_one_hot_labels):
     mlflow.tensorflow.autolog()
     model = create_tf_keras_model()
-    generator = ((random_train_data, random_one_hot_labels) for _ in range(10))
+
+    def generator():
+        while True:
+            yield random_train_data, random_one_hot_labels
 
     with mlflow.start_run() as run:
         model.fit_generator(generator, epochs=10, steps_per_epoch=1)
