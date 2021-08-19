@@ -792,7 +792,7 @@ def test_fit_generator(random_train_data, random_one_hot_labels):
             yield random_train_data, random_one_hot_labels
 
     with mlflow.start_run() as run:
-        model.fit_generator(generator, epochs=10, steps_per_epoch=1)
+        model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
 
     run = mlflow.tracking.MlflowClient().get_run(run.info.run_id)
     params = run.data.params
