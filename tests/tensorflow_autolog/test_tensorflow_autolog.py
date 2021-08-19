@@ -536,5 +536,5 @@ def test_fit_generator(random_train_data, random_one_hot_labels):
     assert params["epochs"] == "10"
     assert "steps_per_epoch" in params
     assert params["steps_per_epoch"] == "1"
-    assert "acc" in metrics
-    assert "loss" in metrics
+    assert "epoch_acc" in metrics
+    assert "epoch_loss" in metrics
