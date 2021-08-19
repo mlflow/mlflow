@@ -364,3 +364,11 @@ def test_fit_generator(random_train_data, random_one_hot_labels):
         model.fit_generator(generator, epochs=10, steps_per_epoch=1)
 
     run = mlflow.tracking.MlflowClient().get_run(run.info.run_id)
+    params = run.data.params
+    metrics = run.data.metrics
+    assert "epochs" in params
+    assert params["epochs"] == 10
+    assert "steps_per_epoch" in params
+    assert params["steps_per_epoch"] == 1
+    assert "acc" in metrics
+    assert "loss" in metrics
