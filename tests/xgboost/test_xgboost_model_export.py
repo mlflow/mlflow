@@ -221,10 +221,8 @@ def test_save_model_with_pip_requirements(xgb_model, tmpdir):
     tmpdir1 = tmpdir.join("1")
     req_file = tmpdir.join("requirements.txt")
     req_file.write("a")
-    mlflow.xgboost.save_model(
-        xgb_model.model, tmpdir1.strpath, pip_requirements=req_file.strpath, strict=True
-    )
-    _assert_pip_requirements(tmpdir1.strpath, ["mlflow", "a"])
+    mlflow.xgboost.save_model(xgb_model.model, tmpdir1.strpath, pip_requirements=req_file.strpath)
+    _assert_pip_requirements(tmpdir1.strpath, ["mlflow", "a"], strict=True)
 
     # List of requirements
     tmpdir2 = tmpdir.join("2")
