@@ -192,10 +192,8 @@ def test_save_model_with_pip_requirements(gluon_model, tmpdir):
     tmpdir1 = tmpdir.join("1")
     req_file = tmpdir.join("requirements.txt")
     req_file.write("a")
-    mlflow.gluon.save_model(
-        gluon_model, tmpdir1.strpath, pip_requirements=req_file.strpath, strict=True
-    )
-    _assert_pip_requirements(tmpdir1.strpath, ["mlflow", "a"])
+    mlflow.gluon.save_model(gluon_model, tmpdir1.strpath, pip_requirements=req_file.strpath)
+    _assert_pip_requirements(tmpdir1.strpath, ["mlflow", "a"], strict=True)
 
     # List of requirements
     tmpdir2 = tmpdir.join("2")
