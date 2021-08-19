@@ -519,3 +519,14 @@ def test_duplicate_autolog_second_overrides(tf_estimator_random_data_run):
     client = mlflow.tracking.MlflowClient()
     metrics = client.get_metric_history(tf_estimator_random_data_run.info.run_id, "loss")
     assert all((x.step - 1) % 4 == 0 for x in metrics)
+
+
+def test_fit_generator(random_train_data, random_one_hot_labels):
+    mlflow.keras.autolog()
+    model = create_tf_keras_model()
+
+    generator = ((random_train_data, random_one_hot_labels) for _ in range(10))
+    with mlflow.start_run() as run:
+        model.fit_generator(generator, epochs=10, steps_per_epoch=1)
+
+    run = mlflow.tracking.MlflowClient().get_run(run.info.run_id)

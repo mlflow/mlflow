@@ -780,3 +780,14 @@ def test_autolog_text_vec_model(tmpdir):
 
     loaded_model = mlflow.keras.load_model("runs:/" + run.info.run_id + "/model")
     np.testing.assert_array_equal(loaded_model.predict(train_samples), model.predict(train_samples))
+
+
+def test_fit_generator(random_train_data, random_one_hot_labels):
+    mlflow.keras.autolog()
+    model = create_tf_keras_model()
+
+    generator = ((random_train_data, random_one_hot_labels) for _ in range(10))
+    with mlflow.start_run() as run:
+        model.fit_generator(generator, epochs=10, steps_per_epoch=1)
+
+    run = mlflow.tracking.MlflowClient().get_run(run.info.run_id)
