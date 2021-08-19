@@ -373,8 +373,8 @@ def test_keras_autolog_non_early_stop_callback_does_not_log(keras_random_data_ru
 def test_fit_generator(random_train_data, random_one_hot_labels):
     mlflow.keras.autolog()
     model = create_model()
-
     generator = ((random_train_data, random_one_hot_labels) for _ in range(10))
+
     with mlflow.start_run() as run:
         model.fit_generator(generator, epochs=10, steps_per_epoch=1)
 
@@ -382,8 +382,8 @@ def test_fit_generator(random_train_data, random_one_hot_labels):
     params = run.data.params
     metrics = run.data.metrics
     assert "epochs" in params
-    assert params["epochs"] == 10
+    assert params["epochs"] == "10"
     assert "steps_per_epoch" in params
-    assert params["steps_per_epoch"] == 1
+    assert params["steps_per_epoch"] == "1"
     assert "acc" in metrics
     assert "loss" in metrics
