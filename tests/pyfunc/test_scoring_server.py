@@ -25,8 +25,7 @@ from tests.helper_functions import pyfunc_serve_and_score_model, random_int, ran
 
 import keras
 
-# pylint: disable=no-name-in-module
-# pylint: disable=reimported
+# pylint: disable=no-name-in-module,reimported
 if Version(keras.__version__) >= Version("2.6.0"):
     from tensorflow.keras.models import Model
     from tensorflow.keras.layers import Dense, Input, Concatenate

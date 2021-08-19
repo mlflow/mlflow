@@ -1,6 +1,3 @@
-# pylint: disable=no-name-in-module
-# pylint: disable=reimported
-
 from packaging.version import Version
 import h5py
 import os
@@ -47,6 +44,7 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 import keras
 
+# pylint: disable=no-name-in-module,reimported
 if Version(keras.__version__) >= Version("2.6.0"):
     from tensorflow import keras
     from tensorflow.keras.models import Sequential

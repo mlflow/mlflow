@@ -1,6 +1,3 @@
-# pep8: disable=E501
-
-
 import os
 import pytest
 from packaging.version import Version
@@ -13,8 +10,7 @@ import mlflow
 
 import keras
 
-# pylint: disable=no-name-in-module
-# pylint: disable=reimported
+# pylint: disable=no-name-in-module,reimported
 if Version(keras.__version__) >= Version("2.6.0"):
     from tensorflow.keras.models import Sequential, Model
     from tensorflow.keras.layers import Dense, Input, Concatenate

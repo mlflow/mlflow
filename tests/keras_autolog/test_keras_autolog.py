@@ -11,8 +11,7 @@ from unittest.mock import patch
 import keras
 
 keras_version = keras.__version__
-# pylint: disable=no-name-in-module
-# pylint: disable=reimported
+# pylint: disable=no-name-in-module,reimported
 if Version(keras_version) >= Version("2.6.0"):
     from tensorflow.keras import layers
     from tensorflow import keras
