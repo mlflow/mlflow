@@ -132,7 +132,7 @@ save_formats = SUPPORTS_DESERIALIZATION + ["python", "cpp", "pmml"]
 
 
 @pytest.mark.large
-@pytest.mark.disable_prevent_infer_pip_requirements_fallback
+@pytest.mark.allow_infer_pip_requirements_fallback
 @pytest.mark.parametrize("save_format", save_formats)
 def test_log_model_logs_save_format(reg_model, save_format):
     with mlflow.start_run():
