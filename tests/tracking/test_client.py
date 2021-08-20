@@ -24,7 +24,9 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.uri import construct_run_url
 from mlflow.utils.databricks_utils import get_databricks_runtime
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as SqlAlchemyTrackingStore
-from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore as SqlAlchemyModelRegistryStore
+from mlflow.store.model_registry.sqlalchemy_store import (
+    SqlAlchemyStore as SqlAlchemyModelRegistryStore,
+)
 
 
 @pytest.fixture
@@ -513,6 +515,7 @@ def test_client_can_be_serialized_with_pickle(tmpdir):
     Verifies that instances of `MlflowClient` can be serialized using pickle, even if the underlying
     Tracking and Model Registry stores used by the client are not serializable using pickle
     """
+
     class MockUnpickleableTrackingStore(SqlAlchemyTrackingStore):
         pass
 
@@ -522,8 +525,12 @@ def test_client_can_be_serialized_with_pickle(tmpdir):
     backend_store_path = os.path.join(str(tmpdir), "test.db")
     artifact_store_path = os.path.join(str(tmpdir), "artifacts")
 
-    mock_tracking_store = MockUnpickleableTrackingStore("sqlite:///" + backend_store_path, artifact_store_path)
-    mock_model_registry_store = MockUnpickleableModelRegistryStore("sqlite:///" + backend_store_path)
+    mock_tracking_store = MockUnpickleableTrackingStore(
+        "sqlite:///" + backend_store_path, artifact_store_path
+    )
+    mock_model_registry_store = MockUnpickleableModelRegistryStore(
+        "sqlite:///" + backend_store_path
+    )
 
     # Verify that the mock stores cannot be pickled because they are defined within a function
     # (i.e. the test function)
@@ -534,7 +541,9 @@ def test_client_can_be_serialized_with_pickle(tmpdir):
         pickle.dumps(mock_model_registry_store)
 
     _tracking_store_registry.register("pickle", lambda *args, **kwargs: mock_tracking_store)
-    _model_registry_store_registry.register("pickle", lambda *args, **kwargs: mock_model_registry_store)
+    _model_registry_store_registry.register(
+        "pickle", lambda *args, **kwargs: mock_model_registry_store
+    )
 
     # Create an MlflowClient with the store that cannot be pickled, perform
     # tracking & model registry operations, and verify that the client can still be pickled
