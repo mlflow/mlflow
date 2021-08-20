@@ -65,9 +65,10 @@ class __MLflowFastaiCallback(Callback):
 
         if self.is_fine_tune and len(self.opt.param_lists) == 1:
             print(
-                """ WARNING: Using `fine_tune` with model which cannot be freeze.
-                Current model have only one param group which makes imposible to freeze.
-                Because of this it will record some fitting params twice (overriding o throwing exception) """
+                """ WARNING: Using `fine_tune` with model which cannot be frozen.
+                Current model have only one param group which makes it impossible to freeze.
+                Because of this it will record some fitting params twice (overriding exception)
+                """
             )
 
         frozen = self.opt.frozen_idx != 0

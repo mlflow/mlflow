@@ -159,31 +159,10 @@ def save_model(
 
     # ParamScheduler currently is not pickable
     # hence it is been removed before export and added again after export
-    def pop_not_pickle_cbs():
-        cbs = []
-        i = 0
-        while i < len(fastai_learner.cbs):
-            cb = fastai_learner.cbs[i]
-            if isinstance(cb, ParamScheduler):
-                cbs.append(cb)
-            i = i + 1
-        fastai_learner.remove_cbs(cbs)
-        return cbs
-
-    # Save an Learner
-    cbs = pop_not_pickle_cbs()
-    fastai_learner.add_cbs(cbs)
+    cbs = [c for c in fastai_learner.cbs if isinstance(c, ParamScheduler)]
+    fastai_learner.remove_cbs(cbs)
     fastai_learner.export(model_data_path, **kwargs)
-
-    conda_env_subpath = "conda.yaml"
-
-    if conda_env is None:
-        conda_env = get_default_conda_env()
-    elif not isinstance(conda_env, dict):
-        with open(conda_env, "r") as f:
-            conda_env = yaml.safe_load(f)
-    with open(os.path.join(path, conda_env_subpath), "w") as f:
-        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+    fastai_learner.add_cbs(cbs)
 
     pyfunc.add_to_model(
         mlflow_model,
