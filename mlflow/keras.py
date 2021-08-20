@@ -784,7 +784,7 @@ def autolog(
         metric_key = next(iter(history.history), None)
         if metric_key is not None:
             last_epoch = len(history.history[metric_key])
-            metrics_logger.record_metrics(restored_metrics, last_epoch)
+            metrics_logger.record_metrics(restored_metrics, initial_epoch + last_epoch)
 
     def _run_and_log_function(self, original, args, kwargs, unlogged_params, callback_arg_index):
         log_fn_args_as_params(original, args, kwargs, unlogged_params)

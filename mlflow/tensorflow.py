@@ -1061,12 +1061,6 @@ def autolog(
         stopped_epoch, restore_best_weights, _ = callback_attrs
         metrics_logger.record_metrics({"stopped_epoch": stopped_epoch})
 
-        print("=" * 80)
-        print(callback.best, callback.monitor)
-        print(stopped_epoch)
-        print(history.epoch)
-        print(history.history)
-
         restored_best_weights = restore_best_weights and callback.best_weights is not None
         if not restored_best_weights:
             return
@@ -1092,15 +1086,15 @@ def autolog(
         restored_epoch = initial_epoch + monitored_metrics.index(callback.best)
         metrics_logger.record_metrics({"restored_epoch": restored_epoch})
         restored_index = history.epoch.index(restored_epoch)
+        # Metrics are logged as 'epoch_<metric_name>' in TF 1.X
+        prefix = "epoch_" if Version(tensorflow.__version__) < Version("2.0.0") else ""
         restored_metrics = {
-            key: metrics[restored_index] for key, metrics in history.history.items()
+            prefix + key: metrics[restored_index] for key, metrics in history.history.items()
         }
         # Checking that a metric history exists
         metric_key = next(iter(history.history), None)
-        print(metric_key)
         if metric_key is not None:
             last_epoch = len(history.history[metric_key])
-            print(restored_metrics, last_epoch)
             metrics_logger.record_metrics(restored_metrics, initial_epoch + last_epoch)
             metrics_logger.flush()
 

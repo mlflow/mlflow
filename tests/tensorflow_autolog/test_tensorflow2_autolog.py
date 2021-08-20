@@ -294,7 +294,7 @@ def tf_keras_random_data_run_with_callback(
 @pytest.mark.parametrize("callback", ["early"])
 @pytest.mark.parametrize("patience", [0, 1, 5])
 @pytest.mark.parametrize("initial_epoch", [0, 10])
-def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback):
+def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback, initial_epoch):
     run, history, callback = tf_keras_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params
@@ -307,14 +307,16 @@ def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback
     assert "stopped_epoch" in metrics
     assert "restored_epoch" in metrics
     restored_epoch = int(metrics["restored_epoch"])
-    assert int(metrics["stopped_epoch"]) - callback.patience == restored_epoch
+    assert restored_epoch == initial_epoch
     assert "loss" in history.history
     client = mlflow.tracking.MlflowClient()
     metric_history = client.get_metric_history(run.info.run_id, "loss")
     # Check that MLflow has logged the metrics of the "best" model, in addition to per-epoch metrics
-    assert len(metric_history) == len(history.history["loss"]) + 1
+    loss = history.history["loss"]
+    assert len(metric_history) == len(loss) + 1
+    assert [m.step for m in metric_history] == [initial_epoch + i for i in range(len(loss) + 1)]
     # Check that MLflow has logged the correct data
-    assert history.history["loss"][history.epoch.index(restored_epoch)] == metric_history[-1].value
+    assert metric_history[-1].value == loss[history.epoch.index(restored_epoch)]
 
 
 @pytest.mark.large
