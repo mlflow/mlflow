@@ -315,5 +315,12 @@ spark:
     maximum: "3.1.2"
     requirements: ["scikit-learn"]
     run: |
-      # TODO: Add datasource autologging tests
       find tests/spark_autologging/ml -name 'test*.py' | xargs -L 1 pytest --large
+
+      # Spark datasource autologging currently doesn't work for public pyspark versions
+      pyspark_version=$(python -c "(__import__('pyspark').__version__)")
+      if [ "$pyspark_version" = "3.0.0" ]; then
+        ./dev/setup-spark-datasource-autologging.sh
+        export SPARK_HOME=/tmp/spark-3.0.0-preview-bin-hadoop2.7
+        find tests/spark_autologging/datasource -name 'test*.py' | xargs -L 1 pytest --large
+      fi
