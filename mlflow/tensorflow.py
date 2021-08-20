@@ -1139,9 +1139,7 @@ def autolog(
                 history = original(inst, *args, **kwargs)
 
                 _log_early_stop_callback_metrics(
-                    callback=early_stop_callback,
-                    history=history,
-                    metrics_logger=metrics_logger,
+                    callback=early_stop_callback, history=history, metrics_logger=metrics_logger,
                 )
 
             _flush_queue()
