@@ -223,6 +223,46 @@ def test_standard_store_registry_with_mocked_entrypoint():
         )
 
 
+def test_standard_store_registry_get_store_caches_on_store_uri_and_artifact_uri(tmpdir):
+    registry = mlflow.tracking._tracking_service.utils._tracking_store_registry
+
+    store_uri_1 = "sqlite:///test.db"
+    store_uri_2 = os.path.join(str(tmpdir), "backend_store")
+
+    artifact_uri_1 = os.path.join(str(tmpdir), "artifact_root_1")
+    artifact_uri_2 = os.path.join(str(tmpdir), "artifact_root_2")
+
+    store1 = registry.get_store(store_uri_1)
+    store2 = registry.get_store(store_uri_1)
+    assert store1 is store2
+
+    store3 = registry.get_store(store_uri_1, artifact_uri_1)
+    store4 = registry.get_store(store_uri_1, artifact_uri_1)
+    assert store3 is store4
+
+    store5 = registry.get_store(store_uri_1, artifact_uri_2)
+    store6 = registry.get_store(store_uri_1, artifact_uri_2)
+    assert store5 is store6
+
+    store7 = registry.get_store(store_uri_2)
+    store8 = registry.get_store(store_uri_2)
+    assert store7 is store8
+
+    store9 = registry.get_store(store_uri_2, artifact_uri_1)
+    store10 = registry.get_store(store_uri_2, artifact_uri_1)
+    assert store9 is store10
+
+    store11 = registry.get_store(store_uri_2, artifact_uri_2)
+    store12 = registry.get_store(store_uri_2, artifact_uri_2)
+    assert store11 is store12
+
+    assert store1 is not store3
+    assert store3 is not store5
+    assert store5 is not store7
+    assert store7 is not store9
+    assert store9 is not store11
+
+
 @pytest.mark.large
 def test_standard_store_registry_with_installed_plugin(tmp_wkdir):
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
