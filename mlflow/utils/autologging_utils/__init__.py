@@ -330,6 +330,7 @@ def _check_and_log_warning_for_unsupported_package_versions(integration_name):
             integration_name,
         )
 
+
 def _check_version_in_range(ver, min_ver, max_ver):
     return LooseVersion(min_ver) <= LooseVersion(ver) <= LooseVersion(max_ver)
 
