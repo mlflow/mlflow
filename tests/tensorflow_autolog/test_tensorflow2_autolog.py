@@ -360,7 +360,7 @@ def test_tf_keras_autolog_batch_metrics_logger_logs_expected_metrics(
         assert metric_name in patched_metrics_data
 
     restored_epoch = int(patched_metrics_data["restored_epoch"])
-    assert int(patched_metrics_data["stopped_epoch"]) - callback.patience == restored_epoch
+    assert restored_epoch == initial_epoch
 
 
 @pytest.mark.large
