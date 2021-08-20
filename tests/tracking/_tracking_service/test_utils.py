@@ -199,11 +199,11 @@ def test_get_store_databricks_profile():
 def test_get_store_caches_on_store_uri_and_artifact_uri(tmpdir):
     registry = mlflow.tracking._tracking_service.utils._tracking_store_registry
 
-    store_uri_1 = "sqlite:///backend_store_1.db"
-    store_uri_2 = os.path.join(str(tmpdir), "backend_store_2")
+    store_uri_1 = "sqlite:///" + tmpdir.join("backend_store_1.db").strpath
+    store_uri_2 = tmpdir.join("backend_store_2").strpath
 
-    artifact_uri_1 = os.path.join(str(tmpdir), "artifact_root_1")
-    artifact_uri_2 = os.path.join(str(tmpdir), "artifact_root_2")
+    artifact_uri_1 = tmpdir.join("artifact_root_1").strpath
+    artifact_uri_2 = tmpdir.join("artifact_root_2").strpath
 
     store1 = registry.get_store(store_uri_1)
     store2 = registry.get_store(store_uri_1)

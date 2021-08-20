@@ -1,4 +1,3 @@
-import os
 import pytest
 import pickle
 from unittest import mock
@@ -522,8 +521,8 @@ def test_client_can_be_serialized_with_pickle(tmpdir):
     class MockUnpickleableModelRegistryStore(SqlAlchemyModelRegistryStore):
         pass
 
-    backend_store_path = os.path.join(str(tmpdir), "test.db")
-    artifact_store_path = os.path.join(str(tmpdir), "artifacts")
+    backend_store_path = tmpdir.join("test.db").strpath
+    artifact_store_path = tmpdir.join("artfiacts").strpath
 
     mock_tracking_store = MockUnpickleableTrackingStore(
         "sqlite:///" + backend_store_path, artifact_store_path
@@ -534,10 +533,10 @@ def test_client_can_be_serialized_with_pickle(tmpdir):
 
     # Verify that the mock stores cannot be pickled because they are defined within a function
     # (i.e. the test function)
-    with pytest.raises(AttributeError):
+    with pytest.raises(AttributeError, match="<locals>.MockUnpickleableTrackingStore'"):
         pickle.dumps(mock_tracking_store)
 
-    with pytest.raises(AttributeError):
+    with pytest.raises(AttributeError, match="<locals>.MockUnpickleableModelRegistryStore'"):
         pickle.dumps(mock_model_registry_store)
 
     _tracking_store_registry.register("pickle", lambda *args, **kwargs: mock_tracking_store)

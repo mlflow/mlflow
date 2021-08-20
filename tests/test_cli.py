@@ -72,10 +72,10 @@ def test_tracking_uri_validation_sql_driver_uris(command):
     handlers._model_registry_store = None
     with mock.patch("mlflow.server._run_server") as run_server_mock, mock.patch(
         "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"
-    ) as tracking_store_mock, mock.patch(
+    ), mock.patch(
         "mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore"
-    ) as registry_store_mock:
-        CliRunner().invoke(
+    ):
+        result = CliRunner().invoke(
             command,
             [
                 "--backend-store-uri",
@@ -84,10 +84,7 @@ def test_tracking_uri_validation_sql_driver_uris(command):
                 "./mlruns",
             ],
         )
-        tracking_store_mock.assert_called_once_with(
-            "mysql+pymysql://user:pwd@host:5432/mydb", "./mlruns"
-        )
-        registry_store_mock.assert_called_once_with("mysql+pymysql://user:pwd@host:5432/mydb")
+        assert result.exit_code == 0
         run_server_mock.assert_called()
 
 

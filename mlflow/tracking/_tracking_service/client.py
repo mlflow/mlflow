@@ -37,6 +37,11 @@ class TrackingServiceClient(object):
         :param tracking_uri: Address of local or remote tracking server.
         """
         self.tracking_uri = tracking_uri
+        # NB: Fetch the tracking store (`self.store`) upon client initialization to ensure that
+        # the tracking URI is valid and the store can be properly resolved. We define `store` as a
+        # property method to ensure that the client is serializable, even if the store is not
+        # self.store  # pylint: disable=pointless-statement
+        self.store
 
     @property
     def store(self):
