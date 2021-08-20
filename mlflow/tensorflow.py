@@ -20,7 +20,6 @@ from collections import namedtuple
 import pandas
 from packaging.version import Version
 from threading import RLock
-import warnings
 
 import mlflow
 import mlflow.keras
