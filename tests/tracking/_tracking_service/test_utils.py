@@ -196,38 +196,11 @@ def test_get_store_databricks_profile():
         assert "mycoolprofile" in str(e_info.value)
 
 
-def test_standard_store_registry_with_mocked_entrypoint():
-    mock_entrypoint = mock.Mock()
-    mock_entrypoint.name = "mock-scheme"
-
-    with mock.patch("entrypoints.get_group_all", return_value=[mock_entrypoint]):
-        # Entrypoints are registered at import time, so we need to reload the
-        # module to register the entrypoint given by the mocked
-        # extrypoints.get_group_all
-        reload(mlflow.tracking._tracking_service.utils)
-
-        expected_standard_registry = {
-            "",
-            "file",
-            "http",
-            "https",
-            "postgresql",
-            "mysql",
-            "sqlite",
-            "mssql",
-            "databricks",
-            "mock-scheme",
-        }
-        assert expected_standard_registry.issubset(
-            mlflow.tracking._tracking_service.utils._tracking_store_registry._registry.keys()
-        )
-
-
-def test_standard_store_registry_get_store_caches_on_store_uri_and_artifact_uri(tmpdir):
+def test_get_store_caches_on_store_uri_and_artifact_uri(tmpdir):
     registry = mlflow.tracking._tracking_service.utils._tracking_store_registry
 
-    store_uri_1 = "sqlite:///test.db"
-    store_uri_2 = os.path.join(str(tmpdir), "backend_store")
+    store_uri_1 = "sqlite:///backend_store_1.db"
+    store_uri_2 = os.path.join(str(tmpdir), "backend_store_2")
 
     artifact_uri_1 = os.path.join(str(tmpdir), "artifact_root_1")
     artifact_uri_2 = os.path.join(str(tmpdir), "artifact_root_2")
@@ -261,6 +234,33 @@ def test_standard_store_registry_get_store_caches_on_store_uri_and_artifact_uri(
     assert store5 is not store7
     assert store7 is not store9
     assert store9 is not store11
+
+
+def test_standard_store_registry_with_mocked_entrypoint():
+    mock_entrypoint = mock.Mock()
+    mock_entrypoint.name = "mock-scheme"
+
+    with mock.patch("entrypoints.get_group_all", return_value=[mock_entrypoint]):
+        # Entrypoints are registered at import time, so we need to reload the
+        # module to register the entrypoint given by the mocked
+        # extrypoints.get_group_all
+        reload(mlflow.tracking._tracking_service.utils)
+
+        expected_standard_registry = {
+            "",
+            "file",
+            "http",
+            "https",
+            "postgresql",
+            "mysql",
+            "sqlite",
+            "mssql",
+            "databricks",
+            "mock-scheme",
+        }
+        assert expected_standard_registry.issubset(
+            mlflow.tracking._tracking_service.utils._tracking_store_registry._registry.keys()
+        )
 
 
 @pytest.mark.large
