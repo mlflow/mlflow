@@ -1062,6 +1062,7 @@ def autolog(
         metrics_logger.record_metrics({"stopped_epoch": stopped_epoch})
 
         print("=" * 80)
+        print(callback.best, callback.monitor)
         print(stopped_epoch)
         print(history.epoch)
         print(history.history)
