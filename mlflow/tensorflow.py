@@ -1061,6 +1061,11 @@ def autolog(
         stopped_epoch, restore_best_weights, _ = callback_attrs
         metrics_logger.record_metrics({"stopped_epoch": stopped_epoch})
 
+        print("=" * 80)
+        print(stopped_epoch)
+        print(history.epoch)
+        print(history.history)
+
         restored_best_weights = restore_best_weights and callback.best_weights is not None
         if not restored_best_weights:
             return
