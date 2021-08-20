@@ -749,15 +749,30 @@ def autolog(
         if callback_attrs is None:
             return
 
-        stopped_epoch, restore_best_weights, patience = callback_attrs
+        stopped_epoch, restore_best_weights, _ = callback_attrs
         metrics_logger.record_metrics({"stopped_epoch": stopped_epoch})
 
         restored_best_weights = restore_best_weights and callback.best_weights is not None
         if not restored_best_weights:
             return
 
+        monitored_metrics = history.history.get(callback.monitor)
+        if not monitored_metrics:
+            return
+
         initial_epoch = history.epoch[0]
-        restored_epoch = initial_epoch + history.history[callback.monitor].index(callback.best)
+        # Example
+        # -------
+        # history.history = {
+        #   "loss": [
+        #     0.3,
+        #     0.2,  # The best epoch. `monitored_metrics.index(callback.best)` returns this
+        #     0.25,
+        #     0.2,  # Not the best epoch because the loss didn't improve from the best value (0.2)
+        #   ]
+        # }
+        #
+        restored_epoch = initial_epoch + monitored_metrics.index(callback.best)
         metrics_logger.record_metrics({"restored_epoch": restored_epoch})
         restored_index = history.epoch.index(restored_epoch)
         restored_metrics = {
