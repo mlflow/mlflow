@@ -68,22 +68,28 @@ def get_default_pip_requirements(include_cloudpickle=False, keras_module=None):
     """
     import tensorflow as tf
 
-    pip_deps = []
-    if keras_module is None:
-        import keras
+    pip_deps = [_get_pinned_requirement("tensorflow")]
 
-        keras_module = keras
-    if keras_module.__name__ == "keras":
+    keras_module = keras_module or __import__("keras")
+    is_plain_keras = keras_module.__name__ == "keras"
+    tf_version = Version(tf.__version__)
+    if (
+        is_plain_keras
+        # tensorflow >= 2.6.0 requires keras:
+        # https://github.com/tensorflow/tensorflow/blob/v2.6.0/tensorflow/tools/pip_package/setup.py#L106
+        # To prevent a different version of keras from being installed by tensorflow when creating
+        # a serving environment, add a pinned requirement for keras
+        or tf_version >= Version("2.6.0")
+    ):
         pip_deps.append(_get_pinned_requirement("keras"))
-    if include_cloudpickle:
-        pip_deps.append(_get_pinned_requirement("cloudpickle"))
-
-    pip_deps.append(_get_pinned_requirement("tensorflow"))
 
     # Tensorflow<2.4 does not work with h5py>=3.0.0
     # see https://github.com/tensorflow/tensorflow/issues/44467
-    if Version(tf.__version__) < Version("2.4"):
+    if tf_version < Version("2.4"):
         pip_deps.append("h5py<3.0.0")
+
+    if include_cloudpickle:
+        pip_deps.append(_get_pinned_requirement("cloudpickle"))
 
     return pip_deps
 
