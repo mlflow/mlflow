@@ -72,9 +72,7 @@ def test_tracking_uri_validation_sql_driver_uris(command):
     handlers._model_registry_store = None
     with mock.patch("mlflow.server._run_server") as run_server_mock, mock.patch(
         "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"
-    ), mock.patch(
-        "mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore"
-    ):
+    ), mock.patch("mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore"):
         result = CliRunner().invoke(
             command,
             [
