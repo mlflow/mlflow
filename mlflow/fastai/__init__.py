@@ -65,56 +65,12 @@ def get_default_pip_requirements(include_cloudpickle=False):
     return pip_deps
 
 
-def get_default_conda_env(include_cloudpickle=False):
+def get_default_conda_env():
     """
-    :return: The default Conda environment as a dictionary for MLflow Models produced by calls to
+    :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
-
-
-    .. code-block:: python
-        :caption: Example
-
-        import mlflow.fastai
-
-        # Start MLflow session and log the fastai learner model
-        with mlflow.start_run():
-           model.fit(epochs, learning_rate)
-           mlflow.fastai.log_model(model, "model")
-
-        # Fetch the default conda environment
-        env = mlflow.fastai.get_default_conda_env()
-        print("conda environment: {}".format(env))
-
-    .. code-block:: text
-        :caption: Output
-
-        conda environment: {'name': 'mlflow-env',
-                            'channels': ['defaults', 'conda-forge', 'fastai',
-                                         'pytorch'],
-                            'dependencies': ['python=3.7.5', 'fastai=2.2.7',
-                                             'pytorch=1.8.0, 'torchvision=0.9.0',
-                                             'pip', {'pip': ['mlflow']}]}
     """
-
-    import fastai
-    import torch
-    import torchvision
-
-    pip_deps = None
-    if include_cloudpickle:
-        import cloudpickle
-
-        pip_deps = ["cloudpickle=={}".format(cloudpickle.__version__)]
-
-    return _mlflow_conda_env(
-        additional_conda_deps=[
-            "fastai={}".format(fastai.__version__),
-            "pytorch={}".format(torch.__version__),
-            "torchvision={}".format(torchvision.__version__),
-        ],
-        additional_pip_deps=pip_deps,
-        additional_conda_channels=["fastai", "pytorch"],
-    )
+    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
