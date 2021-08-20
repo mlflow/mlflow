@@ -549,5 +549,4 @@ def test_client_can_be_serialized_with_pickle(tmpdir):
     client = MlflowClient("pickle://foo")
     client.create_experiment("test_experiment")
     client.create_registered_model("test_model")
-
     pickle.dumps(client)
