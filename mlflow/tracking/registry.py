@@ -1,5 +1,6 @@
 from abc import abstractmethod, ABCMeta
 import entrypoints
+from functools import lru_cache
 import warnings
 
 from mlflow.exceptions import MlflowException
@@ -63,7 +64,7 @@ class StoreRegistry:
     def get_store_builder(self, store_uri):
         """Get a store from the registry based on the scheme of store_uri
 
-        :param store_uri: The store URI. If None, it will be inferred from the environment. This
+        :param store_uri: The store URI. If None, it is inferred from the environment. This
                           URI is used to select which tracking store implementation to instantiate
                           and is passed to the constructor of the implementation.
         :return: A function that returns an instance of
@@ -79,3 +80,47 @@ class StoreRegistry:
                 unsupported_uri=store_uri, supported_uri_schemes=list(self._registry.keys())
             )
         return store_builder
+
+
+class CachingStoreRegistry(StoreRegistry):
+    """
+    Abstract class defining a caching scheme-based registry for store implementations.
+
+    This class allows the registration of a function or class to provide an
+    implementation for a given scheme of `store_uri` through the `register`
+    methods. Implementations declared though the entrypoints can be automatically
+    registered through the `register_entrypoints` method.
+
+    When fetching a store through the `get_store` method, the registry attempts to find
+    an existing store matching the specified `store_uri` and `artifact_uri` in an internal
+    cache. If no store is found, a new store is instantiated according to the scheme of the
+    `store_uri`, and the new store is cached for future reference.
+
+    When instantiating a store due to a cache miss in the `get_store` method, the scheme of
+    the store URI provided (or inferred from environment) is used to select which implementation
+    to instantiate, which is called with same arguments passed to the `get_store` method.
+    """
+
+    @lru_cache(maxsize=100)
+    def get_store(self, store_uri=None, artifact_uri=None):
+        """Get a store from the registry based on the scheme of store_uri
+
+        :param store_uri: The store URI. If None, it will be inferred from the environment. This URI
+                          is used to select which tracking store implementation to instantiate and
+                          is passed to the constructor of the implementation.
+        :param artifact_uri: Artifact repository URI. Passed through to the tracking store
+                             implementation.
+
+        :return: An instance of `mlflow.store.{tracking|model_registry}.AbstractStore` that fulfills
+                 the store URI requirements.
+        """
+
+        store_uri = self._resolve_store_uri(store_uri)
+        builder = self.get_store_builder(store_uri)
+        return builder(store_uri=store_uri, artifact_uri=artifact_uri)
+
+    @abstractmethod
+    def _resolve_store_uri(self, store_uri: str = None) -> str:
+        """
+        Resolves a specified `store_uri`, which may be `None`, to a valid `store_uri`.
+        """
