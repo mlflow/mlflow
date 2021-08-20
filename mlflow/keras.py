@@ -772,6 +772,8 @@ def autolog(
         #   ]
         # }
         #
+        # In keras > 2.6.0, the best epoch can be obtained via `callback.best_epoch`:
+        # https://github.com/keras-team/keras/pull/15197
         restored_epoch = initial_epoch + monitored_metrics.index(callback.best)
         metrics_logger.record_metrics({"restored_epoch": restored_epoch})
         restored_index = history.epoch.index(restored_epoch)

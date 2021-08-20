@@ -262,10 +262,9 @@ def test_tf_keras_autolog_early_stop_no_stop_does_not_log(tf_keras_random_data_r
     assert params["monitor"] == "loss"
     assert "verbose" not in params
     assert "mode" not in params
-    assert "stopped_epoch" in metrics
-    assert "epoch_loss" in metrics
-    assert metrics["stopped_epoch"] == 0
+    assert "stopped_epoch" not in metrics
     assert "restored_epoch" not in metrics
+    assert "epoch_loss" in metrics
     assert "loss" in history.history
     num_of_epochs = len(history.history["loss"])
     client = mlflow.tracking.MlflowClient()
@@ -291,8 +290,8 @@ def test_tf_keras_autolog_early_stop_no_restore_doesnt_log(tf_keras_random_data_
     assert "verbose" not in params
     assert "mode" not in params
     assert "stopped_epoch" in metrics
-    assert "epoch_loss" in metrics
     assert "restored_epoch" not in metrics
+    assert "epoch_loss" in metrics
     assert "loss" in history.history
     num_of_epochs = len(history.history["loss"])
     client = mlflow.tracking.MlflowClient()
