@@ -236,6 +236,8 @@ def test_keras_autolog_early_stop_logs(keras_random_data_run_with_callback, init
     assert "stopped_epoch" in metrics
     assert "restored_epoch" in metrics
     restored_epoch = int(metrics["restored_epoch"])
+    # In this test, the best epoch is always the first epoch because the early stopping callback
+    # never observes a loss improvement due to an extremely large `min_delta` value
     assert restored_epoch == initial_epoch
     assert "loss" in history.history
     client = mlflow.tracking.MlflowClient()
