@@ -84,8 +84,8 @@ def _raise_deprecation_warning():
     if Version(tf.__version__) < Version("2.0.0"):
         warnings.warn(
             (
-                "Support for tensorflow < 2.0.0 has been deprecated and will be removed in a future "
-                "MLflow release"
+                "Support for tensorflow < 2.0.0 has been deprecated and will be removed in "
+                "a future MLflow release"
             ),
             FutureWarning,
             stacklevel=2,
