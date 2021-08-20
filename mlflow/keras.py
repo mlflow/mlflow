@@ -62,7 +62,12 @@ _PIP_ENV_SUBPATH = "requirements.txt"
 
 
 def _raise_deprecation_warning():
-    import keras
+    # Avoid `ModuleNotFoundError` thrown when this function is called from `mlflow.tensorflow` to
+    # save a model created using `tensorflow.keras` but `keras` is not installed.
+    try:
+        import keras
+    except ImportError:
+        return
 
     if Version(keras.__version__) < Version("2.3.0"):
         warnings.warn(
