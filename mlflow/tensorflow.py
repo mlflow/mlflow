@@ -1102,6 +1102,7 @@ def autolog(
             last_epoch = len(history.history[metric_key])
             print(restored_metrics, last_epoch)
             metrics_logger.record_metrics(restored_metrics, last_epoch)
+            metrics_logger.flush()
 
     class FitPatch(PatchFunction):
         def __init__(self):
