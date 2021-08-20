@@ -691,12 +691,10 @@ def test_pyfunc_serve_and_score_transformers():
 
 def test_raise_deprecation_warning():
     with mock.patch("keras.__version__", new="2.2.0"), pytest.warns(
-        FutureWarning, msg="Support for keras"
+        FutureWarning, match="Support for keras"
     ):
         mlflow.keras._raise_deprecation_warning()
 
-    with mock.patch("keras.__version__", new="2.3.0"), pytest.warns(
-        None, msg="Support for keras"
-    ) as record:
+    with mock.patch("keras.__version__", new="2.3.0"), pytest.warns(None) as record:
         mlflow.keras._raise_deprecation_warning()
     assert len(record) == 0
