@@ -30,7 +30,10 @@ class ModelRegistryClient(object):
         :param registry_uri: Address of local or remote model registry server.
         """
         self.registry_uri = registry_uri
-        self.store = utils._get_store(self.registry_uri)
+
+    @property
+    def store(self):
+        return utils._get_store(self.registry_uri)
 
     # Registered Model Methods
 
