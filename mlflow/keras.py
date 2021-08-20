@@ -756,7 +756,8 @@ def autolog(
         if not restored_best_weights:
             return
 
-        restored_epoch = history.history[callback.monitor].index(callback.best)
+        initial_epoch = history.epoch[0]
+        restored_epoch = initial_epoch + history.history[callback.monitor].index(callback.best)
         metrics_logger.record_metrics({"restored_epoch": restored_epoch})
         restored_index = history.epoch.index(restored_epoch)
         restored_metrics = {
