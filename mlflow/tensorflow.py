@@ -1138,11 +1138,9 @@ def autolog(
 
                 history = original(inst, *args, **kwargs)
 
-                epochs = args[3] if len(args) >= 4 else kwargs.get("epochs", 0)
                 _log_early_stop_callback_metrics(
                     callback=early_stop_callback,
                     history=history,
-                    expected_last_epoch=epochs,
                     metrics_logger=metrics_logger,
                 )
 
