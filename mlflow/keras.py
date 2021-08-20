@@ -666,6 +666,8 @@ def autolog(
     """
     import keras
 
+    _raise_deprecation_warning()
+
     def getKerasCallback(metrics_logger):
         class __MLflowKerasCallback(keras.callbacks.Callback, metaclass=ExceptionSafeClass):
             """

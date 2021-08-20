@@ -949,6 +949,8 @@ def autolog(
     """
     import tensorflow
 
+    _raise_deprecation_warning()
+
     global _LOG_EVERY_N_STEPS
     _LOG_EVERY_N_STEPS = every_n_iter
 
