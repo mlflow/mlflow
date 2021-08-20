@@ -37,7 +37,10 @@ class TrackingServiceClient(object):
         :param tracking_uri: Address of local or remote tracking server.
         """
         self.tracking_uri = tracking_uri
-        self.store = utils._get_store(self.tracking_uri)
+
+    @property
+    def store(self):
+        return utils._get_store(self.tracking_uri)
 
     def get_run(self, run_id):
         """

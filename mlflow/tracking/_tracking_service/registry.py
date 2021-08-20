@@ -18,6 +18,7 @@ class TrackingStoreRegistry(StoreRegistry):
 
     def __init__(self):
         super().__init__("mlflow.tracking_store")
+        self._store_cache = {}
 
     def get_store(self, store_uri=None, artifact_uri=None):
         """Get a store from the registry based on the scheme of store_uri
@@ -34,5 +35,13 @@ class TrackingStoreRegistry(StoreRegistry):
         from mlflow.tracking._tracking_service import utils
 
         store_uri = utils._resolve_tracking_uri(store_uri)
-        builder = self.get_store_builder(store_uri)
-        return builder(store_uri=store_uri, artifact_uri=artifact_uri)
+        cache_key = (store_uri, artifact_uri)
+        cached_store = self._store_cache.get(cache_key)
+
+        if cached_store is not None:
+            return cached_store
+        else:
+            builder = self.get_store_builder(store_uri)
+            new_store = builder(store_uri=store_uri, artifact_uri=artifact_uri)
+            self._store_cache[cache_key] = new_store
+            return new_store
