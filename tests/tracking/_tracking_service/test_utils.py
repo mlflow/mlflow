@@ -1,6 +1,7 @@
 from importlib import reload
 from unittest import mock
 import io
+import itertools
 import pickle
 import os
 import pytest
@@ -200,40 +201,22 @@ def test_get_store_caches_on_store_uri_and_artifact_uri(tmpdir):
     registry = mlflow.tracking._tracking_service.utils._tracking_store_registry
 
     store_uri_1 = "sqlite:///" + tmpdir.join("backend_store_1.db").strpath
-    store_uri_2 = "file::///" + tmpdir.join("backend_store_2").strpath
+    store_uri_2 = "file:///" + tmpdir.join("backend_store_2").strpath
+    stores_uris = [store_uri_1, store_uri_2]
+    artifact_uris = [
+        None,
+        tmpdir.join("artifact_root_1").strpath,
+        tmpdir.join("artifact_root_2").strpath,
+    ]
 
-    artifact_uri_1 = tmpdir.join("artifact_root_1").strpath
-    artifact_uri_2 = tmpdir.join("artifact_root_2").strpath
+    stores = []
+    for args in itertools.product(stores_uris, artifact_uris):
+        store1 = registry.get_store(*args)
+        store2 = registry.get_store(*args)
+        assert store1 is store2
+        stores.append(store1)
 
-    store1 = registry.get_store(store_uri_1)
-    store2 = registry.get_store(store_uri_1)
-    assert store1 is store2
-
-    store3 = registry.get_store(store_uri_1, artifact_uri_1)
-    store4 = registry.get_store(store_uri_1, artifact_uri_1)
-    assert store3 is store4
-
-    store5 = registry.get_store(store_uri_1, artifact_uri_2)
-    store6 = registry.get_store(store_uri_1, artifact_uri_2)
-    assert store5 is store6
-
-    store7 = registry.get_store(store_uri_2)
-    store8 = registry.get_store(store_uri_2)
-    assert store7 is store8
-
-    store9 = registry.get_store(store_uri_2, artifact_uri_1)
-    store10 = registry.get_store(store_uri_2, artifact_uri_1)
-    assert store9 is store10
-
-    store11 = registry.get_store(store_uri_2, artifact_uri_2)
-    store12 = registry.get_store(store_uri_2, artifact_uri_2)
-    assert store11 is store12
-
-    assert store1 is not store3
-    assert store3 is not store5
-    assert store5 is not store7
-    assert store7 is not store9
-    assert store9 is not store11
+    assert all(s1 is not s2 for s1, s2 in itertools.combinations(stores, 2))
 
 
 def test_standard_store_registry_with_mocked_entrypoint():
