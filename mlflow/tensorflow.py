@@ -1070,9 +1070,10 @@ def autolog(
             return
 
         initial_epoch = history.epoch[0]
-        # If `monitored_metric` contains multiple best values, the epoch corresponding to the first
-        # occurrence is the best epoch. In keras > 2.6.0, the best epoch can be obtained via
-        # `callback.best_epoch`: https://github.com/keras-team/keras/pull/15197
+        # If `monitored_metric` contains multiple best values (e.g. [0.1, 0.1, 0.2] where 0.1 is
+        # the minimum loss), the epoch corresponding to the first occurrence of the best value is
+        # the best epoch. In keras > 2.6.0, the best epoch can be obtained via the `best_epoch`
+        # attribute of an `EarlyStopping` instance: https://github.com/keras-team/keras/pull/15197
         restored_epoch = initial_epoch + monitored_metrics.index(callback.best)
         metrics_logger.record_metrics({"restored_epoch": restored_epoch})
         restored_index = history.epoch.index(restored_epoch)
