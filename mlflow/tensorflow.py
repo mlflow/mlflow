@@ -1077,11 +1077,15 @@ def autolog(
         restored_epoch = initial_epoch + monitored_metrics.index(callback.best)
         metrics_logger.record_metrics({"restored_epoch": restored_epoch})
         restored_index = history.epoch.index(restored_epoch)
-        # Metrics are logged as 'epoch_<metric_name>' in TF 1.X
-        prefix = "epoch_" if Version(tensorflow.__version__) < Version("2.0.0") else ""
         restored_metrics = {
-            prefix + key: metrics[restored_index] for key, metrics in history.history.items()
+            key: metrics[restored_index] for key, metrics in history.history.items()
         }
+        # Metrics are logged as 'epoch_loss' and 'epoch_acc' in TF 1.X
+        if Version(tensorflow.__version__) < Version("2.0.0"):
+            if "loss" in restored_metrics:
+                restored_metrics["epoch_loss"] = restored_metrics.pop("loss")
+            if "acc" in restored_metrics:
+                restored_metrics["epoch_acc"] = restored_metrics.pop("acc")
         # Checking that a metric history exists
         metric_key = next(iter(history.history), None)
         if metric_key is not None:
