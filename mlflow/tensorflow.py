@@ -1084,9 +1084,7 @@ def autolog(
         # Checking that a metric history exists
         metric_key = next(iter(history.history), None)
         if metric_key is not None:
-            last_epoch = len(history.history[metric_key])
-            metrics_logger.record_metrics(restored_metrics, initial_epoch + last_epoch)
-            metrics_logger.flush()
+            metrics_logger.record_metrics(restored_metrics, stopped_epoch + 1)
 
     class FitPatch(PatchFunction):
         def __init__(self):
