@@ -320,7 +320,7 @@ def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback
     # Check that MLflow has logged the correct steps
     assert steps == [*history.epoch, callback.stopped_epoch + 1]
     # Check that MLflow has logged the correct metric values
-    assert values == [*loss, callback.best]
+    np.testing.assert_allclose(values, [*loss, callback.best])
 
 
 @pytest.mark.large
