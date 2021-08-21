@@ -1061,12 +1061,11 @@ def autolog(
         stopped_epoch, restore_best_weights, _ = callback_attrs
         metrics_logger.record_metrics({"stopped_epoch": stopped_epoch})
 
-        restored_best_weights = restore_best_weights and callback.best_weights is not None
-        if not restored_best_weights:
+        if not restore_best_weights or callback.best_weights is None:
             return
 
-        monitored_metrics = history.history.get(callback.monitor)
-        if not monitored_metrics:
+        monitored_metric = history.history.get(callback.monitor)
+        if not monitored_metric:
             return
 
         initial_epoch = history.epoch[0]
@@ -1074,7 +1073,7 @@ def autolog(
         # the minimum loss), the epoch corresponding to the first occurrence of the best value is
         # the best epoch. In keras > 2.6.0, the best epoch can be obtained via the `best_epoch`
         # attribute of an `EarlyStopping` instance: https://github.com/keras-team/keras/pull/15197
-        restored_epoch = initial_epoch + monitored_metrics.index(callback.best)
+        restored_epoch = initial_epoch + monitored_metric.index(callback.best)
         metrics_logger.record_metrics({"restored_epoch": restored_epoch})
         restored_index = history.epoch.index(restored_epoch)
         restored_metrics = {
