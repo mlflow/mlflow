@@ -223,7 +223,7 @@ patience_values = [1, 5] if keras_version == "2.6.0" else [0, 1, 5]
 @pytest.mark.parametrize("callback", ["early"])
 @pytest.mark.parametrize("patience", patience_values)
 @pytest.mark.parametrize("initial_epoch", [0, 10])
-def test_keras_autolog_early_stop_logs(keras_random_data_run_with_callback):
+def test_keras_autolog_early_stop_logs(keras_random_data_run_with_callback, initial_epoch):
     run, history, callback = keras_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params
@@ -236,17 +236,20 @@ def test_keras_autolog_early_stop_logs(keras_random_data_run_with_callback):
     assert "stopped_epoch" in metrics
     assert "restored_epoch" in metrics
     restored_epoch = int(metrics["restored_epoch"])
-    assert int(metrics["stopped_epoch"]) - max(1, callback.patience) == restored_epoch
+    # In this test, the best epoch is always the first epoch because the early stopping callback
+    # never observes a loss improvement due to an extremely large `min_delta` value
+    assert restored_epoch == initial_epoch
     assert "loss" in history.history
-    num_of_epochs = len(history.history["loss"])
     client = mlflow.tracking.MlflowClient()
     metric_history = client.get_metric_history(run.info.run_id, "loss")
-    # Check the test epoch numbers are correct
-    assert num_of_epochs == max(1, callback.patience) + 1
-    # Check that MLflow has logged the metrics of the "best" model
-    assert len(metric_history) == num_of_epochs + 1
-    # Check that MLflow has logged the correct data
-    assert history.history["loss"][history.epoch.index(restored_epoch)] == metric_history[-1].value
+    # Check that MLflow has logged the metrics of the "best" model, in addition to per-epoch metrics
+    loss = history.history["loss"]
+    assert len(metric_history) == len(loss) + 1
+    steps, values = map(list, zip(*[(m.step, m.value) for m in metric_history]))
+    # Check that MLflow has logged the correct steps
+    assert steps == [*history.epoch, callback.stopped_epoch + 1]
+    # Check that MLflow has logged the correct metric values
+    np.testing.assert_allclose(values, [*loss, callback.best])
 
 
 @pytest.mark.large
@@ -288,9 +291,9 @@ def test_keras_autolog_batch_metrics_logger_logs_expected_metrics(
         assert metric_name in patched_metrics_data
 
     restored_epoch = int(patched_metrics_data["restored_epoch"])
-    assert int(patched_metrics_data["stopped_epoch"]) - max(1, callback.patience) == restored_epoch
+    assert restored_epoch == initial_epoch
     restored_epoch = int(original_metrics["restored_epoch"])
-    assert int(original_metrics["stopped_epoch"]) - max(1, callback.patience) == restored_epoch
+    assert restored_epoch == initial_epoch
 
 
 @pytest.mark.large
@@ -308,8 +311,7 @@ def test_keras_autolog_early_stop_no_stop_does_not_log(keras_random_data_run_wit
     assert params["monitor"] == "loss"
     assert "verbose" not in params
     assert "mode" not in params
-    assert "stopped_epoch" in metrics
-    assert metrics["stopped_epoch"] == 0
+    assert "stopped_epoch" not in metrics
     assert "restored_epoch" not in metrics
     assert "loss" in history.history
     num_of_epochs = len(history.history["loss"])

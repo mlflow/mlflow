@@ -222,7 +222,7 @@ def tf_keras_random_data_run_with_callback(
 @pytest.mark.parametrize("callback", ["early"])
 @pytest.mark.parametrize("patience", [0, 1, 5])
 @pytest.mark.parametrize("initial_epoch", [0, 10])
-def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback):
+def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback, initial_epoch):
     run, history, callback = tf_keras_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params
@@ -236,15 +236,21 @@ def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback
     assert "restored_epoch" in metrics
     assert "epoch_loss" in metrics
     restored_epoch = int(metrics["restored_epoch"])
-    assert int(metrics["stopped_epoch"]) - callback.patience == restored_epoch
+    # In this test, the best epoch is always the first epoch because the early stopping callback
+    # never observes a loss improvement due to an extremely large `min_delta` value
+    assert restored_epoch == initial_epoch
     assert "loss" in history.history
     client = mlflow.tracking.MlflowClient()
     # TF 1.X TB callback logs loss as `epoch_loss`
     metric_history = client.get_metric_history(run.info.run_id, "epoch_loss")
     # Check that MLflow has logged the metrics of the "best" model, in addition to per-epoch metrics
-    assert len(metric_history) == len(history.history["loss"]) + 1
-    # Check that MLflow has logged the correct data
-    assert history.history["loss"][history.epoch.index(restored_epoch)] == metric_history[-1].value
+    loss = history.history["loss"]
+    assert len(metric_history) == len(loss) + 1
+    steps, values = map(list, zip(*[(m.step, m.value) for m in metric_history]))
+    # Check that MLflow has logged the correct steps
+    assert steps == [*history.epoch, callback.stopped_epoch + 1]
+    # Check that MLflow has logged the correct metric values
+    np.testing.assert_allclose(values, [*loss, callback.best])
 
 
 @pytest.mark.large
@@ -262,10 +268,9 @@ def test_tf_keras_autolog_early_stop_no_stop_does_not_log(tf_keras_random_data_r
     assert params["monitor"] == "loss"
     assert "verbose" not in params
     assert "mode" not in params
-    assert "stopped_epoch" in metrics
-    assert "epoch_loss" in metrics
-    assert metrics["stopped_epoch"] == 0
+    assert "stopped_epoch" not in metrics
     assert "restored_epoch" not in metrics
+    assert "epoch_loss" in metrics
     assert "loss" in history.history
     num_of_epochs = len(history.history["loss"])
     client = mlflow.tracking.MlflowClient()
@@ -291,8 +296,8 @@ def test_tf_keras_autolog_early_stop_no_restore_doesnt_log(tf_keras_random_data_
     assert "verbose" not in params
     assert "mode" not in params
     assert "stopped_epoch" in metrics
-    assert "epoch_loss" in metrics
     assert "restored_epoch" not in metrics
+    assert "epoch_loss" in metrics
     assert "loss" in history.history
     num_of_epochs = len(history.history["loss"])
     client = mlflow.tracking.MlflowClient()
