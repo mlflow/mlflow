@@ -246,9 +246,11 @@ def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback
     # Check that MLflow has logged the metrics of the "best" model, in addition to per-epoch metrics
     loss = history.history["loss"]
     assert len(metric_history) == len(loss) + 1
-    assert [m.step for m in metric_history] == [initial_epoch + i for i in range(len(loss) + 1)]
-    # Check that MLflow has logged the correct data
-    assert metric_history[-1].value == loss[history.epoch.index(restored_epoch)]
+    steps, values = map(list, zip(*[(m.step, m.value) for m in metric_history]))
+    # Check that MLflow has logged the correct steps
+    assert steps == [initial_epoch + i for i in range(len(loss) + 1)]
+    # Check that MLflow has logged the correct metric values
+    assert values == [*loss, callback.best]
 
 
 @pytest.mark.large
