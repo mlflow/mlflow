@@ -303,79 +303,71 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(spark_model_iris,
 
 
 @pytest.mark.large
-def test_sparkml_model_log(tmpdir, spark_model_iris):
-    # Print the coefficients and intercept for multinomial logistic regression
+@pytest.mark.parametrize("should_start_run", [False, True])
+@pytest.mark.parametrize("use_dfs_tmpdir", [False, True])
+def test_sparkml_model_log(tmpdir, spark_model_iris, should_start_run, use_dfs_tmpdir):
     old_tracking_uri = mlflow.get_tracking_uri()
-    cnt = 0
-    # should_start_run tests whether or not calling log_model() automatically starts a run.
-    for should_start_run in [False, True]:
-        for dfs_tmp_dir in [None, os.path.join(str(tmpdir), "test")]:
-            print("should_start_run =", should_start_run, "dfs_tmp_dir =", dfs_tmp_dir)
-            try:
-                tracking_dir = os.path.abspath(str(tmpdir.join("mlruns")))
-                mlflow.set_tracking_uri("file://%s" % tracking_dir)
-                if should_start_run:
-                    mlflow.start_run()
-                artifact_path = "model%d" % cnt
-                cnt += 1
-                sparkm.log_model(
-                    artifact_path=artifact_path,
-                    spark_model=spark_model_iris.model,
-                    dfs_tmpdir=dfs_tmp_dir,
-                )
-                model_uri = "runs:/{run_id}/{artifact_path}".format(
-                    run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-                )
+    if use_dfs_tmpdir:
+        dfs_tmpdir = None
+    else:
+        dfs_tmpdir = tmpdir.join("test").strpath
 
-                # test reloaded model
-                reloaded_model = sparkm.load_model(model_uri=model_uri, dfs_tmpdir=dfs_tmp_dir)
-                preds_df = reloaded_model.transform(spark_model_iris.spark_df)
-                preds = [x.prediction for x in preds_df.select("prediction").collect()]
-                assert spark_model_iris.predictions == preds
-            finally:
-                mlflow.end_run()
-                mlflow.set_tracking_uri(old_tracking_uri)
-                x = dfs_tmp_dir or sparkm.DFS_TMP
-                shutil.rmtree(x)
-                shutil.rmtree(tracking_dir)
+    try:
+        tracking_dir = os.path.abspath(str(tmpdir.join("mlruns")))
+        mlflow.set_tracking_uri("file://%s" % tracking_dir)
+        if should_start_run:
+            mlflow.start_run()
+        artifact_path = "model"
+        sparkm.log_model(
+            artifact_path=artifact_path, spark_model=spark_model_iris.model, dfs_tmpdir=dfs_tmpdir,
+        )
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+        )
+
+        reloaded_model = sparkm.load_model(model_uri=model_uri, dfs_tmpdir=dfs_tmpdir)
+        preds_df = reloaded_model.transform(spark_model_iris.spark_df)
+        preds = [x.prediction for x in preds_df.select("prediction").collect()]
+        assert spark_model_iris.predictions == preds
+    finally:
+        mlflow.end_run()
+        mlflow.set_tracking_uri(old_tracking_uri)
 
 
 @pytest.mark.large
-def test_sparkml_estimator_model_log(tmpdir, spark_model_estimator):
-    # Print the coefficients and intercept for multinomial logistic regression
+@pytest.mark.parametrize("should_start_run", [False, True])
+@pytest.mark.parametrize("use_dfs_tmpdir", [False, True])
+def test_sparkml_estimator_model_log(
+    tmpdir, spark_model_estimator, should_start_run, use_dfs_tmpdir
+):
     old_tracking_uri = mlflow.get_tracking_uri()
-    cnt = 0
-    # should_start_run tests whether or not calling log_model() automatically starts a run.
-    for should_start_run in [False, True]:
-        for dfs_tmp_dir in [None, os.path.join(str(tmpdir), "test")]:
-            print("should_start_run =", should_start_run, "dfs_tmp_dir =", dfs_tmp_dir)
-            try:
-                tracking_dir = os.path.abspath(str(tmpdir.join("mlruns")))
-                mlflow.set_tracking_uri("file://%s" % tracking_dir)
-                if should_start_run:
-                    mlflow.start_run()
-                artifact_path = "model%d" % cnt
-                cnt += 1
-                sparkm.log_model(
-                    artifact_path=artifact_path,
-                    spark_model=spark_model_estimator.model,
-                    dfs_tmpdir=dfs_tmp_dir,
-                )
-                model_uri = "runs:/{run_id}/{artifact_path}".format(
-                    run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-                )
+    if use_dfs_tmpdir:
+        dfs_tmpdir = None
+    else:
+        dfs_tmpdir = tmpdir.join("test").strpath
 
-                # test reloaded model
-                reloaded_model = sparkm.load_model(model_uri=model_uri, dfs_tmpdir=dfs_tmp_dir)
-                preds_df = reloaded_model.transform(spark_model_estimator.spark_df)
-                preds = [x.prediction for x in preds_df.select("prediction").collect()]
-                assert spark_model_estimator.predictions == preds
-            finally:
-                mlflow.end_run()
-                mlflow.set_tracking_uri(old_tracking_uri)
-                x = dfs_tmp_dir or sparkm.DFS_TMP
-                shutil.rmtree(x)
-                shutil.rmtree(tracking_dir)
+    try:
+        tracking_dir = os.path.abspath(str(tmpdir.join("mlruns")))
+        mlflow.set_tracking_uri("file://%s" % tracking_dir)
+        if should_start_run:
+            mlflow.start_run()
+        artifact_path = "model"
+        sparkm.log_model(
+            artifact_path=artifact_path,
+            spark_model=spark_model_estimator.model,
+            dfs_tmpdir=dfs_tmpdir,
+        )
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+        )
+
+        reloaded_model = sparkm.load_model(model_uri=model_uri, dfs_tmpdir=dfs_tmpdir)
+        preds_df = reloaded_model.transform(spark_model_estimator.spark_df)
+        preds = [x.prediction for x in preds_df.select("prediction").collect()]
+        assert spark_model_estimator.predictions == preds
+    finally:
+        mlflow.end_run()
+        mlflow.set_tracking_uri(old_tracking_uri)
 
 
 @pytest.mark.large
