@@ -13,6 +13,8 @@ popd
 # the .tgz used below (http://mirror.cogentco.com/pub/apache/spark/spark-3.0.0-preview/spark-3.0.0-preview-bin-hadoop2.7.tgz),
 # extract it, and set SPARK_HOME to the path of the extracted folder while invoking pytest as
 # shown below
-# wget --no-verbose https://archive.apache.org/dist/spark/spark-3.0.0-preview/spark-3.0.0-preview-bin-hadoop2.7.tgz -O /tmp/spark.tgz
-# tar -xf /tmp/spark.tgz --directory /tmp
-# pip install -e /tmp/spark-3.0.0-preview-bin-hadoop2.7/python
+version=spark-3.0.0-preview-bin-hadoop2.7
+wget --no-verbose "https://archive.apache.org/dist/spark/spark-3.0.0-preview/${version}.tgz" -O /tmp/spark.tgz
+tar -xf /tmp/spark.tgz --directory /tmp
+pip install -e /tmp/$version/python
+export SPARK_HOME=/tmp/$version
