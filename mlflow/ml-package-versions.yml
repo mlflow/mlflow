@@ -328,3 +328,14 @@ spark:
         ./dev/setup-spark-datasource-autologging.sh
         find tests/spark_autologging/datasource -name 'test*.py' | xargs -L 1 pytest --large
       fi
+
+mleap:
+  package_info:
+    pip_release: "mleap"
+
+  models:
+    minimum: "0.15.0"
+    maximum: "0.17.0"
+    requirements: ["pyspark==2.4.5"]
+    run: |
+      pytest tests/spark/test_mleap_model_export.py --large
