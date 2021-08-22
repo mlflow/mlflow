@@ -319,9 +319,9 @@ spark:
 
       # TODO: Fix spark datasource autologging and test it against non-preview pyspark versions
       if [ "$(pip show pyspark | grep Version | cut -d' ' -f2)" = "3.0.0" ]; then
-        echo -e '\033[0;33m
-      Warning: Spark datasource autologging currently only works for Spark 3.0.0-preview.
-      \033[0;33m'
+        echo -e "\033[33;1;4m
+      WARNING: Spark datasource autologging currently only works for Spark 3.0.0-preview.
+      \033[0m"
 
         pip uninstall -y pyspark
         ./dev/setup-spark-datasource-autologging.sh
