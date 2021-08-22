@@ -338,28 +338,6 @@ jobs:
             exit 1
           fi
 
-  tensorflow:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-java@v2
-        with:
-          java-version: 8
-          distribution: 'adopt'
-      - name: Install dependencies
-        env:
-          INSTALL_LARGE_PYTHON_DEPS: true
-          INSTALL_SMALL_PYTHON_DEPS: true
-        run: |
-          source ./dev/install-common-deps.sh
-      - name: Run tests
-        env:
-          SPARK_LOCAL_IP: 127.0.0.1
-        run: |
-          export PATH="$CONDA_DIR/bin:$PATH"
-          source activate test-environment
-          ./dev/run-python-tf-tests.sh;
-
   sagemaker:
     runs-on: ubuntu-latest
     steps:
