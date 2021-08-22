@@ -10,7 +10,6 @@ export MLFLOW_HOME=$(pwd)
 # overhead
 pytest tests/pyfunc --large
 pytest tests/azureml --large
-pytest tests/models --large
 pytest tests/utils/test_model_utils.py --large
 pytest tests/tracking/fluent/test_fluent_autolog.py --large
 pytest tests/autologging --large
