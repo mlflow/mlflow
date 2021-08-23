@@ -137,7 +137,9 @@ def _get_rest_store(store_uri, **_):
 def _get_databricks_rest_store(store_uri, **_):
     return RestStore(partial(get_databricks_host_creds, store_uri))
 
-# We define the global variable as `None` so that instantiating the store does not lead to circular dependency issues.
+
+# We define the global variable as `None` so that instantiating the store does not lead to circular
+# dependency issues.
 _model_registry_store_registry = None
 
 
