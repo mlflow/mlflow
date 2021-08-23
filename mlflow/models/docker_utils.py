@@ -116,7 +116,7 @@ def _build_image(image_name, entrypoint, mlflow_home=None, custom_setup_steps_ho
                 "Dockerfile",
                 ".",
                 # Enforcing the AMD64 architecture build for Apple M1 users
-                "--platform=linux/amd64"
+                "--platform=linux/amd64",
             ],
             cwd=cwd,
             stdout=PIPE,
