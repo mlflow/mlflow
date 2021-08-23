@@ -146,22 +146,7 @@ def log_model(
                           - One or more of the files specified by the ``code_paths`` parameter.
 
     :param artifact_path: Run-relative artifact path.
-    :param conda_env: Path to a Conda environment file. If provided, this decsribes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If ``None``, the default
-                      :func:`get_default_conda_env()` environment is added to the model. The
-                      following is an *example* dictionary representation of a Conda environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.7.0',
-                                'pytorch=0.4.1',
-                                'torchvision=0.2.1'
-                            ]
-                        }
-
+    :param conda_env: {{ conda_env }}
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files are *prepended* to the system
                        path when the model is loaded.
@@ -354,23 +339,7 @@ def save_model(
                           - One or more of the files specified by the ``code_paths`` parameter.
 
     :param path: Local path where the model is to be saved.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decsribes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If ``None``, the default
-                      :func:`get_default_conda_env()` environment is added to the model. The
-                      following is an *example* dictionary representation of a Conda environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.7.0',
-                                'pytorch=0.4.1',
-                                'torchvision=0.2.1'
-                            ]
-                        }
-
+    :param conda_env: {{ conda_env }}
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files are *prepended* to the system
@@ -587,14 +556,16 @@ def save_model(
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
-        default_reqs = get_default_pip_requirements()
         if pip_requirements is None:
+            default_reqs = get_default_pip_requirements()
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
                 model_data_path, FLAVOR_NAME, fallback=default_reqs,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+        else:
+            default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
             default_reqs, pip_requirements, extra_pip_requirements,
         )

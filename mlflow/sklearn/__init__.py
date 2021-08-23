@@ -116,23 +116,7 @@ def save_model(
 
     :param sk_model: scikit-learn model to be saved.
     :param path: Local path where the model is to be saved.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decsribes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If `None`, the default
-                      :func:`get_default_conda_env()` environment is added to the model.
-                      The following is an *example* dictionary representation of a Conda
-                      environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.7.0',
-                                'scikit-learn=0.19.2'
-                            ]
-                        }
-
+    :param conda_env: {{ conda_env }}
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     :param serialization_format: The format in which to serialize the model. This should be one of
                                  the formats listed in
@@ -236,16 +220,18 @@ def save_model(
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
-    include_cloudpickle = serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE
     if conda_env is None:
-        default_reqs = get_default_pip_requirements(include_cloudpickle)
         if pip_requirements is None:
+            include_cloudpickle = serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE
+            default_reqs = get_default_pip_requirements(include_cloudpickle)
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
                 model_data_path, FLAVOR_NAME, fallback=default_reqs,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+        else:
+            default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
             default_reqs, pip_requirements, extra_pip_requirements,
         )
@@ -286,23 +272,7 @@ def log_model(
 
     :param sk_model: scikit-learn model to be saved.
     :param artifact_path: Run-relative artifact path.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decsribes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If `None`, the default
-                      :func:`get_default_conda_env()` environment is added to the model.
-                      The following is an *example* dictionary representation of a Conda
-                      environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.7.0',
-                                'scikit-learn=0.19.2'
-                            ]
-                        }
-
+    :param conda_env: {{ conda_env }}
     :param serialization_format: The format in which to serialize the model. This should be one of
                                  the formats listed in
                                  ``mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS``. The Cloudpickle
@@ -540,7 +510,6 @@ class _AutologgingMetricsManager:
           if they have the same eval_dataset_var_name, but object ids are different,
           then they will be assigned different name (via appending index to the
           eval_dataset_var_name) when autologging.
-        * storing the dataset row samples, we need log them into metric_info artifact file.
     (4) _metric_api_call_info, it is a double level map:
        `_metric_api_call_info[run_id][metric_name]` wil get a list of tuples, each tuple is:
          (logged_metric_key, metric_call_command_string)
@@ -628,9 +597,8 @@ class _AutologgingMetricsManager:
         Register prediction input dataset into eval_dataset_info_map, it will do:
          1. inspect eval dataset var name.
          2. check whether eval_dataset_info_map already registered this eval dataset.
-            will check by object id and comparing row samples.
-            Note: only check object id is not sufficient, id may be reused.
-         3. register eval dataset (with id and row samples information)
+            will check by object id.
+         3. register eval dataset with id.
          4. return eval dataset name with index.
 
         Note: this method include inspecting argument variable name.
@@ -669,9 +637,7 @@ class _AutologgingMetricsManager:
         self._pred_result_id_to_dataset_name_and_run_id[prediction_result_id] = value
 
         def clean_id(id_):
-            _get_autologging_metrics_manager()._pred_result_id_to_dataset_name_and_run_id.pop(
-                id_, None
-            )
+            _AUTOLOGGING_METRICS_MANAGER._pred_result_id_to_dataset_name_and_run_id.pop(id_, None)
 
         # When the `predict_result` object being GCed, its ID may be reused, so register a finalizer
         # to clear the ID from the dict for preventing wrong ID mapping.
@@ -737,7 +703,7 @@ class _AutologgingMetricsManager:
           metric_name is generated by metric function name, if multiple calls on the same
           metric API happen, the following calls will be assigned with an increasing "call index".
         (2) Register the metric key with the "call command" information into
-          `_autologging_metrics_manager`. See doc of `gen_metric_call_command` method for
+          `_AUTOLOGGING_METRICS_MANAGER`. See doc of `gen_metric_call_command` method for
           details of "call command".
         """
 
@@ -798,15 +764,9 @@ class _AutologgingMetricsManager:
             self._metric_info_artifact_need_update[run_id] = False
 
 
-_autologging_metrics_manager = _AutologgingMetricsManager()
-
-
-def _get_autologging_metrics_manager():
-    """
-    Get the global `_AutologgingMetricsManager` instance which holds information used in
-    post-training metric autologging. See doc of class `_AutologgingMetricsManager` for details.
-    """
-    return _autologging_metrics_manager
+# The global `_AutologgingMetricsManager` instance which holds information used in
+# post-training metric autologging. See doc of class `_AutologgingMetricsManager` for details.
+_AUTOLOGGING_METRICS_MANAGER = _AutologgingMetricsManager()
 
 
 _metric_api_excluding_list = ["check_scoring", "get_scorer", "make_scorer"]
@@ -866,6 +826,7 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
     max_tuning_runs=5,
+    log_post_training_metrics=True,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for scikit-learn estimators.
@@ -939,6 +900,8 @@ def autolog(
           .. _r2 score:
               https://scikit-learn.org/stable/modules/generated/sklearn.metrics.r2_score.html
 
+      .. _post training metrics:
+
       **Post training metrics**
         When users call metric APIs after model training, MLflow tries to capture the metric API
         results and log them as MLflow metrics to the Run associated with the model. The following
@@ -978,10 +941,6 @@ def autolog(
              metrics to MLflow runs.
            - If user define a scorer which is not based on metric APIs in `sklearn.metrics`, then
              then post training metric autologging for the scorer is invalid.
-           - Do not support `LocalOutlierFactor` estimator.
-           - For several meta-estimators, if there target methods are decorated by
-             "@if_delegate_has_method", then post training metric autologging patching for that
-             method is invalid.
 
         **Tags**
           - An estimator class name (e.g. "LinearRegression").
@@ -1116,6 +1075,9 @@ def autolog(
                             `rank_test_score_<scorer_name>` will be used to select the best k
                             results. To change metric used for selecting best k results, change
                             ordering of dict passed as `scoring` parameter for estimator.
+    :param log_post_training_metrics: If ``True``, post training metrics are logged. Defaults to
+                                      ``True``. See the `post training metrics`_ section for more
+                                      details.
     """
     import pandas as pd
     import sklearn
@@ -1335,16 +1297,21 @@ def autolog(
                           for autologging (e.g., specify "fit" in order to indicate that
                           `sklearn.linear_model.LogisticRegression.fit()` is being patched)
         """
-        status = _get_autologging_metrics_manager()
-        should_log_post_training_metrics = status.should_log_post_training_metrics()
+        should_log_post_training_metrics = (
+            log_post_training_metrics
+            and _AUTOLOGGING_METRICS_MANAGER.should_log_post_training_metrics()
+        )
+
         with _SklearnTrainingSession(clazz=self.__class__, allow_children=False) as t:
             if t.should_log():
                 # In `fit_mlflow` call, it will also call metric API for computing training metrics
                 # so we need temporarily disable the post_training_metrics patching.
-                with status.disable_log_post_training_metrics():
+                with _AUTOLOGGING_METRICS_MANAGER.disable_log_post_training_metrics():
                     result = fit_mlflow(original, self, *args, **kwargs)
                 if should_log_post_training_metrics:
-                    status.register_model(self, mlflow.active_run().info.run_id)
+                    _AUTOLOGGING_METRICS_MANAGER.register_model(
+                        self, mlflow.active_run().info.run_id
+                    )
                 return result
             else:
                 return original(self, *args, **kwargs)
@@ -1356,48 +1323,55 @@ def autolog(
         ```
         prediction_result = model_1.predict(eval_X)
         ```
-        then we need register the following relatinoship into the
-        `_autologging_metrics_manager`:
+        then we need register the following relatinoship into the `_AUTOLOGGING_METRICS_MANAGER`:
         id(prediction_result) --> (eval_dataset_name, run_id)
 
         Note: we cannot set additional attributes "eval_dataset_name" and "run_id" into
         the prediction_result object, because certain dataset type like numpy does not support
         additional attribute assignment.
         """
-        status = _get_autologging_metrics_manager()
-        if status.should_log_post_training_metrics() and status.get_run_id_for_model(self):
+        run_id = _AUTOLOGGING_METRICS_MANAGER.get_run_id_for_model(self)
+        if _AUTOLOGGING_METRICS_MANAGER.should_log_post_training_metrics() and run_id:
             # Avoid nested patch when nested inference calls happens.
-            with status.disable_log_post_training_metrics():
+            with _AUTOLOGGING_METRICS_MANAGER.disable_log_post_training_metrics():
                 predict_result = original(self, *args, **kwargs)
             eval_dataset = get_instance_method_first_arg_value(original, args, kwargs)
-            eval_dataset_name = status.register_prediction_input_dataset(self, eval_dataset)
-            status.register_prediction_result(
-                status.get_run_id_for_model(self), eval_dataset_name, predict_result
+            eval_dataset_name = _AUTOLOGGING_METRICS_MANAGER.register_prediction_input_dataset(
+                self, eval_dataset
+            )
+            _AUTOLOGGING_METRICS_MANAGER.register_prediction_result(
+                run_id, eval_dataset_name, predict_result
             )
             return predict_result
         else:
             return original(self, *args, **kwargs)
 
     def patched_metric_api(original, *args, **kwargs):
-        status = _get_autologging_metrics_manager()
-        if status.should_log_post_training_metrics():
+        if _AUTOLOGGING_METRICS_MANAGER.should_log_post_training_metrics():
             # one metric api may call another metric api,
             # to avoid this, call disable_log_post_training_metrics to avoid nested patch
-            with status.disable_log_post_training_metrics():
+            with _AUTOLOGGING_METRICS_MANAGER.disable_log_post_training_metrics():
                 metric = original(*args, **kwargs)
 
-            if status.is_metric_value_loggable(metric):
+            if _AUTOLOGGING_METRICS_MANAGER.is_metric_value_loggable(metric):
                 metric_name = original.__name__
-                call_command = status.gen_metric_call_command(None, original, *args, **kwargs)
+                call_command = _AUTOLOGGING_METRICS_MANAGER.gen_metric_call_command(
+                    None, original, *args, **kwargs
+                )
 
-                run_id, dataset_name = status.get_run_id_and_dataset_name_for_metric_api_call(
+                (
+                    run_id,
+                    dataset_name,
+                ) = _AUTOLOGGING_METRICS_MANAGER.get_run_id_and_dataset_name_for_metric_api_call(
                     args, kwargs
                 )
                 if run_id and dataset_name:
-                    metric_key = status.register_metric_api_call(
+                    metric_key = _AUTOLOGGING_METRICS_MANAGER.register_metric_api_call(
                         run_id, metric_name, dataset_name, call_command
                     )
-                    status.log_post_training_metric(run_id, metric_key, metric)
+                    _AUTOLOGGING_METRICS_MANAGER.log_post_training_metric(
+                        run_id, metric_key, metric
+                    )
 
             return metric
         else:
@@ -1408,26 +1382,28 @@ def autolog(
     #  e.g.
     #  https://github.com/scikit-learn/scikit-learn/blob/82df48934eba1df9a1ed3be98aaace8eada59e6e/sklearn/covariance/_empirical_covariance.py#L220
     def patched_model_score(original, self, *args, **kwargs):
-        status = _get_autologging_metrics_manager()
-        if status.should_log_post_training_metrics() and status.get_run_id_for_model(self):
+        run_id = _AUTOLOGGING_METRICS_MANAGER.get_run_id_for_model(self)
+        if _AUTOLOGGING_METRICS_MANAGER.should_log_post_training_metrics() and run_id:
             # `model.score` may call metric APIs internally, in order to prevent nested metric call
             # being logged, temporarily disable post_training_metrics patching.
-            with status.disable_log_post_training_metrics():
+            with _AUTOLOGGING_METRICS_MANAGER.disable_log_post_training_metrics():
                 score_value = original(self, *args, **kwargs)
 
-            if status.is_metric_value_loggable(score_value):
+            if _AUTOLOGGING_METRICS_MANAGER.is_metric_value_loggable(score_value):
                 metric_name = f"{self.__class__.__name__}_score"
-                call_command = status.gen_metric_call_command(self, original, *args, **kwargs)
-
-                eval_dataset = get_instance_method_first_arg_value(original, args, kwargs)
-                eval_dataset_name = status.register_prediction_input_dataset(self, eval_dataset)
-                run_id = status.get_run_id_for_model(self)
-                metric_key = status.register_metric_api_call(
-                    run_id, metric_name, eval_dataset_name, call_command
+                call_command = _AUTOLOGGING_METRICS_MANAGER.gen_metric_call_command(
+                    self, original, *args, **kwargs
                 )
 
-                status.log_post_training_metric(
-                    status.get_run_id_for_model(self), metric_key, score_value
+                eval_dataset = get_instance_method_first_arg_value(original, args, kwargs)
+                eval_dataset_name = _AUTOLOGGING_METRICS_MANAGER.register_prediction_input_dataset(
+                    self, eval_dataset
+                )
+                metric_key = _AUTOLOGGING_METRICS_MANAGER.register_metric_api_call(
+                    run_id, metric_name, eval_dataset_name, call_command
+                )
+                _AUTOLOGGING_METRICS_MANAGER.log_post_training_metric(
+                    run_id, metric_key, score_value
                 )
 
             return score_value
@@ -1538,11 +1514,14 @@ def autolog(
             FLAVOR_NAME, class_def, "score", patched_model_score, manage_run=False,
         )
 
-    for metric_name in _get_metric_name_list():
-        safe_patch(FLAVOR_NAME, sklearn.metrics, metric_name, patched_metric_api, manage_run=False)
+    if log_post_training_metrics:
+        for metric_name in _get_metric_name_list():
+            safe_patch(
+                FLAVOR_NAME, sklearn.metrics, metric_name, patched_metric_api, manage_run=False
+            )
 
-    for scorer in sklearn.metrics.SCORERS.values():
-        safe_patch(FLAVOR_NAME, scorer, "_score_func", patched_metric_api, manage_run=False)
+        for scorer in sklearn.metrics.SCORERS.values():
+            safe_patch(FLAVOR_NAME, scorer, "_score_func", patched_metric_api, manage_run=False)
 
     def patched_fn_with_autolog_disabled(original, *args, **kwargs):
         with disable_autologging():
@@ -1605,8 +1584,8 @@ def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
       - prefix is empty
       - model is not an sklearn estimator or does not support the 'predict' method
     """
-    status = _get_autologging_metrics_manager()
-    with status.disable_log_post_training_metrics():
+    metrics_manager = _AUTOLOGGING_METRICS_MANAGER
+    with metrics_manager.disable_log_post_training_metrics():
         return _eval_and_log_metrics_impl(
             model, X, y_true, prefix=prefix, sample_weight=sample_weight
         )

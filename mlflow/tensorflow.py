@@ -83,7 +83,18 @@ def get_default_pip_requirements():
              Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
              that, at minimum, contains these requirements.
     """
-    return [_get_pinned_requirement("tensorflow")]
+    import tensorflow as tf
+
+    pip_deps = [_get_pinned_requirement("tensorflow")]
+
+    # tensorflow >= 2.6.0 requires keras:
+    # https://github.com/tensorflow/tensorflow/blob/v2.6.0/tensorflow/tools/pip_package/setup.py#L106
+    # To prevent a different version of keras from being installed by tensorflow when creating
+    # a serving environment, add a pinned requirement for keras
+    if Version(tf.__version__) >= Version("2.6.0"):
+        pip_deps.append(_get_pinned_requirement("keras"))
+
+    return pip_deps
 
 
 def get_default_conda_env():
@@ -138,21 +149,7 @@ def log_model(
                                  ``signature_def_map`` parameter of the
                                  ``tf.saved_model.builder.SavedModelBuilder`` method.
     :param artifact_path: The run-relative path to which to log model artifacts.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decsribes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If ``None``, the default
-                      :func:`get_default_conda_env()` environment is added to the model. The
-                      following is an *example* dictionary representation of a Conda environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.7.0',
-                                'tensorflow=1.8.0'
-                            ]
-                        }
+    :param conda_env: {{ conda_env }}
     :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
@@ -232,21 +229,7 @@ def save_model(
                                  ``tf.saved_model.builder.savedmodelbuilder`` method.
     :param path: Local path where the MLflow model is to be saved.
     :param mlflow_model: MLflow model configuration to which to add the ``tensorflow`` flavor.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decsribes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If ``None``, the default
-                      :func:`get_default_conda_env()` environment is added to the model. The
-                      following is an *example* dictionary representation of a Conda environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.7.0',
-                                'tensorflow=1.8.0'
-                            ]
-                        }
+    :param conda_env: {{ conda_env }}
     :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
@@ -306,14 +289,16 @@ def save_model(
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
-        default_reqs = get_default_pip_requirements()
         if pip_requirements is None:
+            default_reqs = get_default_pip_requirements()
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
                 path, FLAVOR_NAME, fallback=default_reqs,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+        else:
+            default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
             default_reqs, pip_requirements, extra_pip_requirements,
         )
@@ -741,6 +726,7 @@ def _setup_callbacks(lst, log_models, metrics_logger):
     Adds TensorBoard and MlfLowTfKeras callbacks to the
     input list, and returns the new list and appropriate log directory.
     """
+    # pylint: disable=no-name-in-module
     import tensorflow
     from tensorflow.keras.callbacks import Callback, TensorBoard
 
@@ -1064,39 +1050,45 @@ def autolog(
         except Exception:  # pylint: disable=W0703
             return None
 
-    def _log_early_stop_callback_metrics(callback, history, expected_last_epoch, metrics_logger):
-        if callback:
-            callback_attrs = _get_early_stop_callback_attrs(callback)
-            if callback_attrs is None:
-                return
-            stopped_epoch, restore_best_weights, patience = callback_attrs
-            metrics_logger.record_metrics({"stopped_epoch": stopped_epoch})
+    def _log_early_stop_callback_metrics(callback, history, metrics_logger):
+        if callback is None or not callback.model.stop_training:
+            return
 
-            # Only log restored model metrics if early stopping occurs, as determined by the
-            # the value of `stopped_epoch`. `stopped_epoch` is non-zero if early stopping has
-            # occurred, except in the case where training was early stopped after the first epoch
-            # due to a configured patience value of zero
-            if (
-                (stopped_epoch > 0) or (patience == 0 and expected_last_epoch > 0)
-            ) and restore_best_weights:
-                restored_epoch = stopped_epoch - patience
-                metrics_logger.record_metrics({"restored_epoch": restored_epoch})
-                restored_index = history.epoch.index(restored_epoch)
+        callback_attrs = _get_early_stop_callback_attrs(callback)
+        if callback_attrs is None:
+            return
 
-                restored_metrics = {
-                    key: history.history[key][restored_index] for key in history.history.keys()
-                }
-                # Metrics are logged as 'epoch_loss' and 'epoch_acc' in TF 1.X
-                if Version(tensorflow.__version__) < Version("2.0.0"):
-                    if "loss" in restored_metrics:
-                        restored_metrics["epoch_loss"] = restored_metrics.pop("loss")
-                    if "acc" in restored_metrics:
-                        restored_metrics["epoch_acc"] = restored_metrics.pop("acc")
-                # Checking that a metric history exists
-                metric_key = next(iter(history.history), None)
-                if metric_key is not None:
-                    last_epoch = len(history.history[metric_key])
-                    metrics_logger.record_metrics(restored_metrics, last_epoch)
+        stopped_epoch, restore_best_weights, _ = callback_attrs
+        metrics_logger.record_metrics({"stopped_epoch": stopped_epoch})
+
+        if not restore_best_weights or callback.best_weights is None:
+            return
+
+        monitored_metric = history.history.get(callback.monitor)
+        if not monitored_metric:
+            return
+
+        initial_epoch = history.epoch[0]
+        # If `monitored_metric` contains multiple best values (e.g. [0.1, 0.1, 0.2] where 0.1 is
+        # the minimum loss), the epoch corresponding to the first occurrence of the best value is
+        # the best epoch. In keras > 2.6.0, the best epoch can be obtained via the `best_epoch`
+        # attribute of an `EarlyStopping` instance: https://github.com/keras-team/keras/pull/15197
+        restored_epoch = initial_epoch + monitored_metric.index(callback.best)
+        metrics_logger.record_metrics({"restored_epoch": restored_epoch})
+        restored_index = history.epoch.index(restored_epoch)
+        restored_metrics = {
+            key: metrics[restored_index] for key, metrics in history.history.items()
+        }
+        # Metrics are logged as 'epoch_loss' and 'epoch_acc' in TF 1.X
+        if Version(tensorflow.__version__) < Version("2.0.0"):
+            if "loss" in restored_metrics:
+                restored_metrics["epoch_loss"] = restored_metrics.pop("loss")
+            if "acc" in restored_metrics:
+                restored_metrics["epoch_acc"] = restored_metrics.pop("acc")
+        # Checking that a metric history exists
+        metric_key = next(iter(history.history), None)
+        if metric_key is not None:
+            metrics_logger.record_metrics(restored_metrics, stopped_epoch + 1)
 
     class FitPatch(PatchFunction):
         def __init__(self):
@@ -1141,12 +1133,8 @@ def autolog(
 
                 history = original(inst, *args, **kwargs)
 
-                epochs = args[3] if len(args) >= 4 else kwargs.get("epochs", 0)
                 _log_early_stop_callback_metrics(
-                    callback=early_stop_callback,
-                    history=history,
-                    expected_last_epoch=epochs,
-                    metrics_logger=metrics_logger,
+                    callback=early_stop_callback, history=history, metrics_logger=metrics_logger,
                 )
 
             _flush_queue()

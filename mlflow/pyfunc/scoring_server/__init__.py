@@ -3,7 +3,7 @@ Scoring server for python model format.
 The passed int model is expected to have function:
    predict(pandas.Dataframe) -> pandas.DataFrame
 
-Input, expected intext/csv or application/json format,
+Input, expected in text/csv or application/json format,
 is parsed into pandas.DataFrame and passed to the model.
 
 Defines two endpoints:
@@ -15,6 +15,7 @@ import flask
 import json
 import logging
 import numpy as np
+import os
 import pandas as pd
 import sys
 import traceback
@@ -57,10 +58,15 @@ CONTENT_TYPE_JSON_SPLIT_NUMPY = "application/json-numpy-split"
 CONTENT_TYPES = [
     CONTENT_TYPE_CSV,
     CONTENT_TYPE_JSON,
-    CONTENT_TYPE_JSON_RECORDS_ORIENTED,
-    CONTENT_TYPE_JSON_SPLIT_ORIENTED,
     CONTENT_TYPE_JSON_SPLIT_NUMPY,
 ]
+
+CONTENT_TYPE_FORMAT_RECORDS_ORIENTED = "pandas-records"
+CONTENT_TYPE_FORMAT_SPLIT_ORIENTED = "pandas-split"
+
+FORMATS = [CONTENT_TYPE_FORMAT_RECORDS_ORIENTED, CONTENT_TYPE_FORMAT_SPLIT_ORIENTED]
+
+PREDICTIONS_WRAPPER_ATTR_NAME_ENV_KEY = "PREDICTIONS_WRAPPER_ATTR_NAME"
 
 _logger = logging.getLogger(__name__)
 
@@ -173,6 +179,9 @@ def parse_split_oriented_json_input_to_numpy(json_input):
 
 def predictions_to_json(raw_predictions, output):
     predictions = _get_jsonable_obj(raw_predictions, pandas_orient="records")
+    wrapper_attr_name = os.environ.get(PREDICTIONS_WRAPPER_ATTR_NAME_ENV_KEY, None)
+    if wrapper_attr_name:
+        predictions = {wrapper_attr_name: predictions}
     json.dump(predictions, output, cls=NumpyEncoder)
 
 
@@ -223,34 +232,64 @@ def init(model: PyFuncModel):
         we take data as CSV or json, convert it to a Pandas DataFrame or Numpy,
         generate predictions and convert them back to json.
         """
+
+        # Content-Type can include other attributes like CHARSET
+        # Content-type RFC: https://datatracker.ietf.org/doc/html/rfc2045#section-5.1
+        # TODO: Suport ";" in quoted parameter values
+        type_parts = flask.request.content_type.split(";")
+        type_parts = list(map(str.strip, type_parts))
+        mime_type = type_parts[0]
+        parameter_value_pairs = type_parts[1:]
+        parameter_values = {}
+        for parameter_value_pair in parameter_value_pairs:
+            (key, _, value) = parameter_value_pair.partition("=")
+            parameter_values[key] = value
+
+        charset = parameter_values.get("charset", "utf-8").lower()
+        if charset != "utf-8":
+            return flask.Response(
+                response="The scoring server only supports UTF-8",
+                status=415,
+                mimetype="text/plain",
+            )
+
+        content_format = parameter_values.get("format")
+
         # Convert from CSV to pandas
-        if flask.request.content_type == CONTENT_TYPE_CSV:
+        if mime_type == CONTENT_TYPE_CSV and not content_format:
             data = flask.request.data.decode("utf-8")
             csv_input = StringIO(data)
             data = parse_csv_input(csv_input=csv_input)
-        elif flask.request.content_type == CONTENT_TYPE_JSON:
+        elif mime_type == CONTENT_TYPE_JSON and not content_format:
             json_str = flask.request.data.decode("utf-8")
             data = infer_and_parse_json_input(json_str, input_schema)
-        elif flask.request.content_type == CONTENT_TYPE_JSON_SPLIT_ORIENTED:
+        elif (
+            mime_type == CONTENT_TYPE_JSON and content_format == CONTENT_TYPE_FORMAT_SPLIT_ORIENTED
+        ):
             data = parse_json_input(
                 json_input=StringIO(flask.request.data.decode("utf-8")),
                 orient="split",
                 schema=input_schema,
             )
-        elif flask.request.content_type == CONTENT_TYPE_JSON_RECORDS_ORIENTED:
+        elif (
+            mime_type == CONTENT_TYPE_JSON
+            and content_format == CONTENT_TYPE_FORMAT_RECORDS_ORIENTED
+        ):
             data = parse_json_input(
                 json_input=StringIO(flask.request.data.decode("utf-8")),
                 orient="records",
                 schema=input_schema,
             )
-        elif flask.request.content_type == CONTENT_TYPE_JSON_SPLIT_NUMPY:
+        elif mime_type == CONTENT_TYPE_JSON_SPLIT_NUMPY and not content_format:
             data = parse_split_oriented_json_input_to_numpy(flask.request.data.decode("utf-8"))
         else:
             return flask.Response(
                 response=(
-                    "This predictor only supports the following content types,"
-                    " {supported_content_types}. Got '{received_content_type}'.".format(
+                    "This predictor only supports the following content types and formats:"
+                    " Types: {supported_content_types}; Formats: {formats}."
+                    " Got '{received_content_type}'.".format(
                         supported_content_types=CONTENT_TYPES,
+                        formats=FORMATS,
                         received_content_type=flask.request.content_type,
                     )
                 ),

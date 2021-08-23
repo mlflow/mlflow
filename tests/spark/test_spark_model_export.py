@@ -303,79 +303,71 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(spark_model_iris,
 
 
 @pytest.mark.large
-def test_sparkml_model_log(tmpdir, spark_model_iris):
-    # Print the coefficients and intercept for multinomial logistic regression
+@pytest.mark.parametrize("should_start_run", [False, True])
+@pytest.mark.parametrize("use_dfs_tmpdir", [False, True])
+def test_sparkml_model_log(tmpdir, spark_model_iris, should_start_run, use_dfs_tmpdir):
     old_tracking_uri = mlflow.get_tracking_uri()
-    cnt = 0
-    # should_start_run tests whether or not calling log_model() automatically starts a run.
-    for should_start_run in [False, True]:
-        for dfs_tmp_dir in [None, os.path.join(str(tmpdir), "test")]:
-            print("should_start_run =", should_start_run, "dfs_tmp_dir =", dfs_tmp_dir)
-            try:
-                tracking_dir = os.path.abspath(str(tmpdir.join("mlruns")))
-                mlflow.set_tracking_uri("file://%s" % tracking_dir)
-                if should_start_run:
-                    mlflow.start_run()
-                artifact_path = "model%d" % cnt
-                cnt += 1
-                sparkm.log_model(
-                    artifact_path=artifact_path,
-                    spark_model=spark_model_iris.model,
-                    dfs_tmpdir=dfs_tmp_dir,
-                )
-                model_uri = "runs:/{run_id}/{artifact_path}".format(
-                    run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-                )
+    if use_dfs_tmpdir:
+        dfs_tmpdir = None
+    else:
+        dfs_tmpdir = tmpdir.join("test").strpath
 
-                # test reloaded model
-                reloaded_model = sparkm.load_model(model_uri=model_uri, dfs_tmpdir=dfs_tmp_dir)
-                preds_df = reloaded_model.transform(spark_model_iris.spark_df)
-                preds = [x.prediction for x in preds_df.select("prediction").collect()]
-                assert spark_model_iris.predictions == preds
-            finally:
-                mlflow.end_run()
-                mlflow.set_tracking_uri(old_tracking_uri)
-                x = dfs_tmp_dir or sparkm.DFS_TMP
-                shutil.rmtree(x)
-                shutil.rmtree(tracking_dir)
+    try:
+        tracking_dir = os.path.abspath(str(tmpdir.join("mlruns")))
+        mlflow.set_tracking_uri("file://%s" % tracking_dir)
+        if should_start_run:
+            mlflow.start_run()
+        artifact_path = "model"
+        sparkm.log_model(
+            artifact_path=artifact_path, spark_model=spark_model_iris.model, dfs_tmpdir=dfs_tmpdir,
+        )
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+        )
+
+        reloaded_model = sparkm.load_model(model_uri=model_uri, dfs_tmpdir=dfs_tmpdir)
+        preds_df = reloaded_model.transform(spark_model_iris.spark_df)
+        preds = [x.prediction for x in preds_df.select("prediction").collect()]
+        assert spark_model_iris.predictions == preds
+    finally:
+        mlflow.end_run()
+        mlflow.set_tracking_uri(old_tracking_uri)
 
 
 @pytest.mark.large
-def test_sparkml_estimator_model_log(tmpdir, spark_model_estimator):
-    # Print the coefficients and intercept for multinomial logistic regression
+@pytest.mark.parametrize("should_start_run", [False, True])
+@pytest.mark.parametrize("use_dfs_tmpdir", [False, True])
+def test_sparkml_estimator_model_log(
+    tmpdir, spark_model_estimator, should_start_run, use_dfs_tmpdir
+):
     old_tracking_uri = mlflow.get_tracking_uri()
-    cnt = 0
-    # should_start_run tests whether or not calling log_model() automatically starts a run.
-    for should_start_run in [False, True]:
-        for dfs_tmp_dir in [None, os.path.join(str(tmpdir), "test")]:
-            print("should_start_run =", should_start_run, "dfs_tmp_dir =", dfs_tmp_dir)
-            try:
-                tracking_dir = os.path.abspath(str(tmpdir.join("mlruns")))
-                mlflow.set_tracking_uri("file://%s" % tracking_dir)
-                if should_start_run:
-                    mlflow.start_run()
-                artifact_path = "model%d" % cnt
-                cnt += 1
-                sparkm.log_model(
-                    artifact_path=artifact_path,
-                    spark_model=spark_model_estimator.model,
-                    dfs_tmpdir=dfs_tmp_dir,
-                )
-                model_uri = "runs:/{run_id}/{artifact_path}".format(
-                    run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-                )
+    if use_dfs_tmpdir:
+        dfs_tmpdir = None
+    else:
+        dfs_tmpdir = tmpdir.join("test").strpath
 
-                # test reloaded model
-                reloaded_model = sparkm.load_model(model_uri=model_uri, dfs_tmpdir=dfs_tmp_dir)
-                preds_df = reloaded_model.transform(spark_model_estimator.spark_df)
-                preds = [x.prediction for x in preds_df.select("prediction").collect()]
-                assert spark_model_estimator.predictions == preds
-            finally:
-                mlflow.end_run()
-                mlflow.set_tracking_uri(old_tracking_uri)
-                x = dfs_tmp_dir or sparkm.DFS_TMP
-                shutil.rmtree(x)
-                shutil.rmtree(tracking_dir)
+    try:
+        tracking_dir = os.path.abspath(str(tmpdir.join("mlruns")))
+        mlflow.set_tracking_uri("file://%s" % tracking_dir)
+        if should_start_run:
+            mlflow.start_run()
+        artifact_path = "model"
+        sparkm.log_model(
+            artifact_path=artifact_path,
+            spark_model=spark_model_estimator.model,
+            dfs_tmpdir=dfs_tmpdir,
+        )
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+        )
+
+        reloaded_model = sparkm.load_model(model_uri=model_uri, dfs_tmpdir=dfs_tmpdir)
+        preds_df = reloaded_model.transform(spark_model_estimator.spark_df)
+        preds = [x.prediction for x in preds_df.select("prediction").collect()]
+        assert spark_model_estimator.predictions == preds
+    finally:
+        mlflow.end_run()
+        mlflow.set_tracking_uri(old_tracking_uri)
 
 
 @pytest.mark.large
@@ -483,14 +475,16 @@ def test_log_model_with_pip_requirements(spark_model_iris, tmpdir):
     req_file.write("a")
     with mlflow.start_run():
         mlflow.spark.log_model(spark_model_iris.model, "model", pip_requirements=req_file.strpath)
-        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"])
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"], strict=True)
 
     # List of requirements
     with mlflow.start_run():
         mlflow.spark.log_model(
             spark_model_iris.model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"]
         )
-        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"])
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"], strict=True
+        )
 
     # Constraints file
     with mlflow.start_run():
@@ -498,7 +492,10 @@ def test_log_model_with_pip_requirements(spark_model_iris, tmpdir):
             spark_model_iris.model, "model", pip_requirements=[f"-c {req_file.strpath}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), ["mlflow", "b", "-c constraints.txt"], ["a"]
+            mlflow.get_artifact_uri("model"),
+            ["mlflow", "b", "-c constraints.txt"],
+            ["a"],
+            strict=True,
         )
 
 
@@ -635,13 +632,11 @@ def test_sparkml_model_log_without_specified_conda_env_uses_default_env_with_exp
 
 @pytest.mark.large
 def test_default_conda_env_strips_dev_suffix_from_pyspark_version(spark_model_iris, model_path):
-    mock_version_standard = mock.PropertyMock(return_value="2.4.0")
-    with mock.patch("pyspark.__version__", new_callable=mock_version_standard):
+    with mock.patch("importlib_metadata.version", return_value="2.4.0"):
         default_conda_env_standard = sparkm.get_default_conda_env()
 
     for dev_version in ["2.4.0.dev0", "2.4.0.dev", "2.4.0.dev1", "2.4.0dev.a", "2.4.0.devb"]:
-        mock_version_dev = mock.PropertyMock(return_value=dev_version)
-        with mock.patch("pyspark.__version__", new_callable=mock_version_dev):
+        with mock.patch("importlib_metadata.version", return_value=dev_version):
             default_conda_env_dev = sparkm.get_default_conda_env()
             assert default_conda_env_dev == default_conda_env_standard
 
@@ -661,8 +656,7 @@ def test_default_conda_env_strips_dev_suffix_from_pyspark_version(spark_model_ir
             assert persisted_conda_env_dev == default_conda_env_standard
 
     for unaffected_version in ["2.0", "2.3.4", "2"]:
-        mock_version = mock.PropertyMock(return_value=unaffected_version)
-        with mock.patch("pyspark.__version__", new_callable=mock_version):
+        with mock.patch("importlib_metadata.version", return_value=unaffected_version):
             assert unaffected_version in yaml.safe_dump(sparkm.get_default_conda_env())
 
 

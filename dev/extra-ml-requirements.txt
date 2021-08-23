@@ -15,8 +15,7 @@ fastai==1.0.60
 # Required by mlflow.spacy
 spacy
 # Required by mlflow.tensorflow
-# TODO: Unpin once https://github.com/keras-team/keras/issues/14632 is addressed
-tensorflow!=2.5.*
+tensorflow
 # Required by mlflow.pytorch
 torch
 torchvision

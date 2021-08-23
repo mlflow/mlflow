@@ -115,22 +115,7 @@ def save_model(
 
     :param fastai_learner: fastai Learner to be saved.
     :param path: Local path where the model is to be saved.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this describes the environment
-                      this model should be run in. At minimum, it should specify the
-                      dependencies contained in :func:`get_default_conda_env()`. If
-                      ``None``, the default :func:`get_default_conda_env()` environment is
-                      added to the model. The following is an *example* dictionary
-                      representation of a Conda environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.7.0',
-                                'fastai=1.0.60',
-                            ]
-                        }
+    :param conda_env: {{ conda_env }}
     :param mlflow_model: MLflow model config this flavor is being added to.
 
     :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
@@ -199,13 +184,31 @@ def save_model(
     # Save an Learner
     fastai_learner.export(model_data_path, **kwargs)
 
-    conda_env, pip_requirements, pip_constraints = (
-        _process_pip_requirements(
-            get_default_pip_requirements(), pip_requirements, extra_pip_requirements,
-        )
-        if conda_env is None
-        else _process_conda_env(conda_env)
+    pyfunc.add_to_model(
+        mlflow_model,
+        loader_module="mlflow.fastai",
+        data=model_data_subpath,
+        env=_CONDA_ENV_FILE_NAME,
     )
+    mlflow_model.add_flavor(FLAVOR_NAME, fastai_version=fastai.__version__, data=model_data_subpath)
+    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+
+    if conda_env is None:
+        if pip_requirements is None:
+            default_reqs = get_default_pip_requirements()
+            # To ensure `_load_pyfunc` can successfully load the model during the dependency
+            # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
+            inferred_reqs = mlflow.models.infer_pip_requirements(
+                path, FLAVOR_NAME, fallback=default_reqs,
+            )
+            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+        else:
+            default_reqs = None
+        conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
+            default_reqs, pip_requirements, extra_pip_requirements,
+        )
+    else:
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
 
     with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
@@ -216,15 +219,6 @@ def save_model(
 
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
-
-    pyfunc.add_to_model(
-        mlflow_model,
-        loader_module="mlflow.fastai",
-        data=model_data_subpath,
-        env=_CONDA_ENV_FILE_NAME,
-    )
-    mlflow_model.add_flavor(FLAVOR_NAME, fastai_version=fastai.__version__, data=model_data_subpath)
-    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
@@ -245,22 +239,7 @@ def log_model(
 
     :param fastai_learner: Fastai model (an instance of `fastai.Learner`_) to be saved.
     :param artifact_path: Run-relative artifact path.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this describes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If ``None``, the default
-                      :func:`get_default_conda_env()` environment is added to the model.
-                      The following is an *example* dictionary representation of a Conda
-                      environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.7.0',
-                                'fastai=1.0.60',
-                            ]
-                        }
+    :param conda_env: {{ conda_env }}
     :param registered_model_name: This argument may change or be removed in a
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a
