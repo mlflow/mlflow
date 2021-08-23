@@ -318,6 +318,32 @@ jobs:
           sudo apt-get install libopenblas-dev
           ./dev/run-python-flavor-tests.sh;
 
+  # It takes 9 ~ 10 minutes to run tests in `tests/models`. To make CI finish faster,
+  # run these tests in a separate job.
+  models:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-java@v2
+        with:
+          java-version: 8
+          distribution: 'adopt'
+      - name: Install dependencies
+        env:
+          INSTALL_SMALL_PYTHON_DEPS: true
+          INSTALL_LARGE_PYTHON_DEPS: false
+        run: |
+          source ./dev/install-common-deps.sh
+          pip install pyspark
+      - name: Run tests
+        env:
+          SPARK_LOCAL_IP: 127.0.0.1
+        run: |
+          export PATH="$CONDA_DIR/bin:$PATH"
+          source activate test-environment
+          export MLFLOW_HOME=$(pwd)
+          pytest tests/models --large
+
   import:
     runs-on: ubuntu-latest
     steps:
