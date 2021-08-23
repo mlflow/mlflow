@@ -472,7 +472,7 @@ def test_log_model_built_in_high_level_api(
 
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
         try:
-            mlflow.set_tracking_uri(tmp.path)
+            mlflow.set_tracking_uri(tmp.path())
             if should_start_run:
                 mlflow.start_run()
 
