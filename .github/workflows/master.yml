@@ -318,8 +318,8 @@ jobs:
           sudo apt-get install libopenblas-dev
           ./dev/run-python-flavor-tests.sh;
 
-  # It takes 9 ~ 10 minutes to run tests in `tests/models`. To finish CI checks faster,
-  # run them in a separate workflow.
+  # It takes 9 ~ 10 minutes to run tests in `tests/models`. To make CI finish faster,
+  # run these tests in a separate job.
   models:
     runs-on: ubuntu-latest
     steps:
