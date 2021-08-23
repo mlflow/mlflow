@@ -261,7 +261,7 @@ def test_get_optimizer_name_with_lightning_optimizer():
 
 
 def test_pytorch_autologging_supports_data_parallel_execution():
-    mlflow.pytorch.autolog(log_models=False)
+    mlflow.pytorch.autolog()
     model = IrisClassification()
     dm = IrisDataModule()
     dm.setup(stage="fit")
@@ -275,6 +275,22 @@ def test_pytorch_autologging_supports_data_parallel_execution():
     client = mlflow.tracking.MlflowClient()
     run = client.get_run(run.info.run_id)
 
+    # Checking if metrics are logged
+    client = mlflow.tracking.MlflowClient()
+    for metric_key in ["loss", "train_acc", "val_loss", "val_acc"]:
+        assert metric_key in run.data.metrics
+
     data = run.data
     assert "test_loss" in data.metrics
     assert "test_acc" in data.metrics
+
+    # Testing optimizer parameters are logged
+    assert "optimizer_name" in data.params
+    assert data.params["optimizer_name"] == "Adam"
+
+    # Testing model_summary.txt is saved
+    client = mlflow.tracking.MlflowClient()
+    artifacts = client.list_artifacts(run.info.run_id)
+    artifacts = list(map(lambda x: x.path, artifacts))
+    assert "model" in artifacts
+    assert "model_summary.txt" in artifacts
