@@ -194,8 +194,9 @@ class BatchMetricsLogger:
     `record_metrics()` or `flush()`.
     """
 
-    def __init__(self, run_id=None):
+    def __init__(self, run_id=None, tracking_uri=None):
         self.run_id = run_id
+        self.client = MlflowClient(tracking_uri)
 
         # data is an array of Metric objects
         self.data = []
@@ -223,7 +224,7 @@ class BatchMetricsLogger:
             for i in range(0, len(self.data), MAX_METRICS_PER_BATCH)
         ]
         for metrics_slice in metrics_slices:
-            try_mlflow_log(MlflowClient().log_batch, run_id=current_run_id, metrics=metrics_slice)
+            try_mlflow_log(self.client.log_batch, run_id=current_run_id, metrics=metrics_slice)
         end = time.time()
         self.total_log_batch_time += end - start
 
