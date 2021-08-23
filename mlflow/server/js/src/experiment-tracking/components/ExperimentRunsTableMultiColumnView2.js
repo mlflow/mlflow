@@ -91,6 +91,12 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     noRowsOverlayComponent: ExperimentRunsTableEmptyOverlay,
   };
 
+  constructor(props) {
+    super(props);
+    this.getColumnDefs = this.getColumnDefs.bind(this);
+    this.columnDefs = this.getColumnDefs();
+  }
+
   /**
    * Returns a { name: value } map from a list of parameters/metrics/tags list
    * @param list - all available parameter/metric/tag metadata objects
