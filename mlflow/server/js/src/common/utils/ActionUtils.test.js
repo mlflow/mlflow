@@ -20,11 +20,18 @@ const getMockAjax = (responseStatusCodes) => {
 describe('ErrorWrapper', () => {
   test('renderHttpError works on DatabricksServiceExceptions', () => {
     const xhr = {
+      responseText: '{ "error_code": "INVALID_REQUEST", "message": "Foo!" }',
+    };
+    const error = new ErrorWrapper(xhr).renderHttpError();
+    expect(error).toEqual('INVALID_REQUEST: Foo!');
+  });
+  test('renderHttpError works on DatabricksServiceExceptions with stack traces', () => {
+    const xhr = {
       responseText:
         '{ "error_code": "INVALID_REQUEST", "message": "Foo!", "stack_trace": "Boop!" }',
     };
     const error = new ErrorWrapper(xhr).renderHttpError();
-    expect(error).toEqual('INVALID_REQUEST: Foo!');
+    expect(error).toEqual('INVALID_REQUEST: Foo!\n\nBoop!');
   });
 
   test('renderHttpError works on HTML', () => {

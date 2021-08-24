@@ -62,7 +62,7 @@ function i18nOverrides(config) {
         ...rule,
         oneOf: [
           {
-            test: [new RegExp(path.join('src/i18n/lang', '.*json'))],
+            test: [new RegExp(path.join('src/i18n/', '.*json'))],
             use: [
               {
                 loader: require.resolve('./I18nCompileLoader'),

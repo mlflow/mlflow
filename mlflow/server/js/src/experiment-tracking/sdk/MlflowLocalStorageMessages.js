@@ -34,6 +34,8 @@ export const ExperimentPagePersistedState = Immutable.Record(
     orderByKey: null,
     // Whether the order imposed by orderByKey should be ascending or descending.
     orderByAsc: false,
+    // Filter key to show results based on start time
+    startTime: null,
   },
   'ExperimentPagePersistedState',
 );

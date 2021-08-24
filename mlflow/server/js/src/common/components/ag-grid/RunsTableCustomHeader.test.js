@@ -64,4 +64,24 @@ describe('RunsTableCustomHeader', () => {
     expect(onSortBy).toHaveBeenCalledTimes(2);
     expect(onSortBy).toBeCalledWith(props.canonicalSortKey, true);
   });
+
+  test('should compute the styles based on sort key correctly', () => {
+    const style = { backgroundColor: '#e6f7ff' };
+    const key = 'user';
+    const computedStylesOnSortKey = jest.fn().mockReturnValue(style);
+    const props = {
+      computedStylesOnSortKey,
+      enableSorting: true,
+      canonicalSortKey: key,
+      orderByKey: key,
+      orderByAsc: true,
+    };
+    wrapper = mount(<RunsTableCustomHeader {...props} />);
+
+    expect(computedStylesOnSortKey).toHaveBeenCalledTimes(1);
+    expect(computedStylesOnSortKey).toBeCalledWith(key);
+
+    const containerStyle = wrapper.find('[role="columnheader"]').props().style;
+    expect(containerStyle).toHaveProperty('backgroundColor', '#e6f7ff');
+  });
 });

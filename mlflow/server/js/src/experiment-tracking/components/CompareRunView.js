@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
 import { connect } from 'react-redux';
+import { injectIntl, FormattedMessage } from 'react-intl';
 import './CompareRunView.css';
 import { Experiment, RunInfo } from '../sdk/MlflowMessages';
 import { CompareRunScatter } from './CompareRunScatter';
@@ -32,10 +33,19 @@ export class CompareRunView extends Component {
     // we expect this array to contain user-specified run names, or default display names
     // ("Run <uuid>") for runs without names.
     runDisplayNames: PropTypes.arrayOf(PropTypes.string).isRequired,
+    intl: PropTypes.shape({ formatMessage: PropTypes.func.isRequired }).isRequired,
   };
 
   componentDidMount() {
-    const pageTitle = `Comparing ${this.props.runInfos.length} MLflow Runs`;
+    const pageTitle = this.props.intl.formatMessage(
+      {
+        description: 'Page title for the compare runs page',
+        defaultMessage: 'Comparing {runs} MLflow Runs',
+      },
+      {
+        runs: this.props.runInfos.length,
+      },
+    );
     Utils.updatePageTitle(pageTitle);
   }
 
@@ -48,7 +58,15 @@ export class CompareRunView extends Component {
         <div className='header-container'>
           <BreadcrumbTitle
             experiment={experiment}
-            title={'Comparing ' + this.props.runInfos.length + ' Runs'}
+            title={
+              <FormattedMessage
+                defaultMessage='Comparing {runs} Runs'
+                description='Breadcrumb title for compare runs page'
+                values={{
+                  runs: this.props.runInfos.length,
+                }}
+              />
+            }
           />
         </div>
         <div className='responsive-table-container'>
@@ -56,7 +74,10 @@ export class CompareRunView extends Component {
             <thead>
               <tr>
                 <th scope='row' className='row-header'>
-                  Run ID:
+                  <FormattedMessage
+                    defaultMessage='Run ID:'
+                    description='Row title for the run id on the experiment compare runs page'
+                  />
                 </th>
                 {this.props.runInfos.map((r) => (
                   <th scope='column' className='data-value' key={r.run_uuid}>
@@ -70,7 +91,10 @@ export class CompareRunView extends Component {
             <tbody>
               <tr>
                 <th scope='row' className='data-value'>
-                  Run Name:
+                  <FormattedMessage
+                    defaultMessage='Run Name:'
+                    description='Row title for the run name on the experiment compare runs page'
+                  />
                 </th>
                 {runNames.map((runName, i) => {
                   return (
@@ -87,7 +111,11 @@ export class CompareRunView extends Component {
               </tr>
               <tr>
                 <th scope='row' className='data-value'>
-                  Start Time:
+                  <FormattedMessage
+                    defaultMessage='Start Time:'
+                    // eslint-disable-next-line max-len
+                    description='Row title for the start time of runs on the experiment compare runs page'
+                  />
                 </th>
                 {this.props.runInfos.map((run) => {
                   const startTime = run.getStartTime()
@@ -106,7 +134,13 @@ export class CompareRunView extends Component {
                   className='inter-title'
                   colSpan={this.props.runInfos.length + 1}
                 >
-                  <h2>Parameters</h2>
+                  <h2>
+                    <FormattedMessage
+                      defaultMessage='Parameters'
+                      // eslint-disable-next-line max-len
+                      description='Row group title for parameters of runs on the experiment compare runs page'
+                    />
+                  </h2>
                 </th>
               </tr>
               {this.renderDataRows(this.props.paramLists, true)}
@@ -116,7 +150,13 @@ export class CompareRunView extends Component {
                   className='inter-title'
                   colSpan={this.props.runInfos.length + 1}
                 >
-                  <h2>Metrics</h2>
+                  <h2>
+                    <FormattedMessage
+                      defaultMessage='Metrics'
+                      // eslint-disable-next-line max-len
+                      description='Row group title for metrics of runs on the experiment compare runs page'
+                    />
+                  </h2>
                 </th>
               </tr>
               {this.renderDataRows(
@@ -145,19 +185,43 @@ export class CompareRunView extends Component {
           </table>
         </div>
         <Tabs>
-          <TabPane tab='Scatter Plot' key='1'>
+          <TabPane
+            tab={
+              <FormattedMessage
+                defaultMessage='Scatter Plot'
+                description='Tab pane title for scatterplots on the compare runs page'
+              />
+            }
+            key='1'
+          >
             <CompareRunScatter
               runUuids={this.props.runUuids}
               runDisplayNames={this.props.runDisplayNames}
             />
           </TabPane>
-          <TabPane tab='Contour Plot' key='2'>
+          <TabPane
+            tab={
+              <FormattedMessage
+                defaultMessage='Contour Plot'
+                description='Tab pane title for contour plots on the compare runs page'
+              />
+            }
+            key='2'
+          >
             <CompareRunContour
               runUuids={this.props.runUuids}
               runDisplayNames={this.props.runDisplayNames}
             />
           </TabPane>
-          <TabPane tab='Parallel Coordinates Plot' key='3'>
+          <TabPane
+            tab={
+              <FormattedMessage
+                defaultMessage='Parallel Coordinates Plot'
+                description='Tab pane title for parallel coordinate plots on the compare runs page'
+              />
+            }
+            key='3'
+          >
             <ParallelCoordinatesPlotPanel runUuids={this.props.runUuids} />
           </TabPane>
         </Tabs>
@@ -235,4 +299,4 @@ const mapStateToProps = (state, ownProps) => {
   return { experiment, runInfos, metricLists, paramLists, runNames, runDisplayNames };
 };
 
-export default connect(mapStateToProps)(CompareRunView);
+export default connect(mapStateToProps)(injectIntl(CompareRunView));
