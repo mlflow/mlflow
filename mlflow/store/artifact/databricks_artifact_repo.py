@@ -245,13 +245,13 @@ class DatabricksArtifactRepository(ArtifactRepository):
             # Putting an empty file in a request by reading file bytes gives 501 error.
             if os.stat(local_file).st_size == 0:
                 with rest_utils.cloud_storage_http_request(
-                    "put", signed_write_uri, "", headers=headers
+                    "put", signed_write_uri, data="", headers=headers
                 ) as response:
                     response.raise_for_status()
             else:
                 with open(local_file, "rb") as file:
                     with rest_utils.cloud_storage_http_request(
-                        "put", signed_write_uri, file, headers=headers
+                        "put", signed_write_uri, data=file, headers=headers
                     ) as response:
                         response.raise_for_status()
         except Exception as err:

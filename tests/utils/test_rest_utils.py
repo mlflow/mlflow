@@ -18,7 +18,7 @@ from tests import helper_functions
 
 
 def test_well_formed_json_error_response():
-    with mock.patch("requests.request") as request_mock:
+    with mock.patch("requests.Session.request") as request_mock:
         host_only = MlflowHostCreds("http://my-host")
         response_mock = mock.MagicMock()
         response_mock.status_code = 400
@@ -31,7 +31,7 @@ def test_well_formed_json_error_response():
 
 
 def test_non_json_ok_response():
-    with mock.patch("requests.request") as request_mock:
+    with mock.patch("requests.Session.request") as request_mock:
         host_only = MlflowHostCreds("http://my-host")
         response_mock = mock.MagicMock()
         response_mock.status_code = 200
@@ -56,7 +56,7 @@ def test_non_json_ok_response():
     ],
 )
 def test_malformed_json_error_response(response_mock):
-    with mock.patch("requests.request") as request_mock:
+    with mock.patch("requests.Session.request") as request_mock:
         host_only = MlflowHostCreds("http://my-host")
         request_mock.return_value = response_mock
 
@@ -65,97 +65,106 @@ def test_malformed_json_error_response(response_mock):
             call_endpoint(host_only, "/my/endpoint", "GET", "", response_proto)
 
 
-@mock.patch("requests.request")
+@mock.patch("requests.Session.request")
 def test_http_request_hostonly(request):
     host_only = MlflowHostCreds("http://my-host")
     response = mock.MagicMock()
     response.status_code = 200
     request.return_value = response
-    http_request(host_only, "/my/endpoint")
+    http_request(host_only, "/my/endpoint", "GET")
     request.assert_called_with(
-        url="http://my-host/my/endpoint", verify=True, headers=_DEFAULT_HEADERS,
+        "GET", "http://my-host/my/endpoint", verify=True, headers=_DEFAULT_HEADERS, timeout=10,
     )
 
 
-@mock.patch("requests.request")
+@mock.patch("requests.Session.request")
 def test_http_request_cleans_hostname(request):
     # Add a trailing slash, should be removed.
     host_only = MlflowHostCreds("http://my-host/")
     response = mock.MagicMock()
     response.status_code = 200
     request.return_value = response
-    http_request(host_only, "/my/endpoint")
+    http_request(host_only, "/my/endpoint", "GET")
     request.assert_called_with(
-        url="http://my-host/my/endpoint", verify=True, headers=_DEFAULT_HEADERS,
+        "GET", "http://my-host/my/endpoint", verify=True, headers=_DEFAULT_HEADERS, timeout=10,
     )
 
 
-@mock.patch("requests.request")
+@mock.patch("requests.Session.request")
 def test_http_request_with_basic_auth(request):
     host_only = MlflowHostCreds("http://my-host", username="user", password="pass")
     response = mock.MagicMock()
     response.status_code = 200
     request.return_value = response
-    http_request(host_only, "/my/endpoint")
+    http_request(host_only, "/my/endpoint", "GET")
     headers = dict(_DEFAULT_HEADERS)
     headers["Authorization"] = "Basic dXNlcjpwYXNz"
     request.assert_called_with(
-        url="http://my-host/my/endpoint", verify=True, headers=headers,
+        "GET", "http://my-host/my/endpoint", verify=True, headers=headers, timeout=10,
     )
 
 
-@mock.patch("requests.request")
+@mock.patch("requests.Session.request")
 def test_http_request_with_token(request):
     host_only = MlflowHostCreds("http://my-host", token="my-token")
     response = mock.MagicMock()
     response.status_code = 200
     request.return_value = response
-    http_request(host_only, "/my/endpoint")
+    http_request(host_only, "/my/endpoint", "GET")
     headers = dict(_DEFAULT_HEADERS)
     headers["Authorization"] = "Bearer my-token"
     request.assert_called_with(
-        url="http://my-host/my/endpoint", verify=True, headers=headers,
+        "GET", "http://my-host/my/endpoint", verify=True, headers=headers, timeout=10,
     )
 
 
-@mock.patch("requests.request")
+@mock.patch("requests.Session.request")
 def test_http_request_with_insecure(request):
     host_only = MlflowHostCreds("http://my-host", ignore_tls_verification=True)
     response = mock.MagicMock()
     response.status_code = 200
     request.return_value = response
-    http_request(host_only, "/my/endpoint")
+    http_request(host_only, "/my/endpoint", "GET")
     request.assert_called_with(
-        url="http://my-host/my/endpoint", verify=False, headers=_DEFAULT_HEADERS,
+        "GET", "http://my-host/my/endpoint", verify=False, headers=_DEFAULT_HEADERS, timeout=10,
     )
 
 
-@mock.patch("requests.request")
+@mock.patch("requests.Session.request")
 def test_http_request_client_cert_path(request):
     host_only = MlflowHostCreds("http://my-host", client_cert_path="/some/path")
     response = mock.MagicMock()
     response.status_code = 200
     request.return_value = response
-    http_request(host_only, "/my/endpoint")
+    http_request(host_only, "/my/endpoint", "GET")
     request.assert_called_with(
-        url="http://my-host/my/endpoint", verify=True, cert="/some/path", headers=_DEFAULT_HEADERS,
+        "GET",
+        "http://my-host/my/endpoint",
+        verify=True,
+        cert="/some/path",
+        headers=_DEFAULT_HEADERS,
+        timeout=10,
     )
 
 
-@mock.patch("requests.request")
+@mock.patch("requests.Session.request")
 def test_http_request_server_cert_path(request):
     host_only = MlflowHostCreds("http://my-host", server_cert_path="/some/path")
     response = mock.MagicMock()
     response.status_code = 200
     request.return_value = response
-    http_request(host_only, "/my/endpoint")
+    http_request(host_only, "/my/endpoint", "GET")
     request.assert_called_with(
-        url="http://my-host/my/endpoint", verify="/some/path", headers=_DEFAULT_HEADERS,
+        "GET",
+        "http://my-host/my/endpoint",
+        verify="/some/path",
+        headers=_DEFAULT_HEADERS,
+        timeout=10,
     )
 
 
 @pytest.mark.large
-@mock.patch("requests.request")
+@mock.patch("requests.Session.request")
 def test_http_request_request_headers(request):
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
 
@@ -170,11 +179,13 @@ def test_http_request_request_headers(request):
         response = mock.MagicMock()
         response.status_code = 200
         request.return_value = response
-        http_request(host_only, "/my/endpoint")
+        http_request(host_only, "/my/endpoint", "GET")
         request.assert_called_with(
-            url="http://my-host/my/endpoint",
+            "GET",
+            "http://my-host/my/endpoint",
             verify="/some/path",
             headers={**_DEFAULT_HEADERS, "test": "header"},
+            timeout=10,
         )
 
 
@@ -185,64 +196,34 @@ def test_ignore_tls_verification_not_server_cert_path():
         )
 
 
-@mock.patch("requests.request")
-def test_429_retries(request):
-    host_only = MlflowHostCreds("http://my-host", ignore_tls_verification=True)
-
-    class MockedResponse(object):
-        def __init__(self, status_code):
-            self.status_code = status_code
-            self.text = "mocked text"
-
-    request.side_effect = [MockedResponse(x) for x in (429, 200)]
-    assert http_request(host_only, "/my/endpoint", max_rate_limit_interval=0).status_code == 429
-    request.side_effect = [MockedResponse(x) for x in (429, 200)]
-    assert http_request(host_only, "/my/endpoint", max_rate_limit_interval=1).status_code == 200
-    request.side_effect = [MockedResponse(x) for x in (429, 429, 200)]
-    assert http_request(host_only, "/my/endpoint", max_rate_limit_interval=1).status_code == 429
-    request.side_effect = [MockedResponse(x) for x in (429, 429, 200)]
-    assert http_request(host_only, "/my/endpoint", max_rate_limit_interval=2).status_code == 200
-    request.side_effect = [MockedResponse(x) for x in (429, 429, 200)]
-    assert http_request(host_only, "/my/endpoint", max_rate_limit_interval=3).status_code == 200
-    # Test that any non 429 code is returned
-    request.side_effect = [MockedResponse(x) for x in (429, 404, 429, 200)]
-    assert http_request(host_only, "/my/endpoint").status_code == 404
-    # Test that retries work as expected
-    request.side_effect = [MockedResponse(x) for x in (429, 503, 429, 200)]
-    with pytest.raises(MlflowException, match="failed to return code 200"):
-        http_request(host_only, "/my/endpoint", retries=1)
-    request.side_effect = [MockedResponse(x) for x in (429, 503, 429, 200)]
-    assert http_request(host_only, "/my/endpoint", retries=2).status_code == 200
-
-
-@mock.patch("requests.request")
+@mock.patch("requests.Session.request")
 def test_http_request_wrapper(request):
     host_only = MlflowHostCreds("http://my-host", ignore_tls_verification=True)
     response = mock.MagicMock()
     response.status_code = 200
     response.text = "{}"
     request.return_value = response
-    http_request_safe(host_only, "/my/endpoint")
+    http_request_safe(host_only, "/my/endpoint", "GET")
     request.assert_called_with(
-        url="http://my-host/my/endpoint", verify=False, headers=_DEFAULT_HEADERS,
+        "GET", "http://my-host/my/endpoint", verify=False, headers=_DEFAULT_HEADERS, timeout=10,
     )
     response.text = "non json"
     request.return_value = response
-    http_request_safe(host_only, "/my/endpoint")
+    http_request_safe(host_only, "/my/endpoint", "GET")
     request.assert_called_with(
-        url="http://my-host/my/endpoint", verify=False, headers=_DEFAULT_HEADERS,
+        "GET", "http://my-host/my/endpoint", verify=False, headers=_DEFAULT_HEADERS, timeout=10,
     )
     response.status_code = 400
     response.text = ""
     request.return_value = response
     with pytest.raises(MlflowException, match="Response body"):
-        http_request_safe(host_only, "/my/endpoint")
+        http_request_safe(host_only, "/my/endpoint", "GET")
     response.text = (
         '{"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "Node type not supported"}'
     )
     request.return_value = response
     with pytest.raises(RestException, match="RESOURCE_DOES_NOT_EXIST: Node type not supported"):
-        http_request_safe(host_only, "/my/endpoint")
+        http_request_safe(host_only, "/my/endpoint", "GET")
 
 
 def test_numpy_encoder():

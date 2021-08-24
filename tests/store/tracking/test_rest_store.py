@@ -67,17 +67,17 @@ def mock_http_request():
 
 
 class TestRestStore(object):
-    @mock.patch("requests.request")
+    @mock.patch("requests.Session.request")
     def test_successful_http_request(self, request):
-        def mock_request(**kwargs):
+        def mock_request(*args, **kwargs):
             # Filter out None arguments
+            assert args == ("GET", "https://hello/api/2.0/mlflow/experiments/list")
             kwargs = dict((k, v) for k, v in kwargs.items() if v is not None)
             assert kwargs == {
-                "method": "GET",
                 "params": {"view_type": "ACTIVE_ONLY"},
-                "url": "https://hello/api/2.0/mlflow/experiments/list",
                 "headers": _DEFAULT_HEADERS,
                 "verify": True,
+                "timeout": 10,
             }
             response = mock.MagicMock()
             response.status_code = 200
@@ -90,7 +90,7 @@ class TestRestStore(object):
         experiments = store.list_experiments()
         assert experiments[0].name == "Exp!"
 
-    @mock.patch("requests.request")
+    @mock.patch("requests.Session.request")
     def test_failed_http_request(self, request):
         response = mock.MagicMock()
         response.status_code = 404
@@ -102,7 +102,7 @@ class TestRestStore(object):
             store.list_experiments()
         assert "RESOURCE_DOES_NOT_EXIST: No experiment" in str(cm.value)
 
-    @mock.patch("requests.request")
+    @mock.patch("requests.Session.request")
     def test_failed_http_request_custom_handler(self, request):
         response = mock.MagicMock()
         response.status_code = 404
@@ -113,7 +113,7 @@ class TestRestStore(object):
         with pytest.raises(MyCoolException):
             store.list_experiments()
 
-    @mock.patch("requests.request")
+    @mock.patch("requests.Session.request")
     def test_response_with_unknown_fields(self, request):
         experiment_json = {
             "experiment_id": "1",
