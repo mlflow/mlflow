@@ -54,6 +54,10 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 FLAVOR_NAME = "fastai"
 
 
+@deprecated(
+    alternative="fast.ai V2 support, which will be available in MLflow shortly",
+    since="MLflow version 1.20.0",
+)
 def get_default_pip_requirements(include_cloudpickle=False):
     """
     :return: A list of default pip requirements for MLflow Models produced by this flavor.
@@ -67,6 +71,10 @@ def get_default_pip_requirements(include_cloudpickle=False):
     return pip_deps
 
 
+@deprecated(
+    alternative="fast.ai V2 support, which will be available in MLflow shortly",
+    since="MLflow version 1.20.0",
+)
 def get_default_conda_env(include_cloudpickle=False):
     """
     :return: The default Conda environment as a dictionary for MLflow Models produced by calls to
@@ -361,6 +369,10 @@ def _load_pyfunc(path):
     return _FastaiModelWrapper(_load_model(path))
 
 
+@deprecated(
+    alternative="fast.ai V2 support, which will be available in MLflow shortly",
+    since="MLflow version 1.20.0",
+)
 def load_model(model_uri):
     """
     Load a fastai model from a local file or a run.
