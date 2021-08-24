@@ -52,7 +52,7 @@ def _get_http_response_with_retries(
     assert 0 <= max_retries < 10
     assert 0 <= backoff_factor < 120
 
-    retry_args = {
+    retry_kwargs = {
         "total": max_retries,
         "connect": max_retries,
         "read": max_retries,
@@ -62,20 +62,11 @@ def _get_http_response_with_retries(
         "backoff_factor": backoff_factor,
     }
     if Version(urllib3.__version__) >= Version("1.26.0"):
-        retry_args["allowed_methods"] = None
+        retry_kwargs["allowed_methods"] = None
     else:
-        retry_args["method_whitelist"] = None
+        retry_kwargs["method_whitelist"] = None
 
-    retry = Retry(
-        total=max_retries,
-        connect=max_retries,
-        read=max_retries,
-        redirect=max_retries,
-        status=max_retries,
-        status_forcelist=retry_codes,
-        method_whitelist=None,  # Allow retry on any HTTP methods.
-        backoff_factor=backoff_factor,
-    )
+    retry = Retry(**retry_kwargs)
     adapter = HTTPAdapter(max_retries=retry)
     with requests.Session() as http:
         http.mount("https://", adapter)
