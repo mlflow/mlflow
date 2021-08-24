@@ -9,7 +9,9 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ErrorCode, FEATURE_DISABLED
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking import set_registry_uri, MlflowClient
-from mlflow.tracking._model_registry.utils import _model_registry_store_registry
+from mlflow.tracking._model_registry.utils import (
+    _get_store_registry as _get_model_registry_store_registry,
+)
 from mlflow.tracking._tracking_service.utils import _tracking_store_registry
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import (
@@ -540,7 +542,7 @@ def test_client_can_be_serialized_with_pickle(tmpdir):
         pickle.dumps(mock_model_registry_store)
 
     _tracking_store_registry.register("pickle", lambda *args, **kwargs: mock_tracking_store)
-    _model_registry_store_registry.register(
+    _get_model_registry_store_registry().register(
         "pickle", lambda *args, **kwargs: mock_model_registry_store
     )
 
