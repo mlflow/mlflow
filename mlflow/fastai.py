@@ -39,7 +39,7 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import experimental, deprecated
 from mlflow.utils.autologging_utils import (
     try_mlflow_log,
     log_fn_args_as_params,
@@ -98,6 +98,10 @@ def get_default_conda_env(include_cloudpickle=False):
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements(include_cloudpickle))
 
 
+@deprecated(
+    alternative="fast.ai V2 support, which will be available in MLflow shortly",
+    since="MLflow version 1.20.0",
+)
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     fastai_learner,
@@ -221,6 +225,10 @@ def save_model(
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
 
+@deprecated(
+    alternative="fast.ai V2 support, which will be available in MLflow shortly",
+    since="MLflow version 1.20.0",
+)
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     fastai_learner,
@@ -394,6 +402,10 @@ def load_model(model_uri):
     return _load_model(path=model_file_path)
 
 
+@deprecated(
+    alternative="fast.ai V2 support, which will be available in MLflow shortly",
+    since="MLflow version 1.20.0",
+)
 @experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
