@@ -116,6 +116,7 @@ def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
 
 
 @pytest.mark.large
+@pytest.mark.allow_infer_pip_requirements_fallback
 def test_mlflow_is_not_installed_unless_specified():
     if no_conda:
         pytest.skip("This test requires conda.")

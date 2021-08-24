@@ -107,7 +107,18 @@ def _build_image(image_name, entrypoint, mlflow_home=None, custom_setup_steps_ho
         _logger.info("Building docker image with name %s", image_name)
         os.system("find {cwd}/".format(cwd=cwd))
         proc = Popen(
-            ["docker", "build", "-t", image_name, "-f", "Dockerfile", "."],
+            [
+                "docker",
+                "build",
+                "-t",
+                image_name,
+                "-f",
+                "Dockerfile",
+                # Enforcing the AMD64 architecture build for Apple M1 users
+                "--platform",
+                "linux/amd64",
+                ".",
+            ],
             cwd=cwd,
             stdout=PIPE,
             stderr=STDOUT,
