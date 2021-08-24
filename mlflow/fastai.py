@@ -55,7 +55,7 @@ FLAVOR_NAME = "fastai"
 
 
 @deprecated(
-    alternative="fast.ai V2 support, which will be available in MLflow shortly",
+    alternative="fast.ai V2 support, which will be available in MLflow soon",
     since="MLflow version 1.20.0",
 )
 def get_default_pip_requirements(include_cloudpickle=False):
@@ -72,7 +72,7 @@ def get_default_pip_requirements(include_cloudpickle=False):
 
 
 @deprecated(
-    alternative="fast.ai V2 support, which will be available in MLflow shortly",
+    alternative="fast.ai V2 support, which will be available in MLflow soon",
     since="MLflow version 1.20.0",
 )
 def get_default_conda_env(include_cloudpickle=False):
@@ -107,7 +107,7 @@ def get_default_conda_env(include_cloudpickle=False):
 
 
 @deprecated(
-    alternative="fast.ai V2 support, which will be available in MLflow shortly",
+    alternative="fast.ai V2 support, which will be available in MLflow soon",
     since="MLflow version 1.20.0",
 )
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
@@ -234,7 +234,7 @@ def save_model(
 
 
 @deprecated(
-    alternative="fast.ai V2 support, which will be available in MLflow shortly",
+    alternative="fast.ai V2 support, which will be available in MLflow soon",
     since="MLflow version 1.20.0",
 )
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
@@ -370,7 +370,7 @@ def _load_pyfunc(path):
 
 
 @deprecated(
-    alternative="fast.ai V2 support, which will be available in MLflow shortly",
+    alternative="fast.ai V2 support, which will be available in MLflow soon",
     since="MLflow version 1.20.0",
 )
 def load_model(model_uri):
@@ -415,7 +415,7 @@ def load_model(model_uri):
 
 
 @deprecated(
-    alternative="fast.ai V2 support, which will be available in MLflow shortly",
+    alternative="fast.ai V2 support, which will be available in MLflow soon",
     since="MLflow version 1.20.0",
 )
 @experimental
