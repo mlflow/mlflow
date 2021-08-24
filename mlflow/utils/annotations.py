@@ -28,7 +28,7 @@ def deprecated(alternative=None, since=None):
     def deprecated_decorator(func):
         since_str = " since %s" % since if since else ""
         notice = (
-            ".. Warning:: ``{function_name}`` is deprecated{since_string}. This method will be"
+            "``{function_name}`` is deprecated{since_string}. This method will be"
             " removed in a near future release.".format(
                 function_name=".".join([func.__module__, func.__name__]), since_string=since_str
             )
@@ -42,7 +42,7 @@ def deprecated(alternative=None, since=None):
             return func(*args, **kwargs)
 
         if func.__doc__ is not None:
-            deprecated_func.__doc__ = notice + "\n" + func.__doc__
+            deprecated_func.__doc__ = ".. Warning::" + notice + "\n" + func.__doc__
 
         return deprecated_func
 
