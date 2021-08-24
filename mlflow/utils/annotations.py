@@ -42,7 +42,7 @@ def deprecated(alternative=None, since=None):
             return func(*args, **kwargs)
 
         if func.__doc__ is not None:
-            deprecated_func.__doc__ = ".. Warning::" + notice + "\n" + func.__doc__
+            deprecated_func.__doc__ = ".. Warning:: " + notice + "\n" + func.__doc__
 
         return deprecated_func
 
