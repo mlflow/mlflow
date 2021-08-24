@@ -1,7 +1,9 @@
 import base64
 import json
 import requests
+import urllib3
 from contextlib import contextmanager
+from packaging.version import Version
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 
@@ -49,6 +51,21 @@ def _get_http_response_with_retries(
     """
     assert 0 <= max_retries < 10
     assert 0 <= backoff_factor < 120
+
+    retry_args = {
+        "total": max_retries,
+        "connect": max_retries,
+        "read": max_retries,
+        "redirect": max_retries,
+        "status": max_retries,
+        "status_forcelist": retry_codes,
+        "backoff_factor": backoff_factor,
+    }
+    if Version(urllib3.__version__) >= Version("1.26.0"):
+        retry_args["allowed_methods"] = None
+    else:
+        retry_args["method_whitelist"] = None
+
     retry = Retry(
         total=max_retries,
         connect=max_retries,
