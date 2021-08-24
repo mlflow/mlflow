@@ -13,6 +13,7 @@ import re
 import yaml
 import tempfile
 import shutil
+import warnings
 
 import pandas as pd
 
@@ -58,6 +59,25 @@ _KERAS_SAVE_FORMAT_PATH = "save_format.txt"
 # File name to which keras model is saved
 _MODEL_SAVE_PATH = "model"
 _PIP_ENV_SUBPATH = "requirements.txt"
+
+
+def _raise_deprecation_warning():
+    # Avoid `ModuleNotFoundError` thrown when this function is called from `mlflow.tensorflow` to
+    # save a model created using `tensorflow.keras` but `keras` is not installed.
+    try:
+        import keras
+    except ImportError:
+        return
+
+    if Version(keras.__version__) < Version("2.3.0"):
+        warnings.warn(
+            (
+                "Support for keras < 2.3.0 has been deprecated and will be removed in a future "
+                "MLflow release"
+            ),
+            FutureWarning,
+            stacklevel=2,
+        )
 
 
 def get_default_pip_requirements(include_cloudpickle=False, keras_module=None):
@@ -170,6 +190,7 @@ def save_model(
         # Save the model as an MLflow Model
         mlflow.keras.save_model(keras_model, keras_model_path)
     """
+    _raise_deprecation_warning()
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     if keras_module is None:
@@ -560,6 +581,7 @@ def load_model(model_uri, **kwargs):
         keras_model = mlflow.keras.load_model("runs:/96771d893a5e46159d9f3b49bf9013e2" + "/models")
         predictions = keras_model.predict(x_test)
     """
+    _raise_deprecation_warning()
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     keras_module = importlib.import_module(flavor_conf.get("keras_module", "keras"))
@@ -648,6 +670,8 @@ def autolog(
                    autologging.
     """
     import keras
+
+    _raise_deprecation_warning()
 
     def getKerasCallback(metrics_logger):
         class __MLflowKerasCallback(keras.callbacks.Callback, metaclass=ExceptionSafeClass):
