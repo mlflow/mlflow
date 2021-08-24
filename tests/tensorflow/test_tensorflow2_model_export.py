@@ -793,3 +793,14 @@ def test_tf_saved_model_model_with_tf_keras_api(tmpdir):
         assert np.allclose(predictions["dense"], np.asarray([-0.09599352]))
 
     load_and_predict()
+
+
+def test_raise_deprecation_warning():
+    with mock.patch("tensorflow.__version__", new="1.15.0"), pytest.warns(
+        FutureWarning, match="Support for tensorflow"
+    ):
+        mlflow.tensorflow._raise_deprecation_warning()
+
+    with mock.patch("tensorflow.__version__", new="2.0.0"), pytest.warns(None) as record:
+        mlflow.tensorflow._raise_deprecation_warning()
+    assert len(record) == 0

@@ -77,6 +77,20 @@ _thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 _AUTOLOG_RUN_ID = None
 
 
+def _raise_deprecation_warning():
+    import tensorflow as tf
+
+    if Version(tf.__version__) < Version("2.0.0"):
+        warnings.warn(
+            (
+                "Support for tensorflow < 2.0.0 has been deprecated and will be removed in "
+                "a future MLflow release"
+            ),
+            FutureWarning,
+            stacklevel=2,
+        )
+
+
 def get_default_pip_requirements():
     """
     :return: A list of default pip requirements for MLflow Models produced by this flavor.
@@ -252,6 +266,7 @@ def save_model(
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     """
+    _raise_deprecation_warning()
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     _logger.info(
@@ -388,6 +403,8 @@ def load_model(model_uri, tf_sess=None):
                                 for _, output_signature in signature_definition.outputs.items()]
     """
     import tensorflow
+
+    _raise_deprecation_warning()
 
     if Version(tensorflow.__version__) < Version("2.0.0"):
         if not tf_sess:
@@ -930,6 +947,8 @@ def autolog(
                    autologging.
     """
     import tensorflow
+
+    _raise_deprecation_warning()
 
     global _LOG_EVERY_N_STEPS
     _LOG_EVERY_N_STEPS = every_n_iter
