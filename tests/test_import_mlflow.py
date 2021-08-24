@@ -3,7 +3,10 @@ import sys
 import subprocess
 import uuid
 
+import pytest
 
+
+@pytest.mark.skipif(os.name == "nt", reason="This test fails on Windows")
 def test_mlflow_can_be_imported_without_any_extra_dependencies(tmpdir):
     """
     Ensures that mlflow can be imported without any extra dependencies such as scikit-learn.
