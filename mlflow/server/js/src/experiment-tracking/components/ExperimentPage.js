@@ -113,6 +113,7 @@ export class ExperimentPage extends Component {
             : new ExperimentPagePersistedState().toJSON(),
         lastExperimentId: props.experimentId,
         lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
+        nextPageToken: null,
       };
     }
     return null;
