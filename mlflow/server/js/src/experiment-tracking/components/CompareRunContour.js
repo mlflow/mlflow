@@ -1,7 +1,6 @@
 import React, { Component } from 'react';
 import { AllHtmlEntities } from 'html-entities';
 import { Switch } from 'antd';
-import Plot from 'react-plotly.js';
 import PropTypes from 'prop-types';
 import { getParams, getRunInfo } from '../reducers/Reducers';
 import { connect } from 'react-redux';
@@ -11,6 +10,8 @@ import Utils from '../../common/utils/Utils';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import './CompareRunContour.css';
 import CompareRunUtil from './CompareRunUtil';
+import { FormattedMessage } from 'react-intl';
+import { LazyPlot } from './LazyPlot';
 
 export class CompareRunContour extends Component {
   static propTypes = {
@@ -116,9 +117,13 @@ export class CompareRunContour extends Component {
     if (this.state.disabled) {
       return (
         <div>
-          Contour plots can only be rendered when comparing a group of runs with three or more
-          unique metrics or params. Log more metrics or params to your runs to visualize them using
-          the contour plot.
+          <FormattedMessage
+            defaultMessage='Contour plots can only be rendered when comparing a group of runs
+              with three or more unique metrics or params. Log more metrics or params to your
+              runs to visualize them using the contour plot.'
+            description='Text explanation when contour plot is disabled in comparison pages
+              in MLflow'
+          />
         </div>
       );
     }
@@ -160,29 +165,62 @@ export class CompareRunContour extends Component {
           <div className='row'>
             <form className='col-xs-3'>
               <div className='form-group'>
-                <label htmlFor='x-axis-selector'>X-axis:</label>
+                <label htmlFor='x-axis-selector'>
+                  <FormattedMessage
+                    defaultMessage='X-axis:'
+                    description='Label text for x-axis in contour plot comparison in MLflow'
+                  />
+                </label>
                 {this.renderSelect('xaxis')}
               </div>
               <div className='form-group'>
-                <label htmlFor='y-axis-selector'>Y-axis:</label>
+                <label htmlFor='y-axis-selector'>
+                  <FormattedMessage
+                    defaultMessage='Y-axis:'
+                    description='Label text for y-axis in contour plot comparison in MLflow'
+                  />
+                </label>
                 {this.renderSelect('yaxis')}
               </div>
               <div className='form-group'>
-                <label htmlFor='z-axis-selector'>Z-axis:</label>
+                <label htmlFor='z-axis-selector'>
+                  <FormattedMessage
+                    defaultMessage='Z-axis:'
+                    description='Label text for z-axis in contour plot comparison in MLflow'
+                  />
+                </label>
                 {this.renderSelect('zaxis')}
               </div>
               <div className='inline-control'>
-                <div className='control-label'>Reverse color:</div>
+                <div className='control-label'>
+                  <FormattedMessage
+                    defaultMessage='Reverse color:'
+                    description='Label text for reverse color toggle in contour plot comparison
+                      in MLflow'
+                  />
+                </div>
                 <Switch
                   className='show-point-toggle'
-                  checkedChildren='On'
-                  unCheckedChildren='Off'
+                  checkedChildren={
+                    <FormattedMessage
+                      defaultMessage='On'
+                      description='Checked toggle text for reverse color toggle in contour plot
+                        comparison in MLflow'
+                    />
+                  }
+                  unCheckedChildren={
+                    <FormattedMessage
+                      defaultMessage='Off'
+                      description='Unchecked toggle text for reverse color toggle in contour plot
+                        comparison in MLflow'
+                    />
+                  }
                   onChange={(checked) => this.setState({ reverseColor: checked })}
                 />
               </div>
             </form>
             <div className='col-xs-9'>
-              <Plot
+              <LazyPlot
                 data={[
                   // contour plot
                   {

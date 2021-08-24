@@ -54,7 +54,7 @@ const classNames = {
   }),
   buttonSize: css({
     height: '40px',
-    width: '120px',
+    width: 'fit-content',
   }),
 };
 
