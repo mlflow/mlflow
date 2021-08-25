@@ -1,5 +1,42 @@
 Changelog
 =========
+1.20.0 (2021-08-25)
+-------------------
+MLflow 1.20.0 includes several major features and improvements:
+
+Features:
+
+- MLflow UI updates (#4712, @dbczumar)
+- Support distributed pytorch lightning autologging execution (#4717, @dbczumar)
+- Added more Model Registry Functions to R (#4527, @bramrodenburg)
+- Pyspark ml autolog post-training metric (#4686, @WeichenXu123)
+- Scoring Server - Added support for wrapped prediction responses (#4611, @Ark-kun)
+- make sklearn autologging supporting delegated methods in estimators (#4628, @WeichenXu123)
+- Pyspark CrossValidator autolog "std metrics" (#4672, @WeichenXu123)
+- Implement auto pip dependency inference for `mlflow.*.log_model` (#4518, @harupy)
+- sklearn eval metric autologging: patch `metrics.SCORERS` (#4638, @WeichenXu123)
+- Added archive argument to the Sagemaker Batch Transform integration (#4589, @YQ-Wang)
+- Deprecate  argument for pytorch flavor (#4620, @harupy)
+- Autolog post training metrics for sklearn (#4491, @WeichenXu123)
+- [PART1] Add `pip_requirements` and `extra_pip_requirements` to all flavors except xgboost flavor (#4577, @harupy)
+- [PART 2] Add `pip_requirements` and `extra_pip_requirements` to all flavors except xgboost flavor (#4602, @harupy)
+- Implemented Sagemaker Batch Transform integration with MLflow (#4410, @YQ-Wang)
+- [ML-16200] Add `pip_requirements` and `additional_pip_requirements` to `log_model` (#4519, @harupy)
+
+Bug fixes and documentation updates:
+
+- set nextPageToken to null (#4729, @harupy)
+- Fix keras early stopping logging logic (#4709, @harupy)
+- Scoring Server - Correctly handle request content-type with charset parameter (#4609, @Ark-kun)
+- Fixed SQLAlchemy backend not releasing DB connections by using a cache of SQLAlchemy Engines instead of creating new ones each time. (#4663, @arpitjasa-db)
+- Fix some issues in gorillar patch (#4631, @WeichenXu123)
+- Docker utils - Raise error if docker build has failed (#4610, @Ark-kun)
+- Disable autologging for sklearn cross_val_* APIs (#4590, @WeichenXu123)
+- Deprecate fast.ai V1 support (#4728, @dbczumar)
+- Update docs for AzureML deployment plugin (#4646, @trangevi)
+
+Small bug fixes and doc updates (#4730, #4722, #4725, #4723, #4703, #4710, #4679, #4694, #4707, #4708, #4706, #4705, #4625, #4701, #4700, #4662, #4699, #4682, #4691, #4684, #4683, #4675, #4666, #4648, #4653, #4651, #4641, #4649, #4627, #4637, #4632, #4634, #4621, #4619, #4622, #4460, #4608, #4605, #4599, #4600, #4581, #4583, #4565, #4575, #4564, #4580, #4572, #4570, #4574, #4576, #4568, #4559, #4537, #4542, @harupy; #4698, #4573, @Ark-kun; #4674, @kvmakes; #4555, @vagoston; #4644, @zhengjxu; #4690, #4588, @apurva-koti; #4734, #4545, @WeichenXu123; #4633, #4292, @shrinath-suresh; #4711, @jinzhang21; #4688, @murilommen; #4635, @ryan-duve; #4724, #4719, #4640, #4639, #4629, #4612, #4613, #4586, @dbczumar)
+
 1.19.0 (2021-07-14)
 -------------------
 MLflow 1.19.0 includes several major features and improvements:
