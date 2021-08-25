@@ -92,6 +92,7 @@ def _build_image(image_name, entrypoint, mlflow_home=None, custom_setup_steps_ho
            run during the image build step.
     """
     import docker
+
     mlflow_home = os.path.abspath(mlflow_home) if mlflow_home else None
     with TempDir() as tmp:
         cwd = tmp.path()
@@ -109,7 +110,8 @@ def _build_image(image_name, entrypoint, mlflow_home=None, custom_setup_steps_ho
         os.system("find {cwd}/".format(cwd=cwd))
 
         client = docker.from_env()
-        should_add_platform = int(client.version()["Version"].split(".")[0]) > 18
+        is_platform_supported = int(client.version()["Version"].split(".")[0]) > 18
+        platform_option = ["--platform", "linux/amd64"] if is_platform_supported else []
         commands = [
             "docker",
             "build",
@@ -117,21 +119,10 @@ def _build_image(image_name, entrypoint, mlflow_home=None, custom_setup_steps_ho
             image_name,
             "-f",
             "Dockerfile",
+            *platform_option,
+            ".",
         ]
-        if should_add_platform:
-            commands.extend([
-                # Enforcing the AMD64 architecture build for Apple M1 users
-                "--platform",
-                "linux/amd64",
-            ])
-        commands.append(".")
-        proc = Popen(
-            commands,
-            cwd=cwd,
-            stdout=PIPE,
-            stderr=STDOUT,
-            universal_newlines=True,
-        )
+        proc = Popen(commands, cwd=cwd, stdout=PIPE, stderr=STDOUT, universal_newlines=True,)
         for x in iter(proc.stdout.readline, ""):
             eprint(x, end="")
 
