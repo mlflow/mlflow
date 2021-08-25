@@ -57,7 +57,7 @@ FLAVOR_NAME = "fastai"
 @deprecated(
     alternative="fast.ai V2 support, which will be available in MLflow soon",
     since="MLflow version 1.20.0",
-    impact="This method will no longer support fast.ai V1 in a near future release."
+    impact="This method will no longer support fast.ai V1 in a near future release.",
 )
 def get_default_pip_requirements(include_cloudpickle=False):
     """
@@ -75,7 +75,7 @@ def get_default_pip_requirements(include_cloudpickle=False):
 @deprecated(
     alternative="fast.ai V2 support, which will be available in MLflow soon",
     since="MLflow version 1.20.0",
-    impact="This method will no longer support fast.ai V1 in a near future release."
+    impact="This method will no longer support fast.ai V1 in a near future release.",
 )
 def get_default_conda_env(include_cloudpickle=False):
     """
@@ -419,7 +419,7 @@ def load_model(model_uri):
 @deprecated(
     alternative="fast.ai V2 support, which will be available in MLflow soon",
     since="MLflow version 1.20.0",
-    impact="This method will no longer support fast.ai V1 in a near future release."
+    impact="This method will no longer support fast.ai V1 in a near future release.",
 )
 @experimental
 @autologging_integration(FLAVOR_NAME)
