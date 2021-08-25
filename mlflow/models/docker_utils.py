@@ -111,7 +111,7 @@ def _build_image(image_name, entrypoint, mlflow_home=None, custom_setup_steps_ho
 
         client = docker.from_env()
         # In Docker < 19, `docker build` doesn't support the `--platform` option
-        is_platform_supported = int(client.version()["Version"].split(".")[0]) > 18
+        is_platform_supported = int(client.version()["Version"].split(".")[0]) >= 19
         # Enforcing the AMD64 architecture build for Apple M1 users
         platform_option = ["--platform", "linux/amd64"] if is_platform_supported else []
         commands = [
