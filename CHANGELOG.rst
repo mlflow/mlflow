@@ -1,5 +1,42 @@
 Changelog
 =========
+1.20.0 (2021-08-25)
+-------------------
+MLflow 1.20.0 includes several major features and improvements:
+
+Features:
+
+- Autologging for scikit-learn now records post training metrics when scikit-learn evaluation APIs, such as `sklearn.metrics.mean_squared_error`, are called (#4491, #4628 #4638, @WeichenXu123)
+- Autologging for PySpark ML now records post training metrics when model evaluation APIs, such as `Evaluator.evaluate()`, are called (#4686, @WeichenXu123)
+- Add `pip_requirements` and `extra_pip_requirements` to `mlflow.*.log_model` and `mlflow.*.save_model` for directly specifying the pip requirements of the model to log / save (#4519, #4577, #4602, @harupy)
+- Added `stdMetrics` entries to the training metrics recorded during PySpark CrossValidator autologging (#4672, @WeichenXu123)
+- MLflow UI updates:
+  1. Improved scalability of the parallel coordinates plot for run performance comparison,
+  2. Added support for filtering runs based on their start time on the experiment page,
+  3. Added a dropdown for runs table column sorting on the experiment page,
+  4. Upgraded the AG Grid plugin, which is used for runs table loading on the experiment page, to version 25.0.0,
+  5. Fixed a bug on the experiment page that caused the metrics section of the runs table to collapse when selecting columns from other table sections (#4712, @dbczumar)
+- Added support for distributed execution to autologging for PyTorch Lightning (#4717, @dbczumar)
+- Expanded R support for Model Registry functionality (#4527, @bramrodenburg)
+- Added model scoring server support for defining custom prediction response wrappers (#4611, @Ark-kun)
+- `mlflow.*.log_model` and `mlflow.*.save_model` now automatically infer the pip requirements of the model to log / save based on the current software environment (#4518, @harupy)
+- Introduced support for running Sagemaker Batch Transform jobs with MLflow Models (#4410, #4589, @YQ-Wang)
+
+Bug fixes and documentation updates:
+
+- Deprecate `requirements_file` argument for `mlflow.*.save_model` and `mlflow.*.log_model` (#4620, @harupy)
+- set nextPageToken to null (#4729, @harupy)
+- Fix a bug in MLflow UI where the pagination token for run search is not refreshed when switching experiments (#4709, @harupy)
+- Fix a bug in the model scoring server that rejected requests specifying a valid ``Content-Type`` header with the charset parameter (#4609, @Ark-kun)
+- Fixed a bug that caused SQLAlchemy backends to exhaust DB connections. (#4663, @arpitjasa-db)
+- Improve docker build procedures to raise exceptions if docker builds fail (#4610, @Ark-kun)
+- Disable autologging for scikit-learn cross_val_* APIs, which are incompatible with autologging (#4590, @WeichenXu123)
+- Deprecate MLflow Models support for fast.ai V1 (#4728, @dbczumar)
+- Deprecate the old Azure ML deployment APIs `mlflow.azureml.cli.build_image` and `mlflow.azureml.build_image` (#4646, @trangevi)
+- Deprecate MLflow Models support for TensorFlow < 2.0 and Keras < 2.3 (#4716, @harupy)
+
+Small bug fixes and doc updates (#4730, #4722, #4725, #4723, #4703, #4710, #4679, #4694, #4707, #4708, #4706, #4705, #4625, #4701, #4700, #4662, #4699, #4682, #4691, #4684, #4683, #4675, #4666, #4648, #4653, #4651, #4641, #4649, #4627, #4637, #4632, #4634, #4621, #4619, #4622, #4460, #4608, #4605, #4599, #4600, #4581, #4583, #4565, #4575, #4564, #4580, #4572, #4570, #4574, #4576, #4568, #4559, #4537, #4542, @harupy; #4698, #4573, @Ark-kun; #4674, @kvmakes; #4555, @vagoston; #4644, @zhengjxu; #4690, #4588, @apurva-koti; #4545, #4631, #4734, @WeichenXu123; #4633, #4292, @shrinath-suresh; #4711, @jinzhang21; #4688, @murilommen; #4635, @ryan-duve; #4724, #4719, #4640, #4639, #4629, #4612, #4613, #4586, @dbczumar)
+
 1.19.0 (2021-07-14)
 -------------------
 MLflow 1.19.0 includes several major features and improvements:
