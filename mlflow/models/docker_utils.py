@@ -91,6 +91,8 @@ def _build_image(image_name, entrypoint, mlflow_home=None, custom_setup_steps_ho
            of a dockerfile context directory and returns a string containing Dockerfile commands to
            run during the image build step.
     """
+    import docker
+
     mlflow_home = os.path.abspath(mlflow_home) if mlflow_home else None
     with TempDir() as tmp:
         cwd = tmp.path()
@@ -106,24 +108,23 @@ def _build_image(image_name, entrypoint, mlflow_home=None, custom_setup_steps_ho
             )
         _logger.info("Building docker image with name %s", image_name)
         os.system("find {cwd}/".format(cwd=cwd))
-        proc = Popen(
-            [
-                "docker",
-                "build",
-                "-t",
-                image_name,
-                "-f",
-                "Dockerfile",
-                # Enforcing the AMD64 architecture build for Apple M1 users
-                "--platform",
-                "linux/amd64",
-                ".",
-            ],
-            cwd=cwd,
-            stdout=PIPE,
-            stderr=STDOUT,
-            universal_newlines=True,
-        )
+
+        client = docker.from_env()
+        # In Docker < 19, `docker build` doesn't support the `--platform` option
+        is_platform_supported = int(client.version()["Version"].split(".")[0]) >= 19
+        # Enforcing the AMD64 architecture build for Apple M1 users
+        platform_option = ["--platform", "linux/amd64"] if is_platform_supported else []
+        commands = [
+            "docker",
+            "build",
+            "-t",
+            image_name,
+            "-f",
+            "Dockerfile",
+            *platform_option,
+            ".",
+        ]
+        proc = Popen(commands, cwd=cwd, stdout=PIPE, stderr=STDOUT, universal_newlines=True,)
         for x in iter(proc.stdout.readline, ""):
             eprint(x, end="")
 
