@@ -17,7 +17,7 @@ def experimental(func):
     return func
 
 
-def deprecated(alternative=None, since=None):
+def deprecated(alternative=None, since=None, impact=None):
     """
     Decorator for marking APIs deprecated in the docstring.
 
@@ -27,10 +27,13 @@ def deprecated(alternative=None, since=None):
 
     def deprecated_decorator(func):
         since_str = " since %s" % since if since else ""
+        impact_str = impact if impact else "This method will be removed in a near future release."
+
         notice = (
-            "``{function_name}`` is deprecated{since_string}. This method will be"
-            " removed in a near future release.".format(
-                function_name=".".join([func.__module__, func.__name__]), since_string=since_str
+            "``{function_name}`` is deprecated{since_string}. {impact}".format(
+                function_name=".".join([func.__module__, func.__name__]),
+                since_string=since_str,
+                impact=impact_str,
             )
         )
         if alternative is not None and alternative.strip():
