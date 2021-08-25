@@ -10,7 +10,7 @@ Features:
 - Autologging for PySpark ML now records post training metrics when model evaluation APIs, such as `Evaluator.evaluate()`, are called (#4686, @WeichenXu123)
 - Add `pip_requirements` and `extra_pip_requirements` to `mlflow.*.log_model` and `mlflow.*.save_model` for directly specifying the pip requirements of the model to log / save (#4519, #4577, #4602, @harupy)
 - Added `stdMetrics` entries to the training metrics recorded during PySpark CrossValidator autologging (#4672, @WeichenXu123)
-- MLflow UI updates, includes:
+- MLflow UI updates:
   1. Improved scalability of the parallel coordinates plot for run performance comparison,
   2. Added support for filtering runs based on their start time on the experiment page,
   3. Added a dropdown for runs table column sorting on the experiment page,
@@ -33,7 +33,7 @@ Bug fixes and documentation updates:
 - Disable autologging for scikit-learn cross_val_* APIs, which are incompatible with autologging (#4590, @WeichenXu123)
 - Deprecate MLflow Models support for fast.ai V1 (#4728, @dbczumar)
 - Deprecate APIs `mlflow.azureml.cli.build_image` and `mlflow.azureml.build_image` (#4646, @trangevi)
-- Add deprecation warnings for tensorflow < 2 and keras < 2.3 (#4716, @harupy)
+- Deprecate MLflow Models support for TensorFlow < 2.0 and Keras < 2.3 (#4716, @harupy)
 
 Small bug fixes and doc updates (#4730, #4722, #4725, #4723, #4703, #4710, #4679, #4694, #4707, #4708, #4706, #4705, #4625, #4701, #4700, #4662, #4699, #4682, #4691, #4684, #4683, #4675, #4666, #4648, #4653, #4651, #4641, #4649, #4627, #4637, #4632, #4634, #4621, #4619, #4622, #4460, #4608, #4605, #4599, #4600, #4581, #4583, #4565, #4575, #4564, #4580, #4572, #4570, #4574, #4576, #4568, #4559, #4537, #4542, @harupy; #4698, #4573, @Ark-kun; #4674, @kvmakes; #4555, @vagoston; #4644, @zhengjxu; #4690, #4588, @apurva-koti; #4545, #4631, #4734, @WeichenXu123; #4633, #4292, @shrinath-suresh; #4711, @jinzhang21; #4688, @murilommen; #4635, @ryan-duve; #4724, #4719, #4640, #4639, #4629, #4612, #4613, #4586, @dbczumar)
 
