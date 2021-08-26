@@ -305,6 +305,38 @@ def test_conda_path(mock_env, expected_conda, expected_activate):
         assert mlflow.utils.conda.get_conda_bin_executable("activate") == expected_activate
 
 
+@pytest.mark.parametrize(
+    "mock_env,expected_conda_path, expected_conda_env_create_path",
+    [
+        ({"CONDA_EXE": "/abc/conda"}, "/abc/conda", "/abc/conda"),
+        (
+            {"CONDA_EXE": "/abc/conda", mlflow.utils.conda.MLFLOW_CONDA_CREATE_ENV_CMD: "mamba"},
+            "/abc/conda",
+            "/abc/mamba",
+        ),
+        (
+            {mlflow.utils.conda.MLFLOW_CONDA_HOME: "/some/dir/"},
+            "/some/dir/bin/conda",
+            "/some/dir/bin/conda",
+        ),
+        (
+            {
+                mlflow.utils.conda.MLFLOW_CONDA_HOME: "/some/dir/",
+                mlflow.utils.conda.MLFLOW_CONDA_CREATE_ENV_CMD: "mamba",
+            },
+            "/some/dir/bin/conda",
+            "/some/dir/bin/mamba",
+        ),
+    ],
+)
+def test_find_conda_executables(mock_env, expected_conda_path, expected_conda_env_create_path):
+    """Verify that we correctly determine the path to conda executables"""
+    with mock.patch.dict("os.environ", mock_env):
+        conda_path, conda_env_create_path = mlflow.utils.conda._get_conda_executables()
+        assert conda_path == expected_conda_path
+        assert conda_env_create_path == expected_conda_env_create_path
+
+
 def test_cancel_run():
     submitted_run0, submitted_run1 = [
         mlflow.projects.run(
