@@ -2,17 +2,10 @@ Changelog
 =========
 1.20.1 (2021-08-26)
 -------------------
-MLflow 1.20.1 includes several major features and improvements:
+MLflow 1.20.1 is a patch release for the MLflow Python package containing the following bug fixes:
 
-Features:
-
-
-
-Bug fixes and documentation updates:
-
-
-
-Small bug fixes and doc updates ()
+- Avoid calling `importlib_metadata.packages_distributions` upon `mlflow.utils.requirements_utils` import (#4741, @dbczumar)
+- Avoid depending on `importlib_metadata==4.7.0` (#4740, @dbczumar)
 
 1.20.0 (2021-08-25)
 -------------------
