@@ -1,5 +1,12 @@
 Changelog
 =========
+1.20.1 (2021-08-26)
+-------------------
+MLflow 1.20.1 is a patch release for the MLflow Python and R packages containing the following bug fixes:
+
+- Avoid calling `importlib_metadata.packages_distributions` upon `mlflow.utils.requirements_utils` import (#4741, @dbczumar)
+- Avoid depending on `importlib_metadata==4.7.0` (#4740, @dbczumar)
+
 1.20.0 (2021-08-25)
 -------------------
 MLflow 1.20.0 includes several major features and improvements:
