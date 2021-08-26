@@ -126,16 +126,6 @@ def _canonicalize_package_name(pkg_name):
     return pkg_name.lower().replace("_", "-")
 
 
-_MODULE_TO_PACKAGES = importlib_metadata.packages_distributions()
-
-
-def _module_to_packages(module_name):
-    """
-    Returns a list of packages that provide the specified module.
-    """
-    return _MODULE_TO_PACKAGES.get(module_name, [])
-
-
 def _get_requires_recursive(pkg_name):
     """
     Recursively yields both direct and transitive dependencies of the specified package.
@@ -246,6 +236,9 @@ def _capture_imported_modules(model_uri, flavor):
             return f.read().splitlines()
 
 
+_MODULES_TO_PACKAGES = None
+
+
 def _infer_requirements(model_uri, flavor):
     """
     Infers the pip requirements of the specified model by creating a subprocess and loading
@@ -255,8 +248,11 @@ def _infer_requirements(model_uri, flavor):
     :param: flavor: The flavor name of the model.
     :return: A list of inferred pip requirements.
     """
+    global _MODULES_TO_PACKAGES
+    if _MODULES_TO_PACKAGES is None:
+        _MODULES_TO_PACKAGES = importlib_metadata.packages_distributions()
     modules = _capture_imported_modules(model_uri, flavor)
-    packages = _flatten(map(_module_to_packages, modules))
+    packages = _flatten([_MODULES_TO_PACKAGES.get(module, []) for module in modules])
     packages = map(_canonicalize_package_name, packages)
     packages = _prune_packages(packages)
     excluded_packages = [
@@ -268,7 +264,7 @@ def _infer_requirements(model_uri, flavor):
         # Exclude a package that provides the mlflow module (e.g. mlflow, mlflow-skinny).
         # Certain flavors (e.g. pytorch) import mlflow while loading a model, but mlflow should
         # not be counted as a model requirement.
-        *_MODULE_TO_PACKAGES.get("mlflow", []),
+        *_MODULES_TO_PACKAGES.get("mlflow", []),
     ]
     packages = packages - set(excluded_packages)
     return sorted(map(_get_pinned_requirement, packages))
