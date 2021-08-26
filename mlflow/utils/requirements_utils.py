@@ -236,7 +236,7 @@ def _capture_imported_modules(model_uri, flavor):
             return f.read().splitlines()
 
 
-MODULES_TO_PACKAGES = None
+_MODULES_TO_PACKAGES = None
 
 
 def _infer_requirements(model_uri, flavor):
@@ -248,11 +248,11 @@ def _infer_requirements(model_uri, flavor):
     :param: flavor: The flavor name of the model.
     :return: A list of inferred pip requirements.
     """
-    global MODULES_TO_PACKAGES
-    if MODULES_TO_PACKAGES is None:
-        MODULES_TO_PACKAGES = importlib_metadata.packages_distributions()
+    global _MODULES_TO_PACKAGES
+    if _MODULES_TO_PACKAGES is None:
+        _MODULES_TO_PACKAGES = importlib_metadata.packages_distributions()
     modules = _capture_imported_modules(model_uri, flavor)
-    packages = _flatten([MODULES_TO_PACKAGES.get(module, []) for module in modules])
+    packages = _flatten([_MODULES_TO_PACKAGES.get(module, []) for module in modules])
     packages = map(_canonicalize_package_name, packages)
     packages = _prune_packages(packages)
     excluded_packages = [
@@ -264,7 +264,7 @@ def _infer_requirements(model_uri, flavor):
         # Exclude a package that provides the mlflow module (e.g. mlflow, mlflow-skinny).
         # Certain flavors (e.g. pytorch) import mlflow while loading a model, but mlflow should
         # not be counted as a model requirement.
-        *MODULES_TO_PACKAGES.get("mlflow", []),
+        *_MODULES_TO_PACKAGES.get("mlflow", []),
     ]
     packages = packages - set(excluded_packages)
     return sorted(map(_get_pinned_requirement, packages))
