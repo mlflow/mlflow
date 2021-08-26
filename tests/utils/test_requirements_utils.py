@@ -18,7 +18,6 @@ from mlflow.utils.requirements_utils import (
     _strip_local_version_label,
     _get_installed_version,
     _get_pinned_requirement,
-    _module_to_packages,
     _infer_requirements,
 )
 
@@ -268,5 +267,5 @@ def test_infer_requirements_excludes_mlflow():
         return_value=["mlflow", "pytest"],
     ):
         mlflow_package = "mlflow-skinny" if "MLFLOW_SKINNY" in os.environ else "mlflow"
-        assert mlflow_package in _module_to_packages("mlflow")
+        assert mlflow_package in importlib_metadata.packages_distributions()["mlflow"]
         assert _infer_requirements("path/to/model", "sklearn") == [f"pytest=={pytest.__version__}"]
