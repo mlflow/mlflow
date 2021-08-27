@@ -24,6 +24,7 @@ from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
     _mlflow_conda_env,
     _validate_env_arguments,
@@ -38,6 +39,7 @@ from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 FLAVOR_NAME = "paddle"
 
@@ -446,3 +448,95 @@ class _PaddleWrapper(object):
 def _contains_pdparams(path):
     file_list = os.listdir(path)
     return any(".pdparams" in file for file in file_list)
+
+
+@experimental
+@autologging_integration(FLAVOR_NAME)
+def autolog(
+    log_every_n_epoch=1, log_models=True, disable=False, exclusive=False, silent=False,
+):  # pylint: disable=unused-argument
+    """
+    Enables (or disables) and configures autologging from `PaddlePaddle
+    <https://pytorch-lightning.readthedocs.io/en/latest>`_ to MLflow.
+    Autologging is performed when you call the `fit` method of
+    `paddle.Model \
+    <https://www.paddlepaddle.org.cn/documentation/docs/en/api/paddle/Model_en.html#>`_.
+    Explore the complete `PaddlePaddle MNIST \
+    <https://www.paddlepaddle.org.cn/documentation/docs/en/api/paddle/Model_en.html#model>`_ for
+    an expansive example.
+    **Note**: Autologging is only supported for PaddlePaddle models built by high level api,
+    i.e., models that subclass
+    `paddle.Model \
+    <https://www.paddlepaddle.org.cn/documentation/docs/en/api/paddle/Model_en.html#>`_.
+    :param log_every_n_epoch: If specified, logs metrics once every `n` epochs. By default, metrics
+                       are logged after every epoch.
+    :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
+                       If ``False``, trained models are not logged.
+    :param disable: If ``True``, disables the PaddlePaddle autologging integration.
+                    If ``False``, enables the PaddlePaddle autologging integration.
+    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+                      If ``False``, autologged content is logged to the active fluent run,
+                      which may be user-created.
+    :param silent: If ``True``, suppress all event logs and warnings from MLflow during PyTorch
+                   Lightning autologging. If ``False``, show all events and warnings during
+                   PaddlePaddle autologging.
+    .. code-block:: python
+        :caption: Example
+        import paddle
+        import paddle.nn as nn
+        import paddle.vision.transforms as T
+        from paddle.static import InputSpec
+
+        import mlflow.paddle
+        from mlflow.tracking import MlflowClient
+
+        def print_auto_logged_info(r):
+            tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
+            artifacts = [f.path for f in MlflowClient().list_artifacts(r.info.run_id, "model")]
+            print("run_id: {}".format(r.info.run_id))
+            print("artifacts: {}".format(artifacts))
+            print("params: {}".format(r.data.params))
+            print("metrics: {}".format(r.data.metrics))
+            print("tags: {}".format(tags))
+
+        device = paddle.set_device("cpu")  # or 'gpu'
+
+        net = nn.Sequential(nn.Flatten(1), nn.Linear(784, 200), nn.Tanh(), nn.Linear(200, 10))
+
+        # inputs and labels are not required for dynamic graph.
+        input = InputSpec([None, 784], "float32", "x")
+        label = InputSpec([None, 1], "int64", "label")
+
+        model = paddle.Model(net, input, label)
+        optim = paddle.optimizer.SGD(learning_rate=1e-3, parameters=model.parameters())
+        model.prepare(optim, paddle.nn.CrossEntropyLoss(), paddle.metric.Accuracy())
+
+        transform = T.Compose([T.Transpose(), T.Normalize([127.5], [127.5])])
+        data = paddle.vision.datasets.MNIST(mode="train", transform=transform)
+
+        mlflow.paddle.autolog()
+
+        with mlflow.start_run() as run:
+            model.fit(data, epochs=2, batch_size=32, verbose=1)
+
+        print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
+    .. code-block:: text
+        :caption: Output
+        run_id: 130de3c2cb464c88a9279d983b8caff3
+        artifacts: ['model/MLmodel',
+                    'model/conda.yaml',
+                    'model/model.pdiparams',
+                    'model/model.pdiparams.info',
+                    'model/model.pdmodel',
+                    'model/requirements.txt']
+        params: {'optimizer_name': 'SGD'}
+        metrics: {'loss': 0.4654932916164398,
+                  'step': 1874.0,
+                  'batch_size': 32.0,
+                  'acc': 0.8579833333333333}
+        tags: {'Mode': 'training'}
+    """
+    import paddle as pd
+    from mlflow.paddle._paddle_autolog import patched_fit
+
+    safe_patch(FLAVOR_NAME, pd.Model, "fit", patched_fit, manage_run=True)

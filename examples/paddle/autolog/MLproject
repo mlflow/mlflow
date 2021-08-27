@@ -1,0 +1,22 @@
+name: paddlepaddle-autolog-example
+
+conda_env: conda.yaml
+
+entry_points:
+  main:
+    parameters:
+      epochs: {type: int, default: 2}
+      batch_size: {type: int, default: 32}
+      learning_rate: {type: float, default: 0.001}
+      monitor: {type: str, default: "acc"}
+      mode: {type: str, default: "auto"}
+      patience: {type: int, default: 2}
+    
+    command: |
+          python train.py \
+            --epochs {epochs} \
+            --batch_size {batch_size} \
+            --learning_rate {learning_rate} \
+            --monitor {monitor} \
+            --mode {mode} \
+            --patience {patience}
