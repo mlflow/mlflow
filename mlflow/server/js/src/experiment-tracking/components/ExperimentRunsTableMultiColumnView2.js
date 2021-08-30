@@ -94,8 +94,11 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
   constructor(props) {
     super(props);
     this.getColumnDefs = this.getColumnDefs.bind(this);
+  }
+
+  componentDidMount() {
     // In some cases, the API request to fetch run info resolves
-    // before this component is constructed and rendered. We need to get
+    // before this component is constructed and mounted. We need to get
     // column defs here to handle that case, as well as the one already
     // handled in componentDidUpdate for when the request resolves after the
     // fact.
