@@ -471,7 +471,7 @@ def autolog(
     **Note**: Autologging is only supported for PaddlePaddle models built by high level api,
     i.e., models that subclass
     `paddle.Model \
-    <https://www.paddlepaddle.org.cn/documentation/docs/en/api/paddle/Model_en.html#>`_.
+    <https://www.paddlepaddle.org.cn/documentation/docs/en/api/paddle/Model_en.html#>`__.
 
     :param log_every_n_epoch: If specified, logs metrics once every `n` epochs. By default, metrics
                        are logged after every epoch.
