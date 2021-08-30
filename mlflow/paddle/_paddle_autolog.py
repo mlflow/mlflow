@@ -1,4 +1,3 @@
-import logging
 import mlflow.paddle
 import os
 import shutil

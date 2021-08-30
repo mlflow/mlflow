@@ -16,7 +16,7 @@ def dataset():
 
 
 @pytest.fixture
-def test_model(dataset):
+def test_model():
     class UCIHousing(paddle.nn.Layer):
         def __init__(self):
             super(UCIHousing, self).__init__()
