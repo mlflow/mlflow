@@ -482,6 +482,7 @@ def autolog(
                    PaddlePaddle autologging.
     .. code-block:: python
         :caption: Example
+
         import paddle
         import paddle.nn as nn
         import paddle.vision.transforms as T
