@@ -458,16 +458,20 @@ def autolog(
     """
     Enables (or disables) and configures autologging from `PaddlePaddle
     <https://pytorch-lightning.readthedocs.io/en/latest>`_ to MLflow.
+
     Autologging is performed when you call the `fit` method of
     `paddle.Model \
     <https://www.paddlepaddle.org.cn/documentation/docs/en/api/paddle/Model_en.html#>`_.
+
     Explore the complete `PaddlePaddle MNIST \
     <https://www.paddlepaddle.org.cn/documentation/docs/en/api/paddle/Model_en.html#model>`_ for
     an expansive example.
+
     **Note**: Autologging is only supported for PaddlePaddle models built by high level api,
     i.e., models that subclass
     `paddle.Model \
     <https://www.paddlepaddle.org.cn/documentation/docs/en/api/paddle/Model_en.html#>`_.
+
     :param log_every_n_epoch: If specified, logs metrics once every `n` epochs. By default, metrics
                        are logged after every epoch.
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
@@ -480,6 +484,7 @@ def autolog(
     :param silent: If ``True``, suppress all event logs and warnings from MLflow during PyTorch
                    Lightning autologging. If ``False``, show all events and warnings during
                    PaddlePaddle autologging.
+
     .. code-block:: python
         :caption: Example
 
@@ -521,6 +526,7 @@ def autolog(
             model.fit(data, epochs=2, batch_size=32, verbose=1)
 
         print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
+
     .. code-block:: text
         :caption: Output
 
