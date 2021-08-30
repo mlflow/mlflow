@@ -522,6 +522,7 @@ def autolog(
         print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
     .. code-block:: text
         :caption: Output
+
         run_id: 130de3c2cb464c88a9279d983b8caff3
         artifacts: ['model/MLmodel',
                     'model/conda.yaml',

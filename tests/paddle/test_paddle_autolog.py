@@ -1,37 +1,35 @@
 import pytest
 import paddle
-import paddle.nn as nn
-import paddle.vision.transforms as T
-from paddle.static import InputSpec
 import mlflow
 import mlflow.paddle
-from mlflow.utils.file_utils import TempDir
-from mlflow.paddle._paddle_autolog import _get_optimizer_name
 
-NUM_EPOCHS = 2
+NUM_EPOCHS = 6
 
 pytestmark = pytest.mark.large
 
 
 @pytest.fixture
 def paddle_model():
-    device = paddle.set_device("cpu")  # or 'gpu'
-
-    net = nn.Sequential(nn.Flatten(1), nn.Linear(784, 200), nn.Tanh(), nn.Linear(200, 10))
-
-    # inputs and labels are not required for dynamic graph.
-    input = InputSpec([None, 784], "float32", "x")
-    label = InputSpec([None, 1], "int64", "label")
-
-    model = paddle.Model(net, input, label)
-    optim = paddle.optimizer.SGD(learning_rate=1e-3, parameters=model.parameters())
-    model.prepare(optim, paddle.nn.CrossEntropyLoss(), paddle.metric.Accuracy())
-
-    transform = T.Compose([T.Transpose(), T.Normalize([127.5], [127.5])])
-    data = paddle.vision.datasets.MNIST(mode="train", transform=transform)
-
     mlflow.paddle.autolog()
-    model.fit(data, epochs=NUM_EPOCHS, batch_size=32, verbose=1)
+
+    paddle.set_default_dtype("float32")
+    train_dataset = paddle.text.datasets.UCIHousing(mode="train")
+    eval_dataset = paddle.text.datasets.UCIHousing(mode="test")
+
+    class UCIHousing(paddle.nn.Layer):
+        def __init__(self):
+            super(UCIHousing, self).__init__()
+            self.fc = paddle.nn.Linear(13, 1, None)
+
+        def forward(self, input):
+            pred = self.fc(input)
+            return pred
+
+    model = paddle.Model(UCIHousing())
+    optim = paddle.optimizer.Adam(learning_rate=0.01, parameters=model.parameters())
+    model.prepare(optim, paddle.nn.MSELoss())
+
+    model.fit(train_dataset, eval_dataset, epochs=NUM_EPOCHS, batch_size=8, verbose=1)
 
     client = mlflow.tracking.MlflowClient()
     run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
@@ -41,21 +39,25 @@ def paddle_model():
 @pytest.mark.parametrize("log_models", [True, False])
 def test_paddle_autolog_log_models_configuration(log_models):
     mlflow.paddle.autolog(log_models=log_models)
-    device = paddle.set_device("cpu")  # or 'gpu'
 
-    net = nn.Sequential(nn.Flatten(1), nn.Linear(784, 200), nn.Tanh(), nn.Linear(200, 10))
+    paddle.set_default_dtype("float32")
+    train_dataset = paddle.text.datasets.UCIHousing(mode="train")
+    eval_dataset = paddle.text.datasets.UCIHousing(mode="test")
 
-    # inputs and labels are not required for dynamic graph.
-    input = InputSpec([None, 784], "float32", "x")
-    label = InputSpec([None, 1], "int64", "label")
+    class UCIHousing(paddle.nn.Layer):
+        def __init__(self):
+            super(UCIHousing, self).__init__()
+            self.fc = paddle.nn.Linear(13, 1, None)
 
-    model = paddle.Model(net, input, label)
-    optim = paddle.optimizer.SGD(learning_rate=1e-3, parameters=model.parameters())
-    model.prepare(optim, paddle.nn.CrossEntropyLoss(), paddle.metric.Accuracy())
+        def forward(self, input):
+            pred = self.fc(input)
+            return pred
 
-    transform = T.Compose([T.Transpose(), T.Normalize([127.5], [127.5])])
-    data = paddle.vision.datasets.MNIST(mode="train", transform=transform)
-    model.fit(data, epochs=NUM_EPOCHS, batch_size=32, verbose=1)
+    model = paddle.Model(UCIHousing())
+    optim = paddle.optimizer.Adam(learning_rate=0.01, parameters=model.parameters())
+    model.prepare(optim, paddle.nn.MSELoss())
+
+    model.fit(train_dataset, eval_dataset, epochs=NUM_EPOCHS, batch_size=8, verbose=1)
 
     client = mlflow.tracking.MlflowClient()
     run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
@@ -77,18 +79,18 @@ def test_paddle_autolog_logs_expected_data(paddle_model):
 
     # Checking if metrics are logged
     client = mlflow.tracking.MlflowClient()
-    for metric_key in ["acc", "batch_size", "loss", "step"]:
+    for metric_key in ["batch_size", "loss", "step", "eval_batch_size", "eval_loss", "eval_step"]:
         assert metric_key in run.data.metrics
         metric_history = client.get_metric_history(run.info.run_id, metric_key)
         assert len(metric_history) == NUM_EPOCHS
 
     # Testing optimizer parameters are logged
     assert "optimizer_name" in data.params
-    assert data.params["optimizer_name"] == "SGD"
+    assert data.params["optimizer_name"] == "Adam"
 
     # Testing learning rate are logged
     assert "learning_rate" in data.params
-    assert float(data.params["learning_rate"]) == 1e-3
+    assert float(data.params["learning_rate"]) == 1e-2
 
     # Testing model_summary.txt is saved
     client = mlflow.tracking.MlflowClient()
@@ -99,23 +101,26 @@ def test_paddle_autolog_logs_expected_data(paddle_model):
 
 def test_paddle_autolog_persists_manually_created_run():
     with mlflow.start_run() as manual_run:
-        device = paddle.set_device("cpu")  # or 'gpu'
-
-        net = nn.Sequential(nn.Flatten(1), nn.Linear(784, 200), nn.Tanh(), nn.Linear(200, 10))
-
-        # inputs and labels are not required for dynamic graph.
-        input = InputSpec([None, 784], "float32", "x")
-        label = InputSpec([None, 1], "int64", "label")
-
-        model = paddle.Model(net, input, label)
-        optim = paddle.optimizer.SGD(learning_rate=1e-3, parameters=model.parameters())
-        model.prepare(optim, paddle.nn.CrossEntropyLoss(), paddle.metric.Accuracy())
-
-        transform = T.Compose([T.Transpose(), T.Normalize([127.5], [127.5])])
-        data = paddle.vision.datasets.MNIST(mode="train", transform=transform)
-
         mlflow.paddle.autolog()
-        model.fit(data, epochs=NUM_EPOCHS, batch_size=32, verbose=1)
+
+        paddle.set_default_dtype("float32")
+        train_dataset = paddle.text.datasets.UCIHousing(mode="train")
+        eval_dataset = paddle.text.datasets.UCIHousing(mode="test")
+
+        class UCIHousing(paddle.nn.Layer):
+            def __init__(self):
+                super(UCIHousing, self).__init__()
+                self.fc = paddle.nn.Linear(13, 1, None)
+
+            def forward(self, input):
+                pred = self.fc(input)
+                return pred
+
+        model = paddle.Model(UCIHousing())
+        optim = paddle.optimizer.Adam(learning_rate=0.01, parameters=model.parameters())
+        model.prepare(optim, paddle.nn.MSELoss())
+
+        model.fit(train_dataset, eval_dataset, epochs=NUM_EPOCHS, batch_size=8, verbose=1)
         assert mlflow.active_run() is not None
         assert mlflow.active_run().info.run_id == manual_run.info.run_id
 
@@ -126,34 +131,42 @@ def test_paddle_autolog_ends_auto_created_run(paddle_model):
 
 @pytest.fixture
 def paddle_model_with_early_stopping(patience):
-    device = paddle.set_device("cpu")
 
-    net = nn.Sequential(nn.Flatten(1), nn.Linear(784, 200), nn.Tanh(), nn.Linear(200, 10))
+    paddle.set_default_dtype("float32")
+    train_dataset = paddle.text.datasets.UCIHousing(mode="train")
+    eval_dataset = paddle.text.datasets.UCIHousing(mode="test")
 
-    # inputs and labels are not required for dynamic graph.
-    input = InputSpec([None, 784], "float32", "x")
-    label = InputSpec([None, 1], "int64", "label")
+    class UCIHousing(paddle.nn.Layer):
+        def __init__(self):
+            super(UCIHousing, self).__init__()
+            self.fc = paddle.nn.Linear(13, 1, None)
 
-    model = paddle.Model(net, input, label)
-    optim = paddle.optimizer.SGD(learning_rate=1e-3, parameters=model.parameters())
-    model.prepare(optim, paddle.nn.CrossEntropyLoss(), paddle.metric.Accuracy())
+        def forward(self, input):
+            pred = self.fc(input)
+            return pred
 
-    transform = T.Compose([T.Transpose(), T.Normalize([127.5], [127.5])])
-    data = paddle.vision.datasets.MNIST(mode="train", transform=transform)
+    model = paddle.Model(UCIHousing())
+    optim = paddle.optimizer.Adam(learning_rate=0.01, parameters=model.parameters())
+    model.prepare(optim, paddle.nn.MSELoss())
 
     callbacks_earlystopping = paddle.callbacks.EarlyStopping(
-        "acc",
-        mode="auto",
+        "loss",
+        mode="min",
         patience=patience,
-        verbose=1,
+        verbose=2,
         min_delta=0,
-        baseline=0,
+        baseline=None,
         save_best_model=True,
     )
 
     mlflow.paddle.autolog()
     model.fit(
-        data, epochs=NUM_EPOCHS, batch_size=32, verbose=1, callbacks=[callbacks_earlystopping]
+        train_dataset,
+        eval_dataset,
+        epochs=NUM_EPOCHS,
+        batch_size=8,
+        verbose=1,
+        callbacks=[callbacks_earlystopping],
     )
 
     client = mlflow.tracking.MlflowClient()
@@ -161,11 +174,10 @@ def paddle_model_with_early_stopping(patience):
     return model, run
 
 
-@pytest.mark.parametrize("patience", [2])
+@pytest.mark.parametrize("patience", [1])
 def test_paddle_early_stop_params_logged(paddle_model_with_early_stopping, patience):
     _, run = paddle_model_with_early_stopping
     data = run.data
-    print(data.params)
     assert "monitor" in data.params
     assert "patience" in data.params
     assert float(data.params["patience"]) == patience
@@ -174,11 +186,9 @@ def test_paddle_early_stop_params_logged(paddle_model_with_early_stopping, patie
 
 
 def test_paddle_autolog_non_early_stop_callback_does_not_log(paddle_model):
-    trainer, run = paddle_model
+    _, run = paddle_model
     client = mlflow.tracking.MlflowClient()
     loss_metric_history = client.get_metric_history(run.info.run_id, "loss")
-    acc_metric_history = client.get_metric_history(run.info.run_id, "acc")
     step_metric_history = client.get_metric_history(run.info.run_id, "step")
     assert len(loss_metric_history) == NUM_EPOCHS
-    assert len(acc_metric_history) == NUM_EPOCHS
     assert len(step_metric_history) == NUM_EPOCHS

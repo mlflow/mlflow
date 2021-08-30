@@ -42,8 +42,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     dict_args = vars(args)
 
-    device = paddle.set_device("cpu")
     net = nn.Sequential(nn.Flatten(1), nn.Linear(784, 200), nn.Tanh(), nn.Linear(200, 10))
+
     # inputs and labels are not required for dynamic graph.
     input = InputSpec([None, 784], "float32", "x")
     label = InputSpec([None, 1], "int64", "label")
@@ -53,7 +53,8 @@ if __name__ == "__main__":
     )
     model.prepare(optim, paddle.nn.CrossEntropyLoss(), paddle.metric.Accuracy())
     transform = T.Compose([T.Transpose(), T.Normalize([127.5], [127.5])])
-    data = paddle.vision.datasets.MNIST(mode="train", transform=transform)
+    train_data = paddle.vision.datasets.MNIST(mode="train", transform=transform)
+    eval_data = paddle.vision.datasets.MNIST(mode="test", transform=transform)
 
     mlflow.paddle.autolog()
 
@@ -69,7 +70,8 @@ if __name__ == "__main__":
 
     with mlflow.start_run() as run:
         model.fit(
-            data,
+            train_data,
+            eval_data,
             epochs=dict_args["epochs"],
             batch_size=dict_args["batch_size"],
             verbose=1,
