@@ -12,14 +12,12 @@ from mlflow.utils.autologging_utils import (
     get_autologging_config,
 )
 
-logging.basicConfig(level=logging.ERROR)
-
 
 def _get_optimizer_name(optimizer):
     return optimizer.__class__.__name__
 
 
-class __MLflowPDCallback(paddle.callbacks.Callback, metaclass=ExceptionSafeAbstractClass):
+class __MLflowPaddleCallback(paddle.callbacks.Callback, metaclass=ExceptionSafeAbstractClass):
     """
     Callback for auto-logging metrics and parameters.
     """
@@ -97,16 +95,12 @@ def _log_early_stop_metrics(early_stop_callback, client, run_id):
     metrics = {
         "stopped_epoch": early_stop_callback.stopped_epoch,
         "restored_epoch": early_stop_callback.stopped_epoch - max(1, early_stop_callback.patience),
+        "best_value": early_stop_callback.best_value,
+        "wait_epoch": early_stop_callback.wait_epoch,
     }
 
     if early_stop_callback.best_weights is not None:
-        metrics["best_weights"] = float(early_stop_callback.best_weights)
-
-    if hasattr(early_stop_callback, "best_score"):
-        metrics["best_score"] = float(early_stop_callback.best_score)
-
-    if hasattr(early_stop_callback, "wait_count"):
-        metrics["wait_count"] = early_stop_callback.wait_count
+        metrics["best_weights"] = early_stop_callback.best_weights
 
     client.log_metrics(run_id, metrics)
 
@@ -130,11 +124,11 @@ def patched_fit(original, self, *args, **kwargs):
                 early_stop_callback = train_callback
                 _log_early_stop_params(early_stop_callback, client, run_id)
         kwargs["callbacks"].append(
-            __MLflowPDCallback(client, metrics_logger, run_id, log_models, log_every_n_epoch)
+            __MLflowPaddleCallback(client, metrics_logger, run_id, log_models, log_every_n_epoch)
         )
     else:
         kwargs["callbacks"] = [
-            __MLflowPDCallback(client, metrics_logger, run_id, log_models, log_every_n_epoch)
+            __MLflowPaddleCallback(client, metrics_logger, run_id, log_models, log_every_n_epoch)
         ]
     client.flush(synchronous=False)
 

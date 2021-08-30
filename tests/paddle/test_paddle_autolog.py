@@ -7,15 +7,15 @@ NUM_EPOCHS = 6
 
 pytestmark = pytest.mark.large
 
-
 @pytest.fixture
-def paddle_model():
-    mlflow.paddle.autolog()
-
-    paddle.set_default_dtype("float32")
+def dataset():
     train_dataset = paddle.text.datasets.UCIHousing(mode="train")
     eval_dataset = paddle.text.datasets.UCIHousing(mode="test")
+    return train_dataset, eval_dataset
 
+
+@pytest.fixture
+def test_model(dataset):
     class UCIHousing(paddle.nn.Layer):
         def __init__(self):
             super(UCIHousing, self).__init__()
@@ -28,41 +28,33 @@ def paddle_model():
     model = paddle.Model(UCIHousing())
     optim = paddle.optimizer.Adam(learning_rate=0.01, parameters=model.parameters())
     model.prepare(optim, paddle.nn.MSELoss())
+    return model
 
-    model.fit(train_dataset, eval_dataset, epochs=NUM_EPOCHS, batch_size=8, verbose=1)
+
+@pytest.fixture
+def paddle_model(dataset, test_model):
+    mlflow.paddle.autolog()
+
+    train_dataset, eval_dataset = dataset
+
+    test_model.fit(train_dataset, eval_dataset, epochs=NUM_EPOCHS, batch_size=8, verbose=1)
 
     client = mlflow.tracking.MlflowClient()
     run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
-    return model, run
+    return test_model, run
 
 
 @pytest.mark.parametrize("log_models", [True, False])
-def test_paddle_autolog_log_models_configuration(log_models):
+def test_paddle_autolog_log_models_configuration(log_models, dataset, test_model):
     mlflow.paddle.autolog(log_models=log_models)
 
-    paddle.set_default_dtype("float32")
-    train_dataset = paddle.text.datasets.UCIHousing(mode="train")
-    eval_dataset = paddle.text.datasets.UCIHousing(mode="test")
+    train_dataset, eval_dataset = dataset
 
-    class UCIHousing(paddle.nn.Layer):
-        def __init__(self):
-            super(UCIHousing, self).__init__()
-            self.fc = paddle.nn.Linear(13, 1)
-
-        def forward(self, feature):  # pylint: disable=arguments-differ
-            pred = self.fc(feature)
-            return pred
-
-    model = paddle.Model(UCIHousing())
-    optim = paddle.optimizer.Adam(learning_rate=0.01, parameters=model.parameters())
-    model.prepare(optim, paddle.nn.MSELoss())
-
-    model.fit(train_dataset, eval_dataset, epochs=NUM_EPOCHS, batch_size=8, verbose=1)
+    test_model.fit(train_dataset, eval_dataset, epochs=NUM_EPOCHS, batch_size=8, verbose=1)
 
     client = mlflow.tracking.MlflowClient()
     run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
     run_id = run.info.run_id
-    client = mlflow.tracking.MlflowClient()
     artifacts = [f.path for f in client.list_artifacts(run_id)]
     assert ("model" in artifacts) == log_models
 
@@ -99,28 +91,13 @@ def test_paddle_autolog_logs_expected_data(paddle_model):
     assert "model_summary.txt" in artifacts
 
 
-def test_paddle_autolog_persists_manually_created_run():
+def test_paddle_autolog_persists_manually_created_run(dataset, test_model):
     with mlflow.start_run() as manual_run:
         mlflow.paddle.autolog()
 
-        paddle.set_default_dtype("float32")
-        train_dataset = paddle.text.datasets.UCIHousing(mode="train")
-        eval_dataset = paddle.text.datasets.UCIHousing(mode="test")
+        train_dataset, eval_dataset = dataset
 
-        class UCIHousing(paddle.nn.Layer):
-            def __init__(self):
-                super(UCIHousing, self).__init__()
-                self.fc = paddle.nn.Linear(13, 1)
-
-            def forward(self, feature):  # pylint: disable=arguments-differ
-                pred = self.fc(feature)
-                return pred
-
-        model = paddle.Model(UCIHousing())
-        optim = paddle.optimizer.Adam(learning_rate=0.01, parameters=model.parameters())
-        model.prepare(optim, paddle.nn.MSELoss())
-
-        model.fit(train_dataset, eval_dataset, epochs=NUM_EPOCHS, batch_size=8, verbose=1)
+        test_model.fit(train_dataset, eval_dataset, epochs=NUM_EPOCHS, batch_size=8, verbose=1)
         assert mlflow.active_run() is not None
         assert mlflow.active_run().info.run_id == manual_run.info.run_id
 
@@ -130,24 +107,8 @@ def test_paddle_autolog_ends_auto_created_run(paddle_model):  # pylint: disable=
 
 
 @pytest.fixture
-def paddle_model_with_early_stopping(patience):
-
-    paddle.set_default_dtype("float32")
-    train_dataset = paddle.text.datasets.UCIHousing(mode="train")
-    eval_dataset = paddle.text.datasets.UCIHousing(mode="test")
-
-    class UCIHousing(paddle.nn.Layer):
-        def __init__(self):
-            super(UCIHousing, self).__init__()
-            self.fc = paddle.nn.Linear(13, 1)
-
-        def forward(self, feature):  # pylint: disable=arguments-differ
-            pred = self.fc(feature)
-            return pred
-
-    model = paddle.Model(UCIHousing())
-    optim = paddle.optimizer.Adam(learning_rate=0.01, parameters=model.parameters())
-    model.prepare(optim, paddle.nn.MSELoss())
+def paddle_model_with_early_stopping(patience, dataset, test_model):
+    train_dataset, eval_dataset = dataset
 
     callbacks_earlystopping = paddle.callbacks.EarlyStopping(
         "loss",
@@ -160,7 +121,7 @@ def paddle_model_with_early_stopping(patience):
     )
 
     mlflow.paddle.autolog()
-    model.fit(
+    test_model.fit(
         train_dataset,
         eval_dataset,
         epochs=NUM_EPOCHS,
@@ -171,7 +132,7 @@ def paddle_model_with_early_stopping(patience):
 
     client = mlflow.tracking.MlflowClient()
     run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
-    return model, run
+    return test_model, run
 
 
 @pytest.mark.parametrize("patience", [1])
@@ -192,3 +153,8 @@ def test_paddle_autolog_non_early_stop_callback_does_not_log(paddle_model):
     step_metric_history = client.get_metric_history(run.info.run_id, "step")
     assert len(loss_metric_history) == NUM_EPOCHS
     assert len(step_metric_history) == NUM_EPOCHS
+    data = run.data
+    assert "monitor" not in data.params
+    assert "patience" not in data.params
+    assert "min_delta" not in data.params
+    assert "stopped_epoch" not in data.params

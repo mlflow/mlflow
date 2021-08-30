@@ -23,7 +23,7 @@ if __name__ == "__main__":
     parser = ArgumentParser(description="PaddlePaddle Autolog Mnist Example")
 
     # Training parameters
-    parser.add_argument("--epochs", type=int, default=2, help="Training epochs parameter")
+    parser.add_argument("--epochs", type=int, default=5, help="Training epochs parameter")
 
     parser.add_argument("--batch_size", type=int, default=32, help="Training batch_size parameter")
 
@@ -33,7 +33,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--monitor", type=str, default="acc", help="Early checking mode parameters")
 
-    parser.add_argument("--mode", type=str, default="auto", help="Early checking mode parameters")
+    parser.add_argument("--mode", type=str, default="max", help="Early checking mode parameters")
 
     parser.add_argument(
         "--patience", type=int, default=2, help="Early checking patience parameters"

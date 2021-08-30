@@ -459,9 +459,10 @@ def autolog(
     Enables (or disables) and configures autologging from `PaddlePaddle
     <https://pytorch-lightning.readthedocs.io/en/latest>`_ to MLflow.
 
-    Autologging is performed when you call the `fit` method of
-    `paddle.Model \
-    <https://www.paddlepaddle.org.cn/documentation/docs/en/api/paddle/Model_en.html#>`_.
+    Autologging is performed when you call the `fit` method of `paddle.Model`_.
+
+    .. _paddle.Model:
+        https://www.paddlepaddle.org.cn/documentation/docs/en/api/paddle/Model_en.html
 
     Explore the complete `PaddlePaddle MNIST \
     <https://www.paddlepaddle.org.cn/documentation/docs/en/api/paddle/Model_en.html#model>`_ for
