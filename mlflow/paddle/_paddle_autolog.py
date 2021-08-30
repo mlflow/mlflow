@@ -98,9 +98,6 @@ def _log_early_stop_metrics(early_stop_callback, client, run_id):
         "wait_epoch": early_stop_callback.wait_epoch,
     }
 
-    if early_stop_callback.best_weights is not None:
-        metrics["best_weights"] = early_stop_callback.best_weights
-
     client.log_metrics(run_id, metrics)
 
 
