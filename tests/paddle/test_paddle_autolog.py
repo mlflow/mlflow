@@ -19,10 +19,10 @@ def paddle_model():
     class UCIHousing(paddle.nn.Layer):
         def __init__(self):
             super(UCIHousing, self).__init__()
-            self.fc = paddle.nn.Linear(13, 1, None)
+            self.fc = paddle.nn.Linear(13, 1)
 
-        def forward(self, input):
-            pred = self.fc(input)
+        def forward(self, feature):  # pylint: disable=arguments-differ
+            pred = self.fc(feature)
             return pred
 
     model = paddle.Model(UCIHousing())
@@ -47,10 +47,10 @@ def test_paddle_autolog_log_models_configuration(log_models):
     class UCIHousing(paddle.nn.Layer):
         def __init__(self):
             super(UCIHousing, self).__init__()
-            self.fc = paddle.nn.Linear(13, 1, None)
+            self.fc = paddle.nn.Linear(13, 1)
 
-        def forward(self, input):
-            pred = self.fc(input)
+        def forward(self, feature):  # pylint: disable=arguments-differ
+            pred = self.fc(feature)
             return pred
 
     model = paddle.Model(UCIHousing())
@@ -110,10 +110,10 @@ def test_paddle_autolog_persists_manually_created_run():
         class UCIHousing(paddle.nn.Layer):
             def __init__(self):
                 super(UCIHousing, self).__init__()
-                self.fc = paddle.nn.Linear(13, 1, None)
+                self.fc = paddle.nn.Linear(13, 1)
 
-            def forward(self, input):
-                pred = self.fc(input)
+            def forward(self, feature):  # pylint: disable=arguments-differ
+                pred = self.fc(feature)
                 return pred
 
         model = paddle.Model(UCIHousing())
@@ -125,7 +125,7 @@ def test_paddle_autolog_persists_manually_created_run():
         assert mlflow.active_run().info.run_id == manual_run.info.run_id
 
 
-def test_paddle_autolog_ends_auto_created_run(paddle_model):
+def test_paddle_autolog_ends_auto_created_run(paddle_model):  # pylint: disable=unused-argument
     assert mlflow.active_run() is None
 
 
@@ -139,10 +139,10 @@ def paddle_model_with_early_stopping(patience):
     class UCIHousing(paddle.nn.Layer):
         def __init__(self):
             super(UCIHousing, self).__init__()
-            self.fc = paddle.nn.Linear(13, 1, None)
+            self.fc = paddle.nn.Linear(13, 1)
 
-        def forward(self, input):
-            pred = self.fc(input)
+        def forward(self, feature):  # pylint: disable=arguments-differ
+            pred = self.fc(feature)
             return pred
 
     model = paddle.Model(UCIHousing())

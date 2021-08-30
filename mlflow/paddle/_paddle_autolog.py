@@ -24,7 +24,9 @@ class __MLflowPDCallback(paddle.callbacks.Callback, metaclass=ExceptionSafeAbstr
     Callback for auto-logging metrics and parameters.
     """
 
-    def __init__(self, client, metrics_logger, run_id, log_models, log_every_n_epoch):
+    def __init__(
+        self, client, metrics_logger, run_id, log_models, log_every_n_epoch
+    ):  # pylint: disable=super-init-not-called
         self.early_stopping = False
         self.client = client
         self.metrics_logger = metrics_logger
