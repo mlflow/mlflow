@@ -72,6 +72,12 @@ tensorflow:
         pytest tests/tensorflow/test_tensorflow2_model_export.py --large
       fi
 
+      # Run keras tests against keras-nightly that's installed with tf-nightly:
+      # https://github.com/tensorflow/tensorflow/blob/v2.6.0/tensorflow/tools/pip_package/setup.py#L110-L122
+      if [ "$PACKAGE_VERSION" == "dev" ]; then
+        pytest tests/keras/test_keras_model_export.py --large
+      fi
+
   autologging:
     minimum: "1.15.4"
     maximum: "2.6.0"
@@ -90,6 +96,10 @@ tensorflow:
         pytest tests/tensorflow_autolog/test_tensorflow_autolog.py --large
       else
         pytest tests/tensorflow_autolog/test_tensorflow2_autolog.py --large
+      fi
+
+      if [ "$PACKAGE_VERSION" == "dev" ]; then
+        pytest tests/keras_autolog/test_keras_autolog.py --large
       fi
 
 keras:
