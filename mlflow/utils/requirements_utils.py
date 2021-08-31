@@ -17,7 +17,6 @@ import logging
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.autologging_utils.versioning import _strip_dev_version_suffix
-from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from packaging.version import Version, InvalidVersion
 
 _logger = logging.getLogger(__name__)
@@ -193,9 +192,9 @@ def _get_installed_version(package, module=None):
         # 1.9.0
         version = __import__(module or package).__version__
 
-    # In Databricks, strip a dev version suffix for pyspark (e.g. '3.1.2.dev0' -> '3.1.2')
-    # and make it installable from PyPI.
-    if package == "pyspark" and is_in_databricks_runtime():
+    # Strip the suffix from `dev` versions of PySpark, which are not available for installation
+    # from Anaconda or PyPI
+    if package == "pyspark":
         version = _strip_dev_version_suffix(version)
 
     return version
