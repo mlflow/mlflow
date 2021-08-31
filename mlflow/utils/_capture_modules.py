@@ -13,6 +13,7 @@ import mlflow
 from mlflow.utils.file_utils import write_to
 from mlflow.pyfunc import MAIN
 from mlflow.models.model import MLMODEL_FILE_NAME, Model
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
 
 def _get_top_level_module(full_module_name):
@@ -83,6 +84,11 @@ def main():
     sys.path = json.loads(args.sys_path)
 
     cap_cm = _CaptureImportedModules()
+
+    if flavor == "spark" and is_in_databricks_runtime():
+        from dbruntime.spark_connection import initialize_spark_connection
+
+        initialize_spark_connection()
 
     # If `model_path` refers to an MLflow model directory, load the model using
     # `mlflow.pyfunc.load_model`
