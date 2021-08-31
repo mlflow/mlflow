@@ -17,6 +17,7 @@ import logging
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.autologging_utils.versioning import _strip_dev_version_suffix
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from packaging.version import Version, InvalidVersion
 
 _logger = logging.getLogger(__name__)
@@ -249,7 +250,16 @@ def _infer_requirements(model_uri, flavor):
     """
     global _MODULES_TO_PACKAGES
     if _MODULES_TO_PACKAGES is None:
+        # Note `importlib_metada.packages_distributions` only captures packages installed into
+        # Python’s site-packages directory via tools such as pip:
+        # https://importlib-metadata.readthedocs.io/en/latest/using.html#using-importlib-metadata
         _MODULES_TO_PACKAGES = importlib_metadata.packages_distributions()
+
+        # In Databricks, `_MODULES_TO_PACKAGES` doesn't contain pyspark since it's not installed
+        # via pip or conda. To work around this issue, manually add pyspark.
+        if is_in_databricks_runtime():
+            _MODULES_TO_PACKAGES.update({"pyspark": ["pyspark"]})
+
     modules = _capture_imported_modules(model_uri, flavor)
     packages = _flatten([_MODULES_TO_PACKAGES.get(module, []) for module in modules])
     packages = map(_canonicalize_package_name, packages)
