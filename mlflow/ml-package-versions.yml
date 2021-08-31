@@ -85,7 +85,7 @@ tensorflow:
     maximum: "2.6.0"
     requirements:
       "< 2.2": ["h5py<3.0"]
-      "== dev": ["scikit-learn", "pyspark", "pyarrow"]
+      "== dev": ["scikit-learn"]
     run: |
       python_code="
       import tensorflow as tf
