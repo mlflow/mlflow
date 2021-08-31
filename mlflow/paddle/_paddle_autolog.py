@@ -102,8 +102,6 @@ def _log_early_stop_metrics(early_stop_callback, client, run_id):
 
 
 def patched_fit(original, self, *args, **kwargs):
-    from paddle import callbacks
-
     run_id = mlflow.active_run().info.run_id
     tracking_uri = mlflow.get_tracking_uri()
     client = MlflowAutologgingQueueingClient(tracking_uri)
@@ -114,10 +112,10 @@ def patched_fit(original, self, *args, **kwargs):
 
     early_stop_callback = None
     if "callbacks" in kwargs:
-        train_callbacks = kwargs["callbacks"]
-        for train_callback in train_callbacks:
-            if isinstance(train_callback, callbacks.EarlyStopping):
-                early_stop_callback = train_callback
+        callbacks = kwargs["callbacks"]
+        for callback in callbacks:
+            if isinstance(callback, paddle.callbacks.EarlyStopping):
+                early_stop_callback = callback
                 _log_early_stop_params(early_stop_callback, client, run_id)
         kwargs["callbacks"].append(
             __MLflowPaddleCallback(client, metrics_logger, run_id, log_models, log_every_n_epoch)
