@@ -618,7 +618,7 @@ def test_sparkml_model_log_without_specified_conda_env_uses_default_env_with_exp
 
 
 @pytest.mark.large
-def test_dev_version_suffix_for_pyspark_is_stripped(spark_model_iris):
+def test_pyspark_version_is_logged_without_dev_suffix(spark_model_iris):
     unsuffixed_version = "2.4.0"
     for dev_suffix in [".dev0", ".dev", ".dev1", "dev.a", ".devb"]:
         with mock.patch("importlib_metadata.version", return_value=unsuffixed_version + dev_suffix):
