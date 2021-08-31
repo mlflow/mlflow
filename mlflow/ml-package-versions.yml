@@ -57,6 +57,7 @@ tensorflow:
     maximum: "2.6.0"
     requirements:
       "< 2.2": ["h5py<3.0", "scikit-learn"]
+      "== dev": ["scikit-learn"]
     run: |
       python_code="
       import tensorflow as tf
@@ -83,6 +84,7 @@ tensorflow:
     maximum: "2.6.0"
     requirements:
       "< 2.2": ["h5py<3.0"]
+      "== dev": ["scikit-learn"]
     run: |
       python_code="
       import tensorflow as tf
