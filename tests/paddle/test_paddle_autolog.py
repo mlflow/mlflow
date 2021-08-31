@@ -81,15 +81,14 @@ def test_paddle_autolog_logs_expected_data(paddle_model):
     assert "optimizer_name" in data.params
     assert data.params["optimizer_name"] == "Adam"
 
-    # Testing learning rate are logged
+    # Testing learning rate is logged
     assert "learning_rate" in data.params
     assert float(data.params["learning_rate"]) == 1e-2
 
     # Testing model_summary.txt is saved
     client = mlflow.tracking.MlflowClient()
     artifacts = client.list_artifacts(run.info.run_id)
-    artifacts = map(lambda x: x.path, artifacts)
-    assert "model_summary.txt" in artifacts
+    assert any(x.path == "model_summary.txt" for x in artifacts)
 
 
 def test_paddle_autolog_persists_manually_created_run(dataset, test_model):
@@ -111,7 +110,7 @@ def test_paddle_autolog_ends_auto_created_run(paddle_model):  # pylint: disable=
 def paddle_model_with_early_stopping(patience, dataset, test_model):
     train_dataset, eval_dataset = dataset
 
-    callbacks_earlystopping = paddle.callbacks.EarlyStopping(
+    early_stopping_callback = paddle.callbacks.EarlyStopping(
         "loss",
         mode="min",
         patience=patience,
@@ -128,7 +127,7 @@ def paddle_model_with_early_stopping(patience, dataset, test_model):
         epochs=NUM_EPOCHS,
         batch_size=8,
         verbose=1,
-        callbacks=[callbacks_earlystopping],
+        callbacks=[early_stopping_callback],
     )
 
     client = mlflow.tracking.MlflowClient()
@@ -147,7 +146,7 @@ def test_paddle_early_stop_params_logged(paddle_model_with_early_stopping, patie
     assert "stopped_epoch" in data.params
 
 
-def test_paddle_autolog_non_early_stop_callback_does_not_log(paddle_model):
+def test_paddle_autolog_non_early_stop_callback_related_params_not_logged(paddle_model):
     _, run = paddle_model
     client = mlflow.tracking.MlflowClient()
     loss_metric_history = client.get_metric_history(run.info.run_id, "loss")
