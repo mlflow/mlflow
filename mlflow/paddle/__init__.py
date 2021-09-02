@@ -464,10 +464,6 @@ def autolog(
     .. _paddle.Model:
         https://www.paddlepaddle.org.cn/documentation/docs/en/api/paddle/Model_en.html
 
-    Explore the complete `PaddlePaddle MNIST \
-    <https://www.paddlepaddle.org.cn/documentation/docs/en/api/paddle/Model_en.html#model>`_ for
-    an expansive example.
-
     **Note**: Autologging is only supported for PaddlePaddle models built by high level api,
     i.e., models that subclass
     `paddle.Model \
