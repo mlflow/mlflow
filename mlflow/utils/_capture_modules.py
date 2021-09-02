@@ -83,12 +83,16 @@ def main():
     # Mirror `sys.path` of the parent process
     sys.path = json.loads(args.sys_path)
 
+    if flavor == mlflow.spark.FLAVOR_NAME and is_in_databricks_runtime():
+        try:
+            # pylint: disable=import-error
+            from dbruntime.spark_connection import initialize_spark_connection
+
+            initialize_spark_connection()
+        except Exception:
+            pass
+
     cap_cm = _CaptureImportedModules()
-
-    if flavor == "spark" and is_in_databricks_runtime():
-        from dbruntime.spark_connection import initialize_spark_connection
-
-        initialize_spark_connection()
 
     # If `model_path` refers to an MLflow model directory, load the model using
     # `mlflow.pyfunc.load_model`
