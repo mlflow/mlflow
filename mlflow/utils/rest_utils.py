@@ -82,7 +82,7 @@ def http_request(
     max_retries=5,
     backoff_factor=2,
     retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
-    timeout=90,
+    timeout=120,
     **kwargs
 ):
     """
