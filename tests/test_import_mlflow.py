@@ -3,13 +3,10 @@ import sys
 import subprocess
 import uuid
 
-import pytest
 
-
-@pytest.mark.skipif(os.name == "nt", reason="This test fails on Windows")
 def test_mlflow_can_be_imported_without_any_extra_dependencies(tmpdir):
     """
-    Ensures that mlflow can be imported without any extra dependencies such as scikit-learn.
+    Ensures that mlflow can be imported without any extra dependencies, such as scikit-learn.
     """
     cwd = os.getcwd()
     try:
@@ -17,28 +14,32 @@ def test_mlflow_can_be_imported_without_any_extra_dependencies(tmpdir):
         code_template = """
 set -ex
 
-export PATH="$HOME/miniconda3/bin:$PATH"
-conda create --yes --prefix {env_location} python={python_version}
-source deactivate && source activate {env_location}
-conda info
+python -m venv .venv
+source {activate_script}
 
 pip install {mlflow_dir}
 pip list
 
 python -c '
-try:
-    import sklearn
-    raise Exception("scikit-learn should not be installed")
-except ImportError:
-    pass
+# Make sure extra dependencies are not installed
+for module in ["sklearn", "xgboost", "pyspark"]:
+    try:
+        __import__(module)
+        raise Exception(f"{{module}} should not be installed")
+    except ImportError:
+        pass
 
 import mlflow
 '
 """
         env_location = tmpdir.join(uuid.uuid4().hex).strpath
         python_version = ".".join(map(str, sys.version_info[:2]))
+        activate_script = r".venv\Scripts\Activate.ps1" if os.name == "nt" else ".venv/bin/activate"
         code = code_template.format(
-            env_location=env_location, python_version=python_version, mlflow_dir=cwd
+            activate_script=activate_script,
+            env_location=env_location,
+            python_version=python_version,
+            mlflow_dir=cwd,
         )
         process = subprocess.run(["bash", "-c", code])
         assert process.returncode == 0
