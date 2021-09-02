@@ -445,7 +445,7 @@ def test_databricks_http_request_integration(get_config, request):
             "headers": headers,
             "verify": True,
             "json": {"a": "b"},
-            "timeout": 10,
+            "timeout": 120,
         }
         http_response = mock.MagicMock()
         http_response.status_code = 200

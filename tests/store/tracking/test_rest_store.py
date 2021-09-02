@@ -77,7 +77,7 @@ class TestRestStore(object):
                 "params": {"view_type": "ACTIVE_ONLY"},
                 "headers": _DEFAULT_HEADERS,
                 "verify": True,
-                "timeout": 10,
+                "timeout": 120,
             }
             response = mock.MagicMock()
             response.status_code = 200
