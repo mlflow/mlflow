@@ -3,7 +3,10 @@ import sys
 import subprocess
 import uuid
 
+import pytest
 
+
+@pytest.mark.skipif(os.name == "nt", reason="Shell script in this test doesn't work on Windows")
 def test_mlflow_can_be_imported_without_any_extra_dependencies(tmpdir):
     """
     Ensures that mlflow can be imported without any extra dependencies, such as scikit-learn.
@@ -15,7 +18,7 @@ def test_mlflow_can_be_imported_without_any_extra_dependencies(tmpdir):
 set -ex
 
 python -m venv .venv
-source {activate_script}
+source .venv/bin/activate
 
 pip install {mlflow_dir}
 pip list
@@ -34,12 +37,8 @@ import mlflow
 """
         env_location = tmpdir.join(uuid.uuid4().hex).strpath
         python_version = ".".join(map(str, sys.version_info[:2]))
-        activate_script = r".venv\Scripts\Activate.ps1" if os.name == "nt" else ".venv/bin/activate"
         code = code_template.format(
-            activate_script=activate_script,
-            env_location=env_location,
-            python_version=python_version,
-            mlflow_dir=cwd,
+            env_location=env_location, python_version=python_version, mlflow_dir=cwd
         )
         process = subprocess.run(["bash", "-c", code])
         assert process.returncode == 0
