@@ -19,7 +19,6 @@ set -ex
 
 python -m venv .venv
 source .venv/bin/activate
-
 pip install {mlflow_dir}
 pip list
 
