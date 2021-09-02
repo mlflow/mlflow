@@ -1,9 +1,6 @@
-import mlflow.paddle
-import os
-import shutil
-import tempfile
 import paddle
 
+import mlflow
 from mlflow.utils.autologging_utils import (
     ExceptionSafeAbstractClass,
     BatchMetricsLogger,
@@ -44,7 +41,6 @@ class __MLflowPaddleCallback(paddle.callbacks.Callback, metaclass=ExceptionSafeA
             self.epoch = epoch
 
     def on_train_begin(self, logs=None):
-        self.client.set_tags(self.run_id, {"Mode": "training"})
         params = {
             "optimizer_name": _get_optimizer_name(self.model._optimizer),
             "learning_rate": self.model._optimizer._learning_rate,
@@ -75,7 +71,7 @@ def _log_early_stop_params(early_stop_callback, client, run_id):
         run_id,
         {
             p: getattr(early_stop_callback, p)
-            for p in ["monitor", "patience", "min_delta", "stopped_epoch"]
+            for p in ["monitor", "patience", "min_delta", "baseline"]
             if hasattr(early_stop_callback, p)
         },
     )
@@ -93,11 +89,8 @@ def _log_early_stop_metrics(early_stop_callback, client, run_id):
 
     metrics = {
         "stopped_epoch": early_stop_callback.stopped_epoch,
-        "restored_epoch": early_stop_callback.stopped_epoch - max(1, early_stop_callback.patience),
         "best_value": early_stop_callback.best_value,
-        "wait_epoch": early_stop_callback.wait_epoch,
     }
-
     client.log_metrics(run_id, metrics)
 
 
@@ -111,34 +104,27 @@ def patched_fit(original, self, *args, **kwargs):
     log_every_n_epoch = get_autologging_config(mlflow.paddle.FLAVOR_NAME, "log_every_n_epoch", 1)
 
     early_stop_callback = None
+    mlflow_callback = __MLflowPaddleCallback(
+        client, metrics_logger, run_id, log_models, log_every_n_epoch
+    )
     if "callbacks" in kwargs:
         callbacks = kwargs["callbacks"]
         for callback in callbacks:
             if isinstance(callback, paddle.callbacks.EarlyStopping):
                 early_stop_callback = callback
                 _log_early_stop_params(early_stop_callback, client, run_id)
-        kwargs["callbacks"].append(
-            __MLflowPaddleCallback(client, metrics_logger, run_id, log_models, log_every_n_epoch)
-        )
+                break
+        kwargs["callbacks"].append(mlflow_callback)
     else:
-        kwargs["callbacks"] = [
-            __MLflowPaddleCallback(client, metrics_logger, run_id, log_models, log_every_n_epoch)
-        ]
+        kwargs["callbacks"] = [mlflow_callback]
     client.flush(synchronous=False)
 
     result = original(self, *args, **kwargs)
 
     if early_stop_callback is not None:
         _log_early_stop_metrics(early_stop_callback, client, run_id)
-    tempdir = tempfile.mkdtemp()
-    try:
-        summary_file = os.path.join(tempdir, "model_summary.txt")
-        with open(summary_file, "w") as f:
-            summary = str(self.summary())
-            f.write(summary)
-        mlflow.log_artifact(local_path=summary_file)
-    finally:
-        shutil.rmtree(tempdir)
+
+    mlflow.log_text(str(self.summary()), "model_summary.txt")
 
     if log_models:
         mlflow.paddle.log_model(pd_model=self, artifact_path="model")

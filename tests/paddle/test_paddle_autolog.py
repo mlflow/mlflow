@@ -1,160 +1,97 @@
 import pytest
 import paddle
 import mlflow
-import mlflow.paddle
-
-NUM_EPOCHS = 6
+from mlflow.tracking import MlflowClient
 
 pytestmark = pytest.mark.large
 
+NUM_EPOCHS = 6
 
-@pytest.fixture
-def dataset():
+
+class LinearRegression(paddle.nn.Layer):
+    def __init__(self):
+        super().__init__()
+        self.fc = paddle.nn.Linear(13, 1)
+
+    def forward(self, feature):  # pylint: disable=arguments-differ
+        return self.fc(feature)
+
+
+def get_datasets():
     train_dataset = paddle.text.datasets.UCIHousing(mode="train")
     eval_dataset = paddle.text.datasets.UCIHousing(mode="test")
     return train_dataset, eval_dataset
 
 
-@pytest.fixture
-def test_model():
-    class UCIHousing(paddle.nn.Layer):
-        def __init__(self):
-            super(UCIHousing, self).__init__()
-            self.fc = paddle.nn.Linear(13, 1)
-
-        def forward(self, feature):  # pylint: disable=arguments-differ
-            pred = self.fc(feature)
-            return pred
-
-    model = paddle.Model(UCIHousing())
+def train_model(**fit_kwargs):
+    model = paddle.Model(LinearRegression())
     optim = paddle.optimizer.Adam(learning_rate=0.01, parameters=model.parameters())
     model.prepare(optim, paddle.nn.MSELoss())
+    train_dataset, eval_dataset = get_datasets()
+    model.fit(
+        train_dataset, eval_dataset, batch_size=16, epochs=NUM_EPOCHS, verbose=1, **fit_kwargs
+    )
     return model
 
 
-@pytest.fixture
-def paddle_model(dataset, test_model):
+def test_autolog_logs_expected_data():
     mlflow.paddle.autolog()
 
-    train_dataset, eval_dataset = dataset
+    with mlflow.start_run() as run:
+        train_model()
 
-    test_model.fit(train_dataset, eval_dataset, epochs=NUM_EPOCHS, batch_size=8, verbose=1)
+    client = MlflowClient()
+    run = client.get_run(run.info.run_id)
+    params = run.data.params
 
-    client = mlflow.tracking.MlflowClient()
-    run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
-    return test_model, run
+    # Testing params are logged
+    for param_key, param_value in [("optimizer_name", "Adam"), ("learning_rate", "0.01")]:
+        assert param_key in params
+        assert params[param_key] == param_value
 
-
-@pytest.mark.parametrize("log_models", [True, False])
-def test_paddle_autolog_log_models_configuration(log_models, dataset, test_model):
-    mlflow.paddle.autolog(log_models=log_models)
-
-    train_dataset, eval_dataset = dataset
-
-    test_model.fit(train_dataset, eval_dataset, epochs=NUM_EPOCHS, batch_size=8, verbose=1)
-
-    client = mlflow.tracking.MlflowClient()
-    run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
-    run_id = run.info.run_id
-    artifacts = [f.path for f in client.list_artifacts(run_id)]
-    assert ("model" in artifacts) == log_models
-
-
-def test_paddle_autolog_logs_default_params(paddle_model):
-    _, run = paddle_model
-    data = run.data
-    assert "optimizer_name" in data.params
-
-
-def test_paddle_autolog_logs_expected_data(paddle_model):
-    _, run = paddle_model
-    data = run.data
-
-    # Checking if metrics are logged
-    client = mlflow.tracking.MlflowClient()
+    # Testing metrics are logged
     for metric_key in ["batch_size", "loss", "step", "eval_batch_size", "eval_loss", "eval_step"]:
         assert metric_key in run.data.metrics
         metric_history = client.get_metric_history(run.info.run_id, metric_key)
         assert len(metric_history) == NUM_EPOCHS
 
-    # Testing optimizer parameters are logged
-    assert "optimizer_name" in data.params
-    assert data.params["optimizer_name"] == "Adam"
-
-    # Testing learning rate is logged
-    assert "learning_rate" in data.params
-    assert float(data.params["learning_rate"]) == 1e-2
-
     # Testing model_summary.txt is saved
-    client = mlflow.tracking.MlflowClient()
     artifacts = client.list_artifacts(run.info.run_id)
     assert any(x.path == "model_summary.txt" for x in artifacts)
 
 
-def test_paddle_autolog_persists_manually_created_run(dataset, test_model):
-    with mlflow.start_run() as manual_run:
-        mlflow.paddle.autolog()
-
-        train_dataset, eval_dataset = dataset
-
-        test_model.fit(train_dataset, eval_dataset, epochs=NUM_EPOCHS, batch_size=8, verbose=1)
-        assert mlflow.active_run() is not None
-        assert mlflow.active_run().info.run_id == manual_run.info.run_id
-
-
-def test_paddle_autolog_ends_auto_created_run(paddle_model):  # pylint: disable=unused-argument
-    assert mlflow.active_run() is None
-
-
-@pytest.fixture
-def paddle_model_with_early_stopping(patience, dataset, test_model):
-    train_dataset, eval_dataset = dataset
-
-    early_stopping_callback = paddle.callbacks.EarlyStopping(
-        "loss",
-        mode="min",
-        patience=patience,
-        verbose=2,
-        min_delta=0,
-        baseline=None,
-        save_best_model=True,
-    )
-
+def test_autolog_early_stopping_callback():
     mlflow.paddle.autolog()
-    test_model.fit(
-        train_dataset,
-        eval_dataset,
-        epochs=NUM_EPOCHS,
-        batch_size=8,
-        verbose=1,
-        callbacks=[early_stopping_callback],
-    )
 
-    client = mlflow.tracking.MlflowClient()
-    run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
-    return test_model, run
+    early_stopping = paddle.callbacks.EarlyStopping("loss", mode="min", patience=1, min_delta=0)
+    with mlflow.start_run() as run:
+        train_model(callbacks=[early_stopping])
+
+    client = MlflowClient()
+    run = client.get_run(run.info.run_id)
+
+    params = run.data.params
+    for param_key in ["monitor", "patience", "min_delta", "baseline"]:
+        assert param_key in params
+        assert params[param_key] == str(getattr(early_stopping, param_key))
+
+    metrics = run.data.metrics
+    for metric_key in ["stopped_epoch", "best_value"]:
+        assert metric_key in metrics
+        assert float(metrics[metric_key]) == getattr(early_stopping, metric_key)
+
+    for metric_key in ["loss", "step"]:
+        assert metric_key in run.data.metrics
+        metric_history = client.get_metric_history(run.info.run_id, metric_key)
+        assert len(metric_history) == NUM_EPOCHS
 
 
-@pytest.mark.parametrize("patience", [1])
-def test_paddle_early_stop_params_logged(paddle_model_with_early_stopping, patience):
-    _, run = paddle_model_with_early_stopping
-    data = run.data
-    assert "monitor" in data.params
-    assert "patience" in data.params
-    assert float(data.params["patience"]) == patience
-    assert "min_delta" in data.params
-    assert "stopped_epoch" in data.params
+@pytest.mark.parametrize("log_models", [True, False])
+def test_autolog_log_models_configuration(log_models):
+    mlflow.paddle.autolog(log_models=log_models)
 
+    with mlflow.start_run() as run:
+        train_model()
 
-def test_paddle_autolog_non_early_stop_callback_related_params_not_logged(paddle_model):
-    _, run = paddle_model
-    client = mlflow.tracking.MlflowClient()
-    loss_metric_history = client.get_metric_history(run.info.run_id, "loss")
-    step_metric_history = client.get_metric_history(run.info.run_id, "step")
-    assert len(loss_metric_history) == NUM_EPOCHS
-    assert len(step_metric_history) == NUM_EPOCHS
-    data = run.data
-    assert "monitor" not in data.params
-    assert "patience" not in data.params
-    assert "min_delta" not in data.params
-    assert "stopped_epoch" not in data.params
+    artifacts = MlflowClient().list_artifacts(run.info.run_id)
+    assert any(x.path == "model" for x in artifacts) == log_models
