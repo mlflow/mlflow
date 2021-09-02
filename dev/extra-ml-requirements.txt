@@ -42,3 +42,6 @@ pyspark
 shap
 # Required by mlflow.paddle
 paddlepaddle
+# Required by mlflow.prophet
+pystan==2.19.1.1
+prophet==1.0.1
