@@ -82,7 +82,7 @@ def http_request(
     max_retries=5,
     backoff_factor=2,
     retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
-    timeout=10,
+    timeout=120,
     **kwargs
 ):
     """
@@ -227,7 +227,7 @@ def cloud_storage_http_request(
     max_retries=5,
     backoff_factor=2,
     retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
-    timeout=10,
+    timeout=None,
     **kwargs
 ):
     """
@@ -241,7 +241,7 @@ def cloud_storage_http_request(
       exponential backoff.
     :param retry_codes: a list of HTTP response error codes that qualifies for retry.
     :param timeout: wait for timeout seconds for response from remote server for connect and
-      read request.
+      read request. Default to None owing to long duration operation in read / write.
     :param kwargs: Additional keyword arguments to pass to `requests.Session.request()`
 
     :return requests.Response object.
