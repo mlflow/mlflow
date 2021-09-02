@@ -8,6 +8,7 @@ import atexit
 import time
 import logging
 import inspect
+from packaging.version import Version
 from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
 from mlflow.entities import Experiment, Run, RunInfo, RunStatus, Param, RunTag, Metric, ViewType
@@ -1397,7 +1398,6 @@ def autolog(
     # eg: mxnet.gluon is the actual library, mlflow.gluon.autolog is our autolog function for it
     LIBRARY_TO_AUTOLOG_FN = {
         "tensorflow": tensorflow.autolog,
-        "keras": keras.autolog,
         "mxnet.gluon": gluon.autolog,
         "xgboost": xgboost.autolog,
         "lightgbm": lightgbm.autolog,
@@ -1410,6 +1410,8 @@ def autolog(
         # Pytorch frameworks under mlflow.pytorch.autolog
         "pytorch_lightning": pytorch.autolog,
     }
+    if Version(keras.__version__) < Version("2.6.0"):
+        LIBRARY_TO_AUTOLOG_FN["keras"] = keras.autolog
 
     CONF_KEY_IS_GLOBALLY_CONFIGURED = "globally_configured"
 
