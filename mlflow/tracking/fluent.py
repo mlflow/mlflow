@@ -1398,6 +1398,7 @@ def autolog(
     # eg: mxnet.gluon is the actual library, mlflow.gluon.autolog is our autolog function for it
     LIBRARY_TO_AUTOLOG_FN = {
         "tensorflow": tensorflow.autolog,
+        "keras": keras.autolog,
         "mxnet.gluon": gluon.autolog,
         "xgboost": xgboost.autolog,
         "lightgbm": lightgbm.autolog,
@@ -1410,8 +1411,6 @@ def autolog(
         # Pytorch frameworks under mlflow.pytorch.autolog
         "pytorch_lightning": pytorch.autolog,
     }
-    if Version(keras.__version__) < Version("2.6.0"):
-        LIBRARY_TO_AUTOLOG_FN["keras"] = keras.autolog
 
     CONF_KEY_IS_GLOBALLY_CONFIGURED = "globally_configured"
 
@@ -1465,8 +1464,40 @@ def autolog(
     # for each autolog library (except pyspark), register a post-import hook.
     # this way, we do not send any errors to the user until we know they are using the library.
     # the post-import hook also retroactively activates for previously-imported libraries.
-    for module in list(set(LIBRARY_TO_AUTOLOG_FN.keys()) - set(["pyspark", "pyspark.ml"])):
+    for module in list(
+        set(LIBRARY_TO_AUTOLOG_FN.keys()) - set(["tensorflow", "keras", "pyspark", "pyspark.ml"])
+    ):
         register_post_import_hook(setup_autologging, module, overwrite=True)
+
+    def conditionally_set_up_keras_autologging(keras_module):
+        # NB: Keras unconditionally depends on TensorFlow beginning with Version 2.6.0, and
+        # many classes defined in the `keras` module are aliases of classes in the `tf.keras`
+        # module. Accordingly, TensorFlow autologging serves as a replacement for Keras autologging
+        # in Keras >= 2.6.0
+        if Version(keras_module.__version__) >= Version("2.6.0"):
+            return
+
+        setup_autologging(keras_module)
+
+    register_post_import_hook(conditionally_set_up_keras_autologging, "keras", overwrite=True)
+
+    def set_up_tensorflow_autologging(tensorflow_module):
+        # In version 2.6.0 and above of the Keras library, importing Keras unconditionally imports
+        # TensorFlow. When TensorFlow is imported during the Keras import procedure, the
+        # `tensorflow.keras` module, which is used during the setup procedure for TensorFlow
+        # autologging, has not yet been imported. In this circumstance, attempting to import
+        # `tensorflow.keras` during the TensorFlow import hook will provide the wrong module;
+        # the deprecated / legacy `tf.python.keras` will be provided, rather than the expected
+        # `keras.api._v2.keras` module. To correct this issue before enabling TensorFlow
+        # autologging, we manually assign `tensorflow.keras` to the correct `keras.api._v2.keras`
+        # module
+        import sys
+        import importlib
+
+        sys.modules['tensorflow.keras'] = importlib.import_module('keras.api._v2.keras')
+        setup_autologging(tensorflow_module)
+
+    register_post_import_hook(set_up_tensorflow_autologging, "tensorflow", overwrite=True)
 
     # for pyspark, we activate autologging immediately, without waiting for a module import.
     # this is because on Databricks a SparkSession already exists and the user can directly
