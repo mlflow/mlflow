@@ -1648,18 +1648,10 @@ def _find_model(model_name, sage_client):
     :return: If the model exists, a dictionary of model attributes. If the model does not
              exist, ``None``.
     """
-    models_page = sage_client.list_models(MaxResults=100, NameContains=model_name)
-
-    while True:
-        for model in models_page["Models"]:
-            if model["ModelName"] == model_name:
-                return model
-
-        if "NextToken" in models_page:
-            models_page = sage_client.list_models(
-                MaxResults=100, NextToken=models_page["NextToken"], NameContains=model_name,
-            )
-        else:
+    try:
+        return sage_client.describe_model(ModelName=model_name)
+    except Client.exceptions.ClientError as error:
+        if "Could not find model" in error.response["Error"]["Message"]:
             return None
 
 
