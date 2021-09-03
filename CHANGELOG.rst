@@ -10,7 +10,7 @@ Features:
 
 Bug fixes and documentation updates:
 
-
+- Increased MLflow client HTTP request timeout from 10s to 90s (#4764, @jinzhang21)
 
 Small bug fixes and doc updates ()
 
