@@ -3,6 +3,7 @@ import sys
 from collections import namedtuple
 from io import StringIO
 from unittest import mock
+from packaging.version import Version
 
 import mlflow
 from mlflow.utils.autologging_utils import (
@@ -46,6 +47,14 @@ library_to_mlflow_module = {
 }
 
 
+def clean_modules_for_keras_26():
+    if Version(keras.__version__) >= Version("2.6.0"):
+        # For keras >= 2.6.0, the tensorflow/keras autologging includes special logic,
+        # to ensure test pass, we need clean these 2 modules first before run each test.
+        sys.modules.pop("tensorflow", None)
+        sys.modules.pop("keras", None)
+
+
 @pytest.fixture(autouse=True)
 def reset_global_states():
     from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
@@ -62,6 +71,8 @@ def reset_global_states():
     assert all(v == {} for v in AUTOLOGGING_INTEGRATIONS.values())
     assert mlflow.utils.import_hooks._post_import_hooks == {}
 
+    clean_modules_for_keras_26()
+
     yield
 
     for key in AUTOLOGGING_INTEGRATIONS.keys():
@@ -75,6 +86,13 @@ def reset_global_states():
 
     assert all(v == {} for v in AUTOLOGGING_INTEGRATIONS.values())
     assert mlflow.utils.import_hooks._post_import_hooks == {}
+
+
+def get_redirected_integration_name(mlflow_module):
+    integration_name = mlflow_module.autolog.integration_name
+    if Version(keras.__version__) >= Version("2.6.0") and integration_name == "keras":
+        integration_name = "tensorflow"
+    return integration_name
 
 
 # We are pretending the module is not already imported (in reality it is, at the top of this file),
@@ -97,7 +115,8 @@ def disable_new_import_hook_firing_if_module_already_exists():
 def test_universal_autolog_does_not_throw_if_specific_autolog_throws_in_standard_mode(
     library, mlflow_module
 ):
-    with mock.patch("mlflow." + mlflow_module.__name__ + ".autolog") as autolog_mock:
+    integration_name = get_redirected_integration_name(mlflow_module)
+    with mock.patch("mlflow." + integration_name + ".autolog") as autolog_mock:
         autolog_mock.side_effect = Exception("asdf")
         mlflow.autolog()
         if library != pyspark and library != pyspark.ml:
@@ -110,7 +129,8 @@ def test_universal_autolog_does_not_throw_if_specific_autolog_throws_in_standard
 @pytest.mark.usefixtures(test_mode_on.__name__)
 @pytest.mark.parametrize("library,mlflow_module", library_to_mlflow_module.items())
 def test_universal_autolog_throws_if_specific_autolog_throws_in_test_mode(library, mlflow_module):
-    with mock.patch("mlflow." + mlflow_module.__name__ + ".autolog") as autolog_mock:
+    integration_name = get_redirected_integration_name(mlflow_module)
+    with mock.patch("mlflow." + integration_name + ".autolog") as autolog_mock:
         autolog_mock.side_effect = Exception("asdf")
 
         if library == pyspark or library == pyspark.ml:
@@ -144,13 +164,13 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
         args_to_test.update({"log_input_examples": True, "log_model_signatures": True})
 
     mlflow.autolog(**args_to_test)
+
+    integration_name = get_redirected_integration_name(mlflow_module)
+
     mlflow.utils.import_hooks.notify_module_loaded(library)
 
     for arg_key, arg_value in args_to_test.items():
-        assert (
-            get_autologging_config(mlflow_module.autolog.integration_name, arg_key, None)
-            == arg_value
-        )
+        assert get_autologging_config(integration_name, arg_key, None) == arg_value
 
 
 @pytest.mark.large
@@ -261,12 +281,14 @@ def test_autolog_success_message_obeys_disabled():
         autolog_logger_mock.assert_not_called()
 
         mlflow.autolog()
+        clean_modules_for_keras_26()
         mlflow.utils.import_hooks.notify_module_loaded(tensorflow)
         autolog_logger_mock.assert_called()
 
         autolog_logger_mock.reset_mock()
 
         mlflow.autolog(disable=False)
+        clean_modules_for_keras_26()
         mlflow.utils.import_hooks.notify_module_loaded(tensorflow)
         autolog_logger_mock.assert_called()
 

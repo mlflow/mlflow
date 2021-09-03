@@ -1470,9 +1470,10 @@ def autolog(
         register_post_import_hook(setup_autologging, module, overwrite=True)
 
     FULLY_IMPORTED_KERAS = False
+    TF_AUTOLOG_SETUP_CALLED = False
 
     def conditionally_set_up_keras_autologging(keras_module):
-        nonlocal FULLY_IMPORTED_KERAS
+        nonlocal FULLY_IMPORTED_KERAS, TF_AUTOLOG_SETUP_CALLED
         FULLY_IMPORTED_KERAS = True
 
         if Version(keras_module.__version__) >= Version("2.6.0"):
@@ -1484,13 +1485,14 @@ def autolog(
                 import tensorflow
 
                 setup_autologging(tensorflow)
+                TF_AUTOLOG_SETUP_CALLED = True
             except Exception as e:
                 _logger.debug(
                     "Failed to set up TensorFlow autologging for tf.keras models upon"
                     " Keras library import: %s",
                     str(e),
                 )
-
+                raise
         else:
             setup_autologging(keras_module)
 
@@ -1499,7 +1501,7 @@ def autolog(
     def set_up_tensorflow_autologging(tensorflow_module):
         import sys
 
-        nonlocal FULLY_IMPORTED_KERAS
+        nonlocal FULLY_IMPORTED_KERAS, TF_AUTOLOG_SETUP_CALLED
         if "keras" in sys.modules and not FULLY_IMPORTED_KERAS:
             # In Keras >= 2.6.0, importing Keras imports the TensorFlow library, which can
             # trigger this autologging import hook for TensorFlow before the entire Keras import
@@ -1515,7 +1517,7 @@ def autolog(
         # As a result, Keras autologging must call `mlflow.tensorflow.autolog()` in Keras >= 2.6.0.
         # Accordingly, we insert this check to ensure that importing tensorflow, which may import
         # keras, does not enable tensorflow autologging twice.
-        if autologging_is_disabled("tensorflow"):
+        if not TF_AUTOLOG_SETUP_CALLED:
             setup_autologging(tensorflow_module)
 
     register_post_import_hook(set_up_tensorflow_autologging, "tensorflow", overwrite=True)
