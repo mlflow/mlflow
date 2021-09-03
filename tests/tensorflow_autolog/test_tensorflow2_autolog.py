@@ -842,9 +842,6 @@ def test_fluent_autolog_with_tf_keras_logs_expected_content(
     """
     mlflow.autolog()
 
-    import tensorflow as tf
-    from tensorflow.keras import layers
-
     model = create_tf_keras_model()
 
     with mlflow.start_run() as run:
