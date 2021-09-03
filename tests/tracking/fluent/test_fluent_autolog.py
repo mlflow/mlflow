@@ -5,6 +5,7 @@ from io import StringIO
 from unittest import mock
 
 import mlflow
+from mlflow.tracking.client import MlflowClient
 from mlflow.utils.autologging_utils import (
     get_autologging_config,
     autologging_is_disabled,
@@ -22,6 +23,7 @@ import mxnet.gluon
 import pyspark
 import pyspark.ml
 import pytorch_lightning
+import numpy as np
 
 from tests.autologging.fixtures import test_mode_off, test_mode_on
 from tests.autologging.fixtures import reset_stderr  # pylint: disable=unused-import
@@ -86,9 +88,12 @@ def only_register(callback_fn, module, overwrite):  # pylint: disable=unused-arg
 
 
 @pytest.fixture(autouse=True)
-def disable_new_import_hook_firing_if_module_already_exists():
-    with mock.patch("mlflow.tracking.fluent.register_post_import_hook", wraps=only_register):
+def disable_new_import_hook_firing_if_module_already_exists(request):
+    if 'alwaysfireimporthooks' in request.keywords:
         yield
+    else:
+        with mock.patch("mlflow.tracking.fluent.register_post_import_hook", wraps=only_register):
+            yield
 
 
 @pytest.mark.large
@@ -304,3 +309,59 @@ def test_autolog_obeys_silent_mode(
     mlflow.utils.import_hooks.notify_module_loaded(library)
 
     assert not stream.getvalue()
+
+@pytest.mark.large
+@pytest.mark.alwaysfireimporthooks
+def test_autolog_with_tf_keras_preserves_v2_model_reference():
+    """
+    Verifies that `tensorflow.keras.Model` refers to the correct class in the correct module
+    after `mlflow.autolog()` is called, guarding against previously identified compatibility issues
+    between recent versions of Keras and MLflow's internal utility for setting up autologging
+    import hooks.
+    """
+    del sys.modules["tensorflow"]
+    del sys.modules["keras"]
+
+    mlflow.autolog()
+
+    import tensorflow.keras
+    from keras.api._v2.keras import Model as ModelV2
+    assert tensorflow.keras.Model == ModelV2
+
+
+@pytest.mark.large
+@pytest.mark.alwaysfireimporthooks
+def test_autolog_logs_expected_content_for_tf_keras_models():
+    del sys.modules["tensorflow"]
+    del sys.modules["keras"]
+
+    mlflow.autolog()
+
+    import tensorflow as tf
+    from tensorflow.keras import layers
+
+    model = tf.keras.Sequential()
+
+    samples = np.random.random((150, 4))
+    n, n_class = (150, 3)
+    classes = np.random.randint(0, n_class, n)
+    labels = np.zeros((n, n_class))
+    labels[np.arange(n), classes] = 1
+
+    model.add(layers.Dense(16, activation="relu", input_shape=(4,)))
+    model.add(layers.Dense(3, activation="softmax"))
+    model.compile(
+        optimizer=tf.keras.optimizers.Adam(), loss="categorical_crossentropy", metrics=["accuracy"]
+    )
+
+    with mlflow.start_run() as run:
+        model.fit(samples, labels, epochs=10)
+
+    client = MlflowClient()
+    run_data = client.get_run(run.info.run_id).data
+    assert "accuracy" in run_data.metrics
+    assert "epochs" in run_data.params
+
+    artifacts = client.list_artifacts(run.info.run_id)
+    artifacts = map(lambda x: x.path, artifacts)
+    assert "model" in artifacts
