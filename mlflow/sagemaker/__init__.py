@@ -909,8 +909,7 @@ def push_model_to_sagemaker(
     sage_client = boto3.client("sagemaker", region_name=region_name)
     s3_client = boto3.client("s3", region_name=region_name)
 
-    model_exists = _find_model(model_name=model_name, sage_client=sage_client) is not None
-    if model_exists:
+    if _does_model_exist(model_name=model_name, sage_client=sage_client):
         raise MlflowException(
             message=(
                 "You are attempting to create a Sagemaker model with name: {model_name}."
@@ -1639,20 +1638,22 @@ def _find_transform_job(job_name, sage_client):
             return None
 
 
-def _find_model(model_name, sage_client):
+def _does_model_exist(model_name, sage_client):
     """
-    Finds a SageMaker model with the specified name in the caller's AWS account,
-    returning a NoneType if the model is not found.
+    Determines whether a SageMaker model exists with the specified name in the caller's AWS account,
+    returning True if the model exists, returning False if the model does not exist.
 
     :param sage_client: A boto3 client for SageMaker.
-    :return: If the model exists, a dictionary of model attributes. If the model does not
-             exist, ``None``.
+    :return: If the model exists, ``True``. If the model does not
+             exist, ``False``.
     """
     try:
-        return sage_client.describe_model(ModelName=model_name)
+        response = sage_client.describe_model(ModelName=model_name)
     except Client.exceptions.ClientError as error:
         if "Could not find model" in error.response["Error"]["Message"]:
-            return None
+            return False
+    else:
+        return True if response else False
 
 
 class _SageMakerOperation:
