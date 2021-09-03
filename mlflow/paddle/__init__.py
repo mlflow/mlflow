@@ -456,18 +456,12 @@ def autolog(
     log_every_n_epoch=1, log_models=True, disable=False, exclusive=False, silent=False,
 ):  # pylint: disable=unused-argument
     """
-    Enables (or disables) and configures autologging from `PaddlePaddle
-    <https://pytorch-lightning.readthedocs.io/en/latest>`_ to MLflow.
+    Enables (or disables) and configures autologging from PaddlePaddle to MLflow.
 
-    Autologging is performed when you call the `fit` method of `paddle.Model`_.
+    Autologging is performed when the `fit` method of `paddle.Model`_ is called.
 
     .. _paddle.Model:
         https://www.paddlepaddle.org.cn/documentation/docs/en/api/paddle/Model_en.html
-
-    **Note**: Autologging is only supported for PaddlePaddle models built by high level api,
-    i.e., models that subclass
-    `paddle.Model \
-    <https://www.paddlepaddle.org.cn/documentation/docs/en/api/paddle/Model_en.html#>`__.
 
     :param log_every_n_epoch: If specified, logs metrics once every `n` epochs. By default, metrics
                        are logged after every epoch.
@@ -486,62 +480,68 @@ def autolog(
         :caption: Example
 
         import paddle
-        import paddle.nn as nn
-        import paddle.vision.transforms as T
-        from paddle.static import InputSpec
+        import mlflow
 
-        import mlflow.paddle
-        from mlflow.tracking import MlflowClient
 
-        def print_auto_logged_info(r):
-            tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
-            artifacts = [f.path for f in MlflowClient().list_artifacts(r.info.run_id, "model")]
-            print("run_id: {}".format(r.info.run_id))
+        def show_run_data(run_id):
+            run = mlflow.get_run(run_id)
+            print("params: {}".format(run.data.params))
+            print("metrics: {}".format(run.data.metrics))
+            client = mlflow.tracking.MlflowClient()
+            artifacts = [f.path for f in client.list_artifacts(run.info.run_id, "model")]
             print("artifacts: {}".format(artifacts))
-            print("params: {}".format(r.data.params))
-            print("metrics: {}".format(r.data.metrics))
-            print("tags: {}".format(tags))
 
-        device = paddle.set_device("cpu")  # or 'gpu'
 
-        net = nn.Sequential(nn.Flatten(1), nn.Linear(784, 200), nn.Tanh(), nn.Linear(200, 10))
+        class LinearRegression(paddle.nn.Layer):
+            def __init__(self):
+                super().__init__()
+                self.fc = paddle.nn.Linear(13, 1)
 
-        # inputs and labels are not required for dynamic graph.
-        input = InputSpec([None, 784], "float32", "x")
-        label = InputSpec([None, 1], "int64", "label")
+            def forward(self, feature):
+                return self.fc(feature)
 
-        model = paddle.Model(net, input, label)
-        optim = paddle.optimizer.SGD(learning_rate=1e-3, parameters=model.parameters())
-        model.prepare(optim, paddle.nn.CrossEntropyLoss(), paddle.metric.Accuracy())
 
-        transform = T.Compose([T.Transpose(), T.Normalize([127.5], [127.5])])
-        data = paddle.vision.datasets.MNIST(mode="train", transform=transform)
+        train_dataset = paddle.text.datasets.UCIHousing(mode="train")
+        eval_dataset = paddle.text.datasets.UCIHousing(mode="test")
+
+        model = paddle.Model(LinearRegression())
+        optim = paddle.optimizer.SGD(learning_rate=1e-2, parameters=model.parameters())
+        model.prepare(optim, paddle.nn.MSELoss(), paddle.metric.Accuracy())
 
         mlflow.paddle.autolog()
 
         with mlflow.start_run() as run:
-            model.fit(data, epochs=2, batch_size=32, verbose=1)
+            model.fit(train_dataset, eval_dataset, batch_size=16, epochs=10)
 
-        print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
+        show_run_data(run.info.run_id)
 
     .. code-block:: text
         :caption: Output
 
-        run_id: 130de3c2cb464c88a9279d983b8caff3
-        artifacts: ['model/MLmodel',
-                    'model/conda.yaml',
-                    'model/model.pdiparams',
-                    'model/model.pdiparams.info',
-                    'model/model.pdmodel',
-                    'model/requirements.txt']
-        params: {'optimizer_name': 'SGD'}
-        metrics: {'loss': 0.4654932916164398,
-                  'step': 1874.0,
-                  'batch_size': 32.0,
-                  'acc': 0.8579833333333333}
-        tags: {'Mode': 'training'}
+        params: {
+            "learning_rate": "0.01",
+            "optimizer_name": "SGD",
+        }
+        metrics: {
+            "loss": 17.482044,
+            "step": 25.0,
+            "acc": 0.0,
+            "eval_step": 6.0,
+            "eval_acc": 0.0,
+            "eval_batch_size": 6.0,
+            "batch_size": 4.0,
+            "eval_loss": 24.717455,
+        }
+        artifacts: [
+            "model/MLmodel",
+            "model/conda.yaml",
+            "model/model.pdiparams",
+            "model/model.pdiparams.info",
+            "model/model.pdmodel",
+            "model/requirements.txt",
+        ]
     """
-    import paddle as pd
+    import paddle
     from mlflow.paddle._paddle_autolog import patched_fit
 
-    safe_patch(FLAVOR_NAME, pd.Model, "fit", patched_fit, manage_run=True)
+    safe_patch(FLAVOR_NAME, paddle.Model, "fit", patched_fit, manage_run=True)
