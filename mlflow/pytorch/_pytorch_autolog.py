@@ -70,7 +70,14 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         # as a sanity check to catch bugs without having to wait for the training routine
         # to complete. During this check, we should skip logging metrics.
         # https://pytorch-lightning.readthedocs.io/en/stable/common/trainer.html#num-sanity-val-steps # noqa
-        if trainer.running_sanity_check:
+        sanity_checking = (
+            # `running_sanity_check` has been renamed to `sanity_checking`:
+            # https://github.com/PyTorchLightning/pytorch-lightning/pull/9209
+            trainer.sanity_checking
+            if Version(pl.__version__) > Version("1.4.5")
+            else trainer.running_sanity_check
+        )
+        if sanity_checking:
             return
 
         if (pl_module.current_epoch + 1) % self.log_every_n_epoch == 0:
