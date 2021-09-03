@@ -684,12 +684,15 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
         )
         cv_model.fit(*get_iris())
 
-        # Ensure `cv_model.predict` fails with `NotFittedError`
+        # Ensure `cv_model.predict` fails with `NotFittedError` or ``
         msg = (
             "This GridSearchCV instance was initialized with refit=False. "
             "predict is available only after refitting on the best parameters"
         )
-        with pytest.raises(NotFittedError, match=msg):
+        err = (
+            NotFittedError if Version(sklearn.__version__) <= Version("0.24.2") else AttributeError
+        )
+        with pytest.raises(err, match=msg):
             cv_model.predict([[0, 0, 0, 0]])
 
         # Count how many times `mock_warning` has been called on not-fitted `predict` failure
