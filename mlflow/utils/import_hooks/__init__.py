@@ -247,7 +247,7 @@ class ImportHookFinder:
 
     @synchronized(_post_import_hooks_lock)
     @synchronized(_import_error_hooks_lock)
-    def find_spec(self, fullname, path, target=None):
+    def find_spec(self, fullname, path, target=None):  # pylint: disable=unused-argument
         # If the module being imported is not one we have registered
         # import hooks for, we can return immediately. We will
         # take no further part in the importing of this module.

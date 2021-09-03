@@ -886,7 +886,7 @@ def test_fluent_autolog_with_tf_keras_preserves_v2_model_reference():
 def test_import_tensorflow_with_fluent_autolog_enables_tf_autologging():
     mlflow.autolog()
 
-    import tensorflow
+    import tensorflow  # pylint: disable=unused-variable,unused-import,reimported
 
     assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
     assert autologging_is_disabled(mlflow.keras.FLAVOR_NAME)
@@ -897,7 +897,7 @@ def test_import_tensorflow_with_fluent_autolog_enables_tf_autologging():
 def test_import_tf_keras_with_fluent_autolog_enables_tf_autologging():
     mlflow.autolog()
 
-    import tensorflow.keras
+    import tensorflow.keras  # pylint: disable=unused-variable,unused-import
 
     assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
     assert autologging_is_disabled(mlflow.keras.FLAVOR_NAME)
@@ -912,7 +912,8 @@ def test_import_tf_keras_with_fluent_autolog_enables_tf_autologging():
 def test_import_keras_with_fluent_autolog_enables_tensorflow_autologging():
     mlflow.autolog()
 
-    import keras
+    import keras  # pylint: disable=unused-variable,unused-import
+ 
 
     assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
     assert autologging_is_disabled(mlflow.keras.FLAVOR_NAME)
