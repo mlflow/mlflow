@@ -69,6 +69,9 @@ def clear_tf_keras_imports():
 @pytest.fixture(autouse=True)
 def clear_fluent_autologging_import_hooks():
     """
+    Clears import hooks for MLflow fluent autologging (`mlflow.autolog()`) between tests
+    to ensure that interactions between fluent autologging and TensorFlow / tf.keras can
+    be tested successfully
     """
     mlflow.utils.import_hooks._post_import_hooks.pop("tensorflow", None)
     mlflow.utils.import_hooks._post_import_hooks.pop("keras", None)
