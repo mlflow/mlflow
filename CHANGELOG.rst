@@ -6,6 +6,7 @@ MLflow 1.20.2 includes several major features and improvements:
 
 Features:
 
+- Enabled auto dependency inference in spark flavor in autologging (#4759, @harupy)
 
 
 Bug fixes and documentation updates:
