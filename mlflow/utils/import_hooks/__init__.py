@@ -291,6 +291,43 @@ class ImportHookFinder:
         finally:
             del self.in_progress[fullname]
 
+    @synchronized(_post_import_hooks_lock)
+    @synchronized(_import_error_hooks_lock)
+    def find_spec(self, fullname, path, target=None):  # pylint: disable=unused-argument
+        # If the module being imported is not one we have registered
+        # import hooks for, we can return immediately. We will
+        # take no further part in the importing of this module.
+
+        if fullname not in _post_import_hooks and fullname not in _import_error_hooks:
+            return None
+
+        # When we are interested in a specific module, we will call back
+        # into the import system a second time to defer to the import
+        # finder that is supposed to handle the importing of the module.
+        # We set an in progress flag for the target module so that on
+        # the second time through we don't trigger another call back
+        # into the import system and cause a infinite loop.
+
+        if fullname in self.in_progress:
+            return None
+
+        self.in_progress[fullname] = True
+
+        # Now call back into the import system again.
+
+        try:
+            import importlib.util
+
+            spec = importlib.util.find_spec(fullname)
+            # Replace the module spec's loader with a wrapped version that executes import
+            # hooks when the module is loaded
+            spec.loader = _ImportHookChainedLoader(spec.loader)
+            return spec
+        except (ImportError, AttributeError):
+            notify_module_import_error(fullname)
+        finally:
+            del self.in_progress[fullname]
+
 
 # Decorator for marking that a function should be called as a post
 # import hook when the target module is imported.
