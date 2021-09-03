@@ -2,7 +2,7 @@
 import re
 
 
-VERSION = "1.20.1"
+VERSION = "1.20.2"
 
 
 def is_release_version():
