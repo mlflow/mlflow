@@ -30,6 +30,7 @@ _MODEL_BINARY_FILE_NAME = "model.pr"
 _MODEL_TYPE_KEY = "model_type"
 _SAVE_FORMAT_KEY = "save_format"
 
+
 def get_default_pip_requirements():
     """
     :return: A list of default pip requirements for MLflow Models produced by this flavor.
@@ -37,10 +38,22 @@ def get_default_pip_requirements():
              that, at a minimum, contains these requirements.
     """
 
-    pystan_reqs = _get_pinned_requirement("pystan")
-    prophet_reqs = _get_pinned_requirement("prophet")
+    prophet_requirements = [
+        "Cython",
+        "pandas",
+        "convertdate",
+        "LunarCalendar",
+        "holidays",
+        "tqdm",
+        "cmdstanpy",
+        "matplotlib",
+        "setuptools-git",
+        "python-dateutil",
+        "pystan",
+        "prophet",
+    ]
 
-    return [pystan_reqs, prophet_reqs]
+    return [_get_pinned_requirement(x) for x in prophet_requirements]
 
 
 def get_default_conda_env():
@@ -61,7 +74,7 @@ def save_model(
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
-    **kwargs
+    **kwargs,
 ):
     """
     Save a Prophet model to a path on the local file system.
@@ -96,6 +109,7 @@ def save_model(
 
     import prophet
     import pystan
+    import numpy
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
@@ -124,6 +138,7 @@ def save_model(
     }
     mlflow_model.add_flavor(
         FLAVOR_NAME,
+        numpy_version=numpy.__version__,
         pystan_version=pystan.__version__,
         prophet_version=prophet.__version__,
         **flavor_conf,
@@ -132,11 +147,8 @@ def save_model(
 
     if conda_env is None:
         if pip_requirements is None:
+            # cannot use inferred requirements due to prophet's build process
             default_reqs = get_default_pip_requirements()
-            inferred_reqs = mlflow.models.infer_pip_requirements(
-                path, FLAVOR_NAME, fallback=default_reqs
-            )
-            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
             default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
@@ -149,7 +161,7 @@ def save_model(
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     if pip_constraints:
-        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_requirements))
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
 
@@ -164,7 +176,7 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements=None,
     extra_pip_requirements=None,
-    **kwargs
+    **kwargs,
 ):
     """
         Log a Prophet model as an MLflow artifact for the current run.
@@ -278,4 +290,3 @@ class _ProphetModelWrapper:
 
     def predict(self, dataframe):
         return self.pr_model.predict(dataframe)
-

@@ -12,6 +12,7 @@ from prophet import Prophet
 import mlflow
 import mlflow.prophet
 import mlflow.utils
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.models.utils import _read_example
@@ -23,8 +24,12 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
-from tests.helper_functions import (_compare_conda_env_requirements,
-                                    _assert_pip_requirements)
+from tests.helper_functions import (
+    _compare_conda_env_requirements,
+    _assert_pip_requirements,
+    pyfunc_serve_and_score_model,
+)
+
 
 class DataGeneration:
     def __init__(self, **kwargs):
@@ -93,15 +98,18 @@ TEST_CONFIG = {
     "target_field": "y",
 }
 FORECAST_HORIZON = 60
+SEED = 98765
 HORIZON_FIELD_NAME = "horizon"
 TARGET_FIELD_NAME = "yhat"
 DS_FORMAT = "%Y-%m-%dT%H:%M:%S"
+INFER_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 ModelWithSource = namedtuple("ModelWithSource", ["model", "data"])
 
 
 @pytest.fixture(scope="session")
 def prophet_model():
+    np.random.seed(SEED)
     data = DataGeneration(**TEST_CONFIG).create_series_df()
     model = Prophet().fit(data)
     return ModelWithSource(model, data)
@@ -129,205 +137,201 @@ def generate_forecast(model, horizon):
     return model.predict(model.make_future_dataframe(periods=horizon))[TARGET_FIELD_NAME]
 
 
-# @pytest.mark.large
-# def test_model_native_save_load(prophet_model, model_path):
-#     model = prophet_model.model
-#     mlflow.prophet.save_model(pr_model=model, path=model_path)
-#     loaded_model = mlflow.prophet.load_model(model_uri=model_path)
-#
-#     np.testing.assert_array_equal(
-#         generate_forecast(model, FORECAST_HORIZON),
-#         loaded_model.predict(future_horizon_df(loaded_model, FORECAST_HORIZON))[TARGET_FIELD_NAME],
-#     )
-#
-#
-# @pytest.mark.large
-# def test_model_pyfunc_save_load(prophet_model, model_path):
-#     model = prophet_model.model
-#     mlflow.prophet.save_model(pr_model=model, path=model_path)
-#     loaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
-#
-#     horizon_df = future_horizon_df(model, FORECAST_HORIZON)
-#
-#     np.testing.assert_array_equal(
-#         generate_forecast(model, FORECAST_HORIZON),
-#         loaded_pyfunc.predict(horizon_df)[TARGET_FIELD_NAME],
-#     )
-#
-#
-# @pytest.mark.large
-# def test_signature_and_examples_saved_correctly(prophet_model):
-#     data = prophet_model.data
-#     model = prophet_model.model
-#     horizon_df = future_horizon_df(model, FORECAST_HORIZON)
-#     signature_ = infer_signature(data, model.predict(horizon_df))
-#     example_ = data[0:5].copy(deep=False)
-#     example_["y"] = pd.to_numeric(example_["y"])  # cast to appropriate precision
-#     for signature in (None, signature_):
-#         for example in (None, example_):
-#             with TempDir() as tmp:
-#                 path = tmp.path("model")
-#                 mlflow.prophet.save_model(
-#                     model, path=path, signature=signature, input_example=example
-#                 )
-#                 mlflow_model = Model.load(path)
-#                 assert signature == mlflow_model.signature
-#                 if example is None:
-#                     assert mlflow_model.saved_input_example_info is None
-#                 else:
-#                     r_example = _read_example(mlflow_model, path).copy(deep=False)
-#                     r_example["ds"] = pd.to_datetime(r_example["ds"], format=DS_FORMAT)
-#                     np.testing.assert_array_equal(r_example, example)
-#
-#
-# @pytest.mark.large
-# def test_model_load_from_remote_uri_succeeds(prophet_model, model_path, mock_s3_bucket):
-#     mlflow.prophet.save_model(pr_model=prophet_model.model, path=model_path)
-#
-#     artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
-#     artifact_path = "model"
-#     artifact_repo = S3ArtifactRepository(artifact_root)
-#     artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
-#
-#     model_uri = os.path.join(artifact_root, artifact_path)
-#     reloaded_prophet_model = mlflow.prophet.load_model(model_uri=model_uri)
-#     np.testing.assert_array_equal(
-#         generate_forecast(prophet_model.model, FORECAST_HORIZON),
-#         generate_forecast(reloaded_prophet_model, FORECAST_HORIZON),
-#     )
-#
-#
-# @pytest.mark.large
-# def test_model_log(prophet_model):
-#     old_uri = mlflow.get_tracking_uri()
-#     with TempDir(chdr=True, remove_on_exit=True) as tmp:
-#         for should_start_run in [False, True]:
-#             try:
-#                 mlflow.set_tracking_uri("test")
-#                 if should_start_run:
-#                     mlflow.start_run()
-#                 artifact_path = "prophet"
-#                 conda_env = os.path.join(tmp.path(), "conda_env.yaml")
-#                 _mlflow_conda_env(conda_env, additional_pip_deps=["pystan", "prophet"])
-#
-#                 mlflow.prophet.log_model(
-#                     pr_model=prophet_model.model, artifact_path=artifact_path, conda_env=conda_env
-#                 )
-#                 model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-#                 reloaded_prophet_model = mlflow.prophet.load_model(model_uri=model_uri)
-#
-#                 np.testing.assert_array_equal(
-#                     generate_forecast(prophet_model.model, FORECAST_HORIZON),
-#                     generate_forecast(reloaded_prophet_model, FORECAST_HORIZON),
-#                 )
-#
-#                 model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-#                 model_config = Model.load(os.path.join(model_path, "MLmodel"))
-#                 assert pyfunc.FLAVOR_NAME in model_config.flavors
-#                 assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
-#                 env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
-#                 assert os.path.exists(os.path.join(model_path, env_path))
-#
-#             finally:
-#                 mlflow.end_run()
-#                 mlflow.set_tracking_uri(old_uri)
-#
-#
-# @pytest.mark.small
-# def test_log_model_calls_register_model(prophet_model):
-#     artifact_path = "prophet"
-#     register_model_patch = mock.patch("mlflow.register_model")
-#     with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
-#         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
-#         _mlflow_conda_env(conda_env, additional_pip_deps=["pystan", "prophet"])
-#         mlflow.prophet.log_model(
-#             pr_model=prophet_model.model,
-#             artifact_path=artifact_path,
-#             conda_env=conda_env,
-#             registered_model_name="ProphetModel1",
-#         )
-#         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-#         mlflow.register_model.assert_called_once_with(
-#             model_uri, "ProphetModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-#         )
-#
-# def test_log_model_no_registered_model_name(prophet_model):
-#     artifact_path = "prophet"
-#     register_model_patch = mock.patch("mlflow.register_model")
-#     with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
-#         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
-#         _mlflow_conda_env(conda_env, additional_pip_deps=["pystan", "prophet"])
-#         mlflow.prophet.log_model(
-#             pr_model=prophet_model.model, artifact_path=artifact_path, conda_env=conda_env,
-#         )
-#         mlflow.register_model.assert_not_called()
-#
-#
-# @pytest.mark.large
-# def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
-#     prophet_model, model_path, prophet_custom_env
-# ):
-#     mlflow.prophet.save_model(
-#         pr_model=prophet_model.model, path=model_path, conda_env=prophet_custom_env
-#     )
-#
-#     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-#     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
-#     assert os.path.exists(saved_conda_env_path)
-#     assert saved_conda_env_path != prophet_custom_env
-#
-#     with open(prophet_custom_env, "r") as f:
-#         prophet_custom_env_parsed = yaml.safe_load(f)
-#     with open(saved_conda_env_path, "r") as f:
-#         saved_conda_env_parsed = yaml.safe_load(f)
-#     assert saved_conda_env_parsed == prophet_custom_env_parsed
-#
-#
-# @pytest.mark.large
-# def test_model_save_persists_requirements_in_mlflow_model_directory(
-#     prophet_model, model_path, prophet_custom_env
-# ):
-#     mlflow.prophet.save_model(
-#         pr_model=prophet_model.model, path=model_path, conda_env=prophet_custom_env
-#     )
-#
-#     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
-#     _compare_conda_env_requirements(prophet_custom_env, saved_pip_req_path)
-#
-#
-# @pytest.mark.large
-# def test_log_model_with_pip_requirements(prophet_model, tmpdir):
-#     req_file = tmpdir.join("requirements.txt")
-#     req_file.write("a")
-#     with mlflow.start_run():
-#         mlflow.sklearn.log_model(
-#             prophet_model.model, "model", pip_requirements=req_file.strpath
-#         )
-#         _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"], strict=True)
-#
-#     # List of requirements
-#     with mlflow.start_run():
-#         mlflow.sklearn.log_model(
-#             prophet_model.model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"]
-#         )
-#         _assert_pip_requirements(
-#             mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"], strict=True
-#         )
-#
-#     # Constraints file
-#     with mlflow.start_run():
-#         mlflow.sklearn.log_model(
-#             prophet_model.model, "model", pip_requirements=[f"-c {req_file.strpath}", "b"]
-#         )
-#         _assert_pip_requirements(
-#             mlflow.get_artifact_uri("model"),
-#             ["mlflow", "b", "-c constraints.txt"],
-#             ["a"],
-#             strict=True,
-#         )
+@pytest.mark.large
+def test_model_native_save_load(prophet_model, model_path):
+    model = prophet_model.model
+    mlflow.prophet.save_model(pr_model=model, path=model_path)
+    loaded_model = mlflow.prophet.load_model(model_uri=model_path)
+
+    np.testing.assert_array_equal(
+        generate_forecast(model, FORECAST_HORIZON),
+        loaded_model.predict(future_horizon_df(loaded_model, FORECAST_HORIZON))[TARGET_FIELD_NAME],
+    )
 
 
-from tests.helper_functions import _read_lines, _get_pip_deps, _read_yaml
+@pytest.mark.large
+def test_model_pyfunc_save_load(prophet_model, model_path):
+    model = prophet_model.model
+    mlflow.prophet.save_model(pr_model=model, path=model_path)
+    loaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+
+    horizon_df = future_horizon_df(model, FORECAST_HORIZON)
+
+    np.testing.assert_array_equal(
+        generate_forecast(model, FORECAST_HORIZON),
+        loaded_pyfunc.predict(horizon_df)[TARGET_FIELD_NAME],
+    )
+
+
+@pytest.mark.large
+def test_signature_and_examples_saved_correctly(prophet_model):
+    data = prophet_model.data
+    model = prophet_model.model
+    horizon_df = future_horizon_df(model, FORECAST_HORIZON)
+    signature_ = infer_signature(data, model.predict(horizon_df))
+    example_ = data[0:5].copy(deep=False)
+    example_["y"] = pd.to_numeric(example_["y"])  # cast to appropriate precision
+    for signature in (None, signature_):
+        for example in (None, example_):
+            with TempDir() as tmp:
+                path = tmp.path("model")
+                mlflow.prophet.save_model(
+                    model, path=path, signature=signature, input_example=example
+                )
+                mlflow_model = Model.load(path)
+                assert signature == mlflow_model.signature
+                if example is None:
+                    assert mlflow_model.saved_input_example_info is None
+                else:
+                    r_example = _read_example(mlflow_model, path).copy(deep=False)
+                    r_example["ds"] = pd.to_datetime(r_example["ds"], format=DS_FORMAT)
+                    np.testing.assert_array_equal(r_example, example)
+
+
+@pytest.mark.large
+def test_model_load_from_remote_uri_succeeds(prophet_model, model_path, mock_s3_bucket):
+    mlflow.prophet.save_model(pr_model=prophet_model.model, path=model_path)
+
+    artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
+    artifact_path = "model"
+    artifact_repo = S3ArtifactRepository(artifact_root)
+    artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
+
+    model_uri = os.path.join(artifact_root, artifact_path)
+    reloaded_prophet_model = mlflow.prophet.load_model(model_uri=model_uri)
+    np.testing.assert_array_equal(
+        generate_forecast(prophet_model.model, FORECAST_HORIZON),
+        generate_forecast(reloaded_prophet_model, FORECAST_HORIZON),
+    )
+
+
+@pytest.mark.large
+def test_model_log(prophet_model):
+    old_uri = mlflow.get_tracking_uri()
+    with TempDir(chdr=True, remove_on_exit=True) as tmp:
+        for should_start_run in [False, True]:
+            try:
+                mlflow.set_tracking_uri("test")
+                if should_start_run:
+                    mlflow.start_run()
+                artifact_path = "prophet"
+                conda_env = os.path.join(tmp.path(), "conda_env.yaml")
+                _mlflow_conda_env(conda_env, additional_pip_deps=["pystan", "prophet"])
+
+                mlflow.prophet.log_model(
+                    pr_model=prophet_model.model, artifact_path=artifact_path, conda_env=conda_env
+                )
+                model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
+                reloaded_prophet_model = mlflow.prophet.load_model(model_uri=model_uri)
+
+                np.testing.assert_array_equal(
+                    generate_forecast(prophet_model.model, FORECAST_HORIZON),
+                    generate_forecast(reloaded_prophet_model, FORECAST_HORIZON),
+                )
+
+                model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+                model_config = Model.load(os.path.join(model_path, "MLmodel"))
+                assert pyfunc.FLAVOR_NAME in model_config.flavors
+                assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
+                env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
+                assert os.path.exists(os.path.join(model_path, env_path))
+
+            finally:
+                mlflow.end_run()
+                mlflow.set_tracking_uri(old_uri)
+
+
+def test_log_model_calls_register_model(prophet_model):
+    artifact_path = "prophet"
+    register_model_patch = mock.patch("mlflow.register_model")
+    with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
+        conda_env = os.path.join(tmp.path(), "conda_env.yaml")
+        _mlflow_conda_env(conda_env, additional_pip_deps=["pystan", "prophet"])
+        mlflow.prophet.log_model(
+            pr_model=prophet_model.model,
+            artifact_path=artifact_path,
+            conda_env=conda_env,
+            registered_model_name="ProphetModel1",
+        )
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
+        mlflow.register_model.assert_called_once_with(
+            model_uri, "ProphetModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+        )
+
+
+def test_log_model_no_registered_model_name(prophet_model):
+    artifact_path = "prophet"
+    register_model_patch = mock.patch("mlflow.register_model")
+    with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
+        conda_env = os.path.join(tmp.path(), "conda_env.yaml")
+        _mlflow_conda_env(conda_env, additional_pip_deps=["pystan", "prophet"])
+        mlflow.prophet.log_model(
+            pr_model=prophet_model.model, artifact_path=artifact_path, conda_env=conda_env,
+        )
+        mlflow.register_model.assert_not_called()
+
+
+@pytest.mark.large
+def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
+    prophet_model, model_path, prophet_custom_env
+):
+    mlflow.prophet.save_model(
+        pr_model=prophet_model.model, path=model_path, conda_env=prophet_custom_env
+    )
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    assert os.path.exists(saved_conda_env_path)
+    assert saved_conda_env_path != prophet_custom_env
+
+    with open(prophet_custom_env, "r") as f:
+        prophet_custom_env_parsed = yaml.safe_load(f)
+    with open(saved_conda_env_path, "r") as f:
+        saved_conda_env_parsed = yaml.safe_load(f)
+    assert saved_conda_env_parsed == prophet_custom_env_parsed
+
+
+@pytest.mark.large
+def test_model_save_persists_requirements_in_mlflow_model_directory(
+    prophet_model, model_path, prophet_custom_env
+):
+    mlflow.prophet.save_model(
+        pr_model=prophet_model.model, path=model_path, conda_env=prophet_custom_env
+    )
+
+    saved_pip_req_path = os.path.join(model_path, "requirements.txt")
+    _compare_conda_env_requirements(prophet_custom_env, saved_pip_req_path)
+
+
+@pytest.mark.large
+def test_log_model_with_pip_requirements(prophet_model, tmpdir):
+    req_file = tmpdir.join("requirements.txt")
+    req_file.write("a")
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(prophet_model.model, "model", pip_requirements=req_file.strpath)
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"], strict=True)
+
+    # List of requirements
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(
+            prophet_model.model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"]
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"], strict=True
+        )
+
+    # Constraints file
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(
+            prophet_model.model, "model", pip_requirements=[f"-c {req_file.strpath}", "b"]
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"),
+            ["mlflow", "b", "-c constraints.txt"],
+            ["a"],
+            strict=True,
+        )
+
 
 @pytest.mark.large
 def test_log_model_with_extra_pip_requirements(prophet_model, tmpdir):
@@ -356,28 +360,62 @@ def test_log_model_with_extra_pip_requirements(prophet_model, tmpdir):
         mlflow.prophet.log_model(
             prophet_model.model, "model", extra_pip_requirements=[f"-c {req_file.strpath}", "b"]
         )
-
-
-        lp = _download_artifact_from_uri(mlflow.get_artifact_uri("model"))
-        tr = _read_lines(os.path.join(lp, "requirements.txt"))
-        cr = _get_pip_deps(_read_yaml(os.path.join(lp, "conda.yaml")))
-        c = _read_lines(os.path.join(lp, "constraints.txt"))
-        print(f"requirements: {tr}")
-        print(f"conda_env: {cr}")
-        print(f"constraints_read_from_disk: {c}")
-
-        compare = set.__le__
-        req = ["mlflow", *default_reqs, "b", "-c constraints.txt"]
-        requirements = set(req)
-
-        print(f"req: {requirements}")
-        print(f"txt_req: {set(tr)}")
-        compare(requirements, set(tr))
-
-        print(f"constraint_compare: {compare(set(c), set(['a']))}")
-
         _assert_pip_requirements(
             model_uri=mlflow.get_artifact_uri("model"),
             requirements=["mlflow", *default_reqs, "b", "-c constraints.txt"],
-            constraints=["a"], strict=False
+            constraints=["a"],
+            strict=False,
         )
+
+
+@pytest.mark.large
+def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
+    prophet_model, model_path
+):
+    mlflow.prophet.save_model(prophet_model.model, model_path)
+    _assert_pip_requirements(model_path, mlflow.prophet.get_default_pip_requirements())
+
+
+@pytest.mark.large
+def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
+    prophet_model
+):
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.prophet.log_model(prophet_model.model, artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+    _assert_pip_requirements(model_uri, mlflow.prophet.get_default_pip_requirements())
+
+
+@pytest.mark.large
+def test_pyfunc_serve_and_score(prophet_model):
+    model, training_data = prophet_model
+
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.prophet.log_model(model, artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+    local_predict = model.predict(model.make_future_dataframe(FORECAST_HORIZON))
+
+    # cast to string representation of datetime series, otherwise will default cast to Unix time
+    # which Prophet does not support for encoding
+    inference_data = (
+        model.make_future_dataframe(FORECAST_HORIZON)["ds"]
+        .dt.strftime(INFER_FORMAT)
+        .to_frame(name="ds")
+    )
+
+    resp = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_data,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED,
+    )
+
+    scores = pd.read_json(resp.content, orient="records")
+
+    # predictions are deterministic, but yhat_lower, yhat_upper are non-deterministic based on
+    # stan build underlying environment. Seed value only works for reproducibility of yhat.
+    # see: https://github.com/facebook/prophet/issues/1124
+    pd.testing.assert_series_equal(
+        left=local_predict["yhat"], right=scores["yhat"], check_dtype=True
+    )
