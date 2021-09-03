@@ -1508,6 +1508,11 @@ def autolog(
             # autologging for tf.keras models once the Keras import procedure has completed
             return
 
+        # By design, in Keras >= 2.6.0, Keras needs to enable tensorflow autologging so that
+        # tf.keras models always use tensorflow autologging, rather than vanilla keras autologging.
+        # As a result, Keras autologging must call `mlflow.tensorflow.autolog()` in Keras >= 2.6.0.
+        # Accordingly, we insert this check to ensure that importing tensorflow, which may import
+        # keras, does not enable tensorflow autologging twice.
         if autologging_is_disabled("tensorflow"):
             setup_autologging(tensorflow_module)
 
