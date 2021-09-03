@@ -444,7 +444,7 @@ def expand_config(config):
                 min_ver,
                 max_ver,
                 cfg.get("unsupported"),
-                allow_unreleased_max_version=cfg.get("allow_unreleased_max_version", False)
+                allow_unreleased_max_version=cfg.get("allow_unreleased_max_version", False),
             )
             versions = select_latest_micro_versions(versions)
 
