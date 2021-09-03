@@ -684,7 +684,7 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
         )
         cv_model.fit(*get_iris())
 
-        # Ensure `cv_model.predict` fails with `NotFittedError` or ``
+        # Ensure `cv_model.predict` fails with `NotFittedError` or `AttributeError`
         msg = (
             "This GridSearchCV instance was initialized with refit=False. "
             "predict is available only after refitting on the best parameters"
