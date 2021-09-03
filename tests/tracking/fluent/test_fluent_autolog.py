@@ -106,8 +106,9 @@ def test_universal_autolog_does_not_throw_if_specific_autolog_throws_in_standard
         if library != pyspark and library != pyspark.ml:
             autolog_mock.assert_not_called()
 
-        if mlflow_module == mlflow.tensorflow\
-                and Version(tensorflow.__version__) >= Version("2.6.0"):
+        if mlflow_module == mlflow.tensorflow and Version(tensorflow.__version__) >= Version(
+            "2.6.0"
+        ):
             # NB: In TensorFlow >= 2.6.0, TensorFlow unconditionally imports Keras. Fluent
             # autologging enablement logic relies on this import behavior.
             mlflow.utils.import_hooks.notify_module_loaded(keras)
@@ -134,8 +135,9 @@ def test_universal_autolog_throws_if_specific_autolog_throws_in_test_mode(librar
         else:
             mlflow.autolog()
             with pytest.raises(Exception, match="asdf"):
-                if mlflow_module == mlflow.tensorflow\
-                        and Version(tensorflow.__version__) >= Version("2.6.0"):
+                if mlflow_module == mlflow.tensorflow and Version(
+                    tensorflow.__version__
+                ) >= Version("2.6.0"):
                     # NB: In TensorFlow >= 2.6.0, TensorFlow unconditionally imports Keras. Fluent
                     # autologging enablement logic relies on this import behavior.
                     mlflow.utils.import_hooks.notify_module_loaded(keras)
@@ -148,8 +150,7 @@ def test_universal_autolog_throws_if_specific_autolog_throws_in_test_mode(librar
 
 @pytest.mark.large
 @pytest.mark.parametrize(
-    "library,mlflow_module",
-    library_to_mlflow_module_without_spark_datasource.items()
+    "library,mlflow_module", library_to_mlflow_module_without_spark_datasource.items()
 )
 def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_module):
     integrations_with_additional_config = [xgboost, lightgbm, sklearn]
