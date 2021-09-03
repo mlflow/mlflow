@@ -12,7 +12,7 @@ Bug fixes and documentation updates:
 
 - Increased MLflow client HTTP request timeout from 10s to 90s (#4764, @jinzhang21)
 
-Small bug fixes and doc updates ()
+Small bug fixes and doc updates (#4770, @WeichenXu123)
 
 1.20.1 (2021-08-26)
 -------------------
