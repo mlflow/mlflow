@@ -57,13 +57,21 @@ def manual_run(request):
 @pytest.fixture
 def clear_tf_keras_imports():
     """
-    NB: Simulate a state where `tensorflow` and `keras` are not imported by removing these
+    Simulates a state where `tensorflow` and `keras` are not imported by removing these
     libraries from the `sys.modules` dictionary. This is useful for testing the interaction
     between TensorFlow / Keras and the fluent `mlflow.autolog()` API because it will cause import
     hooks to be re-triggered upon re-import after `mlflow.autolog()` is enabled.
     """
     sys.modules.pop("tensorflow", None)
     sys.modules.pop("keras", None)
+
+
+@pytest.fixture(autouse=True)
+def clear_fluent_autologging_import_hooks():
+    """
+    """
+    mlflow.utils.import_hooks._post_import_hooks.pop("tensorflow", None)
+    mlflow.utils.import_hooks._post_import_hooks.pop("keras", None)
 
 
 def create_tf_keras_model():
