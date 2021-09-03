@@ -299,7 +299,7 @@ spark:
 
   models:
     minimum: "3.0.0"
-    maximum: "3.1.2"
+    maximum: "3.2.0"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
     # autologging use cases in environments where newer versions of pyspark are available
     # prior to their release on PyPI (e.g. Databricks)
@@ -318,7 +318,7 @@ spark:
 
   autologging:
     minimum: "3.0.0"
-    maximum: "3.1.2"
+    maximum: "3.2.0"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
     # autologging use cases in environments where newer versions of pyspark are available
     # prior to their release on PyPI (e.g. Databricks)
