@@ -833,19 +833,13 @@ def test_fit_generator(random_train_data, random_one_hot_labels):
 
 @pytest.mark.large
 def test_fluent_autolog_with_tf_keras_logs_expected_content(
-    clear_tf_keras_imports, srandom_train_data, random_one_hot_labels
+    clear_tf_keras_imports, random_train_data, random_one_hot_labels
 ):
     """
     Guards against previously-exhibited issues where using the fluent `mlflow.autolog()` API with
     `tf.keras` Models did not work due to conflicting patches set by both the
     `mlflow.tensorflow.autolog()` and the `mlflow.keras.autolog()` APIs.
     """
-    # NB: Simulate a state where `tensorflow` and `keras` are not imported by removing these
-    # libraries from the `sys.modules` dictionary, which will cause import hooks to be re-triggered
-    # upon re-import after `mlflow.autolog()` is enabled
-    del sys.modules["tensorflow"]
-    del sys.modules["keras"]
-
     mlflow.autolog()
 
     import tensorflow as tf
