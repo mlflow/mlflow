@@ -91,10 +91,7 @@ def main():
             initialize_spark_connection()
         except Exception as e:
             raise Exception(
-                (
-                    "Attempted to initialize a spark session to load the spark model for "
-                    "the requirement inference but failed"
-                )
+                "Attempted to initialize a spark session to load the spark model, but failed"
             ) from e
 
     cap_cm = _CaptureImportedModules()
