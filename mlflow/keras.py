@@ -673,6 +673,16 @@ def autolog(
 
     _raise_deprecation_warning()
 
+    if Version(keras.__version__) >= Version("2.6.0"):
+        warnings.warn(
+            (
+                "Autologging support for keras >= 2.6.0 has been deprecated and will be removed in "
+                "a future MLflow release. Use `mlflow.tensorflow.autolog()` instead."
+            ),
+            FutureWarning,
+            stacklevel=2,
+        )
+
     def getKerasCallback(metrics_logger):
         class __MLflowKerasCallback(keras.callbacks.Callback, metaclass=ExceptionSafeClass):
             """
