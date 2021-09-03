@@ -2,7 +2,7 @@ Changelog
 =========
 1.20.2 (2021-09-03)
 -------------------
-MLflow 1.20.2 includes several major features and improvements:
+MLflow 1.20.2 is a patch release for the MLflow Python and R packages containing the following bug fixes:
 
 Features:
 
