@@ -2,6 +2,7 @@
 
 import collections
 import pytest
+import sys
 from packaging.version import Version
 
 import numpy as np
@@ -808,3 +809,49 @@ def test_fit_generator(random_train_data, random_one_hot_labels):
     assert params["steps_per_epoch"] == "1"
     assert "accuracy" in metrics
     assert "loss" in metrics
+
+def test_fluent_autolog_tf_keras_logs_expected_content(random_train_data, random_one_hot_labels):
+    del sys.modules["tensorflow"]
+    del sys.modules["keras"]
+
+    mlflow.autolog()
+
+    import tensorflow as tf
+    from tensorflow.keras import layers
+
+    model = create_tf_keras_model()
+
+    with mlflow.start_run() as run:
+        model.fit(random_train_data, random_one_hot_labels, epochs=10)
+
+    client = mlflow.tracking.MlflowClient()
+    run_data = client.get_run(run.info.run_id).data
+    assert "accuracy" in run_data.metrics
+    assert "epochs" in run_data.params
+
+    artifacts = client.list_artifacts(run.info.run_id)
+    artifacts = map(lambda x: x.path, artifacts)
+    assert "model" in artifacts
+
+
+@pytest.mark.skipif(
+    Version(tf.__version__) < Version("2.6.0"),
+    reason=(
+        "TensorFlow only has a hard dependency on Keras in version >= 2.6.0"
+    ),
+)
+def test_autolog_with_tf_keras_preserves_v2_model_reference():
+    """
+    Verifies that, in TensorFlow >= 2.6.0, `tensorflow.keras.Model` refers to the correct class in
+    the correct module after `mlflow.autolog()` is called, guarding against previously identified
+    compatibility issues between recent versions of TensorFlow and MLflow's internal utility for
+    setting up autologging import hooks.
+    """
+    del sys.modules["tensorflow"]
+    del sys.modules["keras"]
+
+    mlflow.autolog()
+
+    import tensorflow.keras
+    from keras.api._v2.keras import Model as ModelV2
+    assert tensorflow.keras.Model == ModelV2
