@@ -247,7 +247,7 @@ class ImportHookFinder:
 
     @synchronized(_post_import_hooks_lock)
     @synchronized(_import_error_hooks_lock)
-    def find_module(self, fullname, path=None):
+    def find_spec(self, fullname, path, target=None):
         # If the module being imported is not one we have registered
         # import hooks for, we can return immediately. We will
         # take no further part in the importing of this module.
@@ -270,24 +270,13 @@ class ImportHookFinder:
         # Now call back into the import system again.
 
         try:
-            # For Python 3 we need to use find_spec().loader
-            # from the importlib.util module. It doesn't actually
-            # import the target module and only finds the
-            # loader. If a loader is found, we need to return
-            # our own loader which will then in turn call the
-            # real loader to import the module and invoke the
-            # post import hooks.
-            try:
-                import importlib.util
+            import importlib.util
 
-                loader = importlib.util.find_spec(fullname).loader
-            # If an ImportError (or AttributeError) is encountered while finding the module,
-            # notify the hooks for import errors
-            except (ImportError, AttributeError):
-                notify_module_import_error(fullname)
-                loader = importlib.find_loader(fullname, path)  # pylint: disable=deprecated-method
-            if loader:
-                return _ImportHookChainedLoader(loader)
+            spec = importlib.util.find_spec(fullname)
+            # Replace the module spec's loader with a wrapped version that executes import
+            # hooks when the module is loaded
+            spec.loader = _ImportHookChainedLoader(spec.loader)
+            return spec
         finally:
             del self.in_progress[fullname]
 

@@ -1496,7 +1496,6 @@ def autolog(
 
     def set_up_tensorflow_autologging(tensorflow_module):
         import sys
-        import importlib
 
         nonlocal FULLY_IMPORTED_KERAS
         if "keras" in sys.modules and not FULLY_IMPORTED_KERAS:
@@ -1509,19 +1508,6 @@ def autolog(
             # autologging for tf.keras models once the Keras import procedure has completed
             return
 
-        if Version(tensorflow_module.__version__) >= Version("2.6.0"):
-            # In certain Keras versions >= 2.6.0, setting up a post-import hook for the `keras`
-            # module causes the `tensorflow.keras` module to incorrectly refer to the deprecated
-            # / legacy `tf.python.keras` module, rather than the expected `keras.api._v2.keras`
-            # module. To correct this issue, we manually assign `tensorflow.keras` to the correct
-            # `keras.api._v2.keras` module
-            try:
-                sys.modules['tensorflow.keras'] = importlib.import_module('keras.api._v2.keras')
-            except Exception as e:
-                _logger.debug(
-                    "Failed to assign correct module for `tensorflow.keras`: %s", str(e)
-                )
-        
         if autologging_is_disabled("tensorflow"):
             setup_autologging(tensorflow_module)
 
