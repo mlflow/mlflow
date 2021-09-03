@@ -111,6 +111,7 @@ def _build_image(image_name, entrypoint, mlflow_home=None, custom_setup_steps_ho
 
 def _build_image_from_context(context_dir: str, image_name: str):
     import docker
+
     client = docker.from_env()
     # In Docker < 19, `docker build` doesn't support the `--platform` option
     is_platform_supported = int(client.version()["Version"].split(".")[0]) >= 19
