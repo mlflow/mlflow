@@ -299,7 +299,11 @@ spark:
 
   models:
     minimum: "3.0.0"
-    maximum: "3.1.2"
+    maximum: "3.2.0"
+    # NB: Allow unreleased maximum versions for the pyspark package to support models and
+    # autologging use cases in environments where newer versions of pyspark are available
+    # prior to their release on PyPI (e.g. Databricks)
+    allow_unreleased_max_version: True
     requirements: ["boto3", "scikit-learn", "pyarrow"]
     run: |
       SAGEMAKER_OUT=$(mktemp)
@@ -314,7 +318,11 @@ spark:
 
   autologging:
     minimum: "3.0.0"
-    maximum: "3.1.2"
+    maximum: "3.2.0"
+    # NB: Allow unreleased maximum versions for the pyspark package to support models and
+    # autologging use cases in environments where newer versions of pyspark are available
+    # prior to their release on PyPI (e.g. Databricks)
+    allow_unreleased_max_version: True
     requirements: ["scikit-learn"]
     run: |
       find tests/spark_autologging/ml -name 'test*.py' | xargs -L 1 pytest --large
