@@ -835,7 +835,7 @@ def test_fit_generator(random_train_data, random_one_hot_labels):
 
 
 @pytest.mark.large
-@pytest.mark.usefixtures(clear_tf_keras_imports)
+@pytest.mark.usefixtures("clear_tf_keras_imports")
 def test_fluent_autolog_with_tf_keras_logs_expected_content(
     random_train_data, random_one_hot_labels
 ):
@@ -866,7 +866,7 @@ def test_fluent_autolog_with_tf_keras_logs_expected_content(
     Version(tf.__version__) < Version("2.6.0"),
     reason=("TensorFlow only has a hard dependency on Keras in version >= 2.6.0"),
 )
-@pytest.mark.usefixtures(clear_tf_keras_imports)
+@pytest.mark.usefixtures("clear_tf_keras_imports")
 def test_fluent_autolog_with_tf_keras_preserves_v2_model_reference():
     """
     Verifies that, in TensorFlow >= 2.6.0, `tensorflow.keras.Model` refers to the correct class in
@@ -882,7 +882,7 @@ def test_fluent_autolog_with_tf_keras_preserves_v2_model_reference():
     assert tensorflow.keras.Model is ModelV2
 
 
-@pytest.mark.usefixtures(clear_tf_keras_imports)
+@pytest.mark.usefixtures("clear_tf_keras_imports")
 def test_import_tensorflow_with_fluent_autolog_enables_tf_autologging():
     mlflow.autolog()
 
@@ -893,7 +893,7 @@ def test_import_tensorflow_with_fluent_autolog_enables_tf_autologging():
 
 
 @pytest.mark.large
-@pytest.mark.usefixtures(clear_tf_keras_imports)
+@pytest.mark.usefixtures("clear_tf_keras_imports")
 def test_import_tf_keras_with_fluent_autolog_enables_tf_autologging():
     mlflow.autolog()
 
@@ -908,7 +908,7 @@ def test_import_tf_keras_with_fluent_autolog_enables_tf_autologging():
     Version(tf.__version__) < Version("2.6.0"),
     reason=("TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0"),
 )
-@pytest.mark.usefixtures(clear_tf_keras_imports)
+@pytest.mark.usefixtures("clear_tf_keras_imports")
 def test_import_keras_with_fluent_autolog_enables_tensorflow_autologging():
     mlflow.autolog()
 
