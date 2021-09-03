@@ -13,7 +13,7 @@ from tensorflow.keras import layers
 import mlflow
 import mlflow.tensorflow
 import mlflow.keras
-from mlflow.utils.autologging_utils import BatchMetricsLogger
+from mlflow.utils.autologging_utils import BatchMetricsLogger, autologging_is_disabled
 from unittest.mock import patch
 
 import os
@@ -52,6 +52,18 @@ def manual_run(request):
         mlflow.start_run()
     yield
     mlflow.end_run()
+
+
+@pytest.fixture
+def clear_tf_keras_imports():
+    """
+    NB: Simulate a state where `tensorflow` and `keras` are not imported by removing these
+    libraries from the `sys.modules` dictionary. This is useful for testing the interaction
+    between TensorFlow / Keras and the fluent `mlflow.autolog()` API because it will cause import
+    hooks to be re-triggered upon re-import after `mlflow.autolog()` is enabled.
+    """
+    sys.modules.pop("tensorflow", None)
+    sys.modules.pop("keras", None)
 
 
 def create_tf_keras_model():
@@ -810,7 +822,19 @@ def test_fit_generator(random_train_data, random_one_hot_labels):
     assert "accuracy" in metrics
     assert "loss" in metrics
 
-def test_fluent_autolog_tf_keras_logs_expected_content(random_train_data, random_one_hot_labels):
+
+@pytest.mark.large
+def test_fluent_autolog_with_tf_keras_logs_expected_content(
+    clear_tf_keras_imports, srandom_train_data, random_one_hot_labels
+):
+    """
+    Guards against previously-exhibited issues where using the fluent `mlflow.autolog()` API with
+    `tf.keras` Models did not work due to conflicting patches set by both the
+    `mlflow.tensorflow.autolog()` and the `mlflow.keras.autolog()` APIs.
+    """
+    # NB: Simulate a state where `tensorflow` and `keras` are not imported by removing these
+    # libraries from the `sys.modules` dictionary, which will cause import hooks to be re-triggered
+    # upon re-import after `mlflow.autolog()` is enabled
     del sys.modules["tensorflow"]
     del sys.modules["keras"]
 
@@ -834,24 +858,57 @@ def test_fluent_autolog_tf_keras_logs_expected_content(random_train_data, random
     assert "model" in artifacts
 
 
+@pytest.mark.large
 @pytest.mark.skipif(
     Version(tf.__version__) < Version("2.6.0"),
     reason=(
         "TensorFlow only has a hard dependency on Keras in version >= 2.6.0"
     ),
 )
-def test_autolog_with_tf_keras_preserves_v2_model_reference():
+def test_fluent_autolog_with_tf_keras_preserves_v2_model_reference(clear_tf_keras_imports):
     """
     Verifies that, in TensorFlow >= 2.6.0, `tensorflow.keras.Model` refers to the correct class in
     the correct module after `mlflow.autolog()` is called, guarding against previously identified
     compatibility issues between recent versions of TensorFlow and MLflow's internal utility for
     setting up autologging import hooks.
     """
-    del sys.modules["tensorflow"]
-    del sys.modules["keras"]
-
     mlflow.autolog()
 
     import tensorflow.keras
     from keras.api._v2.keras import Model as ModelV2
     assert tensorflow.keras.Model == ModelV2
+
+
+def test_import_tensorflow_with_fluent_autolog_enables_tf_autologging(clear_tf_keras_imports):
+    mlflow.autolog()
+
+    import tensorflow
+
+    assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
+    assert autologging_is_disabled(mlflow.keras.FLAVOR_NAME)
+
+
+@pytest.mark.large
+def test_import_tf_keras_with_fluent_autolog_enables_tf_autologging(clear_tf_keras_imports):
+    mlflow.autolog()
+
+    import tensorflow.keras
+
+    assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
+    assert autologging_is_disabled(mlflow.keras.FLAVOR_NAME)
+
+
+@pytest.mark.large
+@pytest.mark.skipif(
+    Version(tf.__version__) < Version("2.6.0"),
+    reason=(
+        "TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0"
+    ),
+)
+def test_import_keras_with_fluent_autolog_enables_tensorflow_autologging(clear_tf_keras_imports):
+    mlflow.autolog()
+
+    import keras
+
+    assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
+    assert autologging_is_disabled(mlflow.keras.FLAVOR_NAME)
