@@ -47,12 +47,12 @@ library_to_mlflow_module = {
 }
 
 
-def clean_modules_for_keras_26():
-    if Version(keras.__version__) >= Version("2.6.0"):
-        # For keras >= 2.6.0, the tensorflow/keras autologging includes special logic,
-        # to ensure test pass, we need clean these 2 modules first before run each test.
-        sys.modules.pop("tensorflow", None)
-        sys.modules.pop("keras", None)
+def notify_libs(library, mlflow_module):
+    if mlflow_module in [mlflow.tensorflow, mlflow.keras]:
+        mlflow.utils.import_hooks.notify_module_loaded(tensorflow)
+        mlflow.utils.import_hooks.notify_module_loaded(keras)
+    else:
+        mlflow.utils.import_hooks.notify_module_loaded(library)
 
 
 @pytest.fixture(autouse=True)
@@ -70,8 +70,6 @@ def reset_global_states():
 
     assert all(v == {} for v in AUTOLOGGING_INTEGRATIONS.values())
     assert mlflow.utils.import_hooks._post_import_hooks == {}
-
-    clean_modules_for_keras_26()
 
     yield
 
@@ -121,7 +119,7 @@ def test_universal_autolog_does_not_throw_if_specific_autolog_throws_in_standard
         mlflow.autolog()
         if library != pyspark and library != pyspark.ml:
             autolog_mock.assert_not_called()
-        mlflow.utils.import_hooks.notify_module_loaded(library)
+        notify_libs(library, mlflow_module)
         autolog_mock.assert_called_once()
 
 
@@ -142,7 +140,7 @@ def test_universal_autolog_throws_if_specific_autolog_throws_in_test_mode(librar
         else:
             mlflow.autolog()
             with pytest.raises(Exception, match="asdf"):
-                mlflow.utils.import_hooks.notify_module_loaded(library)
+                notify_libs(library, mlflow_module)
 
         autolog_mock.assert_called_once()
 
@@ -167,7 +165,7 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
 
     integration_name = get_redirected_integration_name(mlflow_module)
 
-    mlflow.utils.import_hooks.notify_module_loaded(library)
+    notify_libs(library, mlflow_module)
 
     for arg_key, arg_value in args_to_test.items():
         assert get_autologging_config(integration_name, arg_key, None) == arg_value
@@ -277,19 +275,17 @@ def test_autolog_obeys_disabled():
 def test_autolog_success_message_obeys_disabled():
     with mock.patch("mlflow.tracking.fluent._logger.info") as autolog_logger_mock:
         mlflow.autolog(disable=True)
-        mlflow.utils.import_hooks.notify_module_loaded(tensorflow)
+        notify_libs(tensorflow, mlflow.tensorflow)
         autolog_logger_mock.assert_not_called()
 
         mlflow.autolog()
-        clean_modules_for_keras_26()
-        mlflow.utils.import_hooks.notify_module_loaded(tensorflow)
+        notify_libs(tensorflow, mlflow.tensorflow)
         autolog_logger_mock.assert_called()
 
         autolog_logger_mock.reset_mock()
 
         mlflow.autolog(disable=False)
-        clean_modules_for_keras_26()
-        mlflow.utils.import_hooks.notify_module_loaded(tensorflow)
+        notify_libs(tensorflow, mlflow.tensorflow)
         autolog_logger_mock.assert_called()
 
 
