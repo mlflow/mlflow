@@ -378,7 +378,7 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
 
 @pytest.mark.large
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
-    prophet_model
+    prophet_model,
 ):
     artifact_path = "model"
     with mlflow.start_run():
@@ -419,3 +419,34 @@ def test_pyfunc_serve_and_score(prophet_model):
     pd.testing.assert_series_equal(
         left=local_predict["yhat"], right=scores["yhat"], check_dtype=True
     )
+
+
+@pytest.mark.large
+def test_metric_and_parameter_logging(prophet_model, model_path):
+
+    from prophet import serialize
+    from prophet.diagnostics import cross_validation, performance_metrics
+    from mlflow.tracking import MlflowClient
+
+    def extract_params(model):
+        return {attr: getattr(model, attr) for attr in serialize.SIMPLE_ATTRIBUTES}
+
+    with mlflow.start_run():
+        params = extract_params(prophet_model.model)
+        run = mlflow.active_run().info.run_id
+        metric_values = ["mse", "rmse", "mae", "mape", "mdape", "smape", "coverage"]
+        metrics_raw = cross_validation(
+            prophet_model.model, "365 days", "180 days", "710 days", "threads", disable_tqdm=True
+        )
+        cv_metrics = performance_metrics(metrics_raw)
+        metrics = {}
+        [metrics.update({x: cv_metrics[x].mean()}) for x in metric_values]
+
+        mlflow.prophet.save_model(prophet_model.model, model_path)
+        mlflow.log_params(params)
+        mlflow.log_metrics(metrics)
+
+    client = MlflowClient()
+    run_id = client.get_run(run).info.run_id
+    logged_metrics = client.get_metric_history(run_id, "rmse")
+    assert logged_metrics[0].value == metrics["rmse"]
