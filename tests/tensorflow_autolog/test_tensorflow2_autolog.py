@@ -913,7 +913,6 @@ def test_import_keras_with_fluent_autolog_enables_tensorflow_autologging():
     mlflow.autolog()
 
     import keras  # pylint: disable=unused-variable,unused-import
- 
 
     assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
     assert autologging_is_disabled(mlflow.keras.FLAVOR_NAME)
