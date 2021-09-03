@@ -89,8 +89,13 @@ def main():
             from dbruntime.spark_connection import initialize_spark_connection
 
             initialize_spark_connection()
-        except Exception:
-            pass
+        except Exception as e:
+            raise Exception(
+                (
+                    "Attempted to initialize a spark session to load the spark model for "
+                    "the requirement inference but failed"
+                )
+            ) from e
 
     cap_cm = _CaptureImportedModules()
 
