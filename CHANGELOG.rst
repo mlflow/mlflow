@@ -8,7 +8,6 @@ Features:
 
 - Enabled auto dependency inference in spark flavor in autologging (#4759, @harupy)
 
-
 Bug fixes and documentation updates:
 
 - Increased MLflow client HTTP request timeout from 10s to 90s (#4764, @jinzhang21)
