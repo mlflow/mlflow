@@ -851,7 +851,6 @@ def autolog(
         safe_patch(FLAVOR_NAME, keras.Model, "fit_generator", fit_generator, manage_run=True)
 
 
-
 # In Keras >= 2.6.0, Keras APIs are aliases for `tf.keras` APIs. Accordingly,
 # `mlflow.keras.autolog()` should only be defined as an alias for `mlflow.tensorflow.autolog()`
 # when Keras >= 2.6.0 is installed
@@ -860,6 +859,7 @@ try:
 
     if Version(keras.__version__) >= Version("2.6.0"):
         import mlflow.tensorflow
+
         autolog = mlflow.tensorflow.autolog
 except Exception:
     pass

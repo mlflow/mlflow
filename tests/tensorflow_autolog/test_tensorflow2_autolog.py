@@ -861,9 +861,7 @@ def test_fluent_autolog_with_tf_keras_logs_expected_content(
 @pytest.mark.large
 @pytest.mark.skipif(
     Version(tf.__version__) < Version("2.6.0"),
-    reason=(
-        "TensorFlow only has a hard dependency on Keras in version >= 2.6.0"
-    ),
+    reason=("TensorFlow only has a hard dependency on Keras in version >= 2.6.0"),
 )
 def test_fluent_autolog_with_tf_keras_preserves_v2_model_reference(clear_tf_keras_imports):
     """
@@ -876,6 +874,7 @@ def test_fluent_autolog_with_tf_keras_preserves_v2_model_reference(clear_tf_kera
 
     import tensorflow.keras
     from keras.api._v2.keras import Model as ModelV2
+
     assert tensorflow.keras.Model == ModelV2
 
 
@@ -901,9 +900,7 @@ def test_import_tf_keras_with_fluent_autolog_enables_tf_autologging(clear_tf_ker
 @pytest.mark.large
 @pytest.mark.skipif(
     Version(tf.__version__) < Version("2.6.0"),
-    reason=(
-        "TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0"
-    ),
+    reason=("TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0"),
 )
 def test_import_keras_with_fluent_autolog_enables_tensorflow_autologging(clear_tf_keras_imports):
     mlflow.autolog()

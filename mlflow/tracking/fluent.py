@@ -1482,11 +1482,13 @@ def autolog(
             # autologging in Keras >= 2.6.0
             try:
                 import tensorflow
+
                 setup_autologging(tensorflow)
             except Exception as e:
                 _logger.debug(
                     "Failed to set up TensorFlow autologging for tf.keras models upon"
-                    " Keras library import: %s", str(e)
+                    " Keras library import: %s",
+                    str(e),
                 )
 
         else:
