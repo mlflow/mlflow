@@ -889,7 +889,11 @@ def test_import_tensorflow_with_fluent_autolog_enables_tf_autologging():
     import tensorflow  # pylint: disable=unused-variable,unused-import,reimported
 
     assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
-    assert autologging_is_disabled(mlflow.keras.FLAVOR_NAME)
+
+    # NB: For backwards compatibility, fluent autologging enables TensorFlow and
+    # Keras autologging upon tensorflow import in TensorFlow 2.5.1
+    if Version(tf.__version__) != Version("2.5.1"):
+        assert autologging_is_disabled(mlflow.keras.FLAVOR_NAME)
 
 
 @pytest.mark.large
@@ -900,7 +904,11 @@ def test_import_tf_keras_with_fluent_autolog_enables_tf_autologging():
     import tensorflow.keras  # pylint: disable=unused-variable,unused-import
 
     assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
-    assert autologging_is_disabled(mlflow.keras.FLAVOR_NAME)
+
+    # NB: For backwards compatibility, fluent autologging enables TensorFlow and
+    # Keras autologging upon tf.keras import in TensorFlow 2.5.1
+    if Version(tf.__version__) != Version("2.5.1"):
+        assert autologging_is_disabled(mlflow.keras.FLAVOR_NAME)
 
 
 @pytest.mark.large
