@@ -689,12 +689,12 @@ def test_pyfunc_serve_and_score_transformers():
     np.testing.assert_array_equal(json.loads(resp.content), model.predict(dummy_inputs))
 
 
-def test_raise_deprecation_warnings():
+def test_raise_deprecation_warning():
     with mock.patch("keras.__version__", new="2.2.0"), pytest.warns(
         FutureWarning, match="Support for keras"
     ):
-        mlflow.keras._raise_deprecation_warnings()
+        mlflow.keras._raise_deprecation_warning()
 
     with mock.patch("keras.__version__", new="2.3.0"), pytest.warns(None) as record:
-        mlflow.keras._raise_deprecation_warnings()
+        mlflow.keras._raise_deprecation_warning()
     assert len(record) == 0
