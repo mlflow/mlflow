@@ -13,6 +13,7 @@ import mlflow
 from mlflow.utils.file_utils import write_to
 from mlflow.pyfunc import MAIN
 from mlflow.models.model import MLMODEL_FILE_NAME, Model
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
 
 def _get_top_level_module(full_module_name):
@@ -81,6 +82,17 @@ def main():
     flavor = args.flavor
     # Mirror `sys.path` of the parent process
     sys.path = json.loads(args.sys_path)
+
+    if flavor == mlflow.spark.FLAVOR_NAME and is_in_databricks_runtime():
+        try:
+            # pylint: disable=import-error
+            from dbruntime.spark_connection import initialize_spark_connection
+
+            initialize_spark_connection()
+        except Exception as e:
+            raise Exception(
+                "Attempted to initialize a spark session to load the spark model, but failed"
+            ) from e
 
     cap_cm = _CaptureImportedModules()
 
