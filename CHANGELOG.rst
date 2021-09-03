@@ -2,7 +2,7 @@ Changelog
 =========
 1.20.2 (2021-09-03)
 -------------------
-MLflow 1.20.2 is a patch release for the MLflow Python and R packages containing the following bug fixes:
+MLflow 1.20.2 is a patch release for the MLflow Python and R packages containing the following feature and bug fixes:
 
 Features:
 
@@ -10,7 +10,7 @@ Features:
 
 Bug fixes and documentation updates:
 
-- Increased MLflow client HTTP request timeout from 10s to 90s (#4764, @jinzhang21)
+- Increased MLflow client HTTP request timeout from 10s to 120s (#4764, @jinzhang21)
 - Fixed autologging compatibility bugs with TensorFlow and Keras version `2.6.0` (#4766, @dbczumar)
 
 Small bug fixes and doc updates (#4770, @WeichenXu123)
