@@ -1649,7 +1649,7 @@ def _does_model_exist(model_name, sage_client):
     """
     try:
         response = sage_client.describe_model(ModelName=model_name)
-    except Client.exceptions.ClientError as error:
+    except sage_client.exceptions.ClientError as error:
         if "Could not find model" in error.response["Error"]["Message"]:
             return False
     else:

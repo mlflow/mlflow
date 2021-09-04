@@ -478,7 +478,7 @@ def terminate_transform_job(job_name, region_name, archive, asynchronous, timeou
     )
 
 
-@commands.command("push-model-to-sagemaker")
+@commands.command("push-model")
 @click.option("--model-name", "-n", help="Sagemaker model name", required=True)
 @cli_args.MODEL_URI
 @click.option("--execution-role-arn", "-e", default=None, help="SageMaker execution role")
