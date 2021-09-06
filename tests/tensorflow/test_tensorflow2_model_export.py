@@ -6,8 +6,8 @@ import shutil
 import sys
 import pytest
 import yaml
-import json
 import copy
+import json
 from unittest import mock
 
 import numpy as np
