@@ -1,14 +1,5 @@
 Changelog
 =========
-<<<<<<< HEAD
-1.20.2 (2021-09-)
--------------------
-
-Features:
-
-- Added Prophet flavor to MLflow Models (#4773, @BenWilson2)
-
-Bug fixes and documentation updates:
 
 =======
 1.20.2 (2021-09-03)
@@ -25,7 +16,6 @@ Bug fixes and documentation updates:
 - Fixed autologging compatibility bugs with TensorFlow and Keras version `2.6.0` (#4766, @dbczumar)
 
 Small bug fixes and doc updates (#4770, @WeichenXu123)
->>>>>>> [ALL TESTS] Update  (#4776)
 
 1.20.1 (2021-08-26)
 -------------------
