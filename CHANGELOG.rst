@@ -1,7 +1,6 @@
 Changelog
 =========
 
-=======
 1.20.2 (2021-09-03)
 -------------------
 MLflow 1.20.2 is a patch release containing the following features and bug fixes:
