@@ -1,5 +1,15 @@
 Changelog
 =========
+1.20.2 (2021-09-)
+-------------------
+
+Features:
+
+- Added Prophet flavor to MLflow Models (#4773, @BenWilson2)
+
+Bug fixes and documentation updates:
+
+
 1.20.1 (2021-08-26)
 -------------------
 MLflow 1.20.1 is a patch release for the MLflow Python and R packages containing the following bug fixes:

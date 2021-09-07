@@ -240,7 +240,7 @@ def test_model_log(prophet_model):
                 mlflow.end_run()
                 mlflow.set_tracking_uri(old_uri)
 
-
+@pytest.mark.large
 def test_log_model_calls_register_model(prophet_model):
     artifact_path = "prophet"
     register_model_patch = mock.patch("mlflow.register_model")
@@ -258,7 +258,7 @@ def test_log_model_calls_register_model(prophet_model):
             model_uri, "ProphetModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
         )
 
-
+@pytest.mark.large
 def test_log_model_no_registered_model_name(prophet_model):
     artifact_path = "prophet"
     register_model_patch = mock.patch("mlflow.register_model")
