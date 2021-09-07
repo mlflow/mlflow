@@ -170,3 +170,74 @@ def test_log_artifacts():
 
             with open(posixpath.join(remote_dir, directory, file2), "rb") as remote_content:
                 assert remote_content.read() == file_content_2
+
+
+@pytest.mark.requires_ssh
+def test_delete_artifact():
+    for artifact_path in [None, "sub_dir", "very/nested/sub/dir"]:
+        file_content = "A simple test artifact\nThe artifact is located in: " + str(artifact_path)
+        with NamedTemporaryFile(mode="w") as local, TempDir() as remote:
+            local.write(file_content)
+            local.flush()
+
+            sftp_path = "sftp://" + remote.path()
+            store = SFTPArtifactRepository(sftp_path)
+            store.log_artifact(local.name, artifact_path)
+
+            remote_file = posixpath.join(
+                remote.path(),
+                "." if artifact_path is None else artifact_path,
+                os.path.basename(local.name),
+            )
+            assert posixpath.isfile(remote_file)
+
+            with open(remote_file, "r") as remote_content:
+                assert remote_content.read() == file_content
+
+            store.delete_artifacts(remote.path())
+
+            assert not posixpath.exists(remote_file)
+            assert not posixpath.exists(remote.path())
+
+
+@pytest.mark.requires_ssh
+def test_delete_artifacts():
+    for artifact_path in [None, "sub_dir", "very/nested/sub/dir"]:
+        file_content_1 = "A simple test artifact\nThe artifact is located in: " + str(artifact_path)
+        file_content_2 = os.urandom(300)
+
+        file1 = "meta.yaml"
+        directory = "saved_model"
+        file2 = "sk_model.pickle"
+        with TempDir() as local, TempDir() as remote:
+            with open(os.path.join(local.path(), file1), "w") as f:
+                f.write(file_content_1)
+            os.mkdir(os.path.join(local.path(), directory))
+            with open(os.path.join(local.path(), directory, file2), "wb") as f:
+                f.write(file_content_2)
+
+            sftp_path = "sftp://" + remote.path()
+            store = SFTPArtifactRepository(sftp_path)
+            store.log_artifacts(local.path(), artifact_path)
+
+            remote_dir = posixpath.join(
+                remote.path(), "." if artifact_path is None else artifact_path
+            )
+            assert posixpath.isdir(remote_dir)
+            assert posixpath.isdir(posixpath.join(remote_dir, directory))
+            assert posixpath.isfile(posixpath.join(remote_dir, file1))
+            assert posixpath.isfile(posixpath.join(remote_dir, directory, file2))
+
+            with open(posixpath.join(remote_dir, file1), "r") as remote_content:
+                assert remote_content.read() == file_content_1
+
+            with open(posixpath.join(remote_dir, directory, file2), "rb") as remote_content:
+                assert remote_content.read() == file_content_2
+
+            store.delete_artifacts(remote.path())
+
+            assert not posixpath.exists(posixpath.join(remote_dir, directory))
+            assert not posixpath.exists(posixpath.join(remote_dir, file1))
+            assert not posixpath.exists(posixpath.join(remote_dir, directory, file2))
+            assert not posixpath.exists(remote_dir)
+            assert not posixpath.exists(remote.path())
