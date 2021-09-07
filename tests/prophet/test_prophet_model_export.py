@@ -240,6 +240,7 @@ def test_model_log(prophet_model):
                 mlflow.end_run()
                 mlflow.set_tracking_uri(old_uri)
 
+
 @pytest.mark.large
 def test_log_model_calls_register_model(prophet_model):
     artifact_path = "prophet"
@@ -257,6 +258,7 @@ def test_log_model_calls_register_model(prophet_model):
         mlflow.register_model.assert_called_once_with(
             model_uri, "ProphetModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
         )
+
 
 @pytest.mark.large
 def test_log_model_no_registered_model_name(prophet_model):
@@ -368,7 +370,6 @@ def test_log_model_with_extra_pip_requirements(prophet_model, tmpdir):
         )
 
 
-@pytest.mark.large
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     prophet_model, model_path
 ):
@@ -376,7 +377,6 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
     _assert_pip_requirements(model_path, mlflow.prophet.get_default_pip_requirements())
 
 
-@pytest.mark.large
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     prophet_model,
 ):
@@ -389,18 +389,19 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 
 @pytest.mark.large
 def test_pyfunc_serve_and_score(prophet_model):
-    model, training_data = prophet_model
 
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.prophet.log_model(model, artifact_path)
+        mlflow.prophet.log_model(prophet_model.model, artifact_path)
         model_uri = mlflow.get_artifact_uri(artifact_path)
-    local_predict = model.predict(model.make_future_dataframe(FORECAST_HORIZON))
+    local_predict = prophet_model.model.predict(
+        prophet_model.model.make_future_dataframe(FORECAST_HORIZON)
+    )
 
     # cast to string representation of datetime series, otherwise will default cast to Unix time
     # which Prophet does not support for encoding
     inference_data = (
-        model.make_future_dataframe(FORECAST_HORIZON)["ds"]
+        prophet_model.model.make_future_dataframe(FORECAST_HORIZON)["ds"]
         .dt.strftime(INFER_FORMAT)
         .to_frame(name="ds")
     )
@@ -439,8 +440,10 @@ def test_metric_and_parameter_logging(prophet_model, model_path):
             prophet_model.model, "365 days", "180 days", "710 days", "threads", disable_tqdm=True
         )
         cv_metrics = performance_metrics(metrics_raw)
+
         metrics = {}
-        [metrics.update({x: cv_metrics[x].mean()}) for x in metric_values]
+        for metric in metric_values:
+            metrics[metric] = cv_metrics[metric].mean()
 
         mlflow.prophet.save_model(prophet_model.model, model_path)
         mlflow.log_params(params)
