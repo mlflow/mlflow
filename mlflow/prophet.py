@@ -79,7 +79,8 @@ def save_model(
     """
     Save a Prophet model to a path on the local file system.
 
-    :param pr_model: Prophet model (an instance of Prophet() after having :func:`.fit()` applied to be saved.
+    :param pr_model: Prophet model (an instance of Prophet() after having :func:`.fit()` applied
+                     to be saved.
     :param path: Local path where the serialized model (as JSON) is to be saved.
     :param conda_env: {{ conda_env }}
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
@@ -205,10 +206,10 @@ def log_model(
                             signature = infer_signature(train, predictions)
 
         :param input_example: Input example provides one or several instances of valid
-                              model input. The example can be used as a hint of what data to feed the
-                              model. The given example will be converted to a Pandas DataFrame and then
-                              serialized to json using the Pandas split-oriented format. Bytes are
-                              base64-encoded.
+                              model input. The example can be used as a hint of what data to
+                              feed the model. The given example will be converted to a
+                              Pandas DataFrame and then serialized to json using the
+                              Pandas split-oriented format. Bytes are base64-encoded.
 
         :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
