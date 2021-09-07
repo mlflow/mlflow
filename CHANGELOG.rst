@@ -1,5 +1,6 @@
 Changelog
 =========
+<<<<<<< HEAD
 1.20.2 (2021-09-)
 -------------------
 
@@ -9,6 +10,22 @@ Features:
 
 Bug fixes and documentation updates:
 
+=======
+1.20.2 (2021-09-03)
+-------------------
+MLflow 1.20.2 is a patch release for the MLflow Python and R packages containing the following features and bug fixes:
+
+Features:
+
+- Enabled auto dependency inference in spark flavor in autologging (#4759, @harupy)
+
+Bug fixes and documentation updates:
+
+- Increased MLflow client HTTP request timeout from 10s to 120s (#4764, @jinzhang21)
+- Fixed autologging compatibility bugs with TensorFlow and Keras version `2.6.0` (#4766, @dbczumar)
+
+Small bug fixes and doc updates (#4770, @WeichenXu123)
+>>>>>>> [ALL TESTS] Update  (#4776)
 
 1.20.1 (2021-08-26)
 -------------------
