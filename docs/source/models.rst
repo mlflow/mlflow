@@ -763,6 +763,19 @@ on a ``statsmodels`` model.
 
 For more information, see :py:mod:`mlflow.statsmodels`.
 
+Prophet (``prophet``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The ``prophet`` model flavor enables logging of `Prophet models
+<https://facebook.github.io/prophet/>`_ in MLflow format via the :py:func:`mlflow.prophet.save_model()`
+and :py:func:`mlflow.prophet.log_model()` methods.
+These methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
+models to be interpreted as generic Python functions for inference via
+:py:func:`mlflow.pyfunc.load_model()`. This loaded PyFunc model can only be scored with DataFrame input.
+You can also use the :py:func:`mlflow.prophet.load_model()`
+method to load MLflow Models with the ``prophet`` model flavor in native prophet format.
+
+For more information, see :py:mod:`mlflow.prophet`.
+
 Model Customization
 -------------------
 
