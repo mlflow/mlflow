@@ -39,6 +39,12 @@ def get_default_pip_requirements():
              that, at a minimum, contains these requirements.
     """
 
+    # As of prophet version 1.0.1, the build and install of prophet requires
+    # each of these packages to be present within the path in order to work correctly.
+    # Removing any of the sub dependencies from the installation order will cause prophet's
+    # pip install command to throw an exception for package missing references.
+    # NOTE: if the installation build for prophet gets refactored, these sub dependencies
+    # should be removed from this requirements definition.
     prophet_requirements = [
         "Cython",
         "pandas",
