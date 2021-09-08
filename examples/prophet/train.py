@@ -7,6 +7,7 @@ from prophet.diagnostics import cross_validation, performance_metrics
 SOURCE_DATA = (
     "https://raw.githubusercontent.com/facebook/prophet/master/examples/example_retail_sales.csv"
 )
+ARTIFACT_PATH = "model"
 np.random.seed(12345)
 
 
@@ -33,14 +34,16 @@ with mlflow.start_run():
     )
     cv_metrics = performance_metrics(metrics_raw)
     metrics = {}
-    [metrics.update({x: cv_metrics[x].mean()}) for x in metric_values]
+    for metric in metric_values:
+        metrics[metric] = cv_metrics[metric].mean()
 
-    mlflow.prophet.save_model(model)
+    mlflow.prophet.log_model(model, artifact_path=ARTIFACT_PATH)
     mlflow.log_params(params)
     mlflow.log_metrics(metrics)
-
-model_uri = mlflow.get_artifact_uri("model")
+    model_uri = mlflow.get_artifact_uri(ARTIFACT_PATH)
 
 loaded_model = mlflow.prophet.load_model(model_uri)
 
-forecast = loaded_model.predict(model.make_future_dataframe(60))
+forecast = loaded_model.predict(loaded_model.make_future_dataframe(60))
+
+print(f"forecast: ${forecast.head(30)}")
