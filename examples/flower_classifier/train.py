@@ -203,7 +203,7 @@ def train(
                 return f.read()
 
         with tf.Graph().as_default() as g:
-            with tf.Session(graph=g).as_default():
+            with tf.compat.v1.Session(graph=g).as_default():
                 dims = input_shape[:2]
                 x = np.array([decode_and_resize_image(_read_image(x), dims) for x in image_files])
                 y = np_utils.to_categorical(np.array(labels), num_classes=len(domain))
