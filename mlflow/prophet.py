@@ -1,5 +1,6 @@
 import os
 import yaml
+import json
 
 import mlflow
 from mlflow import pyfunc
@@ -74,7 +75,6 @@ def save_model(
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
-    **kwargs,
 ):
     """
     Save a Prophet model to a path on the local file system.
@@ -110,7 +110,6 @@ def save_model(
 
     import prophet
     import pystan
-    import numpy
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
@@ -134,12 +133,10 @@ def save_model(
     )
     flavor_conf = {
         _MODEL_TYPE_KEY: pr_model.__class__.__name__,
-        _SAVE_FORMAT_KEY: kwargs.get("format", "pr"),
         **model_bin_kwargs,
     }
     mlflow_model.add_flavor(
         FLAVOR_NAME,
-        numpy_version=numpy.__version__,
         pystan_version=pystan.__version__,
         prophet_version=prophet.__version__,
         **flavor_conf,
@@ -149,6 +146,12 @@ def save_model(
     if conda_env is None:
         if pip_requirements is None:
             # cannot use inferred requirements due to prophet's build process
+            # as the package installation of pystan requires Cython to be present
+            # in the path. Prophet's installation itself requires imports of
+            # existing libraries, preventing the execution of a batched pip install
+            # and instead using a a strictly defined list of dependencies.
+            # NOTE: if Prophet .whl build architecture is changed, this should be
+            # modified to a standard inferred approach.
             default_reqs = get_default_pip_requirements()
         else:
             default_reqs = None
@@ -177,50 +180,48 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements=None,
     extra_pip_requirements=None,
-    **kwargs,
 ):
     """
-        Log a Prophet model as an MLflow artifact for the current run.
+    Log a Prophet model as an MLflow artifact for the current run.
 
-        :param pr_model: Prophet model to be saved.
-        :param artifact_path: Run-relative artifact path.
-        :param conda_env: {{ conda_env }}
-        :param registered_model_name: This argument may change or be removed in a
-                                      future release without warning. If given, create a model
-                                      version under ``registered_model_name``, also creating a
-                                      registered model if one with the given name does not exist.
-        :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                          describes model input and output
-                          :py:class:`Schema <mlflow.types.Schema>`.
-                          The model signature can be :py:func:`inferred
-                          <mlflow.models.infer_signature>` from datasets with valid model input
-                          (e.g. the training dataset with target column omitted) and valid model
-                          output (e.g. model predictions generated on the training dataset),
-                          for example:
+    :param pr_model: Prophet model to be saved.
+    :param artifact_path: Run-relative artifact path.
+    :param conda_env: {{ conda_env }}
+    :param registered_model_name: This argument may change or be removed in a
+                                  future release without warning. If given, create a model
+                                  version under ``registered_model_name``, also creating a
+                                  registered model if one with the given name does not exist.
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      describes model input and output
+                      :py:class:`Schema <mlflow.types.Schema>`.
+                      The model signature can be :py:func:`inferred
+                      <mlflow.models.infer_signature>` from datasets with valid model input
+                      (e.g. the training dataset with target column omitted) and valid model
+                      output (e.g. model predictions generated on the training dataset),
+                      for example:
 
-                          .. code-block:: python
+                      .. code-block:: python
 
-                            from mlflow.models.signature import infer_signature
+                        from mlflow.models.signature import infer_signature
 
-                            model = Prophet().fit(df)
-                            train = model.history
-                            predictions = model.predict(model.make_future_dataframe(30))
-                            signature = infer_signature(train, predictions)
+                        model = Prophet().fit(df)
+                        train = model.history
+                        predictions = model.predict(model.make_future_dataframe(30))
+                        signature = infer_signature(train, predictions)
 
-        :param input_example: Input example provides one or several instances of valid
-                              model input. The example can be used as a hint of what data to
-                              feed the model. The given example will be converted to a
-                              Pandas DataFrame and then serialized to json using the
-                              Pandas split-oriented format. Bytes are base64-encoded.
+    :param input_example: Input example provides one or several instances of valid
+                          model input. The example can be used as a hint of what data to
+                          feed the model. The given example will be converted to a
+                          Pandas DataFrame and then serialized to json using the
+                          Pandas split-oriented format. Bytes are base64-encoded.
 
-        :param await_registration_for: Number of seconds to wait for the model version
-                            to finish being created and is in ``READY`` status.
-                            By default, the function waits for five minutes.
-                            Specify 0 or None to skip waiting.
-        :param pip_requirements: {{ pip_requirements }}
-        :param extra_pip_requirements: {{ extra_pip_requirements }}
-        :param kwargs: kwargs to pass to `Prophet.save_model`_ method.
-        """
+    :param await_registration_for: Number of seconds to wait for the model version
+                        to finish being created and is in ``READY`` status.
+                        By default, the function waits for five minutes.
+                        Specify 0 or None to skip waiting.
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
+    """
     Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.prophet,
@@ -232,7 +233,6 @@ def log_model(
         await_registration_for=await_registration_for,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
-        **kwargs,
     )
 
 
@@ -242,7 +242,7 @@ def _save_model(model, path):
 
     model_ser = model_to_json(model)
     with open(path, "w") as f:
-        yaml.safe_dump(model_ser, stream=f, default_flow_style=False)
+        json.dump(model_ser, f)
 
 
 def _load_model(path):
@@ -250,7 +250,7 @@ def _load_model(path):
     from prophet.serialize import model_from_json
 
     with open(path, "r") as f:
-        model = yaml.safe_load(f)
+        model = json.load(f)
     return model_from_json(model)
 
 
@@ -264,21 +264,21 @@ def _load_pyfunc(path):
 
 def load_model(model_uri):
     """
-        Load a Prophet model from a local file or a run.
+    Load a Prophet model from a local file or a run.
 
-        :param model_uri: The location, in URI format, of the MLflow model. For example:
+    :param model_uri: The location, in URI format, of the MLflow model. For example:
 
-                          - ``/Users/me/path/to/local/model``
-                          - ``relative/path/to/local/model``
-                          - ``s3://my_bucket/path/to/model``
-                          - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+                      - ``/Users/me/path/to/local/model``
+                      - ``relative/path/to/local/model``
+                      - ``s3://my_bucket/path/to/model``
+                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 
-                          For more information about supported URI schemes, see
-                          `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
-                          artifact-locations>`_.
+                      For more information about supported URI schemes, see
+                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
+                      artifact-locations>`_.
 
-        :return: A Prophet model instance
-        """
+    :return: A Prophet model instance
+    """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     pr_model_path = os.path.join(

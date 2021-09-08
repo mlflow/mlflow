@@ -106,6 +106,8 @@ INFER_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 ModelWithSource = namedtuple("ModelWithSource", ["model", "data"])
 
+pytestmark = pytest.mark.large
+
 
 @pytest.fixture(scope="session")
 def prophet_model():
@@ -137,7 +139,6 @@ def generate_forecast(model, horizon):
     return model.predict(model.make_future_dataframe(periods=horizon))[TARGET_FIELD_NAME]
 
 
-@pytest.mark.large
 def test_model_native_save_load(prophet_model, model_path):
     model = prophet_model.model
     mlflow.prophet.save_model(pr_model=model, path=model_path)
@@ -149,7 +150,6 @@ def test_model_native_save_load(prophet_model, model_path):
     )
 
 
-@pytest.mark.large
 def test_model_pyfunc_save_load(prophet_model, model_path):
     model = prophet_model.model
     mlflow.prophet.save_model(pr_model=model, path=model_path)
@@ -163,7 +163,6 @@ def test_model_pyfunc_save_load(prophet_model, model_path):
     )
 
 
-@pytest.mark.large
 def test_signature_and_examples_saved_correctly(prophet_model):
     data = prophet_model.data
     model = prophet_model.model
@@ -188,7 +187,6 @@ def test_signature_and_examples_saved_correctly(prophet_model):
                     np.testing.assert_array_equal(r_example, example)
 
 
-@pytest.mark.large
 def test_model_load_from_remote_uri_succeeds(prophet_model, model_path, mock_s3_bucket):
     mlflow.prophet.save_model(pr_model=prophet_model.model, path=model_path)
 
@@ -205,7 +203,6 @@ def test_model_load_from_remote_uri_succeeds(prophet_model, model_path, mock_s3_
     )
 
 
-@pytest.mark.large
 def test_model_log(prophet_model):
     old_uri = mlflow.get_tracking_uri()
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
@@ -241,7 +238,6 @@ def test_model_log(prophet_model):
                 mlflow.set_tracking_uri(old_uri)
 
 
-@pytest.mark.large
 def test_log_model_calls_register_model(prophet_model):
     artifact_path = "prophet"
     register_model_patch = mock.patch("mlflow.register_model")
@@ -260,7 +256,6 @@ def test_log_model_calls_register_model(prophet_model):
         )
 
 
-@pytest.mark.large
 def test_log_model_no_registered_model_name(prophet_model):
     artifact_path = "prophet"
     register_model_patch = mock.patch("mlflow.register_model")
@@ -273,7 +268,6 @@ def test_log_model_no_registered_model_name(prophet_model):
         mlflow.register_model.assert_not_called()
 
 
-@pytest.mark.large
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     prophet_model, model_path, prophet_custom_env
 ):
@@ -293,7 +287,6 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_parsed == prophet_custom_env_parsed
 
 
-@pytest.mark.large
 def test_model_save_persists_requirements_in_mlflow_model_directory(
     prophet_model, model_path, prophet_custom_env
 ):
@@ -305,17 +298,16 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
     _compare_conda_env_requirements(prophet_custom_env, saved_pip_req_path)
 
 
-@pytest.mark.large
 def test_log_model_with_pip_requirements(prophet_model, tmpdir):
     req_file = tmpdir.join("requirements.txt")
     req_file.write("a")
     with mlflow.start_run():
-        mlflow.sklearn.log_model(prophet_model.model, "model", pip_requirements=req_file.strpath)
+        mlflow.prophet.log_model(prophet_model.model, "model", pip_requirements=req_file.strpath)
         _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"], strict=True)
 
     # List of requirements
     with mlflow.start_run():
-        mlflow.sklearn.log_model(
+        mlflow.prophet.log_model(
             prophet_model.model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"]
         )
         _assert_pip_requirements(
@@ -324,7 +316,7 @@ def test_log_model_with_pip_requirements(prophet_model, tmpdir):
 
     # Constraints file
     with mlflow.start_run():
-        mlflow.sklearn.log_model(
+        mlflow.prophet.log_model(
             prophet_model.model, "model", pip_requirements=[f"-c {req_file.strpath}", "b"]
         )
         _assert_pip_requirements(
@@ -335,7 +327,6 @@ def test_log_model_with_pip_requirements(prophet_model, tmpdir):
         )
 
 
-@pytest.mark.large
 def test_log_model_with_extra_pip_requirements(prophet_model, tmpdir):
     default_reqs = mlflow.prophet.get_default_pip_requirements()
 
@@ -370,6 +361,7 @@ def test_log_model_with_extra_pip_requirements(prophet_model, tmpdir):
         )
 
 
+@pytest.mark.small
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     prophet_model, model_path
 ):
@@ -377,6 +369,7 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
     _assert_pip_requirements(model_path, mlflow.prophet.get_default_pip_requirements())
 
 
+@pytest.mark.small
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     prophet_model,
 ):
@@ -387,7 +380,6 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     _assert_pip_requirements(model_uri, mlflow.prophet.get_default_pip_requirements())
 
 
-@pytest.mark.large
 def test_pyfunc_serve_and_score(prophet_model):
 
     artifact_path = "model"
@@ -420,36 +412,3 @@ def test_pyfunc_serve_and_score(prophet_model):
     pd.testing.assert_series_equal(
         left=local_predict["yhat"], right=scores["yhat"], check_dtype=True
     )
-
-
-@pytest.mark.large
-def test_metric_and_parameter_logging(prophet_model, model_path):
-
-    from prophet import serialize
-    from prophet.diagnostics import cross_validation, performance_metrics
-    from mlflow.tracking import MlflowClient
-
-    def extract_params(model):
-        return {attr: getattr(model, attr) for attr in serialize.SIMPLE_ATTRIBUTES}
-
-    with mlflow.start_run():
-        params = extract_params(prophet_model.model)
-        run = mlflow.active_run().info.run_id
-        metric_values = ["mse", "rmse", "mae", "mape", "mdape", "smape", "coverage"]
-        metrics_raw = cross_validation(
-            prophet_model.model, "365 days", "180 days", "710 days", "threads", disable_tqdm=True
-        )
-        cv_metrics = performance_metrics(metrics_raw)
-
-        metrics = {}
-        for metric in metric_values:
-            metrics[metric] = cv_metrics[metric].mean()
-
-        mlflow.prophet.save_model(prophet_model.model, model_path)
-        mlflow.log_params(params)
-        mlflow.log_metrics(metrics)
-
-    client = MlflowClient()
-    run_id = client.get_run(run).info.run_id
-    logged_metrics = client.get_metric_history(run_id, "rmse")
-    assert logged_metrics[0].value == metrics["rmse"]
