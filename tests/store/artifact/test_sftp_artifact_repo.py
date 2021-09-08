@@ -103,7 +103,9 @@ def test_list_artifacts_with_subdir(sftp_mock):
     artifacts = repo.list_artifacts(path=dir_name)
 
     sftp_mock.listdir.assert_called_once_with(artifact_root_path + dir_name)
-    sftp_mock.stat.assert_called_once_with(artifact_root_path + dir_name + "/" + file_path)
+    sftp_mock.stat.assert_called_once_with(
+        artifact_root_path + dir_name + "/" + file_path
+    )
 
     assert len(artifacts) == 2
     assert artifacts[0].path == posixpath.join(dir_name, file_path)
@@ -117,7 +119,9 @@ def test_list_artifacts_with_subdir(sftp_mock):
 @pytest.mark.requires_ssh
 def test_log_artifact():
     for artifact_path in [None, "sub_dir", "very/nested/sub/dir"]:
-        file_content = "A simple test artifact\nThe artifact is located in: " + str(artifact_path)
+        file_content = "A simple test artifact\nThe artifact is located in: " + str(
+            artifact_path
+        )
         with NamedTemporaryFile(mode="w") as local, TempDir() as remote:
             local.write(file_content)
             local.flush()
@@ -140,7 +144,9 @@ def test_log_artifact():
 @pytest.mark.requires_ssh
 def test_log_artifacts():
     for artifact_path in [None, "sub_dir", "very/nested/sub/dir"]:
-        file_content_1 = "A simple test artifact\nThe artifact is located in: " + str(artifact_path)
+        file_content_1 = "A simple test artifact\nThe artifact is located in: " + str(
+            artifact_path
+        )
         file_content_2 = os.urandom(300)
 
         file1 = "meta.yaml"
@@ -168,76 +174,130 @@ def test_log_artifacts():
             with open(posixpath.join(remote_dir, file1), "r") as remote_content:
                 assert remote_content.read() == file_content_1
 
-            with open(posixpath.join(remote_dir, directory, file2), "rb") as remote_content:
+            with open(
+                posixpath.join(remote_dir, directory, file2), "rb"
+            ) as remote_content:
                 assert remote_content.read() == file_content_2
 
 
 @pytest.mark.requires_ssh
-def test_delete_artifact():
-    for artifact_path in [None, "sub_dir", "very/nested/sub/dir"]:
-        file_content = "A simple test artifact\nThe artifact is located in: " + str(artifact_path)
-        with NamedTemporaryFile(mode="w") as local, TempDir() as remote:
-            local.write(file_content)
-            local.flush()
+@pytest.mark.parametrize("artifact_path", [None, "sub_dir", "very/nested/sub/dir"])
+def test_delete_artifact(artifact_path):
+    file_content = (
+        f"A simple test artifact\nThe artifact is located in: {artifact_path}"
+    )
+    with NamedTemporaryFile(mode="w") as local, TempDir() as remote:
+        local.write(file_content)
+        local.flush()
 
-            sftp_path = "sftp://" + remote.path()
-            store = SFTPArtifactRepository(sftp_path)
-            store.log_artifact(local.name, artifact_path)
+        sftp_path = f"sftp://{remote.path}"
+        store = SFTPArtifactRepository(sftp_path)
+        store.log_artifact(local.name, artifact_path)
 
-            remote_file = posixpath.join(
-                remote.path(),
-                "." if artifact_path is None else artifact_path,
-                os.path.basename(local.name),
-            )
-            assert posixpath.isfile(remote_file)
+        remote_file = posixpath.join(
+            remote.path(),
+            "." if artifact_path is None else artifact_path,
+            os.path.basename(local.name),
+        )
+        assert posixpath.isfile(remote_file)
 
-            with open(remote_file, "r") as remote_content:
-                assert remote_content.read() == file_content
+        with open(remote_file, "r", encoding="uft8") as remote_content:
+            assert remote_content.read() == file_content
 
-            store.delete_artifacts(remote.path())
+        store.delete_artifacts(remote.path())
 
-            assert not posixpath.exists(remote_file)
-            assert not posixpath.exists(remote.path())
+        assert not posixpath.exists(remote_file)
+        assert not posixpath.exists(remote.path())
 
 
 @pytest.mark.requires_ssh
-def test_delete_artifacts():
-    for artifact_path in [None, "sub_dir", "very/nested/sub/dir"]:
-        file_content_1 = "A simple test artifact\nThe artifact is located in: " + str(artifact_path)
-        file_content_2 = os.urandom(300)
+@pytest.mark.parametrize("artifact_path", [None, "sub_dir", "very/nested/sub/dir"])
+def test_delete_artifacts(artifact_path):
+    file_content_1 = (
+        f"A simple test artifact\nThe artifact is located in: {artifact_path}"
+    )
+    file_content_2 = os.urandom(300)
 
-        file1 = "meta.yaml"
-        directory = "saved_model"
-        file2 = "sk_model.pickle"
-        with TempDir() as local, TempDir() as remote:
-            with open(os.path.join(local.path(), file1), "w") as f:
-                f.write(file_content_1)
-            os.mkdir(os.path.join(local.path(), directory))
-            with open(os.path.join(local.path(), directory, file2), "wb") as f:
-                f.write(file_content_2)
+    file1 = "meta.yaml"
+    directory = "saved_model"
+    file2 = "sk_model.pickle"
+    with TempDir() as local, TempDir() as remote:
+        with open(os.path.join(local.path(), file1), "w", encoding="utf8") as f:
+            f.write(file_content_1)
+        os.mkdir(os.path.join(local.path(), directory))
+        with open(os.path.join(local.path(), directory, file2), "wb") as f:
+            f.write(file_content_2)
 
-            sftp_path = "sftp://" + remote.path()
-            store = SFTPArtifactRepository(sftp_path)
-            store.log_artifacts(local.path(), artifact_path)
+        sftp_path = f"sftp://{remote.path()}"
+        store = SFTPArtifactRepository(sftp_path)
+        store.log_artifacts(local.path(), artifact_path)
 
-            remote_dir = posixpath.join(
-                remote.path(), "." if artifact_path is None else artifact_path
-            )
-            assert posixpath.isdir(remote_dir)
-            assert posixpath.isdir(posixpath.join(remote_dir, directory))
-            assert posixpath.isfile(posixpath.join(remote_dir, file1))
-            assert posixpath.isfile(posixpath.join(remote_dir, directory, file2))
+        remote_dir = posixpath.join(
+            remote.path(), "." if artifact_path is None else artifact_path
+        )
+        assert posixpath.isdir(remote_dir)
+        assert posixpath.isdir(posixpath.join(remote_dir, directory))
+        assert posixpath.isfile(posixpath.join(remote_dir, file1))
+        assert posixpath.isfile(posixpath.join(remote_dir, directory, file2))
 
-            with open(posixpath.join(remote_dir, file1), "r") as remote_content:
-                assert remote_content.read() == file_content_1
+        with open(
+            posixpath.join(remote_dir, file1), "r", encoding="utf8"
+        ) as remote_content:
+            assert remote_content.read() == file_content_1
 
-            with open(posixpath.join(remote_dir, directory, file2), "rb") as remote_content:
-                assert remote_content.read() == file_content_2
+        with open(posixpath.join(remote_dir, directory, file2), "rb") as remote_content:
+            assert remote_content.read() == file_content_2
 
-            store.delete_artifacts(remote.path())
+        store.delete_artifacts(remote.path())
 
-            assert not posixpath.exists(posixpath.join(remote_dir, directory))
-            assert not posixpath.exists(posixpath.join(remote_dir, file1))
-            assert not posixpath.exists(posixpath.join(remote_dir, directory, file2))
-            assert not posixpath.exists(remote_dir)
-            assert not posixpath.exists(remote.path())
+        assert not posixpath.exists(posixpath.join(remote_dir, directory))
+        assert not posixpath.exists(posixpath.join(remote_dir, file1))
+        assert not posixpath.exists(posixpath.join(remote_dir, directory, file2))
+        assert not posixpath.exists(remote_dir)
+        assert not posixpath.exists(remote.path())
+
+
+@pytest.mark.requires_ssh
+@pytest.mark.parametrize("artifact_path", [None, "sub_dir", "very/nested/sub/dir"])
+def test_delete_selective_artifacts(artifact_path):
+    file_content_1 = (
+        f"A simple test artifact\nThe artifact is located in: {artifact_path}"
+    )
+    file_content_2 = os.urandom(300)
+
+    file1 = "meta.yaml"
+    directory = "saved_model"
+    file2 = "sk_model.pickle"
+    with TempDir() as local, TempDir() as remote:
+        with open(os.path.join(local.path(), file1), "w", encoding="utf8") as f:
+            f.write(file_content_1)
+        os.mkdir(os.path.join(local.path(), directory))
+        with open(os.path.join(local.path(), directory, file2), "wb") as f:
+            f.write(file_content_2)
+
+        sftp_path = f"sftp://{remote.path()}"
+        store = SFTPArtifactRepository(sftp_path)
+        store.log_artifacts(local.path(), artifact_path)
+
+        remote_dir = posixpath.join(
+            remote.path(), "." if artifact_path is None else artifact_path
+        )
+        assert posixpath.isdir(remote_dir)
+        assert posixpath.isdir(posixpath.join(remote_dir, directory))
+        assert posixpath.isfile(posixpath.join(remote_dir, file1))
+        assert posixpath.isfile(posixpath.join(remote_dir, directory, file2))
+
+        with open(
+            posixpath.join(remote_dir, file1), "r", encoding="utf8"
+        ) as remote_content:
+            assert remote_content.read() == file_content_1
+
+        with open(posixpath.join(remote_dir, directory, file2), "rb") as remote_content:
+            assert remote_content.read() == file_content_2
+
+        store.delete_artifacts(posixpath.join(remote_dir, file1))
+
+        assert posixpath.isdir(posixpath.join(remote_dir, directory))
+        assert not posixpath.exists(posixpath.join(remote_dir, file1))
+        assert posixpath.isfile(posixpath.join(remote_dir, directory, file2))
+        assert posixpath.isdir(remote_dir)

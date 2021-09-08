@@ -6,7 +6,6 @@ import urllib.parse
 
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.exceptions import MlflowException
 
 
 # Based on: https://stackoverflow.com/a/58466685
