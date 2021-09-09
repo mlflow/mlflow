@@ -669,6 +669,12 @@ message CreateExperiment {
   // If not provided, the remote server will select an appropriate default.
   optional string artifact_location = 2;
 
+  // A collection of tags to set on the experiment. Maximum tag size and number of tags per request
+  // depends on the storage backend. All storage backends are guaranteed to support tag keys up
+  // to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
+  // guaranteed to support up to 20 tags per request.
+  repeated ExperimentTag tags = 3;
+
   message Response {
     // Unique identifier for the experiment.
     optional string experiment_id = 1;
