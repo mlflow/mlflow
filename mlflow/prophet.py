@@ -45,20 +45,7 @@ def get_default_pip_requirements():
     # pip install command to throw an exception for package missing references.
     # NOTE: if the installation build for prophet gets refactored, these sub dependencies
     # should be removed from this requirements definition.
-    prophet_requirements = [
-        "Cython",
-        "pandas",
-        "convertdate",
-        "LunarCalendar",
-        "holidays",
-        "tqdm",
-        "cmdstanpy",
-        "matplotlib",
-        "setuptools-git",
-        "python-dateutil",
-        "pystan",
-        "prophet",
-    ]
+    prophet_requirements = ["prophet"]
 
     return [_get_pinned_requirement(x) for x in prophet_requirements]
 

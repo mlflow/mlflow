@@ -46,13 +46,4 @@ paddlepaddle
 # Prophet's installation process has environment dependencies on each of these packages
 # and as such they are all required to be installed and available on the path prior to
 # prophet being installed. (This may change if prophet's installation gets refactored)
-Cython
-convertdate
-LunarCalendar
-holidays
-tqdm
-cmdstanpy
-setuptools-git
-python-dateutil
-pystan~=2.19.1.1
 prophet
