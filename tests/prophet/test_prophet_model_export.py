@@ -361,7 +361,6 @@ def test_log_model_with_extra_pip_requirements(prophet_model, tmpdir):
         )
 
 
-@pytest.mark.small
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     prophet_model, model_path
 ):
@@ -369,7 +368,6 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
     _assert_pip_requirements(model_path, mlflow.prophet.get_default_pip_requirements())
 
 
-@pytest.mark.small
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     prophet_model,
 ):

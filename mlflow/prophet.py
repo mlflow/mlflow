@@ -1,3 +1,16 @@
+"""
+The ``mlflow.prophet`` module provides and API for logging and loading Prophet models.
+This module exports univariate Prophet models in the following flavors:
+
+Prophet (native) format
+    This is the main flavor that can be accessed with Prophet APIs.
+:py:mod:`mlflow.pyfunc`
+    Produced for use by generic pyfunc-based deployment tools and for batch auditing
+    of historical forecasts.
+
+.. _Prophet:
+    https://facebook.github.io/prophet/docs/quick_start.html#python-api
+"""
 import os
 import yaml
 import json
@@ -29,7 +42,6 @@ FLAVOR_NAME = "prophet"
 _MODEL_BINARY_KEY = "data"
 _MODEL_BINARY_FILE_NAME = "model.pr"
 _MODEL_TYPE_KEY = "model_type"
-_SAVE_FORMAT_KEY = "save_format"
 
 
 def get_default_pip_requirements():
@@ -38,29 +50,11 @@ def get_default_pip_requirements():
              Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
              that, at a minimum, contains these requirements.
     """
-
-    # As of prophet version 1.0.1, the build and install of prophet requires
-    # each of these packages to be present within the path in order to work correctly.
-    # Removing any of the sub dependencies from the installation order will cause prophet's
-    # pip install command to throw an exception for package missing references.
-    # NOTE: if the installation build for prophet gets refactored, these sub dependencies
-    # should be removed from this requirements definition.
-    prophet_requirements = [
-        "Cython",
-        "pandas",
-        "convertdate",
-        "LunarCalendar",
-        "holidays",
-        "tqdm",
-        "cmdstanpy",
-        "matplotlib",
-        "setuptools-git",
-        "python-dateutil",
-        "pystan",
-        "prophet",
-    ]
-
-    return [_get_pinned_requirement(x) for x in prophet_requirements]
+    # Note: Prophet's whl build process will fail due to missing dependencies, defaulting
+    # to setup.py installation process.
+    # If a pystan installation error occurs, ensure gcc>=8 is installed in your environment.
+    # See: https://gcc.gnu.org/install/
+    return [_get_pinned_requirement("prophet")]
 
 
 def get_default_conda_env():
@@ -85,8 +79,8 @@ def save_model(
     """
     Save a Prophet model to a path on the local file system.
 
-    :param pr_model: Prophet model (an instance of Prophet() after having :func:`.fit()`
-                     applied to be saved.
+    :param pr_model: Prophet model (an instance of Prophet() forecaster that has been fit
+                     on a temporal series.
     :param path: Local path where the serialized model (as JSON) is to be saved.
     :param conda_env: {{ conda_env }}
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
@@ -115,7 +109,6 @@ def save_model(
     """
 
     import prophet
-    import pystan
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
@@ -142,10 +135,7 @@ def save_model(
         **model_bin_kwargs,
     }
     mlflow_model.add_flavor(
-        FLAVOR_NAME,
-        pystan_version=pystan.__version__,
-        prophet_version=prophet.__version__,
-        **flavor_conf,
+        FLAVOR_NAME, prophet_version=prophet.__version__, **flavor_conf,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
