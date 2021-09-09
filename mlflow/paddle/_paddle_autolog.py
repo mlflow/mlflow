@@ -9,18 +9,13 @@ from mlflow.utils.autologging_utils import (
 )
 
 
-def _get_optimizer_name(optimizer):
-    return optimizer.__class__.__name__
-
-
 class __MLflowPaddleCallback(paddle.callbacks.Callback, metaclass=ExceptionSafeAbstractClass):
     """
     Callback for auto-logging metrics and parameters.
     """
 
-    def __init__(
-        self, client, metrics_logger, run_id, log_models, log_every_n_epoch
-    ):  # pylint: disable=super-init-not-called
+    def __init__(self, client, metrics_logger, run_id, log_models, log_every_n_epoch):
+        super().__init__()
         self.early_stopping = False
         self.client = client
         self.metrics_logger = metrics_logger
@@ -42,7 +37,7 @@ class __MLflowPaddleCallback(paddle.callbacks.Callback, metaclass=ExceptionSafeA
 
     def on_train_begin(self, logs=None):
         params = {
-            "optimizer_name": _get_optimizer_name(self.model._optimizer),
+            "optimizer_name": self.model._optimizer.__class__.__name__,
             "learning_rate": self.model._optimizer._learning_rate,
         }
         self.client.log_params(self.run_id, params)
@@ -63,6 +58,7 @@ class __MLflowPaddleCallback(paddle.callbacks.Callback, metaclass=ExceptionSafeA
 def _log_early_stop_params(early_stop_callback, client, run_id):
     """
     Logs early stopping configuration parameters to MLflow.
+
     :param early_stop_callback: The early stopping callback instance used during training.
     :param client: An `MlflowAutologgingQueueingClient` instance used for MLflow logging.
     :param run_id: The ID of the MLflow Run to which to log configuration parameters.
@@ -80,6 +76,7 @@ def _log_early_stop_params(early_stop_callback, client, run_id):
 def _log_early_stop_metrics(early_stop_callback, client, run_id):
     """
     Logs early stopping behavior results (e.g. stopped epoch) as metrics to MLflow.
+
     :param early_stop_callback: The early stopping callback instance used during training.
     :param client: An `MlflowAutologgingQueueingClient` instance used for MLflow logging.
     :param run_id: The ID of the MLflow Run to which to log configuration parameters.

@@ -41,17 +41,16 @@ def test_autolog_logs_expected_data():
         train_model()
 
     client = MlflowClient()
-    run = client.get_run(run.info.run_id)
-    params = run.data.params
+    data = client.get_run(run.info.run_id).data
 
     # Testing params are logged
-    for param_key, param_value in [("optimizer_name", "Adam"), ("learning_rate", "0.01")]:
-        assert param_key in params
-        assert params[param_key] == param_value
+    for param_key, expected_param_value in [("optimizer_name", "Adam"), ("learning_rate", "0.01")]:
+        assert param_key in data.params
+        assert data.params[param_key] == expected_param_value
 
     # Testing metrics are logged
     for metric_key in ["batch_size", "loss", "step", "eval_batch_size", "eval_loss", "eval_step"]:
-        assert metric_key in run.data.metrics
+        assert metric_key in data.metrics
         metric_history = client.get_metric_history(run.info.run_id, metric_key)
         assert len(metric_history) == NUM_EPOCHS
 
@@ -68,20 +67,18 @@ def test_autolog_early_stopping_callback():
         train_model(callbacks=[early_stopping])
 
     client = MlflowClient()
-    run = client.get_run(run.info.run_id)
+    data = client.get_run(run.info.run_id).data
 
-    params = run.data.params
     for param_key in ["monitor", "patience", "min_delta", "baseline"]:
-        assert param_key in params
-        assert params[param_key] == str(getattr(early_stopping, param_key))
+        assert param_key in data.params
+        assert data.params[param_key] == str(getattr(early_stopping, param_key))
 
-    metrics = run.data.metrics
     for metric_key in ["stopped_epoch", "best_value"]:
-        assert metric_key in metrics
-        assert float(metrics[metric_key]) == getattr(early_stopping, metric_key)
+        assert metric_key in data.metrics
+        assert float(data.metrics[metric_key]) == getattr(early_stopping, metric_key)
 
     for metric_key in ["loss", "step"]:
-        assert metric_key in run.data.metrics
+        assert metric_key in data.metrics
         metric_history = client.get_metric_history(run.info.run_id, metric_key)
         assert len(metric_history) == NUM_EPOCHS
 
