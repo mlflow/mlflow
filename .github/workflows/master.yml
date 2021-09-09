@@ -36,6 +36,7 @@ jobs:
       run: |
         which gcc
         pip install prophet
+        conda env create --file conda.yaml
     - name: Install dependencies
       env:
         INSTALL_LARGE_PYTHON_DEPS: true
@@ -44,7 +45,6 @@ jobs:
         export PATH="$CONDA_DIR/bin:$PATH"
         source ./dev/install-common-deps.sh
         pip install -r ./dev/lint-requirements.txt
-        conda env create --file conda.yaml
     - name: Run tests
       run: |
         export PATH="$CONDA_DIR/bin:$PATH"
