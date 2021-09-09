@@ -24,6 +24,7 @@ from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
     _mlflow_conda_env,
     _validate_env_arguments,
@@ -38,6 +39,7 @@ from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 FLAVOR_NAME = "paddle"
 
@@ -446,3 +448,100 @@ class _PaddleWrapper(object):
 def _contains_pdparams(path):
     file_list = os.listdir(path)
     return any(".pdparams" in file for file in file_list)
+
+
+@experimental
+@autologging_integration(FLAVOR_NAME)
+def autolog(
+    log_every_n_epoch=1, log_models=True, disable=False, exclusive=False, silent=False,
+):  # pylint: disable=unused-argument
+    """
+    Enables (or disables) and configures autologging from PaddlePaddle to MLflow.
+
+    Autologging is performed when the `fit` method of `paddle.Model`_ is called.
+
+    .. _paddle.Model:
+        https://www.paddlepaddle.org.cn/documentation/docs/en/api/paddle/Model_en.html
+
+    :param log_every_n_epoch: If specified, logs metrics once every `n` epochs. By default, metrics
+                       are logged after every epoch.
+    :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
+                       If ``False``, trained models are not logged.
+    :param disable: If ``True``, disables the PaddlePaddle autologging integration.
+                    If ``False``, enables the PaddlePaddle autologging integration.
+    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+                      If ``False``, autologged content is logged to the active fluent run,
+                      which may be user-created.
+    :param silent: If ``True``, suppress all event logs and warnings from MLflow during PyTorch
+                   Lightning autologging. If ``False``, show all events and warnings during
+                   PaddlePaddle autologging.
+
+    .. code-block:: python
+        :caption: Example
+
+        import paddle
+        import mlflow
+
+
+        def show_run_data(run_id):
+            run = mlflow.get_run(run_id)
+            print("params: {}".format(run.data.params))
+            print("metrics: {}".format(run.data.metrics))
+            client = mlflow.tracking.MlflowClient()
+            artifacts = [f.path for f in client.list_artifacts(run.info.run_id, "model")]
+            print("artifacts: {}".format(artifacts))
+
+
+        class LinearRegression(paddle.nn.Layer):
+            def __init__(self):
+                super().__init__()
+                self.fc = paddle.nn.Linear(13, 1)
+
+            def forward(self, feature):
+                return self.fc(feature)
+
+
+        train_dataset = paddle.text.datasets.UCIHousing(mode="train")
+        eval_dataset = paddle.text.datasets.UCIHousing(mode="test")
+
+        model = paddle.Model(LinearRegression())
+        optim = paddle.optimizer.SGD(learning_rate=1e-2, parameters=model.parameters())
+        model.prepare(optim, paddle.nn.MSELoss(), paddle.metric.Accuracy())
+
+        mlflow.paddle.autolog()
+
+        with mlflow.start_run() as run:
+            model.fit(train_dataset, eval_dataset, batch_size=16, epochs=10)
+
+        show_run_data(run.info.run_id)
+
+    .. code-block:: text
+        :caption: Output
+
+        params: {
+            "learning_rate": "0.01",
+            "optimizer_name": "SGD",
+        }
+        metrics: {
+            "loss": 17.482044,
+            "step": 25.0,
+            "acc": 0.0,
+            "eval_step": 6.0,
+            "eval_acc": 0.0,
+            "eval_batch_size": 6.0,
+            "batch_size": 4.0,
+            "eval_loss": 24.717455,
+        }
+        artifacts: [
+            "model/MLmodel",
+            "model/conda.yaml",
+            "model/model.pdiparams",
+            "model/model.pdiparams.info",
+            "model/model.pdmodel",
+            "model/requirements.txt",
+        ]
+    """
+    import paddle
+    from mlflow.paddle._paddle_autolog import patched_fit
+
+    safe_patch(FLAVOR_NAME, paddle.Model, "fit", patched_fit, manage_run=True)
