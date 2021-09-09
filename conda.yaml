@@ -1,0 +1,8 @@
+name: prophet
+channels:
+  - conda-forge
+dependencies:
+  - python=3.6
+  - pip
+  - pip:
+    - prophet
