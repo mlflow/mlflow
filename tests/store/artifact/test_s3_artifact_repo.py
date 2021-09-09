@@ -5,7 +5,7 @@ import tarfile
 import pytest
 
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository, _get_boto3_client
 
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
@@ -55,6 +55,24 @@ def test_file_artifact_is_logged_with_content_metadata(s3_artifact_root, tmpdir)
     assert response.get("ContentEncoding") is None
 
 
+def test_get_s3_client_hits_cache(s3_artifact_root):
+    get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+    cache_info = _get_boto3_client.cache_info()
+    assert cache_info.hits == 0
+    assert cache_info.misses == 1
+    assert cache_info.currsize == 1
+    get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+    cache_info = _get_boto3_client.cache_info()
+    assert cache_info.hits == 1
+    assert cache_info.misses == 1
+    assert cache_info.currsize == 1
+    get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+    cache_info = _get_boto3_client.cache_info()
+    assert cache_info.hits == 1
+    assert cache_info.misses == 2
+    assert cache_info.currsize == 2
+
+
 @pytest.mark.parametrize("ignore_tls_env, verify", [("", None), ("true", False), ("false", None)])
 def test_get_s3_client_verify_param_set_correctly(s3_artifact_root, ignore_tls_env, verify):
     from unittest.mock import ANY
@@ -62,6 +80,7 @@ def test_get_s3_client_verify_param_set_correctly(s3_artifact_root, ignore_tls_e
     with mock.patch.dict("os.environ", {"MLFLOW_S3_IGNORE_TLS": ignore_tls_env}, clear=True):
         with mock.patch("boto3.client") as mock_get_s3_client:
             repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+            _get_boto3_client.clear_cache()
             repo._get_s3_client()
             mock_get_s3_client.assert_called_with("s3", config=ANY, endpoint_url=ANY, verify=verify)
 
