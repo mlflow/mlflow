@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
-from packaging.version import Version  # pylint: disable=unused-import
+import re
+from packaging.version import Version
 
 import sklearn
 import sklearn.base
@@ -684,16 +685,18 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
         )
         cv_model.fit(*get_iris())
 
-        # Ensure `cv_model.predict` fails with `NotFittedError`
-        msg = (
-            "This GridSearchCV instance was initialized with refit=False. "
-            "predict is available only after refitting on the best parameters"
+        # Ensure `cv_model.predict` fails with `NotFittedError` or `AttributeError`
+        err = (
+            NotFittedError if Version(sklearn.__version__) <= Version("0.24.2") else AttributeError
         )
-        with pytest.raises(NotFittedError, match=msg):
+        match = r"This GridSearchCV instance.+refit=False.+predict"
+        with pytest.raises(err, match=match):
             cv_model.predict([[0, 0, 0, 0]])
 
         # Count how many times `mock_warning` has been called on not-fitted `predict` failure
-        call_count = len([args for args in mock_warning.call_args_list if msg in args[0][0]])
+        call_count = len(
+            [args for args in mock_warning.call_args_list if re.search(match, args[0][0])]
+        )
         # If `_is_plotting_supported` returns True (meaning sklearn version is >= 0.22.0),
         # `mock_warning` should have been called twice, once for metrics, once for artifacts.
         # Otherwise, only once for metrics.
@@ -1599,7 +1602,9 @@ def test_run_metric_api_doc_example(metric_name):
     doctest.run_docstring_examples(metric_api.__doc__, {}, verbose=True)
 
 
-def test_post_training_post_training_metric_autologging_for_predict_prob():
+def test_post_training_metric_autologging_for_predict_prob():
+    import sklearn.linear_model
+
     mlflow.sklearn.autolog()
     from sklearn.metrics import roc_auc_score
 
@@ -1615,7 +1620,7 @@ def test_post_training_post_training_metric_autologging_for_predict_prob():
     assert metrics["roc_auc_score_X"] == roc_auc_metric
 
 
-def test_post_training_post_training_metric_autologging_patch_transform():
+def test_post_training_metric_autologging_patch_transform():
     import sklearn.cluster
 
     mlflow.sklearn.autolog()
@@ -1626,18 +1631,6 @@ def test_post_training_post_training_metric_autologging_patch_transform():
     ) as mock_register_prediction_input_dataset:
         kmeans_model.transform(X)
         mock_register_prediction_input_dataset.assert_called_once()
-
-
-def test_is_metrics_value_loggable():
-    is_metrics_value_loggable = mlflow.sklearn._autologging_metrics_manager.is_metric_value_loggable
-    assert is_metrics_value_loggable(3)
-    assert is_metrics_value_loggable(3.5)
-    assert is_metrics_value_loggable(np.int(3))
-    assert is_metrics_value_loggable(np.float32(3.5))
-    assert not is_metrics_value_loggable(True)
-    assert not is_metrics_value_loggable(np.bool(True))
-    assert not is_metrics_value_loggable([1, 2])
-    assert not is_metrics_value_loggable(np.array([1, 2]))
 
 
 def test_nested_metric_call_is_disabled():
@@ -1857,3 +1850,35 @@ def test_patch_for_available_if_decorated_method():
     transform1_y_original = model.transform(eval1_X)
 
     assert np.allclose(transform1_y, transform1_y_original)
+
+
+def test_is_metrics_value_loggable():
+    is_metric_value_loggable = mlflow.sklearn._AutologgingMetricsManager.is_metric_value_loggable
+    assert is_metric_value_loggable(3)
+    assert is_metric_value_loggable(3.5)
+    assert is_metric_value_loggable(np.int(3))
+    assert is_metric_value_loggable(np.float32(3.5))
+    assert not is_metric_value_loggable(True)
+    assert not is_metric_value_loggable(np.bool(True))
+    assert not is_metric_value_loggable([1, 2])
+    assert not is_metric_value_loggable(np.array([1, 2]))
+
+
+def test_log_post_training_metrics_configuration():
+    from sklearn.linear_model import LogisticRegression
+
+    X, y = get_iris()
+    model = LogisticRegression()
+    metric_name = sklearn.metrics.r2_score.__name__
+
+    # Ensure post-traning metrics autologging can be toggled on / off
+    for log_post_training_metrics in [True, False, True]:
+        mlflow.sklearn.autolog(log_post_training_metrics=log_post_training_metrics)
+
+        with mlflow.start_run() as run:
+            model.fit(X, y)
+            y_pred = model.predict(X)
+            sklearn.metrics.r2_score(y, y_pred)
+
+        metrics = get_run_data(run.info.run_id)[1]
+        assert any(k.startswith(metric_name) for k in metrics.keys()) is log_post_training_metrics

@@ -381,7 +381,7 @@ def _log_warning_for_metrics(func_name, func_call, err):
         func_call.__qualname__
         + " failed. The metric "
         + func_name
-        + "will not be recorded."
+        + " will not be recorded."
         + " Metric error: "
         + str(err)
     )

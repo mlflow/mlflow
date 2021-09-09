@@ -141,7 +141,7 @@ def select_latest_micro_versions(versions):
     return res
 
 
-def filter_versions(versions, min_ver, max_ver, excludes=None):
+def filter_versions(versions, min_ver, max_ver, excludes=None, allow_unreleased_max_version=False):
     """
     Filter versions that satisfy the following conditions:
 
@@ -170,7 +170,7 @@ def filter_versions(versions, min_ver, max_ver, excludes=None):
 
     # Prevent specifying non-existent versions
     assert min_ver in versions
-    assert max_ver in versions
+    assert max_ver in versions or allow_unreleased_max_version
     assert all(v in versions for v in excludes)
 
     versions = {Version(v): t for v, t in versions.items() if v not in excludes}
@@ -439,7 +439,13 @@ def expand_config(config):
             # Released versions
             min_ver = cfg["minimum"]
             max_ver = cfg["maximum"]
-            versions = filter_versions(all_versions, min_ver, max_ver, cfg.get("unsupported"),)
+            versions = filter_versions(
+                all_versions,
+                min_ver,
+                max_ver,
+                cfg.get("unsupported"),
+                allow_unreleased_max_version=cfg.get("allow_unreleased_max_version", False),
+            )
             versions = select_latest_micro_versions(versions)
 
             # Explicitly include the minimum supported version

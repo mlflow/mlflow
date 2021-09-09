@@ -10,7 +10,6 @@ import { MemoryRouter as Router } from 'react-router-dom';
 
 describe('ExperimentRunsTableMultiColumnView2', () => {
   let wrapper;
-  let instance;
   let minimalProps;
   const runTags = {
     'mlflow.log-model.history': RunTag.fromJs({
@@ -56,23 +55,6 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
   test('should render with minimal props without exploding', () => {
     wrapper = shallow(<ExperimentRunsTableMultiColumnView2 {...minimalProps} />);
     expect(wrapper.length).toBe(1);
-  });
-
-  test('should not refit column size if there is an open column group', () => {
-    wrapper = shallow(<ExperimentRunsTableMultiColumnView2 {...minimalProps} />);
-    instance = wrapper.instance();
-    instance.columnApi = {
-      getColumnGroupState: jest.fn(() => [{ open: true }]),
-    };
-    instance.gridApi = {
-      sizeColumnsToFit: jest.fn(),
-    };
-    instance.handleColumnSizeRefit();
-    expect(instance.gridApi.sizeColumnsToFit).not.toBeCalled();
-
-    instance.columnApi.getColumnGroupState = jest.fn(() => [{ open: false }]);
-    instance.handleColumnSizeRefit();
-    expect(instance.gridApi.sizeColumnsToFit).toBeCalled();
   });
 
   test('should show placeholder in logged model cells when no logged models', () => {

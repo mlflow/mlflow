@@ -4,7 +4,7 @@ import { MetricsPlotView } from './MetricsPlotView';
 import { X_AXIS_RELATIVE, X_AXIS_WALL } from './MetricsPlotControls';
 import { CHART_TYPE_BAR, CHART_TYPE_LINE } from './MetricsPlotPanel';
 import Utils from '../../common/utils/Utils';
-import Plot from 'react-plotly.js';
+import { LazyPlot } from './LazyPlot';
 
 const metricsForLine = [
   {
@@ -606,7 +606,7 @@ describe('unit tests', () => {
 
   test('should disable both plotly logo and the link to plotly studio', () => {
     wrapper = shallow(<MetricsPlotView {...minimalPropsForBarChart} />);
-    const plot = wrapper.find(Plot);
+    const plot = wrapper.find(LazyPlot);
     expect(plot.props().config.displaylogo).toBe(false);
     expect(plot.props().config.modeBarButtonsToRemove).toContain('sendDataToCloud');
   });

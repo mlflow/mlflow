@@ -1,7 +1,8 @@
 import React from 'react';
-import { shallow, mount } from 'enzyme';
-import { SearchTree, styles, getParentKey, flattenDataToList } from './SearchTree';
+import { SearchTree, SearchTreeImpl, styles, getParentKey, flattenDataToList } from './SearchTree';
 import { Tree } from 'antd';
+import { shallowWithInjectIntl, mountWithIntl } from '../../common/utils/TestUtils';
+import { createIntl } from 'react-intl';
 
 const { TreeNode } = Tree;
 
@@ -59,18 +60,20 @@ describe('SearchTree', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<SearchTree {...minimalProps} />);
+    wrapper = shallowWithInjectIntl(<SearchTree {...minimalProps} />);
     expect(wrapper.length).toBe(1);
   });
 
   test('should render search tree properly', () => {
-    wrapper = shallow(<SearchTree {...commonProps} />);
+    wrapper = shallowWithInjectIntl(<SearchTree {...commonProps} />);
     const treeNodes = wrapper.find(TreeNode);
     expect(treeNodes.length).toBe(7);
   });
 
   test('should highlight filter matched nodes correctly', () => {
-    wrapper = mount(<SearchTree {...commonProps} />);
+    const intl = createIntl({ locale: 'en' });
+    const props = { ...commonProps, intl };
+    wrapper = mountWithIntl(<SearchTreeImpl {...props} />);
     instance = wrapper.instance();
     instance.handleSearch({
       target: {

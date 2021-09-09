@@ -3,6 +3,7 @@ import { shallow } from 'enzyme';
 import Fixtures from '../utils/test-utils/Fixtures';
 import Utils from '../../common/utils/Utils';
 import { CompareRunView } from './CompareRunView';
+import { createIntl } from 'react-intl';
 
 const getCompareRunViewMock = () => {
   return shallow(
@@ -15,6 +16,7 @@ const getCompareRunViewMock = () => {
       paramLists={[]}
       runNames={['run1']}
       runDisplayNames={['run1DisplayName', 'run2DisplayName']}
+      intl={createIntl({ locale: 'en' })}
     />,
   );
 };

@@ -13,17 +13,18 @@ import { I18nUtils } from './i18n/I18nUtils';
 
 setupAjaxHeaders();
 
-const locale = I18nUtils.getCurrentLocale();
-
-const root = (
-  <IntlProvider locale={locale} messages={I18nUtils.getMessages(locale)}>
-    <Provider store={store}>
-      <App />
-    </Provider>
-  </IntlProvider>
-);
-ReactDOM.render(root, document.getElementById('root'));
-injectGlobal({ ...accessibilityOverrides });
+I18nUtils.initI18n().then(() => {
+  const { locale, messages } = I18nUtils.getIntlProviderParams();
+  const root = (
+    <IntlProvider locale={locale} messages={messages}>
+      <Provider store={store}>
+        <App />
+      </Provider>
+    </IntlProvider>
+  );
+  ReactDOM.render(root, document.getElementById('root'));
+  injectGlobal({ ...accessibilityOverrides });
+});
 window.jQuery = $; // selenium tests need window.jQuery to exist
 
 // Disable service worker registration as it adds unnecessary debugging complexity
