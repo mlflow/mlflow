@@ -188,6 +188,26 @@ export default class ExperimentViewUtil {
     MODELS: 'Models',
   };
 
+  static AttributeColumnSortLabel = {
+    DATE: 'Start Time',
+    USER: 'User',
+    RUN_NAME: 'Run Name',
+    SOURCE: 'Source',
+    VERSION: 'Version',
+  };
+
+  static AttributeColumnSortKey = {
+    DATE: 'attributes.start_time',
+    USER: 'tags.`mlflow.user`',
+    RUN_NAME: 'tags.`mlflow.runName`',
+    SOURCE: 'tags.`mlflow.source.name`',
+    VERSION: 'tags.`mlflow.source.git.commit`',
+  };
+
+  static ColumnSortByAscending = 'ASCENDING';
+  static ColumnSortByDescending = 'DESCENDING';
+  static SortDelimiterSymbol = '***';
+
   /**
    * Returns header-row table cells for columns containing run metadata.
    */
@@ -225,27 +245,27 @@ export default class ExperimentViewUtil {
       {
         key: 'start_time',
         displayName: this.AttributeColumnLabels.DATE,
-        canonicalSortKey: 'attributes.start_time',
+        canonicalSortKey: this.AttributeColumnSortKey.DATE,
       },
       {
         key: 'user_id',
         displayName: this.AttributeColumnLabels.USER,
-        canonicalSortKey: 'tags.`mlflow.user`',
+        canonicalSortKey: this.AttributeColumnSortKey.USER,
       },
       {
         key: 'run_name',
         displayName: this.AttributeColumnLabels.RUN_NAME,
-        canonicalSortKey: 'tags.`mlflow.runName`',
+        canonicalSortKey: this.AttributeColumnSortKey.RUN_NAME,
       },
       {
         key: 'source',
         displayName: this.AttributeColumnLabels.SOURCE,
-        canonicalSortKey: 'tags.`mlflow.source.name`',
+        canonicalSortKey: this.AttributeColumnSortKey.SOURCE,
       },
       {
         key: 'source_version',
         displayName: this.AttributeColumnLabels.VERSION,
-        canonicalSortKey: 'tags.`mlflow.source.git.commit`',
+        canonicalSortKey: this.AttributeColumnSortKey.VERSION,
       },
       {
         key: 'tags',
@@ -371,7 +391,10 @@ export default class ExperimentViewUtil {
     metricsByRun.forEach((metrics) => {
       metrics.forEach((metric) => {
         if (!ret.hasOwnProperty(metric.key)) {
-          ret[metric.key] = { min: Math.min(metric.value, metric.value * 0.7), max: metric.value };
+          ret[metric.key] = {
+            min: Math.min(metric.value, metric.value * 0.7),
+            max: metric.value,
+          };
         } else {
           if (metric.value < ret[metric.key].min) {
             ret[metric.key].min = Math.min(metric.value, metric.value * 0.7);

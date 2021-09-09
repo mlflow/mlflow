@@ -5,6 +5,7 @@ import FileSaver from 'file-saver';
 import { BrowserRouter } from 'react-router-dom';
 
 import { ExperimentViewWithIntl, mapStateToProps } from './ExperimentView';
+import ExperimentViewUtil from './ExperimentViewUtil';
 import Fixtures from '../utils/test-utils/Fixtures';
 import { LIFECYCLE_FILTER, MODEL_VERSION_FILTER } from './ExperimentPage';
 import { ColumnTypes } from '../constants';
@@ -105,7 +106,8 @@ test(`Clearing filter state calls search handler with correct arguments`, () => 
   expect(onSearchSpy.mock.calls[0][2]).toBe('');
   expect(onSearchSpy.mock.calls[0][3]).toBe(LIFECYCLE_FILTER.ACTIVE);
   expect(onSearchSpy.mock.calls[0][4]).toBe(null);
-  expect(onSearchSpy.mock.calls[0][5]).toBe(true);
+  expect(onSearchSpy.mock.calls[0][5]).toBe(false);
+  expect(onSearchSpy.mock.calls[0][7]).toBe('ALL');
 });
 
 test('Onboarding alert shows', () => {
@@ -226,7 +228,7 @@ run-id,name,LOCAL,src.py,user,FINISHED,512,0.1,0
     // Uncheck the tag 'b'
     wrapper.setState({
       persistedState: {
-        categorizedUncheckedKeys: { [ColumnTypes.TAGS]: ['b'] },
+        categorizedUncheckedKeys: { [ColumnTypes.TAGS]: ['b'], [ColumnTypes.ATTRIBUTES]: [] },
       },
     });
     // Then, download CSV
@@ -265,6 +267,7 @@ describe('ExperimentView event handlers', () => {
     modelVersionFilterInput = MODEL_VERSION_FILTER.ALL_RUNS,
     orderByKey = null,
     orderByAsc = false,
+    startTime = undefined,
   } = {}) => [
     paramKeyFilterInput,
     metricKeyFilterInput,
@@ -273,6 +276,7 @@ describe('ExperimentView event handlers', () => {
     orderByKey,
     orderByAsc,
     modelVersionFilterInput,
+    startTime,
   ];
 
   beforeEach(() => {
@@ -320,7 +324,9 @@ describe('ExperimentView event handlers', () => {
     expect(onSearchSpy).toHaveBeenCalledTimes(1);
     expect(onSearchSpy).toBeCalledWith(
       ...getSearchParams({
-        orderByAsc: true,
+        orderByKey: null,
+        orderByAsc: false,
+        startTime: 'ALL',
       }),
     );
   });
@@ -351,6 +357,96 @@ describe('ExperimentView event handlers', () => {
         orderByAsc: true,
         mySearchInput: 'SearchString',
       }),
+    );
+  });
+});
+
+describe('Sort by dropdown', () => {
+  test('Selecting a sort option sorts the experiment runs correctly', () => {
+    const wrapper = mountExperimentViewMock({
+      isLoading: false,
+      forceCompactTableView: true,
+      startTime: 'ALL',
+    });
+
+    const sortSelect = wrapper.find("Select [data-test-id='sort-select-dropdown']").first();
+    sortSelect.simulate('click');
+
+    expect(
+      wrapper.exists(
+        `[data-test-id="sort-select-User-${ExperimentViewUtil.ColumnSortByAscending}"] li`,
+      ),
+    ).toBe(true);
+    expect(
+      wrapper.exists(
+        `[data-test-id="sort-select-batch_size-${ExperimentViewUtil.ColumnSortByAscending}"] li`,
+      ),
+    ).toBe(true);
+    expect(
+      wrapper.exists(
+        `[data-test-id="sort-select-acc-${ExperimentViewUtil.ColumnSortByAscending}"] li`,
+      ),
+    ).toBe(true);
+    expect(
+      wrapper.exists(
+        `[data-test-id="sort-select-User-${ExperimentViewUtil.ColumnSortByDescending}"] li`,
+      ),
+    ).toBe(true);
+    expect(
+      wrapper.exists(
+        `[data-test-id="sort-select-batch_size-${ExperimentViewUtil.ColumnSortByDescending}"] li`,
+      ),
+    ).toBe(true);
+    expect(
+      wrapper.exists(
+        `[data-test-id="sort-select-acc-${ExperimentViewUtil.ColumnSortByDescending}"] li`,
+      ),
+    ).toBe(true);
+
+    sortSelect.prop('onChange')('attributes.start_time');
+    expect(onSearchSpy).toBeCalledWith(
+      '',
+      '',
+      '',
+      LIFECYCLE_FILTER.ACTIVE,
+      'attributes.start_time',
+      false,
+      MODEL_VERSION_FILTER.ALL_RUNS,
+      'ALL',
+    );
+  });
+});
+
+describe('Start time dropdown', () => {
+  test('Selecting a start time option calls the search correctly', () => {
+    const wrapper = mountExperimentViewMock({
+      isLoading: false,
+      forceCompactTableView: true,
+      startTime: 'ALL',
+    });
+
+    const startTimeSelect = wrapper
+      .find("Select [data-test-id='start-time-select-dropdown']")
+      .first();
+    startTimeSelect.simulate('click');
+
+    expect(wrapper.exists('[data-test-id="start-time-select-ALL"] li')).toBe(true);
+    expect(wrapper.exists('[data-test-id="start-time-select-LAST_HOUR"] li')).toBe(true);
+    expect(wrapper.exists('[data-test-id="start-time-select-LAST_24_HOURS"] li')).toBe(true);
+    expect(wrapper.exists('[data-test-id="start-time-select-LAST_7_DAYS"] li')).toBe(true);
+    expect(wrapper.exists('[data-test-id="start-time-select-LAST_30_DAYS"] li')).toBe(true);
+    expect(wrapper.exists('[data-test-id="start-time-select-LAST_YEAR"] li')).toBe(true);
+
+    startTimeSelect.prop('onChange')('LAST_7_DAYS');
+    expect(onSearchSpy).toBeCalledWith(
+      '',
+      '',
+      '',
+      LIFECYCLE_FILTER.ACTIVE,
+      null,
+      false,
+      MODEL_VERSION_FILTER.ALL_RUNS,
+      'LAST_7_DAYS',
     );
   });
 });

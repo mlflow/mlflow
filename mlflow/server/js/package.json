@@ -3,13 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@ag-grid-community/client-side-row-model": "22.0.0",
-    "@ag-grid-community/core": "22.0.0",
-    "@ag-grid-community/react": "^22.0.0",
+    "@ag-grid-community/client-side-row-model": "^25.0.0",
+    "@ag-grid-community/core": "^25.0.0",
+    "@ag-grid-community/react": "^25.0.0",
     "antd": "^3.23.5",
     "bytes": "3.0.0",
     "classnames": "^2.2.6",
     "cookie": "0.3.1",
+    "cronstrue": "^1.94.0",
     "dateformat": "3.0.3",
     "draft-js": "^0.10.5",
     "emotion": "^10.0.27",
@@ -85,7 +86,7 @@
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "extract-i18n:base": "node scripts/extract-i18n.js",
-    "extract-i18n": "npm run check && npm run extract-i18n:base"
+    "extract-i18n": "npm run extract-i18n:base"
   },
   "homepage": "static-files",
   "jest": {

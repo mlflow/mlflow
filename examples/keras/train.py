@@ -2,11 +2,11 @@
 on the Reuters newswire topic classification task.
 """
 import numpy as np
-import keras
-from keras.datasets import reuters
-from keras.models import Sequential
-from keras.layers import Dense, Dropout, Activation
-from keras.preprocessing.text import Tokenizer
+from tensorflow import keras
+from tensorflow.keras.datasets import reuters
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout, Activation
+from tensorflow.keras.preprocessing.text import Tokenizer
 
 # The following import and function call are the only additions to code required
 # to automatically log metrics and parameters to MLflow.

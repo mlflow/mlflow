@@ -1,6 +1,7 @@
 import React from 'react';
 import { shallow } from 'enzyme';
 import ShowArtifactImageView from './ShowArtifactImageView';
+import { LazyPlot } from '../LazyPlot';
 
 describe('ShowArtifactImageView', () => {
   let wrapper;
@@ -39,7 +40,7 @@ describe('ShowArtifactImageView', () => {
   test('should render static image in plotly component', () => {
     wrapper = shallow(<ShowArtifactImageView path='fake.png' runUuid='fakerunuuid' />);
     wrapper.setState({ loading: false });
-    expect(wrapper.find('PlotlyComponent')).toHaveLength(1);
+    expect(wrapper.find(LazyPlot)).toHaveLength(1);
   });
 
   test('should call fetchImage on component update', () => {

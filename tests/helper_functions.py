@@ -342,7 +342,6 @@ def _compare_conda_env_requirements(env_path, req_path):
     assert _get_pip_deps(custom_env_parsed) == requirements
 
 
-# TODO: Set `strict` to True for `pip_requirements` tests to strictly check its behavior.
 def _assert_pip_requirements(model_uri, requirements, constraints=None, strict=False):
     """
     Loads the pip requirements (and optionally constraints) from `model_uri` and compares them
@@ -395,3 +394,10 @@ def _is_importable(module_name):
         return True
     except ImportError:
         return False
+
+
+def allow_infer_pip_requirements_fallback_if(condition):
+    def decorator(f):
+        return pytest.mark.allow_infer_pip_requirements_fallback(f) if condition else f
+
+    return decorator

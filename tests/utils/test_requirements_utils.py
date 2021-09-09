@@ -7,7 +7,6 @@ import importlib_metadata
 import pytest
 
 import mlflow
-from mlflow.utils._capture_modules import _CaptureImportedModules
 from mlflow.utils.requirements_utils import (
     _is_comment,
     _is_empty,
@@ -19,6 +18,7 @@ from mlflow.utils.requirements_utils import (
     _strip_local_version_label,
     _get_installed_version,
     _get_pinned_requirement,
+    _infer_requirements,
 )
 
 
@@ -192,6 +192,8 @@ def test_prune_packages():
 
 
 def test_capture_imported_modules():
+    from mlflow.utils._capture_modules import _CaptureImportedModules
+
     with _CaptureImportedModules() as cap:
         # pylint: disable=unused-import,unused-variable
         import math
@@ -257,3 +259,13 @@ def test_get_pinned_requirement_local_version_label(tmpdir):
             f"Found my_package version (1.2.3+{lvl}) contains a local version label (+{lvl})."
         )
     assert req == "my_package==1.2.3"
+
+
+def test_infer_requirements_excludes_mlflow():
+    with mock.patch(
+        "mlflow.utils.requirements_utils._capture_imported_modules",
+        return_value=["mlflow", "pytest"],
+    ):
+        mlflow_package = "mlflow-skinny" if "MLFLOW_SKINNY" in os.environ else "mlflow"
+        assert mlflow_package in importlib_metadata.packages_distributions()["mlflow"]
+        assert _infer_requirements("path/to/model", "sklearn") == [f"pytest=={pytest.__version__}"]

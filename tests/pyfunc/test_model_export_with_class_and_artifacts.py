@@ -217,7 +217,10 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
 
 
 @pytest.mark.large
-def test_signature_and_examples_are_saved_correctly(iris_data, main_scoped_model_class):
+def test_signature_and_examples_are_saved_correctly(iris_data, main_scoped_model_class, tmpdir):
+    sklearn_model_path = tmpdir.join("sklearn_model").strpath
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
+
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
 
@@ -232,7 +235,7 @@ def test_signature_and_examples_are_saved_correctly(iris_data, main_scoped_model
                 path = tmp.path("model")
                 mlflow.pyfunc.save_model(
                     path=path,
-                    artifacts={},
+                    artifacts={"sk_model": sklearn_model_path},
                     python_model=main_scoped_model_class(test_predict),
                     signature=signature,
                     input_example=example,
@@ -620,14 +623,16 @@ def test_log_model_with_pip_requirements(main_scoped_model_class, tmpdir):
         mlflow.pyfunc.log_model(
             "model", python_model=python_model, pip_requirements=req_file.strpath
         )
-        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"])
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"], strict=True)
 
     # List of requirements
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
             "model", python_model=python_model, pip_requirements=[f"-r {req_file.strpath}", "b"]
         )
-        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"])
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"], strict=True
+        )
 
     # Constraints file
     with mlflow.start_run():
@@ -635,12 +640,18 @@ def test_log_model_with_pip_requirements(main_scoped_model_class, tmpdir):
             "model", python_model=python_model, pip_requirements=[f"-c {req_file.strpath}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), ["mlflow", "b", "-c constraints.txt"], ["a"]
+            mlflow.get_artifact_uri("model"),
+            ["mlflow", "b", "-c constraints.txt"],
+            ["a"],
+            strict=True,
         )
 
 
 @pytest.mark.large
-def test_log_model_with_extra_pip_requirements(main_scoped_model_class, tmpdir):
+def test_log_model_with_extra_pip_requirements(sklearn_knn_model, main_scoped_model_class, tmpdir):
+    sklearn_model_path = tmpdir.join("sklearn_model").strpath
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
+
     python_model = main_scoped_model_class(predict_fn=None)
     default_reqs = mlflow.pyfunc.get_default_pip_requirements()
 
@@ -649,7 +660,10 @@ def test_log_model_with_extra_pip_requirements(main_scoped_model_class, tmpdir):
     req_file.write("a")
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
-            "model", python_model=python_model, extra_pip_requirements=req_file.strpath
+            "model",
+            python_model=python_model,
+            artifacts={"sk_model": sklearn_model_path},
+            extra_pip_requirements=req_file.strpath,
         )
         _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a"])
 
@@ -657,6 +671,7 @@ def test_log_model_with_extra_pip_requirements(main_scoped_model_class, tmpdir):
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
             "model",
+            artifacts={"sk_model": sklearn_model_path},
             python_model=python_model,
             extra_pip_requirements=[f"-r {req_file.strpath}", "b"],
         )
@@ -668,6 +683,7 @@ def test_log_model_with_extra_pip_requirements(main_scoped_model_class, tmpdir):
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
             "model",
+            artifacts={"sk_model": sklearn_model_path},
             python_model=python_model,
             extra_pip_requirements=[f"-c {req_file.strpath}", "b"],
         )
@@ -764,15 +780,7 @@ def test_save_model_without_specified_conda_env_uses_default_env_with_expected_d
         python_model=main_scoped_model_class(predict_fn=None),
         conda_env=_conda_env(),
     )
-
-    pyfunc_conf = _get_flavor_configuration(
-        model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
-    )
-    conda_env_path = os.path.join(pyfunc_model_path, pyfunc_conf[mlflow.pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
-
-    assert conda_env == _conda_env()
+    _assert_pip_requirements(pyfunc_model_path, mlflow.pyfunc.get_default_pip_requirements())
 
 
 @pytest.mark.large
@@ -795,20 +803,8 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
             },
             python_model=main_scoped_model_class(predict_fn=None),
         )
-        pyfunc_model_path = _download_artifact_from_uri(
-            "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path
-            )
-        )
-
-    pyfunc_conf = _get_flavor_configuration(
-        model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
-    )
-    conda_env_path = os.path.join(pyfunc_model_path, pyfunc_conf[mlflow.pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
-
-    assert conda_env == mlflow.pyfunc.model.get_default_conda_env()
+        model_uri = mlflow.get_artifact_uri(pyfunc_artifact_path)
+    _assert_pip_requirements(model_uri, mlflow.pyfunc.get_default_pip_requirements())
 
 
 @pytest.mark.large

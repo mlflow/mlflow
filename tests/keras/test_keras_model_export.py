@@ -1,5 +1,3 @@
-# pep8: disable=E501
-
 from packaging.version import Version
 import h5py
 import os
@@ -10,14 +8,11 @@ import random
 import json
 
 import tensorflow as tf
+
+# pylint: disable=no-name-in-module
 from tensorflow.keras.models import Sequential as TfSequential
 from tensorflow.keras.layers import Dense as TfDense
 from tensorflow.keras.optimizers import SGD as TfSGD
-import keras
-from keras.models import Sequential
-from keras.layers import Layer, Dense
-from keras import backend as K
-from keras.optimizers import SGD
 import sklearn.datasets as datasets
 import pandas as pd
 import numpy as np
@@ -47,6 +42,23 @@ from tests.helper_functions import set_boto_credentials  # pylint: disable=unuse
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.pyfunc.test_spark import score_model_as_udf
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+
+
+import keras
+
+# pylint: disable=no-name-in-module,reimported
+if Version(keras.__version__) >= Version("2.6.0"):
+    from tensorflow import keras
+    from tensorflow.keras.models import Sequential
+    from tensorflow.keras.layers import Layer, Dense
+    from tensorflow.keras import backend as K
+    from tensorflow.keras.optimizers import SGD
+else:
+    from keras.models import Sequential
+    from keras.layers import Layer, Dense
+    from keras import backend as K
+    from keras.optimizers import SGD
+
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("keras") else ["--no-conda"]
 
@@ -170,7 +182,7 @@ def keras_custom_env(tmpdir):
     return conda_env
 
 
-@pytest.mark.disable_prevent_infer_pip_requirements_fallback
+@pytest.mark.allow_infer_pip_requirements_fallback
 def test_that_keras_module_arg_works(model_path):
     class MyModel(object):
         def __init__(self, x):
@@ -333,7 +345,7 @@ def test_custom_model_save_load(custom_model, custom_layer, data, custom_predict
     np.allclose(np.array(spark_udf_preds), custom_predicted.reshape(len(spark_udf_preds)))
 
 
-@pytest.mark.disable_prevent_infer_pip_requirements_fallback
+@pytest.mark.allow_infer_pip_requirements_fallback
 def test_custom_model_save_respects_user_custom_objects(custom_model, custom_layer, model_path):
     class DifferentCustomLayer:
         def __init__(self):
@@ -464,26 +476,29 @@ def test_log_model_with_pip_requirements(model, tmpdir):
     req_file.write("a")
     with mlflow.start_run():
         mlflow.keras.log_model(model, "model", pip_requirements=req_file.strpath)
-        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"])
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"], strict=True)
 
     # List of requirements
     with mlflow.start_run():
         mlflow.keras.log_model(model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"])
-        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"])
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"], strict=True
+        )
 
     # Constraints file
     with mlflow.start_run():
         mlflow.keras.log_model(model, "model", pip_requirements=[f"-c {req_file.strpath}", "b"])
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), ["mlflow", "b", "-c constraints.txt"], ["a"]
+            mlflow.get_artifact_uri("model"),
+            ["mlflow", "b", "-c constraints.txt"],
+            ["a"],
+            strict=True,
         )
 
 
 @pytest.mark.large
 def test_log_model_with_extra_pip_requirements(model, tmpdir):
     default_reqs = mlflow.keras.get_default_pip_requirements()
-
-    print(type(model))
     # Path to a requirements file
     req_file = tmpdir.join("requirements.txt")
     req_file.write("a")
@@ -494,7 +509,7 @@ def test_log_model_with_extra_pip_requirements(model, tmpdir):
     # List of requirements
     with mlflow.start_run():
         mlflow.keras.log_model(
-            model, "model", extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
+            model, "model", extra_pip_requirements=[f"-r {req_file.strpath}", "b"],
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a", "b"]
@@ -503,7 +518,7 @@ def test_log_model_with_extra_pip_requirements(model, tmpdir):
     # Constraints file
     with mlflow.start_run():
         mlflow.keras.log_model(
-            model, "model", extra_pip_requirements=[f"-c {req_file.strpath}", "b"]
+            model, "model", extra_pip_requirements=[f"-c {req_file.strpath}", "b"],
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
@@ -592,7 +607,7 @@ def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_p
     assert all(model_loaded.predict(data[0].values) == tf_keras_model.predict(data[0].values))
 
 
-@pytest.mark.disable_prevent_infer_pip_requirements_fallback
+@pytest.mark.allow_infer_pip_requirements_fallback
 def test_save_model_with_tf_save_format(model_path):
     """Ensures that Keras models can be saved with SavedModel format.
 
@@ -672,3 +687,14 @@ def test_pyfunc_serve_and_score_transformers():
     data = json.dumps({"inputs": dummy_inputs.tolist()})
     resp = pyfunc_serve_and_score_model(model_uri, data, pyfunc_scoring_server.CONTENT_TYPE_JSON)
     np.testing.assert_array_equal(json.loads(resp.content), model.predict(dummy_inputs))
+
+
+def test_raise_deprecation_warning():
+    with mock.patch("keras.__version__", new="2.2.0"), pytest.warns(
+        FutureWarning, match="Support for keras"
+    ):
+        mlflow.keras._raise_deprecation_warning()
+
+    with mock.patch("keras.__version__", new="2.3.0"), pytest.warns(None) as record:
+        mlflow.keras._raise_deprecation_warning()
+    assert len(record) == 0
