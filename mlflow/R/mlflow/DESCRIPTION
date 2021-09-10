@@ -61,7 +61,7 @@ Suggests:
     testthat (>= 2.0.0),
     xgboost
 Encoding: UTF-8
-RoxygenNote: 7.1.1
+RoxygenNote: 7.1.2
 Collate:
     'cli.R'
     'databricks-utils.R'
