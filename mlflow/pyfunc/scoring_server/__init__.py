@@ -11,6 +11,7 @@ Defines two endpoints:
     /invocations used for scoring
 """
 from collections import OrderedDict
+from typing import Tuple, Dict
 import flask
 import json
 import logging
@@ -27,7 +28,9 @@ import traceback
 # ALl of the mlfow dependencies below need to be backwards compatible.
 from mlflow.exceptions import MlflowException
 from mlflow.types import Schema
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import reraise
+from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.proto_json_utils import (
     NumpyEncoder,
     _dataframe_from_json,
@@ -343,3 +346,24 @@ def _predict(model_uri, input_path, output_path, content_type, json_format):
 def _serve(model_uri, port, host):
     pyfunc_model = load_model(model_uri)
     init(pyfunc_model).run(port=port, host=host)
+
+def get_cmd(model_uri: str, port: str, host: int, nworkers: int) -> Tuple[str, Dict[str, str]]:
+    local_uri = path_to_local_file_uri(model_uri)
+    # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
+    # platform compatibility.
+    if os.name != "nt":
+        command = (
+            "gunicorn --timeout=60 -b {host}:{port} -w {nworkers} ${{GUNICORN_CMD_ARGS}}"
+            " -- mlflow.pyfunc.scoring_server.wsgi:app"
+        ).format(host=host, port=port, nworkers=nworkers)
+    else:
+        command = (
+            "waitress-serve --host={host} --port={port} "
+            "--ident=mlflow mlflow.pyfunc.scoring_server.wsgi:app"
+        ).format(host=host, port=port)
+
+    command_env = os.environ.copy()
+    command_env[_SERVER_MODEL_PATH] = local_uri
+
+    return command, command_env
+
