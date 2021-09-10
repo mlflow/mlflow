@@ -340,7 +340,6 @@ def test_create_env_with_mamba():
     not working. We mock the calls so we do not actually execute mamba (which is not
     installed in the test environment anyway)
     """
-    from mlflow.utils import process
 
     def exec_cmd_mock(cmd, *_args, **_kwargs):
 
