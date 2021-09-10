@@ -8,8 +8,12 @@ from mlserver.cli.serve import load_settings
 
 MLServerMLflowRuntime = "mlserver_mlflow.MLflowRuntime"
 
-def _predict(model_uri: str, input_path: str, output_path: str, content_type: str, json_format: str):
+
+def _predict(
+    model_uri: str, input_path: str, output_path: str, content_type: str, json_format: str
+):
     pass
+
 
 def _serve(model_uri: str, port: int, host: str):
     settings, models = asyncio.run(load_settings(model_uri))
@@ -19,6 +23,7 @@ def _serve(model_uri: str, port: int, host: str):
 
     server = MLServer(settings)
     asyncio.run(server.start(models))
+
 
 def get_cmd(model_uri: str, port: int, host: str, nworkers: int) -> Tuple[str, Dict[str, str]]:
     cmd = f"mlserver start {model_uri}"
@@ -34,4 +39,3 @@ def get_cmd(model_uri: str, port: int, host: str, nworkers: int) -> Tuple[str, D
     cmd_env["MLSERVER_MODEL_URI"] = model_uri
 
     return cmd, cmd_env
-
