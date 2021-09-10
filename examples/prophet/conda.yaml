@@ -1,9 +1,9 @@
-name: tutorial
+name: prophet-example
 channels:
   - conda-forge
 dependencies:
   - python=3.6
   - pip
   - pip:
-    - mlflow>=1.0
-    - fbprophet<=0.7
+    - prophet>=1.0.1
+
