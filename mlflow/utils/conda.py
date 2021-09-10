@@ -10,6 +10,13 @@ from mlflow.utils import process
 # Environment variable indicating a path to a conda installation. MLflow will default to running
 # "conda" if unset
 MLFLOW_CONDA_HOME = "MLFLOW_CONDA_HOME"
+# Environment variable indicated the name of the command that should be used to create environments.
+# If it is unset, it will default to "conda". This command must be in the $PATH when the user runs,
+# or within MLFLOW_CONDA_HOME if that is set. For example, let's say we want to use mamba
+# (https://github.com/mamba-org/mamba) instead of conda to create environments. Then:
+# > conda install -c conda-forge mamba
+# > MLFLOW_CONDA_CREATE_ENV_CMD="mamba"
+# > mlflow run ...
 MLFLOW_CONDA_CREATE_ENV_CMD = "MLFLOW_CONDA_CREATE_ENV_CMD"
 
 _logger = logging.getLogger(__name__)
@@ -61,28 +68,20 @@ def _get_conda_env_name(conda_env_path, env_id=None):
     return "mlflow-%s" % hashlib.sha1(conda_env_contents.encode("utf-8")).hexdigest()
 
 
-def _get_conda_executables():
+def _get_conda_executable_for_create_env():
     """
-    We use two potentially different commands to:
-    1. operate on environments (list them, for example)
-    2. create environments
-    For example, we could use "conda" for both, or "conda" for 1. but mamba
-    (https://github.com/mamba-org/mamba) or a custom script for 2.
+    Returns the executable that should be used to create environments. This is "conda"
+    by default, but it can be set to something else by setting the environment variable
 
-    This function returns the path to the conda executable that should be used to
-    operate on environments and the conda executable that should be used to create
-    environments.
     """
-    conda_path = get_conda_bin_executable("conda")
-
     conda_env_create_cmd = os.environ.get(MLFLOW_CONDA_CREATE_ENV_CMD)
     if conda_env_create_cmd is not None:
         conda_env_create_path = get_conda_bin_executable(conda_env_create_cmd)
     else:
         # Use the same as conda_path
-        conda_env_create_path = conda_path
+        conda_env_create_path = get_conda_bin_executable("conda")
 
-    return conda_path, conda_env_create_path
+    return conda_env_create_path
 
 
 def get_or_create_conda_env(conda_env_path, env_id=None):
@@ -97,7 +96,8 @@ def get_or_create_conda_env(conda_env_path, env_id=None):
                    environment after the environment has been activated.
     """
 
-    conda_path, conda_env_create_path = _get_conda_executables()
+    conda_path = get_conda_bin_executable("conda")
+    conda_env_create_path = _get_conda_executable_for_create_env()
 
     try:
         process.exec_cmd([conda_path, "--help"], throw_on_error=False)
@@ -120,9 +120,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None):
             "it is not working properly. Note that {1} and the conda executable need to be "
             "in the same conda environment. You can change the search path by"
             "modifying the env variable {2}".format(
-                MLFLOW_CONDA_CREATE_ENV_CMD,
-                conda_env_create_path,
-                MLFLOW_CONDA_HOME,
+                MLFLOW_CONDA_CREATE_ENV_CMD, conda_env_create_path, MLFLOW_CONDA_HOME,
             )
         )
 
