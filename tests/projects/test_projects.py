@@ -340,7 +340,7 @@ def test_create_env_with_mamba():
     not working. We mock the calls so we do not actually execute mamba (which is not
     installed in the test environment anyway)
     """
-    def exec_cmd_mock(cmd, *args, **kwargs): # pylint: disable=unused-argument
+    def exec_cmd_mock(cmd, *args, **kwargs):  # pylint: disable=unused-argument
 
         if cmd[-1] == "--json":
             # We are supposed to list environments in JSON format
@@ -350,7 +350,7 @@ def test_create_env_with_mamba():
             # anything
             return None
 
-    def exec_cmd_mock_raise(cmd, *args, **kwargs): # pylint: disable=unused-argument
+    def exec_cmd_mock_raise(cmd, *args, **kwargs):  # pylint: disable=unused-argument
 
         if os.path.basename(cmd[0]) == "mamba":
             raise EnvironmentError()
