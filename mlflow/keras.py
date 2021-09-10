@@ -61,14 +61,14 @@ _MODEL_SAVE_PATH = "model"
 _PIP_ENV_SUBPATH = "requirements.txt"
 
 
-def _raise_deprecation_warning():
+def _raise_deprecation_warning(keras_module=None):
     # Avoid `ModuleNotFoundError` thrown when this function is called from `mlflow.tensorflow` to
     # save a model created using `tensorflow.keras` but `keras` is not installed.
+    if keras_module is not None or keras_module == "keras":
+        return
     try:
         import keras
     except ImportError:
-        return
-    except AttributeError:
         return
 
     if Version(keras.__version__) < Version("2.3.0"):
@@ -192,7 +192,7 @@ def save_model(
         # Save the model as an MLflow Model
         mlflow.keras.save_model(keras_model, keras_model_path)
     """
-    _raise_deprecation_warning()
+    _raise_deprecation_warning(keras_module)
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     if keras_module is None:
@@ -583,10 +583,10 @@ def load_model(model_uri, **kwargs):
         keras_model = mlflow.keras.load_model("runs:/96771d893a5e46159d9f3b49bf9013e2" + "/models")
         predictions = keras_model.predict(x_test)
     """
-    _raise_deprecation_warning()
+    keras_module = importlib.import_module(flavor_conf.get("keras_module", "keras"))
+    _raise_deprecation_warning(keras_module)
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
-    keras_module = importlib.import_module(flavor_conf.get("keras_module", "keras"))
     keras_model_artifacts_path = os.path.join(
         local_model_path, flavor_conf.get("data", _MODEL_SAVE_PATH)
     )
