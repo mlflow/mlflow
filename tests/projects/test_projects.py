@@ -342,7 +342,7 @@ def test_create_env_with_mamba():
     """
     from mlflow.utils import process
 
-    def exec_cmd_mock(cmd, *args, **kwargs):
+    def exec_cmd_mock(cmd, *_args, **_kwargs):
 
         if cmd[-1] == "--json":
             # We are supposed to list environments in JSON format
@@ -352,7 +352,7 @@ def test_create_env_with_mamba():
             # anything
             return None
 
-    def exec_cmd_mock_raise(cmd, *args, **kwargs):
+    def exec_cmd_mock_raise(cmd, *_args, **_kwargs):
 
         if os.path.basename(cmd[0]) == "mamba":
             raise EnvironmentError()
