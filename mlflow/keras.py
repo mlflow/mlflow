@@ -583,10 +583,12 @@ def load_model(model_uri, **kwargs):
         keras_model = mlflow.keras.load_model("runs:/96771d893a5e46159d9f3b49bf9013e2" + "/models")
         predictions = keras_model.predict(x_test)
     """
-    keras_module = importlib.import_module(flavor_conf.get("keras_module", "keras"))
-    _raise_deprecation_warning(keras_module)
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    keras_module = importlib.import_module(flavor_conf.get("keras_module", "keras"))
+
+    _raise_deprecation_warning(keras_module)
+
     keras_model_artifacts_path = os.path.join(
         local_model_path, flavor_conf.get("data", _MODEL_SAVE_PATH)
     )
