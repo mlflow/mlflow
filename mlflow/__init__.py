@@ -66,6 +66,7 @@ try:
     import mlflow.shap as shap  # noqa: E402
     import mlflow.pyspark as pyspark  # noqa: E402
     import mlflow.paddle as paddle
+    import mlflow.prophet as prophet
 
     _model_flavors_supported = [
         "catboost",
@@ -86,6 +87,7 @@ try:
         "xgboost",
         "shap",
         "paddle",
+        "prophet",
     ]
 except ImportError as e:
     # We are conditional loading these commands since the skinny client does
