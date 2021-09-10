@@ -32,9 +32,7 @@ def commands():
 @cli_args.NO_CONDA
 @cli_args.INSTALL_MLFLOW
 @cli_args.MLSERVER
-def serve(
-        model_uri, port, host, workers,
-        no_conda=False, install_mlflow=False, mlserver=False):
+def serve(model_uri, port, host, workers, no_conda=False, install_mlflow=False, mlserver=False):
     """
     Serve a model saved with MLflow by launching a webserver on the specified host and port.
     The command supports models with the ``python_function`` or ``crate`` (R Function) flavor.

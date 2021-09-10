@@ -17,7 +17,7 @@ _logger = logging.getLogger(__name__)
 
 class PyFuncBackend(FlavorBackend):
     """
-        Flavor backend implementation for the generic python models.
+    Flavor backend implementation for the generic python models.
     """
 
     def __init__(self, config, workers=1, no_conda=False, install_mlflow=False, **kwargs):
@@ -35,7 +35,12 @@ class PyFuncBackend(FlavorBackend):
         return _execute_in_conda_env(conda_env_path, command, self._install_mlflow)
 
     def predict(
-        self, model_uri, input_path, output_path, content_type, json_format,
+        self,
+        model_uri,
+        input_path,
+        output_path,
+        content_type,
+        json_format,
     ):
         """
         Generate predictions using generic python model saved with MLflow.
@@ -72,8 +77,7 @@ class PyFuncBackend(FlavorBackend):
         local_path = _download_artifact_from_uri(model_uri)
 
         server_implementation = _mlserver if mlserver else scoring_server
-        command, command_env = server_implementation.get_cmd(
-            local_path, port, host, self._nworkers)
+        command, command_env = server_implementation.get_cmd(local_path, port, host, self._nworkers)
 
         if not self._no_conda and ENV in self._config:
             conda_env_path = os.path.join(local_path, self._config[ENV])

@@ -99,7 +99,8 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
                 return parse_tf_serving_input(decoded_input, schema=schema)
             except MlflowException as ex:
                 _handle_serving_error(
-                    error_message=(ex.message), error_code=MALFORMED_REQUEST,
+                    error_message=(ex.message),
+                    error_code=MALFORMED_REQUEST,
                 )
         else:
             return parse_json_input(json_input=json_input, orient="split", schema=schema)
@@ -347,6 +348,7 @@ def _serve(model_uri, port, host):
     pyfunc_model = load_model(model_uri)
     init(pyfunc_model).run(port=port, host=host)
 
+
 def get_cmd(model_uri: str, port: str, host: int, nworkers: int) -> Tuple[str, Dict[str, str]]:
     local_uri = path_to_local_file_uri(model_uri)
     # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
@@ -366,4 +368,3 @@ def get_cmd(model_uri: str, port: str, host: int, nworkers: int) -> Tuple[str, D
     command_env[_SERVER_MODEL_PATH] = local_uri
 
     return command, command_env
-
