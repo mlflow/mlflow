@@ -68,6 +68,8 @@ def _raise_deprecation_warning():
         import keras
     except ImportError:
         return
+    except AttributeError:
+        return
 
     if Version(keras.__version__) < Version("2.3.0"):
         warnings.warn(
