@@ -6,7 +6,6 @@ import urllib.parse
 
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.exceptions import MlflowException
 
 
 # Based on: https://stackoverflow.com/a/58466685
@@ -110,4 +109,10 @@ class SFTPArtifactRepository(ArtifactRepository):
         self.sftp.get(remote_full_path, local_path)
 
     def delete_artifacts(self, artifact_path=None):
-        raise MlflowException("Not implemented yet")
+        if self.sftp.isdir(artifact_path):
+            with self.sftp.cd(artifact_path):
+                for element in self.sftp.listdir():
+                    self.delete_artifacts(element)
+            self.sftp.rmdir(artifact_path)
+        elif self.sftp.isfile(artifact_path):
+            self.sftp.remove(artifact_path)
