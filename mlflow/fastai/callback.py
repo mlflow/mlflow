@@ -14,46 +14,41 @@ from fastai.callback.core import Callback
 
 # Move outside, because it cannot be pickled. Besides, ExceptionSafeClass was giving some issues
 class __MLflowFastaiCallback(Callback):
+    """
+    Callback for auto-logging metrics and parameters.
+    Records model structural information as params when training begins.
+    """
+
     from fastai.learner import Recorder
     from fastai.callback.all import TrackerCallback
 
-    """
-    Callback for auto-logging metrics and parameters.
-    Records model structural information as params when training begins
-    """
     remove_on_fetch, run_before, run_after = True, TrackerCallback, Recorder
 
     def __init__(self, metrics_logger, log_models, is_fine_tune=False):
         super().__init__()
         self.metrics_logger = metrics_logger
         self.log_models = log_models
-
         self.is_fine_tune = is_fine_tune
         self.freeze_prefix = ""
 
     def after_epoch(self):
-        """
-        Log loss and other metrics values after each epoch
-        """
+        """Log loss and other metrics values after each epoch"""
+
+        def _is_float(x):
+            try:
+                float(x)
+                return True
+            except (ValueError, TypeError):
+                return False
 
         # Do not record in case of predicting
         if hasattr(self, "lr_finder") or hasattr(self, "gather_preds"):
             return
-
+        # Remove non-float metrics and record the rest.
         metrics = self.recorder.log
         metrics = dict(zip(self.recorder.metric_names, metrics))
-
-        keys = list(metrics.keys())
-        i = 0
-        while i < len(metrics):
-            key = keys[i]
-            try:
-                float(metrics[key])
-                i += 1
-            except (ValueError, TypeError):
-                del metrics[key]
-                del keys[i]
-
+        for key in [key for key, val in metrics.items() if not _is_float(val)]:
+            del metrics[key]
         self.metrics_logger.record_metrics(metrics, step=metrics["epoch"])
 
     def before_fit(self):

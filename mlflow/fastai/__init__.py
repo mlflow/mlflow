@@ -65,7 +65,7 @@ def get_default_pip_requirements(include_cloudpickle=False):
     return pip_deps
 
 
-def get_default_conda_env(include_cloudpickle=False):
+def get_default_conda_env(include_cloudpickle=False):  # pylint: disable=unused-argument
     """
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
