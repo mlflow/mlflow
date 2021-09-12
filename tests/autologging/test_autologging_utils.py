@@ -766,7 +766,7 @@ _module_version_info_dict_patch = {
     },
     "fastai-2.x": {
         "package_info": {"pip_release": "fastai"},
-        "autologging": {"minimum": "2.4.0", "maximum": "2.4.0"},
+        "autologging": {"minimum": "2.4.1", "maximum": "2.4.1"},
     },
     "statsmodels": {
         "package_info": {"pip_release": "statsmodels"},
@@ -782,7 +782,7 @@ _module_version_info_dict_patch = {
 @pytest.mark.parametrize(
     "flavor,module_version,expected_result",
     [
-        ("fastai", "2.4.0", True),
+        ("fastai", "2.4.1", True),
         ("fastai", "1.0.60", False),
         ("gluon", "1.6.1", True),
         ("gluon", "1.5.0", False),
