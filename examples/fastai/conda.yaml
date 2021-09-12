@@ -3,7 +3,7 @@ channels:
   - conda-forge
 dependencies:
   - python=3.7.5
-  - fastai==2.2.7
   - pip
   - pip:
+    - fastai>=2.3.0
     - mlflow>=1.9.0

@@ -64,6 +64,7 @@ def get_default_pip_requirements(include_cloudpickle=False):
 
     return pip_deps
 
+
 def get_default_conda_env(include_cloudpickle=False):
     """
     :return: The default Conda environment for MLflow Models produced by calls to
@@ -302,8 +303,7 @@ def log_model(
 def _load_model(path):
     from fastai.learner import load_learner
 
-    abspath = os.path.abspath(path)
-    return load_learner(abspath)
+    return load_learner(os.path.abspath(path))
 
 
 class _FastaiModelWrapper:
@@ -313,8 +313,7 @@ class _FastaiModelWrapper:
     def predict(self, dataframe):
         dl = self.learner.dls.test_dl(dataframe)
         preds, _ = self.learner.get_preds(dl=dl)
-        preds = pd.DataFrame(map(np.array, preds.numpy()), columns=["predictions"])
-        return preds
+        return pd.DataFrame(map(np.array, preds.numpy()), columns=["predictions"])
 
 
 def _load_pyfunc(path):
@@ -500,7 +499,7 @@ def autolog(
         # The process excuted here, are incompatible with TrackerCallback
         # Hence it is removed and add again after the execution
         remove_cbs = [cb for cb in learner.cbs if isinstance(cb, TrackerCallback)]
-        if len(remove_cbs):
+        if remove_cbs:
             learner.remove_cbs(remove_cbs)
 
         xb = learner.dls.train.one_batch()[: learner.dls.train.n_inp]
@@ -513,7 +512,7 @@ def autolog(
         summary = module_summary(learner, *xb)
 
         # Add again TrackerCallback
-        if len(remove_cbs):
+        if remove_cbs:
             learner.add_cbs(remove_cbs)
 
         tempdir = tempfile.mkdtemp()
@@ -526,7 +525,6 @@ def autolog(
             shutil.rmtree(tempdir)
 
     def _run_and_log_function(self, original, args, kwargs, unlogged_params, is_fine_tune=False):
-
         # Check if is trying to fit while fine tuning or not
         mlflow_cbs = [cb for cb in self.cbs if cb.name == "__m_lflow_fastai"]
         fit_in_fine_tune = (
