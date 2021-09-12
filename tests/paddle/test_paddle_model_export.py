@@ -20,7 +20,6 @@ from mlflow.models import Model
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -144,44 +143,33 @@ def test_model_load_from_remote_uri_succeeds(pd_model, model_path, mock_s3_bucke
 
 
 @pytest.mark.large
-def test_model_log(pd_model, model_path):
-    old_uri = mlflow.get_tracking_uri()
+def test_model_log(pd_model, model_path, tmpdir):
     model = pd_model.model
-    with TempDir(chdr=True, remove_on_exit=True) as tmp:
-        for should_start_run in [False, True]:
-            try:
-                mlflow.set_tracking_uri("test")
-                if should_start_run:
-                    mlflow.start_run()
+    try:
+        artifact_path = "model"
+        conda_env = os.path.join(tmpdir, "conda_env.yaml")
+        _mlflow_conda_env(conda_env, additional_pip_deps=["paddle"])
 
-                artifact_path = "model"
-                conda_env = os.path.join(tmp.path(), "conda_env.yaml")
-                _mlflow_conda_env(conda_env, additional_pip_deps=["paddle"])
+        mlflow.paddle.log_model(pd_model=model, artifact_path=artifact_path, conda_env=conda_env)
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+        )
 
-                mlflow.paddle.log_model(
-                    pd_model=model, artifact_path=artifact_path, conda_env=conda_env
-                )
-                model_uri = "runs:/{run_id}/{artifact_path}".format(
-                    run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-                )
+        reloaded_pd_model = mlflow.paddle.load_model(model_uri=model_uri)
+        np.testing.assert_array_almost_equal(
+            model(pd_model.inference_dataframe),
+            reloaded_pd_model(pd_model.inference_dataframe),
+            decimal=5,
+        )
 
-                reloaded_pd_model = mlflow.paddle.load_model(model_uri=model_uri)
-                np.testing.assert_array_almost_equal(
-                    model(pd_model.inference_dataframe),
-                    reloaded_pd_model(pd_model.inference_dataframe),
-                    decimal=5,
-                )
-
-                model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-                model_config = Model.load(os.path.join(model_path, "MLmodel"))
-                assert pyfunc.FLAVOR_NAME in model_config.flavors
-                assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
-                env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
-                assert os.path.exists(os.path.join(model_path, env_path))
-
-            finally:
-                mlflow.end_run()
-                mlflow.set_tracking_uri(old_uri)
+        model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+        model_config = Model.load(os.path.join(model_path, "MLmodel"))
+        assert pyfunc.FLAVOR_NAME in model_config.flavors
+        assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
+        env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
+        assert os.path.exists(os.path.join(model_path, env_path))
+    finally:
+        mlflow.end_run()
 
 
 def test_log_model_calls_register_model(pd_model):
@@ -269,7 +257,7 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
     pd_model, model_path
 ):
     mlflow.paddle.save_model(pd_model=pd_model.model, path=model_path)
-    _assert_pip_requirements(model_path, mlflow.onnx.get_default_pip_requirements())
+    _assert_pip_requirements(model_path, mlflow.paddle.get_default_pip_requirements())
 
 
 @pytest.mark.large
@@ -280,7 +268,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     with mlflow.start_run():
         mlflow.paddle.log_model(pd_model=pd_model.model, artifact_path=artifact_path)
         model_uri = mlflow.get_artifact_uri(artifact_path)
-    _assert_pip_requirements(model_uri, mlflow.onnx.get_default_pip_requirements())
+    _assert_pip_requirements(model_uri, mlflow.paddle.get_default_pip_requirements())
 
 
 @pytest.fixture(scope="session")
@@ -362,48 +350,35 @@ def test_model_built_in_high_level_api_load_from_remote_uri_succeeds(
 
 
 @pytest.mark.large
-def test_model_built_in_high_level_api_log(pd_model_built_in_high_level_api, model_path):
-    old_uri = mlflow.get_tracking_uri()
+def test_model_built_in_high_level_api_log(pd_model_built_in_high_level_api, model_path, tmpdir):
     model = pd_model_built_in_high_level_api.model
     test_dataset = pd_model_built_in_high_level_api.inference_dataframe
-    with TempDir(chdr=True, remove_on_exit=True) as tmp:
-        for should_start_run in [False, True]:
-            try:
-                mlflow.set_tracking_uri("test")
-                if should_start_run:
-                    mlflow.start_run()
+    try:
+        artifact_path = "model"
+        conda_env = os.path.join(tmpdir, "conda_env.yaml")
+        _mlflow_conda_env(conda_env, additional_pip_deps=["paddle"])
 
-                artifact_path = "model"
-                conda_env = os.path.join(tmp.path(), "conda_env.yaml")
-                _mlflow_conda_env(conda_env, additional_pip_deps=["paddle"])
+        mlflow.paddle.log_model(pd_model=model, artifact_path=artifact_path, conda_env=conda_env)
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+        )
 
-                mlflow.paddle.log_model(
-                    pd_model=model, artifact_path=artifact_path, conda_env=conda_env
-                )
-                model_uri = "runs:/{run_id}/{artifact_path}".format(
-                    run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-                )
+        reloaded_pd_model = mlflow.paddle.load_model(model_uri=model_uri)
+        low_level_test_dataset = [x[0] for x in test_dataset]
+        np.testing.assert_array_almost_equal(
+            np.array(model.predict(test_dataset)).squeeze(),
+            np.array(reloaded_pd_model(np.array(low_level_test_dataset))).squeeze(),
+            decimal=5,
+        )
 
-                reloaded_pd_model = mlflow.paddle.load_model(model_uri=model_uri)
-
-                low_level_test_dataset = [x[0] for x in test_dataset]
-
-                np.testing.assert_array_almost_equal(
-                    np.array(model.predict(test_dataset)).squeeze(),
-                    np.array(reloaded_pd_model(np.array(low_level_test_dataset))).squeeze(),
-                    decimal=5,
-                )
-
-                model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-                model_config = Model.load(os.path.join(model_path, "MLmodel"))
-                assert pyfunc.FLAVOR_NAME in model_config.flavors
-                assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
-                env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
-                assert os.path.exists(os.path.join(model_path, env_path))
-
-            finally:
-                mlflow.end_run()
-                mlflow.set_tracking_uri(old_uri)
+        model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+        model_config = Model.load(os.path.join(model_path, "MLmodel"))
+        assert pyfunc.FLAVOR_NAME in model_config.flavors
+        assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
+        env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
+        assert os.path.exists(os.path.join(model_path, env_path))
+    finally:
+        mlflow.end_run()
 
 
 @pytest.fixture
@@ -412,6 +387,7 @@ def model_retrain_path(tmpdir):
 
 
 @pytest.mark.large
+@pytest.mark.allow_infer_pip_requirements_fallback
 def test_model_retrain_built_in_high_level_api(
     pd_model_built_in_high_level_api, model_path, model_retrain_path
 ):
@@ -460,53 +436,40 @@ def test_model_retrain_built_in_high_level_api(
 
 
 @pytest.mark.large
-def test_log_model_built_in_high_level_api(pd_model_built_in_high_level_api, model_path):
-    old_uri = mlflow.get_tracking_uri()
+def test_log_model_built_in_high_level_api(pd_model_built_in_high_level_api, model_path, tmpdir):
     model = pd_model_built_in_high_level_api.model
-
     _, test_dataset = get_dataset_built_in_high_level_api()
 
-    with TempDir(chdr=True, remove_on_exit=True) as tmp:
-        for should_start_run in [False, True]:
-            try:
-                mlflow.set_tracking_uri("test")
-                if should_start_run:
-                    mlflow.start_run()
+    try:
+        artifact_path = "model"
+        conda_env = os.path.join(tmpdir, "conda_env.yaml")
+        _mlflow_conda_env(conda_env, additional_pip_deps=["paddle"])
 
-                artifact_path = "model"
-                conda_env = os.path.join(tmp.path(), "conda_env.yaml")
-                _mlflow_conda_env(conda_env, additional_pip_deps=["paddle"])
+        mlflow.paddle.log_model(
+            pd_model=model, artifact_path=artifact_path, conda_env=conda_env, training=True
+        )
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+        )
 
-                mlflow.paddle.log_model(
-                    pd_model=model, artifact_path=artifact_path, conda_env=conda_env, training=True
-                )
-                model_uri = "runs:/{run_id}/{artifact_path}".format(
-                    run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-                )
+        model_retrain = paddle.Model(UCIHousing())
+        optim = paddle.optimizer.Adam(learning_rate=0.015, parameters=model.parameters())
+        model_retrain.prepare(optim, paddle.nn.MSELoss())
+        model_retrain = mlflow.paddle.load_model(model_uri=model_uri, model=model_retrain)
 
-                model_uri = mlflow.get_artifact_uri("model")
-
-                model_retrain = paddle.Model(UCIHousing())
-                optim = paddle.optimizer.Adam(learning_rate=0.015, parameters=model.parameters())
-                model_retrain.prepare(optim, paddle.nn.MSELoss())
-                model_retrain = mlflow.paddle.load_model(model_uri=model_uri, model=model_retrain)
-
-                np.testing.assert_array_almost_equal(
-                    np.array(model.predict(test_dataset)).squeeze(),
-                    np.array(model_retrain.predict(test_dataset)).squeeze(),
-                    decimal=5,
-                )
-
-                model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-                model_config = Model.load(os.path.join(model_path, "MLmodel"))
-                assert pyfunc.FLAVOR_NAME in model_config.flavors
-                assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
-                env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
-                assert os.path.exists(os.path.join(model_path, env_path))
-
-            finally:
-                mlflow.end_run()
-                mlflow.set_tracking_uri(old_uri)
+        np.testing.assert_array_almost_equal(
+            np.array(model.predict(test_dataset)).squeeze(),
+            np.array(model_retrain.predict(test_dataset)).squeeze(),
+            decimal=5,
+        )
+        model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+        model_config = Model.load(os.path.join(model_path, "MLmodel"))
+        assert pyfunc.FLAVOR_NAME in model_config.flavors
+        assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
+        env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
+        assert os.path.exists(os.path.join(model_path, env_path))
+    finally:
+        mlflow.end_run()
 
 
 @pytest.mark.large

@@ -7,6 +7,10 @@ on:
     # Run this action daily at 7:00 UTC
     - cron: "0 7 * * *"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 defaults:
   run:
     shell: bash

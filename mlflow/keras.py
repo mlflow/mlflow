@@ -13,6 +13,7 @@ import re
 import yaml
 import tempfile
 import shutil
+import warnings
 
 import pandas as pd
 
@@ -58,6 +59,25 @@ _KERAS_SAVE_FORMAT_PATH = "save_format.txt"
 # File name to which keras model is saved
 _MODEL_SAVE_PATH = "model"
 _PIP_ENV_SUBPATH = "requirements.txt"
+
+
+def _raise_deprecation_warning():
+    # Avoid `ModuleNotFoundError` thrown when this function is called from `mlflow.tensorflow` to
+    # save a model created using `tensorflow.keras` but `keras` is not installed.
+    try:
+        import keras
+    except ImportError:
+        return
+
+    if Version(keras.__version__) < Version("2.3.0"):
+        warnings.warn(
+            (
+                "Support for keras < 2.3.0 has been deprecated and will be removed in a future "
+                "MLflow release"
+            ),
+            FutureWarning,
+            stacklevel=2,
+        )
 
 
 def get_default_pip_requirements(include_cloudpickle=False, keras_module=None):
@@ -170,6 +190,7 @@ def save_model(
         # Save the model as an MLflow Model
         mlflow.keras.save_model(keras_model, keras_model_path)
     """
+    _raise_deprecation_warning()
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     if keras_module is None:
@@ -560,6 +581,7 @@ def load_model(model_uri, **kwargs):
         keras_model = mlflow.keras.load_model("runs:/96771d893a5e46159d9f3b49bf9013e2" + "/models")
         predictions = keras_model.predict(x_test)
     """
+    _raise_deprecation_warning()
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     keras_module = importlib.import_module(flavor_conf.get("keras_module", "keras"))
@@ -648,6 +670,18 @@ def autolog(
                    autologging.
     """
     import keras
+
+    _raise_deprecation_warning()
+
+    if Version(keras.__version__) >= Version("2.6.0"):
+        warnings.warn(
+            (
+                "Autologging support for keras >= 2.6.0 has been deprecated and will be removed in "
+                "a future MLflow release. Use `mlflow.tensorflow.autolog()` instead."
+            ),
+            FutureWarning,
+            stacklevel=2,
+        )
 
     def getKerasCallback(metrics_logger):
         class __MLflowKerasCallback(keras.callbacks.Callback, metaclass=ExceptionSafeClass):
@@ -742,25 +776,38 @@ def autolog(
             return None
 
     def _log_early_stop_callback_metrics(callback, history, metrics_logger):
-        if callback:
-            callback_attrs = _get_early_stop_callback_attrs(callback)
-            if callback_attrs is None:
-                return
-            stopped_epoch, restore_best_weights, patience = callback_attrs
-            metrics_logger.record_metrics({"stopped_epoch": stopped_epoch})
-            # Weights are restored only if early stopping occurs
-            if stopped_epoch != 0 and restore_best_weights:
-                restored_epoch = stopped_epoch - max(1, patience)
-                metrics_logger.record_metrics({"restored_epoch": restored_epoch})
-                restored_index = history.epoch.index(restored_epoch)
-                restored_metrics = {
-                    key: history.history[key][restored_index] for key in history.history.keys()
-                }
-                # Checking that a metric history exists
-                metric_key = next(iter(history.history), None)
-                if metric_key is not None:
-                    last_epoch = len(history.history[metric_key])
-                    metrics_logger.record_metrics(restored_metrics, last_epoch)
+        if callback is None or not callback.model.stop_training:
+            return
+
+        callback_attrs = _get_early_stop_callback_attrs(callback)
+        if callback_attrs is None:
+            return
+
+        stopped_epoch, restore_best_weights, _ = callback_attrs
+        metrics_logger.record_metrics({"stopped_epoch": stopped_epoch})
+
+        if not restore_best_weights or callback.best_weights is None:
+            return
+
+        monitored_metric = history.history.get(callback.monitor)
+        if not monitored_metric:
+            return
+
+        initial_epoch = history.epoch[0]
+        # If `monitored_metric` contains multiple best values (e.g. [0.1, 0.1, 0.2] where 0.1 is
+        # the minimum loss), the epoch corresponding to the first occurrence of the best value is
+        # the best epoch. In keras > 2.6.0, the best epoch can be obtained via the `best_epoch`
+        # attribute of an `EarlyStopping` instance: https://github.com/keras-team/keras/pull/15197
+        restored_epoch = initial_epoch + monitored_metric.index(callback.best)
+        metrics_logger.record_metrics({"restored_epoch": restored_epoch})
+        restored_index = history.epoch.index(restored_epoch)
+        restored_metrics = {
+            key: metrics[restored_index] for key, metrics in history.history.items()
+        }
+        # Checking that a metric history exists
+        metric_key = next(iter(history.history), None)
+        if metric_key is not None:
+            metrics_logger.record_metrics(restored_metrics, stopped_epoch + 1)
 
     def _run_and_log_function(self, original, args, kwargs, unlogged_params, callback_arg_index):
         log_fn_args_as_params(original, args, kwargs, unlogged_params)

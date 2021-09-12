@@ -107,42 +107,34 @@ def _test_model_save_load(statsmodels_model, model_path, *predict_args):
 
 
 def _test_model_log(statsmodels_model, model_path, *predict_args):
-    old_uri = mlflow.get_tracking_uri()
     model = statsmodels_model.model
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
-        for should_start_run in [False, True]:
-            try:
-                mlflow.set_tracking_uri("test")
-                if should_start_run:
-                    mlflow.start_run()
+        try:
+            artifact_path = "model"
+            conda_env = os.path.join(tmp.path(), "conda_env.yaml")
+            _mlflow_conda_env(conda_env, additional_pip_deps=["statsmodels"])
 
-                artifact_path = "model"
-                conda_env = os.path.join(tmp.path(), "conda_env.yaml")
-                _mlflow_conda_env(conda_env, additional_pip_deps=["statsmodels"])
+            mlflow.statsmodels.log_model(
+                statsmodels_model=model, artifact_path=artifact_path, conda_env=conda_env
+            )
+            model_uri = "runs:/{run_id}/{artifact_path}".format(
+                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+            )
 
-                mlflow.statsmodels.log_model(
-                    statsmodels_model=model, artifact_path=artifact_path, conda_env=conda_env
+            reloaded_model = mlflow.statsmodels.load_model(model_uri=model_uri)
+            if hasattr(model, "predict"):
+                np.testing.assert_array_almost_equal(
+                    model.predict(*predict_args), reloaded_model.predict(*predict_args)
                 )
-                model_uri = "runs:/{run_id}/{artifact_path}".format(
-                    run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-                )
 
-                reloaded_model = mlflow.statsmodels.load_model(model_uri=model_uri)
-                if hasattr(model, "predict"):
-                    np.testing.assert_array_almost_equal(
-                        model.predict(*predict_args), reloaded_model.predict(*predict_args)
-                    )
-
-                model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-                model_config = Model.load(os.path.join(model_path, "MLmodel"))
-                assert pyfunc.FLAVOR_NAME in model_config.flavors
-                assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
-                env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
-                assert os.path.exists(os.path.join(model_path, env_path))
-
-            finally:
-                mlflow.end_run()
-                mlflow.set_tracking_uri(old_uri)
+            model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+            model_config = Model.load(os.path.join(model_path, "MLmodel"))
+            assert pyfunc.FLAVOR_NAME in model_config.flavors
+            assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
+            env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
+            assert os.path.exists(os.path.join(model_path, env_path))
+        finally:
+            mlflow.end_run()
 
 
 @pytest.mark.large

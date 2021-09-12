@@ -9,11 +9,11 @@ from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
 from mlflow.utils.file_utils import TempDir
 from iris_data_module import IrisDataModule, IrisDataModuleWithoutValidation
-from mlflow.utils.autologging_utils import BatchMetricsLogger
 from mlflow.pytorch._pytorch_autolog import _get_optimizer_name
-from unittest.mock import patch
 
 NUM_EPOCHS = 20
+
+pytestmark = pytest.mark.large
 
 
 @pytest.fixture
@@ -42,7 +42,6 @@ def pytorch_model_without_validation():
     return trainer, run
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("log_models", [True, False])
 def test_pytorch_autolog_log_models_configuration(log_models):
     mlflow.pytorch.autolog(log_models=log_models)
@@ -173,7 +172,6 @@ def test_pytorch_autolog_model_can_load_from_artifact(pytorch_model_with_callbac
     assert result is not None
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("log_models", [True, False])
 @pytest.mark.parametrize("patience", [3])
 def test_pytorch_with_early_stopping_autolog_log_models_configuration_with(log_models, patience):
@@ -212,36 +210,6 @@ def test_pytorch_early_stop_params_logged(pytorch_model_with_callback, patience)
     assert float(data.params["patience"]) == patience
     assert "min_delta" in data.params
     assert "stopped_epoch" in data.params
-
-
-@pytest.mark.parametrize("patience", [3])
-def test_pytorch_autolog_batch_metrics_logger_logs_expected_metrics(patience):
-    patched_metrics_data = []
-
-    # Mock patching BatchMetricsLogger.record_metrics()
-    # to ensure that expected metrics are being logged.
-    original = BatchMetricsLogger.record_metrics
-
-    with patch(
-        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics", autospec=True
-    ) as record_metrics_mock:
-
-        def record_metrics_side_effect(self, metrics, step=None):
-            patched_metrics_data.extend(metrics.items())
-            original(self, metrics, step)
-
-        record_metrics_mock.side_effect = record_metrics_side_effect
-        _, run = pytorch_model_with_callback(patience)
-
-    patched_metrics_data = dict(patched_metrics_data)
-    original_metrics = run.data.metrics
-
-    for metric_name in original_metrics:
-        assert metric_name in patched_metrics_data
-        assert original_metrics[metric_name] == patched_metrics_data[metric_name]
-
-    assert "loss" in original_metrics
-    assert "loss" in patched_metrics_data
 
 
 def test_pytorch_autolog_non_early_stop_callback_does_not_log(pytorch_model):
@@ -290,3 +258,39 @@ def test_get_optimizer_name_with_lightning_optimizer():
 
     adam = torch.optim.Adam(torch.nn.Linear(1, 1).parameters())
     assert _get_optimizer_name(LightningOptimizer(adam)) == "Adam"
+
+
+def test_pytorch_autologging_supports_data_parallel_execution():
+    mlflow.pytorch.autolog()
+    model = IrisClassification()
+    dm = IrisDataModule()
+    dm.setup(stage="fit")
+
+    trainer = pl.Trainer(max_epochs=NUM_EPOCHS, accelerator="ddp_cpu", num_processes=4)
+
+    with mlflow.start_run() as run:
+        trainer.fit(model, dm)
+        trainer.test()
+
+    client = mlflow.tracking.MlflowClient()
+    run = client.get_run(run.info.run_id)
+
+    # Checking if metrics are logged
+    client = mlflow.tracking.MlflowClient()
+    for metric_key in ["loss", "train_acc", "val_loss", "val_acc"]:
+        assert metric_key in run.data.metrics
+
+    data = run.data
+    assert "test_loss" in data.metrics
+    assert "test_acc" in data.metrics
+
+    # Testing optimizer parameters are logged
+    assert "optimizer_name" in data.params
+    assert data.params["optimizer_name"] == "Adam"
+
+    # Testing model_summary.txt is saved
+    client = mlflow.tracking.MlflowClient()
+    artifacts = client.list_artifacts(run.info.run_id)
+    artifacts = list(map(lambda x: x.path, artifacts))
+    assert "model" in artifacts
+    assert "model_summary.txt" in artifacts

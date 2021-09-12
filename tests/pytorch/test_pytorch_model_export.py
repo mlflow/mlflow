@@ -18,7 +18,6 @@ import mlflow.pyfunc as pyfunc
 import mlflow.pytorch
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.pytorch import get_default_conda_env
-from mlflow import tracking
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
@@ -215,29 +214,18 @@ def test_signature_and_examples_are_saved_correctly(sequential_model, data):
 @pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_log_model(sequential_model, data, sequential_predicted):
-    old_uri = tracking.get_tracking_uri()
-    # should_start_run tests whether or not calling log_model() automatically starts a run.
-    for should_start_run in [False, True]:
-        with TempDir(chdr=True, remove_on_exit=True) as tmp:
-            try:
-                tracking.set_tracking_uri(tmp.path("test"))
-                if should_start_run:
-                    mlflow.start_run()
+    try:
+        artifact_path = "pytorch"
+        mlflow.pytorch.log_model(sequential_model, artifact_path=artifact_path)
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+        )
 
-                artifact_path = "pytorch"
-                mlflow.pytorch.log_model(sequential_model, artifact_path=artifact_path)
-                model_uri = "runs:/{run_id}/{artifact_path}".format(
-                    run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-                )
-
-                # Load model
-                sequential_model_loaded = mlflow.pytorch.load_model(model_uri=model_uri)
-
-                test_predictions = _predict(sequential_model_loaded, data)
-                np.testing.assert_array_equal(test_predictions, sequential_predicted)
-            finally:
-                mlflow.end_run()
-                tracking.set_tracking_uri(old_uri)
+        sequential_model_loaded = mlflow.pytorch.load_model(model_uri=model_uri)
+        test_predictions = _predict(sequential_model_loaded, data)
+        np.testing.assert_array_equal(test_predictions, sequential_predicted)
+    finally:
+        mlflow.end_run()
 
 
 def test_log_model_calls_register_model(module_scoped_subclassed_model):

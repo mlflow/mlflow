@@ -20,6 +20,7 @@ import { getUUID } from '../../common/utils/ActionUtils';
 import { MAX_RUNS_IN_SEARCH_MODEL_VERSIONS_FILTER } from '../../model-registry/constants';
 import { getExperiment } from '../reducers/Reducers';
 import { Experiment } from '../sdk/MlflowMessages';
+import { injectIntl } from 'react-intl';
 
 export const LIFECYCLE_FILTER = { ACTIVE: 'Active', DELETED: 'Deleted' };
 export const MODEL_VERSION_FILTER = {
@@ -58,6 +59,7 @@ export class ExperimentPage extends Component {
     history: PropTypes.object.isRequired,
     location: PropTypes.object,
     searchForNewRuns: PropTypes.func,
+    intl: PropTypes.shape({ formatMessage: PropTypes.func.isRequired }).isRequired,
   };
 
   static defaultProps = {
@@ -87,7 +89,8 @@ export class ExperimentPage extends Component {
         metricKeyFilterString: urlState.metrics === undefined ? '' : urlState.metrics,
         searchInput: urlState.search === undefined ? '' : urlState.search,
         orderByKey: urlState.orderByKey === undefined ? null : urlState.orderByKey,
-        orderByAsc: urlState.orderByAsc === undefined ? true : urlState.orderByAsc === 'true',
+        orderByAsc: urlState.orderByAsc === undefined ? false : urlState.orderByAsc === 'true',
+        startTime: urlState.startTime === undefined ? 'ALL' : urlState.startTime,
       },
     };
   }
@@ -110,6 +113,7 @@ export class ExperimentPage extends Component {
             : new ExperimentPagePersistedState().toJSON(),
         lastExperimentId: props.experimentId,
         lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
+        nextPageToken: null,
       };
     }
     return null;
@@ -174,14 +178,44 @@ export class ExperimentPage extends Component {
     return response;
   };
 
+  static StartTimeColumnOffset = {
+    ALL: null,
+    LAST_HOUR: 1 * 60 * 60 * 1000,
+    LAST_24_HOURS: 24 * 60 * 60 * 1000,
+    LAST_7_DAYS: 7 * 24 * 60 * 60 * 1000,
+    LAST_30_DAYS: 30 * 24 * 60 * 60 * 1000,
+    LAST_YEAR: 12 * 30 * 24 * 60 * 60 * 1000,
+  };
+
+  getStartTimeExpr() {
+    const startTimeColumnOffset = ExperimentPage.StartTimeColumnOffset;
+    const { startTime } = this.state.persistedState;
+    const offset = startTimeColumnOffset[startTime];
+    if (!startTime || !offset || startTime === 'ALL') {
+      return null;
+    }
+    const startTimeOffset = new Date() - offset;
+
+    return `attributes.start_time >= ${startTimeOffset}`;
+  }
+
   handleGettingRuns = (getRunsAction, requestId) => {
     const { persistedState, lifecycleFilter, nextPageToken } = this.state;
     const { searchInput } = persistedState;
     const viewType = lifecycleFilterToRunViewType(lifecycleFilter);
     const orderBy = this.getOrderByExpr();
+    const startTime = this.getStartTimeExpr();
+    let filter = searchInput;
+    if (startTime) {
+      if (filter.length > 0) {
+        filter = `${filter} && ${startTime}`;
+      } else {
+        filter = startTime;
+      }
+    }
     const shouldFetchParents = this.shouldNestChildrenAndFetchParents();
     return getRunsAction({
-      filter: searchInput,
+      filter,
       runViewType: viewType,
       experimentIds: [this.props.experimentId],
       orderBy,
@@ -221,6 +255,7 @@ export class ExperimentPage extends Component {
     orderByKey,
     orderByAsc,
     modelVersionFilterInput,
+    startTime,
   ) => {
     this.updateUrlWithSearchFilter({
       paramKeyFilterString,
@@ -228,6 +263,7 @@ export class ExperimentPage extends Component {
       searchInput,
       orderByKey,
       orderByAsc,
+      startTime,
     });
 
     this.setState(
@@ -240,6 +276,7 @@ export class ExperimentPage extends Component {
           searchInput,
           orderByKey,
           orderByAsc,
+          startTime,
         }).toJSON(),
         lifecycleFilter: lifecycleFilterInput,
         modelVersionFilter: modelVersionFilterInput,
@@ -305,6 +342,7 @@ export class ExperimentPage extends Component {
     searchInput,
     orderByKey,
     orderByAsc,
+    startTime,
   }) {
     const state = {};
     if (paramKeyFilterString) {
@@ -315,6 +353,9 @@ export class ExperimentPage extends Component {
     }
     if (searchInput) {
       state['search'] = searchInput;
+    }
+    if (startTime) {
+      state['startTime'] = startTime;
     }
     if (orderByKey) {
       state['orderByKey'] = orderByKey;
@@ -358,6 +399,7 @@ export class ExperimentPage extends Component {
       searchInput,
       orderByKey,
       orderByAsc,
+      startTime,
     } = this.state.persistedState;
 
     const experimentViewProps = {
@@ -374,6 +416,7 @@ export class ExperimentPage extends Component {
       isLoading: isLoading && !searchRunsError,
       orderByKey: orderByKey,
       orderByAsc: orderByAsc,
+      startTime: startTime,
       nextPageToken: this.state.nextPageToken,
       numRunsFromLatestSearch: this.state.numRunsFromLatestSearch,
       handleLoadMoreRuns: this.handleLoadMoreRuns,
@@ -420,4 +463,4 @@ export const lifecycleFilterToRunViewType = (lifecycleFilter) => {
   }
 };
 
-export default withRouter(connect(mapStateToProps, mapDispatchToProps)(ExperimentPage));
+export default withRouter(connect(mapStateToProps, mapDispatchToProps)(injectIntl(ExperimentPage)));

@@ -1,7 +1,3 @@
-.ExperimentView input[type=checkbox] {
-    width: auto;
-}
-
 .ExperimentView th {
     background-color: #fafafa;
     color: #888888;
@@ -39,6 +35,10 @@
 
 .ExperimentView .ant-alert-info .ant-alert-icon {
     color: #00B379;
+}
+
+.ExperimentView .ant-select-selection-selected-value {
+    font-size: 14px;
 }
 
 .ExperimentView .top-row {
@@ -379,12 +379,20 @@ span.error-message {
     border-left-color: rgba(0, 0, 0, 0.75);
 }
 
+.ExperimentView .sort-select {
+    width: 200px;
+}
+
+.ExperimentView .start-time-select {
+    width: 150px;
+}
+
 .ExperimentView .ag-row-hover, .ExperimentView .ag-column-hover {
-    background-color: #f3fafd !important; /* TODO(Zangr) override specificity in a better way */
+    background-color: #f3fafd;
 }
 
 .ExperimentView .ag-row-hover .ag-column-hover {
-    background-color: #e8f6fd !important;
+    background-color: #e8f6fd;
 }
 
 .ExperimentView .multi-column-view .load-more-button,
@@ -409,11 +417,19 @@ span.error-message {
     align-items: start;
 }
 
-.ExperimentView .ag-react-container {
-    display: flex;
-    align-items: center;
-    width: inherit;
-    justify-content: center;
+/* Removing the padding from the parent cell being added and 
+   explicitly specifying the header with the padding.
+   Without this, the sorting selection on the header would 
+   be padded because of the parent padding. */
+.ExperimentView .ag-theme-balham .ag-header-cell {
+    padding: 0;
+}
+
+/* Adding the padding back on the checkbox, 
+   since the checkbox doesn't use the custom header where we added 
+   the padding which we removed from other columns above. */
+.ExperimentView .ag-header-cell .ag-checkbox {
+    padding: 0 12px
 }
 
 .ExperimentView .version-link {
@@ -423,4 +439,19 @@ span.error-message {
 
 .ExperimentView .model-link-text {
     padding-left: 3px;
+}
+
+.breadcrumb-caret {
+    font-size: 11px;
+    vertical-align: 4px;
+    padding-left: 5px;
+    cursor: pointer;
+}
+  
+.breadcrumb-caret-hidden {
+    font-size: 11px;
+    vertical-align: 4px;
+    padding-left: 5px;
+    cursor: pointer;
+    visibility: hidden;
 }

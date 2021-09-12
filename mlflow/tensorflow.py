@@ -77,6 +77,20 @@ _thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 _AUTOLOG_RUN_ID = None
 
 
+def _raise_deprecation_warning():
+    import tensorflow as tf
+
+    if Version(tf.__version__) < Version("2.0.0"):
+        warnings.warn(
+            (
+                "Support for tensorflow < 2.0.0 has been deprecated and will be removed in "
+                "a future MLflow release"
+            ),
+            FutureWarning,
+            stacklevel=2,
+        )
+
+
 def get_default_pip_requirements():
     """
     :return: A list of default pip requirements for MLflow Models produced by this flavor.
@@ -252,6 +266,7 @@ def save_model(
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     """
+    _raise_deprecation_warning()
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     _logger.info(
@@ -388,6 +403,8 @@ def load_model(model_uri, tf_sess=None):
                                 for _, output_signature in signature_definition.outputs.items()]
     """
     import tensorflow
+
+    _raise_deprecation_warning()
 
     if Version(tensorflow.__version__) < Version("2.0.0"):
         if not tf_sess:
@@ -931,6 +948,8 @@ def autolog(
     """
     import tensorflow
 
+    _raise_deprecation_warning()
+
     global _LOG_EVERY_N_STEPS
     _LOG_EVERY_N_STEPS = every_n_iter
 
@@ -1050,39 +1069,45 @@ def autolog(
         except Exception:  # pylint: disable=W0703
             return None
 
-    def _log_early_stop_callback_metrics(callback, history, expected_last_epoch, metrics_logger):
-        if callback:
-            callback_attrs = _get_early_stop_callback_attrs(callback)
-            if callback_attrs is None:
-                return
-            stopped_epoch, restore_best_weights, patience = callback_attrs
-            metrics_logger.record_metrics({"stopped_epoch": stopped_epoch})
+    def _log_early_stop_callback_metrics(callback, history, metrics_logger):
+        if callback is None or not callback.model.stop_training:
+            return
 
-            # Only log restored model metrics if early stopping occurs, as determined by the
-            # the value of `stopped_epoch`. `stopped_epoch` is non-zero if early stopping has
-            # occurred, except in the case where training was early stopped after the first epoch
-            # due to a configured patience value of zero
-            if (
-                (stopped_epoch > 0) or (patience == 0 and expected_last_epoch > 0)
-            ) and restore_best_weights:
-                restored_epoch = stopped_epoch - patience
-                metrics_logger.record_metrics({"restored_epoch": restored_epoch})
-                restored_index = history.epoch.index(restored_epoch)
+        callback_attrs = _get_early_stop_callback_attrs(callback)
+        if callback_attrs is None:
+            return
 
-                restored_metrics = {
-                    key: history.history[key][restored_index] for key in history.history.keys()
-                }
-                # Metrics are logged as 'epoch_loss' and 'epoch_acc' in TF 1.X
-                if Version(tensorflow.__version__) < Version("2.0.0"):
-                    if "loss" in restored_metrics:
-                        restored_metrics["epoch_loss"] = restored_metrics.pop("loss")
-                    if "acc" in restored_metrics:
-                        restored_metrics["epoch_acc"] = restored_metrics.pop("acc")
-                # Checking that a metric history exists
-                metric_key = next(iter(history.history), None)
-                if metric_key is not None:
-                    last_epoch = len(history.history[metric_key])
-                    metrics_logger.record_metrics(restored_metrics, last_epoch)
+        stopped_epoch, restore_best_weights, _ = callback_attrs
+        metrics_logger.record_metrics({"stopped_epoch": stopped_epoch})
+
+        if not restore_best_weights or callback.best_weights is None:
+            return
+
+        monitored_metric = history.history.get(callback.monitor)
+        if not monitored_metric:
+            return
+
+        initial_epoch = history.epoch[0]
+        # If `monitored_metric` contains multiple best values (e.g. [0.1, 0.1, 0.2] where 0.1 is
+        # the minimum loss), the epoch corresponding to the first occurrence of the best value is
+        # the best epoch. In keras > 2.6.0, the best epoch can be obtained via the `best_epoch`
+        # attribute of an `EarlyStopping` instance: https://github.com/keras-team/keras/pull/15197
+        restored_epoch = initial_epoch + monitored_metric.index(callback.best)
+        metrics_logger.record_metrics({"restored_epoch": restored_epoch})
+        restored_index = history.epoch.index(restored_epoch)
+        restored_metrics = {
+            key: metrics[restored_index] for key, metrics in history.history.items()
+        }
+        # Metrics are logged as 'epoch_loss' and 'epoch_acc' in TF 1.X
+        if Version(tensorflow.__version__) < Version("2.0.0"):
+            if "loss" in restored_metrics:
+                restored_metrics["epoch_loss"] = restored_metrics.pop("loss")
+            if "acc" in restored_metrics:
+                restored_metrics["epoch_acc"] = restored_metrics.pop("acc")
+        # Checking that a metric history exists
+        metric_key = next(iter(history.history), None)
+        if metric_key is not None:
+            metrics_logger.record_metrics(restored_metrics, stopped_epoch + 1)
 
     class FitPatch(PatchFunction):
         def __init__(self):
@@ -1127,12 +1152,8 @@ def autolog(
 
                 history = original(inst, *args, **kwargs)
 
-                epochs = args[3] if len(args) >= 4 else kwargs.get("epochs", 0)
                 _log_early_stop_callback_metrics(
-                    callback=early_stop_callback,
-                    history=history,
-                    expected_last_epoch=epochs,
-                    metrics_logger=metrics_logger,
+                    callback=early_stop_callback, history=history, metrics_logger=metrics_logger,
                 )
 
             _flush_queue()

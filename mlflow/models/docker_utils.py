@@ -106,15 +106,30 @@ def _build_image(image_name, entrypoint, mlflow_home=None, custom_setup_steps_ho
             )
         _logger.info("Building docker image with name %s", image_name)
         os.system("find {cwd}/".format(cwd=cwd))
-        proc = Popen(
-            ["docker", "build", "-t", image_name, "-f", "Dockerfile", "."],
-            cwd=cwd,
-            stdout=PIPE,
-            stderr=STDOUT,
-            universal_newlines=True,
-        )
-        for x in iter(proc.stdout.readline, ""):
-            eprint(x, end="")
+        _build_image_from_context(context_dir=cwd, image_name=image_name)
 
-        if proc.wait():
-            raise RuntimeError("Docker build failed.")
+
+def _build_image_from_context(context_dir: str, image_name: str):
+    import docker
+
+    client = docker.from_env()
+    # In Docker < 19, `docker build` doesn't support the `--platform` option
+    is_platform_supported = int(client.version()["Version"].split(".")[0]) >= 19
+    # Enforcing the AMD64 architecture build for Apple M1 users
+    platform_option = ["--platform", "linux/amd64"] if is_platform_supported else []
+    commands = [
+        "docker",
+        "build",
+        "-t",
+        image_name,
+        "-f",
+        "Dockerfile",
+        *platform_option,
+        ".",
+    ]
+    proc = Popen(commands, cwd=context_dir, stdout=PIPE, stderr=STDOUT, universal_newlines=True,)
+    for x in iter(proc.stdout.readline, ""):
+        eprint(x, end="")
+
+    if proc.wait():
+        raise RuntimeError("Docker build failed.")

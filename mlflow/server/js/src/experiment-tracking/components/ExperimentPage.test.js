@@ -72,7 +72,7 @@ function expectSearchState(historyEntry, state) {
 
 test('URL is empty for blank search', () => {
   const wrapper = getExperimentPageMock();
-  wrapper.instance().onSearch('', '', '', 'Active', null, true);
+  wrapper.instance().onSearch('', '', '', 'Active', null, true, null);
   expectSearchState(history.push.mock.calls[0][0], {});
   const searchRunsCallParams = searchRunsApi.mock.calls[1][0];
 
@@ -86,11 +86,21 @@ test('URL can encode a complete search', () => {
   const wrapper = getExperimentPageMock();
   wrapper
     .instance()
-    .onSearch('key_filter', 'metric0, metric1', 'metrics.metric0 > 3', 'Deleted', null, true);
+    .onSearch(
+      'key_filter',
+      'metric0, metric1',
+      'metrics.metric0 > 3',
+      'Deleted',
+      null,
+      true,
+      null,
+      'ALL',
+    );
   expectSearchState(history.push.mock.calls[0][0], {
     metrics: 'metric0, metric1',
     params: 'key_filter',
     search: 'metrics.metric0 > 3',
+    startTime: 'ALL',
   });
   const searchRunsCallParams = searchRunsApi.mock.calls[1][0];
   expect(searchRunsCallParams.filter).toEqual('metrics.metric0 > 3');
@@ -99,7 +109,9 @@ test('URL can encode a complete search', () => {
 
 test('URL can encode order_by', () => {
   const wrapper = getExperimentPageMock();
-  wrapper.instance().onSearch('key_filter', 'metric0, metric1', '', 'Active', 'my_key', false);
+  wrapper
+    .instance()
+    .onSearch('key_filter', 'metric0, metric1', '', 'Active', 'my_key', false, null);
   expectSearchState(history.push.mock.calls[0][0], {
     metrics: 'metric0, metric1',
     params: 'key_filter',
@@ -118,7 +130,7 @@ test('Loading state without any URL params', () => {
   expect(state.persistedState.metricKeyFilterString).toEqual('');
   expect(state.persistedState.searchInput).toEqual('');
   expect(state.persistedState.orderByKey).toBe(null);
-  expect(state.persistedState.orderByAsc).toEqual(true);
+  expect(state.persistedState.orderByAsc).toEqual(false);
 });
 
 test('Loading state with all URL params', () => {
@@ -642,5 +654,123 @@ describe('isNewRun', () => {
         },
       }),
     ).toEqual(true);
+  });
+});
+
+describe('startTime select filters out the experiment runs correctly', () => {
+  test('should get startTime expr for the filter query generated correctly', () => {
+    const wrapper = getExperimentPageMock();
+    const instance = wrapper.instance();
+
+    instance.setState(
+      {
+        persistedState: {
+          startTime: '',
+        },
+      },
+      () => expect(instance.getStartTimeExpr()).toBe(null),
+    );
+
+    instance.setState(
+      {
+        persistedState: {
+          startTime: undefined,
+        },
+      },
+      () => expect(instance.getStartTimeExpr()).toBe(null),
+    );
+
+    instance.setState(
+      {
+        persistedState: {
+          startTime: 'ALL',
+        },
+      },
+      () => expect(instance.getStartTimeExpr()).toBe(null),
+    );
+
+    instance.setState(
+      {
+        persistedState: {
+          startTime: 'LAST_24_HOURS',
+        },
+      },
+      () => expect(instance.getStartTimeExpr()).toMatch('attributes.start_time'),
+    );
+  });
+
+  test('handleGettingRuns correctly generates the filter string', () => {
+    const wrapper = getExperimentPageMock();
+    const instance = wrapper.instance();
+    const getRunsAction = jest.fn(() => Promise.resolve());
+    const requestId = '123';
+
+    instance.setState(
+      {
+        persistedState: {
+          startTime: '',
+          searchInput: 'metrics.met > 0',
+        },
+      },
+      () => {
+        instance.handleGettingRuns(getRunsAction, requestId);
+        expect(getRunsAction).toHaveBeenCalledWith(
+          expect.objectContaining({
+            filter: 'metrics.met > 0',
+          }),
+        );
+      },
+    );
+
+    instance.setState(
+      {
+        persistedState: {
+          startTime: 'ALL',
+          searchInput: 'metrics.met > 0',
+        },
+      },
+      () => {
+        instance.handleGettingRuns(getRunsAction, requestId);
+        expect(getRunsAction).toHaveBeenCalledWith(
+          expect.objectContaining({
+            filter: 'metrics.met > 0',
+          }),
+        );
+      },
+    );
+
+    instance.setState(
+      {
+        persistedState: {
+          startTime: 'LAST_HOUR_FAKE',
+          searchInput: 'metrics.met > 0',
+        },
+      },
+      () => {
+        instance.handleGettingRuns(getRunsAction, requestId);
+        expect(getRunsAction).toHaveBeenCalledWith(
+          expect.objectContaining({
+            filter: 'metrics.met > 0',
+          }),
+        );
+      },
+    );
+
+    instance.setState(
+      {
+        persistedState: {
+          startTime: 'LAST_HOUR',
+          searchInput: 'metrics.met > 0',
+        },
+      },
+      () => {
+        instance.handleGettingRuns(getRunsAction, requestId);
+        expect(getRunsAction).toHaveBeenCalledWith(
+          expect.objectContaining({
+            filter: expect.stringMatching('metrics.met > 0 && attributes.start_time'),
+          }),
+        );
+      },
+    );
   });
 });

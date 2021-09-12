@@ -241,6 +241,8 @@ export class RunViewImpl extends Component {
       </Link>,
       this.props.runDisplayName,
     ];
+    /* eslint-disable prefer-const */
+    let feedbackForm;
     const plotTitle = this.props.intl.formatMessage({
       defaultMessage: 'Plot chart',
       description: 'Link to the view the plot chart for the experiment run',
@@ -249,7 +251,7 @@ export class RunViewImpl extends Component {
     return (
       <div className='RunView'>
         {/* Breadcrumbs */}
-        <PageHeader title={title} breadcrumbs={breadcrumbs} />
+        <PageHeader title={title} breadcrumbs={breadcrumbs} feedbackForm={feedbackForm} />
         <div className='header-container'>
           <RenameRunModal
             runUuid={runUuid}
@@ -374,6 +376,7 @@ export class RunViewImpl extends Component {
                   // eslint-disable-next-line max-len
                   'Label for the collapsible area to display the run command used for the experiment run',
               })}
+              data-test-id='run-command-section'
             >
               <textarea className='run-command text-area' readOnly value={runCommand} />
             </CollapsibleSection>
@@ -390,6 +393,7 @@ export class RunViewImpl extends Component {
             }
             forceOpen={showNoteEditor}
             defaultCollapsed={!noteContent}
+            data-test-id='run-notes-section'
           >
             <EditableNote
               defaultMarkdown={noteContent}
@@ -405,10 +409,24 @@ export class RunViewImpl extends Component {
                 // eslint-disable-next-line max-len
                 'Label for the collapsible area to display the parameters used during the experiment run',
             })}
+            data-test-id='run-parameters-section'
           >
             <HtmlTableView
               data-test-id='params-table'
-              columns={['Name', 'Value']}
+              columns={[
+                this.props.intl.formatMessage({
+                  defaultMessage: 'Name',
+                  description:
+                    // eslint-disable-next-line max-len
+                    'Column title for name column for displaying the params name for the experiment run',
+                }),
+                this.props.intl.formatMessage({
+                  defaultMessage: 'Value',
+                  description:
+                    // eslint-disable-next-line max-len
+                    'Column title for value column for displaying the value of the params for the experiment run ',
+                }),
+              ]}
               values={getParamValues(params)}
               styles={tableStyles}
             />
@@ -420,10 +438,24 @@ export class RunViewImpl extends Component {
                 // eslint-disable-next-line max-len
                 'Label for the collapsible area to display the output metrics after the experiment run',
             })}
+            data-test-id='run-metrics-section'
           >
             <HtmlTableView
               data-test-id='metrics-table'
-              columns={['Name', 'Value']}
+              columns={[
+                this.props.intl.formatMessage({
+                  defaultMessage: 'Name',
+                  description:
+                    // eslint-disable-next-line max-len
+                    'Column title for name column for displaying the metrics name for the experiment run',
+                }),
+                this.props.intl.formatMessage({
+                  defaultMessage: 'Value',
+                  description:
+                    // eslint-disable-next-line max-len
+                    'Column title for value column for displaying the value of the metrics for the experiment run ',
+                }),
+              ]}
               values={getMetricValues(latestMetrics, getMetricPagePath, plotTitle)}
               styles={tableStyles}
             />
@@ -437,6 +469,7 @@ export class RunViewImpl extends Component {
                   'Label for the collapsible area to display the tags for the experiment run',
               })}
               defaultCollapsed={Utils.getVisibleTagValues(tags).length === 0}
+              data-test-id='run-tags-section'
             >
               <EditableTagsTableView
                 wrappedComponentRef={this.saveFormRef}
@@ -455,6 +488,7 @@ export class RunViewImpl extends Component {
                 // eslint-disable-next-line max-len
                 'Label for the collapsible area to display the artifacts page',
             })}
+            data-test-id='run-artifacts-section'
           >
             <ArtifactPage
               runUuid={runUuid}

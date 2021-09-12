@@ -10,8 +10,14 @@ export MLFLOW_HOME=$(pwd)
 # overhead
 pytest tests/pyfunc --large
 pytest tests/azureml --large
-pytest tests/models --large
 pytest tests/utils/test_model_utils.py --large
+
+# TODO: Run tests for h2o, shap, prophet, and paddle in the cross-version-tests workflow
+pytest tests/h2o --large
+pytest tests/shap --large
+pytest tests/paddle --large
+pytest tests/prophet --large
+
 pytest tests/tracking/fluent/test_fluent_autolog.py --large
 pytest tests/autologging --large
 find tests/spark_autologging/ml -name 'test*.py' | xargs -L 1 pytest --large

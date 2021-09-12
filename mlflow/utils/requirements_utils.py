@@ -126,16 +126,6 @@ def _canonicalize_package_name(pkg_name):
     return pkg_name.lower().replace("_", "-")
 
 
-_MODULE_TO_PACKAGES = importlib_metadata.packages_distributions()
-
-
-def _module_to_packages(module_name):
-    """
-    Returns a list of packages that provide the specified module.
-    """
-    return _MODULE_TO_PACKAGES.get(module_name, [])
-
-
 def _get_requires_recursive(pkg_name):
     """
     Recursively yields both direct and transitive dependencies of the specified package.
@@ -203,9 +193,9 @@ def _get_installed_version(package, module=None):
         # 1.9.0
         version = __import__(module or package).__version__
 
-    # In Databricks, strip a dev version suffix for pyspark (e.g. '3.1.2.dev0' -> '3.1.2')
-    # and make it installable from PyPI.
-    if package == "pyspark" and is_in_databricks_runtime():
+    # Strip the suffix from `dev` versions of PySpark, which are not available for installation
+    # from Anaconda or PyPI
+    if package == "pyspark":
         version = _strip_dev_version_suffix(version)
 
     return version
@@ -246,6 +236,9 @@ def _capture_imported_modules(model_uri, flavor):
             return f.read().splitlines()
 
 
+_MODULES_TO_PACKAGES = None
+
+
 def _infer_requirements(model_uri, flavor):
     """
     Infers the pip requirements of the specified model by creating a subprocess and loading
@@ -255,8 +248,20 @@ def _infer_requirements(model_uri, flavor):
     :param: flavor: The flavor name of the model.
     :return: A list of inferred pip requirements.
     """
+    global _MODULES_TO_PACKAGES
+    if _MODULES_TO_PACKAGES is None:
+        # Note `importlib_metada.packages_distributions` only captures packages installed into
+        # Python’s site-packages directory via tools such as pip:
+        # https://importlib-metadata.readthedocs.io/en/latest/using.html#using-importlib-metadata
+        _MODULES_TO_PACKAGES = importlib_metadata.packages_distributions()
+
+        # In Databricks, `_MODULES_TO_PACKAGES` doesn't contain pyspark since it's not installed
+        # via pip or conda. To work around this issue, manually add pyspark.
+        if is_in_databricks_runtime():
+            _MODULES_TO_PACKAGES.update({"pyspark": ["pyspark"]})
+
     modules = _capture_imported_modules(model_uri, flavor)
-    packages = _flatten(map(_module_to_packages, modules))
+    packages = _flatten([_MODULES_TO_PACKAGES.get(module, []) for module in modules])
     packages = map(_canonicalize_package_name, packages)
     packages = _prune_packages(packages)
     excluded_packages = [
@@ -268,7 +273,7 @@ def _infer_requirements(model_uri, flavor):
         # Exclude a package that provides the mlflow module (e.g. mlflow, mlflow-skinny).
         # Certain flavors (e.g. pytorch) import mlflow while loading a model, but mlflow should
         # not be counted as a model requirement.
-        *_MODULE_TO_PACKAGES.get("mlflow", []),
+        *_MODULES_TO_PACKAGES.get("mlflow", []),
     ]
     packages = packages - set(excluded_packages)
     return sorted(map(_get_pinned_requirement, packages))

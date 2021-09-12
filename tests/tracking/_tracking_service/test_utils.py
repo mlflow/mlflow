@@ -1,6 +1,7 @@
 from importlib import reload
 from unittest import mock
 import io
+import itertools
 import pickle
 import os
 import pytest
@@ -194,6 +195,28 @@ def test_get_store_databricks_profile():
         with pytest.raises(Exception) as e_info:
             store.get_host_creds()
         assert "mycoolprofile" in str(e_info.value)
+
+
+def test_get_store_caches_on_store_uri_and_artifact_uri(tmpdir):
+    registry = mlflow.tracking._tracking_service.utils._tracking_store_registry
+
+    store_uri_1 = "sqlite:///" + tmpdir.join("backend_store_1.db").strpath
+    store_uri_2 = "file:///" + tmpdir.join("backend_store_2").strpath
+    stores_uris = [store_uri_1, store_uri_2]
+    artifact_uris = [
+        None,
+        tmpdir.join("artifact_root_1").strpath,
+        tmpdir.join("artifact_root_2").strpath,
+    ]
+
+    stores = []
+    for args in itertools.product(stores_uris, artifact_uris):
+        store1 = registry.get_store(*args)
+        store2 = registry.get_store(*args)
+        assert store1 is store2
+        stores.append(store1)
+
+    assert all(s1 is not s2 for s1, s2 in itertools.combinations(stores, 2))
 
 
 def test_standard_store_registry_with_mocked_entrypoint():

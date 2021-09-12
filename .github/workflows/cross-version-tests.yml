@@ -71,7 +71,7 @@ jobs:
             return labels.data.some(({ name }) => name === "enable-dev-tests");
       - name: Test set_matrix.py
         run: |
-          pytest dev/set_matrix.py --doctest-modules
+          python -m pytest --noconftest tests/dev/test_set_matrix.py --doctest-modules dev/set_matrix.py
       - id: set-matrix
         name: Set matrix
         run: |
@@ -113,7 +113,8 @@ jobs:
         id: get-python-version
         run: |
           if [[ "${{ matrix.package }}" = "scikit-learn" && "${{ matrix.version }}" = "dev" ]] || \
-             [[ "${{ matrix.package }}" = "statsmodels" ]]
+             [[ "${{ matrix.package }}" = "statsmodels" ]] || \
+             [[ "${{ matrix.package }}" = "tensorflow" && "${{ matrix.version }}" = "dev" ]]
           then
             python_version=3.7
           else
@@ -162,5 +163,6 @@ jobs:
         env:
           MLFLOW_CONDA_HOME: /usr/share/miniconda
           SPARK_LOCAL_IP: 127.0.0.1
+          PACKAGE_VERSION: ${{ matrix.version }}
         run: |
           ${{ matrix.run }}

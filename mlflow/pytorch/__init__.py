@@ -1008,7 +1008,6 @@ def autolog(
         PyTorch autologged MLflow entities
     """
     import pytorch_lightning as pl
-    from mlflow.pytorch._pytorch_autolog import _create_patch_fit
+    from mlflow.pytorch._pytorch_autolog import patched_fit
 
-    fit = _create_patch_fit(log_every_n_epoch=log_every_n_epoch, log_models=log_models)
-    safe_patch(FLAVOR_NAME, pl.Trainer, "fit", fit, manage_run=True)
+    safe_patch(FLAVOR_NAME, pl.Trainer, "fit", patched_fit, manage_run=True)

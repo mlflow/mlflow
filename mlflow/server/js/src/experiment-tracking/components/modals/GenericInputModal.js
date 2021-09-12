@@ -19,9 +19,11 @@ export class GenericInputModal extends Component {
     isOpen: PropTypes.bool,
     onClose: PropTypes.func.isRequired,
     onCancel: PropTypes.func,
+    className: PropTypes.string,
+    footer: PropTypes.node,
     // Function which returns a promise which resolves when the submission is done.
     handleSubmit: PropTypes.func.isRequired,
-    title: PropTypes.string.isRequired,
+    title: PropTypes.node.isRequired,
     // Antd Form
     children: PropTypes.node.isRequired,
   };
@@ -74,13 +76,14 @@ export class GenericInputModal extends Component {
 
   render() {
     const { isSubmitting } = this.state;
-    const { okText, cancelText, isOpen, children } = this.props;
+    const { okText, cancelText, isOpen, footer, children } = this.props;
 
     // add props (ref) to passed component
     const displayForm = React.cloneElement(children, { ref: this.saveFormRef });
 
     return (
       <Modal
+        className={this.props.className}
         title={this.props.title}
         width={540}
         visible={isOpen}
@@ -89,6 +92,7 @@ export class GenericInputModal extends Component {
         cancelText={cancelText}
         confirmLoading={isSubmitting}
         onCancel={this.handleCancel}
+        footer={footer}
         centered
       >
         {displayForm}

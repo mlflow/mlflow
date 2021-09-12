@@ -207,6 +207,40 @@ describe('unit tests', () => {
     });
   });
 
+  test('createDimension should work with missing values and fill in NaN', () => {
+    const key = 'metric_0';
+    const runUuids = ['runUuid_0', 'runUuid_1'];
+    const entryByRunUuid = {
+      runUuid_0: {
+        metric_0: { value: 1 },
+      },
+      runUuid_1: {},
+    };
+    expect(createDimension(key, runUuids, entryByRunUuid)).toEqual({
+      label: 'metric_0',
+      values: [1, NaN],
+      tickformat: '.5f',
+    });
+  });
+
+  test('createDimension should work with NaN and fill in NaN', () => {
+    const key = 'metric_0';
+    const runUuids = ['runUuid_0', 'runUuid_1'];
+    const entryByRunUuid = {
+      runUuid_0: {
+        metric_0: { value: 1 },
+      },
+      runUuid_1: {
+        metric_0: { value: NaN },
+      },
+    };
+    expect(createDimension(key, runUuids, entryByRunUuid)).toEqual({
+      label: 'metric_0',
+      values: [1, NaN],
+      tickformat: '.5f',
+    });
+  });
+
   test('getColorScaleConfigsForDimension', () => {
     wrapper = shallow(<ParallelCoordinatesPlotView {...mininumProps} />);
     instance = wrapper.instance();

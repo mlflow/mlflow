@@ -452,7 +452,7 @@ def autolog(
 
         param_logging_operations = autologging_client.flush(synchronous=False)
 
-        all_arg_names = inspect.getargspec(original)[0]  # pylint: disable=W1505
+        all_arg_names = inspect.getfullargspec(original)[0]
         num_pos_args = len(args)
 
         # adding a callback that records evaluation results.

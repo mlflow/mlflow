@@ -313,8 +313,13 @@ export class ModelListViewImpl extends React.Component {
     return (
       <div>
         <span>
-          No models yet. <CreateModelButton buttonType='link' buttonText='Create a model' /> to get
-          started.
+          <FormattedMessage
+            defaultMessage='No models yet. <link>Create a model</link> to get started.'
+            description='Placeholder text for empty models table in the registered model list page'
+            values={{
+              link: (chunks) => <CreateModelButton buttonType='link' buttonText={chunks} />,
+            }}
+          />
         </span>
       </div>
     );

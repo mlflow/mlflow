@@ -29,7 +29,7 @@ export class DirectTransitionFormImpl extends React.Component {
             <Checkbox>
               <Tooltip title={archiveExistingVersionToolTipText(toStage)}>
                 <FormattedMessage
-                  defaultMessage='Transition existing {currentStage} model version to
+                  defaultMessage='Transition existing {currentStage} model versions to
                     {archivedStage}'
                   description='Description text for checkbox for archiving existing model versions
                     in the toStage for model version stage transition'
