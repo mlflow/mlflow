@@ -700,7 +700,7 @@ def test_raise_deprecation_warning():
     assert len(record) == 0
 
 
-def test_raise_deprecation_warning_ignore_if_module_set():
+def test_raise_deprecation_warning_ignore_if_module_tf():
     with mock.patch("keras.__version__", new="2.2.0"), pytest.warns(None) as record:
-        mlflow.keras._raise_deprecation_warning(keras_module=True)
+        mlflow.keras._raise_deprecation_warning(keras_module="tensorflow.keras")
     assert len(record) == 0
