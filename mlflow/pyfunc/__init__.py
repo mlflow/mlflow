@@ -628,10 +628,11 @@ class PyFuncModel(object):
         return yaml.safe_dump({"mlflow.pyfunc.loaded_model": info}, default_flow_style=False)
 
 
-def load_model(model_uri: str, suppress_warnings: bool = True) -> PyFuncModel:
+def load_model(model_uri: str, local_destination_path: str = None, suppress_warnings: bool = True) -> PyFuncModel:
     """
     Load a model stored in Python function format.
 
+    :param local_destination_path: The local path for downloading the model artifacts from the artifact store.
     :param model_uri: The location, in URI format, of the MLflow model. For example:
 
                       - ``/Users/me/path/to/local/model``
@@ -648,7 +649,7 @@ def load_model(model_uri: str, suppress_warnings: bool = True) -> PyFuncModel:
                               loading process will be suppressed. If ``False``, these warning
                               messages will be emitted.
     """
-    local_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    local_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=local_destination_path)
     model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
 
     conf = model_meta.flavors.get(FLAVOR_NAME)

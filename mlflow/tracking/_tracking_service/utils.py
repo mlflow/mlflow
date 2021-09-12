@@ -34,6 +34,7 @@ _tracking_uri = None
 _logger = logging.getLogger(__name__)
 _logger.setLevel(logging.INFO)
 
+
 def is_tracking_uri_set():
     """Returns True if the tracking URI has been set, False otherwise."""
     if _tracking_uri or env.get_env(_TRACKING_URI_ENV_VAR):
@@ -72,7 +73,7 @@ def set_tracking_uri(uri: str) -> None:
     """
     global _tracking_uri
     _tracking_uri = uri
-    _logger.info("Tracking URI is : ====================> "+_tracking_uri)
+    _logger.info("Tracking URI is : ====================> " + _tracking_uri)
 
 
 def _resolve_tracking_uri(tracking_uri=None):

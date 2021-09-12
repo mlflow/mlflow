@@ -16,6 +16,7 @@ from mlflow.utils.file_utils import relative_path_to_artifact_path
 _logger = logging.getLogger(__name__)
 _logger.setLevel(logging.INFO)
 
+
 class S3ArtifactRepository(ArtifactRepository):
     """Stores artifacts on Amazon S3."""
 
@@ -115,6 +116,8 @@ class S3ArtifactRepository(ArtifactRepository):
 
     def list_artifacts(self, path=None):
         (bucket, artifact_path) = data.parse_s3_uri(self.artifact_uri)
+
+        _logger.info("\t\t\ts3 list artifacts artifact_path --> " + str(artifact_path))
         dest_path = artifact_path
         if path:
             dest_path = posixpath.join(dest_path, path)

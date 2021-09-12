@@ -18,6 +18,7 @@ from mlflow.utils.uri import (
 _logger = logging.getLogger(__name__)
 _logger.setLevel(logging.INFO)
 
+
 class ModelsArtifactRepository(ArtifactRepository):
     """
     Handles artifacts associated with a model version in the model registry via URIs of the form:
@@ -43,7 +44,10 @@ class ModelsArtifactRepository(ArtifactRepository):
             startcl = time.time()
             self.repo = get_artifact_repository(uri)
             _logger.info("artifact_repository from underlying_uri is: " + str(self.repo))
-            _logger.info("Time taken to get_artifact_repository from underlying_uri: " + str(time.time() - startcl))
+            _logger.info(
+                "Time taken to get_artifact_repository from underlying_uri: "
+                + str(time.time() - startcl)
+            )
             # TODO: it may be nice to fall back to the source URI explicitly here if for some reason
             #  we don't get a download URI here, or fail during the download itself.
 
@@ -61,7 +65,10 @@ class ModelsArtifactRepository(ArtifactRepository):
             get_databricks_profile_uri_from_artifact_uri(uri) or mlflow.get_registry_uri()
         )
 
-        _logger.info("Checkpoint for MLFLOW client setup with databricks_profile_uri: " + str(databricks_profile_uri))
+        _logger.info(
+            "Checkpoint for MLFLOW client setup with databricks_profile_uri: "
+            + str(databricks_profile_uri)
+        )
         startcl = time.time()
         client = MlflowClient(registry_uri=databricks_profile_uri)
         _logger.info("Time taken to setup a MLFLOW client: " + str(time.time() - startcl))

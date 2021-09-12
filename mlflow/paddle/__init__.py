@@ -252,9 +252,11 @@ def save_model(
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
 
-def load_model(model_uri, model=None, **kwargs):
+def load_model(model_uri, local_destination_path=None, model=None, **kwargs):
     """
     Load a paddle model from a local file or a run.
+
+    :param local_destination_path: The local path for downloading the model artifacts from the artifact store.
     :param model_uri: The location, in URI format, of the MLflow model, for example:
 
             - ``/Users/me/path/to/local/model``
@@ -285,7 +287,7 @@ def load_model(model_uri, model=None, **kwargs):
     """
     import paddle
 
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=local_destination_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     pd_model_artifacts_path = os.path.join(local_model_path, flavor_conf["pickled_model"])
     if model is None:

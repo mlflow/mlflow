@@ -65,7 +65,8 @@ class ArtifactRepositoryRegistry:
         """
 
         _logger.info(
-            "========>  Started getting artifact repository from class ArtifactRepositoryRegistry object : ========> ")
+            "========>  Started getting artifact repository from class ArtifactRepositoryRegistry object : ========> "
+        )
         scheme = get_uri_scheme(artifact_uri)
         repository = self._registry.get(scheme)
 
@@ -87,7 +88,11 @@ class ArtifactRepositoryRegistry:
                     artifact_uri, list(self._registry.keys())
                 )
             )
-        _logger.info("========> Checkpoint for returning the repository: " + str(type(repository)) + str(repository))
+        _logger.info(
+            "========> Checkpoint for returning the repository: "
+            + str(type(repository))
+            + str(repository)
+        )
         return repository(artifact_uri)
 
 
@@ -120,7 +125,6 @@ def get_artifact_repository(artifact_uri):
              requirements.
     """
 
-    _logger.info(
-        "========>  Started getting artifact repository : ========> ")
+    _logger.info("========>  Started getting artifact repository : ========> ")
     repository = _artifact_repository_registry.get_artifact_repository(artifact_uri)
     return repository

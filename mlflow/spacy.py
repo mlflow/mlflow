@@ -270,10 +270,11 @@ def _load_pyfunc(path):
     return _SpacyModelWrapper(_load_model(path))
 
 
-def load_model(model_uri):
+def load_model(model_uri, local_destination_path=None):
     """
     Load a spaCy model from a local file (if ``run_id`` is ``None``) or a run.
 
+    :param local_destination_path: The local path for downloading the model artifacts from the artifact store.
     :param model_uri: The location, in URI format, of the MLflow model. For example:
 
                       - ``/Users/me/path/to/local/model``
@@ -289,7 +290,7 @@ def load_model(model_uri):
 
     :return: A spaCy loaded model
     """
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=local_destination_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     # Flavor configurations for models saved in MLflow version <= 0.8.0 may not contain a
     # `data` key; in this case, we assume the model artifact path to be `model.spacy`

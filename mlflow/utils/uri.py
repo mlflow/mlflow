@@ -19,6 +19,7 @@ _DBFS_HDFS_URI_PREFIX = "dbfs:/"
 _logger = logging.getLogger(__name__)
 _logger.setLevel(logging.INFO)
 
+
 def is_local_uri(uri):
     """Returns true if this is a local file path (/foo or file:/foo)."""
     scheme = urllib.parse.urlparse(uri).scheme

@@ -356,12 +356,13 @@ def _validate_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_d
         )
 
 
-def load_model(model_uri, tf_sess=None):
+def load_model(model_uri, local_destination_path=None, tf_sess=None):
     """
     Load an MLflow model that contains the TensorFlow flavor from the specified path.
 
     *With TensorFlow version <2.0.0, this method must be called within a TensorFlow graph context.*
 
+    :param local_destination_path: The local path for downloading the model artifacts from the artifact store.
     :param model_uri: The location, in URI format, of the MLflow model. For example:
 
                       - ``/Users/me/path/to/local/model``
@@ -426,7 +427,7 @@ def load_model(model_uri, tf_sess=None):
                 + "The tf_sess argument will be ignored.",
                 FutureWarning,
             )
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=local_destination_path)
     (
         tf_saved_model_dir,
         tf_meta_graph_tags,

@@ -17,8 +17,8 @@ def is_using_databricks_registry(uri):
 
 def _improper_model_uri_msg(uri):
     return (
-            "Not a proper models:/ URI: %s. " % uri
-            + "Models URIs must be of the form 'models:/<model_name>/<version or stage>'."
+        "Not a proper models:/ URI: %s. " % uri
+        + "Models URIs must be of the form 'models:/<model_name>/<version or stage>'."
     )
 
 

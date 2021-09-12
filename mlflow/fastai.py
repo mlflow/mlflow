@@ -375,10 +375,11 @@ def _load_pyfunc(path):
     alternative="fast.ai V2 support, which will be available in MLflow soon",
     since="MLflow version 1.20.0",
 )
-def load_model(model_uri):
+def load_model(model_uri, local_destination_path=None):
     """
     Load a fastai model from a local file or a run.
 
+    :param local_destination_path: The local path for downloading the model artifacts from the artifact store.
     :param model_uri: The location, in URI format, of the MLflow model. For example:
 
                       - ``/Users/me/path/to/local/model``
@@ -410,7 +411,7 @@ def load_model(model_uri):
         loaded_model = mlflow.fastai.load_model(model_uri)
         results = loaded_model.predict(predict_data)
     """
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=local_destination_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model.fastai"))
     return _load_model(path=model_file_path)
