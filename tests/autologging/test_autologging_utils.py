@@ -766,7 +766,7 @@ _module_version_info_dict_patch = {
     },
     "fastai-2.x": {
         "package_info": {"pip_release": "fastai"},
-        "autologging": {"minimum": "2.3.0", "maximum": "2.3.0"},
+        "autologging": {"minimum": "2.4.0", "maximum": "2.5.2"},
     },
     "statsmodels": {
         "package_info": {"pip_release": "statsmodels"},
