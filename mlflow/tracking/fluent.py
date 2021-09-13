@@ -8,6 +8,7 @@ import atexit
 import time
 import logging
 import inspect
+from packaging.version import Version
 from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
 from mlflow.entities import Experiment, Run, RunInfo, RunStatus, Param, RunTag, Metric, ViewType
@@ -28,7 +29,6 @@ from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_noteboo
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 from mlflow.utils.validation import _validate_run_id
-from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
     import pandas  # pylint: disable=unused-import
@@ -611,7 +611,6 @@ def log_text(text: str, artifact_file: str) -> None:
     MlflowClient().log_text(run_id, text, artifact_file)
 
 
-@experimental
 def log_dict(dictionary: Any, artifact_file: str) -> None:
     """
     Log a JSON/YAML-serializable object (e.g. `dict`) as an artifact. The serialization
@@ -646,7 +645,6 @@ def log_dict(dictionary: Any, artifact_file: str) -> None:
     MlflowClient().log_dict(run_id, dictionary, artifact_file)
 
 
-@experimental
 def log_figure(
     figure: Union["matplotlib.figure.Figure", "plotly.graph_objects.Figure"], artifact_file: str
 ) -> None:
@@ -693,7 +691,6 @@ def log_figure(
     MlflowClient().log_figure(run_id, figure, artifact_file)
 
 
-@experimental
 def log_image(image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: str) -> None:
     """
     Log an image as an artifact. The following image objects are supported:
@@ -1467,8 +1464,63 @@ def autolog(
     # for each autolog library (except pyspark), register a post-import hook.
     # this way, we do not send any errors to the user until we know they are using the library.
     # the post-import hook also retroactively activates for previously-imported libraries.
-    for module in list(set(LIBRARY_TO_AUTOLOG_FN.keys()) - set(["pyspark", "pyspark.ml"])):
+    for module in list(
+        set(LIBRARY_TO_AUTOLOG_FN.keys()) - set(["tensorflow", "keras", "pyspark", "pyspark.ml"])
+    ):
         register_post_import_hook(setup_autologging, module, overwrite=True)
+
+    FULLY_IMPORTED_KERAS = False
+    TF_AUTOLOG_SETUP_CALLED = False
+
+    def conditionally_set_up_keras_autologging(keras_module):
+        nonlocal FULLY_IMPORTED_KERAS, TF_AUTOLOG_SETUP_CALLED
+        FULLY_IMPORTED_KERAS = True
+
+        if Version(keras_module.__version__) >= Version("2.6.0"):
+            # NB: Keras unconditionally depends on TensorFlow beginning with Version 2.6.0, and
+            # many classes defined in the `keras` module are aliases of classes in the `tf.keras`
+            # module. Accordingly, TensorFlow autologging serves as a replacement for Keras
+            # autologging in Keras >= 2.6.0
+            try:
+                import tensorflow
+
+                setup_autologging(tensorflow)
+                TF_AUTOLOG_SETUP_CALLED = True
+            except Exception as e:
+                _logger.debug(
+                    "Failed to set up TensorFlow autologging for tf.keras models upon"
+                    " Keras library import: %s",
+                    str(e),
+                )
+                raise
+        else:
+            setup_autologging(keras_module)
+
+    register_post_import_hook(conditionally_set_up_keras_autologging, "keras", overwrite=True)
+
+    def set_up_tensorflow_autologging(tensorflow_module):
+        import sys
+
+        nonlocal FULLY_IMPORTED_KERAS, TF_AUTOLOG_SETUP_CALLED
+        if "keras" in sys.modules and not FULLY_IMPORTED_KERAS:
+            # In Keras >= 2.6.0, importing Keras imports the TensorFlow library, which can
+            # trigger this autologging import hook for TensorFlow before the entire Keras import
+            # procedure is completed. Attempting to set up autologging before the Keras import
+            # procedure has completed will result in a failure due to the unavailability of
+            # certain modules. In this case, we terminate the TensorFlow autologging import hook
+            # and rely on the Keras autologging import hook to successfully set up TensorFlow
+            # autologging for tf.keras models once the Keras import procedure has completed
+            return
+
+        # By design, in Keras >= 2.6.0, Keras needs to enable tensorflow autologging so that
+        # tf.keras models always use tensorflow autologging, rather than vanilla keras autologging.
+        # As a result, Keras autologging must call `mlflow.tensorflow.autolog()` in Keras >= 2.6.0.
+        # Accordingly, we insert this check to ensure that importing tensorflow, which may import
+        # keras, does not enable tensorflow autologging twice.
+        if not TF_AUTOLOG_SETUP_CALLED:
+            setup_autologging(tensorflow_module)
+
+    register_post_import_hook(set_up_tensorflow_autologging, "tensorflow", overwrite=True)
 
     # for pyspark, we activate autologging immediately, without waiting for a module import.
     # this is because on Databricks a SparkSession already exists and the user can directly

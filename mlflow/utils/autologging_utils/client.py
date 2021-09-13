@@ -72,6 +72,17 @@ class RunOperations:
             )
 
 
+# Define a threadpool for use across `MlflowAutologgingQueueingClient` instances to ensure that
+# `MlflowAutologgingQueueingClient` instances can be pickled (ThreadPoolExecutor objects are not
+# pickleable and therefore cannot be assigned as instance attributes).
+#
+# We limit the number of threads used for run operations, using at most 8 threads or 2 * the number
+# of CPU cores available on the system (whichever is smaller)
+num_cpus = os.cpu_count() or 4
+num_logging_workers = min(num_cpus * 2, 8)
+_AUTOLOGGING_QUEUEING_CLIENT_THREAD_POOL = ThreadPoolExecutor(max_workers=num_logging_workers)
+
+
 class MlflowAutologgingQueueingClient:
     """
     Efficiently implements a subset of MLflow Tracking's  `MlflowClient` and fluent APIs to provide
@@ -85,15 +96,9 @@ class MlflowAutologgingQueueingClient:
     concurrently.
     """
 
-    def __init__(self):
-        self._client = MlflowClient()
+    def __init__(self, tracking_uri=None):
+        self._client = MlflowClient(tracking_uri)
         self._pending_ops_by_run_id = {}
-
-        # Limit the number of threads used for run operations, using at most 8 threads or
-        # 2 * the number of CPU cores available on the system (whichever is smaller)
-        num_cpus = os.cpu_count() or 4
-        num_logging_workers = min(num_cpus * 2, 8)
-        self._thread_pool = ThreadPoolExecutor(max_workers=num_logging_workers)
 
     def __enter__(self):
         """
@@ -222,7 +227,7 @@ class MlflowAutologgingQueueingClient:
         """
         logging_futures = []
         for pending_operations in self._pending_ops_by_run_id.values():
-            future = self._thread_pool.submit(
+            future = _AUTOLOGGING_QUEUEING_CLIENT_THREAD_POOL.submit(
                 self._flush_pending_operations, pending_operations=pending_operations,
             )
             logging_futures.append(future)

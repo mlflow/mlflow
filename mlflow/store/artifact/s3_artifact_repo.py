@@ -54,6 +54,12 @@ class S3ArtifactRepository(ArtifactRepository):
         # NOTE: If you need to specify this env variable, please file an issue at
         # https://github.com/mlflow/mlflow/issues so we know your use-case!
         signature_version = os.environ.get("MLFLOW_EXPERIMENTAL_S3_SIGNATURE_VERSION", "s3v4")
+        # Making it possible to access public S3 buckets
+        # Workaround for https://github.com/boto/botocore/issues/2442
+        if signature_version.lower() == "unsigned":
+            from botocore import UNSIGNED
+
+            signature_version = UNSIGNED
         return boto3.client(
             "s3",
             config=Config(signature_version=signature_version),

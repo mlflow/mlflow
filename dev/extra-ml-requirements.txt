@@ -42,5 +42,9 @@ pyspark
 shap
 # Required by mlflow.paddle
 paddlepaddle
-# Remove `ipython` once this issue: https://github.com/slundberg/shap/pull/1749 has been addressed
-ipython
+# Required by mlflow.prophet
+# NOTE: Prophet's whl build process will fail with dependencies not being present.
+#   Installation will default to setup.py in order to install correctly.
+#   To install in dev environment, ensure that gcc>=8 is installed to allow pystan
+#   to compile the model binaries. See: https://gcc.gnu.org/install/
+prophet

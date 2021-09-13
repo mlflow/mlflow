@@ -53,9 +53,20 @@ mlflow run . -P max_epochs=3 -P total_trials=3
 Or to run the training script directly with custom parameters:
 
 ```
-python AxHyperOptimizationPTL.py --max_epochs 3 --total_trials 3
+python ax_hpo_iris.py --max_epochs 3 --total_trials 3
 ```
 
+By running the above mentioned script, the hyperparameters are logged into MLFLow as nested runs.
+
+![Ax HPO Runs](screenshots/ax_hpo.png)
+
+The child run contains the details of the hyperparameters used during that particular trial.
+
+![Trial Run](screenshots/trial_run.png)
+
+And the parent run contains the details of the optimum parameters derived by running n trials.
+
+![Parent Run](screenshots/parent_run.png)
 
 ## Logging to a custom tracking server
 To configure MLflow to log to a custom (non-default) tracking location, set the `MLFLOW_TRACKING_URI` environment variable, e.g. via `export MLFLOW_TRACKING_URI=http://localhost:5000`. For more details, see [the docs](https://mlflow.org/docs/latest/tracking.html#where-runs-are-recorded).

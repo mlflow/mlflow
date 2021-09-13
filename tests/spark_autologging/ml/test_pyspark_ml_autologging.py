@@ -19,7 +19,11 @@ from mlflow.utils.validation import (
 
 import pyspark
 from pyspark.ml import Pipeline
-from pyspark.ml.evaluation import RegressionEvaluator, MulticlassClassificationEvaluator
+from pyspark.ml.evaluation import (
+    BinaryClassificationEvaluator,
+    MulticlassClassificationEvaluator,
+    RegressionEvaluator,
+)
 from pyspark.ml.linalg import Vectors
 from pyspark.ml.regression import LinearRegression, LinearRegressionModel
 from pyspark.ml.classification import (
@@ -98,6 +102,18 @@ def dataset_regression(spark_session):
         rows.append((label, Vectors.dense(*features)))
 
     return spark_session.createDataFrame(rows, ["label", "features"],).cache()
+
+
+@pytest.fixture(scope="module")
+def dataset_iris_binomial(spark_session):
+    from sklearn.datasets import load_iris
+
+    df = load_iris(as_frame=True).frame.rename(columns={"target": "label"})
+    df = spark_session.createDataFrame(df)
+    df = VectorAssembler(inputCols=df.columns[:-1], outputCol="features").transform(df)
+    df = df.filter(df.label < 2).select("features", "label")
+    df.cache()
+    return df
 
 
 def truncate_param_dict(d):
@@ -459,10 +475,20 @@ def test_param_search_estimator(  # pylint: disable=unused-argument
 
         metric_name = estimator.getEvaluator().getMetricName()
         if isinstance(estimator, CrossValidator):
-            metric_name = f"avg_{metric_name}"
-        assert math.isclose(
-            run_data.metrics[metric_name], float(row.get(metric_name)), rel_tol=1e-6
-        )
+            avg_metric_value = model.avgMetrics[row_index]
+            avg_metric_name = f"avg_{metric_name}"
+        else:
+            avg_metric_value = model.validationMetrics[row_index]
+            avg_metric_name = metric_name
+
+        assert math.isclose(avg_metric_value, run_data.metrics[avg_metric_name], rel_tol=1e-6)
+        assert math.isclose(avg_metric_value, float(row.get(avg_metric_name)), rel_tol=1e-6)
+
+        if isinstance(estimator, CrossValidator) and Version(pyspark.__version__) > Version("3.2"):
+            std_metric_name = f"std_{metric_name}"
+            std_metric_value = model.stdMetrics[row_index]
+            assert math.isclose(std_metric_value, run_data.metrics[std_metric_name], rel_tol=1e-6)
+            assert math.isclose(std_metric_value, float(row.get(std_metric_name)), rel_tol=1e-6)
 
 
 def test_get_params_to_log(spark_session):  # pylint: disable=unused-argument
@@ -572,3 +598,181 @@ def test_gen_estimator_metadata(spark_session):  # pylint: disable=unused-argume
         metadata.uid_to_indexed_name_map[metadata.param_search_estimators[0].uid]
         == "CrossValidator"
     )
+
+
+def test_basic_post_training_metric_autologging(dataset_iris_binomial):
+    mlflow.pyspark.ml.autolog()
+
+    estimator = LogisticRegression(maxIter=1, family="binomial", regParam=5.0, fitIntercept=False)
+    eval_dataset = dataset_iris_binomial.sample(fraction=0.3, seed=1)
+
+    with mlflow.start_run() as run:
+        model = estimator.fit(dataset_iris_binomial)
+        mce = MulticlassClassificationEvaluator(metricName="logLoss")
+        pred_result = model.transform(eval_dataset)
+        logloss = mce.evaluate(pred_result)
+
+        # test calling evaluate with extra params
+        accuracy = mce.evaluate(pred_result, params={mce.metricName: "accuracy"})
+
+        # generate a new validation dataset but reuse the variable name 'eval_dataset'
+        # test the autologged metric use dataset name 'eval_dataset-2'
+        eval_dataset = dataset_iris_binomial.sample(fraction=0.3, seed=1)
+        bce = BinaryClassificationEvaluator(metricName="areaUnderROC")
+        pred_result = model.transform(eval_dataset)
+        areaUnderROC = bce.evaluate(pred_result)
+
+        # test computing the same metric twice
+        bce.evaluate(pred_result)
+
+        metric_info = load_json_artifact("metric_info.json")
+
+    run_data = get_run_data(run.info.run_id)
+
+    assert np.isclose(logloss, run_data.metrics["logLoss_eval_dataset"])
+    assert np.isclose(accuracy, run_data.metrics["accuracy_eval_dataset"])
+    assert np.isclose(areaUnderROC, run_data.metrics["areaUnderROC_eval_dataset-2"])
+    assert np.isclose(areaUnderROC, run_data.metrics["areaUnderROC-2_eval_dataset-2"])
+
+    assert metric_info == {
+        "accuracy_eval_dataset": {
+            "evaluator_class": "pyspark.ml.evaluation.MulticlassClassificationEvaluator",
+            "params": {
+                "beta": 1.0,
+                "eps": 1e-15,
+                "labelCol": "label",
+                "metricLabel": 0.0,
+                "metricName": "accuracy",
+                "predictionCol": "prediction",
+                "probabilityCol": "probability",
+            },
+        },
+        "areaUnderROC-2_eval_dataset-2": {
+            "evaluator_class": "pyspark.ml.evaluation.BinaryClassificationEvaluator",
+            "params": {
+                "labelCol": "label",
+                "metricName": "areaUnderROC",
+                "numBins": 1000,
+                "rawPredictionCol": "rawPrediction",
+            },
+        },
+        "areaUnderROC_eval_dataset-2": {
+            "evaluator_class": "pyspark.ml.evaluation.BinaryClassificationEvaluator",
+            "params": {
+                "labelCol": "label",
+                "metricName": "areaUnderROC",
+                "numBins": 1000,
+                "rawPredictionCol": "rawPrediction",
+            },
+        },
+        "logLoss_eval_dataset": {
+            "evaluator_class": "pyspark.ml.evaluation.MulticlassClassificationEvaluator",
+            "params": {
+                "beta": 1.0,
+                "eps": 1e-15,
+                "labelCol": "label",
+                "metricLabel": 0.0,
+                "metricName": "logLoss",
+                "predictionCol": "prediction",
+                "probabilityCol": "probability",
+            },
+        },
+    }
+
+    mlflow.pyspark.ml.autolog(disable=True)
+    recall_original = mce.evaluate(pred_result)
+    assert np.isclose(logloss, recall_original)
+    accruacy_original = mce.evaluate(pred_result, params={mce.metricName: "accuracy"})
+    assert np.isclose(accuracy, accruacy_original)
+    areaUnderROC_original = bce.evaluate(pred_result)
+    assert np.isclose(areaUnderROC, areaUnderROC_original)
+
+
+def test_multi_model_interleaved_fit_and_post_train_metric_call(dataset_iris_binomial):
+    mlflow.pyspark.ml.autolog()
+
+    estimator1 = LogisticRegression(maxIter=1, family="binomial", regParam=5.0, fitIntercept=False)
+    estimator2 = LogisticRegression(maxIter=5, family="binomial", regParam=5.0, fitIntercept=False)
+    eval_dataset1 = dataset_iris_binomial.sample(fraction=0.3, seed=1)
+    eval_dataset2 = dataset_iris_binomial.sample(fraction=0.3, seed=2)
+    mce = MulticlassClassificationEvaluator(metricName="logLoss")
+
+    with mlflow.start_run() as run1:
+        model1 = estimator1.fit(dataset_iris_binomial)
+
+    with mlflow.start_run() as run2:
+        model2 = estimator2.fit(dataset_iris_binomial)
+
+    pred1_result = model1.transform(eval_dataset1)
+    pred2_result = model2.transform(eval_dataset2)
+
+    logloss1 = mce.evaluate(pred1_result)
+    logloss2 = mce.evaluate(pred2_result)
+
+    metrics1 = get_run_data(run1.info.run_id).metrics
+    assert np.isclose(logloss1, metrics1["logLoss_eval_dataset1"])
+
+    metrics2 = get_run_data(run2.info.run_id).metrics
+    assert np.isclose(logloss2, metrics2["logLoss_eval_dataset2"])
+
+
+def test_meta_estimator_disable_post_training_autologging(dataset_regression):
+    mlflow.pyspark.ml.autolog()
+    lr = LinearRegression(solver="l-bfgs", regParam=0.01)
+    eval_dataset = dataset_regression.sample(fraction=0.3, seed=1)
+    lrParamMaps = [
+        {lr.maxIter: 1, lr.standardization: False},
+        {lr.maxIter: 200, lr.standardization: True},
+        {lr.maxIter: 2, lr.standardization: False},
+    ]
+    eva = RegressionEvaluator(metricName="rmse")
+    estimator = TrainValidationSplit(estimator=lr, estimatorParamMaps=lrParamMaps, evaluator=eva)
+
+    with mock.patch(
+        "mlflow.pyspark.ml._AutologgingMetricsManager.register_model"
+    ) as mock_register_model, mock.patch(
+        "mlflow.sklearn._AutologgingMetricsManager.is_metric_value_loggable"
+    ) as mock_is_metric_value_loggable, mock.patch(
+        "mlflow.pyspark.ml._AutologgingMetricsManager.log_post_training_metric"
+    ) as mock_log_post_training_metric, mock.patch(
+        "mlflow.pyspark.ml._AutologgingMetricsManager.register_prediction_input_dataset"
+    ) as mock_register_prediction_input_dataset:
+        with mlflow.start_run():
+            model = estimator.fit(dataset_regression)
+
+        model.transform(eval_dataset)
+
+        mock_register_model.assert_called_once()
+        mock_is_metric_value_loggable.assert_not_called()
+        mock_register_prediction_input_dataset.assert_not_called()
+        mock_log_post_training_metric.assert_not_called()
+
+
+def test_is_metrics_value_loggable():
+    is_metric_value_loggable = mlflow.pyspark.ml._AutologgingMetricsManager.is_metric_value_loggable
+    assert is_metric_value_loggable(3)
+    assert is_metric_value_loggable(3.5)
+    assert is_metric_value_loggable(np.int(3))
+    assert is_metric_value_loggable(np.float32(3.5))
+    assert not is_metric_value_loggable(True)
+    assert not is_metric_value_loggable(np.bool(True))
+    assert not is_metric_value_loggable([1, 2])
+    assert not is_metric_value_loggable(np.array([1, 2]))
+
+
+def test_log_post_training_metrics_configuration(dataset_iris_binomial):
+    estimator = LogisticRegression(maxIter=1)
+    mce = MulticlassClassificationEvaluator()
+    metric_name = mce.getMetricName()
+
+    # Ensure post-traning metrics autologging can be toggled on / off
+    for log_post_training_metrics in [True, False, True]:
+        mlflow.pyspark.ml.autolog(log_post_training_metrics=log_post_training_metrics)
+
+        with mlflow.start_run() as run:
+            model = estimator.fit(dataset_iris_binomial)
+            pred_result = model.transform(dataset_iris_binomial)
+            mce.evaluate(pred_result)
+
+        metrics = get_run_data(run.info.run_id)[1]
+        assert any(k.startswith(metric_name) for k in metrics.keys()) is log_post_training_metrics

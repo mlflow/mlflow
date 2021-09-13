@@ -37,7 +37,6 @@ from mlflow.utils.databricks_utils import (
 )
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import is_databricks_uri, construct_run_url
-from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
     import matplotlib  # pylint: disable=unused-import
@@ -1026,7 +1025,6 @@ class MlflowClient(object):
             with open(tmp_path, "w") as f:
                 f.write(text)
 
-    @experimental
     def log_dict(self, run_id: str, dictionary: Any, artifact_file: str) -> None:
         """
         Log a JSON/YAML-serializable object (e.g. `dict`) as an artifact. The serialization
@@ -1071,7 +1069,6 @@ class MlflowClient(object):
                 else:
                     json.dump(dictionary, f, indent=2)
 
-    @experimental
     def log_figure(
         self,
         run_id: str,
@@ -1140,7 +1137,6 @@ class MlflowClient(object):
             else:
                 raise TypeError("Unsupported figure object type: '{}'".format(type(figure)))
 
-    @experimental
     def log_image(
         self, run_id: str, image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: str
     ) -> None:
@@ -2156,6 +2152,7 @@ class MlflowClient(object):
             :caption: Example
 
             import mlflow.sklearn
+            from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
             from mlflow.tracking import MlflowClient
             from sklearn.ensemble import RandomForestRegressor
 
@@ -2174,8 +2171,9 @@ class MlflowClient(object):
 
             # Create a new version of the rfr model under the registered model name
             desc = "A new version of the model"
-            model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
-            mv = client.create_model_version(name, model_uri, run.info.run_id, description=desc)
+            runs_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
+            model_src = RunsArtifactRepository.get_underlying_uri(runs_uri)
+            mv = client.create_model_version(name, model_src, run.info.run_id, description=desc)
             print("Name: {}".format(mv.name))
             print("Version: {}".format(mv.version))
             print("Description: {}".format(mv.description))

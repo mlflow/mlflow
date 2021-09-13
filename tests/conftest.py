@@ -1,4 +1,6 @@
 import os
+import inspect
+from unittest import mock
 
 import pytest
 
@@ -65,3 +67,32 @@ def clean_up_leaked_runs():
     finally:
         while mlflow.active_run():
             mlflow.end_run()
+
+
+def _called_in_save_model():
+    for frame in inspect.stack()[::-1]:
+        if frame.function == "save_model":
+            return True
+    return False
+
+
+@pytest.fixture(autouse=True)
+def prevent_infer_pip_requirements_fallback(request):
+    """
+    Prevents `mlflow.models.infer_pip_requirements` from falling back in `mlflow.*.save_model`
+    unless explicitly disabled via `pytest.mark.allow_infer_pip_requirements_fallback`.
+    """
+    from mlflow.utils.environment import _INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE
+
+    def new_exception(msg, *_, **__):
+        if msg == _INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE and _called_in_save_model():
+            raise Exception(
+                "`mlflow.models.infer_pip_requirements` should not fall back in"
+                "`mlflow.*.save_model` during test"
+            )
+
+    if "allow_infer_pip_requirements_fallback" not in request.keywords:
+        with mock.patch("mlflow.utils.environment._logger.exception", new=new_exception):
+            yield
+    else:
+        yield

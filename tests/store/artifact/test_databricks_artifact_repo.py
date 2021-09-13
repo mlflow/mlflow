@@ -255,7 +255,7 @@ class TestDatabricksArtifactRepository(object):
             request_mock.assert_called_with(
                 "put",
                 MOCK_AZURE_SIGNED_URI + "?comp=blocklist",
-                ANY,
+                data=ANY,
                 headers=filtered_azure_headers,
             )
 
@@ -295,7 +295,7 @@ class TestDatabricksArtifactRepository(object):
             write_credential_infos_mock.assert_called_with(
                 run_id=MOCK_RUN_ID, paths=[expected_location]
             )
-            request_mock.assert_called_with("put", MOCK_AWS_SIGNED_URI, ANY, headers={})
+            request_mock.assert_called_with("put", MOCK_AWS_SIGNED_URI, data=ANY, headers={})
 
     @pytest.mark.parametrize("artifact_path,expected_location", [(None, "test.txt")])
     def test_log_artifact_aws_with_headers(
@@ -322,7 +322,7 @@ class TestDatabricksArtifactRepository(object):
                 run_id=MOCK_RUN_ID, paths=[expected_location]
             )
             request_mock.assert_called_with(
-                "put", MOCK_AWS_SIGNED_URI, ANY, headers=expected_headers
+                "put", MOCK_AWS_SIGNED_URI, data=ANY, headers=expected_headers
             )
 
     def test_log_artifact_aws_presigned_url_error(self, databricks_artifact_repo, test_file):
@@ -361,7 +361,7 @@ class TestDatabricksArtifactRepository(object):
             write_credential_infos_mock.assert_called_with(
                 run_id=MOCK_RUN_ID, paths=[expected_location]
             )
-            request_mock.assert_called_with("put", MOCK_GCP_SIGNED_URL, ANY, headers={})
+            request_mock.assert_called_with("put", MOCK_GCP_SIGNED_URL, data=ANY, headers={})
 
     @pytest.mark.parametrize("artifact_path,expected_location", [(None, "test.txt")])
     def test_log_artifact_gcp_with_headers(
@@ -388,7 +388,7 @@ class TestDatabricksArtifactRepository(object):
                 run_id=MOCK_RUN_ID, paths=[expected_location]
             )
             request_mock.assert_called_with(
-                "put", MOCK_GCP_SIGNED_URL, ANY, headers=expected_headers
+                "put", MOCK_GCP_SIGNED_URL, data=ANY, headers=expected_headers
             )
 
     def test_log_artifact_gcp_presigned_url_error(self, databricks_artifact_repo, test_file):

@@ -2,8 +2,10 @@ sklearn:
   package_info:
     pip_release: "scikit-learn"
     install_dev: |
-      head_sha=$(git ls-remote https://github.com/scikit-learn/scikit-learn.git HEAD | cut -f1)
-      pip install git+https://github.com/scikit-learn/scikit-learn.git@$head_sha
+      if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "scikit_learn-*.whl") ]; then
+        pip wheel --no-deps --wheel-dir $CACHE_DIR git+https://github.com/scikit-learn/scikit-learn.git
+      fi
+      pip install $CACHE_DIR/scikit_learn-*.whl
 
   models:
     minimum: "0.20.3"
@@ -27,7 +29,7 @@ pytorch:
   models:
     minimum: "1.4.0"
     maximum: "1.9.0"
-    requirements: ["torchvision", "scikit-learn"]
+    requirements: ["torchvision", "scikit-learn", "transformers"]
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py --large
 
@@ -35,12 +37,11 @@ pytorch-lightning:
   package_info:
     pip_release: "pytorch-lightning"
     install_dev: |
-      head_sha=$(git ls-remote https://github.com/PytorchLightning/pytorch-lightning.git HEAD | cut -f1)
-      pip install git+https://github.com/PytorchLightning/pytorch-lightning.git@$head_sha
+      pip install git+https://github.com/PytorchLightning/pytorch-lightning.git
 
   autologging:
     minimum: "1.0.5"
-    maximum: "1.3.6"
+    maximum: "1.4.4"
     requirements: ["torchvision", "scikit-learn"]
     run: |
       pytest tests/pytorch/test_pytorch_autolog.py --large
@@ -53,9 +54,11 @@ tensorflow:
 
   models:
     minimum: "1.15.4"
-    maximum: "2.5.0"
+    maximum: "2.6.0"
     requirements:
       "< 2.2": ["h5py<3.0", "scikit-learn"]
+      # Requirements to run tests for keras
+      "== dev": ["scikit-learn", "pyspark", "pyarrow"]
     run: |
       python_code="
       import tensorflow as tf
@@ -71,11 +74,18 @@ tensorflow:
         pytest tests/tensorflow/test_tensorflow2_model_export.py --large
       fi
 
+      # Run tests for keras against keras-nightly that's installed with tf-nightly:
+      # https://github.com/tensorflow/tensorflow/blob/v2.6.0/tensorflow/tools/pip_package/setup.py#L110-L122
+      if [ "$PACKAGE_VERSION" == "dev" ]; then
+        pytest tests/keras/test_keras_model_export.py --large
+      fi
+
   autologging:
     minimum: "1.15.4"
-    maximum: "2.5.0"
+    maximum: "2.6.0"
     requirements:
       "< 2.2": ["h5py<3.0"]
+      "== dev": ["scikit-learn"]
     run: |
       python_code="
       import tensorflow as tf
@@ -91,29 +101,35 @@ tensorflow:
         pytest tests/tensorflow_autolog/test_tensorflow2_autolog.py --large
       fi
 
+      if [ "$PACKAGE_VERSION" == "dev" ]; then
+        pytest tests/keras_autolog/test_keras_autolog.py --large
+      fi
+
 keras:
   package_info:
     pip_release: "keras"
 
   models:
     minimum: "2.2.4"
-    maximum: "2.4.3"
+    maximum: "2.6.0"
     requirements:
       "< 2.3.1": ["tensorflow==1.15.4", "h5py<3.0", "scikit-learn", "pyspark", "pyarrow"]
-      "== 2.3.1": ["tensorflow==2.2.1", "scikit-learn", "pyspark", "pyarrow"]
-      "> 2.3.1": ["tensorflow<2.5.0", "scikit-learn", "pyspark", "pyarrow"]
+      "== 2.3.1": ["tensorflow==2.2.1", "scikit-learn", "pyspark", "pyarrow", "transformers"]
+      "> 2.3.1, < 2.6.0": ["tensorflow<2.5.0", "scikit-learn", "pyspark", "pyarrow", "transformers"]
+      ">= 2.6.0": ["tensorflow", "scikit-learn", "pyspark", "pyarrow", "transformers"]
     run: |
       pytest tests/keras/test_keras_model_export.py --large
 
   autologging:
     minimum: "2.2.4"
-    maximum: "2.4.3"
+    maximum: "2.6.0"
     requirements:
       "< 2.3.1": ["tensorflow==1.15.4", "h5py<3.0"]
       # keras 2.3.1 is incompatible with tensorflow > 2.2.1 and causes the issue reported here:
       # https://github.com/tensorflow/tensorflow/issues/38589
       "== 2.3.1": ["tensorflow==2.2.1"]
-      "> 2.3.1": ["tensorflow<2.5.0"]
+      "> 2.3.1, < 2.6.0": ["tensorflow<2.5.0"]
+      ">= 2.6.0": ["tensorflow"]
     run: |
       pytest tests/keras_autolog/test_keras_autolog.py --large
 
@@ -121,11 +137,7 @@ xgboost:
   package_info:
     pip_release: "xgboost"
     install_dev: |
-      temp_dir=$(mktemp -d)
-      git clone --recursive https://github.com/dmlc/xgboost.git $temp_dir
-      git --git-dir=$temp_dir/.git rev-parse HEAD
-      cd $temp_dir/python-package
-      python setup.py install
+      pip install git+https://github.com/dmlc/xgboost.git#subdirectory=python-package
 
   models:
     minimum: "0.90"
@@ -145,11 +157,7 @@ lightgbm:
   package_info:
     pip_release: "lightgbm"
     install_dev: |
-      temp_dir=$(mktemp -d)
-      git clone --recursive https://github.com/microsoft/LightGBM.git $temp_dir
-      git --git-dir=$temp_dir/.git rev-parse HEAD
-      cd $temp_dir/python-package
-      python setup.py install
+      pip install git+https://github.com/microsoft/LightGBM.git#subdirectory=python-package
 
   models:
     minimum: "2.3.1"
@@ -170,28 +178,15 @@ catboost:
     pip_release: "catboost"
     install_dev: |
       # The cross-version-tests workflow runs this command with the environment variable `CACHE_DIR`
-      if [ -d "$CACHE_DIR" ] && [ ! -z $(find $CACHE_DIR -type f -name "catboost-*.whl") ]; then
-        pip install $(find $CACHE_DIR -type f -name "catboost-*.whl")
-      else
-        # Build wheel from source
-        temp_dir=$(mktemp -d)
-        git clone --depth 1 https://github.com/catboost/catboost.git $temp_dir
-        git --git-dir=$temp_dir/.git rev-parse HEAD
-        cd $temp_dir/catboost/python-package
-        python setup.py bdist_wheel
-
-        # Copy wheel in cache directory
-        wheel_path=$(find dist -type f -name "*.whl")
-        mkdir -p $CACHE_DIR
-        cp $wheel_path $CACHE_DIR
-
-        # Install wheel
-        pip install $wheel_path
+      if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "catboost-*.whl") ]; then
+        pip wheel --no-deps --wheel-dir $CACHE_DIR \
+          git+https://github.com/catboost/catboost.git#subdirectory=catboost/python-package
       fi
+      pip install $CACHE_DIR/catboost-*.whl
 
   models:
     minimum: "0.23.1"
-    maximum: "0.26"
+    maximum: "0.26.1"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/catboost/test_catboost_model_export.py --large
@@ -207,6 +202,8 @@ gluon:
     maximum: "1.8.0.post0"
     unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
     run: |
+      # Install libopenblas-dev for mxnet 1.8.0.post0
+      sudo apt-get install libopenblas-dev
       pytest tests/gluon/test_gluon_model_export.py --large
 
   autologging:
@@ -241,17 +238,26 @@ onnx:
   package_info:
     pip_release: "onnx"
     install_dev: |
-      sudo apt-get install protobuf-compiler libprotoc-dev
-      temp_dir=$(mktemp -d)
-      git clone https://github.com/onnx/onnx.git $temp_dir
-      git --git-dir=$temp_dir/.git rev-parse HEAD
-      cd $temp_dir
-      git submodule update --init --recursive
-      python setup.py install
+      # This workflow describes how to build a wheel for Linux:
+      # https://github.com/onnx/onnx/blob/51a7d932356cbb1205341660a4a52f8c121d8f4b/.github/workflows/release_linux_x86_64.yml
+
+      auth_header="$(git config --local --get http.https://github.com/.extraheader)"
+      tmp_dir=$(mktemp -d)
+      git clone https://github.com/onnx/onnx.git $tmp_dir
+      cd $tmp_dir
+      git submodule sync --recursive
+      git -c "http.extraheader=$auth_header" -c protocol.version=2 submodule update --init --force --recursive --depth=1
+
+      # Build wheel
+      docker run --rm -v $(pwd):/github/workspace --workdir /github/workspace --entrypoint bash \
+        quay.io/pypa/manylinux2010_x86_64 .github/workflows/manylinux/entrypoint.sh 3.6 manylinux2010_x86_64 pull_request
+
+      # Install wheel
+      pip install dist/*manylinux2010_x86_64.whl
 
   models:
     minimum: "1.5.0"
-    maximum: "1.9.0"
+    maximum: "1.10.1"
     requirements: ["onnxruntime", "torch", "scikit-learn"]
     run: |
       pytest tests/onnx/test_onnx_model_export.py --large
@@ -260,12 +266,11 @@ spacy:
   package_info:
     pip_release: "spacy"
     install_dev: |
-      head_sha=$(git ls-remote https://github.com/explosion/spaCy.git HEAD | cut -f1)
-      pip install git+https://github.com/explosion/spaCy.git@$head_sha
+      pip install git+https://github.com/explosion/spaCy.git
 
   models:
     minimum: "2.2.4"
-    maximum: "3.0.6"
+    maximum: "3.1.2"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/spacy/test_spacy_model_export.py --large
@@ -274,8 +279,7 @@ statsmodels:
   package_info:
     pip_release: "statsmodels"
     install_dev: |
-      head_sha=$(git ls-remote https://github.com/statsmodels/statsmodels.git HEAD | cut -f1)
-      pip install git+https://github.com/statsmodels/statsmodels.git@$head_sha
+      pip install git+https://github.com/statsmodels/statsmodels.git
 
   models:
     minimum: "0.11.1"
@@ -294,31 +298,25 @@ spark:
     pip_release: "pyspark"
     install_dev: |
       # The cross-version-tests workflow runs this command with the environment variable `CACHE_DIR`
-      if [ -d "$CACHE_DIR" ] && [ ! -z $(find $CACHE_DIR -type f -name "pyspark-*.whl") ]; then
-        pip install $(find $CACHE_DIR -type f -name "pyspark-*.whl")
-      else
+      if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "pyspark-*.whl") ]; then
         # Build wheel from source
         temp_dir=$(mktemp -d)
         git clone --depth 1 https://github.com/apache/spark.git $temp_dir
         git --git-dir=$temp_dir/.git rev-parse HEAD
         cd $temp_dir
-        export MAVEN_OPTS="-Xss256m -Xmx2g -XX:ReservedCodeCacheSize=1g"
         ./build/mvn -DskipTests --no-transfer-progress clean package
         cd python
-        python setup.py bdist_wheel
-
-        # Copy wheel in cache directory
-        wheel_path=$(find dist -type f -name "*.whl")
-        mkdir -p $CACHE_DIR
-        cp $wheel_path $CACHE_DIR
-
-        # Install wheel
-        pip install $wheel_path
+        python setup.py bdist_wheel --dist-dir $CACHE_DIR
       fi
+      pip install $CACHE_DIR/pyspark-*.whl
 
   models:
     minimum: "3.0.0"
-    maximum: "3.1.2"
+    maximum: "3.2.0"
+    # NB: Allow unreleased maximum versions for the pyspark package to support models and
+    # autologging use cases in environments where newer versions of pyspark are available
+    # prior to their release on PyPI (e.g. Databricks)
+    allow_unreleased_max_version: True
     requirements: ["boto3", "scikit-learn", "pyarrow"]
     run: |
       SAGEMAKER_OUT=$(mktemp)
@@ -333,7 +331,21 @@ spark:
 
   autologging:
     minimum: "3.0.0"
-    maximum: "3.1.2"
+    maximum: "3.2.0"
+    # NB: Allow unreleased maximum versions for the pyspark package to support models and
+    # autologging use cases in environments where newer versions of pyspark are available
+    # prior to their release on PyPI (e.g. Databricks)
+    allow_unreleased_max_version: True
+    requirements: ["scikit-learn"]
     run: |
-      # TODO: Add datasource autologging tests
       find tests/spark_autologging/ml -name 'test*.py' | xargs -L 1 pytest --large
+
+      # TODO: Fix spark datasource autologging and test it against non-preview versions of pyspark
+      if [ "$(pip show pyspark | grep Version | cut -d' ' -f2)" = "3.0.0" ]; then
+        YELLOW='\033[33;1;4m'
+        NO_COLOR='\033[0m'
+        echo -e "${YELLOW}WARNING: Spark datasource autologging currently only works for Spark 3.0.0-preview.${NO_COLOR}"
+        pip uninstall -y pyspark
+        ./dev/setup-spark-datasource-autologging.sh
+        find tests/spark_autologging/datasource -name 'test*.py' | xargs -L 1 pytest --large
+      fi

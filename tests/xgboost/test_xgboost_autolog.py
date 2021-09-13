@@ -297,6 +297,40 @@ def test_xgb_autolog_logs_specified_feature_importance(bst_params, dtrain):
 
 
 @pytest.mark.large
+@pytest.mark.skipif(
+    Version(xgb.__version__) <= Version("1.4.2"),
+    reason=(
+        "In XGBoost <= 1.4.2, linear boosters do not support `get_score()` for importance value"
+        " creation."
+    ),
+)
+def test_xgb_autolog_logs_feature_importance_for_linear_boosters(dtrain):
+    mlflow.xgboost.autolog()
+
+    bst_params = {"objective": "multi:softprob", "num_class": 3, "booster": "gblinear"}
+    model = xgb.train(bst_params, dtrain)
+
+    run = get_latest_run()
+    run_id = run.info.run_id
+    artifacts_dir = run.info.artifact_uri.replace("file://", "")
+    client = mlflow.tracking.MlflowClient()
+    artifacts = [x.path for x in client.list_artifacts(run_id)]
+
+    importance_type = "weight"
+    plot_name = "feature_importance_{}.png".format(importance_type)
+    assert plot_name in artifacts
+
+    json_name = "feature_importance_{}.json".format(importance_type)
+    assert json_name in artifacts
+
+    json_path = os.path.join(artifacts_dir, json_name)
+    with open(json_path, "r") as f:
+        loaded_imp = json.load(f)
+
+    assert loaded_imp == model.get_score(importance_type=importance_type)
+
+
+@pytest.mark.large
 def test_no_figure_is_opened_after_logging(bst_params, dtrain):
     mlflow.xgboost.autolog()
     xgb.train(bst_params, dtrain)
@@ -315,6 +349,13 @@ def test_xgb_autolog_loads_model_from_artifact(bst_params, dtrain):
 
 
 @pytest.mark.large
+@pytest.mark.skipif(
+    Version(xgb.__version__) > Version("1.4.2"),
+    reason=(
+        "In XGBoost <= 1.4.2, linear boosters do not support `get_score()` for importance value"
+        " creation. In XGBoost > 1.4.2, all boosters support `get_score()`."
+    ),
+)
 def test_xgb_autolog_does_not_throw_if_importance_values_not_supported(dtrain):
     # the gblinear booster does not support calling get_score on it,
     #   where get_score is used to create the importance values plot.

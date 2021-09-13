@@ -18,7 +18,15 @@ import pytest
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.pyfunc
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import read_yaml, write_yaml
+from mlflow.utils.environment import (
+    _get_pip_deps,
+    _CONDA_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
+)
+from mlflow.utils.requirements_utils import _get_installed_version
 
 LOCALHOST = "127.0.0.1"
 
@@ -317,12 +325,79 @@ def create_mock_response(status_code, text):
     return response
 
 
+def _read_yaml(path):
+    with open(path, "r") as f:
+        return yaml.safe_load(f)
+
+
+def _read_lines(path):
+    with open(path, "r") as f:
+        return f.read().splitlines()
+
+
 def _compare_conda_env_requirements(env_path, req_path):
     assert os.path.exists(req_path)
+    custom_env_parsed = _read_yaml(env_path)
+    requirements = _read_lines(req_path)
+    assert _get_pip_deps(custom_env_parsed) == requirements
 
-    with open(env_path, "r") as f:
-        custom_env_parsed = yaml.safe_load(f)
-    with open(req_path, "r") as f:
-        requirements = f.read().split("\n")
 
-    assert custom_env_parsed["dependencies"][-1]["pip"] == requirements
+def _assert_pip_requirements(model_uri, requirements, constraints=None, strict=False):
+    """
+    Loads the pip requirements (and optionally constraints) from `model_uri` and compares them
+    to `requirements` (and `constraints`).
+
+    If `strict` is True, evaluate `set(requirements) == set(loaded_requirements)`.
+    Otherwise, evaluate `set(requirements) <= set(loaded_requirements)`.
+    """
+    local_path = _download_artifact_from_uri(model_uri)
+    txt_reqs = _read_lines(os.path.join(local_path, _REQUIREMENTS_FILE_NAME))
+    conda_reqs = _get_pip_deps(_read_yaml(os.path.join(local_path, _CONDA_ENV_FILE_NAME)))
+    compare_func = set.__eq__ if strict else set.__le__
+    requirements = set(requirements)
+    assert compare_func(requirements, set(txt_reqs))
+    assert compare_func(requirements, set(conda_reqs))
+
+    if constraints is not None:
+        assert f"-c {_CONSTRAINTS_FILE_NAME}" in txt_reqs
+        assert f"-c {_CONSTRAINTS_FILE_NAME}" in conda_reqs
+        cons = _read_lines(os.path.join(local_path, _CONSTRAINTS_FILE_NAME))
+        assert compare_func(set(constraints), set(cons))
+
+
+def _is_available_on_pypi(package, version=None, module=None):
+    """
+    Returns True if the specified package version is available on PyPI.
+
+    :param package: The name of the package.
+    :param version: The version of the package. If None, defaults to the installed version.
+    :param module: The name of the top-level module provided by the package . For example,
+                   if `package` is 'scikit-learn', `module` should be 'sklearn'. If None, defaults
+                   to `package`.
+    """
+    resp = requests.get("https://pypi.python.org/pypi/{}/json".format(package))
+    if not resp.ok:
+        return False
+
+    version = version or _get_installed_version(module or package)
+    dist_files = resp.json()["releases"].get(version)
+    return (
+        dist_files is not None  # specified version exists
+        and (len(dist_files) > 0)  # at least one distribution file exists
+        and not dist_files[0].get("yanked", False)  # specified version is not yanked
+    )
+
+
+def _is_importable(module_name):
+    try:
+        __import__(module_name)
+        return True
+    except ImportError:
+        return False
+
+
+def allow_infer_pip_requirements_fallback_if(condition):
+    def decorator(f):
+        return pytest.mark.allow_infer_pip_requirements_fallback(f) if condition else f
+
+    return decorator

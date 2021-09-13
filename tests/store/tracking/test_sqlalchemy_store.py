@@ -28,8 +28,6 @@ from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.db.utils import (
     _get_schema_version,
     _get_latest_schema_revision,
-    MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW,
-    MLFLOW_SQLALCHEMYSTORE_POOL_SIZE,
 )
 from mlflow.store.tracking.dbmodels import models
 from mlflow.store.db.db_types import MYSQL, MSSQL
@@ -1935,55 +1933,6 @@ class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
 
     def tearDown(self):
         os.remove(self.temp_dbfile)
-
-
-@pytest.mark.release
-class TestSqlAlchemyStoreMysqlDb(TestSqlAlchemyStoreSqlite):
-    """
-    Run tests against a MySQL database
-    """
-
-    DEFAULT_MYSQL_PORT = 3306
-
-    def setUp(self):
-        os.environ[MLFLOW_SQLALCHEMYSTORE_POOL_SIZE] = "2"
-        os.environ[MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW] = "1"
-        db_username = os.environ.get("MYSQL_TEST_USERNAME")
-        db_password = os.environ.get("MYSQL_TEST_PASSWORD")
-        db_port = (
-            int(os.environ["MYSQL_TEST_PORT"])
-            if "MYSQL_TEST_PORT" in os.environ
-            else TestSqlAlchemyStoreMysqlDb.DEFAULT_MYSQL_PORT
-        )
-        if db_username is None or db_password is None:
-            raise Exception(
-                "Username and password for database tests must be specified via the "
-                "MYSQL_TEST_USERNAME and MYSQL_TEST_PASSWORD environment variables. "
-                "environment variable. In posix shells, you can rerun your test command "
-                "with the environment variables set, e.g: MYSQL_TEST_USERNAME=your_username "
-                "MYSQL_TEST_PASSWORD=your_password <your-test-command>. You may optionally "
-                "specify a database port via MYSQL_TEST_PORT (default is 3306)."
-            )
-        self._db_name = "test_sqlalchemy_store_%s" % uuid.uuid4().hex[:5]
-        db_server_url = "mysql://%s:%s@localhost:%s" % (db_username, db_password, db_port)
-        self._engine = sqlalchemy.create_engine(db_server_url)
-        self._engine.execute("CREATE DATABASE %s" % self._db_name)
-        self.db_url = "%s/%s" % (db_server_url, self._db_name)
-        self.store = self._get_store(self.db_url)
-
-    def tearDown(self):
-        self._engine.execute("DROP DATABASE %s" % self._db_name)
-
-    def test_log_many_entities(self):
-        """
-        Sanity check: verify that we can log a reasonable number of entities without failures due
-        to connection leaks etc.
-        """
-        run = self._run_factory()
-        for i in range(100):
-            self.store.log_metric(run.info.run_id, entities.Metric("key", i, i * 2, i * 3))
-            self.store.log_param(run.info.run_id, entities.Param("pkey-%s" % i, "pval-%s" % i))
-            self.store.set_tag(run.info.run_id, entities.RunTag("tkey-%s" % i, "tval-%s" % i))
 
 
 @mock.patch("sqlalchemy.orm.session.Session", spec=True)

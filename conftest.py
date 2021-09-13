@@ -19,13 +19,6 @@ def pytest_addoption(parser):
         help="Run tests decorated with 'large' annotation",
     )
     parser.addoption(
-        "--release",
-        action="store_true",
-        dest="release",
-        default=False,
-        help="Run tests decorated with 'release' annotation",
-    )
-    parser.addoption(
         "--requires-ssh",
         action="store_true",
         dest="requires_ssh",
@@ -63,8 +56,6 @@ def pytest_configure(config):
         markexpr.append("large")
     if not config.option.lazy_import:
         markexpr.append("not lazy_import")
-    if not config.option.release:
-        markexpr.append("not release")
     if not config.option.requires_ssh:
         markexpr.append("not requires_ssh")
     if len(markexpr) > 0:
@@ -103,6 +94,7 @@ def pytest_ignore_collect(path, config):
             "tests/models",
             "tests/shap",
             "tests/paddle",
+            "tests/prophet",
             "tests/utils/test_model_utils.py",
             # this test is included here because it imports many big libraries like tf, keras, etc
             "tests/tracking/fluent/test_fluent_autolog.py",

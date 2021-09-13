@@ -10,7 +10,7 @@ dependencies:
   - boto3
   - transformers>=4.0.0
   - pandas
-  - torch==1.6.0
-  - torchvision==0.7.0
-  - torchtext==0.7.0
-  - pytorch-lightning==1.0.2
+  - torchvision>=0.9.1
+  - torch==1.9.0
+  - torchtext==0.10.0
+  - pytorch-lightning==1.4.0

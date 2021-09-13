@@ -33,8 +33,18 @@ from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY
 from mlflow.tracking import MlflowClient
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, get_artifact_uri
 from mlflow.utils.annotations import keyword_only, experimental
-from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
-from mlflow.utils.file_utils import _copy_file_or_tree, TempDir
+from mlflow.utils.environment import (
+    _mlflow_conda_env,
+    _validate_env_arguments,
+    _process_pip_requirements,
+    _process_conda_env,
+    _CONDA_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
+)
+from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
+from mlflow.utils.file_utils import _copy_file_or_tree, TempDir, write_to
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.autologging_utils import (
     autologging_integration,
@@ -67,17 +77,50 @@ _thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 _AUTOLOG_RUN_ID = None
 
 
+def _raise_deprecation_warning():
+    import tensorflow as tf
+
+    if Version(tf.__version__) < Version("2.0.0"):
+        warnings.warn(
+            (
+                "Support for tensorflow < 2.0.0 has been deprecated and will be removed in "
+                "a future MLflow release"
+            ),
+            FutureWarning,
+            stacklevel=2,
+        )
+
+
+def get_default_pip_requirements():
+    """
+    :return: A list of default pip requirements for MLflow Models produced by this flavor.
+             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+             that, at minimum, contains these requirements.
+    """
+    import tensorflow as tf
+
+    pip_deps = [_get_pinned_requirement("tensorflow")]
+
+    # tensorflow >= 2.6.0 requires keras:
+    # https://github.com/tensorflow/tensorflow/blob/v2.6.0/tensorflow/tools/pip_package/setup.py#L106
+    # To prevent a different version of keras from being installed by tensorflow when creating
+    # a serving environment, add a pinned requirement for keras
+    if Version(tf.__version__) >= Version("2.6.0"):
+        pip_deps.append(_get_pinned_requirement("keras"))
+
+    return pip_deps
+
+
 def get_default_conda_env():
     """
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
-    import tensorflow
-
-    return _mlflow_conda_env(additional_pip_deps=["tensorflow=={}".format(tensorflow.__version__)])
+    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
 @keyword_only
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     tf_saved_model_dir,
     tf_meta_graph_tags,
@@ -88,6 +131,8 @@ def log_model(
     input_example: ModelInputExample = None,
     registered_model_name=None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+    pip_requirements=None,
+    extra_pip_requirements=None,
 ):
     """
     Log a *serialized* collection of TensorFlow graphs and variables as an MLflow model
@@ -118,26 +163,12 @@ def log_model(
                                  ``signature_def_map`` parameter of the
                                  ``tf.saved_model.builder.SavedModelBuilder`` method.
     :param artifact_path: The run-relative path to which to log model artifacts.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decsribes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If ``None``, the default
-                      :func:`get_default_conda_env()` environment is added to the model. The
-                      following is an *example* dictionary representation of a Conda environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.7.0',
-                                'tensorflow=1.8.0'
-                            ]
-                        }
-    :param registered_model_name: (Experimental) If given, create a model version under
+    :param conda_env: {{ conda_env }}
+    :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
 
-        :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+        :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -150,7 +181,7 @@ def log_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example can be a Pandas DataFrame where the given
                           example will be serialized to json using the Pandas split-oriented
@@ -159,6 +190,8 @@ def log_model(
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
     """
     return Model.log(
         artifact_path=artifact_path,
@@ -171,10 +204,13 @@ def log_model(
         signature=signature,
         input_example=input_example,
         await_registration_for=await_registration_for,
+        pip_requirements=pip_requirements,
+        extra_pip_requirements=extra_pip_requirements,
     )
 
 
 @keyword_only
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     tf_saved_model_dir,
     tf_meta_graph_tags,
@@ -184,6 +220,8 @@ def save_model(
     conda_env=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
+    pip_requirements=None,
+    extra_pip_requirements=None,
 ):
     """
     Save a *serialized* collection of TensorFlow graphs and variables as an MLflow model
@@ -205,22 +243,8 @@ def save_model(
                                  ``tf.saved_model.builder.savedmodelbuilder`` method.
     :param path: Local path where the MLflow model is to be saved.
     :param mlflow_model: MLflow model configuration to which to add the ``tensorflow`` flavor.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decsribes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If ``None``, the default
-                      :func:`get_default_conda_env()` environment is added to the model. The
-                      following is an *example* dictionary representation of a Conda environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.7.0',
-                                'tensorflow=1.8.0'
-                            ]
-                        }
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param conda_env: {{ conda_env }}
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -233,14 +257,18 @@ def save_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example can be a Pandas DataFrame where the given
                           example will be serialized to json using the Pandas split-oriented
                           format, or a numpy array where the example will be serialized to json
                           by converting it to a list. Bytes are base64-encoded.
-
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
     """
+    _raise_deprecation_warning()
+    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+
     _logger.info(
         "Validating the specified TensorFlow model by attempting to load it in a new TensorFlow"
         " graph..."
@@ -263,27 +291,44 @@ def save_model(
         _save_example(mlflow_model, input_example, path)
     root_relative_path = _copy_file_or_tree(src=tf_saved_model_dir, dst=path, dst_dir=None)
     model_dir_subpath = "tfmodel"
-    shutil.move(os.path.join(path, root_relative_path), os.path.join(path, model_dir_subpath))
+    model_dir_path = os.path.join(path, model_dir_subpath)
+    shutil.move(os.path.join(path, root_relative_path), model_dir_path)
 
-    conda_env_subpath = "conda.yaml"
-    if conda_env is None:
-        conda_env = get_default_conda_env()
-    elif not isinstance(conda_env, dict):
-        with open(conda_env, "r") as f:
-            conda_env = yaml.safe_load(f)
-    with open(os.path.join(path, conda_env_subpath), "w") as f:
-        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
-
-    _log_pip_requirements(conda_env, path)
-
-    mlflow_model.add_flavor(
-        FLAVOR_NAME,
+    flavor_conf = dict(
         saved_model_dir=model_dir_subpath,
         meta_graph_tags=tf_meta_graph_tags,
         signature_def_key=tf_signature_def_key,
     )
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.tensorflow", env=conda_env_subpath)
+    mlflow_model.add_flavor(FLAVOR_NAME, **flavor_conf)
+    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.tensorflow", env=_CONDA_ENV_FILE_NAME)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+
+    if conda_env is None:
+        if pip_requirements is None:
+            default_reqs = get_default_pip_requirements()
+            # To ensure `_load_pyfunc` can successfully load the model during the dependency
+            # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
+            inferred_reqs = mlflow.models.infer_pip_requirements(
+                path, FLAVOR_NAME, fallback=default_reqs,
+            )
+            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+        else:
+            default_reqs = None
+        conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
+            default_reqs, pip_requirements, extra_pip_requirements,
+        )
+    else:
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
+
+    with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
+        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    # Save `constraints.txt` if necessary
+    if pip_constraints:
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
+
+    # Save `requirements.txt`
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
 
 def _validate_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key):
@@ -358,6 +403,8 @@ def load_model(model_uri, tf_sess=None):
                                 for _, output_signature in signature_definition.outputs.items()]
     """
     import tensorflow
+
+    _raise_deprecation_warning()
 
     if Version(tensorflow.__version__) < Version("2.0.0"):
         if not tf_sess:
@@ -696,6 +743,7 @@ def _setup_callbacks(lst, log_models, metrics_logger):
     Adds TensorBoard and MlfLowTfKeras callbacks to the
     input list, and returns the new list and appropriate log directory.
     """
+    # pylint: disable=no-name-in-module
     import tensorflow
     from tensorflow.keras.callbacks import Callback, TensorBoard
 
@@ -900,6 +948,8 @@ def autolog(
     """
     import tensorflow
 
+    _raise_deprecation_warning()
+
     global _LOG_EVERY_N_STEPS
     _LOG_EVERY_N_STEPS = every_n_iter
 
@@ -1019,39 +1069,45 @@ def autolog(
         except Exception:  # pylint: disable=W0703
             return None
 
-    def _log_early_stop_callback_metrics(callback, history, expected_last_epoch, metrics_logger):
-        if callback:
-            callback_attrs = _get_early_stop_callback_attrs(callback)
-            if callback_attrs is None:
-                return
-            stopped_epoch, restore_best_weights, patience = callback_attrs
-            metrics_logger.record_metrics({"stopped_epoch": stopped_epoch})
+    def _log_early_stop_callback_metrics(callback, history, metrics_logger):
+        if callback is None or not callback.model.stop_training:
+            return
 
-            # Only log restored model metrics if early stopping occurs, as determined by the
-            # the value of `stopped_epoch`. `stopped_epoch` is non-zero if early stopping has
-            # occurred, except in the case where training was early stopped after the first epoch
-            # due to a configured patience value of zero
-            if (
-                (stopped_epoch > 0) or (patience == 0 and expected_last_epoch > 0)
-            ) and restore_best_weights:
-                restored_epoch = stopped_epoch - patience
-                metrics_logger.record_metrics({"restored_epoch": restored_epoch})
-                restored_index = history.epoch.index(restored_epoch)
+        callback_attrs = _get_early_stop_callback_attrs(callback)
+        if callback_attrs is None:
+            return
 
-                restored_metrics = {
-                    key: history.history[key][restored_index] for key in history.history.keys()
-                }
-                # Metrics are logged as 'epoch_loss' and 'epoch_acc' in TF 1.X
-                if Version(tensorflow.__version__) < Version("2.0.0"):
-                    if "loss" in restored_metrics:
-                        restored_metrics["epoch_loss"] = restored_metrics.pop("loss")
-                    if "acc" in restored_metrics:
-                        restored_metrics["epoch_acc"] = restored_metrics.pop("acc")
-                # Checking that a metric history exists
-                metric_key = next(iter(history.history), None)
-                if metric_key is not None:
-                    last_epoch = len(history.history[metric_key])
-                    metrics_logger.record_metrics(restored_metrics, last_epoch)
+        stopped_epoch, restore_best_weights, _ = callback_attrs
+        metrics_logger.record_metrics({"stopped_epoch": stopped_epoch})
+
+        if not restore_best_weights or callback.best_weights is None:
+            return
+
+        monitored_metric = history.history.get(callback.monitor)
+        if not monitored_metric:
+            return
+
+        initial_epoch = history.epoch[0]
+        # If `monitored_metric` contains multiple best values (e.g. [0.1, 0.1, 0.2] where 0.1 is
+        # the minimum loss), the epoch corresponding to the first occurrence of the best value is
+        # the best epoch. In keras > 2.6.0, the best epoch can be obtained via the `best_epoch`
+        # attribute of an `EarlyStopping` instance: https://github.com/keras-team/keras/pull/15197
+        restored_epoch = initial_epoch + monitored_metric.index(callback.best)
+        metrics_logger.record_metrics({"restored_epoch": restored_epoch})
+        restored_index = history.epoch.index(restored_epoch)
+        restored_metrics = {
+            key: metrics[restored_index] for key, metrics in history.history.items()
+        }
+        # Metrics are logged as 'epoch_loss' and 'epoch_acc' in TF 1.X
+        if Version(tensorflow.__version__) < Version("2.0.0"):
+            if "loss" in restored_metrics:
+                restored_metrics["epoch_loss"] = restored_metrics.pop("loss")
+            if "acc" in restored_metrics:
+                restored_metrics["epoch_acc"] = restored_metrics.pop("acc")
+        # Checking that a metric history exists
+        metric_key = next(iter(history.history), None)
+        if metric_key is not None:
+            metrics_logger.record_metrics(restored_metrics, stopped_epoch + 1)
 
     class FitPatch(PatchFunction):
         def __init__(self):
@@ -1096,12 +1152,8 @@ def autolog(
 
                 history = original(inst, *args, **kwargs)
 
-                epochs = args[3] if len(args) >= 4 else kwargs.get("epochs", 0)
                 _log_early_stop_callback_metrics(
-                    callback=early_stop_callback,
-                    history=history,
-                    expected_last_epoch=epochs,
-                    metrics_logger=metrics_logger,
+                    callback=early_stop_callback, history=history, metrics_logger=metrics_logger,
                 )
 
             _flush_queue()

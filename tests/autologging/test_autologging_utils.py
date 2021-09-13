@@ -7,7 +7,6 @@ from collections import namedtuple
 from unittest.mock import Mock, call
 from unittest import mock
 
-
 import mlflow
 from mlflow.utils import gorilla
 from mlflow.tracking.client import MlflowClient
@@ -21,6 +20,8 @@ from mlflow.utils.autologging_utils import (
     autologging_integration,
     get_autologging_config,
     autologging_is_disabled,
+    get_instance_method_first_arg_value,
+    get_method_call_arg_value,
 )
 from mlflow.utils.autologging_utils.safety import _wrap_patch, AutologgingSession
 from mlflow.utils.autologging_utils.versioning import (
@@ -146,11 +147,8 @@ def test_wrap_patch_with_class():
         orig = gorilla.get_original_attribute(self, "add")
         return 2 * orig(*args, **kwargs)
 
-    before = get_func_attrs(Math.add)
     _wrap_patch(Math, Math.add.__name__, new_add)
-    after = get_func_attrs(Math.add)
 
-    assert after == before
     assert Math().add(1, 2) == 6
 
 
@@ -167,12 +165,8 @@ def test_wrap_patch_with_module():
         """new mlflow.log_param"""
         return a - b
 
-    before_attrs = get_func_attrs(mlflow.log_param)
     assert sample_function_to_patch(10, 5) == 15
-
     _wrap_patch(this_module, sample_function_to_patch.__name__, new_sample_function)
-    after_attrs = get_func_attrs(mlflow.log_param)
-    assert after_attrs == before_attrs
     assert sample_function_to_patch(10, 5) == 5
 
 
@@ -841,17 +835,10 @@ def test_dev_version_pyspark_is_supported_in_databricks(flavor, module_version, 
     with mock.patch(module_name + ".__version__", module_version):
         # In Databricks
         with mock.patch(
-            "mlflow.utils.autologging_utils.versioning.is_in_databricks_notebook",
-            return_value=True,
-        ) as mock_notebook:
+            "mlflow.utils.autologging_utils.versioning.is_in_databricks_runtime", return_value=True,
+        ) as mock_runtime:
             assert is_flavor_supported_for_associated_package_versions(flavor) == expected_result
-            mock_notebook.assert_called()
-
-        with mock.patch(
-            "mlflow.utils.autologging_utils.versioning.is_in_databricks_job", return_value=True,
-        ) as mock_job:
-            assert is_flavor_supported_for_associated_package_versions(flavor) == expected_result
-            mock_job.assert_called()
+            mock_runtime.assert_called()
 
         # Not in Databricks
         assert is_flavor_supported_for_associated_package_versions(flavor) is False
@@ -928,3 +915,34 @@ def test_disable_for_unsupported_versions_warning_sklearn_integration():
         with mock.patch(log_warn_fn_name) as log_warn_fn:
             mlflow.sklearn.autolog(disable_for_unsupported_versions=False)
             assert log_warn_fn.call_count == 1 and is_sklearn_warning_fired(log_warn_fn.call_args)
+
+
+def test_get_instance_method_first_arg_value():
+    class Test:
+        def f1(self, ab1, cd2):
+            pass
+
+        def f2(self, *args):
+            pass
+
+        def f3(self, *kwargs):
+            pass
+
+        def f4(self, *args, **kwargs):
+            pass
+
+    assert 3 == get_instance_method_first_arg_value(Test.f1, [3, 4], {})
+    assert 3 == get_instance_method_first_arg_value(Test.f1, [3], {"cd2": 4})
+    assert 3 == get_instance_method_first_arg_value(Test.f1, [], {"ab1": 3, "cd2": 4})
+    assert 3 == get_instance_method_first_arg_value(Test.f2, [3, 4], {})
+    with pytest.raises(AssertionError):
+        get_instance_method_first_arg_value(Test.f3, [], {"ab1": 3, "cd2": 4})
+    with pytest.raises(AssertionError):
+        get_instance_method_first_arg_value(Test.f4, [], {"ab1": 3, "cd2": 4})
+
+
+def test_get_method_call_arg_value():
+    # suppose we call on a method defined like: `def f1(a, b=3, *, c=4, e=5)`
+    assert 2 == get_method_call_arg_value(1, "b", 3, [1, 2], {})
+    assert 3 == get_method_call_arg_value(1, "b", 3, [1], {})
+    assert 2 == get_method_call_arg_value(1, "b", 3, [1], {"b": 2})

@@ -7,6 +7,8 @@ import _ from 'lodash';
 import ExperimentViewUtil from './ExperimentViewUtil';
 import { ColumnTypes } from '../constants';
 
+import { FormattedMessage } from 'react-intl';
+
 export class RunsTableColumnSelectionDropdown extends React.Component {
   static propTypes = {
     paramKeyList: PropTypes.array,
@@ -131,7 +133,11 @@ export class RunsTableColumnSelectionDropdown extends React.Component {
           dataTestId='column-selection-dropdown'
         >
           <Icon type='setting' style={{ marginTop: 2 }} />
-          Columns
+          <FormattedMessage
+            defaultMessage='Columns'
+            // eslint-disable-next-line max-len
+            description='Dropdown text to display columns names that could to be rendered for the experiment runs table'
+          />
         </Button>
       </Dropdown>
     );

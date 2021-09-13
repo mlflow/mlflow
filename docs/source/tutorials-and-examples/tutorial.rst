@@ -240,6 +240,14 @@ Now that you have your training code, you can package it so that other data scie
           parameters = list(alpha = 0.2)
         )
 
+.. _pip-requirements-example:
+
+Specifying pip requirements using ``pip_requirements`` and ``extra_pip_requirements``
+-------------------------------------------------------------------------------------
+
+.. literalinclude:: ../../../examples/pip_requirements/pip_requirements.py
+
+
 Serving the Model
 -----------------
 

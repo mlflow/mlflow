@@ -33,10 +33,21 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
+from mlflow.utils.environment import (
+    _mlflow_conda_env,
+    _validate_env_arguments,
+    _process_pip_requirements,
+    _process_conda_env,
+    _CONDA_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
+)
+from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.file_utils import write_to
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
+from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
@@ -64,19 +75,24 @@ FLAVOR_NAME = "xgboost"
 _logger = logging.getLogger(__name__)
 
 
+def get_default_pip_requirements():
+    """
+    :return: A list of default pip requirements for MLflow Models produced by this flavor.
+             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+             that, at minimum, contains these requirements.
+    """
+    return [_get_pinned_requirement("xgboost")]
+
+
 def get_default_conda_env():
     """
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
-    import xgboost as xgb
-
-    return _mlflow_conda_env(
-        # XGBoost is not yet available via the default conda channels, so we install it via pip
-        additional_pip_deps=["xgboost=={}".format(xgb.__version__)]
-    )
+    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     xgb_model,
     path,
@@ -84,6 +100,8 @@ def save_model(
     mlflow_model=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
+    pip_requirements=None,
+    extra_pip_requirements=None,
 ):
     """
     Save an XGBoost model to a path on the local file system.
@@ -91,28 +109,10 @@ def save_model(
     :param xgb_model: XGBoost model (an instance of `xgboost.Booster`_) to be saved.
                       Note that models that implement the `scikit-learn API`_  are not supported.
     :param path: Local path where the model is to be saved.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this describes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If ``None``, the default
-                      :func:`get_default_conda_env()` environment is added to the model.
-                      The following is an *example* dictionary representation of a Conda
-                      environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.7.0',
-                                'pip': [
-                                    'xgboost==0.90'
-                                ]
-                            ]
-                        }
-
+    :param conda_env: {{ conda_env }}
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
 
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -125,14 +125,17 @@ def save_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
-
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
     """
     import xgboost as xgb
+
+    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     path = os.path.abspath(path)
     if os.path.exists(path):
@@ -150,24 +153,44 @@ def save_model(
     # Save an XGBoost model
     xgb_model.save_model(model_data_path)
 
-    conda_env_subpath = "conda.yaml"
-    if conda_env is None:
-        conda_env = get_default_conda_env()
-    elif not isinstance(conda_env, dict):
-        with open(conda_env, "r") as f:
-            conda_env = yaml.safe_load(f)
-    with open(os.path.join(path, conda_env_subpath), "w") as f:
-        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
-
-    _log_pip_requirements(conda_env, path)
-
     pyfunc.add_to_model(
-        mlflow_model, loader_module="mlflow.xgboost", data=model_data_subpath, env=conda_env_subpath
+        mlflow_model,
+        loader_module="mlflow.xgboost",
+        data=model_data_subpath,
+        env=_CONDA_ENV_FILE_NAME,
     )
     mlflow_model.add_flavor(FLAVOR_NAME, xgb_version=xgb.__version__, data=model_data_subpath)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
+    if conda_env is None:
+        if pip_requirements is None:
+            default_reqs = get_default_pip_requirements()
+            # To ensure `_load_pyfunc` can successfully load the model during the dependency
+            # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
+            inferred_reqs = mlflow.models.infer_pip_requirements(
+                path, FLAVOR_NAME, fallback=default_reqs,
+            )
+            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+        else:
+            default_reqs = None
+        conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
+            default_reqs, pip_requirements, extra_pip_requirements,
+        )
+    else:
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
 
+    with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
+        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    # Save `constraints.txt` if necessary
+    if pip_constraints:
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
+
+    # Save `requirements.txt`
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
+
+
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     xgb_model,
     artifact_path,
@@ -176,7 +199,9 @@ def log_model(
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-    **kwargs
+    pip_requirements=None,
+    extra_pip_requirements=None,
+    **kwargs,
 ):
     """
     Log an XGBoost model as an MLflow artifact for the current run.
@@ -184,29 +209,12 @@ def log_model(
     :param xgb_model: XGBoost model (an instance of `xgboost.Booster`_) to be saved.
                       Note that models that implement the `scikit-learn API`_  are not supported.
     :param artifact_path: Run-relative artifact path.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this describes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If ``None``, the default
-                      :func:`get_default_conda_env()` environment is added to the model.
-                      The following is an *example* dictionary representation of a Conda
-                      environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.7.0',
-                                'pip': [
-                                    'xgboost==0.90'
-                                ]
-                            ]
-                        }
-    :param registered_model_name: (Experimental) If given, create a model version under
+    :param conda_env: {{ conda_env }}
+    :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
 
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -219,7 +227,7 @@ def log_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
@@ -227,6 +235,8 @@ def log_model(
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param kwargs: kwargs to pass to `xgboost.Booster.save_model`_ method.
     """
     Model.log(
@@ -238,7 +248,9 @@ def log_model(
         signature=signature,
         input_example=input_example,
         await_registration_for=await_registration_for,
-        **kwargs
+        pip_requirements=pip_requirements,
+        extra_pip_requirements=extra_pip_requirements,
+        **kwargs,
     )
 
 
@@ -434,26 +446,84 @@ def autolog(
             Log feature importance plot.
             """
             import matplotlib.pyplot as plt
+            from cycler import cycler
 
             features = np.array(features)
-            importance = np.array(importance)
-            indices = np.argsort(importance)
-            features = features[indices]
-            importance = importance[indices]
+
+            # Structure the supplied `importance` values as a `num_features`-by-`num_classes` matrix
+            importances_per_class_by_feature = np.array(importance)
+            if importances_per_class_by_feature.ndim <= 1:
+                # In this case, the supplied `importance` values are not given per class. Rather,
+                # one importance value is given per feature. For consistency with the assumed
+                # `num_features`-by-`num_classes` matrix structure, we coerce the importance
+                # values to a `num_features`-by-1 matrix
+                indices = np.argsort(importance)
+                # Sort features and importance values by magnitude during transformation to a
+                # `num_features`-by-`num_classes` matrix
+                features = features[indices]
+                importances_per_class_by_feature = np.array(
+                    [[importance] for importance in importances_per_class_by_feature[indices]]
+                )
+                # In this case, do not include class labels on the feature importance plot because
+                # only one importance value has been provided per feature, rather than an
+                # one importance value for each class per feature
+                label_classes_on_plot = False
+            else:
+                importance_value_magnitudes = np.abs(importances_per_class_by_feature).sum(axis=1)
+                indices = np.argsort(importance_value_magnitudes)
+                features = features[indices]
+                importances_per_class_by_feature = importances_per_class_by_feature[indices]
+                label_classes_on_plot = True
+
+            num_classes = importances_per_class_by_feature.shape[1]
             num_features = len(features)
 
             # If num_features > 10, increase the figure height to prevent the plot
             # from being too dense.
             w, h = [6.4, 4.8]  # matplotlib's default figure size
             h = h + 0.1 * num_features if num_features > 10 else h
+            h = h + 0.1 * num_classes if num_classes > 1 else h
             fig, ax = plt.subplots(figsize=(w, h))
+            # When importance values are provided for each class per feature, we want to ensure
+            # that the same color is used for all bars in the bar chart that have the same class
+            colors_to_cycle = plt.rcParams["axes.prop_cycle"].by_key()["color"][:num_classes]
+            color_cycler = cycler(color=colors_to_cycle)
+            ax.set_prop_cycle(color_cycler)
 
-            yloc = np.arange(num_features)
-            ax.barh(yloc, importance, align="center", height=0.5)
-            ax.set_yticks(yloc)
+            # The following logic operates on one feature at a time, adding a bar to the bar chart
+            # for each class that reflects the importance of the feature to predictions of that
+            # class
+            feature_ylocs = np.arange(num_features)
+            # Define offsets on the y-axis that are used to evenly space the bars for each class
+            # around the y-axis position of each feature
+            offsets_per_yloc = np.linspace(-0.5, 0.5, num_classes) / 2 if num_classes > 1 else [0]
+            for feature_idx, (feature_yloc, importances_per_class) in enumerate(
+                zip(feature_ylocs, importances_per_class_by_feature)
+            ):
+                for class_idx, (offset, class_importance) in enumerate(
+                    zip(offsets_per_yloc, importances_per_class)
+                ):
+                    (bar,) = ax.barh(
+                        feature_yloc + offset,
+                        class_importance,
+                        align="center",
+                        # Set the bar height such that importance value bars for a particular
+                        # feature are spaced properly relative to each other (no overlap or gaps)
+                        # and relative to importance value bars for other features
+                        height=(0.5 / max(num_classes - 1, 1)),
+                    )
+                    if label_classes_on_plot and feature_idx == 0:
+                        # Only set a label the first time a bar for a particular class is plotted to
+                        # avoid duplicate legend entries. If we were to set a label for every bar,
+                        # the legend would contain `num_features` labels for each class.
+                        bar.set_label("Class {}".format(class_idx))
+
+            ax.set_yticks(feature_ylocs)
             ax.set_yticklabels(features)
             ax.set_xlabel("Importance")
             ax.set_title("Feature Importance ({})".format(importance_type))
+            if label_classes_on_plot:
+                ax.legend()
             fig.tight_layout()
 
             tmpdir = tempfile.mkdtemp()
@@ -492,7 +562,7 @@ def autolog(
 
         param_logging_operations = autologging_client.flush(synchronous=False)
 
-        all_arg_names = inspect.getargspec(original)[0]  # pylint: disable=W1505
+        all_arg_names = inspect.getfullargspec(original)[0]  # pylint: disable=W1505
         num_pos_args = len(args)
 
         # adding a callback that records evaluation results.

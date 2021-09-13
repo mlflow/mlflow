@@ -4,10 +4,8 @@ import numpy as np
 import os
 import pandas as pd
 from collections import namedtuple, OrderedDict
+from packaging.version import Version
 
-from keras.models import Model
-from keras.layers import Dense, Input, Concatenate
-from keras.optimizers import SGD
 import pytest
 import random
 import sklearn.datasets as datasets
@@ -24,6 +22,19 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import NumpyEncoder
 
 from tests.helper_functions import pyfunc_serve_and_score_model, random_int, random_str
+
+import keras
+
+# pylint: disable=no-name-in-module,reimported
+if Version(keras.__version__) >= Version("2.6.0"):
+    from tensorflow.keras.models import Model
+    from tensorflow.keras.layers import Dense, Input, Concatenate
+    from tensorflow.keras.optimizers import SGD
+else:
+    from keras.models import Model
+    from keras.layers import Dense, Input, Concatenate
+    from keras.optimizers import SGD
+
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
@@ -209,6 +220,21 @@ def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_re
         model_uri=os.path.abspath(model_path),
         data=pandas_record_content,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED,
+    )
+    assert response_records_content_type.status_code == 200
+
+    # Testing the charset parameter
+    response_records_content_type = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=pandas_record_content,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON + "; charset=UTF-8",
+    )
+    assert response_records_content_type.status_code == 200
+
+    response_records_content_type = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=pandas_record_content,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED + "; charset=UTF-8",
     )
     assert response_records_content_type.status_code == 200
 

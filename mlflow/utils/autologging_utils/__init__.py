@@ -194,8 +194,9 @@ class BatchMetricsLogger:
     `record_metrics()` or `flush()`.
     """
 
-    def __init__(self, run_id=None):
+    def __init__(self, run_id=None, tracking_uri=None):
         self.run_id = run_id
+        self.client = MlflowClient(tracking_uri)
 
         # data is an array of Metric objects
         self.data = []
@@ -223,7 +224,7 @@ class BatchMetricsLogger:
             for i in range(0, len(self.data), MAX_METRICS_PER_BATCH)
         ]
         for metrics_slice in metrics_slices:
-            try_mlflow_log(MlflowClient().log_batch, run_id=current_run_id, metrics=metrics_slice)
+            try_mlflow_log(self.client.log_batch, run_id=current_run_id, metrics=metrics_slice)
         end = time.time()
         self.total_log_batch_time += end - start
 
@@ -376,11 +377,12 @@ def autologging_integration(name):
             except Exception:
                 pass
 
+            revert_patches(name)
+
             # If disabling autologging using fluent api, then every active integration's autolog
             # needs to be called with disable=True. So do not short circuit and let
             # `mlflow.autolog()` invoke all active integrations with disable=True.
             if name != "mlflow" and get_autologging_config(name, "disable", True):
-                revert_patches(name)
                 return
 
             is_silent_mode = get_autologging_config(name, "silent", False)
@@ -543,4 +545,44 @@ def _get_new_training_session_class():
                 self._parent.allow_children and self._parent.clazz != self.clazz
             )
 
+        @staticmethod
+        def is_active():
+            return len(_TrainingSession._session_stack) != 0
+
     return _TrainingSession
+
+
+def get_instance_method_first_arg_value(method, call_pos_args, call_kwargs):
+    """
+    Get instance method first argument value (exclude the `self` argument).
+    :param method A `cls.method` object which includes the `self` argument.
+    :param call_pos_args: positional arguments excluding the first `self` argument.
+    :param call_kwargs: keywords arguments.
+    """
+    if len(call_pos_args) >= 1:
+        return call_pos_args[0]
+    else:
+        param_sig = inspect.signature(method).parameters
+        first_arg_name = list(param_sig.keys())[1]
+        assert param_sig[first_arg_name].kind not in [
+            inspect.Parameter.VAR_KEYWORD,
+            inspect.Parameter.VAR_POSITIONAL,
+        ]
+        return call_kwargs.get(first_arg_name)
+
+
+def get_method_call_arg_value(arg_index, arg_name, default_value, call_pos_args, call_kwargs):
+    """
+    Get argument value for a method call.
+    :param arg_index: the argument index in the function signature. start from 0.
+    :param arg_name: the argument name in the function signature.
+    :param default_value: default argument value.
+    :param call_pos_args: the positional argument values in the method call.
+    :param call_kwargs: the keyword argument values in the method call.
+    """
+    if arg_name in call_kwargs:
+        return call_kwargs[arg_name]
+    elif arg_index < len(call_pos_args):
+        return call_pos_args[arg_index]
+    else:
+        return default_value

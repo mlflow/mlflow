@@ -5,10 +5,7 @@ import yaml
 from packaging.version import Version, InvalidVersion
 from pkg_resources import resource_filename
 
-from mlflow.utils.databricks_utils import (
-    is_in_databricks_job,
-    is_in_databricks_notebook,
-)
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
 
 # A map FLAVOR_NAME -> a tuple of (dependent_module_name, key_in_module_version_info_dict)
@@ -72,7 +69,7 @@ def is_flavor_supported_for_associated_package_versions(flavor_name):
     actual_version = importlib.import_module(module_name).__version__
 
     # In Databricks, treat 'pyspark 3.x.y.dev0' as 'pyspark 3.x.y'
-    if module_name == "pyspark" and (is_in_databricks_notebook() or is_in_databricks_job()):
+    if module_name == "pyspark" and is_in_databricks_runtime():
         actual_version = _strip_dev_version_suffix(actual_version)
 
     if _violates_pep_440(actual_version) or _is_pre_or_dev_release(actual_version):

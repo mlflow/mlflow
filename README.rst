@@ -62,6 +62,10 @@ MLflow requires ``conda`` to be on the ``PATH`` for the projects feature.
 
 Nightly snapshots of MLflow master are also available `here <https://mlflow-snapshots.s3-us-west-2.amazonaws.com/>`_.
 
+Install a lower dependency subset of MLflow from PyPI via ``pip install mlflow-skinny``
+Extra dependencies can be added per desired scenario.
+For example, ``pip install mlflow-skinny pandas numpy`` allows for mlflow.pyfunc.log_model support.
+
 Documentation
 -------------
 Official documentation for MLflow can be found at https://mlflow.org/docs/latest/index.html.

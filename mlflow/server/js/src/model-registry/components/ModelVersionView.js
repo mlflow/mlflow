@@ -373,6 +373,10 @@ export class ModelVersionViewImpl extends React.Component {
     }
   }
 
+  getPageHeader(title, breadcrumbs) {
+    return <PageHeader title={title} breadcrumbs={breadcrumbs} />;
+  }
+
   render() {
     const { modelName, modelVersion, tags, schema } = this.props;
     const { description } = modelVersion;
@@ -415,7 +419,7 @@ export class ModelVersionViewImpl extends React.Component {
     ];
     return (
       <div>
-        <PageHeader title={title} breadcrumbs={breadcrumbs} />
+        {this.getPageHeader(title, breadcrumbs)}
         {this.renderStatusAlert()}
 
         {/* Metadata List */}
@@ -434,6 +438,7 @@ export class ModelVersionViewImpl extends React.Component {
           }
           forceOpen={showDescriptionEditor}
           defaultCollapsed={!description}
+          data-test-id='model-version-description-section'
         >
           <EditableNote
             defaultMarkdown={description}
@@ -451,6 +456,7 @@ export class ModelVersionViewImpl extends React.Component {
               />
             }
             defaultCollapsed={Utils.getVisibleTagValues(tags).length === 0}
+            data-test-id='model-version-tags-section'
           >
             <EditableTagsTableView
               wrappedComponentRef={this.saveFormRef}
@@ -469,6 +475,7 @@ export class ModelVersionViewImpl extends React.Component {
               description='Title text for the schema section on the model versions view page'
             />
           }
+          data-test-id='model-version-schema-section'
         >
           <SchemaTable schema={schema} />
         </CollapsibleSection>

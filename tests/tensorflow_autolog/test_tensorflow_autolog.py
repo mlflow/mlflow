@@ -65,10 +65,7 @@ def create_tf_keras_model():
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
-def test_tf_keras_autolog_ends_auto_created_run(
-    random_train_data, random_one_hot_labels, fit_variant
-):
+def test_tf_keras_autolog_ends_auto_created_run(random_train_data, random_one_hot_labels):
     # pylint: disable=unused-argument
     mlflow.tensorflow.autolog()
 
@@ -105,10 +102,7 @@ def test_tf_keras_autolog_log_models_configuration(
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
-def test_tf_keras_autolog_persists_manually_created_run(
-    random_train_data, random_one_hot_labels, fit_variant
-):
+def test_tf_keras_autolog_persists_manually_created_run(random_train_data, random_one_hot_labels):
     # pylint: disable=unused-argument
     mlflow.tensorflow.autolog()
     with mlflow.start_run() as run:
@@ -124,9 +118,7 @@ def test_tf_keras_autolog_persists_manually_created_run(
 
 
 @pytest.fixture
-def tf_keras_random_data_run(
-    random_train_data, random_one_hot_labels, manual_run, fit_variant, initial_epoch
-):
+def tf_keras_random_data_run(random_train_data, random_one_hot_labels, manual_run, initial_epoch):
     # pylint: disable=unused-argument
     mlflow.tensorflow.autolog(every_n_iter=5)
 
@@ -134,27 +126,15 @@ def tf_keras_random_data_run(
     labels = random_one_hot_labels
 
     model = create_tf_keras_model()
-
-    if fit_variant == "fit_generator":
-
-        def generator():
-            while True:
-                yield data, labels
-
-        history = model.fit_generator(
-            generator(), epochs=initial_epoch + 10, steps_per_epoch=1, initial_epoch=initial_epoch
-        )
-    else:
-        history = model.fit(
-            data, labels, epochs=initial_epoch + 10, steps_per_epoch=1, initial_epoch=initial_epoch
-        )
+    history = model.fit(
+        data, labels, epochs=initial_epoch + 10, steps_per_epoch=1, initial_epoch=initial_epoch
+    )
 
     client = mlflow.tracking.MlflowClient()
     return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id), history
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 @pytest.mark.parametrize("initial_epoch", [0, 10])
 def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     run, history = tf_keras_random_data_run
@@ -188,7 +168,6 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 @pytest.mark.parametrize("initial_epoch", [0, 10])
 def test_tf_keras_autolog_model_can_load_from_artifact(tf_keras_random_data_run, random_train_data):
     run, _ = tf_keras_random_data_run
@@ -243,7 +222,7 @@ def tf_keras_random_data_run_with_callback(
 @pytest.mark.parametrize("callback", ["early"])
 @pytest.mark.parametrize("patience", [0, 1, 5])
 @pytest.mark.parametrize("initial_epoch", [0, 10])
-def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback):
+def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback, initial_epoch):
     run, history, callback = tf_keras_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params
@@ -257,15 +236,21 @@ def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback
     assert "restored_epoch" in metrics
     assert "epoch_loss" in metrics
     restored_epoch = int(metrics["restored_epoch"])
-    assert int(metrics["stopped_epoch"]) - callback.patience == restored_epoch
+    # In this test, the best epoch is always the first epoch because the early stopping callback
+    # never observes a loss improvement due to an extremely large `min_delta` value
+    assert restored_epoch == initial_epoch
     assert "loss" in history.history
     client = mlflow.tracking.MlflowClient()
     # TF 1.X TB callback logs loss as `epoch_loss`
     metric_history = client.get_metric_history(run.info.run_id, "epoch_loss")
     # Check that MLflow has logged the metrics of the "best" model, in addition to per-epoch metrics
-    assert len(metric_history) == len(history.history["loss"]) + 1
-    # Check that MLflow has logged the correct data
-    assert history.history["loss"][history.epoch.index(restored_epoch)] == metric_history[-1].value
+    loss = history.history["loss"]
+    assert len(metric_history) == len(loss) + 1
+    steps, values = map(list, zip(*[(m.step, m.value) for m in metric_history]))
+    # Check that MLflow has logged the correct steps
+    assert steps == [*history.epoch, callback.stopped_epoch + 1]
+    # Check that MLflow has logged the correct metric values
+    np.testing.assert_allclose(values, [*loss, callback.best])
 
 
 @pytest.mark.large
@@ -283,10 +268,9 @@ def test_tf_keras_autolog_early_stop_no_stop_does_not_log(tf_keras_random_data_r
     assert params["monitor"] == "loss"
     assert "verbose" not in params
     assert "mode" not in params
-    assert "stopped_epoch" in metrics
-    assert "epoch_loss" in metrics
-    assert metrics["stopped_epoch"] == 0
+    assert "stopped_epoch" not in metrics
     assert "restored_epoch" not in metrics
+    assert "epoch_loss" in metrics
     assert "loss" in history.history
     num_of_epochs = len(history.history["loss"])
     client = mlflow.tracking.MlflowClient()
@@ -312,8 +296,8 @@ def test_tf_keras_autolog_early_stop_no_restore_doesnt_log(tf_keras_random_data_
     assert "verbose" not in params
     assert "mode" not in params
     assert "stopped_epoch" in metrics
-    assert "epoch_loss" in metrics
     assert "restored_epoch" not in metrics
+    assert "epoch_loss" in metrics
     assert "loss" in history.history
     num_of_epochs = len(history.history["loss"])
     client = mlflow.tracking.MlflowClient()
@@ -349,9 +333,8 @@ def test_tf_keras_autolog_non_early_stop_callback_no_log(tf_keras_random_data_ru
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 def test_tf_keras_autolog_does_not_delete_logging_directory_for_tensorboard_callback(
-    tmpdir, random_train_data, random_one_hot_labels, fit_variant
+    tmpdir, random_train_data, random_one_hot_labels
 ):
     tensorboard_callback_logging_dir_path = str(tmpdir.mkdir("tb_logs"))
     tensorboard_callback = tf.keras.callbacks.TensorBoard(
@@ -364,26 +347,14 @@ def test_tf_keras_autolog_does_not_delete_logging_directory_for_tensorboard_call
     labels = random_one_hot_labels
 
     model = create_tf_keras_model()
-
-    if fit_variant == "fit_generator":
-
-        def generator():
-            while True:
-                yield data, labels
-
-        model.fit_generator(
-            generator(), epochs=10, steps_per_epoch=1, callbacks=[tensorboard_callback]
-        )
-    else:
-        model.fit(data, labels, epochs=10, callbacks=[tensorboard_callback])
+    model.fit(data, labels, epochs=10, callbacks=[tensorboard_callback])
 
     assert os.path.exists(tensorboard_callback_logging_dir_path)
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboard_callback_absent(
-    tmpdir, random_train_data, random_one_hot_labels, fit_variant
+    tmpdir, random_train_data, random_one_hot_labels
 ):
     from unittest import mock
     from mlflow.tensorflow import _TensorBoardLogDir
@@ -398,16 +369,7 @@ def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboa
         labels = random_one_hot_labels
 
         model = create_tf_keras_model()
-
-        if fit_variant == "fit_generator":
-
-            def generator():
-                while True:
-                    yield data, labels
-
-            model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
-        else:
-            model.fit(data, labels, epochs=10)
+        model.fit(data, labels, epochs=10)
 
         assert not os.path.exists(mock_log_dir_inst.location)
 
@@ -562,3 +524,25 @@ def test_duplicate_autolog_second_overrides(tf_estimator_random_data_run):
     client = mlflow.tracking.MlflowClient()
     metrics = client.get_metric_history(tf_estimator_random_data_run.info.run_id, "loss")
     assert all((x.step - 1) % 4 == 0 for x in metrics)
+
+
+def test_fit_generator(random_train_data, random_one_hot_labels):
+    mlflow.tensorflow.autolog()
+    model = create_tf_keras_model()
+
+    def generator():
+        while True:
+            yield random_train_data, random_one_hot_labels
+
+    with mlflow.start_run() as run:
+        model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
+
+    run = mlflow.tracking.MlflowClient().get_run(run.info.run_id)
+    params = run.data.params
+    metrics = run.data.metrics
+    assert "epochs" in params
+    assert params["epochs"] == "10"
+    assert "steps_per_epoch" in params
+    assert params["steps_per_epoch"] == "1"
+    assert "epoch_acc" in metrics
+    assert "epoch_loss" in metrics

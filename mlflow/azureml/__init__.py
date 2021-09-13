@@ -19,7 +19,7 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import get_unique_resource_id
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, _copy_project
 from mlflow.version import VERSION as mlflow_version
 from pathlib import Path
@@ -28,7 +28,7 @@ from pathlib import Path
 _logger = logging.getLogger(__name__)
 
 
-@experimental
+@deprecated("the azureml deployment plugin, https://aka.ms/aml-mlflow-deploy", since="1.19.0")
 def build_image(
     model_uri,
     workspace,
@@ -237,7 +237,7 @@ def build_image(
         return image, registered_model
 
 
-@experimental
+@deprecated("the azureml deployment plugin, https://aka.ms/aml-mlflow-deploy", since="1.19.0")
 def deploy(
     model_uri,
     workspace,

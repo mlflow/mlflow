@@ -1,96 +1,53 @@
-# The data set used in this example is from 'https://raw.githubusercontent.com/facebook/prophet/master/examples/example_wp_log_peyton_manning.csv'
-
-import warnings
-import sys
-
+import mlflow
+import json
 import pandas as pd
 import numpy as np
+from prophet import Prophet, serialize
+from prophet.diagnostics import cross_validation, performance_metrics
 
-import mlflow
-import mlflow.pyfunc
-
-import cloudpickle
-
-import fbprophet
-from fbprophet import Prophet
-from fbprophet.diagnostics import cross_validation
-from fbprophet.diagnostics import performance_metrics
-
-import logging
-
-logging.basicConfig(level=logging.WARN)
-logger = logging.getLogger(__name__)
+SOURCE_DATA = (
+    "https://raw.githubusercontent.com/facebook/prophet/master/examples/example_retail_sales.csv"
+)
+ARTIFACT_PATH = "model"
+np.random.seed(12345)
 
 
-class FbProphetWrapper(mlflow.pyfunc.PythonModel):
-    def __init__(self, model):
-        self.model = model
-        super().__init__()
-
-    def load_context(self, context):
-        from fbprophet import Prophet
-
-        return
-
-    def predict(self, context, model_input):
-        future = self.model.make_future_dataframe(periods=model_input["periods"][0])
-        return self.model.predict(future)
+def extract_params(pr_model):
+    return {attr: getattr(pr_model, attr) for attr in serialize.SIMPLE_ATTRIBUTES}
 
 
-conda_env = {
-    "channels": ["conda-forge"],
-    "dependencies": [
-        {
-            "pip": [
-                "fbprophet=={}".format(fbprophet.__version__),
-                "cloudpickle=={}".format(cloudpickle.__version__),
-            ]
-        }
-    ],
-    "name": "fbp_env",
-}
+sales_data = pd.read_csv(SOURCE_DATA)
 
+with mlflow.start_run():
 
-if __name__ == "__main__":
-    warnings.filterwarnings("ignore")
-    np.random.seed(40)
+    model = Prophet().fit(sales_data)
 
-    csv_url = (
-        sys.argv[1]
-        if len(sys.argv) > 1
-        else "https://raw.githubusercontent.com/facebook/prophet/e21a05f4f9290649255a2a306855e8b4620816d7/examples/example_wp_log_peyton_manning.csv"
+    params = extract_params(model)
+
+    metric_keys = ["mse", "rmse", "mae", "mape", "mdape", "smape", "coverage"]
+    metrics_raw = cross_validation(
+        model=model,
+        horizon="365 days",
+        period="180 days",
+        initial="710 days",
+        parallel="threads",
+        disable_tqdm=True,
     )
-    rolling_window = float(sys.argv[2]) if len(sys.argv) > 2 else 0.1
+    cv_metrics = performance_metrics(metrics_raw)
+    metrics = {k: cv_metrics[k].mean() for k in metric_keys}
 
-    # Read the csv file from the URL
-    try:
-        df = pd.read_csv(csv_url)
-    except Exception as e:
-        logger.exception(
-            "Unable to download training & test CSV, check your internet connection. Error: %s", e
-        )
+    print(f"Logged Metrics: \n{json.dumps(metrics, indent=2)}")
+    print(f"Logged Params: \n{json.dumps(params, indent=2)}")
 
-    # Useful for multiple runs (only doing one run in this sample notebook)
-    with mlflow.start_run():
-        m = Prophet()
-        m.fit(df)
+    mlflow.prophet.log_model(model, artifact_path=ARTIFACT_PATH)
+    mlflow.log_params(params)
+    mlflow.log_metrics(metrics)
+    model_uri = mlflow.get_artifact_uri(ARTIFACT_PATH)
+    print(f"Model artifact logged to: {model_uri}")
 
-        # Evaluate Metrics
-        df_cv = cross_validation(m, initial="730 days", period="180 days", horizon="365 days")
-        df_p = performance_metrics(df_cv, rolling_window=rolling_window)
 
-        # Print out metrics
-        print("Prophet model (rolling_window=%f):" % (rolling_window))
-        print("  CV: \n%s" % df_cv.head())
-        print("  Perf: \n%s" % df_p.head())
+loaded_model = mlflow.prophet.load_model(model_uri)
 
-        # Log parameter, metrics, and model to MLflow
-        mlflow.log_param("rolling_window", rolling_window)
-        mlflow.log_metric("rmse", df_p.loc[0, "rmse"])
+forecast = loaded_model.predict(loaded_model.make_future_dataframe(60))
 
-        mlflow.pyfunc.log_model("model", conda_env=conda_env, python_model=FbProphetWrapper(m))
-        print(
-            "Logged model with URI: runs:/{run_id}/model".format(
-                run_id=mlflow.active_run().info.run_id
-            )
-        )
+print(f"forecast:\n${forecast.head(30)}")
