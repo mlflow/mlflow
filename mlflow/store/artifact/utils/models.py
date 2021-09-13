@@ -1,17 +1,12 @@
 import urllib.parse
-import logging
 
 import mlflow.tracking
 from mlflow.exceptions import MlflowException
 from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri, is_databricks_uri
 
-_logger = logging.getLogger(__name__)
-_logger.setLevel(logging.INFO)
-
 
 def is_using_databricks_registry(uri):
     profile_uri = get_databricks_profile_uri_from_artifact_uri(uri) or mlflow.get_registry_uri()
-    _logger.info("Checkpoint for databricks_registry === profile_uri: " + str(profile_uri))
     return is_databricks_uri(profile_uri)
 
 

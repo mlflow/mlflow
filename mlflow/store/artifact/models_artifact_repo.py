@@ -1,6 +1,4 @@
 import urllib.parse
-import logging
-import time
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -14,9 +12,6 @@ from mlflow.utils.uri import (
     add_databricks_profile_info_to_artifact_uri,
     get_databricks_profile_uri_from_artifact_uri,
 )
-
-_logger = logging.getLogger(__name__)
-_logger.setLevel(logging.INFO)
 
 
 class ModelsArtifactRepository(ArtifactRepository):
@@ -32,22 +27,12 @@ class ModelsArtifactRepository(ArtifactRepository):
         from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 
         super().__init__(artifact_uri)
-        _logger.info("Checkpoint for ModelsArtifactRepository init === if condition: ")
         if is_using_databricks_registry(artifact_uri):
             # Use the DatabricksModelsArtifactRepository if a databricks profile is being used.
             self.repo = DatabricksModelsArtifactRepository(artifact_uri)
         else:
-            _logger.info("Checkpoint for ModelsArtifactRepository init === else condition: ")
             uri = ModelsArtifactRepository.get_underlying_uri(artifact_uri)
-            _logger.info("ModelsArtifactRepository underlying_uri is: " + str(uri))
-            _logger.info("Getting artifact_repository from underlying_uri ")
-            startcl = time.time()
             self.repo = get_artifact_repository(uri)
-            _logger.info("artifact_repository from underlying_uri is: " + str(self.repo))
-            _logger.info(
-                "Time taken to get_artifact_repository from underlying_uri: "
-                + str(time.time() - startcl)
-            )
             # TODO: it may be nice to fall back to the source URI explicitly here if for some reason
             #  we don't get a download URI here, or fail during the download itself.
 
@@ -64,20 +49,9 @@ class ModelsArtifactRepository(ArtifactRepository):
         databricks_profile_uri = (
             get_databricks_profile_uri_from_artifact_uri(uri) or mlflow.get_registry_uri()
         )
-
-        _logger.info(
-            "Checkpoint for MLFLOW client setup with databricks_profile_uri: "
-            + str(databricks_profile_uri)
-        )
-        startcl = time.time()
         client = MlflowClient(registry_uri=databricks_profile_uri)
-        _logger.info("Time taken to setup a MLFLOW client: " + str(time.time() - startcl))
         (name, version) = get_model_name_and_version(client, uri)
-        _logger.info("Model name: " + str(name) + "  Version: " + str(version))
-        startcl = time.time()
         download_uri = client.get_model_version_download_uri(name, version)
-        _logger.info("download_uri: " + str(download_uri))
-        _logger.info("Time taken to setup a MLFLOW client: " + str(time.time() - startcl))
         return add_databricks_profile_info_to_artifact_uri(download_uri, databricks_profile_uri)
 
     def log_artifact(self, local_file, artifact_path=None):
@@ -133,8 +107,6 @@ class ModelsArtifactRepository(ArtifactRepository):
 
         :return: Absolute path of the local filesystem location containing the desired artifacts.
         """
-
-        _logger.info("Checkpoint self.repo is: " + str(self.repo))
         return self.repo.download_artifacts(artifact_path, dst_path)
 
     def _download_file(self, remote_file_path, local_path):

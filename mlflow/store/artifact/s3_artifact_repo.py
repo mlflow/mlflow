@@ -3,18 +3,12 @@ from mimetypes import guess_type
 
 import posixpath
 import urllib.parse
-import logging
-import time
 
 from mlflow import data
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import relative_path_to_artifact_path
-
-
-_logger = logging.getLogger(__name__)
-_logger.setLevel(logging.INFO)
 
 
 class S3ArtifactRepository(ArtifactRepository):
@@ -116,8 +110,6 @@ class S3ArtifactRepository(ArtifactRepository):
 
     def list_artifacts(self, path=None):
         (bucket, artifact_path) = data.parse_s3_uri(self.artifact_uri)
-
-        _logger.info("\t\t\ts3 list artifacts artifact_path --> " + str(artifact_path))
         dest_path = artifact_path
         if path:
             dest_path = posixpath.join(dest_path, path)
@@ -160,12 +152,9 @@ class S3ArtifactRepository(ArtifactRepository):
             )
 
     def _download_file(self, remote_file_path, local_path):
-        _logger.info("\t\t\t Downloading --> " + str(remote_file_path))
         (bucket, s3_root_path) = data.parse_s3_uri(self.artifact_uri)
         s3_full_path = posixpath.join(s3_root_path, remote_file_path)
-        starts3 = time.time()
         s3_client = self._get_s3_client()
-        _logger.info("\t\t\t Time taken to get_s3_client: " + str(time.time() - starts3))
         s3_client.download_file(bucket, s3_full_path, local_path)
 
     def delete_artifacts(self, artifact_path=None):

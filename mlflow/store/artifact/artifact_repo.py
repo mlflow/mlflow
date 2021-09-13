@@ -2,18 +2,11 @@ import os
 import posixpath
 import tempfile
 from abc import abstractmethod, ABCMeta
-import logging
-import time
-
-import urllib.parse
 
 from mlflow.utils.validation import path_not_unique, bad_path_message
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
-
-_logger = logging.getLogger(__name__)
-_logger.setLevel(logging.INFO)
 
 
 class ArtifactRepository:
@@ -25,7 +18,6 @@ class ArtifactRepository:
     __metaclass__ = ABCMeta
 
     def __init__(self, artifact_uri):
-        _logger.info("Hitting init ====== >>>>>>")
         self.artifact_uri = artifact_uri
 
     @abstractmethod
@@ -92,10 +84,7 @@ class ArtifactRepository:
         src_artifact_path = src_artifact_path.rstrip("/")  # Ensure correct dirname for trailing '/'
         dirpath = posixpath.dirname(src_artifact_path)
         local_dir_path = os.path.join(dst_local_dir_path, dirpath)
-        _logger.info("\t>>>> src_artifact_path: " + str(src_artifact_path))
-        _logger.info("\t>>>> dst_local_dir_path: " + str(dst_local_dir_path))
         local_file_path = os.path.join(dst_local_dir_path, src_artifact_path)
-        _logger.info("\t>>>> local_file_path: " + str(local_file_path))
         if not os.path.exists(local_dir_path):
             os.makedirs(local_dir_path, exist_ok=True)
         return local_file_path
@@ -137,28 +126,13 @@ class ArtifactRepository:
             local_destination_file_path = self._create_download_destination(
                 src_artifact_path=src_artifact_path, dst_local_dir_path=dst_local_dir_path
             )
-            _logger.info("\t\t local_destination_file_path: " + str(local_destination_file_path))
-            startdf = time.time()
             self._download_file(
                 remote_file_path=src_artifact_path, local_path=local_destination_file_path
-            )
-            _logger.info(
-                "\t\t\t Time taken to download artifact: "
-                + str(src_artifact_path)
-                + " is\t "
-                + str(time.time() - startdf)
             )
             return local_destination_file_path
 
         def download_artifact_dir(src_artifact_dir_path, dst_local_dir_path):
-            _logger.info(
-                "\t Downloading from directory: "
-                + str(src_artifact_dir_path)
-                + " to local reference: "
-                + str(dst_local_dir_path)
-            )
             local_dir = os.path.join(dst_local_dir_path, src_artifact_dir_path)
-            _logger.info("\t Final local directory: " + str(local_dir))
             dir_content = [  # prevent infinite loop, sometimes the dir is recursively included
                 file_info
                 for file_info in self.list_artifacts(src_artifact_dir_path)
@@ -178,27 +152,11 @@ class ArtifactRepository:
                         download_artifact(
                             src_artifact_path=file_info.path, dst_local_dir_path=dst_local_dir_path
                         )
-            _logger.info("\t Download done for: " + str(local_dir))
             return local_dir
 
-        _logger.info("========>  Started downloading artifacts with ")
-        if artifact_path is not None:
-            if len(artifact_path) != 0:
-                _logger.info("artifact_path: " + str(artifact_path))
-            else:
-                _logger.info("artifact_path is empty")
-        else:
-            _logger.info("artifact_path: None")
-        if dst_path is not None:
-            _logger.info("dst_path: " + str(dst_path))
-        else:
-            _logger.info("dst_path: None")
         if dst_path is None:
             dst_path = tempfile.mkdtemp()
         dst_path = os.path.abspath(dst_path)
-        _logger.info(
-            "Final dst_path (Temporary folder for artifacts downloading) : )" + str(dst_path)
-        )
 
         if not os.path.exists(dst_path):
             raise MlflowException(
@@ -219,12 +177,10 @@ class ArtifactRepository:
 
         # Check if the artifacts points to a directory
         if self._is_directory(artifact_path):
-            _logger.info("artifact_path is a directory ----------------------------> ")
             return download_artifact_dir(
                 src_artifact_dir_path=artifact_path, dst_local_dir_path=dst_path
             )
         else:
-            _logger.info("artifact_path is a file_path ----------------------------> ")
             return download_artifact(src_artifact_path=artifact_path, dst_local_dir_path=dst_path)
 
     @abstractmethod
