@@ -235,13 +235,9 @@ class SqlAlchemyStore(AbstractStore):
                     lifecycle_stage=LifecycleStage.ACTIVE,
                     artifact_location=artifact_location,
                 )
-                experiment_tags_dict = {}
-                if experiment_tags:
-                    for tag in experiment_tags:
-                        experiment_tags_dict[tag.key] = tag.value
                 experiment.tags = [
-                    SqlExperimentTag(key=key, value=value)
-                    for key, value in experiment_tags_dict.items()
+                    SqlExperimentTag(key=tag.key, value=tag.value)
+                    for tag in experiment_tags
                 ]
                 session.add(experiment)
                 if not artifact_location:
@@ -441,10 +437,7 @@ class SqlAlchemyStore(AbstractStore):
                 lifecycle_stage=LifecycleStage.ACTIVE,
             )
 
-            tags_dict = {}
-            for tag in tags:
-                tags_dict[tag.key] = tag.value
-            run.tags = [SqlTag(key=key, value=value) for key, value in tags_dict.items()]
+            run.tags = [SqlTag(key=tag.key, value=tag.value) for tag in tags]
             self._save_to_db(objs=run, session=session)
 
             return run.to_mlflow_entity()
