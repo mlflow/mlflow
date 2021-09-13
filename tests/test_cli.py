@@ -166,7 +166,8 @@ def test_mlflow_gc_not_deleted_run(file_store):
     assert len(runs) == 1
 
 
-def test_mlflow_models_serve():
+@pytest.mark.parametrize("extra_args", [[], ["--mlserver"]])
+def test_mlflow_models_serve(extra_args):
     class MyModel(pyfunc.PythonModel):
         def predict(self, context, model_input):  # pylint: disable=unused-variable
             return np.array([1, 2, 3])
@@ -183,7 +184,7 @@ def test_mlflow_models_serve():
         model_uri=model_uri,
         data=data,
         content_type=pyfunc.scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        extra_args=["--no-conda"],
+        extra_args=["--no-conda"] + extra_args,
     )
     assert scoring_response.status_code == 200
     served_model_preds = np.array(json.loads(scoring_response.content))
