@@ -473,7 +473,8 @@ class MlflowClient(object):
         :param artifact_location: The location to store run artifacts.
                                   If not provided, the server picks an appropriate default.
         :param experiment_tags: A dictionary of key-value pairs that are converted into
-                                :py:class:`mlflow.entities.ExperimentTag` objects.
+                                :py:class:`mlflow.entities.ExperimentTag` objects, set as
+                                experiment tags upon experiment creation.
         :return: String as an integer ID of the created experiment.
 
         .. code-block:: python
