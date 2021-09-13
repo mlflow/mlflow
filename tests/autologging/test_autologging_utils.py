@@ -764,7 +764,7 @@ _module_version_info_dict_patch = {
         "package_info": {"pip_release": "mxnet"},
         "autologging": {"minimum": "1.5.1", "maximum": "1.7.0.post1"},
     },
-    "fastai-2.x": {
+    "fastai": {
         "package_info": {"pip_release": "fastai"},
         "autologging": {"minimum": "2.4.1", "maximum": "2.4.1"},
     },
@@ -783,6 +783,7 @@ _module_version_info_dict_patch = {
     "flavor,module_version,expected_result",
     [
         ("fastai", "2.4.1", True),
+        ("fastai", "2.3.1", False),
         ("fastai", "1.0.60", False),
         ("gluon", "1.6.1", True),
         ("gluon", "1.5.0", False),

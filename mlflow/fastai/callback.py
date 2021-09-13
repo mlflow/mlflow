@@ -6,14 +6,14 @@ from functools import partial
 import matplotlib.pyplot as plt
 
 import mlflow.tracking
-from mlflow.utils.autologging_utils import try_mlflow_log
+from mlflow.utils.autologging_utils import ExceptionSafeClass, try_mlflow_log
 from mlflow.fastai import log_model
 
 from fastai.callback.core import Callback
 
 
 # Move outside, because it cannot be pickled. Besides, ExceptionSafeClass was giving some issues
-class __MLflowFastaiCallback(Callback):
+class __MLflowFastaiCallback(Callback, metaclass=ExceptionSafeClass):
     """
     Callback for auto-logging metrics and parameters.
     Records model structural information as params when training begins.

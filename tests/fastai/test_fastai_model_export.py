@@ -49,12 +49,7 @@ def fastai_model():
 
 @pytest.fixture
 def model_path(tmpdir):
-    path = os.path.join(str(tmpdir), "model")
-    # Seems like Windows absolute path are not currently supported by MLFlow
-    # then they are transformed to relative path
-    if path.lower().startswith("c:"):
-        path = path[2:]
-    return path
+    return os.path.join(str(tmpdir), "model")
 
 
 @pytest.fixture
