@@ -461,7 +461,7 @@ class MlflowClient(object):
         """
         return self._tracking_client.get_experiment_by_name(name)
 
-    def create_experiment(self, name: str, artifact_location: Optional[str] = None, experiment_tags: Optional[Dict[str, any]] = None) -> str:
+    def create_experiment(self, name: str, artifact_location: Optional[str] = None, experiment_tags: Optional[Dict[str, Any]] = None) -> str:
         """Create an experiment.
 
         :param name: The experiment name. Must be unique.
