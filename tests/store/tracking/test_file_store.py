@@ -279,6 +279,16 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                     exp.artifact_location, expected_artifact_uri_format.format(e=exp_id)
                 )
 
+    def test_create_experiment_with_tags_works_correctly(self):
+        fs = FileStore(self.test_root)
+
+        created_id = fs.create_experiment("heresAnExperiment", "heresAnArtifact", [ExperimentTag("key1", "val1"), ExperimentTag("key2", "val2")])
+        # fs.set_experiment_tag(created_id, ExperimentTag("testKey", "testVal"))
+        experiment = fs.get_experiment(created_id)
+        assert len(experiment.tags) == 2
+        assert experiment.tags["key1"] == "val1"
+        assert experiment.tags["key2"] == "val2"
+
     def test_create_duplicate_experiments(self):
         fs = FileStore(self.test_root)
         for exp_id in self.experiments:

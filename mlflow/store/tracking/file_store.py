@@ -279,13 +279,12 @@ class FileStore(AbstractStore):
         self._check_root_dir()
         meta_dir = mkdir(self.root_directory, str(experiment_id))
         experiment = Experiment(experiment_id, name, artifact_uri, LifecycleStage.ACTIVE)
-        for tag in experiment_tags:
-            self.set_experiment_tag(experiment_id, tag)
         experiment_dict = dict(experiment)
         # tags are added to the file system and are not written to this dict on write
         # As such, we should not include them in the meta file.
         del experiment_dict["tags"]
         write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, experiment_dict)
+        [self.set_experiment_tag(experiment_id, tag) for tag in experiment_tags]
         return experiment_id
 
     def _validate_experiment_name(self, name):
@@ -310,7 +309,7 @@ class FileStore(AbstractStore):
                     databricks_pb2.RESOURCE_ALREADY_EXISTS,
                 )
 
-    def create_experiment(self, name, artifact_location=None, experiment_tags=None):
+    def create_experiment(self, name, artifact_location=None, experiment_tags=[]):
         self._check_root_dir()
         self._validate_experiment_name(name)
         # Get all existing experiments and find the one with largest numerical ID.
