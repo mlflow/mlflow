@@ -349,20 +349,38 @@ def _serve(model_uri, port, host):
     init(pyfunc_model).run(port=port, host=host)
 
 
-def get_cmd(model_uri: str, port: str, host: int, nworkers: int) -> Tuple[str, Dict[str, str]]:
+def get_cmd(
+    model_uri: str, port: str = None, host: int = None, nworkers: int = None
+) -> Tuple[str, Dict[str, str]]:
     local_uri = path_to_local_file_uri(model_uri)
     # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
     # platform compatibility.
     if os.name != "nt":
+        args = ["--timeout=60"]
+        if port and host:
+            args.append(f"-b {host}:{port}")
+        elif host:
+            args.append(f"-b {host}")
+
+        if nworkers:
+            args.append(f"-w {nworkers}")
+
         command = (
-            "gunicorn --timeout=60 -b {host}:{port} -w {nworkers} ${{GUNICORN_CMD_ARGS}}"
+            f"gunicorn {' '.join(args)} ${{GUNICORN_CMD_ARGS}}"
             " -- mlflow.pyfunc.scoring_server.wsgi:app"
-        ).format(host=host, port=port, nworkers=nworkers)
+        )
     else:
+        args = []
+        if host:
+            args.append(f"--host={host}")
+
+        if port:
+            args.append(f"--port={port}")
+
         command = (
-            "waitress-serve --host={host} --port={port} "
+            f"waitress-serve {' '.join(args)} "
             "--ident=mlflow mlflow.pyfunc.scoring_server.wsgi:app"
-        ).format(host=host, port=port)
+        )
 
     command_env = os.environ.copy()
     command_env[_SERVER_MODEL_PATH] = local_uri
