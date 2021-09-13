@@ -325,7 +325,7 @@ Here is an example plot of the :ref:`quick start tutorial <quickstart>` with the
 Automatic Logging
 =================
 
-Automatic logging allows you to log metrics, parameters, and models without the need for explicit log statements. 
+Automatic logging allows you to log metrics, parameters, and models without the need for explicit log statements.
 
 There are two ways to use autologging:
 
@@ -826,14 +826,16 @@ To store artifacts in Azure Blob Storage, specify a URI of the form
 ``wasbs://<container>@<storage-account>.blob.core.windows.net/<path>``.
 MLflow expects Azure Storage access credentials in the
 ``AZURE_STORAGE_CONNECTION_STRING``, ``AZURE_STORAGE_ACCESS_KEY`` environment variables
-or having your credentials configured such that the `DefaultAzureCredential() <https://github.com/Azure/azure-sdk-for-python/tree/azure-storage-blob_12.7.0/sdk/identity/azure-identity#defaultazurecredential>`_. class can pick them up.
+or having your credentials configured such that the `DefaultAzureCredential()
+<https://docs.microsoft.com/en-us/python/api/overview/azure/identity-readme?view=azure-python>`_. class can pick them up.
 The order of precedence is:
 #. ``AZURE_STORAGE_CONNECTION_STRING``
 #. ``AZURE_STORAGE_ACCESS_KEY``
 #. ``DefaultAzureCredential()``
 You must set one of these options on both your client application and your MLflow tracking server.
-Finally, if you want to use DefaultAzureCredential, you must ``pip install azure-identity`` to access the storage;
-MLflow does not declare a dependency on this package by default.
+Also, you must run ``pip install azure-storage-blob`` separately (on both your client and the server) to access Azure Blob Storage.
+Finally, if you want to use DefaultAzureCredential, you must ``pip install azure-identity``;
+MLflow does not declare a dependency on these packages by default.
 
 Google Cloud Storage
 ^^^^^^^^^^^^^^^^^^^^
