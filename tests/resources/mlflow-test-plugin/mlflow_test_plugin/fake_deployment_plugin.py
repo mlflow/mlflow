@@ -27,6 +27,9 @@ class PluginDeploymentClient(BaseDeploymentClient):
     def predict(self, deployment_name, df):
         return "1"
 
+    def explain(self, deployment_name, df):
+        return "1"
+
 
 def run_local(name, model_uri, flavor=None, config=None):
     print(

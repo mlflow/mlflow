@@ -1,6 +1,5 @@
 import React, { Component } from 'react';
 import { AllHtmlEntities } from 'html-entities';
-import Plot from 'react-plotly.js';
 import PropTypes from 'prop-types';
 import { getParams, getRunInfo } from '../reducers/Reducers';
 import { connect } from 'react-redux';
@@ -10,6 +9,8 @@ import Utils from '../../common/utils/Utils';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import './CompareRunScatter.css';
 import CompareRunUtil from './CompareRunUtil';
+import { FormattedMessage } from 'react-intl';
+import { LazyPlot } from './LazyPlot';
 
 export class CompareRunScatterImpl extends Component {
   static propTypes = {
@@ -107,16 +108,26 @@ export class CompareRunScatterImpl extends Component {
           <div className='row'>
             <form className='col-xs-3'>
               <div className='form-group'>
-                <label htmlFor='y-axis-selector'>X-axis:</label>
+                <label htmlFor='y-axis-selector'>
+                  <FormattedMessage
+                    defaultMessage='X-axis:'
+                    description='Label text for x-axis in scatter plot comparison in MLflow'
+                  />
+                </label>
                 {this.renderSelect('x')}
               </div>
               <div className='form-group'>
-                <label htmlFor='y-axis-selector'>Y-axis:</label>
+                <label htmlFor='y-axis-selector'>
+                  <FormattedMessage
+                    defaultMessage='Y-axis:'
+                    description='Label text for y-axis in scatter plot comparison in MLflow'
+                  />
+                </label>
                 {this.renderSelect('y')}
               </div>
             </form>
             <div className='col-xs-9'>
-              <Plot
+              <LazyPlot
                 data={[
                   {
                     x: xs,

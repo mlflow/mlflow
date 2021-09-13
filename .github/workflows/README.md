@@ -50,5 +50,11 @@ python dev/set_matrix.py --ref-versions-yaml $REF_VERSIONS_YAML --changed-files 
 ## How to run doctests in `dev/set_matrix.py`
 
 ```sh
-pytest dev/set_matrix.py --doctest-modules --verbose
+pytest dev/set_matrix.py --doctest-modules
 ```
+
+## How to run tests for dev versions on a pull request:
+
+1. Click `Labels` in the right sidebar.
+2. Select the `enable-dev-tests` label.
+3. Push a commit or re-run the `Cross version tests` workflow.

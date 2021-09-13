@@ -1,5 +1,4 @@
 import React from 'react';
-import { mount } from 'enzyme';
 import { ModelVersionView, ModelVersionViewImpl } from './ModelVersionView';
 import { mockModelVersionDetailed } from '../test-utils';
 import { Stages, ModelVersionStatus, ACTIVE_STAGES } from '../constants';
@@ -13,6 +12,7 @@ import { ModelVersionTag } from '../sdk/ModelRegistryMessages';
 import { Provider } from 'react-redux';
 import { mockRunInfo } from '../../experiment-tracking/utils/test-utils/ReduxStoreFixtures';
 import Routers from '../../experiment-tracking/routes';
+import { mountWithIntl } from '../../common/utils/TestUtils';
 
 describe('ModelVersionView', () => {
   let wrapper;
@@ -61,7 +61,7 @@ describe('ModelVersionView', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <ModelVersionView {...minimalProps} />
@@ -76,14 +76,14 @@ describe('ModelVersionView', () => {
       ...minimalProps,
       modelVersion: mockModelVersionDetailed('Model A', 1, Stages.NONE, ModelVersionStatus.READY),
     };
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <ModelVersionView {...props} />
         </BrowserRouter>
       </Provider>,
     );
-    expect(wrapper.find('.breadcrumb-header').find(Dropdown).length).toBe(1);
+    expect(wrapper.find('[data-test-id="breadCrumbMenuDropdown"]').find(Dropdown).length).toBe(1);
   });
 
   test('should disable dropdown delete menu item when model version is in active stage', () => {
@@ -98,7 +98,7 @@ describe('ModelVersionView', () => {
           ModelVersionStatus.READY,
         ),
       };
-      wrapper = mount(
+      wrapper = mountWithIntl(
         <Provider store={minimalStore}>
           <BrowserRouter>
             <ModelVersionView {...props} />
@@ -106,8 +106,8 @@ describe('ModelVersionView', () => {
         </Provider>,
       );
       wrapper
-        .find('.breadcrumb-dropdown')
-        .hostNodes()
+        .find("[data-test-id='breadCrumbMenuDropdown']")
+        .at(0)
         .simulate('click');
       // The antd `Menu.Item` component converts the `disabled` attribute to `aria-disabled`
       // when generating HTML. Accordingly, we check for the presence of the `aria-disabled`
@@ -131,7 +131,7 @@ describe('ModelVersionView', () => {
           ModelVersionStatus.READY,
         ),
       };
-      wrapper = mount(
+      wrapper = mountWithIntl(
         <Provider store={minimalStore}>
           <BrowserRouter>
             <ModelVersionView {...props} />
@@ -139,8 +139,8 @@ describe('ModelVersionView', () => {
         </Provider>,
       );
       wrapper
-        .find('.breadcrumb-dropdown')
-        .hostNodes()
+        .find("[data-test-id='breadCrumbMenuDropdown']")
+        .at(0)
         .simulate('click');
       const deleteMenuItem = wrapper.find('.delete').hostNodes();
       const tooltip = deleteMenuItem.find(Tooltip);
@@ -161,7 +161,7 @@ describe('ModelVersionView', () => {
           ModelVersionStatus.READY,
         ),
       };
-      wrapper = mount(
+      wrapper = mountWithIntl(
         <Provider store={minimalStore}>
           <BrowserRouter>
             <ModelVersionView {...props} />
@@ -169,8 +169,8 @@ describe('ModelVersionView', () => {
         </Provider>,
       );
       wrapper
-        .find('.breadcrumb-dropdown')
-        .hostNodes()
+        .find("[data-test-id='breadCrumbMenuDropdown']")
+        .at(0)
         .simulate('click');
       // The antd `Menu.Item` component converts the `disabled` attribute to `aria-disabled`
       // when generating HTML. Accordingly, we check for the presence of the `aria-disabled`
@@ -204,7 +204,7 @@ describe('ModelVersionView', () => {
       runInfo: runInfo,
       runDisplayName: expectedRunDisplayName,
     };
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <ModelVersionView {...props} />
@@ -226,7 +226,7 @@ describe('ModelVersionView', () => {
       runInfo: runInfo,
       runDisplayName: expectedRunDisplayName,
     };
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <ModelVersionView {...props} />
@@ -240,7 +240,7 @@ describe('ModelVersionView', () => {
   test('Page title is set', () => {
     const mockUpdatePageTitle = jest.fn();
     Utils.updatePageTitle = mockUpdatePageTitle;
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <ModelVersionView {...minimalProps} />
@@ -251,7 +251,7 @@ describe('ModelVersionView', () => {
   });
 
   test('should tags rendered in the UI', () => {
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <ModelVersionView {...minimalProps} />

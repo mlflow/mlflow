@@ -17,14 +17,31 @@ from pytorch_lightning.callbacks import (
 )
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
+from sklearn.datasets import fetch_20newsgroups
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from transformers import BertModel, BertTokenizer, AdamW
-from torchtext.utils import download_from_url, extract_archive
-from torchtext.datasets.text_classification import URLS
+import torchtext.datasets as td
 
 
-class AGNewsDataset(Dataset):
+def get_20newsgroups(num_samples):
+    categories = ["alt.atheism", "talk.religion.misc", "comp.graphics", "sci.space"]
+    X, y = fetch_20newsgroups(subset="train", categories=categories, return_X_y=True)
+    return pd.DataFrame(data=X, columns=["description"]).assign(label=y).sample(n=num_samples)
+
+
+def get_ag_news(num_samples):
+    # reading the input
+    td.AG_NEWS(root="data", split=("train", "test"))
+    train_csv_path = "data/AG_NEWS/train.csv"
+    return (
+        pd.read_csv(train_csv_path, usecols=[0, 2], names=["label", "description"])
+        .assign(label=lambda df: df["label"] - 1)  # make labels zero-based
+        .sample(n=num_samples)
+    )
+
+
+class NewsDataset(Dataset):
     def __init__(self, reviews, targets, tokenizer, max_length):
         """
         Performs initialization of tokenizer
@@ -95,40 +112,19 @@ class BertDataModule(pl.LightningDataModule):
         self.tokenizer = None
         self.args = kwargs
 
-    def to_label(self, rating):
-        """
-        Returns the rating minus one to make it for zero position start
-        """
-        rating = int(rating)
-        return rating - 1
-
-    def prepare_data(self):
-        """
-        Implementation of abstract class
-        """
-
     def setup(self, stage=None):
         """
         Downloads the data, parse it and split the data into train, test, validation data
 
         :param stage: Stage - training or testing
         """
-        # reading  the input
-        dataset_tar = download_from_url(URLS["AG_NEWS"], root=".data")
-        extracted_files = extract_archive(dataset_tar)
 
-        train_csv_path = None
-        for fname in extracted_files:
-            if fname.endswith("train.csv"):
-                train_csv_path = fname
-
-        df = pd.read_csv(train_csv_path)
-
-        df.columns = ["label", "title", "description"]
-        df.sample(frac=1)
-        df = df.iloc[: self.args["num_samples"]]
-
-        df["label"] = df.label.apply(self.to_label)
+        num_samples = self.args["num_samples"]
+        df = (
+            get_20newsgroups(num_samples)
+            if self.args["dataset"] == "20newsgroups"
+            else get_ag_news(num_samples)
+        )
 
         self.tokenizer = BertTokenizer.from_pretrained(self.PRE_TRAINED_MODEL_NAME)
 
@@ -184,7 +180,7 @@ class BertDataModule(pl.LightningDataModule):
 
         :return: Returns the constructed dataloader
         """
-        ds = AGNewsDataset(
+        ds = NewsDataset(
             reviews=df.description.to_numpy(),
             targets=df.label.to_numpy(),
             tokenizer=tokenizer,
@@ -235,7 +231,11 @@ class BertNewsClassifier(pl.LightningModule):
             param.requires_grad = False
         self.drop = nn.Dropout(p=0.2)
         # assigning labels
-        self.class_names = ["world", "Sports", "Business", "Sci/Tech"]
+        self.class_names = (
+            ["alt.atheism", "talk.religion.misc", "comp.graphics", "sci.space"]
+            if kwargs["dataset"] == "20newsgroups"
+            else ["world", "Sports", "Business", "Sci/Tech"]
+        )
         n_classes = len(self.class_names)
 
         self.fc1 = nn.Linear(self.bert_model.config.hidden_size, 512)
@@ -372,6 +372,13 @@ if __name__ == "__main__":
         metavar="N",
         help="Number of samples to be used for training and evaluation steps (default: 15000) Maximum:100000",
     )
+    parser.add_argument(
+        "--dataset",
+        default="20newsgroups",
+        metavar="DATASET",
+        help="Dataset to use",
+        choices=["20newsgroups", "ag_news"],
+    )
 
     parser = pl.Trainer.add_argparse_args(parent_parser=parser)
     parser = BertNewsClassifier.add_model_specific_args(parent_parser=parser)
@@ -387,19 +394,18 @@ if __name__ == "__main__":
             dict_args["accelerator"] = None
 
     dm = BertDataModule(**dict_args)
-    dm.prepare_data()
     dm.setup(stage="fit")
 
     model = BertNewsClassifier(**dict_args)
     early_stopping = EarlyStopping(monitor="val_loss", mode="min", verbose=True)
 
     checkpoint_callback = ModelCheckpoint(
-        filepath=os.getcwd(), save_top_k=1, verbose=True, monitor="val_loss", mode="min", prefix="",
+        dirpath=os.getcwd(), save_top_k=1, verbose=True, monitor="val_loss", mode="min",
     )
     lr_logger = LearningRateMonitor()
 
     trainer = pl.Trainer.from_argparse_args(
-        args, callbacks=[lr_logger, early_stopping], checkpoint_callback=checkpoint_callback
+        args, callbacks=[lr_logger, early_stopping, checkpoint_callback], checkpoint_callback=True
     )
     trainer.fit(model, dm)
     trainer.test()

@@ -18,10 +18,17 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature, ModelSignature
 from mlflow.models.utils import _read_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.types import Schema, ColSpec
+from mlflow.types import Schema, ColSpec, TensorSpec
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
+from tests.helper_functions import _assert_pip_requirements
+
+
+class TestModel(object):
+    @staticmethod
+    def predict(pdf):
+        return pdf
 
 
 def _load_pyfunc(path):
@@ -34,8 +41,12 @@ def pyfunc_custom_env_file(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
     _mlflow_conda_env(
         conda_env,
-        additional_conda_deps=["scikit-learn", "pytest", "cloudpickle"],
-        additional_pip_deps=["-e " + os.path.dirname(mlflow.__path__[0])],
+        additional_pip_deps=[
+            "scikit-learn",
+            "pytest",
+            "cloudpickle",
+            "-e " + os.path.dirname(mlflow.__path__[0]),
+        ],
     )
     return conda_env
 
@@ -43,8 +54,12 @@ def pyfunc_custom_env_file(tmpdir):
 @pytest.fixture
 def pyfunc_custom_env_dict():
     return _mlflow_conda_env(
-        additional_conda_deps=["scikit-learn", "pytest", "cloudpickle"],
-        additional_pip_deps=["-e " + os.path.dirname(mlflow.__path__[0])],
+        additional_pip_deps=[
+            "scikit-learn",
+            "pytest",
+            "cloudpickle",
+            "-e " + os.path.dirname(mlflow.__path__[0]),
+        ],
     )
 
 
@@ -79,7 +94,7 @@ def test_model_save_load(sklearn_knn_model, iris_data, tmpdir, model_path):
     mlflow.pyfunc.save_model(
         path=model_path,
         data_path=sk_model_path,
-        loader_module=os.path.basename(__file__)[:-3],
+        loader_module=__name__,
         code_path=[__file__],
         mlflow_model=model_config,
     )
@@ -110,7 +125,7 @@ def test_signature_and_examples_are_saved_correctly(sklearn_knn_model, iris_data
                 mlflow.pyfunc.save_model(
                     path=path,
                     data_path=tmp.path("skmodel"),
-                    loader_module=os.path.basename(__file__)[:-3],
+                    loader_module=__name__,
                     code_path=[__file__],
                     signature=signature,
                     input_example=example,
@@ -120,15 +135,10 @@ def test_signature_and_examples_are_saved_correctly(sklearn_knn_model, iris_data
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:
-                    assert all((_read_example(mlflow_model, path) == example).all())
+                    assert np.array_equal(_read_example(mlflow_model, path), example)
 
 
-def test_schema_enforcement():
-    class TestModel(object):
-        @staticmethod
-        def predict(pdf):
-            return pdf
-
+def test_column_schema_enforcement():
     m = Model()
     input_schema = Schema(
         [
@@ -139,32 +149,36 @@ def test_schema_enforcement():
             ColSpec("boolean", "e"),
             ColSpec("string", "g"),
             ColSpec("binary", "f"),
+            ColSpec("datetime", "h"),
         ]
     )
     m.signature = ModelSignature(inputs=input_schema)
     pyfunc_model = PyFuncModel(model_meta=m, model_impl=TestModel())
     pdf = pd.DataFrame(
-        data=[[1, 2, 3, 4, True, "x", bytes([1])]],
-        columns=["b", "d", "a", "c", "e", "g", "f"],
+        data=[[1, 2, 3, 4, True, "x", bytes([1]), "2021-01-01 00:00:00.1234567"]],
+        columns=["b", "d", "a", "c", "e", "g", "f", "h"],
         dtype=np.object,
     )
     pdf["a"] = pdf["a"].astype(np.int32)
     pdf["b"] = pdf["b"].astype(np.int64)
     pdf["c"] = pdf["c"].astype(np.float32)
     pdf["d"] = pdf["d"].astype(np.float64)
+    pdf["h"] = pdf["h"].astype(np.datetime64)
     # test that missing column raises
     with pytest.raises(MlflowException) as ex:
-        res = pyfunc_model.predict(pdf[["b", "d", "a", "e", "g", "f"]])
-    assert "Model input is missing columns" in str(ex)
+        res = pyfunc_model.predict(pdf[["b", "d", "a", "e", "g", "f", "h"]])
+    assert "Model is missing inputs" in str(ex)
 
     # test that extra column is ignored
     pdf["x"] = 1
 
     # test that columns are reordered, extra column is ignored
     res = pyfunc_model.predict(pdf)
-    assert all((res == pdf[input_schema.column_names()]).all())
+    assert all((res == pdf[input_schema.input_names()]).all())
 
-    expected_types = dict(zip(input_schema.column_names(), input_schema.pandas_types()))
+    expected_types = dict(zip(input_schema.input_names(), input_schema.pandas_types()))
+    # MLflow datetime type in input_schema does not encode precision, so add it for assertions
+    expected_types["h"] = np.dtype("datetime64[ns]")
     actual_types = res.dtypes.to_dict()
     assert expected_types == actual_types
 
@@ -178,14 +192,14 @@ def test_schema_enforcement():
     # 2. integer -> long works
     pdf["b"] = pdf["b"].astype(np.int32)
     res = pyfunc_model.predict(pdf)
-    assert all((res == pdf[input_schema.column_names()]).all())
+    assert all((res == pdf[input_schema.input_names()]).all())
     assert res.dtypes.to_dict() == expected_types
     pdf["b"] = pdf["b"].astype(np.int64)
 
     # 3. unsigned int -> long works
     pdf["b"] = pdf["b"].astype(np.uint32)
     res = pyfunc_model.predict(pdf)
-    assert all((res == pdf[input_schema.column_names()]).all())
+    assert all((res == pdf[input_schema.input_names()]).all())
     assert res.dtypes.to_dict() == expected_types
     pdf["b"] = pdf["b"].astype(np.int64)
 
@@ -225,7 +239,7 @@ def test_schema_enforcement():
     # 8. int -> double works
     pdf["d"] = pdf["d"].astype(np.int32)
     pyfunc_model.predict(pdf)
-    assert all((res == pdf[input_schema.column_names()]).all())
+    assert all((res == pdf[input_schema.input_names()]).all())
     assert res.dtypes.to_dict() == expected_types
 
     # 9. long -> double raises
@@ -267,12 +281,18 @@ def test_schema_enforcement():
     res = pyfunc_model.predict(pdf)
     assert res.dtypes.to_dict() == expected_types
 
-    # 8. np.ndarrays can be converted to dataframe but have no columns
+    # 12. datetime64[D] (date only) -> datetime64[x] works
+    pdf["h"] = pdf["h"].astype("datetime64[D]")
+    res = pyfunc_model.predict(pdf)
+    assert res.dtypes.to_dict() == expected_types
+    pdf["h"] = pdf["h"].astype("datetime64[s]")
+
+    # 13. np.ndarrays can be converted to dataframe but have no columns
     with pytest.raises(MlflowException) as ex:
         pyfunc_model.predict(pdf.values)
-    assert "Model input is missing columns" in str(ex)
+    assert "Model is missing inputs" in str(ex)
 
-    # 9. dictionaries of str -> list/nparray work
+    # 14. dictionaries of str -> list/nparray work
     arr = np.array([1, 2, 3])
     d = {
         "a": arr.astype("int32"),
@@ -282,11 +302,12 @@ def test_schema_enforcement():
         "e": [True, False, True],
         "g": ["a", "b", "c"],
         "f": [bytes(0), bytes(1), bytes(1)],
+        "h": np.array(["2020-01-01", "2020-02-02", "2020-03-03"], dtype=np.datetime64),
     }
     res = pyfunc_model.predict(d)
     assert res.dtypes.to_dict() == expected_types
 
-    # 10. dictionaries of str -> list[list] fail
+    # 15. dictionaries of str -> list[list] fail
     d = {
         "a": [arr.astype("int32")],
         "b": [arr.astype("int64")],
@@ -295,12 +316,13 @@ def test_schema_enforcement():
         "e": [[True, False, True]],
         "g": [["a", "b", "c"]],
         "f": [[bytes(0), bytes(1), bytes(1)]],
+        "h": [np.array(["2020-01-01", "2020-02-02", "2020-03-03"], dtype=np.datetime64)],
     }
     with pytest.raises(MlflowException) as ex:
         pyfunc_model.predict(d)
     assert "Incompatible input types" in str(ex)
 
-    # 11. conversion to dataframe fails
+    # 16. conversion to dataframe fails
     d = {
         "a": [1],
         "b": [1, 2],
@@ -308,15 +330,178 @@ def test_schema_enforcement():
     }
     with pytest.raises(MlflowException) as ex:
         pyfunc_model.predict(d)
-    assert "This model contains a model signature, which suggests a DataFrame input." in str(ex)
+    assert "This model contains a column-based signature, which suggests a DataFrame input." in str(
+        ex
+    )
+
+
+def _compare_exact_tensor_dict_input(d1, d2):
+    """Return whether two dicts of np arrays are exactly equal"""
+    if d1.keys() != d2.keys():
+        return False
+    return all(np.array_equal(d1[key], d2[key]) for key in d1)
+
+
+def test_tensor_multi_named_schema_enforcement():
+    m = Model()
+    input_schema = Schema(
+        [
+            TensorSpec(np.dtype(np.uint64), (-1, 5), "a"),
+            TensorSpec(np.dtype(np.short), (-1, 2), "b"),
+            TensorSpec(np.dtype(np.float32), (2, -1, 2), "c"),
+        ]
+    )
+    m.signature = ModelSignature(inputs=input_schema)
+    pyfunc_model = PyFuncModel(model_meta=m, model_impl=TestModel())
+    inp = {
+        "a": np.array([[0, 0, 0, 0, 0], [1, 1, 1, 1, 1]], dtype=np.uint64),
+        "b": np.array([[0, 0], [1, 1], [2, 2]], dtype=np.short),
+        "c": np.array([[[0, 0], [1, 1]], [[2, 2], [3, 3]]], dtype=np.float32),
+    }
+
+    # test that missing column raises
+    inp1 = {k: v for k, v in inp.items()}
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict(inp1.pop("b"))
+    assert "Model is missing inputs" in str(ex)
+
+    # test that extra column is ignored
+    inp2 = {k: v for k, v in inp.items()}
+    inp2["x"] = 1
+
+    # test that extra column is removed
+    res = pyfunc_model.predict(inp2)
+    assert res == {k: v for k, v in inp.items() if k in {"a", "b", "c"}}
+    expected_types = dict(zip(input_schema.input_names(), input_schema.input_types()))
+    actual_types = {k: v.dtype for k, v in res.items()}
+    assert expected_types == actual_types
+
+    # test that variable axes are supported
+    inp3 = {
+        "a": np.array([[0, 0, 0, 0, 0], [1, 1, 1, 1, 1], [2, 2, 2, 2, 2]], dtype=np.uint64),
+        "b": np.array([[0, 0], [1, 1]], dtype=np.short),
+        "c": np.array([[[0, 0]], [[2, 2]]], dtype=np.float32),
+    }
+    res = pyfunc_model.predict(inp3)
+    assert _compare_exact_tensor_dict_input(res, inp3)
+    expected_types = dict(zip(input_schema.input_names(), input_schema.input_types()))
+    actual_types = {k: v.dtype for k, v in res.items()}
+    assert expected_types == actual_types
+
+    # test that type casting is not supported
+    inp4 = {k: v for k, v in inp.items()}
+    inp4["a"] = inp4["a"].astype(np.int32)
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict(inp4)
+    assert "dtype of input int32 does not match expected dtype uint64" in str(ex)
+
+    # test wrong shape
+    inp5 = {
+        "a": np.array([[0, 0, 0, 0]], dtype=np.uint),
+        "b": np.array([[0, 0], [1, 1]], dtype=np.short),
+        "c": np.array([[[0, 0]]], dtype=np.float32),
+    }
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict(inp5)
+    assert "Shape of input (1, 4) does not match expected shape (-1, 5)" in str(ex)
+
+    # test non-dictionary input
+    inp6 = [
+        np.array([[0, 0, 0, 0, 0]], dtype=np.uint64),
+        np.array([[0, 0], [1, 1]], dtype=np.short),
+        np.array([[[0, 0]]], dtype=np.float32),
+    ]
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict(inp6)
+    assert "Model is missing inputs ['a', 'b', 'c']." in str(ex)
+
+    # test empty ndarray does not work
+    inp7 = {k: v for k, v in inp.items()}
+    inp7["a"] = np.array([])
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict(inp7)
+    assert "Shape of input (0,) does not match expected shape" in str(ex)
+
+    # test dictionary of str -> list does not work
+    inp8 = {k: list(v) for k, v in inp.items()}
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict(inp8)
+    assert "This model contains a tensor-based model signature with input names" in str(ex)
+    assert (
+        "suggests a dictionary input mapping input name to a numpy array, but a dict"
+        " with value type <class 'list'> was found"
+    ) in str(ex)
+
+    # test dataframe input fails at shape enforcement
+    pdf = pd.DataFrame(data=[[1, 2, 3]], columns=["a", "b", "c"],)
+    pdf["a"] = pdf["a"].astype(np.uint64)
+    pdf["b"] = pdf["b"].astype(np.short)
+    pdf["c"] = pdf["c"].astype(np.float32)
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict(pdf)
+    assert "Shape of input (1,) does not match expected shape (-1, 5)" in str(ex)
+
+
+def test_schema_enforcement_single_named_tensor_schema():
+    m = Model()
+    input_schema = Schema([TensorSpec(np.dtype(np.uint64), (-1, 2), "a")])
+    m.signature = ModelSignature(inputs=input_schema)
+    pyfunc_model = PyFuncModel(model_meta=m, model_impl=TestModel())
+    inp = {
+        "a": np.array([[0, 0], [1, 1]], dtype=np.uint64),
+    }
+
+    # sanity test that dictionary with correct input works
+    res = pyfunc_model.predict(inp)
+    assert res == inp
+    expected_types = dict(zip(input_schema.input_names(), input_schema.input_types()))
+    actual_types = {k: v.dtype for k, v in res.items()}
+    assert expected_types == actual_types
+
+    # test single np.ndarray input works and is converted to dictionary
+    res = pyfunc_model.predict(inp["a"])
+    assert res == inp
+    expected_types = dict(zip(input_schema.input_names(), input_schema.input_types()))
+    actual_types = {k: v.dtype for k, v in res.items()}
+    assert expected_types == actual_types
+
+    # test list does not work
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict([[0, 0], [1, 1]])
+    assert "Model is missing inputs ['a']" in str(ex)
+
+
+def test_schema_enforcement_named_tensor_schema_1d():
+    m = Model()
+    input_schema = Schema(
+        [TensorSpec(np.dtype(np.uint64), (-1,), "a"), TensorSpec(np.dtype(np.float32), (-1,), "b")]
+    )
+    m.signature = ModelSignature(inputs=input_schema)
+    pyfunc_model = PyFuncModel(model_meta=m, model_impl=TestModel())
+    pdf = pd.DataFrame(data=[[0, 0], [1, 1]], columns=["a", "b"])
+    pdf["a"] = pdf["a"].astype(np.uint64)
+    pdf["b"] = pdf["a"].astype(np.float32)
+    d_inp = {
+        "a": np.array(pdf["a"], dtype=np.uint64),
+        "b": np.array(pdf["b"], dtype=np.float32),
+    }
+
+    # test dataframe input works for 1d tensor specs and input is converted to dict
+    res = pyfunc_model.predict(pdf)
+    assert _compare_exact_tensor_dict_input(res, d_inp)
+    expected_types = dict(zip(input_schema.input_names(), input_schema.input_types()))
+    actual_types = {k: v.dtype for k, v in res.items()}
+    assert expected_types == actual_types
+
+    # test that dictionary works too
+    res = pyfunc_model.predict(d_inp)
+    assert res == d_inp
+    expected_types = dict(zip(input_schema.input_names(), input_schema.input_types()))
+    actual_types = {k: v.dtype for k, v in res.items()}
+    assert expected_types == actual_types
 
 
 def test_missing_value_hint_is_displayed_when_it_should():
-    class TestModel(object):
-        @staticmethod
-        def predict(pdf):
-            return pdf
-
     m = Model()
     input_schema = Schema([ColSpec("integer", "a")])
     m.signature = ModelSignature(inputs=input_schema)
@@ -339,12 +524,7 @@ def test_missing_value_hint_is_displayed_when_it_should():
     assert hint not in str(ex.value.message)
 
 
-def test_schema_enforcement_no_col_names():
-    class TestModel(object):
-        @staticmethod
-        def predict(pdf):
-            return pdf
-
+def test_column_schema_enforcement_no_col_names():
     m = Model()
     input_schema = Schema([ColSpec("double"), ColSpec("double"), ColSpec("double")])
     m.signature = ModelSignature(inputs=input_schema)
@@ -367,7 +547,7 @@ def test_schema_enforcement_no_col_names():
     # Must provide the right number of arguments
     with pytest.raises(MlflowException) as ex:
         pyfunc_model.predict([[1.0, 2.0]])
-    assert "the provided input only has 2 columns." in str(ex)
+    assert "the provided value only has 2 inputs." in str(ex)
 
     # Must provide the right types
     with pytest.raises(MlflowException) as ex:
@@ -384,6 +564,49 @@ def test_schema_enforcement_no_col_names():
     assert pyfunc_model.predict(d).equals(pd.DataFrame(d))
 
 
+def test_tensor_schema_enforcement_no_col_names():
+    m = Model()
+    input_schema = Schema([TensorSpec(np.dtype(np.float32), (-1, 3))])
+    m.signature = ModelSignature(inputs=input_schema)
+    pyfunc_model = PyFuncModel(model_meta=m, model_impl=TestModel())
+    test_data = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], dtype=np.float32)
+
+    # Can call with numpy array of correct shape
+    assert np.array_equal(pyfunc_model.predict(test_data), test_data)
+
+    # Or can call with a dataframe
+    assert np.array_equal(pyfunc_model.predict(pd.DataFrame(test_data)), test_data)
+
+    # Can not call with a list
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+    assert "This model contains a tensor-based model signature with no input names" in str(ex)
+
+    # Can not call with a dict
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict({"blah": test_data})
+    assert "This model contains a tensor-based model signature with no input names" in str(ex)
+
+    # Can not call with a np.ndarray of a wrong shape
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict(np.array([[1.0, 2.0], [4.0, 5.0]]))
+    assert "Shape of input (2, 2) does not match expected shape (-1, 3)" in str(ex)
+
+    # Can not call with a np.ndarray of a wrong type
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict(test_data.astype(np.uint32))
+    assert "dtype of input uint32 does not match expected dtype float32" in str(ex)
+
+    # Can call with a np.ndarray with more elements along variable axis
+    test_data2 = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]], dtype=np.float32)
+    assert np.array_equal(pyfunc_model.predict(test_data2), test_data2)
+
+    # Can not call with an empty ndarray
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict(np.ndarray([]))
+    assert "Shape of input () does not match expected shape (-1, 3)" in str(ex)
+
+
 @pytest.mark.large
 def test_model_log_load(sklearn_knn_model, iris_data, tmpdir):
     sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
@@ -395,7 +618,7 @@ def test_model_log_load(sklearn_knn_model, iris_data, tmpdir):
         mlflow.pyfunc.log_model(
             artifact_path=pyfunc_artifact_path,
             data_path=sk_model_path,
-            loader_module=os.path.basename(__file__)[:-3],
+            loader_module=__name__,
             code_path=[__file__],
         )
         pyfunc_model_path = _download_artifact_from_uri(
@@ -425,7 +648,7 @@ def test_model_log_load_no_active_run(sklearn_knn_model, iris_data, tmpdir):
     mlflow.pyfunc.log_model(
         artifact_path=pyfunc_artifact_path,
         data_path=sk_model_path,
-        loader_module=os.path.basename(__file__)[:-3],
+        loader_module=__name__,
         code_path=[__file__],
     )
     pyfunc_model_path = _download_artifact_from_uri(
@@ -471,7 +694,7 @@ def test_log_model_persists_specified_conda_env_file_in_mlflow_model_directory(
         mlflow.pyfunc.log_model(
             artifact_path=pyfunc_artifact_path,
             data_path=sk_model_path,
-            loader_module=os.path.basename(__file__)[:-3],
+            loader_module=__name__,
             code_path=[__file__],
             conda_env=pyfunc_custom_env_file,
         )
@@ -508,7 +731,7 @@ def test_log_model_persists_specified_conda_env_dict_in_mlflow_model_directory(
         mlflow.pyfunc.log_model(
             artifact_path=pyfunc_artifact_path,
             data_path=sk_model_path,
-            loader_module=os.path.basename(__file__)[:-3],
+            loader_module=__name__,
             code_path=[__file__],
             conda_env=pyfunc_custom_env_dict,
         )
@@ -530,6 +753,38 @@ def test_log_model_persists_specified_conda_env_dict_in_mlflow_model_directory(
 
 
 @pytest.mark.large
+def test_log_model_persists_requirements_in_mlflow_model_directory(
+    sklearn_knn_model, tmpdir, pyfunc_custom_env_dict
+):
+    sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
+    with open(sk_model_path, "wb") as f:
+        pickle.dump(sklearn_knn_model, f)
+
+    pyfunc_artifact_path = "pyfunc_model"
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model(
+            artifact_path=pyfunc_artifact_path,
+            data_path=sk_model_path,
+            loader_module=__name__,
+            code_path=[__file__],
+            conda_env=pyfunc_custom_env_dict,
+        )
+        run_id = mlflow.active_run().info.run_id
+
+    pyfunc_model_path = _download_artifact_from_uri(
+        "runs:/{run_id}/{artifact_path}".format(run_id=run_id, artifact_path=pyfunc_artifact_path)
+    )
+
+    saved_pip_req_path = os.path.join(pyfunc_model_path, "requirements.txt")
+    assert os.path.exists(saved_pip_req_path)
+
+    with open(saved_pip_req_path, "r") as f:
+        requirements = f.read().split("\n")
+
+    assert pyfunc_custom_env_dict["dependencies"][-1]["pip"] == requirements
+
+
+@pytest.mark.large
 def test_log_model_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     sklearn_knn_model, tmpdir
 ):
@@ -542,20 +797,8 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
         mlflow.pyfunc.log_model(
             artifact_path=pyfunc_artifact_path,
             data_path=sk_model_path,
-            loader_module=os.path.basename(__file__)[:-3],
+            loader_module=__name__,
             code_path=[__file__],
         )
-        run_id = mlflow.active_run().info.run_id
-
-    pyfunc_model_path = _download_artifact_from_uri(
-        "runs:/{run_id}/{artifact_path}".format(run_id=run_id, artifact_path=pyfunc_artifact_path)
-    )
-
-    pyfunc_conf = _get_flavor_configuration(
-        model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
-    )
-    conda_env_path = os.path.join(pyfunc_model_path, pyfunc_conf[mlflow.pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
-
-    assert conda_env == mlflow.pyfunc.model.get_default_conda_env()
+        model_uri = mlflow.get_artifact_uri(pyfunc_artifact_path)
+    _assert_pip_requirements(model_uri, mlflow.pyfunc.get_default_pip_requirements())

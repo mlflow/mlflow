@@ -8,6 +8,7 @@ import { mount } from 'enzyme';
 import { Experiment, Metric, Param, RunInfo } from '../sdk/MlflowMessages';
 import { CompareRunScatter, CompareRunScatterImpl } from './CompareRunScatter';
 import { ArtifactNode } from '../utils/ArtifactUtils';
+import { mountWithIntl } from '../../common/utils/TestUtils';
 
 describe('CompareRunScatter', () => {
   let wrapper;
@@ -126,7 +127,7 @@ describe('CompareRunScatter', () => {
         },
       },
     });
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={store}>
         <BrowserRouter>
           <CompareRunScatter {...minimalProps} />

@@ -1,10 +1,13 @@
 import React from 'react';
-import { Button, Dropdown, Icon, Menu } from 'antd';
+import { Dropdown, Icon, Menu } from 'antd';
+import { Button } from '../../shared/building_blocks/Button';
 import { SearchTree } from '../../common/components/SearchTree';
 import PropTypes from 'prop-types';
 import _ from 'lodash';
 import ExperimentViewUtil from './ExperimentViewUtil';
 import { ColumnTypes } from '../constants';
+
+import { FormattedMessage } from 'react-intl';
 
 export class RunsTableColumnSelectionDropdown extends React.Component {
   static propTypes = {
@@ -124,11 +127,17 @@ export class RunsTableColumnSelectionDropdown extends React.Component {
         trigger={['click']}
         visible={menuVisible}
         onVisibleChange={this.handleVisibleChange}
-        className='column-selection-dropdown'
       >
-        <Button style={{ height: 34, display: 'flex', alignItems: 'center' }}>
+        <Button
+          style={{ display: 'flex', alignItems: 'center' }}
+          dataTestId='column-selection-dropdown'
+        >
           <Icon type='setting' style={{ marginTop: 2 }} />
-          Columns
+          <FormattedMessage
+            defaultMessage='Columns'
+            // eslint-disable-next-line max-len
+            description='Dropdown text to display columns names that could to be rendered for the experiment runs table'
+          />
         </Button>
       </Dropdown>
     );

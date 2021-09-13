@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
 import { css } from 'emotion';
 import { LoggingRunsDocUrl } from '../constants';
+import { FormattedMessage } from 'react-intl';
 
 /**
  * Display a helper overlay to on board new users on MLflow when the experiments runs table is
@@ -14,11 +15,20 @@ export class ExperimentRunsTableEmptyOverlay extends Component {
     return (
       <div className={`experiment-runs-table-empty-overlay ${classNames.wrapper}`}>
         <span>
-          No runs yet.{' '}
-          <a target='_blank' href={learnMoreLinkUrl}>
-            Learn more
-          </a>{' '}
-          about how to create ML model training <br /> runs in this experiment.
+          <FormattedMessage
+            // eslint-disable-next-line max-len
+            defaultMessage='No runs yet. <link>Learn more</link> about how to create ML model training {newLine} runs in this experiment.'
+            // eslint-disable-next-line max-len
+            description='Empty state text for experiment runs page'
+            values={{
+              link: (chunks) => (
+                <a target='_blank' href={learnMoreLinkUrl}>
+                  {chunks}
+                </a>
+              ),
+              newLine: <br />,
+            }}
+          />
         </span>
       </div>
     );

@@ -112,11 +112,9 @@ def predict(
 @cli_args.INSTALL_MLFLOW
 def prepare_env(model_uri, no_conda, install_mlflow):
     """
-    **EXPERIMENTAL**: Performs any preparation necessary to predict or serve the model, for example
+    Performs any preparation necessary to predict or serve the model, for example
     downloading dependencies or initializing a conda environment. After preparation,
     calling predict or serve should be fast.
-
-    This method is experimental and may be removed in a future release without warning.
     """
     return _get_flavor_backend(
         model_uri, no_conda=no_conda, install_mlflow=install_mlflow
@@ -129,7 +127,7 @@ def prepare_env(model_uri, no_conda, install_mlflow):
 @cli_args.INSTALL_MLFLOW
 def build_docker(model_uri, name, install_mlflow):
     """
-    **EXPERIMENTAL**: Builds a Docker image whose default entrypoint serves the specified MLflow
+    Builds a Docker image whose default entrypoint serves the specified MLflow
     model at port 8080 within the container, using the 'python_function' flavor.
 
     For example, the following command builds a docker image named 'my-image-name' that serves the
@@ -156,10 +154,6 @@ def build_docker(model_uri, name, install_mlflow):
 
     See https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html for more information on the
     'python_function' flavor.
-
-    This command is experimental (may be changed or removed in a future release without warning)
-    and does not guarantee that the arguments nor format of the Docker container will remain the
-    same.
     """
     mlflow_home = os.environ.get("MLFLOW_HOME", None)
     _get_flavor_backend(model_uri, docker_build=True).build_image(

@@ -10,17 +10,18 @@ import { MemoryRouter as Router } from 'react-router-dom';
 
 describe('ExperimentRunsTableMultiColumnView2', () => {
   let wrapper;
-  let instance;
   let minimalProps;
-  const exampleLoggedModelHistoryTag = {
+  const runTags = {
     'mlflow.log-model.history': RunTag.fromJs({
       key: 'mlflow.log-model.history',
-      value:
-        '[{"run_id":"someUuid","artifact_path":"somePath",' +
-        '"utc_time_created":"2020-10-22 23:18:51.726087","flavors":' +
-        '{"keras":{"keras_module":"tensorflow.keras","keras_version":"2.4.0","data":"data"},' +
-        '"python_function":{"loader_module":"mlflow.keras","python_version":"3.7.6",' +
-        '"data":"data","env":"conda.yaml"}}}]',
+      value: JSON.stringify([
+        {
+          run_id: 'run-uuid',
+          artifact_path: 'somePath',
+          utc_time_created: '2020-10-22',
+          flavors: { keras: {}, python_function: {} },
+        },
+      ]),
     }),
   };
 
@@ -33,6 +34,7 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
       metricKeyList: [],
       visibleTagKeyList: [],
       tagsList: [],
+      modelVersionsByRunUuid: {},
       onSelectionChange: jest.fn(),
       onExpand: jest.fn(),
       onSortBy: jest.fn(),
@@ -55,23 +57,6 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
     expect(wrapper.length).toBe(1);
   });
 
-  test('should not refit column size if there is an open column group', () => {
-    wrapper = shallow(<ExperimentRunsTableMultiColumnView2 {...minimalProps} />);
-    instance = wrapper.instance();
-    instance.columnApi = {
-      getColumnGroupState: jest.fn(() => [{ open: true }]),
-    };
-    instance.gridApi = {
-      sizeColumnsToFit: jest.fn(),
-    };
-    instance.handleColumnSizeRefit();
-    expect(instance.gridApi.sizeColumnsToFit).not.toBeCalled();
-
-    instance.columnApi.getColumnGroupState = jest.fn(() => [{ open: false }]);
-    instance.handleColumnSizeRefit();
-    expect(instance.gridApi.sizeColumnsToFit).toBeCalled();
-  });
-
   test('should show placeholder in logged model cells when no logged models', () => {
     const props = {
       data: {
@@ -87,24 +72,69 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
   test('should show only logged model link if no registered models', () => {
     const props = {
       data: {
-        runInfo: { run_uuid: 'someUuid' },
-        tags: exampleLoggedModelHistoryTag,
+        runInfo: { run_uuid: 'run-uuid' },
+        tags: runTags,
         modelVersionsByRunUuid: {},
       },
     };
     const output = ModelsCellRenderer(props);
     wrapper = shallow(<Router>{output}</Router>);
     expect(wrapper.html()).toContain('keras');
-    expect(wrapper.find('img[data-test-id="logged-model-icon"]')).toHaveLength(1);
-    expect(wrapper.find('img[data-test-id="registered-model-icon"]')).toHaveLength(0);
+    expect(wrapper.find('.logged-model-link')).toHaveLength(1);
+    expect(wrapper.find('.registered-model-link')).toHaveLength(0);
     expect(wrapper.html()).not.toContain('1 more');
   });
 
-  test('should show both links if registered models', () => {
+  test('should show correct logged and registered model links', () => {
+    const tester = (modelVersions, expectedPath, linkSelector) => {
+      const props = {
+        data: {
+          runInfo: { run_uuid: 'runUuid', experiment_id: 'experimentId' },
+          tags: runTags,
+          modelVersionsByRunUuid: modelVersions,
+        },
+      };
+      let output = ModelsCellRenderer(props);
+      wrapper = shallow(<Router>{output}</Router>);
+      expect(wrapper.find(linkSelector)).toHaveLength(1);
+
+      let href = wrapper.find(linkSelector).prop('href');
+
+      // Assume we're not in an iframe
+      expect(href).toEqual(`./#/${expectedPath}`);
+
+      // Assume we're in an iframe
+      window.isTestingIframe = true;
+      output = ModelsCellRenderer(props);
+      wrapper = shallow(<Router>{output}</Router>);
+      href = wrapper.find(linkSelector).prop('href');
+      expect(href.endsWith(expectedPath)).toBe(true);
+      expect(href.indexOf('http')).toEqual(0);
+      expect(href.indexOf('http')).toEqual(href.lastIndexOf('http'));
+      window.isTestingIframe = false;
+    };
+    tester({}, 'experiments/experimentId/runs/runUuid/artifactPath/somePath', '.logged-model-link');
+
+    tester(
+      {
+        runUuid: [
+          {
+            name: 'someModel',
+            source: 'dbfs/runUuid/artifacts/somePath',
+            version: 2,
+          },
+        ],
+      },
+      'models/someModel/versions/2',
+      '.registered-model-link',
+    );
+  });
+
+  test('should only show registered model link if registered model', () => {
     const props = {
       data: {
         runInfo: { run_uuid: 'someUuid' },
-        tags: exampleLoggedModelHistoryTag,
+        tags: runTags,
         modelVersionsByRunUuid: {
           someUuid: [
             {
@@ -118,8 +148,8 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
     };
     const output = ModelsCellRenderer(props);
     wrapper = shallow(<Router>{output}</Router>);
-    expect(wrapper.html()).toContain('keras');
-    expect(wrapper.find('img[data-test-id="logged-model-icon"]')).toHaveLength(1);
+    expect(wrapper.html()).toContain('someName');
+    expect(wrapper.find('img[data-test-id="logged-model-icon"]')).toHaveLength(0);
     expect(wrapper.find('img[data-test-id="registered-model-icon"]')).toHaveLength(1);
   });
 
@@ -132,22 +162,24 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
    */
   test('should show registered model link for semantically equivalent artifact paths', () => {
     const runArtifactPath = 'somePath////subdir///';
-    const loggedModelHistoryTag = {
+    const tags = {
       'mlflow.log-model.history': RunTag.fromJs({
         key: 'mlflow.log-model.history',
-        value:
-          `[{"run_id":"someUuid","artifact_path":"${runArtifactPath}",` +
-          '"utc_time_created":"2020-10-22 23:18:51.726087","flavors":' +
-          '{"keras":{"keras_module":"tensorflow.keras","keras_version":"2.4.0","data":"data"},' +
-          '"python_function":{"loader_module":"mlflow.keras","python_version":"3.7.6",' +
-          '"data":"data","env":"conda.yaml"}}}]',
+        value: JSON.stringify([
+          {
+            run_id: 'run-uuid',
+            artifact_path: `${runArtifactPath}`,
+            utc_time_created: '2020-10-22',
+            flavors: { keras: {}, python_function: {} },
+          },
+        ]),
       }),
     };
 
     const props = {
       data: {
         runInfo: { run_uuid: 'someUuid' },
-        tags: loggedModelHistoryTag,
+        tags: tags,
         modelVersionsByRunUuid: {
           someUuid: [
             {
@@ -161,32 +193,35 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
     };
     const output = ModelsCellRenderer(props);
     wrapper = shallow(<Router>{output}</Router>);
-    expect(wrapper.html()).toContain('keras');
-    expect(wrapper.find('img[data-test-id="logged-model-icon"]')).toHaveLength(1);
+    expect(wrapper.html()).toContain('someName');
+    expect(wrapper.find('img[data-test-id="logged-model-icon"]')).toHaveLength(0);
     expect(wrapper.find('img[data-test-id="registered-model-icon"]')).toHaveLength(1);
   });
 
   test('should show 1 more if two logged models', () => {
-    const tag = {
+    const tags = {
       'mlflow.log-model.history': RunTag.fromJs({
         key: 'mlflow.log-model.history',
-        value:
-          '[{"run_id":"someUuid","artifact_path":"somePath",' +
-          '"utc_time_created":"2020-10-22 23:18:51.726087","flavors":' +
-          '{"keras":{"keras_module":"tensorflow.keras","keras_version":"2.4.0","data":"data"},' +
-          '"python_function":{"loader_module":"mlflow.keras","python_version":"3.7.6",' +
-          '"data":"data","env":"conda.yaml"}}},' +
-          '{"run_id":"someUuid","artifact_path":"someOtherPath",' +
-          '"utc_time_created":"2020-10-22 23:18:51.726087","flavors":' +
-          '{"keras":{"keras_module":"tensorflow.keras","keras_version":"2.4.0","data":"data"},' +
-          '"python_function":{"loader_module":"mlflow.keras","python_version":"3.7.6",' +
-          '"data":"data","env":"conda.yaml"}}}]',
+        value: JSON.stringify([
+          {
+            run_id: 'run-uuid',
+            artifact_path: 'somePath',
+            utc_time_created: '2020-10-22',
+            flavors: { keras: {}, python_function: {} },
+          },
+          {
+            run_id: 'run-uuid',
+            artifact_path: 'someOtherPath',
+            utc_time_created: '2020-10-22',
+            flavors: { keras: {}, python_function: {} },
+          },
+        ]),
       }),
     };
     const props = {
       data: {
-        runInfo: { run_uuid: 'someUuid' },
-        tags: tag,
+        runInfo: { run_uuid: 'run-uuid' },
+        tags: tags,
         modelVersionsByRunUuid: {},
       },
     };

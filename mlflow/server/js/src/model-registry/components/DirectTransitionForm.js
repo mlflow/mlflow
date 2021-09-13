@@ -7,11 +7,13 @@ import {
   Stages,
   StageTagComponents,
 } from '../constants';
+import { FormattedMessage, injectIntl } from 'react-intl';
 
 export class DirectTransitionFormImpl extends React.Component {
   static propTypes = {
     form: PropTypes.object,
     toStage: PropTypes.string,
+    intl: PropTypes.shape({ formatMessage: PropTypes.func.isRequired }).isRequired,
   };
 
   render() {
@@ -26,8 +28,17 @@ export class DirectTransitionFormImpl extends React.Component {
           })(
             <Checkbox>
               <Tooltip title={archiveExistingVersionToolTipText(toStage)}>
-                Transition existing {StageTagComponents[toStage]}
-                model versions to {StageTagComponents[Stages.ARCHIVED]}
+                <FormattedMessage
+                  defaultMessage='Transition existing {currentStage} model versions to
+                    {archivedStage}'
+                  description='Description text for checkbox for archiving existing model versions
+                    in the toStage for model version stage transition'
+                  values={{
+                    currentStage: StageTagComponents[toStage],
+                    archivedStage: StageTagComponents[Stages.ARCHIVED],
+                  }}
+                />
+                &nbsp;
               </Tooltip>
             </Checkbox>,
           )}
@@ -45,4 +56,4 @@ export class DirectTransitionFormImpl extends React.Component {
   }
 }
 
-export const DirectTransitionForm = Form.create()(DirectTransitionFormImpl);
+export const DirectTransitionForm = Form.create()(injectIntl(DirectTransitionFormImpl));

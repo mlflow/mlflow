@@ -21,7 +21,7 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlModelVersionTag,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from tests.resources.db.initial_models import Base as InitialBase
+from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
 from tests.store.dump_schema import dump_db_schema
 from tests.integration.utils import invoke_cli_runner
 

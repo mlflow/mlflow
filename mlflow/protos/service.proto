@@ -669,6 +669,12 @@ message CreateExperiment {
   // If not provided, the remote server will select an appropriate default.
   optional string artifact_location = 2;
 
+  // A collection of tags to set on the experiment. Maximum tag size and number of tags per request
+  // depends on the storage backend. All storage backends are guaranteed to support tag keys up
+  // to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
+  // guaranteed to support up to 20 tags per request.
+  repeated ExperimentTag tags = 3;
+
   message Response {
     // Unique identifier for the experiment.
     optional string experiment_id = 1;
@@ -682,9 +688,22 @@ message ListExperiments {
   // If unspecified, return only active experiments.
   optional ViewType view_type = 1;
 
+  // Maximum number of experiments desired.
+  // Servers may select a desired default `max_results` value. All servers are
+  // guaranteed to support a `max_results` threshold of at least 1,000 but may
+  // support more. Callers of this endpoint are encouraged to pass max_results
+  // explicitly and leverage page_token to iterate through experiments.
+  optional int64 max_results = 2;
+
+  // Pagination token to go to the next page based on a previous query.
+  optional string page_token = 3;
+
   message Response {
     // All experiments.
     repeated Experiment experiments = 1;
+
+    // Pagination token to request next page of experiments for the same query.
+    optional string next_page_token = 2;
   }
 }
 
@@ -940,7 +959,10 @@ message SearchRuns {
   // Defaults to only active runs.
   optional ViewType run_view_type = 3 [default = ACTIVE_ONLY];
 
-  // Maximum number of runs desired. Max threshold is 50000
+  // Maximum number of runs desired. If unspecified, defaults to 1000.
+  // All servers are guaranteed to support a `max_results` threshold of at least 50,000
+  // but may support more. Callers of this endpoint are encouraged to pass max_results
+  // explicitly and leverage page_token to iterate through experiments.
   optional int32 max_results = 5 [default = 1000];
 
   // List of columns to be ordered by, including attributes, params, metrics, and tags with an

@@ -1,5 +1,5 @@
 import React from 'react';
-import { shallow, mount } from 'enzyme';
+import { mountWithIntl, shallowWithIntl, mockAjax } from '../../common/utils/TestUtils';
 import ArtifactPage, { ArtifactPageImpl } from './ArtifactPage';
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import { Provider } from 'react-redux';
@@ -18,7 +18,6 @@ import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import { ErrorCodes } from '../../common/constants';
 import { ArtifactView } from './ArtifactView';
-import { mockAjax } from '../../common/utils/TestUtils';
 
 describe('ArtifactPage', () => {
   let wrapper;
@@ -69,7 +68,7 @@ describe('ArtifactPage', () => {
   };
 
   test('should render with minimal props without exploding', () => {
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <ArtifactPage {...minimalProps} />
@@ -80,7 +79,7 @@ describe('ArtifactPage', () => {
   });
 
   test('should render spinner while ListArtifacts API request is unresolved', () => {
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <ArtifactPage {...minimalProps} />
@@ -97,8 +96,9 @@ describe('ArtifactPage', () => {
       apis: {},
       listArtifactsApi: mock,
       initialSelectedArtifactPath: 'some/test/directory/file',
+      searchModelVersionsApi: jest.fn(),
     };
-    wrapper = shallow(<ArtifactPageImpl {...props} />);
+    wrapper = shallowWithIntl(<ArtifactPageImpl {...props} />).dive();
     setImmediate(() => {
       expect(mock.mock.calls.length).toBe(5);
       done();
@@ -107,7 +107,7 @@ describe('ArtifactPage', () => {
 
   test('ArtifactPage renders error message when listArtifacts request fails', () => {
     const props = { ...minimalProps, apis: {}, searchModelVersionsApi: jest.fn() };
-    wrapper = shallow(<ArtifactPageImpl {...props} />);
+    wrapper = shallowWithIntl(<ArtifactPageImpl {...props} />).dive();
     const responseErrorWrapper = new ErrorWrapper({
       responseText: `{'error_code': '${ErrorCodes.PERMISSION_DENIED}', 'message': 'request failed'}`,
     });
@@ -117,7 +117,7 @@ describe('ArtifactPage', () => {
       active: false,
       error: responseErrorWrapper,
     };
-    const artifactViewInstance = shallow(
+    const artifactViewInstance = shallowWithIntl(
       artifactPageInstance.renderArtifactView(false, true, [listArtifactsErrorRequest]),
     );
     expect(artifactViewInstance.find('.mlflow-artifact-error').length).toBe(1);
@@ -125,14 +125,14 @@ describe('ArtifactPage', () => {
 
   test('ArtifactPage renders ArtifactView when listArtifacts request succeeds', () => {
     const props = { ...minimalProps, apis: {}, searchModelVersionsApi: jest.fn() };
-    wrapper = shallow(<ArtifactPageImpl {...props} />);
+    wrapper = shallowWithIntl(<ArtifactPageImpl {...props} />).dive();
     const artifactPageInstance = wrapper.instance();
     const listArtifactsSuccessRequest = {
       id: artifactPageInstance.listArtifactsRequestId,
       active: true,
       payload: {},
     };
-    const artifactViewInstance = shallow(
+    const artifactViewInstance = shallowWithIntl(
       <Provider store={minimalStore}>
         <BrowserRouter>
           {artifactPageInstance.renderArtifactView(false, false, [listArtifactsSuccessRequest])}
@@ -147,7 +147,9 @@ describe('ArtifactPage', () => {
     expect(Utils.isModelRegistryEnabled()).toEqual(true);
 
     const props = { ...minimalProps, store: minimalStore };
-    wrapper = shallow(<ArtifactPage {...props} />).dive();
+    wrapper = shallowWithIntl(<ArtifactPage {...props} />)
+      .dive()
+      .dive();
     wrapper.instance().handleActiveNodeChange(true);
     jest.runTimersToTime(POLL_INTERVAL * 3);
     const expectedActions = minimalStore.getActions().filter((action) => {
@@ -162,7 +164,9 @@ describe('ArtifactPage', () => {
     expect(Utils.isModelRegistryEnabled()).toEqual(false);
 
     const props = { ...minimalProps, store: minimalStore };
-    wrapper = shallow(<ArtifactPage {...props} />).dive();
+    wrapper = shallowWithIntl(<ArtifactPage {...props} />)
+      .dive()
+      .dive();
     wrapper.instance().handleActiveNodeChange(true);
     jest.runTimersToTime(POLL_INTERVAL * 3);
     const expectedActions = minimalStore.getActions().filter((action) => {
@@ -177,7 +181,9 @@ describe('ArtifactPage', () => {
     jest.useFakeTimers();
 
     const props = { ...minimalProps, store: minimalStore };
-    wrapper = shallow(<ArtifactPage {...props} />).dive();
+    wrapper = shallowWithIntl(<ArtifactPage {...props} />)
+      .dive()
+      .dive();
     expect(wrapper.instance().state.activeNodeIsDirectory).toEqual(false);
 
     jest.runTimersToTime(POLL_INTERVAL * 3);

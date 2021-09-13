@@ -5,6 +5,7 @@ import error404Img from '../static/404-overflow.svg';
 import Colors from '../../experiment-tracking/styles/Colors';
 import Routes from '../../experiment-tracking/routes';
 import { Link } from 'react-router-dom';
+import { FormattedMessage } from 'react-intl';
 
 const altMessages = {
   400: '400 Bad Request',
@@ -59,6 +60,45 @@ export class ErrorView extends Component {
     404: 'Page Not Found',
   };
 
+  renderErrorMessage(subMessage, fallbackHomePageReactRoute) {
+    if (subMessage) {
+      return (
+        <FormattedMessage
+          defaultMessage='{subMessage}, go back to <link>the home page.</link>'
+          description='Default error message for error views in MLflow'
+          values={{
+            link: (chunks) => (
+              <Link
+                data-test-id='error-view-link'
+                to={fallbackHomePageReactRoute || Routes.rootRoute}
+              >
+                {chunks}
+              </Link>
+            ),
+            subMessage: subMessage,
+          }}
+        />
+      );
+    } else {
+      return (
+        <FormattedMessage
+          defaultMessage='Go back to <link>the home page.</link>'
+          description='Default error message for error views in MLflow'
+          values={{
+            link: (chunks) => (
+              <Link
+                data-test-id='error-view-link'
+                to={fallbackHomePageReactRoute || Routes.rootRoute}
+              >
+                {chunks}
+              </Link>
+            ),
+          }}
+        />
+      );
+    }
+  }
+
   render() {
     const { statusCode, subMessage, fallbackHomePageReactRoute } = this.props;
     const centerMessage = ErrorView.centerMessages[statusCode] || 'HTTP Request Error';
@@ -70,8 +110,7 @@ export class ErrorView extends Component {
           {centerMessage}
         </h1>
         <h2 className='center' style={{ color: Colors.secondaryText }}>
-          {subMessage ? subMessage + ', go back to ' : 'Go back to '}
-          <Link to={fallbackHomePageReactRoute || Routes.rootRoute}>the home page.</Link>
+          {this.renderErrorMessage(subMessage, fallbackHomePageReactRoute)}
         </h2>
       </div>
     );

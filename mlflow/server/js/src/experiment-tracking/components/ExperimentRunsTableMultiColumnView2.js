@@ -25,7 +25,7 @@ import LocalStorageUtils from '../../common/utils/LocalStorageUtils';
 import { AgGridPersistedState } from '../sdk/MlflowLocalStorageMessages';
 import { ColumnTypes } from '../constants';
 import { TrimmedText } from '../../common/components/TrimmedText';
-import { getModelVersionPageURL } from '../../model-registry/routes';
+import { getModelVersionPageRoute } from '../../model-registry/routes';
 import { css } from 'emotion';
 
 const PARAM_PREFIX = '$$$param$$$';
@@ -66,7 +66,10 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
   };
 
   static defaultColDef = {
-    width: 100,
+    initialWidth: 100,
+    // eslint-disable-next-line max-len
+    // autoSizePadding property is set to 0 so that the size of the columns don't change for sort icon or anything and remains stable
+    autoSizePadding: 0,
     headerComponentParams: { menuIcon: 'fa-bars' },
     resizable: true,
     filter: true,
@@ -87,6 +90,20 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     loadingOverlayComponent: Spinner,
     noRowsOverlayComponent: ExperimentRunsTableEmptyOverlay,
   };
+
+  constructor(props) {
+    super(props);
+    this.getColumnDefs = this.getColumnDefs.bind(this);
+  }
+
+  componentDidMount() {
+    // In some cases, the API request to fetch run info resolves
+    // before this component is constructed and mounted. We need to get
+    // column defs here to handle that case, as well as the one already
+    // handled in componentDidUpdate for when the request resolves after the
+    // fact.
+    this.columnDefs = this.getColumnDefs();
+  }
 
   /**
    * Returns a { name: value } map from a list of parameters/metrics/tags list
@@ -133,94 +150,87 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
       onSortBy,
     } = this.props;
     const commonSortOrderProps = { orderByKey, orderByAsc, onSortBy };
+    const getStyle = (key) => (key === this.props.orderByKey ? { backgroundColor: '#e6f7ff' } : {});
+    const headerStyle = (key) => getStyle(key);
+    const cellStyle = (params) => getStyle(params.colDef.headerComponentParams.canonicalSortKey);
 
     return [
       ...[
         {
+          field: '',
           checkboxSelection: true,
           headerCheckboxSelection: true,
           pinned: 'left',
-          width: 50,
+          initialWidth: 50,
         },
         {
-          headerName: 'Start Time',
+          headerName: ExperimentViewUtil.AttributeColumnLabels.DATE,
           field: 'startTime',
           pinned: 'left',
-          width: 216,
+          initialWidth: 150,
           cellRenderer: 'dateCellRenderer',
           sortable: true,
           headerComponentParams: {
             ...commonSortOrderProps,
-            canonicalSortKey: 'attributes.start_time',
+            canonicalSortKey: ExperimentViewUtil.AttributeColumnSortKey.DATE,
+            computedStylesOnSortKey: headerStyle,
           },
+          cellStyle,
         },
         {
-          headerName: 'Run Name',
+          headerName: ExperimentViewUtil.AttributeColumnLabels.RUN_NAME,
           pinned: 'left',
           field: 'runName',
           sortable: true,
           headerComponentParams: {
             ...commonSortOrderProps,
-            canonicalSortKey: 'tags.`mlflow.runName`',
+            canonicalSortKey: ExperimentViewUtil.AttributeColumnSortKey.RUN_NAME,
+            computedStylesOnSortKey: headerStyle,
           },
+          cellStyle,
         },
         {
-          headerName: 'User',
+          headerName: ExperimentViewUtil.AttributeColumnLabels.USER,
           field: 'user',
           sortable: true,
           headerComponentParams: {
             ...commonSortOrderProps,
-            canonicalSortKey: 'tags.`mlflow.user`',
+            canonicalSortKey: ExperimentViewUtil.AttributeColumnSortKey.USER,
+            computedStylesOnSortKey: headerStyle,
           },
+          cellStyle,
         },
         {
-          headerName: 'Source',
+          headerName: ExperimentViewUtil.AttributeColumnLabels.SOURCE,
           field: 'source',
           cellRenderer: 'sourceCellRenderer',
           sortable: true,
           headerComponentParams: {
             ...commonSortOrderProps,
-            canonicalSortKey: 'tags.`mlflow.source.name`',
+            canonicalSortKey: ExperimentViewUtil.AttributeColumnSortKey.SOURCE,
+            computedStylesOnSortKey: headerStyle,
           },
+          cellStyle,
         },
         {
-          headerName: 'Version',
+          headerName: ExperimentViewUtil.AttributeColumnLabels.VERSION,
           field: 'version',
           cellRenderer: 'versionCellRenderer',
           sortable: true,
           headerComponentParams: {
             ...commonSortOrderProps,
-            canonicalSortKey: 'tags.`mlflow.source.git.commit`',
+            canonicalSortKey: ExperimentViewUtil.AttributeColumnSortKey.VERSION,
+            computedStylesOnSortKey: headerStyle,
           },
+          cellStyle,
         },
         {
-          headerName: 'Models',
+          headerName: ExperimentViewUtil.AttributeColumnLabels.MODELS,
           field: 'models',
           cellRenderer: 'modelsCellRenderer',
-          width: 200,
+          initialWidth: 200,
         },
       ].filter((c) => !categorizedUncheckedKeys[ColumnTypes.ATTRIBUTES].includes(c.headerName)),
-      {
-        headerName: 'Parameters',
-        children: paramKeyList.map((paramKey, i) => {
-          const columnKey = ExperimentViewUtil.makeCanonicalKey(ColumnTypes.PARAMS, paramKey);
-          return {
-            headerName: paramKey,
-            headerTooltip: paramKey,
-            field: `${PARAM_PREFIX}-${paramKey}`,
-            // `columnGroupShow` controls whether to show the column when the group is open/closed.
-            // Setting it to null means always show this column.
-            // Here we want to show the first 3 columns plus the current orderByKey column if it
-            // happens to be inside this column group.
-            columnGroupShow: i >= MAX_PARAMS_COLS && columnKey !== orderByKey ? 'open' : null,
-            sortable: true,
-            headerComponentParams: {
-              ...commonSortOrderProps,
-              canonicalSortKey: columnKey,
-            },
-          };
-        }),
-      },
       {
         headerName: 'Metrics',
         children: metricKeyList.map((metricKey, i) => {
@@ -238,7 +248,32 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
             headerComponentParams: {
               ...commonSortOrderProps,
               canonicalSortKey: columnKey,
+              computedStylesOnSortKey: headerStyle,
             },
+            cellStyle,
+          };
+        }),
+      },
+      {
+        headerName: 'Parameters',
+        children: paramKeyList.map((paramKey, i) => {
+          const columnKey = ExperimentViewUtil.makeCanonicalKey(ColumnTypes.PARAMS, paramKey);
+          return {
+            headerName: paramKey,
+            headerTooltip: paramKey,
+            field: `${PARAM_PREFIX}-${paramKey}`,
+            // `columnGroupShow` controls whether to show the column when the group is open/closed.
+            // Setting it to null means always show this column.
+            // Here we want to show the first 3 columns plus the current orderByKey column if it
+            // happens to be inside this column group.
+            columnGroupShow: i >= MAX_PARAMS_COLS && columnKey !== orderByKey ? 'open' : null,
+            sortable: true,
+            headerComponentParams: {
+              ...commonSortOrderProps,
+              canonicalSortKey: columnKey,
+              computedStylesOnSortKey: headerStyle,
+            },
+            cellStyle,
           };
         }),
       },
@@ -294,7 +329,10 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
       const queryParams = window.location && window.location.search ? window.location.search : '';
       const startTime = runInfo.start_time;
       const runName = Utils.getRunName(tags) || '-';
-      const visibleTags = Utils.getVisibleTagValues(tags).map(([key, value]) => ({ key, value }));
+      const visibleTags = Utils.getVisibleTagValues(tags).map(([key, value]) => ({
+        key,
+        value,
+      }));
 
       return {
         runInfo,
@@ -356,12 +394,6 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     this.gridApi = params.api;
     this.columnApi = params.columnApi;
     this.applyRowSelectionFromProps();
-    this.handleColumnSizeRefit();
-    this.fitColumnsOnWindowResize = _.debounce(() => {
-      this.gridApi.sizeColumnsToFit();
-    }, 100);
-
-    window.addEventListener('resize', this.fitColumnsOnWindowResize);
   };
 
   // There is no way in ag-grid to declaratively specify row selections. Thus, we have to use grid
@@ -388,17 +420,6 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
         node.setSelected(true);
       }
     });
-  }
-
-  handleColumnSizeRefit() {
-    if (!this.gridApi || !this.columnApi) return;
-    // Only re-fit columns into current viewport when there is no open column group. We are doing
-    // this because opened group can have arbitrary large number of child columns which will end
-    // up creating a lot of columns with extremely small width.
-    const columnGroupStates = this.columnApi.getColumnGroupState();
-    if (columnGroupStates.every((group) => !group.open)) {
-      this.gridApi.sizeColumnsToFit();
-    }
   }
 
   handleLoadingOverlay() {
@@ -429,30 +450,37 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     }
   }
 
-  componentDidUpdate() {
+  componentDidUpdate(prevProps) {
     this.applyRowSelectionFromProps();
-    this.handleColumnSizeRefit();
     this.handleLoadingOverlay();
     this.restoreGridState();
-  }
-
-  componentWillUnmount() {
-    window.removeEventListener('resize', this.fitColumnsOnWindowResize);
+    // The following block checks if any columnDefs parameters have changed to
+    // update the columnDefs to prevent resizing and other column property issues.
+    if (
+      prevProps.metricKeyList.length !== this.props.metricKeyList.length ||
+      prevProps.paramKeyList.length !== this.props.paramKeyList.length ||
+      prevProps.categorizedUncheckedKeys.length !== this.props.categorizedUncheckedKeys.length ||
+      prevProps.visibleTagKeyList.length !== this.props.visibleTagKeyList.length ||
+      prevProps.orderByKey !== this.props.orderByKey ||
+      prevProps.orderByAsc !== this.props.orderByAsc ||
+      prevProps.onSortBy !== this.props.onSortBy
+    ) {
+      this.columnDefs = this.getColumnDefs();
+    }
   }
 
   render() {
     const { handleLoadMoreRuns, loadingMore, numRunsFromLatestSearch, nestChildren } = this.props;
-    const columnDefs = this.getColumnDefs();
     const {
       defaultColDef,
       frameworkComponents,
       isFullWidthCell,
     } = ExperimentRunsTableMultiColumnView2;
     return (
-      <div className='ag-theme-balham multi-column-view'>
+      <div className='ag-theme-balham multi-column-view' data-test-id='detailed-runs-table-view'>
         <AgGridReact
           defaultColDef={defaultColDef}
-          columnDefs={columnDefs}
+          columnDefs={this.columnDefs}
           rowData={this.getRowData()}
           modules={[Grid, ClientSideRowModelModule]}
           rowSelection='multiple'
@@ -539,8 +567,9 @@ function DateCellRenderer(props) {
       <Link
         to={Routes.getRunPageRoute(runInfo.experiment_id, runInfo.run_uuid)}
         style={{ paddingLeft: isParent ? 0 : 16 }}
+        title={Utils.formatTimestamp(startTime)}
       >
-        {ExperimentViewUtil.getRunStatusIcon(runInfo.status)} {Utils.formatTimestamp(startTime)}
+        {ExperimentViewUtil.getRunStatusIcon(runInfo.status)} {Utils.timeSinceStr(startTime)}
       </Link>
     </div>
   );
@@ -570,9 +599,9 @@ function VersionCellRenderer(props) {
 
 export function ModelsCellRenderer(props) {
   const { runInfo, tags, modelVersionsByRunUuid } = props.data;
-  const runId = runInfo.run_uuid;
-  const registeredModels = modelVersionsByRunUuid[runId];
+  const registeredModels = modelVersionsByRunUuid[runInfo.run_uuid] || [];
   const loggedModels = Utils.getLoggedModelsFromTags(tags);
+  const models = Utils.mergeLoggedAndRegisteredModels(loggedModels, registeredModels);
   const imageStyle = {
     wrapper: css({
       img: {
@@ -582,57 +611,51 @@ export function ModelsCellRenderer(props) {
       },
     }),
   };
-  if (loggedModels && loggedModels.length) {
-    let loggedModel = loggedModels[0];
-    let registeredModelDiv;
-    if (registeredModels && registeredModels.length) {
-      const {
-        name: registeredModelName,
-        source: registeredModelSource,
-        version,
-      } = registeredModels[0];
-
-      const normalizedSourceArtifactPath = Utils.normalize(registeredModelSource).split(
-        `${runId}/artifacts/`,
-      )[1];
-      const matchingModels = loggedModels.filter(
-        (model) => Utils.normalize(model['artifact_path']) === normalizedSourceArtifactPath,
+  if (models && models.length) {
+    const modelToRender = models[0];
+    let modelDiv;
+    if (modelToRender.registeredModelName) {
+      const { registeredModelName, registeredModelVersion } = modelToRender;
+      modelDiv = (
+        <>
+          <img
+            data-test-id='registered-model-icon'
+            alt=''
+            title='Registered Model'
+            src={registeredModelSvg}
+          />
+          <a
+            href={Utils.getIframeCorrectedRoute(
+              getModelVersionPageRoute(registeredModelName, registeredModelVersion),
+            )}
+            className='registered-model-link'
+            target='_blank'
+          >
+            <TrimmedText text={registeredModelName} maxSize={10} className={'model-name'} />
+            {`/${registeredModelVersion}`}
+          </a>
+        </>
       );
-      if (matchingModels.length > 0) {
-        [loggedModel] = matchingModels;
-        registeredModelDiv = (
-          <>
-            {' - '}
-            <img
-              data-test-id='registered-model-icon'
-              alt='registered model icon'
-              title='Registered Model'
-              src={registeredModelSvg}
-            />
-            <a
-              href={getModelVersionPageURL(registeredModelName, version)}
-              className='model-version-link'
-              title={`${registeredModelName}, v${version}`}
-              target='_blank'
-            >
-              <TrimmedText text={registeredModelName} maxSize={10} className={'model-name'} />
-              {`/${version}`}
-            </a>
-          </>
-        );
-      }
+    } else if (modelToRender.flavors) {
+      const loggedModelFlavorText = modelToRender.flavors ? modelToRender.flavors[0] : 'Model';
+      const loggedModelLink = Utils.getIframeCorrectedRoute(
+        `${Routes.getRunPageRoute(runInfo.experiment_id, runInfo.run_uuid)}/artifactPath/${
+          modelToRender.artifactPath
+        }`,
+      );
+      modelDiv = (
+        <>
+          <img data-test-id='logged-model-icon' alt='' title='Logged Model' src={loggedModelSvg} />
+          <a href={loggedModelLink} target='_blank' className='logged-model-link'>
+            {loggedModelFlavorText}
+          </a>
+        </>
+      );
     }
-    const loggedModelFlavorText = loggedModel['flavors'] ? loggedModel['flavors'][0] : 'Model';
-    const loggedModelLink = Routes.getRunArtifactRoute(
-      runInfo.experiment_id,
-      runInfo.run_uuid,
-      loggedModel['artifact_path'],
-    );
+
     return (
       <div className={`logged-model-cell ${imageStyle.wrapper}`}>
-        <img data-test-id='logged-model-icon' alt='' title='Logged Model' src={loggedModelSvg} />
-        <Link to={loggedModelLink}>{loggedModelFlavorText}</Link>
-        {registeredModelDiv}
+        {modelDiv}
         {loggedModels.length > 1 ? `, ${loggedModels.length - 1} more` : ''}
       </div>
     );

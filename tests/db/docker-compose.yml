@@ -1,0 +1,34 @@
+version: "3"
+services:
+  postgres:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_DB: mlflowdb
+      POSTGRES_USER: mlflowuser
+      POSTGRES_PASSWORD: mlflowpassword
+
+  mlflow-postgres:
+    depends_on:
+      - postgres
+    build:
+      context: .
+    environment:
+      MLFLOW_TRACKING_URI: postgresql://mlflowuser:mlflowpassword@postgres:5432/mlflowdb
+
+  mysql:
+    image: mysql:5.7
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root-password
+      MYSQL_DATABASE: mlflowdb
+      MYSQL_USER: mlflowuser
+      MYSQL_PASSWORD: mlflowpassword
+
+  mlflow-mysql:
+    depends_on:
+      - mysql
+    build:
+      context: .
+    environment:
+      MLFLOW_TRACKING_URI: mysql://mlflowuser:mlflowpassword@mysql:3306/mlflowdb

@@ -138,6 +138,19 @@ def test_create_get_list_experiment(mlflow_client):
         "My Experiment",
         "Default",
     }
+    active_exps_paginated = mlflow_client.list_experiments(max_results=1)
+    assert set([e.name for e in active_exps_paginated]) == {"Default"}
+    assert active_exps_paginated.token is None
+
+    all_exps_paginated = mlflow_client.list_experiments(max_results=1, view_type=ViewType.ALL)
+    first_page_names = set([e.name for e in all_exps_paginated])
+    all_exps_second_page = mlflow_client.list_experiments(
+        max_results=1, view_type=ViewType.ALL, page_token=all_exps_paginated.token
+    )
+    second_page_names = set([e.name for e in all_exps_second_page])
+    assert len(first_page_names) == 1
+    assert len(second_page_names) == 1
+    assert first_page_names.union(second_page_names) == {"Default", "My Experiment"}
 
 
 def test_delete_restore_experiment(mlflow_client):
@@ -351,6 +364,7 @@ def test_log_batch(mlflow_client, backend_store_uri):
     assert metric.step == 3
 
 
+@pytest.mark.allow_infer_pip_requirements_fallback
 def test_log_model(mlflow_client, backend_store_uri):
     experiment_id = mlflow_client.create_experiment("Log models")
     with TempDir(chdr=True):

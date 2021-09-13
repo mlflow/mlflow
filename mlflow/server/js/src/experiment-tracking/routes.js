@@ -15,10 +15,6 @@ class Routes {
     return `/experiments/${experimentId}/runs/${runUuid}`;
   }
 
-  static getRunArtifactRoute(experimentId, runUuid, artifactPath) {
-    return `${this.getRunPageRoute(experimentId, runUuid)}/artifactPath/${artifactPath}`;
-  }
-
   static runPageRoute = '/experiments/:experimentId/runs/:runUuid';
 
   static runPageWithArtifactSelectedRoute =

@@ -24,7 +24,7 @@ Useful links:
 
 Authors:
 \itemize{
-  \item Javier Luraschi \email{javier@rstudio.com}
+  \item Javier Luraschi \email{jluraschi@gmail.com}
   \item Kevin Kuo \email{kevin.kuo@rstudio.com} (\href{https://orcid.org/0000-0001-7803-7901}{ORCID})
 }
 

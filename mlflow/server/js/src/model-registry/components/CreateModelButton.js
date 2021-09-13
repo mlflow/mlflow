@@ -1,21 +1,12 @@
 import React from 'react';
 import { Button } from 'antd';
-import { GenericInputModal } from '../../experiment-tracking/components/modals/GenericInputModal';
-import { CreateModelForm, MODEL_NAME_FIELD } from './CreateModelForm';
+import { CreateModelModal } from './CreateModelModal';
 import { css } from 'emotion';
-import { connect } from 'react-redux';
-import { createRegisteredModelApi } from '../actions';
-import { getUUID } from '../../common/utils/ActionUtils';
-import { withRouter } from 'react-router-dom';
-import { getModelPageRoute } from '../routes';
-import { debounce } from 'lodash';
 import PropTypes from 'prop-types';
-import { modelNameValidator } from '../../common/forms/validations';
+import { FormattedMessage } from 'react-intl';
 
-export class CreateModelButtonImpl extends React.Component {
+export class CreateModelButton extends React.Component {
   static propTypes = {
-    createRegisteredModelApi: PropTypes.func.isRequired,
-    history: PropTypes.object.isRequired,
     buttonType: PropTypes.string,
     buttonText: PropTypes.string,
   };
@@ -23,23 +14,6 @@ export class CreateModelButtonImpl extends React.Component {
   state = {
     modalVisible: false,
   };
-
-  createRegisteredModelRequestId = getUUID();
-
-  handleCreateRegisteredModel = async (values) => {
-    const result = await this.props.createRegisteredModelApi(
-      values[MODEL_NAME_FIELD],
-      this.createRegisteredModelRequestId,
-    );
-    const newModel = result.value && result.value.registered_model;
-    if (newModel) {
-      // Jump to the page of newly created model. Here we are yielding to next tick to allow modal
-      // and form to finish closing and cleaning up.
-      setTimeout(() => this.props.history.push(getModelPageRoute(newModel.name)));
-    }
-  };
-
-  debouncedModelNameValidator = debounce(modelNameValidator, 400);
 
   hideModal = () => {
     this.setState({ modalVisible: false });
@@ -52,21 +26,23 @@ export class CreateModelButtonImpl extends React.Component {
   render() {
     const { modalVisible } = this.state;
     const buttonType = this.props.buttonType || 'primary';
-    const buttonText = this.props.buttonText || 'Create Model';
+    const buttonText = this.props.buttonText || (
+      <FormattedMessage
+        defaultMessage='Create Model'
+        description='Create button to register a new model'
+      />
+    );
+    const buttonSize = buttonType === 'primary' ? `${classNames.buttonSize}` : ``;
     return (
       <div className={`create-model-btn-wrapper ${classNames.wrapper} ${modelClassNames}`}>
-        <Button className={`create-model-btn`} type={buttonType} onClick={this.showModal}>
+        <Button
+          className={`create-model-btn ${buttonSize}`}
+          type={buttonType}
+          onClick={this.showModal}
+        >
           {buttonText}
         </Button>
-        <GenericInputModal
-          title='Create Model'
-          okText='Create'
-          isOpen={modalVisible}
-          handleSubmit={this.handleCreateRegisteredModel}
-          onClose={this.hideModal}
-        >
-          <CreateModelForm visible={modalVisible} validator={this.debouncedModelNameValidator} />
-        </GenericInputModal>
+        <CreateModelModal modalVisible={modalVisible} hideModal={this.hideModal} />
       </div>
     );
   }
@@ -74,8 +50,11 @@ export class CreateModelButtonImpl extends React.Component {
 
 const classNames = {
   wrapper: css({
-    marginBottom: 24,
     display: 'inline',
+  }),
+  buttonSize: css({
+    height: '40px',
+    width: 'fit-content',
   }),
 };
 
@@ -86,11 +65,3 @@ const modelClassNames = css({
     color: '#2374BB',
   },
 });
-
-const mapDispatchToProps = {
-  createRegisteredModelApi,
-};
-
-export const CreateModelButton = withRouter(
-  connect(undefined, mapDispatchToProps)(CreateModelButtonImpl),
-);

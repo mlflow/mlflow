@@ -5,7 +5,7 @@
   <parent>
     <groupId>org.mlflow</groupId>
     <artifactId>mlflow-parent</artifactId>
-    <version>1.13.2-SNAPSHOT</version>
+    <version>1.20.3-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -16,14 +16,6 @@
   <properties>
     <mlflow.shade.packageName>org.mlflow_project</mlflow.shade.packageName>
   </properties>
-
-  <distributionManagement>
-    <repository>
-      <id>bintray</id>
-      <name>mlflow</name>
-      <url>https://api.bintray.com/maven/mlflow/mlflow/mlflow-client/;publish=1</url>
-    </repository>
-  </distributionManagement>
 
   <dependencies>
     <dependency>
@@ -162,4 +154,9 @@
       </plugin>
       </plugins>
   </build>
+  <profiles>
+    <profile>
+      <id>do-sign</id>
+    </profile>
+  </profiles>
 </project>

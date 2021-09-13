@@ -1,7 +1,7 @@
-.parallel-coorinates-plot-panel {
+.parallel-coordinates-plot-panel {
   display: flex;
 }
 
-.parallel-coorinates-plot-panel .plot-controls .metrics-select {
+.parallel-coordinates-plot-panel .plot-controls .metrics-select {
   width: 300px;
 }

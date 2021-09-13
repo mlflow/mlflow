@@ -1,8 +1,8 @@
 import React from 'react';
 import { connect } from 'react-redux';
-import Plot from 'react-plotly.js';
 import PropTypes from 'prop-types';
 import _ from 'lodash';
+import { LazyPlot } from './LazyPlot';
 
 const AXIS_LABEL_CLS = '.pcp-plot .parcoords .y-axis .axis-heading .axis-title';
 
@@ -113,7 +113,7 @@ export class ParallelCoordinatesPlotView extends React.Component {
 
   render() {
     return (
-      <Plot
+      <LazyPlot
         layout={{ autosize: true, margin: { t: 50 } }}
         useResizeHandler
         style={{ width: '100%', height: '100%' }}
@@ -151,9 +151,11 @@ export const generateAttributesForCategoricalDimension = (labels) => {
  */
 export const inferType = (key, runUuids, entryByRunUuid) => {
   for (let i = 0; i < runUuids.length; i++) {
-    const { value } = entryByRunUuid[runUuids[i]][key];
-    if (typeof value === 'string' && isNaN(Number(value)) && value !== 'NaN') {
-      return 'string';
+    if (entryByRunUuid[runUuids[i]][key]) {
+      const { value } = entryByRunUuid[runUuids[i]][key];
+      if (typeof value === 'string' && isNaN(Number(value)) && value !== 'NaN') {
+        return 'string';
+      }
     }
   }
   return 'number';
@@ -164,12 +166,17 @@ export const createDimension = (key, runUuids, entryByRunUuid) => {
   const dataType = inferType(key, runUuids, entryByRunUuid);
   if (dataType === 'string') {
     attributes = generateAttributesForCategoricalDimension(
-      runUuids.map((runUuid) => entryByRunUuid[runUuid][key].value),
+      runUuids.map((runUuid) =>
+        entryByRunUuid[runUuid][key] ? entryByRunUuid[runUuid][key].value : '',
+      ),
     );
   } else {
     attributes.values = runUuids.map((runUuid) => {
-      const { value } = entryByRunUuid[runUuid][key];
-      return isNaN(value) ? 0 : Number(value); // Default NaN to zero here
+      if (entryByRunUuid[runUuid][key]) {
+        const { value } = entryByRunUuid[runUuid][key];
+        return Number(value);
+      }
+      return NaN;
     });
     // For some reason, Plotly tries to plot these values with SI prefixes by default
     // Explicitly set to 5 fixed digits float here
@@ -184,19 +191,11 @@ export const createDimension = (key, runUuids, entryByRunUuid) => {
 const mapStateToProps = (state, ownProps) => {
   const { runUuids, paramKeys, metricKeys } = ownProps;
   const { latestMetricsByRunUuid, paramsByRunUuid } = state.entities;
-  // Show only runs that have all the parameters/metrics we chose to plot, since the parallel
-  // coordinates plot can't easily handle data points that are missing a dimension.
-  const validRunUuids = runUuids.filter((uuid) => {
-    return (
-      paramKeys.every((key) => paramsByRunUuid[uuid][key] !== undefined) &&
-      metricKeys.every((key) => latestMetricsByRunUuid[uuid][key] !== undefined)
-    );
-  });
   const paramDimensions = paramKeys.map((paramKey) =>
-    createDimension(paramKey, validRunUuids, paramsByRunUuid),
+    createDimension(paramKey, runUuids, paramsByRunUuid),
   );
   const metricDimensions = metricKeys.map((metricKey) =>
-    createDimension(metricKey, validRunUuids, latestMetricsByRunUuid),
+    createDimension(metricKey, runUuids, latestMetricsByRunUuid),
   );
   return { paramDimensions, metricDimensions };
 };

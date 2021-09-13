@@ -5,6 +5,7 @@ import unittest
 import warnings
 
 import math
+import random
 import pytest
 import sqlalchemy
 import time
@@ -27,8 +28,6 @@ from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.db.utils import (
     _get_schema_version,
     _get_latest_schema_revision,
-    MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW,
-    MLFLOW_SQLALCHEMYSTORE_POOL_SIZE,
 )
 from mlflow.store.tracking.dbmodels import models
 from mlflow.store.db.db_types import MYSQL, MSSQL
@@ -38,7 +37,7 @@ from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.uri import extract_db_type_from_uri
-from tests.resources.db.initial_models import Base as InitialBase
+from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
 from tests.integration.utils import invoke_cli_runner
 from tests.store.tracking import AbstractStoreTest
 
@@ -217,7 +216,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         testnames = ["blue", "red", "green"]
 
         experiments = self._experiment_factory(testnames)
-        actual = self.store.list_experiments()
+        actual = self.store.list_experiments(
+            max_results=SEARCH_MAX_RESULTS_DEFAULT, page_token=None
+        )
 
         self.assertEqual(len(experiments) + 1, len(actual))  # default
 
@@ -230,6 +231,61 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
                 )
                 self.assertIn(res.name, testnames)
                 self.assertEqual(str(res.experiment_id), experiment_id)
+
+    def test_list_experiments_paginated_last_page(self):
+        # 9 + 1 default experiment for 10 total
+        testnames = ["randexp" + str(num) for num in random.sample(range(1, 100000), 9)]
+        experiments = self._experiment_factory(testnames)
+        max_results = 5
+        returned_experiments = []
+        result = self.store.list_experiments(max_results=max_results, page_token=None)
+        self.assertEqual(len(result), max_results)
+        returned_experiments.extend(result)
+        while result.token:
+            result = self.store.list_experiments(max_results=max_results, page_token=result.token)
+            self.assertEqual(len(result), max_results)
+            returned_experiments.extend(result)
+        self.assertEqual(result.token, None)
+        # make sure that at least all the experiments created in this test are found
+        returned_exp_id_set = set([exp.experiment_id for exp in returned_experiments])
+        self.assertEqual(set(experiments) - returned_exp_id_set, set())
+
+    def test_list_experiments_paginated_returns_in_correct_order(self):
+        testnames = ["randexp" + str(num) for num in random.sample(range(1, 100000), 20)]
+        self._experiment_factory(testnames)
+
+        # test that pagination will return all valid results in sorted order
+        # by name ascending
+        result = self.store.list_experiments(max_results=3, page_token=None)
+        self.assertNotEqual(result.token, None)
+        self.assertEqual([exp.name for exp in result[1:]], testnames[0:2])
+
+        result = self.store.list_experiments(max_results=4, page_token=result.token)
+        self.assertNotEqual(result.token, None)
+        self.assertEqual([exp.name for exp in result], testnames[2:6])
+
+        result = self.store.list_experiments(max_results=6, page_token=result.token)
+        self.assertNotEqual(result.token, None)
+        self.assertEqual([exp.name for exp in result], testnames[6:12])
+
+        result = self.store.list_experiments(max_results=8, page_token=result.token)
+        # this page token should be none
+        self.assertEqual(result.token, None)
+        self.assertEqual([exp.name for exp in result], testnames[12:])
+
+    def test_list_experiments_paginated_errors(self):
+        # test that providing a completely invalid page token throws
+        with self.assertRaises(MlflowException) as exception_context:
+            self.store.list_experiments(page_token="evilhax", max_results=20)
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+        # test that providing too large of a max_results throws
+        with self.assertRaises(MlflowException) as exception_context:
+            self.store.list_experiments(page_token=None, max_results=int(1e15))
+            assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        self.assertIn(
+            "Invalid value for request parameter max_results", exception_context.exception.message
+        )
 
     def test_create_experiments(self):
         with self.store.ManagedSessionMaker() as session:
@@ -947,7 +1003,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         run_view_type=ViewType.ALL,
         max_results=SEARCH_MAX_RESULTS_DEFAULT,
     ):
-        exps = [experiment_id] if isinstance(experiment_id, int) else experiment_id
+        exps = [experiment_id] if isinstance(experiment_id, str) else experiment_id
         return [
             r.info.run_id
             for r in self.store.search_runs(exps, filter_string, run_view_type, max_results)
@@ -1852,11 +1908,18 @@ def test_sqlalchemy_store_behaves_as_expected_with_inmemory_sqlite_db():
     assert param.key in fetched_run.data.params
 
 
+def test_sqlalchemy_store_can_be_initialized_when_default_experiment_has_been_deleted(tmpdir):
+    db_uri = "sqlite:///{}/mlflow.db".format(tmpdir.strpath)
+    store = SqlAlchemyStore(db_uri, ARTIFACT_URI)
+    store.delete_experiment("0")
+    assert store.get_experiment("0").lifecycle_stage == entities.LifecycleStage.DELETED
+    SqlAlchemyStore(db_uri, ARTIFACT_URI)
+
+
 class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
     """
     Test case where user has an existing DB with schema generated before MLflow 1.0,
-    then migrates their DB. TODO: update this test in MLflow 1.1 to use InitialBase from
-    mlflow.store.db.initial_models.
+    then migrates their DB.
     """
 
     def setUp(self):
@@ -1870,55 +1933,6 @@ class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
 
     def tearDown(self):
         os.remove(self.temp_dbfile)
-
-
-@pytest.mark.release
-class TestSqlAlchemyStoreMysqlDb(TestSqlAlchemyStoreSqlite):
-    """
-    Run tests against a MySQL database
-    """
-
-    DEFAULT_MYSQL_PORT = 3306
-
-    def setUp(self):
-        os.environ[MLFLOW_SQLALCHEMYSTORE_POOL_SIZE] = "2"
-        os.environ[MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW] = "1"
-        db_username = os.environ.get("MYSQL_TEST_USERNAME")
-        db_password = os.environ.get("MYSQL_TEST_PASSWORD")
-        db_port = (
-            int(os.environ["MYSQL_TEST_PORT"])
-            if "MYSQL_TEST_PORT" in os.environ
-            else TestSqlAlchemyStoreMysqlDb.DEFAULT_MYSQL_PORT
-        )
-        if db_username is None or db_password is None:
-            raise Exception(
-                "Username and password for database tests must be specified via the "
-                "MYSQL_TEST_USERNAME and MYSQL_TEST_PASSWORD environment variables. "
-                "environment variable. In posix shells, you can rerun your test command "
-                "with the environment variables set, e.g: MYSQL_TEST_USERNAME=your_username "
-                "MYSQL_TEST_PASSWORD=your_password <your-test-command>. You may optionally "
-                "specify a database port via MYSQL_TEST_PORT (default is 3306)."
-            )
-        self._db_name = "test_sqlalchemy_store_%s" % uuid.uuid4().hex[:5]
-        db_server_url = "mysql://%s:%s@localhost:%s" % (db_username, db_password, db_port)
-        self._engine = sqlalchemy.create_engine(db_server_url)
-        self._engine.execute("CREATE DATABASE %s" % self._db_name)
-        self.db_url = "%s/%s" % (db_server_url, self._db_name)
-        self.store = self._get_store(self.db_url)
-
-    def tearDown(self):
-        self._engine.execute("DROP DATABASE %s" % self._db_name)
-
-    def test_log_many_entities(self):
-        """
-        Sanity check: verify that we can log a reasonable number of entities without failures due
-        to connection leaks etc.
-        """
-        run = self._run_factory()
-        for i in range(100):
-            self.store.log_metric(run.info.run_id, entities.Metric("key", i, i * 2, i * 3))
-            self.store.log_param(run.info.run_id, entities.Param("pkey-%s" % i, "pval-%s" % i))
-            self.store.set_tag(run.info.run_id, entities.RunTag("tkey-%s" % i, "tval-%s" % i))
 
 
 @mock.patch("sqlalchemy.orm.session.Session", spec=True)
@@ -1992,3 +2006,8 @@ def test_get_orderby_clauses():
 
         # test that an exception is NOT raised when key types are different
         _get_orderby_clauses(["param.a", "metric.a", "tag.a"], session)
+
+        # test that "=" is used rather than "is" when comparing to True
+        parsed = [str(x) for x in _get_orderby_clauses(["metric.a"], session)[0]]
+        assert "is_nan = true" in parsed[0]
+        assert "value IS NULL" in parsed[0]

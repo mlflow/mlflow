@@ -17,7 +17,10 @@ import ShowArtifactPdfView from './ShowArtifactPdfView';
 import ShowArtifactLoggedModelView from './ShowArtifactLoggedModelView';
 import previewIcon from '../../../common/static/preview-icon.png';
 import './ShowArtifactPage.css';
-import { getModelVersionPageURL } from '../../../model-registry/routes';
+import { getModelVersionPageRoute } from '../../../model-registry/routes';
+import Utils from '../../../common/utils/Utils';
+
+import { FormattedMessage } from 'react-intl';
 
 class ShowArtifactPage extends Component {
   static propTypes = {
@@ -40,7 +43,9 @@ class ShowArtifactPage extends Component {
         );
         if (registeredModel) {
           const { name: registeredModelName, version } = registeredModel;
-          registeredModelLink = getModelVersionPageURL(registeredModelName, version);
+          registeredModelLink = Utils.getIframeCorrectedRoute(
+            getModelVersionPageRoute(registeredModelName, version),
+          );
         }
       }
       if (normalizedExtension) {
@@ -76,9 +81,18 @@ class ShowArtifactPage extends Component {
             <img className='select-preview-image' alt='Preview icon.' src={previewIcon} />
           </div>
           <div className='select-preview-text'>
-            <span className='select-preview-header'>Select a file to preview</span>
+            <span className='select-preview-header'>
+              <FormattedMessage
+                defaultMessage='Select a file to preview'
+                description='Label to suggests users to select a file to preview the output'
+              />
+            </span>
             <span className='select-preview-supported-formats'>
-              Supported formats: image, text, html, pdf, geojson files
+              <FormattedMessage
+                defaultMessage='Supported formats: image, text, html, pdf, geojson files'
+                // eslint-disable-next-line max-len
+                description='Text to explain users which formats are supported to display the artifacts'
+              />
             </span>
           </div>
         </div>

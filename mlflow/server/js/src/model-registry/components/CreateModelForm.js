@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 
 import { Form, Input } from 'antd';
 import { ModelRegistryDocUrl } from '../../common/constants';
+import { FormattedMessage, injectIntl } from 'react-intl';
 
 export const MODEL_NAME_FIELD = 'modelName';
 
@@ -14,6 +15,7 @@ class CreateModelFormImpl extends Component {
     form: PropTypes.object.isRequired,
     visible: PropTypes.bool.isRequired,
     validator: PropTypes.func,
+    intl: PropTypes.any,
   };
 
   static getLearnMoreLinkUrl = () => ModelRegistryDocUrl;
@@ -39,19 +41,42 @@ class CreateModelFormImpl extends Component {
     const learnMoreLinkUrl = CreateModelFormImpl.getLearnMoreLinkUrl();
     return (
       <Form layout='vertical'>
-        <Form.Item label={'Model name'}>
+        <Form.Item
+          label={this.props.intl.formatMessage({
+            defaultMessage: 'Model name',
+            description: 'Text for form title on creating model in the model registry',
+          })}
+        >
           {getFieldDecorator(MODEL_NAME_FIELD, {
             rules: [
-              { required: true, message: 'Please input a name for the new model.' },
+              {
+                required: true,
+                message: this.props.intl.formatMessage({
+                  defaultMessage: 'Please input a name for the new model.',
+                  description:
+                    'Error message for having no input for creating models in the model registry',
+                }),
+              },
               { validator: this.props.validator },
             ],
           })(<Input ref={this.autoFocusInputRef} />)}
         </Form.Item>
         <p className='create-modal-explanatory-text'>
-          After creation, you can register logged models as new versions.&nbsp;
-          <a target='_blank' href={learnMoreLinkUrl}>
-            Learn more
-          </a>
+          <FormattedMessage
+            defaultMessage='After creation, you can register logged models as new versions.&nbsp;'
+            description='Text for form description on creating model in the model registry'
+          />
+          <FormattedMessage
+            defaultMessage='<link>Learn more</link>'
+            description='Learn more link on the form for creating model in the model registry'
+            values={{
+              link: (chunks) => (
+                <a href={learnMoreLinkUrl} target='_blank'>
+                  {chunks}
+                </a>
+              ),
+            }}
+          />
           .
         </p>
       </Form>
@@ -59,4 +84,4 @@ class CreateModelFormImpl extends Component {
   }
 }
 
-export const CreateModelForm = Form.create()(CreateModelFormImpl);
+export const CreateModelForm = Form.create()(injectIntl(CreateModelFormImpl));

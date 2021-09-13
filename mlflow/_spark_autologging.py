@@ -16,6 +16,7 @@ from mlflow.utils.autologging_utils import (
     autologging_is_disabled,
     ExceptionSafeClass,
 )
+from mlflow.utils.databricks_utils import get_repl_id as get_databricks_repl_id
 from mlflow.spark import FLAVOR_NAME
 
 _JAVA_PACKAGE = "org.mlflow.spark.autologging"
@@ -156,7 +157,7 @@ def _get_repl_id():
     local properties, and expect that the PythonSubscriber for the current Python process only
     receives events for datasource reads triggered by the current process.
     """
-    repl_id = SparkContext.getOrCreate().getLocalProperty("spark.databricks.replId")
+    repl_id = get_databricks_repl_id()
     if repl_id:
         return repl_id
     main_file = sys.argv[0] if len(sys.argv) > 0 else "<console>"
@@ -241,7 +242,7 @@ class SparkAutologgingContext(RunContextProvider):
                 if info not in seen:
                     unique_infos.append(info)
                     seen.add(info)
-            if len(_table_infos) > 0:
+            if len(unique_infos) > 0:
                 tags = {
                     _SPARK_TABLE_INFO_TAG_NAME: "\n".join(
                         [_get_table_info_string(*info) for info in unique_infos]
@@ -249,5 +250,4 @@ class SparkAutologgingContext(RunContextProvider):
                 }
             else:
                 tags = {}
-            _table_infos = []
             return tags

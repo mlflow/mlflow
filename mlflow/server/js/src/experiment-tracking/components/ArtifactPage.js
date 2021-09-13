@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
+import { FormattedMessage } from 'react-intl';
 import { ArtifactView } from './ArtifactView';
 import { Spinner } from '../../common/components/Spinner';
 import { listArtifactsApi } from '../actions';
@@ -30,10 +31,13 @@ export class ArtifactPageImpl extends Component {
   getFailedtoListArtifactsMsg = () => {
     return (
       <span>
-        Unable to list artifacts stored under
-        <code>{this.props.artifactRootUri}</code> for the current run. Please contact your tracking
-        server administrator to notify them of this error, which can happen when the tracking server
-        lacks permission to list artifacts under the current run's root artifact directory.
+        <FormattedMessage
+          // eslint-disable-next-line max-len
+          defaultMessage="Unable to list artifacts stored under <code>{artifactUri}</code> for the current run. Please contact your tracking server administrator to notify them of this error, which can happen when the tracking server lacks permission to list artifacts under the current run's root artifact directory."
+          // eslint-disable-next-line max-len
+          description='Error message when the artifact is unable to load. This message is displayed in the open source ML flow only'
+          values={{ artifactUri: this.props.artifactRootUri }}
+        />
       </span>
     );
   };
@@ -111,7 +115,13 @@ export class ArtifactPageImpl extends Component {
           <div className='artifact-load-error-outer-container'>
             <div className='artifact-load-error-container'>
               <div>
-                <div className='artifact-load-error-header'>Loading Artifacts Failed</div>
+                <div className='artifact-load-error-header'>
+                  <FormattedMessage
+                    defaultMessage='Loading Artifacts Failed'
+                    // eslint-disable-next-line max-len
+                    description='Error message rendered when loading the artifacts for the experiment fails'
+                  />
+                </div>
                 <div className='artifact-load-error-info'>
                   <i className='far fa-times-circle artifact-load-error-icon' aria-hidden='true' />
                   {this.getFailedtoListArtifactsMsg()}

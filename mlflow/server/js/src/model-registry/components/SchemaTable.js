@@ -1,16 +1,20 @@
 import React from 'react';
 import { Table } from 'antd';
-import PropType from 'prop-types';
+import PropTypes from 'prop-types';
 import { css } from 'emotion';
+import { LogModelWithSignatureUrl } from '../../common/constants';
 import { gray800 } from '../../common/styles/color';
 import { spacingMedium } from '../../common/styles/spacing';
+import { MODEL_SCHEMA_TENSOR_TYPE } from '../constants';
+import { FormattedMessage, injectIntl } from 'react-intl';
 
 const { Column } = Table;
 
-export class SchemaTable extends React.PureComponent {
+export class SchemaTableImpl extends React.PureComponent {
   static propTypes = {
-    schema: PropType.object,
-    defaultExpandAllRows: PropType.bool,
+    schema: PropTypes.object,
+    defaultExpandAllRows: PropTypes.bool,
+    intl: PropTypes.shape({ formatMessage: PropTypes.func.isRequired }).isRequired,
   };
 
   renderSchemaTable = (schemaData, schemaType) => {
@@ -43,13 +47,24 @@ export class SchemaTable extends React.PureComponent {
     );
   };
 
+  getSchemaTypeRepr = (schemaTypeSpec) => {
+    if (schemaTypeSpec.type === MODEL_SCHEMA_TENSOR_TYPE) {
+      return (
+        `Tensor (dtype: ${schemaTypeSpec['tensor-spec'].dtype},` +
+        ` shape: [${schemaTypeSpec['tensor-spec'].shape}])`
+      );
+    } else {
+      return schemaTypeSpec.type;
+    }
+  };
+
   getSchemaRowData = (schemaData) => {
     const rowData = [];
     schemaData.forEach((row, index) => {
       rowData[index] = {
         key: index,
         name: row.name ? row.name : '-',
-        type: row.type ? row.type : '-',
+        type: row.type ? this.getSchemaTypeRepr(row) : '-',
       };
     });
     return rowData;
@@ -68,13 +83,29 @@ export class SchemaTable extends React.PureComponent {
       ? [
           {
             key: '1',
-            name: `Inputs (${schema.inputs.length})`,
+            name: this.props.intl.formatMessage(
+              {
+                defaultMessage: 'Inputs ({numInputs})',
+                description: 'Input section header for schema table in model version page',
+              },
+              {
+                numInputs: schema.inputs.length,
+              },
+            ),
             type: '',
             table: this.renderSchemaTable(schema.inputs, 'inputs'),
           },
           {
             key: '2',
-            name: `Outputs (${schema.outputs.length})`,
+            name: this.props.intl.formatMessage(
+              {
+                defaultMessage: 'Outputs ({numOutputs})',
+                description: 'Input section header for schema table in model version page',
+              },
+              {
+                numOutputs: schema.outputs.length,
+              },
+            ),
             type: '',
             table: this.renderSchemaTable(schema.outputs, 'outputs'),
           },
@@ -93,20 +124,41 @@ export class SchemaTable extends React.PureComponent {
           expandRowByClick
           expandedRowRender={(record) => record.table}
           expandIcon={({ expanded }) => (expanded ? minusIcon : plusIcon)}
-          locale={{ emptyText: `No Schema.` }}
+          locale={{
+            emptyText: (
+              <div>
+                {/* eslint-disable-next-line max-len */}
+                <FormattedMessage
+                  defaultMessage='No schema. See <link>MLflow docs</link> for how to include
+                     input and output schema with your model.'
+                  description='Text for schema table when no schema exists in the model version
+                     page'
+                  values={{
+                    link: (chunks) => <a href={LogModelWithSignatureUrl}>{chunks}</a>,
+                  }}
+                />
+              </div>
+            ),
+          }}
           dataSource={sectionHeaders}
           scroll={{ x: 240 }}
         >
           <Column
             key={1}
-            title='Name'
+            title={this.props.intl.formatMessage({
+              defaultMessage: 'Name',
+              description: 'Text for name column in schema table in model version page',
+            })}
             width='50%'
             dataIndex='name'
             render={this.renderSectionHeader}
           />
           <Column
             key={2}
-            title='Type'
+            title={this.props.intl.formatMessage({
+              defaultMessage: 'Type',
+              description: 'Text for type column in schema table in model version page',
+            })}
             width='50%'
             dataIndex='type'
             render={this.renderSectionHeader}
@@ -116,6 +168,8 @@ export class SchemaTable extends React.PureComponent {
     );
   }
 }
+
+export const SchemaTable = injectIntl(SchemaTableImpl);
 
 const antTable = '.ant-table-middle>.ant-table-content>.ant-table-scroll>.ant-table-body>table';
 const schemaTableClassName = css({

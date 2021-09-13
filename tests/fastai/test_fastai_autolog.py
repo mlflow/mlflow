@@ -125,7 +125,6 @@ def test_fastai_autolog_logs_expected_data(fastai_random_data_run, fit_variant):
     # Testing optimizer parameters are logged
     assert "opt_func" in data.params
     assert data.params["opt_func"] == "Adam"
-    assert "model_summary" in data.tags
 
     # Testing model_summary.txt is saved
     client = mlflow.tracking.MlflowClient()

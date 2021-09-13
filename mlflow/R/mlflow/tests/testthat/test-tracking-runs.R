@@ -81,6 +81,34 @@ test_that("mlflow_start_run()/mlflow_end_run() works properly with nested runs",
   expect_null(mlflow:::mlflow_get_active_run_id())
 })
 
+test_that("mlflow_restore_run() work properly", {
+  mlflow_clear_test_dir("mlruns")
+  client <- mlflow_client()
+  run1 <- mlflow_start_run(
+    client = client,
+    experiment_id = "0",
+    tags = list(foo = "bar", foz = "baz", mlflow.user = "user1")
+  )
+
+  run2 <- mlflow_get_run(client = client, run1$run_uuid)
+  mlflow_delete_run(client = client, run_id = run1$run_uuid)
+  run3 <- mlflow_restore_run(client = client, run_id = run1$run_uuid)
+
+  for (run in list(run1, run2, run3)) {
+    expect_identical(run$user_id, "user1")
+
+    expect_true(
+      all(purrr::transpose(run$tags[[1]]) %in%
+        list(
+          list(key = "foz", value = "baz"),
+          list(key = "foo", value = "bar"),
+          list(key = "mlflow.user", value = "user1")
+        )
+      )
+    )
+  }
+})
+
 test_that("mlflow_set_tag() should return NULL invisibly", {
   mlflow_clear_test_dir("mlruns")
   value <- mlflow_set_tag("foo", "bar")

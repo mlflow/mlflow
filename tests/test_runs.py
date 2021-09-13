@@ -1,9 +1,8 @@
 from click.testing import CliRunner
 from unittest import mock
+import pytest
 
-import numpy as np
 import os
-import pandas as pd
 import shutil
 import tempfile
 import textwrap
@@ -26,7 +25,14 @@ def test_list_run_experiment_id_required():
     assert "Missing option '--experiment-id'" in result.output
 
 
+@pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ,
+    reason="Skinny Client does not support predict due to the pandas dependency",
+)
 def test_csv_generation():
+    import numpy as np
+    import pandas as pd
+
     with mock.patch("mlflow.experiments.fluent.search_runs") as mock_search_runs:
         mock_search_runs.return_value = pd.DataFrame(
             {

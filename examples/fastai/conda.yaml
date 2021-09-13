@@ -1,7 +1,5 @@
 name: fastai-example
 channels:
-  - defaults
-  - anaconda
   - conda-forge
 dependencies:
   - python=3.7.5

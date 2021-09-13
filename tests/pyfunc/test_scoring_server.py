@@ -4,10 +4,8 @@ import numpy as np
 import os
 import pandas as pd
 from collections import namedtuple, OrderedDict
+from packaging.version import Version
 
-from keras.models import Model
-from keras.layers import Dense, Input, Concatenate
-from keras.optimizers import SGD
 import pytest
 import random
 import sklearn.datasets as datasets
@@ -25,6 +23,19 @@ from mlflow.utils.proto_json_utils import NumpyEncoder
 
 from tests.helper_functions import pyfunc_serve_and_score_model, random_int, random_str
 
+import keras
+
+# pylint: disable=no-name-in-module,reimported
+if Version(keras.__version__) >= Version("2.6.0"):
+    from tensorflow.keras.models import Model
+    from tensorflow.keras.layers import Dense, Input, Concatenate
+    from tensorflow.keras.optimizers import SGD
+else:
+    from keras.models import Model
+    from keras.layers import Dense, Input, Concatenate
+    from keras.optimizers import SGD
+
+
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
 
@@ -38,6 +49,11 @@ def pandas_df_with_all_types():
             "float": np.array([math.pi, 2 * math.pi, 3 * math.pi], np.float32),
             "double": [math.pi, 2 * math.pi, 3 * math.pi],
             "binary": [bytearray([1, 2, 3]), bytearray([4, 5, 6]), bytearray([7, 8, 9])],
+            "datetime": [
+                np.datetime64("2021-01-01 00:00:00"),
+                np.datetime64("2021-02-02 00:00:00"),
+                np.datetime64("2021-03-03 12:00:00"),
+            ],
         }
     )
     pdf["string"] = pd.Series(["a", "b", "c"], dtype=DataType.string.to_pandas())
@@ -204,6 +220,21 @@ def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_re
         model_uri=os.path.abspath(model_path),
         data=pandas_record_content,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED,
+    )
+    assert response_records_content_type.status_code == 200
+
+    # Testing the charset parameter
+    response_records_content_type = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=pandas_record_content,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON + "; charset=UTF-8",
+    )
+    assert response_records_content_type.status_code == 200
+
+    response_records_content_type = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=pandas_record_content,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED + "; charset=UTF-8",
     )
     assert response_records_content_type.status_code == 200
 
@@ -402,7 +433,7 @@ def test_parse_with_schema(pandas_df_with_all_types):
     df = pyfunc_scoring_server.parse_json_input(json_str, orient="split", schema=schema)
     json_str = json.dumps(df.to_dict(orient="records"), cls=NumpyEncoder)
     df = pyfunc_scoring_server.parse_json_input(json_str, orient="records", schema=schema)
-    assert schema == infer_signature(df[schema.column_names()]).inputs
+    assert schema == infer_signature(df[schema.input_names()]).inputs
 
     # The current behavior with pandas json parse with type hints is weird. In some cases, the
     # types are forced ignoting overflow and loss of precision:
@@ -439,83 +470,6 @@ def test_parse_with_schema(pandas_df_with_all_types):
     # Boolean is forced - zero and empty string is false, everything else is true:
     assert df["bad_boolean"].dtype == np.bool
     assert all(df["bad_boolean"] == [True, False, True])
-
-
-def test_parse_tf_serving_input():
-    # instances are correctly aggregated to dict of input name -> tensor
-    tfserving_input = {
-        "instances": [
-            {"a": "s1", "b": 1, "c": [1, 2, 3]},
-            {"a": "s2", "b": 2, "c": [4, 5, 6]},
-            {"a": "s3", "b": 3, "c": [7, 8, 9]},
-        ]
-    }
-    result = pyfunc_scoring_server.parse_tf_serving_input(tfserving_input)
-    assert (result["a"] == np.array(["s1", "s2", "s3"])).all()
-    assert (result["b"] == np.array([1, 2, 3])).all()
-    assert (result["c"] == np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])).all()
-
-    # input is bad if a column value is missing for a row/instance
-    tfserving_input = {
-        "instances": [
-            {"a": "s1", "b": 1},
-            {"a": "s2", "b": 2, "c": [4, 5, 6]},
-            {"a": "s3", "b": 3, "c": [7, 8, 9]},
-        ]
-    }
-    with pytest.raises(
-        MlflowException, match="The length of values for each input/column name are not the same"
-    ):
-        pyfunc_scoring_server.parse_tf_serving_input(tfserving_input)
-
-    # values for each column are properly converted to a tensor
-    arr = [
-        [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
-        [[3, 2, 1], [6, 5, 4], [9, 8, 7]],
-    ]
-    tfserving_input = {"instances": arr}
-    result = pyfunc_scoring_server.parse_tf_serving_input(tfserving_input)
-    assert result.shape == (2, 3, 3)
-    assert (result == np.array(arr)).all()
-
-    # input data specified via "inputs" must be a dictionary
-    tfserving_input = {"inputs": arr}
-    with pytest.raises(MlflowException) as ex:
-        pyfunc_scoring_server.parse_tf_serving_input(tfserving_input)
-    assert "Failed to parse data as TF serving input." in str(ex)
-
-    # input can be provided in column format
-    tfserving_input = {
-        "inputs": {"a": ["s1", "s2", "s3"], "b": [1, 2, 3], "c": [[1, 2, 3], [4, 5, 6], [7, 8, 9]]}
-    }
-    result = pyfunc_scoring_server.parse_tf_serving_input(tfserving_input)
-    assert (result["a"] == np.array(["s1", "s2", "s3"])).all()
-    assert (result["b"] == np.array([1, 2, 3])).all()
-    assert (result["c"] == np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])).all()
-
-    # cannot specify both instance and inputs
-    tfserving_input = {
-        "instances": arr,
-        "inputs": {"a": ["s1", "s2", "s3"], "b": [1, 2, 3], "c": [[1, 2, 3], [4, 5, 6], [7, 8, 9]]},
-    }
-    with pytest.raises(MlflowException) as ex:
-        pyfunc_scoring_server.parse_tf_serving_input(tfserving_input)
-    assert (
-        'Failed to parse data as TF serving input. One of "instances" and "inputs"'
-        " must be specified" in str(ex)
-    )
-
-    # cannot specify signature name
-    tfserving_input = {
-        "signature_name": "hello",
-        "inputs": {"a": ["s1", "s2", "s3"], "b": [1, 2, 3], "c": [[1, 2, 3], [4, 5, 6], [7, 8, 9]]},
-    }
-    with pytest.raises(MlflowException) as ex:
-        pyfunc_scoring_server.parse_tf_serving_input(tfserving_input)
-    assert (
-        'Failed to parse data as TF serving input. "signature_name" is currently not supported'
-        in str(ex)
-    )
 
 
 def test_infer_and_parse_json_input():
@@ -619,3 +573,27 @@ def test_get_jsonnable_obj():
     assert json.dumps(py_ary, cls=NumpyEncoder) == json.dumps(np_ary, cls=NumpyEncoder)
     np_ary = _get_jsonable_obj(np.array(py_ary, dtype=type(str)))
     assert json.dumps(py_ary, cls=NumpyEncoder) == json.dumps(np_ary, cls=NumpyEncoder)
+
+
+@pytest.mark.large
+def test_parse_json_input_including_path():
+    class TestModel(PythonModel):
+        def predict(self, context, model_input):
+            return 1
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model("model", python_model=TestModel())
+
+    pandas_split_content = pd.DataFrame(
+        {
+            "url": ["http://foo.com", "https://bar.com"],
+            "bad_protocol": ["aaa://bbb", "address:/path"],
+        }
+    ).to_json(orient="split")
+
+    response_records_content_type = pyfunc_serve_and_score_model(
+        model_uri="runs:/{}/model".format(run.info.run_id),
+        data=pandas_split_content,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+    )
+    assert response_records_content_type.status_code == 200

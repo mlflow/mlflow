@@ -23,7 +23,13 @@ Python function models are loaded as an instance of :py:class:`PyFuncModel
 metadata (MLmodel file). You can score the model by calling the :py:func:`predict()
 <mlflow.pyfunc.PyFuncModel.predict>` method, which has the following signature::
 
-  predict(model_input: pandas.DataFrame) -> [numpy.ndarray | pandas.(Series | DataFrame)]
+  predict(
+    model_input: [pandas.DataFrame, Dict[str, numpy.ndarray], numpy.ndarray]
+  ) -> [numpy.ndarray | pandas.(Series | DataFrame)]
+
+All PyFunc models will support `pandas.DataFrame` as input and DL PyFunc models will also support
+tensor inputs in the form of Dict[str, numpy.ndarray] (named tensors) and `numpy.ndarrays`
+(unnamed tensors).
 
 
 .. _pyfunc-filesystem-format:
@@ -63,7 +69,9 @@ following parameters:
          directory. The model implementation is expected to be an object with a
          ``predict`` method with the following signature::
 
-           predict(model_input: pandas.DataFrame) -> [numpy.ndarray | pandas.(Series | DataFrame)]
+          predict(
+              model_input: [pandas.DataFrame, Dict[str, numpy.ndarray], numpy.ndarray]
+          ) -> [numpy.ndarray | pandas.(Series | DataFrame)]
 
 - code [optional]:
         Relative path to a directory containing the code packaged with this model.
@@ -213,14 +221,28 @@ import mlflow.pyfunc.utils
 from mlflow.models import Model, ModelSignature, ModelInputExample
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
-from mlflow.pyfunc.model import PythonModel, PythonModelContext  # pylint: disable=unused-import
-from mlflow.pyfunc.model import get_default_conda_env
+from mlflow.pyfunc.model import (  # pylint: disable=unused-import
+    PythonModel,
+    PythonModelContext,
+    get_default_conda_env,
+)
+from mlflow.pyfunc.model import get_default_pip_requirements
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.types import DataType, Schema
+from mlflow.types import DataType, Schema, TensorSpec
+from mlflow.types.utils import clean_tensor_type
 from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
 from mlflow.utils.annotations import deprecated
-from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
+from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, write_to
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.environment import (
+    _validate_env_arguments,
+    _process_pip_requirements,
+    _process_conda_env,
+    _CONDA_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
+)
+from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.exceptions import MlflowException
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.protos.databricks_pb2 import (
@@ -258,20 +280,22 @@ def add_to_model(model, loader_module, data=None, code=None, env=None, **kwargs)
     :param data: Path to the model data.
     :param code: Path to the code dependencies.
     :param env: Conda environment.
+    :param req: pip requirements file.
     :param kwargs: Additional key-value pairs to include in the ``pyfunc`` flavor specification.
                    Values must be YAML-serializable.
     :return: Updated model configuration.
     """
-    parms = deepcopy(kwargs)
-    parms[MAIN] = loader_module
-    parms[PY_VERSION] = PYTHON_VERSION
+    params = deepcopy(kwargs)
+    params[MAIN] = loader_module
+    params[PY_VERSION] = PYTHON_VERSION
     if code:
-        parms[CODE] = code
+        params[CODE] = code
     if data:
-        parms[DATA] = data
+        params[DATA] = data
     if env:
-        parms[ENV] = env
-    return model.add_flavor(FLAVOR_NAME, **parms)
+        params[ENV] = env
+
+    return model.add_flavor(FLAVOR_NAME, **params)
 
 
 def _load_model_env(path):
@@ -283,7 +307,7 @@ def _load_model_env(path):
     return _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME).get(ENV, None)
 
 
-def _enforce_type(name, values: pandas.Series, t: DataType):
+def _enforce_mlflow_datatype(name, values: pandas.Series, t: DataType):
     """
     Enforce the input column type matches the declared in model input schema.
 
@@ -293,6 +317,8 @@ def _enforce_type(name, values: pandas.Series, t: DataType):
     2. int -> long (upcast)
     3. float -> double (upcast)
     4. int -> double (safe conversion)
+    5. np.datetime64[x] -> datetime (any precision)
+    6. np.object -> datetime
 
     Any other type mismatch will raise error.
     """
@@ -325,6 +351,22 @@ def _enforce_type(name, values: pandas.Series, t: DataType):
         # element in the array (column). Since MLflow binary type is length agnostic, we ignore
         # itemsize when matching binary columns.
         return values
+
+    if t == DataType.datetime and values.dtype.kind == t.to_numpy().kind:
+        # NB: datetime values have variable precision denoted by brackets, e.g. datetime64[ns]
+        # denotes nanosecond precision. Since MLflow datetime type is precision agnostic, we
+        # ignore precision when matching datetime columns.
+        return values
+
+    if t == DataType.datetime and values.dtype == np.object:
+        # NB: Pyspark date columns get converted to np.object when converted to a pandas
+        # DataFrame. To respect the original typing, we convert the column to datetime.
+        try:
+            return values.astype(np.datetime64, errors="raise")
+        except ValueError:
+            raise MlflowException(
+                "Failed to convert column {0} from type {1} to {2}.".format(name, values.dtype, t)
+            )
 
     numpy_type = t.to_numpy()
     if values.dtype.kind == numpy_type.kind:
@@ -370,62 +412,158 @@ def _enforce_type(name, values: pandas.Series, t: DataType):
         )
 
 
-def _enforce_schema(pdf: PyFuncInput, input_schema: Schema):
+def _enforce_tensor_spec(values: np.ndarray, tensor_spec: TensorSpec):
     """
-    Enforce column names and types match the input schema.
-
-    For column names, we check there are no missing columns and reorder the columns to match the
-    ordering declared in schema if necessary. Any extra columns are ignored.
-
-    For column types, we make sure the types match schema or can be safely converted to match the
-    input schema.
+    Enforce the input tensor shape and type matches the provided tensor spec.
     """
-    if isinstance(pdf, (list, np.ndarray, dict)):
-        try:
-            pdf = pandas.DataFrame(pdf)
-        except Exception as e:
-            message = (
-                "This model contains a model signature, which suggests a DataFrame input."
-                "There was an error casting the input data to a DataFrame: {0}".format(str(e))
+    expected_shape = tensor_spec.shape
+    actual_shape = values.shape
+    if len(expected_shape) != len(actual_shape):
+        raise MlflowException(
+            "Shape of input {0} does not match expected shape {1}.".format(
+                actual_shape, expected_shape
             )
-            raise MlflowException(message)
-    if not isinstance(pdf, pandas.DataFrame):
-        message = "Expected input to be DataFrame or list. Found: %s" % type(pdf).__name__
-        raise MlflowException(message)
+        )
+    for expected, actual in zip(expected_shape, actual_shape):
+        if expected == -1:
+            continue
+        if expected != actual:
+            raise MlflowException(
+                "Shape of input {0} does not match expected shape {1}.".format(
+                    actual_shape, expected_shape
+                )
+            )
+    if clean_tensor_type(values.dtype) != tensor_spec.type:
+        raise MlflowException(
+            "dtype of input {0} does not match expected dtype {1}".format(
+                values.dtype, tensor_spec.type
+            )
+        )
+    return values
 
-    if input_schema.has_column_names():
+
+def _enforce_col_schema(pfInput: PyFuncInput, input_schema: Schema):
+    """Enforce the input columns conform to the model's column-based signature."""
+    if input_schema.has_input_names():
+        input_names = input_schema.input_names()
+    else:
+        input_names = pfInput.columns[: len(input_schema.inputs)]
+    input_types = input_schema.input_types()
+    new_pfInput = pandas.DataFrame()
+    for i, x in enumerate(input_names):
+        new_pfInput[x] = _enforce_mlflow_datatype(x, pfInput[x], input_types[i])
+    return new_pfInput
+
+
+def _enforce_tensor_schema(pfInput: PyFuncInput, input_schema: Schema):
+    """Enforce the input tensor(s) conforms to the model's tensor-based signature."""
+    if input_schema.has_input_names():
+        if isinstance(pfInput, dict):
+            new_pfInput = dict()
+            for col_name, tensor_spec in zip(input_schema.input_names(), input_schema.inputs):
+                if not isinstance(pfInput[col_name], np.ndarray):
+                    raise MlflowException(
+                        "This model contains a tensor-based model signature with input names,"
+                        " which suggests a dictionary input mapping input name to a numpy"
+                        " array, but a dict with value type {0} was found.".format(
+                            type(pfInput[col_name])
+                        )
+                    )
+                new_pfInput[col_name] = _enforce_tensor_spec(pfInput[col_name], tensor_spec)
+        elif isinstance(pfInput, pandas.DataFrame):
+            new_pfInput = dict()
+            for col_name, tensor_spec in zip(input_schema.input_names(), input_schema.inputs):
+                new_pfInput[col_name] = _enforce_tensor_spec(
+                    np.array(pfInput[col_name], dtype=tensor_spec.type), tensor_spec
+                )
+        else:
+            raise MlflowException(
+                "This model contains a tensor-based model signature with input names, which"
+                " suggests a dictionary input mapping input name to tensor, but an input of"
+                " type {0} was found.".format(type(pfInput))
+            )
+    else:
+        if isinstance(pfInput, pandas.DataFrame):
+            new_pfInput = _enforce_tensor_spec(pfInput.to_numpy(), input_schema.inputs[0])
+        elif isinstance(pfInput, np.ndarray):
+            new_pfInput = _enforce_tensor_spec(pfInput, input_schema.inputs[0])
+        else:
+            raise MlflowException(
+                "This model contains a tensor-based model signature with no input names,"
+                " which suggests a numpy array input, but an input of type {0} was"
+                " found.".format(type(pfInput))
+            )
+    return new_pfInput
+
+
+def _enforce_schema(pfInput: PyFuncInput, input_schema: Schema):
+    """
+    Enforces the provided input matches the model's input schema,
+
+    For signatures with input names, we check there are no missing inputs and reorder the inputs to
+    match the ordering declared in schema if necessary. Any extra columns are ignored.
+
+    For column-based signatures, we make sure the types of the input match the type specified in
+    the schema or if it can be safely converted to match the input schema.
+
+    For tensor-based signatures, we make sure the shape and type of the input matches the shape
+    and type specified in model's input schema.
+    """
+    if not input_schema.is_tensor_spec():
+        if isinstance(pfInput, (list, np.ndarray, dict)):
+            try:
+                pfInput = pandas.DataFrame(pfInput)
+            except Exception as e:
+                raise MlflowException(
+                    "This model contains a column-based signature, which suggests a DataFrame"
+                    " input. There was an error casting the input data to a DataFrame:"
+                    " {0}".format(str(e))
+                )
+        if not isinstance(pfInput, pandas.DataFrame):
+            raise MlflowException(
+                "Expected input to be DataFrame or list. Found: %s" % type(pfInput).__name__
+            )
+
+    if input_schema.has_input_names():
         # make sure there are no missing columns
-        col_names = input_schema.column_names()
-        expected_names = set(col_names)
-        actual_names = set(pdf.columns)
-        missing_cols = expected_names - actual_names
-        extra_cols = actual_names - expected_names
+        input_names = input_schema.input_names()
+        expected_cols = set(input_names)
+        actual_cols = set()
+        if len(expected_cols) == 1 and isinstance(pfInput, np.ndarray):
+            # for schemas with a single column, match input with column
+            pfInput = {input_names[0]: pfInput}
+            actual_cols = expected_cols
+        elif isinstance(pfInput, pandas.DataFrame):
+            actual_cols = set(pfInput.columns)
+        elif isinstance(pfInput, dict):
+            actual_cols = set(pfInput.keys())
+        missing_cols = expected_cols - actual_cols
+        extra_cols = actual_cols - expected_cols
         # Preserve order from the original columns, since missing/extra columns are likely to
         # be in same order.
-        missing_cols = [c for c in col_names if c in missing_cols]
-        extra_cols = [c for c in pdf.columns if c in extra_cols]
+        missing_cols = [c for c in input_names if c in missing_cols]
+        extra_cols = [c for c in actual_cols if c in extra_cols]
         if missing_cols:
-            message = (
-                "Model input is missing columns {0}."
-                " Note that there were extra columns: {1}".format(missing_cols, extra_cols)
+            raise MlflowException(
+                "Model is missing inputs {0}."
+                " Note that there were extra inputs: {1}".format(missing_cols, extra_cols)
             )
-            raise MlflowException(message)
-    else:
+    elif not input_schema.is_tensor_spec():
         # The model signature does not specify column names => we can only verify column count.
-        if len(pdf.columns) < len(input_schema.columns):
-            message = (
-                "Model input is missing input columns. The model signature declares "
-                "{0} input columns but the provided input only has "
-                "{1} columns. Note: the columns were not named in the signature so we can "
-                "only verify their count."
-            ).format(len(input_schema.columns), len(pdf.columns))
-            raise MlflowException(message)
-        col_names = pdf.columns[: len(input_schema.columns)]
-    col_types = input_schema.column_types()
-    new_pdf = pandas.DataFrame()
-    for i, x in enumerate(col_names):
-        new_pdf[x] = _enforce_type(x, pdf[x], col_types[i])
-    return new_pdf
+        num_actual_columns = len(pfInput.columns)
+        if num_actual_columns < len(input_schema.inputs):
+            raise MlflowException(
+                "Model inference is missing inputs. The model signature declares "
+                "{0} inputs  but the provided value only has "
+                "{1} inputs. Note: the inputs were not named in the signature so we can "
+                "only verify their count.".format(len(input_schema.inputs), num_actual_columns)
+            )
+
+    return (
+        _enforce_tensor_schema(pfInput, input_schema)
+        if input_schema.is_tensor_spec()
+        else _enforce_col_schema(pfInput, input_schema)
+    )
 
 
 class PyFuncModel(object):
@@ -434,7 +572,7 @@ class PyFuncModel(object):
 
     Wrapper around model implementation and metadata. This class is not meant to be constructed
     directly. Instead, instances of this class are constructed and returned from
-    py:func:`mlflow.pyfunc.load_model`.
+    :py:func:`load_model() <mlflow.pyfunc.load_model>`.
 
     ``model_impl`` can be any Python object that implements the `Pyfunc interface
     <https://mlflow.org/docs/latest/python_api/mlflow.pyfunc.html#pyfunc-inference-api>`_, and is
@@ -460,7 +598,8 @@ class PyFuncModel(object):
         the input is passed to the model implementation as is. See `Model Signature Enforcement
         <https://www.mlflow.org/docs/latest/models.html#signature-enforcement>`_ for more details."
 
-        :param data: Model input
+        :param data: Model input as one of pandas.DataFrame, numpy.ndarray, or
+                     Dict[str, numpy.ndarray]
         :return: Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
         input_schema = self.metadata.get_input_schema()
@@ -581,21 +720,30 @@ def spark_udf(spark, model_uri, result_type="double"):
     A Spark UDF that can be used to invoke the Python function formatted model.
 
     Parameters passed to the UDF are forwarded to the model as a DataFrame where the column names
-    are ordinals (0, 1, ...). On some versions of Spark, it is also possible to wrap the input in a
-    struct. In that case, the data will be passed as a DataFrame with column names given by the
-    struct definition (e.g. when invoked as my_udf(struct('x', 'y'), the model will ge the data as a
-    pandas DataFrame with 2 columns 'x' and 'y').
+    are ordinals (0, 1, ...). On some versions of Spark (3.0 and above), it is also possible to
+    wrap the input in a struct. In that case, the data will be passed as a DataFrame with column
+    names given by the struct definition (e.g. when invoked as my_udf(struct('x', 'y')), the model
+    will get the data as a pandas DataFrame with 2 columns 'x' and 'y').
+
+    If a model contains a signature, the UDF can be called without specifying column name
+    arguments. In this case, the UDF will be called with column names from signature, so the
+    evaluation dataframe's column names must match the model signature's column names.
 
     The predictions are filtered to contain only the columns that can be represented as the
     ``result_type``. If the ``result_type`` is string or array of strings, all predictions are
     converted to string. If the result type is not an array type, the left most column with
     matching type is returned.
 
+    NOTE: Inputs of type ``pyspark.sql.types.DateType`` are not supported on earlier versions of
+    Spark (2.4 and below).
+
     .. code-block:: python
         :caption: Example
 
+        from pyspark.sql.functions import struct
+
         predict = mlflow.pyfunc.spark_udf(spark, "/my/local/model")
-        df.withColumn("prediction", predict("name", "age")).show()
+        df.withColumn("prediction", predict(struct("name", "age"))).show()
 
     :param spark: A SparkSession object.
     :param model_uri: The location, in URI format, of the MLflow model with the
@@ -645,6 +793,7 @@ def spark_udf(spark, model_uri, result_type="double"):
 
     # Scope Spark import to this method so users don't need pyspark to use non-Spark-related
     # functionality.
+    import functools
     from mlflow.pyfunc.spark_model_cache import SparkModelCache
     from pyspark.sql.functions import pandas_udf
     from pyspark.sql.types import _parse_datatype_string
@@ -663,7 +812,7 @@ def spark_udf(spark, model_uri, result_type="double"):
     if not any([isinstance(elem_type, x) for x in supported_types]):
         raise MlflowException(
             message="Invalid result_type '{}'. Result type can only be one of or an array of one "
-            "of the following types types: {}".format(str(elem_type), str(supported_types)),
+            "of the following types: {}".format(str(elem_type), str(supported_types)),
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -672,6 +821,7 @@ def spark_udf(spark, model_uri, result_type="double"):
             artifact_uri=model_uri, output_path=local_tmpdir.path()
         )
         archive_path = SparkModelCache.add_local_model(spark, local_model_path)
+        model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
 
     def predict(*args):
         model = SparkModelCache.get_or_load(archive_path)
@@ -691,17 +841,16 @@ def spark_udf(spark, model_uri, result_type="double"):
             if input_schema is None:
                 names = [str(i) for i in range(len(args))]
             else:
-                names = input_schema.column_names()
+                names = input_schema.input_names()
                 if len(args) > len(names):
                     args = args[: len(names)]
                 if len(args) < len(names):
-                    message = (
+                    raise MlflowException(
                         "Model input is missing columns. Expected {0} input columns {1},"
                         " but the model received only {2} unnamed input columns"
                         " (Since the columns were passed unnamed they are expected to be in"
                         " the order specified by the schema).".format(len(names), names, len(args))
                     )
-                    raise MlflowException(message)
             pdf = pandas.DataFrame(data={names[i]: x for i, x in enumerate(args)}, columns=names)
 
         result = model.predict(pdf)
@@ -740,9 +889,40 @@ def spark_udf(spark, model_uri, result_type="double"):
         else:
             return result[result.columns[0]]
 
-    return pandas_udf(predict, result_type)
+    udf = pandas_udf(predict, result_type)
+    udf.metadata = model_metadata
+
+    @functools.wraps(udf)
+    def udf_with_default_cols(*args):
+        if len(args) == 0:
+            input_schema = model_metadata.get_input_schema()
+
+            if input_schema and len(input_schema.inputs) > 0:
+                if input_schema.has_input_names():
+                    input_names = input_schema.input_names()
+                    return udf(*input_names)
+                else:
+                    raise MlflowException(
+                        message="Cannot apply udf because no column names specified. The udf "
+                        "expects {} columns with types: {}. Input column names could not be "
+                        "inferred from the model signature (column names not found).".format(
+                            len(input_schema.inputs), input_schema.inputs,
+                        ),
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+            else:
+                _logger.warning(
+                    "Attempting to apply udf on zero columns because no column names were "
+                    "specified as arguments or inferred from the model signature."
+                )
+                return udf()
+        else:
+            return udf(*args)
+
+    return udf_with_default_cols
 
 
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
 def save_model(
     path,
     loader_module=None,
@@ -754,6 +934,8 @@ def save_model(
     artifacts=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
+    pip_requirements=None,
+    extra_pip_requirements=None,
     **kwargs
 ):
     """
@@ -785,23 +967,7 @@ def save_model(
     :param code_path: A list of local filesystem paths to Python file dependencies (or directories
                       containing file dependencies). These files are *prepended* to the system
                       path before the model is loaded.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. This decsribes the environment this model should
-                      be run in. If ``python_model`` is not ``None``, the Conda environment must
-                      at least specify the dependencies contained in
-                      :func:`get_default_conda_env()`. If ``None``, the default
-                      :func:`get_default_conda_env()` environment is added to the
-                      model. The following is an *example* dictionary representation of a Conda
-                      environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.7.0',
-                                'cloudpickle==0.5.8'
-                            ]
-                        }
+    :param conda_env: {{ conda_env }}
     :param mlflow_model: :py:mod:`mlflow.models.Model` configuration to which to add the
                          **python_function** flavor.
     :param python_model: An instance of a subclass of :class:`~PythonModel`. This class is
@@ -834,7 +1000,7 @@ def save_model(
 
                       If ``None``, no artifacts are added to the model.
 
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -847,12 +1013,17 @@ def save_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
+                          model. The given example can be a Pandas DataFrame where the given
+                          example will be serialized to json using the Pandas split-oriented
+                          format, or a numpy array where the example will be serialized to json
+                          by converting it to a list. Bytes are base64-encoded.
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
     """
+    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+
     mlflow_model = kwargs.pop("model", mlflow_model)
     if len(kwargs) > 0:
         raise TypeError("save_model() got unexpected keyword arguments: {}".format(kwargs))
@@ -911,6 +1082,8 @@ def save_model(
             code_paths=code_path,
             conda_env=conda_env,
             mlflow_model=mlflow_model,
+            pip_requirements=pip_requirements,
+            extra_pip_requirements=extra_pip_requirements,
         )
     elif second_argument_set_specified:
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
@@ -920,9 +1093,12 @@ def save_model(
             conda_env=conda_env,
             code_paths=code_path,
             mlflow_model=mlflow_model,
+            pip_requirements=pip_requirements,
+            extra_pip_requirements=extra_pip_requirements,
         )
 
 
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
 def log_model(
     artifact_path,
     loader_module=None,
@@ -935,6 +1111,8 @@ def log_model(
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+    pip_requirements=None,
+    extra_pip_requirements=None,
 ):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
@@ -961,24 +1139,7 @@ def log_model(
     :param code_path: A list of local filesystem paths to Python file dependencies (or directories
                       containing file dependencies). These files are *prepended* to the system
                       path before the model is loaded.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. This decsribes the environment this model should
-                      be run in. If ``python_model`` is not ``None``, the Conda environment must
-                      at least specify the dependencies contained in
-                      :func:`get_default_conda_env()`. If `None`, the default
-                      :func:`get_default_conda_env()` environment is added to the
-                      model. The following is an *example* dictionary representation of a Conda
-                      environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.7.0',
-                                'cloudpickle==0.5.8'
-                            ]
-                        }
-
+    :param conda_env: {{ conda_env }}
     :param python_model: An instance of a subclass of :class:`~PythonModel`. This class is
                          serialized using the CloudPickle library. Any dependencies of the class
                          should be included in one of the following locations:
@@ -1008,12 +1169,12 @@ def log_model(
                       path via ``context.artifacts["my_file"]``.
 
                       If ``None``, no artifacts are added to the model.
-    :param registered_model_name: Note:: Experimental: This argument may change or be removed in a
+    :param registered_model_name: This argument may change or be removed in a
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a
                                   registered model if one with the given name does not exist.
 
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -1026,14 +1187,17 @@ def log_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
+                          model. The given example can be a Pandas DataFrame where the given
+                          example will be serialized to json using the Pandas split-oriented
+                          format, or a numpy array where the example will be serialized to json
+                          by converting it to a list. Bytes are base64-encoded.
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
     """
     return Model.log(
         artifact_path=artifact_path,
@@ -1048,11 +1212,20 @@ def log_model(
         signature=signature,
         input_example=input_example,
         await_registration_for=await_registration_for,
+        pip_requirements=pip_requirements,
+        extra_pip_requirements=extra_pip_requirements,
     )
 
 
 def _save_model_with_loader_module_and_data_path(
-    path, loader_module, data_path=None, code_paths=None, conda_env=None, mlflow_model=Model()
+    path,
+    loader_module,
+    data_path=None,
+    code_paths=None,
+    conda_env=None,
+    mlflow_model=None,
+    pip_requirements=None,
+    extra_pip_requirements=None,
 ):
     """
     Export model as a generic Python function model.
@@ -1082,19 +1255,40 @@ def _save_model_with_loader_module_and_data_path(
             _copy_file_or_tree(src=code_path, dst=path, dst_dir="code")
         code = "code"
 
-    conda_env_subpath = "mlflow_env.yml"
-    if conda_env is None:
-        conda_env = get_default_conda_env()
-    elif not isinstance(conda_env, dict):
-        with open(conda_env, "r") as f:
-            conda_env = yaml.safe_load(f)
-    with open(os.path.join(path, conda_env_subpath), "w") as f:
-        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+    if mlflow_model is None:
+        mlflow_model = Model()
 
     mlflow.pyfunc.add_to_model(
-        mlflow_model, loader_module=loader_module, code=code, data=data, env=conda_env_subpath
+        mlflow_model, loader_module=loader_module, code=code, data=data, env=_CONDA_ENV_FILE_NAME
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+
+    if conda_env is None:
+        if pip_requirements is None:
+            default_reqs = get_default_pip_requirements()
+            # To ensure `_load_pyfunc` can successfully load the model during the dependency
+            # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
+            inferred_reqs = mlflow.models.infer_pip_requirements(
+                path, FLAVOR_NAME, fallback=default_reqs,
+            )
+            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+        else:
+            default_reqs = None
+        conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
+            default_reqs, pip_requirements, extra_pip_requirements,
+        )
+    else:
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
+
+    with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
+        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    # Save `constraints.txt` if necessary
+    if pip_constraints:
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
+
+    # Save `requirements.txt`
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
     return mlflow_model
 
 

@@ -134,6 +134,68 @@ def test_list_experiments():
     _assert_exps({"1": LifecycleStage.DELETED}, ViewType.DELETED_ONLY)
 
 
+def test_list_experiments_paginated():
+    experiments = []
+    for i in range(10):
+        experiments.append(mlflow.create_experiment("paginated_exp_" + str(i)))
+    max_results = 5
+    returned_experiments = []
+    client = tracking.MlflowClient()
+    result = client.list_experiments(max_results=max_results, page_token=None)
+    assert len(result) == max_results
+    returned_experiments.extend(result)
+    while result.token:
+        result = client.list_experiments(max_results=max_results, page_token=result.token)
+        assert len(result) <= max_results
+        returned_experiments.extend(result)
+    assert result.token is None
+    returned_exp_id_set = set([exp.experiment_id for exp in returned_experiments])
+    assert set(experiments) - returned_exp_id_set == set()
+
+
+def test_list_experiments_paginated_returns_in_correct_order():
+    testnames = []
+    for i in range(20):
+        name = "paginated_exp_order_" + str(i)
+        mlflow.create_experiment(name)
+        testnames.append(name)
+
+    client = tracking.MlflowClient()
+    # test that pagination will return all valid results in sorted order
+    # by name ascending
+    result = client.list_experiments(max_results=3, page_token=None)
+    assert result.token is not None
+    assert [exp.name for exp in result[1:]] == testnames[0:2]
+
+    result = client.list_experiments(max_results=4, page_token=result.token)
+    assert result.token is not None
+    assert [exp.name for exp in result] == testnames[2:6]
+
+    result = client.list_experiments(max_results=6, page_token=result.token)
+    assert result.token is not None
+    assert [exp.name for exp in result] == testnames[6:12]
+
+    result = client.list_experiments(max_results=8, page_token=result.token)
+    # this page token should be none
+    assert result.token is None
+    assert [exp.name for exp in result] == testnames[12:]
+
+
+def test_list_experiments_paginated_errors():
+    client = tracking.MlflowClient()
+    # test that providing a completely invalid page token throws
+    with pytest.raises(MlflowException, match="Invalid page token") as exception_context:
+        client.list_experiments(page_token="evilhax", max_results=20)
+    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+    # test that providing too large of a max_results throws
+    with pytest.raises(
+        MlflowException, match="Invalid value for request parameter max_results"
+    ) as exception_context:
+        client.list_experiments(page_token=None, max_results=int(1e15))
+    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
 @pytest.mark.usefixtures("reset_active_experiment")
 def test_set_experiment_with_zero_id(reset_mock):
     reset_mock(

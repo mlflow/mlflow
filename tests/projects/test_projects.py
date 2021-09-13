@@ -1,3 +1,4 @@
+import json
 import os
 import git
 import shutil
@@ -303,6 +304,70 @@ def test_conda_path(mock_env, expected_conda, expected_activate):
     with mock.patch.dict("os.environ", mock_env):
         assert mlflow.utils.conda.get_conda_bin_executable("conda") == expected_conda
         assert mlflow.utils.conda.get_conda_bin_executable("activate") == expected_activate
+
+
+@pytest.mark.parametrize(
+    "mock_env, expected_conda_env_create_path",
+    [
+        ({"CONDA_EXE": "/abc/conda"}, "/abc/conda"),
+        (
+            {"CONDA_EXE": "/abc/conda", mlflow.utils.conda.MLFLOW_CONDA_CREATE_ENV_CMD: "mamba"},
+            "/abc/mamba",
+        ),
+        ({mlflow.utils.conda.MLFLOW_CONDA_HOME: "/some/dir/"}, "/some/dir/bin/conda",),
+        (
+            {
+                mlflow.utils.conda.MLFLOW_CONDA_HOME: "/some/dir/",
+                mlflow.utils.conda.MLFLOW_CONDA_CREATE_ENV_CMD: "mamba",
+            },
+            "/some/dir/bin/mamba",
+        ),
+    ],
+)
+def test_find_conda_executables(mock_env, expected_conda_env_create_path):
+    """
+    Verify that we correctly determine the path to executables to be used to
+    create environments (for example, it could be mamba instead of conda)
+    """
+    with mock.patch.dict("os.environ", mock_env):
+        conda_env_create_path = mlflow.utils.conda._get_conda_executable_for_create_env()
+        assert conda_env_create_path == expected_conda_env_create_path
+
+
+def test_create_env_with_mamba():
+    """
+    Test that mamba is called when set, and that we fail when mamba is not available or is
+    not working. We mock the calls so we do not actually execute mamba (which is not
+    installed in the test environment anyway)
+    """
+
+    def exec_cmd_mock(cmd, *args, **kwargs):  # pylint: disable=unused-argument
+
+        if cmd[-1] == "--json":
+            # We are supposed to list environments in JSON format
+            return None, json.dumps({"envs": ["mlflow-mock-environment"]}), None
+        else:
+            # Here we are creating the environment, no need to return
+            # anything
+            return None
+
+    def exec_cmd_mock_raise(cmd, *args, **kwargs):  # pylint: disable=unused-argument
+
+        if os.path.basename(cmd[0]) == "mamba":
+            raise EnvironmentError()
+
+    conda_env_path = os.path.join(TEST_PROJECT_DIR, "conda.yaml")
+
+    with mock.patch.dict("os.environ", {mlflow.utils.conda.MLFLOW_CONDA_CREATE_ENV_CMD: "mamba"}):
+
+        # Simulate success
+        with mock.patch("mlflow.utils.process.exec_cmd", side_effect=exec_cmd_mock):
+            mlflow.utils.conda.get_or_create_conda_env(conda_env_path)
+
+        # Simulate a non-working or non-existent mamba
+        with mock.patch("mlflow.utils.process.exec_cmd", side_effect=exec_cmd_mock_raise):
+            with pytest.raises(ExecutionException):
+                mlflow.utils.conda.get_or_create_conda_env(conda_env_path)
 
 
 def test_cancel_run():
