@@ -4,8 +4,16 @@
 # Modified here to show mlflow.fastai.autolog() capabilities
 #
 import argparse
-from fastai.vision.all import *
 import mlflow.fastai
+from fastai.vision.all import (
+    CategoryBlock,
+    DataBlock,
+    GrandparentSplitter,
+    ImageBlock,
+    PILImage,
+    URLs,
+)
+from fastai.vision.all import cnn_learner, get_image_files, parent_label, resnet18, untar_data
 
 
 def parse_args():

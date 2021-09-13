@@ -67,7 +67,7 @@ class __MLflowFastaiCallback(Callback):
         frozen = self.opt.frozen_idx != 0
         if frozen and self.is_fine_tune:
             self.freeze_prefix = "freeze_"
-            try_mlflow_log(mlflow.log_param, 'frozen_idx', self.opt.frozen_idx)
+            try_mlflow_log(mlflow.log_param, "frozen_idx", self.opt.frozen_idx)
         else:
             self.freeze_prefix = ""
 
