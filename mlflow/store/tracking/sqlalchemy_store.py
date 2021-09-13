@@ -239,7 +239,10 @@ class SqlAlchemyStore(AbstractStore):
                 if experiment_tags:
                     for tag in experiment_tags:
                         experiment_tags_dict[tag.key] = tag.value
-                experiment.tags = [SqlExperimentTag(key=key, value=value) for key, value in experiment_tags_dict.items()]
+                experiment.tags = [
+                    SqlExperimentTag(key=key, value=value)
+                    for key, value in experiment_tags_dict.items()
+                ]
                 session.add(experiment)
                 if not artifact_location:
                     # this requires a double write. The first one to generate an autoincrement-ed ID

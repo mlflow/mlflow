@@ -176,7 +176,11 @@ class TrackingServiceClient(object):
         _validate_experiment_artifact_location(artifact_location)
         experiment_tags = experiment_tags if experiment_tags else {}
 
-        return self.store.create_experiment(name=name, artifact_location=artifact_location, experiment_tags=[ExperimentTag(key, value) for (key, value) in experiment_tags.items()])
+        return self.store.create_experiment(
+            name=name,
+            artifact_location=artifact_location,
+            experiment_tags=[ExperimentTag(key, value) for (key, value) in experiment_tags.items()],
+        )
 
     def delete_experiment(self, experiment_id):
         """
