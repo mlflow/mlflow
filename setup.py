@@ -79,7 +79,6 @@ CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + [
     # Required to run the MLflow server against SQL-backed storage
     "sqlalchemy",
     "waitress; platform_system == 'Windows'",
-    "mlserver",
     "mlserver-mlflow",
 ]
 
