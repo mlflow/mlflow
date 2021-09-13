@@ -89,7 +89,7 @@ class RestStore(AbstractStore):
 
         :return: experiment_id (string) for the newly created experiment if successful, else None
         """
-        req_body = message_to_json(CreateExperiment(name=name, artifact_location=artifact_location, experiment_tags=experiment_tags))
+        req_body = message_to_json(CreateExperiment(name=name, artifact_location=artifact_location, tags=experiment_tags))
         response_proto = self._call_endpoint(CreateExperiment, req_body)
         return response_proto.experiment_id
 
