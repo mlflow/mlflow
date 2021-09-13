@@ -213,7 +213,7 @@ gluon:
     run: |
       pytest tests/gluon_autolog/test_gluon_autolog.py --large
 
-fastai:
+fastai-2.x:
   package_info:
     pip_release: "fastai"
 
