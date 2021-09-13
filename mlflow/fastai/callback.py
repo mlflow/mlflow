@@ -46,9 +46,7 @@ class __MLflowFastaiCallback(Callback):
             return
         # Remove non-float metrics and record the rest.
         metrics = self.recorder.log
-        metrics = dict(zip(self.recorder.metric_names, metrics))
-        for key in [key for key, val in metrics.items() if not _is_float(val)]:
-            del metrics[key]
+        metrics = {k: v for k, v in zip(self.recorder.metric_names, metrics) if _is_float(v)}
         self.metrics_logger.record_metrics(metrics, step=metrics["epoch"])
 
     def before_fit(self):
