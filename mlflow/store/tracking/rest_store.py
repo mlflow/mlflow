@@ -80,7 +80,7 @@ class RestStore(AbstractStore):
         )
         return PagedList(experiments, token)
 
-    def create_experiment(self, name, artifact_location=None):
+    def create_experiment(self, name, artifact_location=None, experiment_tags=None):
         """
         Create a new experiment.
         If an experiment with the given name already exists, throws exception.
@@ -89,7 +89,7 @@ class RestStore(AbstractStore):
 
         :return: experiment_id (string) for the newly created experiment if successful, else None
         """
-        req_body = message_to_json(CreateExperiment(name=name, artifact_location=artifact_location))
+        req_body = message_to_json(CreateExperiment(name=name, artifact_location=artifact_location, experiment_tags=experiment_tags))
         response_proto = self._call_endpoint(CreateExperiment, req_body)
         return response_proto.experiment_id
 

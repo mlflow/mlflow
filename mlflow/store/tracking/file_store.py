@@ -272,13 +272,15 @@ class FileStore(AbstractStore):
         else:
             return PagedList(experiments, None)
 
-    def _create_experiment_with_id(self, name, experiment_id, artifact_uri):
+    def _create_experiment_with_id(self, name, experiment_id, artifact_uri, experiment_tags):
         artifact_uri = artifact_uri or append_to_uri_path(
             self.artifact_root_uri, str(experiment_id)
         )
         self._check_root_dir()
         meta_dir = mkdir(self.root_directory, str(experiment_id))
         experiment = Experiment(experiment_id, name, artifact_uri, LifecycleStage.ACTIVE)
+        for tag in experiment_tags:
+            self.set_experiment_tag(experiment_id, tag)
         experiment_dict = dict(experiment)
         # tags are added to the file system and are not written to this dict on write
         # As such, we should not include them in the meta file.
@@ -308,7 +310,7 @@ class FileStore(AbstractStore):
                     databricks_pb2.RESOURCE_ALREADY_EXISTS,
                 )
 
-    def create_experiment(self, name, artifact_location=None):
+    def create_experiment(self, name, artifact_location=None, experiment_tags=None):
         self._check_root_dir()
         self._validate_experiment_name(name)
         # Get all existing experiments and find the one with largest numerical ID.
@@ -319,7 +321,7 @@ class FileStore(AbstractStore):
             if e.experiment_id.isdigit()
         ]
         experiment_id = max(experiments_ids) + 1 if experiments_ids else 0
-        return self._create_experiment_with_id(name, str(experiment_id), artifact_location)
+        return self._create_experiment_with_id(name, str(experiment_id), artifact_location, experiment_tags)
 
     def _has_experiment(self, experiment_id):
         return self._get_experiment_path(experiment_id) is not None
