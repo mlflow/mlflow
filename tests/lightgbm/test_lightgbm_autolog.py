@@ -78,7 +78,7 @@ def test_lgb_autolog_logs_default_params(bst_params, train_set):
             # in this PR: https://github.com/microsoft/LightGBM/pull/4577
             "warn"
             if Version(lgb.__version__) > Version("3.2.1")
-            else ""
+            else True
         ),
         "keep_training_booster": False,
     }
