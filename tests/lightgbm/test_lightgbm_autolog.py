@@ -74,11 +74,11 @@ def test_lgb_autolog_logs_default_params(bst_params, train_set):
         "feature_name": "auto",
         "categorical_feature": "auto",
         "verbose_eval": (
-            # The default value for `verbose_eval` has been changed to 'warn' in this PR:
-            # https://github.com/microsoft/LightGBM/pull/4577
+            # The default value of `verbose_eval` in `lightgbm.train` has been changed to 'warn'
+            # in this PR: https://github.com/microsoft/LightGBM/pull/4577
             "warn"
             if Version(lgb.__version__) > Version("3.2.1")
-            else True
+            else ""
         ),
         "keep_training_booster": False,
     }
