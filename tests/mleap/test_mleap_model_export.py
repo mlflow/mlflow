@@ -44,6 +44,7 @@ def get_mleap_jars():
 def spark_context():
     conf = pyspark.SparkConf()
     conf.set(key="spark.jars.packages", value=get_mleap_jars())
+    # Exclude `net.sourceforge.f2j` to avoid `java.io.FileNotFoundException`
     conf.set(key="spark.jars.excludes", value="net.sourceforge.f2j:arpack_combined_all")
     spark_session = get_spark_session(conf)
     return spark_session.sparkContext
