@@ -85,11 +85,13 @@ public class MlflowClientTest {
     String expName = createExperimentName();
     CreateExperiment.Builder request = CreateExperiment.newBuilder();
     request.setName(expName);
-    request.addTags(0, ExperimentTag.newBuilder().setKey("key1").setValue("val1").build());
-    request.addTags(1, ExperimentTag.newBuilder().setKey("key2").setValue("val2").build());
+    request.addTags(ExperimentTag.newBuilder().setKey("key1").setValue("val1").build());
+    request.addTags(ExperimentTag.newBuilder().setKey("key2").setValue("val2").build());
+    System.out.println(request.toString());
     String expId = client.createExperiment(request.build());
-    GetExperiment.Response exp = client.getExperiment(expId);
-    List<ExperimentTag> tags = exp.getExperiment().getTagsList();
+    Experiment exp = client.getExperiment(expId).getExperiment();
+    System.out.println(exp);
+    Assert.assertEquals(exp.getTagsCount(), 2);
     Assert.assertEquals(tags.get(0).getKey(), "key1");
     Assert.assertEquals(tags.get(1).getValue(), "val2");
   }

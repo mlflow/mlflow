@@ -840,7 +840,7 @@ def list_experiments(
 def create_experiment(
     name: str,
     artifact_location: Optional[str] = None,
-    experiment_tags: Optional[Dict[str, Any]] = None,
+    tags: Optional[Dict[str, Any]] = None,
 ) -> str:
     """
     Create an experiment.
@@ -848,7 +848,7 @@ def create_experiment(
     :param name: The experiment name, which must be unique and is case sensitive
     :param artifact_location: The location to store run artifacts.
                               If not provided, the server picks an appropriate default.
-    :param experiment_tags: An optional dictionary of string keys and values to set as
+    :param tags: An optional dictionary of string keys and values to set as
                             tags on the experiment.
     :return: String ID of the created experiment.
 
@@ -875,7 +875,7 @@ def create_experiment(
         Tags= {}
         Lifecycle_stage: active
     """
-    return MlflowClient().create_experiment(name, artifact_location, experiment_tags)
+    return MlflowClient().create_experiment(name, artifact_location, tags)
 
 
 def delete_experiment(experiment_id: str) -> None:

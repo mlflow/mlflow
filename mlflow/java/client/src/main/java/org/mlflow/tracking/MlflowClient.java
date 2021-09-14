@@ -295,7 +295,7 @@ public class MlflowClient implements Serializable {
    *   CreateExperiment.Builder request = CreateExperiment.newBuilder();
    *   request.setName(name);
    *   request.setArtifactLocation(artifactLocation);
-   *   request.addTag(experimentTag);
+   *   request.addTags(experimentTag);
    *   createExperiment(request.build());
    *   </pre>
    *

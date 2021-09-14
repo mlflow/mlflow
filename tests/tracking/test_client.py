@@ -72,7 +72,7 @@ def test_client_create_experiment(mock_store, mock_time):
 
     mock_store.create_experiment.assert_called_once_with(
         artifact_location="someLocation",
-        experiment_tags=[ExperimentTag("key1", "val1"), ExperimentTag("key2", "val2")],
+        tags=[ExperimentTag("key1", "val1"), ExperimentTag("key2", "val2")],
         name="someName",
     )
 

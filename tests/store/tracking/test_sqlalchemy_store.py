@@ -367,7 +367,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         experiment_id = self.store.create_experiment(
             name="test exp",
             artifact_location="some location",
-            experiment_tags=[ExperimentTag("key1", "val1"), ExperimentTag("key2", "val2")],
+            tags=[ExperimentTag("key1", "val1"), ExperimentTag("key2", "val2")],
         )
         experiment = self.store.get_experiment(experiment_id)
         assert len(experiment.tags) == 2

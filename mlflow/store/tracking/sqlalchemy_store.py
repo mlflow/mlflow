@@ -224,7 +224,7 @@ class SqlAlchemyStore(AbstractStore):
     def _get_artifact_location(self, experiment_id):
         return append_to_uri_path(self.artifact_root_uri, str(experiment_id))
 
-    def create_experiment(self, name, artifact_location=None, experiment_tags=None):
+    def create_experiment(self, name, artifact_location=None, tags=None):
         if name is None or name == "":
             raise MlflowException("Invalid experiment name", INVALID_PARAMETER_VALUE)
 
@@ -236,8 +236,8 @@ class SqlAlchemyStore(AbstractStore):
                     artifact_location=artifact_location,
                 )
                 experiment.tags = (
-                    [SqlExperimentTag(key=tag.key, value=tag.value) for tag in experiment_tags]
-                    if experiment_tags
+                    [SqlExperimentTag(key=tag.key, value=tag.value) for tag in tags]
+                    if tags
                     else []
                 )
                 session.add(experiment)
