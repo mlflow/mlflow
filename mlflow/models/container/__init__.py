@@ -20,7 +20,7 @@ from mlflow import pyfunc, mleap
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.docker_utils import DISABLE_ENV_CREATION
-from mlflow.pyfunc import scoring_server
+from mlflow.pyfunc import scoring_server, mlserver
 from mlflow.version import VERSION as MLFLOW_VERSION
 
 MODEL_PATH = "/opt/ml/model"
@@ -33,6 +33,7 @@ DEFAULT_SAGEMAKER_SERVER_PORT = 8080
 SUPPORTED_FLAVORS = [pyfunc.FLAVOR_NAME, mleap.FLAVOR_NAME]
 
 DISABLE_NGINX = "DISABLE_NGINX"
+ENABLE_MLSERVER = "ENABLE_MLSERVER"
 
 
 def _init(cmd):
@@ -142,7 +143,11 @@ def _serve_pyfunc(model):
     os.system("python -V")
     os.system('python -c"from mlflow.version import VERSION as V; print(V)"')
 
-    cmd, cmd_env = scoring_server.get_cmd(model_uri=MODEL_PATH, nworkers=cpu_count)
+    if os.getenv(ENABLE_MLSERVER, "false").lower() == "true":
+        cmd, cmd_env = mlserver.get_cmd(model_uri=MODEL_PATH, nworkers=cpu_count)
+    else:
+        cmd, cmd_env = scoring_server.get_cmd(model_uri=MODEL_PATH, nworkers=cpu_count)
+
     bash_cmds.append(cmd)
     gunicorn = Popen(["/bin/bash", "-c", " && ".join(bash_cmds)], env=cmd_env)
 

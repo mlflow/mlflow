@@ -5,6 +5,7 @@ import subprocess
 import posixpath
 from mlflow.models import FlavorBackend
 from mlflow.models.docker_utils import _build_image, DISABLE_ENV_CREATION
+from mlflow.models.container import ENABLE_MLSERVER
 from mlflow.pyfunc import ENV, scoring_server, mlserver as _mlserver
 
 from mlflow.utils.conda import get_or_create_conda_env, get_conda_bin_executable, get_conda_command
@@ -106,7 +107,9 @@ class PyFuncBackend(FlavorBackend):
             # Can not find conda
             return False
 
-    def build_image(self, model_uri, image_name, install_mlflow=False, mlflow_home=None):
+    def build_image(
+        self, model_uri, image_name, install_mlflow=False, mlflow_home=None, mlserver=False
+    ):
         def copy_model_into_container(dockerfile_context_dir):
             model_cwd = os.path.join(dockerfile_context_dir, "model_dir")
             os.mkdir(model_cwd)
@@ -117,10 +120,13 @@ class PyFuncBackend(FlavorBackend):
                 'from mlflow.models.container import _install_pyfunc_deps;\
                 _install_pyfunc_deps("/opt/ml/model", install_mlflow={install_mlflow})'
                 ENV {disable_env}="true"
+                ENV {ENABLE_MLSERVER}={mlserver}
                 """.format(
                 disable_env=DISABLE_ENV_CREATION,
                 model_dir=str(posixpath.join("model_dir", os.path.basename(model_path))),
                 install_mlflow=repr(install_mlflow),
+                ENABLE_MLSERVER=ENABLE_MLSERVER,
+                mlserver=repr(mlserver),
             )
 
         # The pyfunc image runs the same server as the Sagemaker image
