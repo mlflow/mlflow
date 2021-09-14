@@ -87,13 +87,11 @@ public class MlflowClientTest {
     request.setName(expName);
     request.addTags(ExperimentTag.newBuilder().setKey("key1").setValue("val1").build());
     request.addTags(ExperimentTag.newBuilder().setKey("key2").setValue("val2").build());
-    System.out.println(request.toString());
     String expId = client.createExperiment(request.build());
     Experiment exp = client.getExperiment(expId).getExperiment();
-    System.out.println(exp);
     Assert.assertEquals(exp.getTagsCount(), 2);
-    Assert.assertEquals(tags.get(0).getKey(), "key1");
-    Assert.assertEquals(tags.get(1).getValue(), "val2");
+    Assert.assertEquals(exp.getTags(0).getKey(), "key1");
+    Assert.assertEquals(exp.getTags(1).getValue(), "val2");
   }
 
   @Test(expectedExceptions = MlflowClientException.class) // TODO: server should throw 406
