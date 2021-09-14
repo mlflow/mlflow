@@ -24,7 +24,6 @@ MLflow will use the tracking server associated with the current tracking URI.}
 
 \item{tags}{Experiment tags to set on the experiment upon experiment creation.}
 }
-
 \description{
 Creates an MLflow experiment and returns its id.
 }
