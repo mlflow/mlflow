@@ -7,6 +7,7 @@ import pandas as pd
 from sklearn import datasets
 import lightgbm as lgb
 import matplotlib as mpl
+from packaging.version import Version
 
 import mlflow
 import mlflow.lightgbm
@@ -72,7 +73,13 @@ def test_lgb_autolog_logs_default_params(bst_params, train_set):
         "num_boost_round": 100,
         "feature_name": "auto",
         "categorical_feature": "auto",
-        "verbose_eval": True,
+        "verbose_eval": (
+            # The default value of `verbose_eval` in `lightgbm.train` has been changed to 'warn'
+            # in this PR: https://github.com/microsoft/LightGBM/pull/4577
+            "warn"
+            if Version(lgb.__version__) > Version("3.2.1")
+            else True
+        ),
         "keep_training_booster": False,
     }
     expected_params.update(bst_params)
