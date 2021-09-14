@@ -29,12 +29,13 @@ from tests.spark.test_spark_model_export import (  # pylint: disable=unused-impo
 
 
 def get_mleap_jars():
-    mleap_ver = Version(mleap.__verssion__)
+    mleap_ver = Version(mleap.__version__)
     scala_ver = "2.11" if mleap_ver < Version("0.18.0") else "2.12"
+    jar_ver = f"{mleap_ver.major}.{mleap_ver.minor}.0"
     return ",".join(
         [
-            f"ml.combust.mleap:mleap-spark-base_{scala_ver}:{mleap_ver.major}.{mleap_ver.minor}.0",
-            f"ml.combust.mleap:mleap-spark_{scala_ver}:{mleap_ver.major}.{mleap_ver.minor}.0",
+            f"ml.combust.mleap:mleap-spark-base_{scala_ver}:{jar_ver}",
+            f"ml.combust.mleap:mleap-spark_{scala_ver}:{jar_ver}",
         ]
     )
 
