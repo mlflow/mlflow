@@ -22,8 +22,8 @@ pytest tests/sagemaker/mock --large
 # TODO: split out sagemaker tests and move other spark tests to run-python-flavor-tests.sh
 pytest tests/spark --large  --ignore tests/spark/test_mleap_model_export.py
 
-# MLeap doesn't support spark 3.x (https://github.com/combust/mleap#mleapspark-version)
-pip install pyspark==2.4.5
+# MLeap doesn't support spark > 3.0.2: https://github.com/combust/mleap#mleapspark-version
+pip install pyspark==3.0.2 mleap
 pytest tests/spark/test_mleap_model_export.py --large
 
 test $err = 0
