@@ -238,7 +238,7 @@ class SqlAlchemyStore(AbstractStore):
                 experiment.tags = [
                     SqlExperimentTag(key=tag.key, value=tag.value)
                     for tag in experiment_tags
-                ]
+                ] if experiment_tags else []
                 session.add(experiment)
                 if not artifact_location:
                     # this requires a double write. The first one to generate an autoincrement-ed ID
@@ -437,7 +437,7 @@ class SqlAlchemyStore(AbstractStore):
                 lifecycle_stage=LifecycleStage.ACTIVE,
             )
 
-            run.tags = [SqlTag(key=tag.key, value=tag.value) for tag in tags]
+            run.tags = [SqlTag(key=tag.key, value=tag.value) for tag in tags] if tags else []
             self._save_to_db(objs=run, session=session)
 
             return run.to_mlflow_entity()
