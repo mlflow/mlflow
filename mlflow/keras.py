@@ -190,7 +190,6 @@ def save_model(
         # Save the model as an MLflow Model
         mlflow.keras.save_model(keras_model, keras_model_path)
     """
-    _raise_deprecation_warning()
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     if keras_module is None:

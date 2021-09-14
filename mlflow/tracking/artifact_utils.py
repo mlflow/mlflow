@@ -61,9 +61,11 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
     :param output_path: The local filesystem path to which to download the artifact. If unspecified,
                         a local output path will be created.
     """
+
     if os.path.exists(artifact_uri):
         artifact_uri = path_to_local_file_uri(artifact_uri)
     parsed_uri = urllib.parse.urlparse(str(artifact_uri))
+
     prefix = ""
     if parsed_uri.scheme and not parsed_uri.path.startswith("/"):
         # relative path is a special case, urllib does not reconstruct it properly

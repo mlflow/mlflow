@@ -39,10 +39,11 @@ _MODEL_SAVE_PATH = "net"
 
 
 @experimental
-def load_model(model_uri, ctx):
+def load_model(model_uri, ctx, local_destination_path=None):
     """
     Load a Gluon model from a local file or a run.
 
+    :param local_destination_path: The local path for downloading the model artifacts.
     :param model_uri: The location, in URI format, of the MLflow model. For example:
 
                       - ``/Users/me/path/to/local/model``
@@ -70,7 +71,9 @@ def load_model(model_uri, ctx):
     from mxnet import gluon
     from mxnet import sym
 
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    local_model_path = _download_artifact_from_uri(
+        artifact_uri=model_uri, output_path=local_destination_path
+    )
 
     model_arch_path = os.path.join(local_model_path, "data", _MODEL_SAVE_PATH) + "-symbol.json"
     model_params_path = os.path.join(local_model_path, "data", _MODEL_SAVE_PATH) + "-0000.params"

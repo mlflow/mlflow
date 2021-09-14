@@ -70,6 +70,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+my_env/
 .python-version
 
 # Editor files
@@ -99,3 +100,7 @@ travis_wait*.log
 
 # Pytorch logs
 lightning_logs
+
+# Additional
+sample*.py
+sample-code.py
