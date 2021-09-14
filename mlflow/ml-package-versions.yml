@@ -349,3 +349,24 @@ spark:
         ./dev/setup-spark-datasource-autologging.sh
         find tests/spark_autologging/datasource -name 'test*.py' | xargs -L 1 pytest --large
       fi
+
+mleap:
+  package_info:
+    pip_release: "mleap"
+
+  models:
+    minimum: "0.15.0"
+    maximum: "0.18.0"
+    requirements:
+      "<= 0.17.0": ["pyspark==2.4.5"]
+      "> 0.17.0": ["pyspark==3.0.2"]
+    run: |
+      SAGEMAKER_OUT=$(mktemp)
+      if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
+        echo "Sagemaker container build succeeded.";
+      else
+        echo "Sagemaker container build failed, output:";
+        cat $SAGEMAKER_OUT;
+        exit 1
+      fi
+      pytest tests/mleap/test_mleap_model_export.py --large

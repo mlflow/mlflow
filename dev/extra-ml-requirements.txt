@@ -33,9 +33,6 @@ h2o
 # Required by mlflow.onnx
 onnx
 onnxruntime
-# Required by mlflow.mleap, and in order to save SparkML models in
-# mleap format via ``mlflow.spark.log_model``, ``mlflow.spark.save_model``
-mleap
 # Required by mlflow.spark
 pyspark
 # Required by mlflow.shap
