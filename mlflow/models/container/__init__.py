@@ -29,6 +29,8 @@ MODEL_PATH = "/opt/ml/model"
 DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME = "MLFLOW_DEPLOYMENT_FLAVOR_NAME"
 
 DEFAULT_SAGEMAKER_SERVER_PORT = 8080
+DEFAULT_INFERENCE_SERVER_PORT = 8000
+DEFAULT_NGINX_SERVER_PORT = 8080
 
 SUPPORTED_FLAVORS = [pyfunc.FLAVOR_NAME, mleap.FLAVOR_NAME]
 
@@ -143,10 +145,11 @@ def _serve_pyfunc(model):
     os.system("python -V")
     os.system('python -c"from mlflow.version import VERSION as V; print(V)"')
 
-    if os.getenv(ENABLE_MLSERVER, "false").lower() == "true":
-        cmd, cmd_env = mlserver.get_cmd(model_uri=MODEL_PATH, nworkers=cpu_count)
-    else:
-        cmd, cmd_env = scoring_server.get_cmd(model_uri=MODEL_PATH, nworkers=cpu_count)
+    enable_mlserver = os.getenv(ENABLE_MLSERVER, "false").lower() == "true"
+    inference_server = mlserver if enable_mlserver else scoring_server
+    cmd, cmd_env = inference_server.get_cmd(
+        model_uri=MODEL_PATH, nworkers=cpu_count, port=DEFAULT_INFERENCE_SERVER_PORT
+    )
 
     bash_cmds.append(cmd)
     gunicorn = Popen(["/bin/bash", "-c", " && ".join(bash_cmds)], env=cmd_env)
