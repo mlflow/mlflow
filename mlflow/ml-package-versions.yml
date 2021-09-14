@@ -356,7 +356,7 @@ mleap:
 
   models:
     minimum: "0.15.0"
-    maximum: "0.17.0"
+    maximum: "0.18.0"
     requirements:
       "<= 0.17.0": ["pyspark==2.4.5"]
       "> 0.17.0": ["pyspark==3.0.2"]
