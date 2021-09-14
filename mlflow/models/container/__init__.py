@@ -20,6 +20,7 @@ from mlflow import pyfunc, mleap
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.docker_utils import DISABLE_ENV_CREATION
+from mlflow.pyfunc import scoring_server
 from mlflow.version import VERSION as MLFLOW_VERSION
 
 MODEL_PATH = "/opt/ml/model"
@@ -140,12 +141,10 @@ def _serve_pyfunc(model):
     os.system("pip -V")
     os.system("python -V")
     os.system('python -c"from mlflow.version import VERSION as V; print(V)"')
-    cmd = (
-        "gunicorn -w {cpu_count} ".format(cpu_count=cpu_count)
-        + "${GUNICORN_CMD_ARGS} mlflow.models.container.scoring_server.wsgi:app"
-    )
+
+    cmd, cmd_env = scoring_server.get_cmd(model_uri=MODEL_PATH, nworkers=cpu_count)
     bash_cmds.append(cmd)
-    gunicorn = Popen(["/bin/bash", "-c", " && ".join(bash_cmds)])
+    gunicorn = Popen(["/bin/bash", "-c", " && ".join(bash_cmds)], env=cmd_env)
 
     procs = [p for p in [nginx, gunicorn] if p]
 
