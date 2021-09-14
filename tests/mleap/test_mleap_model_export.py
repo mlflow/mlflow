@@ -7,7 +7,7 @@ import numpy as np
 import pyspark
 from pyspark.ml.pipeline import Pipeline
 from pyspark.ml.wrapper import JavaModel
-import mleap
+import mleap.version
 import pytest
 
 import mlflow
@@ -29,7 +29,7 @@ from tests.spark.test_spark_model_export import (  # pylint: disable=unused-impo
 
 
 def get_mleap_jars():
-    mleap_ver = Version(mleap.__version__)
+    mleap_ver = Version(mleap.version.__version__)
     scala_ver = "2.11" if mleap_ver < Version("0.18.0") else "2.12"
     jar_ver = f"{mleap_ver.major}.{mleap_ver.minor}.0"
     return ",".join(
@@ -44,6 +44,7 @@ def get_mleap_jars():
 def spark_context():
     conf = pyspark.SparkConf()
     conf.set(key="spark.jars.packages", value=get_mleap_jars())
+    conf.set(key="spark.jars.excludes", value="net.sourceforge.f2j:arpack_combined_all")
     spark_session = get_spark_session(conf)
     return spark_session.sparkContext
 
