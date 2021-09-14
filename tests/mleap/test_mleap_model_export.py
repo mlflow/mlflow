@@ -1,11 +1,13 @@
 import json
 import os
 from unittest import mock
+from packaging.version import Version
 
 import numpy as np
 import pyspark
 from pyspark.ml.pipeline import Pipeline
 from pyspark.ml.wrapper import JavaModel
+import mleap
 import pytest
 
 import mlflow
@@ -26,16 +28,21 @@ from tests.spark.test_spark_model_export import (  # pylint: disable=unused-impo
 )
 
 
+def get_mleap_jars():
+    mleap_ver = Version(mleap.__verssion__)
+    scala_ver = "2.11" if mleap_ver < Version("0.18.0") else "2.12"
+    return ",".join(
+        [
+            f"ml.combust.mleap:mleap-spark-base_{scala_ver}:{mleap_ver.major}.{mleap_ver.minor}.0",
+            f"ml.combust.mleap:mleap-spark_{scala_ver}:{mleap_ver.major}.{mleap_ver.minor}.0",
+        ]
+    )
+
+
 @pytest.fixture(scope="session", autouse=True)
 def spark_context():
     conf = pyspark.SparkConf()
-    conf.set(
-        key="spark.jars.packages",
-        value=(
-            "ml.combust.mleap:mleap-spark-base_2.11:0.12.0,"
-            "ml.combust.mleap:mleap-spark_2.11:0.12.0"
-        ),
-    )
+    conf.set(key="spark.jars.packages", value=get_mleap_jars())
     spark_session = get_spark_session(conf)
     return spark_session.sparkContext
 
