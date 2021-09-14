@@ -178,9 +178,7 @@ class TrackingServiceClient(object):
         return self.store.create_experiment(
             name=name,
             artifact_location=artifact_location,
-            tags=[ExperimentTag(key, value) for (key, value) in tags.items()]
-            if tags
-            else [],
+            tags=[ExperimentTag(key, value) for (key, value) in tags.items()] if tags else [],
         )
 
     def delete_experiment(self, experiment_id):

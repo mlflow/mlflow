@@ -838,9 +838,7 @@ def list_experiments(
 
 
 def create_experiment(
-    name: str,
-    artifact_location: Optional[str] = None,
-    tags: Optional[Dict[str, Any]] = None,
+    name: str, artifact_location: Optional[str] = None, tags: Optional[Dict[str, Any]] = None,
 ) -> str:
     """
     Create an experiment.

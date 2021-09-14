@@ -287,7 +287,6 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             "heresAnArtifact",
             [ExperimentTag("key1", "val1"), ExperimentTag("key2", "val2")],
         )
-        # fs.set_experiment_tag(created_id, ExperimentTag("testKey", "testVal"))
         experiment = fs.get_experiment(created_id)
         assert len(experiment.tags) == 2
         assert experiment.tags["key1"] == "val1"

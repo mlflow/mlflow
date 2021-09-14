@@ -236,9 +236,7 @@ class SqlAlchemyStore(AbstractStore):
                     artifact_location=artifact_location,
                 )
                 experiment.tags = (
-                    [SqlExperimentTag(key=tag.key, value=tag.value) for tag in tags]
-                    if tags
-                    else []
+                    [SqlExperimentTag(key=tag.key, value=tag.value) for tag in tags] if tags else []
                 )
                 session.add(experiment)
                 if not artifact_location:

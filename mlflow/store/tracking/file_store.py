@@ -323,9 +323,7 @@ class FileStore(AbstractStore):
             if e.experiment_id.isdigit()
         ]
         experiment_id = max(experiments_ids) + 1 if experiments_ids else 0
-        return self._create_experiment_with_id(
-            name, str(experiment_id), artifact_location, tags
-        )
+        return self._create_experiment_with_id(name, str(experiment_id), artifact_location, tags)
 
     def _has_experiment(self, experiment_id):
         return self._get_experiment_path(experiment_id) is not None
