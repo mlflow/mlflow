@@ -29,7 +29,7 @@ from tests.spark.test_spark_model_export import (  # pylint: disable=unused-impo
 
 
 def get_mleap_jars():
-    mleap_ver = Version(mleap.version if isinstance(mleap.version) else mleap.version.__version__)
+    mleap_ver = Version(mleap.version if isinstance(mleap.version, str) else mleap.version.__version__)
     scala_ver = "2.11" if mleap_ver < Version("0.18.0") else "2.12"
     jar_ver = f"{mleap_ver.major}.{mleap_ver.minor}.0"
     return ",".join(
