@@ -77,6 +77,7 @@ def pytest_ignore_collect(path, config):
             "tests/sagemaker",
             "tests/sklearn",
             "tests/spark",
+            "tests/mleap",
             "tests/tensorflow",
             "tests/azureml",
             "tests/onnx",

@@ -97,7 +97,6 @@ setup(
             "pyarrow",
             # Required to log artifacts and models to AWS S3 artifact locations
             "boto3",
-            "mleap",
             # Required to log artifacts and models to GCS artifact locations
             "google-cloud-storage",
             "azureml-core>=1.2.0",

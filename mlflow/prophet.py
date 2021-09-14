@@ -258,6 +258,7 @@ def _load_pyfunc(path):
     return _ProphetModelWrapper(_load_model(path))
 
 
+
 def load_model(model_uri, local_destination_path=None):
     """
     Load a Prophet model from a local file or a run.
@@ -276,6 +277,7 @@ def load_model(model_uri, local_destination_path=None):
 
     :return: A Prophet model instance
     """
+
     local_model_path = _download_artifact_from_uri(
         artifact_uri=model_uri, output_path=local_destination_path
     )
