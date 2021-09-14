@@ -12,6 +12,8 @@ mlflow_create_experiment(name, artifact_location = NULL, client = NULL)
 \item{artifact_location}{Location where all artifacts for this experiment are stored. If
 not provided, the remote server will select an appropriate default.}
 
+\item{tags}{Experiment tags to set on the experiment upon experiment creation.}
+
 \item{client}{(Optional) An MLflow client object returned from \link[mlflow]{mlflow_client}.
 If specified, MLflow will use the tracking server associated with the passed-in client. If
 unspecified (the common case),
