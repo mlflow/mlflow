@@ -8,7 +8,7 @@
 #' @param tags Experiment tags to set on the experiment upon experiment creation.
 #' @template roxlate-client
 #' @export
-mlflow_create_experiment <- function(name, artifact_location = NULL, tags = NULL, client = NULL) {
+mlflow_create_experiment <- function(name, artifact_location = NULL, client = NULL, tags = NULL) {
   client <- resolve_client(client)
   name <- forge::cast_string(name)
   response <- mlflow_rest(
