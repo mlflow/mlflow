@@ -12,10 +12,12 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context.abstract_context import RunContextProvider
+from mlflow.utils import _truncate_dict
 from mlflow.utils.autologging_utils import (
     autologging_is_disabled,
     ExceptionSafeClass,
 )
+from mlflow.utils.validation import MAX_TAG_VAL_LENGTH
 from mlflow.utils.databricks_utils import get_repl_id as get_databricks_repl_id
 from mlflow.spark import FLAVOR_NAME
 
@@ -243,11 +245,14 @@ class SparkAutologgingContext(RunContextProvider):
                     unique_infos.append(info)
                     seen.add(info)
             if len(unique_infos) > 0:
-                tags = {
-                    _SPARK_TABLE_INFO_TAG_NAME: "\n".join(
-                        [_get_table_info_string(*info) for info in unique_infos]
-                    )
-                }
+                tags = _truncate_dict(
+                    {
+                        _SPARK_TABLE_INFO_TAG_NAME: "\n".join(
+                            [_get_table_info_string(*info) for info in unique_infos]
+                        )
+                    },
+                    max_value_length=MAX_TAG_VAL_LENGTH,
+                )
             else:
                 tags = {}
             return tags
