@@ -24,6 +24,7 @@ import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.Test;
 
 import org.mlflow.api.proto.Service.CreateRun;
+import org.mlflow.api.proto.Service.CreateExperiment;
 import org.mlflow.api.proto.Service.Experiment;
 import org.mlflow.api.proto.Service.ExperimentTag;
 import org.mlflow.api.proto.Service.GetExperiment;
@@ -77,6 +78,20 @@ public class MlflowClientTest {
     String expId = client.createExperiment(expName);
     GetExperiment.Response exp = client.getExperiment(expId);
     Assert.assertEquals(exp.getExperiment().getName(), expName);
+  }
+
+  @Test
+  public void createExperimentWithTagsTest() {
+    String expName = createExperimentName();
+    CreateExperiment.Builder request = CreateExperiment.newBuilder();
+    request.setName(expName);
+    request.addTags(0, ExperimentTag.newBuilder().setKey("key1").setValue("val1").build());
+    request.addTags(1, ExperimentTag.newBuilder().setKey("key2").setValue("val2").build());
+    String expId = client.createExperiment(request.build());
+    GetExperiment.Response exp = client.getExperiment(expId);
+    List<ExperimentTag> tags = exp.getExperiment().getTagsList();
+    Assert.assertEquals(tags.get(0).getKey(), "key1");
+    Assert.assertEquals(tags.get(1).getValue(), "val2");
   }
 
   @Test(expectedExceptions = MlflowClientException.class) // TODO: server should throw 406
