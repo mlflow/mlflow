@@ -287,8 +287,8 @@ public class MlflowClient implements Serializable {
   }
 
   /**
-   * Create a new experiment. This method allows providing all possible fields of CreateExperiment, and can be
-   * invoked as follows:
+   * Create a new experiment. This method allows providing all possible
+   * fields of CreateExperiment, and can be invoked as follows:
    *
    *   <pre>
    *   import org.mlflow.api.proto.Service.CreateExperiment;
