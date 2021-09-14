@@ -286,6 +286,26 @@ public class MlflowClient implements Serializable {
     return mapper.toCreateExperimentResponse(ojson).getExperimentId();
   }
 
+  /**
+   * Create a new experiment. This method allows providing all possible fields of CreateExperiment, and can be
+   * invoked as follows:
+   *
+   *   <pre>
+   *   import org.mlflow.api.proto.Service.CreateExperiment;
+   *   CreateExperiment.Builder request = CreateExperiment.newBuilder();
+   *   request.setName(name);
+   *   request.setArtifactLocation(artifactLocation);
+   *   createExperiment(request.build());
+   *   </pre>
+   *
+   * @return ID of the experiment created by the server.
+   */
+  public String createExperiment(CreateExperiment request) {
+    String ijson = mapper.toJson(request);
+    String ojson = sendPost("experiments/create", ijson);
+    return mapper.toCreateExperimentResponse(ojson).getExperimentId();
+  }
+
   /** Mark an experiment and associated runs, params, metrics, etc. for deletion. */
   public void deleteExperiment(String experimentId) {
     String ijson = mapper.makeDeleteExperimentRequest(experimentId);
