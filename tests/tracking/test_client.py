@@ -71,7 +71,9 @@ def test_client_create_experiment(mock_store, mock_time):
     MlflowClient().create_experiment("someName", "someLocation", {"key1": "val1", "key2": "val2"})
 
     mock_store.create_experiment.assert_called_once_with(
-        artifact_location="someLocation", experiment_tags=[ExperimentTag("key1", "val1"), ExperimentTag("key2", "val2")], name="someName",
+        artifact_location="someLocation",
+        experiment_tags=[ExperimentTag("key1", "val1"), ExperimentTag("key2", "val2")],
+        name="someName",
     )
 
 

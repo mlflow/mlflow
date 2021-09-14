@@ -235,10 +235,11 @@ class SqlAlchemyStore(AbstractStore):
                     lifecycle_stage=LifecycleStage.ACTIVE,
                     artifact_location=artifact_location,
                 )
-                experiment.tags = [
-                    SqlExperimentTag(key=tag.key, value=tag.value)
-                    for tag in experiment_tags
-                ] if experiment_tags else []
+                experiment.tags = (
+                    [SqlExperimentTag(key=tag.key, value=tag.value) for tag in experiment_tags]
+                    if experiment_tags
+                    else []
+                )
                 session.add(experiment)
                 if not artifact_location:
                     # this requires a double write. The first one to generate an autoincrement-ed ID
