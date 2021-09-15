@@ -260,7 +260,7 @@ def test_autologging_truncates_datasource_tag_to_maximum_supported_value(tmpdir,
     # exceeding the maximum length of an MLflow tag (`MAX_TAG_VAL_LENGTH`)
     long_path_base = str(tmpdir.join("a" * 150))
     saved_df_paths = []
-    for path_suffix in range(int(len(long_path_base) / MAX_TAG_VAL_LENGTH) + 1):
+    for path_suffix in range(int(MAX_TAG_VAL_LENGTH / len(long_path_base)) + 1):
         long_path = long_path_base + str(path_suffix)
         df.write.option("header", "true").format("csv").save(long_path)
         saved_df_paths.append(long_path)
@@ -283,7 +283,7 @@ def test_autologging_truncates_datasource_tag_to_maximum_supported_value(tmpdir,
         # Sleep a bit prior to ending the run to guarantee that the Python process can pick up on
         # datasource read events (simulate the common case of doing work, e.g. model training,
         # on the DataFrame after reading from it)
-        time.sleep(1)
+        time.sleep(3)
 
     # Verify that the Spark Datasource tag set on the run has been truncated to the maximum
     # tag value length allowed by MLflow
