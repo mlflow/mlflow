@@ -39,7 +39,7 @@ test_that("mlflow_create/get_experiment() basic functionality (client)", {
       list(
         list(key = "foz", value = "baz"),
         list(key = "foo", value = "bar"),
-        list(key = "fiz", value = "biz"),
+        list(key = "fiz", value = "biz")
       )
     )
   )
