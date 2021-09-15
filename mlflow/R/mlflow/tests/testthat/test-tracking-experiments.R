@@ -25,7 +25,7 @@ test_that("mlflow_create/get_experiment() basic functionality (client)", {
     client = client,
     name = "exp_name",
     artifact_location = "art_loc",
-    tags = list(foo = "bar", foz = "baz")
+    tags = list(foo = "bar", foz = "baz", fiz = "biz")
   )
   experiment_1a <- mlflow_get_experiment(client = client, experiment_id = experiment_1_id)
   experiment_1b <- mlflow_get_experiment(client = client, name = "exp_name")
@@ -39,6 +39,7 @@ test_that("mlflow_create/get_experiment() basic functionality (client)", {
       list(
         list(key = "foz", value = "baz"),
         list(key = "foo", value = "bar"),
+        list(key = "fiz", value = "biz"),
       )
     )
   )
