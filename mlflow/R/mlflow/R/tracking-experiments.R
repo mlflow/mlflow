@@ -11,6 +11,11 @@
 mlflow_create_experiment <- function(name, artifact_location = NULL, client = NULL, tags = NULL) {
   client <- resolve_client(client)
   name <- forge::cast_string(name)
+
+  tags <- if (!is.null(tags)) tags %>%
+    purrr::imap(~ list(key = .y, value = .x)) %>%
+    unname()
+
   response <- mlflow_rest(
     "experiments", "create",
     client = client, verb = "POST",
