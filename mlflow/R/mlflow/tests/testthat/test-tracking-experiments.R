@@ -23,8 +23,8 @@ test_that("mlflow_create/get_experiment() basic functionality (client)", {
 
   experiment_1_id <- mlflow_create_experiment(
     client = client,
-    "exp_name",
-    "art_loc",
+    name = "exp_name",
+    artifact_location = "art_loc",
     tags = list(foo = "bar", foz = "baz")
   )
   experiment_1a <- mlflow_get_experiment(client = client, experiment_id = experiment_1_id)
