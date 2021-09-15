@@ -295,7 +295,11 @@ def patched_fit(original, self, *args, **kwargs):
     if early_stop_callback is not None:
         _log_early_stop_metrics(early_stop_callback, client, run_id)
 
-    summary = str(ModelSummary(self.model, mode="full"))
+    if Version(pl.__version__) < Version("1.4.0"):
+        summary = str(ModelSummary(self.model, mode="full"))
+    else:
+        summary = str(ModelSummary(self.model, max_depth=-1))
+
     tempdir = tempfile.mkdtemp()
     try:
         summary_file = os.path.join(tempdir, "model_summary.txt")
