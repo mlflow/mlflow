@@ -162,17 +162,24 @@ class TrackingServiceClient(object):
         """
         return self.store.get_experiment_by_name(name)
 
-    def create_experiment(self, name, artifact_location=None):
+    def create_experiment(self, name, artifact_location=None, tags=None):
         """Create an experiment.
 
         :param name: The experiment name. Must be unique.
         :param artifact_location: The location to store run artifacts.
                                   If not provided, the server picks an appropriate default.
+        :param tags: A dictionary of key-value pairs that are converted into
+                                  :py:class:`mlflow.entities.ExperimentTag` objects.
         :return: Integer ID of the created experiment.
         """
         _validate_experiment_name(name)
         _validate_experiment_artifact_location(artifact_location)
-        return self.store.create_experiment(name=name, artifact_location=artifact_location,)
+
+        return self.store.create_experiment(
+            name=name,
+            artifact_location=artifact_location,
+            tags=[ExperimentTag(key, value) for (key, value) in tags.items()] if tags else [],
+        )
 
     def delete_experiment(self, experiment_id):
         """

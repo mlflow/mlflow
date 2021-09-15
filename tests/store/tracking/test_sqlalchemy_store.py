@@ -17,7 +17,16 @@ from unittest import mock
 
 import mlflow.db
 import mlflow.store.db.base_sql_model
-from mlflow.entities import ViewType, RunTag, SourceType, RunStatus, Experiment, Metric, Param
+from mlflow.entities import (
+    ViewType,
+    RunTag,
+    SourceType,
+    RunStatus,
+    Experiment,
+    Metric,
+    Param,
+    ExperimentTag,
+)
 from mlflow.protos.databricks_pb2 import (
     ErrorCode,
     RESOURCE_DOES_NOT_EXIST,
@@ -353,6 +362,17 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
                     self.assertEqual(
                         exp.artifact_location, expected_artifact_uri_format.format(e=exp_id)
                     )
+
+    def test_create_experiment_with_tags_works_correctly(self):
+        experiment_id = self.store.create_experiment(
+            name="test exp",
+            artifact_location="some location",
+            tags=[ExperimentTag("key1", "val1"), ExperimentTag("key2", "val2")],
+        )
+        experiment = self.store.get_experiment(experiment_id)
+        assert len(experiment.tags) == 2
+        assert experiment.tags["key1"] == "val1"
+        assert experiment.tags["key2"] == "val2"
 
     def test_create_run_appends_to_artifact_uri_path_correctly(self):
         cases = [

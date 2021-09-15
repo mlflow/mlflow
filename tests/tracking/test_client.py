@@ -2,7 +2,7 @@ import pytest
 import pickle
 from unittest import mock
 
-from mlflow.entities import SourceType, ViewType, RunTag, Run, RunInfo
+from mlflow.entities import SourceType, ViewType, RunTag, Run, RunInfo, ExperimentTag
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.exceptions import MlflowException
@@ -64,6 +64,16 @@ def test_client_create_run(mock_store, mock_time):
 
     mock_store.create_run.assert_called_once_with(
         experiment_id=experiment_id, user_id="unknown", start_time=int(mock_time * 1000), tags=[],
+    )
+
+
+def test_client_create_experiment(mock_store):
+    MlflowClient().create_experiment("someName", "someLocation", {"key1": "val1", "key2": "val2"})
+
+    mock_store.create_experiment.assert_called_once_with(
+        artifact_location="someLocation",
+        tags=[ExperimentTag("key1", "val1"), ExperimentTag("key2", "val2")],
+        name="someName",
     )
 
 
