@@ -258,8 +258,9 @@ def _not_implemented():
 @catch_mlflow_exception
 def _create_experiment():
     request_message = _get_request_message(CreateExperiment())
+    tags = [ExperimentTag(tag.key, tag.value) for tag in request_message.tags]
     experiment_id = _get_tracking_store().create_experiment(
-        request_message.name, request_message.artifact_location
+        request_message.name, request_message.artifact_location, tags
     )
     response_message = CreateExperiment.Response()
     response_message.experiment_id = experiment_id

@@ -12,7 +12,7 @@ class AbstractStoreTestImpl(AbstractStore):
     ):
         raise NotImplementedError()
 
-    def create_experiment(self, name, artifact_location):
+    def create_experiment(self, name, artifact_location, tags):
         raise NotImplementedError()
 
     def get_experiment(self, experiment_id):
