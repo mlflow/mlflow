@@ -94,7 +94,12 @@ Creates an MLflow experiment and returns its id.
 
 .. code:: r
 
-   mlflow_create_experiment(name, artifact_location = NULL, client = NULL)
+   mlflow_create_experiment(
+     name,
+     artifact_location = NULL,
+     client = NULL,
+     tags = NULL
+   )
 
 .. _arguments-2:
 
@@ -121,6 +126,9 @@ Arguments
 |                               | (the common case), MLflow will use   |
 |                               | the tracking server associated with  |
 |                               | the current tracking URI.            |
++-------------------------------+--------------------------------------+
+| ``tags``                      | Experiment tags to set on the        |
+|                               | experiment upon experiment creation. |
 +-------------------------------+--------------------------------------+
 
 ``mlflow_create_model_version``
