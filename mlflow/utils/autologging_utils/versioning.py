@@ -10,7 +10,7 @@ from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
 # A map FLAVOR_NAME -> a tuple of (dependent_module_name, key_in_module_version_info_dict)
 FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY = {
-    "fastai": ("fastai", "fastai-1.x"),
+    "fastai": ("fastai", "fastai"),
     "gluon": ("mxnet", "gluon"),
     "keras": ("keras", "keras"),
     "lightgbm": ("lightgbm", "lightgbm"),
