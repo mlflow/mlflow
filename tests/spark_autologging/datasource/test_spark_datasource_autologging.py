@@ -260,7 +260,7 @@ def test_autologging_truncates_datasource_tag_to_maximum_supported_value(tmpdir,
     # exceeding the maximum length of an MLflow tag (`MAX_TAG_VAL_LENGTH`)
     long_path_base = str(tmpdir.join("a" * 150))
     saved_df_paths = []
-    for path_suffix in range(int(MAX_TAG_VAL_LENGTH / 150) + 1):
+    for path_suffix in range(int(MAX_TAG_VAL_LENGTH / 150) + 10):
         long_path = long_path_base + str(path_suffix)
         df.write.option("header", "true").format("csv").save(long_path)
         saved_df_paths.append(long_path)
