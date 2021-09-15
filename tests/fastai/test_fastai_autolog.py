@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import matplotlib as mpl
 import sklearn.datasets as datasets
-import torch
+from torch import nn, optim
 from fastai.learner import Learner
 from fastai.optimizer import OptimWrapper
 from fastai.tabular.all import TabularDataLoaders
@@ -23,9 +23,6 @@ np.random.seed(1337)
 
 NUM_EPOCHS = 3
 MIN_DELTA = 99999999  # Forces earlystopping
-
-import torch.nn.functional as F
-from torch import nn
 
 
 @pytest.fixture(params=[True, False])
@@ -193,7 +190,7 @@ def test_fastai_autolog_logs_expected_data(fastai_random_tabular_data_run, fit_v
 def test_fastai_autolog_opt_func_expected_data(iris_data, fit_variant, manual_run):
     # pylint: disable=unused-argument
     mlflow.fastai.autolog()
-    model = fastai_tabular_model(iris_data, opt_func=partial(OptimWrapper, opt=torch.optim.Adam))
+    model = fastai_tabular_model(iris_data, opt_func=partial(OptimWrapper, opt=optim.Adam))
 
     if fit_variant == "fit_one_cycle":
         model.fit_one_cycle(NUM_EPOCHS)
