@@ -4,6 +4,7 @@ import shutil
 import tempfile
 from functools import partial
 import matplotlib.pyplot as plt
+import logging
 
 import mlflow.tracking
 from mlflow.utils.autologging_utils import ExceptionSafeClass, try_mlflow_log
@@ -11,9 +12,11 @@ from mlflow.fastai import log_model
 
 from fastai.callback.core import Callback
 
+_logger = logging.getLogger(__name__)
+
 
 # Move outside, because it cannot be pickled. Besides, ExceptionSafeClass was giving some issues
-class __MLflowFastaiCallback(Callback, metaclass=ExceptionSafeClass):
+class __MlflowFastaiCallback(Callback, metaclass=ExceptionSafeClass):
     """
     Callback for auto-logging metrics and parameters.
     Records model structural information as params when training begins.
@@ -57,11 +60,10 @@ class __MLflowFastaiCallback(Callback, metaclass=ExceptionSafeClass):
             return
 
         if self.is_fine_tune and len(self.opt.param_lists) == 1:
-            print(
-                """ WARNING: Using `fine_tune` with model which cannot be frozen.
-                Current model have only one param group which makes it impossible to freeze.
-                Because of this it will record some fitting params twice (overriding exception)
-                """
+            _logger.warning(
+                "Using `fine_tune` with model which cannot be frozen."
+                " Current model have only one param group which makes it impossible to freeze."
+                " Because of this it will record some fitting params twice (overriding exception)"
             )
 
         frozen = self.opt.frozen_idx != 0

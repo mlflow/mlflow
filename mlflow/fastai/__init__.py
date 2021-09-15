@@ -470,9 +470,9 @@ def autolog(
     from fastai.callback.all import EarlyStoppingCallback, TrackerCallback
 
     def getFastaiCallback(metrics_logger, is_fine_tune=False):
-        from mlflow.fastai.callback import __MLflowFastaiCallback
+        from mlflow.fastai.callback import __MlflowFastaiCallback
 
-        return __MLflowFastaiCallback(
+        return __MlflowFastaiCallback(
             metrics_logger=metrics_logger, log_models=log_models, is_fine_tune=is_fine_tune,
         )
 
@@ -526,7 +526,7 @@ def autolog(
 
     def _run_and_log_function(self, original, args, kwargs, unlogged_params, is_fine_tune=False):
         # Check if is trying to fit while fine tuning or not
-        mlflow_cbs = [cb for cb in self.cbs if cb.name == "__m_lflow_fastai"]
+        mlflow_cbs = [cb for cb in self.cbs if cb.name == "___mlflow_fastai"]
         fit_in_fine_tune = (
             original.__name__ == "fit" and len(mlflow_cbs) > 0 and mlflow_cbs[0].is_fine_tune
         )
