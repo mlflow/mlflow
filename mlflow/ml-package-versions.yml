@@ -213,24 +213,21 @@ gluon:
     run: |
       pytest tests/gluon_autolog/test_gluon_autolog.py --large
 
-fastai-1.x:
+fastai:
   package_info:
     pip_release: "fastai"
 
   models:
-    # Avoid updating the maximum version to 2.x which isn't supported yet
-    pin_maximum: True
-    minimum: "1.0.60"
-    maximum: "1.0.61"
-    requirements: ["scikit-learn"]
+    minimum: "2.4.1"
+    maximum: "2.4.1"
+    requirements: [torch, torchvision]
     run: |
       pytest tests/fastai/test_fastai_model_export.py --large
 
   autologging:
-    pin_maximum: True
-    minimum: "1.0.60"
-    maximum: "1.0.61"
-    requirements: ["scikit-learn"]
+    minimum: "2.4.1"
+    maximum: "2.4.1"
+    requirements: [torch, torchvision]
     run: |
       pytest tests/fastai/test_fastai_autolog.py --large
 
