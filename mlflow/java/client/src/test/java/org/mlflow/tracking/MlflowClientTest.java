@@ -90,8 +90,11 @@ public class MlflowClientTest {
     String expId = client.createExperiment(request.build());
     Experiment exp = client.getExperiment(expId).getExperiment();
     Assert.assertEquals(exp.getTagsCount(), 2);
-    Assert.assertEquals(exp.getTags(0).getKey(), "key1");
-    Assert.assertEquals(exp.getTags(1).getValue(), "val2");
+    for (ExperimentTag tag : exp.getTagsList()) {
+      if (tag.getKey().equals("key1")) {
+        Assert.assertTrue(tag.getValue().equals("val1"));
+      }
+    }
   }
 
   @Test(expectedExceptions = MlflowClientException.class) // TODO: server should throw 406
