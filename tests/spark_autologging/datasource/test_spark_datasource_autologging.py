@@ -250,32 +250,48 @@ def test_autologging_slow_api_requests(spark_session, format_to_file_path):
 
 
 @pytest.mark.large
-def test_autologging_truncates_tags_to_maximum_supported_value(tmpdir, spark_session):
+def test_autologging_truncates_datasource_tag_to_maximum_supported_value(tmpdir, spark_session):
     rows = [Row(100)]
     schema = StructType([StructField("number2", IntegerType())])
     rdd = spark_session.sparkContext.parallelize(rows)
     df = spark_session.createDataFrame(rdd, schema)
 
-    long_path = tmpdir.strpath("a" * 100000)
-    df.write.option("header", "true").format("csv").save(long_path)
+    # Save a Spark Dataframe to multiple paths with an aggregate path length
+    # exceeding the maximum length of an MLflow tag (`MAX_TAG_VAL_LENGTH`)
+    long_path_base = str(tmpdir.join("a" * 150))
+    saved_df_paths = []
+    for path_suffix in range(int(len(long_path_base) / MAX_TAG_VAL_LENGTH) + 1):
+        long_path = long_path_base + str(path_suffix)
+        df.write.option("header", "true").format("csv").save(long_path)
+        saved_df_paths.append(long_path)
 
     mlflow.spark.autolog()
     with mlflow.start_run():
-        df = (
-            spark_session.read.format("csv")
-            .option("header", "true")
-            .option("inferSchema", "true")
-            .load(long_path)
-        )
-        df.collect()
+        for path in saved_df_paths:
+            # Read the serialized Spark Dataframe from each path, ensuring that
+            # the aggregate length of all Spark Datasource paths exceeds the
+            # maximum length of an MLflow tag (`MAX_TAG_VAL_LENGTH`)
+            df = (
+                spark_session.read.format("csv")
+                .option("header", "true")
+                .option("inferSchema", "true")
+                .load(path)
+            )
+            df.collect()
 
         run_id = mlflow.active_run().info.run_id
+        # Sleep a bit prior to ending the run to guarantee that the Python process can pick up on
+        # datasource read events (simulate the common case of doing work, e.g. model training,
+        # on the DataFrame after reading from it)
         time.sleep(1)
 
+    # Verify that the Spark Datasource tag set on the run has been truncated to the maximum
+    # tag value length allowed by MLflow
     run = mlflow.get_run(run_id)
     assert _SPARK_TABLE_INFO_TAG_NAME in run.data.tags
     table_info_tag = run.data.tags[_SPARK_TABLE_INFO_TAG_NAME]
     assert len(table_info_tag) == MAX_TAG_VAL_LENGTH
+    assert table_info_tag.endswith("...")
 
 
 @pytest.mark.large
