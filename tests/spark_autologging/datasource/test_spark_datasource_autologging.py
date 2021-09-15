@@ -3,8 +3,12 @@ import time
 import pytest
 from unittest import mock
 
+from pyspark.sql import Row
+from pyspark.sql.types import StructType, IntegerType, StructField
+
 import mlflow
 import mlflow.spark
+from mlflow.utils.validation import MAX_TAG_VAL_LENGTH
 from mlflow._spark_autologging import _SPARK_TABLE_INFO_TAG_NAME
 
 from tests.tracking.test_rest_tracking import BACKEND_URIS
@@ -243,6 +247,35 @@ def test_autologging_slow_api_requests(spark_session, format_to_file_path):
             for data_format, path in format_to_file_path.items()
         ]
     )
+
+
+@pytest.mark.large
+def test_autologging_truncates_tags_to_maximum_supported_value(tmpdir, spark_session):
+    rows = [Row(100)]
+    schema = StructType([StructField("number2", IntegerType())])
+    rdd = spark_session.sparkContext.parallelize(rows)
+    df = spark_session.createDataFrame(rdd, schema)
+
+    long_path = tmpdir.strpath("a" * 100000)
+    df.write.option("header", "true").format("csv").save(long_path)
+
+    mlflow.spark.autolog()
+    with mlflow.start_run():
+        df = (
+            spark_session.read.format("csv")
+            .option("header", "true")
+            .option("inferSchema", "true")
+            .load(long_path)
+        )
+        df.collect()
+
+        run_id = mlflow.active_run().info.run_id
+        time.sleep(1)
+
+    run = mlflow.get_run(run_id)
+    assert _SPARK_TABLE_INFO_TAG_NAME in run.data.tags
+    table_info_tag = run.data.tags[_SPARK_TABLE_INFO_TAG_NAME]
+    assert len(table_info_tag) == MAX_TAG_VAL_LENGTH
 
 
 @pytest.mark.large
