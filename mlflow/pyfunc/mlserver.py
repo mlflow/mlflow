@@ -7,6 +7,7 @@ from mlserver.server import MLServer
 from mlserver.cli.serve import load_settings
 
 MLServerMLflowRuntime = "mlserver_mlflow.MLflowRuntime"
+MLServerDefaultModelName = "mlflow-model"
 
 
 def get_cmd(
@@ -22,8 +23,7 @@ def get_cmd(
     if host:
         cmd_env["MLSERVER_HOST"] = host
 
-    # TODO: What name should it have?
-    #  cmd_env["MLSERVER_MODEL_NAME"] = model_details.name,
+    cmd_env["MLSERVER_MODEL_NAME"] = MLServerDefaultModelName
 
     if nworkers:
         cmd_env["MLSERVER_MODEL_PARALLEL_WORKERS"] = str(nworkers)

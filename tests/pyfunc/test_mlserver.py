@@ -1,7 +1,7 @@
 import pytest
 import os
 
-from mlflow.pyfunc.mlserver import get_cmd, MLServerMLflowRuntime
+from mlflow.pyfunc.mlserver import get_cmd, MLServerMLflowRuntime, MLServerDefaultModelName
 
 
 @pytest.mark.parametrize(
@@ -13,7 +13,6 @@ from mlflow.pyfunc.mlserver import get_cmd, MLServerMLflowRuntime
                 "MLSERVER_HTTP_PORT": "5000",
                 "MLSERVER_HOST": "0.0.0.0",
                 "MLSERVER_MODEL_PARALLEL_WORKERS": "4",
-                "MLSERVER_MODEL_IMPLEMENTATION": MLServerMLflowRuntime,
             },
         ),
         (
@@ -21,7 +20,6 @@ from mlflow.pyfunc.mlserver import get_cmd, MLServerMLflowRuntime
             {
                 "MLSERVER_HOST": "0.0.0.0",
                 "MLSERVER_MODEL_PARALLEL_WORKERS": "4",
-                "MLSERVER_MODEL_IMPLEMENTATION": MLServerMLflowRuntime,
             },
         ),
         (
@@ -29,21 +27,17 @@ from mlflow.pyfunc.mlserver import get_cmd, MLServerMLflowRuntime
             {
                 "MLSERVER_HTTP_PORT": "5000",
                 "MLSERVER_MODEL_PARALLEL_WORKERS": "4",
-                "MLSERVER_MODEL_IMPLEMENTATION": MLServerMLflowRuntime,
             },
         ),
         (
             {"port": 5000},
             {
                 "MLSERVER_HTTP_PORT": "5000",
-                "MLSERVER_MODEL_IMPLEMENTATION": MLServerMLflowRuntime,
             },
         ),
         (
             {},
-            {
-                "MLSERVER_MODEL_IMPLEMENTATION": MLServerMLflowRuntime,
-            },
+            {},
         ),
     ],
 )
@@ -53,4 +47,10 @@ def test_get_cmd(params: dict, expected: dict):
 
     assert cmd == f"mlserver start {model_uri}"
 
-    assert cmd_env == {"MLSERVER_MODEL_URI": model_uri, **expected, **os.environ.copy()}
+    assert cmd_env == {
+        "MLSERVER_MODEL_URI": model_uri,
+        "MLSERVER_MODEL_IMPLEMENTATION": MLServerMLflowRuntime,
+        "MLSERVER_MODEL_NAME": MLServerDefaultModelName,
+        **expected,
+        **os.environ.copy(),
+    }
