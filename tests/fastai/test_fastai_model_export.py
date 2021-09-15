@@ -7,7 +7,7 @@ from unittest import mock
 import numpy as np
 import pandas as pd
 import sklearn.datasets as datasets
-from fastai.tabular import tabular_learner, TabularList
+from fastai.tabular.all import tabular_learner, TabularDataLoaders
 from fastai.metrics import accuracy
 
 import mlflow.fastai
@@ -21,7 +21,6 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
-from fastai.tabular import DatasetType
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
@@ -40,13 +39,10 @@ def fastai_model():
     iris = datasets.load_iris()
     X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
     y = pd.Series(iris.target, name="label")
-    data = (
-        TabularList.from_df(pd.concat([X, y], axis=1), cont_names=list(X.columns))
-        .split_by_rand_pct(valid_pct=0.1, seed=42)
-        .label_from_df(cols="label")
-        .databunch()
+    dl = TabularDataLoaders.from_df(
+        df=pd.concat([X, y], axis=1), cont_names=list(X.columns), y_names="label"
     )
-    model = tabular_learner(data, metrics=accuracy, layers=[3])
+    model = tabular_learner(dl, metrics=accuracy, layers=[3])
     model.fit(1)
     return ModelWithData(model=model, inference_dataframe=X)
 
@@ -63,14 +59,6 @@ def fastai_custom_env(tmpdir):
     return conda_env
 
 
-def compare_wrapper_results(wrapper1_results, wrapper2_results):
-    samples = wrapper1_results["predictions"].shape[0]
-    predictions1 = np.concatenate(wrapper1_results["predictions"], axis=0).reshape((samples, -1))
-    predictions2 = np.concatenate(wrapper2_results["predictions"], axis=0).reshape((samples, -1))
-    np.testing.assert_array_almost_equal(wrapper1_results["target"], wrapper2_results["target"])
-    np.testing.assert_array_almost_equal(predictions1, predictions2)
-
-
 @pytest.mark.large
 def test_model_save_load(fastai_model, model_path):
     model = fastai_model.model
@@ -80,17 +68,19 @@ def test_model_save_load(fastai_model, model_path):
     reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
 
     # Verify reloaded model computes same predictions as original model
-    test_data = TabularList.from_df(fastai_model.inference_dataframe)
-    model.data.add_test(test_data)
-    reloaded_model.data.add_test(test_data)
+    dl_model = model.dls.test_dl(fastai_model.inference_dataframe)
+    dl_reloaded_model = reloaded_model.dls.test_dl(fastai_model.inference_dataframe)
 
-    real_preds, real_target = map(lambda output: output.numpy(), model.get_preds(DatasetType.Test))
-    reloaded_preds, reloaded_target = map(
-        lambda output: output.numpy(), reloaded_model.get_preds(DatasetType.Test)
+    real_preds, _ = map(
+        lambda output: output.numpy() if output is not None else output,
+        model.get_preds(dl=dl_model),
+    )
+    reloaded_preds, _ = map(
+        lambda output: output.numpy() if output is not None else output,
+        reloaded_model.get_preds(dl=dl_reloaded_model),
     )
 
     np.testing.assert_array_almost_equal(real_preds, reloaded_preds)
-    np.testing.assert_array_almost_equal(real_target, reloaded_target)
 
     model_wrapper = mlflow.fastai._FastaiModelWrapper(model)
     reloaded_model_wrapper = mlflow.fastai._FastaiModelWrapper(reloaded_model)
@@ -99,8 +89,8 @@ def test_model_save_load(fastai_model, model_path):
     reloaded_result = reloaded_model_wrapper.predict(fastai_model.inference_dataframe)
     pyfunc_result = reloaded_pyfunc.predict(fastai_model.inference_dataframe)
 
-    compare_wrapper_results(model_result, reloaded_result)
-    compare_wrapper_results(reloaded_result, pyfunc_result)
+    np.testing.assert_array_almost_equal(model_result, reloaded_result)
+    np.testing.assert_array_almost_equal(reloaded_result, pyfunc_result)
 
 
 def test_signature_and_examples_are_saved_correctly(fastai_model):
@@ -138,7 +128,7 @@ def test_model_load_from_remote_uri_succeeds(fastai_model, model_path, mock_s3_b
     model_wrapper = mlflow.fastai._FastaiModelWrapper(model)
     reloaded_model_wrapper = mlflow.fastai._FastaiModelWrapper(reloaded_model)
 
-    compare_wrapper_results(
+    np.testing.assert_array_almost_equal(
         model_wrapper.predict(fastai_model.inference_dataframe),
         reloaded_model_wrapper.predict(fastai_model.inference_dataframe),
     )
@@ -172,7 +162,7 @@ def test_model_log(fastai_model, model_path):
                 model_wrapper = mlflow.fastai._FastaiModelWrapper(model)
                 reloaded_model_wrapper = mlflow.fastai._FastaiModelWrapper(reloaded_model)
 
-                compare_wrapper_results(
+                np.testing.assert_array_almost_equal(
                     model_wrapper.predict(fastai_model.inference_dataframe),
                     reloaded_model_wrapper.predict(fastai_model.inference_dataframe),
                 )
