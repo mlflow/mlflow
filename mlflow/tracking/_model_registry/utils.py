@@ -9,6 +9,8 @@ from mlflow.tracking._tracking_service.utils import (
     _TRACKING_PASSWORD_ENV_VAR,
     _TRACKING_TOKEN_ENV_VAR,
     _TRACKING_INSECURE_TLS_ENV_VAR,
+    _TRACKING_CLIENT_CERT_PATH_ENV_VAR,
+    _TRACKING_SERVER_CERT_PATH_ENV_VAR,
     _resolve_tracking_uri,
     get_tracking_uri,
 )
@@ -127,6 +129,8 @@ def get_default_host_creds(store_uri):
         password=os.environ.get(_TRACKING_PASSWORD_ENV_VAR),
         token=os.environ.get(_TRACKING_TOKEN_ENV_VAR),
         ignore_tls_verification=os.environ.get(_TRACKING_INSECURE_TLS_ENV_VAR) == "true",
+        client_cert_path=os.environ.get(_TRACKING_CLIENT_CERT_PATH_ENV_VAR),
+        server_cert_path=os.environ.get(_TRACKING_SERVER_CERT_PATH_ENV_VAR),
     )
 
 
