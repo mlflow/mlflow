@@ -12,10 +12,12 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context.abstract_context import RunContextProvider
+from mlflow.utils import _truncate_and_ellipsize
 from mlflow.utils.autologging_utils import (
     autologging_is_disabled,
     ExceptionSafeClass,
 )
+from mlflow.utils.validation import MAX_TAG_VAL_LENGTH
 from mlflow.utils.databricks_utils import get_repl_id as get_databricks_repl_id
 from mlflow.spark import FLAVOR_NAME
 
@@ -79,6 +81,10 @@ def _get_jvm_event_publisher():
     return getattr(jvm, qualified_classname)
 
 
+def _generate_datasource_tag_value(table_info_string):
+    return _truncate_and_ellipsize(table_info_string, MAX_TAG_VAL_LENGTH)
+
+
 def _set_run_tag_async(run_id, path, version, data_format):
     _thread_pool.submit(
         _set_run_tag, run_id=run_id, path=path, version=version, data_format=data_format
@@ -91,7 +97,8 @@ def _set_run_tag(run_id, path, version, data_format):
     existing_run = client.get_run(run_id)
     existing_tag = existing_run.data.tags.get(_SPARK_TABLE_INFO_TAG_NAME)
     new_table_info = _merge_tag_lines(existing_tag, table_info_string)
-    client.set_tag(run_id, _SPARK_TABLE_INFO_TAG_NAME, new_table_info)
+    new_tag_value = _generate_datasource_tag_value(new_table_info)
+    client.set_tag(run_id, _SPARK_TABLE_INFO_TAG_NAME, new_tag_value)
 
 
 def _listen_for_spark_activity(spark_context):
@@ -244,8 +251,8 @@ class SparkAutologgingContext(RunContextProvider):
                     seen.add(info)
             if len(unique_infos) > 0:
                 tags = {
-                    _SPARK_TABLE_INFO_TAG_NAME: "\n".join(
-                        [_get_table_info_string(*info) for info in unique_infos]
+                    _SPARK_TABLE_INFO_TAG_NAME: _generate_datasource_tag_value(
+                        "\n".join([_get_table_info_string(*info) for info in unique_infos])
                     )
                 }
             else:
