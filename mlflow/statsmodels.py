@@ -477,7 +477,7 @@ def autolog(
                     elif _is_numeric(field):
                         results_dict[f] = field
 
-            except AttributeError:
+            except Exception:
                 pass
 
         return results_dict
