@@ -80,9 +80,8 @@ def _chunk_dict(d, chunk_size):
 
 def _truncate_and_ellipsize(value, max_length):
     """
-    Truncates the string representation of the specified value to the to the
-    specified maximum length, if necessary. The end of the string is ellipsized
-    if truncation occurs
+    Truncates the string representation of the specified value to the specified
+    maximum length, if necessary. The end of the string is ellipsized if truncation occurs
     """
     value = str(value)
     if len(value) > max_length:
