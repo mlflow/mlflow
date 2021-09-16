@@ -81,9 +81,14 @@ def _chunk_dict(d, chunk_size):
 def _truncate_and_ellipsize(value, max_length):
     """
     Truncates the string representation of the specified value to the to the
-    specified maximum length, ellipsizing the end
+    specified maximum length, if necessary. The end of the string is ellipsized
+    if truncation occurs
     """
-    return str(value)[: (max_length - 3)] + "..."
+    value = str(value)
+    if len(value) > max_length:
+        return value[: (max_length - 3)] + "..."
+    else:
+        return value
 
 
 def _truncate_dict(d, max_key_length=None, max_value_length=None):
