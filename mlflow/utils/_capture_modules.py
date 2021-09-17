@@ -83,16 +83,21 @@ def main():
     # Mirror `sys.path` of the parent process
     sys.path = json.loads(args.sys_path)
 
+    spark = None
     if flavor == mlflow.spark.FLAVOR_NAME and is_in_databricks_runtime():
-        try:
-            # pylint: disable=import-error
-            from dbruntime.spark_connection import initialize_spark_connection
+        from pyspark.sql import SparkSession
 
-            initialize_spark_connection()
-        except Exception as e:
-            raise Exception(
-                "Attempted to initialize a spark session to load the spark model, but failed"
-            ) from e
+        # Clear 'PYSPARK_GATEWAY_PORT' and 'PYSPARK_GATEWAY_SECRET' to enforce launching a new JVM
+        # gateway
+        os.environ.pop("PYSPARK_GATEWAY_PORT", None)
+        os.environ.pop("PYSPARK_GATEWAY_SECRET", None)
+        os.environ["SPARK_DIST_CLASSPATH"] = "/databricks/jars/*"
+        spark = (
+            SparkSession.builder.master("local")
+            .appName(__name__)
+            .config("spark.ui.enabled", "false")
+            .getOrCreate()
+        )
 
     cap_cm = _CaptureImportedModules()
 
@@ -119,6 +124,9 @@ def main():
 
     # Store the imported modules in `output_file`
     write_to(args.output_file, "\n".join(cap_cm.imported_modules))
+
+    if spark:
+        spark.stop()
 
 
 if __name__ == "__main__":
