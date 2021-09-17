@@ -37,13 +37,14 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def create_experiment(self, name, artifact_location):
+    def create_experiment(self, name, artifact_location, tags):
         """
         Create a new experiment.
         If an experiment with the given name already exists, throws exception.
 
         :param name: Desired name for an experiment
         :param artifact_location: Base location for artifacts in runs. May be None.
+        :param tags: Experiment tags to set upon experiment creation
 
         :return: experiment_id (string) for the newly created experiment if successful, else None.
         """

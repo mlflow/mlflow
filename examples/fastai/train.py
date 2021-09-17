@@ -1,11 +1,19 @@
 #
 # This short example is based on the fastai GitHub Repository of vision examples
-# https://github.com/fastai/fastai/blob/master/examples/vision.ipynb
+# https://github.com/fastai/fastai/blob/master/nbs/examples/mnist_blocks.py
 # Modified here to show mlflow.fastai.autolog() capabilities
 #
 import argparse
-import fastai.vision as vis
 import mlflow.fastai
+from fastai.vision.all import (
+    CategoryBlock,
+    DataBlock,
+    GrandparentSplitter,
+    ImageBlock,
+    PILImage,
+    URLs,
+)
+from fastai.vision.all import cnn_learner, get_image_files, parent_label, resnet18, untar_data
 
 
 def parse_args():
@@ -29,23 +37,30 @@ def main():
     # Parse command-line arguments
     args = parse_args()
 
-    # Download and untar the MNIST data set
-    path = vis.untar_data(vis.URLs.MNIST_TINY)
+    # Split data between training and testing
+    splitter = GrandparentSplitter(train_name="training", valid_name="testing")
 
-    # Prepare, transform, and normalize the data
-    data = vis.ImageDataBunch.from_folder(path, ds_tfms=(vis.rand_pad(2, 28), []), bs=64)
-    data.normalize(vis.imagenet_stats)
+    # Prepare DataBlock which is a generic container to quickly build Datasets and DataLoaders
+    mnist = DataBlock(
+        blocks=(ImageBlock(PILImage), CategoryBlock),
+        get_items=get_image_files,
+        splitter=splitter,
+        get_y=parent_label,
+    )
 
-    # Train and fit the Learner model
-    learn = vis.cnn_learner(data, vis.models.resnet18, metrics=vis.accuracy)
+    # Download, untar the MNIST data set and create DataLoader from DataBlock
+    data = mnist.dataloaders(untar_data(URLs.MNIST), bs=256, num_workers=0)
 
     # Enable auto logging
     mlflow.fastai.autolog()
 
+    # Create Learner model
+    learn = cnn_learner(data, resnet18)
+
     # Start MLflow session
     with mlflow.start_run():
         # Train and fit with default or supplied command line arguments
-        learn.fit(args.epochs, args.lr)
+        learn.fit_one_cycle(args.epochs, args.lr)
 
 
 if __name__ == "__main__":

@@ -11,7 +11,7 @@ scikit-learn
 # TODO: Unpin once https://github.com/apache/incubator-mxnet/issues/20068 is fixed
 mxnet!=1.8.0
 # Required by mlflow.fastai
-fastai==1.0.60
+fastai>=2.4.1
 # Required by mlflow.spacy
 spacy
 # Required by mlflow.tensorflow
@@ -33,9 +33,6 @@ h2o
 # Required by mlflow.onnx
 onnx
 onnxruntime
-# Required by mlflow.mleap, and in order to save SparkML models in
-# mleap format via ``mlflow.spark.log_model``, ``mlflow.spark.save_model``
-mleap
 # Required by mlflow.spark
 pyspark
 # Required by mlflow.shap

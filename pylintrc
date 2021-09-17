@@ -150,6 +150,8 @@ disable=print-statement,
         # Ignore errors raised against `ExceptionSafeClass` and `ExceptionSafeAbstractClass`
         invalid-metaclass,
         broad-except,
+        no-name-in-module,
+        import-error,
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option

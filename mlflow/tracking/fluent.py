@@ -837,13 +837,17 @@ def list_experiments(
     return _paginate(pagination_wrapper_func, SEARCH_MAX_RESULTS_DEFAULT, max_results)
 
 
-def create_experiment(name: str, artifact_location: Optional[str] = None) -> str:
+def create_experiment(
+    name: str, artifact_location: Optional[str] = None, tags: Optional[Dict[str, Any]] = None,
+) -> str:
     """
     Create an experiment.
 
     :param name: The experiment name, which must be unique and is case sensitive
     :param artifact_location: The location to store run artifacts.
                               If not provided, the server picks an appropriate default.
+    :param tags: An optional dictionary of string keys and values to set as
+                            tags on the experiment.
     :return: String ID of the created experiment.
 
     .. code-block:: python
@@ -869,7 +873,7 @@ def create_experiment(name: str, artifact_location: Optional[str] = None) -> str
         Tags= {}
         Lifecycle_stage: active
     """
-    return MlflowClient().create_experiment(name, artifact_location)
+    return MlflowClient().create_experiment(name, artifact_location, tags)
 
 
 def delete_experiment(experiment_id: str) -> None:
