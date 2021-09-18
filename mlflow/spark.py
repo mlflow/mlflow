@@ -306,6 +306,14 @@ class _HadoopFileSystem:
         return sc._jsc.hadoopConfiguration()
 
     @classmethod
+    def _is_local_sc(cls):
+        from pyspark import SparkContext
+
+        sc = SparkContext.getOrCreate()
+        master = sc.master
+        return (master == 'local') | (master.startswith("local["))
+
+    @classmethod
     def _local_path(cls, path):
         return cls._jvm().org.apache.hadoop.fs.Path(os.path.abspath(path))
 
@@ -335,7 +343,7 @@ class _HadoopFileSystem:
         """
         local_path = cls._local_path(src)
         qualified_local_path = cls._fs().makeQualified(local_path).toString()
-        if qualified_local_path == "file:" + local_path.toString():
+        if (qualified_local_path == "file:" + local_path.toString()) & cls._is_local_sc():
             return local_path.toString()
         cls.copy_from_local_file(src, dst, remove_src=False)
         _logger.info("Copied SparkML model to %s", dst)
