@@ -182,9 +182,9 @@ def _fetch_git_repo(uri, version, dst_dir):
 
     repo = git.Repo.init(dst_dir)
     origin = repo.create_remote("origin", uri)
-    origin.fetch()
     if version is not None:
         try:
+            origin.fetch(version, depth=1)
             repo.git.checkout(version)
         except git.exc.GitCommandError as e:
             raise ExecutionException(
@@ -193,6 +193,7 @@ def _fetch_git_repo(uri, version, dst_dir):
                 "Error: %s" % (version, uri, e)
             )
     else:
+        origin.fetch("master", depth=1)
         repo.create_head("master", origin.refs.master)
         repo.heads.master.checkout()
     repo.submodule_update(init=True, recursive=True)
