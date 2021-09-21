@@ -1,8 +1,10 @@
+import git
 import os
 import tempfile
 
 import pytest
 from unittest import mock
+from contextlib import ExitStack as does_not_raise
 
 import mlflow
 from mlflow.exceptions import ExecutionException
@@ -12,6 +14,7 @@ from mlflow.projects.utils import (
     _is_valid_branch_name,
     _is_zip_uri,
     _fetch_project,
+    _fetch_git_repo,
     _parse_subdirectory,
     get_or_create_run,
     fetch_and_validate_project,
@@ -23,6 +26,7 @@ from tests.projects.utils import (
     GIT_PROJECT_URI,
     TEST_PROJECT_DIR,
     TEST_PROJECT_NAME,
+    GIT_PROJECT_BRANCH,
 )
 
 
@@ -90,6 +94,22 @@ def test__fetch_project(local_git_repo, local_git_repo_uri, zipped_repo, httpser
         os.path.commonprefix([fetched_git_project, tempfile.gettempdir()]) == tempfile.gettempdir()
     )
     assert os.path.exists(fetched_git_project)
+
+
+@pytest.mark.parametrize(
+    "version,expected_version,raises",
+    [
+        (None, "master", does_not_raise()),
+        (GIT_PROJECT_BRANCH, GIT_PROJECT_BRANCH, does_not_raise()),
+        ("non-version", "", pytest.raises(ExecutionException)),
+    ],
+)
+def test__fetch_git_repo(local_git_repo, local_git_repo_uri, version, expected_version, raises):
+    # Verify that the correct branch is checked out
+    with raises:
+        _fetch_git_repo(local_git_repo_uri, version, local_git_repo)
+        repo = git.Repo(local_git_repo)
+        assert repo.active_branch.name == expected_version
 
 
 def test_fetch_project_validations(local_git_repo_uri):
