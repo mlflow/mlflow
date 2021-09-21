@@ -41,6 +41,7 @@ PROJECT_USE_CONDA = "USE_CONDA"
 PROJECT_SYNCHRONOUS = "SYNCHRONOUS"
 PROJECT_DOCKER_ARGS = "DOCKER_ARGS"
 PROJECT_STORAGE_DIR = "STORAGE_DIR"
+GIT_FETCH_DEPTH = 1
 
 
 _logger = logging.getLogger(__name__)
@@ -182,7 +183,7 @@ def _fetch_git_repo(uri, version, dst_dir):
 
     repo = git.Repo.init(dst_dir)
     origin = repo.create_remote("origin", uri)
-    origin.fetch()
+    origin.fetch(depth=GIT_FETCH_DEPTH)
     if version is not None:
         try:
             repo.git.checkout(version)
