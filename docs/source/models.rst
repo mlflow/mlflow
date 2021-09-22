@@ -1049,39 +1049,40 @@ For more information about serializing tensor inputs using the TF serving format
 .. _serving_with_mlserver:
 
 Serving with MLServer (experimental)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In some cases, the local development server provided by MLflow may not offer a
 robust production-grade experience.
 To account for this, MLflow allows you to also serve models using `Seldon's
-MLServer <https://mlserver.readthedocs.io/en/latest/>`, a fully-featured
+MLServer <https://mlserver.readthedocs.io/en/latest/>`_, a fully-featured
 inference server, aimed towards production use cases, including:
 
 * Support for the standard `V2 Inference Protocol
-  <https://github.com/kubeflow/kfserving/tree/master/docs/predict-api/v2>`  on
+  <https://github.com/kubeflow/kfserving/tree/master/docs/predict-api/v2>`_  on
   both the gRPC and REST flavours.
-* Multi-Model Serving, which lets users run multiple models within the same process.
+* Multi-model serving, letting users run multiple models within the same
+  process.
 * Ability to run `inference in parallel
-  <https://mlserver.readthedocs.io/en/latest/user-guide/parallel-inference.html>`
+  <https://mlserver.readthedocs.io/en/latest/user-guide/parallel-inference.html>`_
   across multiple models through a pool of inference workers.
 * Support for `adaptive batching
-  <https://mlserver.readthedocs.io/en/latest/user-guide/adaptive-batching.html>`,
+  <https://mlserver.readthedocs.io/en/latest/user-guide/adaptive-batching.html>`_,
   to group inference requests together on the fly.
 * Integration with `Seldon Core
-  <https://docs.seldon.io/projects/seldon-core/en/latest/graph/protocols.html#v2-kfserving-protocol>`,
+  <https://docs.seldon.io/projects/seldon-core/en/latest/graph/protocols.html#v2-kfserving-protocol>`_,
   `KFServing
-  <https://github.com/kubeflow/kfserving/tree/master/docs/samples/v1beta1/sklearn/v2>`
+  <https://github.com/kubeflow/kfserving/tree/master/docs/samples/v1beta1/sklearn/v2>`_
   and `KServe
-  <https://kserve.github.io/website/modelserving/v1beta1/sklearn/v2/>`, where
+  <https://kserve.github.io/website/modelserving/v1beta1/sklearn/v2/>`_, where
   MLServer is one of the core inference servers used to serve machine learning
   models.
 
 MLServer should provide a drop-in replacement for the local development server,
 exposing a similar API through the ``/invocations`` endpoint.
 This endpoint is supported on top of the standard `V2 Inference Protocol
-<https://github.com/kubeflow/kfserving/tree/master/docs/predict-api/v2>`.
+<https://github.com/kubeflow/kfserving/tree/master/docs/predict-api/v2>`_.
 
-To serve a MLflow model using MLServer, you can use the ``--mlserver`` flag
+To serve a MLflow model using MLServer, you can use the ``--mlserver`` flag,
 such as:
 
 .. code-block:: bash
@@ -1090,7 +1091,7 @@ such as:
 
 To read more about the integration between MLflow and MLServer, please check
 the `end-to-end example in the MLServer documentation
-<https://mlserver.readthedocs.io/en/latest/examples/mlflow/README.html>`.
+<https://mlserver.readthedocs.io/en/latest/examples/mlflow/README.html>`_.
 
 .. note::
     - This feature is experimental and is subject to change.
