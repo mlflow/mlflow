@@ -1057,25 +1057,26 @@ To account for this, MLflow allows you to also serve models using `Seldon's
 MLServer <https://mlserver.readthedocs.io/en/latest/>`_, a fully-featured
 inference server, aimed towards production use cases, including:
 
-* Support for the standard `V2 Inference Protocol
-  <https://github.com/kubeflow/kfserving/tree/master/docs/predict-api/v2>`_  on
-  both the gRPC and REST flavours.
 * Multi-model serving, letting users run multiple models within the same
   process.
-* Ability to run `inference in parallel
+* Ability to run `inference in parallel for vertical scaling
   <https://mlserver.readthedocs.io/en/latest/user-guide/parallel-inference.html>`_
   across multiple models through a pool of inference workers.
 * Support for `adaptive batching
   <https://mlserver.readthedocs.io/en/latest/user-guide/adaptive-batching.html>`_,
   to group inference requests together on the fly.
-* Integration with `Seldon Core
-  <https://docs.seldon.io/projects/seldon-core/en/latest/graph/protocols.html#v2-kfserving-protocol>`_,
+* Scalability with deployment in Kubernetes native frameworks, including `Seldon Core
+  <https://docs.seldon.io/projects/seldon-core/en/latest/graph/protocols.html#v2-kfserving-protocol>`_, 
   `KFServing
   <https://github.com/kubeflow/kfserving/tree/master/docs/samples/v1beta1/sklearn/v2>`_
   and `KServe
   <https://kserve.github.io/website/modelserving/v1beta1/sklearn/v2/>`_, where
-  MLServer is one of the core inference servers used to serve machine learning
+  MLServer is the core Python inference server used to serve machine learning
   models.
+* Support for the standard `V2 Inference Protocol
+  <https://github.com/kubeflow/kfserving/tree/master/docs/predict-api/v2>`_  on
+  both the gRPC and REST flavours, which has been standardised and adopted by
+  various model serving frameworks.
 
 MLServer should provide a drop-in replacement for the local development server,
 exposing a similar API through the ``/invocations`` endpoint.
