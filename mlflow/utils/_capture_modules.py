@@ -85,19 +85,11 @@ def main():
 
     spark = None
     if flavor == mlflow.spark.FLAVOR_NAME and is_in_databricks_runtime():
-        from pyspark.sql import SparkSession
-
         # Clear 'PYSPARK_GATEWAY_PORT' and 'PYSPARK_GATEWAY_SECRET' to enforce launching a new JVM
         # gateway
         os.environ.pop("PYSPARK_GATEWAY_PORT", None)
         os.environ.pop("PYSPARK_GATEWAY_SECRET", None)
         os.environ["SPARK_DIST_CLASSPATH"] = "/databricks/jars/*"
-        spark = (
-            SparkSession.builder.master("local")
-            .appName(__name__)
-            .config("spark.ui.enabled", "false")
-            .getOrCreate()
-        )
 
     cap_cm = _CaptureImportedModules()
 
@@ -126,7 +118,12 @@ def main():
     write_to(args.output_file, "\n".join(cap_cm.imported_modules))
 
     if spark:
-        spark.stop()
+        try:
+            spark.stop()
+        except Exception:
+            # Swallow unexpected exceptions
+            pass
+
 
 
 if __name__ == "__main__":
