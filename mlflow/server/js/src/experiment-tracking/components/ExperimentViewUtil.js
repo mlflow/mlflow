@@ -72,7 +72,8 @@ export default class ExperimentViewUtil {
     const user = Utils.getUser(runInfo, tags);
     const queryParams = window.location && window.location.search ? window.location.search : '';
     const sourceType = Utils.renderSource(tags, queryParams);
-    const { status, start_time: startTime } = runInfo;
+    const { status, start_time: startTime, end_time: endTime } = runInfo;
+    const duration = Utils.getDuration(startTime, endTime);
     const runName = Utils.getRunName(tags);
     const childLeftMargin = isParent ? {} : { paddingLeft: 16 };
     const columnProps = [
@@ -91,6 +92,16 @@ export default class ExperimentViewUtil {
             <Link to={Routes.getRunPageRoute(runInfo.experiment_id, runInfo.run_uuid)}>
               {Utils.formatTimestamp(startTime)}
             </Link>
+          </div>
+        ),
+      },
+      {
+        key: ExperimentViewUtil.AttributeColumnLabels.DURATION,
+        className: 'run-table-container',
+        title: duration,
+        children: (
+          <div className='truncate-text single-line' style={ExperimentViewUtil.styles.runInfoCell}>
+            {duration}
           </div>
         ),
       },
@@ -181,6 +192,7 @@ export default class ExperimentViewUtil {
 
   static AttributeColumnLabels = {
     DATE: 'Start Time',
+    DURATION: 'Duration',
     USER: 'User',
     RUN_NAME: 'Run Name',
     SOURCE: 'Source',
@@ -246,6 +258,11 @@ export default class ExperimentViewUtil {
         key: 'start_time',
         displayName: this.AttributeColumnLabels.DATE,
         canonicalSortKey: this.AttributeColumnSortKey.DATE,
+      },
+      {
+        key: 'duration',
+        displayName: this.AttributeColumnLabels.DURATION,
+        canonicalSortKey: null,
       },
       {
         key: 'user_id',
