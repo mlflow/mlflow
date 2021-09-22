@@ -286,6 +286,18 @@ in MLflow saved the model as an artifact within the run.
           mlflow models serve -m /Users/mlflow/mlflow-prototype/mlruns/0/7c1a0d5c42844dcdb8f5191146925174/artifacts/model -p 1234
 
       .. note::
+     
+          For production use cases, it's also possible to :ref:`serve your model using MLServer<serving_with_mlserver>`.
+          Note that this feature is still **experimental**.
+          In this example, this could be done as:
+
+          .. code-block:: bash
+
+              mlflow models serve \
+                -m /Users/mlflow/mlflow-prototype/mlruns/0/7c1a0d5c42844dcdb8f5191146925174/artifacts/model \
+                -p 1234 --mlserver
+
+      .. note::
 
           The version of Python used to create the model must be the same as the one running ``mlflow models serve``.
           If this is not the case, you may see the error
