@@ -324,7 +324,7 @@ def _get_pinned_requirement(package, version=None, module=None):
                    to `package`.
     """
     if version is None:
-        version_raw = _get_installed_version(module or package)
+        version_raw = _get_installed_version(package, module)
         local_version_label = _get_local_version_label(version_raw)
         if local_version_label:
             version = _strip_local_version_label(version_raw)
