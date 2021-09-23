@@ -73,7 +73,7 @@ Official documentation for MLflow can be found at https://mlflow.org/docs/latest
 Roadmap
 -------
 The current MLflow Roadmap is available at https://github.com/mlflow/mlflow/milestone/3. We are
-seeking contributions to all of our roadmap items with the ``help wanted`` tag. Please see the
+seeking contributions to all of our roadmap items with the ``help wanted`` label. Please see the
 `Contributing`_ section for more information.
 
 Community
