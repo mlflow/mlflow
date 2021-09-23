@@ -70,6 +70,12 @@ Documentation
 -------------
 Official documentation for MLflow can be found at https://mlflow.org/docs/latest/index.html.
 
+Roadmap
+-------
+The current MLflow Roadmap is available at https://github.com/mlflow/mlflow/milestone/3. We are
+seeking contributions to all of our roadmap items with the `help wanted` tag. Please see the
+:ref:`Contributing` section for more information.
+
 Community
 ---------
 For help or questions about MLflow usage (e.g. "how do I do X?") see the `docs <https://mlflow.org/docs/latest/index.html>`_
@@ -130,7 +136,10 @@ MLflow artifacts and then load them again for serving. There is an example train
     $ curl -d '{"columns":[0],"index":[0,1],"data":[[1],[-1]]}' -H 'Content-Type: application/json'  localhost:5000/invocations
 
 
+.. _Contributing:
+
 Contributing
 ------------
-We happily welcome contributions to MLflow. Please see our `contribution guide <CONTRIBUTING.rst>`_
-for details.
+We happily welcome contributions to MLflow. We are also seeking contributions to items on the
+[MLflow Roadmap](https://github.com/mlflow/mlflow/milestone/3). Please see our
+`contribution guide <CONTRIBUTING.rst>`_ to learn more about contributing to MLflow.
