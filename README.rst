@@ -136,8 +136,6 @@ MLflow artifacts and then load them again for serving. There is an example train
     $ curl -d '{"columns":[0],"index":[0,1],"data":[[1],[-1]]}' -H 'Content-Type: application/json'  localhost:5000/invocations
 
 
-.. _Contributing:
-
 Contributing
 ------------
 We happily welcome contributions to MLflow. We are also seeking contributions to items on the
