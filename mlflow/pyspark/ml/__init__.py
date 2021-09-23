@@ -158,7 +158,12 @@ def _traverse_stage(stage):
 
     yield stage
     if isinstance(stage, Pipeline):
-        for stage in stage.getStages():
+        original_sub_stages = stage.getStages()
+        if not isinstance(original_sub_stages, list):
+            raise ValueError(
+                f"Pipeline stages should be a list but get object {str(original_sub_stages)}"
+            )
+        for stage in original_sub_stages:
             yield from _traverse_stage(stage)
     elif isinstance(stage, OneVsRest):
         yield from _traverse_stage(stage.getClassifier())
@@ -190,10 +195,7 @@ def _gen_stage_hierarchy_recursively(
 
     if isinstance(stage, Pipeline):
         sub_stages = []
-        original_sub_stages = stage.getStages()
-        if not isinstance(original_sub_stages, list):
-            raise ValueError(f"Pipeline stages should be a list but get {str(original_sub_stages)}")
-        for sub_stage in original_sub_stages:
+        for sub_stage in stage.getStages():
             sub_hierarchy = _gen_stage_hierarchy_recursively(sub_stage, uid_to_indexed_name_map)
             sub_stages.append(sub_hierarchy)
         return {"name": stage_name, "stages": sub_stages}
