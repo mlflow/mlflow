@@ -150,6 +150,14 @@ def initialize_backend_stores(backend_store_uri=None, default_artifact_root=None
 
 
 def _get_request_json(flask_request=request):
+    _logger
+
+
+    _logger.warn(f'flask_request: {flask_request}')
+    _logger.warn(f'flask_request.get_json(force=True, silent=True): {flask_request.get_json(force=True, silent=True)}')
+
+    print(f'flask_request: {flask_request}')
+    print(f'flask_request.get_json(force=True, silent=True): {flask_request.get_json(force=True, silent=True)}')
     return flask_request.get_json(force=True, silent=True)
 
 
