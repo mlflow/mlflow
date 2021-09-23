@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
+import { BrowserRouter } from 'react-router-dom';
 import $ from 'jquery';
 import { IntlProvider } from 'react-intl';
 import './index.css';
@@ -10,6 +11,9 @@ import store from './store';
 import { injectGlobal } from 'emotion';
 import { accessibilityOverrides } from './common/styles/accessibility-overrides';
 import { I18nUtils } from './i18n/I18nUtils';
+import Auth0ProviderWithHistory from "./experiment-tracking/components/Auth/auth0-provider-with-history";
+import { useHistory } from "react-router-dom";
+import { Auth0Provider } from "@auth0/auth0-react";
 
 setupAjaxHeaders();
 
@@ -18,7 +22,11 @@ I18nUtils.initI18n().then(() => {
   const root = (
     <IntlProvider locale={locale} messages={messages}>
       <Provider store={store}>
-        <App />
+        <BrowserRouter>
+          <Auth0ProviderWithHistory>
+            <App />
+          </Auth0ProviderWithHistory>
+        </BrowserRouter>
       </Provider>
     </IntlProvider>
   );
