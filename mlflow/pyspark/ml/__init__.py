@@ -190,7 +190,10 @@ def _gen_stage_hierarchy_recursively(
 
     if isinstance(stage, Pipeline):
         sub_stages = []
-        for sub_stage in stage.getStages():
+        original_sub_stages = stage.getStages()
+        if not isinstance(original_sub_stages, list):
+            raise ValueError(f"Pipeline stages should be a list but get {str(original_sub_stages)}")
+        for sub_stage in original_sub_stages:
             sub_hierarchy = _gen_stage_hierarchy_recursively(sub_stage, uid_to_indexed_name_map)
             sub_stages.append(sub_hierarchy)
         return {"name": stage_name, "stages": sub_stages}
@@ -390,10 +393,17 @@ def _get_warning_msg_for_fit_call_with_a_list_of_params(estimator):
 
 def _get_tuning_param_maps(param_search_estimator, uid_to_indexed_name_map):
     tuning_param_maps = []
+
+    def gen_log_key(k):
+        if k.parent not in uid_to_indexed_name_map:
+            raise ValueError(
+                "tuning params should not include params not owned by the tuned estimator, but "
+                f"get a param which parent is {k.parent}"
+            )
+        return f"{uid_to_indexed_name_map[k.parent]}.{k.name}"
+
     for eps in param_search_estimator.getEstimatorParamMaps():
-        tuning_param_maps.append(
-            {f"{uid_to_indexed_name_map[k.parent]}.{k.name}": v for k, v in eps.items()}
-        )
+        tuning_param_maps.append({gen_log_key(k): v for k, v in eps.items()})
     return tuning_param_maps
 
 
