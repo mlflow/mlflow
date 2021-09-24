@@ -85,7 +85,8 @@ def main():
 
     if flavor == mlflow.spark.FLAVOR_NAME and is_in_databricks_runtime():
         # Clear 'PYSPARK_GATEWAY_PORT' and 'PYSPARK_GATEWAY_SECRET' to enforce launching a new JVM
-        # gateway
+        # gateway before calling `mlflow.spark._load_pyfunc` that creates a new spark session
+        # if it doesn't exist.
         os.environ.pop("PYSPARK_GATEWAY_PORT", None)
         os.environ.pop("PYSPARK_GATEWAY_SECRET", None)
         os.environ["SPARK_DIST_CLASSPATH"] = "/databricks/jars/*"
