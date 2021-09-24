@@ -162,13 +162,9 @@ def _traverse_stage(stage):
 
         try:
             iter(original_sub_stages)
-            is_iterable = True
         except TypeError:
-            is_iterable = False
-
-        if not is_iterable:
             raise ValueError(
-                f"Pipeline stages should be iterable, but found object {str(original_sub_stages)}"
+                f"Pipeline stages should be iterable, but found object {original_sub_stages}"
             )
         for stage in original_sub_stages:
             yield from _traverse_stage(stage)
@@ -407,7 +403,7 @@ def _get_tuning_param_maps(param_search_estimator, uid_to_indexed_name_map):
         if param.parent not in uid_to_indexed_name_map:
             raise ValueError(
                 "Tuning params should not include params not owned by the tuned estimator, but "
-                f"found a param {str(param)}"
+                f"found a param {param}"
             )
         return f"{uid_to_indexed_name_map[param.parent]}.{param.name}"
 
