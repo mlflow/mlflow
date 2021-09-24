@@ -163,7 +163,7 @@ def _traverse_stage(stage):
         try:
             iter(original_sub_stages)
         except TypeError:
-            raise ValueError(
+            raise TypeError(
                 f"Pipeline stages should be iterable, but found object {original_sub_stages}"
             )
         for stage in original_sub_stages:
