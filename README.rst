@@ -139,5 +139,5 @@ MLflow artifacts and then load them again for serving. There is an example train
 Contributing
 ------------
 We happily welcome contributions to MLflow. We are also seeking contributions to items on the
-[MLflow Roadmap](https://github.com/mlflow/mlflow/milestone/3). Please see our
+`MLflow Roadmap <https://github.com/mlflow/mlflow/milestone/3>`_. Please see our
 `contribution guide <CONTRIBUTING.rst>`_ to learn more about contributing to MLflow.
