@@ -83,7 +83,6 @@ def main():
     # Mirror `sys.path` of the parent process
     sys.path = json.loads(args.sys_path)
 
-    spark = None
     if flavor == mlflow.spark.FLAVOR_NAME and is_in_databricks_runtime():
         # Clear 'PYSPARK_GATEWAY_PORT' and 'PYSPARK_GATEWAY_SECRET' to enforce launching a new JVM
         # gateway
@@ -117,12 +116,17 @@ def main():
     # Store the imported modules in `output_file`
     write_to(args.output_file, "\n".join(cap_cm.imported_modules))
 
-    if spark:
-        try:
-            spark.stop()
-        except Exception:
-            # Swallow unexpected exceptions
-            pass
+    # Clean up a spark session created by `mlflow.spark._load_pyfunc`
+    if flavor == mlflow.spark.FLAVOR_NAME:
+        from pyspark.sql import SparkSession
+
+        spark = SparkSession._instantiatedSession
+        if spark:
+            try:
+                spark.stop()
+            except Exception:
+                # Swallow unexpected exceptions
+                pass
 
 
 if __name__ == "__main__":
