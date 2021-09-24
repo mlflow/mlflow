@@ -159,9 +159,16 @@ def _traverse_stage(stage):
     yield stage
     if isinstance(stage, Pipeline):
         original_sub_stages = stage.getStages()
-        if not isinstance(original_sub_stages, list):
+
+        try:
+            iter(original_sub_stages)
+            is_iterable = True
+        except TypeError:
+            is_iterable = False
+
+        if not is_iterable:
             raise ValueError(
-                f"Pipeline stages should be a list but get object {str(original_sub_stages)}"
+                f"Pipeline stages should be iterable, but found object {str(original_sub_stages)}"
             )
         for stage in original_sub_stages:
             yield from _traverse_stage(stage)
@@ -396,13 +403,13 @@ def _get_warning_msg_for_fit_call_with_a_list_of_params(estimator):
 def _get_tuning_param_maps(param_search_estimator, uid_to_indexed_name_map):
     tuning_param_maps = []
 
-    def gen_log_key(k):
-        if k.parent not in uid_to_indexed_name_map:
+    def gen_log_key(param):
+        if param.parent not in uid_to_indexed_name_map:
             raise ValueError(
-                "tuning params should not include params not owned by the tuned estimator, but "
-                f"get a param which parent is {k.parent}"
+                "Tuning params should not include params not owned by the tuned estimator, but "
+                f"found a param {str(param)}"
             )
-        return f"{uid_to_indexed_name_map[k.parent]}.{k.name}"
+        return f"{uid_to_indexed_name_map[param.parent]}.{param.name}"
 
     for eps in param_search_estimator.getEstimatorParamMaps():
         tuning_param_maps.append({gen_log_key(k): v for k, v in eps.items()})
