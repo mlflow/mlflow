@@ -330,16 +330,16 @@ export class RunViewImpl extends Component {
             {status}
           </Descriptions.Item>
           {lifecycleStage ? (
-          <Descriptions.Item
-            label={this.props.intl.formatMessage({
-              defaultMessage: 'Lifecycle Stage',
-              description:
-                // eslint-disable-next-line max-len
-                'Label for displaying lifecycle stage of the experiment run to see if its active or deleted',
-            })}
-          >
-            {lifecycleStage}
-          </Descriptions.Item>
+            <Descriptions.Item
+              label={this.props.intl.formatMessage({
+                defaultMessage: 'Lifecycle Stage',
+                description:
+                  // eslint-disable-next-line max-len
+                  'Label for displaying lifecycle stage of the experiment run to see if its active or deleted',
+              })}
+            >
+              {lifecycleStage}
+            </Descriptions.Item>
           ) : null}
           {tags['mlflow.parentRunId'] !== undefined ? (
             <Descriptions.Item
