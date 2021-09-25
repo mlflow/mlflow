@@ -89,6 +89,8 @@ export class ExperimentView extends Component {
       showFilters: false,
       showOnboardingHelper: onboardingInformationStore.getItem('showTrackingHelper') === null,
       searchInput: props.searchInput,
+      orderByKey: props.orderByKey || ExperimentViewUtil.DefaultColumnSortKey,
+      orderByAsc: props.orderByAsc || ExperimentViewUtil.DefaultColumnSortAsc,
     };
   }
   static propTypes = {
@@ -443,8 +445,6 @@ export class ExperimentView extends Component {
       tagsList,
       paramKeyList,
       metricKeyList,
-      orderByKey,
-      orderByAsc,
       startTime,
       nestChildren,
       numberOfNewRuns,
@@ -634,18 +634,9 @@ export class ExperimentView extends Component {
                   >
                     <Select
                       className='sort-select'
-                      value={
-                        orderByKey
-                          ? `${orderByKey}${SortDelimiterSymbol}${
-                              orderByAsc ? ColumnSortByAscending : ColumnSortByDescending
-                            }`
-                          : this.props.intl.formatMessage({
-                              defaultMessage: 'Sort by',
-                              description:
-                                // eslint-disable-next-line max-len
-                                'Sort by default option for sort by select dropdown for experiment runs',
-                            })
-                      }
+                      value={`${this.state.orderByKey}${SortDelimiterSymbol}${
+                        this.state.orderByAsc ? ColumnSortByAscending : ColumnSortByDescending
+                      }`}
                       size='large'
                       onChange={this.onHandleSortByDropdown}
                       data-test-id='sort-select-dropdown'
@@ -935,8 +926,8 @@ export class ExperimentView extends Component {
                 categorizedUncheckedKeys={categorizedUncheckedKeys}
                 isAllChecked={this.isAllChecked()}
                 onSortBy={this.onSortBy}
-                orderByKey={orderByKey}
-                orderByAsc={this.props.orderByAsc}
+                orderByKey={this.state.orderByKey}
+                orderByAsc={this.state.orderByAsc}
                 runsSelected={this.state.runsSelected}
                 runsExpanded={this.state.persistedState.runsExpanded}
                 onExpand={this.onExpand}
@@ -964,8 +955,8 @@ export class ExperimentView extends Component {
                 onCheckAll={this.onCheckAll}
                 isAllChecked={this.isAllChecked()}
                 onSortBy={this.onSortBy}
-                orderByKey={orderByKey}
-                orderByAsc={this.props.orderByAsc}
+                orderByKey={this.state.orderByKey}
+                orderByAsc={this.state.orderByAsc}
                 runsSelected={this.state.runsSelected}
                 runsExpanded={this.state.persistedState.runsExpanded}
                 onExpand={this.onExpand}
@@ -996,6 +987,7 @@ export class ExperimentView extends Component {
   }
 
   onSortBy(orderByKey, orderByAsc) {
+    this.setState({ orderByKey, orderByAsc });
     this.initiateSearch({ orderByKey, orderByAsc });
   }
 
@@ -1016,8 +1008,8 @@ export class ExperimentView extends Component {
     const mySearchInput = searchInput !== undefined ? searchInput : this.props.searchInput;
     const myLifecycleFilterInput =
       lifecycleFilterInput !== undefined ? lifecycleFilterInput : this.props.lifecycleFilter;
-    const myOrderByKey = orderByKey !== undefined ? orderByKey : this.props.orderByKey;
-    const myOrderByAsc = orderByAsc !== undefined ? orderByAsc : this.props.orderByAsc;
+    const myOrderByKey = orderByKey !== undefined ? orderByKey : this.state.orderByKey;
+    const myOrderByAsc = orderByAsc !== undefined ? orderByAsc : this.state.orderByAsc;
     const myModelVersionFilterInput = modelVersionFilterInput || this.props.modelVersionFilter;
     const myStartTime = startTime || this.props.startTime;
     try {
@@ -1156,19 +1148,25 @@ export class ExperimentView extends Component {
     const newPersistedState = new ExperimentViewPersistedState({
       showMultiColumns: this.state.persistedState.showMultiColumns,
     });
-    this.setState({ persistedState: newPersistedState.toJSON(), searchInput: '' }, () => {
-      this.snapshotComponentState();
-      this.initiateSearch({
-        paramKeyFilterInput: '',
-        metricKeyFilterInput: '',
+    this.setState(
+      {
+        persistedState: newPersistedState.toJSON(),
         searchInput: '',
-        lifecycleFilterInput: LIFECYCLE_FILTER.ACTIVE,
-        modelVersionFilterInput: MODEL_VERSION_FILTER.ALL_RUNS,
-        orderByKey: null,
-        orderByAsc: false,
-        startTime: 'ALL',
-      });
-    });
+        orderByKey: ExperimentViewUtil.DefaultColumnSortKey,
+        orderByAsc: ExperimentViewUtil.DefaultColumnSortAsc,
+      },
+      () => {
+        this.snapshotComponentState();
+        this.initiateSearch({
+          paramKeyFilterInput: '',
+          metricKeyFilterInput: '',
+          searchInput: '',
+          lifecycleFilterInput: LIFECYCLE_FILTER.ACTIVE,
+          modelVersionFilterInput: MODEL_VERSION_FILTER.ALL_RUNS,
+          startTime: 'ALL',
+        });
+      },
+    );
   }
 
   onCompare() {
