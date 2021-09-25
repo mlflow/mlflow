@@ -80,6 +80,9 @@ test('getDuration', () => {
   expect(Utils.getDuration(1, 11)).toEqual('10ms');
   expect(Utils.getDuration(1, 501)).toEqual('0.5s');
   expect(Utils.getDuration(1, 901)).toEqual('0.9s');
+  expect(Utils.getDuration(1, 60001)).toEqual('1.0min');
+  expect(Utils.getDuration(1, (60 * 60 * 1000 + 1))).toEqual('1.0h');
+  expect(Utils.getDuration(1, (24 * 60 * 60 * 1000 + 1))).toEqual('1.0d');
 });
 
 test('baseName', () => {
