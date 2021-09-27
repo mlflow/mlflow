@@ -44,6 +44,7 @@ describe('RunsTableColumnSelectionDropdown', () => {
     wrapper.update();
     expect(wrapper.find(SearchTree).prop('data')).toEqual([
       { key: 'attributes-Start Time', title: 'Start Time' },
+      { key: 'attributes-Duration', title: 'Duration' },
       { key: 'attributes-User', title: 'User' },
       { key: 'attributes-Run Name', title: 'Run Name' },
       { key: 'attributes-Source', title: 'Source' },
@@ -83,6 +84,7 @@ describe('RunsTableColumnSelectionDropdown', () => {
     wrapper.update();
     expect(wrapper.find(SearchTree).prop('checkedKeys')).toEqual([
       'attributes-Start Time',
+      'attributes-Duration',
       'attributes-User',
       'attributes-Run Name',
       'attributes-Source',
@@ -113,6 +115,7 @@ describe('RunsTableColumnSelectionDropdown', () => {
     wrapper.update();
     expect(wrapper.find(SearchTree).prop('checkedKeys')).toEqual([
       'attributes-Start Time',
+      'attributes-Duration',
       'params-p2',
       'metrics-m2',
       'tags-t2',
