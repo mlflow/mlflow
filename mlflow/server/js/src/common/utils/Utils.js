@@ -191,7 +191,7 @@ class Utils {
    * @param endTime in milliseconds
    */
   static getDuration(startTime, endTime) {
-    return startTime && endTime ? this.formatDuration(endTime - startTime) : null;
+    return startTime && endTime ? this.formatDuration(endTime - startTime) : '';
   }
 
   static baseName(path) {

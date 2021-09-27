@@ -71,12 +71,12 @@ test('formatDuration', () => {
 });
 
 test('getDuration', () => {
-  expect(Utils.getDuration(1, null)).toEqual(null);
-  expect(Utils.getDuration(1, undefined)).toEqual(null);
-  expect(Utils.getDuration(null, 1)).toEqual(null);
-  expect(Utils.getDuration(undefined, 1)).toEqual(null);
-  expect(Utils.getDuration(undefined, undefined)).toEqual(null);
-  expect(Utils.getDuration(null, null)).toEqual(null);
+  expect(Utils.getDuration(1, null)).toEqual('');
+  expect(Utils.getDuration(1, undefined)).toEqual('');
+  expect(Utils.getDuration(null, 1)).toEqual('');
+  expect(Utils.getDuration(undefined, 1)).toEqual('');
+  expect(Utils.getDuration(undefined, undefined)).toEqual('');
+  expect(Utils.getDuration(null, null)).toEqual('');
   expect(Utils.getDuration(1, 11)).toEqual('10ms');
   expect(Utils.getDuration(1, 501)).toEqual('0.5s');
   expect(Utils.getDuration(1, 901)).toEqual('0.9s');
