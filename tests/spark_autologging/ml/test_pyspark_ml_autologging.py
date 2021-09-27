@@ -776,3 +776,30 @@ def test_log_post_training_metrics_configuration(dataset_iris_binomial):
 
         metrics = get_run_data(run.info.run_id)[1]
         assert any(k.startswith(metric_name) for k in metrics.keys()) is log_post_training_metrics
+
+
+def test_autologging_handle_wrong_pipeline_stage(dataset_regression):
+    mlflow.pyspark.ml.autolog()
+
+    lr = LinearRegression(maxIter=1)
+    pipeline = Pipeline(stages=lr)
+    with pytest.raises(TypeError, match="Pipeline stages should be iterable"):
+        pipeline.fit(dataset_regression)
+
+
+def test_autologging_handle_wrong_tuning_params(dataset_regression):
+    mlflow.pyspark.ml.autolog()
+
+    lr = LinearRegression(maxIter=1)
+    lr2 = LinearRegression(maxIter=2)
+
+    grid = ParamGridBuilder().addGrid(lr2.maxIter, [1, 2]).build()
+    evaluator = RegressionEvaluator()
+    cv = CrossValidator(estimator=lr, estimatorParamMaps=grid, evaluator=evaluator)
+
+    pipeline = Pipeline(stages=[cv])
+
+    with pytest.raises(
+        ValueError, match="Tuning params should not include params not owned by the tuned estimator"
+    ):
+        pipeline.fit(dataset_regression)
