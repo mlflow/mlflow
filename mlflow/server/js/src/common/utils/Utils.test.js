@@ -70,6 +70,21 @@ test('formatDuration', () => {
   expect(Utils.formatDuration(480 * 60 * 60 * 1000)).toEqual('20.0d');
 });
 
+test('getDuration', () => {
+  expect(Utils.getDuration(1, null)).toEqual(null);
+  expect(Utils.getDuration(1, undefined)).toEqual(null);
+  expect(Utils.getDuration(null, 1)).toEqual(null);
+  expect(Utils.getDuration(undefined, 1)).toEqual(null);
+  expect(Utils.getDuration(undefined, undefined)).toEqual(null);
+  expect(Utils.getDuration(null, null)).toEqual(null);
+  expect(Utils.getDuration(1, 11)).toEqual('10ms');
+  expect(Utils.getDuration(1, 501)).toEqual('0.5s');
+  expect(Utils.getDuration(1, 901)).toEqual('0.9s');
+  expect(Utils.getDuration(1, 60001)).toEqual('1.0min');
+  expect(Utils.getDuration(1, 60 * 60 * 1000 + 1)).toEqual('1.0h');
+  expect(Utils.getDuration(1, 24 * 60 * 60 * 1000 + 1)).toEqual('1.0d');
+});
+
 test('baseName', () => {
   expect(Utils.baseName('foo')).toEqual('foo');
   expect(Utils.baseName('foo/bar/baz')).toEqual('baz');
