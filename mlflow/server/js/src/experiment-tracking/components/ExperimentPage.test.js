@@ -11,6 +11,8 @@ import {
   PAGINATION_DEFAULT_STATE,
   isNewRun,
   lifecycleFilterToRunViewType,
+  DEFAULT_ORDER_BY_KEY,
+  DEFAULT_ORDER_BY_ASC,
 } from './ExperimentPage';
 import ExperimentView from './ExperimentView';
 import { PermissionDeniedView } from './PermissionDeniedView';
@@ -129,8 +131,8 @@ test('Loading state without any URL params', () => {
   expect(state.persistedState.paramKeyFilterString).toEqual('');
   expect(state.persistedState.metricKeyFilterString).toEqual('');
   expect(state.persistedState.searchInput).toEqual('');
-  expect(state.persistedState.orderByKey).toBe(null);
-  expect(state.persistedState.orderByAsc).toEqual(false);
+  expect(state.persistedState.orderByKey).toBe(DEFAULT_ORDER_BY_KEY);
+  expect(state.persistedState.orderByAsc).toEqual(DEFAULT_ORDER_BY_ASC);
 });
 
 test('Loading state with all URL params', () => {

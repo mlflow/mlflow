@@ -7,7 +7,13 @@ import { BrowserRouter } from 'react-router-dom';
 import { ExperimentViewWithIntl, mapStateToProps } from './ExperimentView';
 import ExperimentViewUtil from './ExperimentViewUtil';
 import Fixtures from '../utils/test-utils/Fixtures';
-import { LIFECYCLE_FILTER, MODEL_VERSION_FILTER } from './ExperimentPage';
+import { 
+  LIFECYCLE_FILTER, 
+  MODEL_VERSION_FILTER,
+  DEFAULT_ORDER_BY_KEY,
+  DEFAULT_ORDER_BY_ASC,
+  DEFAULT_START_TIME,
+ } from './ExperimentPage';
 import { ColumnTypes } from '../constants';
 import KeyFilter from '../utils/KeyFilter';
 import {
@@ -61,8 +67,8 @@ const getDefaultExperimentViewProps = () => {
     isLoading: true,
     loadingMore: false,
     handleLoadMoreRuns: jest.fn(),
-    orderByKey: null,
-    orderByAsc: ExperimentViewUtil.DefaultColumnSortAsc,
+    orderByKey: DEFAULT_ORDER_BY_KEY,
+    orderByAsc: DEFAULT_ORDER_BY_ASC,
     setExperimentTagApi: jest.fn(),
     location: { pathname: '/' },
     modelVersionsByRunUuid: {},
@@ -97,20 +103,6 @@ test('Should render compact view without exploding', () => {
   expect(wrapper.length).toBe(1);
 });
 
-test('Should take orderByKey & orderByAsc from props', () => {
-  const wrapper = getExperimentViewMock({ orderByKey: 'SomeKey', orderByAsc: true });
-  const instance = wrapper.instance();
-  expect(instance.state.orderByKey).toBe('SomeKey');
-  expect(instance.state.orderByAsc).toBe(true);
-});
-
-test('Should take default orderByKey & orderByAsc in prop absence', () => {
-  const wrapper = getExperimentViewMock({ orderByKey: null, orderByAsc: null });
-  const instance = wrapper.instance();
-  expect(instance.state.orderByKey).toBe(ExperimentViewUtil.DefaultColumnSortKey);
-  expect(instance.state.orderByAsc).toBe(ExperimentViewUtil.DefaultColumnSortAsc);
-});
-
 test(`Clearing filter state calls search handler with correct arguments`, () => {
   const wrapper = getExperimentViewMock();
   wrapper.instance().onClear();
@@ -119,9 +111,9 @@ test(`Clearing filter state calls search handler with correct arguments`, () => 
   expect(onSearchSpy.mock.calls[0][1]).toBe('');
   expect(onSearchSpy.mock.calls[0][2]).toBe('');
   expect(onSearchSpy.mock.calls[0][3]).toBe(LIFECYCLE_FILTER.ACTIVE);
-  expect(onSearchSpy.mock.calls[0][4]).toBe(ExperimentViewUtil.DefaultColumnSortKey);
-  expect(onSearchSpy.mock.calls[0][5]).toBe(ExperimentViewUtil.DefaultColumnSortAsc);
-  expect(onSearchSpy.mock.calls[0][7]).toBe('ALL');
+  expect(onSearchSpy.mock.calls[0][4]).toBe(DEFAULT_ORDER_BY_KEY);
+  expect(onSearchSpy.mock.calls[0][5]).toBe(DEFAULT_ORDER_BY_ASC);
+  expect(onSearchSpy.mock.calls[0][7]).toBe(DEFAULT_START_TIME);
 });
 
 test('Onboarding alert shows', () => {
@@ -279,8 +271,8 @@ describe('ExperimentView event handlers', () => {
     searchInput = '',
     lifecycleFilterInput = LIFECYCLE_FILTER.ACTIVE,
     modelVersionFilterInput = MODEL_VERSION_FILTER.ALL_RUNS,
-    orderByKey = ExperimentViewUtil.DefaultColumnSortKey,
-    orderByAsc = ExperimentViewUtil.DefaultColumnSortAsc,
+    orderByKey = DEFAULT_ORDER_BY_KEY,
+    orderByAsc = DEFAULT_ORDER_BY_ASC,
     startTime = undefined,
   } = {}) => [
     paramKeyFilterInput,
@@ -338,9 +330,9 @@ describe('ExperimentView event handlers', () => {
     expect(onSearchSpy).toHaveBeenCalledTimes(1);
     expect(onSearchSpy).toBeCalledWith(
       ...getSearchParams({
-        orderByKey: ExperimentViewUtil.DefaultColumnSortKey,
-        orderByAsc: ExperimentViewUtil.DefaultColumnSortAsc,
-        startTime: 'ALL',
+        orderByKey: DEFAULT_ORDER_BY_KEY,
+        orderByAsc: DEFAULT_ORDER_BY_ASC,
+        startTime: DEFAULT_START_TIME,
       }),
     );
   });
@@ -424,9 +416,9 @@ describe('Sort by dropdown', () => {
       '',
       LIFECYCLE_FILTER.ACTIVE,
       'attributes.start_time',
-      false,
+      DEFAULT_ORDER_BY_ASC,
       MODEL_VERSION_FILTER.ALL_RUNS,
-      'ALL',
+      DEFAULT_START_TIME,
     );
   });
 });
@@ -457,8 +449,8 @@ describe('Start time dropdown', () => {
       '',
       '',
       LIFECYCLE_FILTER.ACTIVE,
-      ExperimentViewUtil.DefaultColumnSortKey,
-      ExperimentViewUtil.DefaultColumnSortAsc,
+      DEFAULT_ORDER_BY_KEY,
+      DEFAULT_ORDER_BY_ASC,
       MODEL_VERSION_FILTER.ALL_RUNS,
       'LAST_7_DAYS',
     );

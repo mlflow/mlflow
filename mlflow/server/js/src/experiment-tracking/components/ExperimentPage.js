@@ -29,6 +29,10 @@ export const MODEL_VERSION_FILTER = {
   ALL_RUNS: 'All Runs',
 };
 
+export const DEFAULT_ORDER_BY_KEY = 'attributes.start_time';
+export const DEFAULT_ORDER_BY_ASC = false;
+export const DEFAULT_START_TIME = 'ALL';
+
 export const PAGINATION_DEFAULT_STATE = {
   nextPageToken: null,
   numRunsFromLatestSearch: null, // number of runs returned from the most recent search request
@@ -88,9 +92,10 @@ export class ExperimentPage extends Component {
         paramKeyFilterString: urlState.params === undefined ? '' : urlState.params,
         metricKeyFilterString: urlState.metrics === undefined ? '' : urlState.metrics,
         searchInput: urlState.search === undefined ? '' : urlState.search,
-        orderByKey: urlState.orderByKey === undefined ? null : urlState.orderByKey,
-        orderByAsc: urlState.orderByAsc === undefined ? false : urlState.orderByAsc === 'true',
-        startTime: urlState.startTime === undefined ? 'ALL' : urlState.startTime,
+        orderByKey: urlState.orderByKey === undefined ? DEFAULT_ORDER_BY_KEY : urlState.orderByKey,
+        orderByAsc:
+          urlState.orderByAsc === undefined ? DEFAULT_ORDER_BY_ASC : urlState.orderByAsc === 'true',
+        startTime: urlState.startTime === undefined ? DEFAULT_START_TIME : urlState.startTime,
       },
     };
   }
@@ -240,11 +245,14 @@ export class ExperimentPage extends Component {
   /*
     If this function returns true, the ExperimentView should nest children underneath their parents
     and fetch all root level parents of visible runs. If this function returns false, the views will
-    not nest children or fetch any additional parents.
+    not nest children or fetch any additional parents. Will always return true if the orderByKey is
+    'attributes.start_time'
   */
   shouldNestChildrenAndFetchParents() {
     const { orderByKey, searchInput } = this.state.persistedState;
-    return !orderByKey && !searchInput;
+    return (
+      (!orderByKey && !searchInput) || orderByKey === DEFAULT_ORDER_BY_KEY
+    );
   }
 
   onSearch = (

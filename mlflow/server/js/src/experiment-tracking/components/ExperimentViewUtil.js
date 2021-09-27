@@ -207,8 +207,6 @@ export default class ExperimentViewUtil {
   static ColumnSortByAscending = 'ASCENDING';
   static ColumnSortByDescending = 'DESCENDING';
   static SortDelimiterSymbol = '***';
-  static DefaultColumnSortKey = this.AttributeColumnSortKey.DATE;
-  static DefaultColumnSortAsc = false;
 
   /**
    * Returns header-row table cells for columns containing run metadata.

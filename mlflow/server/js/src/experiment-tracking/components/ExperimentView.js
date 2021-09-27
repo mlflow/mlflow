@@ -21,6 +21,9 @@ import {
   LIFECYCLE_FILTER,
   MAX_DETECT_NEW_RUNS_RESULTS,
   MODEL_VERSION_FILTER,
+  DEFAULT_ORDER_BY_KEY,
+  DEFAULT_ORDER_BY_ASC,
+  DEFAULT_START_TIME,
 } from './ExperimentPage';
 import ExperimentViewUtil from './ExperimentViewUtil';
 import DeleteRunModal from './modals/DeleteRunModal';
@@ -89,8 +92,8 @@ export class ExperimentView extends Component {
       showFilters: false,
       showOnboardingHelper: onboardingInformationStore.getItem('showTrackingHelper') === null,
       searchInput: props.searchInput,
-      orderByKey: props.orderByKey || ExperimentViewUtil.DefaultColumnSortKey,
-      orderByAsc: props.orderByAsc || ExperimentViewUtil.DefaultColumnSortAsc,
+      orderByKey: props.orderByKey,
+      orderByAsc: props.orderByAsc,
     };
   }
   static propTypes = {
@@ -445,6 +448,8 @@ export class ExperimentView extends Component {
       tagsList,
       paramKeyList,
       metricKeyList,
+      orderByKey,
+      orderByAsc,
       startTime,
       nestChildren,
       numberOfNewRuns,
@@ -634,8 +639,8 @@ export class ExperimentView extends Component {
                   >
                     <Select
                       className='sort-select'
-                      value={`${this.state.orderByKey}${SortDelimiterSymbol}${
-                        this.state.orderByAsc ? ColumnSortByAscending : ColumnSortByDescending
+                      value={`${orderByKey}${SortDelimiterSymbol}${
+                        orderByAsc ? ColumnSortByAscending : ColumnSortByDescending
                       }`}
                       size='large'
                       onChange={this.onHandleSortByDropdown}
@@ -926,8 +931,8 @@ export class ExperimentView extends Component {
                 categorizedUncheckedKeys={categorizedUncheckedKeys}
                 isAllChecked={this.isAllChecked()}
                 onSortBy={this.onSortBy}
-                orderByKey={this.state.orderByKey}
-                orderByAsc={this.state.orderByAsc}
+                orderByKey={orderByKey}
+                orderByAsc={orderByAsc}
                 runsSelected={this.state.runsSelected}
                 runsExpanded={this.state.persistedState.runsExpanded}
                 onExpand={this.onExpand}
@@ -955,8 +960,8 @@ export class ExperimentView extends Component {
                 onCheckAll={this.onCheckAll}
                 isAllChecked={this.isAllChecked()}
                 onSortBy={this.onSortBy}
-                orderByKey={this.state.orderByKey}
-                orderByAsc={this.state.orderByAsc}
+                orderByKey={orderByKey}
+                orderByAsc={orderByAsc}
                 runsSelected={this.state.runsSelected}
                 runsExpanded={this.state.persistedState.runsExpanded}
                 onExpand={this.onExpand}
@@ -987,7 +992,6 @@ export class ExperimentView extends Component {
   }
 
   onSortBy(orderByKey, orderByAsc) {
-    this.setState({ orderByKey, orderByAsc });
     this.initiateSearch({ orderByKey, orderByAsc });
   }
 
@@ -1008,8 +1012,8 @@ export class ExperimentView extends Component {
     const mySearchInput = searchInput !== undefined ? searchInput : this.props.searchInput;
     const myLifecycleFilterInput =
       lifecycleFilterInput !== undefined ? lifecycleFilterInput : this.props.lifecycleFilter;
-    const myOrderByKey = orderByKey !== undefined ? orderByKey : this.state.orderByKey;
-    const myOrderByAsc = orderByAsc !== undefined ? orderByAsc : this.state.orderByAsc;
+    const myOrderByKey = orderByKey !== undefined ? orderByKey : this.props.orderByKey;
+    const myOrderByAsc = orderByAsc !== undefined ? orderByAsc : this.props.orderByAsc;
     const myModelVersionFilterInput = modelVersionFilterInput || this.props.modelVersionFilter;
     const myStartTime = startTime || this.props.startTime;
     try {
@@ -1152,8 +1156,6 @@ export class ExperimentView extends Component {
       {
         persistedState: newPersistedState.toJSON(),
         searchInput: '',
-        orderByKey: ExperimentViewUtil.DefaultColumnSortKey,
-        orderByAsc: ExperimentViewUtil.DefaultColumnSortAsc,
       },
       () => {
         this.snapshotComponentState();
@@ -1163,7 +1165,9 @@ export class ExperimentView extends Component {
           searchInput: '',
           lifecycleFilterInput: LIFECYCLE_FILTER.ACTIVE,
           modelVersionFilterInput: MODEL_VERSION_FILTER.ALL_RUNS,
-          startTime: 'ALL',
+          orderByKey: DEFAULT_ORDER_BY_KEY,
+          orderByAsc: DEFAULT_ORDER_BY_ASC,
+          startTime: DEFAULT_START_TIME,
         });
       },
     );
