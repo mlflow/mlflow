@@ -250,9 +250,7 @@ export class ExperimentPage extends Component {
   */
   shouldNestChildrenAndFetchParents() {
     const { orderByKey, searchInput } = this.state.persistedState;
-    return (
-      (!orderByKey && !searchInput) || orderByKey === DEFAULT_ORDER_BY_KEY
-    );
+    return (!orderByKey && !searchInput) || orderByKey === DEFAULT_ORDER_BY_KEY;
   }
 
   onSearch = (

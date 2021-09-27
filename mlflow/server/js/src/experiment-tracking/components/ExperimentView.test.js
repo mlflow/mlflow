@@ -7,13 +7,13 @@ import { BrowserRouter } from 'react-router-dom';
 import { ExperimentViewWithIntl, mapStateToProps } from './ExperimentView';
 import ExperimentViewUtil from './ExperimentViewUtil';
 import Fixtures from '../utils/test-utils/Fixtures';
-import { 
-  LIFECYCLE_FILTER, 
+import {
+  LIFECYCLE_FILTER,
   MODEL_VERSION_FILTER,
   DEFAULT_ORDER_BY_KEY,
   DEFAULT_ORDER_BY_ASC,
   DEFAULT_START_TIME,
- } from './ExperimentPage';
+} from './ExperimentPage';
 import { ColumnTypes } from '../constants';
 import KeyFilter from '../utils/KeyFilter';
 import {
