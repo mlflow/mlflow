@@ -203,8 +203,7 @@ export class RunViewImpl extends Component {
     const { showNoteEditor, isTagsRequestPending } = this.state;
     const noteInfo = NoteInfo.fromTags(tags);
     const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
-    const duration =
-      run.getStartTime() && run.getEndTime() ? run.getEndTime() - run.getStartTime() : null;
+    const duration = Utils.getDuration(run.getStartTime(), run.getEndTime());
     const status = RunViewImpl.getRunStatusDisplayName(run.getStatus());
     const queryParams = window.location && window.location.search ? window.location.search : '';
     const tableStyles = {
@@ -315,7 +314,7 @@ export class RunViewImpl extends Component {
                 description: 'Label for displaying the duration of the experiment run',
               })}
             >
-              {Utils.formatDuration(duration)}
+              {duration}
             </Descriptions.Item>
           ) : null}
           <Descriptions.Item

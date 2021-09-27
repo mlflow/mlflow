@@ -184,6 +184,16 @@ class Utils {
     }
   }
 
+  /**
+   * Get the duration of a run given start- and end time.
+   *
+   * @param startTime in milliseconds
+   * @param endTime in milliseconds
+   */
+  static getDuration(startTime, endTime) {
+    return startTime && endTime ? this.formatDuration(endTime - startTime) : null;
+  }
+
   static baseName(path) {
     const pieces = path.split('/');
     return pieces[pieces.length - 1];
