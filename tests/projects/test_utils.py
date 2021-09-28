@@ -4,7 +4,6 @@ import tempfile
 
 import pytest
 from unittest import mock
-from contextlib import ExitStack as does_not_raise
 
 import mlflow
 from mlflow.exceptions import ExecutionException
