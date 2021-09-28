@@ -22,10 +22,9 @@ import { ModelVersionPage } from '../../model-registry/components/ModelVersionPa
 import { ModelListPage } from '../../model-registry/components/ModelListPage';
 import { ModelPage } from '../../model-registry/components/ModelPage';
 import CompareModelVersionsPage from '../../model-registry/components/CompareModelVersionsPage';
-
 import AuthNav from "./Auth/auth-nav";
 import Auth0ProviderWithHistory from './Auth/auth0-provider-with-history';
-import Profile from './Profile/profile';
+import ProtectedRoute from './Auth/protected-route';
 
 const isExperimentsActive = (match, location) => {
   // eslint-disable-next-line prefer-const
@@ -40,8 +39,6 @@ const classNames = {
 
 class App extends Component {
   render() {
-
-
     return (
       <Router>
         <Auth0ProviderWithHistory>
