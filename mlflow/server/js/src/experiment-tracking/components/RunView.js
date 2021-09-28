@@ -205,6 +205,7 @@ export class RunViewImpl extends Component {
     const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
     const duration = Utils.getDuration(run.getStartTime(), run.getEndTime());
     const status = RunViewImpl.getRunStatusDisplayName(run.getStatus());
+    const lifecycleStage = run.getLifecycleStage();
     const queryParams = window.location && window.location.search ? window.location.search : '';
     const tableStyles = {
       table: {
@@ -327,6 +328,18 @@ export class RunViewImpl extends Component {
           >
             {status}
           </Descriptions.Item>
+          {lifecycleStage ? (
+            <Descriptions.Item
+              label={this.props.intl.formatMessage({
+                defaultMessage: 'Lifecycle Stage',
+                description:
+                  // eslint-disable-next-line max-len
+                  'Label for displaying lifecycle stage of the experiment run to see if its active or deleted',
+              })}
+            >
+              {lifecycleStage}
+            </Descriptions.Item>
+          ) : null}
           {tags['mlflow.parentRunId'] !== undefined ? (
             <Descriptions.Item
               label={this.props.intl.formatMessage({

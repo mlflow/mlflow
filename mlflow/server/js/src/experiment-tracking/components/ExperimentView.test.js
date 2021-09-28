@@ -5,10 +5,7 @@ import FileSaver from 'file-saver';
 import { BrowserRouter } from 'react-router-dom';
 
 import { ExperimentViewWithIntl, mapStateToProps } from './ExperimentView';
-import ExperimentViewUtil from './ExperimentViewUtil';
 import Fixtures from '../utils/test-utils/Fixtures';
-import { LIFECYCLE_FILTER, MODEL_VERSION_FILTER } from './ExperimentPage';
-import { ColumnTypes } from '../constants';
 import KeyFilter from '../utils/KeyFilter';
 import {
   addApiToState,
@@ -23,6 +20,16 @@ import { ExperimentViewPersistedState } from '../sdk/MlflowLocalStorageMessages'
 import { getUUID } from '../../common/utils/ActionUtils';
 import { Metric, Param, RunTag, RunInfo } from '../sdk/MlflowMessages';
 import { mountWithIntl, shallowWithInjectIntl } from '../../common/utils/TestUtils';
+import {
+  COLUMN_TYPES,
+  LIFECYCLE_FILTER,
+  MODEL_VERSION_FILTER,
+  DEFAULT_ORDER_BY_KEY,
+  DEFAULT_ORDER_BY_ASC,
+  DEFAULT_START_TIME,
+  COLUMN_SORT_BY_ASC,
+  COLUMN_SORT_BY_DESC,
+} from '../constants';
 
 let onSearchSpy;
 
@@ -61,8 +68,8 @@ const getDefaultExperimentViewProps = () => {
     isLoading: true,
     loadingMore: false,
     handleLoadMoreRuns: jest.fn(),
-    orderByKey: null,
-    orderByAsc: false,
+    orderByKey: DEFAULT_ORDER_BY_KEY,
+    orderByAsc: DEFAULT_ORDER_BY_ASC,
     setExperimentTagApi: jest.fn(),
     location: { pathname: '/' },
     modelVersionsByRunUuid: {},
@@ -105,9 +112,9 @@ test(`Clearing filter state calls search handler with correct arguments`, () => 
   expect(onSearchSpy.mock.calls[0][1]).toBe('');
   expect(onSearchSpy.mock.calls[0][2]).toBe('');
   expect(onSearchSpy.mock.calls[0][3]).toBe(LIFECYCLE_FILTER.ACTIVE);
-  expect(onSearchSpy.mock.calls[0][4]).toBe(null);
-  expect(onSearchSpy.mock.calls[0][5]).toBe(false);
-  expect(onSearchSpy.mock.calls[0][7]).toBe('ALL');
+  expect(onSearchSpy.mock.calls[0][4]).toBe(DEFAULT_ORDER_BY_KEY);
+  expect(onSearchSpy.mock.calls[0][5]).toBe(DEFAULT_ORDER_BY_ASC);
+  expect(onSearchSpy.mock.calls[0][7]).toBe(DEFAULT_START_TIME);
 });
 
 test('Onboarding alert shows', () => {
@@ -230,7 +237,7 @@ Start Time,Duration,Run ID,Name,Source Type,Source Name,User,Status,batch_size,a
     // Uncheck the tag 'b'
     wrapper.setState({
       persistedState: {
-        categorizedUncheckedKeys: { [ColumnTypes.TAGS]: ['b'], [ColumnTypes.ATTRIBUTES]: [] },
+        categorizedUncheckedKeys: { [COLUMN_TYPES.TAGS]: ['b'], [COLUMN_TYPES.ATTRIBUTES]: [] },
       },
     });
     // Then, download CSV
@@ -263,8 +270,8 @@ describe('ExperimentView event handlers', () => {
     searchInput = '',
     lifecycleFilterInput = LIFECYCLE_FILTER.ACTIVE,
     modelVersionFilterInput = MODEL_VERSION_FILTER.ALL_RUNS,
-    orderByKey = null,
-    orderByAsc = false,
+    orderByKey = DEFAULT_ORDER_BY_KEY,
+    orderByAsc = DEFAULT_ORDER_BY_ASC,
     startTime = undefined,
   } = {}) => [
     paramKeyFilterInput,
@@ -322,9 +329,9 @@ describe('ExperimentView event handlers', () => {
     expect(onSearchSpy).toHaveBeenCalledTimes(1);
     expect(onSearchSpy).toBeCalledWith(
       ...getSearchParams({
-        orderByKey: null,
-        orderByAsc: false,
-        startTime: 'ALL',
+        orderByKey: DEFAULT_ORDER_BY_KEY,
+        orderByAsc: DEFAULT_ORDER_BY_ASC,
+        startTime: DEFAULT_START_TIME,
       }),
     );
   });
@@ -370,36 +377,18 @@ describe('Sort by dropdown', () => {
     const sortSelect = wrapper.find("Select [data-test-id='sort-select-dropdown']").first();
     sortSelect.simulate('click');
 
+    expect(wrapper.exists(`[data-test-id="sort-select-User-${COLUMN_SORT_BY_ASC}"] li`)).toBe(true);
+    expect(wrapper.exists(`[data-test-id="sort-select-batch_size-${COLUMN_SORT_BY_ASC}"] li`)).toBe(
+      true,
+    );
+    expect(wrapper.exists(`[data-test-id="sort-select-acc-${COLUMN_SORT_BY_ASC}"] li`)).toBe(true);
+    expect(wrapper.exists(`[data-test-id="sort-select-User-${COLUMN_SORT_BY_DESC}"] li`)).toBe(
+      true,
+    );
     expect(
-      wrapper.exists(
-        `[data-test-id="sort-select-User-${ExperimentViewUtil.ColumnSortByAscending}"] li`,
-      ),
+      wrapper.exists(`[data-test-id="sort-select-batch_size-${COLUMN_SORT_BY_DESC}"] li`),
     ).toBe(true);
-    expect(
-      wrapper.exists(
-        `[data-test-id="sort-select-batch_size-${ExperimentViewUtil.ColumnSortByAscending}"] li`,
-      ),
-    ).toBe(true);
-    expect(
-      wrapper.exists(
-        `[data-test-id="sort-select-acc-${ExperimentViewUtil.ColumnSortByAscending}"] li`,
-      ),
-    ).toBe(true);
-    expect(
-      wrapper.exists(
-        `[data-test-id="sort-select-User-${ExperimentViewUtil.ColumnSortByDescending}"] li`,
-      ),
-    ).toBe(true);
-    expect(
-      wrapper.exists(
-        `[data-test-id="sort-select-batch_size-${ExperimentViewUtil.ColumnSortByDescending}"] li`,
-      ),
-    ).toBe(true);
-    expect(
-      wrapper.exists(
-        `[data-test-id="sort-select-acc-${ExperimentViewUtil.ColumnSortByDescending}"] li`,
-      ),
-    ).toBe(true);
+    expect(wrapper.exists(`[data-test-id="sort-select-acc-${COLUMN_SORT_BY_DESC}"] li`)).toBe(true);
 
     sortSelect.prop('onChange')('attributes.start_time');
     expect(onSearchSpy).toBeCalledWith(
@@ -408,9 +397,9 @@ describe('Sort by dropdown', () => {
       '',
       LIFECYCLE_FILTER.ACTIVE,
       'attributes.start_time',
-      false,
+      DEFAULT_ORDER_BY_ASC,
       MODEL_VERSION_FILTER.ALL_RUNS,
-      'ALL',
+      DEFAULT_START_TIME,
     );
   });
 });
@@ -441,8 +430,8 @@ describe('Start time dropdown', () => {
       '',
       '',
       LIFECYCLE_FILTER.ACTIVE,
-      null,
-      false,
+      DEFAULT_ORDER_BY_KEY,
+      DEFAULT_ORDER_BY_ASC,
       MODEL_VERSION_FILTER.ALL_RUNS,
       'LAST_7_DAYS',
     );
