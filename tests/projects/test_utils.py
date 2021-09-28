@@ -97,19 +97,18 @@ def test__fetch_project(local_git_repo, local_git_repo_uri, zipped_repo, httpser
 
 
 @pytest.mark.parametrize(
-    "version,expected_version,raises",
-    [
-        (None, "master", does_not_raise()),
-        (GIT_PROJECT_BRANCH, GIT_PROJECT_BRANCH, does_not_raise()),
-        ("non-version", "", pytest.raises(ExecutionException)),
-    ],
+    "version,expected_version", [(None, "master"), (GIT_PROJECT_BRANCH, GIT_PROJECT_BRANCH)]
 )
-def test__fetch_git_repo(local_git_repo, local_git_repo_uri, version, expected_version, raises):
+def test__fetch_git_repo(local_git_repo, local_git_repo_uri, version, expected_version):
     # Verify that the correct branch is checked out
-    with raises:
-        _fetch_git_repo(local_git_repo_uri, version, local_git_repo)
-        repo = git.Repo(local_git_repo)
-        assert repo.active_branch.name == expected_version
+    _fetch_git_repo(local_git_repo_uri, version, local_git_repo)
+    repo = git.Repo(local_git_repo)
+    assert repo.active_branch.name == expected_version
+
+
+def test_fetching_non_existing_version_fails(local_git_repo, local_git_repo_uri):
+    with pytest.raises(ExecutionException, match="Unable to checkout"):
+        _fetch_git_repo(local_git_repo_uri, "non-version", local_git_repo)
 
 
 def test_fetch_project_validations(local_git_repo_uri):
