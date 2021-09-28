@@ -11,9 +11,6 @@ import { injectGlobal } from 'emotion';
 import { accessibilityOverrides } from './common/styles/accessibility-overrides';
 import { I18nUtils } from './i18n/I18nUtils';
 
-//import { useHistory } from "react-router-dom";
-//import { Auth0Provider } from "@auth0/auth0-react";
-
 setupAjaxHeaders();
 
 I18nUtils.initI18n().then(() => {
