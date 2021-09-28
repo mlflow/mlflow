@@ -22,9 +22,8 @@ import { ModelVersionPage } from '../../model-registry/components/ModelVersionPa
 import { ModelListPage } from '../../model-registry/components/ModelListPage';
 import { ModelPage } from '../../model-registry/components/ModelPage';
 import CompareModelVersionsPage from '../../model-registry/components/CompareModelVersionsPage';
-import AuthNav from "./Auth/auth-nav";
+import AuthNav from './Auth/auth-nav';
 import Auth0ProviderWithHistory from './Auth/auth0-provider-with-history';
-import ProtectedRoute from './Auth/protected-route';
 
 const isExperimentsActive = (match, location) => {
   // eslint-disable-next-line prefer-const
@@ -36,14 +35,12 @@ const classNames = {
   activeNavLink: { borderBottom: '4px solid #43C9ED' },
 };
 
-
 class App extends Component {
   render() {
     return (
       <Router>
         <Auth0ProviderWithHistory>
           <div style={{ height: '100vh' }}>
-            
             <ErrorModal />
             {process.env.HIDE_HEADER === 'true' ? null : (
               <header className='App-header'>
@@ -87,8 +84,8 @@ class App extends Component {
                     </div>
                   </a>
                   {process.env.REACT_APP_AUTH0_DOMAIN && process.env.REACT_APP_AUTH0_CLIENT_ID ? (
-                      <AuthNav />
-                  ): null}
+                    <AuthNav />
+                  ) : null}
                 </div>
               </header>
             )}
@@ -121,12 +118,9 @@ class App extends Component {
   }
 }
 
-
-
 const mapStateToProps = (state) => {
   return {
     experiments: Object.values(state.entities.experimentsById),
   };
 };
 export default connect(mapStateToProps)(App);
-
