@@ -130,6 +130,11 @@ MLflow artifacts and then load them again for serving. There is an example train
     $ curl -d '{"columns":[0],"index":[0,1],"data":[[1],[-1]]}' -H 'Content-Type: application/json'  localhost:5000/invocations
 
 
+Securing Frontend w/ Auth0
+---------------------------
+To utilize Auth0 in MLflow, you only need to set a few environment variables. The two minimum requirements are `REACT_APP_AUTH0_DOMAIN` & `REACT_APP_AUTH0_CLIENT_ID`, though you can also set `REACT_APP_AUTH0_AUDIENCE`, `REACT_APP_AUTH0_CALLBACK_URL`, & `REACT_APP_AUTH0_REFRESH_TOKENS` for further customization.
+
+
 Contributing
 ------------
 We happily welcome contributions to MLflow. Please see our `contribution guide <CONTRIBUTING.rst>`_
