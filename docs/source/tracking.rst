@@ -325,7 +325,7 @@ Here is an example plot of the :ref:`quick start tutorial <quickstart>` with the
 Automatic Logging
 =================
 
-Automatic logging allows you to log metrics, parameters, and models without the need for explicit log statements. 
+Automatic logging allows you to log metrics, parameters, and models without the need for explicit log statements.
 
 There are two ways to use autologging:
 
@@ -390,7 +390,7 @@ containing the following data:
     https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html
 
 .. note::
-  This feature is experimental - the API and format of the logged data are subject to change.  
+  This feature is experimental - the API and format of the logged data are subject to change.
 
 TensorFlow and Keras (experimental)
 -----------------------------------
@@ -555,7 +555,7 @@ Pytorch (experimental)
 --------------------------
 
 Call :py:func:`mlflow.pytorch.autolog` before your Pytorch Lightning training code to enable automatic logging of metrics, parameters, and models. See example usages `here <https://github.com/chauhang/mlflow/tree/master/examples/pytorch/MNIST>`__. Note
-that currently, Pytorch autologging supports only models trained using Pytorch Lightning. 
+that currently, Pytorch autologging supports only models trained using Pytorch Lightning.
 
 Autologging is triggered on calls to ``pytorch_lightning.trainer.Trainer.fit`` and captures the following information:
 
@@ -779,7 +779,7 @@ See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.
 Amazon S3 and S3-compatible storage
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To store artifacts in S3 (whether on Amazon S3 or on an S3-compatible alternative, such as 
+To store artifacts in S3 (whether on Amazon S3 or on an S3-compatible alternative, such as
 `MinIO <https://min.io/>`_), specify a URI of the form ``s3://<bucket>/<path>``. MLflow obtains
 credentials to access S3 from your machine's IAM role, a profile in ``~/.aws/credentials``, or
 the environment variables ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` depending on which of
@@ -825,11 +825,17 @@ Azure Blob Storage
 To store artifacts in Azure Blob Storage, specify a URI of the form
 ``wasbs://<container>@<storage-account>.blob.core.windows.net/<path>``.
 MLflow expects Azure Storage access credentials in the
-``AZURE_STORAGE_CONNECTION_STRING`` or ``AZURE_STORAGE_ACCESS_KEY`` environment variables (preferring
-a connection string if one is set), so you must set one of these variables on both your client
-application and your MLflow tracking server. Finally, you must run ``pip install azure-storage-blob``
-separately (on both your client and the server) to access Azure Blob Storage; MLflow does not declare
-a dependency on this package by default.
+``AZURE_STORAGE_CONNECTION_STRING``, ``AZURE_STORAGE_ACCESS_KEY`` environment variables
+or having your credentials configured such that the `DefaultAzureCredential()
+<https://docs.microsoft.com/en-us/python/api/overview/azure/identity-readme?view=azure-python>`_. class can pick them up.
+The order of precedence is:
+#. ``AZURE_STORAGE_CONNECTION_STRING``
+#. ``AZURE_STORAGE_ACCESS_KEY``
+#. ``DefaultAzureCredential()``
+You must set one of these options on both your client application and your MLflow tracking server.
+Also, you must run ``pip install azure-storage-blob`` separately (on both your client and the server) to access Azure Blob Storage.
+Finally, if you want to use DefaultAzureCredential, you must ``pip install azure-identity``;
+MLflow does not declare a dependency on these packages by default.
 
 Google Cloud Storage
 ^^^^^^^^^^^^^^^^^^^^

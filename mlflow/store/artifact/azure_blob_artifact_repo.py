@@ -14,8 +14,10 @@ class AzureBlobArtifactRepository(ArtifactRepository):
 
     This repository is used with URIs of the form
     ``wasbs://<container-name>@<ystorage-account-name>.blob.core.windows.net/<path>``,
-    following the same URI scheme as Hadoop on Azure blob storage. It requires that your Azure
-    storage access key be available in the environment variable ``AZURE_STORAGE_ACCESS_KEY``.
+    following the same URI scheme as Hadoop on Azure blob storage. It requires either that:
+    - Azure storage connection string is in the env var ``AZURE_STORAGE_CONNECTION_STRING``
+    - Azure storage access key is in the env var ``AZURE_STORAGE_ACCESS_KEY``
+    - DefaultAzureCredential is configured
     """
 
     def __init__(self, artifact_uri, client=None):
@@ -39,9 +41,17 @@ class AzureBlobArtifactRepository(ArtifactRepository):
                 account_url=account_url, credential=os.environ.get("AZURE_STORAGE_ACCESS_KEY")
             )
         else:
-            raise Exception(
-                "You need to set one of AZURE_STORAGE_CONNECTION_STRING or "
-                "AZURE_STORAGE_ACCESS_KEY to access Azure storage."
+            try:
+                from azure.identity import DefaultAzureCredential
+            except ImportError as exc:
+                raise ImportError(
+                    "Using DefaultAzureCredential requires the azure-identity package. "
+                    "Please install it via: pip install azure-identity"
+                ) from exc
+
+            account_url = "https://{account}.blob.core.windows.net".format(account=account)
+            self.client = BlobServiceClient(
+                account_url=account_url, credential=DefaultAzureCredential()
             )
 
     @staticmethod

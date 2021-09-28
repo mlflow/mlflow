@@ -52,11 +52,12 @@ def test_artifact_uri_factory(mock_client):
     del os.environ["AZURE_STORAGE_ACCESS_KEY"]
 
 
-def test_exception_if_no_env_vars(mock_client):
+@mock.patch("azure.identity.DefaultAzureCredential")
+def test_default_az_cred_if_no_env_vars(mock_default_azure_credential, mock_client):
     # pylint: disable=unused-argument
     # We pass in the mock_client here to clear Azure environment variables, but we don't use it
-    with pytest.raises(Exception, match="AZURE_STORAGE_CONNECTION_STRING"):
-        AzureBlobArtifactRepository(TEST_URI)
+    AzureBlobArtifactRepository(TEST_URI)
+    assert mock_default_azure_credential.call_count == 1
 
 
 def test_parse_wasbs_uri():
