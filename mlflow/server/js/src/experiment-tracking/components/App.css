@@ -217,3 +217,5 @@ img.center {
   font-family: inherit !important;
   font-size: 13px !important;
 }
+
+.auth-nav{display:flex; flex-direction:row;}
