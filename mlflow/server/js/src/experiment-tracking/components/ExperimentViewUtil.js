@@ -4,13 +4,17 @@ import Utils from '../../common/utils/Utils';
 import { Link } from 'react-router-dom';
 import Routes from '../routes';
 import { getModelVersionPageRoute } from '../../model-registry/routes';
-import { DEFAULT_EXPANDED_VALUE } from './ExperimentView';
 import { CollapsibleTagsCell } from '../../common/components/CollapsibleTagsCell';
 import _ from 'lodash';
 import ExpandableList from '../../common/components/ExpandableList';
 import registryIcon from '../../common/static/registryIcon.svg';
 import { TrimmedText } from '../../common/components/TrimmedText';
 import { SEARCH_MAX_RESULTS } from '../actions';
+import {
+  ATTRIBUTE_COLUMN_LABELS,
+  ATTRIBUTE_COLUMN_SORT_KEY,
+  DEFAULT_EXPANDED_VALUE,
+} from '../constants';
 
 export default class ExperimentViewUtil {
   /** Returns checkbox cell for a row. */
@@ -83,7 +87,7 @@ export default class ExperimentViewUtil {
         children: ExperimentViewUtil.getRunStatusIcon(status),
       },
       {
-        key: ExperimentViewUtil.AttributeColumnLabels.DATE,
+        key: ATTRIBUTE_COLUMN_LABELS.DATE,
         className: 'run-table-container',
         style: { whiteSpace: 'inherit' },
         children: (
@@ -95,7 +99,7 @@ export default class ExperimentViewUtil {
         ),
       },
       {
-        key: ExperimentViewUtil.AttributeColumnLabels.USER,
+        key: ATTRIBUTE_COLUMN_LABELS.USER,
         className: 'run-table-container',
         title: user,
         children: (
@@ -105,7 +109,7 @@ export default class ExperimentViewUtil {
         ),
       },
       {
-        key: ExperimentViewUtil.AttributeColumnLabels.RUN_NAME,
+        key: ATTRIBUTE_COLUMN_LABELS.RUN_NAME,
         className: 'run-table-container',
         title: runName,
         children: (
@@ -115,7 +119,7 @@ export default class ExperimentViewUtil {
         ),
       },
       {
-        key: ExperimentViewUtil.AttributeColumnLabels.SOURCE,
+        key: ATTRIBUTE_COLUMN_LABELS.SOURCE,
         className: 'run-table-container',
         title: sourceType,
         children: (
@@ -126,7 +130,7 @@ export default class ExperimentViewUtil {
         ),
       },
       {
-        key: ExperimentViewUtil.AttributeColumnLabels.VERSION,
+        key: ATTRIBUTE_COLUMN_LABELS.VERSION,
         className: 'run-table-container',
         children: (
           <div className='truncate-text single-line' style={ExperimentViewUtil.styles.runInfoCell}>
@@ -179,35 +183,6 @@ export default class ExperimentViewUtil {
     );
   }
 
-  static AttributeColumnLabels = {
-    DATE: 'Start Time',
-    USER: 'User',
-    RUN_NAME: 'Run Name',
-    SOURCE: 'Source',
-    VERSION: 'Version',
-    MODELS: 'Models',
-  };
-
-  static AttributeColumnSortLabel = {
-    DATE: 'Start Time',
-    USER: 'User',
-    RUN_NAME: 'Run Name',
-    SOURCE: 'Source',
-    VERSION: 'Version',
-  };
-
-  static AttributeColumnSortKey = {
-    DATE: 'attributes.start_time',
-    USER: 'tags.`mlflow.user`',
-    RUN_NAME: 'tags.`mlflow.runName`',
-    SOURCE: 'tags.`mlflow.source.name`',
-    VERSION: 'tags.`mlflow.source.git.commit`',
-  };
-
-  static ColumnSortByAscending = 'ASCENDING';
-  static ColumnSortByDescending = 'DESCENDING';
-  static SortDelimiterSymbol = '***';
-
   /**
    * Returns header-row table cells for columns containing run metadata.
    */
@@ -244,28 +219,28 @@ export default class ExperimentViewUtil {
       },
       {
         key: 'start_time',
-        displayName: this.AttributeColumnLabels.DATE,
-        canonicalSortKey: this.AttributeColumnSortKey.DATE,
+        displayName: ATTRIBUTE_COLUMN_LABELS.DATE,
+        canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.DATE,
       },
       {
         key: 'user_id',
-        displayName: this.AttributeColumnLabels.USER,
-        canonicalSortKey: this.AttributeColumnSortKey.USER,
+        displayName: ATTRIBUTE_COLUMN_LABELS.USER,
+        canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.USER,
       },
       {
         key: 'run_name',
-        displayName: this.AttributeColumnLabels.RUN_NAME,
-        canonicalSortKey: this.AttributeColumnSortKey.RUN_NAME,
+        displayName: ATTRIBUTE_COLUMN_LABELS.RUN_NAME,
+        canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.RUN_NAME,
       },
       {
         key: 'source',
-        displayName: this.AttributeColumnLabels.SOURCE,
-        canonicalSortKey: this.AttributeColumnSortKey.SOURCE,
+        displayName: ATTRIBUTE_COLUMN_LABELS.SOURCE,
+        canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.SOURCE,
       },
       {
         key: 'source_version',
-        displayName: this.AttributeColumnLabels.VERSION,
-        canonicalSortKey: this.AttributeColumnSortKey.VERSION,
+        displayName: ATTRIBUTE_COLUMN_LABELS.VERSION,
+        canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.VERSION,
       },
       {
         key: 'tags',

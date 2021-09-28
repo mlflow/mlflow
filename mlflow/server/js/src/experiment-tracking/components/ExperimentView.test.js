@@ -5,16 +5,7 @@ import FileSaver from 'file-saver';
 import { BrowserRouter } from 'react-router-dom';
 
 import { ExperimentViewWithIntl, mapStateToProps } from './ExperimentView';
-import ExperimentViewUtil from './ExperimentViewUtil';
 import Fixtures from '../utils/test-utils/Fixtures';
-import {
-  LIFECYCLE_FILTER,
-  MODEL_VERSION_FILTER,
-  DEFAULT_ORDER_BY_KEY,
-  DEFAULT_ORDER_BY_ASC,
-  DEFAULT_START_TIME,
-} from './ExperimentPage';
-import { ColumnTypes } from '../constants';
 import KeyFilter from '../utils/KeyFilter';
 import {
   addApiToState,
@@ -29,6 +20,16 @@ import { ExperimentViewPersistedState } from '../sdk/MlflowLocalStorageMessages'
 import { getUUID } from '../../common/utils/ActionUtils';
 import { Metric, Param, RunTag, RunInfo } from '../sdk/MlflowMessages';
 import { mountWithIntl, shallowWithInjectIntl } from '../../common/utils/TestUtils';
+import {
+  COLUMN_TYPES,
+  LIFECYCLE_FILTER,
+  MODEL_VERSION_FILTER,
+  DEFAULT_ORDER_BY_KEY,
+  DEFAULT_ORDER_BY_ASC,
+  DEFAULT_START_TIME,
+  COLUMN_SORT_BY_ASC,
+  COLUMN_SORT_BY_DESC,
+} from '../constants';
 
 let onSearchSpy;
 
@@ -234,7 +235,7 @@ run-id,name,LOCAL,src.py,user,FINISHED,512,0.1,0
     // Uncheck the tag 'b'
     wrapper.setState({
       persistedState: {
-        categorizedUncheckedKeys: { [ColumnTypes.TAGS]: ['b'], [ColumnTypes.ATTRIBUTES]: [] },
+        categorizedUncheckedKeys: { [COLUMN_TYPES.TAGS]: ['b'], [COLUMN_TYPES.ATTRIBUTES]: [] },
       },
     });
     // Then, download CSV
@@ -378,36 +379,18 @@ describe('Sort by dropdown', () => {
     const sortSelect = wrapper.find("Select [data-test-id='sort-select-dropdown']").first();
     sortSelect.simulate('click');
 
+    expect(wrapper.exists(`[data-test-id="sort-select-User-${COLUMN_SORT_BY_ASC}"] li`)).toBe(true);
+    expect(wrapper.exists(`[data-test-id="sort-select-batch_size-${COLUMN_SORT_BY_ASC}"] li`)).toBe(
+      true,
+    );
+    expect(wrapper.exists(`[data-test-id="sort-select-acc-${COLUMN_SORT_BY_ASC}"] li`)).toBe(true);
+    expect(wrapper.exists(`[data-test-id="sort-select-User-${COLUMN_SORT_BY_DESC}"] li`)).toBe(
+      true,
+    );
     expect(
-      wrapper.exists(
-        `[data-test-id="sort-select-User-${ExperimentViewUtil.ColumnSortByAscending}"] li`,
-      ),
+      wrapper.exists(`[data-test-id="sort-select-batch_size-${COLUMN_SORT_BY_DESC}"] li`),
     ).toBe(true);
-    expect(
-      wrapper.exists(
-        `[data-test-id="sort-select-batch_size-${ExperimentViewUtil.ColumnSortByAscending}"] li`,
-      ),
-    ).toBe(true);
-    expect(
-      wrapper.exists(
-        `[data-test-id="sort-select-acc-${ExperimentViewUtil.ColumnSortByAscending}"] li`,
-      ),
-    ).toBe(true);
-    expect(
-      wrapper.exists(
-        `[data-test-id="sort-select-User-${ExperimentViewUtil.ColumnSortByDescending}"] li`,
-      ),
-    ).toBe(true);
-    expect(
-      wrapper.exists(
-        `[data-test-id="sort-select-batch_size-${ExperimentViewUtil.ColumnSortByDescending}"] li`,
-      ),
-    ).toBe(true);
-    expect(
-      wrapper.exists(
-        `[data-test-id="sort-select-acc-${ExperimentViewUtil.ColumnSortByDescending}"] li`,
-      ),
-    ).toBe(true);
+    expect(wrapper.exists(`[data-test-id="sort-select-acc-${COLUMN_SORT_BY_DESC}"] li`)).toBe(true);
 
     sortSelect.prop('onChange')('attributes.start_time');
     expect(onSearchSpy).toBeCalledWith(

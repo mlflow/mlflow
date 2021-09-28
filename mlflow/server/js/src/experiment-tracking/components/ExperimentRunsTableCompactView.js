@@ -12,7 +12,7 @@ import _ from 'lodash';
 import { LoadMoreBar } from './LoadMoreBar';
 
 import 'react-virtualized/styles.css';
-import { ColumnTypes } from '../constants';
+import { COLUMN_TYPES } from '../constants';
 
 export const NUM_RUN_METADATA_COLS = 10;
 const TABLE_HEADER_HEIGHT = 40;
@@ -155,14 +155,14 @@ export class ExperimentRunsTableCompactView extends React.Component {
         'div',
       ),
     ];
-    const excludedTagsSet = new Set(categorizedUncheckedKeys[ColumnTypes.TAGS]);
+    const excludedTagsSet = new Set(categorizedUncheckedKeys[COLUMN_TYPES.TAGS]);
     ExperimentViewUtil.getRunInfoCellsForRow(
       runInfo,
       _.pickBy(tagsList[idx], (t) => !excludedTagsSet.has(t.key)),
       isParent,
       'div',
       this.handleCellToggle,
-      categorizedUncheckedKeys[ColumnTypes.ATTRIBUTES],
+      categorizedUncheckedKeys[COLUMN_TYPES.ATTRIBUTES],
     ).forEach((col) => rowContents.push(col));
     rowContents.push(
       ExperimentViewUtil.getLinkedModelCell(modelVersionInfo, this.handleCellToggle),
@@ -403,7 +403,7 @@ export class ExperimentRunsTableCompactView extends React.Component {
       orderByKey,
       orderByAsc,
       'div',
-      categorizedUncheckedKeys[ColumnTypes.ATTRIBUTES],
+      categorizedUncheckedKeys[COLUMN_TYPES.ATTRIBUTES],
     ).forEach((headerCell) => headerCells.push(headerCell));
 
     this.getMetricParamHeaderCells().forEach((cell) => headerCells.push(cell));
@@ -466,7 +466,7 @@ export class ExperimentRunsTableCompactView extends React.Component {
               cellMeasurerProps.rowHeight = 32;
             }
             const numVisibleMetaColumns =
-              NUM_RUN_METADATA_COLS - categorizedUncheckedKeys[ColumnTypes.ATTRIBUTES].length;
+              NUM_RUN_METADATA_COLS - categorizedUncheckedKeys[COLUMN_TYPES.ATTRIBUTES].length;
             return [
               <Table
                 key='table'

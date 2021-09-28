@@ -4,6 +4,7 @@ import ExperimentViewUtil, { TreeNode } from './ExperimentViewUtil';
 import { getModelVersionPageRoute } from '../../model-registry/routes';
 import { BrowserRouter } from 'react-router-dom';
 import { SEARCH_MAX_RESULTS } from '../actions';
+import { ATTRIBUTE_COLUMN_LABELS } from '../constants';
 
 describe('ExperimentViewUtil', () => {
   test('getCheckboxForRow should render', () => {
@@ -78,17 +79,15 @@ describe('ExperimentViewUtil', () => {
       'user_id',
       true,
       'div',
-      [ExperimentViewUtil.AttributeColumnLabels.DATE],
+      [ATTRIBUTE_COLUMN_LABELS.DATE],
     );
     const headers = headerComponents.map((c) => shallow(c));
     headers.forEach((h) => {
-      expect(h.text()).not.toContain(ExperimentViewUtil.AttributeColumnLabels.DATE);
+      expect(h.text()).not.toContain(ATTRIBUTE_COLUMN_LABELS.DATE);
     });
 
     // As a sanity check, let's make sure the headers contain some other column
-    const userHeaders = headers.filter(
-      (h) => h.text() === ExperimentViewUtil.AttributeColumnLabels.USER,
-    );
+    const userHeaders = headers.filter((h) => h.text() === ATTRIBUTE_COLUMN_LABELS.USER);
     expect(userHeaders.length).toBe(1);
   });
 

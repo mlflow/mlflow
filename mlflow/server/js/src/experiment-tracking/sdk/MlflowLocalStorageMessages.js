@@ -15,7 +15,7 @@
  *    local storage.
  */
 import Immutable from 'immutable';
-import { ColumnTypes } from '../constants';
+import { COLUMN_TYPES } from '../constants';
 
 /**
  * This class wraps attributes of the ExperimentPage component's state that should be
@@ -60,10 +60,10 @@ export const ExperimentViewPersistedState = Immutable.Record(
     unbaggedParams: [],
     // Unchecked keys in the columns dropdown
     categorizedUncheckedKeys: {
-      [ColumnTypes.ATTRIBUTES]: [],
-      [ColumnTypes.PARAMS]: [],
-      [ColumnTypes.METRICS]: [],
-      [ColumnTypes.TAGS]: [],
+      [COLUMN_TYPES.ATTRIBUTES]: [],
+      [COLUMN_TYPES.PARAMS]: [],
+      [COLUMN_TYPES.METRICS]: [],
+      [COLUMN_TYPES.TAGS]: [],
     },
   },
   'ExperimentViewPersistedState',

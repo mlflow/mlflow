@@ -23,10 +23,10 @@ import { Spinner } from '../../common/components/Spinner';
 import { ExperimentRunsTableEmptyOverlay } from '../../common/components/ExperimentRunsTableEmptyOverlay';
 import LocalStorageUtils from '../../common/utils/LocalStorageUtils';
 import { AgGridPersistedState } from '../sdk/MlflowLocalStorageMessages';
-import { ColumnTypes } from '../constants';
 import { TrimmedText } from '../../common/components/TrimmedText';
 import { getModelVersionPageRoute } from '../../model-registry/routes';
 import { css } from 'emotion';
+import { COLUMN_TYPES, ATTRIBUTE_COLUMN_LABELS, ATTRIBUTE_COLUMN_SORT_KEY } from '../constants';
 
 const PARAM_PREFIX = '$$$param$$$';
 const METRIC_PREFIX = '$$$metric$$$';
@@ -164,7 +164,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
           initialWidth: 50,
         },
         {
-          headerName: ExperimentViewUtil.AttributeColumnLabels.DATE,
+          headerName: ATTRIBUTE_COLUMN_LABELS.DATE,
           field: 'startTime',
           pinned: 'left',
           initialWidth: 150,
@@ -172,69 +172,69 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
           sortable: true,
           headerComponentParams: {
             ...commonSortOrderProps,
-            canonicalSortKey: ExperimentViewUtil.AttributeColumnSortKey.DATE,
+            canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.DATE,
             computedStylesOnSortKey: headerStyle,
           },
           cellStyle,
         },
         {
-          headerName: ExperimentViewUtil.AttributeColumnLabels.RUN_NAME,
+          headerName: ATTRIBUTE_COLUMN_LABELS.RUN_NAME,
           pinned: 'left',
           field: 'runName',
           sortable: true,
           headerComponentParams: {
             ...commonSortOrderProps,
-            canonicalSortKey: ExperimentViewUtil.AttributeColumnSortKey.RUN_NAME,
+            canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.RUN_NAME,
             computedStylesOnSortKey: headerStyle,
           },
           cellStyle,
         },
         {
-          headerName: ExperimentViewUtil.AttributeColumnLabels.USER,
+          headerName: ATTRIBUTE_COLUMN_LABELS.USER,
           field: 'user',
           sortable: true,
           headerComponentParams: {
             ...commonSortOrderProps,
-            canonicalSortKey: ExperimentViewUtil.AttributeColumnSortKey.USER,
+            canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.USER,
             computedStylesOnSortKey: headerStyle,
           },
           cellStyle,
         },
         {
-          headerName: ExperimentViewUtil.AttributeColumnLabels.SOURCE,
+          headerName: ATTRIBUTE_COLUMN_LABELS.SOURCE,
           field: 'source',
           cellRenderer: 'sourceCellRenderer',
           sortable: true,
           headerComponentParams: {
             ...commonSortOrderProps,
-            canonicalSortKey: ExperimentViewUtil.AttributeColumnSortKey.SOURCE,
+            canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.SOURCE,
             computedStylesOnSortKey: headerStyle,
           },
           cellStyle,
         },
         {
-          headerName: ExperimentViewUtil.AttributeColumnLabels.VERSION,
+          headerName: ATTRIBUTE_COLUMN_LABELS.VERSION,
           field: 'version',
           cellRenderer: 'versionCellRenderer',
           sortable: true,
           headerComponentParams: {
             ...commonSortOrderProps,
-            canonicalSortKey: ExperimentViewUtil.AttributeColumnSortKey.VERSION,
+            canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.VERSION,
             computedStylesOnSortKey: headerStyle,
           },
           cellStyle,
         },
         {
-          headerName: ExperimentViewUtil.AttributeColumnLabels.MODELS,
+          headerName: ATTRIBUTE_COLUMN_LABELS.MODELS,
           field: 'models',
           cellRenderer: 'modelsCellRenderer',
           initialWidth: 200,
         },
-      ].filter((c) => !categorizedUncheckedKeys[ColumnTypes.ATTRIBUTES].includes(c.headerName)),
+      ].filter((c) => !categorizedUncheckedKeys[COLUMN_TYPES.ATTRIBUTES].includes(c.headerName)),
       {
         headerName: 'Metrics',
         children: metricKeyList.map((metricKey, i) => {
-          const columnKey = ExperimentViewUtil.makeCanonicalKey(ColumnTypes.METRICS, metricKey);
+          const columnKey = ExperimentViewUtil.makeCanonicalKey(COLUMN_TYPES.METRICS, metricKey);
           return {
             headerName: metricKey,
             headerTooltip: metricKey,
@@ -257,7 +257,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
       {
         headerName: 'Parameters',
         children: paramKeyList.map((paramKey, i) => {
-          const columnKey = ExperimentViewUtil.makeCanonicalKey(ColumnTypes.PARAMS, paramKey);
+          const columnKey = ExperimentViewUtil.makeCanonicalKey(COLUMN_TYPES.PARAMS, paramKey);
           return {
             headerName: paramKey,
             headerTooltip: paramKey,

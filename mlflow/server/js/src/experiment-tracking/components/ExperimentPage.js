@@ -21,26 +21,17 @@ import { MAX_RUNS_IN_SEARCH_MODEL_VERSIONS_FILTER } from '../../model-registry/c
 import { getExperiment } from '../reducers/Reducers';
 import { Experiment } from '../sdk/MlflowMessages';
 import { injectIntl } from 'react-intl';
-
-export const LIFECYCLE_FILTER = { ACTIVE: 'Active', DELETED: 'Deleted' };
-export const MODEL_VERSION_FILTER = {
-  WITH_MODEL_VERSIONS: 'With Model Versions',
-  WTIHOUT_MODEL_VERSIONS: 'Without Model Versions',
-  ALL_RUNS: 'All Runs',
-};
-
-export const DEFAULT_ORDER_BY_KEY = 'attributes.start_time';
-export const DEFAULT_ORDER_BY_ASC = false;
-export const DEFAULT_START_TIME = 'ALL';
-
-export const PAGINATION_DEFAULT_STATE = {
-  nextPageToken: null,
-  numRunsFromLatestSearch: null, // number of runs returned from the most recent search request
-  loadingMore: false,
-};
-
-export const MAX_DETECT_NEW_RUNS_RESULTS = 26; // so the refresh button badge can be 25+
-export const DETECT_NEW_RUNS_INTERVAL = 15000;
+import {
+  LIFECYCLE_FILTER,
+  MODEL_VERSION_FILTER,
+  PAGINATION_DEFAULT_STATE,
+  MAX_DETECT_NEW_RUNS_RESULTS,
+  DETECT_NEW_RUNS_INTERVAL,
+  DEFAULT_ORDER_BY_KEY,
+  DEFAULT_ORDER_BY_ASC,
+  DEFAULT_START_TIME,
+  ATTRIBUTE_COLUMN_SORT_KEY,
+} from '../constants';
 
 export const isNewRun = (lastRunsRefreshTime, run) => {
   if (run && run.info) {
@@ -250,7 +241,7 @@ export class ExperimentPage extends Component {
   */
   shouldNestChildrenAndFetchParents() {
     const { orderByKey, searchInput } = this.state.persistedState;
-    return (!orderByKey && !searchInput) || orderByKey === DEFAULT_ORDER_BY_KEY;
+    return (!orderByKey && !searchInput) || orderByKey === ATTRIBUTE_COLUMN_SORT_KEY.DATE;
   }
 
   onSearch = (

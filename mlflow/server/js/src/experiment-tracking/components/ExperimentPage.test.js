@@ -4,21 +4,20 @@ import { shallow } from 'enzyme';
 import { MemoryRouter as Router } from 'react-router-dom';
 
 import { ErrorCodes } from '../../common/constants';
-import {
-  DETECT_NEW_RUNS_INTERVAL,
-  ExperimentPage,
-  MAX_DETECT_NEW_RUNS_RESULTS,
-  PAGINATION_DEFAULT_STATE,
-  isNewRun,
-  lifecycleFilterToRunViewType,
-  DEFAULT_ORDER_BY_KEY,
-  DEFAULT_ORDER_BY_ASC,
-} from './ExperimentPage';
+import { ExperimentPage, isNewRun, lifecycleFilterToRunViewType } from './ExperimentPage';
 import ExperimentView from './ExperimentView';
 import { PermissionDeniedView } from './PermissionDeniedView';
 import { ViewType } from '../sdk/MlflowEnums';
 import { ErrorWrapper } from '../../common/utils/ActionUtils';
 import { MAX_RUNS_IN_SEARCH_MODEL_VERSIONS_FILTER } from '../../model-registry/constants';
+import {
+  ATTRIBUTE_COLUMN_SORT_KEY,
+  DETECT_NEW_RUNS_INTERVAL,
+  MAX_DETECT_NEW_RUNS_RESULTS,
+  PAGINATION_DEFAULT_STATE,
+  DEFAULT_ORDER_BY_KEY,
+  DEFAULT_ORDER_BY_ASC,
+} from '../constants';
 
 const BASE_PATH = '/experiments/17/s';
 const EXPERIMENT_ID = '17';
@@ -292,6 +291,24 @@ test('should nest children when filtering or sorting', () => {
       },
     },
     () => expect(instance.shouldNestChildrenAndFetchParents()).toBe(false),
+  );
+  instance.setState(
+    {
+      persistedState: {
+        orderByKey: ATTRIBUTE_COLUMN_SORT_KEY.DATE,
+        searchInput: 'metrics.a > 1',
+      },
+    },
+    () => expect(instance.shouldNestChildrenAndFetchParents()).toBe(true),
+  );
+  instance.setState(
+    {
+      persistedState: {
+        orderByKey: ATTRIBUTE_COLUMN_SORT_KEY.DATE,
+        searchInput: null,
+      },
+    },
+    () => expect(instance.shouldNestChildrenAndFetchParents()).toBe(true),
   );
 });
 
