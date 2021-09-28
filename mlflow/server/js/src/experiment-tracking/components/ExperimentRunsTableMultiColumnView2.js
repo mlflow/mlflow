@@ -178,6 +178,13 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
           cellStyle,
         },
         {
+          headerName: ATTRIBUTE_COLUMN_LABELS.DURATION,
+          field: 'duration',
+          pinned: 'left',
+          initialWidth: 80,
+          cellStyle,
+        },
+        {
           headerName: ATTRIBUTE_COLUMN_LABELS.RUN_NAME,
           pinned: 'left',
           field: 'runName',
@@ -328,6 +335,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
       const user = Utils.getUser(runInfo, tags);
       const queryParams = window.location && window.location.search ? window.location.search : '';
       const startTime = runInfo.start_time;
+      const duration = Utils.getDuration(runInfo.start_time, runInfo.end_time);
       const runName = Utils.getRunName(tags) || '-';
       const visibleTags = Utils.getVisibleTagValues(tags).map(([key, value]) => ({
         key,
@@ -337,6 +345,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
       return {
         runInfo,
         startTime,
+        duration,
         user,
         runName,
         tags,

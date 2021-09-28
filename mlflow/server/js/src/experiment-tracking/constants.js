@@ -8,6 +8,7 @@ export const MLMODEL_FILE_NAME = 'MLmodel';
 
 export const ATTRIBUTE_COLUMN_LABELS = {
   DATE: 'Start Time',
+  DURATION: 'Duration',
   USER: 'User',
   RUN_NAME: 'Run Name',
   SOURCE: 'Source',
