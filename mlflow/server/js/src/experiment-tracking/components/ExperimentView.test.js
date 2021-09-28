@@ -191,6 +191,9 @@ describe('Download CSV', () => {
 
   const blobOptionExpected = { type: 'application/csv;charset=utf-8' };
   const filenameExpected = 'runs.csv';
+  const startTimeStringExpected = Utils.formatTimestamp(
+    getDefaultExperimentViewProps().runInfos[0].start_time,
+  );
   const saveAsSpy = jest.spyOn(FileSaver, 'saveAs');
   const blobSpy = jest.spyOn(global, 'Blob').mockImplementation((content, options) => {
     return { content, options };
@@ -211,7 +214,7 @@ describe('Download CSV', () => {
     ];
     const csvExpected = `
 Start Time,Duration,Run ID,Name,Source Type,Source Name,User,Status,batch_size,acc,a,b
-1970-01-01 01:00:00,0ms,run-id,name,LOCAL,src.py,user,FINISHED,512,0.1,0,1
+${startTimeStringExpected},0ms,run-id,name,LOCAL,src.py,user,FINISHED,512,0.1,0,1
 `.substring(1); // strip a leading newline
 
     const wrapper = getExperimentViewMock({ tagsList });
@@ -230,7 +233,7 @@ Start Time,Duration,Run ID,Name,Source Type,Source Name,User,Status,batch_size,a
     ];
     const csvExpected = `
 Start Time,Duration,Run ID,Name,Source Type,Source Name,User,Status,batch_size,acc,a
-1970-01-01 01:00:00,0ms,run-id,name,LOCAL,src.py,user,FINISHED,512,0.1,0
+${startTimeStringExpected},0ms,run-id,name,LOCAL,src.py,user,FINISHED,512,0.1,0
 `.substring(1);
 
     const wrapper = getExperimentViewMock({ tagsList });
@@ -250,7 +253,7 @@ Start Time,Duration,Run ID,Name,Source Type,Source Name,User,Status,batch_size,a
     const tagsList = [createTags(mlflowSystemTags)];
     const csvExpected = `
 Start Time,Duration,Run ID,Name,Source Type,Source Name,User,Status,batch_size,acc
-1970-01-01 01:00:00,0ms,run-id,name,LOCAL,src.py,user,FINISHED,512,0.1
+${startTimeStringExpected},0ms,run-id,name,LOCAL,src.py,user,FINISHED,512,0.1
 `.substring(1);
 
     const wrapper = getExperimentViewMock({ tagsList });
