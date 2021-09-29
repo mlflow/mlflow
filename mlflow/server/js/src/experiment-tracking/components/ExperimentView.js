@@ -17,11 +17,6 @@ import { getLatestMetrics } from '../reducers/MetricReducer';
 import KeyFilter from '../utils/KeyFilter';
 import { ExperimentRunsTableMultiColumnView2 } from './ExperimentRunsTableMultiColumnView2';
 import ExperimentRunsTableCompactView from './ExperimentRunsTableCompactView';
-import {
-  LIFECYCLE_FILTER,
-  MAX_DETECT_NEW_RUNS_RESULTS,
-  MODEL_VERSION_FILTER,
-} from './ExperimentPage';
 import ExperimentViewUtil from './ExperimentViewUtil';
 import DeleteRunModal from './modals/DeleteRunModal';
 import RestoreRunModal from './modals/RestoreRunModal';
@@ -32,7 +27,6 @@ import Utils from '../../common/utils/Utils';
 import { CSSTransition } from 'react-transition-group';
 import { Spinner } from '../../common/components/Spinner';
 import { RunsTableColumnSelectionDropdown } from './RunsTableColumnSelectionDropdown';
-import { ColumnTypes } from '../constants';
 import { getUUID } from '../../common/utils/ActionUtils';
 import { ExperimentTrackingDocUrl, onboarding } from '../../common/constants';
 import filterIcon from '../../common/static/filter-icon.svg';
@@ -45,8 +39,21 @@ import { Spacer } from '../../shared/building_blocks/Spacer';
 import { SearchBox } from '../../shared/building_blocks/SearchBox';
 import { Radio } from '../../shared/building_blocks/Radio';
 import syncSvg from '../../common/static/sync.svg';
+import {
+  COLUMN_TYPES,
+  LIFECYCLE_FILTER,
+  MAX_DETECT_NEW_RUNS_RESULTS,
+  MODEL_VERSION_FILTER,
+  DEFAULT_ORDER_BY_KEY,
+  DEFAULT_ORDER_BY_ASC,
+  DEFAULT_START_TIME,
+  ATTRIBUTE_COLUMN_SORT_LABEL,
+  ATTRIBUTE_COLUMN_SORT_KEY,
+  COLUMN_SORT_BY_ASC,
+  COLUMN_SORT_BY_DESC,
+  SORT_DELIMITER_SYMBOL,
+} from '../constants';
 
-export const DEFAULT_EXPANDED_VALUE = false;
 const { Option } = Select;
 export class ExperimentView extends Component {
   constructor(props) {
@@ -452,12 +459,12 @@ export class ExperimentView extends Component {
     const { experiment_id, name } = experiment;
     const { persistedState } = this.state;
     const { unbaggedParams, unbaggedMetrics, categorizedUncheckedKeys } = persistedState;
-    const filteredParamKeys = this.getFilteredKeys(paramKeyList, ColumnTypes.PARAMS);
-    const filteredMetricKeys = this.getFilteredKeys(metricKeyList, ColumnTypes.METRICS);
+    const filteredParamKeys = this.getFilteredKeys(paramKeyList, COLUMN_TYPES.PARAMS);
+    const filteredMetricKeys = this.getFilteredKeys(metricKeyList, COLUMN_TYPES.METRICS);
     const visibleTagKeyList = Utils.getVisibleTagKeyList(tagsList);
-    const filteredVisibleTagKeyList = this.getFilteredKeys(visibleTagKeyList, ColumnTypes.TAGS);
-    const filteredUnbaggedParamKeys = this.getFilteredKeys(unbaggedParams, ColumnTypes.PARAMS);
-    const filteredUnbaggedMetricKeys = this.getFilteredKeys(unbaggedMetrics, ColumnTypes.METRICS);
+    const filteredVisibleTagKeyList = this.getFilteredKeys(visibleTagKeyList, COLUMN_TYPES.TAGS);
+    const filteredUnbaggedParamKeys = this.getFilteredKeys(unbaggedParams, COLUMN_TYPES.PARAMS);
+    const filteredUnbaggedMetricKeys = this.getFilteredKeys(unbaggedMetrics, COLUMN_TYPES.METRICS);
     const compareDisabled = Object.keys(this.state.runsSelected).length < 2;
     const deleteDisabled = Object.keys(this.state.runsSelected).length < 1;
     const restoreDisabled = Object.keys(this.state.runsSelected).length < 1;
@@ -510,12 +517,7 @@ export class ExperimentView extends Component {
       intl: this.props.intl,
     };
 
-    const {
-      ColumnSortByAscending,
-      ColumnSortByDescending,
-      SortDelimiterSymbol,
-    } = ExperimentViewUtil;
-    const ColumnSortByOrder = [ColumnSortByAscending, ColumnSortByDescending];
+    const ColumnSortByOrder = [COLUMN_SORT_BY_ASC, COLUMN_SORT_BY_DESC];
 
     return (
       <div className='ExperimentView runs-table-flex-container'>
@@ -634,28 +636,18 @@ export class ExperimentView extends Component {
                   >
                     <Select
                       className='sort-select'
-                      value={
-                        orderByKey
-                          ? `${orderByKey}${SortDelimiterSymbol}${
-                              orderByAsc ? ColumnSortByAscending : ColumnSortByDescending
-                            }`
-                          : this.props.intl.formatMessage({
-                              defaultMessage: 'Sort by',
-                              description:
-                                // eslint-disable-next-line max-len
-                                'Sort by default option for sort by select dropdown for experiment runs',
-                            })
-                      }
+                      value={`${orderByKey}${SORT_DELIMITER_SYMBOL}${
+                        orderByAsc ? COLUMN_SORT_BY_ASC : COLUMN_SORT_BY_DESC
+                      }`}
                       size='large'
                       onChange={this.onHandleSortByDropdown}
                       data-test-id='sort-select-dropdown'
                     >
-                      {Object.keys(ExperimentViewUtil.AttributeColumnSortLabel).reduce(
+                      {Object.keys(ATTRIBUTE_COLUMN_SORT_LABEL).reduce(
                         (sortOptions, sortLabelKey) => {
-                          const sortLabel =
-                            ExperimentViewUtil.AttributeColumnSortLabel[sortLabelKey];
+                          const sortLabel = ATTRIBUTE_COLUMN_SORT_LABEL[sortLabelKey];
                           if (
-                            !categorizedUncheckedKeys[ColumnTypes.ATTRIBUTES].includes(sortLabel)
+                            !categorizedUncheckedKeys[COLUMN_TYPES.ATTRIBUTES].includes(sortLabel)
                           ) {
                             ColumnSortByOrder.forEach((order) => {
                               sortOptions.push(
@@ -664,12 +656,12 @@ export class ExperimentView extends Component {
                                   title={sortLabel}
                                   data-test-id={`sort-select-${sortLabel}-${order}`}
                                   value={
-                                    ExperimentViewUtil.AttributeColumnSortKey[sortLabelKey] +
-                                    SortDelimiterSymbol +
+                                    ATTRIBUTE_COLUMN_SORT_KEY[sortLabelKey] +
+                                    SORT_DELIMITER_SYMBOL +
                                     order
                                   }
                                 >
-                                  {order === ColumnSortByAscending ? (
+                                  {order === COLUMN_SORT_BY_ASC ? (
                                     <Icon type='arrow-up' />
                                   ) : (
                                     <Icon type='arrow-down' />
@@ -692,11 +684,11 @@ export class ExperimentView extends Component {
                               title={metricKey}
                               data-test-id={`sort-select-${metricKey}-${order}`}
                               value={`${ExperimentViewUtil.makeCanonicalKey(
-                                ColumnTypes.METRICS,
+                                COLUMN_TYPES.METRICS,
                                 metricKey,
-                              )}${SortDelimiterSymbol}${order}`}
+                              )}${SORT_DELIMITER_SYMBOL}${order}`}
                             >
-                              {order === ColumnSortByAscending ? (
+                              {order === COLUMN_SORT_BY_ASC ? (
                                 <Icon type='arrow-up' />
                               ) : (
                                 <Icon type='arrow-down' />
@@ -716,11 +708,11 @@ export class ExperimentView extends Component {
                               title={paramKey}
                               data-test-id={`sort-select-${paramKey}-${order}`}
                               value={`${ExperimentViewUtil.makeCanonicalKey(
-                                ColumnTypes.PARAMS,
+                                COLUMN_TYPES.PARAMS,
                                 paramKey,
-                              )}${SortDelimiterSymbol}${order}`}
+                              )}${SORT_DELIMITER_SYMBOL}${order}`}
                             >
-                              {order === ColumnSortByAscending ? (
+                              {order === COLUMN_SORT_BY_ASC ? (
                                 <Icon type='arrow-up' />
                               ) : (
                                 <Icon type='arrow-down' />
@@ -936,7 +928,7 @@ export class ExperimentView extends Component {
                 isAllChecked={this.isAllChecked()}
                 onSortBy={this.onSortBy}
                 orderByKey={orderByKey}
-                orderByAsc={this.props.orderByAsc}
+                orderByAsc={orderByAsc}
                 runsSelected={this.state.runsSelected}
                 runsExpanded={this.state.persistedState.runsExpanded}
                 onExpand={this.onExpand}
@@ -965,7 +957,7 @@ export class ExperimentView extends Component {
                 isAllChecked={this.isAllChecked()}
                 onSortBy={this.onSortBy}
                 orderByKey={orderByKey}
-                orderByAsc={this.props.orderByAsc}
+                orderByAsc={orderByAsc}
                 runsSelected={this.state.runsSelected}
                 runsExpanded={this.state.persistedState.runsExpanded}
                 onExpand={this.onExpand}
@@ -986,9 +978,9 @@ export class ExperimentView extends Component {
   }
 
   onHandleSortByDropdown(value) {
-    const [orderByKey, orderBy] = value.split(ExperimentViewUtil.SortDelimiterSymbol);
+    const [orderByKey, orderBy] = value.split(SORT_DELIMITER_SYMBOL);
 
-    this.onSortBy(orderByKey, orderBy === ExperimentViewUtil.ColumnSortByAscending);
+    this.onSortBy(orderByKey, orderBy === COLUMN_SORT_BY_ASC);
   }
 
   onHandleStartTimeDropdown(startTime) {
@@ -1156,19 +1148,25 @@ export class ExperimentView extends Component {
     const newPersistedState = new ExperimentViewPersistedState({
       showMultiColumns: this.state.persistedState.showMultiColumns,
     });
-    this.setState({ persistedState: newPersistedState.toJSON(), searchInput: '' }, () => {
-      this.snapshotComponentState();
-      this.initiateSearch({
-        paramKeyFilterInput: '',
-        metricKeyFilterInput: '',
+    this.setState(
+      {
+        persistedState: newPersistedState.toJSON(),
         searchInput: '',
-        lifecycleFilterInput: LIFECYCLE_FILTER.ACTIVE,
-        modelVersionFilterInput: MODEL_VERSION_FILTER.ALL_RUNS,
-        orderByKey: null,
-        orderByAsc: false,
-        startTime: 'ALL',
-      });
-    });
+      },
+      () => {
+        this.snapshotComponentState();
+        this.initiateSearch({
+          paramKeyFilterInput: '',
+          metricKeyFilterInput: '',
+          searchInput: '',
+          lifecycleFilterInput: LIFECYCLE_FILTER.ACTIVE,
+          modelVersionFilterInput: MODEL_VERSION_FILTER.ALL_RUNS,
+          orderByKey: DEFAULT_ORDER_BY_KEY,
+          orderByAsc: DEFAULT_ORDER_BY_ASC,
+          startTime: DEFAULT_START_TIME,
+        });
+      },
+    );
   }
 
   onCompare() {
@@ -1180,10 +1178,10 @@ export class ExperimentView extends Component {
 
   onDownloadCsv() {
     const { paramKeyList, metricKeyList, runInfos, paramsList, metricsList, tagsList } = this.props;
-    const filteredParamKeys = this.getFilteredKeys(paramKeyList, ColumnTypes.PARAMS);
-    const filteredMetricKeys = this.getFilteredKeys(metricKeyList, ColumnTypes.METRICS);
+    const filteredParamKeys = this.getFilteredKeys(paramKeyList, COLUMN_TYPES.PARAMS);
+    const filteredMetricKeys = this.getFilteredKeys(metricKeyList, COLUMN_TYPES.METRICS);
     const visibleTagKeys = Utils.getVisibleTagKeyList(tagsList);
-    const filteredTagKeys = this.getFilteredKeys(visibleTagKeys, ColumnTypes.TAGS);
+    const filteredTagKeys = this.getFilteredKeys(visibleTagKeys, COLUMN_TYPES.TAGS);
     const csv = ExperimentView.runInfosToCsv(
       runInfos,
       filteredParamKeys,
