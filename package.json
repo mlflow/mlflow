@@ -1,0 +1,5 @@
+{
+  "devDependencies": {
+    "@auth0/auth0-react": "^1.8.0"
+  }
+}
