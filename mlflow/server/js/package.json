@@ -6,7 +6,7 @@
     "@ag-grid-community/client-side-row-model": "^25.0.0",
     "@ag-grid-community/core": "^25.0.0",
     "@ag-grid-community/react": "^25.0.0",
-    "@auth0/auth0-react": "^1.8.0",
+    "@auth0/auth0-react": "^1.6.0",
     "antd": "^3.23.5",
     "bytes": "3.0.0",
     "classnames": "^2.2.6",
