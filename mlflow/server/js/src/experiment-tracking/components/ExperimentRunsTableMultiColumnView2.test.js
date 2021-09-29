@@ -4,7 +4,7 @@ import {
   ExperimentRunsTableMultiColumnView2,
   ModelsCellRenderer,
 } from './ExperimentRunsTableMultiColumnView2';
-import { ColumnTypes } from '../constants';
+import { COLUMN_TYPES } from '../constants';
 import { RunTag } from '../sdk/MlflowMessages';
 import { MemoryRouter as Router } from 'react-router-dom';
 
@@ -44,10 +44,10 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
       loadingMore: false,
       isLoading: false,
       categorizedUncheckedKeys: {
-        [ColumnTypes.ATTRIBUTES]: [],
-        [ColumnTypes.PARAMS]: [],
-        [ColumnTypes.METRICS]: [],
-        [ColumnTypes.TAGS]: [],
+        [COLUMN_TYPES.ATTRIBUTES]: [],
+        [COLUMN_TYPES.PARAMS]: [],
+        [COLUMN_TYPES.METRICS]: [],
+        [COLUMN_TYPES.TAGS]: [],
       },
     };
   });
