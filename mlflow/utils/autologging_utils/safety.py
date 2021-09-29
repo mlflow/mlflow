@@ -559,7 +559,36 @@ def safe_patch(
                     return original_result
                 else:
                     try:
-                        call_original(*args, **kwargs)
+                        try_log_autologging_event(
+                            AutologgingEventLogger.get_logger().log_original_function_start,
+                            session,
+                            destination,
+                            function_name,
+                            args,
+                            kwargs,
+                        )
+                        original_result = original(*args, **kwargs)
+                        try_log_autologging_event(
+                            AutologgingEventLogger.get_logger().log_original_function_success,
+                            session,
+                            destination,
+                            function_name,
+                            args,
+                            kwargs,
+                        )
+                        return original_result
+                    except Exception as e:
+                        try_log_autologging_event(
+                            AutologgingEventLogger.get_logger().log_original_function_error,
+                            session,
+                            destination,
+                            function_name,
+                            args,
+                            kwargs,
+                            e,
+                        )
+                        failed_during_original = True
+                        raise
                     finally:
                         if not failed_during_original:
                             try_log_autologging_event(

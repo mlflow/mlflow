@@ -1639,7 +1639,6 @@ def test_log_behaivor_when_patch_fn_raise_error_before_original_called():
 
     def patched_fn(original, self, *args, **kwargs):
         raise RuntimeError("patch function error")
-        return original(self, *args, **kwargs)
 
     flavor_name = "test_log_behaivor_when_patch_fn_raise_error_before_original_called"
 
