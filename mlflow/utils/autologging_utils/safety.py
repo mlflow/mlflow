@@ -442,6 +442,7 @@ def safe_patch(
                     )
 
             with _AutologgingSessionManager.start_session(autologging_integration) as session:
+                patch_function_exception = None
                 try:
 
                     def call_original(*og_args, **og_kwargs):
@@ -536,28 +537,12 @@ def safe_patch(
                     )
                 except Exception as e:
                     session.state = "failed"
-
+                    patch_function_exception = e
                     # Exceptions thrown during execution of the original function should be
                     # propagated to the caller. Additionally, exceptions encountered during test
                     # mode should be reraised to detect bugs in autologging implementations
                     if failed_during_original or is_testing():
                         raise
-
-                    try_log_autologging_event(
-                        AutologgingEventLogger.get_logger().log_patch_function_error,
-                        session,
-                        destination,
-                        function_name,
-                        args,
-                        kwargs,
-                        e,
-                    )
-
-                    _logger.warning(
-                        "Encountered unexpected error during %s autologging: %s",
-                        autologging_integration,
-                        e,
-                    )
 
                 if is_testing() and not preexisting_run_for_testing:
                     # If an MLflow run was created during the execution of patch code, verify that
@@ -573,7 +558,25 @@ def safe_patch(
                 if original_has_been_called:
                     return original_result
                 else:
-                    return original(*args, **kwargs)
+                    try:
+                        call_original(*args, **kwargs)
+                    finally:
+                        if not failed_during_original:
+                            try_log_autologging_event(
+                                AutologgingEventLogger.get_logger().log_patch_function_error,
+                                session,
+                                destination,
+                                function_name,
+                                args,
+                                kwargs,
+                                patch_function_exception,
+                            )
+
+                            _logger.warning(
+                                "Encountered unexpected error during %s autologging: %s",
+                                autologging_integration,
+                                patch_function_exception,
+                            )
 
     if is_property_method:
         # Create a patched function (also property decorated)

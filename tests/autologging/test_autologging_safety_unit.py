@@ -1627,3 +1627,48 @@ def test_safe_patch_preserves_original_function_attributes():
     original_predict = Test1.predict
     autolog()
     assert get_func_attrs(Test1.predict) == get_func_attrs(original_predict)
+
+
+def test_log_behaivor_when_patch_fn_raise_error_before_original_called():
+    class Test1:
+        def good_fn(self, x):
+            pass
+
+        def bad_fn(self, x):
+            raise RuntimeError("bad function called")
+
+    def patched_fn(original, self, *args, **kwargs):
+        raise RuntimeError("patch function error")
+        return original(self, *args, **kwargs)
+
+    flavor_name = "test_log_behaivor_when_patch_fn_raise_error_before_original_called"
+
+    @autologging_integration(flavor_name)
+    def autolog(disable=False, exclusive=False, silent=False):  # pylint: disable=unused-argument
+        safe_patch(flavor_name, Test1, "good_fn", patched_fn, manage_run=False)
+        safe_patch(flavor_name, Test1, "bad_fn", patched_fn, manage_run=False)
+
+    autolog()
+    with mock.patch(
+        "mlflow.utils.autologging_utils.events.AutologgingEventLogger.log_patch_function_error"
+    ) as mock_log_patch_function_error, mock.patch(
+        "mlflow.utils.autologging_utils.events.AutologgingEventLogger.log_original_function_success"
+    ) as mock_log_original_function_success, mock.patch(
+        "mlflow.utils.autologging_utils.events.AutologgingEventLogger.log_original_function_error"
+    ) as mock_log_original_function_error:
+        t1 = Test1()
+        t1.good_fn(1)
+        mock_log_patch_function_error.assert_called_once()
+        mock_log_original_function_success.assert_called_once()
+        mock_log_original_function_error.assert_not_called()
+
+        mock_log_patch_function_error.reset_mock()
+        mock_log_original_function_success.reset_mock()
+        mock_log_original_function_error.reset_mock()
+
+        with pytest.raises(RuntimeError, match="bad function called"):
+            t1.bad_fn(1)
+
+        mock_log_patch_function_error.assert_not_called()
+        mock_log_original_function_success.assert_not_called()
+        mock_log_original_function_error.assert_called_once()
