@@ -21,22 +21,17 @@ import { MAX_RUNS_IN_SEARCH_MODEL_VERSIONS_FILTER } from '../../model-registry/c
 import { getExperiment } from '../reducers/Reducers';
 import { Experiment } from '../sdk/MlflowMessages';
 import { injectIntl } from 'react-intl';
-
-export const LIFECYCLE_FILTER = { ACTIVE: 'Active', DELETED: 'Deleted' };
-export const MODEL_VERSION_FILTER = {
-  WITH_MODEL_VERSIONS: 'With Model Versions',
-  WTIHOUT_MODEL_VERSIONS: 'Without Model Versions',
-  ALL_RUNS: 'All Runs',
-};
-
-export const PAGINATION_DEFAULT_STATE = {
-  nextPageToken: null,
-  numRunsFromLatestSearch: null, // number of runs returned from the most recent search request
-  loadingMore: false,
-};
-
-export const MAX_DETECT_NEW_RUNS_RESULTS = 26; // so the refresh button badge can be 25+
-export const DETECT_NEW_RUNS_INTERVAL = 15000;
+import {
+  LIFECYCLE_FILTER,
+  MODEL_VERSION_FILTER,
+  PAGINATION_DEFAULT_STATE,
+  MAX_DETECT_NEW_RUNS_RESULTS,
+  DETECT_NEW_RUNS_INTERVAL,
+  DEFAULT_ORDER_BY_KEY,
+  DEFAULT_ORDER_BY_ASC,
+  DEFAULT_START_TIME,
+  ATTRIBUTE_COLUMN_SORT_KEY,
+} from '../constants';
 
 export const isNewRun = (lastRunsRefreshTime, run) => {
   if (run && run.info) {
@@ -88,9 +83,10 @@ export class ExperimentPage extends Component {
         paramKeyFilterString: urlState.params === undefined ? '' : urlState.params,
         metricKeyFilterString: urlState.metrics === undefined ? '' : urlState.metrics,
         searchInput: urlState.search === undefined ? '' : urlState.search,
-        orderByKey: urlState.orderByKey === undefined ? null : urlState.orderByKey,
-        orderByAsc: urlState.orderByAsc === undefined ? false : urlState.orderByAsc === 'true',
-        startTime: urlState.startTime === undefined ? 'ALL' : urlState.startTime,
+        orderByKey: urlState.orderByKey === undefined ? DEFAULT_ORDER_BY_KEY : urlState.orderByKey,
+        orderByAsc:
+          urlState.orderByAsc === undefined ? DEFAULT_ORDER_BY_ASC : urlState.orderByAsc === 'true',
+        startTime: urlState.startTime === undefined ? DEFAULT_START_TIME : urlState.startTime,
       },
     };
   }
@@ -240,11 +236,12 @@ export class ExperimentPage extends Component {
   /*
     If this function returns true, the ExperimentView should nest children underneath their parents
     and fetch all root level parents of visible runs. If this function returns false, the views will
-    not nest children or fetch any additional parents.
+    not nest children or fetch any additional parents. Will always return true if the orderByKey is
+    'attributes.start_time'
   */
   shouldNestChildrenAndFetchParents() {
     const { orderByKey, searchInput } = this.state.persistedState;
-    return !orderByKey && !searchInput;
+    return (!orderByKey && !searchInput) || orderByKey === ATTRIBUTE_COLUMN_SORT_KEY.DATE;
   }
 
   onSearch = (
