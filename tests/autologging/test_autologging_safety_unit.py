@@ -650,6 +650,8 @@ def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation
     exc_to_raise = Exception("thrown from patch")
     original_err_to_raise = Exception("throw from original")
 
+    throw_location = "before"
+
     def patch_impl(original, *args, **kwargs):
         nonlocal patch_session
         nonlocal throw_location
