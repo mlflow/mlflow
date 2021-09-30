@@ -1269,7 +1269,7 @@ export class ExperimentView extends Component {
     const data = runInfos.map((runInfo, index) => {
       const row = [
         Utils.formatTimestamp(runInfo.start_time),
-        Utils.getDuration(runInfo.start_time, runInfo.end_time),
+        Utils.getDuration(runInfo.start_time, runInfo.end_time) || '',
         runInfo.run_uuid,
         Utils.getRunName(tagsList[index]), // add run name to csv export row
         Utils.getSourceType(tagsList[index]),

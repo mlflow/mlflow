@@ -308,7 +308,7 @@ export class RunViewImpl extends Component {
           >
             {Utils.getUser(run, tags)}
           </Descriptions.Item>
-          {duration !== '' ? (
+          {duration ? (
             <Descriptions.Item
               label={this.props.intl.formatMessage({
                 defaultMessage: 'Duration',
