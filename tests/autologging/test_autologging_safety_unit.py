@@ -648,6 +648,7 @@ def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation
 ):
     patch_session = None
     exc_to_raise = Exception("thrown from patch")
+    original_err_to_raise = Exception("throw from original")
 
     def patch_impl(original, *args, **kwargs):
         nonlocal patch_session
@@ -662,30 +663,40 @@ def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation
             raise exc_to_raise
 
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
+    safe_patch(test_autologging_integration, patch_destination, "bad_fn", patch_impl)
 
-    throw_location = "before"
-    patch_destination.fn()
-    expected_order_throw_before = ["patch_start", "patch_error"]
-    assert [call.method for call in mock_event_logger.calls] == expected_order_throw_before
-    patch_start, patch_error = mock_event_logger.calls
-    assert patch_start.exception is None
-    assert patch_error.exception == exc_to_raise
-
-    mock_event_logger.reset()
-
-    throw_location = "after"
-    patch_destination.fn()
-    expected_order_throw_after = [
+    expected_order_good_fn = [
         "patch_start",
         "original_start",
         "original_success",
         "patch_error",
     ]
-    assert [call.method for call in mock_event_logger.calls] == expected_order_throw_after
-    patch_start, original_start, original_success, patch_error = mock_event_logger.calls
-    assert patch_start.exception is original_start.exception is None
-    assert original_success.exception is None
-    assert patch_error.exception == exc_to_raise
+
+    expected_order_bad_fn = [
+        "patch_start",
+        "original_start",
+        "original_error"
+    ]
+    throw_location = "before"
+
+    for throw_location in ["before", "after"]:
+        mock_event_logger.reset()
+        patch_destination.fn()
+        assert [call.method for call in mock_event_logger.calls] == expected_order_good_fn
+        patch_start, original_start, original_success, patch_error = mock_event_logger.calls
+        assert patch_start.exception is None
+        assert original_start.exception is None
+        assert original_success.exception is None
+        assert patch_error.exception == exc_to_raise
+
+        mock_event_logger.reset()
+        with pytest.raises(Exception, match="throw from original"):
+            patch_destination.bad_fn(original_err_to_raise)
+        assert [call.method for call in mock_event_logger.calls] == expected_order_bad_fn
+        patch_start, original_start, original_error = mock_event_logger.calls
+        assert patch_start.exception is None
+        assert original_start.exception is None
+        assert original_error.exception == original_err_to_raise
 
 
 def test_safe_patch_makes_expected_event_logging_calls_when_original_function_throws(
@@ -1627,47 +1638,3 @@ def test_safe_patch_preserves_original_function_attributes():
     original_predict = Test1.predict
     autolog()
     assert get_func_attrs(Test1.predict) == get_func_attrs(original_predict)
-
-
-def test_log_behaivor_when_patch_fn_raise_error_before_original_called():
-    class Test1:
-        def good_fn(self, x):
-            pass
-
-        def bad_fn(self, x):
-            raise RuntimeError("bad function called")
-
-    def patched_fn(original, self, *args, **kwargs):
-        raise RuntimeError("patch function error")
-
-    flavor_name = "test_log_behaivor_when_patch_fn_raise_error_before_original_called"
-
-    @autologging_integration(flavor_name)
-    def autolog(disable=False, exclusive=False, silent=False):  # pylint: disable=unused-argument
-        safe_patch(flavor_name, Test1, "good_fn", patched_fn, manage_run=False)
-        safe_patch(flavor_name, Test1, "bad_fn", patched_fn, manage_run=False)
-
-    autolog()
-    with mock.patch(
-        "mlflow.utils.autologging_utils.events.AutologgingEventLogger.log_patch_function_error"
-    ) as mock_log_patch_function_error, mock.patch(
-        "mlflow.utils.autologging_utils.events.AutologgingEventLogger.log_original_function_success"
-    ) as mock_log_original_function_success, mock.patch(
-        "mlflow.utils.autologging_utils.events.AutologgingEventLogger.log_original_function_error"
-    ) as mock_log_original_function_error:
-        t1 = Test1()
-        t1.good_fn(1)
-        mock_log_patch_function_error.assert_called_once()
-        mock_log_original_function_success.assert_called_once()
-        mock_log_original_function_error.assert_not_called()
-
-        mock_log_patch_function_error.reset_mock()
-        mock_log_original_function_success.reset_mock()
-        mock_log_original_function_error.reset_mock()
-
-        with pytest.raises(RuntimeError, match="bad function called"):
-            t1.bad_fn(1)
-
-        mock_log_patch_function_error.assert_not_called()
-        mock_log_original_function_success.assert_not_called()
-        mock_log_original_function_error.assert_called_once()

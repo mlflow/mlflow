@@ -554,58 +554,58 @@ def safe_patch(
                         _validate_autologging_run(
                             autologging_integration, patch_function_run_for_testing.info.run_id
                         )
-
-                if original_has_been_called:
-                    return original_result
-                else:
-                    try:
-                        try_log_autologging_event(
-                            AutologgingEventLogger.get_logger().log_original_function_start,
-                            session,
-                            destination,
-                            function_name,
-                            args,
-                            kwargs,
-                        )
-                        original_result = original(*args, **kwargs)
-                        try_log_autologging_event(
-                            AutologgingEventLogger.get_logger().log_original_function_success,
-                            session,
-                            destination,
-                            function_name,
-                            args,
-                            kwargs,
-                        )
+                try:
+                    if original_has_been_called:
                         return original_result
-                    except Exception as e:
-                        try_log_autologging_event(
-                            AutologgingEventLogger.get_logger().log_original_function_error,
-                            session,
-                            destination,
-                            function_name,
-                            args,
-                            kwargs,
-                            e,
-                        )
-                        failed_during_original = True
-                        raise
-                    finally:
-                        if not failed_during_original:
+                    else:
+                        try:
                             try_log_autologging_event(
-                                AutologgingEventLogger.get_logger().log_patch_function_error,
+                                AutologgingEventLogger.get_logger().log_original_function_start,
                                 session,
                                 destination,
                                 function_name,
                                 args,
                                 kwargs,
-                                patch_function_exception,
                             )
+                            original_result = original(*args, **kwargs)
+                            try_log_autologging_event(
+                                AutologgingEventLogger.get_logger().log_original_function_success,
+                                session,
+                                destination,
+                                function_name,
+                                args,
+                                kwargs,
+                            )
+                            return original_result
+                        except Exception as e:
+                            try_log_autologging_event(
+                                AutologgingEventLogger.get_logger().log_original_function_error,
+                                session,
+                                destination,
+                                function_name,
+                                args,
+                                kwargs,
+                                e,
+                            )
+                            failed_during_original = True
+                            raise
+                finally:
+                    if patch_function_exception is not None and not failed_during_original:
+                        try_log_autologging_event(
+                            AutologgingEventLogger.get_logger().log_patch_function_error,
+                            session,
+                            destination,
+                            function_name,
+                            args,
+                            kwargs,
+                            patch_function_exception,
+                        )
 
-                            _logger.warning(
-                                "Encountered unexpected error during %s autologging: %s",
-                                autologging_integration,
-                                patch_function_exception,
-                            )
+                        _logger.warning(
+                            "Encountered unexpected error during %s autologging: %s",
+                            autologging_integration,
+                            patch_function_exception,
+                        )
 
     if is_property_method:
         # Create a patched function (also property decorated)
