@@ -443,7 +443,7 @@ def safe_patch(
                         "Failed to log autologging event via '%s'. Exception: %s", log_fn, e,
                     )
 
-            def call_original_fn_with_event_logging(original_fn, *og_args, **og_kwargs):
+            def call_original_fn_with_event_logging(original_fn, og_args, og_kwargs):
                 try:
                     try_log_autologging_event(
                         AutologgingEventLogger.get_logger().log_original_function_start,
@@ -510,9 +510,7 @@ def safe_patch(
                                 original_result = original(*_og_args, **_og_kwargs)
                                 return original_result
 
-                        return call_original_fn_with_event_logging(
-                            _original_fn, *og_args, **og_kwargs
-                        )
+                        return call_original_fn_with_event_logging(_original_fn, og_args, og_kwargs)
 
                     # Apply the name, docstring, and signature of `original` to `call_original`.
                     # This is important because several autologging patch implementations inspect
@@ -566,7 +564,7 @@ def safe_patch(
                     if original_has_been_called:
                         return original_result
                     else:
-                        return call_original_fn_with_event_logging(original, *args, **kwargs)
+                        return call_original_fn_with_event_logging(original, args, kwargs)
                 finally:
                     if patch_function_exception is not None and not failed_during_original:
                         try_log_autologging_event(
