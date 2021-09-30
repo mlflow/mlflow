@@ -672,11 +672,7 @@ def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation
         "patch_error",
     ]
 
-    expected_order_bad_fn = [
-        "patch_start",
-        "original_start",
-        "original_error"
-    ]
+    expected_order_bad_fn = ["patch_start", "original_start", "original_error"]
     throw_location = "before"
 
     for throw_location in ["before", "after"]:

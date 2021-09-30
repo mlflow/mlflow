@@ -432,6 +432,8 @@ def safe_patch(
             failed_during_original = False
             # The active MLflow run (if any) associated with patch code execution
             patch_function_run_for_testing = None
+            # The exception raised during executing patching function
+            patch_function_exception = None
 
             def try_log_autologging_event(log_fn, *args):
                 try:
@@ -441,21 +443,47 @@ def safe_patch(
                         "Failed to log autologging event via '%s'. Exception: %s", log_fn, e,
                     )
 
+            def call_original_fn_with_event_logging(original_fn, *og_args, **og_kwargs):
+                try:
+                    try_log_autologging_event(
+                        AutologgingEventLogger.get_logger().log_original_function_start,
+                        session,
+                        destination,
+                        function_name,
+                        og_args,
+                        og_kwargs,
+                    )
+                    original_fn_result = original_fn(*og_args, **og_kwargs)
+
+                    try_log_autologging_event(
+                        AutologgingEventLogger.get_logger().log_original_function_success,
+                        session,
+                        destination,
+                        function_name,
+                        og_args,
+                        og_kwargs,
+                    )
+                    return original_fn_result
+                except Exception as original_fn_e:
+                    try_log_autologging_event(
+                        AutologgingEventLogger.get_logger().log_original_function_error,
+                        session,
+                        destination,
+                        function_name,
+                        og_args,
+                        og_kwargs,
+                        original_fn_e,
+                    )
+
+                    nonlocal failed_during_original
+                    failed_during_original = True
+                    raise
+
             with _AutologgingSessionManager.start_session(autologging_integration) as session:
-                patch_function_exception = None
                 try:
 
                     def call_original(*og_args, **og_kwargs):
-                        try:
-                            try_log_autologging_event(
-                                AutologgingEventLogger.get_logger().log_original_function_start,
-                                session,
-                                destination,
-                                function_name,
-                                og_args,
-                                og_kwargs,
-                            )
-
+                        def _original_fn(*_og_args, **_og_kwargs):
                             if is_testing():
                                 _validate_args(args, kwargs, og_args, og_kwargs)
                                 # By the time `original` is called by the patch implementation, we
@@ -479,32 +507,12 @@ def safe_patch(
                             with set_non_mlflow_warnings_behavior_for_current_thread(
                                 disable_warnings=False, reroute_warnings=False,
                             ):
-                                original_result = original(*og_args, **og_kwargs)
+                                original_result = original(*_og_args, **_og_kwargs)
+                                return original_result
 
-                            try_log_autologging_event(
-                                AutologgingEventLogger.get_logger().log_original_function_success,
-                                session,
-                                destination,
-                                function_name,
-                                og_args,
-                                og_kwargs,
-                            )
-
-                            return original_result
-                        except Exception as e:
-                            try_log_autologging_event(
-                                AutologgingEventLogger.get_logger().log_original_function_error,
-                                session,
-                                destination,
-                                function_name,
-                                og_args,
-                                og_kwargs,
-                                e,
-                            )
-
-                            nonlocal failed_during_original
-                            failed_during_original = True
-                            raise
+                        return call_original_fn_with_event_logging(
+                            _original_fn, *og_args, **og_kwargs
+                        )
 
                     # Apply the name, docstring, and signature of `original` to `call_original`.
                     # This is important because several autologging patch implementations inspect
@@ -558,37 +566,7 @@ def safe_patch(
                     if original_has_been_called:
                         return original_result
                     else:
-                        try:
-                            try_log_autologging_event(
-                                AutologgingEventLogger.get_logger().log_original_function_start,
-                                session,
-                                destination,
-                                function_name,
-                                args,
-                                kwargs,
-                            )
-                            original_result = original(*args, **kwargs)
-                            try_log_autologging_event(
-                                AutologgingEventLogger.get_logger().log_original_function_success,
-                                session,
-                                destination,
-                                function_name,
-                                args,
-                                kwargs,
-                            )
-                            return original_result
-                        except Exception as e:
-                            try_log_autologging_event(
-                                AutologgingEventLogger.get_logger().log_original_function_error,
-                                session,
-                                destination,
-                                function_name,
-                                args,
-                                kwargs,
-                                e,
-                            )
-                            failed_during_original = True
-                            raise
+                        return call_original_fn_with_event_logging(original, *args, **kwargs)
                 finally:
                     if patch_function_exception is not None and not failed_during_original:
                         try_log_autologging_event(
