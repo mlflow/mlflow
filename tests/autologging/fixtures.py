@@ -29,7 +29,7 @@ def patch_destination():
             else:
                 return self.recursive_fn(level + 1, max_depth)
 
-        def bad_fn(self, error_to_raise):
+        def throw_error_fn(self, error_to_raise):
             raise error_to_raise
 
     return PatchObj()

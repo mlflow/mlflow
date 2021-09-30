@@ -663,7 +663,7 @@ def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation
             raise exc_to_raise
 
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
-    safe_patch(test_autologging_integration, patch_destination, "bad_fn", patch_impl)
+    safe_patch(test_autologging_integration, patch_destination, "throw_error_fn", patch_impl)
 
     expected_order_good_fn = [
         "patch_start",
@@ -673,7 +673,6 @@ def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation
     ]
 
     expected_order_bad_fn = ["patch_start", "original_start", "original_error"]
-    throw_location = "before"
 
     for throw_location in ["before", "after"]:
         mock_event_logger.reset()
@@ -687,7 +686,7 @@ def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation
 
         mock_event_logger.reset()
         with pytest.raises(Exception, match="throw from original"):
-            patch_destination.bad_fn(original_err_to_raise)
+            patch_destination.throw_error_fn(original_err_to_raise)
         assert [call.method for call in mock_event_logger.calls] == expected_order_bad_fn
         patch_start, original_start, original_error = mock_event_logger.calls
         assert patch_start.exception is None
