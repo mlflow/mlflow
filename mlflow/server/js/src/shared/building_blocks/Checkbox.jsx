@@ -1,4 +1,4 @@
-import React from "react";
+import React from 'react';
 import PropTypes from 'prop-types';
 
 export class Checkbox extends React.Component {
@@ -15,14 +15,14 @@ export class Checkbox extends React.Component {
         onCheckboxChange,
       } = this.props;
       return (
-        <div className="form-check">
+        <div className='form-check'>
         <label>
           <input
-            type="checkbox"
+            type='checkbox'
             name={label}
             defaultChecked={isSelected}
             onChange={onCheckboxChange}
-            className="form-check-input"
+            className='form-check-input'
           />
           {label}
         </label>
