@@ -5,7 +5,7 @@ import { connect } from 'react-redux';
 import { injectIntl, FormattedMessage } from 'react-intl';
 // eslint-disable-next-line no-unused-vars
 import { Link, withRouter } from 'react-router-dom';
-import { Alert, Badge, Descriptions, Icon, Menu, Popover, Select, Tooltip } from 'antd';
+import { Alert, Badge, Descriptions, Icon, Menu, Popover, Select, Tooltip, Switch } from 'antd';
 
 import './ExperimentView.css';
 import { getExperimentTags, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
@@ -49,6 +49,7 @@ import {
   DEFAULT_START_TIME,
   ATTRIBUTE_COLUMN_SORT_LABEL,
   ATTRIBUTE_COLUMN_SORT_KEY,
+  ATTRIBUTE_COLUMN_LABELS,
   COLUMN_SORT_BY_ASC,
   COLUMN_SORT_BY_DESC,
   SORT_DELIMITER_SYMBOL,
@@ -85,6 +86,7 @@ export class ExperimentView extends Component {
     this.handleCancelEditNote = this.handleCancelEditNote.bind(this);
     this.getStartTimeColumnDisplayName = this.getStartTimeColumnDisplayName.bind(this);
     this.onHandleStartTimeDropdown = this.onHandleStartTimeDropdown.bind(this);
+    this.handleDiffSwitchChange = this.handleDiffSwitchChange.bind(this);
     const store = ExperimentView.getLocalStore(this.props.experiment.experiment_id);
     const persistedState = new ExperimentViewPersistedState(store.loadComponentState());
     const onboardingInformationStore = ExperimentView.getLocalStore(onboarding);
@@ -96,6 +98,7 @@ export class ExperimentView extends Component {
       showFilters: false,
       showOnboardingHelper: onboardingInformationStore.getItem('showTrackingHelper') === null,
       searchInput: props.searchInput,
+      diffSwitchSelected: false,
     };
   }
   static propTypes = {
@@ -780,13 +783,24 @@ export class ExperimentView extends Component {
                       paramKeyList={paramKeyList}
                       metricKeyList={metricKeyList}
                       visibleTagKeyList={visibleTagKeyList}
-                      runInfos={this.props.runInfos}
-                      paramsList={this.props.paramsList}
-                      metricsList={this.props.metricsList}
-                      tagsList={this.props.tagsList}
                       categorizedUncheckedKeys={categorizedUncheckedKeys}
                       onCheck={this.handleColumnSelectionCheck}
                     />
+                    <Tooltip
+                      title={this.props.intl.formatMessage({
+                        defaultMessage: 'Turn on to select only columns with different values',
+                        description:
+                          'Switch to select only columns with different values across runs',
+                      })}
+                    >
+                      <Switch
+                        style={{ margin: '5px' }}
+                        dataTestId='diff-switch'
+                        defaultChecked={this.state.diffSwitchSelected}
+                        unCheckedChildren='Diff'
+                        onChange={this.handleDiffSwitchChange}
+                      />
+                    </Tooltip>
                   </Spacer>
                   <Spacer direction='horizontal' size='small'>
                     <Popover
@@ -1132,6 +1146,88 @@ export class ExperimentView extends Component {
 
   handleModelVersionFilterInput({ key: modelVersionFilterInput }) {
     this.initiateSearch({ modelVersionFilterInput });
+  }
+
+  handleDiffSwitchChange() {
+    this.setState({ diffSwitchSelected: !this.state.diffSwitchSelected }, () => {
+      const categorizedUncheckedKeys = this.state.diffSwitchSelected
+        ? this.getCategorizedColumnsDiffView()
+        : {
+            [COLUMN_TYPES.ATTRIBUTES]: [],
+            [COLUMN_TYPES.PARAMS]: [],
+            [COLUMN_TYPES.METRICS]: [],
+            [COLUMN_TYPES.TAGS]: [],
+          };
+      this.handleColumnSelectionCheck(categorizedUncheckedKeys);
+    });
+  }
+
+  /**
+   * Obtain the categorized columns for which the values in them
+   * have only a single value (or are undefined)
+   */
+  getCategorizedColumnsDiffView() {
+    const { paramKeyList, metricKeyList, runInfos, paramsList, metricsList, tagsList } = this.props;
+    const tagKeyList = Utils.getVisibleTagKeyList(tagsList);
+    const attributeKeyList = [
+      ATTRIBUTE_COLUMN_LABELS.RUN_NAME,
+      ATTRIBUTE_COLUMN_LABELS.USER,
+      ATTRIBUTE_COLUMN_LABELS.SOURCE,
+      ATTRIBUTE_COLUMN_LABELS.VERSION,
+    ];
+    let attributes = [];
+    let params = [];
+    let metrics = [];
+    let tags = [];
+
+    for (let index = 0, n = runInfos.length; index < n; ++index) {
+      const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[index]);
+      const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[index]);
+      const tagsMap = tagsList[index];
+
+      attributes.push([
+        Utils.getRunName(tagsList[index]),
+        Utils.getUser(runInfos[index], tagsList[index]),
+        Utils.formatSource(tagsList[index]),
+        Utils.getSourceVersion(tagsList[index]),
+      ]);
+      params.push(
+        paramKeyList.map((paramKey) => {
+          return paramsMap[paramKey] ? paramsMap[paramKey].getValue() : '';
+        }),
+      );
+      metrics.push(
+        metricKeyList.map((metricKey) => {
+          return metricsMap[metricKey] ? metricsMap[metricKey].getValue() : '';
+        }),
+      );
+      tags.push(
+        tagKeyList.map((tagKey) => {
+          return tagsMap[tagKey] ? tagsMap[tagKey].getValue() : '';
+        }),
+      );
+    }
+    // Transpose the matrices so that we can evaluate the values 'column-based'
+    attributes = _.unzip(attributes);
+    params = _.unzip(params);
+    metrics = _.unzip(metrics);
+    tags = _.unzip(tags);
+    const allEqual = (arr) => arr.every((val) => val === arr[0]);
+
+    return {
+      [COLUMN_TYPES.ATTRIBUTES]: attributeKeyList.filter((v, index) => {
+        return allEqual(attributes[index]);
+      }),
+      [COLUMN_TYPES.PARAMS]: paramKeyList.filter((v, index) => {
+        return allEqual(params[index]);
+      }),
+      [COLUMN_TYPES.METRICS]: metricKeyList.filter((v, index) => {
+        return allEqual(metrics[index]);
+      }),
+      [COLUMN_TYPES.TAGS]: tagKeyList.filter((v, index) => {
+        return allEqual(tags[index]);
+      }),
+    };
   }
 
   onSearch(e, searchInput) {
