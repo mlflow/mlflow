@@ -25,7 +25,6 @@ export class RunsTableColumnSelectionDropdown extends React.Component {
 
   state = {
     menuVisible: false,
-    diffViewSelected: false,
   };
 
   handleCheck = (checkedKeys, allKeys) => {
