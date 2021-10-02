@@ -38,7 +38,6 @@ import { Button } from '../../shared/building_blocks/Button';
 import { Spacer } from '../../shared/building_blocks/Spacer';
 import { SearchBox } from '../../shared/building_blocks/SearchBox';
 import { Radio } from '../../shared/building_blocks/Radio';
-import { Checkbox } from '../../shared/building_blocks/Checkbox';
 import syncSvg from '../../common/static/sync.svg';
 import {
   COLUMN_TYPES,
@@ -49,7 +48,6 @@ import {
   DEFAULT_ORDER_BY_ASC,
   DEFAULT_START_TIME,
   ATTRIBUTE_COLUMN_SORT_LABEL,
-  ATTRIBUTE_COLUMN_LABELS,
   ATTRIBUTE_COLUMN_SORT_KEY,
   COLUMN_SORT_BY_ASC,
   COLUMN_SORT_BY_DESC,
@@ -70,7 +68,6 @@ export class ExperimentView extends Component {
     this.onClear = this.onClear.bind(this);
     this.onSortBy = this.onSortBy.bind(this);
     this.onHandleSortByDropdown = this.onHandleSortByDropdown.bind(this);
-    this.onDiffViewCheckboxChange = this.onDiffViewCheckboxChange.bind(this);
     this.isAllChecked = this.isAllChecked.bind(this);
     this.onCheckbox = this.onCheckbox.bind(this);
     this.onCheckAll = this.onCheckAll.bind(this);
@@ -99,7 +96,6 @@ export class ExperimentView extends Component {
       showFilters: false,
       showOnboardingHelper: onboardingInformationStore.getItem('showTrackingHelper') === null,
       searchInput: props.searchInput,
-      diffViewSelected: false,
     };
   }
   static propTypes = {
@@ -784,6 +780,10 @@ export class ExperimentView extends Component {
                       paramKeyList={paramKeyList}
                       metricKeyList={metricKeyList}
                       visibleTagKeyList={visibleTagKeyList}
+                      runInfos={this.props.runInfos}
+                      paramsList={this.props.paramsList}
+                      metricsList={this.props.metricsList}
+                      tagsList={this.props.tagsList}
                       categorizedUncheckedKeys={categorizedUncheckedKeys}
                       onCheck={this.handleColumnSelectionCheck}
                     />
@@ -818,11 +818,6 @@ export class ExperimentView extends Component {
                         />
                       </div>
                     </Button>
-                    <Checkbox
-                      label='Diff'
-                      isSelected={this.state.diffViewSelected}
-                      onCheckboxChange={this.onDiffViewCheckboxChange}
-                    ></Checkbox>
                     <Button dataTestId='clear-button' onClick={this.onClear}>
                       <FormattedMessage
                         defaultMessage='Clear'
@@ -1183,87 +1178,6 @@ export class ExperimentView extends Component {
     this.props.history.push(
       Routes.getCompareRunPageRoute(runsSelectedList, this.props.experiment.getExperimentId()),
     );
-  }
-
-  onDiffViewCheckboxChange() {
-    this.setState({ diffViewSelected: !this.state.diffViewSelected }, () => {
-      const categorizedUncheckedKeys = this.state.diffViewSelected
-        ? this.getCategorizedColumnsDiffView()
-        : {
-            [COLUMN_TYPES.ATTRIBUTES]: [],
-            [COLUMN_TYPES.PARAMS]: [],
-            [COLUMN_TYPES.METRICS]: [],
-            [COLUMN_TYPES.TAGS]: [],
-          };
-      this.handleColumnSelectionCheck(categorizedUncheckedKeys);
-    });
-  }
-
-  getCategorizedColumnsDiffView() {
-    const { paramKeyList, metricKeyList, runInfos, paramsList, metricsList, tagsList } = this.props;
-    const filteredAttributeKeys = [
-      ATTRIBUTE_COLUMN_LABELS.RUN_NAME,
-      ATTRIBUTE_COLUMN_LABELS.USER,
-      ATTRIBUTE_COLUMN_LABELS.SOURCE,
-      ATTRIBUTE_COLUMN_LABELS.VERSION,
-    ];
-    const filteredParamKeys = this.getFilteredKeys(paramKeyList, COLUMN_TYPES.PARAMS);
-    const filteredMetricKeys = this.getFilteredKeys(metricKeyList, COLUMN_TYPES.METRICS);
-    const visibleTagKeys = Utils.getVisibleTagKeyList(tagsList);
-    const filteredTagKeys = this.getFilteredKeys(visibleTagKeys, COLUMN_TYPES.TAGS);
-    let attributes = [];
-    let params = [];
-    let metrics = [];
-    let tags = [];
-
-    for (let index = 0, n = runInfos.length; index < n; ++index) {
-      const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[index]);
-      const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[index]);
-      const tagsMap = tagsList[index];
-
-      attributes.push([
-        Utils.getRunName(tagsList[index]),
-        Utils.getUser(runInfos[index], tagsList[index]),
-        Utils.formatSource(tagsList[index]),
-        Utils.getSourceVersion(tagsList[index]),
-      ]);
-      params.push(
-        filteredParamKeys.map((paramKey) => {
-          return paramsMap[paramKey] ? paramsMap[paramKey].getValue() : '';
-        }),
-      );
-      metrics.push(
-        filteredMetricKeys.map((metricKey) => {
-          return metricsMap[metricKey] ? metricsMap[metricKey].getValue() : '';
-        }),
-      );
-      tags.push(
-        filteredTagKeys.map((tagKey) => {
-          return tagsMap[tagKey] ? tagsMap[tagKey].getValue() : '';
-        }),
-      );
-    }
-    // Transpose the matrices so that we can evaluate the values 'column-based'
-    attributes = _.unzip(attributes);
-    params = _.unzip(params);
-    metrics = _.unzip(metrics);
-    tags = _.unzip(tags);
-    const allEqual = (arr) => arr.every((val) => val === arr[0]);
-
-    return {
-      [COLUMN_TYPES.ATTRIBUTES]: filteredAttributeKeys.filter((v, index) => {
-        return allEqual(attributes[index]);
-      }),
-      [COLUMN_TYPES.PARAMS]: filteredParamKeys.filter((v, index) => {
-        return allEqual(params[index]);
-      }),
-      [COLUMN_TYPES.METRICS]: filteredMetricKeys.filter((v, index) => {
-        return allEqual(metrics[index]);
-      }),
-      [COLUMN_TYPES.TAGS]: filteredTagKeys.filter((v, index) => {
-        return allEqual(tags[index]);
-      }),
-    };
   }
 
   onDownloadCsv() {
