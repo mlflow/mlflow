@@ -4,13 +4,23 @@ import {
   ExperimentRunsTableMultiColumnView2,
   ModelsCellRenderer,
 } from './ExperimentRunsTableMultiColumnView2';
-import { COLUMN_TYPES } from '../constants';
+import { COLUMN_TYPES, ATTRIBUTE_COLUMN_LABELS } from '../constants';
 import { RunTag } from '../sdk/MlflowMessages';
 import { MemoryRouter as Router } from 'react-router-dom';
+
+function getChildColumnNames(columnDefs, parentName) {
+  return columnDefs
+    .find((header) => header.headerName === parentName)
+    .children.map((childHeader) => {
+      return childHeader.headerName;
+    });
+}
 
 describe('ExperimentRunsTableMultiColumnView2', () => {
   let wrapper;
   let minimalProps;
+  let commonProps;
+  let updateColumnDefsSpy;
   const runTags = {
     'mlflow.log-model.history': RunTag.fromJs({
       key: 'mlflow.log-model.history',
@@ -50,6 +60,16 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
         [COLUMN_TYPES.TAGS]: [],
       },
     };
+    commonProps = {
+      ...minimalProps,
+      metricKeyList: ['metric1', 'metric2'],
+      paramKeyList: ['param1', 'param2'],
+      visibleTagKeyList: ['tag1', 'tag2'],
+      categorizedUncheckedKeys: {
+        [COLUMN_TYPES.ATTRIBUTES]: [ATTRIBUTE_COLUMN_LABELS.DATE, ATTRIBUTE_COLUMN_LABELS.DURATION],
+      },
+    };
+    updateColumnDefsSpy = jest.fn();
   });
 
   test('should render with minimal props without exploding', () => {
@@ -228,5 +248,126 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
     const output = ModelsCellRenderer(props);
     wrapper = shallow(<Router>{output}</Router>);
     expect(wrapper.html()).toContain('1 more');
+  });
+
+  test('getColumnDefs should return only attribute columns that are not unchecked', () => {
+    const expectedColumnNames = [
+      undefined,
+      ATTRIBUTE_COLUMN_LABELS.RUN_NAME,
+      ATTRIBUTE_COLUMN_LABELS.USER,
+      ATTRIBUTE_COLUMN_LABELS.SOURCE,
+      ATTRIBUTE_COLUMN_LABELS.VERSION,
+      ATTRIBUTE_COLUMN_LABELS.MODELS,
+      'Metrics',
+      'Parameters',
+      'Tags',
+    ];
+    const expectedMetricColumnNames = ['metric1', 'metric2'];
+    const expectedParameterColumnNames = ['param1', 'param2'];
+    const expectedTagColumnNames = ['tag1', 'tag2'];
+
+    wrapper = shallow(<ExperimentRunsTableMultiColumnView2 {...commonProps} />);
+    const instance = wrapper.instance();
+    const columnNames = instance.columnDefs.map((column) => {
+      return column.headerName;
+    });
+    const metricColumnNames = getChildColumnNames(instance.columnDefs, 'Metrics');
+    const paramColumnNames = getChildColumnNames(instance.columnDefs, 'Parameters');
+    const tagColumnNames = getChildColumnNames(instance.columnDefs, 'Tags');
+
+    expect(columnNames).toEqual(expectedColumnNames);
+    expect(metricColumnNames).toEqual(expectedMetricColumnNames);
+    expect(paramColumnNames).toEqual(expectedParameterColumnNames);
+    expect(tagColumnNames).toEqual(expectedTagColumnNames);
+  });
+
+  test('getColumnDefs should not no longer return columnDef after column uncheck', () => {
+    const expectedColumnNames = [
+      undefined,
+      ATTRIBUTE_COLUMN_LABELS.USER,
+      ATTRIBUTE_COLUMN_LABELS.SOURCE,
+      ATTRIBUTE_COLUMN_LABELS.VERSION,
+      ATTRIBUTE_COLUMN_LABELS.MODELS,
+      'Metrics',
+      'Parameters',
+      'Tags',
+    ];
+    const expectedMetricColumnNames = ['metric1'];
+    const expectedParameterColumnNames = ['param1'];
+    const expectedTagColumnNames = ['tag1'];
+
+    wrapper = shallow(<ExperimentRunsTableMultiColumnView2 {...commonProps} />);
+    const instance = wrapper.instance();
+    instance.updateColumnDefs = updateColumnDefsSpy;
+
+    wrapper.setProps({
+      metricKeyList: expectedMetricColumnNames,
+      paramKeyList: expectedParameterColumnNames,
+      visibleTagKeyList: expectedTagColumnNames,
+      categorizedUncheckedKeys: {
+        [COLUMN_TYPES.ATTRIBUTES]: [
+          ATTRIBUTE_COLUMN_LABELS.RUN_NAME,
+          ATTRIBUTE_COLUMN_LABELS.DATE,
+          ATTRIBUTE_COLUMN_LABELS.DURATION,
+        ],
+      },
+    });
+
+    const columnNames = instance.getColumnDefs().map((column) => {
+      return column.headerName;
+    });
+    const metricColumnNames = getChildColumnNames(instance.getColumnDefs(), 'Metrics');
+    const paramColumnNames = getChildColumnNames(instance.getColumnDefs(), 'Parameters');
+    const tagColumnNames = getChildColumnNames(instance.getColumnDefs(), 'Tags');
+
+    expect(columnNames).toEqual(expectedColumnNames);
+    expect(metricColumnNames).toEqual(expectedMetricColumnNames);
+    expect(paramColumnNames).toEqual(expectedParameterColumnNames);
+    expect(tagColumnNames).toEqual(expectedTagColumnNames);
+    expect(updateColumnDefsSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test('getColumnDefs should return columnDef after column check', () => {
+    const expectedColumnNames = [
+      undefined,
+      ATTRIBUTE_COLUMN_LABELS.DATE,
+      ATTRIBUTE_COLUMN_LABELS.RUN_NAME,
+      ATTRIBUTE_COLUMN_LABELS.USER,
+      ATTRIBUTE_COLUMN_LABELS.SOURCE,
+      ATTRIBUTE_COLUMN_LABELS.VERSION,
+      ATTRIBUTE_COLUMN_LABELS.MODELS,
+      'Metrics',
+      'Parameters',
+      'Tags',
+    ];
+    const expectedMetricColumnNames = ['metric1', 'metric2', 'metric3'];
+    const expectedParameterColumnNames = ['param1', 'param2', 'param3'];
+    const expectedTagColumnNames = ['tag1', 'tag2', 'tag3'];
+
+    wrapper = shallow(<ExperimentRunsTableMultiColumnView2 {...commonProps} />);
+    const instance = wrapper.instance();
+    instance.updateColumnDefs = updateColumnDefsSpy;
+
+    wrapper.setProps({
+      metricKeyList: expectedMetricColumnNames,
+      paramKeyList: expectedParameterColumnNames,
+      visibleTagKeyList: expectedTagColumnNames,
+      categorizedUncheckedKeys: {
+        [COLUMN_TYPES.ATTRIBUTES]: [ATTRIBUTE_COLUMN_LABELS.DURATION],
+      },
+    });
+
+    const columnNames = instance.getColumnDefs().map((column) => {
+      return column.headerName;
+    });
+    const metricColumnNames = getChildColumnNames(instance.getColumnDefs(), 'Metrics');
+    const paramColumnNames = getChildColumnNames(instance.getColumnDefs(), 'Parameters');
+    const tagColumnNames = getChildColumnNames(instance.getColumnDefs(), 'Tags');
+
+    expect(columnNames).toEqual(expectedColumnNames);
+    expect(metricColumnNames).toEqual(expectedMetricColumnNames);
+    expect(paramColumnNames).toEqual(expectedParameterColumnNames);
+    expect(tagColumnNames).toEqual(expectedTagColumnNames);
+    expect(updateColumnDefsSpy).toHaveBeenCalledTimes(1);
   });
 });
