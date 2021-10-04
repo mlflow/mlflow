@@ -72,7 +72,7 @@ def _join_continued_lines(lines):
 _Requirement = namedtuple("_Requirement", ["req_str", "is_constraint"])
 
 
-def _parse_requirements(requirements_file, is_constraint):
+def _parse_requirements(requirements, is_constraint):
     """
     A simplified version of `pip._internal.req.parse_requirements` which performs the following
     operations on the given requirements file and yields the parsed requirements.
@@ -82,7 +82,8 @@ def _parse_requirements(requirements_file, is_constraint):
     - Resolve requirements file references (e.g. '-r requirements.txt')
     - Resolve constraints file references (e.g. '-c constraints.txt')
 
-    :param requirements_file: A string path to a requirements file on the local filesystem.
+    :param requirements: A string path to a requirements file on the local filesystem or
+                         an iterable of pip requirement strings.
     :param is_constraint: Indicates the parsed requirements file is a constraint file.
     :return: A list of ``_Requirement`` instances.
 
@@ -94,10 +95,14 @@ def _parse_requirements(requirements_file, is_constraint):
     - Constraints Files:
       https://pip.pypa.io/en/stable/user_guide/#constraints-files
     """
-    with open(requirements_file) as f:
-        lines = f.read().splitlines()
+    if isinstance(requirements, str):
+        base_dir = os.path.dirname(requirements)
+        with open(requirements) as f:
+            requirements = f.read().splitlines()
+    else:
+        base_dir = os.getcwd()
 
-    lines = map(str.strip, lines)
+    lines = map(str.strip, requirements)
     lines = map(_strip_inline_comment, lines)
     lines = _join_continued_lines(lines)
     lines = filterfalse(_is_comment, lines)
@@ -108,11 +113,11 @@ def _parse_requirements(requirements_file, is_constraint):
             req_file = line.split(maxsplit=1)[1]
             # If `req_file` is an absolute path, `os.path.join` returns `req_file`:
             # https://docs.python.org/3/library/os.path.html#os.path.join
-            abs_path = os.path.join(os.path.dirname(requirements_file), req_file)
+            abs_path = os.path.join(base_dir, req_file)
             yield from _parse_requirements(abs_path, is_constraint=False)
         elif _is_constraints_file(line):
             req_file = line.split(maxsplit=1)[1]
-            abs_path = os.path.join(os.path.dirname(requirements_file), req_file)
+            abs_path = os.path.join(base_dir, req_file)
             yield from _parse_requirements(abs_path, is_constraint=True)
         else:
             yield _Requirement(line, is_constraint)
