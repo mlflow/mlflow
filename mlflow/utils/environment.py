@@ -1,5 +1,4 @@
 import yaml
-import tempfile
 import os
 import logging
 
@@ -156,6 +155,9 @@ def _parse_pip_requirements(pip_requirements):
             return False
 
     if _is_string(pip_requirements):
+        with open(pip_requirements) as f:
+            return _parse_pip_requirements(f.read().splitlines())
+    elif _is_iterable(pip_requirements) and all(map(_is_string, pip_requirements)):
         requirements = []
         constraints = []
         for req_or_con in _parse_requirements(pip_requirements, is_constraint=False):
@@ -165,24 +167,6 @@ def _parse_pip_requirements(pip_requirements):
                 requirements.append(req_or_con.req_str)
 
         return requirements, constraints
-    elif _is_iterable(pip_requirements) and all(map(_is_string, pip_requirements)):
-        try:
-            # Create a temporary requirements file in the current working directory
-            tmp_req_file = tempfile.NamedTemporaryFile(
-                mode="w",
-                prefix="mlflow.",
-                suffix=".tmp.requirements.txt",
-                dir=os.getcwd(),
-                # Setting `delete` to True causes a permission-denied error on Windows
-                # while trying to read the generated temporary file.
-                delete=False,
-            )
-            tmp_req_file.write("\n".join(pip_requirements))
-            tmp_req_file.close()
-            return _parse_pip_requirements(tmp_req_file.name)
-        finally:
-            # Clean up the temporary requirements file
-            os.remove(tmp_req_file.name)
     else:
         raise TypeError(
             "`pip_requirements` must be either a string path to a pip requirements file on the "
