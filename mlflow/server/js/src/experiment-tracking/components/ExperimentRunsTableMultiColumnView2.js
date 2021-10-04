@@ -75,7 +75,6 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     filter: true,
     suppressMenu: true,
     suppressMovable: true,
-    maintainColumnOrder: true,
   };
 
   // A map of framework(React) specific custom components.
@@ -481,6 +480,9 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
   }
 
   updateColumnDefs(columnDefs) {
+    if (!this.gridApi) return;
+    // setColumnDefs is called twice to make sure the order of columnDefs is consistent
+    this.gridApi.setColumnDefs([]);
     this.gridApi.setColumnDefs(columnDefs);
   }
 
