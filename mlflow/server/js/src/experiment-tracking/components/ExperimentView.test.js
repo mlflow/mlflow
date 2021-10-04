@@ -192,10 +192,17 @@ describe('Download CSV', () => {
 
   const blobOptionExpected = { type: 'application/csv;charset=utf-8' };
   const filenameExpected = 'runs.csv';
+  const startTimeStringExpected = Utils.formatTimestamp(
+    getDefaultExperimentViewProps().runInfos[0].start_time,
+  );
   const saveAsSpy = jest.spyOn(FileSaver, 'saveAs');
+  const blobSpy = jest.spyOn(global, 'Blob').mockImplementation((content, options) => {
+    return { content, options };
+  });
 
   afterEach(() => {
     saveAsSpy.mockClear();
+    blobSpy.mockClear();
   });
 
   test('Downloaded CSV contains tags', () => {
@@ -207,16 +214,14 @@ describe('Download CSV', () => {
       }),
     ];
     const csvExpected = `
-Run ID,Name,Source Type,Source Name,User,Status,batch_size,acc,a,b
-run-id,name,LOCAL,src.py,user,FINISHED,512,0.1,0,1
+Start Time,Duration,Run ID,Name,Source Type,Source Name,User,Status,batch_size,acc,a,b
+${startTimeStringExpected},0ms,run-id,name,LOCAL,src.py,user,FINISHED,512,0.1,0,1
 `.substring(1); // strip a leading newline
 
     const wrapper = getExperimentViewMock({ tagsList });
     wrapper.instance().onDownloadCsv();
-    expect(saveAsSpy).toHaveBeenCalledWith(
-      new Blob([csvExpected], blobOptionExpected),
-      filenameExpected,
-    );
+    expect(saveAsSpy).toHaveBeenCalledWith(expect.anything(), filenameExpected);
+    expect(blobSpy).toHaveBeenCalledWith([csvExpected], blobOptionExpected);
   });
 
   test('Downloaded CSV does not contain unchecked tags', () => {
@@ -228,8 +233,8 @@ run-id,name,LOCAL,src.py,user,FINISHED,512,0.1,0,1
       }),
     ];
     const csvExpected = `
-Run ID,Name,Source Type,Source Name,User,Status,batch_size,acc,a
-run-id,name,LOCAL,src.py,user,FINISHED,512,0.1,0
+Start Time,Duration,Run ID,Name,Source Type,Source Name,User,Status,batch_size,acc,a
+${startTimeStringExpected},0ms,run-id,name,LOCAL,src.py,user,FINISHED,512,0.1,0
 `.substring(1);
 
     const wrapper = getExperimentViewMock({ tagsList });
@@ -241,25 +246,21 @@ run-id,name,LOCAL,src.py,user,FINISHED,512,0.1,0
     });
     // Then, download CSV
     wrapper.instance().onDownloadCsv();
-    expect(saveAsSpy).toHaveBeenCalledWith(
-      new Blob([csvExpected], blobOptionExpected),
-      filenameExpected,
-    );
+    expect(saveAsSpy).toHaveBeenCalledWith(expect.anything(), filenameExpected);
+    expect(blobSpy).toHaveBeenCalledWith([csvExpected], blobOptionExpected);
   });
 
   test('CSV download succeeds without tags', () => {
     const tagsList = [createTags(mlflowSystemTags)];
     const csvExpected = `
-Run ID,Name,Source Type,Source Name,User,Status,batch_size,acc
-run-id,name,LOCAL,src.py,user,FINISHED,512,0.1
+Start Time,Duration,Run ID,Name,Source Type,Source Name,User,Status,batch_size,acc
+${startTimeStringExpected},0ms,run-id,name,LOCAL,src.py,user,FINISHED,512,0.1
 `.substring(1);
 
     const wrapper = getExperimentViewMock({ tagsList });
     wrapper.instance().onDownloadCsv();
-    expect(saveAsSpy).toHaveBeenCalledWith(
-      new Blob([csvExpected], blobOptionExpected),
-      filenameExpected,
-    );
+    expect(saveAsSpy).toHaveBeenCalledWith(expect.anything(), filenameExpected);
+    expect(blobSpy).toHaveBeenCalledWith([csvExpected], blobOptionExpected);
   });
 });
 
