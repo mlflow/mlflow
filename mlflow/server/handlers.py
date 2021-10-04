@@ -23,6 +23,7 @@ from mlflow.protos.service_pb2 import (
     GetRun,
     SearchRuns,
     ListArtifacts,
+    S3GetPresignedUrl,
     GetMetricHistory,
     CreateRun,
     UpdateRun,
@@ -494,6 +495,35 @@ def _list_artifacts():
 
 
 @catch_mlflow_exception
+def _s3_get_presigned_url():
+    import boto3
+
+    # https://boto3.amazonaws.com/v1/documentation/api/latest/guide/s3-presigned-urls.html#generating-a-presigned-url-to-upload-a-file
+    request_message = _get_request_message(S3GetPresignedUrl())
+    response_message = S3GetPresignedUrl.Response()
+    bucket_name = request_message.bucket_name
+    key = request_message.key
+    method = request_message.method
+    s3_client = boto3.client("s3")
+    if method == "get":
+        response = s3_client.generate_presigned_url(
+            "get_object", Params={"Bucket": bucket_name, "Key": key}, ExpiresIn=3600
+        )
+        response_message.url = response
+    elif method == "post":
+        response = s3_client.generate_presigned_post(bucket_name, key, ExpiresIn=3600)
+        response_message.url = response["url"]
+        for k, v in response["fields"].items():
+            response_message.fields[k] = v
+    else:
+        raise ValueError(f"Invalid method: {method}")
+
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
 def _get_metric_history():
     request_message = _get_request_message(GetMetricHistory())
     response_message = GetMetricHistory.Response()
@@ -863,6 +893,7 @@ HANDLERS = {
     GetRun: _get_run,
     SearchRuns: _search_runs,
     ListArtifacts: _list_artifacts,
+    S3GetPresignedUrl: _s3_get_presigned_url,
     GetMetricHistory: _get_metric_history,
     ListExperiments: _list_experiments,
     # Model Registry APIs

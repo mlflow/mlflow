@@ -388,6 +388,22 @@ service MlflowService {
     };
   }
 
+  rpc s3GetPresignedUrl (S3GetPresignedUrl) returns (S3GetPresignedUrl.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/artifacts/s3/presigned-url"
+        since { major: 2, minor: 0 },
+      }, {
+        method: "GET",
+        path: "/preview/mlflow/artifacts/s3/presigned-url"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Get Presigned URL",
+    };
+  }
+
   // Get a list of all values for the specified metric for a given run.
   //
   rpc getMetricHistory (GetMetricHistory) returns (GetMetricHistory.Response) {
@@ -1006,6 +1022,19 @@ message ListArtifacts {
 
     // Token that can be used to retrieve the next page of artifact results
     optional string next_page_token = 3;
+  }
+}
+
+message S3GetPresignedUrl {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string bucket_name = 1;
+  optional string key = 2;
+  optional string method = 3;
+
+  message Response {
+    optional string url = 1;
+    map<string, string> fields = 2;
   }
 }
 

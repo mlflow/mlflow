@@ -3,12 +3,12 @@ from mimetypes import guess_type
 
 import posixpath
 import urllib.parse
+import requests
 
 from mlflow import data
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.utils.file_utils import relative_path_to_artifact_path
 
 
 class S3ArtifactRepository(ArtifactRepository):
@@ -170,3 +170,52 @@ class S3ArtifactRepository(ArtifactRepository):
                 listed_object_path=file_path, artifact_path=dest_path
             )
             s3_client.delete_object(Bucket=bucket, Key=file_path)
+
+
+def _download_file_from_url(url, local_path):
+    # https://stackoverflow.com/a/16696317
+    # NOTE the stream=True parameter below
+    with requests.get(url, stream=True) as r:
+        r.raise_for_status()
+        with open(local_path, "wb") as f:
+            for chunk in r.iter_content(chunk_size=8192):
+                # If you have chunk encoded response uncomment if
+                # and set chunk_size parameter to None.
+                # if chunk:
+                f.write(chunk)
+
+
+class PresignedS3ArtifactRepository(S3ArtifactRepository):
+    @staticmethod
+    def _get_presigned_url(bucket_name, key, method):
+        from mlflow.tracking._tracking_service import get_tracking_uri
+
+        return requests.get(
+            get_tracking_uri() + "//ajax-api/2.0/preview/mlflow/artifacts/s3/presigned-url",
+            params={"bucket_name": bucket_name, "key": key, "method": method},
+        )
+
+    def log_artifact(self, local_file, artifact_path=None):
+        bucket, dest_path = data.parse_s3_uri(self.artifact_uri)
+        filename = os.path.basename(local_file)
+        paths = (artifact_path, filename) if artifact_path else (filename,)
+        dest_path = posixpath.join(dest_path, *paths)
+        resp = PresignedS3ArtifactRepository._get_presigned_url(bucket, dest_path, "post")
+        with open(local_file, "rb") as f:
+            files = {"file": f}
+            resp = requests.post(resp["url"], data=resp["fields"], files=files)
+
+    def _download_file(self, remote_file_path, local_path):
+        bucket, s3_root_path = data.parse_s3_uri(self.artifact_uri)
+        s3_full_path = posixpath.join(s3_root_path, remote_file_path)
+        resp = PresignedS3ArtifactRepository._get_presigned_url(bucket, s3_full_path, "get")
+        _download_file_from_url(resp["url"], local_path)
+
+
+def _get_s3_artifact_repository():
+    return (
+        PresignedS3ArtifactRepository
+        if os.environ.get("MLFLOW_ENABLE_PRESIGNED_URL", "false").lower() == "true"
+        else S3ArtifactRepository
+    )
+

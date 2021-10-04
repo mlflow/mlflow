@@ -10,7 +10,7 @@ from mlflow.store.artifact.hdfs_artifact_repo import HdfsArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
-from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository, _get_s3_artifact_repository
 from mlflow.store.artifact.sftp_artifact_repo import SFTPArtifactRepository
 
 from mlflow.utils.uri import get_uri_scheme
@@ -75,7 +75,7 @@ _artifact_repository_registry = ArtifactRepositoryRegistry()
 
 _artifact_repository_registry.register("", LocalArtifactRepository)
 _artifact_repository_registry.register("file", LocalArtifactRepository)
-_artifact_repository_registry.register("s3", S3ArtifactRepository)
+_artifact_repository_registry.register("s3", _get_s3_artifact_repository())
 _artifact_repository_registry.register("gs", GCSArtifactRepository)
 _artifact_repository_registry.register("wasbs", AzureBlobArtifactRepository)
 _artifact_repository_registry.register("ftp", FTPArtifactRepository)
