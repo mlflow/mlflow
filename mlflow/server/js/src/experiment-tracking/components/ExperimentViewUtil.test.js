@@ -4,7 +4,9 @@ import ExperimentViewUtil, { TreeNode } from './ExperimentViewUtil';
 import { getModelVersionPageRoute } from '../../model-registry/routes';
 import { BrowserRouter } from 'react-router-dom';
 import { SEARCH_MAX_RESULTS } from '../actions';
-import { ATTRIBUTE_COLUMN_LABELS } from '../constants';
+import { ATTRIBUTE_COLUMN_LABELS, COLUMN_TYPES } from '../constants';
+import { Metric, Param, RunTag, RunInfo } from '../sdk/MlflowMessages';
+import Utils from '../../common/utils/Utils';
 
 describe('ExperimentViewUtil', () => {
   test('getCheckboxForRow should render', () => {
@@ -209,5 +211,91 @@ describe('ExperimentViewUtil', () => {
     root.parent = grandchild;
 
     expect(grandchild.isCycle()).toBeTruthy();
+  });
+
+  test('getCategorizedColumnsDiffView returns the correct column keys to uncheck', () => {
+    const runInfos = [
+      RunInfo.fromJs({
+        run_uuid: 'run-id1',
+        experiment_id: '3',
+        status: 'FINISHED',
+        start_time: 1,
+        end_time: 1,
+        artifact_uri: 'dummypath',
+        lifecycle_stage: 'active',
+      }),
+      RunInfo.fromJs({
+        run_uuid: 'run-id2',
+        experiment_id: '3',
+        status: 'FINISHED',
+        start_time: 2,
+        end_time: 2,
+        artifact_uri: 'dummypath',
+        lifecycle_stage: 'active',
+      }),
+    ];
+    const paramKeyList = ['param1', 'param2', 'param3', 'param4'];
+    const metricKeyList = ['metric1', 'metric2', 'metric3', 'metric4'];
+    const paramsList = [
+      [
+        Param.fromJs({ key: 'param1', value: '1' }),
+        Param.fromJs({ key: 'param2', value: '1' }),
+        Param.fromJs({ key: 'param3', value: '1' }),
+      ],
+      [Param.fromJs({ key: 'param1', value: '1' }), Param.fromJs({ key: 'param2', value: '2' })],
+    ];
+    const metricsList = [
+      [
+        Metric.fromJs({ key: 'metric1', value: '1' }),
+        Metric.fromJs({ key: 'metric2', value: '1' }),
+        Metric.fromJs({ key: 'metric3', value: '1' }),
+      ],
+      [
+        Metric.fromJs({ key: 'metric1', value: '1' }),
+        Metric.fromJs({ key: 'metric2', value: '2' }),
+      ],
+    ];
+
+    const createTags = (tags) => {
+      // Converts {key: value, ...} to {key: RunTag(key, value), ...}
+      return Object.entries(tags).reduce(
+        (acc, [key, value]) => ({ ...acc, [key]: RunTag.fromJs({ key, value }) }),
+        {},
+      );
+    };
+    const tagsList = [
+      createTags({
+        tag1: '1',
+        tag2: '1',
+        tag3: '1',
+        [Utils.runNameTag]: 'runname1',
+        [Utils.userTag]: 'usertag1',
+        [Utils.gitCommitTag]: 'gitcommit1',
+      }),
+      createTags({
+        tag1: '1',
+        tag2: '2',
+        [Utils.runNameTag]: 'runname1',
+        [Utils.userTag]: 'usertag2',
+        [Utils.gitCommitTag]: 'gitcommit2',
+      }),
+    ];
+    const expectedUncheckedKeys = {
+      [COLUMN_TYPES.ATTRIBUTES]: [ATTRIBUTE_COLUMN_LABELS.RUN_NAME],
+      [COLUMN_TYPES.PARAMS]: ['param1', 'param4'],
+      [COLUMN_TYPES.METRICS]: ['metric1', 'metric4'],
+      [COLUMN_TYPES.TAGS]: ['tag1'],
+    };
+
+    expect(
+      ExperimentViewUtil.getCategorizedColumnsDiffView({
+        runInfos,
+        paramKeyList,
+        metricKeyList,
+        paramsList,
+        metricsList,
+        tagsList,
+      }),
+    ).toEqual(expectedUncheckedKeys);
   });
 });

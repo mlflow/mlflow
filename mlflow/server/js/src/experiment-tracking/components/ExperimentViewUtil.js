@@ -14,6 +14,7 @@ import {
   ATTRIBUTE_COLUMN_LABELS,
   ATTRIBUTE_COLUMN_SORT_KEY,
   DEFAULT_EXPANDED_VALUE,
+  COLUMN_TYPES,
 } from '../constants';
 
 export default class ExperimentViewUtil {
@@ -555,6 +556,78 @@ export default class ExperimentViewUtil {
       return false;
     }
     return numRunsFromLatestSearch < SEARCH_MAX_RESULTS;
+  }
+
+  /**
+   * Obtain the categorized columns for which the values in them
+   * have only a single value (or are undefined)
+   */
+  static getCategorizedColumnsDiffView({
+    paramKeyList,
+    metricKeyList,
+    runInfos,
+    paramsList,
+    metricsList,
+    tagsList,
+  }) {
+    const tagKeyList = Utils.getVisibleTagKeyList(tagsList);
+    const attributeKeyList = [
+      ATTRIBUTE_COLUMN_LABELS.RUN_NAME,
+      ATTRIBUTE_COLUMN_LABELS.USER,
+      ATTRIBUTE_COLUMN_LABELS.VERSION,
+    ];
+    let attributes = [];
+    let params = [];
+    let metrics = [];
+    let tags = [];
+
+    for (let index = 0, n = runInfos.length; index < n; ++index) {
+      const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[index]);
+      const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[index]);
+      const tagsMap = tagsList[index];
+
+      attributes.push([
+        Utils.getRunName(tagsList[index]),
+        Utils.getUser(runInfos[index], tagsList[index]),
+        Utils.getSourceVersion(tagsList[index]),
+      ]);
+      params.push(
+        paramKeyList.map((paramKey) => {
+          return paramsMap[paramKey] ? paramsMap[paramKey].getValue() : '';
+        }),
+      );
+      metrics.push(
+        metricKeyList.map((metricKey) => {
+          return metricsMap[metricKey] ? metricsMap[metricKey].getValue() : '';
+        }),
+      );
+      tags.push(
+        tagKeyList.map((tagKey) => {
+          return tagsMap[tagKey] ? tagsMap[tagKey].getValue() : '';
+        }),
+      );
+    }
+    // Transpose the matrices so that we can evaluate the values 'column-based'
+    attributes = _.unzip(attributes);
+    params = _.unzip(params);
+    metrics = _.unzip(metrics);
+    tags = _.unzip(tags);
+    const allEqual = (arr) => arr.every((val) => val === arr[0]);
+
+    return {
+      [COLUMN_TYPES.ATTRIBUTES]: attributeKeyList.filter((v, index) => {
+        return allEqual(attributes[index]);
+      }),
+      [COLUMN_TYPES.PARAMS]: paramKeyList.filter((v, index) => {
+        return allEqual(params[index]);
+      }),
+      [COLUMN_TYPES.METRICS]: metricKeyList.filter((v, index) => {
+        return allEqual(metrics[index]);
+      }),
+      [COLUMN_TYPES.TAGS]: tagKeyList.filter((v, index) => {
+        return allEqual(tags[index]);
+      }),
+    };
   }
 }
 

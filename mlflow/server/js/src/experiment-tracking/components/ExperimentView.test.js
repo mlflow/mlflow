@@ -29,8 +29,8 @@ import {
   DEFAULT_START_TIME,
   COLUMN_SORT_BY_ASC,
   COLUMN_SORT_BY_DESC,
-  ATTRIBUTE_COLUMN_LABELS,
 } from '../constants';
+import ExperimentViewUtil from './ExperimentViewUtil';
 
 let onSearchSpy;
 
@@ -444,7 +444,16 @@ describe('Start time dropdown', () => {
 
 describe('Diff Switch', () => {
   test('handleDiffSwitchChange changes state correctly', () => {
-    const getCategorizedColumnsDiffViewSpy = jest.fn();
+    const getCategorizedColumnsDiffViewSpy = jest
+      .spyOn(ExperimentViewUtil, 'getCategorizedColumnsDiffView')
+      .mockImplementation(() => {
+        return {
+          [COLUMN_TYPES.ATTRIBUTES]: [],
+          [COLUMN_TYPES.PARAMS]: [],
+          [COLUMN_TYPES.METRICS]: [],
+          [COLUMN_TYPES.TAGS]: [],
+        };
+      });
     const handleColumnSelectionCheckSpy = jest.fn();
     const wrapper = getExperimentViewMock();
     const instance = wrapper.instance();
@@ -471,84 +480,5 @@ describe('Diff Switch', () => {
       [COLUMN_TYPES.METRICS]: [],
       [COLUMN_TYPES.TAGS]: [],
     });
-  });
-
-  test('getCategorizedColumnsDiffView returns the correct column keys to uncheck', () => {
-    const runInfos = [
-      RunInfo.fromJs({
-        run_uuid: 'run-id1',
-        experiment_id: '3',
-        status: 'FINISHED',
-        start_time: 1,
-        end_time: 1,
-        artifact_uri: 'dummypath',
-        lifecycle_stage: 'active',
-      }),
-      RunInfo.fromJs({
-        run_uuid: 'run-id2',
-        experiment_id: '3',
-        status: 'FINISHED',
-        start_time: 2,
-        end_time: 2,
-        artifact_uri: 'dummypath',
-        lifecycle_stage: 'active',
-      }),
-    ];
-    const paramKeyList = ['param1', 'param2', 'param3', 'param4'];
-    const metricKeyList = ['metric1', 'metric2', 'metric3', 'metric4'];
-    const paramsList = [
-      [
-        Param.fromJs({ key: 'param1', value: '1' }),
-        Param.fromJs({ key: 'param2', value: '1' }),
-        Param.fromJs({ key: 'param3', value: '1' }),
-      ],
-      [Param.fromJs({ key: 'param1', value: '1' }), Param.fromJs({ key: 'param2', value: '2' })],
-    ];
-    const metricsList = [
-      [
-        Metric.fromJs({ key: 'metric1', value: '1' }),
-        Metric.fromJs({ key: 'metric2', value: '1' }),
-        Metric.fromJs({ key: 'metric3', value: '1' }),
-      ],
-      [
-        Metric.fromJs({ key: 'metric1', value: '1' }),
-        Metric.fromJs({ key: 'metric2', value: '2' }),
-      ],
-    ];
-    const tagsList = [
-      createTags({
-        tag1: '1',
-        tag2: '1',
-        tag3: '1',
-        [Utils.runNameTag]: 'runname1',
-        [Utils.userTag]: 'usertag1',
-        [Utils.sourceNameTag]: 'sourcename1',
-        [Utils.gitCommitTag]: 'gitcommit1',
-      }),
-      createTags({
-        tag1: '1',
-        tag2: '2',
-        [Utils.runNameTag]: 'runname1',
-        [Utils.userTag]: 'usertag2',
-        [Utils.sourceNameTag]: 'sourcename1',
-        [Utils.gitCommitTag]: 'gitcommit2',
-      }),
-    ];
-    const expectedUncheckedKeys = {
-      [COLUMN_TYPES.ATTRIBUTES]: [ATTRIBUTE_COLUMN_LABELS.RUN_NAME, ATTRIBUTE_COLUMN_LABELS.SOURCE],
-      [COLUMN_TYPES.PARAMS]: ['param1', 'param4'],
-      [COLUMN_TYPES.METRICS]: ['metric1', 'metric4'],
-      [COLUMN_TYPES.TAGS]: ['tag1'],
-    };
-    const wrapper = getExperimentViewMock({
-      runInfos,
-      paramKeyList,
-      metricKeyList,
-      paramsList,
-      metricsList,
-      tagsList,
-    });
-    const instance = wrapper.instance();
-    expect(instance.getCategorizedColumnsDiffView()).toEqual(expectedUncheckedKeys);
   });
 });
