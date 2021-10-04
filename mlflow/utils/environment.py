@@ -1,5 +1,4 @@
 import yaml
-import tempfile
 import os
 import logging
 
