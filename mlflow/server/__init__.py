@@ -61,10 +61,10 @@ def _upload_to_s3(stream, bucket_name, key, chunk_size=5 * 1024 ** 2):
     # smart_open performs a multi part upload (MPU):
     # https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html
 
-    # Google Cloud Storage storage supports MLP:
+    # Google Cloud Storage storage supports MPU:
     # https://cloud.google.com/storage/docs/multipart-uploads
 
-    # Azure Blob Storage also supports MLP:
+    # Azure Blob Storage also supports MPU:
     # https://docs.microsoft.com/en-us/rest/api/storageservices/understanding-block-blobs--append-blobs--and-page-blobs
 
     url = f"s3://{bucket_name}/{key}"
