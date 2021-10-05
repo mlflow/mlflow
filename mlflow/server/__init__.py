@@ -3,7 +3,7 @@ import shlex
 import sys
 import textwrap
 
-from flask import Flask, send_from_directory, Response
+from flask import Flask, send_from_directory, Response, request, jsonify
 
 from mlflow.server import handlers
 from mlflow.server.handlers import (
@@ -48,6 +48,71 @@ def health():
 @app.route(_add_static_prefix("/get-artifact"))
 def serve_artifacts():
     return get_artifact_handler()
+
+
+def _upload_to_s3(stream, bucket_name, key, chunk_size=5 * 1024 ** 2):
+    import smart_open
+    import boto3
+    import time
+
+    # smart_open:
+    # https://github.com/RaRe-Technologies/smart_open
+
+    # smart_open performs a multi part upload (MPU):
+    # https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html
+
+    # Google Cloud Storage storage supports MLP:
+    # https://cloud.google.com/storage/docs/multipart-uploads
+
+    # Azure Blob Storage also supports MLP:
+    # https://docs.microsoft.com/en-us/rest/api/storageservices/understanding-block-blobs--append-blobs--and-page-blobs
+
+    url = f"s3://{bucket_name}/{key}"
+    transport_params = {
+        "client": boto3.client("s3"),
+        # Size of each part (default: 50 MB)
+        # Doc: https://github.com/RaRe-Technologies/smart_open/blob/develop/howto.md#how-to-write-to-s3-efficiently
+        "min_part_size": chunk_size,
+    }
+    start = time.time()
+    with smart_open.open(url, "wb", transport_params=transport_params) as fout:
+        while True:
+            chunk = stream.read(chunk_size)
+            if len(chunk) == 0:
+                break
+            fout.write(chunk)
+    return time.time() - start
+
+
+@app.route(_add_static_prefix("/artifacts/upload"), methods=["POST"])
+def _upload_artifact():
+    bucket_name = request.args.get("bucket_name")
+    key = request.args.get("key")
+    duration = _upload_to_s3(request.stream, bucket_name, key)
+    return jsonify({"duration": duration})
+
+
+def _read_from_s3(bucket_name, key, chunk_size=8192):
+    import smart_open
+    import boto3
+
+    url = f"s3://{bucket_name}/{key}"
+    transport_params = {"client": boto3.client("s3")}
+    # smart_open performs a multi part upload
+    with smart_open.open(url, "rb", transport_params=transport_params, compression="disable") as f:
+        while True:
+            chunk = f.read(chunk_size)
+            if len(chunk) == 0:
+                break
+            yield chunk
+
+
+# Serve the "get-artifact" route.
+@app.route(_add_static_prefix("/artifacts/get"), methods=["GET"])
+def stream_get_artifact():
+    bucket_name = request.args.get("bucket_name")
+    key = request.args.get("key")
+    return Response(_read_from_s3(bucket_name, key))
 
 
 # Serve the "model-versions/get-artifact" route.
