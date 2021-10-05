@@ -99,7 +99,7 @@ def _read_from_s3(bucket_name, key, chunk_size=8192):
     url = f"s3://{bucket_name}/{key}"
     transport_params = {"client": boto3.client("s3")}
     # smart_open performs a multi part upload
-    with smart_open.open(url, "rb", transport_params=transport_params, compression="disable") as f:
+    with smart_open.open(url, "rb", transport_params=transport_params) as f:
         while True:
             chunk = f.read(chunk_size)
             if len(chunk) == 0:
