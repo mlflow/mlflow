@@ -20,7 +20,7 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
   let wrapper;
   let minimalProps;
   let commonProps;
-  let updateColumnDefsSpy;
+  let setColumnDefsSpy;
   const runTags = {
     'mlflow.log-model.history': RunTag.fromJs({
       key: 'mlflow.log-model.history',
@@ -69,7 +69,7 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
         [COLUMN_TYPES.ATTRIBUTES]: [ATTRIBUTE_COLUMN_LABELS.DATE, ATTRIBUTE_COLUMN_LABELS.DURATION],
       },
     };
-    updateColumnDefsSpy = jest.fn();
+    setColumnDefsSpy = jest.fn();
   });
 
   test('should render with minimal props without exploding', () => {
@@ -268,12 +268,12 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
 
     wrapper = shallow(<ExperimentRunsTableMultiColumnView2 {...commonProps} />);
     const instance = wrapper.instance();
-    const columnNames = instance.columnDefs.map((column) => {
+    const columnNames = instance.state.columnDefs.map((column) => {
       return column.headerName;
     });
-    const metricColumnNames = getChildColumnNames(instance.columnDefs, 'Metrics');
-    const paramColumnNames = getChildColumnNames(instance.columnDefs, 'Parameters');
-    const tagColumnNames = getChildColumnNames(instance.columnDefs, 'Tags');
+    const metricColumnNames = getChildColumnNames(instance.state.columnDefs, 'Metrics');
+    const paramColumnNames = getChildColumnNames(instance.state.columnDefs, 'Parameters');
+    const tagColumnNames = getChildColumnNames(instance.state.columnDefs, 'Tags');
 
     expect(columnNames).toEqual(expectedColumnNames);
     expect(metricColumnNames).toEqual(expectedMetricColumnNames);
@@ -298,7 +298,7 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
 
     wrapper = shallow(<ExperimentRunsTableMultiColumnView2 {...commonProps} />);
     const instance = wrapper.instance();
-    instance.updateColumnDefs = updateColumnDefsSpy;
+    instance.setColumnDefs = setColumnDefsSpy;
 
     wrapper.setProps({
       metricKeyList: expectedMetricColumnNames,
@@ -324,7 +324,7 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
     expect(metricColumnNames).toEqual(expectedMetricColumnNames);
     expect(paramColumnNames).toEqual(expectedParameterColumnNames);
     expect(tagColumnNames).toEqual(expectedTagColumnNames);
-    expect(updateColumnDefsSpy).toHaveBeenCalledTimes(1);
+    expect(setColumnDefsSpy).toHaveBeenCalledTimes(1);
   });
 
   test('getColumnDefs should return columnDef after column check', () => {
@@ -346,7 +346,7 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
 
     wrapper = shallow(<ExperimentRunsTableMultiColumnView2 {...commonProps} />);
     const instance = wrapper.instance();
-    instance.updateColumnDefs = updateColumnDefsSpy;
+    instance.setColumnDefs = setColumnDefsSpy;
 
     wrapper.setProps({
       metricKeyList: expectedMetricColumnNames,
@@ -368,6 +368,6 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
     expect(metricColumnNames).toEqual(expectedMetricColumnNames);
     expect(paramColumnNames).toEqual(expectedParameterColumnNames);
     expect(tagColumnNames).toEqual(expectedTagColumnNames);
-    expect(updateColumnDefsSpy).toHaveBeenCalledTimes(1);
+    expect(setColumnDefsSpy).toHaveBeenCalledTimes(1);
   });
 });
