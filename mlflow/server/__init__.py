@@ -62,7 +62,7 @@ def serve_artifacts():
     return get_artifact_handler()
 
 
-def _upload_to_s3(stream, bucket_name, key, chunk_size=10 * 1024 ** 2):
+def _upload_to_s3(stream, bucket_name, key, chunk_size=5 * 1024 ** 2):
     import time
 
     # smart_open:
