@@ -106,9 +106,6 @@ class S3ArtifactRepository(ArtifactRepository):
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
         dest_path = posixpath.join(dest_path, os.path.basename(local_file))
-        self._upload_file(
-            s3_client=self._get_s3_client(), local_file=local_file, bucket=bucket, key=dest_path
-        )
         url = get_tracking_uri() + "/artifacts/upload"
         params = {"bucket_name": bucket, "key": dest_path}
         with open(local_file, "rb") as f:

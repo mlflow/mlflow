@@ -2,6 +2,8 @@ import os
 import shlex
 import sys
 import textwrap
+import boto3
+import smart_open
 
 from flask import Flask, send_from_directory, Response, request, jsonify
 
@@ -13,6 +15,16 @@ from mlflow.server.handlers import (
     get_model_version_artifact_handler,
 )
 from mlflow.utils.process import exec_cmd
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+
+for name in logging.root.manager.loggerDict:
+    if name.startswith("smart_open.s3") or name.startswith("flask"):
+        logging.getLogger(name).setLevel(logging.DEBUG)
+    else:
+        logger = logging.getLogger(name)
+        logger.disabled = True
 
 # NB: These are intenrnal environment variables used for communication between
 # the cli and the forked gunicorn processes.
@@ -50,9 +62,7 @@ def serve_artifacts():
     return get_artifact_handler()
 
 
-def _upload_to_s3(stream, bucket_name, key, chunk_size=5 * 1024 ** 2):
-    import smart_open
-    import boto3
+def _upload_to_s3(stream, bucket_name, key, chunk_size=10 * 1024 ** 2):
     import time
 
     # smart_open:
@@ -86,6 +96,7 @@ def _upload_to_s3(stream, bucket_name, key, chunk_size=5 * 1024 ** 2):
 
 @app.route(_add_static_prefix("/artifacts/upload"), methods=["POST"])
 def _upload_artifact():
+    print("called")
     bucket_name = request.args.get("bucket_name")
     key = request.args.get("key")
     duration = _upload_to_s3(request.stream, bucket_name, key)
@@ -93,9 +104,6 @@ def _upload_artifact():
 
 
 def _read_from_s3(bucket_name, key, chunk_size=8192):
-    import smart_open
-    import boto3
-
     url = f"s3://{bucket_name}/{key}"
     transport_params = {"client": boto3.client("s3")}
     # smart_open performs a multi part upload
@@ -164,7 +172,20 @@ def _build_waitress_command(waitress_opts, host, port):
 def _build_gunicorn_command(gunicorn_opts, host, port, workers):
     bind_address = "%s:%s" % (host, port)
     opts = shlex.split(gunicorn_opts) if gunicorn_opts else []
-    return ["gunicorn"] + opts + ["-b", bind_address, "-w", "%s" % workers, "mlflow.server:app"]
+    return (
+        ["gunicorn"]
+        + opts
+        + [
+            "-b",
+            bind_address,
+            "-w",
+            "%s" % workers,
+            "mlflow.server:app",
+            "--timeout",
+            "120",
+            "--reload",
+        ]
+    )
 
 
 def _run_server(
