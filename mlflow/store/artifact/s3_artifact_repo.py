@@ -4,6 +4,9 @@ from mimetypes import guess_type
 import posixpath
 import urllib.parse
 import requests
+import logging
+
+_logger = logging.getLogger(__name__)
 
 from mlflow import data
 from mlflow.entities import FileInfo
@@ -111,6 +114,7 @@ class S3ArtifactRepository(ArtifactRepository):
         with open(local_file, "rb") as f:
             resp = requests.post(url, params=params, data=f)
             resp.raise_for_status()
+            _logger.info(resp.json())
 
     def log_artifacts(self, local_dir, artifact_path=None):
         (bucket, dest_path) = data.parse_s3_uri(self.artifact_uri)

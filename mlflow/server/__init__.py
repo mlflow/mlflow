@@ -20,7 +20,8 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 for name in logging.root.manager.loggerDict:
-    if name.startswith("smart_open.s3") or name.startswith("flask"):
+    top_module = name.split(".")[0].lower()
+    if top_module in ["smart_open", "flask", "mlflow", "gunicorn"]:
         logging.getLogger(name).setLevel(logging.DEBUG)
     else:
         logger = logging.getLogger(name)
@@ -62,7 +63,7 @@ def serve_artifacts():
     return get_artifact_handler()
 
 
-def _upload_to_s3(stream, bucket_name, key, chunk_size=5 * 1024 ** 2):
+def _upload_to_s3(stream, bucket_name, key, chunk_size=50 * 1024 ** 2):
     import time
 
     # smart_open:
@@ -96,7 +97,6 @@ def _upload_to_s3(stream, bucket_name, key, chunk_size=5 * 1024 ** 2):
 
 @app.route(_add_static_prefix("/artifacts/upload"), methods=["POST"])
 def _upload_artifact():
-    print("called")
     bucket_name = request.args.get("bucket_name")
     key = request.args.get("key")
     duration = _upload_to_s3(request.stream, bucket_name, key)
@@ -184,6 +184,8 @@ def _build_gunicorn_command(gunicorn_opts, host, port, workers):
             "--timeout",
             "120",
             "--reload",
+            "--log-level",
+            "debug",
         ]
     )
 
