@@ -71,7 +71,7 @@ def get_db_info_from_uri(uri):
         # netloc should not be an empty string unless URI is formatted incorrectly.
         if parsed_uri.netloc == "":
             raise MlflowException(
-                "URI is formatted incorrectly: no netloc in URI '%s'." % parsed_uri.netloc
+                "URI is formatted incorrectly: no netloc in URI '%s'." % uri
             )
         profile_tokens = parsed_uri.netloc.split(":")
         parsed_scope = profile_tokens[0]
