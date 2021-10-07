@@ -3,6 +3,7 @@ import inspect
 import itertools
 import functools
 import os
+import traceback
 import uuid
 import warnings
 from abc import abstractmethod
@@ -549,6 +550,10 @@ def safe_patch(
                     # mode should be reraised to detect bugs in autologging implementations
                     if failed_during_original or is_testing():
                         raise
+
+                    # Attach the stack trace to the exception object
+                    # so that in event logging we can log exception with stack trace
+                    patch_function_exception._stack_trace = traceback.format_exc()
 
                 if is_testing() and not preexisting_run_for_testing:
                     # If an MLflow run was created during the execution of patch code, verify that
