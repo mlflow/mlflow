@@ -69,7 +69,7 @@ def get_db_info_from_uri(uri):
     parsed_uri = urllib.parse.urlparse(uri)
     if parsed_uri.scheme == "databricks":
         # netloc should not be an empty string unless URI is formatted incorrectly.
-        if parsed_uri.netloc == '':
+        if parsed_uri.netloc == "":
             raise MlflowException(
                 "URI is formatted incorrectly: no netloc in URI '%s'." % parsed_uri.netloc
             )
