@@ -66,6 +66,7 @@ def test_get_db_info_from_uri(server_uri, result):
         "databricks://profile:",
         "databricks://profile: ",
         "databricks:/profile:prefix",
+        "databricks:/",
         "databricks://",
     ],
 )
