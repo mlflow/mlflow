@@ -73,7 +73,8 @@ class S3ArtifactRepository(ArtifactRepository):
             from botocore import UNSIGNED
 
             signature_version = UNSIGNED
-        return boto3.client(
+        sess = boto3.Session()
+        return sess.client(
             "s3",
             config=Config(signature_version=signature_version),
             endpoint_url=s3_endpoint_url,

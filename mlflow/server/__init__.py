@@ -2,10 +2,11 @@ import os
 import shlex
 import sys
 import textwrap
-import boto3
-import smart_open
 
 from flask import Flask, send_from_directory, Response, request, jsonify
+import boto3
+from boto3.s3.transfer import TransferConfig
+
 
 from mlflow.server import handlers
 from mlflow.server.handlers import (
@@ -21,7 +22,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 for name in logging.root.manager.loggerDict:
     top_module = name.split(".")[0].lower()
-    if top_module in ["smart_open", "flask", "mlflow", "gunicorn"]:
+    if top_module in ["s3transfer", "boto3", "botocore", "gunicorn", "mlflow"]:
         logging.getLogger(name).setLevel(logging.DEBUG)
     else:
         logger = logging.getLogger(name)
@@ -66,12 +67,6 @@ def serve_artifacts():
 def _upload_to_s3(stream, bucket_name, key, chunk_size=50 * 1024 ** 2):
     import time
 
-    # smart_open:
-    # https://github.com/RaRe-Technologies/smart_open
-
-    # smart_open performs a multi part upload (MPU):
-    # https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html
-
     # Google Cloud Storage storage supports MPU:
     # https://cloud.google.com/storage/docs/multipart-uploads
 
@@ -79,19 +74,23 @@ def _upload_to_s3(stream, bucket_name, key, chunk_size=50 * 1024 ** 2):
     # https://docs.microsoft.com/en-us/rest/api/storageservices/understanding-block-blobs--append-blobs--and-page-blobs
 
     url = f"s3://{bucket_name}/{key}"
-    transport_params = {
-        "client": boto3.client("s3"),
-        # Size of each part (default: 50 MB)
-        # Doc: https://github.com/RaRe-Technologies/smart_open/blob/develop/howto.md#how-to-write-to-s3-efficiently
-        "min_part_size": chunk_size,
-    }
+    client = boto3.client("s3")
     start = time.time()
-    with smart_open.open(url, "wb", transport_params=transport_params) as fout:
-        while True:
-            chunk = stream.read(chunk_size)
-            if len(chunk) == 0:
-                break
-            fout.write(chunk)
+    # client.upload_fileobj(stream, bucket_name, key)
+    # https://boto3.amazonaws.com/v1/documentation/api/latest/guide/s3.html#file-transfer-configuration
+    client.upload_fileobj(
+        stream, bucket_name, key, Config=TransferConfig(multipart_chunksize=10 * 1024 ** 2)
+    )
+    # Default values:
+    # TransferConfig(
+    #     multipart_threshold=8 * MB,
+    #     max_concurrency=10,
+    #     multipart_chunksize=8 * MB,
+    #     num_download_attempts=5,
+    #     max_io_queue=100,
+    #     io_chunksize=256 * KB,
+    #     use_threads=True,
+    # )
     return time.time() - start
 
 
@@ -105,14 +104,13 @@ def _upload_artifact():
 
 def _read_from_s3(bucket_name, key, chunk_size=8192):
     url = f"s3://{bucket_name}/{key}"
-    transport_params = {"client": boto3.client("s3")}
-    # smart_open performs a multi part upload
-    with smart_open.open(url, "rb", transport_params=transport_params) as f:
-        while True:
-            chunk = f.read(chunk_size)
-            if len(chunk) == 0:
-                break
-            yield chunk
+    s3_client = boto3.client("s3")
+    obj = s3_client.get_object(Bucket=bucket_name, Key=key)
+    while True:
+        chunk = obj["Body"].read(chunk_size)
+        if len(chunk) == 0:
+            break
+        yield chunk
 
 
 # Serve the "get-artifact" route.
@@ -182,7 +180,7 @@ def _build_gunicorn_command(gunicorn_opts, host, port, workers):
             "%s" % workers,
             "mlflow.server:app",
             "--timeout",
-            "120",
+            "600",
             "--reload",
             "--log-level",
             "debug",
