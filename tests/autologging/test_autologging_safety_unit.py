@@ -647,8 +647,8 @@ def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation
     patch_destination, test_autologging_integration, mock_event_logger,
 ):
     patch_session = None
-    exc_to_raise_msg = "thrown from patch"
-    original_err_to_raise_msg = "throw from original"
+    exc_to_raise = Exception("thrown from patch")
+    original_err_to_raise = Exception("throw from original")
 
     throw_location = "before"
 
@@ -658,12 +658,12 @@ def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation
         patch_session = _AutologgingSessionManager.active_session()
 
         if throw_location == "before":
-            raise Exception(exc_to_raise_msg)
+            raise exc_to_raise
 
         original(*args, **kwargs)
 
         if throw_location != "before":
-            raise Exception(exc_to_raise_msg)
+            raise exc_to_raise
 
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
     safe_patch(test_autologging_integration, patch_destination, "throw_error_fn", patch_impl)
@@ -685,23 +685,16 @@ def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation
         assert patch_start.exception is None
         assert original_start.exception is None
         assert original_success.exception is None
-        assert patch_error.exception.args[0] == exc_to_raise_msg
-        stack_trace = patch_error.exception._stack_trace
-        assert (
-            "Traceback" in stack_trace
-            and "in safe_patch_function" in stack_trace
-            and "in patch_impl" in stack_trace
-            and "Exception: thrown from patch" in stack_trace
-        )
+        assert patch_error.exception == exc_to_raise
 
         mock_event_logger.reset()
-        with pytest.raises(Exception, match=original_err_to_raise_msg):
-            patch_destination.throw_error_fn(Exception(original_err_to_raise_msg))
+        with pytest.raises(Exception, match="throw from original"):
+            patch_destination.throw_error_fn(original_err_to_raise)
         assert [call.method for call in mock_event_logger.calls] == expected_order_bad_fn
         patch_start, original_start, original_error = mock_event_logger.calls
         assert patch_start.exception is None
         assert original_start.exception is None
-        assert original_error.exception.args[0] == original_err_to_raise_msg
+        assert original_error.exception == original_err_to_raise
 
 
 def test_safe_patch_makes_expected_event_logging_calls_when_original_function_throws(
