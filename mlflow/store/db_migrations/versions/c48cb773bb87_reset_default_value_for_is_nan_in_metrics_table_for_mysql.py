@@ -27,7 +27,7 @@ def upgrade():
     #
     # To revert this change, set the default column value to "0" by specifying `server_default`
     bind = op.get_bind()
-    if bind.engine.name == 'mysql':
+    if bind.engine.name == "mysql":
         with op.batch_alter_table("metrics") as batch_op:
             batch_op.alter_column(
                 "is_nan",
