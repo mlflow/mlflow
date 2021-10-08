@@ -23,3 +23,5 @@ RUN pip list
 COPY log.py .
 COPY init-mssql-db.sh .
 COPY init-mssql-db.sql .
+
+RUN chmod +x init-mssql-db.sh
