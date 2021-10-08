@@ -566,6 +566,12 @@ def safe_patch(
                     else:
                         return call_original_fn_with_event_logging(original, args, kwargs)
                 finally:
+                    # If original function succeeds, but `patch_function_exception` exists,
+                    # it represent patching code unexpected failure, so we call
+                    # `log_patch_function_error` in this case.
+                    # If original function failed, we don't call `log_patch_function_error`
+                    # even if `patch_function_exception` exists, because original function failure
+                    # means there's some error in user code (e.g. user provide wrong arguments)
                     if patch_function_exception is not None and not failed_during_original:
                         try_log_autologging_event(
                             AutologgingEventLogger.get_logger().log_patch_function_error,
