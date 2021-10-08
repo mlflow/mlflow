@@ -26,13 +26,15 @@ def upgrade():
     # https://alembic.sqlalchemy.org/en/latest/ops.html#alembic.operations.Operations.alter_column
     #
     # To revert this change, set the default column value to "0" by specifying `server_default`
-    with op.batch_alter_table("metrics") as batch_op:
-        batch_op.alter_column(
-            "is_nan",
-            type_=sa.types.Boolean(create_constraint=True),
-            nullable=False,
-            server_default="0",
-        )
+    bind = op.get_bind()
+    if bind.engine.name == 'mysql':
+        with op.batch_alter_table("metrics") as batch_op:
+            batch_op.alter_column(
+                "is_nan",
+                type_=sa.types.Boolean(create_constraint=True),
+                nullable=False,
+                server_default="0",
+            )
 
 
 def downgrade():
