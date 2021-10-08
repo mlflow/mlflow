@@ -32,3 +32,18 @@ services:
       context: .
     environment:
       MLFLOW_TRACKING_URI: mysql://mlflowuser:mlflowpassword@mysql:3306/mlflowdb
+
+  mssql:
+    image: mcr.microsoft.com/mssql/server
+    restart: always
+    environment:
+      ACCEPT_EULA: Y
+      SA_PASSWORD: "1Secure*Password1"
+
+  mlflow-mssql:
+    depends_on:
+      - mssql
+    build:
+      context: .
+    environment:
+      MLFLOW_TRACKING_URI: mssql+pyodbc://mlflowuser:Mlfl*wpassword1@mssql/mlflowdb?driver=ODBC+Driver+17+for+SQL+Server
