@@ -643,12 +643,11 @@ def test_safe_patch_makes_expected_event_logging_calls_for_successful_patch_invo
     assert patch_success.exception is original_success.exception is None
 
 
-def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation_throws(
+def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation_throws_and_original_succeeds(
     patch_destination, test_autologging_integration, mock_event_logger,
 ):
     patch_session = None
     exc_to_raise = Exception("thrown from patch")
-    original_err_to_raise = Exception("throw from original")
 
     throw_location = "before"
 
@@ -675,8 +674,6 @@ def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation
         "patch_error",
     ]
 
-    expected_order_bad_fn = ["patch_start", "original_start", "original_error"]
-
     for throw_location in ["before", "after"]:
         mock_event_logger.reset()
         patch_destination.fn()
@@ -687,6 +684,35 @@ def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation
         assert original_success.exception is None
         assert patch_error.exception == exc_to_raise
 
+
+def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation_throws_and_original_throws(
+    patch_destination, test_autologging_integration, mock_event_logger,
+):
+    patch_session = None
+    exc_to_raise = Exception("thrown from patch")
+    original_err_to_raise = Exception("throw from original")
+
+    throw_location = "before"
+
+    def patch_impl(original, *args, **kwargs):
+        nonlocal patch_session
+        nonlocal throw_location
+        patch_session = _AutologgingSessionManager.active_session()
+
+        if throw_location == "before":
+            raise exc_to_raise
+
+        original(*args, **kwargs)
+
+        if throw_location != "before":
+            raise exc_to_raise
+
+    safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
+    safe_patch(test_autologging_integration, patch_destination, "throw_error_fn", patch_impl)
+
+    expected_order_bad_fn = ["patch_start", "original_start", "original_error"]
+
+    for throw_location in ["before", "after"]:
         mock_event_logger.reset()
         with pytest.raises(Exception, match="throw from original"):
             patch_destination.throw_error_fn(original_err_to_raise)
