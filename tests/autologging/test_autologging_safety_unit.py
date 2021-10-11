@@ -652,7 +652,6 @@ def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation
 
     def patch_impl(original, *args, **kwargs):
         nonlocal throw_location
-        patch_session = _AutologgingSessionManager.active_session()
 
         if throw_location == "before":
             raise exc_to_raise
@@ -692,7 +691,6 @@ def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation
 
     def patch_impl(original, *args, **kwargs):
         nonlocal throw_location
-        patch_session = _AutologgingSessionManager.active_session()
 
         if throw_location == "before":
             raise exc_to_raise
