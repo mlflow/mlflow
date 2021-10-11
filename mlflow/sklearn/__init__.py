@@ -1303,7 +1303,7 @@ def autolog(
         )
 
         with _SklearnTrainingSession(clazz=self.__class__, allow_children=False) as t:
-            if t.should_log():
+            if t.should_log() and self.__class__ in estimators_to_patch:
                 # In `fit_mlflow` call, it will also call metric API for computing training metrics
                 # so we need temporarily disable the post_training_metrics patching.
                 with _AUTOLOGGING_METRICS_MANAGER.disable_log_post_training_metrics():
