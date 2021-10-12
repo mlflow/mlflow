@@ -267,6 +267,9 @@ def log_model(
     """
     if xgb_model.__module__ == "xgboost.sklearn":
         import mlflow.sklearn
+        extra_xgboost_pip_requirements = get_default_pip_requirements()
+        if extra_pip_requirements:
+            extra_xgboost_pip_requirements += extra_pip_requirements
         return mlflow.sklearn.log_model(
             sk_model=xgb_model,
             artifact_path=artifact_path,
@@ -277,7 +280,7 @@ def log_model(
             input_example=input_example,
             await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
             pip_requirements=pip_requirements,
-            extra_pip_requirements=extra_pip_requirements,
+            extra_pip_requirements=extra_xgboost_pip_requirements,
         )
 
     import mlflow
