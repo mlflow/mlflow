@@ -3,6 +3,7 @@ import { shallow } from 'enzyme';
 import { MetricsPlotPanel, CHART_TYPE_BAR, CHART_TYPE_LINE } from './MetricsPlotPanel';
 import { X_AXIS_RELATIVE, X_AXIS_STEP, X_AXIS_WALL } from './MetricsPlotControls';
 import Utils from '../../common/utils/Utils';
+import { RunLinksPopover } from './RunLinksPopover';
 
 describe('unit tests', () => {
   let wrapper;
@@ -310,6 +311,66 @@ describe('unit tests', () => {
     instance.handleLegendClick({ curveNumber: 1, data: data });
     window.setTimeout(() => {
       expect(instance.getUrlState().deselectedCurves).toEqual(['runUuid1']);
+      done();
+    }, 1000);
+  });
+
+  test('click into RunLinksPopover', (done) => {
+    const data = {
+      event: {
+        clientX: 1,
+        clientY: 1,
+      },
+      points: [
+        {
+          data: { runId: 'runUuid1', name: 'run1' },
+          fullData: {
+            marker: { color: 'rgb(1, 1, 1)' },
+          },
+          y: 0.2,
+        },
+        {
+          data: { runId: 'runUuid2', name: 'run2' },
+          fullData: {
+            marker: { color: 'rgb(2, 2, 2)' },
+          },
+          y: 0.1,
+        },
+      ],
+    };
+    const props = {
+      experimentId: '1',
+      visible: true,
+      x: 1,
+      y: 1,
+      runItems: [
+        {
+          runId: 'runUuid1',
+          name: 'run1',
+          color: 'rgb(1, 1, 1)',
+          y: 0.2,
+        },
+        {
+          runId: 'runUuid2',
+          name: 'run2',
+          color: 'rgb(2, 2, 2)',
+          y: 0.1,
+        },
+      ],
+      handleClose: jest.fn(),
+      handleKeyDown: jest.fn(),
+      handleVisibleChange: jest.fn(),
+    };
+    wrapper = shallow(<MetricsPlotPanel {...minimalPropsForLineChart} />);
+    instance = wrapper.instance();
+    instance.updatePopover(data);
+    window.setTimeout(() => {
+      const popover = wrapper.find(RunLinksPopover);
+      expect(popover.props().x).toEqual(props.x);
+      expect(popover.props().y).toEqual(props.y);
+      expect(popover.props().visible).toEqual(props.visible);
+      expect(popover.props().experimentId).toEqual(props.experimentId);
+      expect(popover.props().runItems).toEqual(props.runItems);
       done();
     }, 1000);
   });
