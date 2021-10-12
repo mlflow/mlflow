@@ -1888,17 +1888,21 @@ def test_autolog_disabled_on_custom_estimator():
     mlflow.sklearn.autolog()
 
     class MyKMeansNotPickleable(sklearn.cluster.KMeans):
-        def __init__(self):
-            super(MyKMeansNotPickleable, self).__init__()
+        def __init__(self, n_clusters=8, *, init="k-means++"):
+            super(MyKMeansNotPickleable, self).__init__(n_clusters, init=init)
+
             def f1():
                 yield 1
 
             self.g1 = f1()
 
-    with mlflow.start_run() as run:
+    with mlflow.start_run() as run, \
+            mock.patch("logging.Logger.warning") as mock_warning:
         MyKMeansNotPickleable().fit(*get_iris())
+        assert any(call_args[0][0].startswith(
+            'Pickling custom sklearn model MyKMeansNotPickleable failed'
+        ) for call_args in mock_warning.call_args_list)
 
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
-    print(f'DBG01: {params}, {metrics}, {tags}')
     assert len(params) > 0 and len(metrics) > 0 and len(tags) > 0 and artifacts == []
