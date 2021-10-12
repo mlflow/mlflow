@@ -785,9 +785,16 @@ export class ExperimentView extends Component {
                       categorizedUncheckedKeys={categorizedUncheckedKeys}
                       onCheck={this.handleColumnSelectionCheck}
                     />
+                  </Spacer>
+                  <Spacer size='small' direction='horizontal'>
+                    {this.props.intl.formatMessage({
+                      defaultMessage: 'Only show differences',
+                      description:
+                        'Switch to select only columns with different values across runs',
+                    })}
                     <Tooltip
                       title={this.props.intl.formatMessage({
-                        defaultMessage: 'Turn on to select only columns with different values',
+                        defaultMessage: 'Only show columns with differences',
                         description:
                           'Switch to select only columns with different values across runs',
                       })}
@@ -796,7 +803,6 @@ export class ExperimentView extends Component {
                         style={{ margin: '5px' }}
                         dataTestId='diff-switch'
                         defaultChecked={this.state.diffSwitchSelected}
-                        unCheckedChildren='Diff'
                         onChange={this.handleDiffSwitchChange}
                       />
                     </Tooltip>
