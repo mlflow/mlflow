@@ -1133,6 +1133,7 @@ def autolog(
         )
 
     def fit_mlflow_xgboost(original, self, *args, **kwargs):
+
         """
         Autologging function for XGBoost sklearn estimators
         """
@@ -1172,27 +1173,28 @@ def autolog(
         # copied from mlflow.xgboost
         # link: https://github.com/mlflow/mlflow/blob/master/mlflow/xgboost.py#L444
         # aviod cyclic import
-        def log_feature_importance_plot(features, importance, importance_type):
+        def log_feature_importance_plot(features, importances_per_class_by_feature, importance_type):
             """
             Log feature importance plot.
             """
             import matplotlib.pyplot as plt
             from cycler import cycler
             features = np.array(features)
-            importances_per_class_by_feature = np.array(importance)
             if importances_per_class_by_feature.ndim <= 1:
-                indices = np.argsort(importance)
+                indices = np.argsort(importances_per_class_by_feature)
                 features = features[indices]
                 importances_per_class_by_feature = np.array(
                     [[importance] for importance in importances_per_class_by_feature[indices]]
                 )
                 label_classes_on_plot = False
+
             else:
                 importance_value_magnitudes = np.abs(importances_per_class_by_feature).sum(axis=1)
                 indices = np.argsort(importance_value_magnitudes)
                 features = features[indices]
                 importances_per_class_by_feature = importances_per_class_by_feature[indices]
                 label_classes_on_plot = True
+            ret_feature_importance = importances_per_class_by_feature.tolist()
 
             num_classes = importances_per_class_by_feature.shape[1]
             num_features = len(features)
@@ -1240,21 +1242,24 @@ def autolog(
                 plt.close(fig)
                 shutil.rmtree(tmpdir)
 
+            return {features[i] : ret_feature_importance[i] for i in range(num_features)}
+
+
         # mlflow.sklearn.autolog rountine
         autologging_client = MlflowAutologgingQueueingClient()
         _log_pretraining_metadata(autologging_client, self, *args, **kwargs)
         params_logging_future = autologging_client.flush(synchronous=False)
 
         # mlflow.xgboost.autolog items (early stopping + feature importance)
-        all_arg_names = inspect.getfullargspec(original)[0]  # pylint: disable=W1505
-        num_pos_args = len(args)
+        all_arg_names = inspect.getfullargspec(original).kwonlyargs  # pylint: disable=W1505
+        num_pos_kwargs = len(kwargs)
         callbacks_index = all_arg_names.index("callbacks")
 
         # add early_stopping callback
         eval_results = []
         with batch_metrics_logger(mlflow.active_run().info.run_id) as metrics_logger:
             callback = record_eval_results(eval_results, metrics_logger)
-            if num_pos_args >= callbacks_index + 1:
+            if num_pos_kwargs >= callbacks_index + 1:
                 tmp_list = list(args)
                 tmp_list[callbacks_index] += [callback]
                 args = tuple(tmp_list)
@@ -1265,12 +1270,13 @@ def autolog(
 
             # call the original fit method
             fit_output = original(self, *args, **kwargs)
+
             # get XGBoost sklearn estimator booster
             booster = self.get_booster()
 
             early_stopping_index = all_arg_names.index("early_stopping_rounds")
             early_stopping = (
-                    num_pos_args >= early_stopping_index + 1 or "early_stopping_rounds" in kwargs
+                    num_pos_kwargs >= early_stopping_index + 1 or "early_stopping_rounds" in kwargs
             )
             if early_stopping:
                 extra_step = len(eval_results)
@@ -1289,31 +1295,31 @@ def autolog(
                 early_stopping_logging_operations = autologging_client.flush(synchronous=False)
 
         # logging normalized feature importance as artifacts.
-        if self.importance_type is not None:
-            feature_importances = self.feature_importances_
-            imp_type = self.importance_type
-            features = booster.feature_name
-            if features is None:
-                features = [f"f{i}" for i in range(self.n_features_in_)]
-            try:
-                log_feature_importance_plot(
-                    features, feature_importances, imp_type
-                )
-            except Exception:
-                _logger.exception(
-                    "Failed to log feature importance plot. XGBoost autologging "
-                    "will ignore the failure and continue. Exception: "
-                )
-            tmpdir = tempfile.mkdtemp()
-            try:
-                filepath = os.path.join(tmpdir, "feature_importance_{}.json".format(imp_type))
-                with open(filepath, "w") as f:
-                    json.dump(
-                        {features[i]:feature_importances[i, :] for i in range(len(features))}, f
-                    )
-                mlflow.log_artifact(filepath)
-            finally:
-                shutil.rmtree(tmpdir)
+        if self.importance_type is None:
+            self.importance_type = "weights"
+        feature_importances = self.feature_importances_
+        imp_type = self.importance_type
+        features = booster.feature_names
+        if features is None:
+            features = [f"f{i}" for i in range(self.n_features_in_)]
+
+        try:
+            imp = log_feature_importance_plot(
+                features, feature_importances, imp_type
+            )
+        except Exception:
+            _logger.exception(
+                "Failed to log feature importance plot. XGBoost autologging "
+                "will ignore the failure and continue. Exception: "
+            )
+        tmpdir = tempfile.mkdtemp()
+        try:
+            filepath = os.path.join(tmpdir, "feature_importance_{}.json".format(imp_type))
+            with open(filepath, "w") as f:
+                json.dump(imp, f)
+            mlflow.log_artifact(filepath)
+        finally:
+            shutil.rmtree(tmpdir)
 
         # mlflow.sklearn.autolog rountine
         _log_posttraining_metadata(autologging_client, self, *args, **kwargs)
@@ -1627,11 +1633,11 @@ def autolog(
 
     if xgboost_estimator:
         estimators_to_patch = [
-            "xgboost.XGBRegressor",
-            "xgboost.XGBClassifier",
-            "xgboost.XGBRanker",
-            "xgboost.XGBRFRegressor",
-            "xgboost.XGBRFClassifier",
+            xgboost.XGBRegressor,
+            xgboost.XGBClassifier,
+            xgboost.XGBRanker,
+            xgboost.XGBRFRegressor,
+            xgboost.XGBRFClassifier,
         ]
     elif lightgbm_estimator:
         pass
