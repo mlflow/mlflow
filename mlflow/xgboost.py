@@ -265,25 +265,6 @@ def log_model(
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param kwargs: kwargs to pass to `xgboost.Booster.save_model`_ method.
     """
-    if xgb_model.__module__ == "xgboost.sklearn":
-        import mlflow.sklearn
-        extra_xgboost_pip_requirements = get_default_pip_requirements()
-        if extra_pip_requirements:
-            extra_xgboost_pip_requirements += extra_pip_requirements
-        return mlflow.sklearn.log_model(
-            sk_model=xgb_model,
-            artifact_path=artifact_path,
-            conda_env=conda_env,
-            serialization_format=serialization_format,
-            registered_model_name=registered_model_name,
-            signature=signature,
-            input_example=input_example,
-            await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-            pip_requirements=pip_requirements,
-            extra_pip_requirements=extra_xgboost_pip_requirements,
-        )
-
-    import mlflow
     Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.xgboost,

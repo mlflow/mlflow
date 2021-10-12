@@ -1321,9 +1321,13 @@ def _autolog(
                 log_model_signatures,
                 _logger,
             )
+            extra_pip_requirements = []
+            if xgboost_estimator:
+                extra_pip_requirements.append(_get_pinned_requirement("xgboost"))
 
             log_model(
                 estimator, artifact_path="model", signature=signature, input_example=input_example,
+                extra_pip_requirements=extra_pip_requirements if len(extra_pip_requirements) > 0 else None,
             )
 
         if _is_parameter_search_estimator(estimator):
@@ -1333,6 +1337,7 @@ def _autolog(
                     artifact_path="best_estimator",
                     signature=signature,
                     input_example=input_example,
+                    extra_pip_requirements=extra_pip_requirements if xgboost_estimator else None
                 )
 
             if hasattr(estimator, "best_score_"):
