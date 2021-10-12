@@ -69,41 +69,62 @@ def record_eval_results(eval_results, metrics_logger):
         return callback
 
 
-def log_feature_importance_plot(features, importances_per_class_by_feature, importance_type):
+def log_feature_importance_plot(features, importance, importance_type):
     """
     Log feature importance plot.
     """
     import matplotlib.pyplot as plt
     from cycler import cycler
+
     features = np.array(features)
+
+    # Structure the supplied `importance` values as a `num_features`-by-`num_classes` matrix
+    importances_per_class_by_feature = np.array(importance)
     if importances_per_class_by_feature.ndim <= 1:
-        indices = np.argsort(importances_per_class_by_feature)
+        # In this case, the supplied `importance` values are not given per class. Rather,
+        # one importance value is given per feature. For consistency with the assumed
+        # `num_features`-by-`num_classes` matrix structure, we coerce the importance
+        # values to a `num_features`-by-1 matrix
+        indices = np.argsort(importance)
+        # Sort features and importance values by magnitude during transformation to a
+        # `num_features`-by-`num_classes` matrix
         features = features[indices]
         importances_per_class_by_feature = np.array(
             [[importance] for importance in importances_per_class_by_feature[indices]]
         )
+        # In this case, do not include class labels on the feature importance plot because
+        # only one importance value has been provided per feature, rather than an
+        # one importance value for each class per feature
         label_classes_on_plot = False
-
     else:
         importance_value_magnitudes = np.abs(importances_per_class_by_feature).sum(axis=1)
         indices = np.argsort(importance_value_magnitudes)
         features = features[indices]
         importances_per_class_by_feature = importances_per_class_by_feature[indices]
         label_classes_on_plot = True
-    ret_feature_importance = importances_per_class_by_feature.tolist()
 
+    ret_feature_importance = importances_per_class_by_feature.tolist()
     num_classes = importances_per_class_by_feature.shape[1]
     num_features = len(features)
 
+    # If num_features > 10, increase the figure height to prevent the plot
+    # from being too dense.
     w, h = [6.4, 4.8]  # matplotlib's default figure size
     h = h + 0.1 * num_features if num_features > 10 else h
     h = h + 0.1 * num_classes if num_classes > 1 else h
     fig, ax = plt.subplots(figsize=(w, h))
+    # When importance values are provided for each class per feature, we want to ensure
+    # that the same color is used for all bars in the bar chart that have the same class
     colors_to_cycle = plt.rcParams["axes.prop_cycle"].by_key()["color"][:num_classes]
     color_cycler = cycler(color=colors_to_cycle)
     ax.set_prop_cycle(color_cycler)
 
+    # The following logic operates on one feature at a time, adding a bar to the bar chart
+    # for each class that reflects the importance of the feature to predictions of that
+    # class
     feature_ylocs = np.arange(num_features)
+    # Define offsets on the y-axis that are used to evenly space the bars for each class
+    # around the y-axis position of each feature
     offsets_per_yloc = np.linspace(-0.5, 0.5, num_classes) / 2 if num_classes > 1 else [0]
     for feature_idx, (feature_yloc, importances_per_class) in enumerate(
             zip(feature_ylocs, importances_per_class_by_feature)
@@ -115,9 +136,15 @@ def log_feature_importance_plot(features, importances_per_class_by_feature, impo
                 feature_yloc + offset,
                 class_importance,
                 align="center",
+                # Set the bar height such that importance value bars for a particular
+                # feature are spaced properly relative to each other (no overlap or gaps)
+                # and relative to importance value bars for other features
                 height=(0.5 / max(num_classes - 1, 1)),
             )
             if label_classes_on_plot and feature_idx == 0:
+                # Only set a label the first time a bar for a particular class is plotted to
+                # avoid duplicate legend entries. If we were to set a label for every bar,
+                # the legend would contain `num_features` labels for each class.
                 bar.set_label("Class {}".format(class_idx))
 
     ax.set_yticks(feature_ylocs)
