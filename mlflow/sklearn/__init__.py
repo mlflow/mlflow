@@ -59,7 +59,6 @@ from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
     batch_metrics_logger,
-    exception_safe_function,
     INPUT_EXAMPLE_SAMPLE_ROWS,
     resolve_input_example_and_signature,
     _get_new_training_session_class,
@@ -67,9 +66,9 @@ from mlflow.utils.autologging_utils import (
     disable_autologging,
     update_wrapper_extended,
 )
-# copied from mlflow.xgboost
-from mlflow.utils.autologging_utils import (  # pylint: disable=unused-import
-    ExceptionSafeAbstractClass,
+from mlflow.utils._xgboost_utils import (
+    record_eval_results,
+    log_feature_importance_plot,
 )
 
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -829,7 +828,7 @@ def _patch_estimator_method_if_available(flavor_name, class_def, func_name, patc
 
 @experimental
 @autologging_integration(FLAVOR_NAME)
-def autolog(
+def _autolog(
     log_input_examples=False,
     log_model_signatures=True,
     log_models=True,
@@ -840,7 +839,6 @@ def autolog(
     max_tuning_runs=5,
     log_post_training_metrics=True,
     xgboost_estimator=False,
-    lightgbm_estimator=False,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for scikit-learn estimators.
@@ -1134,117 +1132,6 @@ def autolog(
 
     def fit_mlflow_xgboost(original, self, *args, **kwargs):
 
-        """
-        Autologging function for XGBoost sklearn estimators
-        """
-        # copied from mlflow.xgboost
-        # link: https://github.com/mlflow/mlflow/blob/master/mlflow/xgboost.py#L392
-        # avoid cyclic import
-        def record_eval_results(eval_results, metrics_logger):
-            """
-            Create a callback function that records evaluation results.
-            """
-            # TODO: Remove `replace("SNAPSHOT", "dev")` once the following issue is addressed:
-            #       https://github.com/dmlc/xgboost/issues/6984
-            if Version(xgboost.__version__.replace("SNAPSHOT", "dev")) >= Version("1.3.0"):
-                class Callback(
-                    xgboost.callback.TrainingCallback, metaclass=ExceptionSafeAbstractClass,
-                ):
-                    def after_iteration(self, model, epoch, evals_log):
-                        evaluation_result_dict = {}
-                        for data_name, metric_dict in evals_log.items():
-                            for metric_name, metric_values_on_each_iter in metric_dict.items():
-                                key = "{}-{}".format(data_name, metric_name)
-                                evaluation_result_dict[key] = metric_values_on_each_iter[-1]
-
-                        metrics_logger.record_metrics(evaluation_result_dict, epoch)
-                        eval_results.append(evaluation_result_dict)
-                        return False
-
-                return Callback()
-            else:
-                @exception_safe_function
-                def callback(env):
-                    metrics_logger.record_metrics(dict(env.evaluation_result_list), env.iteration)
-                    eval_results.append(dict(env.evaluation_result_list))
-
-                return callback
-
-        # copied from mlflow.xgboost
-        # link: https://github.com/mlflow/mlflow/blob/master/mlflow/xgboost.py#L444
-        # aviod cyclic import
-        def log_feature_importance_plot(features, importances_per_class_by_feature, importance_type):
-            """
-            Log feature importance plot.
-            """
-            import matplotlib.pyplot as plt
-            from cycler import cycler
-            features = np.array(features)
-            if importances_per_class_by_feature.ndim <= 1:
-                indices = np.argsort(importances_per_class_by_feature)
-                features = features[indices]
-                importances_per_class_by_feature = np.array(
-                    [[importance] for importance in importances_per_class_by_feature[indices]]
-                )
-                label_classes_on_plot = False
-
-            else:
-                importance_value_magnitudes = np.abs(importances_per_class_by_feature).sum(axis=1)
-                indices = np.argsort(importance_value_magnitudes)
-                features = features[indices]
-                importances_per_class_by_feature = importances_per_class_by_feature[indices]
-                label_classes_on_plot = True
-            ret_feature_importance = importances_per_class_by_feature.tolist()
-
-            num_classes = importances_per_class_by_feature.shape[1]
-            num_features = len(features)
-
-            w, h = [6.4, 4.8]  # matplotlib's default figure size
-            h = h + 0.1 * num_features if num_features > 10 else h
-            h = h + 0.1 * num_classes if num_classes > 1 else h
-            fig, ax = plt.subplots(figsize=(w, h))
-            colors_to_cycle = plt.rcParams["axes.prop_cycle"].by_key()["color"][:num_classes]
-            color_cycler = cycler(color=colors_to_cycle)
-            ax.set_prop_cycle(color_cycler)
-
-            feature_ylocs = np.arange(num_features)
-            offsets_per_yloc = np.linspace(-0.5, 0.5, num_classes) / 2 if num_classes > 1 else [0]
-            for feature_idx, (feature_yloc, importances_per_class) in enumerate(
-                    zip(feature_ylocs, importances_per_class_by_feature)
-            ):
-                for class_idx, (offset, class_importance) in enumerate(
-                        zip(offsets_per_yloc, importances_per_class)
-                ):
-                    (bar,) = ax.barh(
-                        feature_yloc + offset,
-                        class_importance,
-                        align="center",
-                        height=(0.5 / max(num_classes - 1, 1)),
-                    )
-                    if label_classes_on_plot and feature_idx == 0:
-                        bar.set_label("Class {}".format(class_idx))
-
-            ax.set_yticks(feature_ylocs)
-            ax.set_yticklabels(features)
-            ax.set_xlabel("Importance")
-            ax.set_title("Feature Importance ({})".format(importance_type))
-            if label_classes_on_plot:
-                ax.legend()
-            fig.tight_layout()
-
-            tmpdir = tempfile.mkdtemp()
-            try:
-                # pylint: disable=undefined-loop-variable
-                filepath = os.path.join(tmpdir, "feature_importance_{}.png".format(importance_type))
-                fig.savefig(filepath)
-                mlflow.log_artifact(filepath)
-            finally:
-                plt.close(fig)
-                shutil.rmtree(tmpdir)
-
-            return {features[i] : ret_feature_importance[i] for i in range(num_features)}
-
-
         # mlflow.sklearn.autolog rountine
         autologging_client = MlflowAutologgingQueueingClient()
         _log_pretraining_metadata(autologging_client, self, *args, **kwargs)
@@ -1270,7 +1157,6 @@ def autolog(
 
             # call the original fit method
             fit_output = original(self, *args, **kwargs)
-
             # get XGBoost sklearn estimator booster
             booster = self.get_booster()
 
@@ -1302,7 +1188,6 @@ def autolog(
         features = booster.feature_names
         if features is None:
             features = [f"f{i}" for i in range(self.n_features_in_)]
-
         try:
             imp = log_feature_importance_plot(
                 features, feature_importances, imp_type
@@ -1330,9 +1215,6 @@ def autolog(
             early_stopping_logging_operations.await_completion()
 
         return fit_output
-
-    def fit_mlflow_lightgbm(original, self, *args, **kwargs):
-        pass
 
     def fit_mlflow(original, self, *args, **kwargs):
         """
@@ -1525,8 +1407,6 @@ def autolog(
                 with _AUTOLOGGING_METRICS_MANAGER.disable_log_post_training_metrics():
                     if xgboost_estimator:
                         result = fit_mlflow_xgboost(original, self, *args, **kwargs)
-                    elif lightgbm_estimator:
-                        result = fit_mlflow_lightgbm(original, self, *args, **kwargs)
                     else:
                         result = fit_mlflow(original, self, *args, **kwargs)
                 if should_log_post_training_metrics:
@@ -1639,8 +1519,6 @@ def autolog(
             xgboost.XGBRFRegressor,
             xgboost.XGBRFClassifier,
         ]
-    elif lightgbm_estimator:
-        pass
     else:
         _, estimators_to_patch = zip(*_all_estimators())
         # Ensure that relevant meta estimators (e.g. GridSearchCV, Pipeline) are selected
@@ -1767,6 +1645,35 @@ def autolog(
             patched_fn_with_autolog_disabled,
             manage_run=False,
         )
+
+
+def autolog(
+    log_input_examples=False,
+    log_model_signatures=True,
+    log_models=True,
+    disable=False,
+    exclusive=False,
+    disable_for_unsupported_versions=False,
+    silent=False,
+    max_tuning_runs=5,
+    log_post_training_metrics=True,
+):
+    # autologging for sklearn estimators
+    # excluding XGBoost and LightGBM sklearn estimators
+    _autolog(
+        log_input_examples=log_input_examples,
+        log_model_signatures=log_model_signatures,
+        log_models=log_models,
+        disable=disable,
+        exclusive=exclusive,
+        disable_for_unsupported_versions=disable_for_unsupported_versions,
+        silent=silent,
+        max_tuning_runs=max_tuning_runs,
+        log_post_training_metrics=log_post_training_metrics,
+        xgboost_estimator=False,
+        lightgbm_estimator=False
+    )
+
 
 
 def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
