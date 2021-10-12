@@ -62,7 +62,13 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
                         a local output path will be created.
     """
     if os.path.exists(artifact_uri):
-        artifact_uri = path_to_local_file_uri(artifact_uri)
+        # If we're dealing with local files, just reference the direct pathing.
+        root_uri = os.path.dirname(artifact_uri)
+        artifact_path = os.path.basename(artifact_uri)
+        return get_artifact_repository(artifact_uri=root_uri).download_artifacts(
+            artifact_path=artifact_path, dst_path=output_path
+        )
+
     parsed_uri = urllib.parse.urlparse(str(artifact_uri))
     prefix = ""
     if parsed_uri.scheme and not parsed_uri.path.startswith("/"):

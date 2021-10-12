@@ -372,7 +372,10 @@ def path_to_local_file_uri(path):
     """
     Convert local filesystem path to local file uri.
     """
-    path = os.path.normpath(path)
+    if os.name != "nt":
+        path = os.path.normpath(path)
+    else:
+        path = pathname2url(path)
     if path == posixpath.abspath(path):
         return "file://{path}".format(path=path)
     else:

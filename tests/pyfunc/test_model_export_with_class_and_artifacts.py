@@ -1041,7 +1041,7 @@ def test_load_model_with_missing_cloudpickle_version_logs_warning(model_path):
 def test_save_and_load_model_with_special_chars(
     sklearn_knn_model, main_scoped_model_class, iris_data, tmpdir
 ):
-    sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
+    sklearn_model_path = os.path.join(str(tmpdir), "sklearn_  model")
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
     def test_predict(sk_model, model_input):
