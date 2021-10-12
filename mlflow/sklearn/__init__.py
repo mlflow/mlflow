@@ -73,6 +73,47 @@ _logger = logging.getLogger(__name__)
 _SklearnTrainingSession = _get_new_training_session_class()
 
 
+def _gen_estimators_to_patch():
+    from mlflow.sklearn.utils import (
+        _all_estimators,
+        _get_meta_estimators_for_autologging,
+    )
+    _, estimators_to_patch = zip(*_all_estimators())
+    # Ensure that relevant meta estimators (e.g. GridSearchCV, Pipeline) are selected
+    # for patching if they are not already included in the output of `all_estimators()`
+    estimators_to_patch = set(estimators_to_patch).union(
+        set(_get_meta_estimators_for_autologging())
+    )
+    # Exclude certain preprocessing & feature manipulation estimators from patching. These
+    # estimators represent data manipulation routines (e.g., normalization, label encoding)
+    # rather than ML algorithms. Accordingly, we should not create MLflow runs and log
+    # parameters / metrics for these routines, unless they are captured as part of an ML pipeline
+    # (via `sklearn.pipeline.Pipeline`)
+    excluded_module_names = [
+        "sklearn.preprocessing",
+        "sklearn.impute",
+        "sklearn.feature_extraction",
+        "sklearn.feature_selection",
+    ]
+
+    excluded_class_names = [
+        "sklearn.compose._column_transformer.ColumnTransformer",
+    ]
+
+    return [
+        estimator
+        for estimator in estimators_to_patch
+        if not any(
+            estimator.__module__.startswith(excluded_module_name)
+            or (estimator.__module__ + "." + estimator.__name__) in excluded_class_names
+            for excluded_module_name in excluded_module_names
+        )
+    ]
+
+
+_estimators_to_patch = _gen_estimators_to_patch()
+
+
 def get_default_pip_requirements(include_cloudpickle=False):
     """
     :return: A list of default pip requirements for MLflow Models produced by this flavor.
@@ -415,6 +456,26 @@ def _load_pyfunc(path):
     return _load_model_from_local_file(path=path, serialization_format=serialization_format)
 
 
+class SklearnCustomModelPicklingError(pickle.PicklingError):
+    def __init__(self, sk_model, original_exception):
+        super(SklearnCustomModelPicklingError, self).__init__(
+            f'Pickling custom sklearn model {sk_model.__class__.__name__} failed '
+            f'when saving model: {str(original_exception)}'
+        )
+        self.original_exception = original_exception
+
+
+def _dump_model(pickle_lib, sk_model, out):
+    try:
+        pickle_lib.dump(sk_model, out)
+    except Exception as e:
+        if isinstance(e, (pickle.PicklingError, TypeError)) and \
+                sk_model.__class__ not in _estimators_to_patch:
+            raise SklearnCustomModelPicklingError(sk_model, e)
+        else:
+            raise
+
+
 def _save_model(sk_model, output_path, serialization_format):
     """
     :param sk_model: The scikit-learn model to serialize.
@@ -428,7 +489,6 @@ def _save_model(sk_model, output_path, serialization_format):
             pickle.dump(sk_model, out)
         elif serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE:
             import cloudpickle
-
             cloudpickle.dump(sk_model, out)
         else:
             raise MlflowException(
@@ -1214,6 +1274,12 @@ def autolog(
             input_example = X[:INPUT_EXAMPLE_SAMPLE_ROWS]
             return input_example
 
+        def _log_model_with_except_handling(*args, **kwargs):
+            try:
+                return log_model(*args, **kwargs)
+            except SklearnCustomModelPicklingError as e:
+                _logger.warning(str(e))
+
         if log_models:
             # Will only resolve `input_example` and `signature` if `log_models` is `True`.
             input_example, signature = resolve_input_example_and_signature(
@@ -1224,13 +1290,13 @@ def autolog(
                 _logger,
             )
 
-            log_model(
+            _log_model_with_except_handling(
                 estimator, artifact_path="model", signature=signature, input_example=input_example,
             )
 
         if _is_parameter_search_estimator(estimator):
             if hasattr(estimator, "best_estimator_") and log_models:
-                log_model(
+                _log_model_with_except_handling(
                     estimator.best_estimator_,
                     artifact_path="best_estimator",
                     signature=signature,
@@ -1410,38 +1476,6 @@ def autolog(
         else:
             return original(self, *args, **kwargs)
 
-    _, estimators_to_patch = zip(*_all_estimators())
-    # Ensure that relevant meta estimators (e.g. GridSearchCV, Pipeline) are selected
-    # for patching if they are not already included in the output of `all_estimators()`
-    estimators_to_patch = set(estimators_to_patch).union(
-        set(_get_meta_estimators_for_autologging())
-    )
-    # Exclude certain preprocessing & feature manipulation estimators from patching. These
-    # estimators represent data manipulation routines (e.g., normalization, label encoding)
-    # rather than ML algorithms. Accordingly, we should not create MLflow runs and log
-    # parameters / metrics for these routines, unless they are captured as part of an ML pipeline
-    # (via `sklearn.pipeline.Pipeline`)
-    excluded_module_names = [
-        "sklearn.preprocessing",
-        "sklearn.impute",
-        "sklearn.feature_extraction",
-        "sklearn.feature_selection",
-    ]
-
-    excluded_class_names = [
-        "sklearn.compose._column_transformer.ColumnTransformer",
-    ]
-
-    estimators_to_patch = [
-        estimator
-        for estimator in estimators_to_patch
-        if not any(
-            estimator.__module__.startswith(excluded_module_name)
-            or (estimator.__module__ + "." + estimator.__name__) in excluded_class_names
-            for excluded_module_name in excluded_module_names
-        )
-    ]
-
     def _apply_sklearn_descriptor_unbound_method_call_fix():
         import sklearn
 
@@ -1496,7 +1530,7 @@ def autolog(
 
     _apply_sklearn_descriptor_unbound_method_call_fix()
 
-    for class_def in estimators_to_patch:
+    for class_def in _estimators_to_patch:
         # Patch fitting methods
         for func_name in ["fit", "fit_transform", "fit_predict"]:
             _patch_estimator_method_if_available(
