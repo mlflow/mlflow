@@ -60,19 +60,7 @@ tensorflow:
       # Requirements to run tests for keras
       "== dev": ["scikit-learn", "pyspark", "pyarrow"]
     run: |
-      python_code="
-      import tensorflow as tf
-      major_ver = tf.__version__.split('.')[0]
-      assert major_ver in ['1', '2']
-      print(major_ver)
-      "
-      tf_major_version=$(python -c "$python_code")
-
-      if [ "$tf_major_version" == "1" ]; then
-        pytest tests/tensorflow/test_tensorflow_model_export.py --large
-      else
-        pytest tests/tensorflow/test_tensorflow2_model_export.py --large
-      fi
+      pytest tests/tensorflow/test_tensorflow2_model_export.py --large
 
       # Run tests for keras against keras-nightly that's installed with tf-nightly:
       # https://github.com/tensorflow/tensorflow/blob/v2.6.0/tensorflow/tools/pip_package/setup.py#L110-L122
@@ -87,19 +75,7 @@ tensorflow:
       "< 2.2": ["h5py<3.0"]
       "== dev": ["scikit-learn"]
     run: |
-      python_code="
-      import tensorflow as tf
-      major_ver = tf.__version__.split('.')[0]
-      assert major_ver in ['1', '2']
-      print(major_ver)
-      "
-      tf_major_version=$(python -c "$python_code")
-
-      if [ "$tf_major_version" == "1" ]; then
-        pytest tests/tensorflow_autolog/test_tensorflow_autolog.py --large
-      else
-        pytest tests/tensorflow_autolog/test_tensorflow2_autolog.py --large
-      fi
+      pytest tests/tensorflow_autolog/test_tensorflow2_autolog.py --large
 
       if [ "$PACKAGE_VERSION" == "dev" ]; then
         pytest tests/keras_autolog/test_keras_autolog.py --large
