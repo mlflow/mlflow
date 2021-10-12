@@ -81,7 +81,7 @@ tensorflow:
       fi
 
   autologging:
-    minimum: "1.15.4"
+    minimum: "2.0.0"
     maximum: "2.6.0"
     requirements:
       "< 2.2": ["h5py<3.0"]
@@ -113,7 +113,7 @@ keras:
     minimum: "2.3.0"
     maximum: "2.6.0"
     requirements:
-      "< 2.3.1": ["tensorflow==1.15.4", "h5py<3.0", "scikit-learn", "pyspark", "pyarrow"]
+      "< 2.3.1": ["tensorflow==2.0.0", "h5py<3.0", "scikit-learn", "pyspark", "pyarrow"]
       "== 2.3.1": ["tensorflow==2.2.1", "scikit-learn", "pyspark", "pyarrow", "transformers"]
       "> 2.3.1, < 2.6.0": ["tensorflow<2.5.0", "scikit-learn", "pyspark", "pyarrow", "transformers"]
       ">= 2.6.0": ["tensorflow", "scikit-learn", "pyspark", "pyarrow", "transformers"]
@@ -121,10 +121,10 @@ keras:
       pytest tests/keras/test_keras_model_export.py --large
 
   autologging:
-    minimum: "2.2.4"
+    minimum: "2.3.0"
     maximum: "2.6.0"
     requirements:
-      "< 2.3.1": ["tensorflow==1.15.4", "h5py<3.0"]
+      "< 2.3.1": ["tensorflow==2.0.0", "h5py<3.0"]
       # keras 2.3.1 is incompatible with tensorflow > 2.2.1 and causes the issue reported here:
       # https://github.com/tensorflow/tensorflow/issues/38589
       "== 2.3.1": ["tensorflow==2.2.1"]
