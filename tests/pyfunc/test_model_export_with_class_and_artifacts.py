@@ -110,8 +110,7 @@ def model_path(tmpdir):
 def pyfunc_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
     _mlflow_conda_env(
-        conda_env,
-        additional_pip_deps=["scikit-learn", "pytest", "cloudpickle"],
+        conda_env, additional_pip_deps=["scikit-learn", "pytest", "cloudpickle"],
     )
     return conda_env
 
