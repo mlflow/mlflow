@@ -1052,6 +1052,17 @@ def autolog(
         (tensorflow.estimator.Estimator, "export_savedmodel", export_saved_model),
     ]
 
+    # Add compat.v1 Estimator patching for versions of tensfor that are 2.0+.
+    if Version(tensorflow.__version__) >= Version("2.0.0"):
+        old_estimator_class = tensorflow.compat.v1.estimator.Estimator
+        v1_train = (old_estimator_class, "train", train)
+        v1_export_saved_model = (old_estimator_class, "export_saved_model", export_saved_model)
+        v1_export_savedmodel = (old_estimator_class, "export_savedmodel", export_saved_model)
+
+        managed.append(v1_train)
+        non_managed.append(v1_export_saved_model)
+        non_managed.append(v1_export_savedmodel)
+
     for p in managed:
         safe_patch(FLAVOR_NAME, *p, manage_run=True)
 
