@@ -72,6 +72,12 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 FLAVOR_NAME = "xgboost"
 
+# only for xgboost.sklearn estimators
+SERIALIZATION_FORMAT_PICKLE = "pickle"
+SERIALIZATION_FORMAT_CLOUDPICKLE = "cloudpickle"
+
+SUPPORTED_SERIALIZATION_FORMATS = [SERIALIZATION_FORMAT_PICKLE, SERIALIZATION_FORMAT_CLOUDPICKLE]
+
 _logger = logging.getLogger(__name__)
 
 
@@ -99,6 +105,7 @@ def save_model(
     conda_env=None,
     mlflow_model=None,
     signature: ModelSignature = None,
+    serialization_format: str = SERIALIZATION_FORMAT_CLOUDPICKLE,
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
@@ -125,6 +132,8 @@ def save_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
+    :param serialization_format: passed into mlflow.sklearn.save_model
+                                 if the model to be saved is from xgboost.sklearn.
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example will be converted to a Pandas DataFrame and then
@@ -133,6 +142,23 @@ def save_model(
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     """
+    # save xgboost.sklearn estimators
+    if xgb_model.__module__ == "xgboost.sklearn":
+        import mlflow.sklearn
+        mlflow.sklearn.save_model(
+            sk_model=xgb_model,
+            path=path,
+            conda_env=conda_env,
+            mlflow_model=mlflow_model,
+            serialization_format=serialization_format,
+            signature=signature,
+            input_example=input_example,
+            pip_requirements=pip_requirements,
+            extra_pip_requirements=extra_pip_requirements
+        )
+        return
+
+    import mlflow
     import xgboost as xgb
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
@@ -195,6 +221,7 @@ def log_model(
     xgb_model,
     artifact_path,
     conda_env=None,
+    serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -239,6 +266,22 @@ def log_model(
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param kwargs: kwargs to pass to `xgboost.Booster.save_model`_ method.
     """
+    if xgb_model.__module__ == "xgboost.sklearn":
+        import mlflow.sklearn
+        return mlflow.sklearn.log_model(
+            sk_model=xgb_model,
+            artifact_path=artifact_path,
+            conda_env=conda_env,
+            serialization_format=serialization_format,
+            registered_model_name=registered_model_name,
+            signature=signature,
+            input_example=input_example,
+            await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+            pip_requirements=pip_requirements,
+            extra_pip_requirements=extra_pip_requirements,
+        )
+
+    import mlflow
     Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.xgboost,
@@ -271,7 +314,7 @@ def _load_pyfunc(path):
     return _XGBModelWrapper(_load_model(path))
 
 
-def load_model(model_uri):
+def load_model(model_uri, is_sklearn_estimator=False):
     """
     Load an XGBoost model from a local file or a run.
 
@@ -288,6 +331,10 @@ def load_model(model_uri):
 
     :return: An XGBoost model (an instance of `xgboost.Booster`_)
     """
+    if is_sklearn_estimator:
+        import mlflow.sklearn
+        return mlflow.sklearn.load_model(model_uri)
+
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     xgb_model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model.xgb"))
@@ -529,7 +576,7 @@ def autolog(
             tmpdir = tempfile.mkdtemp()
             try:
                 # pylint: disable=undefined-loop-variable
-                filepath = os.path.join(tmpdir, "feature_importance_{}.png".format(imp_type))
+                filepath = os.path.join(tmpdir, "feature_importance_{}.png".format(importance_type))
                 fig.savefig(filepath)
                 mlflow.log_artifact(filepath)
             finally:
@@ -671,3 +718,8 @@ def autolog(
 
     safe_patch(FLAVOR_NAME, xgboost, "train", train, manage_run=True)
     safe_patch(FLAVOR_NAME, xgboost.DMatrix, "__init__", __init__)
+
+    # initialize autologging for XGBoost sklearn estimators
+    import mlflow.sklearn
+    mlflow.sklearn.autolog(xgboost_estimator=True)
+

@@ -19,8 +19,13 @@ import pickle
 import yaml
 import warnings
 import weakref
+import shutil
+import tempfile
+import json
 from collections import defaultdict, OrderedDict
 from packaging.version import Version
+
+import xgboost
 
 import mlflow
 from mlflow import pyfunc
@@ -53,6 +58,8 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
+    batch_metrics_logger,
+    exception_safe_function,
     INPUT_EXAMPLE_SAMPLE_ROWS,
     resolve_input_example_and_signature,
     _get_new_training_session_class,
@@ -60,6 +67,11 @@ from mlflow.utils.autologging_utils import (
     disable_autologging,
     update_wrapper_extended,
 )
+# copied from mlflow.xgboost
+from mlflow.utils.autologging_utils import (  # pylint: disable=unused-import
+    ExceptionSafeAbstractClass,
+)
+
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 FLAVOR_NAME = "sklearn"
@@ -827,6 +839,8 @@ def autolog(
     silent=False,
     max_tuning_runs=5,
     log_post_training_metrics=True,
+    xgboost_estimator=False,
+    lightgbm_estimator=False,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for scikit-learn estimators.
@@ -1118,6 +1132,202 @@ def autolog(
             stacklevel=2,
         )
 
+    def fit_mlflow_xgboost(original, self, *args, **kwargs):
+        """
+        Autologging function for XGBoost sklearn estimators
+        """
+        # copied from mlflow.xgboost
+        # link: https://github.com/mlflow/mlflow/blob/master/mlflow/xgboost.py#L392
+        # avoid cyclic import
+        def record_eval_results(eval_results, metrics_logger):
+            """
+            Create a callback function that records evaluation results.
+            """
+            # TODO: Remove `replace("SNAPSHOT", "dev")` once the following issue is addressed:
+            #       https://github.com/dmlc/xgboost/issues/6984
+            if Version(xgboost.__version__.replace("SNAPSHOT", "dev")) >= Version("1.3.0"):
+                class Callback(
+                    xgboost.callback.TrainingCallback, metaclass=ExceptionSafeAbstractClass,
+                ):
+                    def after_iteration(self, model, epoch, evals_log):
+                        evaluation_result_dict = {}
+                        for data_name, metric_dict in evals_log.items():
+                            for metric_name, metric_values_on_each_iter in metric_dict.items():
+                                key = "{}-{}".format(data_name, metric_name)
+                                evaluation_result_dict[key] = metric_values_on_each_iter[-1]
+
+                        metrics_logger.record_metrics(evaluation_result_dict, epoch)
+                        eval_results.append(evaluation_result_dict)
+                        return False
+
+                return Callback()
+            else:
+                @exception_safe_function
+                def callback(env):
+                    metrics_logger.record_metrics(dict(env.evaluation_result_list), env.iteration)
+                    eval_results.append(dict(env.evaluation_result_list))
+
+                return callback
+
+        # copied from mlflow.xgboost
+        # link: https://github.com/mlflow/mlflow/blob/master/mlflow/xgboost.py#L444
+        # aviod cyclic import
+        def log_feature_importance_plot(features, importance, importance_type):
+            """
+            Log feature importance plot.
+            """
+            import matplotlib.pyplot as plt
+            from cycler import cycler
+            features = np.array(features)
+            importances_per_class_by_feature = np.array(importance)
+            if importances_per_class_by_feature.ndim <= 1:
+                indices = np.argsort(importance)
+                features = features[indices]
+                importances_per_class_by_feature = np.array(
+                    [[importance] for importance in importances_per_class_by_feature[indices]]
+                )
+                label_classes_on_plot = False
+            else:
+                importance_value_magnitudes = np.abs(importances_per_class_by_feature).sum(axis=1)
+                indices = np.argsort(importance_value_magnitudes)
+                features = features[indices]
+                importances_per_class_by_feature = importances_per_class_by_feature[indices]
+                label_classes_on_plot = True
+
+            num_classes = importances_per_class_by_feature.shape[1]
+            num_features = len(features)
+
+            w, h = [6.4, 4.8]  # matplotlib's default figure size
+            h = h + 0.1 * num_features if num_features > 10 else h
+            h = h + 0.1 * num_classes if num_classes > 1 else h
+            fig, ax = plt.subplots(figsize=(w, h))
+            colors_to_cycle = plt.rcParams["axes.prop_cycle"].by_key()["color"][:num_classes]
+            color_cycler = cycler(color=colors_to_cycle)
+            ax.set_prop_cycle(color_cycler)
+
+            feature_ylocs = np.arange(num_features)
+            offsets_per_yloc = np.linspace(-0.5, 0.5, num_classes) / 2 if num_classes > 1 else [0]
+            for feature_idx, (feature_yloc, importances_per_class) in enumerate(
+                    zip(feature_ylocs, importances_per_class_by_feature)
+            ):
+                for class_idx, (offset, class_importance) in enumerate(
+                        zip(offsets_per_yloc, importances_per_class)
+                ):
+                    (bar,) = ax.barh(
+                        feature_yloc + offset,
+                        class_importance,
+                        align="center",
+                        height=(0.5 / max(num_classes - 1, 1)),
+                    )
+                    if label_classes_on_plot and feature_idx == 0:
+                        bar.set_label("Class {}".format(class_idx))
+
+            ax.set_yticks(feature_ylocs)
+            ax.set_yticklabels(features)
+            ax.set_xlabel("Importance")
+            ax.set_title("Feature Importance ({})".format(importance_type))
+            if label_classes_on_plot:
+                ax.legend()
+            fig.tight_layout()
+
+            tmpdir = tempfile.mkdtemp()
+            try:
+                # pylint: disable=undefined-loop-variable
+                filepath = os.path.join(tmpdir, "feature_importance_{}.png".format(importance_type))
+                fig.savefig(filepath)
+                mlflow.log_artifact(filepath)
+            finally:
+                plt.close(fig)
+                shutil.rmtree(tmpdir)
+
+        # mlflow.sklearn.autolog rountine
+        autologging_client = MlflowAutologgingQueueingClient()
+        _log_pretraining_metadata(autologging_client, self, *args, **kwargs)
+        params_logging_future = autologging_client.flush(synchronous=False)
+
+        # mlflow.xgboost.autolog items (early stopping + feature importance)
+        all_arg_names = inspect.getfullargspec(original)[0]  # pylint: disable=W1505
+        num_pos_args = len(args)
+        callbacks_index = all_arg_names.index("callbacks")
+
+        # add early_stopping callback
+        eval_results = []
+        with batch_metrics_logger(mlflow.active_run().info.run_id) as metrics_logger:
+            callback = record_eval_results(eval_results, metrics_logger)
+            if num_pos_args >= callbacks_index + 1:
+                tmp_list = list(args)
+                tmp_list[callbacks_index] += [callback]
+                args = tuple(tmp_list)
+            elif "callbacks" in kwargs and kwargs["callbacks"] is not None:
+                kwargs["callbacks"] += [callback]
+            else:
+                kwargs["callbacks"] = [callback]
+
+            # call the original fit method
+            fit_output = original(self, *args, **kwargs)
+            # get XGBoost sklearn estimator booster
+            booster = self.get_booster()
+
+            early_stopping_index = all_arg_names.index("early_stopping_rounds")
+            early_stopping = (
+                    num_pos_args >= early_stopping_index + 1 or "early_stopping_rounds" in kwargs
+            )
+            if early_stopping:
+                extra_step = len(eval_results)
+                autologging_client.log_metrics(
+                    run_id=mlflow.active_run().info.run_id,
+                    metrics={
+                        "stopped_iteration": extra_step - 1,
+                        "best_iteration": booster.best_iteration,
+                    },
+                )
+                autologging_client.log_metrics(
+                    run_id=mlflow.active_run().info.run_id,
+                    metrics=eval_results[booster.best_iteration],
+                    step=extra_step,
+                )
+                early_stopping_logging_operations = autologging_client.flush(synchronous=False)
+
+        # logging normalized feature importance as artifacts.
+        if self.importance_type is not None:
+            feature_importances = self.feature_importances_
+            imp_type = self.importance_type
+            features = booster.feature_name
+            if features is None:
+                features = [f"f{i}" for i in range(self.n_features_in_)]
+            try:
+                log_feature_importance_plot(
+                    features, feature_importances, imp_type
+                )
+            except Exception:
+                _logger.exception(
+                    "Failed to log feature importance plot. XGBoost autologging "
+                    "will ignore the failure and continue. Exception: "
+                )
+            tmpdir = tempfile.mkdtemp()
+            try:
+                filepath = os.path.join(tmpdir, "feature_importance_{}.json".format(imp_type))
+                with open(filepath, "w") as f:
+                    json.dump(
+                        {features[i]:feature_importances[i, :] for i in range(len(features))}, f
+                    )
+                mlflow.log_artifact(filepath)
+            finally:
+                shutil.rmtree(tmpdir)
+
+        # mlflow.sklearn.autolog rountine
+        _log_posttraining_metadata(autologging_client, self, *args, **kwargs)
+        autologging_client.flush(synchronous=True)
+        params_logging_future.await_completion()
+
+        if early_stopping:
+            early_stopping_logging_operations.await_completion()
+
+        return fit_output
+
+    def fit_mlflow_lightgbm(original, self, *args, **kwargs):
+        pass
+
     def fit_mlflow(original, self, *args, **kwargs):
         """
         Autologging function that performs model training by executing the training method
@@ -1307,7 +1517,12 @@ def autolog(
                 # In `fit_mlflow` call, it will also call metric API for computing training metrics
                 # so we need temporarily disable the post_training_metrics patching.
                 with _AUTOLOGGING_METRICS_MANAGER.disable_log_post_training_metrics():
-                    result = fit_mlflow(original, self, *args, **kwargs)
+                    if xgboost_estimator:
+                        result = fit_mlflow_xgboost(original, self, *args, **kwargs)
+                    elif lightgbm_estimator:
+                        result = fit_mlflow_lightgbm(original, self, *args, **kwargs)
+                    else:
+                        result = fit_mlflow(original, self, *args, **kwargs)
                 if should_log_post_training_metrics:
                     _AUTOLOGGING_METRICS_MANAGER.register_model(
                         self, mlflow.active_run().info.run_id
@@ -1410,37 +1625,48 @@ def autolog(
         else:
             return original(self, *args, **kwargs)
 
-    _, estimators_to_patch = zip(*_all_estimators())
-    # Ensure that relevant meta estimators (e.g. GridSearchCV, Pipeline) are selected
-    # for patching if they are not already included in the output of `all_estimators()`
-    estimators_to_patch = set(estimators_to_patch).union(
-        set(_get_meta_estimators_for_autologging())
-    )
-    # Exclude certain preprocessing & feature manipulation estimators from patching. These
-    # estimators represent data manipulation routines (e.g., normalization, label encoding)
-    # rather than ML algorithms. Accordingly, we should not create MLflow runs and log
-    # parameters / metrics for these routines, unless they are captured as part of an ML pipeline
-    # (via `sklearn.pipeline.Pipeline`)
-    excluded_module_names = [
-        "sklearn.preprocessing",
-        "sklearn.impute",
-        "sklearn.feature_extraction",
-        "sklearn.feature_selection",
-    ]
-
-    excluded_class_names = [
-        "sklearn.compose._column_transformer.ColumnTransformer",
-    ]
-
-    estimators_to_patch = [
-        estimator
-        for estimator in estimators_to_patch
-        if not any(
-            estimator.__module__.startswith(excluded_module_name)
-            or (estimator.__module__ + "." + estimator.__name__) in excluded_class_names
-            for excluded_module_name in excluded_module_names
+    if xgboost_estimator:
+        estimators_to_patch = [
+            "xgboost.XGBRegressor",
+            "xgboost.XGBClassifier",
+            "xgboost.XGBRanker",
+            "xgboost.XGBRFRegressor",
+            "xgboost.XGBRFClassifier",
+        ]
+    elif lightgbm_estimator:
+        pass
+    else:
+        _, estimators_to_patch = zip(*_all_estimators())
+        # Ensure that relevant meta estimators (e.g. GridSearchCV, Pipeline) are selected
+        # for patching if they are not already included in the output of `all_estimators()`
+        estimators_to_patch = set(estimators_to_patch).union(
+            set(_get_meta_estimators_for_autologging())
         )
-    ]
+        # Exclude certain preprocessing & feature manipulation estimators from patching. These
+        # estimators represent data manipulation routines (e.g., normalization, label encoding)
+        # rather than ML algorithms. Accordingly, we should not create MLflow runs and log
+        # parameters / metrics for these routines, unless they are captured as part of an ML pipeline
+        # (via `sklearn.pipeline.Pipeline`)
+        excluded_module_names = [
+            "sklearn.preprocessing",
+            "sklearn.impute",
+            "sklearn.feature_extraction",
+            "sklearn.feature_selection",
+        ]
+
+        excluded_class_names = [
+            "sklearn.compose._column_transformer.ColumnTransformer",
+        ]
+
+        estimators_to_patch = [
+            estimator
+            for estimator in estimators_to_patch
+            if not any(
+                estimator.__module__.startswith(excluded_module_name)
+                or (estimator.__module__ + "." + estimator.__name__) in excluded_class_names
+                for excluded_module_name in excluded_module_names
+            )
+        ]
 
     def _apply_sklearn_descriptor_unbound_method_call_fix():
         import sklearn
@@ -1568,7 +1794,12 @@ def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
         X_eval = np.array([[3, 3], [3, 4]])
         y_eval = np.dot(X_eval, np.array([1,2])) + 3
 
-        # train a model
+        # trainep
+np
+np
+ep
+al
+al a model
         model = LinearRegression()
         with mlflow.start_run() as run:
             model.fit(X, y)
@@ -1625,3 +1856,4 @@ def _eval_and_log_metrics_impl(model, X, y_true, *, prefix, sample_weight=None):
         )
 
     return metrics
+
