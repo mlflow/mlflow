@@ -361,6 +361,7 @@ def autolog(
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
+    max_tuning_runs=5,
 ):  # pylint: disable=W0102,unused-argument
     """
     Enables (or disables) and configures autologging from XGBoost to MLflow. Logs the following:
@@ -403,6 +404,8 @@ def autolog(
     :param silent: If ``True``, suppress all event logs and warnings from MLflow during XGBoost
                    autologging. If ``False``, show all events and warnings during XGBoost
                    autologging.
+    :param max_tuning_runs: integer, passed to mlflow.sklearn.
+                            Enable autologging for XGBoost sklearn estimators.
     """
     import xgboost
     import numpy as np
@@ -574,5 +577,16 @@ def autolog(
 
     # initialize autologging for XGBoost sklearn estimators
     import mlflow.sklearn
-    mlflow.sklearn._autolog(xgboost_estimator=True)
+    mlflow.sklearn._autolog(
+        log_input_examples=log_input_examples,
+        log_model_signatures=log_model_signatures,
+        log_models=log_models,
+        disable=disable,
+        exclusive=exclusive,
+        disable_for_unsupported_versions=disable_for_unsupported_versions,
+        silent=silent,
+        max_tuning_runs=max_tuning_runs,
+        log_post_training_metrics=True,
+        xgboost_estimator=True,
+    )
 
