@@ -461,17 +461,17 @@ describe('Diff Switch', () => {
     instance.handleColumnSelectionCheck = handleColumnSelectionCheckSpy;
 
     // Switch turned off by default
-    expect(wrapper.state().diffSwitchSelected).toBe(false);
+    expect(wrapper.state().persistedState.diffSwitchSelected).toBe(false);
 
     // Switch turned on
     instance.handleDiffSwitchChange();
-    expect(wrapper.state().diffSwitchSelected).toBe(true);
+    expect(wrapper.state().persistedState.diffSwitchSelected).toBe(true);
     expect(getCategorizedColumnsDiffViewSpy).toHaveBeenCalledTimes(1);
     expect(handleColumnSelectionCheckSpy).toHaveBeenCalledTimes(1);
 
-    // Switch tunred off
+    // Switch turned off
     instance.handleDiffSwitchChange();
-    expect(wrapper.state().diffSwitchSelected).toBe(false);
+    expect(wrapper.state().persistedState.diffSwitchSelected).toBe(false);
     expect(getCategorizedColumnsDiffViewSpy).toHaveBeenCalledTimes(1);
     expect(handleColumnSelectionCheckSpy).toHaveBeenCalledTimes(2);
     expect(handleColumnSelectionCheckSpy).toHaveBeenLastCalledWith({

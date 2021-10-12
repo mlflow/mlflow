@@ -97,7 +97,6 @@ export class ExperimentView extends Component {
       showFilters: false,
       showOnboardingHelper: onboardingInformationStore.getItem('showTrackingHelper') === null,
       searchInput: props.searchInput,
-      diffSwitchSelected: false,
     };
   }
   static propTypes = {
@@ -460,7 +459,12 @@ export class ExperimentView extends Component {
     } = this.props;
     const { experiment_id, name } = experiment;
     const { persistedState } = this.state;
-    const { unbaggedParams, unbaggedMetrics, categorizedUncheckedKeys } = persistedState;
+    const {
+      unbaggedParams,
+      unbaggedMetrics,
+      categorizedUncheckedKeys,
+      diffSwitchSelected,
+    } = persistedState;
     const filteredParamKeys = this.getFilteredKeys(paramKeyList, COLUMN_TYPES.PARAMS);
     const filteredMetricKeys = this.getFilteredKeys(metricKeyList, COLUMN_TYPES.METRICS);
     const visibleTagKeyList = Utils.getVisibleTagKeyList(tagsList);
@@ -802,7 +806,7 @@ export class ExperimentView extends Component {
                       <Switch
                         style={{ margin: '5px' }}
                         dataTestId='diff-switch'
-                        defaultChecked={this.state.diffSwitchSelected}
+                        checked={diffSwitchSelected}
                         onChange={this.handleDiffSwitchChange}
                       />
                     </Tooltip>
@@ -1154,17 +1158,25 @@ export class ExperimentView extends Component {
   }
 
   handleDiffSwitchChange() {
-    this.setState({ diffSwitchSelected: !this.state.diffSwitchSelected }, () => {
-      const categorizedUncheckedKeys = this.state.diffSwitchSelected
-        ? ExperimentViewUtil.getCategorizedColumnsDiffView(this.props)
-        : {
-            [COLUMN_TYPES.ATTRIBUTES]: [],
-            [COLUMN_TYPES.PARAMS]: [],
-            [COLUMN_TYPES.METRICS]: [],
-            [COLUMN_TYPES.TAGS]: [],
-          };
-      this.handleColumnSelectionCheck(categorizedUncheckedKeys);
-    });
+    this.setState(
+      {
+        persistedState: new ExperimentViewPersistedState({
+          ...this.state.persistedState,
+          diffSwitchSelected: !this.state.persistedState.diffSwitchSelected,
+        }).toJSON(),
+      },
+      () => {
+        const categorizedUncheckedKeys = this.state.persistedState.diffSwitchSelected
+          ? ExperimentViewUtil.getCategorizedColumnsDiffView(this.props)
+          : {
+              [COLUMN_TYPES.ATTRIBUTES]: [],
+              [COLUMN_TYPES.PARAMS]: [],
+              [COLUMN_TYPES.METRICS]: [],
+              [COLUMN_TYPES.TAGS]: [],
+            };
+        this.handleColumnSelectionCheck(categorizedUncheckedKeys);
+      },
+    );
   }
 
   onSearch(e, searchInput) {
