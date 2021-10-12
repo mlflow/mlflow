@@ -1676,7 +1676,6 @@ def autolog(
         max_tuning_runs=max_tuning_runs,
         log_post_training_metrics=log_post_training_metrics,
         xgboost_estimator=False,
-        lightgbm_estimator=False
     )
 
 
