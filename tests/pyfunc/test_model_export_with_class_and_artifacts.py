@@ -1038,6 +1038,7 @@ def test_load_model_with_missing_cloudpickle_version_logs_warning(model_path):
     )
 
 
+@pytest.mark.large
 def test_save_and_load_model_with_special_chars(
     sklearn_knn_model, main_scoped_model_class, iris_data, tmpdir
 ):
@@ -1046,6 +1047,7 @@ def test_save_and_load_model_with_special_chars(
 
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
+
     # Intentionally create a path that has non-url-compatible characters
     pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_ :% model")
 
