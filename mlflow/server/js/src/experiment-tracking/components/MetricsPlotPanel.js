@@ -446,7 +446,7 @@ export class MetricsPlotPanel extends React.Component {
             runId: point.data.runId,
             name: point.data.name,
             color: point.fullData.marker.color,
-            y: point.text,
+            y: point.y,
           }));
 
         this.setState({
