@@ -94,6 +94,9 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
   constructor(props) {
     super(props);
     this.getColumnDefs = this.getColumnDefs.bind(this);
+    this.state = {
+      columnDefs: [],
+    };
   }
 
   componentDidMount() {
@@ -102,7 +105,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     // column defs here to handle that case, as well as the one already
     // handled in componentDidUpdate for when the request resolves after the
     // fact.
-    this.columnDefs = this.getColumnDefs();
+    this.setColumnDefs();
   }
 
   /**
@@ -468,15 +471,22 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     if (
       prevProps.metricKeyList.length !== this.props.metricKeyList.length ||
       prevProps.paramKeyList.length !== this.props.paramKeyList.length ||
-      prevProps.categorizedUncheckedKeys.length !== this.props.categorizedUncheckedKeys.length ||
       prevProps.visibleTagKeyList.length !== this.props.visibleTagKeyList.length ||
+      prevProps.categorizedUncheckedKeys[COLUMN_TYPES.ATTRIBUTES].length !==
+        this.props.categorizedUncheckedKeys[COLUMN_TYPES.ATTRIBUTES].length ||
       prevProps.orderByKey !== this.props.orderByKey ||
       prevProps.orderByAsc !== this.props.orderByAsc ||
       prevProps.onSortBy !== this.props.onSortBy
     ) {
-      this.columnDefs = this.getColumnDefs();
+      this.setColumnDefs();
     }
   }
+
+  setColumnDefs = () => {
+    this.setState(() => ({
+      columnDefs: this.getColumnDefs(),
+    }));
+  };
 
   render() {
     const { handleLoadMoreRuns, loadingMore, numRunsFromLatestSearch, nestChildren } = this.props;
@@ -489,7 +499,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
       <div className='ag-theme-balham multi-column-view' data-test-id='detailed-runs-table-view'>
         <AgGridReact
           defaultColDef={defaultColDef}
-          columnDefs={this.columnDefs}
+          columnDefs={this.state.columnDefs}
           rowData={this.getRowData()}
           modules={[Grid, ClientSideRowModelModule]}
           rowSelection='multiple'
