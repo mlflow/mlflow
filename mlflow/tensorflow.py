@@ -606,72 +606,7 @@ def _setup_callbacks(lst, log_models, metrics_logger):
     input list, and returns the new list and appropriate log directory.
     """
     # pylint: disable=no-name-in-module
-    import tensorflow
     from tensorflow.keras.callbacks import Callback, TensorBoard
-
-    class __MLflowTfKerasCallback(Callback, metaclass=ExceptionSafeClass):
-        """
-        Callback for auto-logging parameters (we rely on TensorBoard for metrics) in TensorFlow < 2.
-        Records model structural information as params after training finishes.
-        """
-
-        def __enter__(self):
-            pass
-
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            pass
-
-        def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
-            import tensorflow
-
-            opt = self.model.optimizer
-            if hasattr(opt, "_name"):
-                try_mlflow_log(mlflow.log_param, "optimizer_name", opt._name)
-            # Elif checks are if the optimizer is a TensorFlow optimizer rather than a Keras one.
-            elif hasattr(opt, "optimizer"):
-                # TensorFlow optimizer parameters are associated with the inner optimizer variable.
-                # Therefore, we assign opt to be opt.optimizer for logging parameters.
-                opt = opt.optimizer
-                try_mlflow_log(mlflow.log_param, "optimizer_name", type(opt).__name__)
-            if hasattr(opt, "lr"):
-                lr = opt.lr if type(opt.lr) is float else tensorflow.keras.backend.eval(opt.lr)
-                try_mlflow_log(mlflow.log_param, "learning_rate", lr)
-            elif hasattr(opt, "_lr"):
-                lr = opt._lr if type(opt._lr) is float else tensorflow.keras.backend.eval(opt._lr)
-                try_mlflow_log(mlflow.log_param, "learning_rate", lr)
-            if hasattr(opt, "epsilon"):
-                epsilon = (
-                    opt.epsilon
-                    if type(opt.epsilon) is float
-                    else tensorflow.keras.backend.eval(opt.epsilon)
-                )
-                try_mlflow_log(mlflow.log_param, "epsilon", epsilon)
-            elif hasattr(opt, "_epsilon"):
-                epsilon = (
-                    opt._epsilon
-                    if type(opt._epsilon) is float
-                    else tensorflow.keras.backend.eval(opt._epsilon)
-                )
-                try_mlflow_log(mlflow.log_param, "epsilon", epsilon)
-
-            sum_list = []
-            self.model.summary(print_fn=sum_list.append)
-            summary = "\n".join(sum_list)
-            tempdir = tempfile.mkdtemp()
-            try:
-                summary_file = os.path.join(tempdir, "model_summary.txt")
-                with open(summary_file, "w") as f:
-                    f.write(summary)
-                try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
-            finally:
-                shutil.rmtree(tempdir)
-
-        def on_epoch_end(self, epoch, logs=None):
-            pass
-
-        def on_train_end(self, logs=None):  # pylint: disable=unused-argument
-            if log_models:
-                try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path="model")
 
     class __MLflowTfKeras2Callback(Callback, metaclass=ExceptionSafeClass):
         """
