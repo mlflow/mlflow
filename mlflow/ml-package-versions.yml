@@ -53,7 +53,7 @@ tensorflow:
       pip install tf-nightly
 
   models:
-    minimum: "1.15.4"
+    minimum: "2.0.0"
     maximum: "2.6.0"
     requirements:
       "< 2.2": ["h5py<3.0", "scikit-learn"]
@@ -110,7 +110,7 @@ keras:
     pip_release: "keras"
 
   models:
-    minimum: "2.2.4"
+    minimum: "2.3.0"
     maximum: "2.6.0"
     requirements:
       "< 2.3.1": ["tensorflow==1.15.4", "h5py<3.0", "scikit-learn", "pyspark", "pyarrow"]
