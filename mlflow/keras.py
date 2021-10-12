@@ -179,15 +179,10 @@ def save_model(
             try:
                 import keras
 
-                if Version(keras.__version__) < Version("2.2.0"):
-                    import keras.engine
+                # NB: Network is the first parent with save method
+                import keras.engine.network
 
-                    return isinstance(model, keras.engine.Model)
-                else:
-                    # NB: Network is the first parent with save method
-                    import keras.engine.network
-
-                    return isinstance(model, keras.engine.network.Network)
+                return isinstance(model, keras.engine.network.Network)
             except ImportError:
                 return False
 
@@ -485,8 +480,6 @@ def _load_pyfunc(path):
 
     :param path: Local filesystem path to the MLflow Model with the ``keras`` flavor.
     """
-    import tensorflow as tf
-
     if os.path.isfile(os.path.join(path, _KERAS_MODULE_SPEC_PATH)):
         with open(os.path.join(path, _KERAS_MODULE_SPEC_PATH), "r") as f:
             keras_module = importlib.import_module(f.read())
@@ -506,28 +499,11 @@ def _load_pyfunc(path):
     should_compile = save_format == "tf"
     K = importlib.import_module(keras_module.__name__ + ".backend")
     if keras_module.__name__ == "tensorflow.keras" or K.backend() == "tensorflow":
-        if Version(tf.__version__) < Version("2.0.0"):
-            graph = tf.Graph()
-            sess = tf.Session(graph=graph)
-            # By default tf backed models depend on the global graph and session.
-            # We create an use new Graph and Session and store them with the model
-            # This way the model is independent on the global state.
-            with graph.as_default():
-                with sess.as_default():  # pylint:disable=not-context-manager
-                    K.set_learning_phase(0)
-                    m = _load_model(
-                        path,
-                        keras_module=keras_module,
-                        save_format=save_format,
-                        compile=should_compile,
-                    )
-                    return _KerasModelWrapper(m, graph, sess)
-        else:
-            K.set_learning_phase(0)
-            m = _load_model(
-                path, keras_module=keras_module, save_format=save_format, compile=should_compile
-            )
-            return _KerasModelWrapper(m, None, None)
+        K.set_learning_phase(0)
+        m = _load_model(
+            path, keras_module=keras_module, save_format=save_format, compile=should_compile
+        )
+        return _KerasModelWrapper(m, None, None)
 
     else:
         raise MlflowException("Unsupported backend '%s'" % K._BACKEND)
@@ -724,9 +700,7 @@ def autolog(
         return __MLflowKerasCallback()
 
     def _early_stop_check(callbacks):
-        if Version(keras.__version__) < Version("2.3.0") or Version(keras.__version__) >= Version(
-            "2.4.0"
-        ):
+        if Version(keras.__version__) >= Version("2.4.0"):
             es_callback = keras.callbacks.EarlyStopping
         else:
             es_callback = keras.callbacks.callbacks.EarlyStopping
