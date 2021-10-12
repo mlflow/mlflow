@@ -328,7 +328,7 @@ def _validate_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_d
     )
 
 
-def load_model(model_uri, tf_sess=None):
+def load_model(model_uri):
     """
     Load an MLflow model that contains the TensorFlow flavor from the specified path.
 
@@ -345,8 +345,6 @@ def load_model(model_uri, tf_sess=None):
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
                       artifact-locations>`_.
 
-
-    :param tf_sess: Deprecated. MLflow no longer supports TensorFlow < 2.0.0.
     :return: A callable graph (tf.function) that takes inputs and returns inferences.
 
     .. code-block:: python
@@ -374,13 +372,10 @@ def load_model(model_uri, tf_sess=None):
         tf_saved_model_dir=tf_saved_model_dir,
         tf_meta_graph_tags=tf_meta_graph_tags,
         tf_signature_def_key=tf_signature_def_key,
-        tf_sess=tf_sess,
     )
 
 
-def _load_tensorflow_saved_model(
-    tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, tf_sess=None
-):
+def _load_tensorflow_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key):
     """
     Load a specified TensorFlow model consisting of a TensorFlow metagraph and signature definition
     from a serialized TensorFlow ``SavedModel`` collection.
@@ -396,7 +391,6 @@ def _load_tensorflow_saved_model(
                                  signature definition mapping. For more information, see the
                                  ``signature_def_map`` parameter of the
                                  ``tf.saved_model.builder.SavedModelBuilder`` method.
-    :param tf_sess: Deprecated. MLflow no longer supports TensorFlow < 2.0.0.
     :return: A callable graph (tensorflow.function) that takes inputs and returns inferences.
     """
     import tensorflow
