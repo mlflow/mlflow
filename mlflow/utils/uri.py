@@ -68,6 +68,12 @@ def get_db_info_from_uri(uri):
     """
     parsed_uri = urllib.parse.urlparse(uri)
     if parsed_uri.scheme == "databricks":
+        # netloc should not be an empty string unless URI is formatted incorrectly.
+        if parsed_uri.netloc == "":
+            raise MlflowException(
+                "URI is formatted incorrectly: no netloc in URI '%s'." % uri
+                + " This may be the case if there is only one slash in the URI."
+            )
         profile_tokens = parsed_uri.netloc.split(":")
         parsed_scope = profile_tokens[0]
         if len(profile_tokens) == 1:
