@@ -5,8 +5,8 @@ import FileSaver from 'file-saver';
 import { BrowserRouter } from 'react-router-dom';
 
 import { ExperimentViewWithIntl, mapStateToProps } from './ExperimentView';
+import ExperimentViewUtil from './ExperimentViewUtil';
 import Fixtures from '../utils/test-utils/Fixtures';
-import KeyFilter from '../utils/KeyFilter';
 import {
   addApiToState,
   addExperimentToState,
@@ -61,8 +61,6 @@ const getDefaultExperimentViewProps = () => {
     metricsList: [[Metric.fromJs({ key: 'acc', value: 0.1 })]],
     tagsList: [],
     experimentTags: {},
-    paramKeyFilter: new KeyFilter(''),
-    metricKeyFilter: new KeyFilter(''),
     modelVersionFilter: MODEL_VERSION_FILTER.ALL_RUNS,
     lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
     searchInput: '',
@@ -270,8 +268,6 @@ describe('ExperimentView event handlers', () => {
   let instance;
 
   const getSearchParams = ({
-    paramKeyFilterInput = '',
-    metricKeyFilterInput = '',
     searchInput = '',
     lifecycleFilterInput = LIFECYCLE_FILTER.ACTIVE,
     modelVersionFilterInput = MODEL_VERSION_FILTER.ALL_RUNS,
@@ -279,8 +275,6 @@ describe('ExperimentView event handlers', () => {
     orderByAsc = DEFAULT_ORDER_BY_ASC,
     startTime = undefined,
   } = {}) => [
-    paramKeyFilterInput,
-    metricKeyFilterInput,
     searchInput,
     lifecycleFilterInput,
     orderByKey,

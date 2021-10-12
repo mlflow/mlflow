@@ -5,7 +5,18 @@ import { connect } from 'react-redux';
 import { injectIntl, FormattedMessage } from 'react-intl';
 // eslint-disable-next-line no-unused-vars
 import { Link, withRouter } from 'react-router-dom';
-import { Alert, Badge, Descriptions, Icon, Menu, Popover, Select, Tooltip, Switch } from 'antd';
+import {
+  Alert,
+  Badge,
+  Descriptions,
+  Icon,
+  Menu,
+  Popover,
+  Select,
+  Tooltip,
+  Typography,
+  Switch,
+} from 'antd';
 
 import './ExperimentView.css';
 import { getExperimentTags, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
@@ -14,7 +25,6 @@ import Routes from '../routes';
 import { Experiment, RunInfo } from '../sdk/MlflowMessages';
 import { saveAs } from 'file-saver';
 import { getLatestMetrics } from '../reducers/MetricReducer';
-import KeyFilter from '../utils/KeyFilter';
 import { ExperimentRunsTableMultiColumnView2 } from './ExperimentRunsTableMultiColumnView2';
 import ExperimentRunsTableCompactView from './ExperimentRunsTableCompactView';
 import ExperimentViewUtil from './ExperimentViewUtil';
@@ -32,7 +42,7 @@ import { ExperimentTrackingDocUrl, onboarding } from '../../common/constants';
 import filterIcon from '../../common/static/filter-icon.svg';
 import { StyledDropdown } from '../../common/components/StyledDropdown';
 import { ExperimentNoteSection, ArtifactLocation } from './ExperimentViewHelpers';
-import { PageHeader } from '../../shared/building_blocks/PageHeader';
+import { OverflowMenu, PageHeader } from '../../shared/building_blocks/PageHeader';
 import { FlexBar } from '../../shared/building_blocks/FlexBar';
 import { Button } from '../../shared/building_blocks/Button';
 import { Spacer } from '../../shared/building_blocks/Spacer';
@@ -55,18 +65,12 @@ import {
   SORT_DELIMITER_SYMBOL,
 } from '../constants';
 
+export const DEFAULT_EXPANDED_VALUE = false;
 const { Option } = Select;
+const { Text } = Typography;
 export class ExperimentView extends Component {
   constructor(props) {
     super(props);
-    this.onCheckbox = this.onCheckbox.bind(this);
-    this.onCompare = this.onCompare.bind(this);
-    this.onDownloadCsv = this.onDownloadCsv.bind(this);
-    this.onParamKeyFilterInput = this.onParamKeyFilterInput.bind(this);
-    this.onMetricKeyFilterInput = this.onMetricKeyFilterInput.bind(this);
-    this.onSearchInput = this.onSearchInput.bind(this);
-    this.onSearch = this.onSearch.bind(this);
-    this.onClear = this.onClear.bind(this);
     this.onSortBy = this.onSortBy.bind(this);
     this.onHandleSortByDropdown = this.onHandleSortByDropdown.bind(this);
     this.isAllChecked = this.isAllChecked.bind(this);
@@ -120,10 +124,6 @@ export class ExperimentView extends Component {
     tagsList: PropTypes.arrayOf(PropTypes.object).isRequired,
     // Object of experiment tags
     experimentTags: PropTypes.object.isRequired,
-    // Input to the paramKeyFilter field
-    paramKeyFilter: PropTypes.instanceOf(KeyFilter).isRequired,
-    // Input to the paramKeyFilter field
-    metricKeyFilter: PropTypes.instanceOf(KeyFilter).isRequired,
 
     // Input to the lifecycleFilter field
     lifecycleFilter: PropTypes.string.isRequired,
@@ -161,10 +161,6 @@ export class ExperimentView extends Component {
       // A map { runUuid: true } of current selected child runs hidden by expander collapse
       // runsSelected + hiddenChildRunsSelected = all runs currently actually selected
       hiddenChildRunsSelected: {},
-      // Text entered into the param filter field
-      paramKeyFilterInput: '',
-      // Text entered into the metric filter field
-      metricKeyFilterInput: '',
       // Text entered into the runs-search field
       searchInput: '',
       // String error message, if any, from an attempted search
@@ -201,11 +197,7 @@ export class ExperimentView extends Component {
    * param filter, metric filter, or search text boxes.
    */
   filtersDidUpdate(prevState) {
-    return (
-      prevState.paramKeyFilterInput !== this.state.paramKeyFilterInput ||
-      prevState.metricKeyFilterInput !== this.state.metricKeyFilterInput ||
-      prevState.searchInput !== this.props.searchInput
-    );
+    return prevState.searchInput !== this.props.searchInput;
   }
 
   /** Snapshots desired attributes of the component's current state in local storage. */
@@ -247,13 +239,8 @@ export class ExperimentView extends Component {
         newRunsSelected[rInfo.run_uuid] = prevRunSelected;
       }
     });
-    const { paramKeyFilter, metricKeyFilter } = nextProps;
-    const paramKeyFilterInput = paramKeyFilter.getFilterString();
-    const metricKeyFilterInput = metricKeyFilter.getFilterString();
     return {
       ...prevState,
-      paramKeyFilterInput,
-      metricKeyFilterInput,
       runsSelected: newRunsSelected,
     };
   }
@@ -444,6 +431,11 @@ export class ExperimentView extends Component {
     };
   }
 
+  getExperimentOverflowItems() {
+    const menuItems = [];
+    return menuItems;
+  }
+
   render() {
     const {
       runInfos,
@@ -470,14 +462,12 @@ export class ExperimentView extends Component {
       categorizedUncheckedKeys,
       diffSwitchSelected,
     } = persistedState;
-    const filteredParamKeys = this.getFilteredKeys(paramKeyList, COLUMN_TYPES.PARAMS);
-    const filteredMetricKeys = this.getFilteredKeys(metricKeyList, COLUMN_TYPES.METRICS);
+    const filteredParamKeys = this.getFilteredKeys(paramKeyList, ColumnTypes.PARAMS);
+    const filteredMetricKeys = this.getFilteredKeys(metricKeyList, ColumnTypes.METRICS);
     const visibleTagKeyList = Utils.getVisibleTagKeyList(tagsList);
-    const filteredVisibleTagKeyList = this.getFilteredKeys(visibleTagKeyList, COLUMN_TYPES.TAGS);
-    const filteredUnbaggedParamKeys = this.getFilteredKeys(unbaggedParams, COLUMN_TYPES.PARAMS);
-    const filteredUnbaggedMetricKeys = this.getFilteredKeys(unbaggedMetrics, COLUMN_TYPES.METRICS);
-    const compareDisabled = Object.keys(this.state.runsSelected).length < 2;
-    const deleteDisabled = Object.keys(this.state.runsSelected).length < 1;
+    const filteredVisibleTagKeyList = this.getFilteredKeys(visibleTagKeyList, ColumnTypes.TAGS);
+    const filteredUnbaggedParamKeys = this.getFilteredKeys(unbaggedParams, ColumnTypes.PARAMS);
+    const filteredUnbaggedMetricKeys = this.getFilteredKeys(unbaggedMetrics, ColumnTypes.METRICS);
     const restoreDisabled = Object.keys(this.state.runsSelected).length < 1;
     const noteInfo = NoteInfo.fromTags(experimentTags);
     const startTimeColumnLabels = this.getStartTimeColumnDisplayName();
@@ -521,8 +511,6 @@ export class ExperimentView extends Component {
     let breadcrumbs = [];
     let form;
 
-    let title = <>{name}</>;
-
     const artifactLocationProps = {
       experiment: this.props.experiment,
       intl: this.props.intl,
@@ -542,7 +530,18 @@ export class ExperimentView extends Component {
           onClose={this.onCloseRestoreRunModal}
           selectedRunIds={Object.keys(this.state.runsSelected)}
         />
-        <PageHeader title={title} copyText={name} breadcrumbs={breadcrumbs} feedbackForm={form} />
+        <PageHeader
+          title={
+            <>
+              {name}
+              <Text copyable={{ text: name }} />
+            </>
+          }
+          breadcrumbs={breadcrumbs}
+          feedbackForm={form}
+        >
+          <OverflowMenu menu={this.getExperimentOverflowItems()} />
+        </PageHeader>
         {this.renderOnboardingContent()}
         <Descriptions className='metadata-list'>
           <Descriptions.Item
@@ -599,7 +598,7 @@ export class ExperimentView extends Component {
                   </Badge>
                   <Button
                     className='compare-button'
-                    disabled={compareDisabled}
+                    disabled={Object.keys(this.state.runsSelected).length < 2}
                     onClick={this.onCompare}
                   >
                     <FormattedMessage
@@ -611,7 +610,7 @@ export class ExperimentView extends Component {
                   {this.props.lifecycleFilter === LIFECYCLE_FILTER.ACTIVE ? (
                     <Button
                       className='delete-restore-button'
-                      disabled={deleteDisabled}
+                      disabled={Object.keys(this.state.runsSelected).length < 1}
                       onClick={this.onDeleteRun}
                     >
                       <FormattedMessage
@@ -647,9 +646,18 @@ export class ExperimentView extends Component {
                   >
                     <Select
                       className='sort-select'
-                      value={`${orderByKey}${SORT_DELIMITER_SYMBOL}${
-                        orderByAsc ? COLUMN_SORT_BY_ASC : COLUMN_SORT_BY_DESC
-                      }`}
+                      value={
+                        orderByKey
+                          ? `${orderByKey}${SORT_DELIMITER_SYMBOL}${
+                              orderByAsc ? COLUMN_SORT_BY_ASC : COLUMN_SORT_BY_DESC
+                            }`
+                          : this.props.intl.formatMessage({
+                              defaultMessage: 'Sort by',
+                              description:
+                                // eslint-disable-next-line max-len
+                                'Sort by default option for sort by select dropdown for experiment runs',
+                            })
+                      }
                       size='large'
                       onChange={this.onHandleSortByDropdown}
                       data-test-id='sort-select-dropdown'
@@ -1024,8 +1032,6 @@ export class ExperimentView extends Component {
   }
 
   initiateSearch({
-    paramKeyFilterInput,
-    metricKeyFilterInput,
     searchInput,
     lifecycleFilterInput,
     modelVersionFilterInput,
@@ -1033,10 +1039,6 @@ export class ExperimentView extends Component {
     orderByAsc,
     startTime,
   }) {
-    const myParamKeyFilterInput =
-      paramKeyFilterInput !== undefined ? paramKeyFilterInput : this.state.paramKeyFilterInput;
-    const myMetricKeyFilterInput =
-      metricKeyFilterInput !== undefined ? metricKeyFilterInput : this.state.metricKeyFilterInput;
     const mySearchInput = searchInput !== undefined ? searchInput : this.props.searchInput;
     const myLifecycleFilterInput =
       lifecycleFilterInput !== undefined ? lifecycleFilterInput : this.props.lifecycleFilter;
@@ -1046,8 +1048,6 @@ export class ExperimentView extends Component {
     const myStartTime = startTime || this.props.startTime;
     try {
       this.props.onSearch(
-        myParamKeyFilterInput,
-        myMetricKeyFilterInput,
         mySearchInput,
         myLifecycleFilterInput,
         myOrderByKey,
@@ -1064,7 +1064,7 @@ export class ExperimentView extends Component {
     }
   }
 
-  onCheckbox(runUuid) {
+  onCheckbox = (runUuid) => {
     const newState = Object.assign({}, this.state);
     if (this.state.runsSelected[runUuid]) {
       delete newState.runsSelected[runUuid];
@@ -1077,13 +1077,13 @@ export class ExperimentView extends Component {
         },
       });
     }
-  }
+  };
 
-  isAllChecked() {
+  isAllChecked = () => {
     return Object.keys(this.state.runsSelected).length === this.props.runInfos.length;
-  }
+  };
 
-  onCheckAll() {
+  onCheckAll = () => {
     if (this.isAllChecked()) {
       this.setState({ runsSelected: {} });
     } else {
@@ -1093,7 +1093,7 @@ export class ExperimentView extends Component {
       });
       this.setState({ runsSelected: runsSelected });
     }
-  }
+  };
 
   // Special handler for ag-grid selection change event from multi-column view
   handleMultiColumnViewSelectionChange = (selectedRunUuids) => {
@@ -1142,17 +1142,9 @@ export class ExperimentView extends Component {
     });
   }
 
-  onParamKeyFilterInput(event) {
-    this.setState({ paramKeyFilterInput: event.target.value });
-  }
-
-  onMetricKeyFilterInput(event) {
-    this.setState({ metricKeyFilterInput: event.target.value });
-  }
-
-  onSearchInput(event) {
+  onSearchInput = (event) => {
     this.setState({ searchInput: event.target.value });
-  }
+  };
 
   handleLifecycleFilterInput({ key: lifecycleFilterInput }) {
     this.initiateSearch({ lifecycleFilterInput });
@@ -1193,19 +1185,16 @@ export class ExperimentView extends Component {
     );
   }
 
-  onSearch(e, searchInput) {
+  onSearch = (e, searchInput) => {
     if (e !== undefined) {
       e.preventDefault();
     }
-    const { paramKeyFilterInput, metricKeyFilterInput } = this.state;
     this.initiateSearch({
-      paramKeyFilterInput: paramKeyFilterInput,
-      metricKeyFilterInput: metricKeyFilterInput,
       searchInput: searchInput,
     });
-  }
+  };
 
-  onClear() {
+  onClear = () => {
     // When user clicks "Clear", preserve multicolumn toggle state but reset other persisted state
     // attributes to their default values.
     const newPersistedState = new ExperimentViewPersistedState({
@@ -1219,8 +1208,6 @@ export class ExperimentView extends Component {
       () => {
         this.snapshotComponentState();
         this.initiateSearch({
-          paramKeyFilterInput: '',
-          metricKeyFilterInput: '',
           searchInput: '',
           lifecycleFilterInput: LIFECYCLE_FILTER.ACTIVE,
           modelVersionFilterInput: MODEL_VERSION_FILTER.ALL_RUNS,
@@ -1232,14 +1219,14 @@ export class ExperimentView extends Component {
     );
   }
 
-  onCompare() {
+  onCompare = () => {
     const runsSelectedList = Object.keys(this.state.runsSelected);
     this.props.history.push(
       Routes.getCompareRunPageRoute(runsSelectedList, this.props.experiment.getExperimentId()),
     );
-  }
+  };
 
-  onDownloadCsv() {
+  onDownloadCsv = () => {
     const { paramKeyList, metricKeyList, runInfos, paramsList, metricsList, tagsList } = this.props;
     const filteredParamKeys = this.getFilteredKeys(paramKeyList, COLUMN_TYPES.PARAMS);
     const filteredMetricKeys = this.getFilteredKeys(metricKeyList, COLUMN_TYPES.METRICS);
@@ -1256,7 +1243,7 @@ export class ExperimentView extends Component {
     );
     const blob = new Blob([csv], { type: 'application/csv;charset=utf-8' });
     saveAs(blob, 'runs.csv');
-  }
+  };
 
   /**
    * Format a string for insertion into a CSV file.

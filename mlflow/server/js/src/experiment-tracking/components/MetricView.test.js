@@ -3,9 +3,9 @@ import { shallow } from 'enzyme';
 import qs from 'qs';
 import Fixtures from '../utils/test-utils/Fixtures';
 import { MetricViewImpl } from './MetricView';
-import { BreadcrumbTitle } from './BreadcrumbTitle';
 import Utils from '../../common/utils/Utils';
 import MetricsPlotPanel from './MetricsPlotPanel';
+import { PageHeader } from '../../shared/building_blocks/PageHeader';
 
 describe('MetricView', () => {
   let wrapper;
@@ -42,12 +42,7 @@ describe('MetricView', () => {
   test('should render with minimal props without exploding', () => {
     wrapper = shallow(<MetricViewImpl {...minimalProps} />);
     expect(wrapper.length).toBe(1);
-    expect(
-      wrapper
-        .find(BreadcrumbTitle)
-        .dive()
-        .text(),
-    ).toContain('metricKey');
+    expect(wrapper.find(PageHeader).props().title).toContain('metricKey');
   });
 
   test('should render sub-components', () => {
@@ -63,9 +58,9 @@ describe('MetricView', () => {
 
     wrapper = shallow(<MetricViewImpl {...props} />);
 
-    const breadcrumbTitle = wrapper.find(BreadcrumbTitle);
-    const titleSpan = shallow(breadcrumbTitle.props().title);
-    expect(titleSpan.text()).toContain('selectedKey');
+    const pageHeaderTitle = wrapper.find(PageHeader);
+    const { title } = pageHeaderTitle.props();
+    expect(title).toContain('selectedKey');
 
     const metricsPlotPanel = wrapper.find(MetricsPlotPanel);
     expect(metricsPlotPanel.length).toBe(1);

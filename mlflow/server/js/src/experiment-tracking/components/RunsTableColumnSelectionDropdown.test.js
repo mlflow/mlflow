@@ -1,8 +1,5 @@
 import React from 'react';
-import {
-  RunsTableColumnSelectionDropdown,
-  getCategorizedUncheckedKeys,
-} from './RunsTableColumnSelectionDropdown';
+import { RunsTableColumnSelectionDropdown } from './RunsTableColumnSelectionDropdown';
 import { SearchTree } from '../../common/components/SearchTree';
 import { COLUMN_TYPES } from '../constants';
 import { mountWithIntl, shallowWithIntl } from '../../common/utils/TestUtils';

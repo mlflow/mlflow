@@ -8,6 +8,8 @@ import { COLUMN_TYPES, ATTRIBUTE_COLUMN_LABELS } from '../constants';
 
 import { FormattedMessage } from 'react-intl';
 
+import { FormattedMessage } from 'react-intl';
+
 export class RunsTableColumnSelectionDropdown extends React.Component {
   static propTypes = {
     paramKeyList: PropTypes.array,

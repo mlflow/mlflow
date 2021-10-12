@@ -8,7 +8,7 @@ import { ExperimentPage, isNewRun, lifecycleFilterToRunViewType } from './Experi
 import ExperimentView from './ExperimentView';
 import { PermissionDeniedView } from './PermissionDeniedView';
 import { ViewType } from '../sdk/MlflowEnums';
-import { ErrorWrapper } from '../../common/utils/ActionUtils';
+import { ErrorWrapper, getUUID } from '../../common/utils/ActionUtils';
 import { MAX_RUNS_IN_SEARCH_MODEL_VERSIONS_FILTER } from '../../model-registry/constants';
 import {
   ATTRIBUTE_COLUMN_SORT_KEY,
@@ -73,7 +73,7 @@ function expectSearchState(historyEntry, state) {
 
 test('URL is empty for blank search', () => {
   const wrapper = getExperimentPageMock();
-  wrapper.instance().onSearch('', '', '', 'Active', null, true, null);
+  wrapper.instance().onSearch('', 'Active', null, true, null);
   expectSearchState(history.push.mock.calls[0][0], {});
   const searchRunsCallParams = searchRunsApi.mock.calls[1][0];
 
@@ -85,21 +85,8 @@ test('URL is empty for blank search', () => {
 
 test('URL can encode a complete search', () => {
   const wrapper = getExperimentPageMock();
-  wrapper
-    .instance()
-    .onSearch(
-      'key_filter',
-      'metric0, metric1',
-      'metrics.metric0 > 3',
-      'Deleted',
-      null,
-      true,
-      null,
-      'ALL',
-    );
+  wrapper.instance().onSearch('metrics.metric0 > 3', 'Deleted', null, true, null, 'ALL');
   expectSearchState(history.push.mock.calls[0][0], {
-    metrics: 'metric0, metric1',
-    params: 'key_filter',
     search: 'metrics.metric0 > 3',
     startTime: 'ALL',
   });
@@ -110,12 +97,8 @@ test('URL can encode a complete search', () => {
 
 test('URL can encode order_by', () => {
   const wrapper = getExperimentPageMock();
-  wrapper
-    .instance()
-    .onSearch('key_filter', 'metric0, metric1', '', 'Active', 'my_key', false, null);
+  wrapper.instance().onSearch('', 'Active', 'my_key', false, null);
   expectSearchState(history.push.mock.calls[0][0], {
-    metrics: 'metric0, metric1',
-    params: 'key_filter',
     orderByKey: 'my_key',
     orderByAsc: 'false',
   });
@@ -127,8 +110,6 @@ test('URL can encode order_by', () => {
 test('Loading state without any URL params', () => {
   const wrapper = getExperimentPageMock();
   const { state } = wrapper.instance();
-  expect(state.persistedState.paramKeyFilterString).toEqual('');
-  expect(state.persistedState.metricKeyFilterString).toEqual('');
   expect(state.persistedState.searchInput).toEqual('');
   expect(state.persistedState.orderByKey).toBe(DEFAULT_ORDER_BY_KEY);
   expect(state.persistedState.orderByAsc).toEqual(DEFAULT_ORDER_BY_ASC);
@@ -138,8 +119,6 @@ test('Loading state with all URL params', () => {
   location.search = 'params=a&metrics=b&search=c&orderByKey=d&orderByAsc=false';
   const wrapper = getExperimentPageMock();
   const { state } = wrapper.instance();
-  expect(state.persistedState.paramKeyFilterString).toEqual('a');
-  expect(state.persistedState.metricKeyFilterString).toEqual('b');
   expect(state.persistedState.searchInput).toEqual('c');
   expect(state.persistedState.orderByKey).toEqual('d');
   expect(state.persistedState.orderByAsc).toEqual(false);
@@ -147,17 +126,21 @@ test('Loading state with all URL params', () => {
 
 test('should render permission denied view when getExperiment yields permission error', () => {
   const experimentPageInstance = getExperimentPageMock().instance();
+  experimentPageInstance.setState({
+    getExperimentRequestId: getUUID(),
+    searchRunsRequestId: getUUID(),
+  });
   const errorMessage = 'Access Denied';
   const responseErrorWrapper = new ErrorWrapper({
     responseText: `{"error_code": "${ErrorCodes.PERMISSION_DENIED}", "message": "${errorMessage}"}`,
   });
   const searchRunsErrorRequest = {
-    id: experimentPageInstance.searchRunsRequestId,
+    id: experimentPageInstance.state.searchRunsRequestId,
     active: false,
     error: responseErrorWrapper,
   };
   const getExperimentErrorRequest = {
-    id: experimentPageInstance.getExperimentRequestId,
+    id: experimentPageInstance.state.getExperimentRequestId,
     active: false,
     error: responseErrorWrapper,
   };
@@ -173,16 +156,20 @@ test('should render permission denied view when getExperiment yields permission 
 
 test('should render experiment view when search error occurs', () => {
   const experimentPageInstance = getExperimentPageMock().instance();
+  experimentPageInstance.setState({
+    getExperimentRequestId: getUUID(),
+    searchRunsRequestId: getUUID(),
+  });
   const responseErrorWrapper = new ErrorWrapper({
     responseText: `{"error_code": "${ErrorCodes.INVALID_PARAMETER_VALUE}", "message": "Invalid"}`,
   });
   const searchRunsErrorRequest = {
-    id: experimentPageInstance.searchRunsRequestId,
+    id: experimentPageInstance.state.searchRunsRequestId,
     active: false,
     error: responseErrorWrapper,
   };
   const getExperimentErrorRequest = {
-    id: experimentPageInstance.getExperimentRequestId,
+    id: experimentPageInstance.state.getExperimentRequestId,
     active: false,
   };
   const renderedView = shallow(

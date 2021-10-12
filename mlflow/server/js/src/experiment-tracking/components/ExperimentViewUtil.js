@@ -235,29 +235,24 @@ export default class ExperimentViewUtil {
         canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.DATE,
       },
       {
-        key: 'duration',
-        displayName: ATTRIBUTE_COLUMN_LABELS.DURATION,
-        canonicalSortKey: null,
-      },
-      {
         key: 'user_id',
-        displayName: ATTRIBUTE_COLUMN_LABELS.USER,
-        canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.USER,
+        displayName: this.ATTRIBUTE_COLUMN_LABELS.USER,
+        canonicalSortKey: this.ATTRIBUTE_COLUMN_SORT_KEY.USER,
       },
       {
         key: 'run_name',
-        displayName: ATTRIBUTE_COLUMN_LABELS.RUN_NAME,
-        canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.RUN_NAME,
+        displayName: this.ATTRIBUTE_COLUMN_LABELS.RUN_NAME,
+        canonicalSortKey: this.ATTRIBUTE_COLUMN_SORT_KEY.RUN_NAME,
       },
       {
         key: 'source',
-        displayName: ATTRIBUTE_COLUMN_LABELS.SOURCE,
-        canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.SOURCE,
+        displayName: this.ATTRIBUTE_COLUMN_LABELS.SOURCE,
+        canonicalSortKey: this.ATTRIBUTE_COLUMN_SORT_KEY.SOURCE,
       },
       {
         key: 'source_version',
-        displayName: ATTRIBUTE_COLUMN_LABELS.VERSION,
-        canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.VERSION,
+        displayName: this.ATTRIBUTE_COLUMN_LABELS.VERSION,
+        canonicalSortKey: this.ATTRIBUTE_COLUMN_SORT_KEY.VERSION,
       },
       {
         key: 'tags',

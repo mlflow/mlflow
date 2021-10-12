@@ -34,6 +34,7 @@ describe('ModelListPage', () => {
       models: [],
       searchRegisteredModelsApi: jest.fn(() => Promise.resolve({})),
       listEndpointsApi: jest.fn(() => Promise.resolve({})),
+      listEndpointsV2Api: jest.fn(() => Promise.resolve({})),
       history,
       location,
     };
