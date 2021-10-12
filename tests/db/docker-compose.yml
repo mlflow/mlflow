@@ -45,5 +45,6 @@ services:
       - mssql
     build:
       context: .
+      dockerfile: Dockerfile.mssql
     environment:
       MLFLOW_TRACKING_URI: mssql+pyodbc://mlflowuser:Mlfl*wpassword1@mssql/mlflowdb?driver=ODBC+Driver+17+for+SQL+Server

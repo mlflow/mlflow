@@ -4,24 +4,8 @@ WORKDIR /tmp/mlflow
 
 COPY dist ./dist
 
-# apt-get and system utilities
-RUN apt-get update && apt-get install -y \
-	curl apt-transport-https debconf-utils \
-    && rm -rf /var/lib/apt/lists/*
-
-# adding custom MS repository
-RUN curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
-RUN curl https://packages.microsoft.com/config/ubuntu/20.04/prod.list > /etc/apt/sources.list.d/mssql-release.list
-
-# install SQL Server drivers and tools
-RUN apt-get update && ACCEPT_EULA=Y apt-get install -y mssql-tools unixodbc-dev
-
 RUN pip install dist/*.whl
-RUN pip install psycopg2 pymysql mysqlclient pyodbc
+RUN pip install psycopg2 pymysql mysqlclient
 RUN pip list
 
 COPY log.py .
-COPY init-mssql-db.sh .
-COPY init-mssql-db.sql .
-
-RUN chmod +x init-mssql-db.sh
