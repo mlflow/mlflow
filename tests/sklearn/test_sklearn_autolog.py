@@ -1882,3 +1882,23 @@ def test_log_post_training_metrics_configuration():
 
         metrics = get_run_data(run.info.run_id)[1]
         assert any(k.startswith(metric_name) for k in metrics.keys()) is log_post_training_metrics
+
+
+def test_autolog_disabled_on_custom_estimator():
+    mlflow.sklearn.autolog()
+
+    class MyKMeansNotPickleable(sklearn.cluster.KMeans):
+        def __init__(self):
+            super(MyKMeansNotPickleable, self).__init__()
+            def f1():
+                yield 1
+
+            self.g1 = f1()
+
+    with mlflow.start_run() as run:
+        MyKMeansNotPickleable().fit(*get_iris())
+
+    run_id = run.info.run_id
+    params, metrics, tags, artifacts = get_run_data(run_id)
+    print(f'DBG01: {params}, {metrics}, {tags}')
+    assert len(params) > 0 and len(metrics) > 0 and len(tags) > 0 and artifacts == []

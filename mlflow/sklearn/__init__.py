@@ -486,10 +486,10 @@ def _save_model(sk_model, output_path, serialization_format):
     """
     with open(output_path, "wb") as out:
         if serialization_format == SERIALIZATION_FORMAT_PICKLE:
-            pickle.dump(sk_model, out)
+            _dump_model(pickle, sk_model, out)
         elif serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE:
             import cloudpickle
-            cloudpickle.dump(sk_model, out)
+            _dump_model(cloudpickle, sk_model, out)
         else:
             raise MlflowException(
                 message="Unrecognized serialization format: {serialization_format}".format(
