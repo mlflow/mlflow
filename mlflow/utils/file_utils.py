@@ -372,7 +372,9 @@ def path_to_local_file_uri(path):
     """
     Convert local filesystem path to local file uri.
     """
-    if os.name != "nt":  # Local file paths for non-nt based systems do not need url encoding to resolve paths.
+    if (
+        os.name != "nt"
+    ):  # Local file paths for non-nt based systems do not need url encoding to resolve paths.
         path = os.path.normpath(path)
     else:  # nt-based systems need url-enconding to convert non-supported char types in file names and paths.
         path = pathname2url(path)
