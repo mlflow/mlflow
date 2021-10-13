@@ -643,15 +643,15 @@ def test_safe_patch_makes_expected_event_logging_calls_for_successful_patch_invo
     assert patch_success.exception is original_success.exception is None
 
 
-def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation_throws(
+def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation_throws_and_original_succeeds(  # noqa
     patch_destination, test_autologging_integration, mock_event_logger,
 ):
-    patch_session = None
     exc_to_raise = Exception("thrown from patch")
 
+    throw_location = None
+
     def patch_impl(original, *args, **kwargs):
-        nonlocal patch_session
-        patch_session = _AutologgingSessionManager.active_session()
+        nonlocal throw_location
 
         if throw_location == "before":
             raise exc_to_raise
@@ -663,29 +663,56 @@ def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation
 
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
 
-    throw_location = "before"
-    patch_destination.fn()
-    expected_order_throw_before = ["patch_start", "patch_error"]
-    assert [call.method for call in mock_event_logger.calls] == expected_order_throw_before
-    patch_start, patch_error = mock_event_logger.calls
-    assert patch_start.exception is None
-    assert patch_error.exception == exc_to_raise
-
-    mock_event_logger.reset()
-
-    throw_location = "after"
-    patch_destination.fn()
-    expected_order_throw_after = [
+    expected_order = [
         "patch_start",
         "original_start",
         "original_success",
         "patch_error",
     ]
-    assert [call.method for call in mock_event_logger.calls] == expected_order_throw_after
-    patch_start, original_start, original_success, patch_error = mock_event_logger.calls
-    assert patch_start.exception is original_start.exception is None
-    assert original_success.exception is None
-    assert patch_error.exception == exc_to_raise
+
+    for throw_location in ["before", "after"]:
+        mock_event_logger.reset()
+        patch_destination.fn()
+        assert [call.method for call in mock_event_logger.calls] == expected_order
+        patch_start, original_start, original_success, patch_error = mock_event_logger.calls
+        assert patch_start.exception is None
+        assert original_start.exception is None
+        assert original_success.exception is None
+        assert patch_error.exception == exc_to_raise
+
+
+def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation_throws_and_original_throws(  # noqa
+    patch_destination, test_autologging_integration, mock_event_logger,
+):
+    exc_to_raise = Exception("thrown from patch")
+    original_err_to_raise = Exception("throw from original")
+
+    throw_location = None
+
+    def patch_impl(original, *args, **kwargs):
+        nonlocal throw_location
+
+        if throw_location == "before":
+            raise exc_to_raise
+
+        original(*args, **kwargs)
+
+        if throw_location != "before":
+            raise exc_to_raise
+
+    safe_patch(test_autologging_integration, patch_destination, "throw_error_fn", patch_impl)
+
+    expected_order = ["patch_start", "original_start", "original_error"]
+
+    for throw_location in ["before", "after"]:
+        mock_event_logger.reset()
+        with pytest.raises(Exception, match="throw from original"):
+            patch_destination.throw_error_fn(original_err_to_raise)
+        assert [call.method for call in mock_event_logger.calls] == expected_order
+        patch_start, original_start, original_error = mock_event_logger.calls
+        assert patch_start.exception is None
+        assert original_start.exception is None
+        assert original_error.exception == original_err_to_raise
 
 
 def test_safe_patch_makes_expected_event_logging_calls_when_original_function_throws(

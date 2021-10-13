@@ -53,26 +53,14 @@ tensorflow:
       pip install tf-nightly
 
   models:
-    minimum: "1.15.4"
+    minimum: "2.0.0"
     maximum: "2.6.0"
     requirements:
       "< 2.2": ["h5py<3.0", "scikit-learn"]
       # Requirements to run tests for keras
       "== dev": ["scikit-learn", "pyspark", "pyarrow"]
     run: |
-      python_code="
-      import tensorflow as tf
-      major_ver = tf.__version__.split('.')[0]
-      assert major_ver in ['1', '2']
-      print(major_ver)
-      "
-      tf_major_version=$(python -c "$python_code")
-
-      if [ "$tf_major_version" == "1" ]; then
-        pytest tests/tensorflow/test_tensorflow_model_export.py --large
-      else
-        pytest tests/tensorflow/test_tensorflow2_model_export.py --large
-      fi
+      pytest tests/tensorflow/test_tensorflow2_model_export.py --large
 
       # Run tests for keras against keras-nightly that's installed with tf-nightly:
       # https://github.com/tensorflow/tensorflow/blob/v2.6.0/tensorflow/tools/pip_package/setup.py#L110-L122
@@ -81,25 +69,13 @@ tensorflow:
       fi
 
   autologging:
-    minimum: "1.15.4"
+    minimum: "2.0.0"
     maximum: "2.6.0"
     requirements:
       "< 2.2": ["h5py<3.0"]
       "== dev": ["scikit-learn"]
     run: |
-      python_code="
-      import tensorflow as tf
-      major_ver = tf.__version__.split('.')[0]
-      assert major_ver in ['1', '2']
-      print(major_ver)
-      "
-      tf_major_version=$(python -c "$python_code")
-
-      if [ "$tf_major_version" == "1" ]; then
-        pytest tests/tensorflow_autolog/test_tensorflow_autolog.py --large
-      else
-        pytest tests/tensorflow_autolog/test_tensorflow2_autolog.py --large
-      fi
+      pytest tests/tensorflow_autolog/test_tensorflow2_autolog.py --large
 
       if [ "$PACKAGE_VERSION" == "dev" ]; then
         pytest tests/keras_autolog/test_keras_autolog.py --large
@@ -110,24 +86,22 @@ keras:
     pip_release: "keras"
 
   models:
-    minimum: "2.2.4"
+    minimum: "2.3.0"
     maximum: "2.6.0"
     requirements:
-      "< 2.3.1": ["tensorflow==1.15.4", "h5py<3.0", "scikit-learn", "pyspark", "pyarrow"]
-      "== 2.3.1": ["tensorflow==2.2.1", "scikit-learn", "pyspark", "pyarrow", "transformers"]
+      "<= 2.3.1": ["tensorflow==2.2.1", "scikit-learn", "pyspark", "pyarrow", "transformers"]
       "> 2.3.1, < 2.6.0": ["tensorflow<2.5.0", "scikit-learn", "pyspark", "pyarrow", "transformers"]
       ">= 2.6.0": ["tensorflow", "scikit-learn", "pyspark", "pyarrow", "transformers"]
     run: |
       pytest tests/keras/test_keras_model_export.py --large
 
   autologging:
-    minimum: "2.2.4"
+    minimum: "2.3.0"
     maximum: "2.6.0"
     requirements:
-      "< 2.3.1": ["tensorflow==1.15.4", "h5py<3.0"]
       # keras 2.3.1 is incompatible with tensorflow > 2.2.1 and causes the issue reported here:
       # https://github.com/tensorflow/tensorflow/issues/38589
-      "== 2.3.1": ["tensorflow==2.2.1"]
+      "<= 2.3.1": ["tensorflow==2.2.1"]
       "> 2.3.1, < 2.6.0": ["tensorflow<2.5.0"]
       ">= 2.6.0": ["tensorflow"]
     run: |

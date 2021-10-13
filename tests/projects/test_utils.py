@@ -1,3 +1,4 @@
+import git
 import os
 import tempfile
 
@@ -12,6 +13,7 @@ from mlflow.projects.utils import (
     _is_valid_branch_name,
     _is_zip_uri,
     _fetch_project,
+    _fetch_git_repo,
     _parse_subdirectory,
     get_or_create_run,
     fetch_and_validate_project,
@@ -23,6 +25,7 @@ from tests.projects.utils import (
     GIT_PROJECT_URI,
     TEST_PROJECT_DIR,
     TEST_PROJECT_NAME,
+    GIT_PROJECT_BRANCH,
 )
 
 
@@ -90,6 +93,21 @@ def test__fetch_project(local_git_repo, local_git_repo_uri, zipped_repo, httpser
         os.path.commonprefix([fetched_git_project, tempfile.gettempdir()]) == tempfile.gettempdir()
     )
     assert os.path.exists(fetched_git_project)
+
+
+@pytest.mark.parametrize(
+    "version,expected_version", [(None, "master"), (GIT_PROJECT_BRANCH, GIT_PROJECT_BRANCH)]
+)
+def test__fetch_git_repo(local_git_repo, local_git_repo_uri, version, expected_version):
+    # Verify that the correct branch is checked out
+    _fetch_git_repo(local_git_repo_uri, version, local_git_repo)
+    repo = git.Repo(local_git_repo)
+    assert repo.active_branch.name == expected_version
+
+
+def test_fetching_non_existing_version_fails(local_git_repo, local_git_repo_uri):
+    with pytest.raises(ExecutionException, match="Unable to checkout"):
+        _fetch_git_repo(local_git_repo_uri, "non-version", local_git_repo)
 
 
 def test_fetch_project_validations(local_git_repo_uri):
