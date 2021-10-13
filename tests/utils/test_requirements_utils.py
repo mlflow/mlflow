@@ -19,6 +19,7 @@ from mlflow.utils.requirements_utils import (
     _get_installed_version,
     _get_pinned_requirement,
     _infer_requirements,
+    _normalize_package_name,
 )
 
 
@@ -183,6 +184,16 @@ line-cont-eof\
         assert [r.requirement for r in pip_reqs if r.constraint] == expected_cons
     finally:
         os.chdir(request.config.invocation_dir)
+
+
+def test_normalize_package_name():
+    assert _normalize_package_name("abc") == "abc"
+    assert _normalize_package_name("ABC") == "abc"
+    assert _normalize_package_name("a-b-c") == "a-b-c"
+    assert _normalize_package_name("a.b.c") == "a-b-c"
+    assert _normalize_package_name("a_b_c") == "a-b-c"
+    assert _normalize_package_name("a--b--c") == "a-b-c"
+    assert _normalize_package_name("a-._b-._c") == "a-b-c"
 
 
 def test_prune_packages():
