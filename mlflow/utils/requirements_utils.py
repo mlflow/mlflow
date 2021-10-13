@@ -13,6 +13,7 @@ import importlib_metadata
 from itertools import filterfalse, chain
 from collections import namedtuple
 import logging
+import re
 
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -127,14 +128,22 @@ def _flatten(iterable):
     return chain.from_iterable(iterable)
 
 
-def _canonicalize_package_name(pkg_name):
-    return pkg_name.lower().replace("_", "-")
+_NORMALIZE_REGEX = re.compile(r"[-_.]+")
+
+
+def _normalize_package_name(pkg_name):
+    """
+    Normalizes a package name using the rule defined in PEP 503:
+    https://www.python.org/dev/peps/pep-0503/#normalized-names
+    """
+    return _NORMALIZE_REGEX.sub("-", pkg_name).lower()
 
 
 def _get_requires_recursive(pkg_name):
     """
     Recursively yields both direct and transitive dependencies of the specified package.
     """
+    pkg_name = _normalize_package_name(pkg_name)
     if pkg_name not in pkg_resources.working_set.by_key:
         return
 
@@ -144,7 +153,7 @@ def _get_requires_recursive(pkg_name):
         return
 
     for req in reqs:
-        yield req.name
+        yield _normalize_package_name(req.name)
         yield from _get_requires_recursive(req.name)
 
 
@@ -267,7 +276,7 @@ def _infer_requirements(model_uri, flavor):
 
     modules = _capture_imported_modules(model_uri, flavor)
     packages = _flatten([_MODULES_TO_PACKAGES.get(module, []) for module in modules])
-    packages = map(_canonicalize_package_name, packages)
+    packages = map(_normalize_package_name, packages)
     packages = _prune_packages(packages)
     excluded_packages = [
         # Certain packages (e.g. scikit-learn 0.24.2) imports `setuptools` or `pkg_resources`
