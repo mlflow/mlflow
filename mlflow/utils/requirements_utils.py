@@ -143,6 +143,7 @@ def _get_requires_recursive(pkg_name):
     """
     Recursively yields both direct and transitive dependencies of the specified package.
     """
+    pkg_name = _normalize_package_name(pkg_name)
     if pkg_name not in pkg_resources.working_set.by_key:
         return
 
@@ -152,8 +153,8 @@ def _get_requires_recursive(pkg_name):
         return
 
     for req in reqs:
-        yield req.project_name
-        yield from _get_requires_recursive(req.project_name)
+        yield _normalize_package_name(req.name)
+        yield from _get_requires_recursive(req.name)
 
 
 def _prune_packages(packages):
