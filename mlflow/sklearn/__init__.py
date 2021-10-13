@@ -67,8 +67,8 @@ from mlflow.utils.autologging_utils import (
     update_wrapper_extended,
 )
 from mlflow.utils._xgboost_utils import (
-    record_eval_results,
-    log_feature_importance_plot,
+    _record_eval_results,
+    _log_feature_importance_plot,
 )
 
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -1145,7 +1145,7 @@ def _autolog(
         # add early_stopping callback
         eval_results = []
         with batch_metrics_logger(mlflow.active_run().info.run_id) as metrics_logger:
-            callback = record_eval_results(eval_results, metrics_logger)
+            callback = _record_eval_results(eval_results, metrics_logger)
             if num_pos_kwargs >= callbacks_index + 1:
                 tmp_list = list(args)
                 tmp_list[callbacks_index] += [callback]
@@ -1189,7 +1189,7 @@ def _autolog(
         if features is None:
             features = [f"f{i}" for i in range(self.n_features_in_)]
         try:
-            imp = log_feature_importance_plot(
+            imp = _log_feature_importance_plot(
                 features, feature_importances, imp_type
             )
         except Exception:

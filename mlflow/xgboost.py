@@ -60,8 +60,8 @@ from mlflow.utils.autologging_utils import (
     MlflowAutologgingQueueingClient,
 )
 from mlflow.utils._xgboost_utils import (
-    record_eval_results,
-    log_feature_importance_plot,
+    _record_eval_results,
+    _log_feature_importance_plot,
 )
 
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -458,7 +458,7 @@ def autolog(
 
         run_id = mlflow.active_run().info.run_id
         with batch_metrics_logger(run_id) as metrics_logger:
-            callback = record_eval_results(eval_results, metrics_logger)
+            callback = _record_eval_results(eval_results, metrics_logger)
             if num_pos_args >= callbacks_index + 1:
                 tmp_list = list(args)
                 tmp_list[callbacks_index] += [callback]
@@ -499,7 +499,7 @@ def autolog(
             try:
                 imp = model.get_score(importance_type=imp_type)
                 features, importance = zip(*imp.items())
-                imp = log_feature_importance_plot(features, importance, imp_type)
+                imp = _log_feature_importance_plot(features, importance, imp_type)
             except Exception:
                 _logger.exception(
                     "Failed to log feature importance plot. XGBoost autologging "

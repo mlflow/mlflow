@@ -16,7 +16,7 @@ from .autologging_utils import ( # pylint: disable=unused-import
 )
 
 
-def record_eval_results(eval_results, metrics_logger):
+def _record_eval_results(eval_results, metrics_logger):
     """
     Create a callback function that records evaluation results.
     """
@@ -69,7 +69,7 @@ def record_eval_results(eval_results, metrics_logger):
         return callback
 
 
-def log_feature_importance_plot(features, importance, importance_type):
+def _log_feature_importance_plot(features, importance, importance_type):
     """
     Log feature importance plot.
     """
