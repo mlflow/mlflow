@@ -68,7 +68,7 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 FLAVOR_NAME = "xgboost"
 
-# only for xgboost.sklearn estimators
+# only for XGBoost sklearn estimators
 SERIALIZATION_FORMAT_PICKLE = "pickle"
 SERIALIZATION_FORMAT_CLOUDPICKLE = "cloudpickle"
 
@@ -128,8 +128,14 @@ def save_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param serialization_format: passed into mlflow.sklearn.save_model
-                                 if the model to be saved is from xgboost.sklearn.
+    :param serialization_format: The format in which to serialize XGBoost sklearn models, adopted from
+                                 ``mlflow.sklearn.save_model()``.
+                                 This should be one of
+                                 the formats listed in
+                                 ``mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS``. The Cloudpickle
+                                 format, ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``,
+                                 provides better cross-system compatibility by identifying and
+                                 packaging code dependencies with the serialized model.
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example will be converted to a Pandas DataFrame and then
@@ -220,7 +226,6 @@ def log_model(
     xgb_model,
     artifact_path,
     conda_env=None,
-    serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -311,6 +316,8 @@ def load_model(model_uri, is_sklearn_estimator=False):
                       For more information about supported URI schemes, see
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
                       artifact-locations>`_.
+    :param is_sklearn_estimator: Set ``True``, if the model to be loaded is a XGBoost sklearn model.
+                                 Set ``False`` otherwise.
 
     :return: An XGBoost model (an instance of `xgboost.Booster`_)
     """
@@ -388,11 +395,10 @@ def autolog(
     :param silent: If ``True``, suppress all event logs and warnings from MLflow during XGBoost
                    autologging. If ``False``, show all events and warnings during XGBoost
                    autologging.
-    :param max_tuning_runs: integer, passed to mlflow.sklearn.
-                            Enable autologging for XGBoost sklearn estimators.
+    :param max_tuning_runs: Integer, passed to ``mlflow.sklearn`` autologging,
+                            if the model to be logged is XGBoost sklearn estimators.
     """
     import xgboost
-    import numpy as np
 
     if importance_types is None:
         importance_types = ["weight"]

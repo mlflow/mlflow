@@ -839,256 +839,11 @@ def _autolog(
     xgboost_estimator=False,
 ):  # pylint: disable=unused-argument
     """
-    Enables (or disables) and configures autologging for scikit-learn estimators.
-
-    **When is autologging performed?**
-      Autologging is performed when you call:
-
-      - ``estimator.fit()``
-      - ``estimator.fit_predict()``
-      - ``estimator.fit_transform()``
-
-    **Logged information**
-      **Parameters**
-        - Parameters obtained by ``estimator.get_params(deep=True)``. Note that ``get_params``
-          is called with ``deep=True``. This means when you fit a meta estimator that chains
-          a series of estimators, the parameters of these child estimators are also logged.
-
-      **Training metrics**
-        - A training score obtained by ``estimator.score``. Note that the training score is
-          computed using parameters given to ``fit()``.
-        - Common metrics for classifier:
-
-          - `precision score`_
-
-          .. _precision score:
-              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.precision_score.html
-
-          - `recall score`_
-
-          .. _recall score:
-              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.recall_score.html
-
-          - `f1 score`_
-
-          .. _f1 score:
-              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html
-
-          - `accuracy score`_
-
-          .. _accuracy score:
-              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.accuracy_score.html
-
-          If the classifier has method ``predict_proba``, we additionally log:
-
-          - `log loss`_
-
-          .. _log loss:
-              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.log_loss.html
-
-          - `roc auc score`_
-
-          .. _roc auc score:
-              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.roc_auc_score.html
-
-        - Common metrics for regressor:
-
-          - `mean squared error`_
-
-          .. _mean squared error:
-              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_squared_error.html
-
-          - root mean squared error
-
-          - `mean absolute error`_
-
-          .. _mean absolute error:
-              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_absolute_error.html
-
-          - `r2 score`_
-
-          .. _r2 score:
-              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.r2_score.html
-
-      .. _post training metrics:
-
-      **Post training metrics**
-        When users call metric APIs after model training, MLflow tries to capture the metric API
-        results and log them as MLflow metrics to the Run associated with the model. The following
-        types of scikit-learn metric APIs are supported:
-
-        - model.score
-        - metric APIs defined in the `sklearn.metrics` module
-
-        For post training metrics autologging, the metric key format is:
-        "{metric_name}[-{call_index}]_{dataset_name}"
-
-        - If the metric function is from `sklearn.metrics`, the MLflow "metric_name" is the
-          metric function name. If the metric function is `model.score`, then "metric_name" is
-          "{model_class_name}_score".
-        - If multiple calls are made to the same scikit-learn metric API, each subsequent call
-          adds a "call_index" (starting from 2) to the metric key.
-        - MLflow uses the prediction input dataset variable name as the "dataset_name" in the
-          metric key. The "prediction input dataset variable" refers to the variable which was
-          used as the first argument of the associated `model.predict` or `model.score` call.
-          Note: MLflow captures the "prediction input dataset" instance in the outermost call
-          frame and fetches the variable name in the outermost call frame. If the "prediction
-          input dataset" instance is an intermediate expression without a defined variable
-          name, the dataset name is set to "unknown_dataset". If multiple "prediction input
-          dataset" instances have the same variable name, then subsequent ones will append an
-          index (starting from 2) to the inspected dataset name.
-
-        **Limitations**
-           - MLflow can only map the original prediction result object returned by a model
-             prediction API (including predict / predict_proba / predict_log_proba / transform,
-             but excluding fit_predict / fit_transform.) to an MLflow run.
-             MLflow cannot find run information
-             for other objects derived from a given prediction result (e.g. by copying or selecting
-             a subset of the prediction result). scikit-learn metric APIs invoked on derived objects
-             do not log metrics to MLflow.
-           - Autologging must be enabled before scikit-learn metric APIs are imported from
-             `sklearn.metrics`. Metric APIs imported before autologging is enabled do not log
-             metrics to MLflow runs.
-           - If user define a scorer which is not based on metric APIs in `sklearn.metrics`, then
-             then post training metric autologging for the scorer is invalid.
-
-        **Tags**
-          - An estimator class name (e.g. "LinearRegression").
-          - A fully qualified estimator class name
-            (e.g. "sklearn.linear_model._base.LinearRegression").
-
-        **Artifacts**
-          - An MLflow Model with the :py:mod:`mlflow.sklearn` flavor containing a fitted estimator
-            (logged by :py:func:`mlflow.sklearn.log_model()`). The Model also contains the
-            :py:mod:`mlflow.pyfunc` flavor when the scikit-learn estimator defines `predict()`.
-          - For post training metrics API calls, a "metric_info.json" artifact is logged. This is a
-            JSON object whose keys are MLflow post training metric names
-            (see "Post training metrics" section for the key format) and whose values are the
-            corresponding metric call commands that produced the metrics, e.g.
-            ``accuracy_score(y_true=test_iris_y, y_pred=pred_iris_y, normalize=False)``.
-
-    **How does autologging work for meta estimators?**
-      When a meta estimator (e.g. `Pipeline`_, `GridSearchCV`_) calls ``fit()``, it internally calls
-      ``fit()`` on its child estimators. Autologging does NOT perform logging on these constituent
-      ``fit()`` calls.
-
-      **Parameter search**
-          In addition to recording the information discussed above, autologging for parameter
-          search meta estimators (`GridSearchCV`_ and `RandomizedSearchCV`_) records child runs
-          with metrics for each set of explored parameters, as well as artifacts and parameters
-          for the best model (if available).
-
-    **Supported estimators**
-      - All estimators obtained by `sklearn.utils.all_estimators`_ (including meta estimators).
-      - `Pipeline`_
-      - Parameter search estimators (`GridSearchCV`_ and `RandomizedSearchCV`_)
-
-    .. _sklearn.utils.all_estimators:
-        https://scikit-learn.org/stable/modules/generated/sklearn.utils.all_estimators.html
-
-    .. _Pipeline:
-        https://scikit-learn.org/stable/modules/generated/sklearn.pipeline.Pipeline.html
-
-    .. _GridSearchCV:
-        https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html
-
-    .. _RandomizedSearchCV:
-        https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.RandomizedSearchCV.html
-
-    **Example**
-
-    `See more examples <https://github.com/mlflow/mlflow/blob/master/examples/sklearn_autolog>`_
-
-    .. code-block:: python
-
-        from pprint import pprint
-        import numpy as np
-        from sklearn.linear_model import LinearRegression
-        import mlflow
-
-        def fetch_logged_data(run_id):
-            client = mlflow.tracking.MlflowClient()
-            data = client.get_run(run_id).data
-            tags = {k: v for k, v in data.tags.items() if not k.startswith("mlflow.")}
-            artifacts = [f.path for f in client.list_artifacts(run_id, "model")]
-            return data.params, data.metrics, tags, artifacts
-
-        # enable autologging
-        mlflow.sklearn.autolog()
-
-        # prepare training data
-        X = np.array([[1, 1], [1, 2], [2, 2], [2, 3]])
-        y = np.dot(X, np.array([1, 2])) + 3
-
-        # train a model
-        model = LinearRegression()
-        with mlflow.start_run() as run:
-            model.fit(X, y)
-
-        # fetch logged data
-        params, metrics, tags, artifacts = fetch_logged_data(run.info.run_id)
-
-        pprint(params)
-        # {'copy_X': 'True',
-        #  'fit_intercept': 'True',
-        #  'n_jobs': 'None',
-        #  'normalize': 'False'}
-
-        pprint(metrics)
-        # {'training_score': 1.0,
-           'training_mae': 2.220446049250313e-16,
-           'training_mse': 1.9721522630525295e-31,
-           'training_r2_score': 1.0,
-           'training_rmse': 4.440892098500626e-16}
-
-        pprint(tags)
-        # {'estimator_class': 'sklearn.linear_model._base.LinearRegression',
-        #  'estimator_name': 'LinearRegression'}
-
-        pprint(artifacts)
-        # ['model/MLmodel', 'model/conda.yaml', 'model/model.pkl']
-
-    :param log_input_examples: If ``True``, input examples from training datasets are collected and
-                               logged along with scikit-learn model artifacts during training. If
-                               ``False``, input examples are not logged.
-                               Note: Input examples are MLflow model attributes
-                               and are only collected if ``log_models`` is also ``True``.
-    :param log_model_signatures: If ``True``,
-                                 :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
-                                 describing model inputs and outputs are collected and logged along
-                                 with scikit-learn model artifacts during training. If ``False``,
-                                 signatures are not logged.
-                                 Note: Model signatures are MLflow model attributes
-                                 and are only collected if ``log_models`` is also ``True``.
-    :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
-                       If ``False``, trained models are not logged.
-                       Input examples and model signatures, which are attributes of MLflow models,
-                       are also omitted when ``log_models`` is ``False``.
-    :param disable: If ``True``, disables the scikit-learn autologging integration. If ``False``,
-                    enables the scikit-learn autologging integration.
-    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
-                      If ``False``, autologged content is logged to the active fluent run,
-                      which may be user-created.
-    :param disable_for_unsupported_versions: If ``True``, disable autologging for versions of
-                      scikit-learn that have not been tested against this version of the MLflow
-                      client or are incompatible.
-    :param silent: If ``True``, suppress all event logs and warnings from MLflow during scikit-learn
-                   autologging. If ``False``, show all events and warnings during scikit-learn
-                   autologging.
-    :param max_tuning_runs: The maximum number of child Mlflow runs created for hyperparameter
-                            search estimators. To create child runs for the best `k` results from
-                            the search, set `max_tuning_runs` to `k`. The default value is to track
-                            the best 5 search parameter sets. If `max_tuning_runs=None`, then
-                            a child run is created for each search parameter set. Note: The best k
-                            results is based on ordering in `rank_test_score`. In the case of
-                            multi-metric evaluation with a custom scorer, the first scorer’s
-                            `rank_test_score_<scorer_name>` will be used to select the best k
-                            results. To change metric used for selecting best k results, change
-                            ordering of dict passed as `scoring` parameter for estimator.
-    :param log_post_training_metrics: If ``True``, post training metrics are logged. Defaults to
-                                      ``True``. See the `post training metrics`_ section for more
-                                      details.
+    An internal _autolog() API.
+    If called from ``mlflow.sklearn.autolog()``, it enables autologging for scikit-learn estimators.
+    If called from ``mlflow.xgboost.autolog()``, it enables autologging for XGBoost sklearn estimators.
     """
+
     import pandas as pd
     import sklearn
     import sklearn.metrics
@@ -1130,12 +885,12 @@ def _autolog(
 
     def fit_mlflow_xgboost(original, self, *args, **kwargs):
 
-        # mlflow.sklearn.autolog rountine
+        # ``mlflow.sklearn.autolog`` rountine
         autologging_client = MlflowAutologgingQueueingClient()
         _log_pretraining_metadata(autologging_client, self, *args, **kwargs)
         params_logging_future = autologging_client.flush(synchronous=False)
 
-        # mlflow.xgboost.autolog items (early stopping + feature importance)
+        # ``mlflow.xgboost.autolog`` items (early stopping + feature importance)
         all_arg_names = inspect.getfullargspec(original).kwonlyargs  # pylint: disable=W1505
         num_pos_kwargs = len(kwargs)
         callbacks_index = all_arg_names.index("callbacks")
@@ -1204,7 +959,7 @@ def _autolog(
         finally:
             shutil.rmtree(tmpdir)
 
-        # mlflow.sklearn.autolog rountine
+        # ``mlflow.sklearn.autolog`` rountine
         _log_posttraining_metadata(autologging_client, self, *args, **kwargs)
         autologging_client.flush(synchronous=True)
         params_logging_future.await_completion()
@@ -1662,8 +1417,257 @@ def autolog(
     max_tuning_runs=5,
     log_post_training_metrics=True,
 ):
-    # autologging for sklearn estimators
-    # excluding XGBoost and LightGBM sklearn estimators
+    """
+    Enables (or disables) and configures autologging for scikit-learn estimators.
+
+    **When is autologging performed?**
+      Autologging is performed when you call:
+
+      - ``estimator.fit()``
+      - ``estimator.fit_predict()``
+      - ``estimator.fit_transform()``
+
+    **Logged information**
+      **Parameters**
+        - Parameters obtained by ``estimator.get_params(deep=True)``. Note that ``get_params``
+          is called with ``deep=True``. This means when you fit a meta estimator that chains
+          a series of estimators, the parameters of these child estimators are also logged.
+
+      **Training metrics**
+        - A training score obtained by ``estimator.score``. Note that the training score is
+          computed using parameters given to ``fit()``.
+        - Common metrics for classifier:
+
+          - `precision score`_
+
+          .. _precision score:
+              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.precision_score.html
+
+          - `recall score`_
+
+          .. _recall score:
+              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.recall_score.html
+
+          - `f1 score`_
+
+          .. _f1 score:
+              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html
+
+          - `accuracy score`_
+
+          .. _accuracy score:
+              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.accuracy_score.html
+
+          If the classifier has method ``predict_proba``, we additionally log:
+
+          - `log loss`_
+
+          .. _log loss:
+              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.log_loss.html
+
+          - `roc auc score`_
+
+          .. _roc auc score:
+              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.roc_auc_score.html
+
+        - Common metrics for regressor:
+
+          - `mean squared error`_
+
+          .. _mean squared error:
+              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_squared_error.html
+
+          - root mean squared error
+
+          - `mean absolute error`_
+
+          .. _mean absolute error:
+              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_absolute_error.html
+
+          - `r2 score`_
+
+          .. _r2 score:
+              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.r2_score.html
+
+      .. _post training metrics:
+
+      **Post training metrics**
+        When users call metric APIs after model training, MLflow tries to capture the metric API
+        results and log them as MLflow metrics to the Run associated with the model. The following
+        types of scikit-learn metric APIs are supported:
+
+        - model.score
+        - metric APIs defined in the `sklearn.metrics` module
+
+        For post training metrics autologging, the metric key format is:
+        "{metric_name}[-{call_index}]_{dataset_name}"
+
+        - If the metric function is from `sklearn.metrics`, the MLflow "metric_name" is the
+          metric function name. If the metric function is `model.score`, then "metric_name" is
+          "{model_class_name}_score".
+        - If multiple calls are made to the same scikit-learn metric API, each subsequent call
+          adds a "call_index" (starting from 2) to the metric key.
+        - MLflow uses the prediction input dataset variable name as the "dataset_name" in the
+          metric key. The "prediction input dataset variable" refers to the variable which was
+          used as the first argument of the associated `model.predict` or `model.score` call.
+          Note: MLflow captures the "prediction input dataset" instance in the outermost call
+          frame and fetches the variable name in the outermost call frame. If the "prediction
+          input dataset" instance is an intermediate expression without a defined variable
+          name, the dataset name is set to "unknown_dataset". If multiple "prediction input
+          dataset" instances have the same variable name, then subsequent ones will append an
+          index (starting from 2) to the inspected dataset name.
+
+        **Limitations**
+           - MLflow can only map the original prediction result object returned by a model
+             prediction API (including predict / predict_proba / predict_log_proba / transform,
+             but excluding fit_predict / fit_transform.) to an MLflow run.
+             MLflow cannot find run information
+             for other objects derived from a given prediction result (e.g. by copying or selecting
+             a subset of the prediction result). scikit-learn metric APIs invoked on derived objects
+             do not log metrics to MLflow.
+           - Autologging must be enabled before scikit-learn metric APIs are imported from
+             `sklearn.metrics`. Metric APIs imported before autologging is enabled do not log
+             metrics to MLflow runs.
+           - If user define a scorer which is not based on metric APIs in `sklearn.metrics`, then
+             then post training metric autologging for the scorer is invalid.
+
+        **Tags**
+          - An estimator class name (e.g. "LinearRegression").
+          - A fully qualified estimator class name
+            (e.g. "sklearn.linear_model._base.LinearRegression").
+
+        **Artifacts**
+          - An MLflow Model with the :py:mod:`mlflow.sklearn` flavor containing a fitted estimator
+            (logged by :py:func:`mlflow.sklearn.log_model()`). The Model also contains the
+            :py:mod:`mlflow.pyfunc` flavor when the scikit-learn estimator defines `predict()`.
+          - For post training metrics API calls, a "metric_info.json" artifact is logged. This is a
+            JSON object whose keys are MLflow post training metric names
+            (see "Post training metrics" section for the key format) and whose values are the
+            corresponding metric call commands that produced the metrics, e.g.
+            ``accuracy_score(y_true=test_iris_y, y_pred=pred_iris_y, normalize=False)``.
+
+    **How does autologging work for meta estimators?**
+      When a meta estimator (e.g. `Pipeline`_, `GridSearchCV`_) calls ``fit()``, it internally calls
+      ``fit()`` on its child estimators. Autologging does NOT perform logging on these constituent
+      ``fit()`` calls.
+
+      **Parameter search**
+          In addition to recording the information discussed above, autologging for parameter
+          search meta estimators (`GridSearchCV`_ and `RandomizedSearchCV`_) records child runs
+          with metrics for each set of explored parameters, as well as artifacts and parameters
+          for the best model (if available).
+
+    **Supported estimators**
+      - All estimators obtained by `sklearn.utils.all_estimators`_ (including meta estimators).
+      - `Pipeline`_
+      - Parameter search estimators (`GridSearchCV`_ and `RandomizedSearchCV`_)
+
+    .. _sklearn.utils.all_estimators:
+        https://scikit-learn.org/stable/modules/generated/sklearn.utils.all_estimators.html
+
+    .. _Pipeline:
+        https://scikit-learn.org/stable/modules/generated/sklearn.pipeline.Pipeline.html
+
+    .. _GridSearchCV:
+        https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html
+
+    .. _RandomizedSearchCV:
+        https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.RandomizedSearchCV.html
+
+    **Example**
+
+    `See more examples <https://github.com/mlflow/mlflow/blob/master/examples/sklearn_autolog>`_
+
+    .. code-block:: python
+
+        from pprint import pprint
+        import numpy as np
+        from sklearn.linear_model import LinearRegression
+        import mlflow
+
+        def fetch_logged_data(run_id):
+            client = mlflow.tracking.MlflowClient()
+            data = client.get_run(run_id).data
+            tags = {k: v for k, v in data.tags.items() if not k.startswith("mlflow.")}
+            artifacts = [f.path for f in client.list_artifacts(run_id, "model")]
+            return data.params, data.metrics, tags, artifacts
+
+        # enable autologging
+        mlflow.sklearn.autolog()
+
+        # prepare training data
+        X = np.array([[1, 1], [1, 2], [2, 2], [2, 3]])
+        y = np.dot(X, np.array([1, 2])) + 3
+
+        # train a model
+        model = LinearRegression()
+        with mlflow.start_run() as run:
+            model.fit(X, y)
+
+        # fetch logged data
+        params, metrics, tags, artifacts = fetch_logged_data(run.info.run_id)
+
+        pprint(params)
+        # {'copy_X': 'True',
+        #  'fit_intercept': 'True',
+        #  'n_jobs': 'None',
+        #  'normalize': 'False'}
+
+        pprint(metrics)
+        # {'training_score': 1.0,
+           'training_mae': 2.220446049250313e-16,
+           'training_mse': 1.9721522630525295e-31,
+           'training_r2_score': 1.0,
+           'training_rmse': 4.440892098500626e-16}
+
+        pprint(tags)
+        # {'estimator_class': 'sklearn.linear_model._base.LinearRegression',
+        #  'estimator_name': 'LinearRegression'}
+
+        pprint(artifacts)
+        # ['model/MLmodel', 'model/conda.yaml', 'model/model.pkl']
+
+    :param log_input_examples: If ``True``, input examples from training datasets are collected and
+                               logged along with scikit-learn model artifacts during training. If
+                               ``False``, input examples are not logged.
+                               Note: Input examples are MLflow model attributes
+                               and are only collected if ``log_models`` is also ``True``.
+    :param log_model_signatures: If ``True``,
+                                 :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
+                                 describing model inputs and outputs are collected and logged along
+                                 with scikit-learn model artifacts during training. If ``False``,
+                                 signatures are not logged.
+                                 Note: Model signatures are MLflow model attributes
+                                 and are only collected if ``log_models`` is also ``True``.
+    :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
+                       If ``False``, trained models are not logged.
+                       Input examples and model signatures, which are attributes of MLflow models,
+                       are also omitted when ``log_models`` is ``False``.
+    :param disable: If ``True``, disables the scikit-learn autologging integration. If ``False``,
+                    enables the scikit-learn autologging integration.
+    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+                      If ``False``, autologged content is logged to the active fluent run,
+                      which may be user-created.
+    :param disable_for_unsupported_versions: If ``True``, disable autologging for versions of
+                      scikit-learn that have not been tested against this version of the MLflow
+                      client or are incompatible.
+    :param silent: If ``True``, suppress all event logs and warnings from MLflow during scikit-learn
+                   autologging. If ``False``, show all events and warnings during scikit-learn
+                   autologging.
+    :param max_tuning_runs: The maximum number of child Mlflow runs created for hyperparameter
+                            search estimators. To create child runs for the best `k` results from
+                            the search, set `max_tuning_runs` to `k`. The default value is to track
+                            the best 5 search parameter sets. If `max_tuning_runs=None`, then
+                            a child run is created for each search parameter set. Note: The best k
+                            results is based on ordering in `rank_test_score`. In the case of
+                            multi-metric evaluation with a custom scorer, the first scorer’s
+                            `rank_test_score_<scorer_name>` will be used to select the best k
+                            results. To change metric used for selecting best k results, change
+                            ordering of dict passed as `scoring` parameter for estimator.
+    :param log_post_training_metrics: If ``True``, post training metrics are logged. Defaults to
+                                      ``True``. See the `post training metrics`_ section for more
+                                      details.
+    """
     _autolog(
         log_input_examples=log_input_examples,
         log_model_signatures=log_model_signatures,

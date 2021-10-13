@@ -6,4 +6,5 @@ sphinx-autobuild
 sphinx-click
 scikit-learn
 scipy
+xgboost
 kubernetes
