@@ -25,8 +25,6 @@ import json
 from collections import defaultdict, OrderedDict
 from packaging.version import Version
 
-import xgboost
-
 import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
@@ -1517,6 +1515,7 @@ def _autolog(
             return original(self, *args, **kwargs)
 
     if xgboost_estimator:
+        import xgboost
         estimators_to_patch = [
             xgboost.XGBRegressor,
             xgboost.XGBClassifier,
@@ -1679,7 +1678,6 @@ def autolog(
     )
 
 
-
 def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
     """
     Computes and logs metrics (and artifacts) for the given model and labeled dataset.
@@ -1711,12 +1709,7 @@ def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
         X_eval = np.array([[3, 3], [3, 4]])
         y_eval = np.dot(X_eval, np.array([1,2])) + 3
 
-        # trainep
-np
-np
-ep
-al
-al a model
+        # train a model
         model = LinearRegression()
         with mlflow.start_run() as run:
             model.fit(X, y)
