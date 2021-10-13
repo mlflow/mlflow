@@ -145,7 +145,9 @@ export const getModelVersionSchemas = (state, modelName, version) => {
       }
       if (artifact.signature.outputs) {
         try {
-          schemaMap['outputs'] = JSON.parse(artifact.signature.outputs);
+          schemaMap['outputs'] = JSON.parse(
+            artifact.signature.outputs.replace(/(\r\n|\n|\r)/gm, '')
+          );
         } catch (error) {
           console.error(error);
         }
