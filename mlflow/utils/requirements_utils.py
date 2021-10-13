@@ -152,8 +152,8 @@ def _get_requires_recursive(pkg_name):
         return
 
     for req in reqs:
-        yield req.name
-        yield from _get_requires_recursive(req.name)
+        yield req.project_name
+        yield from _get_requires_recursive(req.project_name)
 
 
 def _prune_packages(packages):
