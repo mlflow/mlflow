@@ -243,6 +243,24 @@ def _capture_imported_modules(model_uri, flavor):
 
 _MODULES_TO_PACKAGES = None
 
+# Represents the PyPI package index at a particular date
+# :param date: The YYYY-MM-DD formatted string date on which the index was fetched.
+# :param package_names: The set of package names in the index.
+PyPIPackageIndex = namedtuple("PyPIPackageIndex", ["date", "package_names"])
+
+
+def _load_pypi_package_index():
+    pypi_index_path = pkg_resources.resource_filename(__name__, "../pypi_package_index.json")
+    with open(pypi_index_path, "r") as f:
+        index_dict = json.load(f)
+
+    return PyPIPackageIndex(
+        date=index_dict["index_date"], package_names=set(index_dict["package_names"]),
+    )
+
+
+_pypi_package_index = _load_pypi_package_index()
+
 
 def _infer_requirements(model_uri, flavor):
     """
@@ -281,6 +299,15 @@ def _infer_requirements(model_uri, flavor):
         *_MODULES_TO_PACKAGES.get("mlflow", []),
     ]
     packages = packages - set(excluded_packages)
+    unrecognized_packages = packages - _pypi_package_index.package_names
+    if unrecognized_packages:
+        _logger.warning(
+            "The following packages were not found in the public PyPI package index as of"
+            " %s; if these packages are not present in the public PyPI index, you must install"
+            " them manually before loading your model: %s",
+            _pypi_package_index.date,
+            unrecognized_packages,
+        )
     return sorted(map(_get_pinned_requirement, packages))
 
 
