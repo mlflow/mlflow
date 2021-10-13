@@ -1884,23 +1884,26 @@ def test_log_post_training_metrics_configuration():
         assert any(k.startswith(metric_name) for k in metrics.keys()) is log_post_training_metrics
 
 
-def test_autolog_disabled_on_custom_estimator():
+class NonPickableKmeans(sklearn.cluster.KMeans):
+    def __init__(self, n_clusters=8, *, init="k-means++"):
+        super(NonPickableKmeans, self).__init__(n_clusters, init=init)
+        self.generator = (i for i in range(3))
+
+
+def test_autolog_print_warning_if_custom_estimator_pickling_raise_error():
+    import pickle
     mlflow.sklearn.autolog()
-
-    class MyKMeansNotPickleable(sklearn.cluster.KMeans):
-        def __init__(self, n_clusters=8, *, init="k-means++"):
-            super(MyKMeansNotPickleable, self).__init__(n_clusters, init=init)
-
-            def f1():
-                yield 1
-
-            self.g1 = f1()
 
     with mlflow.start_run() as run, \
             mock.patch("logging.Logger.warning") as mock_warning:
-        MyKMeansNotPickleable().fit(*get_iris())
+        non_pickable_kmeans = NonPickableKmeans()
+
+        with pytest.raises(TypeError, match="can't pickle generator objects"):
+            pickle.dumps(non_pickable_kmeans)
+
+        non_pickable_kmeans.fit(*get_iris())
         assert any(call_args[0][0].startswith(
-            'Pickling custom sklearn model MyKMeansNotPickleable failed'
+            'Pickling custom sklearn model NonPickableKmeans failed'
         ) for call_args in mock_warning.call_args_list)
 
     run_id = run.info.run_id

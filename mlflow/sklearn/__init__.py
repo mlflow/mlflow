@@ -469,7 +469,7 @@ def _dump_model(pickle_lib, sk_model, out):
     try:
         pickle_lib.dump(sk_model, out)
     except Exception as e:
-        if isinstance(e, (pickle.PicklingError, TypeError)) and \
+        if isinstance(e, (pickle.PicklingError, TypeError, AttributeError)) and \
                 sk_model.__class__ not in _estimators_to_patch:
             raise SklearnCustomModelPicklingError(sk_model, e)
         else:
