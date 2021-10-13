@@ -61,10 +61,17 @@ CONTENT_TYPES = [
     CONTENT_TYPE_JSON_SPLIT_NUMPY,
 ]
 
+
 CONTENT_TYPE_FORMAT_RECORDS_ORIENTED = "pandas-records"
 CONTENT_TYPE_FORMAT_SPLIT_ORIENTED = "pandas-split"
 
 FORMATS = [CONTENT_TYPE_FORMAT_RECORDS_ORIENTED, CONTENT_TYPE_FORMAT_SPLIT_ORIENTED]
+
+ORIENTATION_SPLIT = "split"
+ORIENTATION_RECORDS = "records"
+ORIENTATION_COLUMNS = "columns"
+ORIENTATIONS = [ORIENTATION_SPLIT, ORIENTATION_COLUMNS, ORIENTATION_RECORDS]
+HEADER_ORIENTATION = "Orientation"
 
 PREDICTIONS_WRAPPER_ATTR_NAME_ENV_KEY = "PREDICTIONS_WRAPPER_ATTR_NAME"
 
@@ -177,8 +184,8 @@ def parse_split_oriented_json_input_to_numpy(json_input):
         )
 
 
-def predictions_to_json(raw_predictions, output):
-    predictions = _get_jsonable_obj(raw_predictions, pandas_orient="records")
+def predictions_to_json(raw_predictions, output, pandas_orient='records'):
+    predictions = _get_jsonable_obj(raw_predictions, pandas_orient=pandas_orient)
     wrapper_attr_name = os.environ.get(PREDICTIONS_WRAPPER_ATTR_NAME_ENV_KEY, None)
     if wrapper_attr_name:
         predictions = {wrapper_attr_name: predictions}
@@ -231,8 +238,25 @@ def init(model: PyFuncModel):
         Do an inference on a single batch of data. In this sample server,
         we take data as CSV or json, convert it to a Pandas DataFrame or Numpy,
         generate predictions and convert them back to json.
+
+        The header 'Orientation` can specify the orientation of the returned dataframe.
+        Allowed values: 'records', 'split
         """
 
+        result_orientation = flask.request.headers.get(HEADER_ORIENTATION)
+        if result_orientation is not None and result_orientation not in ORIENTATIONS:
+            return flask.Response(
+                response=(
+                    "This predictor only supports the following orientations:"
+                    " Orientations: {orientations}."
+                    " Got '{received_orientation}'.".format(
+                        orientations=ORIENTATIONS,
+                        received_orientation=result_orientation
+                    )
+                ),
+                status=415,
+                mimetype="text/plain",
+            )
         # Content-Type can include other attributes like CHARSET
         # Content-type RFC: https://datatracker.ietf.org/doc/html/rfc2045#section-5.1
         # TODO: Suport ";" in quoted parameter values
@@ -315,7 +339,7 @@ def init(model: PyFuncModel):
                 error_code=BAD_REQUEST,
             )
         result = StringIO()
-        predictions_to_json(raw_predictions, result)
+        predictions_to_json(raw_predictions, result, result_orientation)
         return flask.Response(response=result.getvalue(), status=200, mimetype="application/json")
 
     return app

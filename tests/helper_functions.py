@@ -136,6 +136,7 @@ def pyfunc_serve_and_score_model(
     activity_polling_timeout_seconds=500,
     extra_args=None,
     stdout=sys.stdout,
+        headers=None
 ):
     """
     :param model_uri: URI to the model to be served.
@@ -149,6 +150,7 @@ def pyfunc_serve_and_score_model(
                        example, passing ``extra_args=["--no-conda"]`` will pass the ``--no-conda``
                        flag to the scoring server to ensure that conda environment activation
                        is skipped.
+    :param headers: Headers to pass on with the request, a dictionary.
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
@@ -168,7 +170,7 @@ def pyfunc_serve_and_score_model(
     if extra_args is not None:
         scoring_cmd += extra_args
     proc = _start_scoring_proc(cmd=scoring_cmd, env=env, stdout=stdout, stderr=stdout)
-    return _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_timeout_seconds)
+    return _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_timeout_seconds, headers)
 
 
 def _get_mlflow_home():
@@ -240,7 +242,7 @@ class RestEndpoint:
                 self._proc.send_signal(signal.CTRL_BREAK_EVENT)
                 self._proc.kill()
 
-    def invoke(self, data, content_type):
+    def invoke(self, data, content_type, headers=None):
         if type(data) == pd.DataFrame:
             if content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED:
                 data = data.to_json(orient="records")
@@ -255,21 +257,23 @@ class RestEndpoint:
                 raise Exception(
                     "Unexpected content type for Pandas dataframe input %s" % content_type
                 )
+        request_headers = (headers or {})
+        request_headers.update({"Content-Type":content_type})
         response = requests.post(
             url="http://localhost:%d/invocations" % self._port,
             data=data,
-            headers={"Content-Type": content_type},
+            headers=request_headers,
         )
         return response
 
 
-def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_timeout_seconds=250):
+def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_timeout_seconds=250, headers=None):
     """
     :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
                                              declaring the scoring process to have failed.
     """
     with RestEndpoint(proc, port, activity_polling_timeout_seconds) as endpoint:
-        return endpoint.invoke(data, content_type)
+        return endpoint.invoke(data, content_type, headers)
 
 
 @pytest.fixture(scope="module", autouse=True)
