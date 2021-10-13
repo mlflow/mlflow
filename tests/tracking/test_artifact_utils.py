@@ -56,6 +56,31 @@ def test_download_artifact_from_absolute_uri_persists_data_to_specified_output_d
         assert f.read() == artifact_text
 
 
+def test_download_artifact_with_special_characters_in_file_name_and_path(tmpdir):
+    artifact_file_name = " artifact: with! special ||characters.txt"
+    artifact_text = "Sample artifact text"
+    local_artifact_path = tmpdir.join(artifact_file_name).strpath
+    with open(local_artifact_path, "w") as out:
+        out.write(artifact_text)
+
+    logged_artifact_subdir = "logged artifact: path"
+    with mlflow.start_run():
+        mlflow.log_artifact(local_path=local_artifact_path, artifact_path=logged_artifact_subdir)
+        artifact_uri = mlflow.get_artifact_uri(artifact_path=logged_artifact_subdir)
+
+    artifact_output_path = tmpdir.join("artifact output path!").strpath
+    os.makedirs(artifact_output_path)
+    _download_artifact_from_uri(artifact_uri=artifact_uri, output_path=artifact_output_path)
+    assert logged_artifact_subdir in os.listdir(artifact_output_path)
+    assert artifact_file_name in os.listdir(
+        os.path.join(artifact_output_path, logged_artifact_subdir)
+    )
+    with open(
+        os.path.join(artifact_output_path, logged_artifact_subdir, artifact_file_name), "r"
+    ) as f:
+        assert f.read() == artifact_text
+
+
 def test_upload_artifacts_to_databricks():
     import_root = "mlflow.tracking.artifact_utils"
     with mock.patch(import_root + "._download_artifact_from_uri") as download_mock, mock.patch(
