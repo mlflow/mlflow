@@ -127,34 +127,44 @@ def _serve_pyfunc(model):
         if not os.environ.get(DISABLE_ENV_CREATION) == "true":
             _install_pyfunc_deps(MODEL_PATH, install_mlflow=True)
         bash_cmds += ["source /miniconda/bin/activate custom_env"]
-    nginx_conf = resource_filename(mlflow.models.__name__, "container/scoring_server/nginx.conf")
 
     # option to disable manually nginx. The default behavior is to enable nginx.
-    start_nginx = False if os.getenv(DISABLE_NGINX, "false").lower() == "true" else True
-    nginx = Popen(["nginx", "-c", nginx_conf]) if start_nginx else None
+    disable_nginx = os.getenv(DISABLE_NGINX, "false").lower() == "true"
+    enable_mlserver = os.getenv(ENABLE_MLSERVER, "false").lower() == "true"
 
-    # link the log streams to stdout/err so they will be logged to the container logs.
-    # Default behavior is to do the redirection unless explicitly specified by environment variable.
+    procs = []
+
+    start_nginx = True
+    if disable_nginx or enable_mlserver:
+        start_nginx = False
 
     if start_nginx:
+        nginx_conf = resource_filename(
+            mlflow.models.__name__, "container/scoring_server/nginx.conf"
+        )
+
+        nginx = Popen(["nginx", "-c", nginx_conf]) if start_nginx else None
+
+        # link the log streams to stdout/err so they will be logged to the container logs.
+        # Default behavior is to do the redirection unless explicitly specified by environment variable.
         check_call(["ln", "-sf", "/dev/stdout", "/var/log/nginx/access.log"])
         check_call(["ln", "-sf", "/dev/stderr", "/var/log/nginx/error.log"])
+
+        procs.append(nginx)
 
     cpu_count = multiprocessing.cpu_count()
     os.system("pip -V")
     os.system("python -V")
     os.system('python -c"from mlflow.version import VERSION as V; print(V)"')
 
-    enable_mlserver = os.getenv(ENABLE_MLSERVER, "false").lower() == "true"
     inference_server = mlserver if enable_mlserver else scoring_server
     cmd, cmd_env = inference_server.get_cmd(
         model_uri=MODEL_PATH, nworkers=cpu_count, port=DEFAULT_INFERENCE_SERVER_PORT
     )
 
     bash_cmds.append(cmd)
-    gunicorn = Popen(["/bin/bash", "-c", " && ".join(bash_cmds)], env=cmd_env)
-
-    procs = [p for p in [nginx, gunicorn] if p]
+    inference_server = Popen(["/bin/bash", "-c", " && ".join(bash_cmds)], env=cmd_env)
+    procs.append(inference_server)
 
     signal.signal(signal.SIGTERM, lambda a, b: _sigterm_handler(pids=[p.pid for p in procs]))
     # If either subprocess exits, so do we.
