@@ -1,9 +1,0 @@
-name: tensorflow-example
-channels:
-  - conda-forge
-dependencies:
-  - python=3.6
-  - pip
-  - pip:
-    - mlflow
-    - tensorflow==1.13.1
