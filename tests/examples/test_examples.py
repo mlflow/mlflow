@@ -91,7 +91,6 @@ def report_free_disk_space(capsys):
         ("sklearn_elasticnet_wine", ["-P", "alpha=0.5"]),
         (os.path.join("sklearn_elasticnet_diabetes", "linux"), []),
         ("spacy", []),
-        (os.path.join("tensorflow", "tf1"), ["-P", "steps=10"]),
         (
             "xgboost",
             ["-P", "learning_rate=0.3", "-P", "colsample_bytree=0.8", "-P", "subsample=0.9"],
