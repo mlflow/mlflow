@@ -78,6 +78,7 @@ def _gen_estimators_to_patch():
         _all_estimators,
         _get_meta_estimators_for_autologging,
     )
+
     _, estimators_to_patch = zip(*_all_estimators())
     # Ensure that relevant meta estimators (e.g. GridSearchCV, Pipeline) are selected
     # for patching if they are not already included in the output of `all_estimators()`
@@ -109,6 +110,7 @@ def _gen_estimators_to_patch():
             for excluded_module_name in excluded_module_names
         )
     ]
+
 
 def get_default_pip_requirements(include_cloudpickle=False):
     """
@@ -455,8 +457,8 @@ def _load_pyfunc(path):
 class SklearnCustomModelPicklingError(pickle.PicklingError):
     def __init__(self, sk_model, original_exception):
         super(SklearnCustomModelPicklingError, self).__init__(
-            f'Pickling custom sklearn model {sk_model.__class__.__name__} failed '
-            f'when saving model: {str(original_exception)}'
+            f"Pickling custom sklearn model {sk_model.__class__.__name__} failed "
+            f"when saving model: {str(original_exception)}"
         )
         self.original_exception = original_exception
 
@@ -465,8 +467,10 @@ def _dump_model(pickle_lib, sk_model, out):
     try:
         pickle_lib.dump(sk_model, out)
     except Exception as e:
-        if isinstance(e, (pickle.PicklingError, TypeError, AttributeError)) and \
-                sk_model.__class__ not in _gen_estimators_to_patch():
+        if (
+            isinstance(e, (pickle.PicklingError, TypeError, AttributeError))
+            and sk_model.__class__ not in _gen_estimators_to_patch()
+        ):
             raise SklearnCustomModelPicklingError(sk_model, e)
         else:
             raise
@@ -485,6 +489,7 @@ def _save_model(sk_model, output_path, serialization_format):
             _dump_model(pickle, sk_model, out)
         elif serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE:
             import cloudpickle
+
             _dump_model(cloudpickle, sk_model, out)
         else:
             raise MlflowException(
