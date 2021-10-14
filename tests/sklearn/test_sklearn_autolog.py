@@ -1073,10 +1073,9 @@ def test_autolog_produces_expected_results_for_estimator_when_parent_also_define
             super().fit(X, y)
             self.prediction = self.prediction + 1
 
-    og_all_estimators = mlflow.sklearn.utils._all_estimators()
-    new_all_estimators = og_all_estimators + [("ParentMod", ParentMod), ("ChildMod", ChildMod)]
+    new_estimators_to_patch = mlflow.sklearn._estimators_to_patch + [ParentMod, ChildMod]
 
-    with mock.patch("mlflow.sklearn.utils._all_estimators", return_value=new_all_estimators):
+    with mock.patch("mlflow.sklearn._estimators_to_patch", new_estimators_to_patch):
         mlflow.sklearn.autolog()
 
     model = ChildMod()
