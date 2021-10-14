@@ -380,7 +380,6 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 
 def test_pyfunc_serve_and_score(prophet_model):
 
-    # Verify that a name with non-url-compliant characters can be handled properly
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.prophet.log_model(prophet_model.model, artifact_path)
