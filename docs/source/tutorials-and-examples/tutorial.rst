@@ -295,7 +295,7 @@ in MLflow saved the model as an artifact within the run.
 
               mlflow models serve \
                 -m /Users/mlflow/mlflow-prototype/mlruns/0/7c1a0d5c42844dcdb8f5191146925174/artifacts/model \
-                -p 1234 --mlserver
+                -p 1234 --enable-mlserver
 
       .. note::
 
