@@ -141,7 +141,12 @@ def _normalize_package_name(pkg_name):
 
 def _get_requires_recursive(pkg_name, packages=set()) -> set:
     """
-    Recursively yields both direct and transitive dependencies of the specified package.
+    Recursively yields both direct and transitive dependencies of the specified
+    package.
+    The `packages` argument will track the packages which have been already
+    visited.
+    This ensures that we don't fall into recursive loops for packages with are
+    dependant on each other.
     """
     pkg_name = _normalize_package_name(pkg_name)
     if pkg_name not in pkg_resources.working_set.by_key:
@@ -155,6 +160,8 @@ def _get_requires_recursive(pkg_name, packages=set()) -> set:
     reqs = package.requires()
 
     for req in reqs:
+        # Add each requirement to the `packages` set and then get the
+        # dependencies of each one.
         packages.add(_normalize_package_name(req.name))
         packages = packages.union(_get_requires_recursive(req.name, packages))
 
@@ -167,7 +174,10 @@ def _prune_packages(packages):
     to `["scikit-learn"]`.
     """
     packages = set(packages)
+
+    # Gather list of "transient" dependencies (i.e. 2nd-level, 3rd-level, etc.)
     requires = set().union(*map(_get_requires_recursive, packages))
+
     return packages - requires
 
 
