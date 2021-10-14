@@ -175,14 +175,21 @@ def test_mlflow_models_serve(enable_mlserver):
     model = MyModel()
 
     with mlflow.start_run():
-        mlflow.pyfunc.log_model(artifact_path="model", python_model=model)
+        conda_env = None
+        if enable_mlserver:
+            # MLServer requires Python 3.7, so we'll add it to the model's
+            # Conda environment
+            conda_env = {"dependencies": ["python=3.7"]}
+        mlflow.pyfunc.log_model(artifact_path="model", python_model=model, conda_env=conda_env)
         model_uri = mlflow.get_artifact_uri("model")
 
     data = pd.DataFrame({"a": [0]})
 
     extra_args = ["--no-conda"]
     if enable_mlserver:
-        extra_args.append("--enable-mlserver")
+        # When MLServer is enabled, we want to use Conda to ensure Python 3.7
+        # is used
+        extra_args = ["--enable-mlserver"]
 
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=model_uri,
