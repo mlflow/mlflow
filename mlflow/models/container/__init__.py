@@ -121,16 +121,17 @@ def _install_pyfunc_deps(model_path=None, install_mlflow=False):
 
 
 def _serve_pyfunc(model):
-    conf = model.flavors[pyfunc.FLAVOR_NAME]
-    bash_cmds = []
-    if pyfunc.ENV in conf:
-        if not os.environ.get(DISABLE_ENV_CREATION) == "true":
-            _install_pyfunc_deps(MODEL_PATH, install_mlflow=True)
-        bash_cmds += ["source /miniconda/bin/activate custom_env"]
-
     # option to disable manually nginx. The default behavior is to enable nginx.
     disable_nginx = os.getenv(DISABLE_NGINX, "false").lower() == "true"
     enable_mlserver = os.getenv(ENABLE_MLSERVER, "false").lower() == "true"
+    disable_env_creation = os.environ.get(DISABLE_ENV_CREATION) == "true"
+
+    conf = model.flavors[pyfunc.FLAVOR_NAME]
+    bash_cmds = []
+    if pyfunc.ENV in conf:
+        if not disable_env_creation:
+            _install_pyfunc_deps(MODEL_PATH, install_mlflow=True)
+        bash_cmds += ["source /miniconda/bin/activate custom_env"]
 
     procs = []
 
