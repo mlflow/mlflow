@@ -110,10 +110,6 @@ def _gen_estimators_to_patch():
         )
     ]
 
-
-_estimators_to_patch = _gen_estimators_to_patch()
-
-
 def get_default_pip_requirements(include_cloudpickle=False):
     """
     :return: A list of default pip requirements for MLflow Models produced by this flavor.
@@ -470,7 +466,7 @@ def _dump_model(pickle_lib, sk_model, out):
         pickle_lib.dump(sk_model, out)
     except Exception as e:
         if isinstance(e, (pickle.PicklingError, TypeError, AttributeError)) and \
-                sk_model.__class__ not in _estimators_to_patch:
+                sk_model.__class__ not in _gen_estimators_to_patch():
             raise SklearnCustomModelPicklingError(sk_model, e)
         else:
             raise
@@ -1530,7 +1526,7 @@ def autolog(
 
     _apply_sklearn_descriptor_unbound_method_call_fix()
 
-    for class_def in _estimators_to_patch:
+    for class_def in _gen_estimators_to_patch():
         # Patch fitting methods
         for func_name in ["fit", "fit_transform", "fit_predict"]:
             _patch_estimator_method_if_available(

@@ -11,6 +11,7 @@ from packaging.version import Version
 
 import sklearn
 import sklearn.base
+import sklearn.cluster
 import sklearn.datasets
 import sklearn.pipeline
 import sklearn.model_selection
@@ -1073,9 +1074,10 @@ def test_autolog_produces_expected_results_for_estimator_when_parent_also_define
             super().fit(X, y)
             self.prediction = self.prediction + 1
 
-    new_estimators_to_patch = mlflow.sklearn._estimators_to_patch + [ParentMod, ChildMod]
+    og_all_estimators = mlflow.sklearn.utils._all_estimators()
+    new_all_estimators = og_all_estimators + [("ParentMod", ParentMod), ("ChildMod", ChildMod)]
 
-    with mock.patch("mlflow.sklearn._estimators_to_patch", new_estimators_to_patch):
+    with mock.patch("mlflow.sklearn.utils._all_estimators", return_value=new_all_estimators):
         mlflow.sklearn.autolog()
 
     model = ChildMod()
