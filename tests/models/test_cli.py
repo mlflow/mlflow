@@ -430,7 +430,7 @@ def test_build_docker(iris_data, sk_model, enable_mlserver):
     if enable_mlserver:
         extra_args.append("--enable-mlserver")
 
-    image_name = pyfunc_build_image(model_uri, extra_args=["--install-mlflow"] + enable_mlserver)
+    image_name = pyfunc_build_image(model_uri, extra_args=extra_args)
     host_port = get_safe_port()
     scoring_proc = pyfunc_serve_from_docker_image(image_name, host_port)
     _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model)
