@@ -272,7 +272,7 @@ def test_dataframe_from_json():
             ColSpec("integer", "integer"),
             ColSpec("long", "long"),
             ColSpec("binary", "binary"),
-            ColSpec("date_string", "string"),
+            ColSpec("string", "date_string"),
         ]
     )
     parsed = _dataframe_from_json(
