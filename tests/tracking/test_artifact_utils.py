@@ -57,8 +57,8 @@ def test_download_artifact_from_absolute_uri_persists_data_to_specified_output_d
 
 
 def test_download_artifact_with_special_characters_in_file_name_and_path(tmpdir):
-    artifact_file_name = " artifact: with! special ||characters.txt"
-    artifact_sub_dir = " path with ! special : characters"
+    artifact_file_name = " artifact_ with! special  characters.txt"
+    artifact_sub_dir = " path with ! special  characters"
     artifact_text = "Sample artifact text"
     local_sub_path = os.path.join(tmpdir, artifact_sub_dir)
     os.makedirs(local_sub_path)
