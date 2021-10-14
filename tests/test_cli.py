@@ -166,8 +166,8 @@ def test_mlflow_gc_not_deleted_run(file_store):
     assert len(runs) == 1
 
 
-@pytest.mark.parametrize("enable_mlserver", [[], ["--enable-mlserver"]])
-def test_mlflow_models_serve(inference_server):
+@pytest.mark.parametrize("enable_mlserver", [True, False])
+def test_mlflow_models_serve(enable_mlserver):
     class MyModel(pyfunc.PythonModel):
         def predict(self, context, model_input):  # pylint: disable=unused-variable
             return np.array([1, 2, 3])
@@ -180,11 +180,15 @@ def test_mlflow_models_serve(inference_server):
 
     data = pd.DataFrame({"a": [0]})
 
+    extra_args = ["--no-conda"]
+    if enable_mlserver:
+        extra_args.append("--enable-mlserver")
+
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=model_uri,
         data=data,
         content_type=pyfunc.scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        extra_args=["--no-conda"] + enable_mlserver,
+        extra_args=extra_args,
     )
     assert scoring_response.status_code == 200
     served_model_preds = np.array(json.loads(scoring_response.content))
