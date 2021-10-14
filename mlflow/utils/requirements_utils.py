@@ -139,7 +139,7 @@ def _normalize_package_name(pkg_name):
     return _NORMALIZE_REGEX.sub("-", pkg_name).lower()
 
 
-def _get_requires_recursive(pkg_name, packages=set()) -> set:
+def _get_requires_recursive(pkg_name, packages=None) -> set:
     """
     Recursively yields both direct and transitive dependencies of the specified
     package.
@@ -148,6 +148,9 @@ def _get_requires_recursive(pkg_name, packages=set()) -> set:
     This ensures that we don't fall into recursive loops for packages with are
     dependant on each other.
     """
+    if packages is None:
+        packages = set()
+
     pkg_name = _normalize_package_name(pkg_name)
     if pkg_name not in pkg_resources.working_set.by_key:
         return packages

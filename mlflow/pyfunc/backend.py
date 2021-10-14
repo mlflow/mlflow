@@ -36,12 +36,7 @@ class PyFuncBackend(FlavorBackend):
         return _execute_in_conda_env(conda_env_path, command, self._install_mlflow)
 
     def predict(
-        self,
-        model_uri,
-        input_path,
-        output_path,
-        content_type,
-        json_format,
+        self, model_uri, input_path, output_path, content_type, json_format,
     ):
         """
         Generate predictions using generic python model saved with MLflow.
@@ -71,7 +66,7 @@ class PyFuncBackend(FlavorBackend):
         else:
             scoring_server._predict(local_uri, input_path, output_path, content_type, json_format)
 
-    def serve(self, model_uri, port, host, enable_mlserver):
+    def serve(self, model_uri, port, host, enable_mlserver):  # pylint: disable=W0221
         """
         Serve pyfunc model locally.
         """
