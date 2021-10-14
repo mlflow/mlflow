@@ -6,7 +6,7 @@ import posixpath
 from mlflow.models import FlavorBackend
 from mlflow.models.docker_utils import _build_image, DISABLE_ENV_CREATION
 from mlflow.models.container import ENABLE_MLSERVER
-from mlflow.pyfunc import ENV, scoring_server, mlserver as _mlserver
+from mlflow.pyfunc import ENV, scoring_server, mlserver
 
 from mlflow.utils.conda import get_or_create_conda_env, get_conda_bin_executable, get_conda_command
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -71,13 +71,13 @@ class PyFuncBackend(FlavorBackend):
         else:
             scoring_server._predict(local_uri, input_path, output_path, content_type, json_format)
 
-    def serve(self, model_uri, port, host, mlserver):
+    def serve(self, model_uri, port, host, enable_mlserver):
         """
         Serve pyfunc model locally.
         """
         local_path = _download_artifact_from_uri(model_uri)
 
-        server_implementation = _mlserver if mlserver else scoring_server
+        server_implementation = mlserver if enable_mlserver else scoring_server
         command, command_env = server_implementation.get_cmd(local_path, port, host, self._nworkers)
 
         if not self._no_conda and ENV in self._config:
@@ -108,7 +108,7 @@ class PyFuncBackend(FlavorBackend):
             return False
 
     def build_image(
-        self, model_uri, image_name, install_mlflow=False, mlflow_home=None, mlserver=False
+        self, model_uri, image_name, install_mlflow=False, mlflow_home=None, enable_mlserver=False
     ):
         def copy_model_into_container(dockerfile_context_dir):
             model_cwd = os.path.join(dockerfile_context_dir, "model_dir")
@@ -120,13 +120,13 @@ class PyFuncBackend(FlavorBackend):
                 'from mlflow.models.container import _install_pyfunc_deps;\
                 _install_pyfunc_deps("/opt/ml/model", install_mlflow={install_mlflow})'
                 ENV {disable_env}="true"
-                ENV {ENABLE_MLSERVER}={mlserver}
+                ENV {ENABLE_MLSERVER}={enable_mlserver}
                 """.format(
                 disable_env=DISABLE_ENV_CREATION,
                 model_dir=str(posixpath.join("model_dir", os.path.basename(model_path))),
                 install_mlflow=repr(install_mlflow),
                 ENABLE_MLSERVER=ENABLE_MLSERVER,
-                mlserver=repr(mlserver),
+                enable_mlserver=repr(enable_mlserver),
             )
 
         # The pyfunc image runs the same server as the Sagemaker image
