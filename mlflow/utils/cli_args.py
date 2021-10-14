@@ -81,8 +81,8 @@ WORKERS = click.option(
     help="Number of gunicorn worker processes to handle requests (default: 4).",
 )
 
-MLSERVER = click.option(
-    "--mlserver",
+ENABLE_MLSERVER = click.option(
+    "--enable-mlserver",
     is_flag=True,
     default=False,
     help="Enable serving with MLServer through the v2 inference protocol.",

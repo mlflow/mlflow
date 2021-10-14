@@ -412,28 +412,28 @@ def test_prepare_env_fails(sk_model):
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("extra_args", [[], ["--mlserver"]])
+@pytest.mark.parametrize("enable_mlserver", [[], ["--enable-mlserver"]])
 def test_build_docker(iris_data, sk_model, extra_args):
     with mlflow.start_run() as active_run:
         mlflow.sklearn.log_model(sk_model, "model")
         model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
     x, _ = iris_data
     df = pd.DataFrame(x)
-    image_name = pyfunc_build_image(model_uri, extra_args=["--install-mlflow"] + extra_args)
+    image_name = pyfunc_build_image(model_uri, extra_args=["--install-mlflow"] + enable_mlserver)
     host_port = get_safe_port()
     scoring_proc = pyfunc_serve_from_docker_image(image_name, host_port)
     _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model)
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("extra_args", [[], ["--mlserver"]])
+@pytest.mark.parametrize("enable_mlserver", [[], ["--enable-mlserver"]])
 def test_build_docker_with_env_override(iris_data, sk_model, extra_args):
     with mlflow.start_run() as active_run:
         mlflow.sklearn.log_model(sk_model, "model")
         model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
     x, _ = iris_data
     df = pd.DataFrame(x)
-    image_name = pyfunc_build_image(model_uri, extra_args=["--install-mlflow"] + extra_args)
+    image_name = pyfunc_build_image(model_uri, extra_args=["--install-mlflow"] + enable_mlserver)
     host_port = get_safe_port()
     scoring_proc = pyfunc_serve_from_docker_image_with_env_override(
         image_name, host_port, gunicorn_options
