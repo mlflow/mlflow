@@ -77,20 +77,6 @@ _thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 _AUTOLOG_RUN_ID = None
 
 
-def _raise_deprecation_warning():
-    import tensorflow as tf
-
-    if Version(tf.__version__) < Version("2.0.0"):
-        warnings.warn(
-            (
-                "Support for tensorflow < 2.0.0 has been deprecated and will be removed in "
-                "a future MLflow release"
-            ),
-            FutureWarning,
-            stacklevel=2,
-        )
-
-
 def get_default_pip_requirements():
     """
     :return: A list of default pip requirements for MLflow Models produced by this flavor.
@@ -266,7 +252,6 @@ def save_model(
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     """
-    _raise_deprecation_warning()
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     _logger.info(
@@ -336,31 +321,16 @@ def _validate_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_d
     Validate the TensorFlow SavedModel by attempting to load it in a new TensorFlow graph.
     If the loading process fails, any exceptions thrown by TensorFlow are propagated.
     """
-    import tensorflow
-
-    if Version(tensorflow.__version__) < Version("2.0.0"):
-        validation_tf_graph = tensorflow.Graph()
-        validation_tf_sess = tensorflow.Session(graph=validation_tf_graph)
-        with validation_tf_graph.as_default():
-            _load_tensorflow_saved_model(
-                tf_saved_model_dir=tf_saved_model_dir,
-                tf_sess=validation_tf_sess,
-                tf_meta_graph_tags=tf_meta_graph_tags,
-                tf_signature_def_key=tf_signature_def_key,
-            )
-    else:
-        _load_tensorflow_saved_model(
-            tf_saved_model_dir=tf_saved_model_dir,
-            tf_meta_graph_tags=tf_meta_graph_tags,
-            tf_signature_def_key=tf_signature_def_key,
-        )
+    _load_tensorflow_saved_model(
+        tf_saved_model_dir=tf_saved_model_dir,
+        tf_meta_graph_tags=tf_meta_graph_tags,
+        tf_signature_def_key=tf_signature_def_key,
+    )
 
 
-def load_model(model_uri, tf_sess=None):
+def load_model(model_uri):
     """
     Load an MLflow model that contains the TensorFlow flavor from the specified path.
-
-    *With TensorFlow version <2.0.0, this method must be called within a TensorFlow graph context.*
 
     :param model_uri: The location, in URI format, of the MLflow model. For example:
 
@@ -375,17 +345,7 @@ def load_model(model_uri, tf_sess=None):
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
                       artifact-locations>`_.
 
-
-    :param tf_sess: The TensorFlow session in which to load the model. If using TensorFlow
-                    version >= 2.0.0, this argument is ignored. If using TensorFlow <2.0.0, if no
-                    session is passed to this function, MLflow will attempt to load the model using
-                    the default TensorFlow session.  If no default session is available, then the
-                    function raises an exception.
-    :return: For TensorFlow < 2.0.0, a TensorFlow signature definition of type:
-             ``tensorflow.core.protobuf.meta_graph_pb2.SignatureDef``. This defines the input and
-             output tensors for model inference.
-             For TensorFlow >= 2.0.0, A callable graph (tf.function) that takes inputs and
-             returns inferences.
+    :return: A callable graph (tf.function) that takes inputs and returns inferences.
 
     .. code-block:: python
         :caption: Example
@@ -402,30 +362,6 @@ def load_model(model_uri, tf_sess=None):
             output_tensors = [tf_graph.get_tensor_by_name(output_signature.name)
                                 for _, output_signature in signature_definition.outputs.items()]
     """
-    import tensorflow
-
-    _raise_deprecation_warning()
-
-    if Version(tensorflow.__version__) < Version("2.0.0"):
-        if not tf_sess:
-            tf_sess = tensorflow.get_default_session()
-            if not tf_sess:
-                raise MlflowException(
-                    "No TensorFlow session found while calling load_model()."
-                    + "You can set the default Tensorflow session before calling"
-                    + " load_model via `session.as_default()`, or directly pass "
-                    + "a session in which to load the model via the tf_sess "
-                    + "argument."
-                )
-
-    else:
-        if tf_sess:
-            warnings.warn(
-                "A TensorFlow session was passed into load_model, but the "
-                + "currently used version is TF >= 2.0 where sessions are deprecated. "
-                + "The tf_sess argument will be ignored.",
-                FutureWarning,
-            )
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     (
         tf_saved_model_dir,
@@ -436,13 +372,10 @@ def load_model(model_uri, tf_sess=None):
         tf_saved_model_dir=tf_saved_model_dir,
         tf_meta_graph_tags=tf_meta_graph_tags,
         tf_signature_def_key=tf_signature_def_key,
-        tf_sess=tf_sess,
     )
 
 
-def _load_tensorflow_saved_model(
-    tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, tf_sess=None
-):
+def _load_tensorflow_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key):
     """
     Load a specified TensorFlow model consisting of a TensorFlow metagraph and signature definition
     from a serialized TensorFlow ``SavedModel`` collection.
@@ -458,27 +391,14 @@ def _load_tensorflow_saved_model(
                                  signature definition mapping. For more information, see the
                                  ``signature_def_map`` parameter of the
                                  ``tf.saved_model.builder.SavedModelBuilder`` method.
-    :param tf_sess: The TensorFlow session in which to load the metagraph.
-                    Required in TensorFlow versions < 2.0.0. Unused in TensorFlow versions >= 2.0.0
-    :return: For TensorFlow versions < 2.0.0:
-             A TensorFlow signature definition of type:
-             ``tensorflow.core.protobuf.meta_graph_pb2.SignatureDef``. This defines input and
-             output tensors within the specified metagraph for inference.
-             For TensorFlow versions >= 2.0.0:
-             A callable graph (tensorflow.function) that takes inputs and returns inferences.
+    :return: A callable graph (tensorflow.function) that takes inputs and returns inferences.
     """
     import tensorflow
 
-    if Version(tensorflow.__version__) < Version("2.0.0"):
-        loaded = tensorflow.saved_model.loader.load(
-            sess=tf_sess, tags=tf_meta_graph_tags, export_dir=tf_saved_model_dir
-        )
-        loaded_sig = loaded.signature_def
-    else:
-        loaded = tensorflow.saved_model.load(  # pylint: disable=no-value-for-parameter
-            tags=tf_meta_graph_tags, export_dir=tf_saved_model_dir
-        )
-        loaded_sig = loaded.signatures
+    loaded = tensorflow.saved_model.load(  # pylint: disable=no-value-for-parameter
+        tags=tf_meta_graph_tags, export_dir=tf_saved_model_dir
+    )
+    loaded_sig = loaded.signatures
     if tf_signature_def_key not in loaded_sig:
         raise MlflowException(
             "Could not find signature def key %s. Available keys are: %s"
@@ -522,75 +442,11 @@ def _load_pyfunc(path):
         tf_meta_graph_tags,
         tf_signature_def_key,
     ) = _get_and_parse_flavor_configuration(model_path=path)
-    if Version(tensorflow.__version__) < Version("2.0.0"):
-        tf_graph = tensorflow.Graph()
-        tf_sess = tensorflow.Session(graph=tf_graph)
-        with tf_graph.as_default():
-            signature_def = _load_tensorflow_saved_model(
-                tf_saved_model_dir=tf_saved_model_dir,
-                tf_sess=tf_sess,
-                tf_meta_graph_tags=tf_meta_graph_tags,
-                tf_signature_def_key=tf_signature_def_key,
-            )
 
-        return _TFWrapper(tf_sess=tf_sess, tf_graph=tf_graph, signature_def=signature_def)
-    else:
-        loaded_model = tensorflow.saved_model.load(  # pylint: disable=no-value-for-parameter
-            export_dir=tf_saved_model_dir, tags=tf_meta_graph_tags
-        )
-        return _TF2Wrapper(model=loaded_model, infer=loaded_model.signatures[tf_signature_def_key])
-
-
-class _TFWrapper(object):
-    """
-    Wrapper class that exposes a TensorFlow model for inference via a ``predict`` function such that
-    ``predict(data: pandas.DataFrame) -> pandas.DataFrame``. For TensorFlow versions < 2.0.0.
-    """
-
-    def __init__(self, tf_sess, tf_graph, signature_def):
-        """
-        :param tf_sess: The TensorFlow session used to evaluate the model.
-        :param tf_graph: The TensorFlow graph containing the model.
-        :param signature_def: The TensorFlow signature definition used to transform input dataframes
-                              into tensors and output vectors into dataframes.
-        """
-        self.tf_sess = tf_sess
-        self.tf_graph = tf_graph
-        # We assume that input keys in the signature definition correspond to
-        # input DataFrame column names
-        self.input_tensor_mapping = {
-            tensor_column_name: tf_graph.get_tensor_by_name(tensor_info.name)
-            for tensor_column_name, tensor_info in signature_def.inputs.items()
-        }
-        # We assume that output keys in the signature definition correspond to
-        # output DataFrame column names
-        self.output_tensors = {
-            sigdef_output: tf_graph.get_tensor_by_name(tnsr_info.name)
-            for sigdef_output, tnsr_info in signature_def.outputs.items()
-        }
-
-    def predict(self, data):
-        with self.tf_graph.as_default():
-            feed_dict = data
-            if isinstance(data, dict):
-                feed_dict = {
-                    self.input_tensor_mapping[tensor_column_name]: data[tensor_column_name]
-                    for tensor_column_name in self.input_tensor_mapping.keys()
-                }
-            elif isinstance(data, pandas.DataFrame):
-                # Build the feed dict, mapping input tensors to DataFrame column values.
-                feed_dict = {
-                    self.input_tensor_mapping[tensor_column_name]: data[tensor_column_name].values
-                    for tensor_column_name in self.input_tensor_mapping.keys()
-                }
-            else:
-                raise TypeError("Only dict and DataFrame input types are supported")
-            raw_preds = self.tf_sess.run(self.output_tensors, feed_dict=feed_dict)
-            pred_dict = {column_name: values.ravel() for column_name, values in raw_preds.items()}
-            if isinstance(data, pandas.DataFrame):
-                return pandas.DataFrame(data=pred_dict)
-            else:
-                return pred_dict
+    loaded_model = tensorflow.saved_model.load(  # pylint: disable=no-value-for-parameter
+        export_dir=tf_saved_model_dir, tags=tf_meta_graph_tags
+    )
+    return _TF2Wrapper(model=loaded_model, infer=loaded_model.signatures[tf_signature_def_key])
 
 
 class _TF2Wrapper(object):
@@ -744,72 +600,7 @@ def _setup_callbacks(lst, log_models, metrics_logger):
     input list, and returns the new list and appropriate log directory.
     """
     # pylint: disable=no-name-in-module
-    import tensorflow
     from tensorflow.keras.callbacks import Callback, TensorBoard
-
-    class __MLflowTfKerasCallback(Callback, metaclass=ExceptionSafeClass):
-        """
-        Callback for auto-logging parameters (we rely on TensorBoard for metrics) in TensorFlow < 2.
-        Records model structural information as params after training finishes.
-        """
-
-        def __enter__(self):
-            pass
-
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            pass
-
-        def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
-            import tensorflow
-
-            opt = self.model.optimizer
-            if hasattr(opt, "_name"):
-                try_mlflow_log(mlflow.log_param, "optimizer_name", opt._name)
-            # Elif checks are if the optimizer is a TensorFlow optimizer rather than a Keras one.
-            elif hasattr(opt, "optimizer"):
-                # TensorFlow optimizer parameters are associated with the inner optimizer variable.
-                # Therefore, we assign opt to be opt.optimizer for logging parameters.
-                opt = opt.optimizer
-                try_mlflow_log(mlflow.log_param, "optimizer_name", type(opt).__name__)
-            if hasattr(opt, "lr"):
-                lr = opt.lr if type(opt.lr) is float else tensorflow.keras.backend.eval(opt.lr)
-                try_mlflow_log(mlflow.log_param, "learning_rate", lr)
-            elif hasattr(opt, "_lr"):
-                lr = opt._lr if type(opt._lr) is float else tensorflow.keras.backend.eval(opt._lr)
-                try_mlflow_log(mlflow.log_param, "learning_rate", lr)
-            if hasattr(opt, "epsilon"):
-                epsilon = (
-                    opt.epsilon
-                    if type(opt.epsilon) is float
-                    else tensorflow.keras.backend.eval(opt.epsilon)
-                )
-                try_mlflow_log(mlflow.log_param, "epsilon", epsilon)
-            elif hasattr(opt, "_epsilon"):
-                epsilon = (
-                    opt._epsilon
-                    if type(opt._epsilon) is float
-                    else tensorflow.keras.backend.eval(opt._epsilon)
-                )
-                try_mlflow_log(mlflow.log_param, "epsilon", epsilon)
-
-            sum_list = []
-            self.model.summary(print_fn=sum_list.append)
-            summary = "\n".join(sum_list)
-            tempdir = tempfile.mkdtemp()
-            try:
-                summary_file = os.path.join(tempdir, "model_summary.txt")
-                with open(summary_file, "w") as f:
-                    f.write(summary)
-                try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
-            finally:
-                shutil.rmtree(tempdir)
-
-        def on_epoch_end(self, epoch, logs=None):
-            pass
-
-        def on_train_end(self, logs=None):  # pylint: disable=unused-argument
-            if log_models:
-                try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path="model")
 
     class __MLflowTfKeras2Callback(Callback, metaclass=ExceptionSafeClass):
         """
@@ -863,10 +654,7 @@ def _setup_callbacks(lst, log_models, metrics_logger):
     else:
         log_dir = _TensorBoardLogDir(location=tb.log_dir, is_temp=False)
         out_list = lst
-    if Version(tensorflow.__version__) < Version("2.0.0"):
-        out_list += [__MLflowTfKerasCallback()]
-    else:
-        out_list += [__MLflowTfKeras2Callback()]
+    out_list += [__MLflowTfKeras2Callback()]
     return out_list, log_dir
 
 
@@ -947,8 +735,6 @@ def autolog(
                    autologging.
     """
     import tensorflow
-
-    _raise_deprecation_warning()
 
     global _LOG_EVERY_N_STEPS
     _LOG_EVERY_N_STEPS = every_n_iter
@@ -1098,12 +884,6 @@ def autolog(
         restored_metrics = {
             key: metrics[restored_index] for key, metrics in history.history.items()
         }
-        # Metrics are logged as 'epoch_loss' and 'epoch_acc' in TF 1.X
-        if Version(tensorflow.__version__) < Version("2.0.0"):
-            if "loss" in restored_metrics:
-                restored_metrics["epoch_loss"] = restored_metrics.pop("loss")
-            if "acc" in restored_metrics:
-                restored_metrics["epoch_acc"] = restored_metrics.pop("acc")
         # Checking that a metric history exists
         metric_key = next(iter(history.history), None)
         if metric_key is not None:

@@ -54,7 +54,7 @@ install_mlflow <- function(python_version = "3.6") {
   # Install the Python MLflow package with version == the current R package version
   packages <- c(paste("mlflow", "==", mlflow_version(), sep = ""))
   conda <- mlflow_conda_bin()
-  conda_install(packages, envname = mlflow_conda_env_name(), pip = TRUE, conda = conda)
+  conda_install(packages, envname = mlflow_conda_env_name(), pip = FALSE, conda = conda)
 }
 
 #' Uninstall MLflow

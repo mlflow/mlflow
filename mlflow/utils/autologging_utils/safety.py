@@ -432,6 +432,8 @@ def safe_patch(
             failed_during_original = False
             # The active MLflow run (if any) associated with patch code execution
             patch_function_run_for_testing = None
+            # The exception raised during executing patching function
+            patch_function_exception = None
 
             def try_log_autologging_event(log_fn, *args):
                 try:
@@ -441,20 +443,47 @@ def safe_patch(
                         "Failed to log autologging event via '%s'. Exception: %s", log_fn, e,
                     )
 
+            def call_original_fn_with_event_logging(original_fn, og_args, og_kwargs):
+                try:
+                    try_log_autologging_event(
+                        AutologgingEventLogger.get_logger().log_original_function_start,
+                        session,
+                        destination,
+                        function_name,
+                        og_args,
+                        og_kwargs,
+                    )
+                    original_fn_result = original_fn(*og_args, **og_kwargs)
+
+                    try_log_autologging_event(
+                        AutologgingEventLogger.get_logger().log_original_function_success,
+                        session,
+                        destination,
+                        function_name,
+                        og_args,
+                        og_kwargs,
+                    )
+                    return original_fn_result
+                except Exception as original_fn_e:
+                    try_log_autologging_event(
+                        AutologgingEventLogger.get_logger().log_original_function_error,
+                        session,
+                        destination,
+                        function_name,
+                        og_args,
+                        og_kwargs,
+                        original_fn_e,
+                    )
+
+                    nonlocal failed_during_original
+                    failed_during_original = True
+                    raise
+
             with _AutologgingSessionManager.start_session(autologging_integration) as session:
                 try:
 
                     def call_original(*og_args, **og_kwargs):
-                        try:
-                            try_log_autologging_event(
-                                AutologgingEventLogger.get_logger().log_original_function_start,
-                                session,
-                                destination,
-                                function_name,
-                                og_args,
-                                og_kwargs,
-                            )
-
+                        def _original_fn(*_og_args, **_og_kwargs):
                             if is_testing():
                                 _validate_args(args, kwargs, og_args, og_kwargs)
                                 # By the time `original` is called by the patch implementation, we
@@ -478,32 +507,10 @@ def safe_patch(
                             with set_non_mlflow_warnings_behavior_for_current_thread(
                                 disable_warnings=False, reroute_warnings=False,
                             ):
-                                original_result = original(*og_args, **og_kwargs)
+                                original_result = original(*_og_args, **_og_kwargs)
+                                return original_result
 
-                            try_log_autologging_event(
-                                AutologgingEventLogger.get_logger().log_original_function_success,
-                                session,
-                                destination,
-                                function_name,
-                                og_args,
-                                og_kwargs,
-                            )
-
-                            return original_result
-                        except Exception as e:
-                            try_log_autologging_event(
-                                AutologgingEventLogger.get_logger().log_original_function_error,
-                                session,
-                                destination,
-                                function_name,
-                                og_args,
-                                og_kwargs,
-                                e,
-                            )
-
-                            nonlocal failed_during_original
-                            failed_during_original = True
-                            raise
+                        return call_original_fn_with_event_logging(_original_fn, og_args, og_kwargs)
 
                     # Apply the name, docstring, and signature of `original` to `call_original`.
                     # This is important because several autologging patch implementations inspect
@@ -536,28 +543,12 @@ def safe_patch(
                     )
                 except Exception as e:
                     session.state = "failed"
-
+                    patch_function_exception = e
                     # Exceptions thrown during execution of the original function should be
                     # propagated to the caller. Additionally, exceptions encountered during test
                     # mode should be reraised to detect bugs in autologging implementations
                     if failed_during_original or is_testing():
                         raise
-
-                    try_log_autologging_event(
-                        AutologgingEventLogger.get_logger().log_patch_function_error,
-                        session,
-                        destination,
-                        function_name,
-                        args,
-                        kwargs,
-                        e,
-                    )
-
-                    _logger.warning(
-                        "Encountered unexpected error during %s autologging: %s",
-                        autologging_integration,
-                        e,
-                    )
 
                 if is_testing() and not preexisting_run_for_testing:
                     # If an MLflow run was created during the execution of patch code, verify that
@@ -569,11 +560,34 @@ def safe_patch(
                         _validate_autologging_run(
                             autologging_integration, patch_function_run_for_testing.info.run_id
                         )
+                try:
+                    if original_has_been_called:
+                        return original_result
+                    else:
+                        return call_original_fn_with_event_logging(original, args, kwargs)
+                finally:
+                    # If original function succeeds, but `patch_function_exception` exists,
+                    # it represent patching code unexpected failure, so we call
+                    # `log_patch_function_error` in this case.
+                    # If original function failed, we don't call `log_patch_function_error`
+                    # even if `patch_function_exception` exists, because original function failure
+                    # means there's some error in user code (e.g. user provide wrong arguments)
+                    if patch_function_exception is not None and not failed_during_original:
+                        try_log_autologging_event(
+                            AutologgingEventLogger.get_logger().log_patch_function_error,
+                            session,
+                            destination,
+                            function_name,
+                            args,
+                            kwargs,
+                            patch_function_exception,
+                        )
 
-                if original_has_been_called:
-                    return original_result
-                else:
-                    return original(*args, **kwargs)
+                        _logger.warning(
+                            "Encountered unexpected error during %s autologging: %s",
+                            autologging_integration,
+                            patch_function_exception,
+                        )
 
     if is_property_method:
         # Create a patched function (also property decorated)
