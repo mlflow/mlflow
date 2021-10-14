@@ -1296,8 +1296,6 @@ def test_eval_and_log_metrics_with_estimator(fit_func_name):
     # disable autologging so that we can check for the sole existence of eval-time metrics
     mlflow.sklearn.autolog(disable=True)
 
-    import sklearn.cluster
-
     # use `KMeans` because it implements `fit`, `fit_transform`, and `fit_predict`.
     model = sklearn.cluster.KMeans()
     X, y = get_iris()
@@ -1622,8 +1620,6 @@ def test_post_training_metric_autologging_for_predict_prob():
 
 
 def test_post_training_metric_autologging_patch_transform():
-    import sklearn.cluster
-
     mlflow.sklearn.autolog()
     X, y = get_iris()
     kmeans_model = sklearn.cluster.KMeans().fit(X, y)
