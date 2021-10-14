@@ -249,7 +249,16 @@ def test_dataframe_from_json():
             "binary": [bytes([1, 2, 3]), bytes([4, 5]), bytes([6])],
             "date_string": ["2018-02-03", "1996-03-02", "2021-03-05"],
         },
-        columns=["boolean", "string", "float", "double", "integer", "long", "binary", "date_string"],
+        columns=[
+            "boolean",
+            "string",
+            "float",
+            "double",
+            "integer",
+            "long",
+            "binary",
+            "date_string",
+        ],
     )
 
     jsonable_df = pd.DataFrame(source, copy=True)
