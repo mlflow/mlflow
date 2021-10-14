@@ -17,28 +17,14 @@ from mlflow.pyfunc.mlserver import get_cmd, MLServerMLflowRuntime, MLServerDefau
         ),
         (
             {"host": "0.0.0.0", "nworkers": 4},
-            {
-                "MLSERVER_HOST": "0.0.0.0",
-                "MLSERVER_MODEL_PARALLEL_WORKERS": "4",
-            },
+            {"MLSERVER_HOST": "0.0.0.0", "MLSERVER_MODEL_PARALLEL_WORKERS": "4"},
         ),
         (
             {"port": 5000, "nworkers": 4},
-            {
-                "MLSERVER_HTTP_PORT": "5000",
-                "MLSERVER_MODEL_PARALLEL_WORKERS": "4",
-            },
+            {"MLSERVER_HTTP_PORT": "5000", "MLSERVER_MODEL_PARALLEL_WORKERS": "4"},
         ),
-        (
-            {"port": 5000},
-            {
-                "MLSERVER_HTTP_PORT": "5000",
-            },
-        ),
-        (
-            {},
-            {},
-        ),
+        ({"port": 5000}, {"MLSERVER_HTTP_PORT": "5000"}),
+        ({}, {}),
     ],
 )
 def test_get_cmd(params: dict, expected: dict):

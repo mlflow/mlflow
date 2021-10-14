@@ -1,10 +1,6 @@
-import asyncio
 import os
 
 from typing import Tuple, Dict
-
-from mlserver.server import MLServer
-from mlserver.cli.serve import load_settings
 
 MLServerMLflowRuntime = "mlserver_mlflow.MLflowRuntime"
 MLServerDefaultModelName = "mlflow-model"

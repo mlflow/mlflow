@@ -28,7 +28,6 @@ import traceback
 # ALl of the mlfow dependencies below need to be backwards compatible.
 from mlflow.exceptions import MlflowException
 from mlflow.types import Schema
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import reraise
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.proto_json_utils import (
@@ -99,8 +98,7 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
                 return parse_tf_serving_input(decoded_input, schema=schema)
             except MlflowException as ex:
                 _handle_serving_error(
-                    error_message=(ex.message),
-                    error_code=MALFORMED_REQUEST,
+                    error_message=(ex.message), error_code=MALFORMED_REQUEST,
                 )
         else:
             return parse_json_input(json_input=json_input, orient="split", schema=schema)

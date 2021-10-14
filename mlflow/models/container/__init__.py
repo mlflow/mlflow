@@ -147,7 +147,8 @@ def _serve_pyfunc(model):
         nginx = Popen(["nginx", "-c", nginx_conf]) if start_nginx else None
 
         # link the log streams to stdout/err so they will be logged to the container logs.
-        # Default behavior is to do the redirection unless explicitly specified by environment variable.
+        # Default behavior is to do the redirection unless explicitly specified
+        # by environment variable.
         check_call(["ln", "-sf", "/dev/stdout", "/var/log/nginx/access.log"])
         check_call(["ln", "-sf", "/dev/stderr", "/var/log/nginx/error.log"])
 
