@@ -47,6 +47,7 @@ import {
   DEFAULT_ORDER_BY_KEY,
   DEFAULT_ORDER_BY_ASC,
   DEFAULT_START_TIME,
+  DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
   ATTRIBUTE_COLUMN_SORT_LABEL,
   ATTRIBUTE_COLUMN_SORT_KEY,
   COLUMN_SORT_BY_ASC,
@@ -172,6 +173,8 @@ export class ExperimentView extends Component {
       showDeleteRunModal: false,
       // True if a model for restoring one or more runs should be displayed
       showRestoreRunModal: false,
+      // Columns selected before hitting the diff-view switch
+      preSwitchCategorizedUncheckedKeys: DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
     };
   }
 
@@ -1166,14 +1169,15 @@ export class ExperimentView extends Component {
         }).toJSON(),
       },
       () => {
-        const categorizedUncheckedKeys = this.state.persistedState.diffSwitchSelected
-          ? ExperimentViewUtil.getCategorizedColumnsDiffView(this.props)
-          : {
-              [COLUMN_TYPES.ATTRIBUTES]: [],
-              [COLUMN_TYPES.PARAMS]: [],
-              [COLUMN_TYPES.METRICS]: [],
-              [COLUMN_TYPES.TAGS]: [],
-            };
+        let categorizedUncheckedKeys;
+        if (this.state.persistedState.diffSwitchSelected) {
+          this.setState({
+            preSwitchCategorizedUncheckedKeys: this.state.persistedState.categorizedUncheckedKeys,
+          });
+          categorizedUncheckedKeys = ExperimentViewUtil.getCategorizedColumnsDiffView(this.props);
+        } else {
+          categorizedUncheckedKeys = this.state.preSwitchCategorizedUncheckedKeys;
+        }
         this.handleColumnSelectionCheck(categorizedUncheckedKeys);
       },
     );
