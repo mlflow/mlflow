@@ -458,6 +458,7 @@ class _SklearnCustomModelPicklingError(pickle.PicklingError):
     """
     Exception for describing error raised during pickling custom sklearn estimator
     """
+
     def __init__(self, sk_model, original_exception):
         """
         :param sk_model: The custom sklearn model to be pickled
