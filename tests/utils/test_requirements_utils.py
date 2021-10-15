@@ -20,6 +20,7 @@ from mlflow.utils.requirements_utils import (
     _get_pinned_requirement,
     _infer_requirements,
     _normalize_package_name,
+    _PyPIPackageIndex,
 )
 
 
@@ -280,3 +281,35 @@ def test_infer_requirements_excludes_mlflow():
         mlflow_package = "mlflow-skinny" if "MLFLOW_SKINNY" in os.environ else "mlflow"
         assert mlflow_package in importlib_metadata.packages_distributions()["mlflow"]
         assert _infer_requirements("path/to/model", "sklearn") == [f"pytest=={pytest.__version__}"]
+
+
+def test_infer_requirements_prints_warning_for_unrecognized_packages():
+    with mock.patch(
+        "mlflow.utils.requirements_utils._capture_imported_modules", return_value=["sklearn"],
+    ), mock.patch(
+        "mlflow.utils.requirements_utils._PYPI_PACKAGE_INDEX",
+        _PyPIPackageIndex(date="2022-01-01", package_names=set()),
+    ), mock.patch(
+        "mlflow.utils.requirements_utils._logger.warning"
+    ) as mock_warning:
+        _infer_requirements("path/to/model", "sklearn")
+
+        mock_warning.assert_called_once()
+        warning_template = mock_warning.call_args[0][0]
+        date, unrecognized_packages = mock_warning.call_args[0][1:3]
+        warning_text = warning_template % (date, unrecognized_packages)
+        assert "not found in the public PyPI package index" in warning_text
+        assert "scikit-learn" in warning_text
+
+
+def test_infer_requirements_does_not_print_warning_for_recognized_packages():
+    with mock.patch(
+        "mlflow.utils.requirements_utils._capture_imported_modules", return_value=["sklearn"],
+    ), mock.patch(
+        "mlflow.utils.requirements_utils._PYPI_PACKAGE_INDEX",
+        _PyPIPackageIndex(date="2022-01-01", package_names=set(["scikit-learn"])),
+    ), mock.patch(
+        "mlflow.utils.requirements_utils._logger.warning"
+    ) as mock_warning:
+        _infer_requirements("path/to/model", "sklearn")
+        mock_warning.assert_not_called()

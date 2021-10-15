@@ -252,6 +252,24 @@ def _capture_imported_modules(model_uri, flavor):
 
 _MODULES_TO_PACKAGES = None
 
+# Represents the PyPI package index at a particular date
+# :param date: The YYYY-MM-DD formatted string date on which the index was fetched.
+# :param package_names: The set of package names in the index.
+_PyPIPackageIndex = namedtuple("_PyPIPackageIndex", ["date", "package_names"])
+
+
+def _load_pypi_package_index():
+    pypi_index_path = pkg_resources.resource_filename(__name__, "../pypi_package_index.json")
+    with open(pypi_index_path, "r") as f:
+        index_dict = json.load(f)
+
+    return _PyPIPackageIndex(
+        date=index_dict["index_date"], package_names=set(index_dict["package_names"]),
+    )
+
+
+_PYPI_PACKAGE_INDEX = None
+
 
 def _infer_requirements(model_uri, flavor):
     """
@@ -274,6 +292,10 @@ def _infer_requirements(model_uri, flavor):
         if is_in_databricks_runtime():
             _MODULES_TO_PACKAGES.update({"pyspark": ["pyspark"]})
 
+    global _PYPI_PACKAGE_INDEX
+    if _PYPI_PACKAGE_INDEX is None:
+        _PYPI_PACKAGE_INDEX = _load_pypi_package_index()
+
     modules = _capture_imported_modules(model_uri, flavor)
     packages = _flatten([_MODULES_TO_PACKAGES.get(module, []) for module in modules])
     packages = map(_normalize_package_name, packages)
@@ -290,6 +312,15 @@ def _infer_requirements(model_uri, flavor):
         *_MODULES_TO_PACKAGES.get("mlflow", []),
     ]
     packages = packages - set(excluded_packages)
+    unrecognized_packages = packages - _PYPI_PACKAGE_INDEX.package_names
+    if unrecognized_packages:
+        _logger.warning(
+            "The following packages were not found in the public PyPI package index as of"
+            " %s; if these packages are not present in the public PyPI index, you must install"
+            " them manually before loading your model: %s",
+            _PYPI_PACKAGE_INDEX.date,
+            unrecognized_packages,
+        )
     return sorted(map(_get_pinned_requirement, packages))
 
 
