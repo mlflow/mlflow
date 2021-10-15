@@ -473,11 +473,8 @@ class _SklearnCustomModelPicklingError(pickle.PicklingError):
 def _dump_model(pickle_lib, sk_model, out):
     try:
         pickle_lib.dump(sk_model, out)
-    except Exception as e:
-        if (
-            isinstance(e, (pickle.PicklingError, TypeError, AttributeError))
-            and sk_model.__class__ not in _gen_estimators_to_patch()
-        ):
+    except (pickle.PicklingError, TypeError, AttributeError) as e:
+        if sk_model.__class__ not in _gen_estimators_to_patch():
             raise _SklearnCustomModelPicklingError(sk_model, e)
         else:
             raise
