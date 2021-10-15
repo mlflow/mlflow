@@ -5,8 +5,7 @@ import { connect } from 'react-redux';
 import { injectIntl, FormattedMessage } from 'react-intl';
 // eslint-disable-next-line no-unused-vars
 import { Link, withRouter } from 'react-router-dom';
-import { Alert, Badge, Descriptions, Icon, Menu, Popover, Select, Tooltip } from 'antd';
-
+import { Alert, Badge, Descriptions, Icon, Menu, Popover, Select, Tooltip, message } from 'antd';
 import './ExperimentView.css';
 import { getExperimentTags, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
 import { setExperimentTagApi } from '../actions';
@@ -52,6 +51,7 @@ import {
   COLUMN_SORT_BY_ASC,
   COLUMN_SORT_BY_DESC,
   SORT_DELIMITER_SYMBOL,
+  DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
 } from '../constants';
 
 const { Option } = Select;
@@ -100,6 +100,7 @@ export class ExperimentView extends Component {
   }
   static propTypes = {
     onSearch: PropTypes.func.isRequired,
+    handleColumnSelectionCheck: PropTypes.func.isRequired,
     runInfos: PropTypes.arrayOf(PropTypes.instanceOf(RunInfo)).isRequired,
     modelVersionsByRunUuid: PropTypes.object.isRequired,
     experiment: PropTypes.instanceOf(Experiment).isRequired,
@@ -122,6 +123,8 @@ export class ExperimentView extends Component {
     paramKeyFilter: PropTypes.instanceOf(KeyFilter).isRequired,
     // Input to the paramKeyFilter field
     metricKeyFilter: PropTypes.instanceOf(KeyFilter).isRequired,
+
+    categorizedUncheckedKeys: PropTypes.object.isRequired,
 
     // Input to the lifecycleFilter field
     lifecycleFilter: PropTypes.string.isRequired,
@@ -339,21 +342,12 @@ export class ExperimentView extends Component {
     this.setState({ showNotesEditor: true });
   };
 
-  handleColumnSelectionCheck = (categorizedUncheckedKeys) => {
-    this.setState({
-      persistedState: new ExperimentViewPersistedState({
-        ...this.state.persistedState,
-        categorizedUncheckedKeys,
-      }).toJSON(),
-    });
-  };
-
   handleFilterToggle = () => {
     this.setState((previousState) => ({ showFilters: !previousState.showFilters }));
   };
 
   getFilteredKeys(keyList, columnType) {
-    const { categorizedUncheckedKeys } = this.state.persistedState;
+    const { categorizedUncheckedKeys } = this.props;
     return _.difference(keyList, categorizedUncheckedKeys[columnType]);
   }
 
@@ -455,10 +449,11 @@ export class ExperimentView extends Component {
       startTime,
       nestChildren,
       numberOfNewRuns,
+      categorizedUncheckedKeys,
     } = this.props;
     const { experiment_id, name } = experiment;
     const { persistedState } = this.state;
-    const { unbaggedParams, unbaggedMetrics, categorizedUncheckedKeys } = persistedState;
+    const { unbaggedParams, unbaggedMetrics } = persistedState;
     const filteredParamKeys = this.getFilteredKeys(paramKeyList, COLUMN_TYPES.PARAMS);
     const filteredMetricKeys = this.getFilteredKeys(metricKeyList, COLUMN_TYPES.METRICS);
     const visibleTagKeyList = Utils.getVisibleTagKeyList(tagsList);
@@ -752,6 +747,22 @@ export class ExperimentView extends Component {
                       ))}
                     </Select>
                   </Tooltip>
+                  <Tooltip
+                    title={this.props.intl.formatMessage({
+                      defaultMessage: 'Share experiment view',
+                      description: 'Label for the share experiment view button',
+                    })}
+                  >
+                    <Button dataTestId='share-button' onClick={this.onShare}>
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <FormattedMessage
+                          defaultMessage='Share'
+                          // eslint-disable-next-line max-len
+                          description='String for the share button to share experiment runs table with another person'
+                        />
+                      </div>
+                    </Button>
+                  </Tooltip>
                 </Spacer>
               }
               right={
@@ -781,7 +792,7 @@ export class ExperimentView extends Component {
                       metricKeyList={metricKeyList}
                       visibleTagKeyList={visibleTagKeyList}
                       categorizedUncheckedKeys={categorizedUncheckedKeys}
-                      onCheck={this.handleColumnSelectionCheck}
+                      onCheck={this.props.handleColumnSelectionCheck}
                     />
                   </Spacer>
                   <Spacer direction='horizontal' size='small'>
@@ -952,7 +963,7 @@ export class ExperimentView extends Component {
                 metricsList={this.props.metricsList}
                 tagsList={this.props.tagsList}
                 categorizedUncheckedKeys={categorizedUncheckedKeys}
-                onCheck={this.handleColumnSelectionCheck}
+                onCheck={this.props.handleColumnSelectionCheck}
                 onCheckAll={this.onCheckAll}
                 isAllChecked={this.isAllChecked()}
                 onSortBy={this.onSortBy}
@@ -1000,6 +1011,7 @@ export class ExperimentView extends Component {
     orderByKey,
     orderByAsc,
     startTime,
+    categorizedUncheckedKeys,
   }) {
     const myParamKeyFilterInput =
       paramKeyFilterInput !== undefined ? paramKeyFilterInput : this.state.paramKeyFilterInput;
@@ -1012,6 +1024,8 @@ export class ExperimentView extends Component {
     const myOrderByAsc = orderByAsc !== undefined ? orderByAsc : this.props.orderByAsc;
     const myModelVersionFilterInput = modelVersionFilterInput || this.props.modelVersionFilter;
     const myStartTime = startTime || this.props.startTime;
+    const myCategorizedUncheckedKeys =
+      categorizedUncheckedKeys || this.props.categorizedUncheckedKeys;
     try {
       this.props.onSearch(
         myParamKeyFilterInput,
@@ -1022,6 +1036,7 @@ export class ExperimentView extends Component {
         myOrderByAsc,
         myModelVersionFilterInput,
         myStartTime,
+        myCategorizedUncheckedKeys,
       );
     } catch (ex) {
       if (ex.errorMessage !== undefined) {
@@ -1164,9 +1179,15 @@ export class ExperimentView extends Component {
           orderByKey: DEFAULT_ORDER_BY_KEY,
           orderByAsc: DEFAULT_ORDER_BY_ASC,
           startTime: DEFAULT_START_TIME,
+          categorizedUncheckedKeys: DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
         });
       },
     );
+  }
+
+  onShare() {
+    navigator.clipboard.writeText(window.location.href);
+    message.info('Experiment copied to your clipboard');
   }
 
   onCompare() {

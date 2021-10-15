@@ -15,7 +15,7 @@
  *    local storage.
  */
 import Immutable from 'immutable';
-import { COLUMN_TYPES } from '../constants';
+import { DEFAULT_CATEGORIZED_UNCHECKED_KEYS } from '../constants';
 
 /**
  * This class wraps attributes of the ExperimentPage component's state that should be
@@ -36,6 +36,8 @@ export const ExperimentPagePersistedState = Immutable.Record(
     orderByAsc: false,
     // Filter key to show results based on start time
     startTime: null,
+    // Unchecked keys in the columns dropdown
+    categorizedUncheckedKeys: DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
   },
   'ExperimentPagePersistedState',
 );
@@ -58,13 +60,6 @@ export const ExperimentViewPersistedState = Immutable.Record(
     // columns that have already been split out)
     unbaggedMetrics: [],
     unbaggedParams: [],
-    // Unchecked keys in the columns dropdown
-    categorizedUncheckedKeys: {
-      [COLUMN_TYPES.ATTRIBUTES]: [],
-      [COLUMN_TYPES.PARAMS]: [],
-      [COLUMN_TYPES.METRICS]: [],
-      [COLUMN_TYPES.TAGS]: [],
-    },
   },
   'ExperimentViewPersistedState',
 );

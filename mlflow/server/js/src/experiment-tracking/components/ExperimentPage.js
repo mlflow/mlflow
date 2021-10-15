@@ -30,6 +30,7 @@ import {
   DEFAULT_ORDER_BY_KEY,
   DEFAULT_ORDER_BY_ASC,
   DEFAULT_START_TIME,
+  DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
   ATTRIBUTE_COLUMN_SORT_KEY,
 } from '../constants';
 
@@ -87,6 +88,10 @@ export class ExperimentPage extends Component {
         orderByAsc:
           urlState.orderByAsc === undefined ? DEFAULT_ORDER_BY_ASC : urlState.orderByAsc === 'true',
         startTime: urlState.startTime === undefined ? DEFAULT_START_TIME : urlState.startTime,
+        categorizedUncheckedKeys:
+          urlState.categorizedUncheckedKeys === undefined
+            ? DEFAULT_CATEGORIZED_UNCHECKED_KEYS
+            : urlState.categorizedUncheckedKeys,
       },
     };
   }
@@ -244,6 +249,20 @@ export class ExperimentPage extends Component {
     return (!orderByKey && !searchInput) || orderByKey === ATTRIBUTE_COLUMN_SORT_KEY.DATE;
   }
 
+  handleColumnSelectionCheck = (categorizedUncheckedKeys) => {
+    this.setState(
+      {
+        persistedState: new ExperimentPagePersistedState({
+          ...this.state.persistedState,
+          categorizedUncheckedKeys,
+        }).toJSON(),
+      },
+      () => {
+        this.updateUrlWithSearchFilter({ categorizedUncheckedKeys });
+      },
+    );
+  };
+
   onSearch = (
     paramKeyFilterString,
     metricKeyFilterString,
@@ -253,6 +272,7 @@ export class ExperimentPage extends Component {
     orderByAsc,
     modelVersionFilterInput,
     startTime,
+    categorizedUncheckedKeys,
   ) => {
     this.updateUrlWithSearchFilter({
       paramKeyFilterString,
@@ -261,6 +281,7 @@ export class ExperimentPage extends Component {
       orderByKey,
       orderByAsc,
       startTime,
+      categorizedUncheckedKeys,
     });
 
     this.setState(
@@ -274,6 +295,7 @@ export class ExperimentPage extends Component {
           orderByKey,
           orderByAsc,
           startTime,
+          categorizedUncheckedKeys,
         }).toJSON(),
         lifecycleFilter: lifecycleFilterInput,
         modelVersionFilter: modelVersionFilterInput,
@@ -340,26 +362,31 @@ export class ExperimentPage extends Component {
     orderByKey,
     orderByAsc,
     startTime,
+    categorizedUncheckedKeys,
   }) {
     const state = {};
-    if (paramKeyFilterString) {
-      state['params'] = paramKeyFilterString;
+    if (paramKeyFilterString || this.state.persistedState.paramKeyFilterString) {
+      state['params'] = paramKeyFilterString || this.state.persistedState.paramKeyFilterString;
     }
-    if (metricKeyFilterString) {
-      state['metrics'] = metricKeyFilterString;
+    if (metricKeyFilterString || this.state.persistedState.metricKeyFilterString) {
+      state['metrics'] = metricKeyFilterString || this.state.persistedState.metricKeyFilterString;
     }
-    if (searchInput) {
-      state['search'] = searchInput;
+    if (searchInput || this.state.persistedState.searchInput) {
+      state['search'] = searchInput || this.state.persistedState.searchInput;
     }
-    if (startTime) {
-      state['startTime'] = startTime;
+    if (startTime || this.state.persistedState.startTime) {
+      state['startTime'] = startTime || this.state.persistedState.startTime;
     }
-    if (orderByKey) {
-      state['orderByKey'] = orderByKey;
+    if (orderByKey || this.state.persistedState.orderByKey) {
+      state['orderByKey'] = orderByKey || this.state.persistedState.orderByKey;
     }
     // orderByAsc defaults to true, so only encode it if it is false.
-    if (orderByAsc === false) {
-      state['orderByAsc'] = orderByAsc;
+    if (orderByAsc === false || this.state.persistedState.orderByAsc === false) {
+      state['orderByAsc'] = orderByAsc || this.state.persistedState.orderByAsc;
+    }
+    if (categorizedUncheckedKeys || this.state.persistedState.categorizedUncheckedKeys) {
+      state['categorizedUncheckedKeys'] =
+        categorizedUncheckedKeys || this.state.persistedState.categorizedUncheckedKeys;
     }
     const newUrl = `/experiments/${this.props.experimentId}/s?${Utils.getSearchUrlFromState(
       state,
@@ -397,6 +424,7 @@ export class ExperimentPage extends Component {
       orderByKey,
       orderByAsc,
       startTime,
+      categorizedUncheckedKeys,
     } = this.state.persistedState;
 
     const experimentViewProps = {
@@ -414,9 +442,11 @@ export class ExperimentPage extends Component {
       orderByKey: orderByKey,
       orderByAsc: orderByAsc,
       startTime: startTime,
+      categorizedUncheckedKeys: categorizedUncheckedKeys,
       nextPageToken: this.state.nextPageToken,
       numRunsFromLatestSearch: this.state.numRunsFromLatestSearch,
       handleLoadMoreRuns: this.handleLoadMoreRuns,
+      handleColumnSelectionCheck: this.handleColumnSelectionCheck.bind(this),
       loadingMore: this.state.loadingMore,
       nestChildren: this.shouldNestChildrenAndFetchParents(orderByKey, searchInput),
       numberOfNewRuns: this.state.numberOfNewRuns,
