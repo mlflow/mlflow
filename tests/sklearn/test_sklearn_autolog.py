@@ -11,6 +11,7 @@ from packaging.version import Version
 
 import sklearn
 import sklearn.base
+import sklearn.cluster
 import sklearn.datasets
 import sklearn.pipeline
 import sklearn.model_selection
@@ -1295,8 +1296,6 @@ def test_eval_and_log_metrics_with_estimator(fit_func_name):
     # disable autologging so that we can check for the sole existence of eval-time metrics
     mlflow.sklearn.autolog(disable=True)
 
-    import sklearn.cluster
-
     # use `KMeans` because it implements `fit`, `fit_transform`, and `fit_predict`.
     model = sklearn.cluster.KMeans()
     X, y = get_iris()
@@ -1621,8 +1620,6 @@ def test_post_training_metric_autologging_for_predict_prob():
 
 
 def test_post_training_metric_autologging_patch_transform():
-    import sklearn.cluster
-
     mlflow.sklearn.autolog()
     X, y = get_iris()
     kmeans_model = sklearn.cluster.KMeans().fit(X, y)
@@ -1882,3 +1879,31 @@ def test_log_post_training_metrics_configuration():
 
         metrics = get_run_data(run.info.run_id)[1]
         assert any(k.startswith(metric_name) for k in metrics.keys()) is log_post_training_metrics
+
+
+class NonPickleableKmeans(sklearn.cluster.KMeans):
+    def __init__(self, n_clusters=8, *, init="k-means++"):
+        super(NonPickleableKmeans, self).__init__(n_clusters, init=init)
+        self.generator = (i for i in range(3))
+
+
+def test_autolog_print_warning_if_custom_estimator_pickling_raise_error():
+    import pickle
+
+    mlflow.sklearn.autolog()
+
+    with mlflow.start_run() as run, mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
+        non_pickable_kmeans = NonPickleableKmeans()
+
+        with pytest.raises(TypeError, match="can't pickle generator objects"):
+            pickle.dumps(non_pickable_kmeans)
+
+        non_pickable_kmeans.fit(*get_iris())
+        assert any(
+            call_args[0][0].startswith("Pickling custom sklearn model NonPickleableKmeans failed")
+            for call_args in mock_warning.call_args_list
+        )
+
+    run_id = run.info.run_id
+    params, metrics, tags, artifacts = get_run_data(run_id)
+    assert len(params) > 0 and len(metrics) > 0 and len(tags) > 0 and artifacts == []
