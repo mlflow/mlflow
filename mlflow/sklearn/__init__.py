@@ -336,7 +336,7 @@ def log_model(
         # log model
         mlflow.sklearn.log_model(sk_model, "sk_models")
     """
-    return Model.log(
+    Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.sklearn,
         sk_model=sk_model,

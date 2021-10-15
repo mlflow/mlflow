@@ -110,7 +110,7 @@ def save_model(
     Save an XGBoost model to a path on the local file system.
 
     :param xgb_model: XGBoost model (an instance of `xgboost.Booster`_) to be saved.
-                      Note that models that implement the `scikit-learn API`_  are not supported.
+                      Models that implement the `scikit-learn API`_  are also supported.
     :param path: Local path where the model is to be saved.
     :param conda_env: {{ conda_env }}
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
@@ -128,8 +128,8 @@ def save_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param serialization_format: The format in which to serialize XGBoost sklearn models, adopted from
-                                 ``mlflow.sklearn.save_model()``.
+    :param serialization_format: The format in which to serialize the models with scikit-learn API,
+                                 adopted from ``mlflow.sklearn.save_model()``.
                                  This should be one of
                                  the formats listed in
                                  ``mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS``. The Cloudpickle
@@ -226,6 +226,7 @@ def log_model(
     xgb_model,
     artifact_path,
     conda_env=None,
+    serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -238,9 +239,17 @@ def log_model(
     Log an XGBoost model as an MLflow artifact for the current run.
 
     :param xgb_model: XGBoost model (an instance of `xgboost.Booster`_) to be saved.
-                      Note that models that implement the `scikit-learn API`_  are not supported.
+                      Models that implement the `scikit-learn API`_  are also supported.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: {{ conda_env }}
+    :param serialization_format: The format in which to serialize the model with scikit-learn API,
+                                 adopted from ``mlflow.sklearn.log_model()``.
+                                 This should be one of
+                                 the formats listed in
+                                 ``mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS``. The Cloudpickle
+                                 format, ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``,
+                                 provides better cross-system compatibility by identifying and
+                                 packaging code dependencies with the serialized model.
     :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
@@ -270,6 +279,25 @@ def log_model(
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param kwargs: kwargs to pass to `xgboost.Booster.save_model`_ method.
     """
+    if xgb_model.__module__ == "xgboost.sklearn":
+        import mlflow.sklearn
+        extra_xgboost_pip_requirements = get_default_pip_requirements()
+        if extra_pip_requirements:
+            extra_xgboost_pip_requirements += extra_pip_requirements
+        mlflow.sklearn.log_model(
+            sk_model=xgb_model,
+            artifact_path=artifact_path,
+            conda_env=conda_env,
+            registered_model_name=registered_model_name,
+            serialization_format=serialization_format,
+            signature=signature,
+            input_example=input_example,
+            pip_requirements=pip_requirements,
+            extra_pip_requirements=extra_xgboost_pip_requirements,
+        )
+        return
+
+    import mlflow
     Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.xgboost,
@@ -365,7 +393,7 @@ def autolog(
         - an example of valid input.
         - inferred signature of the inputs and outputs of the model.
 
-    Note that the `scikit-learn API`_ is not supported.
+    The `scikit-learn API`_ is also supported.
 
     :param importance_types: Importance types to log. If unspecified, defaults to ``["weight"]``.
     :param log_input_examples: If ``True``, input examples from training datasets are collected and
