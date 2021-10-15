@@ -165,8 +165,8 @@ def _serve_pyfunc(model):
     )
 
     bash_cmds.append(cmd)
-    inference_server = Popen(["/bin/bash", "-c", " && ".join(bash_cmds)], env=cmd_env)
-    procs.append(inference_server)
+    inference_server_process = Popen(["/bin/bash", "-c", " && ".join(bash_cmds)], env=cmd_env)
+    procs.append(inference_server_process)
 
     signal.signal(signal.SIGTERM, lambda a, b: _sigterm_handler(pids=[p.pid for p in procs]))
     # If either subprocess exits, so do we.
