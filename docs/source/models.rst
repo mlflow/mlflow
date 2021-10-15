@@ -1051,20 +1051,19 @@ For more information about serializing tensor inputs using the TF serving format
 Serving with MLServer (experimental)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-In some cases, the scoring server built into MLflow may not offer a robust
-production-grade experience.
-To account for this, MLflow allows you to also serve models using `Seldon's
-MLServer <https://mlserver.readthedocs.io/en/latest/>`_, a fully-featured
-inference server, aimed towards production use cases and currently used as the
-core Python inference server used to serve machine learning models in
-Kubernetes-native frameworks, including `Seldon Core
+Python models can be deployed using `Seldon's MLServer
+<https://mlserver.readthedocs.io/en/latest/>`_ as alternative inference server. 
+MLServer is integrated with two leading open source model deployment tools,
+`Seldon Core
 <https://docs.seldon.io/projects/seldon-core/en/latest/graph/protocols.html#v2-kfserving-protocol>`
 and `KServe (formerly known as KFServing)
-<https://kserve.github.io/website/modelserving/v1beta1/sklearn/v2/>`_.
+<https://kserve.github.io/website/modelserving/v1beta1/sklearn/v2/>`_, and can
+be used to test and deploy models using these frameworks. 
+This is especially powerful when building docker images since the docker image
+built with MLServer can be deployed directly with both of these frameworks. 
 
-MLServer should provide a **drop-in replacement for the existing scoring
-server**, exposing a similar scoring API through the ``/invocations`` endpoint.
-This endpoint is supported on top of the standard `V2 Inference Protocol
+MLServer exposes the same scoring API through the ``/invocations`` endpoint.
+In addition, it supports the standard `V2 Inference Protocol
 <https://github.com/kubeflow/kfserving/tree/master/docs/predict-api/v2>`_.
 
 To serve a MLflow model using MLServer, you can use the ``--enable-mlserver`` flag,
@@ -1073,6 +1072,13 @@ such as:
 .. code-block:: bash
 
     mlflow models serve -m my_model --enable-mlserver
+
+Similarly, to build a Docker image built with MLServer you can use the
+``--enable-mlserver`` flag, such as:
+
+.. code-block:: bash
+
+    mlflow models build -m my_model --enable-mlserver -n my-model
 
 To read more about the integration between MLflow and MLServer, please check
 the `end-to-end example in the MLServer documentation
