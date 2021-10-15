@@ -454,9 +454,16 @@ def _load_pyfunc(path):
     return _load_model_from_local_file(path=path, serialization_format=serialization_format)
 
 
-class SklearnCustomModelPicklingError(pickle.PicklingError):
+class _SklearnCustomModelPicklingError(pickle.PicklingError):
+    """
+    Exception for describing error raised during pickling custom sklearn estimator
+    """
     def __init__(self, sk_model, original_exception):
-        super(SklearnCustomModelPicklingError, self).__init__(
+        """
+        :param sk_model: The custom sklearn model to be pickled
+        :param original_exception: The original exception raised
+        """
+        super(_SklearnCustomModelPicklingError, self).__init__(
             f"Pickling custom sklearn model {sk_model.__class__.__name__} failed "
             f"when saving model: {str(original_exception)}"
         )
@@ -471,7 +478,7 @@ def _dump_model(pickle_lib, sk_model, out):
             isinstance(e, (pickle.PicklingError, TypeError, AttributeError))
             and sk_model.__class__ not in _gen_estimators_to_patch()
         ):
-            raise SklearnCustomModelPicklingError(sk_model, e)
+            raise _SklearnCustomModelPicklingError(sk_model, e)
         else:
             raise
 
@@ -1278,7 +1285,7 @@ def autolog(
         def _log_model_with_except_handling(*args, **kwargs):
             try:
                 return log_model(*args, **kwargs)
-            except SklearnCustomModelPicklingError as e:
+            except _SklearnCustomModelPicklingError as e:
                 _logger.warning(str(e))
 
         if log_models:
