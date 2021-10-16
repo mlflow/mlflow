@@ -112,7 +112,7 @@ jobs:
       - name: Get python version
         id: get-python-version
         run: |
-          if [[ "${{ matrix.package }}" = "scikit-learn" && "${{ matrix.version }}" = "dev" ]] || \
+          if [[ "${{ matrix.package }}" = "scikit-learn" ]] || \
              [[ "${{ matrix.package }}" = "statsmodels" ]] || \
              [[ "${{ matrix.package }}" = "tensorflow" && "${{ matrix.version }}" = "dev" ]]
           then
