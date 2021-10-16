@@ -562,7 +562,8 @@ export default class ExperimentViewUtil {
    * Obtain the categorized columns for which the values in them
    * have only a single value (or are undefined)
    */
-  static getCategorizedColumnsDiffView({
+  static getCategorizedUncheckedKeysDiffView({
+    categorizedUncheckedKeys,
     paramKeyList,
     metricKeyList,
     runInfos,
@@ -576,6 +577,11 @@ export default class ExperimentViewUtil {
       ATTRIBUTE_COLUMN_LABELS.USER,
       ATTRIBUTE_COLUMN_LABELS.VERSION,
     ];
+    // Leave keys already unchecked out of consideration
+    _.pull(attributeKeyList, categorizedUncheckedKeys[COLUMN_TYPES.ATTRIBUTES]);
+    _.pull(paramKeyList, categorizedUncheckedKeys[COLUMN_TYPES.PARAMS]);
+    _.pull(metricKeyList, categorizedUncheckedKeys[COLUMN_TYPES.METRICS]);
+    _.pull(tagKeyList, categorizedUncheckedKeys[COLUMN_TYPES.TAGS]);
     let attributes = [];
     let params = [];
     let metrics = [];
@@ -612,21 +618,67 @@ export default class ExperimentViewUtil {
     params = _.unzip(params);
     metrics = _.unzip(metrics);
     tags = _.unzip(tags);
-    const allEqual = (arr) => arr.every((val) => val === arr[0]);
+    const allEqual = (arr) => (arr ? arr.every((val) => val === arr[0]) : []);
 
     return {
-      [COLUMN_TYPES.ATTRIBUTES]: attributeKeyList.filter((v, index) => {
-        return allEqual(attributes[index]);
-      }),
-      [COLUMN_TYPES.PARAMS]: paramKeyList.filter((v, index) => {
-        return allEqual(params[index]);
-      }),
-      [COLUMN_TYPES.METRICS]: metricKeyList.filter((v, index) => {
-        return allEqual(metrics[index]);
-      }),
-      [COLUMN_TYPES.TAGS]: tagKeyList.filter((v, index) => {
-        return allEqual(tags[index]);
-      }),
+      [COLUMN_TYPES.ATTRIBUTES]: _.concat(
+        categorizedUncheckedKeys[COLUMN_TYPES.ATTRIBUTES],
+        attributeKeyList.filter((v, index) => {
+          return allEqual(attributes[index]);
+        }),
+      ),
+      [COLUMN_TYPES.PARAMS]: _.concat(
+        categorizedUncheckedKeys[COLUMN_TYPES.PARAMS],
+        paramKeyList.filter((v, index) => {
+          return allEqual(params[index]);
+        }),
+      ),
+      [COLUMN_TYPES.METRICS]: _.concat(
+        categorizedUncheckedKeys[COLUMN_TYPES.METRICS],
+        metricKeyList.filter((v, index) => {
+          return allEqual(metrics[index]);
+        }),
+      ),
+      [COLUMN_TYPES.TAGS]: _.concat(
+        categorizedUncheckedKeys[COLUMN_TYPES.TAGS],
+        tagKeyList.filter((v, index) => {
+          return allEqual(tags[index]);
+        }),
+      ),
+    };
+  }
+
+  /**
+   * Get the categorized unchecked keys that were in place before hitting the diff switch
+   * with state changes in between also reflected
+   */
+  static getRestoredCategorizedUncheckedKeys({
+    currCategorizedUncheckedKeys,
+    prevCategorizedUncheckedKeys,
+    preSwitchCategorizedUncheckedKeys,
+  }) {
+    const restoredUncheckedKeys = (column_type) => {
+      return _.uniq(
+        _.without(
+          _.concat(
+            preSwitchCategorizedUncheckedKeys[column_type],
+            _.difference(
+              currCategorizedUncheckedKeys[column_type],
+              prevCategorizedUncheckedKeys[column_type],
+            ),
+          ),
+          ..._.difference(
+            prevCategorizedUncheckedKeys[column_type],
+            currCategorizedUncheckedKeys[column_type],
+          ),
+        ),
+      );
+    };
+    return {
+      [COLUMN_TYPES.ATTRIBUTES]: restoredUncheckedKeys(COLUMN_TYPES.ATTRIBUTES),
+      [COLUMN_TYPES.PARAMS]: restoredUncheckedKeys(COLUMN_TYPES.PARAMS),
+      [COLUMN_TYPES.METRICS]: restoredUncheckedKeys(COLUMN_TYPES.METRICS),
+      [COLUMN_TYPES.TAGS]: restoredUncheckedKeys(COLUMN_TYPES.TAGS),
     };
   }
 }

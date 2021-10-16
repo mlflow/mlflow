@@ -1163,21 +1163,28 @@ export class ExperimentView extends Component {
   handleDiffSwitchChange() {
     this.setState(
       {
+        preSwitchCategorizedUncheckedKeys: !this.state.persistedState.diffSwitchSelected
+          ? this.state.persistedState.categorizedUncheckedKeys
+          : this.state.preSwitchCategorizedUncheckedKeys,
         persistedState: new ExperimentViewPersistedState({
           ...this.state.persistedState,
           diffSwitchSelected: !this.state.persistedState.diffSwitchSelected,
         }).toJSON(),
       },
       () => {
-        let categorizedUncheckedKeys;
-        if (this.state.persistedState.diffSwitchSelected) {
-          this.setState({
-            preSwitchCategorizedUncheckedKeys: this.state.persistedState.categorizedUncheckedKeys,
-          });
-          categorizedUncheckedKeys = ExperimentViewUtil.getCategorizedColumnsDiffView(this.props);
-        } else {
-          categorizedUncheckedKeys = this.state.preSwitchCategorizedUncheckedKeys;
-        }
+        const categorizedUncheckedKeys = this.state.persistedState.diffSwitchSelected
+          ? ExperimentViewUtil.getCategorizedUncheckedKeysDiffView({
+              ...this.props,
+              categorizedUncheckedKeys: this.state.persistedState.categorizedUncheckedKeys,
+            })
+          : ExperimentViewUtil.getRestoredCategorizedUncheckedKeys({
+              currCategorizedUncheckedKeys: this.state.persistedState.categorizedUncheckedKeys,
+              prevCategorizedUncheckedKeys: ExperimentViewUtil.getCategorizedUncheckedKeysDiffView({
+                ...this.props,
+                categorizedUncheckedKeys: this.state.preSwitchCategorizedUncheckedKeys,
+              }),
+              preSwitchCategorizedUncheckedKeys: this.state.preSwitchCategorizedUncheckedKeys,
+            });
         this.handleColumnSelectionCheck(categorizedUncheckedKeys);
       },
     );

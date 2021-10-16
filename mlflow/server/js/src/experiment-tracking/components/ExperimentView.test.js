@@ -445,8 +445,8 @@ describe('Start time dropdown', () => {
 
 describe('Diff Switch', () => {
   test('handleDiffSwitchChange changes state correctly', () => {
-    const getCategorizedColumnsDiffViewSpy = jest
-      .spyOn(ExperimentViewUtil, 'getCategorizedColumnsDiffView')
+    const getCategorizedUncheckedKeysDiffViewSpy = jest
+      .spyOn(ExperimentViewUtil, 'getCategorizedUncheckedKeysDiffView')
       .mockImplementation(() => {
         return {
           [COLUMN_TYPES.ATTRIBUTES]: ['a1'],
@@ -458,7 +458,7 @@ describe('Diff Switch', () => {
     const handleColumnSelectionCheckSpy = jest.fn();
     const wrapper = getExperimentViewMock();
     const instance = wrapper.instance();
-    instance.getCategorizedColumnsDiffView = getCategorizedColumnsDiffViewSpy;
+    instance.getCategorizedUncheckedKeysDiffView = getCategorizedUncheckedKeysDiffViewSpy;
     instance.handleColumnSelectionCheck = handleColumnSelectionCheckSpy;
 
     // Switch turned off by default
@@ -467,7 +467,7 @@ describe('Diff Switch', () => {
     // Switch turned on
     instance.handleDiffSwitchChange();
     expect(wrapper.state().persistedState.diffSwitchSelected).toBe(true);
-    expect(getCategorizedColumnsDiffViewSpy).toHaveBeenCalledTimes(1);
+    expect(getCategorizedUncheckedKeysDiffViewSpy).toHaveBeenCalledTimes(1);
     expect(handleColumnSelectionCheckSpy).toHaveBeenCalledTimes(1);
     expect(handleColumnSelectionCheckSpy).toHaveBeenLastCalledWith({
       [COLUMN_TYPES.ATTRIBUTES]: ['a1'],
@@ -479,7 +479,7 @@ describe('Diff Switch', () => {
     // Switch turned off
     instance.handleDiffSwitchChange();
     expect(wrapper.state().persistedState.diffSwitchSelected).toBe(false);
-    expect(getCategorizedColumnsDiffViewSpy).toHaveBeenCalledTimes(1);
+    expect(getCategorizedUncheckedKeysDiffViewSpy).toHaveBeenCalledTimes(2);
     expect(handleColumnSelectionCheckSpy).toHaveBeenCalledTimes(2);
     expect(handleColumnSelectionCheckSpy).toHaveBeenLastCalledWith(
       DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
@@ -487,8 +487,8 @@ describe('Diff Switch', () => {
   });
 
   test('handleDiffSwitchChange maintains state of pre-switch unchecked columns', () => {
-    const getCategorizedColumnsDiffViewSpy = jest
-      .spyOn(ExperimentViewUtil, 'getCategorizedColumnsDiffView')
+    const getCategorizedUncheckedKeysDiffViewSpy = jest
+      .spyOn(ExperimentViewUtil, 'getCategorizedUncheckedKeysDiffView')
       .mockImplementation(() => {
         return {
           [COLUMN_TYPES.ATTRIBUTES]: ['a1'],
@@ -499,7 +499,7 @@ describe('Diff Switch', () => {
       });
     const wrapper = getExperimentViewMock();
     const instance = wrapper.instance();
-    instance.getCategorizedColumnsDiffView = getCategorizedColumnsDiffViewSpy;
+    instance.getCategorizedUncheckedKeysDiffViewSpy = getCategorizedUncheckedKeysDiffViewSpy;
 
     expect(wrapper.state().persistedState.diffSwitchSelected).toBe(false);
     instance.handleColumnSelectionCheck({
@@ -530,6 +530,52 @@ describe('Diff Switch', () => {
       [COLUMN_TYPES.ATTRIBUTES]: ['a2'],
       [COLUMN_TYPES.PARAMS]: ['p2'],
       [COLUMN_TYPES.METRICS]: ['m2'],
+      [COLUMN_TYPES.TAGS]: ['t2'],
+    });
+  });
+
+  test('handleDiffSwitchChange maintains state of unchecked columns while in switch state', () => {
+    const getCategorizedUncheckedKeysDiffViewSpy = jest
+      .spyOn(ExperimentViewUtil, 'getCategorizedUncheckedKeysDiffView')
+      .mockImplementation(() => {
+        return {
+          [COLUMN_TYPES.ATTRIBUTES]: ['a1'],
+          [COLUMN_TYPES.PARAMS]: ['p1'],
+          [COLUMN_TYPES.METRICS]: ['m1'],
+          [COLUMN_TYPES.TAGS]: ['t1'],
+        };
+      });
+    const wrapper = getExperimentViewMock();
+    const instance = wrapper.instance();
+    instance.getCategorizedUncheckedKeysDiffViewSpy = getCategorizedUncheckedKeysDiffViewSpy;
+
+    // Columns selected before turning switch
+    instance.handleColumnSelectionCheck({
+      [COLUMN_TYPES.ATTRIBUTES]: ['a2'],
+      [COLUMN_TYPES.PARAMS]: ['p2'],
+      [COLUMN_TYPES.METRICS]: ['m2'],
+      [COLUMN_TYPES.TAGS]: ['t2'],
+    });
+
+    // Switch turned on
+    instance.handleDiffSwitchChange();
+
+    // Change column selected
+    instance.handleColumnSelectionCheck({
+      [COLUMN_TYPES.ATTRIBUTES]: ['a1', 'a3'], // select a3
+      [COLUMN_TYPES.PARAMS]: [], // deselect p1
+      [COLUMN_TYPES.METRICS]: ['m1', 'm3'],
+      [COLUMN_TYPES.TAGS]: [],
+    });
+
+    // Switch turned off
+    instance.handleDiffSwitchChange();
+
+    // Expect previous state, plus changes during switch state
+    expect(wrapper.state().persistedState.categorizedUncheckedKeys).toEqual({
+      [COLUMN_TYPES.ATTRIBUTES]: ['a2', 'a3'],
+      [COLUMN_TYPES.PARAMS]: ['p2'],
+      [COLUMN_TYPES.METRICS]: ['m2', 'm3'],
       [COLUMN_TYPES.TAGS]: ['t2'],
     });
   });
