@@ -1266,6 +1266,9 @@ def _get_experiment_id():
     ) or deprecated_default_exp_id
 
 
+# custom autolog function which will be called in post importing hook
+_CUSTOM_LIBRARY_TO_AUTOLOG_FN = {}
+
 @autologging_integration("mlflow")
 def autolog(
     log_input_examples: bool = False,
@@ -1415,6 +1418,8 @@ def autolog(
         # Pytorch frameworks under mlflow.pytorch.autolog
         "pytorch_lightning": pytorch.autolog,
     }
+
+    LIBRARY_TO_AUTOLOG_FN.update(_CUSTOM_LIBRARY_TO_AUTOLOG_FN)
 
     CONF_KEY_IS_GLOBALLY_CONFIGURED = "globally_configured"
 
