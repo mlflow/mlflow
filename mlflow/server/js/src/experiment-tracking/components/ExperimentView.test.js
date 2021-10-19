@@ -549,7 +549,7 @@ describe('Diff Switch', () => {
     const instance = wrapper.instance();
     instance.getCategorizedUncheckedKeysDiffViewSpy = getCategorizedUncheckedKeysDiffViewSpy;
 
-    // Columns selected before turning switch
+    // Columns unchecked before turning switch on
     instance.handleColumnSelectionCheck({
       [COLUMN_TYPES.ATTRIBUTES]: ['a2'],
       [COLUMN_TYPES.PARAMS]: ['p2'],
@@ -560,7 +560,7 @@ describe('Diff Switch', () => {
     // Switch turned on
     instance.handleDiffSwitchChange();
 
-    // Change column selected
+    // Change unchecked columns
     instance.handleColumnSelectionCheck({
       [COLUMN_TYPES.ATTRIBUTES]: ['a1', 'a3'], // select a3
       [COLUMN_TYPES.PARAMS]: [], // deselect p1
