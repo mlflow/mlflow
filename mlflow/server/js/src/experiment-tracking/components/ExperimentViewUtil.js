@@ -651,26 +651,31 @@ export default class ExperimentViewUtil {
   /**
    * Get the categorized unchecked keys that were in place before hitting the diff switch
    * with state changes in between also reflected
+   * @preSwitchCategorizedUncheckedKeys the keys that were unchecked before diff switch was hit
+   * @postSwitchCategorizedUncheckedKeys the keys that were unchecked by hitting the diff switch
+   * @currCategorizedUncheckedKeys currently unchecked keys (possibly includes keys that were
+   * checked or unchecked while being in the diff view)
    */
   static getRestoredCategorizedUncheckedKeys({
-    currCategorizedUncheckedKeys,
-    prevCategorizedUncheckedKeys,
     preSwitchCategorizedUncheckedKeys,
+    postSwitchCategorizedUncheckedKeys,
+    currCategorizedUncheckedKeys,
   }) {
+    let userCheckedKeys; // keys that the user checked while being in diff view
+    let userUncheckedKeys; // keys that the user unchecked while being in diff view
     const restoredUncheckedKeys = (column_type) => {
+      userCheckedKeys = _.difference(
+        postSwitchCategorizedUncheckedKeys[column_type],
+        currCategorizedUncheckedKeys[column_type],
+      );
+      userUncheckedKeys = _.difference(
+        currCategorizedUncheckedKeys[column_type],
+        postSwitchCategorizedUncheckedKeys[column_type],
+      );
       return _.uniq(
         _.without(
-          _.concat(
-            preSwitchCategorizedUncheckedKeys[column_type],
-            _.difference(
-              currCategorizedUncheckedKeys[column_type],
-              prevCategorizedUncheckedKeys[column_type],
-            ),
-          ),
-          ..._.difference(
-            prevCategorizedUncheckedKeys[column_type],
-            currCategorizedUncheckedKeys[column_type],
-          ),
+          _.concat(preSwitchCategorizedUncheckedKeys[column_type], userUncheckedKeys),
+          ...userCheckedKeys,
         ),
       );
     };

@@ -406,57 +406,57 @@ describe('ExperimentViewUtil', () => {
   });
 
   test('getRestoredCategorizedUncheckedKeys no state change during switch', () => {
-    const currCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k1', 'k2', 'k3']);
-    const prevCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k1', 'k2', 'k3']);
     const preSwitchCategorizedUncheckedKeys = createCategorizedUncheckedKeys([]);
+    const postSwitchCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k1', 'k2', 'k3']);
+    const currCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k1', 'k2', 'k3']);
     const expectedCategorizedUncheckedKeys = createCategorizedUncheckedKeys([]);
     expect(
       ExperimentViewUtil.getRestoredCategorizedUncheckedKeys({
-        currCategorizedUncheckedKeys,
-        prevCategorizedUncheckedKeys,
         preSwitchCategorizedUncheckedKeys,
+        postSwitchCategorizedUncheckedKeys,
+        currCategorizedUncheckedKeys,
       }),
     ).toEqual(expectedCategorizedUncheckedKeys);
   });
 
   test('getRestoredCategorizedUncheckedKeys column unselected during switch', () => {
-    const currCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k1', 'k2', 'k3']);
-    const prevCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k1', 'k2']);
     const preSwitchCategorizedUncheckedKeys = createCategorizedUncheckedKeys([]);
+    const postSwitchCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k1', 'k2']);
+    const currCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k1', 'k2', 'k3']);
     const expectedCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k3']);
     expect(
       ExperimentViewUtil.getRestoredCategorizedUncheckedKeys({
-        currCategorizedUncheckedKeys,
-        prevCategorizedUncheckedKeys,
         preSwitchCategorizedUncheckedKeys,
+        postSwitchCategorizedUncheckedKeys,
+        currCategorizedUncheckedKeys,
       }),
     ).toEqual(expectedCategorizedUncheckedKeys);
   });
 
   test('getRestoredCategorizedUncheckedKeys column selected during switch', () => {
-    const currCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k1']);
-    const prevCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k1', 'k2', 'k3']);
     const preSwitchCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k1', 'k2']);
+    const postSwitchCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k1', 'k2', 'k3']);
+    const currCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k1']);
     const expectedCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k1']);
     expect(
       ExperimentViewUtil.getRestoredCategorizedUncheckedKeys({
-        currCategorizedUncheckedKeys,
-        prevCategorizedUncheckedKeys,
         preSwitchCategorizedUncheckedKeys,
+        postSwitchCategorizedUncheckedKeys,
+        currCategorizedUncheckedKeys,
       }),
     ).toEqual(expectedCategorizedUncheckedKeys);
   });
 
   test('getRestoredCategorizedUncheckedKeys column selected & unselected during switch', () => {
-    const currCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k1', 'k3']);
-    const prevCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k1', 'k2']);
     const preSwitchCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k1', 'k2']);
+    const postSwitchCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k1', 'k2']);
+    const currCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k1', 'k3']);
     const expectedCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k1', 'k3']);
     expect(
       ExperimentViewUtil.getRestoredCategorizedUncheckedKeys({
-        currCategorizedUncheckedKeys,
-        prevCategorizedUncheckedKeys,
         preSwitchCategorizedUncheckedKeys,
+        postSwitchCategorizedUncheckedKeys,
+        currCategorizedUncheckedKeys,
       }),
     ).toEqual(expectedCategorizedUncheckedKeys);
   });
