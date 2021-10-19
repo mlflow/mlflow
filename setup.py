@@ -28,7 +28,11 @@ alembic_files = [
     "../mlflow/store/db_migrations/alembic.ini",
     "../mlflow/temporary_db_migrations_for_pre_1_users/alembic.ini",
 ]
-extra_files = ["ml-package-versions.yml", "pyspark/ml/log_model_allowlist.txt"]
+extra_files = [
+    "ml-package-versions.yml",
+    "pypi_package_index.json",
+    "pyspark/ml/log_model_allowlist.txt",
+]
 
 """
 Minimal requirements for the skinny MLflow client which provides a limited
