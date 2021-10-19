@@ -413,7 +413,6 @@ For example, to build a image named ``my-docker-image``, we could do:
 
   mlflow models build-docker \
     -m /Users/mlflow/mlflow-prototype/mlruns/0/7c1a0d5c42844dcdb8f5191146925174/artifacts/model \
-    -p 1234 \
     -n my-docker-image \
     --enable-mlserver
 
