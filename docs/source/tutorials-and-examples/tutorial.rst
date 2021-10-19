@@ -286,18 +286,6 @@ in MLflow saved the model as an artifact within the run.
           mlflow models serve -m /Users/mlflow/mlflow-prototype/mlruns/0/7c1a0d5c42844dcdb8f5191146925174/artifacts/model -p 1234
 
       .. note::
-     
-          For production use cases, it's also possible to :ref:`serve your model using MLServer<serving_with_mlserver>`.
-          Note that this feature is still **experimental**.
-          In this example, this could be done as:
-
-          .. code-block:: bash
-
-              mlflow models serve \
-                -m /Users/mlflow/mlflow-prototype/mlruns/0/7c1a0d5c42844dcdb8f5191146925174/artifacts/model \
-                -p 1234 --enable-mlserver
-
-      .. note::
 
           The version of Python used to create the model must be the same as the one running ``mlflow models serve``.
           If this is not the case, you may see the error
@@ -394,6 +382,95 @@ in MLflow saved the model as an artifact within the run.
       the server should respond with output similar to::
 
         [[6.4287492410792]]
+
+Deploy the Model to Seldon Core or KServe (experimental)
+--------------------------------------------------------
+
+After training and testing our model, we are now ready to deploy it to
+production. 
+MLflow allows you to :ref:`serve your model using
+MLServer<serving_with_mlserver>`, which is already used as the core Python
+inference server in Kubernetes-native frameworks including `Seldon Core
+<https://docs.seldon.io/projects/seldon-core/en/latest/>`_ and `KServe
+(formerly known as KFServing) <https://kserve.github.io/website/>`_.
+Therefore, we can leverage this support to build a Docker image compatible with
+these frameworks.
+
+.. note::
+  Note that this an **optional step**, which is currently only available for
+  Python models.
+  Besides this, it's also worth noting that:
+
+  - This feature is **experimental** and is subject to change.
+  - MLServer requires **Python 3.7** or above.
+  - This step requires some basic Kubernetes knowledge (e.g. familiarity with ``kubectl``).
+
+To build a Docker image containing our model, we can use the ``mlflow models
+build-docker`` subcommand, alongside the ``--enable-mlserver`` flag.
+For example, to build a image named ``my-docker-image``, we could do:
+
+.. code-block:: bash
+
+  mlflow models build-docker \
+    -m /Users/mlflow/mlflow-prototype/mlruns/0/7c1a0d5c42844dcdb8f5191146925174/artifacts/model \
+    -p 1234 \
+    -n my-docker-image \
+    --enable-mlserver
+
+Once we have our image built, the next step will be to deploy it to our
+cluster. 
+One way to do this is by applying the respective Kubernetes manifests through
+the ``kubectl`` CLI:
+
+.. code-block:: bash
+
+  kubectl apply -f my-manifest.yaml
+
+.. plain-section::
+
+    .. container:: Seldon-Core
+
+      This step assumes that you've got ``kubectl`` access to a Kubernetes
+      cluster already setup with Seldon Core.
+      To read more on how to set this up, you can refer to the `Seldon Core
+      quickstart guide
+      <https://docs.seldon.io/projects/seldon-core/en/latest/workflow/github-readme.html>`_.
+
+      .. code-block:: yaml
+
+        apiVersion: machinelearning.seldon.io/v1
+        kind: SeldonDeployment
+        metadata:
+          name: mlflow-model
+        spec:
+          predictors:
+          - name: default
+            componentSpecs:
+            - spec:
+                containers:
+                - name: mlflow-model
+                  image: my-docker-image
+            graph:
+              name: mlflow-model
+
+    .. container:: KServe
+
+      This step assumes that you've got ``kubectl`` access to a Kubernetes
+      cluster already setup with KServe.
+      To read more on how to set this up, you can refer to the `KServe
+      quickstart guide <https://kserve.github.io/website/get_started/>`_.
+
+      .. code-block:: yaml
+
+        apiVersion: serving.kserve.io/v1beta1
+        kind: InferenceService
+        metadata:
+          name: mlflow-model
+        spec:
+          predictor:
+            containers: 
+              name: mlflow-model
+              image: my-docker-image
 
 
 More Resources
