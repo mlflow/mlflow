@@ -173,7 +173,7 @@ export class ExperimentView extends Component {
       showDeleteRunModal: false,
       // True if a model for restoring one or more runs should be displayed
       showRestoreRunModal: false,
-      // Columns selected before hitting the diff-view switch
+      // Columns unselected before hitting the diff-view switch
       preSwitchCategorizedUncheckedKeys: DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
     };
   }
