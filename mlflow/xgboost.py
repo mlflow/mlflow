@@ -59,6 +59,7 @@ from mlflow.utils.autologging_utils import (
     batch_metrics_logger,
     MlflowAutologgingQueueingClient,
 )
+from mlflow.utils.autologging_utils.safety import _wrap_patch
 from mlflow.utils._xgboost_utils import (
     _record_eval_results,
     _log_feature_importance_plot,
@@ -67,12 +68,7 @@ from mlflow.utils._xgboost_utils import (
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 FLAVOR_NAME = "xgboost"
-
-# only for XGBoost sklearn estimators
-SERIALIZATION_FORMAT_PICKLE = "pickle"
-SERIALIZATION_FORMAT_CLOUDPICKLE = "cloudpickle"
-
-SUPPORTED_SERIALIZATION_FORMATS = [SERIALIZATION_FORMAT_PICKLE, SERIALIZATION_FORMAT_CLOUDPICKLE]
+MODEL_CLASS = None
 
 _logger = logging.getLogger(__name__)
 
@@ -101,7 +97,6 @@ def save_model(
     conda_env=None,
     mlflow_model=None,
     signature: ModelSignature = None,
-    serialization_format: str = SERIALIZATION_FORMAT_CLOUDPICKLE,
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
@@ -128,14 +123,6 @@ def save_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param serialization_format: The format in which to serialize the models with scikit-learn API,
-                                 adopted from ``mlflow.sklearn.save_model()``.
-                                 This should be one of
-                                 the formats listed in
-                                 ``mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS``. The Cloudpickle
-                                 format, ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``,
-                                 provides better cross-system compatibility by identifying and
-                                 packaging code dependencies with the serialized model.
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example will be converted to a Pandas DataFrame and then
@@ -144,26 +131,6 @@ def save_model(
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     """
-    # save xgboost.sklearn estimators
-    if xgb_model.__module__ == "xgboost.sklearn":
-        import mlflow.sklearn
-        extra_xgboost_pip_requirements = get_default_pip_requirements()
-        if extra_pip_requirements:
-            extra_xgboost_pip_requirements += extra_pip_requirements
-        mlflow.sklearn.save_model(
-            sk_model=xgb_model,
-            path=path,
-            conda_env=conda_env,
-            mlflow_model=mlflow_model,
-            serialization_format=serialization_format,
-            signature=signature,
-            input_example=input_example,
-            pip_requirements=pip_requirements,
-            extra_pip_requirements=extra_xgboost_pip_requirements,
-        )
-        return
-
-    import mlflow
     import xgboost as xgb
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
@@ -190,9 +157,11 @@ def save_model(
         data=model_data_subpath,
         env=_CONDA_ENV_FILE_NAME,
     )
-    mlflow_model.add_flavor(FLAVOR_NAME, xgb_version=xgb.__version__, data=model_data_subpath)
+    mlflow_model.add_flavor(FLAVOR_NAME,
+                            xgb_version=xgb.__version__,
+                            data=model_data_subpath,
+                            model_class=xgb_model.__class__.__name__)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
-
     if conda_env is None:
         if pip_requirements is None:
             default_reqs = get_default_pip_requirements()
@@ -226,7 +195,6 @@ def log_model(
     xgb_model,
     artifact_path,
     conda_env=None,
-    serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -242,14 +210,6 @@ def log_model(
                       Models that implement the `scikit-learn API`_  are also supported.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: {{ conda_env }}
-    :param serialization_format: The format in which to serialize the model with scikit-learn API,
-                                 adopted from ``mlflow.sklearn.log_model()``.
-                                 This should be one of
-                                 the formats listed in
-                                 ``mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS``. The Cloudpickle
-                                 format, ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``,
-                                 provides better cross-system compatibility by identifying and
-                                 packaging code dependencies with the serialized model.
     :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
@@ -279,25 +239,6 @@ def log_model(
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param kwargs: kwargs to pass to `xgboost.Booster.save_model`_ method.
     """
-    if xgb_model.__module__ == "xgboost.sklearn":
-        import mlflow.sklearn
-        extra_xgboost_pip_requirements = get_default_pip_requirements()
-        if extra_pip_requirements:
-            extra_xgboost_pip_requirements += extra_pip_requirements
-        mlflow.sklearn.log_model(
-            sk_model=xgb_model,
-            artifact_path=artifact_path,
-            conda_env=conda_env,
-            registered_model_name=registered_model_name,
-            serialization_format=serialization_format,
-            signature=signature,
-            input_example=input_example,
-            pip_requirements=pip_requirements,
-            extra_pip_requirements=extra_xgboost_pip_requirements,
-        )
-        return
-
-    import mlflow
     Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.xgboost,
@@ -315,8 +256,10 @@ def log_model(
 
 def _load_model(path):
     import xgboost as xgb
-
-    model = xgb.Booster()
+    if MODEL_CLASS == "Booster":
+        model = xgb.Booster()
+    else:
+        model = getattr(xgb, MODEL_CLASS)()
     model.load_model(os.path.abspath(path))
     return model
 
@@ -327,10 +270,32 @@ def _load_pyfunc(path):
 
     :param path: Local filesystem path to the MLflow Model with the ``xgboost`` flavor.
     """
+    _set_model_class(path)
     return _XGBModelWrapper(_load_model(path))
 
 
-def load_model(model_uri, is_sklearn_estimator=False):
+def _set_model_class(model_uri):
+    """
+    Set MODEL_CLASS. Indicates what XGBoost estimator should be saved / loaded.
+
+    :param artifact_uri: The location, in URI format, of the MLflow model.
+                         Used to infer model class.
+    """
+    global MODEL_CLASS
+    if MODEL_CLASS is not None: return
+    path = model_uri.split('/')
+    if path[-1][-4:] == ".xgb":
+        path.pop()
+    model_dir_uri = "/".join(path)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_dir_uri)
+    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    if flavor_conf.get("model_class", None) is None:
+        return
+    else:
+        MODEL_CLASS = flavor_conf["model_class"]
+
+
+def load_model(model_uri):
     """
     Load an XGBoost model from a local file or a run.
 
@@ -344,15 +309,9 @@ def load_model(model_uri, is_sklearn_estimator=False):
                       For more information about supported URI schemes, see
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
                       artifact-locations>`_.
-    :param is_sklearn_estimator: Set ``True``, if the model to be loaded is a XGBoost sklearn model.
-                                 Set ``False`` otherwise.
-
     :return: An XGBoost model (an instance of `xgboost.Booster`_)
     """
-    if is_sklearn_estimator:
-        import mlflow.sklearn
-        return mlflow.sklearn.load_model(model_uri)
-
+    _set_model_class(model_uri)
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     xgb_model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model.xgb"))
@@ -366,7 +325,10 @@ class _XGBModelWrapper:
     def predict(self, dataframe):
         import xgboost as xgb
 
-        return self.xgb_model.predict(xgb.DMatrix(dataframe))
+        if isinstance(self.xgb_model, xgb.Booster):
+            return self.xgb_model.predict(xgb.DMatrix(dataframe))
+        else:
+            return self.xgb_model.predict(dataframe)
 
 
 @experimental
@@ -595,6 +557,14 @@ def autolog(
 
     # initialize autologging for XGBoost sklearn estimators
     import mlflow.sklearn
+    _wrap_patch(mlflow.sklearn, "log_model", log_model)
+    _wrap_patch(mlflow.sklearn, "save_model", save_model)
+    _wrap_patch(mlflow.sklearn,
+                "get_default_pip_requirements",
+                get_default_pip_requirements)
+    _wrap_patch(mlflow.sklearn,
+                "get_default_conda_env",
+                get_default_conda_env)
     mlflow.sklearn._autolog(
         log_input_examples=log_input_examples,
         log_model_signatures=log_model_signatures,

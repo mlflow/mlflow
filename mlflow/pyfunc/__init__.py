@@ -257,6 +257,7 @@ CODE = "code"
 DATA = "data"
 ENV = "env"
 PY_VERSION = "python_version"
+MODEL_CLASS = "model_class"
 
 _logger = logging.getLogger(__name__)
 PyFuncInput = Union[pandas.DataFrame, np.ndarray, List[Any], Dict[str, Any]]
@@ -664,7 +665,11 @@ def load_model(model_uri: str, suppress_warnings: bool = True) -> PyFuncModel:
         code_path = os.path.join(local_path, conf[CODE])
         mlflow.pyfunc.utils._add_code_to_system_path(code_path=code_path)
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
-    model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
+    module = importlib.import_module(conf[MAIN])
+    # Add model_class information if it is logged
+    if MODEL_CLASS in conf:
+        setattr(module, MODEL_CLASS, conf[MODEL_CLASS])
+    model_impl = module._load_pyfunc(data_path)
     return PyFuncModel(model_meta=model_meta, model_impl=model_impl)
 
 
