@@ -281,19 +281,17 @@ describe('ExperimentViewUtil', () => {
         tag2: '1',
         tag3: '1',
         [Utils.runNameTag]: 'runname1',
-        [Utils.userTag]: 'usertag1',
         [Utils.gitCommitTag]: 'gitcommit1',
       }),
       createTags({
         tag1: '1',
         tag2: '2',
         [Utils.runNameTag]: 'runname1',
-        [Utils.userTag]: 'usertag2',
         [Utils.gitCommitTag]: 'gitcommit2',
       }),
     ];
     const expectedUncheckedKeys = {
-      [COLUMN_TYPES.ATTRIBUTES]: [ATTRIBUTE_COLUMN_LABELS.RUN_NAME],
+      [COLUMN_TYPES.ATTRIBUTES]: [ATTRIBUTE_COLUMN_LABELS.MODELS],
       [COLUMN_TYPES.PARAMS]: ['param1', 'param4'],
       [COLUMN_TYPES.METRICS]: ['metric1', 'metric4'],
       [COLUMN_TYPES.TAGS]: ['tag1'],
@@ -314,7 +312,7 @@ describe('ExperimentViewUtil', () => {
 
   test('getCategorizedUncheckedKeysDiffView with columns already unchecked', () => {
     const categorizedUncheckedKeys = {
-      [COLUMN_TYPES.ATTRIBUTES]: [ATTRIBUTE_COLUMN_LABELS.USER],
+      [COLUMN_TYPES.ATTRIBUTES]: [ATTRIBUTE_COLUMN_LABELS.RUN_NAME],
       [COLUMN_TYPES.PARAMS]: ['param2'],
       [COLUMN_TYPES.METRICS]: ['metric2'],
       [COLUMN_TYPES.TAGS]: ['tag2'],
@@ -374,19 +372,17 @@ describe('ExperimentViewUtil', () => {
         tag2: '1',
         tag3: '1',
         [Utils.runNameTag]: 'runname1',
-        [Utils.userTag]: 'usertag1',
-        [Utils.gitCommitTag]: 'gitcommit1',
+        [Utils.gitCommitTag]: 'gitcommit2',
       }),
       createTags({
         tag1: '1',
         tag2: '2',
         [Utils.runNameTag]: 'runname1',
-        [Utils.userTag]: 'usertag2',
-        [Utils.gitCommitTag]: 'gitcommit2',
+        [Utils.gitCommitTag]: 'gitcommit1',
       }),
     ];
     const expectedUncheckedKeys = {
-      [COLUMN_TYPES.ATTRIBUTES]: [ATTRIBUTE_COLUMN_LABELS.USER, ATTRIBUTE_COLUMN_LABELS.RUN_NAME],
+      [COLUMN_TYPES.ATTRIBUTES]: [ATTRIBUTE_COLUMN_LABELS.RUN_NAME, ATTRIBUTE_COLUMN_LABELS.MODELS],
       [COLUMN_TYPES.PARAMS]: ['param2', 'param1', 'param4'],
       [COLUMN_TYPES.METRICS]: ['metric2', 'metric1', 'metric4'],
       [COLUMN_TYPES.TAGS]: ['tag2', 'tag1'],

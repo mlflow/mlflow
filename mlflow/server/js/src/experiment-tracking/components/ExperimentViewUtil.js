@@ -422,6 +422,17 @@ export default class ExperimentViewUtil {
     return ret;
   }
 
+  /**
+   * Turn a list of tags to a map of attribute column label to attribute.
+   */
+  static toAttributesMap(tags) {
+    return {
+      [ATTRIBUTE_COLUMN_LABELS.RUN_NAME]: Utils.getRunName(tags),
+      [ATTRIBUTE_COLUMN_LABELS.VERSION]: Utils.getSourceVersion(tags),
+      [ATTRIBUTE_COLUMN_LABELS.MODELS]: Utils.getLoggedModelsFromTags(tags),
+    };
+  }
+
   static isExpanderOpen(runsExpanded, runId) {
     let expanderOpen = DEFAULT_EXPANDED_VALUE;
     if (runsExpanded[runId] !== undefined) expanderOpen = runsExpanded[runId];
@@ -559,8 +570,9 @@ export default class ExperimentViewUtil {
   }
 
   /**
-   * Obtain the categorized columns for which the values in them
-   * have only a single value (or are undefined)
+   * Obtain the categorized columns (params, metrics & tags) for which the values
+   * in themhave only a single value (or are undefined). For attribute columns,
+   * obtain the columns for which every value is undefined/empty.
    */
   static getCategorizedUncheckedKeysDiffView({
     categorizedUncheckedKeys,
@@ -571,79 +583,142 @@ export default class ExperimentViewUtil {
     metricsList,
     tagsList,
   }) {
-    const tagKeyList = Utils.getVisibleTagKeyList(tagsList);
     const attributeKeyList = [
       ATTRIBUTE_COLUMN_LABELS.RUN_NAME,
-      ATTRIBUTE_COLUMN_LABELS.USER,
       ATTRIBUTE_COLUMN_LABELS.VERSION,
+      ATTRIBUTE_COLUMN_LABELS.MODELS,
     ];
-    // Leave keys already unchecked out of consideration
-    _.pull(attributeKeyList, categorizedUncheckedKeys[COLUMN_TYPES.ATTRIBUTES]);
-    _.pull(paramKeyList, categorizedUncheckedKeys[COLUMN_TYPES.PARAMS]);
-    _.pull(metricKeyList, categorizedUncheckedKeys[COLUMN_TYPES.METRICS]);
-    _.pull(tagKeyList, categorizedUncheckedKeys[COLUMN_TYPES.TAGS]);
-    let attributes = [];
-    let params = [];
-    let metrics = [];
-    let tags = [];
+    const tagKeyList = Utils.getVisibleTagKeyList(tagsList);
+    let attributeColumnsToUncheck = _.difference(
+      attributeKeyList,
+      categorizedUncheckedKeys[COLUMN_TYPES.ATTRIBUTES],
+    );
+    let paramColumnsToUncheck = _.difference(
+      paramKeyList,
+      categorizedUncheckedKeys[COLUMN_TYPES.PARAMS],
+    );
+    let metricColumnsToUncheck = _.difference(
+      metricKeyList,
+      categorizedUncheckedKeys[COLUMN_TYPES.METRICS],
+    );
+    let tagColumnsToUncheck = _.difference(tagKeyList, categorizedUncheckedKeys[COLUMN_TYPES.TAGS]);
 
-    for (let index = 0, n = runInfos.length; index < n; ++index) {
-      const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[index]);
-      const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[index]);
-      const tagsMap = tagsList[index];
+    const dropDiffColumns = (columns, prevRow, currRow) => {
+      // # What each argument represents:
+      // | a   | b   | c   | d   | e   | <- columns
+      // | --- | --- | --- | --- | --- |
+      // | -   | 1   | -   | 1   | 1   | <- prevRow
+      // | -   | -   | 1   | 1   | 2   | <- currRow
+      // | ?   | ?   | ?   | ?   | ?   |
 
-      attributes.push([
-        Utils.getRunName(tagsList[index]),
-        Utils.getUser(runInfos[index], tagsList[index]),
-        Utils.getSourceVersion(tagsList[index]),
-      ]);
-      params.push(
-        paramKeyList.map((paramKey) => {
-          return paramsMap[paramKey] ? paramsMap[paramKey].getValue() : '';
-        }),
+      // a: may be a diff column, we need to take a look at the next row
+      // b: is a diff column, we don't need to take a look at the next row
+      // c: is a diff column
+      // d: may be a diff column
+      // e: is a diff column
+
+      return columns.filter((col) => {
+        const prevValue = prevRow[col];
+        const currValue = currRow[col];
+        if (!prevValue && !currValue) {
+          // Case a
+          return true;
+        } else if (!prevValue || !currValue) {
+          // Case b & c
+          return false;
+        } else if (prevValue.getValue() === currValue.getValue()) {
+          // Case d
+          return true;
+        } else {
+          // Case e
+          return false;
+        }
+      });
+    };
+
+    const dropNonEmptyColumns = (columns, prevRow, currRow) => {
+      // # What each argument represents:
+      // | a   | b   | c   | d   | e   | <- columns
+      // | --- | --- | --- | --- | --- |
+      // | -   | 1   | -   | 1   | 1   | <- prevRow
+      // | -   | -   | 1   | 1   | 2   | <- currRow
+      // | ?   | ?   | ?   | ?   | ?   |
+
+      // a: may be an empty column, we need to take a look at the next row
+      // b: is not an empty column, we don't need to take a look at the next row
+      // c: is not an empty column
+      // d: is not an empty column
+      // e: is not an empty column
+
+      return columns.filter((col) => {
+        const prevValue = prevRow[col];
+        const currValue = currRow[col];
+        if ((!prevValue && !currValue) || (!currValue.length && !currValue.length)) {
+          // Case a
+          return true;
+        } else {
+          // Case b, c, d & e
+          return false;
+        }
+      });
+    };
+
+    for (const [index] of runInfos.entries()) {
+      if (index === 0) {
+        continue;
+      }
+
+      attributeColumnsToUncheck = dropNonEmptyColumns(
+        attributeColumnsToUncheck,
+        ExperimentViewUtil.toAttributesMap(tagsList[index - 1]),
+        ExperimentViewUtil.toAttributesMap(tagsList[index]),
       );
-      metrics.push(
-        metricKeyList.map((metricKey) => {
-          return metricsMap[metricKey] ? metricsMap[metricKey].getValue() : '';
-        }),
+
+      paramColumnsToUncheck = dropDiffColumns(
+        paramColumnsToUncheck,
+        ExperimentViewUtil.toParamsMap(paramsList[index - 1]),
+        ExperimentViewUtil.toParamsMap(paramsList[index]),
       );
-      tags.push(
-        tagKeyList.map((tagKey) => {
-          return tagsMap[tagKey] ? tagsMap[tagKey].getValue() : '';
-        }),
+
+      metricColumnsToUncheck = dropDiffColumns(
+        metricColumnsToUncheck,
+        ExperimentViewUtil.toMetricsMap(metricsList[index - 1]),
+        ExperimentViewUtil.toMetricsMap(metricsList[index]),
       );
+
+      tagColumnsToUncheck = dropDiffColumns(
+        tagColumnsToUncheck,
+        tagsList[index - 1],
+        tagsList[index],
+      );
+
+      // Short-circuit loop if there are no more columns to take a look at
+      if (
+        !attributeColumnsToUncheck.length &&
+        !paramColumnsToUncheck.length &&
+        !metricColumnsToUncheck.length &&
+        !tagColumnsToUncheck.length
+      ) {
+        break;
+      }
     }
-    // Transpose the matrices so that we can evaluate the values 'column-based'
-    attributes = _.unzip(attributes);
-    params = _.unzip(params);
-    metrics = _.unzip(metrics);
-    tags = _.unzip(tags);
-    const allEqual = (arr) => (arr ? arr.every((val) => val === arr[0]) : []);
 
     return {
       [COLUMN_TYPES.ATTRIBUTES]: _.concat(
         categorizedUncheckedKeys[COLUMN_TYPES.ATTRIBUTES],
-        attributeKeyList.filter((v, index) => {
-          return allEqual(attributes[index]);
-        }),
+        attributeColumnsToUncheck,
       ),
       [COLUMN_TYPES.PARAMS]: _.concat(
         categorizedUncheckedKeys[COLUMN_TYPES.PARAMS],
-        paramKeyList.filter((v, index) => {
-          return allEqual(params[index]);
-        }),
+        paramColumnsToUncheck,
       ),
       [COLUMN_TYPES.METRICS]: _.concat(
         categorizedUncheckedKeys[COLUMN_TYPES.METRICS],
-        metricKeyList.filter((v, index) => {
-          return allEqual(metrics[index]);
-        }),
+        metricColumnsToUncheck,
       ),
       [COLUMN_TYPES.TAGS]: _.concat(
         categorizedUncheckedKeys[COLUMN_TYPES.TAGS],
-        tagKeyList.filter((v, index) => {
-          return allEqual(tags[index]);
-        }),
+        tagColumnsToUncheck,
       ),
     };
   }
