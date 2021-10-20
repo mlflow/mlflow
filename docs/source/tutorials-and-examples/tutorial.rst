@@ -403,7 +403,7 @@ these frameworks.
 
   - This feature is **experimental** and is subject to change.
   - MLServer requires **Python 3.7** or above.
-  - This step requires some basic Kubernetes knowledge (e.g. familiarity with ``kubectl``).
+  - This step requires some basic Kubernetes knowledge, including familiarity with ``kubectl``.
 
 To build a Docker image containing our model, we can use the ``mlflow models
 build-docker`` subcommand, alongside the ``--enable-mlserver`` flag.
@@ -443,14 +443,27 @@ the ``kubectl`` CLI:
           name: mlflow-model
         spec:
           predictors:
-          - name: default
-            componentSpecs:
-            - spec:
-                containers:
-                - name: mlflow-model
-                  image: my-docker-image
-            graph:
-              name: mlflow-model
+            - name: default
+              annotations:
+                seldon.io/no-engine: "true"
+              graph:
+                name: mlflow-model
+                type: MODEL
+              componentSpecs:
+                - spec:
+                    containers:
+                      - name: mlflow-model
+                        image: my-docker-image
+                        imagePullPolicy: IfNotPresent
+                        securityContext:
+                          runAsUser: 0
+                        ports:
+                          - containerPort: 8000
+                            name: http
+                            protocol: TCP
+                          - containerPort: 8081
+                            name: grpc
+                            protocol: TCP
 
     .. container:: KServe
 
@@ -467,9 +480,15 @@ the ``kubectl`` CLI:
           name: mlflow-model
         spec:
           predictor:
-            containers: 
-              name: mlflow-model
-              image: my-docker-image
+            containers:
+              - name: mlflow-model
+                image: my-docker-image
+                ports:
+                  - containerPort: 8000
+                    protocol: TCP
+                env:
+                  - name: PROTOCOL
+                    value: v2
 
 
 More Resources
