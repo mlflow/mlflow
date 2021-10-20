@@ -479,7 +479,7 @@ describe('Diff Switch', () => {
     // Switch turned off
     instance.handleDiffSwitchChange();
     expect(wrapper.state().persistedState.diffSwitchSelected).toBe(false);
-    expect(getCategorizedUncheckedKeysDiffViewSpy).toHaveBeenCalledTimes(2);
+    expect(getCategorizedUncheckedKeysDiffViewSpy).toHaveBeenCalledTimes(1);
     expect(handleColumnSelectionCheckSpy).toHaveBeenCalledTimes(2);
     expect(handleColumnSelectionCheckSpy).toHaveBeenLastCalledWith(
       DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
@@ -516,6 +516,12 @@ describe('Diff Switch', () => {
       [COLUMN_TYPES.PARAMS]: ['p2'],
       [COLUMN_TYPES.METRICS]: ['m2'],
       [COLUMN_TYPES.TAGS]: ['t2'],
+    });
+    expect(wrapper.state().postSwitchCategorizedUncheckedKeys).toEqual({
+      [COLUMN_TYPES.ATTRIBUTES]: ['a1'],
+      [COLUMN_TYPES.PARAMS]: ['p1'],
+      [COLUMN_TYPES.METRICS]: ['m1'],
+      [COLUMN_TYPES.TAGS]: ['t1'],
     });
     expect(wrapper.state().persistedState.categorizedUncheckedKeys).toEqual({
       [COLUMN_TYPES.ATTRIBUTES]: ['a1'],

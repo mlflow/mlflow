@@ -173,8 +173,10 @@ export class ExperimentView extends Component {
       showDeleteRunModal: false,
       // True if a model for restoring one or more runs should be displayed
       showRestoreRunModal: false,
-      // Columns unselected before hitting the diff-view switch
+      // Columns unselected before turning on the diff-view switch
       preSwitchCategorizedUncheckedKeys: DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
+      // Columns unselected as the result of turning on the diff-view switch
+      postSwitchCategorizedUncheckedKeys: DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
     };
   }
 
@@ -1163,31 +1165,29 @@ export class ExperimentView extends Component {
   handleDiffSwitchChange() {
     this.setState(
       {
-        preSwitchCategorizedUncheckedKeys: !this.state.persistedState.diffSwitchSelected
-          ? this.state.persistedState.categorizedUncheckedKeys
-          : this.state.preSwitchCategorizedUncheckedKeys,
         persistedState: new ExperimentViewPersistedState({
           ...this.state.persistedState,
           diffSwitchSelected: !this.state.persistedState.diffSwitchSelected,
         }).toJSON(),
       },
       () => {
-        const categorizedUncheckedKeys = this.state.persistedState.diffSwitchSelected
-          ? ExperimentViewUtil.getCategorizedUncheckedKeysDiffView({
-              ...this.props,
-              categorizedUncheckedKeys: this.state.persistedState.categorizedUncheckedKeys,
-            })
-          : ExperimentViewUtil.getRestoredCategorizedUncheckedKeys({
-              preSwitchCategorizedUncheckedKeys: this.state.preSwitchCategorizedUncheckedKeys,
-              // eslint-disable-next-line max-len
-              postSwitchCategorizedUncheckedKeys: ExperimentViewUtil.getCategorizedUncheckedKeysDiffView(
-                {
-                  ...this.props,
-                  categorizedUncheckedKeys: this.state.preSwitchCategorizedUncheckedKeys,
-                },
-              ),
-              currCategorizedUncheckedKeys: this.state.persistedState.categorizedUncheckedKeys,
-            });
+        let categorizedUncheckedKeys;
+        if (this.state.persistedState.diffSwitchSelected) {
+          categorizedUncheckedKeys = ExperimentViewUtil.getCategorizedUncheckedKeysDiffView({
+            ...this.props,
+            categorizedUncheckedKeys: this.state.persistedState.categorizedUncheckedKeys,
+          });
+          this.setState({
+            preSwitchCategorizedUncheckedKeys: this.state.persistedState.categorizedUncheckedKeys,
+            postSwitchCategorizedUncheckedKeys: categorizedUncheckedKeys,
+          });
+        } else {
+          categorizedUncheckedKeys = ExperimentViewUtil.getRestoredCategorizedUncheckedKeys({
+            preSwitchCategorizedUncheckedKeys: this.state.preSwitchCategorizedUncheckedKeys,
+            postSwitchCategorizedUncheckedKeys: this.state.postSwitchCategorizedUncheckedKeys,
+            currCategorizedUncheckedKeys: this.state.persistedState.categorizedUncheckedKeys,
+          });
+        }
         this.handleColumnSelectionCheck(categorizedUncheckedKeys);
       },
     );
