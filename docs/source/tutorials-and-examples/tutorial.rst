@@ -458,7 +458,7 @@ the ``kubectl`` CLI:
                         securityContext:
                           runAsUser: 0
                         ports:
-                          - containerPort: 8000
+                          - containerPort: 8080
                             name: http
                             protocol: TCP
                           - containerPort: 8081
@@ -484,7 +484,7 @@ the ``kubectl`` CLI:
               - name: mlflow-model
                 image: my-docker-image
                 ports:
-                  - containerPort: 8000
+                  - containerPort: 8080
                     protocol: TCP
                 env:
                   - name: PROTOCOL
