@@ -462,12 +462,12 @@ export class ExperimentView extends Component {
       categorizedUncheckedKeys,
       diffSwitchSelected,
     } = persistedState;
-    const filteredParamKeys = this.getFilteredKeys(paramKeyList, ColumnTypes.PARAMS);
-    const filteredMetricKeys = this.getFilteredKeys(metricKeyList, ColumnTypes.METRICS);
+    const filteredParamKeys = this.getFilteredKeys(paramKeyList, COLUMN_TYPES.PARAMS);
+    const filteredMetricKeys = this.getFilteredKeys(metricKeyList, COLUMN_TYPES.METRICS);
     const visibleTagKeyList = Utils.getVisibleTagKeyList(tagsList);
-    const filteredVisibleTagKeyList = this.getFilteredKeys(visibleTagKeyList, ColumnTypes.TAGS);
-    const filteredUnbaggedParamKeys = this.getFilteredKeys(unbaggedParams, ColumnTypes.PARAMS);
-    const filteredUnbaggedMetricKeys = this.getFilteredKeys(unbaggedMetrics, ColumnTypes.METRICS);
+    const filteredVisibleTagKeyList = this.getFilteredKeys(visibleTagKeyList, COLUMN_TYPES.TAGS);
+    const filteredUnbaggedParamKeys = this.getFilteredKeys(unbaggedParams, COLUMN_TYPES.PARAMS);
+    const filteredUnbaggedMetricKeys = this.getFilteredKeys(unbaggedMetrics, COLUMN_TYPES.METRICS);
     const restoreDisabled = Object.keys(this.state.runsSelected).length < 1;
     const noteInfo = NoteInfo.fromTags(experimentTags);
     const startTimeColumnLabels = this.getStartTimeColumnDisplayName();
@@ -1217,7 +1217,7 @@ export class ExperimentView extends Component {
         });
       },
     );
-  }
+  };
 
   onCompare = () => {
     const runsSelectedList = Object.keys(this.state.runsSelected);

@@ -69,20 +69,7 @@ export class CompareRunView extends Component {
     ];
     return (
       <div className='CompareRunView'>
-        <div className='header-container'>
-          <BreadcrumbTitle
-            experiment={experiment}
-            title={
-              <FormattedMessage
-                defaultMessage='Comparing {runs} Runs'
-                description='Breadcrumb title for compare runs page'
-                values={{
-                  runs: this.props.runInfos.length,
-                }}
-              />
-            }
-          />
-        </div>
+        <PageHeader title={title} breadcrumbs={breadcrumbs} />
         <div className='responsive-table-container'>
           <table className='compare-table table'>
             <thead>

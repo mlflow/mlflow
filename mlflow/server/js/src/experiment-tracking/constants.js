@@ -48,6 +48,12 @@ export const DEFAULT_ORDER_BY_KEY = ATTRIBUTE_COLUMN_SORT_KEY.DATE;
 export const DEFAULT_ORDER_BY_ASC = false;
 export const DEFAULT_START_TIME = 'ALL';
 export const DEFAULT_EXPANDED_VALUE = false;
+export const DEFAULT_CATEGORIZED_UNCHECKED_KEYS = {
+  [COLUMN_TYPES.ATTRIBUTES]: [],
+  [COLUMN_TYPES.PARAMS]: [],
+  [COLUMN_TYPES.METRICS]: [],
+  [COLUMN_TYPES.TAGS]: [],
+};
 
 export const PAGINATION_DEFAULT_STATE = {
   nextPageToken: null,

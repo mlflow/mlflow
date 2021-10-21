@@ -31,7 +31,6 @@ import {
   COLUMN_SORT_BY_ASC,
   COLUMN_SORT_BY_DESC,
 } from '../constants';
-import ExperimentViewUtil from './ExperimentViewUtil';
 
 let onSearchSpy;
 
@@ -117,12 +116,10 @@ test(`Clearing filter state calls search handler with correct arguments`, () => 
   wrapper.instance().onClear();
   expect(onSearchSpy.mock.calls.length).toBe(1);
   expect(onSearchSpy.mock.calls[0][0]).toBe('');
-  expect(onSearchSpy.mock.calls[0][1]).toBe('');
-  expect(onSearchSpy.mock.calls[0][2]).toBe('');
-  expect(onSearchSpy.mock.calls[0][3]).toBe(LIFECYCLE_FILTER.ACTIVE);
-  expect(onSearchSpy.mock.calls[0][4]).toBe(DEFAULT_ORDER_BY_KEY);
-  expect(onSearchSpy.mock.calls[0][5]).toBe(DEFAULT_ORDER_BY_ASC);
-  expect(onSearchSpy.mock.calls[0][7]).toBe(DEFAULT_START_TIME);
+  expect(onSearchSpy.mock.calls[0][1]).toBe(LIFECYCLE_FILTER.ACTIVE);
+  expect(onSearchSpy.mock.calls[0][2]).toBe(DEFAULT_ORDER_BY_KEY);
+  expect(onSearchSpy.mock.calls[0][3]).toBe(DEFAULT_ORDER_BY_ASC);
+  expect(onSearchSpy.mock.calls[0][5]).toBe(DEFAULT_START_TIME);
 });
 
 test('Onboarding alert shows', () => {
@@ -392,8 +389,6 @@ describe('Sort by dropdown', () => {
     sortSelect.prop('onChange')('attributes.start_time');
     expect(onSearchSpy).toBeCalledWith(
       '',
-      '',
-      '',
       LIFECYCLE_FILTER.ACTIVE,
       'attributes.start_time',
       DEFAULT_ORDER_BY_ASC,
@@ -425,8 +420,6 @@ describe('Start time dropdown', () => {
 
     startTimeSelect.prop('onChange')('LAST_7_DAYS');
     expect(onSearchSpy).toBeCalledWith(
-      '',
-      '',
       '',
       LIFECYCLE_FILTER.ACTIVE,
       DEFAULT_ORDER_BY_KEY,

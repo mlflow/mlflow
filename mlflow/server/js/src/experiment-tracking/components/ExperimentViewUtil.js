@@ -236,23 +236,23 @@ export default class ExperimentViewUtil {
       },
       {
         key: 'user_id',
-        displayName: this.ATTRIBUTE_COLUMN_LABELS.USER,
-        canonicalSortKey: this.ATTRIBUTE_COLUMN_SORT_KEY.USER,
+        displayName: ATTRIBUTE_COLUMN_LABELS.USER,
+        canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.USER,
       },
       {
         key: 'run_name',
-        displayName: this.ATTRIBUTE_COLUMN_LABELS.RUN_NAME,
-        canonicalSortKey: this.ATTRIBUTE_COLUMN_SORT_KEY.RUN_NAME,
+        displayName: ATTRIBUTE_COLUMN_LABELS.RUN_NAME,
+        canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.RUN_NAME,
       },
       {
         key: 'source',
-        displayName: this.ATTRIBUTE_COLUMN_LABELS.SOURCE,
-        canonicalSortKey: this.ATTRIBUTE_COLUMN_SORT_KEY.SOURCE,
+        displayName: ATTRIBUTE_COLUMN_LABELS.SOURCE,
+        canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.SOURCE,
       },
       {
         key: 'source_version',
-        displayName: this.ATTRIBUTE_COLUMN_LABELS.VERSION,
-        canonicalSortKey: this.ATTRIBUTE_COLUMN_SORT_KEY.VERSION,
+        displayName: ATTRIBUTE_COLUMN_LABELS.VERSION,
+        canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.VERSION,
       },
       {
         key: 'tags',
