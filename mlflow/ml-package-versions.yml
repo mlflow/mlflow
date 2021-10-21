@@ -341,3 +341,13 @@ mleap:
         exit 1
       fi
       pytest tests/mleap/test_mleap_model_export.py --large
+
+mleap:
+  package_info:
+    pip_release: "databricks-cli"
+    install_dev: |
+      pip install git+https://github.com/databricks/databricks-cli.git
+
+  models:
+    run: |
+      pytest tests/utils/test_databricks_utils.py
