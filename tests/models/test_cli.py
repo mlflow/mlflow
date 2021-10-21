@@ -11,6 +11,8 @@ import sklearn
 import sklearn.datasets
 import sklearn.neighbors
 
+from unittest import mock
+
 try:
     from StringIO import StringIO
 except ImportError:
@@ -19,6 +21,7 @@ except ImportError:
 import mlflow
 from mlflow import pyfunc
 import mlflow.sklearn
+
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils import PYTHON_VERSION
@@ -415,14 +418,14 @@ def test_prepare_env_fails(sk_model):
 @pytest.mark.parametrize("enable_mlserver", [True, False])
 def test_build_docker(iris_data, sk_model, enable_mlserver):
     with mlflow.start_run() as active_run:
-        conda_env = None
         if enable_mlserver:
-            # MLServer requires Python 3.7, so we'll add it to the model's
-            # Conda environment
-            conda_env = {"dependencies": ["python=3.7"]}
-
-        mlflow.sklearn.log_model(sk_model, "model", conda_env=conda_env)
+            # MLServer requires Python 3.7, so we'll force that Python version
+            with mock.patch("mlflow.utils.environment.PYTHON_VERSION", "3.7"):
+                mlflow.sklearn.log_model(sk_model, "model")
+        else:
+            mlflow.sklearn.log_model(sk_model, "model")
         model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
+
     x, _ = iris_data
     df = pd.DataFrame(x)
 
@@ -440,13 +443,12 @@ def test_build_docker(iris_data, sk_model, enable_mlserver):
 @pytest.mark.parametrize("enable_mlserver", [True, False])
 def test_build_docker_with_env_override(iris_data, sk_model, enable_mlserver):
     with mlflow.start_run() as active_run:
-        conda_env = None
         if enable_mlserver:
-            # MLServer requires Python 3.7, so we'll add it to the model's
-            # Conda environment
-            conda_env = {"dependencies": ["python=3.7"]}
-
-        mlflow.sklearn.log_model(sk_model, "model", conda_env=conda_env)
+            # MLServer requires Python 3.7, so we'll force that Python version
+            with mock.patch("mlflow.utils.environment.PYTHON_VERSION", "3.7"):
+                mlflow.sklearn.log_model(sk_model, "model")
+        else:
+            mlflow.sklearn.log_model(sk_model, "model")
         model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
     x, _ = iris_data
     df = pd.DataFrame(x)
