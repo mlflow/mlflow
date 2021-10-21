@@ -450,7 +450,7 @@ def test_credential_propagation(get_config, synchronous):
         def communicate(self, _):
             return "", ""
 
-    get_config.return_value = DatabricksConfig("host", None, None, "mytoken", insecure=False)
+    get_config.return_value = DatabricksConfig.from_token("host", "mytoken", insecure=False)
     with mock.patch("subprocess.Popen") as popen_mock, mock.patch(
         "mlflow.utils.uri.is_databricks_uri"
     ) as is_databricks_tracking_uri_mock:
