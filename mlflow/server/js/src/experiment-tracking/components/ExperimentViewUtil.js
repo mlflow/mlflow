@@ -573,6 +573,7 @@ export default class ExperimentViewUtil {
     tagsList,
   }) {
     const attributeColumnsToTags = {
+      // Leave the User and Source columns out of consideration because they normally have values.
       [ATTRIBUTE_COLUMN_LABELS.RUN_NAME]: Utils.runNameTag,
       [ATTRIBUTE_COLUMN_LABELS.VERSION]: Utils.gitCommitTag,
       [ATTRIBUTE_COLUMN_LABELS.MODELS]: Utils.loggedModelsTag,
@@ -594,18 +595,15 @@ export default class ExperimentViewUtil {
     let tagColumnsToUncheck = _.difference(tagKeyList, categorizedUncheckedKeys[COLUMN_TYPES.TAGS]);
 
     const dropDiffColumns = (columns, prevRow, currRow) => {
-      // # What each argument represents:
+      // What each argument represents:
       // | a   | b   | c   | d   | e   | <- columns
       // | --- | --- | --- | --- | --- |
       // | -   | 1   | -   | 1   | 1   | <- prevRow
       // | -   | -   | 1   | 1   | 2   | <- currRow
       // | ?   | ?   | ?   | ?   | ?   |
-
-      // a: may be a diff column, we need to take a look at the next row
-      // b: is a diff column, we don't need to take a look at the next row
-      // c: is a diff column
-      // d: may be a diff column
-      // e: is a diff column
+      //
+      // a, d: may be a diff column, we need to check the next row
+      // b, c, e: is a diff column, we don't need to check the next row
 
       return columns.filter((col) => {
         const prevValue = prevRow[col];
@@ -627,6 +625,7 @@ export default class ExperimentViewUtil {
     };
 
     for (const [index] of runInfos.entries()) {
+      // Drop non-empty attribute columns
       attributeColumnsToUncheck = attributeColumnsToUncheck.filter(
         (col) => !(attributeColumnsToTags[col] in tagsList[index]),
       );
@@ -634,6 +633,8 @@ export default class ExperimentViewUtil {
       if (index === 0) {
         continue;
       }
+
+      // The following operations need to be skipped in the first iteration.
 
       paramColumnsToUncheck = dropDiffColumns(
         paramColumnsToUncheck,
