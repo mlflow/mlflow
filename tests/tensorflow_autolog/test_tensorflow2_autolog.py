@@ -1,6 +1,8 @@
 # pep8: disable=E501
 
 import collections
+from dataclasses import dataclass, field
+from mlflow.models.signature import infer_signature
 import pytest
 import sys
 from packaging.version import Version
@@ -13,6 +15,7 @@ from tensorflow.keras import layers
 import mlflow
 import mlflow.tensorflow
 import mlflow.keras
+from mlflow.models import Model
 from mlflow.utils.autologging_utils import BatchMetricsLogger, autologging_is_disabled
 from unittest.mock import patch
 
@@ -75,6 +78,11 @@ def clear_fluent_autologging_import_hooks():
     """
     mlflow.utils.import_hooks._post_import_hooks.pop("tensorflow", None)
     mlflow.utils.import_hooks._post_import_hooks.pop("keras", None)
+
+
+def get_model_conf(model_path):
+    model_conf_path = os.path.join(model_path, "MLmodel")
+    return Model.load(model_conf_path)
 
 
 def create_tf_keras_model():
@@ -535,69 +543,79 @@ def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboa
         assert not os.path.exists(mock_log_dir_inst.location)
 
 
-def create_tf_estimator_model(directory, export, training_steps=100, use_v1_estimator=False):
-    CSV_COLUMN_NAMES = ["SepalLength", "SepalWidth", "PetalLength", "PetalWidth", "Species"]
-
-    train = pd.read_csv(
-        os.path.join(os.path.dirname(__file__), "iris_training.csv"),
-        names=CSV_COLUMN_NAMES,
-        header=0,
+@dataclass
+class TFEstimatorModel:
+    CSV_COLUMN_NAMES: list = field(
+        default=lambda: ["SepalLength", "SepalWidth", "PetalLength", "PetalWidth", "Species"]
     )
 
-    train_y = train.pop("Species")
+    def __post_init__(self):
 
-    def input_fn(features, labels, training=True, batch_size=256):
-        """An input function for training or evaluating"""
-        # Convert the inputs to a Dataset.
-        dataset = tf.data.Dataset.from_tensor_slices((dict(features), labels))
-
-        # Shuffle and repeat if you are in training mode.
-        if training:
-            dataset = dataset.shuffle(1000).repeat()
-
-        return dataset.batch(batch_size)
-
-    my_feature_columns = []
-    for key in train.keys():
-        my_feature_columns.append(tf.feature_column.numeric_column(key=key))
-
-    feature_spec = {}
-    for feature in CSV_COLUMN_NAMES:
-        feature_spec[feature] = tf.Variable([], dtype=tf.float64, name=feature)
-
-    receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
-
-    run_config = tf.estimator.RunConfig(
-        # Emit loss metrics to TensorBoard every step
-        save_summary_steps=1,
-    )
-
-    # If flag set to true, then use the v1 classifier that extends Estimator
-    # If flag set to false, then use the v2 classifier that extends EstimatorV2
-    if use_v1_estimator:
-        classifier = tf.compat.v1.estimator.DNNClassifier(
-            feature_columns=my_feature_columns,
-            # Two hidden layers of 10 nodes each.
-            hidden_units=[30, 10],
-            # The model must choose between 3 classes.
-            n_classes=3,
-            model_dir=directory,
-            config=run_config,
-        )
-    else:
-        classifier = tf.estimator.DNNClassifier(
-            feature_columns=my_feature_columns,
-            # Two hidden layers of 10 nodes each.
-            hidden_units=[30, 10],
-            # The model must choose between 3 classes.
-            n_classes=3,
-            model_dir=directory,
-            config=run_config,
+        self.train = pd.read_csv(
+            os.path.join(os.path.dirname(__file__), "iris_training.csv"),
+            names=self.CSV_COLUMN_NAMES(),
+            header=0,
         )
 
-    classifier.train(input_fn=lambda: input_fn(train, train_y, training=True), steps=training_steps)
-    if export:
-        classifier.export_saved_model(directory, receiver_fn)
+        self.train_y = self.train.pop("Species")
+
+    def create_tf_estimator_model(
+        self, directory, export, training_steps=100, use_v1_estimator=False
+    ):
+        def input_fn(features, labels, training=True, batch_size=256):
+            """An input function for training or evaluating"""
+            # Convert the inputs to a Dataset.
+            dataset = tf.data.Dataset.from_tensor_slices((dict(features), labels))
+
+            # Shuffle and repeat if you are in training mode.
+            if training:
+                dataset = dataset.shuffle(1000).repeat()
+
+            return dataset.batch(batch_size)
+
+        my_feature_columns = []
+        for key in self.train.keys():
+            my_feature_columns.append(tf.feature_column.numeric_column(key=key))
+
+        feature_spec = {}
+        for feature in self.CSV_COLUMN_NAMES():
+            feature_spec[feature] = tf.Variable([], dtype=tf.float64, name=feature)
+
+        receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
+
+        run_config = tf.estimator.RunConfig(
+            # Emit loss metrics to TensorBoard every step
+            save_summary_steps=1,
+        )
+
+        # If flag set to true, then use the v1 classifier that extends Estimator
+        # If flag set to false, then use the v2 classifier that extends EstimatorV2
+        if use_v1_estimator:
+            self.classifier = tf.compat.v1.estimator.DNNClassifier(
+                feature_columns=my_feature_columns,
+                # Two hidden layers of 10 nodes each.
+                hidden_units=[30, 10],
+                # The model must choose between 3 classes.
+                n_classes=3,
+                model_dir=directory,
+                config=run_config,
+            )
+        else:
+            self.classifier = tf.estimator.DNNClassifier(
+                feature_columns=my_feature_columns,
+                # Two hidden layers of 10 nodes each.
+                hidden_units=[30, 10],
+                # The model must choose between 3 classes.
+                n_classes=3,
+                model_dir=directory,
+                config=run_config,
+            )
+
+        self.classifier.train(
+            input_fn=lambda: input_fn(self.train, self.train_y, training=True), steps=training_steps
+        )
+        if export:
+            self.classifier.export_saved_model(directory, receiver_fn)
 
 
 @pytest.mark.large
@@ -605,7 +623,7 @@ def create_tf_estimator_model(directory, export, training_steps=100, use_v1_esti
 def test_tf_estimator_autolog_ends_auto_created_run(tmpdir, export):
     directory = tmpdir.mkdir("test")
     mlflow.tensorflow.autolog()
-    create_tf_estimator_model(str(directory), export)
+    TFEstimatorModel().create_tf_estimator_model(str(directory), export)
     assert mlflow.active_run() is None
 
 
@@ -614,7 +632,7 @@ def test_tf_estimator_autolog_ends_auto_created_run(tmpdir, export):
 def test_tf_estimator_autolog_persists_manually_created_run(tmpdir, export):
     directory = tmpdir.mkdir("test")
     with mlflow.start_run() as run:
-        create_tf_estimator_model(str(directory), export)
+        TFEstimatorModel().create_tf_estimator_model(str(directory), export)
         assert mlflow.active_run()
         assert mlflow.active_run().info.run_id == run.info.run_id
 
@@ -624,7 +642,7 @@ def tf_estimator_random_data_run(tmpdir, manual_run, export):
     # pylint: disable=unused-argument
     directory = tmpdir.mkdir("test")
     mlflow.tensorflow.autolog()
-    create_tf_estimator_model(str(directory), export)
+    TFEstimatorModel().create_tf_estimator_model(str(directory), export)
     client = mlflow.tracking.MlflowClient()
     return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
 
@@ -637,7 +655,7 @@ def test_tf_estimator_autolog_logs_metrics(tmpdir, export, use_v1_estimator):
     mlflow.tensorflow.autolog(every_n_iter=5)
 
     with mlflow.start_run():
-        create_tf_estimator_model(
+        TFEstimatorModel().create_tf_estimator_model(
             str(directory), export, use_v1_estimator=use_v1_estimator, training_steps=17
         )
         run_id = mlflow.active_run().info.run_id
@@ -657,7 +675,7 @@ def test_tf_estimator_v1_autolog_can_load_from_artifact(tmpdir, export):
     directory = tmpdir.mkdir("test")
     mlflow.tensorflow.autolog()
 
-    create_tf_estimator_model(str(directory), export, use_v1_estimator=True)
+    TFEstimatorModel().create_tf_estimator_model(str(directory), export, use_v1_estimator=True)
     client = mlflow.tracking.MlflowClient()
     tf_estimator_v1_run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
     artifacts = client.list_artifacts(tf_estimator_v1_run.info.run_id)
@@ -678,7 +696,7 @@ def test_tf_estimator_autolog_logs_tensorboard_logs(tf_estimator_random_data_run
 def test_tf_estimator_autolog_logs_metrics_in_exclusive_mode(tmpdir):
     mlflow.tensorflow.autolog(exclusive=True)
 
-    create_tf_estimator_model(tmpdir, export=False)
+    TFEstimatorModel().create_tf_estimator_model(tmpdir, export=False)
     client = mlflow.tracking.MlflowClient()
     tf_estimator_run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
 
@@ -699,7 +717,7 @@ def test_tf_estimator_autolog_logs_metics_for_single_epoch_training(tmpdir):
     """
     mlflow.tensorflow.autolog()
     with mlflow.start_run() as run:
-        create_tf_estimator_model(str(tmpdir), export=False, training_steps=1)
+        TFEstimatorModel().create_tf_estimator_model(str(tmpdir), export=False, training_steps=1)
     client = mlflow.tracking.MlflowClient()
     metrics = client.get_metric_history(run.info.run_id, "loss")
     assert len(metrics) == 1
@@ -894,6 +912,28 @@ def test_import_tensorflow_with_fluent_autolog_enables_tf_autologging():
     # Keras autologging upon tensorflow import in TensorFlow 2.5.1
     if Version(tf.__version__) != Version("2.5.1"):
         assert autologging_is_disabled(mlflow.keras.FLAVOR_NAME)
+
+
+def test_autolog_logs_signature_and_input_examples(tmpdir):
+    directory = tmpdir.mkdir("test")
+
+    def predict_fn(features):
+        features = dict(features)
+        dataset = tf.data.Dataset.from_tensors(features)
+        return dataset
+
+    mlflow.tensorflow.autolog(log_model_signatures=True, log_input_examples=True)
+    with mlflow.start_run() as run:
+        tf_estimator = TFEstimatorModel()
+        tf_estimator.create_tf_estimator_model(str(directory), export=True)
+
+    X = tf_estimator.train.iloc[:5]
+    y = tf_estimator.classifier.predict(lambda: predict_fn(X))
+
+    model_path = os.path.join(run.info.artifact_uri, "model")
+    model_conf = get_model_conf(model_path)
+
+    assert model_conf.signature == infer_signature(X, next(y)["logits"])
 
 
 @pytest.mark.large

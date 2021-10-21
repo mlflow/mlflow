@@ -7,6 +7,7 @@ TensorFlow (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
+import inspect
 import os
 import shutil
 import yaml
@@ -49,6 +50,8 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
+    INPUT_EXAMPLE_SAMPLE_ROWS,
+    resolve_input_example_and_signature,
     exception_safe_function,
     ExceptionSafeClass,
     PatchFunction,
@@ -874,6 +877,8 @@ def _setup_callbacks(lst, log_models, metrics_logger):
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     every_n_iter=1,
+    log_input_examples=False,
+    log_model_signatures=True,
     log_models=True,
     disable=False,
     exclusive=False,
@@ -932,6 +937,18 @@ def autolog(
 
     :param every_n_iter: The frequency with which metrics should be logged. For example, a value of
                          100 will log metrics at step 0, 100, 200, etc.
+    :param log_input_examples: If ``True``, input examples from training datasets are collected and
+                               logged along with tensorflow model artifacts during training. If
+                               ``False``, input examples are not logged.
+                               Note: Input examples are MLflow model attributes
+                               and are only collected if ``log_models`` is also ``True``.
+    :param log_model_signatures: If ``True``,
+                                 :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
+                                 describing model inputs and outputs are collected and logged along
+                                 with tensorflow model artifacts during training. If ``False``,
+                                 signatures are not logged.
+                                 Note: Model signatures are MLflow model attributes
+                                 and are only collected if ``log_models`` is also ``True``.
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
     :param disable: If ``True``, disables the TensorFlow autologging integration. If ``False``,
@@ -947,6 +964,7 @@ def autolog(
                    autologging.
     """
     import tensorflow
+    from mlflow.models import infer_signature
 
     _raise_deprecation_warning()
 
@@ -985,6 +1003,45 @@ def autolog(
 
         result = original(self, *args, **kwargs)
 
+        def infer_model_signature(input_example):
+            if not hasattr(self, "predict"):
+                raise Exception(
+                    "the trained model does not specify a `predict` function, "
+                    + "which is required in order to infer the signature"
+                )
+
+            def predict_fn(input_example):
+                features = dict(input_example)
+                dataset = tensorflow.data.Dataset.from_tensors(features)
+                return dataset
+
+            output_example = self.predict(lambda: predict_fn(input_example))
+            return infer_signature(input_example, next(output_example)["logits"])
+
+        def get_input_example():
+            input_example_key = list(inspect.signature(self.train).parameters.keys())[0]
+            input_example = {}
+
+            if input_example_key in kwargs.keys():
+                input_example_fn = kwargs[input_example_key]()
+            else:
+                input_example_fn = args[0]()
+
+            for data in input_example_fn:
+                input_example = pandas.DataFrame(data[0])
+                break
+
+            return input_example
+
+        if log_models:
+            train.input_example, train.signature = resolve_input_example_and_signature(
+                get_input_example,
+                infer_model_signature,
+                log_input_examples,
+                log_model_signatures,
+                _logger,
+            )
+
         # Flush the metrics queue after training completes
         _flush_queue()
 
@@ -1021,8 +1078,11 @@ def autolog(
                         tf_saved_model_dir=serialized.decode("utf-8"),
                         tf_meta_graph_tags=[tag_constants.SERVING],
                         tf_signature_def_key="predict",
+                        signature=train.signature,
+                        input_example=train.input_example,
                     )
                     save_model(path=local_path, mlflow_model=mlflow_model, **save_model_kwargs)
+                    log_model(artifact_path=artifact_path, **save_model_kwargs)
                     client = MlflowClient()
                     client.log_artifacts(_AUTOLOG_RUN_ID, local_path, artifact_path)
 
