@@ -247,8 +247,18 @@ def test_dataframe_from_json():
             "integer": np.array([3, 4, 5], dtype=np.int32),
             "long": np.array([3, 4, 5], dtype=np.int64),
             "binary": [bytes([1, 2, 3]), bytes([4, 5]), bytes([6])],
+            "date_string": ["2018-02-03", "1996-03-02", "2021-03-05"],
         },
-        columns=["boolean", "string", "float", "double", "integer", "long", "binary"],
+        columns=[
+            "boolean",
+            "string",
+            "float",
+            "double",
+            "integer",
+            "long",
+            "binary",
+            "date_string",
+        ],
     )
 
     jsonable_df = pd.DataFrame(source, copy=True)
@@ -262,6 +272,7 @@ def test_dataframe_from_json():
             ColSpec("integer", "integer"),
             ColSpec("long", "long"),
             ColSpec("binary", "binary"),
+            ColSpec("string", "date_string"),
         ]
     )
     parsed = _dataframe_from_json(
