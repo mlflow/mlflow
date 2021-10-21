@@ -14,6 +14,7 @@ import {
   ATTRIBUTE_COLUMN_LABELS,
   ATTRIBUTE_COLUMN_SORT_KEY,
   DEFAULT_EXPANDED_VALUE,
+  COLUMN_TYPES,
 } from '../constants';
 
 export default class ExperimentViewUtil {
@@ -555,6 +556,174 @@ export default class ExperimentViewUtil {
       return false;
     }
     return numRunsFromLatestSearch < SEARCH_MAX_RESULTS;
+  }
+
+  /**
+   * Obtain the categorized columns (params, metrics & tags) for which the values
+   * in them have only a single value (or are undefined). For attribute columns,
+   * obtain the columns for which every value is undefined.
+   */
+  static getCategorizedUncheckedKeysDiffView({
+    categorizedUncheckedKeys,
+    paramKeyList,
+    metricKeyList,
+    runInfos,
+    paramsList,
+    metricsList,
+    tagsList,
+  }) {
+    const attributeColumnsToTags = {
+      // Leave the User and Source columns out of consideration because they normally have values.
+      [ATTRIBUTE_COLUMN_LABELS.RUN_NAME]: Utils.runNameTag,
+      [ATTRIBUTE_COLUMN_LABELS.VERSION]: Utils.gitCommitTag,
+      [ATTRIBUTE_COLUMN_LABELS.MODELS]: Utils.loggedModelsTag,
+    };
+    const attributeKeyList = Object.keys(attributeColumnsToTags);
+    const tagKeyList = Utils.getVisibleTagKeyList(tagsList);
+    let attributeColumnsToUncheck = _.difference(
+      attributeKeyList,
+      categorizedUncheckedKeys[COLUMN_TYPES.ATTRIBUTES],
+    );
+    let paramColumnsToUncheck = _.difference(
+      paramKeyList,
+      categorizedUncheckedKeys[COLUMN_TYPES.PARAMS],
+    );
+    let metricColumnsToUncheck = _.difference(
+      metricKeyList,
+      categorizedUncheckedKeys[COLUMN_TYPES.METRICS],
+    );
+    let tagColumnsToUncheck = _.difference(tagKeyList, categorizedUncheckedKeys[COLUMN_TYPES.TAGS]);
+
+    const dropDiffColumns = (columns, prevRow, currRow) => {
+      // What each argument represents:
+      // | a   | b   | c   | d   | e   | <- columns
+      // | --- | --- | --- | --- | --- |
+      // | -   | 1   | -   | 1   | 1   | <- prevRow
+      // | -   | -   | 1   | 1   | 2   | <- currRow
+      // | ?   | ?   | ?   | ?   | ?   |
+      //
+      // a, d: may be a diff column, we need to check the next row
+      // b, c, e: is a diff column, we don't need to check the next row
+
+      return columns.filter((col) => {
+        const prevValue = prevRow[col];
+        const currValue = currRow[col];
+        if (!prevValue && !currValue) {
+          // Case a
+          return true;
+        } else if (!prevValue || !currValue) {
+          // Case b & c
+          return false;
+        } else if (prevValue.getValue() === currValue.getValue()) {
+          // Case d
+          return true;
+        } else {
+          // Case e
+          return false;
+        }
+      });
+    };
+
+    for (const [index] of runInfos.entries()) {
+      // Drop non-empty attribute columns
+      attributeColumnsToUncheck = attributeColumnsToUncheck.filter(
+        (col) => !(attributeColumnsToTags[col] in tagsList[index]),
+      );
+
+      if (index === 0) {
+        continue;
+      }
+
+      // The following operations need to be skipped in the first iteration.
+
+      paramColumnsToUncheck = dropDiffColumns(
+        paramColumnsToUncheck,
+        ExperimentViewUtil.toParamsMap(paramsList[index - 1]),
+        ExperimentViewUtil.toParamsMap(paramsList[index]),
+      );
+
+      metricColumnsToUncheck = dropDiffColumns(
+        metricColumnsToUncheck,
+        ExperimentViewUtil.toMetricsMap(metricsList[index - 1]),
+        ExperimentViewUtil.toMetricsMap(metricsList[index]),
+      );
+
+      tagColumnsToUncheck = dropDiffColumns(
+        tagColumnsToUncheck,
+        tagsList[index - 1],
+        tagsList[index],
+      );
+
+      // Short-circuit loop if there are no more columns to take a look at
+      if (
+        attributeColumnsToUncheck.length === 0 &&
+        paramColumnsToUncheck.length === 0 &&
+        metricColumnsToUncheck.length === 0 &&
+        tagColumnsToUncheck.length === 0
+      ) {
+        break;
+      }
+    }
+
+    return {
+      [COLUMN_TYPES.ATTRIBUTES]: _.concat(
+        categorizedUncheckedKeys[COLUMN_TYPES.ATTRIBUTES],
+        attributeColumnsToUncheck,
+      ),
+      [COLUMN_TYPES.PARAMS]: _.concat(
+        categorizedUncheckedKeys[COLUMN_TYPES.PARAMS],
+        paramColumnsToUncheck,
+      ),
+      [COLUMN_TYPES.METRICS]: _.concat(
+        categorizedUncheckedKeys[COLUMN_TYPES.METRICS],
+        metricColumnsToUncheck,
+      ),
+      [COLUMN_TYPES.TAGS]: _.concat(
+        categorizedUncheckedKeys[COLUMN_TYPES.TAGS],
+        tagColumnsToUncheck,
+      ),
+    };
+  }
+
+  /**
+   * Get the categorized unchecked keys that were in place before hitting the diff switch
+   * with state changes in between also reflected
+   * @param preSwitchCategorizedUncheckedKeys the keys that were unchecked before diff-view
+   *  switch was turned on
+   * @param postSwitchCategorizedUncheckedKeys the keys that were unchecked by turning the
+   *  diff-view switch on
+   * @param currCategorizedUncheckedKeys currently unchecked keys (possibly includes keys
+   * that were checked or unchecked while being in the diff view)
+   */
+  static getRestoredCategorizedUncheckedKeys({
+    preSwitchCategorizedUncheckedKeys,
+    postSwitchCategorizedUncheckedKeys,
+    currCategorizedUncheckedKeys,
+  }) {
+    const restoredUncheckedKeys = (column_type) => {
+      // keys that the user checked while being in diff view
+      const userCheckedKeys = _.difference(
+        postSwitchCategorizedUncheckedKeys[column_type],
+        currCategorizedUncheckedKeys[column_type],
+      );
+      // keys that the user unchecked while being in diff view
+      const userUncheckedKeys = _.difference(
+        currCategorizedUncheckedKeys[column_type],
+        postSwitchCategorizedUncheckedKeys[column_type],
+      );
+      return _.uniq(
+        _.without(
+          _.concat(preSwitchCategorizedUncheckedKeys[column_type], userUncheckedKeys),
+          ...userCheckedKeys,
+        ),
+      );
+    };
+    return {
+      [COLUMN_TYPES.ATTRIBUTES]: restoredUncheckedKeys(COLUMN_TYPES.ATTRIBUTES),
+      [COLUMN_TYPES.PARAMS]: restoredUncheckedKeys(COLUMN_TYPES.PARAMS),
+      [COLUMN_TYPES.METRICS]: restoredUncheckedKeys(COLUMN_TYPES.METRICS),
+      [COLUMN_TYPES.TAGS]: restoredUncheckedKeys(COLUMN_TYPES.TAGS),
+    };
   }
 }
 
