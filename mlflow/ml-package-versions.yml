@@ -348,6 +348,6 @@ mleap:
     install_dev: |
       pip install git+https://github.com/databricks/databricks-cli.git
 
-  models:
+  tests:
     run: |
       pytest tests/utils/test_databricks_utils.py
