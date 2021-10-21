@@ -33,7 +33,9 @@ class SearchUtils(object):
     VALID_METRIC_COMPARATORS = set([">", ">=", "!=", "=", "<", "<="])
     VALID_PARAM_COMPARATORS = set(["!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR])
     VALID_TAG_COMPARATORS = set(["!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR])
-    VALID_STRING_ATTRIBUTE_COMPARATORS = set(["!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR])
+    VALID_STRING_ATTRIBUTE_COMPARATORS = set(["!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR]).union(
+        VALID_METRIC_COMPARATORS
+    )
     CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS = set([LIKE_OPERATOR, ILIKE_OPERATOR])
     VALID_REGISTERED_MODEL_SEARCH_COMPARATORS = CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS.union(
         {"="}
@@ -168,7 +170,7 @@ class SearchUtils(object):
         return {"type": identifier, "key": key}
 
     @classmethod
-    def _get_value(cls, identifier_type, token):
+    def _get_value(cls, identifier_type, key, token):
         if identifier_type == cls._METRIC_IDENTIFIER:
             if token.ttype not in cls.NUMERIC_VALUE_TYPES:
                 raise MlflowException(
@@ -186,7 +188,9 @@ class SearchUtils(object):
                 error_code=INVALID_PARAMETER_VALUE,
             )
         elif identifier_type == cls._ATTRIBUTE_IDENTIFIER:
-            if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
+            if key == "start_time":
+                return token.value
+            elif token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             else:
                 raise MlflowException(
@@ -234,7 +238,7 @@ class SearchUtils(object):
         cls._validate_comparison(stripped_comparison)
         comp = cls._get_identifier(stripped_comparison[0].value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = stripped_comparison[1].value
-        comp["value"] = cls._get_value(comp.get("type"), stripped_comparison[2])
+        comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), stripped_comparison[2])
         return comp
 
     @classmethod
@@ -364,6 +368,8 @@ class SearchUtils(object):
             lhs = run.data.tags.get(key, None)
         elif cls.is_attribute(key_type, comparator):
             lhs = getattr(run.info, key)
+            if key == "start_time":
+                value = int(value)
         else:
             raise MlflowException(
                 "Invalid search expression type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE
