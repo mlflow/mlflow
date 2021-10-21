@@ -27,9 +27,11 @@ import {
   DEFAULT_ORDER_BY_KEY,
   DEFAULT_ORDER_BY_ASC,
   DEFAULT_START_TIME,
+  DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
   COLUMN_SORT_BY_ASC,
   COLUMN_SORT_BY_DESC,
 } from '../constants';
+import ExperimentViewUtil from './ExperimentViewUtil';
 
 let onSearchSpy;
 
@@ -90,6 +92,14 @@ const mountExperimentViewMock = (componentProps = {}) => {
         <ExperimentViewWithIntl {...mergedProps} />
       </BrowserRouter>
     </Provider>,
+  );
+};
+
+const createTags = (tags) => {
+  // Converts {key: value, ...} to {key: RunTag(key, value), ...}
+  return Object.entries(tags).reduce(
+    (acc, [key, value]) => ({ ...acc, [key]: RunTag.fromJs({ key, value }) }),
+    {},
   );
 };
 
@@ -179,14 +189,6 @@ describe('Download CSV', () => {
     'mlflow.source.name': 'src.py',
     'mlflow.source.type': 'LOCAL',
     'mlflow.user': 'user',
-  };
-
-  const createTags = (tags) => {
-    // Converts {key: value, ...} to {key: RunTag(key, value), ...}
-    return Object.entries(tags).reduce(
-      (acc, [key, value]) => ({ ...acc, [key]: RunTag.fromJs({ key, value }) }),
-      {},
-    );
   };
 
   const blobOptionExpected = { type: 'application/csv;charset=utf-8' };
@@ -438,5 +440,149 @@ describe('Start time dropdown', () => {
       MODEL_VERSION_FILTER.ALL_RUNS,
       'LAST_7_DAYS',
     );
+  });
+});
+
+describe('Diff Switch', () => {
+  test('handleDiffSwitchChange changes state correctly', () => {
+    const getCategorizedUncheckedKeysDiffViewSpy = jest
+      .spyOn(ExperimentViewUtil, 'getCategorizedUncheckedKeysDiffView')
+      .mockImplementation(() => {
+        return {
+          [COLUMN_TYPES.ATTRIBUTES]: ['a1'],
+          [COLUMN_TYPES.PARAMS]: ['p1'],
+          [COLUMN_TYPES.METRICS]: ['m1'],
+          [COLUMN_TYPES.TAGS]: ['t1'],
+        };
+      });
+    const handleColumnSelectionCheckSpy = jest.fn();
+    const wrapper = getExperimentViewMock();
+    const instance = wrapper.instance();
+    instance.getCategorizedUncheckedKeysDiffView = getCategorizedUncheckedKeysDiffViewSpy;
+    instance.handleColumnSelectionCheck = handleColumnSelectionCheckSpy;
+
+    // Switch turned off by default
+    expect(wrapper.state().persistedState.diffSwitchSelected).toBe(false);
+
+    // Switch turned on
+    instance.handleDiffSwitchChange();
+    expect(wrapper.state().persistedState.diffSwitchSelected).toBe(true);
+    expect(getCategorizedUncheckedKeysDiffViewSpy).toHaveBeenCalledTimes(1);
+    expect(handleColumnSelectionCheckSpy).toHaveBeenCalledTimes(1);
+    expect(handleColumnSelectionCheckSpy).toHaveBeenLastCalledWith({
+      [COLUMN_TYPES.ATTRIBUTES]: ['a1'],
+      [COLUMN_TYPES.PARAMS]: ['p1'],
+      [COLUMN_TYPES.METRICS]: ['m1'],
+      [COLUMN_TYPES.TAGS]: ['t1'],
+    });
+
+    // Switch turned off
+    instance.handleDiffSwitchChange();
+    expect(wrapper.state().persistedState.diffSwitchSelected).toBe(false);
+    expect(getCategorizedUncheckedKeysDiffViewSpy).toHaveBeenCalledTimes(1);
+    expect(handleColumnSelectionCheckSpy).toHaveBeenCalledTimes(2);
+    expect(handleColumnSelectionCheckSpy).toHaveBeenLastCalledWith(
+      DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
+    );
+  });
+
+  test('handleDiffSwitchChange maintains state of pre-switch unchecked columns', () => {
+    const getCategorizedUncheckedKeysDiffViewSpy = jest
+      .spyOn(ExperimentViewUtil, 'getCategorizedUncheckedKeysDiffView')
+      .mockImplementation(() => {
+        return {
+          [COLUMN_TYPES.ATTRIBUTES]: ['a1'],
+          [COLUMN_TYPES.PARAMS]: ['p1'],
+          [COLUMN_TYPES.METRICS]: ['m1'],
+          [COLUMN_TYPES.TAGS]: ['t1'],
+        };
+      });
+    const wrapper = getExperimentViewMock();
+    const instance = wrapper.instance();
+    instance.getCategorizedUncheckedKeysDiffViewSpy = getCategorizedUncheckedKeysDiffViewSpy;
+
+    expect(wrapper.state().persistedState.diffSwitchSelected).toBe(false);
+    instance.handleColumnSelectionCheck({
+      [COLUMN_TYPES.ATTRIBUTES]: ['a2'],
+      [COLUMN_TYPES.PARAMS]: ['p2'],
+      [COLUMN_TYPES.METRICS]: ['m2'],
+      [COLUMN_TYPES.TAGS]: ['t2'],
+    });
+
+    // Switch turned on
+    instance.handleDiffSwitchChange();
+    expect(wrapper.state().preSwitchCategorizedUncheckedKeys).toEqual({
+      [COLUMN_TYPES.ATTRIBUTES]: ['a2'],
+      [COLUMN_TYPES.PARAMS]: ['p2'],
+      [COLUMN_TYPES.METRICS]: ['m2'],
+      [COLUMN_TYPES.TAGS]: ['t2'],
+    });
+    expect(wrapper.state().postSwitchCategorizedUncheckedKeys).toEqual({
+      [COLUMN_TYPES.ATTRIBUTES]: ['a1'],
+      [COLUMN_TYPES.PARAMS]: ['p1'],
+      [COLUMN_TYPES.METRICS]: ['m1'],
+      [COLUMN_TYPES.TAGS]: ['t1'],
+    });
+    expect(wrapper.state().persistedState.categorizedUncheckedKeys).toEqual({
+      [COLUMN_TYPES.ATTRIBUTES]: ['a1'],
+      [COLUMN_TYPES.PARAMS]: ['p1'],
+      [COLUMN_TYPES.METRICS]: ['m1'],
+      [COLUMN_TYPES.TAGS]: ['t1'],
+    });
+
+    // Switch turned off
+    instance.handleDiffSwitchChange();
+    expect(wrapper.state().persistedState.categorizedUncheckedKeys).toEqual({
+      [COLUMN_TYPES.ATTRIBUTES]: ['a2'],
+      [COLUMN_TYPES.PARAMS]: ['p2'],
+      [COLUMN_TYPES.METRICS]: ['m2'],
+      [COLUMN_TYPES.TAGS]: ['t2'],
+    });
+  });
+
+  test('handleDiffSwitchChange maintains state of unchecked columns while in switch state', () => {
+    const getCategorizedUncheckedKeysDiffViewSpy = jest
+      .spyOn(ExperimentViewUtil, 'getCategorizedUncheckedKeysDiffView')
+      .mockImplementation(() => {
+        return {
+          [COLUMN_TYPES.ATTRIBUTES]: ['a1'],
+          [COLUMN_TYPES.PARAMS]: ['p1'],
+          [COLUMN_TYPES.METRICS]: ['m1'],
+          [COLUMN_TYPES.TAGS]: ['t1'],
+        };
+      });
+    const wrapper = getExperimentViewMock();
+    const instance = wrapper.instance();
+    instance.getCategorizedUncheckedKeysDiffViewSpy = getCategorizedUncheckedKeysDiffViewSpy;
+
+    // Columns unchecked before turning switch on
+    instance.handleColumnSelectionCheck({
+      [COLUMN_TYPES.ATTRIBUTES]: ['a2'],
+      [COLUMN_TYPES.PARAMS]: ['p2'],
+      [COLUMN_TYPES.METRICS]: ['m2'],
+      [COLUMN_TYPES.TAGS]: ['t2'],
+    });
+
+    // Switch turned on
+    instance.handleDiffSwitchChange();
+
+    // Change unchecked columns
+    instance.handleColumnSelectionCheck({
+      [COLUMN_TYPES.ATTRIBUTES]: ['a1', 'a3'], // select a3
+      [COLUMN_TYPES.PARAMS]: [], // deselect p1
+      [COLUMN_TYPES.METRICS]: ['m1', 'm3'],
+      [COLUMN_TYPES.TAGS]: [],
+    });
+
+    // Switch turned off
+    instance.handleDiffSwitchChange();
+
+    // Expect previous state, plus changes during switch state
+    expect(wrapper.state().persistedState.categorizedUncheckedKeys).toEqual({
+      [COLUMN_TYPES.ATTRIBUTES]: ['a2', 'a3'],
+      [COLUMN_TYPES.PARAMS]: ['p2'],
+      [COLUMN_TYPES.METRICS]: ['m2', 'm3'],
+      [COLUMN_TYPES.TAGS]: ['t2'],
+    });
   });
 });
