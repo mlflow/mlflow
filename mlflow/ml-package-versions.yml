@@ -342,7 +342,7 @@ mleap:
       fi
       pytest tests/mleap/test_mleap_model_export.py --large
 
-mleap:
+databricks-cli:
   package_info:
     pip_release: "databricks-cli"
     install_dev: |
