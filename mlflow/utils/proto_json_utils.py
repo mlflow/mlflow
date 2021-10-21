@@ -130,7 +130,9 @@ def _dataframe_from_json(
                     df[name] = df[name].map(lambda x: base64.decodebytes(bytes(x, "utf8")))
         return df
     else:
-        return pd.read_json(path_or_str, orient=pandas_orient, dtype=False, precise_float=precise_float)
+        return pd.read_json(
+            path_or_str, orient=pandas_orient, dtype=False, precise_float=precise_float
+        )
 
 
 def _get_jsonable_obj(data, pandas_orient="records"):
