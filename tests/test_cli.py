@@ -7,7 +7,6 @@ import shutil
 import tempfile
 import time
 import subprocess
-import sys
 
 from urllib.request import url2pathname
 from urllib.parse import urlparse, unquote
@@ -167,7 +166,20 @@ def test_mlflow_gc_not_deleted_run(file_store):
     assert len(runs) == 1
 
 
-@pytest.mark.parametrize("enable_mlserver", [True, False])
+@pytest.mark.parametrize(
+    "enable_mlserver",
+    [
+        # MLServer is not supported in Windows yet, so let's skip this test in that case.
+        # https://github.com/SeldonIO/MLServer/issues/361
+        pytest.param(
+            True,
+            marks=pytest.mark.skipif(
+                os.name == "nt", reason="MLServer is not supported in Windows"
+            ),
+        ),
+        False,
+    ],
+)
 def test_mlflow_models_serve(enable_mlserver):
     class MyModel(pyfunc.PythonModel):
         def predict(self, context, model_input):  # pylint: disable=unused-variable
@@ -186,16 +198,11 @@ def test_mlflow_models_serve(enable_mlserver):
 
     data = pd.DataFrame({"a": [0]})
 
-    extra_args = []
-    python_37_or_above = sys.version_info >= (3, 7)
+    extra_args = ["--no-conda"]
     if enable_mlserver:
-        extra_args.append("--enable-mlserver")
-
-    if not enable_mlserver or python_37_or_above:
-        # When MLServer is enabled, we want to ensure that (at least) Python
-        # 3.7 is used. Therefore, we  need to either check if Python 3.7 is
-        # already in use, or enable Conda.
-        extra_args.append("--no-conda")
+        # When MLServer is enabled, we want to use Conda to ensure Python 3.7
+        # is used
+        extra_args = ["--enable-mlserver"]
 
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=model_uri,
