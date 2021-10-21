@@ -7,6 +7,7 @@ import shutil
 import tempfile
 import time
 import subprocess
+import sys
 
 from urllib.request import url2pathname
 from urllib.parse import urlparse, unquote
@@ -185,11 +186,16 @@ def test_mlflow_models_serve(enable_mlserver):
 
     data = pd.DataFrame({"a": [0]})
 
-    extra_args = ["--no-conda"]
+    extra_args = []
+    python_37_or_above = sys.version_info >= (3, 7)
     if enable_mlserver:
-        # When MLServer is enabled, we want to use Conda to ensure Python 3.7
-        # is used
-        extra_args = ["--enable-mlserver"]
+        extra_args.append("--enable-mlserver")
+
+    if not enable_mlserver or python_37_or_above:
+        # When MLServer is enabled, we want to ensure that (at least) Python
+        # 3.7 is used. Therefore, we  need to either check if Python 3.7 is
+        # already in use, or enable Conda.
+        extra_args.append("--no-conda")
 
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=model_uri,
