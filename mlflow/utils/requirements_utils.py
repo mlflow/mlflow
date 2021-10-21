@@ -169,7 +169,7 @@ def _get_requires_recursive(pkg_name, visited_packages=None) -> set:
 
     for req in reqs:
         yield _normalize_package_name(req.name)
-        yield from _get_requires_recursive(req.name)
+        yield from _get_requires_recursive(req.name, visited_packages)
 
 
 def _prune_packages(packages):
