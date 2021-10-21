@@ -422,17 +422,6 @@ export default class ExperimentViewUtil {
     return ret;
   }
 
-  /**
-   * Turn a list of tags to a map of attribute column label to attribute.
-   */
-  static toAttributesMap(tags) {
-    return {
-      [ATTRIBUTE_COLUMN_LABELS.RUN_NAME]: Utils.getRunName(tags),
-      [ATTRIBUTE_COLUMN_LABELS.VERSION]: Utils.getSourceVersion(tags),
-      [ATTRIBUTE_COLUMN_LABELS.MODELS]: Utils.getLoggedModelsFromTags(tags),
-    };
-  }
-
   static isExpanderOpen(runsExpanded, runId) {
     let expanderOpen = DEFAULT_EXPANDED_VALUE;
     if (runsExpanded[runId] !== undefined) expanderOpen = runsExpanded[runId];
@@ -571,8 +560,8 @@ export default class ExperimentViewUtil {
 
   /**
    * Obtain the categorized columns (params, metrics & tags) for which the values
-   * in themhave only a single value (or are undefined). For attribute columns,
-   * obtain the columns for which every value is undefined/empty.
+   * in them have only a single value (or are undefined). For attribute columns,
+   * obtain the columns for which every value is undefined.
    */
   static getCategorizedUncheckedKeysDiffView({
     categorizedUncheckedKeys,
@@ -583,11 +572,12 @@ export default class ExperimentViewUtil {
     metricsList,
     tagsList,
   }) {
-    const attributeKeyList = [
-      ATTRIBUTE_COLUMN_LABELS.RUN_NAME,
-      ATTRIBUTE_COLUMN_LABELS.VERSION,
-      ATTRIBUTE_COLUMN_LABELS.MODELS,
-    ];
+    const attributeColumnsToTags = {
+      [ATTRIBUTE_COLUMN_LABELS.RUN_NAME]: Utils.runNameTag,
+      [ATTRIBUTE_COLUMN_LABELS.VERSION]: Utils.gitCommitTag,
+      [ATTRIBUTE_COLUMN_LABELS.MODELS]: Utils.loggedModelsTag,
+    };
+    const attributeKeyList = Object.keys(attributeColumnsToTags);
     const tagKeyList = Utils.getVisibleTagKeyList(tagsList);
     let attributeColumnsToUncheck = _.difference(
       attributeKeyList,
@@ -636,43 +626,14 @@ export default class ExperimentViewUtil {
       });
     };
 
-    const dropNonEmptyColumns = (columns, prevRow, currRow) => {
-      // # What each argument represents:
-      // | a   | b   | c   | d   | e   | <- columns
-      // | --- | --- | --- | --- | --- |
-      // | -   | 1   | -   | 1   | 1   | <- prevRow
-      // | -   | -   | 1   | 1   | 2   | <- currRow
-      // | ?   | ?   | ?   | ?   | ?   |
-
-      // a: may be an empty column, we need to take a look at the next row
-      // b: is not an empty column, we don't need to take a look at the next row
-      // c: is not an empty column
-      // d: is not an empty column
-      // e: is not an empty column
-
-      return columns.filter((col) => {
-        const prevValue = prevRow[col];
-        const currValue = currRow[col];
-        if ((!prevValue && !currValue) || (!currValue.length && !currValue.length)) {
-          // Case a
-          return true;
-        } else {
-          // Case b, c, d & e
-          return false;
-        }
-      });
-    };
-
     for (const [index] of runInfos.entries()) {
+      attributeColumnsToUncheck = attributeColumnsToUncheck.filter(
+        (col) => !(attributeColumnsToTags[col] in tagsList[index]),
+      );
+
       if (index === 0) {
         continue;
       }
-
-      attributeColumnsToUncheck = dropNonEmptyColumns(
-        attributeColumnsToUncheck,
-        ExperimentViewUtil.toAttributesMap(tagsList[index - 1]),
-        ExperimentViewUtil.toAttributesMap(tagsList[index]),
-      );
 
       paramColumnsToUncheck = dropDiffColumns(
         paramColumnsToUncheck,
@@ -694,10 +655,10 @@ export default class ExperimentViewUtil {
 
       // Short-circuit loop if there are no more columns to take a look at
       if (
-        !attributeColumnsToUncheck.length &&
-        !paramColumnsToUncheck.length &&
-        !metricColumnsToUncheck.length &&
-        !tagColumnsToUncheck.length
+        attributeColumnsToUncheck.length === 0 &&
+        paramColumnsToUncheck.length === 0 &&
+        metricColumnsToUncheck.length === 0 &&
+        tagColumnsToUncheck.length === 0
       ) {
         break;
       }
