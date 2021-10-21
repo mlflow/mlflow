@@ -143,7 +143,7 @@ export class RunsTableColumnSelectionDropdown extends React.Component {
   }
 }
 
-function getCategorizedUncheckedKeys(checkedKeys, allKeys) {
+export function getCategorizedUncheckedKeys(checkedKeys, allKeys) {
   const uncheckedKeys = _.difference(allKeys, checkedKeys);
   const result = {
     [COLUMN_TYPES.ATTRIBUTES]: [],
@@ -156,7 +156,11 @@ function getCategorizedUncheckedKeys(checkedKeys, allKeys) {
     const [columnType, rawKey] = key.split(/-(.+)/);
     if (rawKey) {
       result[columnType].push(rawKey);
-    } else if (columnType !== COLUMN_TYPES.PARAMS && columnType !== COLUMN_TYPES.METRICS) {
+    } else if (
+      columnType !== COLUMN_TYPES.PARAMS &&
+      columnType !== COLUMN_TYPES.METRICS &&
+      columnType !== COLUMN_TYPES.TAGS
+    ) {
       result[COLUMN_TYPES.ATTRIBUTES].push(columnType);
     }
   });

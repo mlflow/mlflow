@@ -5,7 +5,7 @@ import { connect } from 'react-redux';
 import { injectIntl, FormattedMessage } from 'react-intl';
 // eslint-disable-next-line no-unused-vars
 import { Link, withRouter } from 'react-router-dom';
-import { Alert, Badge, Descriptions, Icon, Menu, Popover, Select, Tooltip } from 'antd';
+import { Alert, Badge, Descriptions, Icon, Menu, Popover, Select, Tooltip, Switch } from 'antd';
 
 import './ExperimentView.css';
 import { getExperimentTags, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
@@ -47,6 +47,7 @@ import {
   DEFAULT_ORDER_BY_KEY,
   DEFAULT_ORDER_BY_ASC,
   DEFAULT_START_TIME,
+  DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
   ATTRIBUTE_COLUMN_SORT_LABEL,
   ATTRIBUTE_COLUMN_SORT_KEY,
   COLUMN_SORT_BY_ASC,
@@ -85,6 +86,7 @@ export class ExperimentView extends Component {
     this.handleCancelEditNote = this.handleCancelEditNote.bind(this);
     this.getStartTimeColumnDisplayName = this.getStartTimeColumnDisplayName.bind(this);
     this.onHandleStartTimeDropdown = this.onHandleStartTimeDropdown.bind(this);
+    this.handleDiffSwitchChange = this.handleDiffSwitchChange.bind(this);
     const store = ExperimentView.getLocalStore(this.props.experiment.experiment_id);
     const persistedState = new ExperimentViewPersistedState(store.loadComponentState());
     const onboardingInformationStore = ExperimentView.getLocalStore(onboarding);
@@ -171,6 +173,10 @@ export class ExperimentView extends Component {
       showDeleteRunModal: false,
       // True if a model for restoring one or more runs should be displayed
       showRestoreRunModal: false,
+      // Columns unselected before turning on the diff-view switch
+      preSwitchCategorizedUncheckedKeys: DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
+      // Columns unselected as the result of turning on the diff-view switch
+      postSwitchCategorizedUncheckedKeys: DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
     };
   }
 
@@ -458,7 +464,12 @@ export class ExperimentView extends Component {
     } = this.props;
     const { experiment_id, name } = experiment;
     const { persistedState } = this.state;
-    const { unbaggedParams, unbaggedMetrics, categorizedUncheckedKeys } = persistedState;
+    const {
+      unbaggedParams,
+      unbaggedMetrics,
+      categorizedUncheckedKeys,
+      diffSwitchSelected,
+    } = persistedState;
     const filteredParamKeys = this.getFilteredKeys(paramKeyList, COLUMN_TYPES.PARAMS);
     const filteredMetricKeys = this.getFilteredKeys(metricKeyList, COLUMN_TYPES.METRICS);
     const visibleTagKeyList = Utils.getVisibleTagKeyList(tagsList);
@@ -783,6 +794,27 @@ export class ExperimentView extends Component {
                       categorizedUncheckedKeys={categorizedUncheckedKeys}
                       onCheck={this.handleColumnSelectionCheck}
                     />
+                  </Spacer>
+                  <Spacer size='small' direction='horizontal'>
+                    {this.props.intl.formatMessage({
+                      defaultMessage: 'Only show differences',
+                      description:
+                        'Switch to select only columns with different values across runs',
+                    })}
+                    <Tooltip
+                      title={this.props.intl.formatMessage({
+                        defaultMessage: 'Only show columns with differences',
+                        description:
+                          'Switch to select only columns with different values across runs',
+                      })}
+                    >
+                      <Switch
+                        style={{ margin: '5px' }}
+                        dataTestId='diff-switch'
+                        checked={diffSwitchSelected}
+                        onChange={this.handleDiffSwitchChange}
+                      />
+                    </Tooltip>
                   </Spacer>
                   <Spacer direction='horizontal' size='small'>
                     <Popover
@@ -1128,6 +1160,37 @@ export class ExperimentView extends Component {
 
   handleModelVersionFilterInput({ key: modelVersionFilterInput }) {
     this.initiateSearch({ modelVersionFilterInput });
+  }
+
+  handleDiffSwitchChange() {
+    this.setState(
+      {
+        persistedState: new ExperimentViewPersistedState({
+          ...this.state.persistedState,
+          diffSwitchSelected: !this.state.persistedState.diffSwitchSelected,
+        }).toJSON(),
+      },
+      () => {
+        let categorizedUncheckedKeys;
+        if (this.state.persistedState.diffSwitchSelected) {
+          categorizedUncheckedKeys = ExperimentViewUtil.getCategorizedUncheckedKeysDiffView({
+            ...this.props,
+            categorizedUncheckedKeys: this.state.persistedState.categorizedUncheckedKeys,
+          });
+          this.setState({
+            preSwitchCategorizedUncheckedKeys: this.state.persistedState.categorizedUncheckedKeys,
+            postSwitchCategorizedUncheckedKeys: categorizedUncheckedKeys,
+          });
+        } else {
+          categorizedUncheckedKeys = ExperimentViewUtil.getRestoredCategorizedUncheckedKeys({
+            preSwitchCategorizedUncheckedKeys: this.state.preSwitchCategorizedUncheckedKeys,
+            postSwitchCategorizedUncheckedKeys: this.state.postSwitchCategorizedUncheckedKeys,
+            currCategorizedUncheckedKeys: this.state.persistedState.categorizedUncheckedKeys,
+          });
+        }
+        this.handleColumnSelectionCheck(categorizedUncheckedKeys);
+      },
+    );
   }
 
   onSearch(e, searchInput) {
