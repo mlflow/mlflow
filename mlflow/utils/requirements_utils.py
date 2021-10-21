@@ -139,36 +139,37 @@ def _normalize_package_name(pkg_name):
     return _NORMALIZE_REGEX.sub("-", pkg_name).lower()
 
 
-def _get_requires_recursive(pkg_name, packages=None) -> set:
+def _get_requires_recursive(pkg_name, visited_packages=None) -> set:
     """
     Recursively yields both direct and transitive dependencies of the specified
     package.
-    The `packages` argument will track the packages which have been already
+    The `visited_packages` argument will track the packages which have been already
     visited.
     This ensures that we don't fall into recursive loops for packages with are
     dependant on each other.
     """
-    if packages is None:
-        packages = set()
+    if visited_packages is None:
+        visited_packages = set()
 
     pkg_name = _normalize_package_name(pkg_name)
-    if pkg_name not in pkg_resources.working_set.by_key:
-        return packages
+    if pkg_name in visited_packages:
+        # If package has already been visited don't go there again
+        return
 
-    if pkg_name in packages:
-        # If package has already been visited, don't go there again
-        return packages
+    # Otherwise, flag as visited
+    visited_packages.add(pkg_name)
+
+    if pkg_name not in pkg_resources.working_set.by_key:
+        return
 
     package = pkg_resources.working_set.by_key[pkg_name]
     reqs = package.requires()
+    if len(reqs) == 0:
+        return
 
     for req in reqs:
-        # Add each requirement to the `packages` set and then get the
-        # dependencies of each one.
-        packages.add(_normalize_package_name(req.name))
-        packages = packages.union(_get_requires_recursive(req.name, packages))
-
-    return packages
+        yield _normalize_package_name(req.name)
+        yield from _get_requires_recursive(req.name)
 
 
 def _prune_packages(packages):
@@ -177,10 +178,7 @@ def _prune_packages(packages):
     to `["scikit-learn"]`.
     """
     packages = set(packages)
-
-    # Gather list of "transient" dependencies (i.e. 2nd-level, 3rd-level, etc.)
-    requires = set().union(*map(_get_requires_recursive, packages))
-
+    requires = set(_flatten(map(_get_requires_recursive, packages)))
     return packages - requires
 
 
