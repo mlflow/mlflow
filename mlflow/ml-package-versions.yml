@@ -349,5 +349,7 @@ databricks-cli:
       pip install git+https://github.com/databricks/databricks-cli.git
 
   tests:
+    minimum: "0.14.3"
+    maximum: "0.16.2"
     run: |
       pytest tests/utils/test_databricks_utils.py
