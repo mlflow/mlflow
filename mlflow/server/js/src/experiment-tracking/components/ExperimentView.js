@@ -170,10 +170,6 @@ export class ExperimentView extends Component {
       showDeleteRunModal: false,
       // True if a model for restoring one or more runs should be displayed
       showRestoreRunModal: false,
-      // Columns unselected before turning on the diff-view switch
-      preSwitchCategorizedUncheckedKeys: DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
-      // Columns unselected as the result of turning on the diff-view switch
-      postSwitchCategorizedUncheckedKeys: DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
     };
   }
 
@@ -1168,34 +1164,46 @@ export class ExperimentView extends Component {
   }
 
   handleDiffSwitchChange() {
-    this.setState(
-      {
-        persistedState: new ExperimentViewPersistedState({
-          ...this.state.persistedState,
-          diffSwitchSelected: !this.state.persistedState.diffSwitchSelected,
-        }).toJSON(),
-      },
-      () => {
-        let categorizedUncheckedKeys;
-        if (this.state.persistedState.diffSwitchSelected) {
-          categorizedUncheckedKeys = ExperimentViewUtil.getCategorizedUncheckedKeysDiffView({
-            ...this.props,
-            categorizedUncheckedKeys: this.state.persistedState.categorizedUncheckedKeys,
-          });
-          this.setState({
+    if (!this.state.persistedState.diffSwitchSelected) {
+      // When turning on the diff switch
+      const categorizedUncheckedKeys = ExperimentViewUtil.getCategorizedUncheckedKeysDiffView({
+        ...this.props,
+        categorizedUncheckedKeys: this.state.persistedState.categorizedUncheckedKeys,
+      });
+      this.setState(
+        {
+          persistedState: new ExperimentViewPersistedState({
+            ...this.state.persistedState,
+            diffSwitchSelected: !this.state.persistedState.diffSwitchSelected,
             preSwitchCategorizedUncheckedKeys: this.state.persistedState.categorizedUncheckedKeys,
             postSwitchCategorizedUncheckedKeys: categorizedUncheckedKeys,
-          });
-        } else {
-          categorizedUncheckedKeys = ExperimentViewUtil.getRestoredCategorizedUncheckedKeys({
-            preSwitchCategorizedUncheckedKeys: this.state.preSwitchCategorizedUncheckedKeys,
-            postSwitchCategorizedUncheckedKeys: this.state.postSwitchCategorizedUncheckedKeys,
-            currCategorizedUncheckedKeys: this.state.persistedState.categorizedUncheckedKeys,
-          });
-        }
-        this.handleColumnSelectionCheck(categorizedUncheckedKeys);
-      },
-    );
+          }).toJSON(),
+        },
+        () => {
+          this.handleColumnSelectionCheck(categorizedUncheckedKeys);
+        },
+      );
+    } else {
+      // When turning off the diff switch
+      const categorizedUncheckedKeys = ExperimentViewUtil.getRestoredCategorizedUncheckedKeys({
+        preSwitchCategorizedUncheckedKeys: this.state.persistedState
+          .preSwitchCategorizedUncheckedKeys,
+        postSwitchCategorizedUncheckedKeys: this.state.persistedState
+          .postSwitchCategorizedUncheckedKeys,
+        currCategorizedUncheckedKeys: this.state.persistedState.categorizedUncheckedKeys,
+      });
+      this.setState(
+        {
+          persistedState: new ExperimentViewPersistedState({
+            ...this.state.persistedState,
+            diffSwitchSelected: !this.state.persistedState.diffSwitchSelected,
+          }).toJSON(),
+        },
+        () => {
+          this.handleColumnSelectionCheck(categorizedUncheckedKeys);
+        },
+      );
+    }
   }
 
   onSearch = (e, searchInput) => {
