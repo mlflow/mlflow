@@ -235,11 +235,6 @@ export default class ExperimentViewUtil {
         canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.DATE,
       },
       {
-        key: 'duration',
-        displayName: ATTRIBUTE_COLUMN_LABELS.DURATION,
-        canonicalSortKey: null,
-      },
-      {
         key: 'user_id',
         displayName: ATTRIBUTE_COLUMN_LABELS.USER,
         canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.USER,

@@ -88,7 +88,8 @@ class ShowArtifactLoggedModelView extends Component {
       `# Load model as a Spark UDF.\n` +
       `loaded_model = mlflow.pyfunc.spark_udf(spark, model_uri=logged_model)\n\n` +
       `# Predict on a Spark DataFrame.\n` +
-      `df.withColumn('predictions', loaded_model(*column_names)).collect()`
+      `columns = list(df.columns)\n` +
+      `df.withColumn('predictions', loaded_model(*columns)).collect()`
     );
   }
 
@@ -145,6 +146,8 @@ class ShowArtifactLoggedModelView extends Component {
                     description='Code comment which states on how we can predict using spark DataFrame'
                   />
                 </span>
+                {`\n`}
+                columns = list(df.columns)
                 {`\n`}
                 df.withColumn(<span className='code-string'>'predictions'</span>,
                 loaded_model(*columns)).collect()

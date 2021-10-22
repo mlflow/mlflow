@@ -18,6 +18,7 @@ import { css } from 'emotion';
 import _ from 'lodash';
 import { getModelVersionSchemas } from '../reducers';
 import { FormattedMessage } from 'react-intl';
+import { PageHeader } from '../../shared/building_blocks/PageHeader';
 
 const { TabPane } = Tabs;
 
@@ -74,12 +75,30 @@ export class CompareModelVersionsViewImpl extends Component {
     const {
       inputsListByIndex,
       inputsListByName,
+      modelName,
       outputsListByIndex,
       outputsListByName,
       runInfos,
       runUuids,
       runDisplayNames,
     } = this.props;
+    const title = (
+      <FormattedMessage
+        defaultMessage='Comparing {numVersions} Versions'
+        description='Text for main title for the model comparison page'
+        values={{ numVersions: this.props.runInfos.length }}
+      />
+    );
+    const breadcrumbs = [
+      <Link to={modelListPageRoute}>
+        <FormattedMessage
+          defaultMessage='Registered Models'
+          description='Text for registered model link in the title for model comparison page'
+        />
+      </Link>,
+      <Link to={getModelPageRoute(modelName)}>{modelName}</Link>,
+      title,
+    ];
 
     return (
       <div
@@ -87,7 +106,7 @@ export class CompareModelVersionsViewImpl extends Component {
         ${compareModelVersionsViewClassName}
         ${classNames.wrapper(runInfos.length)}`}
       >
-        {this.renderBreadcrumb()}
+        <PageHeader title={title} breadcrumbs={breadcrumbs} />
         <div className='responsive-table-container'>
           <table className='compare-table table'>
             {this.renderTableHeader()}
@@ -204,34 +223,6 @@ export class CompareModelVersionsViewImpl extends Component {
           </TabPane>
         </Tabs>
       </div>
-    );
-  }
-
-  renderBreadcrumb() {
-    const { modelName } = this.props;
-    const breadcrumbItemClass = 'truncate-text single-line breadcrumb-title';
-    const chevronIcon = <i className='fas fa-chevron-right breadcrumb-chevron' />;
-    return (
-      <h1 className='breadcrumb-header'>
-        <Link to={modelListPageRoute} className={breadcrumbItemClass}>
-          <FormattedMessage
-            defaultMessage='Registered Models'
-            description='Text for registered model link in the title for model comparison page'
-          />
-        </Link>
-        {chevronIcon}
-        <Link to={getModelPageRoute(modelName)} className={breadcrumbItemClass}>
-          {modelName}
-        </Link>
-        {chevronIcon}
-        <span className={breadcrumbItemClass}>
-          <FormattedMessage
-            defaultMessage='Comparing {numVersions} Versions'
-            description='Text for main title for the model comparison page'
-            values={{ numVersions: this.props.runInfos.length }}
-          />
-        </span>
-      </h1>
     );
   }
 

@@ -2,7 +2,6 @@ import React from 'react';
 import { ModelVersionView, ModelVersionViewImpl } from './ModelVersionView';
 import { mockModelVersionDetailed } from '../test-utils';
 import { Stages, ModelVersionStatus, ACTIVE_STAGES } from '../constants';
-import { Dropdown, Tooltip } from 'antd';
 import { BrowserRouter } from 'react-router-dom';
 import Utils from '../../common/utils/Utils';
 import configureStore from 'redux-mock-store';
@@ -83,7 +82,7 @@ describe('ModelVersionView', () => {
         </BrowserRouter>
       </Provider>,
     );
-    expect(wrapper.find('[data-test-id="breadCrumbMenuDropdown"]').find(Dropdown).length).toBe(1);
+    expect(wrapper.find('button[data-test-id="overflow-menu-trigger"]').length).toBe(1);
   });
 
   test('should disable dropdown delete menu item when model version is in active stage', () => {
@@ -106,45 +105,16 @@ describe('ModelVersionView', () => {
         </Provider>,
       );
       wrapper
-        .find("[data-test-id='breadCrumbMenuDropdown']")
+        .find("[data-test-id='overflow-menu-trigger']")
         .at(0)
         .simulate('click');
       // The antd `Menu.Item` component converts the `disabled` attribute to `aria-disabled`
       // when generating HTML. Accordingly, we check for the presence of the `aria-disabled`
       // attribute within the rendered HTML.
-      const deleteMenuItem = wrapper.find('.delete').hostNodes();
+      const deleteMenuItem = wrapper.find('[data-test-id="delete"]').hostNodes();
       expect(deleteMenuItem.prop('aria-disabled')).toBe(true);
       deleteMenuItem.simulate('click');
       expect(wrapper.find(ModelVersionViewImpl).instance().state.isDeleteModalVisible).toBe(false);
-    }
-  });
-
-  test('should place tooltip on the right', () => {
-    let i;
-    for (i = 0; i < ACTIVE_STAGES.length; ++i) {
-      const props = {
-        ...minimalProps,
-        modelVersion: mockModelVersionDetailed(
-          'Model A',
-          1,
-          ACTIVE_STAGES[i],
-          ModelVersionStatus.READY,
-        ),
-      };
-      wrapper = mountWithIntl(
-        <Provider store={minimalStore}>
-          <BrowserRouter>
-            <ModelVersionView {...props} />
-          </BrowserRouter>
-        </Provider>,
-      );
-      wrapper
-        .find("[data-test-id='breadCrumbMenuDropdown']")
-        .at(0)
-        .simulate('click');
-      const deleteMenuItem = wrapper.find('.delete').hostNodes();
-      const tooltip = deleteMenuItem.find(Tooltip);
-      expect(tooltip.prop('placement')).toBe('right');
     }
   });
 
@@ -169,14 +139,14 @@ describe('ModelVersionView', () => {
         </Provider>,
       );
       wrapper
-        .find("[data-test-id='breadCrumbMenuDropdown']")
+        .find('button[data-test-id="overflow-menu-trigger"]')
         .at(0)
         .simulate('click');
       // The antd `Menu.Item` component converts the `disabled` attribute to `aria-disabled`
       // when generating HTML. Accordingly, we check for the presence of the `aria-disabled`
       // attribute within the rendered HTML.
-      const deleteMenuItem = wrapper.find('.delete').hostNodes();
-      expect(deleteMenuItem.prop('aria-disabled')).toBeUndefined();
+      const deleteMenuItem = wrapper.find('[data-test-id="delete"]').hostNodes();
+      expect(deleteMenuItem.prop('aria-disabled')).toBeFalsy();
       deleteMenuItem.simulate('click');
       expect(wrapper.find(ModelVersionViewImpl).instance().state.isDeleteModalVisible).toBe(true);
     }

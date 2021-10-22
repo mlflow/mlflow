@@ -16,8 +16,12 @@ export class MetricPageImpl extends Component {
     dispatch: PropTypes.func.isRequired,
   };
 
-  componentWillMount() {
+  constructor(props) {
+    super(props);
     this.requestIds = [];
+  }
+
+  componentDidMount() {
     if (this.props.experimentId !== null) {
       const experimentRequestId = getUUID();
       this.props.dispatch(getExperimentApi(this.props.experimentId, experimentRequestId));

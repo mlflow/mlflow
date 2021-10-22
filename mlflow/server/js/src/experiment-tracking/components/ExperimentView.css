@@ -100,13 +100,6 @@
     margin-bottom: 16px;
 }
 
-.ExperimentView-paramKeyFilter, .ExperimentView-metricKeyFilter {
-    display: inline-block;
-    width: 50%;
-    min-width: 210px;
-    margin-top: 8px;
-}
-
 .ExperimentView-search {
     display: flex;
     align-items: center;
@@ -130,7 +123,7 @@
     padding-top: 8px;
 }
 
-.ExperimentView-paramKeyFilter, .ExperimentView-metricKeyFilter, .ExperimentView-search-input, .ExperimentView-lifecycle-input {
+.ExperimentView-search-input, .ExperimentView-lifecycle-input {
     padding-right: 8px;
 }
 

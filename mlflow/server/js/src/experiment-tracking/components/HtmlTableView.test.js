@@ -1,7 +1,7 @@
-import { shallow } from 'enzyme';
+import { shallow, mount } from 'enzyme';
 import { HtmlTableView } from './HtmlTableView';
 import React from 'react';
-import { Table } from 'react-bootstrap';
+import { Table } from 'antd';
 
 describe('HtmlTableView', () => {
   let wrapper;
@@ -21,30 +21,35 @@ describe('HtmlTableView', () => {
 
   test('should render column and values', () => {
     const props = {
-      columns: ['one', 'two', 'three'],
+      columns: [
+        { title: 'one', dataIndex: 'one' },
+        { title: 'two', dataIndex: 'two' },
+        { title: 'three', dataIndex: 'three' },
+      ],
       values: [
-        [1, 2, 3],
-        [4, 5, 6],
+        { key: 'row-one', one: 1, two: 2, three: 3 },
+        { key: 'row-two', one: 4, two: 5, three: 6 },
       ],
     };
 
-    wrapper = shallow(<HtmlTableView {...props} />);
+    wrapper = mount(<HtmlTableView {...props} />);
+    const table = wrapper.find(Table);
     expect(wrapper.find(Table).length).toBe(1);
 
-    const rows = wrapper.find('tr');
+    const rows = table.find('tr');
     expect(rows.length).toBe(3);
 
-    const headers = rows.first().children('th');
+    const headers = rows.first().find('th');
     expect(headers.at(0).text()).toBe('one');
     expect(headers.at(1).text()).toBe('two');
     expect(headers.at(2).text()).toBe('three');
 
-    const rowOne = rows.at(1).children('td');
+    const rowOne = rows.at(1).find('td');
     expect(rowOne.at(0).text()).toBe('1');
     expect(rowOne.at(1).text()).toBe('2');
     expect(rowOne.at(2).text()).toBe('3');
 
-    const rowTwo = rows.at(2).children('td');
+    const rowTwo = rows.at(2).find('td');
     expect(rowTwo.at(0).text()).toBe('4');
     expect(rowTwo.at(1).text()).toBe('5');
     expect(rowTwo.at(2).text()).toBe('6');
@@ -54,10 +59,8 @@ describe('HtmlTableView', () => {
     const props = {
       ...minimalProps,
       styles: {
-        table: {
-          width: 'auto',
-          minWidth: '400px',
-        },
+        width: 'auto',
+        minWidth: '400px',
       },
     };
 
