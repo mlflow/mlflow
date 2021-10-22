@@ -240,9 +240,6 @@ export class ExperimentView extends Component {
         newRunsSelected[rInfo.run_uuid] = prevRunSelected;
       }
     });
-    const { paramKeyFilter, metricKeyFilter } = nextProps;
-    const paramKeyFilterInput = paramKeyFilter.getFilterString();
-    const metricKeyFilterInput = metricKeyFilter.getFilterString();
     let persistedState;
     let lastExperimentId;
     let newPersistedState = {};
@@ -257,8 +254,6 @@ export class ExperimentView extends Component {
     return {
       ...prevState,
       ...newPersistedState,
-      paramKeyFilterInput,
-      metricKeyFilterInput,
       runsSelected: newRunsSelected,
     };
   }
