@@ -139,10 +139,19 @@ def _normalize_package_name(pkg_name):
     return _NORMALIZE_REGEX.sub("-", pkg_name).lower()
 
 
-def _get_requires_recursive(pkg_name):
+def _get_requires_recursive(pkg_name, top_pkg_name=None) -> set:
     """
-    Recursively yields both direct and transitive dependencies of the specified package.
+    Recursively yields both direct and transitive dependencies of the specified
+    package.
+    The `top_pkg_name` argument will track what's the top-level dependency for
+    which we want to list all sub-dependencies.
+    This ensures that we don't fall into recursive loops for packages with are
+    dependant on each other.
     """
+    if top_pkg_name is None:
+        # Assume the top package
+        top_pkg_name = pkg_name
+
     pkg_name = _normalize_package_name(pkg_name)
     if pkg_name not in pkg_resources.working_set.by_key:
         return
@@ -153,8 +162,15 @@ def _get_requires_recursive(pkg_name):
         return
 
     for req in reqs:
-        yield _normalize_package_name(req.name)
-        yield from _get_requires_recursive(req.name)
+        req_name = _normalize_package_name(req.name)
+        if req_name == top_pkg_name:
+            # If the top package ends up providing himself again through a
+            # recursive dependency, we don't want to consider it as a
+            # dependency
+            continue
+
+        yield req_name
+        yield from _get_requires_recursive(req.name, top_pkg_name)
 
 
 def _prune_packages(packages):
