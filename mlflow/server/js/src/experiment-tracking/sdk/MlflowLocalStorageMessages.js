@@ -15,7 +15,7 @@
  *    local storage.
  */
 import Immutable from 'immutable';
-import { COLUMN_TYPES, DEFAULT_CATEGORIZED_UNCHECKED_KEYS } from '../constants';
+import { DEFAULT_CATEGORIZED_UNCHECKED_KEYS } from '../constants';
 
 /**
  * This class wraps attributes of the ExperimentPage component's state that should be
