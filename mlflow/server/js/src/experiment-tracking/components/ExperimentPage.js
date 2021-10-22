@@ -105,7 +105,7 @@ export class ExperimentPage extends Component {
         persistedState:
           state.lastExperimentId === undefined
             ? state.persistedState
-            : new ExperimentPagePersistedState().toJSON(),
+            : new ExperimentPagePersistedState({ orderByKey: DEFAULT_ORDER_BY_KEY }).toJSON(),
         lastExperimentId: props.experimentId,
         lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
         nextPageToken: null,

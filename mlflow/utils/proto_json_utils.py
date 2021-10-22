@@ -117,7 +117,11 @@ def _dataframe_from_json(
             dtypes = dict(zip(schema.input_names(), schema.pandas_types()))
 
         df = pd.read_json(
-            path_or_str, orient=pandas_orient, dtype=dtypes, precise_float=precise_float
+            path_or_str,
+            orient=pandas_orient,
+            dtype=dtypes,
+            precise_float=precise_float,
+            convert_dates=False,
         )
         if not schema.is_tensor_spec():
             actual_cols = set(df.columns)
