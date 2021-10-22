@@ -1530,8 +1530,11 @@ def autolog(
     # this is because on Databricks a SparkSession already exists and the user can directly
     #   interact with it, and this activity should be logged.
     try:
-        spark.autolog(**get_autologging_params(spark.autolog))
-        pyspark.ml.autolog(**get_autologging_params(pyspark.ml.autolog))
+        import pyspark as pyspark_module
+        import pyspark.ml as pyspark_ml_module
+
+        setup_autologging(pyspark_module)
+        setup_autologging(pyspark_ml_module)
     except ImportError as ie:
         # if pyspark isn't installed, a user could potentially install it in the middle
         #   of their session so we want to enable autologging once they do
