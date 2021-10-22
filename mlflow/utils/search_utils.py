@@ -35,7 +35,7 @@ class SearchUtils(object):
     VALID_TAG_COMPARATORS = set(["!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR])
     VALID_STRING_ATTRIBUTE_COMPARATORS = set(["!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR])
     VALID_NUMERIC_ATTRIBUTE_COMPARATORS = VALID_METRIC_COMPARATORS
-    NUMERIC_ATTRIBUTES = set(["start_time"])
+    NUMERIC_ATTRIBUTES = set(["start_time", "end_time"])
     CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS = set([LIKE_OPERATOR, ILIKE_OPERATOR])
     VALID_REGISTERED_MODEL_SEARCH_COMPARATORS = CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS.union(
         {"="}
@@ -188,7 +188,13 @@ class SearchUtils(object):
                 error_code=INVALID_PARAMETER_VALUE,
             )
         elif identifier_type == cls._ATTRIBUTE_IDENTIFIER:
-            if key == "start_time":
+            if key in cls.NUMERIC_ATTRIBUTES:
+                if token.ttype not in cls.NUMERIC_VALUE_TYPES:
+                    raise MlflowException(
+                        "Expected numeric value type for numeric attribute: {}. "
+                        "Found {}".format(key, token.value),
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
                 return token.value
             elif token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
