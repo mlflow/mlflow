@@ -30,7 +30,6 @@ conda info -a
 conda create -q -n test-environment python=3.6
 source activate test-environment
 
-
 # Uninstall `certifi` via conda to avoid encoutering the following error when installing `mlflow`
 # ```
 #   Attempting uninstall: certifi
