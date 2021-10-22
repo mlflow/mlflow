@@ -204,7 +204,7 @@ export class ExperimentPage extends Component {
     let filter = searchInput;
     if (startTime) {
       if (filter.length > 0) {
-        filter = `${filter} && ${startTime}`;
+        filter = `${filter} and ${startTime}`;
       } else {
         filter = startTime;
       }
