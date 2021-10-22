@@ -1532,6 +1532,7 @@ def autolog(
     try:
         import pyspark as pyspark_module
         import pyspark.ml as pyspark_ml_module
+
         setup_autologging(pyspark_module)
         setup_autologging(pyspark_ml_module)
     except ImportError as ie:
