@@ -33,9 +33,9 @@ class SearchUtils(object):
     VALID_METRIC_COMPARATORS = set([">", ">=", "!=", "=", "<", "<="])
     VALID_PARAM_COMPARATORS = set(["!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR])
     VALID_TAG_COMPARATORS = set(["!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR])
-    VALID_STRING_ATTRIBUTE_COMPARATORS = set(["!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR]).union(
-        VALID_METRIC_COMPARATORS
-    )
+    VALID_STRING_ATTRIBUTE_COMPARATORS = set(["!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR])
+    VALID_NUMERIC_ATTRIBUTE_COMPARATORS = VALID_METRIC_COMPARATORS
+    NUMERIC_ATTRIBUTES = set(["start_time"])
     CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS = set([LIKE_OPERATOR, ILIKE_OPERATOR])
     VALID_REGISTERED_MODEL_SEARCH_COMPARATORS = CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS.union(
         {"="}
@@ -342,9 +342,20 @@ class SearchUtils(object):
         return False
 
     @classmethod
-    def is_attribute(cls, key_type, comparator):
-        if key_type == cls._ATTRIBUTE_IDENTIFIER:
+    def is_string_attribute(cls, key_type, key_name, comparator):
+        if key_type == cls._ATTRIBUTE_IDENTIFIER and key_name not in cls.NUMERIC_ATTRIBUTES:
             if comparator not in cls.VALID_STRING_ATTRIBUTE_COMPARATORS:
+                raise MlflowException(
+                    "Invalid comparator '{}' not one of "
+                    "'{}".format(comparator, cls.VALID_STRING_ATTRIBUTE_COMPARATORS)
+                )
+            return True
+        return False
+
+    @classmethod
+    def is_numeric_attribute(cls, key_type, key_name, comparator):
+        if key_type == cls._ATTRIBUTE_IDENTIFIER and key_name in cls.NUMERIC_ATTRIBUTES:
+            if comparator not in cls.VALID_NUMERIC_ATTRIBUTE_COMPARATORS:
                 raise MlflowException(
                     "Invalid comparator '{}' not one of "
                     "'{}".format(comparator, cls.VALID_STRING_ATTRIBUTE_COMPARATORS)
@@ -366,10 +377,11 @@ class SearchUtils(object):
             lhs = run.data.params.get(key, None)
         elif cls.is_tag(key_type, comparator):
             lhs = run.data.tags.get(key, None)
-        elif cls.is_attribute(key_type, comparator):
+        elif cls.is_string_attribute(key_type, key, comparator):
             lhs = getattr(run.info, key)
-            if key == "start_time":
-                value = int(value)
+        elif cls.is_numeric_attribute(key_type, key, comparator):
+            lhs = getattr(run.info, key)
+            value = int(value)
         else:
             raise MlflowException(
                 "Invalid search expression type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE

@@ -127,7 +127,6 @@ def test_correct_quote_trimming(filter_string, parsed_filter):
         ("`dummy.A > 0.1", "Invalid clause(s) in filter string"),
         ("dummy`.A > 0.1", "Invalid clause(s) in filter string"),
         ("attribute.start != 1", "Invalid attribute key"),
-        ("attribute.start_time != 1", "Invalid attribute key"),
         ("attribute.end_time != 1", "Invalid attribute key"),
         ("attribute.run_id != 1", "Invalid attribute key"),
         ("attribute.run_uuid != 1", "Invalid attribute key"),
@@ -209,6 +208,7 @@ def test_invalid_clauses(filter_string, error_message):
         ("params", [">", "<", ">=", "<=", "~"], "abc", "'my-param-value'"),
         ("tags", [">", "<", ">=", "<=", "~"], "abc", "'my-tag-value'"),
         ("attributes", [">", "<", ">=", "<=", "~"], "status", "'my-tag-value'"),
+        ("attributes", ["LIKE", "ILIKE"], "start_time", 1234),
     ],
 )
 def test_bad_comparators(entity_type, bad_comparators, key, entity_value):
