@@ -29,6 +29,7 @@ conda config --get channels
 conda info -a
 conda create -q -n test-environment python=3.6
 source activate test-environment
+conda uninstall certifi
 
 python --version
 pip install --upgrade pip
