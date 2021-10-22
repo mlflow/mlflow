@@ -57,7 +57,6 @@ import {
   DEFAULT_ORDER_BY_KEY,
   DEFAULT_ORDER_BY_ASC,
   DEFAULT_START_TIME,
-  DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
   ATTRIBUTE_COLUMN_SORT_LABEL,
   ATTRIBUTE_COLUMN_SORT_KEY,
   COLUMN_SORT_BY_ASC,
@@ -170,10 +169,6 @@ export class ExperimentView extends Component {
       showDeleteRunModal: false,
       // True if a model for restoring one or more runs should be displayed
       showRestoreRunModal: false,
-      // Columns unselected before turning on the diff-view switch
-      preSwitchCategorizedUncheckedKeys: DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
-      // Columns unselected as the result of turning on the diff-view switch
-      postSwitchCategorizedUncheckedKeys: DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
     };
   }
 
@@ -1168,32 +1163,44 @@ export class ExperimentView extends Component {
   }
 
   handleDiffSwitchChange() {
+    let newCategorizedUncheckedKeys;
+    let switchPersistedState;
+    if (!this.state.persistedState.diffSwitchSelected) {
+      // When turning on the diff switch
+      const { categorizedUncheckedKeys } = this.state.persistedState;
+      newCategorizedUncheckedKeys = ExperimentViewUtil.getCategorizedUncheckedKeysDiffView({
+        ...this.props,
+        categorizedUncheckedKeys,
+      });
+      switchPersistedState = {
+        preSwitchCategorizedUncheckedKeys: categorizedUncheckedKeys,
+        postSwitchCategorizedUncheckedKeys: newCategorizedUncheckedKeys,
+      };
+    } else {
+      // When turning off the diff switch
+      const {
+        preSwitchCategorizedUncheckedKeys,
+        postSwitchCategorizedUncheckedKeys,
+        categorizedUncheckedKeys: currCategorizedUncheckedKeys,
+      } = this.state.persistedState;
+      newCategorizedUncheckedKeys = ExperimentViewUtil.getRestoredCategorizedUncheckedKeys({
+        preSwitchCategorizedUncheckedKeys,
+        postSwitchCategorizedUncheckedKeys,
+        currCategorizedUncheckedKeys,
+      });
+      switchPersistedState = {};
+    }
+
     this.setState(
       {
         persistedState: new ExperimentViewPersistedState({
           ...this.state.persistedState,
           diffSwitchSelected: !this.state.persistedState.diffSwitchSelected,
+          ...switchPersistedState,
         }).toJSON(),
       },
       () => {
-        let categorizedUncheckedKeys;
-        if (this.state.persistedState.diffSwitchSelected) {
-          categorizedUncheckedKeys = ExperimentViewUtil.getCategorizedUncheckedKeysDiffView({
-            ...this.props,
-            categorizedUncheckedKeys: this.state.persistedState.categorizedUncheckedKeys,
-          });
-          this.setState({
-            preSwitchCategorizedUncheckedKeys: this.state.persistedState.categorizedUncheckedKeys,
-            postSwitchCategorizedUncheckedKeys: categorizedUncheckedKeys,
-          });
-        } else {
-          categorizedUncheckedKeys = ExperimentViewUtil.getRestoredCategorizedUncheckedKeys({
-            preSwitchCategorizedUncheckedKeys: this.state.preSwitchCategorizedUncheckedKeys,
-            postSwitchCategorizedUncheckedKeys: this.state.postSwitchCategorizedUncheckedKeys,
-            currCategorizedUncheckedKeys: this.state.persistedState.categorizedUncheckedKeys,
-          });
-        }
-        this.handleColumnSelectionCheck(categorizedUncheckedKeys);
+        this.handleColumnSelectionCheck(newCategorizedUncheckedKeys);
       },
     );
   }
