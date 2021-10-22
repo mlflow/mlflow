@@ -773,7 +773,7 @@ describe('startTime select filters out the experiment runs correctly', () => {
         instance.handleGettingRuns(getRunsAction, requestId);
         expect(getRunsAction).toHaveBeenCalledWith(
           expect.objectContaining({
-            filter: expect.stringMatching('metrics.met > 0 && attributes.start_time'),
+            filter: expect.stringMatching('metrics.met > 0 and attributes.start_time'),
           }),
         );
       },
