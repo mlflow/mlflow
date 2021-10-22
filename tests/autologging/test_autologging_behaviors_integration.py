@@ -284,10 +284,12 @@ def test_autolog_respects_silent_mode(tmpdir):
 
 
 def test_autolog_globally_configured_flag_set_correctly():
-    import sklearn  # pylint: disable=unused-import
-    import pyspark  # pylint: disable=unused-import
-    import pyspark.ml  # pylint: disable=unused-import
     from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
+
+    AUTOLOGGING_INTEGRATIONS.clear()
+    import sklearn  # pylint: disable=unused-import,unused-variable
+    import pyspark  # pylint: disable=unused-import,unused-variable
+    import pyspark.ml  # pylint: disable=unused-import,unused-variable
 
     integrations_to_test = ["sklearn", "spark", "pyspark.ml"]
     mlflow.autolog()
