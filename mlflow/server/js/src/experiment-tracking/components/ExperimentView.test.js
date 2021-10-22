@@ -498,13 +498,13 @@ describe('Diff Switch', () => {
 
     // Switch turned on
     instance.handleDiffSwitchChange();
-    expect(wrapper.state().preSwitchCategorizedUncheckedKeys).toEqual({
+    expect(wrapper.state().persistedState.preSwitchCategorizedUncheckedKeys).toEqual({
       [COLUMN_TYPES.ATTRIBUTES]: ['a2'],
       [COLUMN_TYPES.PARAMS]: ['p2'],
       [COLUMN_TYPES.METRICS]: ['m2'],
       [COLUMN_TYPES.TAGS]: ['t2'],
     });
-    expect(wrapper.state().postSwitchCategorizedUncheckedKeys).toEqual({
+    expect(wrapper.state().persistedState.postSwitchCategorizedUncheckedKeys).toEqual({
       [COLUMN_TYPES.ATTRIBUTES]: ['a1'],
       [COLUMN_TYPES.PARAMS]: ['p1'],
       [COLUMN_TYPES.METRICS]: ['m1'],
