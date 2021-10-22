@@ -1,6 +1,8 @@
+import _ from 'lodash';
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { FormattedMessage } from 'react-intl';
+import { withRouter } from 'react-router';
 import { ArtifactView } from './ArtifactView';
 import { Spinner } from '../../common/components/Spinner';
 import { listArtifactsApi } from '../actions';
@@ -12,6 +14,7 @@ import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import Utils from '../../common/utils/Utils';
 import { getUUID } from '../../common/utils/ActionUtils';
 import './ArtifactPage.css';
+import { getLoggedModelPathsFromTags } from '../../common/utils/TagUtils';
 
 export class ArtifactPageImpl extends Component {
   static propTypes = {
@@ -145,10 +148,20 @@ export class ArtifactPageImpl extends Component {
 }
 
 const mapStateToProps = (state, ownProps) => {
-  const { runUuid } = ownProps;
+  const { runUuid, match } = ownProps;
   const { apis } = state;
+  const { initialSelectedArtifactPath } = match.params;
   const artifactRootUri = getArtifactRootUri(runUuid, state);
-  return { artifactRootUri, apis };
+
+  // Autoselect most recently created logged model
+  let selectedPath = initialSelectedArtifactPath;
+  if (!selectedPath) {
+    const loggedModelPaths = getLoggedModelPathsFromTags(ownProps.runTags);
+    if (loggedModelPaths.length > 0) {
+      selectedPath = _.first(loggedModelPaths);
+    }
+  }
+  return { artifactRootUri, apis, initialSelectedArtifactPath: selectedPath };
 };
 
 const mapDispatchToProps = {
@@ -156,4 +169,5 @@ const mapDispatchToProps = {
   searchModelVersionsApi,
 };
 
-export default connect(mapStateToProps, mapDispatchToProps)(ArtifactPageImpl);
+export const ConnectedArtifactPage = connect(mapStateToProps, mapDispatchToProps)(ArtifactPageImpl);
+export default withRouter(ConnectedArtifactPage);

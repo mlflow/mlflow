@@ -4,8 +4,7 @@ import PropTypes from 'prop-types';
 import ExperimentViewUtil from './ExperimentViewUtil';
 import { RunInfo } from '../sdk/MlflowMessages';
 import classNames from 'classnames';
-import { Dropdown, MenuItem } from 'react-bootstrap';
-import ExperimentRunsSortToggle from './ExperimentRunsSortToggle';
+import { Dropdown, Menu } from 'antd';
 import BaggedCell from './BaggedCell';
 import { CellMeasurer, CellMeasurerCache, AutoSizer, Column, Table } from 'react-virtualized';
 import _ from 'lodash';
@@ -294,9 +293,31 @@ export class ExperimentRunsTableCompactView extends React.Component {
       const keyContainerWidth = sortIcon ? 'calc(100% - 20px)' : '100%';
       return (
         <div key={elemKey} className={className} style={styles.unbaggedMetricParamColHeader}>
-          <Dropdown id='dropdown-custom-1' style={{ width: '100%' }}>
-            <ExperimentRunsSortToggle bsRole='toggle' className='metric-param-sort-toggle'>
+          <Dropdown
+            trigger={['click']}
+            overlay={
+              <Menu className='mlflow-menu'>
+                <Menu.Item
+                  className='mlflow-menu-item'
+                  onClick={() => onSortBy(canonicalKey, true)}
+                >
+                  Sort ascending
+                </Menu.Item>
+                <Menu.Item
+                  className='mlflow-menu-item'
+                  onClick={() => onSortBy(canonicalKey, false)}
+                >
+                  Sort descending
+                </Menu.Item>
+                <Menu.Item className='mlflow-menu-item' onClick={() => onAddBagged(isParam, key)}>
+                  Collapse column
+                </Menu.Item>
+              </Menu>
+            }
+          >
+            <span>
               <span
+                className='metric-param-sort-toggle'
                 style={{
                   maxWidth: keyContainerWidth,
                   ...styles.metricParamNameContainer,
@@ -305,18 +326,7 @@ export class ExperimentRunsTableCompactView extends React.Component {
                 {key}
               </span>
               <span style={ExperimentViewUtil.styles.sortIconContainer}>{sortIcon}</span>
-            </ExperimentRunsSortToggle>
-            <Dropdown.Menu className='mlflow-menu'>
-              <MenuItem className='mlflow-menu-item' onClick={() => onSortBy(canonicalKey, true)}>
-                Sort ascending
-              </MenuItem>
-              <MenuItem className='mlflow-menu-item' onClick={() => onSortBy(canonicalKey, false)}>
-                Sort descending
-              </MenuItem>
-              <MenuItem className='mlflow-menu-item' onClick={() => onAddBagged(isParam, key)}>
-                Collapse column
-              </MenuItem>
-            </Dropdown.Menu>
+            </span>
           </Dropdown>
         </div>
       );

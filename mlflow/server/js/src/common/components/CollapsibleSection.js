@@ -5,7 +5,7 @@ import PropTypes from 'prop-types';
 import { css } from 'emotion';
 
 export function CollapsibleSection(props) {
-  const { title, forceOpen, showServerError, defaultCollapsed } = props;
+  const { title, forceOpen, showServerError, defaultCollapsed, onChange } = props;
   // We need to spread `activeKey` into <Collapse/> as an optional prop because its enumerability
   // affects rendering, i.e. passing `activeKey={undefined}` is different from not passing activeKey
   const activeKeyProp = forceOpen && { activeKey: ['1'] };
@@ -17,6 +17,7 @@ export function CollapsibleSection(props) {
       {...activeKeyProp}
       defaultActiveKey={defaultActiveKey}
       expandIcon={({ isActive }) => <Icon type='caret-right' rotate={isActive ? 90 : 0} />}
+      onChange={onChange}
     >
       <Collapse.Panel className='collapsible-panel' header={title} key='1'>
         <SectionErrorBoundary showServerError={showServerError}>
@@ -42,6 +43,7 @@ CollapsibleSection.propTypes = {
   showServerError: PropTypes.bool,
   defaultCollapsed: PropTypes.bool,
   // when true, if an error is triggered, SectionErrorBoundary will show the server error
+  onChange: PropTypes.func,
 };
 
 CollapsibleSection.defaultProps = {

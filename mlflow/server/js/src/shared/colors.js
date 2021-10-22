@@ -4,7 +4,7 @@ export const white = '#ffffff';
 export const grayDark = '#455055';
 export const gray = '#b7c6cc';
 export const grayLight = '#f4f6f6';
-export const grayRule = '#dddddd';
+export const grayRule = '#e1e3e5';
 export const grayPreview = '#f5f5f5';
 
 export const blueLight = 'rgba(24, 144, 255, 0.5)';

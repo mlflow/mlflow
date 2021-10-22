@@ -377,7 +377,9 @@ export class ModelListViewImpl extends React.Component {
     );
     return (
       <div data-test-id='ModelListView-container' className={styles.rootContainer}>
-        <PageHeader title={title} />
+        <PageHeader title={title}>
+          <></>
+        </PageHeader>
         {this.renderOnboardingContent()}
         <FlexBar
           left={
