@@ -22,9 +22,20 @@ CONDA_DIR=/usr/share/miniconda
 export PATH="$CONDA_DIR/bin:$PATH"
 hash -r
 conda config --set always_yes yes --set changeps1 no
+conda config --add channels conda-forge
+conda config --remove channels defaults
+conda config --get channels
 # Useful for debugging any issues with conda
 conda info -a
 conda create -q -n test-environment python=3.6
+# Uninstall `certifi` via conda to avoid encoutering the following error when installing `mlflow` via pip
+# ```
+#   Attempting uninstall: certifi
+#     Found existing installation: certifi 2016.9.26
+# ERROR: Cannot uninstall 'certifi'. It is a distutils installed project and thus we cannot
+# accurately determine which files belong to it which would lead to only a partial uninstall.
+# ```
+conda remove --name test-environment --force certifi
 source activate test-environment
 
 python --version
