@@ -29,7 +29,16 @@ conda config --get channels
 conda info -a
 conda create -q -n test-environment python=3.6
 source activate test-environment
-conda uninstall certifi
+
+
+# Uninstall `certifi` via conda to avoid encoutering the following error when installing `mlflow`
+# ```
+#   Attempting uninstall: certifi
+#     Found existing installation: certifi 2016.9.26
+# ERROR: Cannot uninstall 'certifi'. It is a distutils installed project and thus we cannot
+# accurately determine which files belong to it which would lead to only a partial uninstall.
+# ```
+conda remove --force certifi
 
 python --version
 pip install --upgrade pip
