@@ -58,7 +58,9 @@ export const ExperimentViewPersistedState = Immutable.Record(
     categorizedUncheckedKeys: DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
     // Switch to select only columns with differences
     diffSwitchSelected: false,
+    // Columns unselected before turning on the diff-view switch
     preSwitchCategorizedUncheckedKeys: DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
+    // Columns unselected as the result of turning on the diff-view switch
     postSwitchCategorizedUncheckedKeys: DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
   },
   'ExperimentViewPersistedState',
