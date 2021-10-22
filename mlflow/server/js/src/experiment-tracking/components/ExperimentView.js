@@ -98,6 +98,7 @@ export class ExperimentView extends Component {
       showFilters: false,
       showOnboardingHelper: onboardingInformationStore.getItem('showTrackingHelper') === null,
       searchInput: props.searchInput,
+      lastExpermentId: this.props.experiment.experiment_id,
     };
   }
   static propTypes = {
@@ -250,11 +251,21 @@ export class ExperimentView extends Component {
     const { paramKeyFilter, metricKeyFilter } = nextProps;
     const paramKeyFilterInput = paramKeyFilter.getFilterString();
     const metricKeyFilterInput = metricKeyFilter.getFilterString();
+    let newPersistedStateOverride = {};
+    if (nextProps.experiment.experiment_id !== prevState.lastExperimentId) {
+      const store = ExperimentView.getLocalStore(nextProps.experiment.experiment_id);
+      const persistedState = new ExperimentViewPersistedState(store.loadComponentState());
+      newPersistedStateOverride = {
+        persistedState: persistedState.toJSON(),
+      };
+    }
     return {
       ...prevState,
+      ...newPersistedStateOverride,
       paramKeyFilterInput,
       metricKeyFilterInput,
       runsSelected: newRunsSelected,
+      lastExperimentId: nextProps.experiment.experiment_id,
     };
   }
 
