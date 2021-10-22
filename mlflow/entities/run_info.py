@@ -117,7 +117,7 @@ class RunInfo(_MLflowObject):
         """
         return self._status
 
-    @orderable_attribute
+    @searchable_attribute
     def start_time(self):
         """Start time of the run, in number of milliseconds since the UNIX epoch."""
         return self._start_time

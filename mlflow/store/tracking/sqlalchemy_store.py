@@ -848,7 +848,9 @@ def _get_attributes_filtering_clauses(parsed):
         key_name = sql_statement.get("key")
         value = sql_statement.get("value")
         comparator = sql_statement.get("comparator").upper()
-        if SearchUtils.is_attribute(key_type, comparator):
+        if SearchUtils.is_string_attribute(
+            key_type, key_name, comparator
+        ) or SearchUtils.is_numeric_attribute(key_type, key_name, comparator):
             # key_name is guaranteed to be a valid searchable attribute of entities.RunInfo
             # by the call to parse_search_filter
             attribute = getattr(SqlRun, SqlRun.get_attribute_name(key_name))
@@ -874,7 +876,9 @@ def _to_sqlalchemy_filtering_statement(sql_statement, session):
         entity = SqlParam
     elif SearchUtils.is_tag(key_type, comparator):
         entity = SqlTag
-    elif SearchUtils.is_attribute(key_type, comparator):
+    elif SearchUtils.is_string_attribute(
+        key_type, key_name, comparator
+    ) or SearchUtils.is_numeric_attribute(key_type, key_name, comparator):
         return None
     else:
         raise MlflowException(
@@ -919,7 +923,9 @@ def _get_orderby_clauses(order_by_list, session):
         for order_by_clause in order_by_list:
             clause_id += 1
             (key_type, key, ascending) = SearchUtils.parse_order_by_for_search_runs(order_by_clause)
-            if SearchUtils.is_attribute(key_type, "="):
+            if SearchUtils.is_string_attribute(
+                key_type, key, "="
+            ) or SearchUtils.is_numeric_attribute(key_type, key, "="):
                 order_value = getattr(SqlRun, SqlRun.get_attribute_name(key))
             else:
                 if SearchUtils.is_metric(key_type, "="):  # any valid comparator
