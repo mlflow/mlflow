@@ -98,6 +98,7 @@ export class ExperimentView extends Component {
       showFilters: false,
       showOnboardingHelper: onboardingInformationStore.getItem('showTrackingHelper') === null,
       searchInput: props.searchInput,
+      lastExperimentId: undefined,
     };
   }
   static propTypes = {
@@ -250,8 +251,20 @@ export class ExperimentView extends Component {
     const { paramKeyFilter, metricKeyFilter } = nextProps;
     const paramKeyFilterInput = paramKeyFilter.getFilterString();
     const metricKeyFilterInput = metricKeyFilter.getFilterString();
+    let persistedState;
+    let lastExperimentId;
+    let newPersistedState = {};
+    if (nextProps.experimentId !== prevState.lastExperimentId) {
+      persistedState =
+        prevState.lastExperimentId === undefined
+          ? prevState.persistedState
+          : new ExperimentViewPersistedState().toJSON();
+      lastExperimentId = nextProps.experimentId;
+      newPersistedState = { persistedState, lastExperimentId };
+    }
     return {
       ...prevState,
+      ...newPersistedState,
       paramKeyFilterInput,
       metricKeyFilterInput,
       runsSelected: newRunsSelected,
