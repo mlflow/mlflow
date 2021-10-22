@@ -269,8 +269,8 @@ def test_pytorch_autologging_supports_data_parallel_execution():
     trainer = pl.Trainer(max_epochs=NUM_EPOCHS, accelerator="ddp_cpu", num_processes=4)
 
     with mlflow.start_run() as run:
-        trainer.fit(model, dm)
-        trainer.test()
+        trainer.fit(model, datamodule=dm)
+        trainer.test(datamodule=dm)
 
     client = mlflow.tracking.MlflowClient()
     run = client.get_run(run.info.run_id)
