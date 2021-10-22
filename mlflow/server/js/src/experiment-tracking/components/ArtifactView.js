@@ -104,11 +104,15 @@ export class ArtifactViewImpl extends Component {
                 description='Label to display the size of the artifact of the experiment'
               />
             </label>{' '}
-            {this.getActiveNodeSize()}
+            {bytes(this.getActiveNodeSize())}
           </div>
         ) : null}
       </div>
     );
+  }
+
+  onDownloadClick(runUuid, artifactPath) {
+    window.location.href = getSrc(artifactPath, runUuid);
   }
 
   renderDownloadLink() {
@@ -116,8 +120,9 @@ export class ArtifactViewImpl extends Component {
     const { activeNodeId } = this.state;
     return (
       <div className='artifact-info-link'>
+        {/* eslint-disable-next-line jsx-a11y/anchor-is-valid */}
         <a
-          href={getSrc(activeNodeId, runUuid)}
+          onClick={() => this.onDownloadClick(runUuid, activeNodeId)}
           title={this.props.intl.formatMessage({
             defaultMessage: 'Download artifact',
             description: 'Link to download the artifact of the experiment',
@@ -227,9 +232,9 @@ export class ArtifactViewImpl extends Component {
     if (this.state.activeNodeId) {
       const node = ArtifactUtils.findChild(this.props.artifactNode, this.state.activeNodeId);
       const size = node.fileInfo.file_size || '0';
-      return bytes(parseInt(size, 10));
+      return parseInt(size, 10);
     }
-    return bytes(0);
+    return 0;
   }
 
   activeNodeIsDirectory() {
@@ -252,7 +257,14 @@ export class ArtifactViewImpl extends Component {
     return false;
   }
 
-  componentWillMount() {
+  componentDidUpdate(prevProps, prevState) {
+    const { activeNodeId } = this.state;
+    if (prevState.activeNodeId !== activeNodeId) {
+      this.props.handleActiveNodeChange(this.activeNodeIsDirectory());
+    }
+  }
+
+  componentDidMount() {
     if (this.props.initialSelectedArtifactPath) {
       const artifactPathParts = this.props.initialSelectedArtifactPath.split('/');
       if (artifactPathParts) {
@@ -275,22 +287,12 @@ export class ArtifactViewImpl extends Component {
         toggledArtifactState['toggledNodeIds'][pathSoFar] = true;
         pathSoFar += '/';
       });
-      this.setState(toggledArtifactState);
+      this.setArtifactState(toggledArtifactState);
     }
   }
 
-  componentDidUpdate(prevProps, prevState) {
-    const { activeNodeId } = this.state;
-    if (prevState.activeNodeId !== activeNodeId) {
-      this.props.handleActiveNodeChange(this.activeNodeIsDirectory());
-    }
-  }
-
-  componentDidMount() {
-    const element = document.getElementsByClassName('artifact-left')[0];
-    if (element && this.props.initialSelectedArtifactPath) {
-      element.scrollIntoView(true);
-    }
+  setArtifactState(artifactState) {
+    this.setState(artifactState);
   }
 
   render() {
@@ -313,6 +315,7 @@ export class ArtifactViewImpl extends Component {
             <ShowArtifactPage
               runUuid={this.props.runUuid}
               path={this.state.activeNodeId}
+              size={this.getActiveNodeSize()}
               runTags={this.props.runTags}
               artifactRootUri={this.props.artifactRootUri}
               modelVersions={this.props.modelVersions}

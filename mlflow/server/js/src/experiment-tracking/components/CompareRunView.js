@@ -10,11 +10,11 @@ import CompareRunContour from './CompareRunContour';
 import Routes from '../routes';
 import { Link } from 'react-router-dom';
 import { getLatestMetrics } from '../reducers/MetricReducer';
-import { BreadcrumbTitle } from './BreadcrumbTitle';
 import CompareRunUtil from './CompareRunUtil';
 import Utils from '../../common/utils/Utils';
 import { Tabs } from 'antd';
 import ParallelCoordinatesPlotPanel from './ParallelCoordinatesPlotPanel';
+import { PageHeader } from '../../shared/building_blocks/PageHeader';
 
 const { TabPane } = Tabs;
 
@@ -53,22 +53,23 @@ export class CompareRunView extends Component {
     const { experiment } = this.props;
     const experimentId = experiment.getExperimentId();
     const { runInfos, runNames } = this.props;
+    const title = (
+      <FormattedMessage
+        defaultMessage='Comparing {runs} Runs'
+        description='Breadcrumb title for compare runs page'
+        values={{
+          runs: this.props.runInfos.length,
+        }}
+      />
+    );
+    /* eslint-disable-next-line prefer-const */
+    let breadcrumbs = [
+      <Link to={Routes.getExperimentPageRoute(experimentId)}>{experiment.getName()}</Link>,
+      title,
+    ];
     return (
       <div className='CompareRunView'>
-        <div className='header-container'>
-          <BreadcrumbTitle
-            experiment={experiment}
-            title={
-              <FormattedMessage
-                defaultMessage='Comparing {runs} Runs'
-                description='Breadcrumb title for compare runs page'
-                values={{
-                  runs: this.props.runInfos.length,
-                }}
-              />
-            }
-          />
-        </div>
+        <PageHeader title={title} breadcrumbs={breadcrumbs} />
         <div className='responsive-table-container'>
           <table className='compare-table table'>
             <thead>

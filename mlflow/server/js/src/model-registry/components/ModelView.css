@@ -33,24 +33,20 @@
   align-items: center;
 }
 
-.breadcrumb-link {
-  color: inherit;
-}
-
-.breadcrumb-chevron {
-  margin-top: 5px;
-}
-
-.emailNotificationPreferenceDropdownWrapper {
-  margin-left: auto;
-}
-
 .email-notifications-mark {
   padding-right: 8px;
   padding-left: 8px;
   color: #849298;
 }
 
+.emailNotificationPreferenceDropdownWrapper {
+  margin-bottom: 16px;
+}
+
+.emailNotificationPreferenceDropdownWrapper .StyledDropdown-button span {
+  color: rgba(0,0,0,.65); /* Antd color for text */
+}
+
 .subheading-text {
-  color: #849298;
+  color: rgba(0,0,0,.85); /* Antd color for labels */
 }

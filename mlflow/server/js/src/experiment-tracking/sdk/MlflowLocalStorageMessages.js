@@ -23,10 +23,6 @@ import { COLUMN_TYPES } from '../constants';
  */
 export const ExperimentPagePersistedState = Immutable.Record(
   {
-    // Comma-separated string containing containing the keys of parameters to display
-    paramKeyFilterString: '',
-    // Comma-separated string containing containing the keys of metrics to display
-    metricKeyFilterString: '',
     // SQL-like query string used to filter runs, e.g. "params.alpha = '0.5'"
     searchInput: '',
     // Canonical order_by key like "params.`alpha`". May be null to indicate the table

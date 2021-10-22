@@ -14,9 +14,9 @@ export class ConfirmModal extends Component {
     // Function which returns a promise which resolves when the submission is done.
     handleSubmit: PropTypes.func.isRequired,
     onClose: PropTypes.func.isRequired,
-    title: PropTypes.string.isRequired,
+    title: PropTypes.node.isRequired,
     helpText: PropTypes.node.isRequired,
-    confirmButtonText: PropTypes.string.isRequired,
+    confirmButtonText: PropTypes.node.isRequired,
   };
 
   state = {

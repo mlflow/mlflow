@@ -458,21 +458,16 @@ test('getMetricPlotStateFromUrl', () => {
 });
 
 test('getSearchParamsFromUrl', () => {
-  const url0 = '?paramKeyFilterString=filt&metricKeyFilterString=metrics&searchInput=';
+  const url0 = '?searchInput=';
   const url1 = '?p=&q=&r=';
   const url2 = '?';
-  const url3 =
-    '?paramKeyFilterString=some=param&metricKeyFilterString=somemetric&searchInput=some-Input';
+  const url3 = '?searchInput=some-Input';
   expect(Utils.getSearchParamsFromUrl(url0)).toEqual({
-    paramKeyFilterString: 'filt',
-    metricKeyFilterString: 'metrics',
     searchInput: '',
   });
   expect(Utils.getSearchParamsFromUrl(url1)).toEqual({ p: '', q: '', r: '' });
   expect(Utils.getSearchParamsFromUrl(url2)).toEqual({});
   expect(Utils.getSearchParamsFromUrl(url3)).toEqual({
-    paramKeyFilterString: 'some=param',
-    metricKeyFilterString: 'somemetric',
     searchInput: 'some-Input',
   });
 });
