@@ -9,13 +9,13 @@ sklearn:
 
   models:
     minimum: "0.20.3"
-    maximum: "0.24.2"
+    maximum: "1.0"
     run: |
       pytest tests/sklearn/test_sklearn_model_export.py --large
 
   autologging:
     minimum: "0.20.3"
-    maximum: "0.24.2"
+    maximum: "1.0"
     requirements: ["matplotlib"]
     run: |
       pytest tests/sklearn/test_sklearn_autolog.py --large
@@ -28,7 +28,7 @@ pytorch:
 
   models:
     minimum: "1.4.0"
-    maximum: "1.9.0"
+    maximum: "1.10.0"
     requirements: ["torchvision", "scikit-learn", "transformers"]
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py --large
@@ -41,7 +41,7 @@ pytorch-lightning:
 
   autologging:
     minimum: "1.0.5"
-    maximum: "1.4.4"
+    maximum: "1.4.9"
     requirements: ["torchvision", "scikit-learn"]
     run: |
       pytest tests/pytorch/test_pytorch_autolog.py --large
@@ -115,14 +115,14 @@ xgboost:
 
   models:
     minimum: "0.90"
-    maximum: "1.4.2"
+    maximum: "1.5.0"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/xgboost/test_xgboost_model_export.py --large
 
   autologging:
     minimum: "0.90"
-    maximum: "1.4.2"
+    maximum: "1.5.0"
     requirements: ["scikit-learn", "matplotlib"]
     run: |
       pytest tests/xgboost/test_xgboost_autolog.py --large
@@ -135,14 +135,14 @@ lightgbm:
 
   models:
     minimum: "2.3.1"
-    maximum: "3.2.1"
+    maximum: "3.3.0"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/lightgbm/test_lightgbm_model_export.py --large
 
   autologging:
     minimum: "2.3.1"
-    maximum: "3.2.1"
+    maximum: "3.3.0"
     requirements: ["scikit-learn", "matplotlib"]
     run: |
       pytest tests/lightgbm/test_lightgbm_autolog.py --large
@@ -160,7 +160,7 @@ catboost:
 
   models:
     minimum: "0.23.1"
-    maximum: "0.26.1"
+    maximum: "1.0.0"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/catboost/test_catboost_model_export.py --large
@@ -193,14 +193,14 @@ fastai:
 
   models:
     minimum: "2.4.1"
-    maximum: "2.4.1"
+    maximum: "2.5.2"
     requirements: [torch, torchvision]
     run: |
       pytest tests/fastai/test_fastai_model_export.py --large
 
   autologging:
     minimum: "2.4.1"
-    maximum: "2.4.1"
+    maximum: "2.5.2"
     requirements: [torch, torchvision]
     run: |
       pytest tests/fastai/test_fastai_autolog.py --large
@@ -241,7 +241,7 @@ spacy:
 
   models:
     minimum: "2.2.4"
-    maximum: "3.1.2"
+    maximum: "3.1.3"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/spacy/test_spacy_model_export.py --large
@@ -254,13 +254,13 @@ statsmodels:
 
   models:
     minimum: "0.11.1"
-    maximum: "0.12.2"
+    maximum: "0.13.0"
     run: |
       pytest tests/statsmodels/test_statsmodels_model_export.py --large
 
   autologging:
     minimum: "0.11.1"
-    maximum: "0.12.2"
+    maximum: "0.13.0"
     run: |
       pytest tests/statsmodels/test_statsmodels_autolog.py --large
 
@@ -327,7 +327,7 @@ mleap:
 
   models:
     minimum: "0.15.0"
-    maximum: "0.18.0"
+    maximum: "0.18.1"
     requirements:
       "<= 0.17.0": ["pyspark==2.4.5"]
       "> 0.17.0": ["pyspark==3.0.2"]
