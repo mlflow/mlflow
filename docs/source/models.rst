@@ -1046,49 +1046,6 @@ For more information about serializing pandas DataFrames, see
 For more information about serializing tensor inputs using the TF serving format, see
 `TF serving's request format docs <https://www.tensorflow.org/tfx/serving/api_rest#request_format_2>`_.
 
-.. _serving_with_mlserver:
-
-Serving with MLServer (experimental)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Python models can be deployed using `Seldon's MLServer
-<https://mlserver.readthedocs.io/en/latest/>`_ as alternative inference server. 
-MLServer is integrated with two leading open source model deployment tools,
-`Seldon Core
-<https://docs.seldon.io/projects/seldon-core/en/latest/graph/protocols.html#v2-kfserving-protocol>`
-and `KServe (formerly known as KFServing)
-<https://kserve.github.io/website/modelserving/v1beta1/sklearn/v2/>`_, and can
-be used to test and deploy models using these frameworks. 
-This is especially powerful when building docker images since the docker image
-built with MLServer can be deployed directly with both of these frameworks. 
-
-MLServer exposes the same scoring API through the ``/invocations`` endpoint.
-In addition, it supports the standard `V2 Inference Protocol
-<https://github.com/kubeflow/kfserving/tree/master/docs/predict-api/v2>`_.
-
-To serve a MLflow model using MLServer, you can use the ``--enable-mlserver`` flag,
-such as:
-
-.. code-block:: bash
-
-    mlflow models serve -m my_model --enable-mlserver
-
-Similarly, to build a Docker image built with MLServer you can use the
-``--enable-mlserver`` flag, such as:
-
-.. code-block:: bash
-
-    mlflow models build -m my_model --enable-mlserver -n my-model
-
-To read more about the integration between MLflow and MLServer, please check
-the `end-to-end example in the MLServer documentation
-<https://mlserver.readthedocs.io/en/latest/examples/mlflow/README.html>`_ or
-visit the `MLServer docs <https://mlserver.readthedocs.io/en/latest/>`_.
-
-.. note::
-    - This feature is experimental and is subject to change.
-    - MLServer requires Python 3.7 or above.
-
 .. _encoding-complex-data:
 
 Encoding complex data

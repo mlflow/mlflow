@@ -166,21 +166,7 @@ def test_mlflow_gc_not_deleted_run(file_store):
     assert len(runs) == 1
 
 
-@pytest.mark.parametrize(
-    "enable_mlserver",
-    [
-        # MLServer is not supported in Windows yet, so let's skip this test in that case.
-        # https://github.com/SeldonIO/MLServer/issues/361
-        pytest.param(
-            True,
-            marks=pytest.mark.skipif(
-                os.name == "nt", reason="MLServer is not supported in Windows"
-            ),
-        ),
-        False,
-    ],
-)
-def test_mlflow_models_serve(enable_mlserver):
+def test_mlflow_models_serve():
     class MyModel(pyfunc.PythonModel):
         def predict(self, context, model_input):  # pylint: disable=unused-variable
             return np.array([1, 2, 3])
@@ -188,27 +174,16 @@ def test_mlflow_models_serve(enable_mlserver):
     model = MyModel()
 
     with mlflow.start_run():
-        if enable_mlserver:
-            # MLServer requires Python 3.7, so we'll force that Python version
-            with mock.patch("mlflow.utils.environment.PYTHON_VERSION", "3.7"):
-                mlflow.pyfunc.log_model(artifact_path="model", python_model=model)
-        else:
-            mlflow.pyfunc.log_model(artifact_path="model", python_model=model)
+        mlflow.pyfunc.log_model(artifact_path="model", python_model=model)
         model_uri = mlflow.get_artifact_uri("model")
 
     data = pd.DataFrame({"a": [0]})
-
-    extra_args = ["--no-conda"]
-    if enable_mlserver:
-        # When MLServer is enabled, we want to use Conda to ensure Python 3.7
-        # is used
-        extra_args = ["--enable-mlserver"]
 
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=model_uri,
         data=data,
         content_type=pyfunc.scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        extra_args=extra_args,
+        extra_args=["--no-conda"],
     )
     assert scoring_response.status_code == 200
     served_model_preds = np.array(json.loads(scoring_response.content))

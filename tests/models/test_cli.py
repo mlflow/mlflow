@@ -11,8 +11,6 @@ import sklearn
 import sklearn.datasets
 import sklearn.neighbors
 
-from unittest import mock
-
 try:
     from StringIO import StringIO
 except ImportError:
@@ -21,7 +19,6 @@ except ImportError:
 import mlflow
 from mlflow import pyfunc
 import mlflow.sklearn
-
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils import PYTHON_VERSION
@@ -415,57 +412,34 @@ def test_prepare_env_fails(sk_model):
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("enable_mlserver", [True, False])
-def test_build_docker(iris_data, sk_model, enable_mlserver):
+def test_build_docker(iris_data, sk_model):
     with mlflow.start_run() as active_run:
-        if enable_mlserver:
-            # MLServer requires Python 3.7, so we'll force that Python version
-            with mock.patch("mlflow.utils.environment.PYTHON_VERSION", "3.7"):
-                mlflow.sklearn.log_model(sk_model, "model")
-        else:
-            mlflow.sklearn.log_model(sk_model, "model")
+        mlflow.sklearn.log_model(sk_model, "model")
         model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
-
     x, _ = iris_data
     df = pd.DataFrame(x)
-
-    extra_args = ["--install-mlflow"]
-    if enable_mlserver:
-        extra_args.append("--enable-mlserver")
-
-    image_name = pyfunc_build_image(model_uri, extra_args=extra_args)
+    image_name = pyfunc_build_image(model_uri, extra_args=["--install-mlflow"])
     host_port = get_safe_port()
     scoring_proc = pyfunc_serve_from_docker_image(image_name, host_port)
-    _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enable_mlserver)
+    _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model)
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("enable_mlserver", [True, False])
-def test_build_docker_with_env_override(iris_data, sk_model, enable_mlserver):
+def test_build_docker_with_env_override(iris_data, sk_model):
     with mlflow.start_run() as active_run:
-        if enable_mlserver:
-            # MLServer requires Python 3.7, so we'll force that Python version
-            with mock.patch("mlflow.utils.environment.PYTHON_VERSION", "3.7"):
-                mlflow.sklearn.log_model(sk_model, "model")
-        else:
-            mlflow.sklearn.log_model(sk_model, "model")
+        mlflow.sklearn.log_model(sk_model, "model")
         model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
     x, _ = iris_data
     df = pd.DataFrame(x)
-
-    extra_args = ["--install-mlflow"]
-    if enable_mlserver:
-        extra_args.append("--enable-mlserver")
-
-    image_name = pyfunc_build_image(model_uri, extra_args=extra_args)
+    image_name = pyfunc_build_image(model_uri, extra_args=["--install-mlflow"])
     host_port = get_safe_port()
     scoring_proc = pyfunc_serve_from_docker_image_with_env_override(
         image_name, host_port, gunicorn_options
     )
-    _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enable_mlserver)
+    _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model)
 
 
-def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enable_mlserver=False):
+def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model):
     with RestEndpoint(proc=scoring_proc, port=host_port) as endpoint:
         for content_type in [CONTENT_TYPE_JSON_SPLIT_ORIENTED, CONTENT_TYPE_CSV, CONTENT_TYPE_JSON]:
             scoring_response = endpoint.invoke(df, content_type)
@@ -482,13 +456,6 @@ def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enabl
                 "Expected server failure with error code 500, got response with status code %s "
                 "and body %s" % (scoring_response.status_code, scoring_response.text)
             )
-
-            if enable_mlserver:
-                # MLServer returns a different set of errors.
-                # Skip these assertions until this issue gets tackled:
-                # https://github.com/SeldonIO/MLServer/issues/360)
-                continue
-
             scoring_response_dict = json.loads(scoring_response.content)
             assert "error_code" in scoring_response_dict
             assert scoring_response_dict["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
