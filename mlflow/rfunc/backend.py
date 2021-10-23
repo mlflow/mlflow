@@ -37,17 +37,10 @@ class RFuncBackend(FlavorBackend):
         )
         _execute(command)
 
-    def serve(self, model_uri, port, host, enable_mlserver):
+    def serve(self, model_uri, port, host):
         """
         Generate R model locally.
-
-        NOTE: The `enable_mlserver` parameter is there to comply with the
-        FlavorBackend interface but is not supported by MLServer yet.
-        https://github.com/SeldonIO/MLServer/issues/183
         """
-        if enable_mlserver:
-            raise Exception("The MLServer inference server is not yet supported in the R backend.")
-
         model_path = _download_artifact_from_uri(model_uri)
         command = "mlflow::mlflow_rfunc_serve('{0}', port = {1}, host = '{2}')".format(
             quote(model_path), port, host
