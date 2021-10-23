@@ -113,6 +113,7 @@ jobs:
         id: get-python-version
         run: |
           if [[ "${{ matrix.package }}" = "scikit-learn" && "${{ matrix.version }}" = "dev" ]] || \
+             ! [[ "${{ matrix.package }}" = "scikit-learn" && "${{ matrix.version }}" =~ ^0\.* ]] || \
              [[ "${{ matrix.package }}" = "statsmodels" ]] || \
              [[ "${{ matrix.package }}" = "tensorflow" && "${{ matrix.version }}" = "dev" ]]
           then
