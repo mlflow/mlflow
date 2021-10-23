@@ -17,7 +17,6 @@ import mlflow.sklearn
 from mlflow.models import ModelSignature, infer_signature
 from mlflow.protos.databricks_pb2 import ErrorCode, MALFORMED_REQUEST, BAD_REQUEST
 from mlflow.pyfunc import PythonModel
-from mlflow.pyfunc.scoring_server import get_cmd
 from mlflow.types import Schema, ColSpec, DataType
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import NumpyEncoder
@@ -598,21 +597,3 @@ def test_parse_json_input_including_path():
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
     )
     assert response_records_content_type.status_code == 200
-
-
-@pytest.mark.parametrize(
-    "args, expected",
-    [
-        ({"port": 5000, "host": "0.0.0.0", "nworkers": 4}, "--timeout=60 -b 0.0.0.0:5000 -w 4",),
-        ({"host": "0.0.0.0", "nworkers": 4}, "--timeout=60 -b 0.0.0.0 -w 4"),
-        ({"port": 5000, "nworkers": 4}, "--timeout=60 -w 4"),
-        ({"nworkers": 4}, "--timeout=60 -w 4"),
-        ({}, "--timeout=60"),
-    ],
-)
-def test_get_cmd(args: dict, expected: str):
-    cmd, _ = get_cmd(model_uri="foo", **args)
-
-    assert cmd == (
-        f"gunicorn {expected} ${{GUNICORN_CMD_ARGS}} -- mlflow.pyfunc.scoring_server.wsgi:app"
-    )
