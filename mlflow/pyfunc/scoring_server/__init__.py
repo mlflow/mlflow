@@ -11,7 +11,6 @@ Defines two endpoints:
     /invocations used for scoring
 """
 from collections import OrderedDict
-from typing import Tuple, Dict
 import flask
 import json
 import logging
@@ -29,7 +28,6 @@ import traceback
 from mlflow.exceptions import MlflowException
 from mlflow.types import Schema
 from mlflow.utils import reraise
-from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.proto_json_utils import (
     NumpyEncoder,
     _dataframe_from_json,
@@ -345,42 +343,3 @@ def _predict(model_uri, input_path, output_path, content_type, json_format):
 def _serve(model_uri, port, host):
     pyfunc_model = load_model(model_uri)
     init(pyfunc_model).run(port=port, host=host)
-
-
-def get_cmd(
-    model_uri: str, port: int = None, host: int = None, nworkers: int = None
-) -> Tuple[str, Dict[str, str]]:
-    local_uri = path_to_local_file_uri(model_uri)
-    # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
-    # platform compatibility.
-    if os.name != "nt":
-        args = ["--timeout=60"]
-        if port and host:
-            args.append(f"-b {host}:{port}")
-        elif host:
-            args.append(f"-b {host}")
-
-        if nworkers:
-            args.append(f"-w {nworkers}")
-
-        command = (
-            f"gunicorn {' '.join(args)} ${{GUNICORN_CMD_ARGS}}"
-            " -- mlflow.pyfunc.scoring_server.wsgi:app"
-        )
-    else:
-        args = []
-        if host:
-            args.append(f"--host={host}")
-
-        if port:
-            args.append(f"--port={port}")
-
-        command = (
-            f"waitress-serve {' '.join(args)} "
-            "--ident=mlflow mlflow.pyfunc.scoring_server.wsgi:app"
-        )
-
-    command_env = os.environ.copy()
-    command_env[_SERVER_MODEL_PATH] = local_uri
-
-    return command, command_env
