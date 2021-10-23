@@ -1,5 +1,46 @@
 Changelog
 =========
+1.21.0 (2021-10-23)
+-------------------
+MLflow 1.21.0 includes several major features and improvements:
+
+Features:
+
+- Add support to serve MLflow models through MLServer (#4845, @adriangonz)
+- MLflow UI updates (#4917, @dbczumar)
+- Added diff-view switch (#4862, @marijncv)
+- Print warning when inferred requirements are not available on PyPI (#4891, @dbczumar)
+- Added start_time and duration to csv export (#4851, @marijncv)
+- Visibility of default column sorting order. closes #4825 (#4847, @marijncv)
+- Added lifecycle stage to run page (#4848, @marijncv)
+- Added a duration column to the runs table in the experiment UI. closes #4826 (#4840, @marijncv)
+- Enable AzureDefaultCredential for authenticating against Azure Storage backends (closes #3998) (#4002, @marijncv)
+- Add experiment tags to experiment creation APIs (#4795, @apurva-koti)
+- Upgraded fastai from v1 to v2 (>=2.4.1) (#4715, @jinzhang21)
+- GC CLI SFTP Support: implement delete_artifacts in sftp_artifact_repository (#4670, @afaul)
+- [FR] Use mamba for creating environments (#4746, @giacomov)
+- Add prophet flavor (#4773, @BenWilson2)
+- Add tags (#4788, @dbczumar)
+- [PaddlePaddle] refactor the code and support autolog (#4751, @jinminhao)
+- Push MLflow model to Sagemaker model registry (#4669, @jinnig)
+
+Bug fixes and documentation updates:
+
+- Reseting the experiment view persistant state on experimentId change (#4926, @sunishsheth2009)
+- set orderByKey when switching experiments (#4924, @harupy)
+- Fix issue where pd.read_json converts strings to dates (#4902, @wentinghu)
+- Remove url casting in local artifact storage path (#4890, @BenWilson2)
+- Fix autologging event logger behavior when patch function failed before original function called (#4856, @WeichenXu123)
+- [Bugfix] Alter_column on metrics table only called for mysql database engine (#4880, @marijncv)
+- Fixed Metric plot view erroneously displays NaN value on click (#4858, @arpitjasa-db)
+- Throw Exception When Invalid URI with Databricks Scheme Provided (#4877, @yunpark93)
+- Limit length of tag set by Spark datasource autologging (#4809, @dbczumar)
+- Add client_cert_path and server_cert_path ino model registry Rest Store (#4731, @ericgosno91)
+- Add roadmap links & info to README (#4846, @dbczumar)
+- Expand documentation for MLflow Skinny (#4113, @eedeleon)
+
+Small bug fixes and doc updates (#4928, #4919, #4927, #4922, #4914, #4899, #4893, #4894, #4884, #4864, #4823, #4841, #4817, #4796, #4797, #4767, #4768, #4757, @harupy; #4863, #4838, @marijncv; #4834, @ksaur; #4772, @louisguitton; #4801, @twsl; #4929, #4887, #4843, #4789, #4780, @WeichenXu123; #4769, @Ark-kun; #4898, #4756, @apurva-koti; #4784, @lakshikaparihar; #4855, @ianshan0915; #4790, @eedeleon; #4931, #4857, #4777, #4748, @dbczumar)
+
 1.20.2 (2021-09-03)
 -------------------
 MLflow 1.20.2 is a patch release containing the following features and bug fixes:
