@@ -25,7 +25,7 @@ defaults:
     shell: bash
 
 env:
-  CONDA_DIR: /usr/share/miniconda
+  MLFLOW_CONDA_HOME: /usr/share/miniconda
 
 jobs:
   lint:
@@ -178,8 +178,6 @@ jobs:
         source ./dev/install-common-deps.sh
     - name: Run tests
       run: |
-        export PATH="$CONDA_DIR/bin:$PATH"
-        source activate test-environment
         ./dev/run-small-python-tests.sh
 
   python-large:
