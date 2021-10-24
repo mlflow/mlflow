@@ -17,7 +17,6 @@ from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.projects import _parse_kubernetes_config
 from mlflow.projects import _resolve_experiment_id
 from mlflow.store.tracking.file_store import FileStore
-from mlflow.utils import env
 from mlflow.utils.mlflow_tags import (
     MLFLOW_PARENT_RUN_ID,
     MLFLOW_USER,
@@ -90,8 +89,12 @@ def test_invalid_run_mode():
 def test_use_conda():
     """ Verify that we correctly handle the `use_conda` argument."""
     # Verify we throw an exception when conda is unavailable
-    with mock.patch.dict("os.environ", {}, clear=True), pytest.raises(ExecutionException):
-        mlflow.projects.run(TEST_PROJECT_DIR, use_conda=True)
+    with mock.patch.dict("os.environ", {}, clear=True):
+        with pytest.raises(subprocess.CalledProcessError, match="non-zero exit status 1"):
+            subprocess.run(["which", "conda"], check=True)
+
+        with pytest.raises(ExecutionException):
+            mlflow.projects.run(TEST_PROJECT_DIR, use_conda=True)
 
 
 @pytest.mark.large
