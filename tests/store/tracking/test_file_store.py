@@ -146,6 +146,22 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             self.assertEqual(exp.name, self.exp_data[exp_id]["name"])
             self.assertEqual(exp.artifact_location, self.exp_data[exp_id]["artifact_location"])
 
+    def test_list_experiments_paginated(self):
+        fs = FileStore(self.test_root)
+        for _ in range(10):
+            fs.create_experiment(random_str(12))
+        exps1 = fs.list_experiments(max_results=4, page_token=None)
+        self.assertEqual(len(exps1), 4)
+        self.assertIsNotNone(exps1.token)
+        exps2 = fs.list_experiments(max_results=4, page_token=None)
+        self.assertEqual(len(exps2), 4)
+        self.assertIsNotNone(exps2.token)
+        self.assertNotEqual(exps1, exps2)
+        exps3 = fs.list_experiments(max_results=500, page_token=exps2.token)
+        self.assertLessEqual(len(exps3), 500)
+        if len(exps3) < 500:
+            self.assertIsNone(exps3.token)
+
     def _verify_experiment(self, fs, exp_id):
         exp = fs.get_experiment(exp_id)
         self.assertEqual(exp.experiment_id, exp_id)
@@ -262,6 +278,19 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 self.assertEqual(
                     exp.artifact_location, expected_artifact_uri_format.format(e=exp_id)
                 )
+
+    def test_create_experiment_with_tags_works_correctly(self):
+        fs = FileStore(self.test_root)
+
+        created_id = fs.create_experiment(
+            "heresAnExperiment",
+            "heresAnArtifact",
+            [ExperimentTag("key1", "val1"), ExperimentTag("key2", "val2")],
+        )
+        experiment = fs.get_experiment(created_id)
+        assert len(experiment.tags) == 2
+        assert experiment.tags["key1"] == "val1"
+        assert experiment.tags["key2"] == "val2"
 
     def test_create_duplicate_experiments(self):
         fs = FileStore(self.test_root)

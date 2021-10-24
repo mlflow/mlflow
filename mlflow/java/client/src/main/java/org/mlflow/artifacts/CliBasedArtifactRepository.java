@@ -143,10 +143,6 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
   }
 
   /**
-   * :: experimental ::
-   *
-   * This api may change or be removed in a future release without warning.
-   *
    * Only available in the CliBasedArtifactRepository. Downloads an artifact to the local
    * filesystem when provided with an artifact uri. This method should not be used directly
    * by the user. Please use {@link org.mlflow.tracking.MlflowClient}

@@ -131,7 +131,7 @@ class TestDatabricksModelArtifactRepository(object):
                 DatabricksModelsArtifactRepository(valid_profileless_artifact_uri)
 
     def test_list_artifacts(self, databricks_model_artifact_repo):
-        list_artifact_dir_response_mock = mock.MagicMock
+        list_artifact_dir_response_mock = mock.MagicMock()
         list_artifact_dir_response_mock.status_code = 200
         list_artifact_dir_json_mock = {
             "files": [
@@ -156,7 +156,7 @@ class TestDatabricksModelArtifactRepository(object):
             call_endpoint_mock.assert_called_once_with(ANY, REGISTRY_LIST_ARTIFACTS_ENDPOINT)
 
     def test_list_artifacts_for_single_file(self, databricks_model_artifact_repo):
-        list_artifact_file_response_mock = mock.MagicMock
+        list_artifact_file_response_mock = mock.MagicMock()
         list_artifact_file_response_mock.status_code = 200
         list_artifact_file_json_mock = {
             "files": [{"path": "MLmodel", "is_dir": False, "file_size": 294}]
@@ -180,7 +180,7 @@ class TestDatabricksModelArtifactRepository(object):
         ],
     )
     def test_download_file(self, databricks_model_artifact_repo, remote_file_path, local_path):
-        signed_uri_response_mock = mock.MagicMock
+        signed_uri_response_mock = mock.MagicMock()
         signed_uri_response_mock.status_code = 200
         signed_uri_mock = {
             "signed_uri": "https://my-amazing-signed-uri-to-rule-them-all.com/1234-numbers-yay-567"

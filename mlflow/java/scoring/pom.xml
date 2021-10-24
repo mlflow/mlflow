@@ -5,17 +5,9 @@
   <parent>
     <groupId>org.mlflow</groupId>
     <artifactId>mlflow-parent</artifactId>
-    <version>1.13.2-SNAPSHOT</version>
+    <version>1.20.3-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
-
-  <distributionManagement>
-    <repository>
-      <id>bintray</id>
-      <name>mlflow</name>
-      <url>https://api.bintray.com/maven/mlflow/mlflow/mlflow-scoring/;publish=1</url>
-    </repository>
-  </distributionManagement>
 
   <artifactId>mlflow-scoring</artifactId>
   <packaging>jar</packaging>
@@ -140,4 +132,9 @@
       </plugin>
     </plugins>
   </build>
+  <profiles>
+    <profile>
+      <id>do-sign</id>
+    </profile>
+  </profiles>
 </project>

@@ -41,10 +41,6 @@ class CompareModelVersionsPage extends Component {
     ],
   };
 
-  componentWillMount() {
-    this.props.getRegisteredModelApi(this.props.modelName, this.registeredModelRequestId);
-  }
-
   removeRunRequestId() {
     this.setState((prevState) => ({
       requestIds: _.without(prevState.requestIds, this.runRequestId),
@@ -52,6 +48,7 @@ class CompareModelVersionsPage extends Component {
   }
 
   componentDidMount() {
+    this.props.getRegisteredModelApi(this.props.modelName, this.registeredModelRequestId);
     for (const modelVersion in this.props.versionsToRuns) {
       if ({}.hasOwnProperty.call(this.props.versionsToRuns, modelVersion)) {
         const runID = this.props.versionsToRuns[modelVersion];

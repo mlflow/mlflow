@@ -25,3 +25,17 @@
 .ant-alert-info .ant-alert-icon {
     color: #00B379;
 }
+
+.table-tag-container {
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    height: 100%;
+}
+
+.ModelListView-filter-dropdown {
+    margin-top: 0;
+    min-width: 800px;
+    margin-bottom: 24px;
+}

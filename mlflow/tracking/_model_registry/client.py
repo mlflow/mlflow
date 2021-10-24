@@ -30,7 +30,14 @@ class ModelRegistryClient(object):
         :param registry_uri: Address of local or remote model registry server.
         """
         self.registry_uri = registry_uri
-        self.store = utils._get_store(self.registry_uri)
+        # NB: Fetch the tracking store (`self.store`) upon client initialization to ensure that
+        # the tracking URI is valid and the store can be properly resolved. We define `store` as a
+        # property method to ensure that the client is serializable, even if the store is not
+        self.store  # pylint: disable=pointless-statement
+
+    @property
+    def store(self):
+        return utils._get_store(self.registry_uri)
 
     # Registered Model Methods
 
@@ -214,6 +221,13 @@ class ModelRegistryClient(object):
                     )
                 mv = self.get_model_version(mv.name, mv.version)
                 sleep(AWAIT_MODEL_VERSION_CREATE_SLEEP_DURATION_SECONDS)
+            if mv.status != ModelVersionStatus.to_string(ModelVersionStatus.READY):
+                raise MlflowException(
+                    "Model version creation failed for model name: {} version: {} with status: {} \
+                    and message: {}".format(
+                        mv.name, mv.version, mv.status, mv.status_message
+                    )
+                )
         return mv
 
     def update_model_version(self, name, version, description):

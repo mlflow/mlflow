@@ -78,13 +78,15 @@ First, train a linear regression model that takes two hyperparameters: ``alpha``
 
     .. code-block:: py
 
-        python examples/sklearn_elasticnet_wine/train.py
+        # Make sure the current working directory is 'examples'
+        python sklearn_elasticnet_wine/train.py
 
     Try out some other values for ``alpha`` and ``l1_ratio`` by passing them as arguments to ``train.py``:
 
     .. code-block:: py
 
-        python examples/sklearn_elasticnet_wine/train.py <alpha> <l1_ratio>
+        # Make sure the current working directory is 'examples'
+        python sklearn_elasticnet_wine/train.py <alpha> <l1_ratio>
 
     Each time you run the example, MLflow logs information about your experiment runs in the directory ``mlruns``.
 
@@ -107,13 +109,15 @@ First, train a linear regression model that takes two hyperparameters: ``alpha``
 
     .. code-block:: R
 
-        mlflow_run(uri = "examples/r_wine", entry_point = "train.R")
+        # Make sure the current working directory is 'examples'
+        mlflow_run(uri = "r_wine", entry_point = "train.R")
 
     Try out some other values for ``alpha`` and ``lambda`` by passing them as arguments to ``train.R``:
 
     .. code-block:: R
 
-        mlflow_run(uri = "examples/r_wine", entry_point = "train.R", parameters = list(alpha = 0.1, lambda = 0.5))
+        # Make sure the current working directory is 'examples'
+        mlflow_run(uri = "r_wine", entry_point = "train.R", parameters = list(alpha = 0.1, lambda = 0.5))
 
     Each time you run the example, MLflow logs information about your experiment runs in the directory ``mlruns``.
 
@@ -168,39 +172,13 @@ Now that you have your training code, you can package it so that other data scie
       You do this by using :doc:`../projects` conventions to specify the dependencies and entry points to your code. The ``sklearn_elasticnet_wine/MLproject`` file specifies that the project has the dependencies located in a `Conda environment file <https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-file-manually>`_
       called ``conda.yaml`` and has one entry point that takes two parameters: ``alpha`` and ``l1_ratio``.
 
-      .. code-block:: yaml
+      .. literalinclude:: ../../../examples/sklearn_elasticnet_wine/MLproject
 
-          # sklearn_elasticnet_wine/MLproject
+      ``sklearn_elasticnet_wine/conda.yaml`` file lists the dependencies:
 
-          name: tutorial
+      .. literalinclude:: ../../../examples/sklearn_elasticnet_wine/conda.yaml
 
-          conda_env: conda.yaml
-
-          entry_points:
-            main:
-              parameters:
-                alpha: float
-                l1_ratio: {type: float, default: 0.1}
-              command: "python train.py {alpha} {l1_ratio}"
-
-
-      The Conda file lists the dependencies:
-
-      .. code-block:: yaml
-
-          # sklearn_elasticnet_wine/conda.yaml
-
-          name: tutorial
-          channels:
-            - defaults
-          dependencies:
-            - numpy=1.14.3
-            - pandas=0.22.0
-            - scikit-learn=0.19.1
-            - pip:
-              - mlflow
-
-      To run this project, invoke ``mlflow run examples/sklearn_elasticnet_wine -P alpha=0.42``. After running
+      To run this project, invoke ``mlflow run sklearn_elasticnet_wine -P alpha=0.42``. After running
       this command, MLflow runs your training code in a new Conda environment with the dependencies
       specified in ``conda.yaml``.
 
@@ -239,7 +217,8 @@ Now that you have your training code, you can package it so that other data scie
 
       .. code-block:: r
 
-        mlflow_run("examples/r_wine", entry_point = "train.R", parameters = list(alpha = 0.2))
+        # Make sure the current working directory is 'examples'
+        mlflow_run("r_wine", entry_point = "train.R", parameters = list(alpha = 0.2))
 
       After running this command, MLflow runs your training code in a new R session.
 
@@ -248,7 +227,8 @@ Now that you have your training code, you can package it so that other data scie
       .. code-block:: r
 
         mlflow_restore_snapshot()
-        mlflow_run("examples/r_wine", entry_point = "train.R", parameters = list(alpha = 0.2))
+        # Make sure the current working directory is 'examples'
+        mlflow_run("r_wine", entry_point = "train.R", parameters = list(alpha = 0.2))
 
       You can also run a project directly from GitHub. This tutorial is duplicated in the https://github.com/rstudio/mlflow-example repository which you can run with:
 
@@ -259,6 +239,14 @@ Now that you have your training code, you can package it so that other data scie
           "https://github.com/rstudio/mlflow-example",
           parameters = list(alpha = 0.2)
         )
+
+.. _pip-requirements-example:
+
+Specifying pip requirements using ``pip_requirements`` and ``extra_pip_requirements``
+-------------------------------------------------------------------------------------
+
+.. literalinclude:: ../../../examples/pip_requirements/pip_requirements.py
+
 
 Serving the Model
 -----------------

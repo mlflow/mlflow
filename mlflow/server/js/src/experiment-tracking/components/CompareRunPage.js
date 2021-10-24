@@ -14,8 +14,12 @@ class CompareRunPage extends Component {
     dispatch: PropTypes.func.isRequired,
   };
 
-  componentWillMount() {
+  constructor(props) {
+    super(props);
     this.requestIds = [];
+  }
+
+  componentDidMount() {
     const experimentRequestId = getUUID();
     this.props.dispatch(getExperimentApi(this.props.experimentId, experimentRequestId));
     this.requestIds.push(experimentRequestId);

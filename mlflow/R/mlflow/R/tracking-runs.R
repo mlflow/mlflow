@@ -111,7 +111,7 @@ mlflow_restore_run <- function(run_id, client = NULL) {
   mlflow_rest("runs", "restore", client = client, verb = "POST", data = data)
   mlflow_register_tracking_event("restore_run", data)
 
-  mlflow_get_run(run_id)
+  mlflow_get_run(run_id, client = client)
 }
 
 #' Get Run
@@ -585,7 +585,7 @@ mlflow_start_run <- function(run_id = NULL, experiment_id = NULL, start_time = N
     do.call(mlflow_create_run, args)
   }
   mlflow_push_active_run_id(mlflow_id(run))
-  mlflow_set_experiment(experiment_id = args$experiment_id)
+  mlflow_set_experiment(experiment_id = run$experiment_id)
   run
 }
 
@@ -599,6 +599,12 @@ mlflow_get_run_context.default <- function(client, experiment_id, ...) {
   tags[[MLFLOW_TAGS$MLFLOW_SOURCE_NAME]] <- get_source_name()
   tags[[MLFLOW_TAGS$MLFLOW_SOURCE_VERSION]] <- get_source_version()
   tags[[MLFLOW_TAGS$MLFLOW_SOURCE_TYPE]] <- MLFLOW_SOURCE_TYPE$LOCAL
+  parent_run_id <- mlflow_get_active_run_id()
+  if (!is.null(parent_run_id)) {
+    # create a tag containing the parent run ID so that MLflow UI can display
+    # nested runs properly
+    tags[[MLFLOW_TAGS$MLFLOW_PARENT_RUN_ID]] <- parent_run_id
+  }
   list(
     client = client,
     tags = tags,
@@ -649,5 +655,6 @@ MLFLOW_TAGS <- list(
   MLFLOW_USER = "mlflow.user",
   MLFLOW_SOURCE_NAME = "mlflow.source.name",
   MLFLOW_SOURCE_VERSION = "mlflow.source.version",
-  MLFLOW_SOURCE_TYPE = "mlflow.source.type"
+  MLFLOW_SOURCE_TYPE = "mlflow.source.type",
+  MLFLOW_PARENT_RUN_ID = "mlflow.parentRunId"
 )

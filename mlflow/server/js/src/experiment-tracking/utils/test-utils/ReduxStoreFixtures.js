@@ -6,6 +6,8 @@ export const emptyState = {
     runInfosByUuid: {},
     experimentsById: {},
     experimentTagsByExperimentId: {},
+    tagsByRunUuid: {},
+    modelVersionsByRunUuid: {},
   },
 };
 

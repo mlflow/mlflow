@@ -1,6 +1,7 @@
 import React from 'react';
-import { shallow, mount } from 'enzyme';
+import { shallow } from 'enzyme';
 import ShowArtifactLoggedModelView from './ShowArtifactLoggedModelView';
+import { mountWithIntl } from '../../../common/utils/TestUtils';
 
 describe('ShowArtifactLoggedModelView', () => {
   let wrapper;
@@ -53,7 +54,7 @@ describe('ShowArtifactLoggedModelView', () => {
       return Promise.resolve(validMlModelFile);
     });
     const props = { ...minimalProps, getArtifact };
-    wrapper = mount(<ShowArtifactLoggedModelView {...props} />);
+    wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
     setImmediate(() => {
       wrapper.update();
       expect(wrapper.find('.artifact-logged-model-view-schema-table').length).toBe(1);
@@ -66,10 +67,59 @@ describe('ShowArtifactLoggedModelView', () => {
       return Promise.resolve(validMlModelFile + '\nhahaha');
     });
     const props = { ...minimalProps, getArtifact };
-    wrapper = mount(<ShowArtifactLoggedModelView {...props} />);
+    wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
     setImmediate(() => {
       wrapper.update();
       expect(wrapper.find('.artifact-logged-model-view-schema-table').length).toBe(0);
+      done();
+    });
+  });
+
+  test('should not break schema table when inputs only in MLmodel file', (done) => {
+    const getArtifact = jest.fn((artifactLocation) => {
+      return Promise.resolve(
+        'signature:\n' +
+          '  inputs: \'[{"name": "sepal length (cm)", "type": "double"}, {"name": "sepal width\n' +
+          '    (cm)", "type": "double"}, {"name": "petal length (cm)", "type": "double"}, {"name":\n' +
+          '    "petal width (cm)", "type": "double"}]\'\n',
+      );
+    });
+    const props = { ...minimalProps, getArtifact };
+    wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
+    setImmediate(() => {
+      wrapper.update();
+      expect(wrapper.find('.artifact-logged-model-view-schema-table').length).toBe(1);
+      done();
+    });
+  });
+
+  test('should not break schema table when outputs only in MLmodel file', (done) => {
+    const getArtifact = jest.fn((artifactLocation) => {
+      return Promise.resolve(
+        'signature:\n' +
+          '  outputs: \'[{"name": "sepal length (cm)", "type": "double"}, {"name": "sepal width\n' +
+          '    (cm)", "type": "double"}, {"name": "petal length (cm)", "type": "double"}, {"name":\n' +
+          '    "petal width (cm)", "type": "double"}]\'\n',
+      );
+    });
+    const props = { ...minimalProps, getArtifact };
+    wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
+    setImmediate(() => {
+      wrapper.update();
+      expect(wrapper.find('.artifact-logged-model-view-schema-table').length).toBe(1);
+      done();
+    });
+  });
+
+  test('should not break schema table when no inputs or outputs in MLmodel file', (done) => {
+    const getArtifact = jest.fn((artifactLocation) => {
+      return Promise.resolve('signature:\n  ');
+    });
+    const props = { ...minimalProps, getArtifact };
+    wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
+    setImmediate(() => {
+      wrapper.update();
+      expect(wrapper.find('.artifact-logged-model-view-schema-table').length).toBe(1);
       done();
     });
   });
@@ -85,11 +135,11 @@ describe('ShowArtifactLoggedModelView', () => {
 
   test('should find model path in code snippet', (done) => {
     const props = { ...commonProps, path: 'modelPath', artifactRootUri: 'some/root' };
-    wrapper = mount(<ShowArtifactLoggedModelView {...props} />);
+    wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
     setImmediate(() => {
       wrapper.update();
       expect(wrapper.find('.artifact-logged-model-view-code-content').html()).toContain(
-        'some/root/modelPath',
+        'runs:/fakeUuid/modelPath',
       );
       done();
     });
@@ -97,7 +147,7 @@ describe('ShowArtifactLoggedModelView', () => {
 
   test('should suggest registration when model not registered', (done) => {
     const props = { ...commonProps };
-    wrapper = mount(<ShowArtifactLoggedModelView {...props} />);
+    wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
     setImmediate(() => {
       wrapper.update();
       expect(wrapper.find('.artifact-logged-model-view-header').html()).toContain('You can also');
@@ -107,7 +157,7 @@ describe('ShowArtifactLoggedModelView', () => {
 
   test('should not suggest registration when model already registered', (done) => {
     const props = { ...commonProps, registeredModelLink: 'someLink' };
-    wrapper = mount(<ShowArtifactLoggedModelView {...props} />);
+    wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
     setImmediate(() => {
       wrapper.update();
       expect(wrapper.find('.artifact-logged-model-view-header').html()).toContain(

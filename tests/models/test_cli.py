@@ -116,14 +116,15 @@ def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
 
 
 @pytest.mark.large
+@pytest.mark.allow_infer_pip_requirements_fallback
 def test_mlflow_is_not_installed_unless_specified():
     if no_conda:
         pytest.skip("This test requires conda.")
     with TempDir(chdr=True) as tmp:
         fake_model_path = tmp.path("fake_model")
-        fake_env_path = tmp.path("fake_env.yaml")
-        _mlflow_conda_env(path=fake_env_path, install_mlflow=False)
-        mlflow.pyfunc.save_model(fake_model_path, loader_module=__name__, conda_env=fake_env_path)
+        mlflow.pyfunc.save_model(fake_model_path, loader_module=__name__)
+        # Overwrite the logged `conda.yaml` to remove mlflow.
+        _mlflow_conda_env(path=os.path.join(fake_model_path, "conda.yaml"), install_mlflow=False)
         # The following should fail because there should be no mlflow in the env:
         p = subprocess.Popen(
             ["mlflow", "models", "predict", "-m", fake_model_path],

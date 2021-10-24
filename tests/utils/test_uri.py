@@ -48,7 +48,6 @@ def test_extract_db_type_from_uri():
         ("nondatabricks://profile:prefix", (None, None)),
         ("databricks://profile", ("profile", None)),
         ("databricks://profile/", ("profile", None)),
-        ("databricks://", ("", None)),
     ],
 )
 def test_get_db_info_from_uri(server_uri, result):
@@ -65,6 +64,9 @@ def test_get_db_info_from_uri(server_uri, result):
         "databricks://profile ",
         "databricks://profile:",
         "databricks://profile: ",
+        "databricks:/profile:prefix",
+        "databricks:/",
+        "databricks://",
     ],
 )
 def test_get_db_info_from_uri_errors(server_uri):
@@ -455,7 +457,6 @@ def test_remove_databricks_profile_info_from_artifact_uri(uri, result):
         # test various profile URIs
         ("dbfs:/path/a/b", "databricks", "dbfs://databricks/path/a/b"),
         ("dbfs:/path/a/b/", "databricks", "dbfs://databricks/path/a/b/"),
-        ("dbfs:/path/a/b/", "databricks://", "dbfs://@databricks/path/a/b/"),
         ("dbfs:/path/a/b/", "databricks://Profile", "dbfs://Profile@databricks/path/a/b/"),
         ("dbfs:/path/a/b/", "databricks://profile/", "dbfs://profile@databricks/path/a/b/"),
         ("dbfs:/path/a/b/", "databricks://scope:key", "dbfs://scope:key@databricks/path/a/b/"),

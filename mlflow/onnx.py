@@ -23,11 +23,42 @@ from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import experimental
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.environment import (
+    _mlflow_conda_env,
+    _validate_env_arguments,
+    _process_pip_requirements,
+    _process_conda_env,
+    _CONDA_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
+)
+from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.file_utils import write_to
+from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 FLAVOR_NAME = "onnx"
+
+
+def get_default_pip_requirements():
+    """
+    :return: A list of default pip requirements for MLflow Models produced by this flavor.
+             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+             that, at minimum, contains these requirements.
+    """
+    return list(
+        map(
+            _get_pinned_requirement,
+            [
+                "onnx",
+                # The ONNX pyfunc representation requires the OnnxRuntime
+                # inference engine. Therefore, the conda environment must
+                # include OnnxRuntime
+                "onnxruntime",
+            ],
+        )
+    )
 
 
 @experimental
@@ -36,23 +67,11 @@ def get_default_conda_env():
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
-    import onnx
-    import onnxruntime
-
-    return _mlflow_conda_env(
-        additional_conda_deps=None,
-        additional_pip_deps=[
-            "onnx=={}".format(onnx.__version__),
-            # The ONNX pyfunc representation requires the OnnxRuntime
-            # inference engine. Therefore, the conda environment must
-            # include OnnxRuntime
-            "onnxruntime=={}".format(onnxruntime.__version__),
-        ],
-        additional_conda_channels=None,
-    )
+    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
 @experimental
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     onnx_model,
     path,
@@ -60,33 +79,18 @@ def save_model(
     mlflow_model=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
+    pip_requirements=None,
+    extra_pip_requirements=None,
 ):
     """
     Save an ONNX model to a path on the local file system.
 
     :param onnx_model: ONNX model to be saved.
     :param path: Local path where the model is to be saved.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this describes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If `None`, the default
-                      :func:`get_default_conda_env()` environment is added to the model.
-                      The following is an *example* dictionary representation of a Conda
-                      environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.6.0',
-                                'onnx=1.4.1',
-                                'onnxruntime=0.3.0'
-                            ]
-                        }
-
+    :param conda_env: {{ conda_env }}
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
 
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -99,14 +103,18 @@ def save_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
-
+                          model. The given example can be a Pandas DataFrame where the given
+                          example will be serialized to json using the Pandas split-oriented
+                          format, or a numpy array where the example will be serialized to json
+                          by converting it to a list. Bytes are base64-encoded.
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
     """
     import onnx
+
+    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     path = os.path.abspath(path)
     if os.path.exists(path):
@@ -126,20 +134,38 @@ def save_model(
     # Save onnx-model
     onnx.save_model(onnx_model, model_data_path)
 
-    conda_env_subpath = "conda.yaml"
-    if conda_env is None:
-        conda_env = get_default_conda_env()
-    elif not isinstance(conda_env, dict):
-        with open(conda_env, "r") as f:
-            conda_env = yaml.safe_load(f)
-    with open(os.path.join(path, conda_env_subpath), "w") as f:
-        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
-
     pyfunc.add_to_model(
-        mlflow_model, loader_module="mlflow.onnx", data=model_data_subpath, env=conda_env_subpath
+        mlflow_model, loader_module="mlflow.onnx", data=model_data_subpath, env=_CONDA_ENV_FILE_NAME
     )
     mlflow_model.add_flavor(FLAVOR_NAME, onnx_version=onnx.__version__, data=model_data_subpath)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+
+    if conda_env is None:
+        if pip_requirements is None:
+            default_reqs = get_default_pip_requirements()
+            # To ensure `_load_pyfunc` can successfully load the model during the dependency
+            # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
+            inferred_reqs = mlflow.models.infer_pip_requirements(
+                path, FLAVOR_NAME, fallback=default_reqs,
+            )
+            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+        else:
+            default_reqs = None
+        conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
+            default_reqs, pip_requirements, extra_pip_requirements,
+        )
+    else:
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
+
+    with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
+        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    # Save `constraints.txt` if necessary
+    if pip_constraints:
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
+
+    # Save `requirements.txt`
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
 
 def _load_model(model_file):
@@ -160,58 +186,92 @@ class _OnnxModelWrapper:
         self.inputs = [(inp.name, inp.type) for inp in self.rt.get_inputs()]
         self.output_names = [outp.name for outp in self.rt.get_outputs()]
 
-    @staticmethod
-    def _cast_float64_to_float32(dataframe, column_names):
-        for input_name in column_names:
-            if dataframe[input_name].values.dtype == np.float64:
-                dataframe[input_name] = dataframe[input_name].values.astype(np.float32)
-        return dataframe
+    def _cast_float64_to_float32(self, feeds):
+        for input_name, input_type in self.inputs:
+            if input_type == "tensor(float)":
+                feed = feeds.get(input_name)
+                if feed is not None and feed.dtype == np.float64:
+                    feeds[input_name] = feed.astype(np.float32)
+        return feeds
 
     @experimental
-    def predict(self, dataframe):
+    def predict(self, data):
         """
-        :param dataframe: A Pandas DataFrame that is converted to a collection of ONNX Runtime
-                          inputs. If the underlying ONNX model only defines a *single* input
-                          tensor, the DataFrame's values are converted to a NumPy array
-                          representation using the `DataFrame.values()
-                          <https://pandas.pydata.org/pandas-docs/stable/reference/api/
-                          pandas.DataFrame.values.html#pandas.DataFrame.values>`_ method. If the
-                          underlying ONNX model defines *multiple* input tensors, each column
+        :param data: Either a pandas DataFrame, numpy.ndarray or a dictionary.
+
+                     Dictionary input is expected to be a valid ONNX model feed dictionary.
+
+                     Numpy array input is supported iff the model has a single tensor input and is
+                     converted into an ONNX feed dictionary with the appropriate key.
+
+                     Pandas DataFrame is converted to ONNX inputs as follows:
+                        - If the underlying ONNX model only defines a *single* input tensor, the
+                          DataFrame's values are converted to a NumPy array representation using the
+                         `DataFrame.values()
+                         <https://pandas.pydata.org/pandas-docs/stable/reference/api/
+                          pandas.DataFrame.values.html#pandas.DataFrame.values>`_ method.
+                        - If the underlying ONNX model defines *multiple* input tensors, each column
                           of the DataFrame is converted to a NumPy array representation.
-                          The corresponding NumPy array representation is then passed to the
-                          ONNX Runtime. For more information about the ONNX Runtime, see
-                          `<https://github.com/microsoft/onnxruntime>`_.
-        :return: A Pandas DataFrame output. Each column of the DataFrame corresponds to an
-                 output tensor produced by the underlying ONNX model.
+
+                      For more information about the ONNX Runtime, see
+                      `<https://github.com/microsoft/onnxruntime>`_.
+        :return: Model predictions. If the input is a pandas.DataFrame, the predictions are returned
+                 in a pandas.DataFrame. If the input is a numpy array or a dictionary the
+                 predictions are returned in a dictionary.
         """
+        if isinstance(data, dict):
+            feed_dict = data
+        elif isinstance(data, np.ndarray):
+            # NB: We do allow scoring with a single tensor (ndarray) in order to be compatible with
+            # supported pyfunc inputs iff the model has a single input. The passed tensor is
+            # assumed to be the first input.
+            if len(self.inputs) != 1:
+                inputs = [x[0] for x in self.inputs]
+                raise MlflowException(
+                    "Unable to map numpy array input to the expected model "
+                    "input. "
+                    "Numpy arrays can only be used as input for MLflow ONNX "
+                    "models that have a single input. This model requires "
+                    "{0} inputs. Please pass in data as either a "
+                    "dictionary or a DataFrame with the following tensors"
+                    ": {1}.".format(len(self.inputs), inputs)
+                )
+            feed_dict = {self.inputs[0][0]: data}
+        elif isinstance(data, pd.DataFrame):
+            if len(self.inputs) > 1:
+                feed_dict = {name: data[name].values for (name, _) in self.inputs}
+            else:
+                feed_dict = {self.inputs[0][0]: data.values}
+
+        else:
+            raise TypeError(
+                "Input should be a dictionary or a numpy array or a pandas.DataFrame, "
+                "got '{}'".format(type(data))
+            )
+
         # ONNXRuntime throws the following exception for some operators when the input
-        # dataframe contains float64 values. Unfortunately, even if the original user-supplied
-        # dataframe did not contain float64 values, the serialization/deserialization between the
+        # contains float64 values. Unfortunately, even if the original user-supplied input
+        # did not contain float64 values, the serialization/deserialization between the
         # client and the scoring server can introduce 64-bit floats. This is being tracked in
         # https://github.com/mlflow/mlflow/issues/1286. Meanwhile, we explicitly cast the input to
         # 32-bit floats when needed. TODO: Remove explicit casting when issue #1286 is fixed.
-        if len(self.inputs) > 1:
-            cols = [name for (name, type) in self.inputs if type == "tensor(float)"]
-        else:
-            cols = dataframe.columns if self.inputs[0][1] == "tensor(float)" else []
-
-        dataframe = _OnnxModelWrapper._cast_float64_to_float32(dataframe, cols)
-        if len(self.inputs) > 1:
-            feed_dict = {name: dataframe[name].values for (name, _) in self.inputs}
-        else:
-            feed_dict = {self.inputs[0][0]: dataframe.values}
+        feed_dict = self._cast_float64_to_float32(feed_dict)
         predicted = self.rt.run(self.output_names, feed_dict)
 
-        def format_output(data):
-            # Output can be list and it should be converted to a numpy array
-            # https://github.com/mlflow/mlflow/issues/2499
-            data = np.asarray(data)
-            return data.reshape(-1)
+        if isinstance(data, pd.DataFrame):
 
-        response = pd.DataFrame.from_dict(
-            {c: format_output(p) for (c, p) in zip(self.output_names, predicted)}
-        )
-        return response
+            def format_output(data):
+                # Output can be list and it should be converted to a numpy array
+                # https://github.com/mlflow/mlflow/issues/2499
+                data = np.asarray(data)
+                return data.reshape(-1)
+
+            response = pd.DataFrame.from_dict(
+                {c: format_output(p) for (c, p) in zip(self.output_names, predicted)}
+            )
+            return response
+        else:
+            return dict(zip(self.output_names, predicted))
 
 
 def _load_pyfunc(path):
@@ -249,6 +309,7 @@ def load_model(model_uri):
 
 
 @experimental
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     onnx_model,
     artifact_path,
@@ -257,34 +318,20 @@ def log_model(
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+    pip_requirements=None,
+    extra_pip_requirements=None,
 ):
     """
     Log an ONNX model as an MLflow artifact for the current run.
 
     :param onnx_model: ONNX model to be saved.
     :param artifact_path: Run-relative artifact path.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decsribes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If `None`, the default
-                      :func:`get_default_conda_env()` environment is added to the model.
-                      The following is an *example* dictionary representation of a Conda
-                      environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.6.0',
-                                'onnx=1.4.1',
-                                'onnxruntime=0.3.0'
-                            ]
-                        }
-    :param registered_model_name: (Experimental) If given, create a model version under
+    :param conda_env: {{ conda_env }}
+    :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
 
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -297,15 +344,17 @@ def log_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
+                          model. The given example can be a Pandas DataFrame where the given
+                          example will be serialized to json using the Pandas split-oriented
+                          format, or a numpy array where the example will be serialized to json
+                          by converting it to a list. Bytes are base64-encoded.
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
-
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
     """
     Model.log(
         artifact_path=artifact_path,
@@ -316,4 +365,6 @@ def log_model(
         signature=signature,
         input_example=input_example,
         await_registration_for=await_registration_for,
+        pip_requirements=pip_requirements,
+        extra_pip_requirements=extra_pip_requirements,
     )

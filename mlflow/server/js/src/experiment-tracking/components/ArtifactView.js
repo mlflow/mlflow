@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
+import { injectIntl, FormattedMessage } from 'react-intl';
 import {
   getBasename,
   getExtension,
@@ -20,15 +21,17 @@ import {
 } from '../../model-registry/constants';
 import Utils from '../../common/utils/Utils';
 import _ from 'lodash';
-import { getModelVersionPageURL } from '../../model-registry/routes';
+import { getModelVersionPageRoute } from '../../model-registry/routes';
 import { Tooltip } from 'antd';
-
+import { Typography } from '../../shared/building_blocks/antd/Typography';
 import './ArtifactView.css';
 import spinner from '../../common/static/mlflow-spinner.png';
 import { getArtifactRootUri, getArtifacts } from '../reducers/Reducers';
 import { getAllModelVersions } from '../../model-registry/reducers';
 import { listArtifactsApi } from '../actions';
 import { MLMODEL_FILE_NAME } from '../constants';
+
+const { Text } = Typography;
 
 export class ArtifactViewImpl extends Component {
   static propTypes = {
@@ -42,6 +45,7 @@ export class ArtifactViewImpl extends Component {
     handleActiveNodeChange: PropTypes.func.isRequired,
     runTags: PropTypes.object,
     modelVersions: PropTypes.arrayOf(PropTypes.object),
+    intl: PropTypes.shape({ formatMessage: PropTypes.func.isRequired }).isRequired,
   };
 
   state = {
@@ -74,16 +78,41 @@ export class ArtifactViewImpl extends Component {
   }
 
   renderPathAndSizeInfo() {
+    // We will only be in this function if this.state.activeNodeId is defined
+    const node = ArtifactUtils.findChild(this.props.artifactNode, this.state.activeNodeId);
+    const activeNodeRealPath = this.getActiveNodeRealPath();
+
     return (
       <div className='artifact-info-left'>
         <div className='artifact-info-path'>
-          <label>Full Path:</label> {this.getActiveNodeRealPath()}
+          <label>
+            <FormattedMessage
+              defaultMessage='Full Path:'
+              // eslint-disable-next-line max-len
+              description='Label to display the full path of where the artifact of the experiment runs is located'
+            />
+          </label>{' '}
+          <Text className='artifact-info-text' ellipsis copyable>
+            {activeNodeRealPath}
+          </Text>
         </div>
-        <div className='artifact-info-size'>
-          <label>Size:</label> {this.getActiveNodeSize()}
-        </div>
+        {node.fileInfo.is_dir === false ? (
+          <div className='artifact-info-size'>
+            <label>
+              <FormattedMessage
+                defaultMessage='Size:'
+                description='Label to display the size of the artifact of the experiment'
+              />
+            </label>{' '}
+            {bytes(this.getActiveNodeSize())}
+          </div>
+        ) : null}
       </div>
     );
+  }
+
+  onDownloadClick(runUuid, artifactPath) {
+    window.location.href = getSrc(artifactPath, runUuid);
   }
 
   renderDownloadLink() {
@@ -91,7 +120,14 @@ export class ArtifactViewImpl extends Component {
     const { activeNodeId } = this.state;
     return (
       <div className='artifact-info-link'>
-        <a href={getSrc(activeNodeId, runUuid)} title='Download artifact'>
+        {/* eslint-disable-next-line jsx-a11y/anchor-is-valid */}
+        <a
+          onClick={() => this.onDownloadClick(runUuid, activeNodeId)}
+          title={this.props.intl.formatMessage({
+            defaultMessage: 'Download artifact',
+            description: 'Link to download the artifact of the experiment',
+          })}
+        >
           <i className='fas fa-download' />
         </a>
       </div>
@@ -196,9 +232,9 @@ export class ArtifactViewImpl extends Component {
     if (this.state.activeNodeId) {
       const node = ArtifactUtils.findChild(this.props.artifactNode, this.state.activeNodeId);
       const size = node.fileInfo.file_size || '0';
-      return bytes(parseInt(size, 10));
+      return parseInt(size, 10);
     }
-    return bytes(0);
+    return 0;
   }
 
   activeNodeIsDirectory() {
@@ -221,7 +257,14 @@ export class ArtifactViewImpl extends Component {
     return false;
   }
 
-  componentWillMount() {
+  componentDidUpdate(prevProps, prevState) {
+    const { activeNodeId } = this.state;
+    if (prevState.activeNodeId !== activeNodeId) {
+      this.props.handleActiveNodeChange(this.activeNodeIsDirectory());
+    }
+  }
+
+  componentDidMount() {
     if (this.props.initialSelectedArtifactPath) {
       const artifactPathParts = this.props.initialSelectedArtifactPath.split('/');
       if (artifactPathParts) {
@@ -244,15 +287,12 @@ export class ArtifactViewImpl extends Component {
         toggledArtifactState['toggledNodeIds'][pathSoFar] = true;
         pathSoFar += '/';
       });
-      this.setState(toggledArtifactState);
+      this.setArtifactState(toggledArtifactState);
     }
   }
 
-  componentDidUpdate(prevProps, prevState) {
-    const { activeNodeId } = this.state;
-    if (prevState.activeNodeId !== activeNodeId) {
-      this.props.handleActiveNodeChange(this.activeNodeIsDirectory());
-    }
+  setArtifactState(artifactState) {
+    this.setState(artifactState);
   }
 
   render() {
@@ -275,6 +315,7 @@ export class ArtifactViewImpl extends Component {
             <ShowArtifactPage
               runUuid={this.props.runUuid}
               path={this.state.activeNodeId}
+              size={this.getActiveNodeSize()}
               runTags={this.props.runTags}
               artifactRootUri={this.props.artifactRootUri}
               modelVersions={this.props.modelVersions}
@@ -302,7 +343,10 @@ const mapDispatchToProps = {
   listArtifactsApi,
 };
 
-export const ArtifactView = connect(mapStateToProps, mapDispatchToProps)(ArtifactViewImpl);
+export const ArtifactView = connect(
+  mapStateToProps,
+  mapDispatchToProps,
+)(injectIntl(ArtifactViewImpl));
 
 function ModelVersionInfoSection(props) {
   const { modelVersion } = props;
@@ -310,7 +354,7 @@ function ModelVersionInfoSection(props) {
 
   const modelVersionLink = (
     <a
-      href={getModelVersionPageURL(name, version)}
+      href={Utils.getIframeCorrectedRoute(getModelVersionPageRoute(name, version))}
       className='model-version-link'
       title={`${name}, v${version}`}
       target='_blank'
@@ -332,7 +376,16 @@ function ModelVersionInfoSection(props) {
       <div className='model-version-status-text'>
         {status === ModelVersionStatus.READY ? (
           <React.Fragment>
-            Registered on {Utils.formatTimestamp(modelVersion.creation_timestamp, 'yyyy/mm/dd')}
+            <FormattedMessage
+              defaultMessage='Registered on {registeredDate}'
+              description='Label to display at what date the model was registered'
+              values={{
+                registeredDate: Utils.formatTimestamp(
+                  modelVersion.creation_timestamp,
+                  'yyyy/mm/dd',
+                ),
+              }}
+            />
           </React.Fragment>
         ) : (
           status_message || DefaultModelVersionStatusMessages[status]
@@ -350,9 +403,18 @@ function NoArtifactView() {
       <div className='empty-artifact-container'>
         <div>{/* TODO: put a nice image here */}</div>
         <div>
-          <div className='no-artifacts'>No Artifacts Recorded</div>
+          <div className='no-artifacts'>
+            <FormattedMessage
+              defaultMessage='No Artifacts Recorded'
+              description='Empty state string when there are no artifacts record for the experiment'
+            />
+          </div>
           <div className='no-artifacts-info'>
-            Use the log artifact APIs to store file outputs from MLflow runs.
+            <FormattedMessage
+              defaultMessage='Use the log artifact APIs to store file outputs from MLflow runs.'
+              // eslint-disable-next-line max-len
+              description='Information in the empty state explaining how one could log artifacts output files for the experiment runs'
+            />
           </div>
         </div>
       </div>
@@ -369,7 +431,7 @@ const TREEBEARD_STYLE = {
       backgroundColor: '#FAFAFA',
       fontSize: '14px',
       maxWidth: '500px',
-      height: '556px',
+      height: '673px',
       overflow: 'scroll',
     },
     node: {
@@ -472,7 +534,11 @@ decorators.Header = ({ style, node }) => {
 decorators.Loading = ({ style }) => {
   return (
     <div style={style}>
-      <img alt='' className='loading-spinner' src={spinner} /> loading...
+      <img alt='' className='loading-spinner' src={spinner} />
+      <FormattedMessage
+        defaultMessage='loading...'
+        description='Loading spinner text to show that the artifact loading is in progress'
+      />
     </div>
   );
 };

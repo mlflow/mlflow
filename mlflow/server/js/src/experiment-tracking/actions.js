@@ -1,5 +1,6 @@
 import { MlflowService } from './sdk/MlflowService';
 import { getUUID, wrapDeferred } from '../common/utils/ActionUtils';
+import { ErrorCodes } from '../common/constants';
 
 export const SEARCH_MAX_RESULTS = 100;
 
@@ -121,10 +122,21 @@ export const fetchMissingParents = (searchRunsResponse) =>
   searchRunsResponse.runs && searchRunsResponse.runs.length
     ? Promise.all(
         getParentRunIdsToFetch(searchRunsResponse.runs).map((runId) =>
-          wrapDeferred(MlflowService.getRun, { run_id: runId }),
+          wrapDeferred(MlflowService.getRun, { run_id: runId })
+            .then((value) => {
+              searchRunsResponse.runs.push(value.run);
+            })
+            .catch((error) => {
+              if (error.getErrorCode() !== ErrorCodes.RESOURCE_DOES_NOT_EXIST) {
+                // NB: The parent run may have been deleted, in which case attempting to fetch the
+                // run fails with the `RESOURCE_DOES_NOT_EXIST` error code. Because this is
+                // expected behavior, we swallow such exceptions. We re-raise all other exceptions
+                // encountered when fetching parent runs because they are unexpected
+                throw error;
+              }
+            }),
         ),
-      ).then((parentRuns) => {
-        parentRuns.forEach((parentRun) => searchRunsResponse.runs.push(parentRun.run));
+      ).then((_) => {
         return searchRunsResponse;
       })
     : searchRunsResponse;
@@ -133,6 +145,7 @@ export const searchRunsPayload = ({
   experimentIds,
   filter,
   runViewType,
+  maxResults,
   orderBy,
   pageToken,
   shouldFetchParents,
@@ -141,7 +154,7 @@ export const searchRunsPayload = ({
     experiment_ids: experimentIds,
     filter: filter,
     run_view_type: runViewType,
-    max_results: SEARCH_MAX_RESULTS,
+    max_results: maxResults || SEARCH_MAX_RESULTS,
     order_by: orderBy,
     page_token: pageToken,
   }).then((res) => (shouldFetchParents ? fetchMissingParents(res) : res));

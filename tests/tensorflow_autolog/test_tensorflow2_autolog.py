@@ -2,6 +2,8 @@
 
 import collections
 import pytest
+import sys
+from packaging.version import Version
 
 import numpy as np
 import pandas as pd
@@ -11,7 +13,7 @@ from tensorflow.keras import layers
 import mlflow
 import mlflow.tensorflow
 import mlflow.keras
-from mlflow.utils.autologging_utils import BatchMetricsLogger
+from mlflow.utils.autologging_utils import BatchMetricsLogger, autologging_is_disabled
 from unittest.mock import patch
 
 import os
@@ -52,6 +54,29 @@ def manual_run(request):
     mlflow.end_run()
 
 
+@pytest.fixture
+def clear_tf_keras_imports():
+    """
+    Simulates a state where `tensorflow` and `keras` are not imported by removing these
+    libraries from the `sys.modules` dictionary. This is useful for testing the interaction
+    between TensorFlow / Keras and the fluent `mlflow.autolog()` API because it will cause import
+    hooks to be re-triggered upon re-import after `mlflow.autolog()` is enabled.
+    """
+    sys.modules.pop("tensorflow", None)
+    sys.modules.pop("keras", None)
+
+
+@pytest.fixture(autouse=True)
+def clear_fluent_autologging_import_hooks():
+    """
+    Clears import hooks for MLflow fluent autologging (`mlflow.autolog()`) between tests
+    to ensure that interactions between fluent autologging and TensorFlow / tf.keras can
+    be tested successfully
+    """
+    mlflow.utils.import_hooks._post_import_hooks.pop("tensorflow", None)
+    mlflow.utils.import_hooks._post_import_hooks.pop("keras", None)
+
+
 def create_tf_keras_model():
     model = tf.keras.Sequential()
 
@@ -65,26 +90,14 @@ def create_tf_keras_model():
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
-def test_tf_keras_autolog_ends_auto_created_run(
-    random_train_data, random_one_hot_labels, fit_variant
-):
+def test_tf_keras_autolog_ends_auto_created_run(random_train_data, random_one_hot_labels):
     mlflow.tensorflow.autolog()
 
     data = random_train_data
     labels = random_one_hot_labels
 
     model = create_tf_keras_model()
-
-    if fit_variant == "fit_generator":
-
-        def generator():
-            while True:
-                yield data, labels
-
-        model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
-    else:
-        model.fit(data, labels, epochs=10)
+    model.fit(data, labels, epochs=10)
 
     assert mlflow.active_run() is None
 
@@ -112,63 +125,37 @@ def test_tf_keras_autolog_log_models_configuration(
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
-def test_tf_keras_autolog_persists_manually_created_run(
-    random_train_data, random_one_hot_labels, fit_variant
-):
+def test_tf_keras_autolog_persists_manually_created_run(random_train_data, random_one_hot_labels):
     mlflow.tensorflow.autolog()
     with mlflow.start_run() as run:
         data = random_train_data
         labels = random_one_hot_labels
 
         model = create_tf_keras_model()
-
-        if fit_variant == "fit_generator":
-
-            def generator():
-                while True:
-                    yield data, labels
-
-            model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
-        else:
-            model.fit(data, labels, epochs=10)
+        model.fit(data, labels, epochs=10)
 
         assert mlflow.active_run()
         assert mlflow.active_run().info.run_id == run.info.run_id
 
 
 @pytest.fixture
-def tf_keras_random_data_run(
-    random_train_data, random_one_hot_labels, manual_run, fit_variant, initial_epoch
-):
+def tf_keras_random_data_run(random_train_data, random_one_hot_labels, manual_run, initial_epoch):
     # pylint: disable=unused-argument
-    mlflow.tensorflow.autolog(every_n_iter=5)
+    mlflow.tensorflow.autolog()
 
     data = random_train_data
     labels = random_one_hot_labels
 
     model = create_tf_keras_model()
-
-    if fit_variant == "fit_generator":
-
-        def generator():
-            while True:
-                yield data, labels
-
-        history = model.fit_generator(
-            generator(), epochs=initial_epoch + 10, steps_per_epoch=1, initial_epoch=initial_epoch
-        )
-    else:
-        history = model.fit(
-            data, labels, epochs=initial_epoch + 10, steps_per_epoch=1, initial_epoch=initial_epoch
-        )
+    history = model.fit(
+        data, labels, epochs=initial_epoch + 10, steps_per_epoch=1, initial_epoch=initial_epoch
+    )
 
     client = mlflow.tracking.MlflowClient()
     return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id), history
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 @pytest.mark.parametrize("initial_epoch", [0, 10])
 def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     run, history = tf_keras_random_data_run
@@ -198,10 +185,30 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     assert data.params["opt_amsgrad"] == "False"
     client = mlflow.tracking.MlflowClient()
     all_epoch_acc = client.get_metric_history(run.info.run_id, "accuracy")
-    assert all(x.step % 5 == 0 for x in all_epoch_acc)
+    num_of_epochs = len(history.history["loss"])
+    assert len(all_epoch_acc) == num_of_epochs == 10
     artifacts = client.list_artifacts(run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert "model_summary.txt" in artifacts
+
+
+@pytest.mark.large
+def test_tf_keras_autolog_records_metrics_for_last_epoch(random_train_data, random_one_hot_labels):
+    every_n_iter = 5
+    num_training_epochs = 17
+    mlflow.tensorflow.autolog(every_n_iter=every_n_iter)
+
+    model = create_tf_keras_model()
+    with mlflow.start_run() as run:
+        model.fit(
+            random_train_data, random_one_hot_labels, epochs=num_training_epochs, initial_epoch=0,
+        )
+
+    client = mlflow.tracking.MlflowClient()
+    run_metrics = client.get_run(run.info.run_id).data.metrics
+    assert "accuracy" in run_metrics
+    all_epoch_acc = client.get_metric_history(run.info.run_id, "accuracy")
+    assert set([metric.step for metric in all_epoch_acc]) == set([0, 5, 10, 15])
 
 
 @pytest.mark.large
@@ -251,7 +258,6 @@ def test_tf_keras_autolog_names_positional_parameters_correctly(
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 @pytest.mark.parametrize("initial_epoch", [0, 10])
 def test_tf_keras_autolog_model_can_load_from_artifact(tf_keras_random_data_run, random_train_data):
     run, _ = tf_keras_random_data_run
@@ -289,6 +295,7 @@ def tf_keras_random_data_run_with_callback(
             patience=patience,
             min_delta=99999999,
             restore_best_weights=restore_weights,
+            verbose=1,
         )
     else:
 
@@ -311,7 +318,7 @@ def tf_keras_random_data_run_with_callback(
 @pytest.mark.parametrize("callback", ["early"])
 @pytest.mark.parametrize("patience", [0, 1, 5])
 @pytest.mark.parametrize("initial_epoch", [0, 10])
-def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback):
+def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback, initial_epoch):
     run, history, callback = tf_keras_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params
@@ -324,17 +331,20 @@ def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback
     assert "stopped_epoch" in metrics
     assert "restored_epoch" in metrics
     restored_epoch = int(metrics["restored_epoch"])
-    assert int(metrics["stopped_epoch"]) - max(1, callback.patience) == restored_epoch
+    # In this test, the best epoch is always the first epoch because the early stopping callback
+    # never observes a loss improvement due to an extremely large `min_delta` value
+    assert restored_epoch == initial_epoch
     assert "loss" in history.history
-    num_of_epochs = len(history.history["loss"])
     client = mlflow.tracking.MlflowClient()
     metric_history = client.get_metric_history(run.info.run_id, "loss")
-    # Check the test epoch numbers are correct
-    assert num_of_epochs == max(1, callback.patience) + 1
-    # Check that MLflow has logged the metrics of the "best" model
-    assert len(metric_history) == num_of_epochs + 1
-    # Check that MLflow has logged the correct data
-    assert history.history["loss"][history.epoch.index(restored_epoch)] == metric_history[-1].value
+    # Check that MLflow has logged the metrics of the "best" model, in addition to per-epoch metrics
+    loss = history.history["loss"]
+    assert len(metric_history) == len(loss) + 1
+    steps, values = map(list, zip(*[(m.step, m.value) for m in metric_history]))
+    # Check that MLflow has logged the correct steps
+    assert steps == [*history.epoch, callback.stopped_epoch + 1]
+    # Check that MLflow has logged the correct metric values
+    np.testing.assert_allclose(values, [*loss, callback.best])
 
 
 @pytest.mark.large
@@ -376,7 +386,7 @@ def test_tf_keras_autolog_batch_metrics_logger_logs_expected_metrics(
         assert metric_name in patched_metrics_data
 
     restored_epoch = int(patched_metrics_data["restored_epoch"])
-    assert int(patched_metrics_data["stopped_epoch"]) - max(1, callback.patience) == restored_epoch
+    assert restored_epoch == initial_epoch
 
 
 @pytest.mark.large
@@ -394,8 +404,7 @@ def test_tf_keras_autolog_early_stop_no_stop_does_not_log(tf_keras_random_data_r
     assert params["monitor"] == "loss"
     assert "verbose" not in params
     assert "mode" not in params
-    assert "stopped_epoch" in metrics
-    assert metrics["stopped_epoch"] == 0
+    assert "stopped_epoch" not in metrics
     assert "restored_epoch" not in metrics
     assert "loss" in history.history
     num_of_epochs = len(history.history["loss"])
@@ -456,10 +465,37 @@ def test_tf_keras_autolog_non_early_stop_callback_no_log(tf_keras_random_data_ru
     assert len(metric_history) == num_of_epochs
 
 
+@pytest.mark.parametrize("positional", [True, False])
+def test_tf_keras_autolog_does_not_mutate_original_callbacks_list(
+    tmpdir, random_train_data, random_one_hot_labels, positional
+):
+    """
+    TensorFlow autologging passes new callbacks to the `fit()` / `fit_generator()` function. If
+    preexisting user-defined callbacks already exist, these new callbacks are added to the
+    user-specified ones. This test verifies that the new callbacks are added to the without
+    permanently mutating the original list of callbacks.
+    """
+    mlflow.tensorflow.autolog()
+
+    tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=tmpdir)
+    callbacks = [tensorboard_callback]
+
+    model = create_tf_keras_model()
+    data = random_train_data
+    labels = random_one_hot_labels
+
+    if positional:
+        model.fit(data, labels, None, 10, 1, callbacks)
+    else:
+        model.fit(data, labels, epochs=10, callbacks=callbacks)
+
+    assert len(callbacks) == 1
+    assert callbacks == [tensorboard_callback]
+
+
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 def test_tf_keras_autolog_does_not_delete_logging_directory_for_tensorboard_callback(
-    tmpdir, random_train_data, random_one_hot_labels, fit_variant
+    tmpdir, random_train_data, random_one_hot_labels
 ):
     tensorboard_callback_logging_dir_path = str(tmpdir.mkdir("tb_logs"))
     tensorboard_callback = tf.keras.callbacks.TensorBoard(
@@ -472,26 +508,14 @@ def test_tf_keras_autolog_does_not_delete_logging_directory_for_tensorboard_call
     labels = random_one_hot_labels
 
     model = create_tf_keras_model()
-
-    if fit_variant == "fit_generator":
-
-        def generator():
-            while True:
-                yield data, labels
-
-        model.fit_generator(
-            generator(), epochs=10, steps_per_epoch=1, callbacks=[tensorboard_callback]
-        )
-    else:
-        model.fit(data, labels, epochs=10, callbacks=[tensorboard_callback])
+    model.fit(data, labels, epochs=10, callbacks=[tensorboard_callback])
 
     assert os.path.exists(tensorboard_callback_logging_dir_path)
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboard_callback_absent(
-    tmpdir, random_train_data, random_one_hot_labels, fit_variant
+    tmpdir, random_train_data, random_one_hot_labels
 ):
     from unittest import mock
     from mlflow.tensorflow import _TensorBoardLogDir
@@ -506,21 +530,12 @@ def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboa
         labels = random_one_hot_labels
 
         model = create_tf_keras_model()
-
-        if fit_variant == "fit_generator":
-
-            def generator():
-                while True:
-                    yield data, labels
-
-            model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
-        else:
-            model.fit(data, labels, epochs=10)
+        model.fit(data, labels, epochs=10)
 
         assert not os.path.exists(mock_log_dir_inst.location)
 
 
-def create_tf_estimator_model(directory, export, training_steps=500):
+def create_tf_estimator_model(directory, export, training_steps=100, use_v1_estimator=False):
     CSV_COLUMN_NAMES = ["SepalLength", "SepalWidth", "PetalLength", "PetalWidth", "Species"]
 
     train = pd.read_csv(
@@ -551,14 +566,35 @@ def create_tf_estimator_model(directory, export, training_steps=500):
         feature_spec[feature] = tf.Variable([], dtype=tf.float64, name=feature)
 
     receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
-    classifier = tf.estimator.DNNClassifier(
-        feature_columns=my_feature_columns,
-        # Two hidden layers of 10 nodes each.
-        hidden_units=[30, 10],
-        # The model must choose between 3 classes.
-        n_classes=3,
-        model_dir=directory,
+
+    run_config = tf.estimator.RunConfig(
+        # Emit loss metrics to TensorBoard every step
+        save_summary_steps=1,
     )
+
+    # If flag set to true, then use the v1 classifier that extends Estimator
+    # If flag set to false, then use the v2 classifier that extends EstimatorV2
+    if use_v1_estimator:
+        classifier = tf.compat.v1.estimator.DNNClassifier(
+            feature_columns=my_feature_columns,
+            # Two hidden layers of 10 nodes each.
+            hidden_units=[30, 10],
+            # The model must choose between 3 classes.
+            n_classes=3,
+            model_dir=directory,
+            config=run_config,
+        )
+    else:
+        classifier = tf.estimator.DNNClassifier(
+            feature_columns=my_feature_columns,
+            # Two hidden layers of 10 nodes each.
+            hidden_units=[30, 10],
+            # The model must choose between 3 classes.
+            n_classes=3,
+            model_dir=directory,
+            config=run_config,
+        )
+
     classifier.train(input_fn=lambda: input_fn(train, train_y, training=True), steps=training_steps)
     if export:
         classifier.export_saved_model(directory, receiver_fn)
@@ -595,12 +631,47 @@ def tf_estimator_random_data_run(tmpdir, manual_run, export):
 
 @pytest.mark.large
 @pytest.mark.parametrize("export", [True, False])
-def test_tf_estimator_autolog_logs_metrics(tf_estimator_random_data_run):
-    assert "loss" in tf_estimator_random_data_run.data.metrics
-    assert "steps" in tf_estimator_random_data_run.data.params
+@pytest.mark.parametrize("use_v1_estimator", [True, False])
+def test_tf_estimator_autolog_logs_metrics(tmpdir, export, use_v1_estimator):
+    directory = tmpdir.mkdir("test")
+    mlflow.tensorflow.autolog(every_n_iter=5)
+
+    with mlflow.start_run():
+        create_tf_estimator_model(
+            str(directory), export, use_v1_estimator=use_v1_estimator, training_steps=17
+        )
+        run_id = mlflow.active_run().info.run_id
+
     client = mlflow.tracking.MlflowClient()
-    metrics = client.get_metric_history(tf_estimator_random_data_run.info.run_id, "loss")
-    assert all((x.step - 1) % 100 == 0 for x in metrics)
+    run = client.get_run(run_id)
+
+    assert "loss" in run.data.metrics
+    assert "steps" in run.data.params
+    metrics = client.get_metric_history(run_id, "loss")
+    assert set([metric.step for metric in metrics]) == set([1, 6, 11, 16])
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("export", [True])
+def test_tf_estimator_v1_autolog_can_load_from_artifact(tmpdir, export):
+    directory = tmpdir.mkdir("test")
+    mlflow.tensorflow.autolog()
+
+    create_tf_estimator_model(str(directory), export, use_v1_estimator=True)
+    client = mlflow.tracking.MlflowClient()
+    tf_estimator_v1_run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
+    artifacts = client.list_artifacts(tf_estimator_v1_run.info.run_id)
+    artifacts = map(lambda x: x.path, artifacts)
+    assert "model" in artifacts
+    mlflow.tensorflow.load_model("runs:/" + tf_estimator_v1_run.info.run_id + "/model")
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("export", [True, False])
+def test_tf_estimator_autolog_logs_tensorboard_logs(tf_estimator_random_data_run):
+    client = mlflow.tracking.MlflowClient()
+    artifacts = client.list_artifacts(tf_estimator_random_data_run.info.run_id)
+    assert any(["tensorboard_logs" in a.path and a.is_dir for a in artifacts])
 
 
 @pytest.mark.large
@@ -614,7 +685,7 @@ def test_tf_estimator_autolog_logs_metrics_in_exclusive_mode(tmpdir):
     assert "loss" in tf_estimator_run.data.metrics
     assert "steps" in tf_estimator_run.data.params
     metrics = client.get_metric_history(tf_estimator_run.info.run_id, "loss")
-    assert all((x.step - 1) % 100 == 0 for x in metrics)
+    assert len(metrics) == 100
 
 
 @pytest.mark.large
@@ -646,14 +717,6 @@ def test_tf_estimator_autolog_model_can_load_from_artifact(tf_estimator_random_d
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("export", [True, False])
-def test_duplicate_autolog_second_overrides(tf_estimator_random_data_run):
-    client = mlflow.tracking.MlflowClient()
-    metrics = client.get_metric_history(tf_estimator_random_data_run.info.run_id, "loss")
-    assert all((x.step - 1) % 4 == 0 for x in metrics)
-
-
-@pytest.mark.large
 def test_flush_queue_is_thread_safe():
     """
     Autologging augments TensorBoard event logging hooks with MLflow `log_metric` API
@@ -665,7 +728,9 @@ def test_flush_queue_is_thread_safe():
     from mlflow.entities import Metric
     from mlflow.tensorflow import _flush_queue, _metric_queue_lock
 
-    metric_queue_item = ("run_id1", Metric("foo", "bar", 100, 1))
+    client = mlflow.tracking.MlflowClient()
+    run = client.create_run(experiment_id="0")
+    metric_queue_item = (run.info.run_id, Metric("foo", 0.1, 100, 1))
     mlflow.tensorflow._metric_queue.append(metric_queue_item)
 
     # Verify that, if another thread holds a lock on the metric queue leveraged by
@@ -684,3 +749,178 @@ def test_flush_queue_is_thread_safe():
     flush_thread2.start()
     flush_thread2.join()
     assert len(mlflow.tensorflow._metric_queue) == 0
+
+
+def get_text_vec_model(train_samples):
+    # Taken from: https://github.com/mlflow/mlflow/issues/3910
+
+    # pylint: disable=no-name-in-module
+    from tensorflow.keras.layers.experimental.preprocessing import TextVectorization
+
+    VOCAB_SIZE = 10
+    SEQUENCE_LENGTH = 16
+    EMBEDDING_DIM = 16
+
+    vectorizer_layer = TextVectorization(
+        input_shape=(1,),
+        max_tokens=VOCAB_SIZE,
+        output_mode="int",
+        output_sequence_length=SEQUENCE_LENGTH,
+    )
+    vectorizer_layer.adapt(train_samples)
+    model = tf.keras.Sequential(
+        [
+            vectorizer_layer,
+            tf.keras.layers.Embedding(
+                VOCAB_SIZE, EMBEDDING_DIM, name="embedding", mask_zero=True, input_shape=(1,),
+            ),
+            tf.keras.layers.GlobalAveragePooling1D(),
+            tf.keras.layers.Dense(16, activation="relu"),
+            tf.keras.layers.Dense(1, activation="tanh"),
+        ]
+    )
+    model.compile(optimizer="adam", loss="mse", metrics="mae")
+    return model
+
+
+@pytest.mark.skipif(
+    Version(tf.__version__) < Version("2.3.0"),
+    reason=(
+        "Deserializing a model with `TextVectorization` and `Embedding`"
+        "fails in tensorflow < 2.3.0. See this issue:"
+        "https://github.com/tensorflow/tensorflow/issues/38250"
+    ),
+)
+def test_autolog_text_vec_model(tmpdir):
+    """
+    Verifies autolog successfully saves a model that can't be saved in the H5 format
+    """
+    mlflow.tensorflow.autolog()
+
+    train_samples = np.array(["this is an example", "another example"])
+    train_labels = np.array([0.4, 0.2])
+    model = get_text_vec_model(train_samples)
+
+    # Saving in the H5 format should fail
+    with pytest.raises(NotImplementedError, match="is not supported in h5"):
+        model.save(tmpdir.join("model.h5").strpath, save_format="h5")
+
+    with mlflow.start_run() as run:
+        model.fit(train_samples, train_labels, epochs=1)
+
+    loaded_model = mlflow.keras.load_model("runs:/" + run.info.run_id + "/model")
+    np.testing.assert_array_equal(loaded_model.predict(train_samples), model.predict(train_samples))
+
+
+def test_fit_generator(random_train_data, random_one_hot_labels):
+    mlflow.tensorflow.autolog()
+    model = create_tf_keras_model()
+
+    def generator():
+        while True:
+            yield random_train_data, random_one_hot_labels
+
+    with mlflow.start_run() as run:
+        model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
+
+    run = mlflow.tracking.MlflowClient().get_run(run.info.run_id)
+    params = run.data.params
+    metrics = run.data.metrics
+    assert "epochs" in params
+    assert params["epochs"] == "10"
+    assert "steps_per_epoch" in params
+    assert params["steps_per_epoch"] == "1"
+    assert "accuracy" in metrics
+    assert "loss" in metrics
+
+
+@pytest.mark.large
+@pytest.mark.usefixtures("clear_tf_keras_imports")
+def test_fluent_autolog_with_tf_keras_logs_expected_content(
+    random_train_data, random_one_hot_labels
+):
+    """
+    Guards against previously-exhibited issues where using the fluent `mlflow.autolog()` API with
+    `tf.keras` Models did not work due to conflicting patches set by both the
+    `mlflow.tensorflow.autolog()` and the `mlflow.keras.autolog()` APIs.
+    """
+    mlflow.autolog()
+
+    model = create_tf_keras_model()
+
+    with mlflow.start_run() as run:
+        model.fit(random_train_data, random_one_hot_labels, epochs=10)
+
+    client = mlflow.tracking.MlflowClient()
+    run_data = client.get_run(run.info.run_id).data
+    assert "accuracy" in run_data.metrics
+    assert "epochs" in run_data.params
+
+    artifacts = client.list_artifacts(run.info.run_id)
+    artifacts = map(lambda x: x.path, artifacts)
+    assert "model" in artifacts
+
+
+@pytest.mark.large
+@pytest.mark.skipif(
+    Version(tf.__version__) < Version("2.6.0"),
+    reason=("TensorFlow only has a hard dependency on Keras in version >= 2.6.0"),
+)
+@pytest.mark.usefixtures("clear_tf_keras_imports")
+def test_fluent_autolog_with_tf_keras_preserves_v2_model_reference():
+    """
+    Verifies that, in TensorFlow >= 2.6.0, `tensorflow.keras.Model` refers to the correct class in
+    the correct module after `mlflow.autolog()` is called, guarding against previously identified
+    compatibility issues between recent versions of TensorFlow and MLflow's internal utility for
+    setting up autologging import hooks.
+    """
+    mlflow.autolog()
+
+    import tensorflow.keras
+    from keras.api._v2.keras import Model as ModelV2
+
+    assert tensorflow.keras.Model is ModelV2
+
+
+@pytest.mark.usefixtures("clear_tf_keras_imports")
+def test_import_tensorflow_with_fluent_autolog_enables_tf_autologging():
+    mlflow.autolog()
+
+    import tensorflow  # pylint: disable=unused-variable,unused-import,reimported
+
+    assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
+
+    # NB: For backwards compatibility, fluent autologging enables TensorFlow and
+    # Keras autologging upon tensorflow import in TensorFlow 2.5.1
+    if Version(tf.__version__) != Version("2.5.1"):
+        assert autologging_is_disabled(mlflow.keras.FLAVOR_NAME)
+
+
+@pytest.mark.large
+@pytest.mark.usefixtures("clear_tf_keras_imports")
+def test_import_tf_keras_with_fluent_autolog_enables_tf_autologging():
+    mlflow.autolog()
+
+    import tensorflow.keras  # pylint: disable=unused-variable,unused-import
+
+    assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
+
+    # NB: For backwards compatibility, fluent autologging enables TensorFlow and
+    # Keras autologging upon tf.keras import in TensorFlow 2.5.1
+    if Version(tf.__version__) != Version("2.5.1"):
+        assert autologging_is_disabled(mlflow.keras.FLAVOR_NAME)
+
+
+@pytest.mark.large
+@pytest.mark.skipif(
+    Version(tf.__version__) < Version("2.6.0"),
+    reason=("TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0"),
+)
+@pytest.mark.usefixtures("clear_tf_keras_imports")
+def test_import_keras_with_fluent_autolog_enables_tensorflow_autologging():
+    mlflow.autolog()
+
+    import keras  # pylint: disable=unused-variable,unused-import
+
+    assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
+    assert autologging_is_disabled(mlflow.keras.FLAVOR_NAME)

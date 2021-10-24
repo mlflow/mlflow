@@ -496,3 +496,173 @@ def test_update_endpoint_with_nonexistent_config_throws_exception(sagemaker_clie
         sagemaker_client.update_endpoint(
             EndpointName=endpoint_name, EndpointConfigName="nonexistent-config"
         )
+
+
+@mock_sagemaker
+def test_created_transform_job_is_listed_by_list_transform_jobs_function(sagemaker_client):
+    model_name = "sample-model"
+    create_sagemaker_model(sagemaker_client=sagemaker_client, model_name=model_name)
+
+    transform_input = {
+        "DataSource": {"S3DataSource": {"S3DataType": "Some Data Type", "S3Uri": "Some Input Uri"}}
+    }
+
+    transform_output = {"S3OutputPath": "Some Output Path"}
+
+    transform_resources = {"InstanceType": "Some Instance Type", "InstanceCount": 1}
+
+    job_name = "sample-job"
+
+    sagemaker_client.create_transform_job(
+        TransformJobName=job_name,
+        ModelName=model_name,
+        TransformInput=transform_input,
+        TransformOutput=transform_output,
+        TransformResources=transform_resources,
+        Tags=[{"Key": "Some Key", "Value": "Some Value"}],
+    )
+
+    transform_jobs_response = sagemaker_client.list_transform_jobs()
+    assert "TransformJobSummaries" in transform_jobs_response
+    transform_jobs = transform_jobs_response["TransformJobSummaries"]
+    assert all(["TransformJobName" in transform_job for transform_job in transform_jobs])
+    assert job_name in [transform_job["TransformJobName"] for transform_job in transform_jobs]
+
+
+@mock_sagemaker
+def test_create_transform_job_returns_arn_containing_transform_job_name(sagemaker_client):
+    model_name = "sample-model"
+    create_sagemaker_model(sagemaker_client=sagemaker_client, model_name=model_name)
+
+    transform_input = {
+        "DataSource": {"S3DataSource": {"S3DataType": "Some Data Type", "S3Uri": "Some Input Uri"}}
+    }
+
+    transform_output = {"S3OutputPath": "Some Output Path"}
+
+    transform_resources = {"InstanceType": "Some Instance Type", "InstanceCount": 1}
+
+    job_name = "sample-job"
+
+    create_transform_job_response = sagemaker_client.create_transform_job(
+        TransformJobName=job_name,
+        ModelName=model_name,
+        TransformInput=transform_input,
+        TransformOutput=transform_output,
+        TransformResources=transform_resources,
+        Tags=[{"Key": "Some Key", "Value": "Some Value"}],
+    )
+
+    assert "TransformJobArn" in create_transform_job_response
+    assert job_name in create_transform_job_response["TransformJobArn"]
+
+
+@mock_sagemaker
+def test_creating_transform_job_with_name_already_in_use_raises_exception(sagemaker_client):
+    model_name = "sample-model"
+    create_sagemaker_model(sagemaker_client=sagemaker_client, model_name=model_name)
+
+    transform_input = {
+        "DataSource": {"S3DataSource": {"S3DataType": "Some Data Type", "S3Uri": "Some Input Uri"}}
+    }
+
+    transform_output = {"S3OutputPath": "Some Output Path"}
+
+    transform_resources = {"InstanceType": "Some Instance Type", "InstanceCount": 1}
+
+    job_name = "sample-job"
+
+    sagemaker_client.create_transform_job(
+        TransformJobName=job_name,
+        ModelName=model_name,
+        TransformInput=transform_input,
+        TransformOutput=transform_output,
+        TransformResources=transform_resources,
+        Tags=[{"Key": "Some Key", "Value": "Some Value"}],
+    )
+
+    with pytest.raises(ValueError):
+        sagemaker_client.create_transform_job(
+            TransformJobName=job_name,
+            ModelName=model_name,
+            TransformInput=transform_input,
+            TransformOutput=transform_output,
+            TransformResources=transform_resources,
+            Tags=[{"Key": "Some Key", "Value": "Some Value"}],
+        )
+
+
+@mock_sagemaker
+def test_all_transform_jobs_are_listed_after_creating_many_transform_jobs(sagemaker_client):
+    model_name = "sample-model"
+    create_sagemaker_model(sagemaker_client=sagemaker_client, model_name=model_name)
+
+    transform_input = {
+        "DataSource": {"S3DataSource": {"S3DataType": "Some Data Type", "S3Uri": "Some Input Uri"}}
+    }
+
+    transform_output = {"S3OutputPath": "Some Output Path"}
+
+    transform_resources = {"InstanceType": "Some Instance Type", "InstanceCount": 1}
+
+    job_names = []
+
+    for i in range(100):
+        job_name = "sample-job-{idx}".format(idx=i)
+        job_names.append(job_name)
+
+        sagemaker_client.create_transform_job(
+            TransformJobName=job_name,
+            ModelName=model_name,
+            TransformInput=transform_input,
+            TransformOutput=transform_output,
+            TransformResources=transform_resources,
+            Tags=[{"Key": "Some Key", "Value": "Some Value"}],
+        )
+
+    listed_transform_jobs = sagemaker_client.list_transform_jobs()["TransformJobSummaries"]
+    listed_transform_job_names = [
+        transform_job["TransformJobName"] for transform_job in listed_transform_jobs
+    ]
+    for job_name in job_names:
+        assert job_name in listed_transform_job_names
+
+
+@mock_sagemaker
+def test_describe_transform_job_response_contains_expected_attributes(sagemaker_client):
+    model_name = "sample-model"
+    create_sagemaker_model(sagemaker_client=sagemaker_client, model_name=model_name)
+
+    transform_input = {
+        "DataSource": {"S3DataSource": {"S3DataType": "Some Data Type", "S3Uri": "Some Input Uri"}}
+    }
+
+    transform_output = {"S3OutputPath": "Some Output Path"}
+
+    transform_resources = {"InstanceType": "Some Instance Type", "InstanceCount": 1}
+
+    job_name = "sample-job"
+
+    sagemaker_client.create_transform_job(
+        TransformJobName=job_name,
+        ModelName=model_name,
+        TransformInput=transform_input,
+        TransformOutput=transform_output,
+        TransformResources=transform_resources,
+        Tags=[{"Key": "Some Key", "Value": "Some Value"}],
+    )
+
+    describe_transform_job_response = sagemaker_client.describe_transform_job(
+        TransformJobName=job_name
+    )
+    assert "TransformJobName" in describe_transform_job_response
+    assert "CreationTime" in describe_transform_job_response
+    assert "TransformJobArn" in describe_transform_job_response
+    assert "TransformJobStatus" in describe_transform_job_response
+    assert "ModelName" in describe_transform_job_response
+
+
+@mock_sagemaker
+def test_describe_transform_job_throws_exception_for_nonexistent_transform_job(sagemaker_client):
+    with pytest.raises(ValueError):
+        sagemaker_client.describe_transform_job(TransformJobName="nonexistent-job")

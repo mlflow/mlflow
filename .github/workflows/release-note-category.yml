@@ -8,7 +8,16 @@ on:
       - opened
       - synchronize
       - reopened
-      - edited
+      - labeled
+      - unlabeled
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   validate:
@@ -24,4 +33,4 @@ jobs:
             const script = require(
               `${process.env.GITHUB_WORKSPACE}/.github/workflows/release-note-category.js`
             );
-            script({ core, context });
+            script({ core, context, github });

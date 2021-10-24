@@ -1,14 +1,13 @@
 import os
 import pytest
 import yaml
-import json
 from collections import namedtuple
 from unittest import mock
 
 import numpy as np
 import pandas as pd
-import pandas.testing
 import sklearn.datasets as datasets
+from sklearn.pipeline import Pipeline
 import lightgbm as lgb
 
 import mlflow.lightgbm
@@ -26,7 +25,14 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
-from tests.helper_functions import score_model_in_sagemaker_docker_container
+from tests.helper_functions import (
+    pyfunc_serve_and_score_model,
+    _compare_conda_env_requirements,
+    _assert_pip_requirements,
+    _is_available_on_pypi,
+)
+
+EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("lightgbm") else ["--no-conda"]
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
 
@@ -133,7 +139,6 @@ def test_model_log(lgb_model, model_path):
                 model_uri = "runs:/{run_id}/{artifact_path}".format(
                     run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
                 )
-
                 reloaded_model = mlflow.lightgbm.load_model(model_uri=model_uri)
                 np.testing.assert_array_almost_equal(
                     model.predict(lgb_model.inference_dataframe),
@@ -203,6 +208,79 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
 
 
 @pytest.mark.large
+def test_model_save_persists_requirements_in_mlflow_model_directory(
+    lgb_model, model_path, lgb_custom_env
+):
+    mlflow.lightgbm.save_model(lgb_model=lgb_model.model, path=model_path, conda_env=lgb_custom_env)
+
+    saved_pip_req_path = os.path.join(model_path, "requirements.txt")
+    _compare_conda_env_requirements(lgb_custom_env, saved_pip_req_path)
+
+
+@pytest.mark.large
+def test_log_model_with_pip_requirements(lgb_model, tmpdir):
+    # Path to a requirements file
+    req_file = tmpdir.join("requirements.txt")
+    req_file.write("a")
+    with mlflow.start_run():
+        mlflow.lightgbm.log_model(lgb_model.model, "model", pip_requirements=req_file.strpath)
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"], strict=True)
+
+    # List of requirements
+    with mlflow.start_run():
+        mlflow.lightgbm.log_model(
+            lgb_model.model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"]
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"], strict=True
+        )
+
+    # Constraints file
+    with mlflow.start_run():
+        mlflow.lightgbm.log_model(
+            lgb_model.model, "model", pip_requirements=[f"-c {req_file.strpath}", "b"]
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"),
+            ["mlflow", "b", "-c constraints.txt"],
+            ["a"],
+            strict=True,
+        )
+
+
+@pytest.mark.large
+def test_log_model_with_extra_pip_requirements(lgb_model, tmpdir):
+    default_reqs = mlflow.lightgbm.get_default_pip_requirements()
+
+    # Path to a requirements file
+    req_file = tmpdir.join("requirements.txt")
+    req_file.write("a")
+    with mlflow.start_run():
+        mlflow.lightgbm.log_model(lgb_model.model, "model", extra_pip_requirements=req_file.strpath)
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a"])
+
+    # List of requirements
+    with mlflow.start_run():
+        mlflow.lightgbm.log_model(
+            lgb_model.model, "model", extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a", "b"]
+        )
+
+    # Constraints file
+    with mlflow.start_run():
+        mlflow.lightgbm.log_model(
+            lgb_model.model, "model", extra_pip_requirements=[f"-c {req_file.strpath}", "b"]
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"),
+            ["mlflow", *default_reqs, "b", "-c constraints.txt"],
+            ["a"],
+        )
+
+
+@pytest.mark.large
 def test_model_save_accepts_conda_env_as_dict(lgb_model, model_path):
     conda_env = dict(mlflow.lightgbm.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
@@ -244,17 +322,27 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
 
 
 @pytest.mark.large
+def test_model_log_persists_requirements_in_mlflow_model_directory(lgb_model, lgb_custom_env):
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.lightgbm.log_model(
+            lgb_model=lgb_model.model, artifact_path=artifact_path, conda_env=lgb_custom_env
+        )
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+        )
+
+    model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    saved_pip_req_path = os.path.join(model_path, "requirements.txt")
+    _compare_conda_env_requirements(lgb_custom_env, saved_pip_req_path)
+
+
+@pytest.mark.large
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     lgb_model, model_path
 ):
-    mlflow.lightgbm.save_model(lgb_model=lgb_model.model, path=model_path, conda_env=None)
-
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
-
-    assert conda_env == mlflow.lightgbm.get_default_conda_env()
+    mlflow.lightgbm.save_model(lgb_model=lgb_model.model, path=model_path)
+    _assert_pip_requirements(model_path, mlflow.lightgbm.get_default_pip_requirements())
 
 
 @pytest.mark.large
@@ -263,38 +351,50 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.lightgbm.log_model(
-            lgb_model=lgb_model.model, artifact_path=artifact_path, conda_env=None
-        )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        mlflow.lightgbm.log_model(lgb_model.model, artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
-
-    assert conda_env == mlflow.lightgbm.get_default_conda_env()
+    _assert_pip_requirements(model_uri, mlflow.lightgbm.get_default_pip_requirements())
 
 
-@pytest.mark.release
-def test_sagemaker_docker_model_scoring_with_default_conda_env(lgb_model, model_path):
-    mlflow.lightgbm.save_model(lgb_model=lgb_model.model, path=model_path, conda_env=None)
-    reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+@pytest.mark.large
+def test_pyfunc_serve_and_score(lgb_model):
+    model, inference_dataframe = lgb_model
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.lightgbm.log_model(model, artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    scoring_response = score_model_in_sagemaker_docker_container(
-        model_uri=model_path,
-        data=lgb_model.inference_dataframe,
+    resp = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_dataframe,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        flavor=mlflow.pyfunc.FLAVOR_NAME,
+        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+    scores = pd.read_json(resp.content, orient="records").values.squeeze()
+    np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe))
 
-    pandas.testing.assert_frame_equal(
-        deployed_model_preds,
-        pd.DataFrame(reloaded_pyfunc.predict(lgb_model.inference_dataframe)),
-        check_dtype=False,
-        check_less_precise=6,
+
+def get_sklearn_models():
+    model = lgb.LGBMClassifier(n_estimators=10)
+    pipe = Pipeline([("model", model)])
+    return [model, pipe]
+
+
+@pytest.mark.parametrize("model", get_sklearn_models())
+def test_pyfunc_serve_and_score_sklearn(model):
+    X, y = datasets.load_iris(return_X_y=True, as_frame=True)
+    model.fit(X, y)
+
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(model, artifact_path="model")
+        model_uri = mlflow.get_artifact_uri("model")
+
+    resp = pyfunc_serve_and_score_model(
+        model_uri,
+        X.head(3),
+        pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
+    scores = pd.read_json(resp.content, orient="records").values.squeeze()
+    np.testing.assert_array_equal(scores, model.predict(X.head(3)))

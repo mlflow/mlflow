@@ -258,8 +258,9 @@ def _not_implemented():
 @catch_mlflow_exception
 def _create_experiment():
     request_message = _get_request_message(CreateExperiment())
+    tags = [ExperimentTag(tag.key, tag.value) for tag in request_message.tags]
     experiment_id = _get_tracking_store().create_experiment(
-        request_message.name, request_message.artifact_location
+        request_message.name, request_message.artifact_location, tags
     )
     response_message = CreateExperiment.Response()
     response_message.experiment_id = experiment_id
@@ -507,9 +508,15 @@ def _get_metric_history():
 @catch_mlflow_exception
 def _list_experiments():
     request_message = _get_request_message(ListExperiments())
-    experiment_entities = _get_tracking_store().list_experiments(request_message.view_type)
+    # `ListFields` returns a list of (FieldDescriptor, value) tuples for *present* fields:
+    # https://googleapis.dev/python/protobuf/latest/google/protobuf/message.html
+    # #google.protobuf.message.Message.ListFields
+    params = {field.name: val for field, val in request_message.ListFields()}
+    experiment_entities = _get_tracking_store().list_experiments(**params)
     response_message = ListExperiments.Response()
     response_message.experiments.extend([e.to_proto() for e in experiment_entities])
+    if experiment_entities.token:
+        response_message.next_page_token = experiment_entities.token
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response

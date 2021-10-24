@@ -4,15 +4,14 @@ import PropTypes from 'prop-types';
 import ExperimentViewUtil from './ExperimentViewUtil';
 import { RunInfo } from '../sdk/MlflowMessages';
 import classNames from 'classnames';
-import { Dropdown, MenuItem } from 'react-bootstrap';
-import ExperimentRunsSortToggle from './ExperimentRunsSortToggle';
+import { Dropdown, Menu } from 'antd';
 import BaggedCell from './BaggedCell';
 import { CellMeasurer, CellMeasurerCache, AutoSizer, Column, Table } from 'react-virtualized';
 import _ from 'lodash';
 import { LoadMoreBar } from './LoadMoreBar';
 
 import 'react-virtualized/styles.css';
-import { ColumnTypes } from '../constants';
+import { COLUMN_TYPES } from '../constants';
 
 export const NUM_RUN_METADATA_COLS = 10;
 const TABLE_HEADER_HEIGHT = 40;
@@ -155,14 +154,14 @@ export class ExperimentRunsTableCompactView extends React.Component {
         'div',
       ),
     ];
-    const excludedTagsSet = new Set(categorizedUncheckedKeys[ColumnTypes.TAGS]);
+    const excludedTagsSet = new Set(categorizedUncheckedKeys[COLUMN_TYPES.TAGS]);
     ExperimentViewUtil.getRunInfoCellsForRow(
       runInfo,
       _.pickBy(tagsList[idx], (t) => !excludedTagsSet.has(t.key)),
       isParent,
       'div',
       this.handleCellToggle,
-      categorizedUncheckedKeys[ColumnTypes.ATTRIBUTES],
+      categorizedUncheckedKeys[COLUMN_TYPES.ATTRIBUTES],
     ).forEach((col) => rowContents.push(col));
     rowContents.push(
       ExperimentViewUtil.getLinkedModelCell(modelVersionInfo, this.handleCellToggle),
@@ -294,9 +293,31 @@ export class ExperimentRunsTableCompactView extends React.Component {
       const keyContainerWidth = sortIcon ? 'calc(100% - 20px)' : '100%';
       return (
         <div key={elemKey} className={className} style={styles.unbaggedMetricParamColHeader}>
-          <Dropdown id='dropdown-custom-1' style={{ width: '100%' }}>
-            <ExperimentRunsSortToggle bsRole='toggle' className='metric-param-sort-toggle'>
+          <Dropdown
+            trigger={['click']}
+            overlay={
+              <Menu className='mlflow-menu'>
+                <Menu.Item
+                  className='mlflow-menu-item'
+                  onClick={() => onSortBy(canonicalKey, true)}
+                >
+                  Sort ascending
+                </Menu.Item>
+                <Menu.Item
+                  className='mlflow-menu-item'
+                  onClick={() => onSortBy(canonicalKey, false)}
+                >
+                  Sort descending
+                </Menu.Item>
+                <Menu.Item className='mlflow-menu-item' onClick={() => onAddBagged(isParam, key)}>
+                  Collapse column
+                </Menu.Item>
+              </Menu>
+            }
+          >
+            <span>
               <span
+                className='metric-param-sort-toggle'
                 style={{
                   maxWidth: keyContainerWidth,
                   ...styles.metricParamNameContainer,
@@ -305,18 +326,7 @@ export class ExperimentRunsTableCompactView extends React.Component {
                 {key}
               </span>
               <span style={ExperimentViewUtil.styles.sortIconContainer}>{sortIcon}</span>
-            </ExperimentRunsSortToggle>
-            <Dropdown.Menu className='mlflow-menu'>
-              <MenuItem className='mlflow-menu-item' onClick={() => onSortBy(canonicalKey, true)}>
-                Sort ascending
-              </MenuItem>
-              <MenuItem className='mlflow-menu-item' onClick={() => onSortBy(canonicalKey, false)}>
-                Sort descending
-              </MenuItem>
-              <MenuItem className='mlflow-menu-item' onClick={() => onAddBagged(isParam, key)}>
-                Collapse column
-              </MenuItem>
-            </Dropdown.Menu>
+            </span>
           </Dropdown>
         </div>
       );
@@ -403,13 +413,17 @@ export class ExperimentRunsTableCompactView extends React.Component {
       orderByKey,
       orderByAsc,
       'div',
-      categorizedUncheckedKeys[ColumnTypes.ATTRIBUTES],
+      categorizedUncheckedKeys[COLUMN_TYPES.ATTRIBUTES],
     ).forEach((headerCell) => headerCells.push(headerCell));
 
     this.getMetricParamHeaderCells().forEach((cell) => headerCells.push(cell));
     const showLoadMore = this.state.isAtScrollBottom || this.props.loadingMore;
     return (
-      <div id='autosizer-container' className='runs-table-flex-container'>
+      <div
+        id='autosizer-container'
+        className='runs-table-flex-container'
+        data-test-id='compact-runs-table-view'
+      >
         <AutoSizer>
           {({ width, height }) => {
             if (this._lastRenderedWidth !== width) {
@@ -462,7 +476,7 @@ export class ExperimentRunsTableCompactView extends React.Component {
               cellMeasurerProps.rowHeight = 32;
             }
             const numVisibleMetaColumns =
-              NUM_RUN_METADATA_COLS - categorizedUncheckedKeys[ColumnTypes.ATTRIBUTES].length;
+              NUM_RUN_METADATA_COLS - categorizedUncheckedKeys[COLUMN_TYPES.ATTRIBUTES].length;
             return [
               <Table
                 key='table'

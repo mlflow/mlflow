@@ -3,6 +3,7 @@ import os
 import click
 from tabulate import tabulate
 
+import mlflow
 from mlflow.data import is_uri
 from mlflow.entities import ViewType
 from mlflow.tracking import _get_store, fluent
@@ -58,9 +59,8 @@ def list_experiments(view):
     """
     List all experiments in the configured tracking server.
     """
-    store = _get_store()
     view_type = ViewType.from_string(view) if view else ViewType.ACTIVE_ONLY
-    experiments = store.list_experiments(view_type)
+    experiments = mlflow.list_experiments(view_type)
     table = [
         [
             exp.experiment_id,

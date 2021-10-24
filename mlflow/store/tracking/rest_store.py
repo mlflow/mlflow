@@ -26,6 +26,7 @@ from mlflow.protos.service_pb2 import (
     GetExperimentByName,
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     call_endpoint,
@@ -54,18 +55,32 @@ class RestStore(AbstractStore):
         response_proto = api.Response()
         return call_endpoint(self.get_host_creds(), endpoint, method, json_body, response_proto)
 
-    def list_experiments(self, view_type=ViewType.ACTIVE_ONLY):
+    def list_experiments(
+        self, view_type=ViewType.ACTIVE_ONLY, max_results=None, page_token=None,
+    ):
         """
-        :return: a list of all known Experiment objects
+        :param view_type: Qualify requested type of experiments.
+        :param max_results: If passed, specifies the maximum number of experiments desired. If not
+                            passed, the server will pick a maximum number of results to return.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                            a ``list_experiments`` call.
+        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+                 :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
+                 for the next page can be obtained via the ``token`` attribute of the object.
         """
-        req_body = message_to_json(ListExperiments(view_type=view_type))
+        req_body = message_to_json(
+            ListExperiments(view_type=view_type, max_results=max_results, page_token=page_token)
+        )
         response_proto = self._call_endpoint(ListExperiments, req_body)
-        return [
-            Experiment.from_proto(experiment_proto)
-            for experiment_proto in response_proto.experiments
-        ]
+        experiments = [Experiment.from_proto(x) for x in response_proto.experiments]
+        # If the response doesn't contain `next_page_token`, `response_proto.next_page_token`
+        # returns an empty string (default value for a string proto field).
+        token = (
+            response_proto.next_page_token if response_proto.HasField("next_page_token") else None
+        )
+        return PagedList(experiments, token)
 
-    def create_experiment(self, name, artifact_location=None):
+    def create_experiment(self, name, artifact_location=None, tags=None):
         """
         Create a new experiment.
         If an experiment with the given name already exists, throws exception.
@@ -74,7 +89,10 @@ class RestStore(AbstractStore):
 
         :return: experiment_id (string) for the newly created experiment if successful, else None
         """
-        req_body = message_to_json(CreateExperiment(name=name, artifact_location=artifact_location))
+        tag_protos = [tag.to_proto() for tag in tags] if tags else []
+        req_body = message_to_json(
+            CreateExperiment(name=name, artifact_location=artifact_location, tags=tag_protos)
+        )
         response_proto = self._call_endpoint(CreateExperiment, req_body)
         return response_proto.experiment_id
 
@@ -312,8 +330,19 @@ class DatabricksRestStore(RestStore):
                 return None
             elif e.error_code == databricks_pb2.ErrorCode.Name(databricks_pb2.ENDPOINT_NOT_FOUND):
                 # Fall back to using ListExperiments-based implementation.
-                for experiment in self.list_experiments(ViewType.ALL):
-                    if experiment.name == experiment_name:
-                        return experiment
+                for experiments in self._paginate_list_experiments(ViewType.ALL):
+                    for experiment in experiments:
+                        if experiment.name == experiment_name:
+                            return experiment
                 return None
             raise e
+
+    def _paginate_list_experiments(self, view_type):
+        page_token = None
+        while True:
+            experiments = self.list_experiments(view_type=view_type, page_token=page_token)
+            yield experiments
+
+            if not experiments.token:
+                break
+            page_token = experiments.token

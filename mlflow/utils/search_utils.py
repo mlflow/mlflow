@@ -34,6 +34,8 @@ class SearchUtils(object):
     VALID_PARAM_COMPARATORS = set(["!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR])
     VALID_TAG_COMPARATORS = set(["!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR])
     VALID_STRING_ATTRIBUTE_COMPARATORS = set(["!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR])
+    VALID_NUMERIC_ATTRIBUTE_COMPARATORS = VALID_METRIC_COMPARATORS
+    NUMERIC_ATTRIBUTES = set(["start_time"])
     CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS = set([LIKE_OPERATOR, ILIKE_OPERATOR])
     VALID_REGISTERED_MODEL_SEARCH_COMPARATORS = CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS.union(
         {"="}
@@ -168,7 +170,7 @@ class SearchUtils(object):
         return {"type": identifier, "key": key}
 
     @classmethod
-    def _get_value(cls, identifier_type, token):
+    def _get_value(cls, identifier_type, key, token):
         if identifier_type == cls._METRIC_IDENTIFIER:
             if token.ttype not in cls.NUMERIC_VALUE_TYPES:
                 raise MlflowException(
@@ -186,7 +188,15 @@ class SearchUtils(object):
                 error_code=INVALID_PARAMETER_VALUE,
             )
         elif identifier_type == cls._ATTRIBUTE_IDENTIFIER:
-            if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
+            if key in cls.NUMERIC_ATTRIBUTES:
+                if token.ttype not in cls.NUMERIC_VALUE_TYPES:
+                    raise MlflowException(
+                        "Expected numeric value type for numeric attribute: {}. "
+                        "Found {}".format(key, token.value),
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                return token.value
+            elif token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             else:
                 raise MlflowException(
@@ -234,7 +244,7 @@ class SearchUtils(object):
         cls._validate_comparison(stripped_comparison)
         comp = cls._get_identifier(stripped_comparison[0].value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = stripped_comparison[1].value
-        comp["value"] = cls._get_value(comp.get("type"), stripped_comparison[2])
+        comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), stripped_comparison[2])
         return comp
 
     @classmethod
@@ -338,9 +348,20 @@ class SearchUtils(object):
         return False
 
     @classmethod
-    def is_attribute(cls, key_type, comparator):
-        if key_type == cls._ATTRIBUTE_IDENTIFIER:
+    def is_string_attribute(cls, key_type, key_name, comparator):
+        if key_type == cls._ATTRIBUTE_IDENTIFIER and key_name not in cls.NUMERIC_ATTRIBUTES:
             if comparator not in cls.VALID_STRING_ATTRIBUTE_COMPARATORS:
+                raise MlflowException(
+                    "Invalid comparator '{}' not one of "
+                    "'{}".format(comparator, cls.VALID_STRING_ATTRIBUTE_COMPARATORS)
+                )
+            return True
+        return False
+
+    @classmethod
+    def is_numeric_attribute(cls, key_type, key_name, comparator):
+        if key_type == cls._ATTRIBUTE_IDENTIFIER and key_name in cls.NUMERIC_ATTRIBUTES:
+            if comparator not in cls.VALID_NUMERIC_ATTRIBUTE_COMPARATORS:
                 raise MlflowException(
                     "Invalid comparator '{}' not one of "
                     "'{}".format(comparator, cls.VALID_STRING_ATTRIBUTE_COMPARATORS)
@@ -362,8 +383,11 @@ class SearchUtils(object):
             lhs = run.data.params.get(key, None)
         elif cls.is_tag(key_type, comparator):
             lhs = run.data.tags.get(key, None)
-        elif cls.is_attribute(key_type, comparator):
+        elif cls.is_string_attribute(key_type, key, comparator):
             lhs = getattr(run.info, key)
+        elif cls.is_numeric_attribute(key_type, key, comparator):
+            lhs = getattr(run.info, key)
+            value = int(value)
         else:
             raise MlflowException(
                 "Invalid search expression type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE
@@ -491,12 +515,18 @@ class SearchUtils(object):
             )
 
         # Return a key such that None values are always at the end.
-        is_null_or_nan = sort_value is None or (
-            isinstance(sort_value, float) and math.isnan(sort_value)
-        )
-        if ascending:
-            return (is_null_or_nan, sort_value)
-        return (not is_null_or_nan, sort_value)
+        is_none = sort_value is None
+        is_nan = isinstance(sort_value, float) and math.isnan(sort_value)
+        fill_value = (1 if ascending else -1) * math.inf
+
+        if is_none:
+            sort_value = fill_value
+        elif is_nan:
+            sort_value = -fill_value
+
+        is_none_or_nan = is_none or is_nan
+
+        return (is_none_or_nan, sort_value) if ascending else (not is_none_or_nan, sort_value)
 
     @classmethod
     def sort(cls, runs, order_by_list):

@@ -15,7 +15,7 @@
  *    local storage.
  */
 import Immutable from 'immutable';
-import { ColumnTypes } from '../constants';
+import { DEFAULT_CATEGORIZED_UNCHECKED_KEYS } from '../constants';
 
 /**
  * This class wraps attributes of the ExperimentPage component's state that should be
@@ -23,10 +23,6 @@ import { ColumnTypes } from '../constants';
  */
 export const ExperimentPagePersistedState = Immutable.Record(
   {
-    // Comma-separated string containing containing the keys of parameters to display
-    paramKeyFilterString: '',
-    // Comma-separated string containing containing the keys of metrics to display
-    metricKeyFilterString: '',
     // SQL-like query string used to filter runs, e.g. "params.alpha = '0.5'"
     searchInput: '',
     // Canonical order_by key like "params.`alpha`". May be null to indicate the table
@@ -34,6 +30,8 @@ export const ExperimentPagePersistedState = Immutable.Record(
     orderByKey: null,
     // Whether the order imposed by orderByKey should be ascending or descending.
     orderByAsc: false,
+    // Filter key to show results based on start time
+    startTime: null,
   },
   'ExperimentPagePersistedState',
 );
@@ -57,12 +55,13 @@ export const ExperimentViewPersistedState = Immutable.Record(
     unbaggedMetrics: [],
     unbaggedParams: [],
     // Unchecked keys in the columns dropdown
-    categorizedUncheckedKeys: {
-      [ColumnTypes.ATTRIBUTES]: [],
-      [ColumnTypes.PARAMS]: [],
-      [ColumnTypes.METRICS]: [],
-      [ColumnTypes.TAGS]: [],
-    },
+    categorizedUncheckedKeys: DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
+    // Switch to select only columns with differences
+    diffSwitchSelected: false,
+    // Columns unselected before turning on the diff-view switch
+    preSwitchCategorizedUncheckedKeys: DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
+    // Columns unselected as the result of turning on the diff-view switch
+    postSwitchCategorizedUncheckedKeys: DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
   },
   'ExperimentViewPersistedState',
 );

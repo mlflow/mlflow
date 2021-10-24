@@ -455,3 +455,7 @@ export const rootReducer = combineReducers({
   views,
   apis,
 });
+
+export const getEntities = (state) => {
+  return state.entities;
+};

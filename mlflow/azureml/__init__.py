@@ -8,7 +8,7 @@ import subprocess
 import logging
 import uuid
 
-from distutils.version import StrictVersion
+from packaging.version import Version
 
 from mlflow import get_tracking_uri, get_registry_uri
 from mlflow import pyfunc
@@ -19,7 +19,7 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import get_unique_resource_id
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, _copy_project
 from mlflow.version import VERSION as mlflow_version
 from pathlib import Path
@@ -28,7 +28,7 @@ from pathlib import Path
 _logger = logging.getLogger(__name__)
 
 
-@experimental
+@deprecated("the azureml deployment plugin, https://aka.ms/aml-mlflow-deploy", since="1.19.0")
 def build_image(
     model_uri,
     workspace,
@@ -138,9 +138,7 @@ def build_image(
 
     model_pyfunc_conf, _ = _load_pyfunc_conf_with_model(model_path=absolute_model_path)
     model_python_version = model_pyfunc_conf.get(pyfunc.PY_VERSION, None)
-    if model_python_version is not None and StrictVersion(model_python_version) < StrictVersion(
-        "3.0.0"
-    ):
+    if model_python_version is not None and Version(model_python_version) < Version("3.0.0"):
         raise MlflowException(
             message=(
                 "Azure ML can only deploy models trained in Python 3 and above. See"
@@ -239,7 +237,7 @@ def build_image(
         return image, registered_model
 
 
-@experimental
+@deprecated("the azureml deployment plugin, https://aka.ms/aml-mlflow-deploy", since="1.19.0")
 def deploy(
     model_uri,
     workspace,
@@ -351,9 +349,7 @@ def deploy(
         run_id_tag = run_id
     except AttributeError:
         run_id = str(uuid.uuid4())
-    if model_python_version is not None and StrictVersion(model_python_version) < StrictVersion(
-        "3.0.0"
-    ):
+    if model_python_version is not None and Version(model_python_version) < Version("3.0.0"):
         raise MlflowException(
             message=(
                 "Azure ML can only deploy models trained in Python 3 and above. See"

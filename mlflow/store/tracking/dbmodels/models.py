@@ -308,7 +308,7 @@ class SqlMetric(Base):
     """
     Step recorded for this metric entry: `BigInteger`.
     """
-    is_nan = Column(Boolean, nullable=False, default=False)
+    is_nan = Column(Boolean(create_constraint=True), nullable=False, default=False)
     """
     True if the value is in fact NaN.
     """
@@ -365,7 +365,7 @@ class SqlLatestMetric(Base):
     """
     Step recorded for this metric entry: `BigInteger`.
     """
-    is_nan = Column(Boolean, nullable=False, default=False)
+    is_nan = Column(Boolean(create_constraint=True), nullable=False, default=False)
     """
     True if the value is in fact NaN.
     """

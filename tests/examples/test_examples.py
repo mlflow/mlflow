@@ -57,6 +57,14 @@ def replace_mlflow_with_dev_version(yml_path):
 
 
 @pytest.fixture(scope="function", autouse=True)
+def clean_envs_and_cache():
+    yield
+
+    if get_free_disk_space() < 7.0:  # unit: GiB
+        process.exec_cmd(["./dev/remove-conda-envs.sh"])
+
+
+@pytest.fixture(scope="function", autouse=True)
 def report_free_disk_space(capsys):
     yield
 
@@ -78,24 +86,30 @@ def report_free_disk_space(capsys):
             ["-P", "learning_rate=0.1", "-P", "colsample_bytree=0.8", "-P", "subsample=0.9"],
         ),
         ("statsmodels", ["-P", "inverse_method=qr"]),
-        ("prophet", []),
         ("pytorch", ["-P", "epochs=2"]),
         ("sklearn_logistic_regression", []),
         ("sklearn_elasticnet_wine", ["-P", "alpha=0.5"]),
         (os.path.join("sklearn_elasticnet_diabetes", "linux"), []),
         ("spacy", []),
-        (os.path.join("tensorflow", "tf1"), ["-P", "steps=10"]),
         (
             "xgboost",
             ["-P", "learning_rate=0.3", "-P", "colsample_bytree=0.8", "-P", "subsample=0.9"],
         ),
         ("fastai", ["-P", "lr=0.02", "-P", "epochs=3"]),
-        (os.path.join("pytorch", "MNIST/example1"), ["-P", "max_epochs=1"]),
-        (os.path.join("pytorch", "MNIST/example2"), ["-P", "max_epochs=1"]),
+        (os.path.join("pytorch", "MNIST"), ["-P", "max_epochs=1"]),
         (
             os.path.join("pytorch", "BertNewsClassification"),
-            ["-P", "max_epochs=1", "-P", "num_samples=100"],
+            ["-P", "max_epochs=1", "-P", "num_samples=100", "-P", "dataset=20newsgroups"],
         ),
+        (
+            os.path.join("pytorch", "AxHyperOptimizationPTL"),
+            ["-P", "max_epochs=10", "-P", "total_trials=1"],
+        ),
+        (
+            os.path.join("pytorch", "IterativePruning"),
+            ["-P", "max_epochs=1", "-P", "total_trials=1"],
+        ),
+        (os.path.join("pytorch", "CaptumExample"), ["-P", "max_epochs=50"]),
     ],
 )
 def test_mlflow_run_example(directory, params, tmpdir):
@@ -152,12 +166,21 @@ def test_mlflow_run_example(directory, params, tmpdir):
                 "0.9",
             ],
         ),
+        ("catboost", ["python", "train.py"]),
+        ("prophet", ["python", "train.py"]),
         ("sklearn_autolog", ["python", "linear_regression.py"]),
         ("sklearn_autolog", ["python", "pipeline.py"]),
         ("sklearn_autolog", ["python", "grid_search_cv.py"]),
+        ("pyspark_ml_autologging", ["python", "logistic_regression.py"]),
+        ("pyspark_ml_autologging", ["python", "one_vs_rest.py"]),
+        ("pyspark_ml_autologging", ["python", "pipeline.py"]),
         ("shap", ["python", "regression.py"]),
         ("shap", ["python", "binary_classification.py"]),
         ("shap", ["python", "multiclass_classification.py"]),
+        ("shap", ["python", "explainer_logging.py"]),
+        ("ray_serve", ["python", "train_model.py"]),
+        ("pip_requirements", ["python", "pip_requirements.py"]),
+        ("fastai", ["python", "train.py", "--lr", "0.02", "--epochs", "3"]),
     ],
 )
 def test_command_example(directory, command):

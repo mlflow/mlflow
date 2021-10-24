@@ -28,7 +28,7 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
     :target: https://github.com/mlflow/mlflow/actions?query=workflow%3AExamples+event%3Aschedule
     :alt: Examples Action Status
 .. |cross-version-tests| image:: https://github.com/mlflow/mlflow/workflows/Cross%20version%20tests/badge.svg?event=schedule
-    :target: https://github.com/mlflow/mlflow/actions?query=workflow%3A%22Cross+version+tests%22+event%3Aschedule
+    :target: https://github.com/mlflow/mlflow/actions?query=workflow%3ACross%2Bversion%2Btests+event%3Aschedule
     :alt: Examples Action Status
 .. |pypi| image:: https://img.shields.io/pypi/v/mlflow.svg
     :target: https://pypi.org/project/mlflow/
@@ -62,9 +62,19 @@ MLflow requires ``conda`` to be on the ``PATH`` for the projects feature.
 
 Nightly snapshots of MLflow master are also available `here <https://mlflow-snapshots.s3-us-west-2.amazonaws.com/>`_.
 
+Install a lower dependency subset of MLflow from PyPI via ``pip install mlflow-skinny``
+Extra dependencies can be added per desired scenario.
+For example, ``pip install mlflow-skinny pandas numpy`` allows for mlflow.pyfunc.log_model support.
+
 Documentation
 -------------
 Official documentation for MLflow can be found at https://mlflow.org/docs/latest/index.html.
+
+Roadmap
+-------
+The current MLflow Roadmap is available at https://github.com/mlflow/mlflow/milestone/3. We are
+seeking contributions to all of our roadmap items with the ``help wanted`` label. Please see the
+`Contributing`_ section for more information.
 
 Community
 ---------
@@ -128,5 +138,6 @@ MLflow artifacts and then load them again for serving. There is an example train
 
 Contributing
 ------------
-We happily welcome contributions to MLflow. Please see our `contribution guide <CONTRIBUTING.rst>`_
-for details.
+We happily welcome contributions to MLflow. We are also seeking contributions to items on the
+`MLflow Roadmap <https://github.com/mlflow/mlflow/milestone/3>`_. Please see our
+`contribution guide <CONTRIBUTING.rst>`_ to learn more about contributing to MLflow.

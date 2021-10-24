@@ -1,5 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
+import $ from 'jquery';
+import { IntlProvider } from 'react-intl';
 import './index.css';
 import App from './experiment-tracking/components/App';
 import { setupAjaxHeaders } from './setupAjaxHeaders';
@@ -7,17 +9,22 @@ import { Provider } from 'react-redux';
 import store from './store';
 import { injectGlobal } from 'emotion';
 import { accessibilityOverrides } from './common/styles/accessibility-overrides';
-import $ from 'jquery';
+import { I18nUtils } from './i18n/I18nUtils';
 
 setupAjaxHeaders();
 
-const root = (
-  <Provider store={store}>
-    <App />
-  </Provider>
-);
-ReactDOM.render(root, document.getElementById('root'));
-injectGlobal({ ...accessibilityOverrides });
+I18nUtils.initI18n().then(() => {
+  const { locale, messages } = I18nUtils.getIntlProviderParams();
+  const root = (
+    <IntlProvider locale={locale} messages={messages}>
+      <Provider store={store}>
+        <App />
+      </Provider>
+    </IntlProvider>
+  );
+  ReactDOM.render(root, document.getElementById('root'));
+  injectGlobal({ ...accessibilityOverrides });
+});
 window.jQuery = $; // selenium tests need window.jQuery to exist
 
 // Disable service worker registration as it adds unnecessary debugging complexity

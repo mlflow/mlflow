@@ -3,7 +3,6 @@ import errno
 import gzip
 import os
 import posixpath
-import requests
 import shutil
 import sys
 import tarfile
@@ -23,6 +22,7 @@ except ImportError:
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MissingConfigException
+from mlflow.utils.rest_utils import cloud_storage_http_request
 
 ENCODING = "utf-8"
 
@@ -124,7 +124,7 @@ def make_containing_dirs(path):
         os.makedirs(dir_name)
 
 
-def write_yaml(root, file_name, data, overwrite=False):
+def write_yaml(root, file_name, data, overwrite=False, sort_keys=True):
     """
     Write dictionary data in yaml format.
 
@@ -145,7 +145,12 @@ def write_yaml(root, file_name, data, overwrite=False):
     try:
         with codecs.open(yaml_file_name, mode="w", encoding=ENCODING) as yaml_file:
             yaml.dump(
-                data, yaml_file, default_flow_style=False, allow_unicode=True, Dumper=YamlSafeDumper
+                data,
+                yaml_file,
+                default_flow_style=False,
+                allow_unicode=True,
+                sort_keys=sort_keys,
+                Dumper=YamlSafeDumper,
             )
     except Exception as e:
         raise e
@@ -424,7 +429,7 @@ def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000):
     Note : This function is meant to download files using presigned urls from various cloud
             providers.
     """
-    with requests.get(http_uri, stream=True) as response:
+    with cloud_storage_http_request("get", http_uri, stream=True) as response:
         response.raise_for_status()
         with open(download_path, "wb") as output_file:
             for chunk in response.iter_content(chunk_size=chunk_size):
