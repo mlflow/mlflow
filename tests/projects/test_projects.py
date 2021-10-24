@@ -3,6 +3,7 @@ import os
 import git
 import shutil
 import yaml
+import subprocess
 
 import pytest
 from unittest import mock
@@ -89,19 +90,8 @@ def test_invalid_run_mode():
 def test_use_conda():
     """ Verify that we correctly handle the `use_conda` argument."""
     # Verify we throw an exception when conda is unavailable
-    old_path = os.environ["PATH"]
-    env.unset_variable("PATH")
-    conda_exe_path = ""
-    if "CONDA_EXE" in os.environ:
-        conda_exe_path = os.environ["CONDA_EXE"]
-        env.unset_variable("CONDA_EXE")
-    try:
-        with pytest.raises(ExecutionException):
-            mlflow.projects.run(TEST_PROJECT_DIR, use_conda=True)
-    finally:
-        os.environ["PATH"] = old_path
-        if conda_exe_path:
-            os.environ["CONDA_EXE"] = conda_exe_path
+    with mock.patch.dict("os.environ", {}, clear=True), pytest.raises(ExecutionException):
+        mlflow.projects.run(TEST_PROJECT_DIR, use_conda=True)
 
 
 @pytest.mark.large
