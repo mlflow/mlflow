@@ -3,7 +3,6 @@ import os
 import git
 import shutil
 import yaml
-import subprocess
 
 import pytest
 from unittest import mock
