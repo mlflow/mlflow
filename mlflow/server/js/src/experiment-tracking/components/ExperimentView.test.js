@@ -28,9 +28,13 @@ import {
   DEFAULT_ORDER_BY_ASC,
   DEFAULT_START_TIME,
   DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
+  DEFAULT_SHOW_MULTI_COLUMNS,
+  DEFAULT_DIFF_SWITCH_SELECTED,
   COLUMN_SORT_BY_ASC,
   COLUMN_SORT_BY_DESC,
 } from '../constants';
+
+const EXPERIMENT_ID = '3';
 
 let onSearchSpy;
 
@@ -44,7 +48,7 @@ const getDefaultExperimentViewProps = () => {
     runInfos: [
       RunInfo.fromJs({
         run_uuid: 'run-id',
-        experiment_id: '3',
+        experiment_id: EXPERIMENT_ID,
         status: 'FINISHED',
         start_time: 1,
         end_time: 1,
@@ -53,7 +57,13 @@ const getDefaultExperimentViewProps = () => {
       }),
     ],
     experiment: Fixtures.createExperiment(),
-    history: [],
+    experimentId: EXPERIMENT_ID,
+    history: {
+      location: {
+        pathname: '/',
+      },
+      push: jest.fn(),
+    },
     paramKeyList: ['batch_size'],
     metricKeyList: ['acc'],
     paramsList: [[Param.fromJs({ key: 'batch_size', value: '512' })]],
@@ -109,6 +119,62 @@ test('Should render compact view without exploding', () => {
   const wrapper = mountExperimentViewMock({ isLoading: false, forceCompactTableView: true });
   expect(wrapper.find('ExperimentRunsTableCompactView').text()).toContain('batch_size:512');
   expect(wrapper.length).toBe(1);
+});
+
+test('Loading state without any URL params', () => {
+  const wrapper = getExperimentViewMock();
+  const { state } = wrapper.instance();
+  expect(state.persistedState.showMultiColumns).toEqual(DEFAULT_SHOW_MULTI_COLUMNS);
+  expect(state.persistedState.categorizedUncheckedKeys).toEqual(DEFAULT_CATEGORIZED_UNCHECKED_KEYS);
+  expect(state.persistedState.diffSwitchSelected).toEqual(DEFAULT_DIFF_SWITCH_SELECTED);
+  expect(state.persistedState.preSwitchCategorizedUncheckedKeys).toEqual(
+    DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
+  );
+  expect(state.persistedState.postSwitchCategorizedUncheckedKeys).toEqual(
+    DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
+  );
+});
+
+test('Loading state with all URL params', () => {
+  const location = {};
+  location.search =
+    'startTime=ALL&orderByKey=attributes.start_time' +
+    '&showMultiColumns=false' +
+    '&diffSwitchSelected=true' +
+    '&categorizedUncheckedKeys%5Battributes%5D%5B0%5D=a1' +
+    '&categorizedUncheckedKeys%5Bparams%5D%5B0%5D=p1' +
+    '&categorizedUncheckedKeys%5Bmetrics%5D%5B0%5D=m1' +
+    '&categorizedUncheckedKeys%5Btags%5D%5B0%5D=t1' +
+    '&preSwitchCategorizedUncheckedKeys%5Battributes%5D%5B0%5D=a2' +
+    '&preSwitchCategorizedUncheckedKeys%5Bparams%5D%5B0%5D=p2' +
+    '&preSwitchCategorizedUncheckedKeys%5Bmetrics%5D%5B0%5D=m2' +
+    '&preSwitchCategorizedUncheckedKeys%5Btags%5D%5B0%5D=t2' +
+    '&postSwitchCategorizedUncheckedKeys%5Battributes%5D%5B0%5D=a3' +
+    '&postSwitchCategorizedUncheckedKeys%5Bparams%5D%5B0%5D=p3' +
+    '&postSwitchCategorizedUncheckedKeys%5Bmetrics%5D%5B0%5D=m3' +
+    '&postSwitchCategorizedUncheckedKeys%5Btags%5D%5B0%5D=t3';
+  const wrapper = getExperimentViewMock({ location });
+  const { state } = wrapper.instance();
+  expect(state.persistedState.showMultiColumns).toEqual(false);
+  expect(state.persistedState.diffSwitchSelected).toEqual(true);
+  expect(state.persistedState.categorizedUncheckedKeys).toEqual({
+    [COLUMN_TYPES.ATTRIBUTES]: ['a1'],
+    [COLUMN_TYPES.PARAMS]: ['p1'],
+    [COLUMN_TYPES.METRICS]: ['m1'],
+    [COLUMN_TYPES.TAGS]: ['t1'],
+  });
+  expect(state.persistedState.preSwitchCategorizedUncheckedKeys).toEqual({
+    [COLUMN_TYPES.ATTRIBUTES]: ['a2'],
+    [COLUMN_TYPES.PARAMS]: ['p2'],
+    [COLUMN_TYPES.METRICS]: ['m2'],
+    [COLUMN_TYPES.TAGS]: ['t2'],
+  });
+  expect(state.persistedState.postSwitchCategorizedUncheckedKeys).toEqual({
+    [COLUMN_TYPES.ATTRIBUTES]: ['a3'],
+    [COLUMN_TYPES.PARAMS]: ['p3'],
+    [COLUMN_TYPES.METRICS]: ['m3'],
+    [COLUMN_TYPES.TAGS]: ['t3'],
+  });
 });
 
 test(`Clearing filter state calls search handler with correct arguments`, () => {
@@ -430,9 +496,13 @@ describe('Start time dropdown', () => {
   });
 });
 
-describe('Diff Switch', () => {
-  test('handleDiffSwitchChange changes state correctly', () => {
-    const getCategorizedUncheckedKeysDiffViewSpy = jest
+describe('handleDiffSwitchChange', () => {
+  let getCategorizedUncheckedKeysDiffViewSpy;
+  let instance;
+  let wrapper;
+
+  beforeEach(() => {
+    getCategorizedUncheckedKeysDiffViewSpy = jest
       .spyOn(ExperimentViewUtil, 'getCategorizedUncheckedKeysDiffView')
       .mockImplementation(() => {
         return {
@@ -442,10 +512,13 @@ describe('Diff Switch', () => {
           [COLUMN_TYPES.TAGS]: ['t1'],
         };
       });
-    const handleColumnSelectionCheckSpy = jest.fn();
-    const wrapper = getExperimentViewMock();
-    const instance = wrapper.instance();
+    wrapper = getExperimentViewMock();
+    instance = wrapper.instance();
     instance.getCategorizedUncheckedKeysDiffView = getCategorizedUncheckedKeysDiffViewSpy;
+  });
+
+  test('handleDiffSwitchChange changes state correctly', () => {
+    const handleColumnSelectionCheckSpy = jest.fn();
     instance.handleColumnSelectionCheck = handleColumnSelectionCheckSpy;
 
     // Switch turned off by default
@@ -474,20 +547,6 @@ describe('Diff Switch', () => {
   });
 
   test('handleDiffSwitchChange maintains state of pre-switch unchecked columns', () => {
-    const getCategorizedUncheckedKeysDiffViewSpy = jest
-      .spyOn(ExperimentViewUtil, 'getCategorizedUncheckedKeysDiffView')
-      .mockImplementation(() => {
-        return {
-          [COLUMN_TYPES.ATTRIBUTES]: ['a1'],
-          [COLUMN_TYPES.PARAMS]: ['p1'],
-          [COLUMN_TYPES.METRICS]: ['m1'],
-          [COLUMN_TYPES.TAGS]: ['t1'],
-        };
-      });
-    const wrapper = getExperimentViewMock();
-    const instance = wrapper.instance();
-    instance.getCategorizedUncheckedKeysDiffViewSpy = getCategorizedUncheckedKeysDiffViewSpy;
-
     expect(wrapper.state().persistedState.diffSwitchSelected).toBe(false);
     instance.handleColumnSelectionCheck({
       [COLUMN_TYPES.ATTRIBUTES]: ['a2'],
@@ -528,20 +587,6 @@ describe('Diff Switch', () => {
   });
 
   test('handleDiffSwitchChange maintains state of unchecked columns while in switch state', () => {
-    const getCategorizedUncheckedKeysDiffViewSpy = jest
-      .spyOn(ExperimentViewUtil, 'getCategorizedUncheckedKeysDiffView')
-      .mockImplementation(() => {
-        return {
-          [COLUMN_TYPES.ATTRIBUTES]: ['a1'],
-          [COLUMN_TYPES.PARAMS]: ['p1'],
-          [COLUMN_TYPES.METRICS]: ['m1'],
-          [COLUMN_TYPES.TAGS]: ['t1'],
-        };
-      });
-    const wrapper = getExperimentViewMock();
-    const instance = wrapper.instance();
-    instance.getCategorizedUncheckedKeysDiffViewSpy = getCategorizedUncheckedKeysDiffViewSpy;
-
     // Columns unchecked before turning switch on
     instance.handleColumnSelectionCheck({
       [COLUMN_TYPES.ATTRIBUTES]: ['a2'],

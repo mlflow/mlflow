@@ -8,9 +8,17 @@ import {
   ATTRIBUTE_COLUMN_LABELS,
   COLUMN_TYPES,
   DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
+  DEFAULT_ORDER_BY_KEY,
+  DEFAULT_ORDER_BY_ASC,
+  DEFAULT_START_TIME,
+  DEFAULT_SHOW_MULTI_COLUMNS,
+  DEFAULT_DIFF_SWITCH_SELECTED,
 } from '../constants';
 import { Metric, Param, RunTag, RunInfo } from '../sdk/MlflowMessages';
 import Utils from '../../common/utils/Utils';
+
+const BASE_PATH = '/experiments/17/s';
+const EXPERIMENT_ID = '17';
 
 const createCategorizedUncheckedKeys = (arr) => ({
   [COLUMN_TYPES.ATTRIBUTES]: arr,
@@ -455,5 +463,122 @@ describe('ExperimentViewUtil', () => {
         currCategorizedUncheckedKeys,
       }),
     ).toEqual(expectedCategorizedUncheckedKeys);
+  });
+});
+
+function expectSearchState(historyEntry, searchQueryParams) {
+  const expectedPrefix = BASE_PATH + '?';
+  expect(historyEntry.startsWith(expectedPrefix)).toBe(true);
+  const search = historyEntry.substring(expectedPrefix.length);
+  expect(search).toEqual(searchQueryParams);
+}
+
+describe('updateUrlWithViewState', () => {
+  let defaultParameters;
+  let history;
+  beforeEach(() => {
+    history = {};
+    history.location = {};
+    history.location.pathname = BASE_PATH;
+    history.location.search = '';
+    history.push = jest.fn();
+    defaultParameters = {};
+    defaultParameters.experimentId = EXPERIMENT_ID;
+    defaultParameters.history = history;
+    defaultParameters.searchInput = '';
+    defaultParameters.orderByKey = DEFAULT_ORDER_BY_KEY;
+    defaultParameters.orderByAsc = DEFAULT_ORDER_BY_ASC;
+    defaultParameters.startTime = DEFAULT_START_TIME;
+    defaultParameters.showMultiColumns = DEFAULT_SHOW_MULTI_COLUMNS;
+    defaultParameters.diffSwitchSelected = DEFAULT_DIFF_SWITCH_SELECTED;
+    defaultParameters.preSwitchCategorizedUncheckedKeys = DEFAULT_CATEGORIZED_UNCHECKED_KEYS;
+    defaultParameters.postSwitchCategorizedUncheckedKeys = DEFAULT_CATEGORIZED_UNCHECKED_KEYS;
+  });
+
+  test('updateUrlWithViewState updates URL correctly with default params', () => {
+    ExperimentViewUtil.updateUrlWithViewState({
+      ...defaultParameters,
+    });
+    expectSearchState(
+      history.push.mock.calls[0][0],
+      'startTime=ALL&orderByKey=attributes.start_time',
+    );
+  });
+
+  test('updateUrlWithViewState updates URL correctly with orderByAsc true', () => {
+    ExperimentViewUtil.updateUrlWithViewState({
+      ...defaultParameters,
+      orderByAsc: true,
+    });
+    expectSearchState(
+      history.push.mock.calls[0][0],
+      'startTime=ALL&orderByKey=attributes.start_time&orderByAsc=true',
+    );
+  });
+
+  test('updateUrlWithViewState updates URL correctly with searchInput', () => {
+    ExperimentViewUtil.updateUrlWithViewState({
+      ...defaultParameters,
+      searchInput: 'metrics.metric0 > 3',
+    });
+    expectSearchState(
+      history.push.mock.calls[0][0],
+      'search=metrics.metric0%20%3E%203&startTime=ALL&orderByKey=attributes.start_time',
+    );
+  });
+
+  test('updateUrlWithViewState updates URL correctly with showMultiColumns false', () => {
+    ExperimentViewUtil.updateUrlWithViewState({
+      ...defaultParameters,
+      showMultiColumns: false,
+    });
+    expectSearchState(
+      history.push.mock.calls[0][0],
+      'startTime=ALL&orderByKey=attributes.start_time&showMultiColumns=false',
+    );
+  });
+
+  test('updateUrlWithViewState updates URL correctly with diffSwitchSelected true', () => {
+    ExperimentViewUtil.updateUrlWithViewState({
+      ...defaultParameters,
+      diffSwitchSelected: true,
+    });
+    expectSearchState(
+      history.push.mock.calls[0][0],
+      'startTime=ALL&orderByKey=attributes.start_time&diffSwitchSelected=true',
+    );
+
+    const preSwitchCategorizedUncheckedKeys = {
+      [COLUMN_TYPES.ATTRIBUTES]: ['a1'],
+      [COLUMN_TYPES.PARAMS]: ['p1'],
+      [COLUMN_TYPES.METRICS]: ['m1'],
+      [COLUMN_TYPES.TAGS]: ['t1'],
+    };
+
+    const postSwitchCategorizedUncheckedKeys = {
+      [COLUMN_TYPES.ATTRIBUTES]: ['a2'],
+      [COLUMN_TYPES.PARAMS]: ['p2'],
+      [COLUMN_TYPES.METRICS]: ['m2'],
+      [COLUMN_TYPES.TAGS]: ['t2'],
+    };
+
+    ExperimentViewUtil.updateUrlWithViewState({
+      ...defaultParameters,
+      diffSwitchSelected: true,
+      preSwitchCategorizedUncheckedKeys,
+      postSwitchCategorizedUncheckedKeys,
+    });
+    expectSearchState(
+      history.push.mock.calls[1][0],
+      'startTime=ALL&orderByKey=attributes.start_time&diffSwitchSelected=true' +
+        '&preSwitchCategorizedUncheckedKeys%5Battributes%5D%5B0%5D=a1' +
+        '&preSwitchCategorizedUncheckedKeys%5Bparams%5D%5B0%5D=p1' +
+        '&preSwitchCategorizedUncheckedKeys%5Bmetrics%5D%5B0%5D=m1' +
+        '&preSwitchCategorizedUncheckedKeys%5Btags%5D%5B0%5D=t1' +
+        '&postSwitchCategorizedUncheckedKeys%5Battributes%5D%5B0%5D=a2' +
+        '&postSwitchCategorizedUncheckedKeys%5Bparams%5D%5B0%5D=p2' +
+        '&postSwitchCategorizedUncheckedKeys%5Bmetrics%5D%5B0%5D=m2' +
+        '&postSwitchCategorizedUncheckedKeys%5Btags%5D%5B0%5D=t2',
+    );
   });
 });

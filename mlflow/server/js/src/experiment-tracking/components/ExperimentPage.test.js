@@ -1,5 +1,4 @@
 import React from 'react';
-import qs from 'qs';
 import { shallow } from 'enzyme';
 import { MemoryRouter as Router } from 'react-router-dom';
 
@@ -17,9 +16,9 @@ import {
   PAGINATION_DEFAULT_STATE,
   DEFAULT_ORDER_BY_KEY,
   DEFAULT_ORDER_BY_ASC,
+  DEFAULT_START_TIME,
 } from '../constants';
 
-const BASE_PATH = '/experiments/17/s';
 const EXPERIMENT_ID = '17';
 
 jest.useFakeTimers();
@@ -39,12 +38,7 @@ beforeEach(() => {
   loadMoreRunsApi = jest.fn(() => Promise.resolve());
   searchForNewRuns = jest.fn(() => Promise.resolve());
   location = {};
-
   history = {};
-  history.location = {};
-  history.location.pathname = BASE_PATH;
-  history.location.search = '';
-  history.push = jest.fn();
 });
 
 const getExperimentPageMock = (additionalProps) => {
@@ -63,18 +57,17 @@ const getExperimentPageMock = (additionalProps) => {
   );
 };
 
-function expectSearchState(historyEntry, state) {
-  const expectedPrefix = BASE_PATH + '?';
-  expect(historyEntry.startsWith(expectedPrefix)).toBe(true);
-  const search = historyEntry.substring(expectedPrefix.length);
-  const parsedHistory = qs.parse(search);
-  expect(parsedHistory).toEqual(state);
-}
-
-test('URL is empty for blank search', () => {
+test('State and search params are correct for blank search', () => {
   const wrapper = getExperimentPageMock();
   wrapper.instance().onSearch('', 'Active', null, true, null);
-  expectSearchState(history.push.mock.calls[0][0], {});
+
+  expect(wrapper.state().persistedState.searchInput).toEqual('');
+  expect(wrapper.state().lifecycleFilter).toEqual('Active');
+  expect(wrapper.state().persistedState.orderByKey).toEqual(null);
+  expect(wrapper.state().persistedState.orderByAsc).toEqual(true);
+  expect(wrapper.state().modelVersionFilter).toEqual(null);
+  expect(wrapper.state().persistedState.startTime).toEqual(undefined);
+
   const searchRunsCallParams = searchRunsApi.mock.calls[1][0];
 
   expect(searchRunsCallParams.experimentIds).toEqual([EXPERIMENT_ID]);
@@ -83,25 +76,33 @@ test('URL is empty for blank search', () => {
   expect(searchRunsCallParams.orderBy).toEqual([]);
 });
 
-test('URL can encode a complete search', () => {
+test('State and search params are correct for complete search', () => {
   const wrapper = getExperimentPageMock();
   wrapper.instance().onSearch('metrics.metric0 > 3', 'Deleted', null, true, null, 'ALL');
-  expectSearchState(history.push.mock.calls[0][0], {
-    search: 'metrics.metric0 > 3',
-    startTime: 'ALL',
-  });
+
+  expect(wrapper.state().persistedState.searchInput).toEqual('metrics.metric0 > 3');
+  expect(wrapper.state().lifecycleFilter).toEqual('Deleted');
+  expect(wrapper.state().persistedState.orderByKey).toEqual(null);
+  expect(wrapper.state().persistedState.orderByAsc).toEqual(true);
+  expect(wrapper.state().modelVersionFilter).toEqual(null);
+  expect(wrapper.state().persistedState.startTime).toEqual('ALL');
+
   const searchRunsCallParams = searchRunsApi.mock.calls[1][0];
   expect(searchRunsCallParams.filter).toEqual('metrics.metric0 > 3');
   expect(searchRunsCallParams.runViewType).toEqual(ViewType.DELETED_ONLY);
 });
 
-test('URL can encode order_by', () => {
+test('State and search params are correct for search with order_by', () => {
   const wrapper = getExperimentPageMock();
   wrapper.instance().onSearch('', 'Active', 'my_key', false, null);
-  expectSearchState(history.push.mock.calls[0][0], {
-    orderByKey: 'my_key',
-    orderByAsc: 'false',
-  });
+
+  expect(wrapper.state().persistedState.searchInput).toEqual('');
+  expect(wrapper.state().lifecycleFilter).toEqual('Active');
+  expect(wrapper.state().persistedState.orderByKey).toEqual('my_key');
+  expect(wrapper.state().persistedState.orderByAsc).toEqual(false);
+  expect(wrapper.state().modelVersionFilter).toEqual(null);
+  expect(wrapper.state().persistedState.startTime).toEqual(undefined);
+
   const searchRunsCallParams = searchRunsApi.mock.calls[1][0];
   expect(searchRunsCallParams.filter).toEqual('');
   expect(searchRunsCallParams.orderBy).toEqual(['my_key DESC']);
@@ -113,15 +114,17 @@ test('Loading state without any URL params', () => {
   expect(state.persistedState.searchInput).toEqual('');
   expect(state.persistedState.orderByKey).toBe(DEFAULT_ORDER_BY_KEY);
   expect(state.persistedState.orderByAsc).toEqual(DEFAULT_ORDER_BY_ASC);
+  expect(state.persistedState.startTime).toEqual(DEFAULT_START_TIME);
 });
 
 test('Loading state with all URL params', () => {
-  location.search = 'params=a&metrics=b&search=c&orderByKey=d&orderByAsc=false';
+  location.search = 'search=c&orderByKey=d&orderByAsc=false&startTime=LAST_HOUR';
   const wrapper = getExperimentPageMock();
   const { state } = wrapper.instance();
   expect(state.persistedState.searchInput).toEqual('c');
   expect(state.persistedState.orderByKey).toEqual('d');
   expect(state.persistedState.orderByAsc).toEqual(false);
+  expect(state.persistedState.startTime).toEqual('LAST_HOUR');
 });
 
 test('should render permission denied view when getExperiment yields permission error', () => {

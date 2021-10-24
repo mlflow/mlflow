@@ -83,8 +83,7 @@ export class ExperimentPage extends Component {
       persistedState: {
         searchInput: urlState.search === undefined ? '' : urlState.search,
         orderByKey: urlState.orderByKey === undefined ? DEFAULT_ORDER_BY_KEY : urlState.orderByKey,
-        orderByAsc:
-          urlState.orderByAsc === undefined ? DEFAULT_ORDER_BY_ASC : urlState.orderByAsc === 'true',
+        orderByAsc: urlState.orderByAsc === undefined ? DEFAULT_ORDER_BY_ASC : urlState.orderByAsc,
         startTime: urlState.startTime === undefined ? DEFAULT_START_TIME : urlState.startTime,
       },
     };
@@ -254,13 +253,6 @@ export class ExperimentPage extends Component {
     modelVersionFilterInput,
     startTime,
   ) => {
-    this.updateUrlWithSearchFilter({
-      searchInput,
-      orderByKey,
-      orderByAsc,
-      startTime,
-    });
-
     this.setState(
       {
         lastRunsRefreshTime: Date.now(),
@@ -329,29 +321,6 @@ export class ExperimentPage extends Component {
     return orderBy;
   }
 
-  updateUrlWithSearchFilter({ searchInput, orderByKey, orderByAsc, startTime }) {
-    const state = {};
-    if (searchInput) {
-      state['search'] = searchInput;
-    }
-    if (startTime) {
-      state['startTime'] = startTime;
-    }
-    if (orderByKey) {
-      state['orderByKey'] = orderByKey;
-    }
-    // orderByAsc defaults to true, so only encode it if it is false.
-    if (orderByAsc === false) {
-      state['orderByAsc'] = orderByAsc;
-    }
-    const newUrl = `/experiments/${this.props.experimentId}/s?${Utils.getSearchUrlFromState(
-      state,
-    )}`;
-    if (newUrl !== this.props.history.location.pathname + this.props.history.location.search) {
-      this.props.history.push(newUrl);
-    }
-  }
-
   renderExperimentView = (isLoading, shouldRenderError, requests) => {
     let searchRunsError;
     const getExperimentRequest = Utils.getRequestWithId(
@@ -381,6 +350,7 @@ export class ExperimentPage extends Component {
     const experimentViewProps = {
       experimentId: this.props.experimentId,
       experiment: this.props.experiment,
+      location: this.props.location,
       searchRunsRequestId: this.state.searchRunsRequestId,
       modelVersionFilter: this.state.modelVersionFilter,
       lifecycleFilter: this.state.lifecycleFilter,

@@ -15,7 +15,14 @@
  *    local storage.
  */
 import Immutable from 'immutable';
-import { DEFAULT_CATEGORIZED_UNCHECKED_KEYS } from '../constants';
+import {
+  DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
+  DEFAULT_DIFF_SWITCH_SELECTED,
+  DEFAULT_SHOW_MULTI_COLUMNS,
+  DEFAULT_ORDER_BY_KEY,
+  DEFAULT_ORDER_BY_ASC,
+  DEFAULT_START_TIME,
+} from '../constants';
 
 /**
  * This class wraps attributes of the ExperimentPage component's state that should be
@@ -27,11 +34,11 @@ export const ExperimentPagePersistedState = Immutable.Record(
     searchInput: '',
     // Canonical order_by key like "params.`alpha`". May be null to indicate the table
     // should use the natural row ordering provided by the server.
-    orderByKey: null,
+    orderByKey: DEFAULT_ORDER_BY_KEY,
     // Whether the order imposed by orderByKey should be ascending or descending.
-    orderByAsc: false,
+    orderByAsc: DEFAULT_ORDER_BY_ASC,
     // Filter key to show results based on start time
-    startTime: null,
+    startTime: DEFAULT_START_TIME,
   },
   'ExperimentPagePersistedState',
 );
@@ -48,7 +55,7 @@ export const ExperimentViewPersistedState = Immutable.Record(
     // a run has been expanded (its child runs are visible).
     runsExpanded: {},
     // If true, shows the multi-column table view instead of the compact table view.
-    showMultiColumns: true,
+    showMultiColumns: DEFAULT_SHOW_MULTI_COLUMNS,
     // Arrays of "unbagged", or split-out metric and param keys (strings). We maintain these as
     // lists to help keep them ordered (i.e. splitting out a column shouldn't change the ordering of
     // columns that have already been split out)
@@ -57,7 +64,7 @@ export const ExperimentViewPersistedState = Immutable.Record(
     // Unchecked keys in the columns dropdown
     categorizedUncheckedKeys: DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
     // Switch to select only columns with differences
-    diffSwitchSelected: false,
+    diffSwitchSelected: DEFAULT_DIFF_SWITCH_SELECTED,
     // Columns unselected before turning on the diff-view switch
     preSwitchCategorizedUncheckedKeys: DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
     // Columns unselected as the result of turning on the diff-view switch

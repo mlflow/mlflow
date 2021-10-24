@@ -54,6 +54,8 @@ export const DEFAULT_CATEGORIZED_UNCHECKED_KEYS = {
   [COLUMN_TYPES.METRICS]: [],
   [COLUMN_TYPES.TAGS]: [],
 };
+export const DEFAULT_DIFF_SWITCH_SELECTED = false;
+export const DEFAULT_SHOW_MULTI_COLUMNS = true;
 
 export const PAGINATION_DEFAULT_STATE = {
   nextPageToken: null,

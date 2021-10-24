@@ -16,6 +16,7 @@ import {
   Tooltip,
   Typography,
   Switch,
+  message,
 } from 'antd';
 
 import './ExperimentView.css';
@@ -90,8 +91,12 @@ export class ExperimentView extends Component {
     this.getStartTimeColumnDisplayName = this.getStartTimeColumnDisplayName.bind(this);
     this.onHandleStartTimeDropdown = this.onHandleStartTimeDropdown.bind(this);
     this.handleDiffSwitchChange = this.handleDiffSwitchChange.bind(this);
+    const urlState = Utils.getSearchParamsFromUrl(this.props.location.search);
     const store = ExperimentView.getLocalStore(this.props.experiment.experiment_id);
-    const persistedState = new ExperimentViewPersistedState(store.loadComponentState());
+    const persistedState = new ExperimentViewPersistedState({
+      ...store.loadComponentState(),
+      ...urlState,
+    });
     const onboardingInformationStore = ExperimentView.getLocalStore(onboarding);
     this.state = {
       ...ExperimentView.getDefaultUnpersistedState(),
@@ -108,14 +113,14 @@ export class ExperimentView extends Component {
     onSearch: PropTypes.func.isRequired,
     runInfos: PropTypes.arrayOf(PropTypes.instanceOf(RunInfo)).isRequired,
     modelVersionsByRunUuid: PropTypes.object.isRequired,
+    experimentId: PropTypes.string.isRequired,
     experiment: PropTypes.instanceOf(Experiment).isRequired,
     history: PropTypes.any,
-
+    location: PropTypes.object,
     // List of all parameter keys available in the runs we're viewing
     paramKeyList: PropTypes.arrayOf(PropTypes.string).isRequired,
     // List of all metric keys available in the runs we're viewing
     metricKeyList: PropTypes.arrayOf(PropTypes.string).isRequired,
-
     // List of list of params in all the visible runs
     paramsList: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.object)).isRequired,
     // List of list of metrics in all the visible runs
@@ -124,15 +129,12 @@ export class ExperimentView extends Component {
     tagsList: PropTypes.arrayOf(PropTypes.object).isRequired,
     // Object of experiment tags
     experimentTags: PropTypes.object.isRequired,
-
     // Input to the lifecycleFilter field
     lifecycleFilter: PropTypes.string.isRequired,
     modelVersionFilter: PropTypes.string.isRequired,
-
     orderByKey: PropTypes.string,
     orderByAsc: PropTypes.bool,
     startTime: PropTypes.string,
-
     // The initial searchInput
     searchInput: PropTypes.string.isRequired,
     searchRunsError: PropTypes.string,
@@ -141,7 +143,6 @@ export class ExperimentView extends Component {
     handleLoadMoreRuns: PropTypes.func.isRequired,
     loadingMore: PropTypes.bool.isRequired,
     setExperimentTagApi: PropTypes.func.isRequired,
-
     // If child runs should be nested under their parents
     nestChildren: PropTypes.bool,
     // ML-13038: Whether to force the compact view upon page load. Used only for testing;
@@ -172,8 +173,7 @@ export class ExperimentView extends Component {
     };
   }
 
-  /**
-   * Returns a LocalStorageStore instance that can be used to persist data associated with the
+  /* Returns a LocalStorageStore instance that can be used to persist data associated with the
    * ExperimentView component (e.g. component state such as table sort settings), for the
    * specified experiment.
    */
@@ -188,8 +188,7 @@ export class ExperimentView extends Component {
     return true;
   }
 
-  /**
-   * Returns true if search filter text was updated, e.g. if a user entered new text into the
+  /* Returns true if search filter text was updated, e.g. if a user entered new text into the
    * param filter, metric filter, or search text boxes.
    */
   filtersDidUpdate(prevState) {
@@ -254,6 +253,11 @@ export class ExperimentView extends Component {
   }
 
   setShowMultiColumns(value) {
+    ExperimentViewUtil.updateUrlWithViewState({
+      ...this.props,
+      ...this.state.persistedState,
+      showMultiColumns: value,
+    });
     this.setState({
       persistedState: new ExperimentViewPersistedState({
         ...this.state.persistedState,
@@ -341,6 +345,11 @@ export class ExperimentView extends Component {
   };
 
   handleColumnSelectionCheck = (categorizedUncheckedKeys) => {
+    ExperimentViewUtil.updateUrlWithViewState({
+      ...this.props,
+      ...this.state.persistedState,
+      categorizedUncheckedKeys,
+    });
     this.setState({
       persistedState: new ExperimentViewPersistedState({
         ...this.state.persistedState,
@@ -779,6 +788,21 @@ export class ExperimentView extends Component {
                       ))}
                     </Select>
                   </Tooltip>
+                  <Tooltip
+                    title={this.props.intl.formatMessage({
+                      defaultMessage: 'Share experiment view',
+                      description: 'Label for the share experiment view button',
+                    })}
+                  >
+                    <Button dataTestId='share-button' onClick={this.onShare}>
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <FormattedMessage
+                          defaultMessage='Share'
+                          description='String for the share button to share experiment view'
+                        />
+                      </div>
+                    </Button>
+                  </Tooltip>
                 </Spacer>
               }
               right={
@@ -1055,6 +1079,14 @@ export class ExperimentView extends Component {
     const myModelVersionFilterInput = modelVersionFilterInput || this.props.modelVersionFilter;
     const myStartTime = startTime || this.props.startTime;
     try {
+      ExperimentViewUtil.updateUrlWithViewState({
+        ...this.props,
+        ...this.state.persistedState,
+        searchInput: mySearchInput,
+        orderByKey: myOrderByKey,
+        orderByAsc: myOrderByAsc,
+        startTime: myStartTime,
+      });
       this.props.onSearch(
         mySearchInput,
         myLifecycleFilterInput,
@@ -1214,6 +1246,16 @@ export class ExperimentView extends Component {
     });
   };
 
+  onShare = () => {
+    navigator.clipboard.writeText(window.location.href);
+    message.info(
+      this.props.intl.formatMessage({
+        defaultMessage: 'Experiment view copied to clipboard',
+        description: 'Content of the message after clicking the share experiment button',
+      }),
+    );
+  };
+
   onClear = () => {
     // When user clicks "Clear", preserve multicolumn toggle state but reset other persisted state
     // attributes to their default values.
@@ -1265,9 +1307,7 @@ export class ExperimentView extends Component {
     saveAs(blob, 'runs.csv');
   };
 
-  /**
-   * Format a string for insertion into a CSV file.
-   */
+  // Format a string for insertion into a CSV file.
   static csvEscape(str) {
     if (str === undefined) {
       return '';
@@ -1374,7 +1414,6 @@ export class ExperimentView extends Component {
       });
       return row;
     });
-
     return ExperimentView.tableToCsv(columns, data);
   }
 }
