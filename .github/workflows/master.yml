@@ -25,7 +25,7 @@ defaults:
     shell: bash
 
 env:
-  # Note miniconda is pre-installed in for GitHub Actions' virtual-environments:
+  # Note miniconda is pre-installed in the virtual environments for GitHub Actions:
   # https://github.com/actions/virtual-environments/blob/main/images/linux/scripts/installers/miniconda.sh
   MLFLOW_CONDA_HOME: /usr/share/miniconda
 
@@ -34,6 +34,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - uses: ./.github/actions/setup-python-conda
+      with:
+        python-version: 3.6
     - name: Install dependencies
       env:
         INSTALL_LARGE_PYTHON_DEPS: true
@@ -43,8 +46,6 @@ jobs:
         pip install -r ./dev/lint-requirements.txt
     - name: Run tests
       run: |
-        export PATH="$CONDA_DIR/bin:$PATH"
-        source activate test-environment
         ./lint.sh
   r:
     runs-on: ubuntu-latest
