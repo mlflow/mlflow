@@ -304,17 +304,12 @@ jobs:
         with:
           java-version: 8
           distribution: 'adopt'
-      - name: Get cache key prefix
-        id: get-cache-key-prefix
-        run: |
-          date=$(date -u "+%Y%m%d")
-          echo "::set-output name=key::$ImageOS-$ImageVersion-$date"
       - uses: actions/cache@v2
         with:
           path: ~/.cache/pip
-          key: ${{ steps.get-cache-key-prefix.outputs.key }}-pip-${{ hashFiles('**/*-requirements.txt') }}
+          key: ${{ env.ImageOS }}-${{ env.ImageVersion }}-pip-${{ hashFiles('**/*-requirements.txt') }}
           restore-keys: |
-            ${{ steps.get-cache-key-prefix.outputs.key }}-pip-
+            ${{ env.ImageOS }}-${{ env.ImageVersion }}-pip-
       - name: Install dependencies
         env:
           INSTALL_LARGE_PYTHON_DEPS: true
