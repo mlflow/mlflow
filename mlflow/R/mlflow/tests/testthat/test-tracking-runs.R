@@ -77,6 +77,13 @@ test_that("mlflow_start_run()/mlflow_end_run() works properly with nested runs",
     expect_equal(mlflow:::mlflow_get_active_run_id(), runs[[i]]$run_uuid)
     run <- mlflow_end_run(client = client, run_id = runs[[i]]$run_uuid)
     expect_identical(run$run_uuid, runs[[i]]$run_uuid)
+    if (i > 1) {
+      tags <- run$tags[[1]]
+      expect_equal(
+        tags[tags$key == "mlflow.parentRunId",]$value,
+        runs[[i - 1]]$run_uuid
+      )
+    }
   }
   expect_null(mlflow:::mlflow_get_active_run_id())
 })
