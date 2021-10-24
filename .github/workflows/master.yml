@@ -307,9 +307,9 @@ jobs:
       - uses: actions/cache@v2
         with:
           path: ~/.cache/pip
-          key: ${{ env.ImageOS }}-${{ env.ImageVersion }}-pip-${{ hashFiles('**/*-requirements.txt') }}
+          key: ${{ env.IMAGE_OS }}-${{ env.IMAGE_VERSION }}-pip-${{ hashFiles('**/*-requirements.txt') }}
           restore-keys: |
-            ${{ env.ImageOS }}-${{ env.ImageVersion }}-pip-
+            ${{ env.IMAGE_OS }}-${{ env.IMAGE_VERSION }}-pip-
       - name: Install dependencies
         env:
           INSTALL_LARGE_PYTHON_DEPS: true
