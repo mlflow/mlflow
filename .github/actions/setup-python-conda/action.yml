@@ -18,6 +18,7 @@ runs:
     # - `mlflow serve` tries to create an environment to serve the model via conda,
     #   but fails to find 'python=3.6.13' on Anaconda.
     - name: fetch-python-version
+      shell: bash
       run: |
         latest_micro_version=$(
           $CONDA/bin/conda search -c conda-forge python=$python_version |
