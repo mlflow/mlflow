@@ -1,0 +1,29 @@
+name: "setup-python-conda"
+description: "Ensures to install a python version that's available on Anaconda"
+inputs:
+  python-version:
+    description: "The python version to install (e.g. 3.6)"
+    required: true
+outputs:
+  installed-python-version:
+    description: "The installed python version"
+    value: ${{ steps.fetch-python-version.outputs.version }}
+runs:
+  using: "composite"
+  steps:
+    # What would happen if we skipped this step and set `python-version` of `actions/setup-python@v2 to '3.6'?
+    # - `actions/setup-python` automatically selects 3.6.13 (the latest micro version of 3.6),
+    #   but it's new and not available yet on Anaconda.
+    # - MLflow logs 'python=3.6.13' in `conda.yaml` when logging a model.
+    # - `mlflow serve` tries to create an environment to serve the model via conda,
+    #   but fails to find 'python=3.6.13' on Anaconda.
+    - name: fetch-python-version
+      run: |
+        latest_micro_version=$(
+          $CONDA/bin/conda search -c conda-forge python=$python_version |
+          tail -1 | tr -s ' ' | cut -d' ' -f2
+        )
+        echo "::set-output name=version::$latest_micro_version"
+    - uses: actions/setup-python@v2
+      with:
+        python-version: ${{ steps.fetch-python-version.outputs.version }}

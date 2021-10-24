@@ -168,6 +168,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - uses: ./.github/actions/setup-python-conda
+      with:
+        python-version: 3.6
     - name: Install dependencies
       env:
         INSTALL_SMALL_PYTHON_DEPS: true
