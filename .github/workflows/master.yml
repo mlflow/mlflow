@@ -25,6 +25,8 @@ defaults:
     shell: bash
 
 env:
+  # Note miniconda is pre-installed in for GitHub Actions' virtual-environments:
+  # https://github.com/actions/virtual-environments/blob/main/images/linux/scripts/installers/miniconda.sh
   MLFLOW_CONDA_HOME: /usr/share/miniconda
 
 jobs:
