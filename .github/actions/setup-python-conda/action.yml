@@ -21,9 +21,10 @@ runs:
       shell: bash
       run: |
         latest_micro_version=$(
-          $CONDA/bin/conda search -c conda-forge python={{ inputs.python-version }} |
+          $CONDA/bin/conda search -c conda-forge python=${{ inputs.python-version }} |
           tail -1 | tr -s ' ' | cut -d' ' -f2
         )
+        echo $latest_micro_version
         echo "::set-output name=version::$latest_micro_version"
     - uses: actions/setup-python@v2
       with:
