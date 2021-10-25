@@ -6,22 +6,21 @@ MLflow 1.21.0 includes several major features and improvements:
 
 Features:
 
-- MLflow UI updates (#4917, @dbczumar)
-- Added diff-view switch (#4862, @marijncv)
-- Print warning when inferred requirements are not available on PyPI (#4891, @dbczumar)
-- Added start_time and duration to csv export (#4851, @marijncv)
-- Visibility of default column sorting order. closes #4825 (#4847, @marijncv)
-- Added lifecycle stage to run page (#4848, @marijncv)
-- Added a duration column to the runs table in the experiment UI. closes #4826 (#4840, @marijncv)
-- Enable AzureDefaultCredential for authenticating against Azure Storage backends (closes #3998) (#4002, @marijncv)
-- Add experiment tags to experiment creation APIs (#4795, @apurva-koti)
-- Upgraded fastai from v1 to v2 (>=2.4.1) (#4715, @jinzhang21)
-- GC CLI SFTP Support: implement delete_artifacts in sftp_artifact_repository (#4670, @afaul)
-- [FR] Use mamba for creating environments (#4746, @giacomov)
-- Add prophet flavor (#4773, @BenWilson2)
-- Add tags (#4788, @dbczumar)
-- [PaddlePaddle] refactor the code and support autolog (#4751, @jinminhao)
-- Push MLflow model to Sagemaker model registry (#4669, @jinnig)
+- [UI] Add a diff-only view switch to the runs table for filtering out columns with constant values (#4862, @marijncv)
+- [UI] Add a duration column to the runs table (#4840, @marijncv)
+- [UI] Display the default column sorting order in the runs table (#4847, @marijncv)
+- [UI] Add `start_time` and `duration` information to exported runs CSV (#4851, @marijncv)
+- [UI] Add lifecycle stage information to the run page (#4848, @marijncv)
+- [UI] Collapse runs page sections by default for space efficiency, limit artifact previews to 50MB (#4917, @dbczumar)
+- [Tracking] Introduce autologging capabilities for PaddlePaddle model training (#4751, @jinminhao)
+- [Tracking] Add an optional tags field to the CreateExperiment API (#4788, @dbczumar; #4795, @apurva-koti)
+- [Tracking] Add support for deleting artifacts from SFTP artifact stores via the `mlflow gc` CLI (#4670, @afaul)
+- [Tracking] Support AzureDefaultCredential for authenticating with Azure artifact storage backends (#4002, @marijncv)
+- [Models] Upgrade the fastai model flavor to support fastai V2 (`>=2.4.1`) (#4715, @jinzhang21)
+- [Models] Introduce a model flavor for Prophet time series models (#4773, @BenWilson2)
+- [Models] Print a warning when inferred model dependencies are not available on PyPI (#4891, @dbczumar)
+- [Models] Introduce a CLI for publishing MLflow Models to the SageMaker Model Registry (#4669, @jinnig)
+- [Models, Projects] Add `MLFLOW_CONDA_CREATE_ENV_CMD` for customizing Conda environment creation (#4746, @giacomov)
 
 Bug fixes and documentation updates:
 
