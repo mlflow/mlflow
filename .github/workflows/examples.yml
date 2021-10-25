@@ -16,7 +16,7 @@ defaults:
     shell: bash
 
 env:
-  CONDA_DIR: /usr/share/miniconda
+  MLFLOW_CONDA_HOME: /usr/share/miniconda
 
 jobs:
   examples:
@@ -45,9 +45,9 @@ jobs:
         echo "EXAMPLES_CHANGED: $EXAMPLES_CHANGED"
         echo "::set-output name=examples_changed::$EXAMPLES_CHANGED"
 
-    - name: Enable conda
-      run: |
-        echo "/usr/share/miniconda/bin" >> $GITHUB_PATH
+    - uses: ./.github/actions/setup-python-conda
+      with:
+        python-version: 3.6
 
     - name: Install dependencies
       if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}
@@ -62,7 +62,6 @@ jobs:
       env:
         SPARK_LOCAL_IP: 127.0.0.1
       run: |
-        source activate test-environment
         pytest tests/examples --durations=30 --large
 
     - name: Remove conda environments
