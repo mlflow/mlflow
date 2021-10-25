@@ -256,8 +256,7 @@ def test_fastai_autolog_model_can_load_from_artifact(fastai_random_tabular_data_
     model_wrapper.predict(iris_dataframe())
 
 
-@pytest.fixture
-def fastai_random_data_run_with_callback(
+def _fastai_random_data_run_with_callback(
     iris_data, fit_variant, manual_run, callback, patience, tmpdir
 ):
     # pylint: disable=unused-argument
@@ -282,6 +281,16 @@ def fastai_random_data_run_with_callback(
 
     client = mlflow.tracking.MlflowClient()
     return model, client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
+
+
+@pytest.fixture
+def fastai_random_data_run_with_callback(
+    iris_data, fit_variant, manual_run, callback, patience, tmpdir
+):
+    # pylint: disable=unused-argument
+    return _fastai_random_data_run_with_callback(
+        iris_data, fit_variant, manual_run, callback, patience, tmpdir
+    )
 
 
 @pytest.mark.large
@@ -403,7 +412,7 @@ def test_fastai_autolog_batch_metrics_logger_logs_expected_metrics(
             original(self, metrics, step)
 
         record_metrics_mock.side_effect = record_metrics_side_effect
-        _, run = fastai_random_data_run_with_callback(
+        _, run = _fastai_random_data_run_with_callback(
             iris_data, fit_variant, manual_run, callback, patience, tmpdir
         )
 
