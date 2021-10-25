@@ -129,7 +129,6 @@ def prophet_custom_env(tmpdir):
     return conda_env
 
 
-@pytest.fixture
 def future_horizon_df(model, horizon):
     return model.make_future_dataframe(periods=horizon)
 
