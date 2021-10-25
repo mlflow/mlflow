@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-from functools import lru_cache
 import statsmodels.api as sm
 from collections import namedtuple
 from statsmodels.tsa.arima_process import arma_generate_sample
