@@ -77,6 +77,26 @@ def test_statsmodels_autolog_logs_specified_params():
     mlflow.end_run()
 
 
+def test_statsmodels_autolog_logs_summary_artifact():
+    mlflow.statsmodels.autolog()
+    with mlflow.start_run():
+        model = ols_model().model
+        summary_path = mlflow.get_artifact_uri('model_summary.txt').replace("file://", "")
+        with open(summary_path, 'r') as f:
+            saved_summary = f.read()
+
+    assert model.summary().as_text() == saved_summary
+
+
+def test_statsmodels_autolog_logs_basic_metrics():
+    mlflow.statsmodels.autolog()
+    ols_model()
+    run = get_latest_run()
+    metrics = run.data.metrics
+    assert set(metrics.keys()) == set(mlflow.statsmodels._autolog_metric_whitelist)
+    mlflow.end_run()
+
+
 def test_statsmodels_autolog_works_after_exception():
     mlflow.statsmodels.autolog()
     # We first fit a model known to raise an exception

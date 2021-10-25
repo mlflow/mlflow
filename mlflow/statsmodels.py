@@ -323,6 +323,28 @@ class AutologHelpers:
     should_autolog = True
 
 
+# Currently we only autolog basic metrics
+_autolog_metric_whitelist = [
+    'aic', 'bic', 'centered_tss', 'condition_number',  'df_model', 'df_resid', 'ess', 'f_pvalue',
+    'fvalue', 'llf', 'mse_model', 'mse_resid',  'mse_total', 'rsquared', 'rsquared_adj', 'scale',
+    'ssr', 'uncentered_tss'
+]
+
+
+def _get_autolog_metrics(fit_model):
+    result_metrics = {}
+    whitelist_metrics = [metric for metric in dir(fit_model)
+                         if metric in _autolog_metric_whitelist]
+
+    for metric in whitelist_metrics:
+        metric_value = getattr(fit_model, metric)
+
+        if _is_numeric(metric_value):
+            result_metrics[metric] = metric_value
+
+    return result_metrics
+
+
 @experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
@@ -438,50 +460,6 @@ def autolog(
             d2[newkey] = dictionary.get(k)
         return d2
 
-    def results_to_dict(results):
-        """
-        Turns a ResultsWrapper object into a python dict
-        :param results: instance of a ResultsWrapper returned by a call to `fit`
-        :return: a python dictionary with those metrics that are (a) a real number, or (b) an array
-                 of the same length of the number of coefficients
-        """
-        has_features = False
-        features = results.model.exog_names
-        if features is not None:
-            has_features = True
-            nfeat = len(features)
-
-        results_dict = {}
-        for f in dir(results):
-            try:
-                field = getattr(results, f)
-                # Get all fields except covariances and private ones
-                if (
-                    not callable(field)
-                    and not f.startswith("__")
-                    and not f.startswith("_")
-                    and not f.startswith("cov_")
-                ):
-
-                    if (
-                        has_features
-                        and isinstance(field, np.ndarray)
-                        and field.ndim == 1
-                        and field.shape[0] == nfeat
-                    ):
-
-                        d = dict(zip(features, field))
-                        renamed_keys_dict = prepend_to_keys(d, f)
-                        results_dict.update(renamed_keys_dict)
-
-                    elif _is_numeric(field):
-                        results_dict[f] = field
-
-            except Exception:
-                pass
-
-        return results_dict
-
     def wrapper_fit(original, self, *args, **kwargs):
 
         should_autolog = False
@@ -504,8 +482,11 @@ def autolog(
 
                 # Log the most common metrics
                 if isinstance(model, statsmodels.base.wrapper.ResultsWrapper):
-                    metrics_dict = results_to_dict(model)
+                    metrics_dict = _get_autolog_metrics(model)
                     try_mlflow_log(mlflow.log_metrics, metrics_dict)
+
+                    model_summary = model.summary().as_text()
+                    try_mlflow_log(mlflow.log_text, model_summary, 'model_summary.txt')
 
             return model
 
