@@ -62,7 +62,9 @@ def _test_mode_on():
             del os.environ[_AUTOLOGGING_TEST_MODE_ENV_VAR]
 
 
-test_mode_on = pytest.fixture(_test_mode_on)
+@pytest.fixture
+def test_mode_on():
+    yield from _test_mode_on()
 
 
 @pytest.fixture(autouse=True)
