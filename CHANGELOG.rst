@@ -1,5 +1,42 @@
 Changelog
 =========
+1.21.0 (2021-10-23)
+-------------------
+MLflow 1.21.0 includes several major features and improvements:
+
+Features:
+
+- [UI] Add a diff-only toggle to the runs table for filtering out columns with constant values (#4862, @marijncv)
+- [UI] Add a duration column to the runs table (#4840, @marijncv)
+- [UI] Display the default column sorting order in the runs table (#4847, @marijncv)
+- [UI] Add `start_time` and `duration` information to exported runs CSV (#4851, @marijncv)
+- [UI] Add lifecycle stage information to the run page (#4848, @marijncv)
+- [UI] Collapse run page sections by default for space efficiency, limit artifact previews to 50MB (#4917, @dbczumar)
+- [Tracking] Introduce autologging capabilities for PaddlePaddle model training (#4751, @jinminhao)
+- [Tracking] Add an optional tags field to the CreateExperiment API (#4788, @dbczumar; #4795, @apurva-koti)
+- [Tracking] Add support for deleting artifacts from SFTP stores via the `mlflow gc` CLI (#4670, @afaul)
+- [Tracking] Support AzureDefaultCredential for authenticating with Azure artifact storage backends (#4002, @marijncv)
+- [Models] Upgrade the fastai model flavor to support fastai V2 (`>=2.4.1`) (#4715, @jinzhang21)
+- [Models] Introduce an `mlflow.prophet` model flavor for Prophet time series models (#4773, @BenWilson2)
+- [Models] Introduce a CLI for publishing MLflow Models to the SageMaker Model Registry (#4669, @jinnig)
+- [Models] Print a warning when inferred model dependencies are not available on PyPI (#4891, @dbczumar)
+- [Models, Projects] Add `MLFLOW_CONDA_CREATE_ENV_CMD` for customizing Conda environment creation (#4746, @giacomov)
+
+Bug fixes and documentation updates:
+
+- [UI] Fix an issue where column selections made in the runs table were persisted across experiments (#4926, @sunishsheth2009)
+- [UI] Fix an issue where the text `null` was displayed in the runs table column ordering dropdown (#4924, @harupy)
+- [UI] Fix a bug causing the metric plot view to display NaN values upon click (#4858, @arpitjasa-db)
+- [Tracking] Fix a model load failure for paths containing spaces or special characters on UNIX systems (#4890, @BenWilson2)
+- [Tracking] Correct a migration issue that impacted usage of MLflow Tracking with SQL Server (#4880, @marijncv)
+- [Tracking] Spark datasource autologging tags now respect the maximum allowable size for MLflow Tracking (#4809, @dbczumar)
+- [Model Registry] Add previously-missing certificate sources for Model Registry REST API requests (#4731, @ericgosno91)
+- [Model Registry] Throw an exception when users supply invalid Model Registry URIs for Databricks (#4877, @yunpark93)
+- [Scoring] Fix a schema enforcement error that incorrectly cast date-like strings to datetime objects (#4902, @wentinghu)
+- [Docs] Expand the documentation for the MLflow Skinny Client (#4113, @eedeleon)
+
+Small bug fixes and doc updates (#4928, #4919, #4927, #4922, #4914, #4899, #4893, #4894, #4884, #4864, #4823, #4841, #4817, #4796, #4797, #4767, #4768, #4757, @harupy; #4863, #4838, @marijncv; #4834, @ksaur; #4772, @louisguitton; #4801, @twsl; #4929, #4887, #4856, #4843, #4789, #4780, @WeichenXu123; #4769, @Ark-kun; #4898, #4756, @apurva-koti; #4784, @lakshikaparihar; #4855, @ianshan0915; #4790, @eedeleon; #4931, #4857, #4846, 4777, #4748, @dbczumar)
+
 1.20.2 (2021-09-03)
 -------------------
 MLflow 1.20.2 is a patch release containing the following features and bug fixes:
