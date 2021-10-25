@@ -6,7 +6,6 @@ MLflow 1.21.0 includes several major features and improvements:
 
 Features:
 
-- Add support to serve MLflow models through MLServer (#4845, @adriangonz)
 - MLflow UI updates (#4917, @dbczumar)
 - Added diff-view switch (#4862, @marijncv)
 - Print warning when inferred requirements are not available on PyPI (#4891, @dbczumar)
@@ -26,20 +25,18 @@ Features:
 
 Bug fixes and documentation updates:
 
-- Reseting the experiment view persistant state on experimentId change (#4926, @sunishsheth2009)
-- set orderByKey when switching experiments (#4924, @harupy)
-- Fix issue where pd.read_json converts strings to dates (#4902, @wentinghu)
-- Remove url casting in local artifact storage path (#4890, @BenWilson2)
-- Fix autologging event logger behavior when patch function failed before original function called (#4856, @WeichenXu123)
-- [Bugfix] Alter_column on metrics table only called for mysql database engine (#4880, @marijncv)
-- Fixed Metric plot view erroneously displays NaN value on click (#4858, @arpitjasa-db)
-- Throw Exception When Invalid URI with Databricks Scheme Provided (#4877, @yunpark93)
-- Limit length of tag set by Spark datasource autologging (#4809, @dbczumar)
-- Add client_cert_path and server_cert_path ino model registry Rest Store (#4731, @ericgosno91)
-- Add roadmap links & info to README (#4846, @dbczumar)
-- Expand documentation for MLflow Skinny (#4113, @eedeleon)
+- [UI] Fix an issue where column selections made in the runs table were persisted across experiments (#4926, @sunishsheth2009)
+- [UI] Fix an issue where the text `null` was displayed in the runs table column ordering dropdown (#4924, @harupy)
+- [UI] Fix a bug causing the metric plot view to display NaN values upon click (#4858, @arpitjasa-db)
+- [Tracking] Fix a bug that prevented loading models from paths containing spaces or special characters on UNIX systems (#4890, @BenWilson2)
+- [Tracking] Correct a migration issue that impacted usage of MLflow Tracking with SQL Server (#4880, @marijncv)
+- [Tracking] Limit the length of the tag set by Spark datasource autologging to the maximum allowable size for MLflow Tracking (#4809, @dbczumar)
+- [Models] Fix an error in schema enforcement for MLflow Models that incorrectly casted date-like strings to datetime objects (#4902, @wentinghu)
+- [Model Registry] Add previously-missing certificate sources for Model Registry REST API requests (#4877, @yunpark93)
+- [Model Registry] Throw an exception rather than failing silently when users supply a Registry URI for Databricks (#4731, @ericgosno91)
+- [Docs] Expand the documentation for the MLflow Skinny client (#4113, @eedeleon)
 
-Small bug fixes and doc updates (#4928, #4919, #4927, #4922, #4914, #4899, #4893, #4894, #4884, #4864, #4823, #4841, #4817, #4796, #4797, #4767, #4768, #4757, @harupy; #4863, #4838, @marijncv; #4834, @ksaur; #4772, @louisguitton; #4801, @twsl; #4929, #4887, #4843, #4789, #4780, @WeichenXu123; #4769, @Ark-kun; #4898, #4756, @apurva-koti; #4784, @lakshikaparihar; #4855, @ianshan0915; #4790, @eedeleon; #4931, #4857, #4777, #4748, @dbczumar)
+Small bug fixes and doc updates (#4928, #4919, #4927, #4922, #4914, #4899, #4893, #4894, #4884, #4864, #4823, #4841, #4817, #4796, #4797, #4767, #4768, #4757, @harupy; #4863, #4838, @marijncv; #4834, @ksaur; #4772, @louisguitton; #4801, @twsl; #4929, #4887, #4856, #4843, #4789, #4780, @WeichenXu123; #4769, @Ark-kun; #4898, #4756, @apurva-koti; #4784, @lakshikaparihar; #4855, @ianshan0915; #4790, @eedeleon; #4931, #4857, #4846, 4777, #4748, @dbczumar)
 
 1.20.2 (2021-09-03)
 -------------------
