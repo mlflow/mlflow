@@ -282,4 +282,4 @@ def test_logging_failures_are_handled_as_expected():
         assert "Failed to perform one or more operations on the run with ID {run_id}".format(
             run_id=run.info.run_id
         ) in str(exc)
-        assert "Batch logging failed!" in str(exc)
+        assert "Batch logging failed!" in str(exc.value)
