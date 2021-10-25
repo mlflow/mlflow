@@ -55,6 +55,7 @@
     "argparse": "^2.0.1",
     "babel-plugin-formatjs": "^10.2.11",
     "canvas": "^2.6.1",
+    "cross-env": "^7.0.3",
     "customize-cra": "^1.0.0",
     "enzyme": "^3.11.0",
     "enzyme-adapter-react-16.3": "^1.7.4",
@@ -80,8 +81,8 @@
   "scripts": {
     "start": "react-app-rewired start",
     "build": "react-app-rewired --max_old_space_size=8192 build",
-    "test": "TZ=GMT react-app-rewired test --env=jsdom --colors",
-    "test:debug": "TZ=GMT react-app-rewired --inspect-brk test --runInBand --no-cache --env=jsdom",
+    "test": "cross-env TZ=GMT react-app-rewired test --env=jsdom --colors",
+    "test:debug": "cross-env TZ=GMT react-app-rewired --inspect-brk test --runInBand --no-cache --env=jsdom",
     "eject": "react-scripts eject",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
