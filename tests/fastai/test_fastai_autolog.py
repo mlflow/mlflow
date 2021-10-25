@@ -213,9 +213,9 @@ def test_fastai_autolog_opt_func_expected_data(iris_data, fit_variant, manual_ru
 
 @pytest.mark.large
 @pytest.mark.parametrize("log_models", [True, False])
-def test_fastai_autolog_log_models_configuration(log_models):
+def test_fastai_autolog_log_models_configuration(log_models, iris_data):
     mlflow.fastai.autolog(log_models=log_models)
-    model = fastai_tabular_model(iris_data())
+    model = fastai_tabular_model(iris_data)
     model.fit(NUM_EPOCHS)
 
     client = mlflow.tracking.MlflowClient()
@@ -386,7 +386,7 @@ def test_fastai_autolog_non_early_stop_callback_does_not_log(fastai_random_data_
 @pytest.mark.parametrize("callback", ["not-early"])
 @pytest.mark.parametrize("patience", [5])
 def test_fastai_autolog_batch_metrics_logger_logs_expected_metrics(
-    fit_variant, callback, patience, tmpdir
+    fit_variant, callback, patience, tmpdir, iris_data
 ):
     patched_metrics_data = []
 
@@ -404,7 +404,7 @@ def test_fastai_autolog_batch_metrics_logger_logs_expected_metrics(
 
         record_metrics_mock.side_effect = record_metrics_side_effect
         _, run = fastai_random_data_run_with_callback(
-            iris_data(), fit_variant, manual_run, callback, patience, tmpdir
+            iris_data, fit_variant, manual_run, callback, patience, tmpdir
         )
 
     patched_metrics_data = dict(patched_metrics_data)
