@@ -31,7 +31,6 @@ from tests.helper_functions import pyfunc_serve_and_score_model, _assert_pip_req
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
 
 
-@pytest.fixture(scope="session")
 def get_dataset():
     X, y = load_boston(return_X_y=True)
 

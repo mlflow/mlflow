@@ -133,7 +133,6 @@ def future_horizon_df(model, horizon):
     return model.make_future_dataframe(periods=horizon)
 
 
-@pytest.fixture
 def generate_forecast(model, horizon):
     return model.predict(model.make_future_dataframe(periods=horizon))[TARGET_FIELD_NAME]
 
