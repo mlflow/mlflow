@@ -159,6 +159,76 @@ export class CompareRunContour extends Component {
       z[yi][xi] = zs[index];
     });
 
+    const maybeRenderPlot = () => {
+      if (xsSorted.length < 2 || ysSorted.length < 2) {
+        return (
+          <div>X or Y axis doesn't have enough unique data points to draw the contour plot</div>
+        );
+      }
+
+      return (
+        <LazyPlot
+          data={[
+            // contour plot
+            {
+              z,
+              x: xsSorted,
+              y: ysSorted,
+              type: 'contour',
+              hoverinfo: 'none',
+              colorscale: this.getColorscale(),
+              connectgaps: true,
+              contours: {
+                coloring: 'heatmap',
+              },
+            },
+            // scatter plot
+            {
+              x: xsSorted,
+              y: ysSorted,
+              text: tooltips,
+              hoverinfo: 'text',
+              type: 'scattergl',
+              mode: 'markers',
+              marker: {
+                size: 10,
+                color: 'rgba(200, 50, 100, .75)',
+              },
+            },
+          ]}
+          layout={{
+            margin: {
+              t: 30,
+            },
+            hovermode: 'closest',
+            xaxis: {
+              title: this.encodeHtml(Utils.truncateString(this.state['xaxis'].key, keyLength)),
+              range: [Math.min(...xs), Math.max(...xs)],
+            },
+            yaxis: {
+              title: this.encodeHtml(Utils.truncateString(this.state['yaxis'].key, keyLength)),
+              range: [Math.min(...ys), Math.max(...ys)],
+            },
+          }}
+          className={'scatter-plotly'}
+          config={{
+            responsive: true,
+            displaylogo: false,
+            scrollZoom: true,
+            modeBarButtonsToRemove: [
+              'sendDataToCloud',
+              'select2d',
+              'lasso2d',
+              'resetScale2d',
+              'hoverClosestCartesian',
+              'hoverCompareCartesian',
+            ],
+          }}
+          useResizeHandler
+        />
+      );
+    };
+
     return (
       <div className='responsive-table-container'>
         <div className='container-fluid'>
@@ -219,71 +289,7 @@ export class CompareRunContour extends Component {
                 />
               </div>
             </form>
-            <div className='col-xs-9'>
-              <LazyPlot
-                data={[
-                  // contour plot
-                  {
-                    z,
-                    x: xsSorted,
-                    y: ysSorted,
-                    type: 'contour',
-                    hoverinfo: 'none',
-                    colorscale: this.getColorscale(),
-                    connectgaps: true,
-                    contours: {
-                      coloring: 'heatmap',
-                    },
-                  },
-                  // scatter plot
-                  {
-                    x: xs,
-                    y: ys,
-                    text: tooltips,
-                    hoverinfo: 'text',
-                    type: 'scattergl',
-                    mode: 'markers',
-                    marker: {
-                      size: 10,
-                      color: 'rgba(200, 50, 100, .75)',
-                    },
-                  },
-                ]}
-                layout={{
-                  margin: {
-                    t: 30,
-                  },
-                  hovermode: 'closest',
-                  xaxis: {
-                    title: this.encodeHtml(
-                      Utils.truncateString(this.state['xaxis'].key, keyLength),
-                    ),
-                    range: [Math.min(...xs), Math.max(...xs)],
-                  },
-                  yaxis: {
-                    title: this.encodeHtml(
-                      Utils.truncateString(this.state['yaxis'].key, keyLength),
-                    ),
-                    range: [Math.min(...ys), Math.max(...ys)],
-                  },
-                }}
-                className={'scatter-plotly'}
-                config={{
-                  responsive: true,
-                  displaylogo: false,
-                  scrollZoom: true,
-                  modeBarButtonsToRemove: [
-                    'sendDataToCloud',
-                    'select2d',
-                    'lasso2d',
-                    'resetScale2d',
-                    'hoverClosestCartesian',
-                    'hoverCompareCartesian',
-                  ],
-                }}
-                useResizeHandler
-              />
-            </div>
+            <div className='col-xs-9'>{maybeRenderPlot()}</div>
           </div>
         </div>
       </div>
