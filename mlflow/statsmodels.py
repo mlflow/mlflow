@@ -498,5 +498,5 @@ def autolog(
 
 
 autolog.__doc__ = autolog.__doc__.format(
-    autolog_metric_whitelist=','.join(_autolog_metric_whitelist)
+    autolog_metric_whitelist=",".join(_autolog_metric_whitelist)
 )
