@@ -356,7 +356,7 @@ def _copy_file_or_tree(src, dst, dst_dir=None):
     return dst_subpath
 
 
-def _get_local_project_dir_size(project_path):
+def _get_local_project_dir_size(project_path):  # pylint: disable=unused-variable
     """
     Internal function for reporting the size of a local project directory before copying to
     destination for cli logging reporting to stdout.
