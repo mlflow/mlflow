@@ -356,12 +356,12 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
 ):  # pylint: disable=unused-argument
-    f"""
+    """
     Enables (or disables) and configures automatic logging from statsmodels to MLflow.
     Logs the following:
 
     - basic results metrics returned by method `fit` of any subclass of
-      statsmodels.base.model.Model, basic metrics including: {','.join(_autolog_metric_whitelist)}
+      statsmodels.base.model.Model, basic metrics including: {autolog_metric_whitelist}
     - trained model.
 
 
@@ -500,3 +500,6 @@ def autolog(
                 AutologHelpers.should_autolog = True
 
     patch_class_tree(statsmodels.base.model.Model)
+
+
+autolog.__doc__ = autolog.__doc__.format(autolog_metric_whitelist=_autolog_metric_whitelist)
