@@ -85,7 +85,7 @@ def test_statsmodels_autolog_logs_summary_artifact():
         with open(summary_path, 'r') as f:
             saved_summary = f.read()
 
-    assert model.summary().as_text() == saved_summary
+    assert model.summary().as_html() == saved_summary
 
 
 def test_statsmodels_autolog_logs_basic_metrics():
@@ -94,7 +94,6 @@ def test_statsmodels_autolog_logs_basic_metrics():
     run = get_latest_run()
     metrics = run.data.metrics
     assert set(metrics.keys()) == set(mlflow.statsmodels._autolog_metric_whitelist)
-    mlflow.end_run()
 
 
 def test_statsmodels_autolog_works_after_exception():

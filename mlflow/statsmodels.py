@@ -331,17 +331,19 @@ _autolog_metric_whitelist = [
 ]
 
 
-def _get_autolog_metrics(fit_model):
+def _get_autolog_metrics(fitted_model):
     result_metrics = {}
-    whitelist_metrics = [metric for metric in dir(fit_model)
+    whitelist_metrics = [metric for metric in dir(fitted_model)
                          if metric in _autolog_metric_whitelist]
 
     for metric in whitelist_metrics:
-        metric_value = getattr(fit_model, metric)
-
-        if _is_numeric(metric_value):
-            result_metrics[metric] = metric_value
-
+        try:
+            if hasattr(fitted_model, metric):
+                metric_value = getattr(fitted_model, metric)
+                if _is_numeric(metric_value):
+                    result_metrics[metric] = metric_value
+        except Exception:
+            continue
     return result_metrics
 
 
@@ -354,12 +356,14 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
 ):  # pylint: disable=unused-argument
-    """
+    f"""
     Enables (or disables) and configures automatic logging from statsmodels to MLflow.
     Logs the following:
 
-    - results metrics returned by method `fit` of any subclass of statsmodels.base.model.Model
+    - basic results metrics returned by method `fit` of any subclass of
+      statsmodels.base.model.Model, basic metrics including: {','.join(_autolog_metric_whitelist)}
     - trained model.
+
 
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
@@ -485,7 +489,7 @@ def autolog(
                     metrics_dict = _get_autolog_metrics(model)
                     try_mlflow_log(mlflow.log_metrics, metrics_dict)
 
-                    model_summary = model.summary().as_text()
+                    model_summary = model.summary().as_html()
                     try_mlflow_log(mlflow.log_text, model_summary, 'model_summary.txt')
 
             return model
