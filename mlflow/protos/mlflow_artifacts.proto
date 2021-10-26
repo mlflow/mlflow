@@ -1,0 +1,92 @@
+syntax = "proto2";
+
+package mlflow.artifacts;
+
+import "scalapb/scalapb.proto";
+import "databricks.proto";
+
+option java_package = "org.mlflow.api.proto";
+option py_generic_services = true;
+option (scalapb.options) = {
+  flat_package: true,
+};
+
+service MlflowArtifactsService {
+
+  rpc downloadArtifact (DownloadArtifact) returns (DownloadArtifact.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow-artifacts/artifacts/<artifact_path>",
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Download Artifacts",
+    };
+  }
+
+  rpc uploadArtifact (UploadArtifact) returns (UploadArtifact.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow-artifacts/artifacts/<artifact_path>",
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Upload Artifacts",
+    };
+  }
+
+  rpc listArtifacts (ListArtifacts) returns (ListArtifacts.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow-artifacts/artifacts",
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "List Artifacts",
+    };
+  }
+}
+
+message DownloadArtifact {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  message Response {}
+}
+
+message UploadArtifact {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  message Response {}
+}
+
+message ListArtifacts {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Filter artifacts matching this path (a relative path from the root artifact directory).
+  optional string path = 1;
+
+  // Token indicating the page of artifact results to fetch
+  optional string page_token = 2;
+
+  message Response {
+    // File location and metadata for artifacts.
+    repeated FileInfo files = 1;
+
+    // Token that can be used to retrieve the next page of artifact results
+    optional string next_page_token = 3;
+  }
+}
+
+message FileInfo {
+  // Path relative to the root artifact directory run.
+  optional string path = 1;
+
+  // Whether the path is a directory.
+  optional bool is_dir = 2;
+
+  // Size in bytes. Unset for directories.
+  optional int64 file_size = 3;
+}

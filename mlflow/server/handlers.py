@@ -63,6 +63,12 @@ from mlflow.protos.model_registry_pb2 import (
     SetModelVersionTag,
     DeleteModelVersionTag,
 )
+from mlflow.protos.mlflow_artifacts_pb2 import (
+    MlflowArtifactsService,
+    DownloadArtifact,
+    UploadArtifact,
+    ListArtifacts as MlflowArtifactsListArtifacts,
+)
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
@@ -799,6 +805,25 @@ def _delete_model_version_tag():
     return _wrap_response(DeleteModelVersionTag.Response())
 
 
+@catch_mlflow_exception
+def _download_artifact(artifact_path):
+    print(artifact_path)
+    return _wrap_response(DownloadArtifact.Response())
+
+
+@catch_mlflow_exception
+def _upload_artifact(artifact_path):
+    print(artifact_path)
+    return _wrap_response(UploadArtifact.Response())
+
+
+@catch_mlflow_exception
+def _mlflow_artifacts_list_artifacts():
+    request_message = _get_request_message(MlflowArtifactsListArtifacts())
+    print(request_message)
+    return _wrap_response(UploadArtifact.Response())
+
+
 def _add_static_prefix(route):
     prefix = os.environ.get(STATIC_PREFIX_ENV_VAR)
     if prefix:
@@ -838,7 +863,11 @@ def get_endpoints():
                     ret.append((http_path, handler, [endpoint.method]))
         return ret
 
-    return get_service_endpoints(MlflowService) + get_service_endpoints(ModelRegistryService)
+    return (
+        get_service_endpoints(MlflowService)
+        + get_service_endpoints(ModelRegistryService)
+        + get_service_endpoints(MlflowArtifactsService)
+    )
 
 
 HANDLERS = {
@@ -885,4 +914,8 @@ HANDLERS = {
     DeleteRegisteredModelTag: _delete_registered_model_tag,
     SetModelVersionTag: _set_model_version_tag,
     DeleteModelVersionTag: _delete_model_version_tag,
+    # MLflow Artifacts APIs
+    DownloadArtifact: _download_artifact,
+    UploadArtifact: _upload_artifact,
+    MlflowArtifactsListArtifacts: _mlflow_artifacts_list_artifacts,
 }
