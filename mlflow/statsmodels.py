@@ -348,18 +348,15 @@ _autolog_metric_whitelist = [
 
 def _get_autolog_metrics(fitted_model):
     result_metrics = {}
-    whitelist_metrics = [
-        metric for metric in dir(fitted_model) if metric in _autolog_metric_whitelist
-    ]
 
-    for metric in whitelist_metrics:
+    for metric in _autolog_metric_whitelist:
         try:
             if hasattr(fitted_model, metric):
                 metric_value = getattr(fitted_model, metric)
                 if _is_numeric(metric_value):
                     result_metrics[metric] = metric_value
         except Exception:
-            continue
+            pass
     return result_metrics
 
 
@@ -376,9 +373,10 @@ def autolog(
     Enables (or disables) and configures automatic logging from statsmodels to MLflow.
     Logs the following:
 
-    - basic results metrics returned by method `fit` of any subclass of
-      statsmodels.base.model.Model, basic metrics including: {autolog_metric_whitelist}
+    - whitelisted metrics returned by method `fit` of any subclass of
+      statsmodels.base.model.Model, the whitelisted metrics including: {autolog_metric_whitelist}
     - trained model.
+    - an html artifact which shows the model summary.
 
 
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
@@ -462,23 +460,6 @@ def autolog(
         for clazz, method_name, patch_impl in patches_list:
             safe_patch(FLAVOR_NAME, clazz, method_name, patch_impl, manage_run=True)
 
-    def prepend_to_keys(dictionary: dict, preffix="_"):
-        """
-        Modifies all keys of a dictionary by adding a preffix string to all of them
-        and make them compliant with mlflow params & metrics naming rules.
-        :param dictionary:
-        :param preffix: a string to be prepended to existing keys, using _ as separator
-        :return: a new dictionary where all keys have been modified. No changes are
-            made to the input dictionary
-        """
-        import re
-
-        keys = list(dictionary.keys())
-        d2 = {}
-        for k in keys:
-            newkey = re.sub(r"[(|)|[|\]|.]+", "_", preffix + "_" + k)
-            d2[newkey] = dictionary.get(k)
-        return d2
 
     def wrapper_fit(original, self, *args, **kwargs):
 
@@ -506,7 +487,7 @@ def autolog(
                     try_mlflow_log(mlflow.log_metrics, metrics_dict)
 
                     model_summary = model.summary().as_html()
-                    try_mlflow_log(mlflow.log_text, model_summary, "model_summary.txt")
+                    try_mlflow_log(mlflow.log_text, model_summary, "model_summary.html")
 
             return model
 
@@ -518,4 +499,6 @@ def autolog(
     patch_class_tree(statsmodels.base.model.Model)
 
 
-autolog.__doc__ = autolog.__doc__.format(autolog_metric_whitelist=_autolog_metric_whitelist)
+autolog.__doc__ = autolog.__doc__.format(
+    autolog_metric_whitelist=','.join(_autolog_metric_whitelist)
+)
