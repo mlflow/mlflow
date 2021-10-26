@@ -821,7 +821,7 @@ def _upload_artifact(artifact_path):
 def _mlflow_artifacts_list_artifacts():
     request_message = _get_request_message(MlflowArtifactsListArtifacts())
     print(request_message)
-    return _wrap_response(UploadArtifact.Response())
+    return _wrap_response(MlflowArtifactsListArtifacts.Response())
 
 
 def _add_static_prefix(route):
