@@ -11,15 +11,15 @@ outputs:
 runs:
   using: "composite"
   steps:
-    # What would happen if we skipped this step?
-    # - Let's say we set `python-version` of the `setup-python` action to '3.6'.
-    # - The `setup-python` action automatically selects 3.6.x (the latest micro version of 3.6).
-    #   If 3.6.x is new, it may not be available yet on Anaconda.
-    # - MLflow logs 'python=3.6.x' in `conda.yaml` when logging a model.
-    # - `mlflow serve` tries to create an environment to serve the model via conda,
-    #   but fails to find 'python=3.6.x' on Anaconda.
     - name: fetch-python-version
       id: fetch-python-version
+      # What would happen if we skipped this step and directly pass `python-version` to the `setup-python` action?
+      # - Let's say the value of `python-version` is 3.6.
+      # - The `setup-python` action automatically selects 3.6.x (the latest available version of 3.6).
+      #   If 3.6.x is new, it may not be available on Anaconda yet.
+      # - mlflow logs a model and creates `conda.yaml` with 'python=3.6.x'.
+      # - `mlflow serve` tries to create an environment to serve the model via conda,
+      #   but fails to find 'python=3.6.x' on Anaconda.
       shell: bash
       run: |
         latest_micro_version=$(
