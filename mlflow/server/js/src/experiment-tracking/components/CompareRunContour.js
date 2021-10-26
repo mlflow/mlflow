@@ -168,11 +168,11 @@ export class CompareRunContour extends Component {
         invalidAxes.push('Y');
       }
       if (invalidAxes.length > 0) {
-        const message =
+        const messageHead =
           invalidAxes.length > 1
             ? `The ${invalidAxes.join(' and ')} axes don't`
             : `The ${invalidAxes[0]} axis doesn't`;
-        return <>{`${message} have enough unique data points to render the contour plot.`}</>;
+        return <>{`${messageHead} have enough unique data points to render the contour plot.`}</>;
       }
 
       return (
