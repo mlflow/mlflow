@@ -40,13 +40,6 @@ fi
 if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
   retry-with-backoff pip install -r ./dev/large-requirements.txt
   retry-with-backoff pip install -r ./dev/extra-ml-requirements.txt
-  # Hack: make sure all spark-* scripts are executable.
-  # Conda installs 2 version spark-* scripts and makes the ones spark
-  # uses not executable. This is a temporary fix to unblock the tests.
-  SITE_PACKAGES_DIR=$(python -c "import site; print(site.getsitepackages()[0])")
-  ls -lha $(find $SITE_PACKAGES_DIR -path "*bin/spark-*")
-  chmod 777 $(find $SITE_PACKAGES_DIR -path "*bin/spark-*")
-  ls -lha $(find $SITE_PACKAGES_DIR -path "*bin/spark-*")
 fi
 
 # Install `mlflow-test-plugin` without dependencies
