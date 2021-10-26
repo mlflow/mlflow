@@ -15,7 +15,6 @@ statsmodels (native) format
 import os
 import yaml
 import logging
-import numpy as np
 
 import mlflow
 from mlflow import pyfunc
