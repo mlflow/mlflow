@@ -1,0 +1,32 @@
+name: "setup-python"
+description: "Ensures to install a python version that's available on Anaconda"
+inputs:
+  python-version:
+    description: "The python version to install (e.g. 3.6)"
+    required: true
+outputs:
+  installed-python-version:
+    description: "The installed python version"
+    value: ${{ steps.fetch-python-version.outputs.version }}
+runs:
+  using: "composite"
+  steps:
+    - name: fetch-python-version
+      id: fetch-python-version
+      # What would happen if we skipped this step and directly pass `python-version` to the `setup-python` action?
+      # - Let's say the value of `python-version` is 3.6.
+      # - The `setup-python` action automatically selects 3.6.x (the latest available version of 3.6).
+      #   If 3.6.x is new, it may not be available on Anaconda yet.
+      # - mlflow logs a model and creates `conda.yaml` with 'python=3.6.x'.
+      # - `mlflow serve` tries to create an environment to serve the model via conda,
+      #   but fails to find 'python=3.6.x' on Anaconda.
+      shell: bash
+      run: |
+        latest_micro_version=$(
+          $CONDA/bin/conda search -c conda-forge python=${{ inputs.python-version }} |
+          tail -1 | tr -s ' ' | cut -d' ' -f2
+        )
+        echo "::set-output name=version::$latest_micro_version"
+    - uses: actions/setup-python@v2
+      with:
+        python-version: ${{ steps.fetch-python-version.outputs.version }}
