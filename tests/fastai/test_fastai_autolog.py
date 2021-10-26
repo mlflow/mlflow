@@ -287,7 +287,6 @@ def _fastai_random_data_run_with_callback(
 def fastai_random_data_run_with_callback(
     iris_data, fit_variant, manual_run, callback, patience, tmpdir
 ):
-    # pylint: disable=unused-argument
     return _fastai_random_data_run_with_callback(
         iris_data, fit_variant, manual_run, callback, patience, tmpdir
     )
