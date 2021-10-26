@@ -325,16 +325,32 @@ class AutologHelpers:
 
 # Currently we only autolog basic metrics
 _autolog_metric_whitelist = [
-    'aic', 'bic', 'centered_tss', 'condition_number',  'df_model', 'df_resid', 'ess', 'f_pvalue',
-    'fvalue', 'llf', 'mse_model', 'mse_resid',  'mse_total', 'rsquared', 'rsquared_adj', 'scale',
-    'ssr', 'uncentered_tss'
+    "aic",
+    "bic",
+    "centered_tss",
+    "condition_number",
+    "df_model",
+    "df_resid",
+    "ess",
+    "f_pvalue",
+    "fvalue",
+    "llf",
+    "mse_model",
+    "mse_resid",
+    "mse_total",
+    "rsquared",
+    "rsquared_adj",
+    "scale",
+    "ssr",
+    "uncentered_tss",
 ]
 
 
 def _get_autolog_metrics(fitted_model):
     result_metrics = {}
-    whitelist_metrics = [metric for metric in dir(fitted_model)
-                         if metric in _autolog_metric_whitelist]
+    whitelist_metrics = [
+        metric for metric in dir(fitted_model) if metric in _autolog_metric_whitelist
+    ]
 
     for metric in whitelist_metrics:
         try:
@@ -490,7 +506,7 @@ def autolog(
                     try_mlflow_log(mlflow.log_metrics, metrics_dict)
 
                     model_summary = model.summary().as_html()
-                    try_mlflow_log(mlflow.log_text, model_summary, 'model_summary.txt')
+                    try_mlflow_log(mlflow.log_text, model_summary, "model_summary.txt")
 
             return model
 

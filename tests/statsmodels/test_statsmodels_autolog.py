@@ -81,8 +81,8 @@ def test_statsmodels_autolog_logs_summary_artifact():
     mlflow.statsmodels.autolog()
     with mlflow.start_run():
         model = ols_model().model
-        summary_path = mlflow.get_artifact_uri('model_summary.txt').replace("file://", "")
-        with open(summary_path, 'r') as f:
+        summary_path = mlflow.get_artifact_uri("model_summary.txt").replace("file://", "")
+        with open(summary_path, "r") as f:
             saved_summary = f.read()
 
     assert model.summary().as_html() == saved_summary
