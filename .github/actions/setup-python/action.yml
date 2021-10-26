@@ -1,4 +1,4 @@
-name: "setup-python-conda"
+name: "setup-python"
 description: "Ensures to install a python version that's available on Anaconda"
 inputs:
   python-version:

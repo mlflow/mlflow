@@ -45,7 +45,7 @@ jobs:
         echo "EXAMPLES_CHANGED: $EXAMPLES_CHANGED"
         echo "::set-output name=examples_changed::$EXAMPLES_CHANGED"
 
-    - uses: ./.github/actions/setup-python-conda
+    - uses: ./.github/actions/setup-python
       with:
         python-version: 3.6
 

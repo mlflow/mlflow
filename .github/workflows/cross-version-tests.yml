@@ -121,7 +121,7 @@ jobs:
             python_version=3.6
           fi
           echo "::set-output name=version::$python_version"
-      - uses: ./.github/actions/setup-python-conda
+      - uses: ./.github/actions/setup-python
         with:
           python-version: ${{ steps.get-python-version.outputs.version }}
       - name: Get cache key
