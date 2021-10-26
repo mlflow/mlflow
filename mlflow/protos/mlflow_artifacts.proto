@@ -21,7 +21,7 @@ service MlflowArtifactsService {
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
-      rpc_doc_title: "Download Artifacts",
+      rpc_doc_title: "Download Artifact",
     };
   }
 
@@ -33,7 +33,7 @@ service MlflowArtifactsService {
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
-      rpc_doc_title: "Upload Artifacts",
+      rpc_doc_title: "Upload Artifact",
     };
   }
 
