@@ -160,10 +160,19 @@ export class CompareRunContour extends Component {
     });
 
     const maybeRenderPlot = () => {
-      if (xsSorted.length < 2 || ysSorted.length < 2) {
-        return (
-          <div>X or Y axis doesn't have enough unique data points to draw the contour plot</div>
-        );
+      const invalidAxes = [];
+      if (xsSorted.length < 2) {
+        invalidAxes.push('X');
+      }
+      if (ysSorted.length < 2) {
+        invalidAxes.push('Y');
+      }
+      if (invalidAxes.length > 0) {
+        const message =
+          invalidAxes.length > 1
+            ? `The ${invalidAxes.join(' and ')} axes don't`
+            : `The ${invalidAxes[0]} axis doesn't`;
+        return <>{`${message} have enough unique data points to render the contour plot.`}</>;
       }
 
       return (
