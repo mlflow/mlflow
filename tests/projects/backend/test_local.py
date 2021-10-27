@@ -51,7 +51,7 @@ def test_docker_gcs_artifact_cmd_and_envs_from_home():
         "GOOGLE_APPLICATION_CREDENTIALS": "mock_credentials_path",
     }
     gs_uri = "gs://mock_bucket"
-    with mock.patch.dict("os.environ", mock_env):
+    with mock.patch.dict("os.environ", mock_env, clear=True):
         cmds, envs = _get_docker_artifact_storage_cmd_and_envs(gs_uri)
         assert cmds == ["-v", "mock_credentials_path:/.gcs"]
         assert envs == {"GOOGLE_APPLICATION_CREDENTIALS": "/.gcs"}
@@ -64,7 +64,7 @@ def test_docker_hdfs_artifact_cmd_and_envs_from_home():
         "MLFLOW_PYARROW_EXTRA_CONF": "mock_pyarrow_extra_conf",
     }
     hdfs_uri = "hdfs://host:8020/path"
-    with mock.patch.dict("os.environ", mock_env):
+    with mock.patch.dict("os.environ", mock_env, clear=True):
         cmds, envs = _get_docker_artifact_storage_cmd_and_envs(hdfs_uri)
         assert cmds == ["-v", "/mock_ticket_cache:/mock_ticket_cache"]
         assert envs == mock_env
