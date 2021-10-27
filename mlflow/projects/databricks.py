@@ -155,7 +155,7 @@ class DatabricksJobRunner(object):
         try:
             directory_size = file_utils._get_local_project_dir_size(project_dir)
             _logger.info(
-                f"=== Creating tarball from {project_dir} in temp directory {temp_tar_filename} ==="
+                f"=== Creating tarball from {project_dir} in temp directory {temp_tarfile_dir} ==="
             )
             _logger.info(f"=== Total file size to compress: {directory_size} KB ===")
             file_utils.make_tarfile(
@@ -170,7 +170,7 @@ class DatabricksJobRunner(object):
                 "projects-code",
                 "%s.tar.gz" % tarfile_hash,
             )
-            tar_size = os.path.getsize(temp_tar_filename) / 1024.0
+            tar_size = file_utils._get_local_file_size(temp_tar_filename)
             dbfs_fuse_uri = posixpath.join("/dbfs", dbfs_path)
             if not self._dbfs_path_exists(dbfs_path):
                 _logger.info(
@@ -231,7 +231,7 @@ class DatabricksJobRunner(object):
             "shell_command_task": {"command": command, "env_vars": env_vars},
             "libraries": libraries,
         }
-        _logger.info("=== Creating a job to execute the MLflow project... ===")
+        _logger.info("=== Submitting a run to execute the MLflow project... ===")
         run_submit_res = self._jobs_runs_submit(req_body_json)
         databricks_run_id = run_submit_res["run_id"]
         return databricks_run_id

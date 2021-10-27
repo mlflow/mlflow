@@ -365,11 +365,18 @@ def _get_local_project_dir_size(project_path):
     """
 
     total_size = 0
-    for root, _, files in os.walk(project_path):  # pylint: disable=unused-variable
+    for root, _, files in os.walk(project_path):
         for f in files:
             path = os.path.join(root, f)
             total_size += os.path.getsize(path)
     return round(total_size / 1024.0, 1)
+
+
+def _get_local_file_size(file):
+    """
+    Get the size of a local file in KB
+    """
+    return round(os.path.getsize(file) / 1024.0, 1)
 
 
 def get_parent_dir(path):
