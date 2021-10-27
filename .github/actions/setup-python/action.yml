@@ -11,22 +11,24 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - name: fetch-python-version
-      id: fetch-python-version
-      # What would happen if we skipped this step and directly pass `python-version` to the `setup-python` action?
-      # - Let's say the value of `python-version` is 3.6.
-      # - The `setup-python` action automatically selects 3.6.x (the latest available version of 3.6).
-      #   If 3.6.x is new, it may not be available on Anaconda yet.
-      # - mlflow logs a model and creates `conda.yaml` with 'python=3.6.x'.
-      # - `mlflow serve` tries to create an environment to serve the model via conda,
-      #   but fails to find 'python=3.6.x' on Anaconda.
+    - name: get-python-version
+      id: get-python-version
       shell: bash
+      # We used to use `conda search python=3.x` to dynamically fetch the latest available version
+      # in 3.x on Anaconda, but it turned out `conda search` is very slow (takes 40 ~ 50 seconds).
+      # This overhead sums up to a significant amount of delay in the cross version tests
+      # where we trigger more than 100 GitHub Actions runs.
       run: |
-        latest_micro_version=$(
-          $CONDA/bin/conda search -c conda-forge python=${{ inputs.python-version }} |
-          tail -1 | tr -s ' ' | cut -d' ' -f2
-        )
-        echo "::set-output name=version::$latest_micro_version"
+        python_version="${{ inputs.python-version }}"
+        if [[ "$python_version" == "3.6" ]]; then
+          python_version="3.6.13"
+        elif [[ "$python_version" == "3.7" ]]; then
+          python_version="3.7.12"
+        else
+          echo "Invalid python version: '$python_version'. Must be one of ['3.6', '3.7']"
+          exit 1
+        fi
+        echo "::set-output name=version::$python_version"
     - uses: actions/setup-python@v2
       with:
-        python-version: ${{ steps.fetch-python-version.outputs.version }}
+        python-version: ${{ steps.get-python-version.outputs.version }}
