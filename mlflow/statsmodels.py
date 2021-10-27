@@ -75,6 +75,9 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
+_model_size_threshold_for_emitting_warning = 100 * 1024 * 1024
+
+
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     statsmodels_model,
@@ -139,6 +142,17 @@ def save_model(
 
     # Save a statsmodels model
     statsmodels_model.save(model_data_path, remove_data)
+    if not remove_data:
+        saved_model_size = os.path.getsize(model_data_path)
+        if saved_model_size >= _model_size_threshold_for_emitting_warning:
+            _logger.warning(
+                "The fitted model is larger than "
+                f"{_model_size_threshold_for_emitting_warning // (1024 * 1024)} MB, "
+                f"saving it as artifacts is time consuming.\n"
+                "To reduce model size, use `mlflow.statsmodels.autolog(log_models=False)` and "
+                "manually log model by "
+                '`mlflow.statsmodels.log_model(model, remove_data=True, artifact_path="model")`'
+            )
 
     pyfunc.add_to_model(
         mlflow_model,
@@ -191,7 +205,7 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements=None,
     extra_pip_requirements=None,
-    **kwargs
+    **kwargs,
 ):
     """
     Log a statsmodels model as an MLflow artifact for the current run.
@@ -245,7 +259,7 @@ def log_model(
         remove_data=remove_data,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
-        **kwargs
+        **kwargs,
     )
 
 
@@ -323,7 +337,7 @@ class AutologHelpers:
 
 
 # Currently we only autolog basic metrics
-_autolog_metric_whitelist = [
+_autolog_metric_allowlist = [
     "aic",
     "bic",
     "centered_tss",
@@ -348,7 +362,7 @@ _autolog_metric_whitelist = [
 def _get_autolog_metrics(fitted_model):
     result_metrics = {}
 
-    for metric in _autolog_metric_whitelist:
+    for metric in _autolog_metric_allowlist:
         try:
             if hasattr(fitted_model, metric):
                 metric_value = getattr(fitted_model, metric)
@@ -372,8 +386,8 @@ def autolog(
     Enables (or disables) and configures automatic logging from statsmodels to MLflow.
     Logs the following:
 
-    - whitelisted metrics returned by method `fit` of any subclass of
-      statsmodels.base.model.Model, the whitelisted metrics including: {autolog_metric_whitelist}
+    - allowlisted metrics returned by method `fit` of any subclass of
+      statsmodels.base.model.Model, the allowlisted metrics including: {autolog_metric_allowlist}
     - trained model.
     - an html artifact which shows the model summary.
 
@@ -484,8 +498,8 @@ def autolog(
                     metrics_dict = _get_autolog_metrics(model)
                     try_mlflow_log(mlflow.log_metrics, metrics_dict)
 
-                    model_summary = model.summary().as_html()
-                    try_mlflow_log(mlflow.log_text, model_summary, "model_summary.html")
+                    model_summary = model.summary().as_text()
+                    try_mlflow_log(mlflow.log_text, model_summary, "model_summary.txt")
 
             return model
 
@@ -498,5 +512,5 @@ def autolog(
 
 
 autolog.__doc__ = autolog.__doc__.format(
-    autolog_metric_whitelist=",".join(_autolog_metric_whitelist)
+    autolog_metric_allowlist=",".join(_autolog_metric_allowlist)
 )

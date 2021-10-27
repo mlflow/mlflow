@@ -1,8 +1,11 @@
+import os
 import pytest
+from unittest import mock
 import numpy as np
 from statsmodels.tsa.base.tsa_model import TimeSeriesModel
 import mlflow
 import mlflow.statsmodels
+from mlflow.utils.file_utils import TempDir
 from tests.statsmodels.model_fixtures import (
     arma_model,
     ols_model,
@@ -81,11 +84,33 @@ def test_statsmodels_autolog_logs_summary_artifact():
     mlflow.statsmodels.autolog()
     with mlflow.start_run():
         model = ols_model().model
-        summary_path = mlflow.get_artifact_uri("model_summary.html").replace("file://", "")
+        summary_path = mlflow.get_artifact_uri("model_summary.txt").replace("file://", "")
         with open(summary_path, "r") as f:
             saved_summary = f.read()
 
-    assert model.summary().as_html() == saved_summary
+    assert model.summary().as_text() == saved_summary
+
+
+def test_statsmodels_autolog_emit_warning_when_model_is_large():
+    mlflow.statsmodels.autolog()
+
+    with mock.patch(
+        "mlflow.statsmodels._model_size_threshold_for_emitting_warning", 100000000
+    ), mock.patch("mlflow.statsmodels._logger.warning") as mock_warning:
+        ols_model().model
+        assert all(
+            not call_args[0][0].startswith("The fitted model is larger than")
+            for call_args in mock_warning.call_args_list
+        )
+
+    with mock.patch("mlflow.statsmodels._model_size_threshold_for_emitting_warning", 1), mock.patch(
+        "mlflow.statsmodels._logger.warning"
+    ) as mock_warning:
+        ols_model().model
+        assert any(
+            call_args[0][0].startswith("The fitted model is larger than")
+            for call_args in mock_warning.call_args_list
+        )
 
 
 def test_statsmodels_autolog_logs_basic_metrics():
@@ -93,7 +118,7 @@ def test_statsmodels_autolog_logs_basic_metrics():
     ols_model()
     run = get_latest_run()
     metrics = run.data.metrics
-    assert set(metrics.keys()) == set(mlflow.statsmodels._autolog_metric_whitelist)
+    assert set(metrics.keys()) == set(mlflow.statsmodels._autolog_metric_allowlist)
 
 
 def test_statsmodels_autolog_works_after_exception():
