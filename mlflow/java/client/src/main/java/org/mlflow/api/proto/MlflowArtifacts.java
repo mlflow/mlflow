@@ -4542,22 +4542,22 @@ public final class MlflowArtifacts {
       "low.artifacts.FileInfo\022\027\n\017next_page_toke" +
       "n\030\003 \001(\t:+\342?(\n&com.databricks.rpc.RPC[$th" +
       "is.Response]\";\n\010FileInfo\022\014\n\004path\030\001 \001(\t\022\016" +
-      "\n\006is_dir\030\002 \001(\010\022\021\n\tfile_size\030\003 \001(\0032\250\004\n\026Ml" +
-      "flowArtifactsService\022\271\001\n\020downloadArtifac" +
+      "\n\006is_dir\030\002 \001(\010\022\021\n\tfile_size\030\003 \001(\0032\260\004\n\026Ml" +
+      "flowArtifactsService\022\275\001\n\020downloadArtifac" +
       "t\022\".mlflow.artifacts.DownloadArtifact\032+." +
       "mlflow.artifacts.DownloadArtifact.Respon" +
-      "se\"T\362\206\031P\n8\n\003GET\022+/mlflow-artifacts/artif" +
-      "acts/<artifact_path>\032\004\010\002\020\000\020\001*\022Download A" +
-      "rtifacts\022\262\001\n\016uploadArtifact\022 .mlflow.art" +
-      "ifacts.UploadArtifact\032).mlflow.artifacts" +
-      ".UploadArtifact.Response\"S\362\206\031O\n9\n\004POST\022+" +
-      "/mlflow-artifacts/artifacts/<artifact_pa" +
-      "th>\032\004\010\002\020\000\020\001*\020Upload Artifacts\022\234\001\n\rlistAr" +
-      "tifacts\022\037.mlflow.artifacts.ListArtifacts" +
-      "\032(.mlflow.artifacts.ListArtifacts.Respon" +
-      "se\"@\362\206\031<\n(\n\003GET\022\033/mlflow-artifacts/artif" +
-      "acts\032\004\010\002\020\000\020\001*\016List ArtifactsB\036\n\024org.mlfl" +
-      "ow.api.proto\220\001\001\342?\002\020\001"
+      "se\"X\362\206\031T\n=\n\003GET\0220/mlflow-artifacts/artif" +
+      "acts/<path:artifact_path>\032\004\010\002\020\000\020\001*\021Downl" +
+      "oad Artifact\022\266\001\n\016uploadArtifact\022 .mlflow" +
+      ".artifacts.UploadArtifact\032).mlflow.artif" +
+      "acts.UploadArtifact.Response\"W\362\206\031S\n>\n\004PO" +
+      "ST\0220/mlflow-artifacts/artifacts/<path:ar" +
+      "tifact_path>\032\004\010\002\020\000\020\001*\017Upload Artifact\022\234\001" +
+      "\n\rlistArtifacts\022\037.mlflow.artifacts.ListA" +
+      "rtifacts\032(.mlflow.artifacts.ListArtifact" +
+      "s.Response\"@\362\206\031<\n(\n\003GET\022\033/mlflow-artifac" +
+      "ts/artifacts\032\004\010\002\020\000\020\001*\016List ArtifactsB\036\n\024" +
+      "org.mlflow.api.proto\220\001\001\342?\002\020\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {

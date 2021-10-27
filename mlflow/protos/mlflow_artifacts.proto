@@ -17,7 +17,7 @@ service MlflowArtifactsService {
     option (rpc) = {
       endpoints: [{
         method: "GET",
-        path: "/mlflow-artifacts/artifacts/<artifact_path>",
+        path: "/mlflow-artifacts/artifacts/<path:artifact_path>",
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -29,7 +29,7 @@ service MlflowArtifactsService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow-artifacts/artifacts/<artifact_path>",
+        path: "/mlflow-artifacts/artifacts/<path:artifact_path>",
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
