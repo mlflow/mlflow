@@ -252,12 +252,16 @@ export class ExperimentView extends Component {
     };
   }
 
-  setShowMultiColumns(value) {
+  updateUrlWithViewState(diffState) {
     ExperimentViewUtil.updateUrlWithViewState({
       ...this.props,
       ...this.state.persistedState,
-      showMultiColumns: value,
+      ...diffState,
     });
+  }
+
+  setShowMultiColumns(value) {
+    this.updateUrlWithViewState({ showMultiColumns: value });
     this.setState({
       persistedState: new ExperimentViewPersistedState({
         ...this.state.persistedState,
@@ -345,11 +349,7 @@ export class ExperimentView extends Component {
   };
 
   handleColumnSelectionCheck = (categorizedUncheckedKeys) => {
-    ExperimentViewUtil.updateUrlWithViewState({
-      ...this.props,
-      ...this.state.persistedState,
-      categorizedUncheckedKeys,
-    });
+    this.updateUrlWithViewState({ categorizedUncheckedKeys });
     this.setState({
       persistedState: new ExperimentViewPersistedState({
         ...this.state.persistedState,
@@ -1079,9 +1079,7 @@ export class ExperimentView extends Component {
     const myModelVersionFilterInput = modelVersionFilterInput || this.props.modelVersionFilter;
     const myStartTime = startTime || this.props.startTime;
     try {
-      ExperimentViewUtil.updateUrlWithViewState({
-        ...this.props,
-        ...this.state.persistedState,
+      this.updateUrlWithViewState({
         searchInput: mySearchInput,
         orderByKey: myOrderByKey,
         orderByAsc: myOrderByAsc,
