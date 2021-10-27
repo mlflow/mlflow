@@ -3,7 +3,10 @@ import shlex
 import sys
 import textwrap
 
-from flask import Flask, send_from_directory, Response
+from flask import Flask, send_from_directory, Response, request, jsonify
+import boto3
+from boto3.s3.transfer import TransferConfig
+
 
 from mlflow.server import handlers
 from mlflow.server.handlers import (
@@ -13,6 +16,17 @@ from mlflow.server.handlers import (
     get_model_version_artifact_handler,
 )
 from mlflow.utils.process import exec_cmd
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+
+for name in logging.root.manager.loggerDict:
+    top_module = name.split(".")[0].lower()
+    if top_module in ["s3transfer", "boto3", "botocore", "gunicorn", "mlflow"]:
+        logging.getLogger(name).setLevel(logging.DEBUG)
+    else:
+        logger = logging.getLogger(name)
+        logger.disabled = True
 
 # NB: These are intenrnal environment variables used for communication between
 # the cli and the forked gunicorn processes.
@@ -48,6 +62,63 @@ def health():
 @app.route(_add_static_prefix("/get-artifact"))
 def serve_artifacts():
     return get_artifact_handler()
+
+
+def _upload_to_s3(stream, bucket_name, key, chunk_size=50 * 1024 ** 2):
+    import time
+
+    # Google Cloud Storage storage supports MPU:
+    # https://cloud.google.com/storage/docs/multipart-uploads
+
+    # Azure Blob Storage also supports MPU:
+    # https://docs.microsoft.com/en-us/rest/api/storageservices/understanding-block-blobs--append-blobs--and-page-blobs
+
+    url = f"s3://{bucket_name}/{key}"
+    client = boto3.client("s3")
+    start = time.time()
+    # client.upload_fileobj(stream, bucket_name, key)
+    # https://boto3.amazonaws.com/v1/documentation/api/latest/guide/s3.html#file-transfer-configuration
+    client.upload_fileobj(
+        stream, bucket_name, key, Config=TransferConfig(multipart_chunksize=10 * 1024 ** 2)
+    )
+    # Default values:
+    # TransferConfig(
+    #     multipart_threshold=8 * MB,
+    #     max_concurrency=10,
+    #     multipart_chunksize=8 * MB,
+    #     num_download_attempts=5,
+    #     max_io_queue=100,
+    #     io_chunksize=256 * KB,
+    #     use_threads=True,
+    # )
+    return time.time() - start
+
+
+@app.route(_add_static_prefix("/artifacts/upload"), methods=["POST"])
+def _upload_artifact():
+    bucket_name = request.args.get("bucket_name")
+    key = request.args.get("key")
+    duration = _upload_to_s3(request.stream, bucket_name, key)
+    return jsonify({"duration": duration})
+
+
+def _read_from_s3(bucket_name, key, chunk_size=8192):
+    url = f"s3://{bucket_name}/{key}"
+    s3_client = boto3.client("s3")
+    obj = s3_client.get_object(Bucket=bucket_name, Key=key)
+    while True:
+        chunk = obj["Body"].read(chunk_size)
+        if len(chunk) == 0:
+            break
+        yield chunk
+
+
+# Serve the "get-artifact" route.
+@app.route(_add_static_prefix("/artifacts/get"), methods=["GET"])
+def stream_get_artifact():
+    bucket_name = request.args.get("bucket_name")
+    key = request.args.get("key")
+    return Response(_read_from_s3(bucket_name, key))
 
 
 # Serve the "model-versions/get-artifact" route.
@@ -99,7 +170,22 @@ def _build_waitress_command(waitress_opts, host, port):
 def _build_gunicorn_command(gunicorn_opts, host, port, workers):
     bind_address = "%s:%s" % (host, port)
     opts = shlex.split(gunicorn_opts) if gunicorn_opts else []
-    return ["gunicorn"] + opts + ["-b", bind_address, "-w", "%s" % workers, "mlflow.server:app"]
+    return (
+        ["gunicorn"]
+        + opts
+        + [
+            "-b",
+            bind_address,
+            "-w",
+            "%s" % workers,
+            "mlflow.server:app",
+            "--timeout",
+            "600",
+            "--reload",
+            "--log-level",
+            "debug",
+        ]
+    )
 
 
 def _run_server(

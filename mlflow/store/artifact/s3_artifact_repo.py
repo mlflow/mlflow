@@ -3,12 +3,25 @@ from mimetypes import guess_type
 
 import posixpath
 import urllib.parse
+import requests
+import logging
+
+_logger = logging.getLogger(__name__)
 
 from mlflow import data
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import relative_path_to_artifact_path
+
+
+def _download_file_from_url(url, params, local_path, chunk_size=8192):
+    # https://stackoverflow.com/a/16696317
+    with requests.get(url, params=params, stream=True) as r:
+        r.raise_for_status()
+        with open(local_path, "wb") as f:
+            for chunk in r.iter_content(chunk_size):
+                f.write(chunk)
 
 
 class S3ArtifactRepository(ArtifactRepository):
@@ -60,7 +73,8 @@ class S3ArtifactRepository(ArtifactRepository):
             from botocore import UNSIGNED
 
             signature_version = UNSIGNED
-        return boto3.client(
+        sess = boto3.Session()
+        return sess.client(
             "s3",
             config=Config(signature_version=signature_version),
             endpoint_url=s3_endpoint_url,
@@ -79,14 +93,29 @@ class S3ArtifactRepository(ArtifactRepository):
             extra_args.update(environ_extra_args)
         s3_client.upload_file(Filename=local_file, Bucket=bucket, Key=key, ExtraArgs=extra_args)
 
+    # def log_artifact(self, local_file, artifact_path=None):
+    #     (bucket, dest_path) = data.parse_s3_uri(self.artifact_uri)
+    #     if artifact_path:
+    #         dest_path = posixpath.join(dest_path, artifact_path)
+    #     dest_path = posixpath.join(dest_path, os.path.basename(local_file))
+    #     self._upload_file(
+    #         s3_client=self._get_s3_client(), local_file=local_file, bucket=bucket, key=dest_path
+    #     )
+
     def log_artifact(self, local_file, artifact_path=None):
+        import requests
+        from mlflow import get_tracking_uri
+
         (bucket, dest_path) = data.parse_s3_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
         dest_path = posixpath.join(dest_path, os.path.basename(local_file))
-        self._upload_file(
-            s3_client=self._get_s3_client(), local_file=local_file, bucket=bucket, key=dest_path
-        )
+        url = get_tracking_uri() + "/artifacts/upload"
+        params = {"bucket_name": bucket, "key": dest_path}
+        with open(local_file, "rb") as f:
+            resp = requests.post(url, params=params, data=f)
+            resp.raise_for_status()
+            _logger.info(resp.json())
 
     def log_artifacts(self, local_dir, artifact_path=None):
         (bucket, dest_path) = data.parse_s3_uri(self.artifact_uri)
@@ -151,11 +180,20 @@ class S3ArtifactRepository(ArtifactRepository):
                 )
             )
 
+    # def _download_file(self, remote_file_path, local_path):
+    #     (bucket, s3_root_path) = data.parse_s3_uri(self.artifact_uri)
+    #     s3_full_path = posixpath.join(s3_root_path, remote_file_path)
+    #     s3_client = self._get_s3_client()
+    #     s3_client.download_file(bucket, s3_full_path, local_path)
+
     def _download_file(self, remote_file_path, local_path):
+        from mlflow import get_tracking_uri
+
         (bucket, s3_root_path) = data.parse_s3_uri(self.artifact_uri)
         s3_full_path = posixpath.join(s3_root_path, remote_file_path)
-        s3_client = self._get_s3_client()
-        s3_client.download_file(bucket, s3_full_path, local_path)
+        url = get_tracking_uri() + "/artifacts/get"
+        params = {"bucket_name": bucket, "key": s3_full_path}
+        _download_file_from_url(url, params, local_path)
 
     def delete_artifacts(self, artifact_path=None):
         (bucket, dest_path) = data.parse_s3_uri(self.artifact_uri)
