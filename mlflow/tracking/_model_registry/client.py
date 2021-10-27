@@ -88,7 +88,7 @@ class ModelRegistryClient(object):
         Delete registered model.
         Backend raises exception if a registered model with given name does not exist.
 
-        :param name: Name of the registered model to update.
+        :param name: Name of the registered model to delete.
         """
         self.store.delete_registered_model(name)
 
@@ -131,7 +131,7 @@ class ModelRegistryClient(object):
 
     def get_registered_model(self, name):
         """
-        :param name: Name of the registered model to update.
+        :param name: Name of the registered model to get.
         :return: A single :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
         return self.store.get_registered_model(name)
@@ -141,7 +141,7 @@ class ModelRegistryClient(object):
         Latest version models for each requests stage. If no ``stages`` provided, returns the
         latest version for each stage.
 
-        :param name: Name of the registered model to update.
+        :param name: Name of the registered model from which to get the latest versions.
         :param stages: List of desired stages. If input list is None, return latest versions for
                        for 'Staging' and 'Production' stages.
         :return: List of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
