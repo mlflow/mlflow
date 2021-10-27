@@ -362,6 +362,7 @@ _autolog_metric_allowlist = [
 def _get_autolog_metrics(fitted_model):
     result_metrics = {}
 
+    failed_evaluating_metric = []
     for metric in _autolog_metric_allowlist:
         try:
             if hasattr(fitted_model, metric):
@@ -369,7 +370,8 @@ def _get_autolog_metrics(fitted_model):
                 if _is_numeric(metric_value):
                     result_metrics[metric] = metric_value
         except Exception:
-            pass
+            failed_evaluating_metric.append(metric)
+    _logger.warning(f"Failed to autolog metrics: {','.join(failed_evaluating_metric)}")
     return result_metrics
 
 
