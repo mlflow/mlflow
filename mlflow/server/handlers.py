@@ -2,6 +2,7 @@
 import json
 import os
 import re
+import tempfile
 
 import logging
 from functools import wraps
@@ -82,6 +83,7 @@ from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 _logger = logging.getLogger(__name__)
 _tracking_store = None
 _model_registry_store = None
+_artifact_repo = None
 STATIC_PREFIX_ENV_VAR = "_MLFLOW_STATIC_PREFIX"
 
 
@@ -124,6 +126,17 @@ class ModelRegistryStoreRegistryWrapper(ModelRegistryStoreRegistry):
 
 _tracking_store_registry = TrackingStoreRegistryWrapper()
 _model_registry_store_registry = ModelRegistryStoreRegistryWrapper()
+
+
+def _get_artifact_repo_mlflow_artifacts():
+    from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR
+
+    global _artifact_repo
+
+    if _artifact_repo is None:
+        _artifact_repo = get_artifact_repository(os.environ[ARTIFACTS_DESTINATION_ENV_VAR])
+
+    return _artifact_repo
 
 
 def _get_tracking_store(backend_store_uri=None, default_artifact_root=None):
@@ -813,7 +826,19 @@ def _download_artifact(artifact_path):
 
 @catch_mlflow_exception
 def _upload_artifact(artifact_path):
-    print(artifact_path)
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = os.path.join(tmp_dir, os.path.basename(artifact_path))
+        with open(tmp_path, "wb") as f:
+            chunk_size = 8192
+            while True:
+                chunk = request.stream.read(chunk_size)
+                if len(chunk) == 0:
+                    break
+                f.write(chunk)
+
+        artifact_repo = _get_artifact_repo_mlflow_artifacts()
+        artifact_repo.log_artifact(tmp_path, os.path.dirname(artifact_path))
+
     return _wrap_response(UploadArtifact.Response())
 
 
