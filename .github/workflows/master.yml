@@ -330,7 +330,6 @@ jobs:
           INSTALL_SMALL_PYTHON_DEPS: true
         run: |
           source ./dev/install-common-deps.sh
-          pip install --upgrade --no-deps --force-reinstall prophet
       - name: Run tests
         env:
           SPARK_LOCAL_IP: 127.0.0.1

@@ -39,6 +39,14 @@ if [[ "$INSTALL_SKINNY_PYTHON_DEPS" == "true" ]]; then
 fi
 if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
   retry-with-backoff pip install -r ./dev/large-requirements.txt
+
+  # Install prophet's dependencies beforehand, otherwise pip would fail to build a wheel for prophet
+  tmp_dir=$(mktemp -d)
+  pip download --no-deps --dest $tmp_dir prophet
+  tar -zxvf $tmp_dir/*.tar.gz -C $tmp_dir
+  pip install -r $(find $tmp_dir -name requirements.txt)
+  rm -rf $tmp_dir
+
   retry-with-backoff pip install -r ./dev/extra-ml-requirements.txt
 fi
 
