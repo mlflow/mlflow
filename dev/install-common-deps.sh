@@ -17,7 +17,7 @@ sudo apt clean
 df -h
 
 python --version
-pip install --upgrade pip
+pip install --upgrade pip wheel
 pip --version
 
 if [[ "$MLFLOW_SKINNY" == "true" ]]; then
