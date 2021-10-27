@@ -26,7 +26,7 @@ def test_no_throw():
 
 @mock.patch("databricks_cli.configure.provider.get_config")
 def test_databricks_params_token(get_config):
-    get_config.return_value = DatabricksConfig("host", None, None, "mytoken", insecure=False)
+    get_config.return_value = DatabricksConfig.from_token("host", "mytoken", insecure=False)
     params = databricks_utils.get_databricks_host_creds()
     assert params.host == "host"
     assert params.token == "mytoken"
@@ -35,7 +35,7 @@ def test_databricks_params_token(get_config):
 
 @mock.patch("databricks_cli.configure.provider.get_config")
 def test_databricks_params_user_password(get_config):
-    get_config.return_value = DatabricksConfig("host", "user", "pass", None, insecure=False)
+    get_config.return_value = DatabricksConfig.from_password("host", "user", "pass", insecure=False)
     params = databricks_utils.get_databricks_host_creds()
     assert params.host == "host"
     assert params.username == "user"
@@ -44,7 +44,7 @@ def test_databricks_params_user_password(get_config):
 
 @mock.patch("databricks_cli.configure.provider.get_config")
 def test_databricks_params_no_verify(get_config):
-    get_config.return_value = DatabricksConfig("host", "user", "pass", None, insecure=True)
+    get_config.return_value = DatabricksConfig.from_password("host", "user", "pass", insecure=True)
     params = databricks_utils.get_databricks_host_creds()
     assert params.ignore_tls_verification
 
@@ -52,8 +52,8 @@ def test_databricks_params_no_verify(get_config):
 @mock.patch("databricks_cli.configure.provider.ProfileConfigProvider")
 def test_databricks_params_custom_profile(ProfileConfigProvider):
     mock_provider = mock.MagicMock()
-    mock_provider.get_config.return_value = DatabricksConfig(
-        "host", "user", "pass", None, insecure=True
+    mock_provider.get_config.return_value = DatabricksConfig.from_password(
+        "host", "user", "pass", insecure=True
     )
     ProfileConfigProvider.return_value = mock_provider
     params = databricks_utils.get_databricks_host_creds(construct_db_uri_from_profile("profile"))
@@ -187,8 +187,8 @@ def test_is_databricks_default_tracking_uri(tracking_uri, result):
 def test_databricks_params_throws_errors(ProfileConfigProvider):
     # No hostname
     mock_provider = mock.MagicMock()
-    mock_provider.get_config.return_value = DatabricksConfig(
-        None, "user", "pass", None, insecure=True
+    mock_provider.get_config.return_value = DatabricksConfig.from_password(
+        None, "user", "pass", insecure=True
     )
     ProfileConfigProvider.return_value = mock_provider
     with pytest.raises(Exception):
@@ -196,8 +196,8 @@ def test_databricks_params_throws_errors(ProfileConfigProvider):
 
     # No authentication
     mock_provider = mock.MagicMock()
-    mock_provider.get_config.return_value = DatabricksConfig(
-        "host", None, None, None, insecure=True
+    mock_provider.get_config.return_value = DatabricksConfig.from_password(
+        "host", None, None, insecure=True
     )
     ProfileConfigProvider.return_value = mock_provider
     with pytest.raises(Exception):
