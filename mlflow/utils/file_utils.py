@@ -356,6 +356,29 @@ def _copy_file_or_tree(src, dst, dst_dir=None):
     return dst_subpath
 
 
+def _get_local_project_dir_size(project_path):
+    """
+    Internal function for reporting the size of a local project directory before copying to
+    destination for cli logging reporting to stdout.
+    :param project_path: local path of the project directory
+    :return: directory file sizes in KB, rounded to single decimal point for legibility
+    """
+
+    total_size = 0
+    for root, _, files in os.walk(project_path):
+        for f in files:
+            path = os.path.join(root, f)
+            total_size += os.path.getsize(path)
+    return round(total_size / 1024.0, 1)
+
+
+def _get_local_file_size(file):
+    """
+    Get the size of a local file in KB
+    """
+    return round(os.path.getsize(file) / 1024.0, 1)
+
+
 def get_parent_dir(path):
     return os.path.abspath(os.path.join(path, os.pardir))
 
