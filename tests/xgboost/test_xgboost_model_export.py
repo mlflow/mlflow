@@ -49,6 +49,21 @@ def xgb_model():
     return ModelWithData(model=model, inference_dataframe=X, inference_dmatrix=dtrain)
 
 
+@pytest.fixture(scope="session")
+def xgb_sklearn_model():
+    boston = datasets.load_boston()
+    X = pd.DataFrame(boston.data, columns=boston.feature_names)
+    y = pd.Series(boston.target)
+    regressor = xgb.XGBRegressor(
+        n_estimators=100,
+        reg_lambda=1,
+        gamma=0,
+        max_depth=3
+    )
+    regressor.fit(X, y)
+    return ModelWithData(model=regressor, inference_dataframe=X, inference_dmatrix=None)
+
+
 @pytest.fixture
 def model_path(tmpdir):
     return os.path.join(str(tmpdir), "model")
@@ -77,6 +92,24 @@ def test_model_save_load(xgb_model, model_path):
     np.testing.assert_array_almost_equal(
         reloaded_model.predict(xgb_model.inference_dmatrix),
         reloaded_pyfunc.predict(xgb_model.inference_dataframe),
+    )
+
+
+@pytest.mark.large
+def test_sklearn_model_save_load(xgb_sklearn_model, model_path):
+    model = xgb_sklearn_model.model
+    mlflow.xgboost.save_model(xgb_model=model, path=model_path)
+    reloaded_model = mlflow.xgboost.load_model(model_uri=model_path)
+    reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+
+    np.testing.assert_array_almost_equal(
+        model.predict(xgb_sklearn_model.inference_dataframe),
+        reloaded_model.predict(xgb_sklearn_model.inference_dataframe),
+    )
+
+    np.testing.assert_array_almost_equal(
+        reloaded_model.predict(xgb_sklearn_model.inference_dataframe),
+        reloaded_pyfunc.predict(xgb_sklearn_model.inference_dataframe),
     )
 
 
@@ -452,3 +485,42 @@ def test_pyfunc_serve_and_score_sklearn(model):
     )
     scores = pd.read_json(resp.content, orient="records").values.squeeze()
     np.testing.assert_array_equal(scores, model.predict(X.head(3)))
+
+
+@pytest.mark.large
+def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(
+        xgb_model, model_path):
+    """
+    This test verifies that xgboost models saved in older versions of MLflow are loaded
+    successfully by ``mlflow.pyfunc.load_model``. These older models specify a pyfunc ``data``
+    field referring directly to a serialized scikit-learn model file. In contrast, newer models
+    omit the ``data`` field.
+    """
+    model = xgb_model.model
+    mlflow.xgboost.save_model(xgb_model=model, path=model_path)
+
+    model_conf_path = os.path.join(model_path, "MLmodel")
+    model_conf = Model.load(model_conf_path)
+    pyfunc_conf = model_conf.flavors.get(pyfunc.FLAVOR_NAME)
+    xgboost_conf = model_conf.flavors.get(mlflow.xgboost.FLAVOR_NAME)
+    assert xgboost_conf is not None
+    assert "model_class" in xgboost_conf
+    assert "data" not in xgboost_conf
+    assert pyfunc_conf is not None
+    assert "model_class" in pyfunc_conf
+    assert pyfunc.DATA not in pyfunc_conf
+    pyfunc_conf[pyfunc.DATA] = "model.xgb"
+
+    reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+    assert reloaded_pyfunc._model_impl.xgb_model.__class__.__name__ \
+           == "Booster"
+    reloaded_xgb = mlflow.xgboost.load_model(model_uri=model_path)
+    assert reloaded_xgb.__class__.__name__ == "Booster"
+
+    np.testing.assert_array_equal(
+        xgb_model.model.predict(xgb_model.inference_dmatrix),
+        reloaded_pyfunc.predict(xgb_model.inference_dataframe))
+
+    np.testing.assert_array_equal(
+        reloaded_xgb.predict(xgb_model.inference_dmatrix),
+        reloaded_pyfunc.predict(xgb_model.inference_dataframe))

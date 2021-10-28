@@ -152,14 +152,16 @@ def save_model(
 
     # Save an XGBoost model
     xgb_model.save_model(model_data_path)
-
+    xgb_model_class = xgb_model.__class__.__name__
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.xgboost",
-        data=model_data_subpath,
+        model_class=xgb_model_class,
         env=_CONDA_ENV_FILE_NAME,
     )
-    mlflow_model.add_flavor(FLAVOR_NAME, xgb_version=xgb.__version__, data=model_data_subpath)
+    mlflow_model.add_flavor(FLAVOR_NAME,
+                            xgb_version=xgb.__version__,
+                            model_class=xgb_model_class)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
@@ -256,9 +258,27 @@ def log_model(
 
 def _load_model(path):
     import xgboost as xgb
-
-    model = xgb.Booster()
-    model.load_model(os.path.abspath(path))
+    if os.path.isfile(path):
+        # xgboost Booster models saved in MLflow (<x.x.x) specify
+        # the ``data`` field within its flavor configuration.
+        # For these models, the ``path`` parameter of ``_load_pyfunc()``
+        # refers directly to a Booster model object.
+        # In this case, we create a Booster() instance and load model weights.
+        model = xgb.Booster()
+        model.load_model(os.path.abspath(path))
+    else:
+        # In contrast, xgboost models saved in new MLflow (>=x.x.x) do not
+        # specify the ``data`` field within its flavor configuration.
+        # We use ``model_class`` to specify its sklearn model class.
+        # For these models, the ``path`` parameter of ``load_pyfunc()``
+        # refers to the top-level MLflow Model directory.
+        # In this case, we first get the xgboost sklearn model from
+        # its flavor configuration and then create an instance based on its class.
+        flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
+        model_class = flavor_conf.get("model_class", "Booster")
+        model_path = os.path.join(path, "model.xgb")
+        model = getattr(xgb, model_class)()
+        model.load_model(model_path)
     return model
 
 
@@ -290,7 +310,8 @@ def load_model(model_uri):
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
-    xgb_model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model.xgb"))
+    xgb_model_file_path = os.path.join(local_model_path, flavor_conf["data"]) \
+        if "data" in flavor_conf else local_model_path
     return _load_model(path=xgb_model_file_path)
 
 
@@ -301,7 +322,10 @@ class _XGBModelWrapper:
     def predict(self, dataframe):
         import xgboost as xgb
 
-        return self.xgb_model.predict(xgb.DMatrix(dataframe))
+        if isinstance(self.xgb_model, xgb.Booster):
+            return self.xgb_model.predict(xgb.DMatrix(dataframe))
+        else:
+            return self.xgb_model.predict(dataframe)
 
 
 @experimental
