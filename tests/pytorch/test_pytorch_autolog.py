@@ -110,7 +110,7 @@ def test_pytorch_autolog_persists_manually_created_run():
         dm.setup(stage="fit")
         trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
         trainer.fit(model, dm)
-        trainer.test()
+        trainer.test(datamodule=dm)
         assert mlflow.active_run() is not None
         assert mlflow.active_run().info.run_id == manual_run.info.run_id
 
