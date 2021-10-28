@@ -5,7 +5,6 @@ import numpy as np
 from statsmodels.tsa.base.tsa_model import TimeSeriesModel
 import mlflow
 import mlflow.statsmodels
-from mlflow.utils.file_utils import TempDir
 from tests.statsmodels.model_fixtures import (
     arma_model,
     ols_model,
@@ -119,6 +118,26 @@ def test_statsmodels_autolog_logs_basic_metrics():
     run = get_latest_run()
     metrics = run.data.metrics
     assert set(metrics.keys()) == set(mlflow.statsmodels._autolog_metric_allowlist)
+
+    @property
+    def metric_raise_error(self):
+        raise RuntimeError()
+
+    class MockSummary:
+        def as_text(self):
+            return "mock summary."
+
+    with mock.patch(
+        "statsmodels.regression.linear_model.OLSResults.f_pvalue", metric_raise_error
+    ), mock.patch(
+        "statsmodels.regression.linear_model.OLSResults.fvalue", metric_raise_error
+    ), mock.patch(
+        "statsmodels.regression.linear_model.OLSResults.summary", lambda _: MockSummary()
+    ), mock.patch(
+        "mlflow.statsmodels._logger.warning"
+    ) as mock_warning:
+        ols_model()
+        mock_warning.assert_called_once_with("Failed to autolog metrics: f_pvalue, fvalue.")
 
 
 def test_statsmodels_autolog_works_after_exception():

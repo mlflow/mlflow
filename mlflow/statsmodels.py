@@ -377,7 +377,7 @@ def _get_autolog_metrics(fitted_model):
 
     if len(failed_evaluating_metrics) > 0:
         _logger.warning(
-            f"Failed to autolog metrics: {', '.join(sorted(failed_evaluating_metrics))}"
+            f"Failed to autolog metrics: {', '.join(sorted(failed_evaluating_metrics))}."
         )
     return result_metrics
 
