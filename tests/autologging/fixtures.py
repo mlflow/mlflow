@@ -49,7 +49,7 @@ def test_mode_off():
             del os.environ[_AUTOLOGGING_TEST_MODE_ENV_VAR]
 
 
-def _test_mode_on():
+def enable_test_mode():
     try:
         prev_env_var_value = os.environ.pop(_AUTOLOGGING_TEST_MODE_ENV_VAR, None)
         os.environ[_AUTOLOGGING_TEST_MODE_ENV_VAR] = "true"
@@ -64,7 +64,7 @@ def _test_mode_on():
 
 @pytest.fixture
 def test_mode_on():
-    yield from _test_mode_on()
+    yield from enable_test_mode()
 
 
 @pytest.fixture(autouse=True)

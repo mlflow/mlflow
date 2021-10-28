@@ -256,7 +256,7 @@ def test_fastai_autolog_model_can_load_from_artifact(fastai_random_tabular_data_
     model_wrapper.predict(iris_dataframe())
 
 
-def _fastai_random_data_run_with_callback(
+def get_fastai_random_data_run_with_callback(
     iris_data, fit_variant, manual_run, callback, patience, tmpdir
 ):
     # pylint: disable=unused-argument
@@ -287,7 +287,7 @@ def _fastai_random_data_run_with_callback(
 def fastai_random_data_run_with_callback(
     iris_data, fit_variant, manual_run, callback, patience, tmpdir
 ):
-    return _fastai_random_data_run_with_callback(
+    return get_fastai_random_data_run_with_callback(
         iris_data, fit_variant, manual_run, callback, patience, tmpdir
     )
 
@@ -411,7 +411,7 @@ def test_fastai_autolog_batch_metrics_logger_logs_expected_metrics(
             original(self, metrics, step)
 
         record_metrics_mock.side_effect = record_metrics_side_effect
-        _, run = _fastai_random_data_run_with_callback(
+        _, run = get_fastai_random_data_run_with_callback(
             iris_data, fit_variant, manual_run, callback, patience, tmpdir
         )
 

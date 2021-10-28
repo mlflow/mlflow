@@ -87,7 +87,7 @@ def data():
     return x, y
 
 
-def _model(data):
+def get_model(data):
     x, y = data
     model = Sequential()
     model.add(Dense(3, input_dim=4))
@@ -109,10 +109,10 @@ def _model(data):
 
 @pytest.fixture(scope="module")
 def model(data):
-    return _model(data)
+    return get_model(data)
 
 
-def _tf_keras_model(data):
+def get_tf_keras_model(data):
     x, y = data
     model = TfSequential()
     model.add(TfDense(3, input_dim=4))
@@ -124,7 +124,7 @@ def _tf_keras_model(data):
 
 @pytest.fixture(scope="module")
 def tf_keras_model(data):
-    return _tf_keras_model(data)
+    return get_tf_keras_model(data)
 
 
 @pytest.fixture(scope="module")
@@ -255,13 +255,18 @@ def test_that_keras_module_arg_works(model_path):
 
 @pytest.mark.parametrize(
     "build_model,save_format",
-    [(_model, None), (_tf_keras_model, None), (_tf_keras_model, "h5"), (_tf_keras_model, "tf")],
+    [
+        (get_model, None),
+        (get_tf_keras_model, None),
+        (get_tf_keras_model, "h5"),
+        (get_tf_keras_model, "tf"),
+    ],
 )
 @pytest.mark.large
 def test_model_save_load(build_model, save_format, model_path, data):
     x, _ = data
     keras_model = build_model(data)
-    if build_model == _tf_keras_model:
+    if build_model == get_tf_keras_model:
         model_path = os.path.join(model_path, "tf")
     else:
         model_path = os.path.join(model_path, "plain")

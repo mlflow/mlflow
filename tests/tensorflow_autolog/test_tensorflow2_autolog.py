@@ -271,7 +271,7 @@ def test_tf_keras_autolog_model_can_load_from_artifact(tf_keras_random_data_run,
     model.predict(random_train_data)
 
 
-def _tf_keras_random_data_run_with_callback(
+def get_tf_keras_random_data_run_with_callback(
     random_train_data,
     random_one_hot_labels,
     manual_run,
@@ -322,7 +322,7 @@ def tf_keras_random_data_run_with_callback(
     patience,
     initial_epoch,
 ):
-    return _tf_keras_random_data_run_with_callback(
+    return get_tf_keras_random_data_run_with_callback(
         random_train_data,
         random_one_hot_labels,
         manual_run,
@@ -390,7 +390,7 @@ def test_tf_keras_autolog_batch_metrics_logger_logs_expected_metrics(
             original(self, metrics, step)
 
         record_metrics_mock.side_effect = record_metrics_side_effect
-        run, _, callback = _tf_keras_random_data_run_with_callback(
+        run, _, callback = get_tf_keras_random_data_run_with_callback(
             random_train_data,
             random_one_hot_labels,
             manual_run,

@@ -7,7 +7,7 @@ import pytest
 import mlflow
 from mlflow.utils.file_utils import path_to_local_sqlite_uri
 
-from tests.autologging.fixtures import _test_mode_on
+from tests.autologging.fixtures import enable_test_mode
 
 
 @pytest.fixture
@@ -46,7 +46,7 @@ def enable_test_mode_by_default_for_autologging_integrations():
     are raised and detected. For more information about autologging test mode, see the docstring
     for :py:func:`mlflow.utils.autologging_utils._is_testing()`.
     """
-    yield from _test_mode_on()
+    yield from enable_test_mode()
 
 
 @pytest.fixture(autouse=True)
