@@ -1158,7 +1158,6 @@ def autolog(
         _get_args_for_metrics,
         _log_estimator_content,
         _all_estimators,
-        _get_arg_names,
         _get_estimator_info_tags,
         _get_meta_estimators_for_autologging,
         _is_parameter_search_estimator,
