@@ -22,7 +22,6 @@ import yaml
 import json
 import tempfile
 import shutil
-import inspect
 import logging
 from copy import deepcopy
 
