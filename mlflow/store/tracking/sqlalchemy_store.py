@@ -680,8 +680,8 @@ class SqlAlchemyStore(AbstractStore):
                 if len(existing_params) > 0:
                     explain_message = """
 
-                                The cause of this error is typically due to repeated calls 
-                                to an individual run_id event logging. 
+                                The cause of this error is typically due to repeated calls
+                                to an individual run_id event logging.
 
                                 Incorrect Example:
 
@@ -691,8 +691,8 @@ class SqlAlchemyStore(AbstractStore):
                                     model = Model().fit(df, depth=5)
                                     mlflow.log_param("depth", getattr(model, "depth"))
 
-                                Which will throw an MlflowException for overwriting a 
-                                logged parameter. 
+                                Which will throw an MlflowException for overwriting a
+                                logged parameter.
 
                                 Correct Example:
 
@@ -705,7 +705,7 @@ class SqlAlchemyStore(AbstractStore):
                                       mlflow.log_param("depth", getattr(model, "depth"))
 
                                 Which will create a new nested run for each individual
-                                model and prevent parameter key collisions within the 
+                                model and prevent parameter key collisions within the
                                 tracking store.
                                 """
                     old_value = existing_params[0]

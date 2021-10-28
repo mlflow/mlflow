@@ -819,8 +819,8 @@ class FileStore(AbstractStore):
         if current_value != new_value:
             explain_message = """
 
-            The cause of this error is typically due to repeated calls 
-            to an individual run_id event logging. 
+            The cause of this error is typically due to repeated calls
+            to an individual run_id event logging.
 
             Incorrect Example:
 
@@ -830,8 +830,8 @@ class FileStore(AbstractStore):
                 model = Model().fit(df, depth=5)
                 mlflow.log_param("depth", getattr(model, "depth"))
 
-            Which will throw an MlflowException for overwriting a 
-            logged parameter. 
+            Which will throw an MlflowException for overwriting a
+            logged parameter.
 
             Correct Example:
 
@@ -844,7 +844,7 @@ class FileStore(AbstractStore):
                   mlflow.log_param("depth", getattr(model, "depth"))
 
             Which will create a new nested run for each individual
-            model and prevent parameter key collisions within the 
+            model and prevent parameter key collisions within the
             tracking store.
             """
             raise MlflowException(
