@@ -159,9 +159,7 @@ def save_model(
         model_class=xgb_model_class,
         env=_CONDA_ENV_FILE_NAME,
     )
-    mlflow_model.add_flavor(FLAVOR_NAME,
-                            xgb_version=xgb.__version__,
-                            model_class=xgb_model_class)
+    mlflow_model.add_flavor(FLAVOR_NAME, xgb_version=xgb.__version__, model_class=xgb_model_class)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
@@ -258,6 +256,7 @@ def log_model(
 
 def _load_model(path):
     import xgboost as xgb
+
     if os.path.isfile(path):
         # xgboost Booster models saved in MLflow (<x.x.x) specify
         # the ``data`` field within its flavor configuration.
@@ -310,8 +309,11 @@ def load_model(model_uri):
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
-    xgb_model_file_path = os.path.join(local_model_path, flavor_conf["data"]) \
-        if "data" in flavor_conf else local_model_path
+    xgb_model_file_path = (
+        os.path.join(local_model_path, flavor_conf["data"])
+        if "data" in flavor_conf
+        else local_model_path
+    )
     return _load_model(path=xgb_model_file_path)
 
 

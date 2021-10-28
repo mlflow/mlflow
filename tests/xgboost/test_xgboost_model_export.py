@@ -54,12 +54,7 @@ def xgb_sklearn_model():
     boston = datasets.load_boston()
     X = pd.DataFrame(boston.data, columns=boston.feature_names)
     y = pd.Series(boston.target)
-    regressor = xgb.XGBRegressor(
-        n_estimators=100,
-        reg_lambda=1,
-        gamma=0,
-        max_depth=3
-    )
+    regressor = xgb.XGBRegressor(n_estimators=10)
     regressor.fit(X, y)
     return ModelWithData(model=regressor, inference_dataframe=X, inference_dmatrix=None)
 
@@ -488,8 +483,7 @@ def test_pyfunc_serve_and_score_sklearn(model):
 
 
 @pytest.mark.large
-def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(
-        xgb_model, model_path):
+def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(xgb_model, model_path):
     """
     This test verifies that xgboost models saved in older versions of MLflow are loaded
     successfully by ``mlflow.pyfunc.load_model``. These older models specify a pyfunc ``data``
@@ -512,15 +506,16 @@ def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(
     pyfunc_conf[pyfunc.DATA] = "model.xgb"
 
     reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
-    assert reloaded_pyfunc._model_impl.xgb_model.__class__.__name__ \
-           == "Booster"
+    assert isinstance(reloaded_pyfunc._model_impl.xgb_model, xgb.Booster)
     reloaded_xgb = mlflow.xgboost.load_model(model_uri=model_path)
-    assert reloaded_xgb.__class__.__name__ == "Booster"
+    assert isinstance(reloaded_xgb, xgb.Booster)
 
-    np.testing.assert_array_equal(
+    np.testing.assert_array_almost_equal(
         xgb_model.model.predict(xgb_model.inference_dmatrix),
-        reloaded_pyfunc.predict(xgb_model.inference_dataframe))
+        reloaded_pyfunc.predict(xgb_model.inference_dataframe),
+    )
 
-    np.testing.assert_array_equal(
+    np.testing.assert_array_almost_equal(
         reloaded_xgb.predict(xgb_model.inference_dmatrix),
-        reloaded_pyfunc.predict(xgb_model.inference_dataframe))
+        reloaded_pyfunc.predict(xgb_model.inference_dataframe),
+    )
