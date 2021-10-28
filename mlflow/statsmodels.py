@@ -75,7 +75,7 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-_model_size_threshold_for_emitting_warning = 100 * 1024 * 1024
+_model_size_threshold_for_emitting_warning = 100 * 1024 * 1024  # 100 MB
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
@@ -362,7 +362,7 @@ _autolog_metric_allowlist = [
 def _get_autolog_metrics(fitted_model):
     result_metrics = {}
 
-    failed_evaluating_metric = []
+    failed_evaluating_metrics = set()
     for metric in _autolog_metric_allowlist:
         try:
             if hasattr(fitted_model, metric):
@@ -370,8 +370,12 @@ def _get_autolog_metrics(fitted_model):
                 if _is_numeric(metric_value):
                     result_metrics[metric] = metric_value
         except Exception:
-            failed_evaluating_metric.append(metric)
-    _logger.warning(f"Failed to autolog metrics: {','.join(failed_evaluating_metric)}")
+            failed_evaluating_metrics.add(metric)
+
+    if len(failed_evaluating_metrics) > 0:
+        _logger.warning(
+            f"Failed to autolog metrics: {', '.join(sorted(failed_evaluating_metrics))}"
+        )
     return result_metrics
 
 
@@ -514,5 +518,5 @@ def autolog(
 
 
 autolog.__doc__ = autolog.__doc__.format(
-    autolog_metric_allowlist=",".join(_autolog_metric_allowlist)
+    autolog_metric_allowlist=", ".join(_autolog_metric_allowlist)
 )

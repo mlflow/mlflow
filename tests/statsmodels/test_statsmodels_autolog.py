@@ -83,7 +83,7 @@ def test_statsmodels_autolog_logs_specified_params():
 def test_statsmodels_autolog_logs_summary_artifact():
     mlflow.statsmodels.autolog()
     with mlflow.start_run():
-        model = ols_model().model
+        model = ols_model()
         summary_path = mlflow.get_artifact_uri("model_summary.txt").replace("file://", "")
         with open(summary_path, "r") as f:
             saved_summary = f.read()
@@ -95,9 +95,9 @@ def test_statsmodels_autolog_emit_warning_when_model_is_large():
     mlflow.statsmodels.autolog()
 
     with mock.patch(
-        "mlflow.statsmodels._model_size_threshold_for_emitting_warning", 100000000
+        "mlflow.statsmodels._model_size_threshold_for_emitting_warning", float("inf")
     ), mock.patch("mlflow.statsmodels._logger.warning") as mock_warning:
-        ols_model().model
+        ols_model()
         assert all(
             not call_args[0][0].startswith("The fitted model is larger than")
             for call_args in mock_warning.call_args_list
@@ -106,7 +106,7 @@ def test_statsmodels_autolog_emit_warning_when_model_is_large():
     with mock.patch("mlflow.statsmodels._model_size_threshold_for_emitting_warning", 1), mock.patch(
         "mlflow.statsmodels._logger.warning"
     ) as mock_warning:
-        ols_model().model
+        ols_model()
         assert any(
             call_args[0][0].startswith("The fitted model is larger than")
             for call_args in mock_warning.call_args_list
