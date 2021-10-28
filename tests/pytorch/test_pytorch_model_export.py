@@ -590,7 +590,7 @@ def test_pyfunc_model_serving_with_module_scoped_subclassed_model_and_default_co
     )
 
 
-def test_save_model_with_wrong_codepaths_fails_corrrectly(
+def test_save_model_with_wrong_codepaths_fails_correctly(
     module_scoped_subclassed_model, model_path, data
 ):
     # pylint: disable=unused-argument
@@ -598,9 +598,7 @@ def test_save_model_with_wrong_codepaths_fails_corrrectly(
         mlflow.pytorch.save_model(
             path=model_path, pytorch_model=module_scoped_subclassed_model, code_paths="some string"
         )
-    assert "TypeError: Argument code_paths should be a list, not {}".format(type("")) in str(
-        exc_info
-    )
+    assert "Argument code_paths should be a list, not {}".format(type("")) in str(exc_info.value)
     assert not os.path.exists(model_path)
 
 
