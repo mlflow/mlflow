@@ -78,6 +78,9 @@ def get_default_conda_env():
 _model_size_threshold_for_emitting_warning = 100 * 1024 * 1024  # 100 MB
 
 
+_save_model_called_from_autolog = False
+
+
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     statsmodels_model,
@@ -142,7 +145,7 @@ def save_model(
 
     # Save a statsmodels model
     statsmodels_model.save(model_data_path, remove_data)
-    if not remove_data:
+    if _save_model_called_from_autolog and not remove_data:
         saved_model_size = os.path.getsize(model_data_path)
         if saved_model_size >= _model_size_threshold_for_emitting_warning:
             _logger.warning(
@@ -497,7 +500,12 @@ def autolog(
             if should_autolog:
                 # Log the model
                 if get_autologging_config(FLAVOR_NAME, "log_models", True):
-                    try_mlflow_log(log_model, model, artifact_path="model")
+                    global _save_model_called_from_autolog
+                    _save_model_called_from_autolog = True
+                    try:
+                        try_mlflow_log(log_model, model, artifact_path="model")
+                    finally:
+                        _save_model_called_from_autolog = False
 
                 # Log the most common metrics
                 if isinstance(model, statsmodels.base.wrapper.ResultsWrapper):
