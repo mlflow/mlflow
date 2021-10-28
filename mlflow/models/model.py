@@ -28,91 +28,10 @@ _LOG_MODEL_METADATA_WARNING_TEMPLATE = (
 
 
 class Model(object):
-    """
-    An MLflow Model that can support multiple model flavors. Provides APIs for implementing
-    new Model flavors.
-    """
-
-    def __init__(
-        self,
-        artifact_path=None,
-        run_id=None,
-        utc_time_created=None,
-        flavors=None,
-        signature=None,  # ModelSignature
-        saved_input_example_info: Dict[str, Any] = None,
-        **kwargs
-    ):
-        # store model id instead of run_id and path to avoid confusion when model gets exported
-        if run_id:
-            self.run_id = run_id
-            self.artifact_path = artifact_path
-
-        self.utc_time_created = str(utc_time_created or datetime.utcnow())
-        self.flavors = flavors if flavors is not None else {}
-        self.signature = signature
-        self.saved_input_example_info = saved_input_example_info
-        self.__dict__.update(kwargs)
-
-    def __eq__(self, other):
-        if not isinstance(other, Model):
-            return False
-        return self.__dict__ == other.__dict__
-
-    def get_input_schema(self):
-        return self.signature.inputs if self.signature is not None else None
-
-    def get_output_schema(self):
-        return self.signature.outputs if self.signature is not None else None
-
-    def add_flavor(self, name, **params):
-        """Add an entry for how to serve the model in a given format."""
-        self.flavors[name] = params
-        return self
-
-    @property
-    def signature(self):  # -> Optional[ModelSignature]
-        return self._signature
-
-    @signature.setter
-    def signature(self, value):
-        # pylint: disable=attribute-defined-outside-init
-        self._signature = value
-
-    @property
-    def saved_input_example_info(self) -> Optional[Dict[str, Any]]:
-        return self._saved_input_example_info
-
-    @saved_input_example_info.setter
-    def saved_input_example_info(self, value: Dict[str, Any]):
-        # pylint: disable=attribute-defined-outside-init
-        self._saved_input_example_info = value
-
-    def to_dict(self):
-        """Serialize the model to a dictionary."""
-        res = {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
-        databricks_runtime = get_databricks_runtime()
-        if databricks_runtime:
-            res["databricks_runtime"] = databricks_runtime
-        if self.signature is not None:
-            res["signature"] = self.signature.to_dict()
-        if self.saved_input_example_info is not None:
-            res["saved_input_example_info"] = self.saved_input_example_info
-        return res
-
-    def to_yaml(self, stream=None):
-        """Write the model as yaml string."""
-        return yaml.safe_dump(self.to_dict(), stream=stream, default_flow_style=False)
-
-    def __str__(self):
-        return self.to_yaml()
-
-    def to_json(self):
-        """Write the model as json."""
-        return json.dumps(self.to_dict())
-
     def save(self, path):
         """Write the model as a local YAML file."""
+        # We will likely avoid serializing artifacts themselves, just locations.
+        # Deserialization will resolve locations to artifact contents.
         with open(path, "w") as out:
             self.to_yaml(out)
 
