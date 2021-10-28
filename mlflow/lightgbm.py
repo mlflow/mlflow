@@ -22,7 +22,6 @@ import yaml
 import json
 import tempfile
 import shutil
-import inspect
 import logging
 from copy import deepcopy
 
@@ -48,6 +47,7 @@ from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
+from mlflow.utils.arguments_utils import _get_arg_names
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
@@ -452,7 +452,7 @@ def autolog(
 
         param_logging_operations = autologging_client.flush(synchronous=False)
 
-        all_arg_names = inspect.getfullargspec(original)[0]
+        all_arg_names = _get_arg_names(original)
         num_pos_args = len(args)
 
         # adding a callback that records evaluation results.
