@@ -57,8 +57,7 @@ def get_train_prefix():
     return "train" if is_mxnet_older_than_1_6_0() else "training"
 
 
-@pytest.fixture
-def gluon_random_data_run(log_models=True):
+def get_gluon_random_data_run(log_models=True):
     mlflow.gluon.autolog(log_models)
 
     with mlflow.start_run() as run:
@@ -85,6 +84,11 @@ def gluon_random_data_run(log_models=True):
             est.fit(data, epochs=3, val_data=validation)
     client = mlflow.tracking.MlflowClient()
     return client.get_run(run.info.run_id)
+
+
+@pytest.fixture
+def gluon_random_data_run(log_models=True):
+    return get_gluon_random_data_run(log_models)
 
 
 @pytest.mark.large
@@ -124,7 +128,7 @@ def test_gluon_autolog_batch_metrics_logger_logs_expected_metrics():
             original(self, metrics, step)
 
         record_metrics_mock.side_effect = record_metrics_side_effect
-        run = gluon_random_data_run()
+        run = get_gluon_random_data_run()
 
     patched_metrics_data = dict(patched_metrics_data)
     original_metrics = run.data.metrics
@@ -151,7 +155,7 @@ def test_gluon_autolog_model_can_load_from_artifact(gluon_random_data_run):
 @pytest.mark.large
 @pytest.mark.parametrize("log_models", [True, False])
 def test_gluon_autolog_log_models_configuration(log_models):
-    random_data_run = gluon_random_data_run(log_models)
+    random_data_run = get_gluon_random_data_run(log_models)
     client = mlflow.tracking.MlflowClient()
     artifacts = client.list_artifacts(random_data_run.info.run_id)
     artifacts = list(map(lambda x: x.path, artifacts))

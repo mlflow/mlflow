@@ -31,7 +31,6 @@ from tests.helper_functions import pyfunc_serve_and_score_model, _assert_pip_req
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
 
 
-@pytest.fixture(scope="session")
 def get_dataset():
     X, y = load_boston(return_X_y=True)
 
@@ -289,8 +288,8 @@ class UCIHousing(paddle.nn.Layer):
 
 
 @pytest.fixture
-def pd_model_built_in_high_level_api():
-    train_dataset, test_dataset = get_dataset_built_in_high_level_api()
+def pd_model_built_in_high_level_api(get_dataset_built_in_high_level_api):
+    train_dataset, test_dataset = get_dataset_built_in_high_level_api
 
     model = paddle.Model(UCIHousing())
     optim = paddle.optimizer.Adam(learning_rate=0.01, parameters=model.parameters())
@@ -389,12 +388,15 @@ def model_retrain_path(tmpdir):
 @pytest.mark.large
 @pytest.mark.allow_infer_pip_requirements_fallback
 def test_model_retrain_built_in_high_level_api(
-    pd_model_built_in_high_level_api, model_path, model_retrain_path
+    pd_model_built_in_high_level_api,
+    model_path,
+    model_retrain_path,
+    get_dataset_built_in_high_level_api,
 ):
     model = pd_model_built_in_high_level_api.model
     mlflow.paddle.save_model(pd_model=model, path=model_path, training=True)
 
-    training_dataset, test_dataset = get_dataset_built_in_high_level_api()
+    training_dataset, test_dataset = get_dataset_built_in_high_level_api
 
     model_retrain = paddle.Model(UCIHousing())
     model_retrain = mlflow.paddle.load_model(model_uri=model_path, model=model_retrain)
@@ -436,9 +438,11 @@ def test_model_retrain_built_in_high_level_api(
 
 
 @pytest.mark.large
-def test_log_model_built_in_high_level_api(pd_model_built_in_high_level_api, model_path, tmpdir):
+def test_log_model_built_in_high_level_api(
+    pd_model_built_in_high_level_api, model_path, tmpdir, get_dataset_built_in_high_level_api
+):
     model = pd_model_built_in_high_level_api.model
-    _, test_dataset = get_dataset_built_in_high_level_api()
+    test_dataset = get_dataset_built_in_high_level_api[1]
 
     try:
         artifact_path = "model"
