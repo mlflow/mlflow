@@ -728,9 +728,10 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs.log_param(run_id, Param(param_name, "value1"))
         # Duplicate calls to `log_param` with the same key and value should succeed
         fs.log_param(run_id, Param(param_name, "value1"))
-        with pytest.raises(MlflowException) as exc:
+        with self.assertRaises(MlflowException) as e:
             fs.log_param(run_id, Param(param_name, "value2"))
-        assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert e.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        self.assertIn("Changing param values is not allowed. Param with key=", e.exception.message)
         run = fs.get_run(run_id)
         assert run.data.params[param_name] == "value1"
 

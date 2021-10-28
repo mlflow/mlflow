@@ -678,11 +678,43 @@ class SqlAlchemyStore(AbstractStore):
                 session.rollback()
                 existing_params = [p.value for p in run.params if p.key == param.key]
                 if len(existing_params) > 0:
+                    explain_message = """
+
+                                The cause of this error is typically due to repeated calls 
+                                to an individual run_id event logging. 
+
+                                Incorrect Example:
+
+                                with mlflow.start_run():
+                                    model = Model().fit(df, depth=3)
+                                    mlflow.log_param("depth", getattr(model, "depth"))
+                                    model = Model().fit(df, depth=5)
+                                    mlflow.log_param("depth", getattr(model, "depth"))
+
+                                Which will throw an MlflowException for overwriting a 
+                                logged parameter. 
+
+                                Correct Example:
+
+                                with mlflow.start_run():
+                                    with mlflow.start_run(nested=True):
+                                      model = Model().fit(df, depth=3)
+                                      mlflow.log_param("depth", getattr(model, "depth"))
+                                    with mlflow.start_run(nested=True):
+                                      model = Model().fit(df, depth=5)
+                                      mlflow.log_param("depth", getattr(model, "depth"))
+
+                                Which will create a new nested run for each individual
+                                model and prevent parameter key collisions within the 
+                                tracking store.
+                                """
                     old_value = existing_params[0]
                     raise MlflowException(
                         "Changing param values is not allowed. Param with key='{}' was already"
                         " logged with value='{}' for run ID='{}'. Attempted logging new value"
-                        " '{}'.".format(param.key, old_value, run_id, param.value),
+                        " '{}'.{}".format(
+                            param.key, old_value, run_id, param.value, explain_message
+                        ),
                         INVALID_PARAMETER_VALUE,
                     )
                 else:
