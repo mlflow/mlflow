@@ -131,7 +131,6 @@ def test_log_artifact(artifacts_server, tmpdir):
     with mlflow.start_run() as run:
         mlflow.log_artifact(tmp_path, artifact_path="artifact_path")
 
-    experiment_id = "0"
     run_artifact_root = os.path.join(
         artifacts_destination, experiment_id, run.info.run_id, "artifacts"
     )
@@ -161,7 +160,6 @@ def test_log_artifacts(artifacts_server, tmpdir):
     with mlflow.start_run() as run:
         mlflow.log_artifacts(tmpdir, artifact_path="artifact_path")
 
-    client = mlflow.tracking.MlflowClient()
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert artifacts == ["artifact_path"]
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id, "artifact_path")]
