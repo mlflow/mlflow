@@ -237,7 +237,7 @@ class TrackingServiceClient(object):
             self.store.log_param(run_id, param)
         except MlflowException as e:
             if e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE):
-                msg = f"{e.message}\nInvalid key: '{key}' already exists.\n{PARAM_VALIDATION_MSG}'"
+                msg = f"{e.message}{PARAM_VALIDATION_MSG}'"
                 raise MlflowException(msg, INVALID_PARAMETER_VALUE)
             else:
                 raise e
@@ -289,7 +289,7 @@ class TrackingServiceClient(object):
         """
         if len(metrics) == 0 and len(params) == 0 and len(tags) == 0:
             return
-        if len(params) > 0:
+        if len(params) > 1:
             _validate_param_keys_unique(params)
         for metric in metrics:
             _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)

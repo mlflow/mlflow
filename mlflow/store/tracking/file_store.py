@@ -821,7 +821,7 @@ class FileStore(AbstractStore):
             raise MlflowException(
                 "Changing param values is not allowed. Param with key='{}' was already"
                 " logged with value='{}' for run ID='{}'. Attempted logging new value"
-                " '{}'.".format(param_key, current_value, run_id, new_value,),
+                " '{}'.".format(param_key, current_value, run_id, new_value),
                 databricks_pb2.INVALID_PARAMETER_VALUE,
             )
 

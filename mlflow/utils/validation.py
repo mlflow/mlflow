@@ -43,21 +43,23 @@ The cause of this error is typically due to repeated calls
 to an individual run_id event logging.
 
 Incorrect Example:
-
+---------------------------------------
 with mlflow.start_run():
     mlflow.log_param("depth", 3)
     mlflow.log_param("depth", 5)
+---------------------------------------
 
 Which will throw an MlflowException for overwriting a
 logged parameter.
 
 Correct Example:
-
+---------------------------------------
 with mlflow.start_run():
     with mlflow.start_run(nested=True):
         mlflow.log_param("depth", 3)
     with mlflow.start_run(nested=True):
         mlflow.log_param("depth", 5)
+---------------------------------------
 
 Which will create a new nested run for each individual
 model and prevent parameter key collisions within the
