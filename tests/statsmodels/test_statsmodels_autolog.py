@@ -136,8 +136,7 @@ def test_statsmodels_autolog_failed_metrics_warning():
     ), mock.patch(
         "statsmodels.regression.linear_model.OLSResults.fvalue", metric_raise_error
     ), mock.patch(
-        # because we patch metric property to make it raise error, OLSResults.summary internally
-        # call metric property will also raise error, so also patch OLSResults.summary
+        # Prevent `OLSResults.summary` from calling `fvalue` and `f_pvalue` that raise an exception
         "statsmodels.regression.linear_model.OLSResults.summary",
         return_value=MockSummary(),
     ), mock.patch(
