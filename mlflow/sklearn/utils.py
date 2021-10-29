@@ -1,11 +1,11 @@
 import collections
-from packaging.version import Version
 import inspect
 import logging
-from numbers import Number
 import numpy as np
 import time
 import warnings
+from packaging.version import Version
+from numbers import Number
 
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.file_utils import TempDir
