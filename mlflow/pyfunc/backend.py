@@ -113,7 +113,10 @@ class PyFuncBackend(FlavorBackend):
                 COPY {model_dir} /opt/ml/model
                 RUN python -c \
                 'from mlflow.models.container import _install_pyfunc_deps;\
-                _install_pyfunc_deps("/opt/ml/model", install_mlflow={install_mlflow}, enable_mlserver={enable_mlserver})'
+                _install_pyfunc_deps(\
+                    "/opt/ml/model", \
+                    install_mlflow={install_mlflow}, \
+                    enable_mlserver={enable_mlserver})'
                 ENV {disable_env}="true"
                 ENV {ENABLE_MLSERVER}={enable_mlserver}
                 """.format(
