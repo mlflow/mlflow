@@ -37,6 +37,7 @@ jobs:
     - uses: ./.github/actions/setup-python
       with:
         python-version: 3.6
+    - uses: ./.github/actions/cache-pip
     - name: Install dependencies
       env:
         INSTALL_LARGE_PYTHON_DEPS: true
@@ -202,6 +203,7 @@ jobs:
         # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md#java
         java-version: 8
         distribution: 'adopt'
+    - uses: ./.github/actions/cache-pip
     - name: Install dependencies
       env:
         INSTALL_LARGE_PYTHON_DEPS: true
@@ -314,6 +316,7 @@ jobs:
         with:
           java-version: 8
           distribution: 'adopt'
+      - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         env:
           INSTALL_LARGE_PYTHON_DEPS: true
