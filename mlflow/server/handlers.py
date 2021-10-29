@@ -1,16 +1,17 @@
 # Define all the service endpoint handlers here.
 import json
 import os
+from posixpath import basename
 import re
 import tempfile
 
 import logging
 from functools import wraps
 
-from flask import Response, request, send_file
+from flask import Response, request, send_file, send_from_directory
 from google.protobuf import descriptor
 
-from mlflow.entities import Metric, Param, RunTag, ViewType, ExperimentTag
+from mlflow.entities import Metric, Param, RunTag, ViewType, ExperimentTag, FileInfo
 from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -820,14 +821,19 @@ def _delete_model_version_tag():
 
 @catch_mlflow_exception
 def _download_artifact(artifact_path):
-    print(artifact_path)
-    return _wrap_response(DownloadArtifact.Response())
+    basename = os.path.basename(artifact_path)
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = os.path.join(tmp_dir, basename)
+        artifact_repo = _get_artifact_repo_mlflow_artifacts()
+        artifact_repo._download_file(artifact_path, tmp_path)
+        return send_from_directory(tmp_dir, basename)
 
 
 @catch_mlflow_exception
 def _upload_artifact(artifact_path):
+    head, tail = os.path.split(artifact_path)
     with tempfile.TemporaryDirectory() as tmp_dir:
-        tmp_path = os.path.join(tmp_dir, os.path.basename(artifact_path))
+        tmp_path = os.path.join(tmp_dir, tail)
         with open(tmp_path, "wb") as f:
             chunk_size = 8192
             while True:
@@ -837,7 +843,7 @@ def _upload_artifact(artifact_path):
                 f.write(chunk)
 
         artifact_repo = _get_artifact_repo_mlflow_artifacts()
-        artifact_repo.log_artifact(tmp_path, os.path.dirname(artifact_path))
+        artifact_repo.log_artifact(tmp_path, artifact_path=head or None)
 
     return _wrap_response(UploadArtifact.Response())
 
@@ -845,8 +851,18 @@ def _upload_artifact(artifact_path):
 @catch_mlflow_exception
 def _mlflow_artifacts_list_artifacts():
     request_message = _get_request_message(MlflowArtifactsListArtifacts())
-    print(request_message)
-    return _wrap_response(MlflowArtifactsListArtifacts.Response())
+    response_message = ListArtifacts.Response()
+    path = request_message.path if request_message.HasField("path") else None
+    artifact_repo = _get_artifact_repo_mlflow_artifacts()
+    files = []
+    for file_info in artifact_repo.list_artifacts(path):
+        basename = os.path.basename(file_info.path)
+        new_file_info = FileInfo(basename, file_info.is_dir, file_info.file_size)
+        files.append(new_file_info.to_proto())
+    response_message.files.extend(files)
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
 
 
 def _add_static_prefix(route):
