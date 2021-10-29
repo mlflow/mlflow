@@ -114,13 +114,28 @@ def test_log_artifact(artifacts_server, tmpdir):
 
     tmp_path = tmpdir.join("a.txt")
     tmp_path.write("0")
+
+    # withtout `artifact_path`
     with mlflow.start_run() as run:
         mlflow.log_artifact(tmp_path)
 
     experiment_id = "0"
-    dest_path = os.path.join(
-        artifacts_destination, experiment_id, run.info.run_id, "artifacts", tmp_path.basename
+    run_artifact_root = os.path.join(
+        artifacts_destination, experiment_id, run.info.run_id, "artifacts"
     )
+    dest_path = os.path.join(run_artifact_root, tmp_path.basename)
+    assert os.path.exists(dest_path)
+    assert read_file(dest_path) == "0"
+
+    # with `artifact_path`
+    with mlflow.start_run() as run:
+        mlflow.log_artifact(tmp_path, artifact_path="artifact_path")
+
+    experiment_id = "0"
+    run_artifact_root = os.path.join(
+        artifacts_destination, experiment_id, run.info.run_id, "artifacts"
+    )
+    dest_path = os.path.join(run_artifact_root, "artifact_path", tmp_path.basename)
     assert os.path.exists(dest_path)
     assert read_file(dest_path) == "0"
 
@@ -131,6 +146,8 @@ def test_log_artifacts(artifacts_server, tmpdir):
 
     tmpdir.join("a.txt").write("0")
     tmpdir.mkdir("subdir").join("b.txt").write("1")
+
+    # without `artifact_path`
     with mlflow.start_run() as run:
         mlflow.log_artifacts(tmpdir)
 
@@ -139,6 +156,18 @@ def test_log_artifacts(artifacts_server, tmpdir):
     assert artifacts == ["a.txt", "subdir"]
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id, "subdir")]
     assert artifacts == ["subdir/b.txt"]
+
+    # with `artifact_path`
+    with mlflow.start_run() as run:
+        mlflow.log_artifacts(tmpdir, artifact_path="artifact_path")
+
+    client = mlflow.tracking.MlflowClient()
+    artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
+    assert artifacts == ["artifact_path"]
+    artifacts = [a.path for a in client.list_artifacts(run.info.run_id, "artifact_path")]
+    assert artifacts == ["artifact_path/a.txt", "artifact_path/subdir"]
+    artifacts = [a.path for a in client.list_artifacts(run.info.run_id, "artifact_path/subdir")]
+    assert artifacts == ["artifact_path/subdir/b.txt"]
 
 
 def test_list_artifacts(artifacts_server, tmpdir):
