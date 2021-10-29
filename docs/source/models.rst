@@ -1055,7 +1055,7 @@ Python models can be deployed using `Seldon's MLServer
 <https://mlserver.readthedocs.io/en/latest/>`_ as alternative inference server. 
 MLServer is integrated with two leading open source model deployment tools,
 `Seldon Core
-<https://docs.seldon.io/projects/seldon-core/en/latest/graph/protocols.html#v2-kfserving-protocol>`
+<https://docs.seldon.io/projects/seldon-core/en/latest/graph/protocols.html#v2-kfserving-protocol>`_
 and `KServe (formerly known as KFServing)
 <https://kserve.github.io/website/modelserving/v1beta1/sklearn/v2/>`_, and can
 be used to test and deploy models using these frameworks. 
@@ -1065,6 +1065,13 @@ built with MLServer can be deployed directly with both of these frameworks.
 MLServer exposes the same scoring API through the ``/invocations`` endpoint.
 In addition, it supports the standard `V2 Inference Protocol
 <https://github.com/kubeflow/kfserving/tree/master/docs/predict-api/v2>`_.
+
+.. note::
+   To use MLServer with MLflow, please install ``mlflow`` as:
+
+   .. code-block:: bash
+
+       pip install mlflow[extras]
 
 To serve a MLflow model using MLServer, you can use the ``--enable-mlserver`` flag,
 such as:
