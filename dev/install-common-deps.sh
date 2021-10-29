@@ -41,12 +41,13 @@ if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
   retry-with-backoff pip install -r ./dev/large-requirements.txt
 
   # Install prophet's dependencies beforehand, otherwise pip would fail to build a wheel for prophet
-  pip cache list prophet --format abspath
-  tmp_dir=$(mktemp -d)
-  pip download --no-deps --dest $tmp_dir --no-cache-dir prophet
-  tar -zxvf $tmp_dir/*.tar.gz -C $tmp_dir
-  pip install -r $(find $tmp_dir -name requirements.txt)
-  rm -rf $tmp_dir
+  if [[ -z "$(pip cache list prophet --format abspath)" ]]; then
+    tmp_dir=$(mktemp -d)
+    pip download --no-deps --dest $tmp_dir --no-cache-dir prophet
+    tar -zxvf $tmp_dir/*.tar.gz -C $tmp_dir
+    pip install -r $(find $tmp_dir -name requirements.txt)
+    rm -rf $tmp_dir
+  fi
 
   retry-with-backoff pip install -r ./dev/extra-ml-requirements.txt
 fi
