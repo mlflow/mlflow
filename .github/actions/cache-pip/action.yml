@@ -5,6 +5,7 @@ runs:
   steps:
     - name: Get cache key prefix
       id: get-cache-key-prefix
+      shell: bash
       run: |
         echo "::set-output name=prefix::$ImageOS-$ImageVersion"
     - uses: actions/cache@v2
