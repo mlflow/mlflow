@@ -1096,6 +1096,4 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             )
         assert e.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         self._verify_logged(fs, run.info.run_id, metrics=[], params=[], tags=[])
-        fs.log_batch(
-            run.info.run_id, metrics=[], params=[Param("a", "1"), Param("a", "2")], tags=[]
-        )
+
