@@ -1,7 +1,6 @@
 # Define all the service endpoint handlers here.
 import json
 import os
-from posixpath import basename
 import re
 import tempfile
 

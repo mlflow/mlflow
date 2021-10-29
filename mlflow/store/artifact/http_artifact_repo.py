@@ -8,9 +8,6 @@ from mlflow.utils.file_utils import relative_path_to_artifact_path
 
 
 class HttpArtifactRepository(ArtifactRepository):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
     def log_artifact(self, local_file, artifact_path=None):
         verify_artifact_path(artifact_path)
 

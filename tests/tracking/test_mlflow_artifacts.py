@@ -104,7 +104,7 @@ def test_rest_apis(tmpdir):
         ]
     }
     resp = requests.get(api_url, params={"path": "subdir"})
-    assert resp.json() == {"files": [{"path": "b.txt", "is_dir": False, "file_size": "1"},]}
+    assert resp.json() == {"files": [{"path": "b.txt", "is_dir": False, "file_size": "1"}]}
 
 
 def test_log_artifact(artifacts_server, tmpdir):
