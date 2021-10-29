@@ -78,7 +78,7 @@ def _serve():
         raise Exception("This container only supports models with the MLeap or PyFunc flavors.")
 
 
-def _install_pyfunc_deps(model_path=None, install_mlflow=False):
+def _install_pyfunc_deps(model_path=None, install_mlflow=False, enable_mlserver=False):
     """
     Creates a conda env for serving the model at the specified path and installs almost all serving
     dependencies into the environment - MLflow is not installed as it's not available via conda.
@@ -108,9 +108,14 @@ def _install_pyfunc_deps(model_path=None, install_mlflow=False):
     activate_cmd = ["source /miniconda/bin/activate custom_env"] if has_env else []
     # NB: install gunicorn[gevent] from pip rather than from conda because gunicorn is already
     # dependency of mlflow on pip and we expect mlflow to be part of the environment.
-    install_server_deps = ["pip install gunicorn[gevent]"]
+    server_deps = ["gunicorn[gevent]"]
+    if enable_mlserver:
+        server_deps = ["mlserver", "mlserver-mlflow"]
+
+    install_server_deps = [f"pip install {' '.join(server_deps)}"]
     if Popen(["bash", "-c", " && ".join(activate_cmd + install_server_deps)]).wait() != 0:
         raise Exception("Failed to install serving dependencies into the model environment.")
+
     if has_env and install_mlflow:
         install_mlflow_cmd = [
             "pip install /opt/mlflow/."
@@ -131,7 +136,7 @@ def _serve_pyfunc(model):
     bash_cmds = []
     if pyfunc.ENV in conf:
         if not disable_env_creation:
-            _install_pyfunc_deps(MODEL_PATH, install_mlflow=True)
+            _install_pyfunc_deps(MODEL_PATH, install_mlflow=True, enable_mlserver=enable_mlserver)
         bash_cmds += ["source /miniconda/bin/activate custom_env"]
 
     procs = []
