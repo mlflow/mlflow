@@ -87,7 +87,7 @@ def test_statsmodels_autolog_logs_summary_artifact():
             saved_summary = f.read()
 
     # don't compare the whole summary text because it includes a "Time" field which may change.
-    assert model.summary().as_text().split('\n')[:4] == saved_summary.split('\n')[:4]
+    assert model.summary().as_text().split("\n")[:4] == saved_summary.split("\n")[:4]
 
 
 def test_statsmodels_autolog_emit_warning_when_model_is_large():
@@ -136,7 +136,10 @@ def test_statsmodels_autolog_failed_metrics_warning():
     ), mock.patch(
         "statsmodels.regression.linear_model.OLSResults.fvalue", metric_raise_error
     ), mock.patch(
-        "statsmodels.regression.linear_model.OLSResults.summary", return_value=MockSummary()
+        # because we patch metric property to make it raise error, OLSResults.summary internally
+        # call metric property will also raise error, so also patch OLSResults.summary
+        "statsmodels.regression.linear_model.OLSResults.summary",
+        return_value=MockSummary(),
     ), mock.patch(
         "mlflow.statsmodels._logger.warning"
     ) as mock_warning:
