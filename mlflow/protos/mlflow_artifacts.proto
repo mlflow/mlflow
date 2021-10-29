@@ -68,15 +68,9 @@ message ListArtifacts {
   // Filter artifacts matching this path (a relative path from the root artifact directory).
   optional string path = 1;
 
-  // Token indicating the page of artifact results to fetch
-  optional string page_token = 2;
-
   message Response {
     // File location and metadata for artifacts.
     repeated FileInfo files = 1;
-
-    // Token that can be used to retrieve the next page of artifact results
-    optional string next_page_token = 3;
   }
 }
 
