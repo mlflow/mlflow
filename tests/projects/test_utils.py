@@ -174,8 +174,7 @@ def test_fetch_create_and_log(tmpdir):
         with mock.patch(
             "mlflow.projects._project_spec.load_project", return_value=mock_fetched_project
         ):
-            work_dir = fetch_and_validate_project("", "", entry_point_name, user_param)
-            project = load_project(work_dir)
+            work_dir, project = fetch_and_validate_project("", "", entry_point_name, user_param)
             assert mock_fetched_project == project
             assert expected_dir == work_dir
             # Create a run

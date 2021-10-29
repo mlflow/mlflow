@@ -42,8 +42,7 @@ class LocalBackend(AbstractBackend):
     def run(
         self, project_uri, entry_point, params, version, backend_config, tracking_uri, experiment_id
     ):
-        work_dir = fetch_and_validate_project(project_uri, version, entry_point, params)
-        project = load_project(work_dir)
+        work_dir, project = fetch_and_validate_project(project_uri, version, entry_point, params)
         if MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG in backend_config:
             run_id = backend_config[MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG]
         else:
