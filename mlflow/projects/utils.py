@@ -128,6 +128,10 @@ def fetch_and_validate_project(uri, version, entry_point, parameters):
     return work_dir, project
 
 
+def load_project(work_dir):
+    return _project_spec.load_project(work_dir)
+
+
 def _fetch_project(uri, version=None):
     """
     Fetch a project into a local directory, returning the path to the local project directory.
