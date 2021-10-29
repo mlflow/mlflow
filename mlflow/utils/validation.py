@@ -55,9 +55,9 @@ Correct Example:
 
 with mlflow.start_run():
     with mlflow.start_run(nested=True):
-      mlflow.log_param("depth", 3)
+        mlflow.log_param("depth", 3)
     with mlflow.start_run(nested=True):
-      mlflow.log_param("depth", 5)
+        mlflow.log_param("depth", 5)
 
 Which will create a new nested run for each individual
 model and prevent parameter key collisions within the

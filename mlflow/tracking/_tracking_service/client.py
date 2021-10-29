@@ -21,7 +21,7 @@ from mlflow.utils.validation import (
 )
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, ExperimentTag
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
@@ -236,8 +236,11 @@ class TrackingServiceClient(object):
         try:
             self.store.log_param(run_id, param)
         except MlflowException as e:
-            msg = f"{e.message}\nInvalid key: '{key}' already exists.\n{PARAM_VALIDATION_MSG}'"
-            raise MlflowException(msg, INVALID_PARAMETER_VALUE)
+            if e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE):
+                msg = f"{e.message}\nInvalid key: '{key}' already exists.\n{PARAM_VALIDATION_MSG}'"
+                raise MlflowException(msg, INVALID_PARAMETER_VALUE)
+            else:
+                raise e
 
     def set_experiment_tag(self, experiment_id, key, value):
         """
