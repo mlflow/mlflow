@@ -1691,32 +1691,6 @@ public final class MlflowArtifacts {
      */
     com.google.protobuf.ByteString
         getPathBytes();
-
-    /**
-     * <pre>
-     * Token indicating the page of artifact results to fetch
-     * </pre>
-     *
-     * <code>optional string page_token = 2;</code>
-     */
-    boolean hasPageToken();
-    /**
-     * <pre>
-     * Token indicating the page of artifact results to fetch
-     * </pre>
-     *
-     * <code>optional string page_token = 2;</code>
-     */
-    java.lang.String getPageToken();
-    /**
-     * <pre>
-     * Token indicating the page of artifact results to fetch
-     * </pre>
-     *
-     * <code>optional string page_token = 2;</code>
-     */
-    com.google.protobuf.ByteString
-        getPageTokenBytes();
   }
   /**
    * Protobuf type {@code mlflow.artifacts.ListArtifacts}
@@ -1732,7 +1706,6 @@ public final class MlflowArtifacts {
     }
     private ListArtifacts() {
       path_ = "";
-      pageToken_ = "";
     }
 
     @java.lang.Override
@@ -1763,12 +1736,6 @@ public final class MlflowArtifacts {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000001;
               path_ = bs;
-              break;
-            }
-            case 18: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000002;
-              pageToken_ = bs;
               break;
             }
             default: {
@@ -1850,32 +1817,6 @@ public final class MlflowArtifacts {
        */
       org.mlflow.api.proto.MlflowArtifacts.FileInfoOrBuilder getFilesOrBuilder(
           int index);
-
-      /**
-       * <pre>
-       * Token that can be used to retrieve the next page of artifact results
-       * </pre>
-       *
-       * <code>optional string next_page_token = 3;</code>
-       */
-      boolean hasNextPageToken();
-      /**
-       * <pre>
-       * Token that can be used to retrieve the next page of artifact results
-       * </pre>
-       *
-       * <code>optional string next_page_token = 3;</code>
-       */
-      java.lang.String getNextPageToken();
-      /**
-       * <pre>
-       * Token that can be used to retrieve the next page of artifact results
-       * </pre>
-       *
-       * <code>optional string next_page_token = 3;</code>
-       */
-      com.google.protobuf.ByteString
-          getNextPageTokenBytes();
     }
     /**
      * Protobuf type {@code mlflow.artifacts.ListArtifacts.Response}
@@ -1891,7 +1832,6 @@ public final class MlflowArtifacts {
       }
       private Response() {
         files_ = java.util.Collections.emptyList();
-        nextPageToken_ = "";
       }
 
       @java.lang.Override
@@ -1925,12 +1865,6 @@ public final class MlflowArtifacts {
                 }
                 files_.add(
                     input.readMessage(org.mlflow.api.proto.MlflowArtifacts.FileInfo.PARSER, extensionRegistry));
-                break;
-              }
-              case 26: {
-                com.google.protobuf.ByteString bs = input.readBytes();
-                bitField0_ |= 0x00000001;
-                nextPageToken_ = bs;
                 break;
               }
               default: {
@@ -1968,7 +1902,6 @@ public final class MlflowArtifacts {
                 org.mlflow.api.proto.MlflowArtifacts.ListArtifacts.Response.class, org.mlflow.api.proto.MlflowArtifacts.ListArtifacts.Response.Builder.class);
       }
 
-      private int bitField0_;
       public static final int FILES_FIELD_NUMBER = 1;
       private java.util.List<org.mlflow.api.proto.MlflowArtifacts.FileInfo> files_;
       /**
@@ -2024,60 +1957,6 @@ public final class MlflowArtifacts {
         return files_.get(index);
       }
 
-      public static final int NEXT_PAGE_TOKEN_FIELD_NUMBER = 3;
-      private volatile java.lang.Object nextPageToken_;
-      /**
-       * <pre>
-       * Token that can be used to retrieve the next page of artifact results
-       * </pre>
-       *
-       * <code>optional string next_page_token = 3;</code>
-       */
-      public boolean hasNextPageToken() {
-        return ((bitField0_ & 0x00000001) == 0x00000001);
-      }
-      /**
-       * <pre>
-       * Token that can be used to retrieve the next page of artifact results
-       * </pre>
-       *
-       * <code>optional string next_page_token = 3;</code>
-       */
-      public java.lang.String getNextPageToken() {
-        java.lang.Object ref = nextPageToken_;
-        if (ref instanceof java.lang.String) {
-          return (java.lang.String) ref;
-        } else {
-          com.google.protobuf.ByteString bs = 
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            nextPageToken_ = s;
-          }
-          return s;
-        }
-      }
-      /**
-       * <pre>
-       * Token that can be used to retrieve the next page of artifact results
-       * </pre>
-       *
-       * <code>optional string next_page_token = 3;</code>
-       */
-      public com.google.protobuf.ByteString
-          getNextPageTokenBytes() {
-        java.lang.Object ref = nextPageToken_;
-        if (ref instanceof java.lang.String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          nextPageToken_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-
       private byte memoizedIsInitialized = -1;
       @java.lang.Override
       public final boolean isInitialized() {
@@ -2095,9 +1974,6 @@ public final class MlflowArtifacts {
         for (int i = 0; i < files_.size(); i++) {
           output.writeMessage(1, files_.get(i));
         }
-        if (((bitField0_ & 0x00000001) == 0x00000001)) {
-          com.google.protobuf.GeneratedMessageV3.writeString(output, 3, nextPageToken_);
-        }
         unknownFields.writeTo(output);
       }
 
@@ -2110,9 +1986,6 @@ public final class MlflowArtifacts {
         for (int i = 0; i < files_.size(); i++) {
           size += com.google.protobuf.CodedOutputStream
             .computeMessageSize(1, files_.get(i));
-        }
-        if (((bitField0_ & 0x00000001) == 0x00000001)) {
-          size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, nextPageToken_);
         }
         size += unknownFields.getSerializedSize();
         memoizedSize = size;
@@ -2132,11 +2005,6 @@ public final class MlflowArtifacts {
         boolean result = true;
         result = result && getFilesList()
             .equals(other.getFilesList());
-        result = result && (hasNextPageToken() == other.hasNextPageToken());
-        if (hasNextPageToken()) {
-          result = result && getNextPageToken()
-              .equals(other.getNextPageToken());
-        }
         result = result && unknownFields.equals(other.unknownFields);
         return result;
       }
@@ -2151,10 +2019,6 @@ public final class MlflowArtifacts {
         if (getFilesCount() > 0) {
           hash = (37 * hash) + FILES_FIELD_NUMBER;
           hash = (53 * hash) + getFilesList().hashCode();
-        }
-        if (hasNextPageToken()) {
-          hash = (37 * hash) + NEXT_PAGE_TOKEN_FIELD_NUMBER;
-          hash = (53 * hash) + getNextPageToken().hashCode();
         }
         hash = (29 * hash) + unknownFields.hashCode();
         memoizedHashCode = hash;
@@ -2296,8 +2160,6 @@ public final class MlflowArtifacts {
           } else {
             filesBuilder_.clear();
           }
-          nextPageToken_ = "";
-          bitField0_ = (bitField0_ & ~0x00000002);
           return this;
         }
 
@@ -2325,7 +2187,6 @@ public final class MlflowArtifacts {
         public org.mlflow.api.proto.MlflowArtifacts.ListArtifacts.Response buildPartial() {
           org.mlflow.api.proto.MlflowArtifacts.ListArtifacts.Response result = new org.mlflow.api.proto.MlflowArtifacts.ListArtifacts.Response(this);
           int from_bitField0_ = bitField0_;
-          int to_bitField0_ = 0;
           if (filesBuilder_ == null) {
             if (((bitField0_ & 0x00000001) == 0x00000001)) {
               files_ = java.util.Collections.unmodifiableList(files_);
@@ -2335,11 +2196,6 @@ public final class MlflowArtifacts {
           } else {
             result.files_ = filesBuilder_.build();
           }
-          if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
-            to_bitField0_ |= 0x00000001;
-          }
-          result.nextPageToken_ = nextPageToken_;
-          result.bitField0_ = to_bitField0_;
           onBuilt();
           return result;
         }
@@ -2413,11 +2269,6 @@ public final class MlflowArtifacts {
                 filesBuilder_.addAllMessages(other.files_);
               }
             }
-          }
-          if (other.hasNextPageToken()) {
-            bitField0_ |= 0x00000002;
-            nextPageToken_ = other.nextPageToken_;
-            onChanged();
           }
           this.mergeUnknownFields(other.unknownFields);
           onChanged();
@@ -2760,106 +2611,6 @@ public final class MlflowArtifacts {
           }
           return filesBuilder_;
         }
-
-        private java.lang.Object nextPageToken_ = "";
-        /**
-         * <pre>
-         * Token that can be used to retrieve the next page of artifact results
-         * </pre>
-         *
-         * <code>optional string next_page_token = 3;</code>
-         */
-        public boolean hasNextPageToken() {
-          return ((bitField0_ & 0x00000002) == 0x00000002);
-        }
-        /**
-         * <pre>
-         * Token that can be used to retrieve the next page of artifact results
-         * </pre>
-         *
-         * <code>optional string next_page_token = 3;</code>
-         */
-        public java.lang.String getNextPageToken() {
-          java.lang.Object ref = nextPageToken_;
-          if (!(ref instanceof java.lang.String)) {
-            com.google.protobuf.ByteString bs =
-                (com.google.protobuf.ByteString) ref;
-            java.lang.String s = bs.toStringUtf8();
-            if (bs.isValidUtf8()) {
-              nextPageToken_ = s;
-            }
-            return s;
-          } else {
-            return (java.lang.String) ref;
-          }
-        }
-        /**
-         * <pre>
-         * Token that can be used to retrieve the next page of artifact results
-         * </pre>
-         *
-         * <code>optional string next_page_token = 3;</code>
-         */
-        public com.google.protobuf.ByteString
-            getNextPageTokenBytes() {
-          java.lang.Object ref = nextPageToken_;
-          if (ref instanceof String) {
-            com.google.protobuf.ByteString b = 
-                com.google.protobuf.ByteString.copyFromUtf8(
-                    (java.lang.String) ref);
-            nextPageToken_ = b;
-            return b;
-          } else {
-            return (com.google.protobuf.ByteString) ref;
-          }
-        }
-        /**
-         * <pre>
-         * Token that can be used to retrieve the next page of artifact results
-         * </pre>
-         *
-         * <code>optional string next_page_token = 3;</code>
-         */
-        public Builder setNextPageToken(
-            java.lang.String value) {
-          if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000002;
-          nextPageToken_ = value;
-          onChanged();
-          return this;
-        }
-        /**
-         * <pre>
-         * Token that can be used to retrieve the next page of artifact results
-         * </pre>
-         *
-         * <code>optional string next_page_token = 3;</code>
-         */
-        public Builder clearNextPageToken() {
-          bitField0_ = (bitField0_ & ~0x00000002);
-          nextPageToken_ = getDefaultInstance().getNextPageToken();
-          onChanged();
-          return this;
-        }
-        /**
-         * <pre>
-         * Token that can be used to retrieve the next page of artifact results
-         * </pre>
-         *
-         * <code>optional string next_page_token = 3;</code>
-         */
-        public Builder setNextPageTokenBytes(
-            com.google.protobuf.ByteString value) {
-          if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000002;
-          nextPageToken_ = value;
-          onChanged();
-          return this;
-        }
         @java.lang.Override
         public final Builder setUnknownFields(
             final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -2968,60 +2719,6 @@ public final class MlflowArtifacts {
       }
     }
 
-    public static final int PAGE_TOKEN_FIELD_NUMBER = 2;
-    private volatile java.lang.Object pageToken_;
-    /**
-     * <pre>
-     * Token indicating the page of artifact results to fetch
-     * </pre>
-     *
-     * <code>optional string page_token = 2;</code>
-     */
-    public boolean hasPageToken() {
-      return ((bitField0_ & 0x00000002) == 0x00000002);
-    }
-    /**
-     * <pre>
-     * Token indicating the page of artifact results to fetch
-     * </pre>
-     *
-     * <code>optional string page_token = 2;</code>
-     */
-    public java.lang.String getPageToken() {
-      java.lang.Object ref = pageToken_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          pageToken_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * Token indicating the page of artifact results to fetch
-     * </pre>
-     *
-     * <code>optional string page_token = 2;</code>
-     */
-    public com.google.protobuf.ByteString
-        getPageTokenBytes() {
-      java.lang.Object ref = pageToken_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        pageToken_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -3039,9 +2736,6 @@ public final class MlflowArtifacts {
       if (((bitField0_ & 0x00000001) == 0x00000001)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, path_);
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, pageToken_);
-      }
       unknownFields.writeTo(output);
     }
 
@@ -3053,9 +2747,6 @@ public final class MlflowArtifacts {
       size = 0;
       if (((bitField0_ & 0x00000001) == 0x00000001)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, path_);
-      }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, pageToken_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -3078,11 +2769,6 @@ public final class MlflowArtifacts {
         result = result && getPath()
             .equals(other.getPath());
       }
-      result = result && (hasPageToken() == other.hasPageToken());
-      if (hasPageToken()) {
-        result = result && getPageToken()
-            .equals(other.getPageToken());
-      }
       result = result && unknownFields.equals(other.unknownFields);
       return result;
     }
@@ -3097,10 +2783,6 @@ public final class MlflowArtifacts {
       if (hasPath()) {
         hash = (37 * hash) + PATH_FIELD_NUMBER;
         hash = (53 * hash) + getPath().hashCode();
-      }
-      if (hasPageToken()) {
-        hash = (37 * hash) + PAGE_TOKEN_FIELD_NUMBER;
-        hash = (53 * hash) + getPageToken().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -3237,8 +2919,6 @@ public final class MlflowArtifacts {
         super.clear();
         path_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
-        pageToken_ = "";
-        bitField0_ = (bitField0_ & ~0x00000002);
         return this;
       }
 
@@ -3271,10 +2951,6 @@ public final class MlflowArtifacts {
           to_bitField0_ |= 0x00000001;
         }
         result.path_ = path_;
-        if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
-          to_bitField0_ |= 0x00000002;
-        }
-        result.pageToken_ = pageToken_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -3327,11 +3003,6 @@ public final class MlflowArtifacts {
         if (other.hasPath()) {
           bitField0_ |= 0x00000001;
           path_ = other.path_;
-          onChanged();
-        }
-        if (other.hasPageToken()) {
-          bitField0_ |= 0x00000002;
-          pageToken_ = other.pageToken_;
           onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
@@ -3460,106 +3131,6 @@ public final class MlflowArtifacts {
   }
   bitField0_ |= 0x00000001;
         path_ = value;
-        onChanged();
-        return this;
-      }
-
-      private java.lang.Object pageToken_ = "";
-      /**
-       * <pre>
-       * Token indicating the page of artifact results to fetch
-       * </pre>
-       *
-       * <code>optional string page_token = 2;</code>
-       */
-      public boolean hasPageToken() {
-        return ((bitField0_ & 0x00000002) == 0x00000002);
-      }
-      /**
-       * <pre>
-       * Token indicating the page of artifact results to fetch
-       * </pre>
-       *
-       * <code>optional string page_token = 2;</code>
-       */
-      public java.lang.String getPageToken() {
-        java.lang.Object ref = pageToken_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            pageToken_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Token indicating the page of artifact results to fetch
-       * </pre>
-       *
-       * <code>optional string page_token = 2;</code>
-       */
-      public com.google.protobuf.ByteString
-          getPageTokenBytes() {
-        java.lang.Object ref = pageToken_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          pageToken_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Token indicating the page of artifact results to fetch
-       * </pre>
-       *
-       * <code>optional string page_token = 2;</code>
-       */
-      public Builder setPageToken(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000002;
-        pageToken_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Token indicating the page of artifact results to fetch
-       * </pre>
-       *
-       * <code>optional string page_token = 2;</code>
-       */
-      public Builder clearPageToken() {
-        bitField0_ = (bitField0_ & ~0x00000002);
-        pageToken_ = getDefaultInstance().getPageToken();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Token indicating the page of artifact results to fetch
-       * </pre>
-       *
-       * <code>optional string page_token = 2;</code>
-       */
-      public Builder setPageTokenBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000002;
-        pageToken_ = value;
         onChanged();
         return this;
       }
@@ -4536,28 +4107,27 @@ public final class MlflowArtifacts {
       "oto\"K\n\020DownloadArtifact\032\n\n\010Response:+\342?(" +
       "\n&com.databricks.rpc.RPC[$this.Response]" +
       "\"I\n\016UploadArtifact\032\n\n\010Response:+\342?(\n&com" +
-      ".databricks.rpc.RPC[$this.Response]\"\256\001\n\r" +
-      "ListArtifacts\022\014\n\004path\030\001 \001(\t\022\022\n\npage_toke" +
-      "n\030\002 \001(\t\032N\n\010Response\022)\n\005files\030\001 \003(\0132\032.mlf" +
-      "low.artifacts.FileInfo\022\027\n\017next_page_toke" +
-      "n\030\003 \001(\t:+\342?(\n&com.databricks.rpc.RPC[$th" +
-      "is.Response]\";\n\010FileInfo\022\014\n\004path\030\001 \001(\t\022\016" +
-      "\n\006is_dir\030\002 \001(\010\022\021\n\tfile_size\030\003 \001(\0032\260\004\n\026Ml" +
-      "flowArtifactsService\022\275\001\n\020downloadArtifac" +
-      "t\022\".mlflow.artifacts.DownloadArtifact\032+." +
-      "mlflow.artifacts.DownloadArtifact.Respon" +
-      "se\"X\362\206\031T\n=\n\003GET\0220/mlflow-artifacts/artif" +
-      "acts/<path:artifact_path>\032\004\010\002\020\000\020\001*\021Downl" +
-      "oad Artifact\022\266\001\n\016uploadArtifact\022 .mlflow" +
-      ".artifacts.UploadArtifact\032).mlflow.artif" +
-      "acts.UploadArtifact.Response\"W\362\206\031S\n>\n\004PO" +
-      "ST\0220/mlflow-artifacts/artifacts/<path:ar" +
-      "tifact_path>\032\004\010\002\020\000\020\001*\017Upload Artifact\022\234\001" +
-      "\n\rlistArtifacts\022\037.mlflow.artifacts.ListA" +
-      "rtifacts\032(.mlflow.artifacts.ListArtifact" +
-      "s.Response\"@\362\206\031<\n(\n\003GET\022\033/mlflow-artifac" +
-      "ts/artifacts\032\004\010\002\020\000\020\001*\016List ArtifactsB\036\n\024" +
-      "org.mlflow.api.proto\220\001\001\342?\002\020\001"
+      ".databricks.rpc.RPC[$this.Response]\"\201\001\n\r" +
+      "ListArtifacts\022\014\n\004path\030\001 \001(\t\0325\n\010Response\022" +
+      ")\n\005files\030\001 \003(\0132\032.mlflow.artifacts.FileIn" +
+      "fo:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
+      "sponse]\";\n\010FileInfo\022\014\n\004path\030\001 \001(\t\022\016\n\006is_" +
+      "dir\030\002 \001(\010\022\021\n\tfile_size\030\003 \001(\0032\260\004\n\026MlflowA" +
+      "rtifactsService\022\275\001\n\020downloadArtifact\022\".m" +
+      "lflow.artifacts.DownloadArtifact\032+.mlflo" +
+      "w.artifacts.DownloadArtifact.Response\"X\362" +
+      "\206\031T\n=\n\003GET\0220/mlflow-artifacts/artifacts/" +
+      "<path:artifact_path>\032\004\010\002\020\000\020\001*\021Download A" +
+      "rtifact\022\266\001\n\016uploadArtifact\022 .mlflow.arti" +
+      "facts.UploadArtifact\032).mlflow.artifacts." +
+      "UploadArtifact.Response\"W\362\206\031S\n>\n\004POST\0220/" +
+      "mlflow-artifacts/artifacts/<path:artifac" +
+      "t_path>\032\004\010\002\020\000\020\001*\017Upload Artifact\022\234\001\n\rlis" +
+      "tArtifacts\022\037.mlflow.artifacts.ListArtifa" +
+      "cts\032(.mlflow.artifacts.ListArtifacts.Res" +
+      "ponse\"@\362\206\031<\n(\n\003GET\022\033/mlflow-artifacts/ar" +
+      "tifacts\032\004\010\002\020\000\020\001*\016List ArtifactsB\036\n\024org.m" +
+      "lflow.api.proto\220\001\001\342?\002\020\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
@@ -4602,13 +4172,13 @@ public final class MlflowArtifacts {
     internal_static_mlflow_artifacts_ListArtifacts_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_artifacts_ListArtifacts_descriptor,
-        new java.lang.String[] { "Path", "PageToken", });
+        new java.lang.String[] { "Path", });
     internal_static_mlflow_artifacts_ListArtifacts_Response_descriptor =
       internal_static_mlflow_artifacts_ListArtifacts_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_artifacts_ListArtifacts_Response_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_artifacts_ListArtifacts_Response_descriptor,
-        new java.lang.String[] { "Files", "NextPageToken", });
+        new java.lang.String[] { "Files", });
     internal_static_mlflow_artifacts_FileInfo_descriptor =
       getDescriptor().getMessageTypes().get(3);
     internal_static_mlflow_artifacts_FileInfo_fieldAccessorTable = new

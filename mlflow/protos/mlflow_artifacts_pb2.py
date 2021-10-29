@@ -23,7 +23,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='mlflow.artifacts',
   syntax='proto2',
   serialized_options=_b('\n\024org.mlflow.api.proto\220\001\001\342?\002\020\001'),
-  serialized_pb=_b('\n\x16mlflow_artifacts.proto\x12\x10mlflow.artifacts\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\"K\n\x10\x44ownloadArtifact\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"I\n\x0eUploadArtifact\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xae\x01\n\rListArtifacts\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x12\n\npage_token\x18\x02 \x01(\t\x1aN\n\x08Response\x12)\n\x05\x66iles\x18\x01 \x03(\x0b\x32\x1a.mlflow.artifacts.FileInfo\x12\x17\n\x0fnext_page_token\x18\x03 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\";\n\x08\x46ileInfo\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x0e\n\x06is_dir\x18\x02 \x01(\x08\x12\x11\n\tfile_size\x18\x03 \x01(\x03\x32\xb0\x04\n\x16MlflowArtifactsService\x12\xbd\x01\n\x10\x64ownloadArtifact\x12\".mlflow.artifacts.DownloadArtifact\x1a+.mlflow.artifacts.DownloadArtifact.Response\"X\xf2\x86\x19T\n=\n\x03GET\x12\x30/mlflow-artifacts/artifacts/<path:artifact_path>\x1a\x04\x08\x02\x10\x00\x10\x01*\x11\x44ownload Artifact\x12\xb6\x01\n\x0euploadArtifact\x12 .mlflow.artifacts.UploadArtifact\x1a).mlflow.artifacts.UploadArtifact.Response\"W\xf2\x86\x19S\n>\n\x04POST\x12\x30/mlflow-artifacts/artifacts/<path:artifact_path>\x1a\x04\x08\x02\x10\x00\x10\x01*\x0fUpload Artifact\x12\x9c\x01\n\rlistArtifacts\x12\x1f.mlflow.artifacts.ListArtifacts\x1a(.mlflow.artifacts.ListArtifacts.Response\"@\xf2\x86\x19<\n(\n\x03GET\x12\x1b/mlflow-artifacts/artifacts\x1a\x04\x08\x02\x10\x00\x10\x01*\x0eList ArtifactsB\x1e\n\x14org.mlflow.api.proto\x90\x01\x01\xe2?\x02\x10\x01')
+  serialized_pb=_b('\n\x16mlflow_artifacts.proto\x12\x10mlflow.artifacts\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\"K\n\x10\x44ownloadArtifact\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"I\n\x0eUploadArtifact\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x81\x01\n\rListArtifacts\x12\x0c\n\x04path\x18\x01 \x01(\t\x1a\x35\n\x08Response\x12)\n\x05\x66iles\x18\x01 \x03(\x0b\x32\x1a.mlflow.artifacts.FileInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\";\n\x08\x46ileInfo\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x0e\n\x06is_dir\x18\x02 \x01(\x08\x12\x11\n\tfile_size\x18\x03 \x01(\x03\x32\xb0\x04\n\x16MlflowArtifactsService\x12\xbd\x01\n\x10\x64ownloadArtifact\x12\".mlflow.artifacts.DownloadArtifact\x1a+.mlflow.artifacts.DownloadArtifact.Response\"X\xf2\x86\x19T\n=\n\x03GET\x12\x30/mlflow-artifacts/artifacts/<path:artifact_path>\x1a\x04\x08\x02\x10\x00\x10\x01*\x11\x44ownload Artifact\x12\xb6\x01\n\x0euploadArtifact\x12 .mlflow.artifacts.UploadArtifact\x1a).mlflow.artifacts.UploadArtifact.Response\"W\xf2\x86\x19S\n>\n\x04POST\x12\x30/mlflow-artifacts/artifacts/<path:artifact_path>\x1a\x04\x08\x02\x10\x00\x10\x01*\x0fUpload Artifact\x12\x9c\x01\n\rlistArtifacts\x12\x1f.mlflow.artifacts.ListArtifacts\x1a(.mlflow.artifacts.ListArtifacts.Response\"@\xf2\x86\x19<\n(\n\x03GET\x12\x1b/mlflow-artifacts/artifacts\x1a\x04\x08\x02\x10\x00\x10\x01*\x0eList ArtifactsB\x1e\n\x14org.mlflow.api.proto\x90\x01\x01\xe2?\x02\x10\x01')
   ,
   dependencies=[scalapb_dot_scalapb__pb2.DESCRIPTOR,databricks__pb2.DESCRIPTOR,])
 
@@ -138,13 +138,6 @@ _LISTARTIFACTS_RESPONSE = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='next_page_token', full_name='mlflow.artifacts.ListArtifacts.Response.next_page_token', index=1,
-      number=3, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=_b("").decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
@@ -157,8 +150,8 @@ _LISTARTIFACTS_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=289,
-  serialized_end=367,
+  serialized_start=269,
+  serialized_end=322,
 )
 
 _LISTARTIFACTS = _descriptor.Descriptor(
@@ -171,13 +164,6 @@ _LISTARTIFACTS = _descriptor.Descriptor(
     _descriptor.FieldDescriptor(
       name='path', full_name='mlflow.artifacts.ListArtifacts.path', index=0,
       number=1, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=_b("").decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='page_token', full_name='mlflow.artifacts.ListArtifacts.page_token', index=1,
-      number=2, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -195,7 +181,7 @@ _LISTARTIFACTS = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=238,
-  serialized_end=412,
+  serialized_end=367,
 )
 
 
@@ -239,8 +225,8 @@ _FILEINFO = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=414,
-  serialized_end=473,
+  serialized_start=369,
+  serialized_end=428,
 )
 
 _DOWNLOADARTIFACT_RESPONSE.containing_type = _DOWNLOADARTIFACT
@@ -317,8 +303,8 @@ _MLFLOWARTIFACTSSERVICE = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=476,
-  serialized_end=1036,
+  serialized_start=431,
+  serialized_end=991,
   methods=[
   _descriptor.MethodDescriptor(
     name='downloadArtifact',
