@@ -17,7 +17,6 @@ from mlflow.projects.utils import (
     _parse_subdirectory,
     get_or_create_run,
     fetch_and_validate_project,
-    load_project,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_SOURCE_NAME
 from tests.projects.utils import (

@@ -17,7 +17,6 @@ from mlflow.projects.utils import (
     get_run_env_vars,
     fetch_and_validate_project,
     get_or_create_run,
-    load_project,
     MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG,
     PROJECT_USE_CONDA,
     PROJECT_STORAGE_DIR,

@@ -13,7 +13,6 @@ from mlflow.projects.backend.abstract_backend import AbstractBackend
 from mlflow.projects.utils import (
     fetch_and_validate_project,
     get_or_create_run,
-    load_project,
     get_run_env_vars,
     get_databricks_env_vars,
     get_entry_point_command,
