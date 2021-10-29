@@ -346,7 +346,7 @@ class SqlMetric(Base):
 
 
 class SqlLatestMetric(Base):
-        __tablename__ = "latest_metrics"
+    __tablename__ = "latest_metrics"
 
     key = Column(String(250))
     """
