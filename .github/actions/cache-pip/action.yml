@@ -1,0 +1,15 @@
+name: "cache-pip"
+description: "Cache pip dependencies"
+runs:
+  using: "composite"
+  steps:
+    - name: Get cache key prefix
+      id: get-cache-key-prefix
+      run: |
+        echo "::set-output name=prefix::$ImageOS-$ImageVersion"
+    - uses: actions/cache@v2
+      with:
+        path: ~/.cache/pip
+        key: ${{ steps.get-cache-key-prefix.outputs.prefix }}-pip-${{ hashFiles('**/*-requirements.txt') }}
+        restore-keys: |
+          ${{ steps.get-cache-key-prefix.outputs.prefix }}-pip-
