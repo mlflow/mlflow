@@ -38,6 +38,7 @@ from mlflow.utils.validation import (
     _validate_batch_log_limits,
     _validate_batch_log_data,
     _validate_list_experiments_max_results,
+    _validate_param_keys_unique,
 )
 from mlflow.utils.env import get_env
 from mlflow.utils.file_utils import (
@@ -817,40 +818,10 @@ class FileStore(AbstractStore):
         with open(param_path, "r") as param_file:
             current_value = param_file.read()
         if current_value != new_value:
-            explain_message = """
-
-            The cause of this error is typically due to repeated calls
-            to an individual run_id event logging.
-
-            Incorrect Example:
-
-            with mlflow.start_run():
-                model = Model().fit(df, depth=3)
-                mlflow.log_param("depth", getattr(model, "depth"))
-                model = Model().fit(df, depth=5)
-                mlflow.log_param("depth", getattr(model, "depth"))
-
-            Which will throw an MlflowException for overwriting a
-            logged parameter.
-
-            Correct Example:
-
-            with mlflow.start_run():
-                with mlflow.start_run(nested=True):
-                  model = Model().fit(df, depth=3)
-                  mlflow.log_param("depth", getattr(model, "depth"))
-                with mlflow.start_run(nested=True):
-                  model = Model().fit(df, depth=5)
-                  mlflow.log_param("depth", getattr(model, "depth"))
-
-            Which will create a new nested run for each individual
-            model and prevent parameter key collisions within the
-            tracking store.
-            """
             raise MlflowException(
                 "Changing param values is not allowed. Param with key='{}' was already"
                 " logged with value='{}' for run ID='{}'. Attempted logging new value"
-                " '{}'.{}".format(param_key, current_value, run_id, new_value, explain_message),
+                " '{}'.".format(param_key, current_value, run_id, new_value,),
                 databricks_pb2.INVALID_PARAMETER_VALUE,
             )
 
@@ -912,6 +883,7 @@ class FileStore(AbstractStore):
         _validate_run_id(run_id)
         _validate_batch_log_data(metrics, params, tags)
         _validate_batch_log_limits(metrics, params, tags)
+        _validate_param_keys_unique(params)
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)
         try:

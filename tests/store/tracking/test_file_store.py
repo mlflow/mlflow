@@ -1083,3 +1083,18 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         run = self._create_run(fs)
         fs.log_batch(run.info.run_id, metrics=[], params=[], tags=[])
         self._verify_logged(fs, run.info.run_id, metrics=[], params=[], tags=[])
+
+    def test_log_batch_with_duplicate_params_errors_no_partial_write(self):
+        fs = FileStore(self.test_root)
+        run = self._create_run(fs)
+        with self.assertRaisesRegex(
+            MlflowException, "Duplicate parameter keys have been submitted."
+        ) as e:
+            fs.log_batch(
+                run.info.run_id, metrics=[], params=[Param("a", "1"), Param("a", "2")], tags=[]
+            )
+        assert e.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        self._verify_logged(fs, run.info.run_id, metrics=[], params=[], tags=[])
+        fs.log_batch(
+            run.info.run_id, metrics=[], params=[Param("a", "1"), Param("a", "2")], tags=[]
+        )
