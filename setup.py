@@ -79,8 +79,6 @@ CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + [
     # Required to run the MLflow server against SQL-backed storage
     "sqlalchemy",
     "waitress; platform_system == 'Windows'",
-    "mlserver>=0.5.3",
-    "mlserver-mlflow>=0.5.3",
 ]
 
 _is_mlflow_skinny = bool(os.environ.get(_MLFLOW_SKINNY_ENV_VAR))
@@ -111,6 +109,9 @@ setup(
             # Required by the mlflow.projects module, when running projects against
             # a remote Kubernetes cluster
             "kubernetes",
+            # Required to serve models through MLServer
+            "mlserver>=0.5.3",
+            "mlserver-mlflow>=0.5.3",
         ],
         "sqlserver": ["mlflow-dbstore"],
         "aliyun-oss": ["aliyunstoreplugin"],
