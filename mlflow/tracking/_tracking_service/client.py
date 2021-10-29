@@ -236,7 +236,7 @@ class TrackingServiceClient(object):
         try:
             self.store.log_param(run_id, param)
         except MlflowException as e:
-            msg = f"{e.message}\nInvalid key: ''{key}' already exists.\n{PARAM_VALIDATION_MSG}'"
+            msg = f"{e.message}\nInvalid key: '{key}' already exists.\n{PARAM_VALIDATION_MSG}'"
             raise MlflowException(msg, INVALID_PARAMETER_VALUE)
 
     def set_experiment_tag(self, experiment_id, key, value):

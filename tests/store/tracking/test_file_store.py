@@ -1089,11 +1089,10 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs = FileStore(self.test_root)
         run = self._create_run(fs)
         with self.assertRaisesRegex(
-            MlflowException, "Duplicate parameter keys have been submitted."
+            MlflowException, "Duplicate parameter keys have been submitted"
         ) as e:
             fs.log_batch(
                 run.info.run_id, metrics=[], params=[Param("a", "1"), Param("a", "2")], tags=[]
             )
         assert e.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         self._verify_logged(fs, run.info.run_id, metrics=[], params=[], tags=[])
-
