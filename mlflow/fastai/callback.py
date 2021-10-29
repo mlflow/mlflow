@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import logging
 
 import mlflow.tracking
-from mlflow.utils.autologging_utils import ExceptionSafeClass, try_mlflow_log
+from mlflow.utils.autologging_utils import ExceptionSafeClass
 from mlflow.fastai import log_model
 
 from fastai.callback.core import Callback
@@ -69,20 +69,19 @@ class __MlflowFastaiCallback(Callback, metaclass=ExceptionSafeClass):
         frozen = self.opt.frozen_idx != 0
         if frozen and self.is_fine_tune:
             self.freeze_prefix = "freeze_"
-            try_mlflow_log(mlflow.log_param, "frozen_idx", self.opt.frozen_idx)
+            mlflow.log_param("frozen_idx", self.opt.frozen_idx)
         else:
             self.freeze_prefix = ""
 
         # Extract function name when `opt_func` is partial function
         if isinstance(self.opt_func, partial):
-            try_mlflow_log(
-                mlflow.log_param,
+            mlflow.log_param(
                 self.freeze_prefix + "opt_func",
                 self.opt_func.keywords["opt"].__name__,
             )
         else:
-            try_mlflow_log(
-                mlflow.log_param, self.freeze_prefix + "opt_func", self.opt_func.__name__
+            mlflow.log_param(
+                self.freeze_prefix + "opt_func", self.opt_func.__name__
             )
 
         params_not_to_log = []
@@ -96,17 +95,17 @@ class __MlflowFastaiCallback(Callback, metaclass=ExceptionSafeClass):
                     values = np.array(values)
 
                     # Log params main values from scheduling
-                    try_mlflow_log(
-                        mlflow.log_param, self.freeze_prefix + param + "_min", np.min(values, 0)
+                    mlflow.log_param(
+                        self.freeze_prefix + param + "_min", np.min(values, 0)
                     )
-                    try_mlflow_log(
-                        mlflow.log_param, self.freeze_prefix + param + "_max", np.max(values, 0)
+                    mlflow.log_param(
+                        self.freeze_prefix + param + "_max", np.max(values, 0)
                     )
-                    try_mlflow_log(
-                        mlflow.log_param, self.freeze_prefix + param + "_init", values[0]
+                    mlflow.log_param(
+                        self.freeze_prefix + param + "_init", values[0]
                     )
-                    try_mlflow_log(
-                        mlflow.log_param, self.freeze_prefix + param + "_final", values[-1]
+                    mlflow.log_param(
+                        self.freeze_prefix + param + "_final", values[-1]
                     )
 
                     # Plot and save image of scheduling
@@ -119,27 +118,26 @@ class __MlflowFastaiCallback(Callback, metaclass=ExceptionSafeClass):
                         scheds_file = os.path.join(tempdir, self.freeze_prefix + param + ".png")
                         plt.savefig(scheds_file)
                         plt.close(fig)
-                        try_mlflow_log(mlflow.log_artifact, local_path=scheds_file)
+                        mlflow.log_artifact(local_path=scheds_file)
                     finally:
                         shutil.rmtree(tempdir)
                 break
 
         for param in self.opt.hypers[0]:
             if param not in params_not_to_log:
-                try_mlflow_log(
-                    mlflow.log_param,
+                mlflow.log_param(
                     self.freeze_prefix + param,
                     [h[param] for h in self.opt.hypers],
                 )
 
         if hasattr(self.opt, "true_wd"):
-            try_mlflow_log(mlflow.log_param, self.freeze_prefix + "true_wd", self.opt.true_wd)
+            mlflow.log_param(self.freeze_prefix + "true_wd", self.opt.true_wd)
 
         if hasattr(self.opt, "bn_wd"):
-            try_mlflow_log(mlflow.log_param, self.freeze_prefix + "bn_wd", self.opt.bn_wd)
+            mlflow.log_param(self.freeze_prefix + "bn_wd", self.opt.bn_wd)
 
         if hasattr(self.opt, "train_bn"):
-            try_mlflow_log(mlflow.log_param, self.freeze_prefix + "train_bn", self.opt.train_bn)
+            mlflow.log_param(self.freeze_prefix + "train_bn", self.opt.train_bn)
 
     def after_fit(self):
         from fastai.callback.all import SaveModelCallback
@@ -155,4 +153,4 @@ class __MlflowFastaiCallback(Callback, metaclass=ExceptionSafeClass):
                 cb("after_fit")
 
         if self.log_models:
-            try_mlflow_log(log_model, self.learn, artifact_path="model")
+            log_model(self.learn, artifact_path="model")

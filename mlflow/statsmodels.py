@@ -39,7 +39,6 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
-    try_mlflow_log,
     log_fn_args_as_params,
     autologging_integration,
     safe_patch,
@@ -503,17 +502,17 @@ def autolog(
                     global _save_model_called_from_autolog
                     _save_model_called_from_autolog = True
                     try:
-                        try_mlflow_log(log_model, model, artifact_path="model")
+                        log_model(model, artifact_path="model")
                     finally:
                         _save_model_called_from_autolog = False
 
                 # Log the most common metrics
                 if isinstance(model, statsmodels.base.wrapper.ResultsWrapper):
                     metrics_dict = _get_autolog_metrics(model)
-                    try_mlflow_log(mlflow.log_metrics, metrics_dict)
+                    mlflow.log_metrics(metrics_dict)
 
                     model_summary = model.summary().as_text()
-                    try_mlflow_log(mlflow.log_text, model_summary, "model_summary.txt")
+                    mlflow.log_text(model_summary, "model_summary.txt")
 
             return model
 

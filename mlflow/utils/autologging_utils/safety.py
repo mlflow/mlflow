@@ -26,19 +26,6 @@ _AUTOLOGGING_TEST_MODE_ENV_VAR = "MLFLOW_AUTOLOGGING_TESTING"
 _AUTOLOGGING_PATCHES = {}
 
 
-def try_mlflow_log(fn, *args, **kwargs):
-    """
-    Catch exceptions and log a warning to avoid autolog throwing.
-    """
-    try:
-        return fn(*args, **kwargs)
-    except Exception as e:
-        if is_testing():
-            raise
-        else:
-            warnings.warn("Logging to MLflow failed: " + str(e), stacklevel=2)
-
-
 # Function attribute used for testing purposes to verify that a given function
 # has been wrapped with the `exception_safe_function` decorator
 _ATTRIBUTE_EXCEPTION_SAFE = "exception_safe"
@@ -213,20 +200,20 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
 
             def _patch_implementation(self, original, *args, **kwargs):
                 if not mlflow.active_run():
-                    self.managed_run = try_mlflow_log(create_managed_run)
+                    self.managed_run = create_managed_run()
 
                 result = super(PatchWithManagedRun, self)._patch_implementation(
                     original, *args, **kwargs
                 )
 
                 if self.managed_run:
-                    try_mlflow_log(mlflow.end_run, RunStatus.to_string(RunStatus.FINISHED))
+                    mlflow.end_run(RunStatus.to_string(RunStatus.FINISHED))
 
                 return result
 
             def _on_exception(self, e):
                 if self.managed_run:
-                    try_mlflow_log(mlflow.end_run, RunStatus.to_string(RunStatus.FAILED))
+                    mlflow.end_run(RunStatus.to_string(RunStatus.FAILED))
                 super(PatchWithManagedRun, self)._on_exception(e)
 
         return PatchWithManagedRun
@@ -236,7 +223,7 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
         def patch_with_managed_run(original, *args, **kwargs):
             managed_run = None
             if not mlflow.active_run():
-                managed_run = try_mlflow_log(create_managed_run)
+                managed_run = create_managed_run()
 
             try:
                 result = patch_function(original, *args, **kwargs)
@@ -245,11 +232,11 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
                 # that runs are terminated if a user prematurely interrupts training execution
                 # (e.g. via sigint / ctrl-c)
                 if managed_run:
-                    try_mlflow_log(mlflow.end_run, RunStatus.to_string(RunStatus.FAILED))
+                    mlflow.end_run(RunStatus.to_string(RunStatus.FAILED))
                 raise
             else:
                 if managed_run:
-                    try_mlflow_log(mlflow.end_run, RunStatus.to_string(RunStatus.FINISHED))
+                    mlflow.end_run(RunStatus.to_string(RunStatus.FINISHED))
                 return result
 
         return patch_with_managed_run
@@ -859,7 +846,6 @@ def _validate_args(
 
 
 __all__ = [
-    "try_mlflow_log",
     "safe_patch",
     "is_testing",
     "exception_safe_function",
