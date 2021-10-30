@@ -3,13 +3,11 @@
 name: Release-note category
 
 on:
-  pull_request:
+  workflow_run:
+    workflows: ["MLflow tests"]
+    branches-ignore: [master]
     types:
-      - opened
-      - synchronize
-      - reopened
-      - labeled
-      - unlabeled
+      - completed
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
