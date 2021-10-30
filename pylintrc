@@ -159,6 +159,8 @@ disable=print-statement,
         subprocess-popen-preexec-fn,
         global-variable-not-assigned,
         comparison-with-callable,
+        not-an-iterable,
+        unsubscriptable-object,
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
