@@ -56,21 +56,19 @@ def pytest_configure(config):
 
 
 def pytest_runtest_setup(item):
-    marked_as_large = len([mark for mark in item.iter_markers(name="large")]) > 0
-    if marked_as_large and not (
-        item.config.getoption("--large") or item.config.getoption("--large-only")
-    ):
+    markers = [mark.name for mark in item.iter_markers()]
+    marked_as_large = "large" in markers
+    large_option = item.config.getoption("--large")
+    large_only_option = item.config.getoption("--large-only")
+    if marked_as_large and not (large_option or large_only_option):
         pytest.skip("use `--large` or `--large-only` to run this test")
-
-    if not marked_as_large and item.config.getoption("--large-only"):
+    if not marked_as_large and large_only_option:
         pytest.skip("remove `--large-only` to run this test")
 
-    marked_as_requires_ssh = len([mark for mark in item.iter_markers(name="requires_ssh")]) > 0
-    if marked_as_requires_ssh and not item.config.getoption("--requires-ssh"):
+    if "requires_ssh" in markers and not item.config.getoption("--requires-ssh"):
         pytest.skip("use `--requires-ssh` to run this test")
 
-    marked_as_lazy_import = len([mark for mark in item.iter_markers(name="lazy_import")]) > 0
-    if marked_as_lazy_import and not item.config.getoption("--lazy-import"):
+    if "lazy_import" in markers and not item.config.getoption("--lazy-import"):
         pytest.skip("use `--lazy-import` to run this test")
 
 
