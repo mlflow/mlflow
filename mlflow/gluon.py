@@ -420,12 +420,12 @@ def autolog(
         with batch_metrics_logger(run_id) as metrics_logger:
             mlflowGluonCallback = getGluonCallback(metrics_logger)
             if len(args) >= 4:
-                new_args = (*args[:3], args[3] + [mlflowGluonCallback], *args[4:])
+                args = (*args[:3], args[3] + [mlflowGluonCallback], *args[4:])
             elif "event_handlers" in kwargs:
                 kwargs["event_handlers"] += [mlflowGluonCallback]
             else:
                 kwargs["event_handlers"] = [mlflowGluonCallback]
-            result = original(self, *new_args, **kwargs)
+            result = original(self, *args, **kwargs)
 
         return result
 
