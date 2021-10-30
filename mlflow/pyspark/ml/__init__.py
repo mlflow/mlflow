@@ -73,8 +73,10 @@ def _read_log_model_allowlist():
         except Exception:
             # fallback to built-in allowlist file
             _logger.exception(
-                "Reading from custom log_models allowlist file "
-                + "%s failed, fallback to built-in allowlist file.",
+                (
+                    "Reading from custom log_models allowlist file %s failed, "
+                    "fallback to built-in allowlist file."
+                ),
                 allowlist_file,
             )
             return _read_log_model_allowlist_from_file(builtin_allowlist_file)

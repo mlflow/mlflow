@@ -54,8 +54,7 @@ exclude="^\($(join "\|" "${exclude_dirs[@]}")\)/.\+\.py$"
 include="^\($(join "\|" "${include_dirs[@]}")\)/.\+\.py$"
 msg_template="{path} ({line},{column}): [{msg_id} {symbol}] {msg}"
 
-git ls-files | grep $include | grep -v $exclude | \
-xargs pylint --msg-template="$msg_template" --rcfile="$FWDIR/pylintrc"
+pylint --jobs=0 --msg-template="$msg_template" --rcfile="$FWDIR/pylintrc" $(git ls-files | grep $include | grep -v $exclude)
 
 echo -e "\n========== rstcheck ==========\n"
 rstcheck README.rst
