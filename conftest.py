@@ -47,19 +47,29 @@ def pytest_addoption(parser):
 
 
 def pytest_configure(config):
-    # Override the markexpr argument to pytest
-    # See https://docs.pytest.org/en/latest/example/markers.html for more details
-    markexpr = []
-    if not config.option.large and not config.option.large_only:
-        markexpr.append("not large")
-    elif config.option.large_only:
-        markexpr.append("large")
-    if not config.option.lazy_import:
-        markexpr.append("not lazy_import")
-    if not config.option.requires_ssh:
-        markexpr.append("not requires_ssh")
-    if len(markexpr) > 0:
-        setattr(config.option, "markexpr", " and ".join(markexpr))
+    # Register markers to suppress `PytestUnknownMarkWarning`
+    config.addinivalue_line("markers", "large: mark test as large")
+    config.addinivalue_line("markers", "requires_ssh: mark test as requires_ssh")
+    config.addinivalue_line("markers", "lazy_import: mark test as lazy_import")
+
+
+def pytest_runtest_setup(item):
+    marked_as_large = len([mark for mark in item.iter_markers(name="large")]) > 0
+    if marked_as_large and not (
+        item.config.getoption("--large") or item.config.getoption("--large-only")
+    ):
+        pytest.skip("use `--large` or `--large-only` to run this test")
+
+    if not marked_as_large and item.config.getoption("--large-only"):
+        pytest.skip("remove `--large-only` to run this test")
+
+    marked_as_requires_ssh = len([mark for mark in item.iter_markers(name="requires_ssh")]) > 0
+    if marked_as_requires_ssh and not item.config.getoption("--requires-ssh"):
+        pytest.skip("use `--requires-ssh` to run this test")
+
+    marked_as_lazy_import = len([mark for mark in item.iter_markers(name="lazy_import")]) > 0
+    if marked_as_lazy_import and not item.config.getoption("--lazy-import"):
+        pytest.skip("use `--lazy-import` to run this test")
 
 
 @pytest.hookimpl(hookwrapper=True)
