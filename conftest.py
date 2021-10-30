@@ -48,9 +48,11 @@ def pytest_addoption(parser):
 
 def pytest_configure(config):
     # Register markers to suppress `PytestUnknownMarkWarning`
-    config.addinivalue_line("markers", "large: mark test as large")
-    config.addinivalue_line("markers", "requires_ssh: mark test as requires_ssh")
-    config.addinivalue_line("markers", "lazy_import: mark test as lazy_import")
+    config.addinivalue_line("markers", "large")
+    config.addinivalue_line("markers", "requires_ssh")
+    config.addinivalue_line("markers", "lazy_import")
+    config.addinivalue_line("markers", "notrackingurimock")
+    config.addinivalue_line("markers", "allow_infer_pip_requirements_fallback")
 
 
 def pytest_runtest_setup(item):
