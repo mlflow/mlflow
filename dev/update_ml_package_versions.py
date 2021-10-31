@@ -9,11 +9,14 @@ $ python dev/update_ml_package_versions.py
 """
 import argparse
 import json
+from datetime import datetime
 from packaging.version import Version
 import re
 import sys
 import urllib.request
 import yaml
+from collections import namedtuple
+import itertools
 
 
 def read_file(path):
@@ -26,7 +29,10 @@ def save_file(src, path):
         f.write(src)
 
 
-def get_package_versions(package_name):
+Release = namedtuple("Release", ["version", "release_date"])
+
+
+def get_packages_releases(package_name):
     url = "https://pypi.python.org/pypi/{}/json".format(package_name)
     with urllib.request.urlopen(url) as res:
         data = json.load(res)
@@ -36,17 +42,26 @@ def get_package_versions(package_name):
         return v.is_devrelease or v.is_prerelease
 
     return [
-        version
+        Release(Version(version), datetime.fromisoformat(dist_files[0]["upload_time"]))
         for version, dist_files in data["releases"].items()
         if len(dist_files) > 0 and not is_dev_or_pre_release(version)
     ]
 
 
-def get_latest_version(candidates):
-    return sorted(candidates, key=Version, reverse=True)[0]
+def days_between(d1, d2):
+    return abs((d2 - d1).days)
 
 
-def update_max_version(src, key, new_max_version, category):
+def get_utc_now():
+    return datetime.utcnow()
+
+
+def drop_old_releases(releases, days_threshold):
+    utcnow = get_utc_now()
+    return [r for r in releases if days_between(utcnow, r.release_date) <= days_threshold]
+
+
+def update_suppported_version(src, flavor, category, min_or_max, new_version):
     """
     Examples
     ========
@@ -54,49 +69,54 @@ def update_max_version(src, key, new_max_version, category):
     ... sklearn:
     ...   ...
     ...   models:
-    ...     minimum: "0.0.0"
-    ...     maximum: "0.0.0"
-    ... xgboost:
-    ...   ...
-    ...   autologging:
-    ...     minimum: "1.1.1"
-    ...     maximum: "1.1.1"
+    ...     minimum: "0.1.0"
+    ...     maximum: "0.3.0"
     ... '''.strip()
-    >>> new_src = update_max_version(src, "sklearn", "0.1.0", "models")
-    >>> new_src = update_max_version(new_src, "xgboost", "1.2.1", "autologging")
-    >>> print(new_src)
+    >>> print(update_suppported_version(src, "sklearn", "models", "minimum", "0.2.0"))
     sklearn:
       ...
       models:
-        minimum: "0.0.0"
-        maximum: "0.1.0"
-    xgboost:
+        minimum: "0.2.0"
+        maximum: "0.3.0"
+    >>> print(update_suppported_version(src, "sklearn", "models", "maximum", "0.4.0"))
+    sklearn:
       ...
-      autologging:
-        minimum: "1.1.1"
-        maximum: "1.2.1"
+      models:
+        minimum: "0.1.0"
+        maximum: "0.4.0"
     """
-    pattern = r"({key}:.+?{category}:.+?maximum: )\".+?\"".format(
-        key=re.escape(key), category=category
+    assert min_or_max in ["minimum", "maximum"]
+
+    pattern = r'({flavor}:.+?{category}:.+?{min_or_max}: )".+?"'.format(
+        flavor=re.escape(flavor), category=category, min_or_max=min_or_max
     )
-    # Matches the following pattern:
+    # This matches the following pattern:
     #
-    # <key>:
+    # <flavor>:
     #   ...
     #   <category>:
     #     ...
-    #     maximum: "1.2.3"
-    return re.sub(pattern, r'\g<1>"{}"'.format(new_max_version), src, flags=re.DOTALL)
+    #     <min_or_max>: "1.2.3"
+    return re.sub(
+        pattern.format(min_or_max="minimum"),
+        r'\g<1>"{}"'.format(new_version),
+        src,
+        flags=re.DOTALL,
+    )
 
 
 def parse_args(args):
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-p",
         "--path",
         help="Path to the ML package versions yaml (default: mlflow/ml-package-versions.yml)",
         default="mlflow/ml-package-versions.yml",
         required=False,
+    )
+    parser.add_argument(
+        "--drop-old-versions",
+        action="store_true",
+        help="If specified, drop support for package versions released more than 2 years ago",
     )
     return parser.parse_args(args)
 
@@ -108,24 +128,37 @@ def main(args):
     old_src = read_file(yml_path)
     new_src = old_src
     config_dict = yaml.load(old_src, Loader=yaml.SafeLoader)
+    categories = ["autologging", "models"]
 
-    for flavor_key, config in config_dict.items():
-        for category in ["autologging", "models"]:
-            if (category not in config) or config[category].get("pin_maximum", False):
-                continue
-            print("Processing", flavor_key, category)
+    for (flavor_key, config), category in itertools.product(config_dict.items(), categories):
+        if (category not in config) or config[category].get("pin_maximum", False):
+            continue
+        print("Processing", flavor_key, category)
 
-            package_name = config["package_info"]["pip_release"]
-            max_ver = config[category]["maximum"]
-            versions = get_package_versions(package_name)
-            unsupported = config[category].get("unsupported", [])
-            versions = set(versions).difference(unsupported)  # exlucde unsupported versions
-            latest_version = get_latest_version(versions)
+        package_name = config["package_info"]["pip_release"]
+        releases = get_packages_releases(package_name)
 
-            if max_ver == latest_version:
-                continue
+        # Drop unsupported versions
+        unsupported = config[category].get("unsupported", [])
+        releases = [r for r in releases if str(r.version) not in unsupported]
+        sorted_releases = sorted(releases, key=lambda r: r.version)
 
-            new_src = update_max_version(new_src, flavor_key, latest_version, category)
+        # Update the maximum version
+        latest_release = sorted_releases[-1]
+        max_ver = config[category]["maximum"]
+        if Version(max_ver) < latest_release.version:
+            new_src = update_suppported_version(
+                new_src, flavor_key, category, "maximum", latest_release.version
+            )
+
+        # Update the minimum version if `--drop-old-versions` is specified
+        if args.drop_old_versions:
+            oldest_release = drop_old_releases(sorted_releases, days_threshold=365 * 2)[0]
+            min_ver = config[category]["minimum"]
+            if Version(min_ver) < oldest_release.version:
+                new_src = update_suppported_version(
+                    new_src, flavor_key, category, "minimum", oldest_release.version
+                )
 
     save_file(new_src, yml_path)
 

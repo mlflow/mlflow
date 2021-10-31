@@ -3,6 +3,7 @@ import os
 import re
 from unittest import mock
 import tempfile
+from datetime import datetime
 
 from dev import update_ml_package_versions
 
@@ -22,10 +23,30 @@ class MockResponse:
 
     @classmethod
     def from_versions(cls, versions):
-        return cls({"releases": {v: [v + ".whl"] for v in versions}})
+        return cls(
+            {
+                "releases": {
+                    ver: [{"filename": f"{ver}.whl", "upload_time": datetime.utcnow().isoformat()}]
+                    for ver in versions
+                }
+            }
+        )
+
+    @classmethod
+    def from_releases(cls, releases):
+        return cls(
+            {
+                "releases": {
+                    ver: [{"filename": f"{ver}.whl", "upload_time": upload_time}]
+                    for ver, upload_time in releases
+                }
+            }
+        )
 
 
-def run_test(src, src_expected, mock_responses):
+def run_test(src, src_expected, mock_responses, additional_cmd_args=None):
+    additional_cmd_args = additional_cmd_args or []
+
     def patch_urlopen(url):
         package_name = re.search(r"https://pypi.python.org/pypi/(.+)/json", url).group(1)
         return mock_responses[package_name]
@@ -36,7 +57,7 @@ def run_test(src, src_expected, mock_responses):
             f.write(src)
 
         with mock.patch("urllib.request.urlopen", new=patch_urlopen):
-            update_ml_package_versions.main(["--path", tmp_path])
+            update_ml_package_versions.main(["--path", tmp_path, *additional_cmd_args])
 
         with open(tmp_path) as f:
             assert f.read() == src_expected
@@ -113,7 +134,7 @@ sklearn:
                 # pre-release and dev-release should be filtered out
                 "0.0.3.rc1",  # pre-release
                 "0.0.3.dev1",  # dev-release
-                "0.0.2.post",  # post-release
+                "0.0.2.post1",  # post-release
                 "0.0.2",  # final release
             ]
         ),
@@ -123,7 +144,7 @@ sklearn:
   package_info:
     pip_release: sklearn
   autologging:
-    maximum: "0.0.2.post"
+    maximum: "0.0.2.post1"
 """
     run_test(src, src_expected, mock_responses)
 
@@ -168,3 +189,37 @@ sklearn:
     maximum: "0.0.1"
 """
     run_test(src, src_expected, mock_responses)
+
+
+def test_drop_old_packages():
+    # Pretend today is 2021-04-01
+    utc_now_patch = mock.patch(
+        "dev.update_ml_package_versions.get_utc_now",
+        return_value=datetime.fromisoformat("2021-04-01T00:00:00"),
+    )
+    releases = [
+        # Note 2020 is a leap year
+        ("0.0.1", "2019-04-01T00:00:00"),  # should be dropped
+        ("0.0.2", "2019-04-02T00:00:00"),
+        ("0.0.3", "2021-04-01T00:00:00"),
+    ]
+
+    src = """
+sklearn:
+  package_info:
+    pip_release: sklearn
+  autologging:
+    minimum: "0.0.1"
+    maximum: "0.0.3"
+"""
+    mock_responses = {"sklearn": MockResponse.from_releases(releases)}
+    src_expected = """
+sklearn:
+  package_info:
+    pip_release: sklearn
+  autologging:
+    minimum: "0.0.2"
+    maximum: "0.0.3"
+"""
+    with utc_now_patch:
+        run_test(src, src_expected, mock_responses, additional_cmd_args=["--drop-old-versions"])
