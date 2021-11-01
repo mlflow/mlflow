@@ -16,6 +16,8 @@ fastai>=2.4.1
 spacy
 # Required by mlflow.tensorflow
 tensorflow
+# Avoid using tensorflow-estimator 2.7 due to https://github.com/tensorflow/tensorflow/issues/52883
+tensorflow-estimator!=2.7.0
 # Required by mlflow.pytorch
 torch
 torchvision
