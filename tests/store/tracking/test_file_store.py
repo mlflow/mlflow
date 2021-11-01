@@ -728,9 +728,11 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs.log_param(run_id, Param(param_name, "value1"))
         # Duplicate calls to `log_param` with the same key and value should succeed
         fs.log_param(run_id, Param(param_name, "value1"))
-        with pytest.raises(MlflowException) as exc:
+        with self.assertRaisesRegex(
+            MlflowException, "Changing param values is not allowed. Param with key="
+        ) as e:
             fs.log_param(run_id, Param(param_name, "value2"))
-        assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert e.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         run = fs.get_run(run_id)
         assert run.data.params[param_name] == "value1"
 
@@ -1081,4 +1083,16 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs = FileStore(self.test_root)
         run = self._create_run(fs)
         fs.log_batch(run.info.run_id, metrics=[], params=[], tags=[])
+        self._verify_logged(fs, run.info.run_id, metrics=[], params=[], tags=[])
+
+    def test_log_batch_with_duplicate_params_errors_no_partial_write(self):
+        fs = FileStore(self.test_root)
+        run = self._create_run(fs)
+        with self.assertRaisesRegex(
+            MlflowException, "Duplicate parameter keys have been submitted"
+        ) as e:
+            fs.log_batch(
+                run.info.run_id, metrics=[], params=[Param("a", "1"), Param("a", "2")], tags=[]
+            )
+        assert e.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         self._verify_logged(fs, run.info.run_id, metrics=[], params=[], tags=[])
