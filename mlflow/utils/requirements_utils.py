@@ -15,6 +15,7 @@ from collections import namedtuple
 import logging
 import re
 
+import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.autologging_utils.versioning import _strip_dev_version_suffix
@@ -259,7 +260,7 @@ _PyPIPackageIndex = namedtuple("_PyPIPackageIndex", ["date", "package_names"])
 
 
 def _load_pypi_package_index():
-    pypi_index_path = pkg_resources.resource_filename(__name__, "../pypi_package_index.json")
+    pypi_index_path = pkg_resources.resource_filename(mlflow.__name__, "pypi_package_index.json")
     with open(pypi_index_path, "r") as f:
         index_dict = json.load(f)
 

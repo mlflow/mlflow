@@ -33,6 +33,11 @@ echo -e "\n========== black ==========\n"
 # Exclude proto files because they are auto-generated
 black --check .
 
+if [ $? -ne 0 ]; then
+  echo 'Run this command to apply Black formatting:'
+  echo '$ pip install $(cat dev/lint-requirements.txt | grep "black==") && black .'
+fi
+
 echo -e "\n========== pycodestyle ==========\n"
 exclude=$(join "," "${exclude_dirs[@]}")
 include=$(join " " "${include_dirs[@]}")

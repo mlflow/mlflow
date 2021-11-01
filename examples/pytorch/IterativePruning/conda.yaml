@@ -6,6 +6,8 @@ dependencies:
 - pip:
   - mlflow
   - torchvision>=0.9.1
+  # Avoid using torchmetrics 0.6.0 due to https://github.com/PyTorchLightning/pytorch-lightning/discussions/10253
+  - torchmetrics!=0.6.0
   - cloudpickle==1.6.0
   - pytorch_lightning==1.4.9
   - ax-platform

@@ -450,6 +450,33 @@ def test_log_params():
     assert finished_run.data.params == {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
 
 
+def test_log_params_duplicate_keys_raises():
+    params = {"a": "1", "b": "2"}
+    with start_run() as active_run:
+        run_id = active_run.info.run_id
+        mlflow.log_params(params)
+        with pytest.raises(
+            expected_exception=MlflowException,
+            match=r"Changing param values is not allowed. Param with key=",
+        ) as e:
+            mlflow.log_param("a", "3")
+        assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    finished_run = tracking.MlflowClient().get_run(run_id)
+    assert finished_run.data.params == params
+
+
+def test_log_batch_duplicate_entries_raises():
+    with start_run() as active_run:
+        run_id = active_run.info.run_id
+        with pytest.raises(
+            MlflowException, match=r"Duplicate parameter keys have been submitted."
+        ) as e:
+            tracking.MlflowClient().log_batch(
+                run_id=run_id, params=[Param("a", "1"), Param("a", "2")]
+            )
+        assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
 def test_log_batch_validates_entity_names_and_values():
     bad_kwargs = {
         "metrics": [
