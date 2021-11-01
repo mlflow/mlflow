@@ -8,6 +8,8 @@ from mlflow.utils.file_utils import relative_path_to_artifact_path
 
 
 class HttpArtifactRepository(ArtifactRepository):
+    """Stores artifacts in a remote artifact storage using HTTP requests"""
+
     def log_artifact(self, local_file, artifact_path=None):
         verify_artifact_path(artifact_path)
 
@@ -41,12 +43,17 @@ class HttpArtifactRepository(ArtifactRepository):
         resp = requests.get(url, params=params)
         resp.raise_for_status()
         json = resp.json()
-        paths = (path,) if path else ()
-        if "files" in json:
-            return [
-                FileInfo(posixpath.join(*paths, f["path"]), f["is_dir"], f.get("file_size"))
-                for f in json["files"]
-            ]
+        files = json.get("files")
+        if files:
+            file_infos = []
+            for f in files:
+                file_info = FileInfo(
+                    posixpath.join(path, f["path"]) if path else f["path"],
+                    f["is_dir"],
+                    f.get("file_size"),
+                )
+                file_infos.append(file_info)
+            return sorted(file_infos, key=lambda f: f.path)
         else:
             return []
 
