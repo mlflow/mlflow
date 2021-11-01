@@ -1,6 +1,7 @@
 import subprocess
 import requests
 from concurrent.futures import ThreadPoolExecutor
+import traceback
 
 
 def get_distributions():
@@ -22,8 +23,7 @@ def get_distributions():
     ]
 
 
-def get_release_date(distribution):
-    package, version = distribution
+def get_release_date(package, version):
     resp = requests.get(f"https://pypi.python.org/pypi/{package}/json")
     if not resp.ok:
         return ""
@@ -36,25 +36,30 @@ def get_release_date(distribution):
     return upload_time.split("T")[0]  # return year-month-day
 
 
-def get_logest_string_length(array):
+def get_longest_string_length(array):
     return len(max(array, key=len))
+
+
+def safe_result(future, if_error=""):
+    try:
+        return future.result()
+    except Exception:
+        traceback.print_exc()
+        return if_error
 
 
 def main():
     distributions = get_distributions()
-
     with ThreadPoolExecutor() as executor:
-        release_dates = list(executor.map(get_release_date, distributions))
+        futures = [executor.submit(get_release_date, pkg, ver) for pkg, ver in distributions]
+        release_dates = [safe_result(f) for f in futures]
 
     packages, versions = list(zip(*distributions))
-    package_legnth = get_logest_string_length(packages)
-    version_length = get_logest_string_length(versions)
+    package_legnth = get_longest_string_length(packages)
+    version_length = get_longest_string_length(versions)
     release_date_length = len("Release Date")
-
     print(
-        "Package".ljust(package_legnth),
-        "Version".ljust(version_length),
-        "Release Date".ljust(release_date_length),
+        "Package".ljust(package_legnth), "Version".ljust(version_length), "Release Date",
     )
     print("-" * (package_legnth + version_length + release_date_length + 2))
     for package, version, release_date in sorted(
