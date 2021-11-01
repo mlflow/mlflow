@@ -68,7 +68,7 @@ from mlflow.protos.mlflow_artifacts_pb2 import (
     MlflowArtifactsService,
     DownloadArtifact,
     UploadArtifact,
-    ListArtifacts as MlflowArtifactsListArtifacts,
+    ListArtifacts as ListArtifactsMlflowArtifacts,
 )
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -848,8 +848,8 @@ def _upload_artifact(artifact_path):
 
 
 @catch_mlflow_exception
-def _mlflow_artifacts_list_artifacts():
-    request_message = _get_request_message(MlflowArtifactsListArtifacts())
+def _list_artifacts_mlflow_artifacts():
+    request_message = _get_request_message(ListArtifactsMlflowArtifacts())
     response_message = ListArtifacts.Response()
     path = request_message.path if request_message.HasField("path") else None
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
@@ -957,5 +957,5 @@ HANDLERS = {
     # MLflow Artifacts APIs
     DownloadArtifact: _download_artifact,
     UploadArtifact: _upload_artifact,
-    MlflowArtifactsListArtifacts: _mlflow_artifacts_list_artifacts,
+    ListArtifactsMlflowArtifacts: _list_artifacts_mlflow_artifacts,
 }
