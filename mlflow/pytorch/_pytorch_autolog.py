@@ -1,7 +1,7 @@
 from packaging.version import Version
-import os
 import logging
 import mlflow.pytorch
+import os
 import shutil
 import tempfile
 import pytorch_lightning as pl
