@@ -16,10 +16,10 @@ pip wheel --no-deps --wheel-dir dist mlflow
 docker-compose up
 ```
 
-## Log artifacts
+## Run artifact operations
 
 ```sh
-python log_artifacts.py
+python run_artifact_operations.py
 ```
 
 ## View the logging results:
