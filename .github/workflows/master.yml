@@ -237,8 +237,11 @@ jobs:
     - name: Run mlflow artifacts example
       working-directory: examples/mlflow_artifacts
       run: |
+        set -x
         pip wheel --no-deps --wheel-dir dist ../..
         docker-compose up -d
+        curl --fail http://localhost:5000/health
+        curl --fail http://localhost:5500/health
         docker-compose logs
         python run_artifact_operations.py
         docker-compose logs
