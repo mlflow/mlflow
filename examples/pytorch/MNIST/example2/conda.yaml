@@ -7,4 +7,6 @@ dependencies:
   - mlflow
   - torch==1.8.0
   - torchvision==0.9.1
+  # Avoid using torchmetrics 0.6.0 due to https://github.com/PyTorchLightning/pytorch-lightning/discussions/10253
+  - torchmetrics!=0.6.0
   - pytorch-lightning==1.0.2
