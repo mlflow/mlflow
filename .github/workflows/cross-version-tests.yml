@@ -155,7 +155,7 @@ jobs:
           ${{ matrix.install }}
       - name: Check package versions
         run: |
-          pip freeze
+          python dev/show_package_release_dates.py
       - name: Run tests
         env:
           MLFLOW_CONDA_HOME: /usr/share/miniconda
