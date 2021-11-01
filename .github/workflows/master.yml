@@ -233,6 +233,16 @@ jobs:
 
         # Clean up
         docker-compose down --rmi all --volumes
+
+    - name: Run mlflow artifacts example
+      working-directory: examples/mlflow_artifacts
+      run: |
+        docker-compose up -d
+        docker-compose logs
+        python log_artifacts.py
+        docker-compose logs
+        docker-compose down --rmi all --volumes
+
     - name: Run anaconda compatibility tests
       run: |
         ./dev/test-anaconda-compatibility.sh "anaconda3:2020.11"
