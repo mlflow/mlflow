@@ -644,24 +644,22 @@ def autolog(
             """
 
             def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
-                mlflow.log_param("num_layers", len(self.model.layers))
-                mlflow.log_param(
-                    "optimizer_name", type(self.model.optimizer).__name__
-                )
+                mlflow.log_params("num_layers", len(self.model.layers))
+                mlflow.log_params("optimizer_name", type(self.model.optimizer).__name__)
                 if hasattr(self.model.optimizer, "lr"):
                     lr = (
                         self.model.optimizer.lr
                         if type(self.model.optimizer.lr) is float
                         else keras.backend.eval(self.model.optimizer.lr)
                     )
-                    mlflow.log_param("learning_rate", lr)
+                    mlflow.log_params("learning_rate", lr)
                 if hasattr(self.model.optimizer, "epsilon"):
                     epsilon = (
                         self.model.optimizer.epsilon
                         if type(self.model.optimizer.epsilon) is float
                         else keras.backend.eval(self.model.optimizer.epsilon)
                     )
-                    mlflow.log_param("epsilon", epsilon)
+                    mlflow.log_params("epsilon", epsilon)
 
                 sum_list = []
                 self.model.summary(print_fn=sum_list.append)
@@ -717,7 +715,7 @@ def autolog(
                 "baseline": callback.baseline,
                 "restore_best_weights": callback.restore_best_weights,
             }
-            mlflow.log_param(earlystopping_params)
+            mlflow.log_params(earlystopping_params)
 
     def _get_early_stop_callback_attrs(callback):
         try:
@@ -782,9 +780,7 @@ def autolog(
 
             history = original(self, *args, **kwargs)
 
-            _log_early_stop_callback_metrics(
-                early_stop_callback, history, metrics_logger
-            )
+            _log_early_stop_callback_metrics(early_stop_callback, history, metrics_logger)
 
         return history
 

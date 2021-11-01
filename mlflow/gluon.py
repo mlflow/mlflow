@@ -397,13 +397,9 @@ def autolog(
                     mlflow.log_param("epochs", estimator.max_epoch)
                 if estimator.max_batch is not None:
                     mlflow.log_param("batches", estimator.max_batch)
-                mlflow.log_param(
-                    "optimizer_name", type(estimator.trainer.optimizer).__name__
-                )
+                mlflow.log_param("optimizer_name", type(estimator.trainer.optimizer).__name__)
                 if hasattr(estimator.trainer.optimizer, "lr"):
-                    mlflow.log_param(
-                        "learning_rate", estimator.trainer.optimizer.lr
-                    )
+                    mlflow.log_param("learning_rate", estimator.trainer.optimizer.lr)
                 if hasattr(estimator.trainer.optimizer, "epsilon"):
                     mlflow.log_param("epsilon", estimator.trainer.optimizer.epsilon)
 

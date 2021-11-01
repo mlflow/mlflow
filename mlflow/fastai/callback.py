@@ -76,13 +76,10 @@ class __MlflowFastaiCallback(Callback, metaclass=ExceptionSafeClass):
         # Extract function name when `opt_func` is partial function
         if isinstance(self.opt_func, partial):
             mlflow.log_param(
-                self.freeze_prefix + "opt_func",
-                self.opt_func.keywords["opt"].__name__,
+                self.freeze_prefix + "opt_func", self.opt_func.keywords["opt"].__name__,
             )
         else:
-            mlflow.log_param(
-                self.freeze_prefix + "opt_func", self.opt_func.__name__
-            )
+            mlflow.log_param(self.freeze_prefix + "opt_func", self.opt_func.__name__)
 
         params_not_to_log = []
         for cb in self.cbs:
@@ -95,18 +92,10 @@ class __MlflowFastaiCallback(Callback, metaclass=ExceptionSafeClass):
                     values = np.array(values)
 
                     # Log params main values from scheduling
-                    mlflow.log_param(
-                        self.freeze_prefix + param + "_min", np.min(values, 0)
-                    )
-                    mlflow.log_param(
-                        self.freeze_prefix + param + "_max", np.max(values, 0)
-                    )
-                    mlflow.log_param(
-                        self.freeze_prefix + param + "_init", values[0]
-                    )
-                    mlflow.log_param(
-                        self.freeze_prefix + param + "_final", values[-1]
-                    )
+                    mlflow.log_param(self.freeze_prefix + param + "_min", np.min(values, 0))
+                    mlflow.log_param(self.freeze_prefix + param + "_max", np.max(values, 0))
+                    mlflow.log_param(self.freeze_prefix + param + "_init", values[0])
+                    mlflow.log_param(self.freeze_prefix + param + "_final", values[-1])
 
                     # Plot and save image of scheduling
                     fig = plt.figure()
@@ -126,8 +115,7 @@ class __MlflowFastaiCallback(Callback, metaclass=ExceptionSafeClass):
         for param in self.opt.hypers[0]:
             if param not in params_not_to_log:
                 mlflow.log_param(
-                    self.freeze_prefix + param,
-                    [h[param] for h in self.opt.hypers],
+                    self.freeze_prefix + param, [h[param] for h in self.opt.hypers],
                 )
 
         if hasattr(self.opt, "true_wd"):

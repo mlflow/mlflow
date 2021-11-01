@@ -775,8 +775,7 @@ def autolog(
                 if "tfevents" not in file:
                     continue
                 mlflow.log_artifact(
-                    local_path=os.path.join(self.model_dir, file),
-                    artifact_path="tensorboard_logs",
+                    local_path=os.path.join(self.model_dir, file), artifact_path="tensorboard_logs",
                 )
         return result
 
@@ -995,9 +994,7 @@ def autolog(
                 result = original(inst, *args, **kwargs)
 
             _flush_queue()
-            mlflow.log_artifacts(
-                local_dir=self.log_dir.location, artifact_path="tensorboard_logs"
-            )
+            mlflow.log_artifacts(local_dir=self.log_dir.location, artifact_path="tensorboard_logs")
             if self.log_dir.is_temp:
                 shutil.rmtree(self.log_dir.location)
 
