@@ -33,6 +33,7 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.environment import (
     _mlflow_conda_env,
     _validate_env_arguments,
@@ -152,7 +153,7 @@ def save_model(
 
     # Save an XGBoost model
     xgb_model.save_model(model_data_path)
-    xgb_model_class = ".".join([xgb_model.__module__, xgb_model.__class__.__name__])
+    xgb_model_class = _get_fully_qualified_class_name(xgb_model)
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.xgboost",
@@ -258,28 +259,32 @@ def _load_model(path):
     """
     Load Model Implementation.
 
-    :param path: Local filesystem path to the top-level MLflow Model directory.
+    :param path: Local filesystem path to
+                    the MLflow Model with the ``xgboost`` flavor (MLflow < x.x.x) or
+                    the top-level MLflow Model directory (MLflow >= x.x.x).
     """
-    import xgboost as xgb
+    import importlib
 
-    flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
+    model_dir = os.path.dirname(path) if os.path.isfile(path) else path
+    flavor_conf = _get_flavor_configuration(model_path=model_dir, flavor_name=FLAVOR_NAME)
 
     if "data" in flavor_conf:
         # XGBoost Booster models saved in MLflow (<x.x.x) specify
         # the ``data`` field within its flavor configuration.
         # In this case, we create a Booster() instance and load model weights.
-        model_class = "Booster"
-        xgb_model_path = os.path.join(path, flavor_conf["data"])
+        model_class = "xgboost.core.Booster"
+        xgb_model_path = os.path.join(model_dir, flavor_conf["data"])
     else:
         # In contrast, XGBoost models saved in new MLflow (>=x.x.x) do not
         # specify the ``data`` field within its flavor configuration.
         # We use ``model_class`` to specify its XGBoost model class.
         # In this case, we first get the XGBoost model from
         # its flavor configuration and then create an instance based on its class.
-        model_class = flavor_conf.get("model_class", "xgboost.core.Booster").split(".")[-1]
-        xgb_model_path = os.path.join(path, "model.xgb")
+        model_class = flavor_conf.get("model_class", "xgboost.core.Booster")
+        xgb_model_path = os.path.join(model_dir, "model.xgb")
 
-    model = getattr(xgb, model_class)()
+    module, cls = model_class.rsplit(".", maxsplit=1)
+    model = getattr(importlib.import_module(module), cls)()
     model.load_model(xgb_model_path)
     return model
 
@@ -288,7 +293,9 @@ def _load_pyfunc(path):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
 
-    :param path: Local filesystem path to the MLflow Model with the ``xgboost`` flavor.
+    :param path: Local filesystem path to
+                    the MLflow Model with the ``xgboost`` flavor (MLflow < x.x.x) or
+                    the top-level MLflow Model directory (MLflow >= x.x.x).
     """
 
     return _XGBModelWrapper(_load_model(path))

@@ -51,9 +51,9 @@ def xgb_model():
 
 @pytest.fixture(scope="session")
 def xgb_sklearn_model():
-    boston = datasets.load_boston()
-    X = pd.DataFrame(boston.data, columns=boston.feature_names)
-    y = pd.Series(boston.target)
+    wine = datasets.load_wine()
+    X = pd.DataFrame(wine.data, columns=wine.feature_names)
+    y = pd.Series(wine.target)
     regressor = xgb.XGBRegressor(n_estimators=10)
     regressor.fit(X, y)
     return ModelWithData(model=regressor, inference_dataframe=X, inference_dmatrix=None)
@@ -503,7 +503,14 @@ def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(xgb_model,
     assert pyfunc_conf is not None
     assert "model_class" in pyfunc_conf
     assert pyfunc.DATA not in pyfunc_conf
-    pyfunc_conf[pyfunc.DATA] = "model.xgb"
+
+    pyfunc.add_to_model(model_conf, loader_module="mlflow.xgboost", data="model.xgb")
+    model_conf.add_flavor(mlflow.xgboost.FLAVOR_NAME, data="model.xgb")
+    model_conf.save(model_conf_path)
+    model_conf = Model.load(model_conf_path)
+    xgboost_conf = model_conf.flavors.get(mlflow.xgboost.FLAVOR_NAME)
+    assert "data" in xgboost_conf
+    assert xgboost_conf["data"] == "model.xgb"
 
     reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
     assert isinstance(reloaded_pyfunc._model_impl.xgb_model, xgb.Booster)
