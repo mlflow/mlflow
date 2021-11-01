@@ -1,6 +1,5 @@
 import subprocess
 import requests
-import pandas as pd
 from concurrent.futures import ThreadPoolExecutor
 
 
@@ -24,17 +23,21 @@ def get_distributions():
 
 
 def get_release_date(distribution):
-    package_name, version = distribution
-    resp = requests.get(f"https://pypi.python.org/pypi/{package_name}/json")
+    package, version = distribution
+    resp = requests.get(f"https://pypi.python.org/pypi/{package}/json")
     if not resp.ok:
-        return None
+        return ""
 
     matched = [dist_files for ver, dist_files in resp.json()["releases"].items() if ver == version]
     if (not matched) or (not matched[0]):
-        return None
+        return ""
 
     upload_time = matched[0][0]["upload_time"]
     return upload_time.split("T")[0]  # return year-month-day
+
+
+def get_logest_string_length(array):
+    return len(max(array, key=len))
 
 
 def main():
@@ -43,12 +46,28 @@ def main():
     with ThreadPoolExecutor() as executor:
         release_dates = list(executor.map(get_release_date, distributions))
 
+    packages, versions = list(zip(*distributions))
+    package_legnth = get_logest_string_length(packages)
+    version_length = get_logest_string_length(versions)
+    release_date_length = len("Release Date")
+
     print(
-        pd.DataFrame(distributions, columns=["package", "version"])
-        .assign(release_date=release_dates)
-        .sort_values("release_date", ascending=False)
-        .to_markdown(index=False)
+        "Package".ljust(package_legnth),
+        "Version".ljust(version_length),
+        "Release Date".ljust(release_date_length),
     )
+    print("-" * (package_legnth + version_length + release_date_length + 2))
+    for package, version, release_date in sorted(
+        zip(packages, versions, release_dates),
+        # Sort by release date in descending order
+        key=lambda x: x[2],
+        reverse=True,
+    ):
+        print(
+            package.ljust(package_legnth),
+            version.ljust(version_length),
+            release_date.ljust(release_date_length),
+        )
 
 
 if __name__ == "__main__":
