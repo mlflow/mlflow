@@ -24,7 +24,7 @@ def get_distributions():
 
 
 def get_release_date(package, version):
-    resp = requests.get(f"https://pypi.python.org/pypi/{package}/json")
+    resp = requests.get(f"https://pypi.python.org/pypi/{package}/json", timeout=10)
     if not resp.ok:
         return ""
 
