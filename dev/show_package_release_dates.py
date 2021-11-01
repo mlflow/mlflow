@@ -14,7 +14,7 @@ def get_distributions():
     # mlflow      1.21.1.dev0         /home/user/path/to/mlflow
     # tensorflow  2.6.0
     # ...
-    # ```````````````````````````````````````````````````````````
+    # ``````````````````````````````````````````````````````````
     lines = pip_list_stdout.splitlines()[2:]  # `[2:]` removes the header
     return [
         # Extract package and version
