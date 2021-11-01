@@ -57,6 +57,3 @@ class HttpArtifactRepository(ArtifactRepository):
             with open(local_path, "wb") as f:
                 for chunk in resp.iter_content(chunk_size=8192):
                     f.write(chunk)
-
-    def delete_artifacts(self, artifact_path=None):
-        pass
