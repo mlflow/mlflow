@@ -237,9 +237,10 @@ jobs:
     - name: Run mlflow artifacts example
       working-directory: examples/mlflow_artifacts
       run: |
+        pip wheel --no-deps --wheel-dir dist ../..
         docker-compose up -d
         docker-compose logs
-        python log_artifacts.py
+        python run_artifact_operations.py
         docker-compose logs
         docker-compose down --rmi all --volumes
 
