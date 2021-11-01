@@ -1,3 +1,4 @@
+import os
 import subprocess
 import requests
 from concurrent.futures import ThreadPoolExecutor
@@ -50,7 +51,7 @@ def safe_result(future, if_error=""):
 
 def main():
     distributions = get_distributions()
-    with ThreadPoolExecutor() as executor:
+    with ThreadPoolExecutor(max_workers=min(32, os.cpu_count() + 4)) as executor:
         futures = [executor.submit(get_release_date, pkg, ver) for pkg, ver in distributions]
         release_dates = [safe_result(f) for f in futures]
 
