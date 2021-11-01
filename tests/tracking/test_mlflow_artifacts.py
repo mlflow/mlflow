@@ -1,6 +1,6 @@
 import os
 from collections import namedtuple
-from subprocess import Popen
+import subprocess
 import tempfile
 import requests
 
@@ -27,8 +27,10 @@ def _launch_server(backend_store_uri, artifacts_destination):
         LOCALHOST,
         "--port",
         str(port),
+        "--gunicorn-opts",
+        "--log-level debug",
     ]
-    process = Popen(cmd)
+    process = subprocess.Popen(cmd)
     _await_server_up_or_die(port)
     return url, process
 
@@ -176,11 +178,12 @@ def test_list_artifacts(artifacts_server, tmpdir):
     tmp_path1.write("0")
     tmp_path2 = tmpdir.join("b.txt")
     tmp_path2.write("1")
+    client = mlflow.tracking.MlflowClient()
     with mlflow.start_run() as run:
+        assert client.list_artifacts(run.info.run_id) == []
         mlflow.log_artifact(tmp_path1)
         mlflow.log_artifact(tmp_path2, "subdir")
 
-    client = mlflow.tracking.MlflowClient()
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert artifacts == ["a.txt", "subdir"]
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id, "subdir")]
