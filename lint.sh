@@ -35,7 +35,7 @@ black --check .
 
 if [ $? -ne 0 ]; then
   echo 'Run this command to apply Black formatting:'
-  echo 'pip install $(cat dev/lint-requirements.txt | grep "black==") && black .'
+  echo '$ pip install $(cat dev/lint-requirements.txt | grep "black==") && black .'
 fi
 
 echo -e "\n========== pycodestyle ==========\n"
