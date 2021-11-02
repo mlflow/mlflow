@@ -358,8 +358,13 @@ def log_param(key: str, value: Any) -> None:
     Log a parameter under the current run. If no run is active, this method will create
     a new active run.
 
-    :param key: Parameter name (string)
-    :param value: Parameter value (string, but will be string-ified if not)
+    :param key: Parameter name (string). This string may only contain alphanumerics, 
+                underscores (_), dashes (-), periods (.), spaces ( ), and slashes (/).
+                All backend stores will support keys up to length 250 but some may 
+                support larger key values.
+    :param value: Parameter value (string, but will be string-ified if not).
+                  All backend stores will support values up to length 5000 but some 
+                  may support larger key values.
 
     .. code-block:: python
         :caption: Example
@@ -378,8 +383,13 @@ def set_tag(key: str, value: Any) -> None:
     Set a tag under the current run. If no run is active, this method will create a
     new active run.
 
-    :param key: Tag name (string)
-    :param value: Tag value (string, but will be string-ified if not)
+    :param key: Tag name (string). This string may only contain alphanumerics, underscores 
+                (_), dashes (-), periods (.), spaces ( ), and slashes (/).
+                All backend stores will support keys up to length 250 but some may 
+                support larger key values.
+    :param value: Tag value (string, but will be string-ified if not).
+                  All backend stores will support values up to length 5000 but some 
+                  may support larger key values.
 
     .. code-block:: python
         :caption: Example
@@ -423,7 +433,8 @@ def log_metric(key: str, value: float, step: Optional[int] = None) -> None:
     Log a metric under the current run. If no run is active, this method will create
     a new active run.
 
-    :param key: Metric name (string).
+    :param key: Metric name (string). This string may only contain alphanumerics, underscores (_),
+                dashes (-), periods (.), spaces ( ), and slashes (/).
     :param value: Metric value (float). Note that some special values such as +/- Infinity may be
                   replaced by other values depending on the store. For example, the
                   SQLAlchemy store replaces +/- Infinity with max / min float values.
