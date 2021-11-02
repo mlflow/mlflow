@@ -358,11 +358,13 @@ def log_param(key: str, value: Any) -> None:
     Log a parameter under the current run. If no run is active, this method will create
     a new active run.
 
-    :param key: Parameter name (string). This string may only contain alphanumerics, underscores (_), dashes (-),
-                periods (.), spaces ( ), and slashes (/).
-                Maximum length: 250 characters.
+    :param key: Parameter name (string). This string may only contain alphanumerics, 
+                underscores (_), dashes (-), periods (.), spaces ( ), and slashes (/).
+                All backend stores will support keys up to length 250 but some may 
+                support larger key values.
     :param value: Parameter value (string, but will be string-ified if not).
-                  Maximum length: 250 characters.
+                  All backend stores will support values up to length 5000 but some 
+                  may support larger key values.
 
     .. code-block:: python
         :caption: Example
@@ -381,11 +383,13 @@ def set_tag(key: str, value: Any) -> None:
     Set a tag under the current run. If no run is active, this method will create a
     new active run.
 
-    :param key: Tag name (string). This string may only contain alphanumerics, underscores (_), dashes (-),
-                periods (.), spaces ( ), and slashes (/).
-                Maximum length: 250 characters.
+    :param key: Tag name (string). This string may only contain alphanumerics, underscores 
+                (_), dashes (-), periods (.), spaces ( ), and slashes (/).
+                All backend stores will support keys up to length 250 but some may 
+                support larger key values.
     :param value: Tag value (string, but will be string-ified if not).
-                  Maximum length: 5000 characters.
+                  All backend stores will support values up to length 5000 but some 
+                  may support larger key values.
 
     .. code-block:: python
         :caption: Example
