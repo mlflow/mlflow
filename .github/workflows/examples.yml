@@ -13,7 +13,7 @@ concurrency:
 
 defaults:
   run:
-    shell: bash --noprofile --norc -euxo pipefail {0}
+    shell: bash --noprofile --norc -exo pipefail {0}
 
 env:
   MLFLOW_CONDA_HOME: /usr/share/miniconda

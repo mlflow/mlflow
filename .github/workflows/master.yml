@@ -18,7 +18,7 @@ concurrency:
 # https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#defaultsrun
 defaults:
   run:
-    shell: bash --noprofile --norc -euxo pipefail {0}
+    shell: bash --noprofile --norc -exo pipefail {0}
 
 env:
   # Note miniconda is pre-installed in the virtual environments for GitHub Actions:
