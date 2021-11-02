@@ -4104,30 +4104,27 @@ public final class MlflowArtifacts {
     java.lang.String[] descriptorData = {
       "\n\026mlflow_artifacts.proto\022\020mlflow.artifac" +
       "ts\032\025scalapb/scalapb.proto\032\020databricks.pr" +
-      "oto\"K\n\020DownloadArtifact\032\n\n\010Response:+\342?(" +
-      "\n&com.databricks.rpc.RPC[$this.Response]" +
-      "\"I\n\016UploadArtifact\032\n\n\010Response:+\342?(\n&com" +
-      ".databricks.rpc.RPC[$this.Response]\"\201\001\n\r" +
-      "ListArtifacts\022\014\n\004path\030\001 \001(\t\0325\n\010Response\022" +
-      ")\n\005files\030\001 \003(\0132\032.mlflow.artifacts.FileIn" +
-      "fo:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
-      "sponse]\";\n\010FileInfo\022\014\n\004path\030\001 \001(\t\022\016\n\006is_" +
-      "dir\030\002 \001(\010\022\021\n\tfile_size\030\003 \001(\0032\257\004\n\026MlflowA" +
-      "rtifactsService\022\275\001\n\020downloadArtifact\022\".m" +
-      "lflow.artifacts.DownloadArtifact\032+.mlflo" +
-      "w.artifacts.DownloadArtifact.Response\"X\362" +
-      "\206\031T\n=\n\003GET\0220/mlflow-artifacts/artifacts/" +
-      "<path:artifact_path>\032\004\010\002\020\000\020\001*\021Download A" +
-      "rtifact\022\265\001\n\016uploadArtifact\022 .mlflow.arti" +
-      "facts.UploadArtifact\032).mlflow.artifacts." +
-      "UploadArtifact.Response\"V\362\206\031R\n=\n\003PUT\0220/m" +
-      "lflow-artifacts/artifacts/<path:artifact" +
-      "_path>\032\004\010\002\020\000\020\001*\017Upload Artifact\022\234\001\n\rlist" +
-      "Artifacts\022\037.mlflow.artifacts.ListArtifac" +
-      "ts\032(.mlflow.artifacts.ListArtifacts.Resp" +
-      "onse\"@\362\206\031<\n(\n\003GET\022\033/mlflow-artifacts/art" +
-      "ifacts\032\004\010\002\020\000\020\001*\016List ArtifactsB\036\n\024org.ml" +
-      "flow.api.proto\220\001\001\342?\002\020\001"
+      "oto\"\036\n\020DownloadArtifact\032\n\n\010Response\"\034\n\016U" +
+      "ploadArtifact\032\n\n\010Response\"T\n\rListArtifac" +
+      "ts\022\014\n\004path\030\001 \001(\t\0325\n\010Response\022)\n\005files\030\001 " +
+      "\003(\0132\032.mlflow.artifacts.FileInfo\";\n\010FileI" +
+      "nfo\022\014\n\004path\030\001 \001(\t\022\016\n\006is_dir\030\002 \001(\010\022\021\n\tfil" +
+      "e_size\030\003 \001(\0032\257\004\n\026MlflowArtifactsService\022" +
+      "\275\001\n\020downloadArtifact\022\".mlflow.artifacts." +
+      "DownloadArtifact\032+.mlflow.artifacts.Down" +
+      "loadArtifact.Response\"X\362\206\031T\n=\n\003GET\0220/mlf" +
+      "low-artifacts/artifacts/<path:artifact_p" +
+      "ath>\032\004\010\002\020\000\020\001*\021Download Artifact\022\265\001\n\016uplo" +
+      "adArtifact\022 .mlflow.artifacts.UploadArti" +
+      "fact\032).mlflow.artifacts.UploadArtifact.R" +
+      "esponse\"V\362\206\031R\n=\n\003PUT\0220/mlflow-artifacts/" +
+      "artifacts/<path:artifact_path>\032\004\010\002\020\000\020\001*\017" +
+      "Upload Artifact\022\234\001\n\rlistArtifacts\022\037.mlfl" +
+      "ow.artifacts.ListArtifacts\032(.mlflow.arti" +
+      "facts.ListArtifacts.Response\"@\362\206\031<\n(\n\003GE" +
+      "T\022\033/mlflow-artifacts/artifacts\032\004\010\002\020\000\020\001*\016" +
+      "List ArtifactsB\036\n\024org.mlflow.api.proto\220\001" +
+      "\001\342?\002\020\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
@@ -4188,7 +4185,6 @@ public final class MlflowArtifacts {
     com.google.protobuf.ExtensionRegistry registry =
         com.google.protobuf.ExtensionRegistry.newInstance();
     registry.add(com.databricks.api.proto.databricks.Databricks.rpc);
-    registry.add(org.mlflow.scalapb_interface.Scalapb.message);
     registry.add(org.mlflow.scalapb_interface.Scalapb.options);
     com.google.protobuf.Descriptors.FileDescriptor
         .internalUpdateFileDescriptor(descriptor, registry);

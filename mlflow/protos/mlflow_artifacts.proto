@@ -51,20 +51,14 @@ service MlflowArtifactsService {
 }
 
 message DownloadArtifact {
-  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-
   message Response {}
 }
 
 message UploadArtifact {
-  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-
   message Response {}
 }
 
 message ListArtifacts {
-  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-
   // Filter artifacts matching this path (a relative path from the root artifact directory).
   optional string path = 1;
 
