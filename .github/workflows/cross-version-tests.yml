@@ -120,13 +120,10 @@ jobs:
           else
             python_version=3.6
           fi
-          # Use a python version that exists on Anaconda to ensure `mlflow serve` can successfully
-          # create a conda environment for serving an MLflow model.
-          latest_micro_version=$($CONDA/bin/conda search python | grep -F $python_version | tail -1 | tr -s ' ' | cut -d' ' -f2)
-          echo "::set-output name=python-version::$latest_micro_version"
-      - uses: actions/setup-python@v2
+          echo "::set-output name=version::$python_version"
+      - uses: ./.github/actions/setup-python
         with:
-          python-version: ${{ steps.get-python-version.outputs.python-version }}
+          python-version: ${{ steps.get-python-version.outputs.version }}
       - name: Get cache key
         env:
           INSTALL_COMMAND: ${{ matrix.install }}
@@ -158,7 +155,7 @@ jobs:
           ${{ matrix.install }}
       - name: Check package versions
         run: |
-          pip freeze
+          python dev/show_package_release_dates.py
       - name: Run tests
         env:
           MLFLOW_CONDA_HOME: /usr/share/miniconda

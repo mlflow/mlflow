@@ -16,7 +16,6 @@ from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.projects import _parse_kubernetes_config
 from mlflow.projects import _resolve_experiment_id
 from mlflow.store.tracking.file_store import FileStore
-from mlflow.utils import env
 from mlflow.utils.mlflow_tags import (
     MLFLOW_PARENT_RUN_ID,
     MLFLOW_USER,
@@ -89,19 +88,9 @@ def test_invalid_run_mode():
 def test_use_conda():
     """ Verify that we correctly handle the `use_conda` argument."""
     # Verify we throw an exception when conda is unavailable
-    old_path = os.environ["PATH"]
-    env.unset_variable("PATH")
-    conda_exe_path = ""
-    if "CONDA_EXE" in os.environ:
-        conda_exe_path = os.environ["CONDA_EXE"]
-        env.unset_variable("CONDA_EXE")
-    try:
+    with mock.patch.dict("os.environ", {}, clear=True):
         with pytest.raises(ExecutionException):
             mlflow.projects.run(TEST_PROJECT_DIR, use_conda=True)
-    finally:
-        os.environ["PATH"] = old_path
-        if conda_exe_path:
-            os.environ["CONDA_EXE"] = conda_exe_path
 
 
 @pytest.mark.large
@@ -301,7 +290,7 @@ def test_run_async():
 )
 def test_conda_path(mock_env, expected_conda, expected_activate):
     """Verify that we correctly determine the path to conda executables"""
-    with mock.patch.dict("os.environ", mock_env):
+    with mock.patch.dict("os.environ", mock_env, clear=True):
         assert mlflow.utils.conda.get_conda_bin_executable("conda") == expected_conda
         assert mlflow.utils.conda.get_conda_bin_executable("activate") == expected_activate
 
@@ -329,7 +318,7 @@ def test_find_conda_executables(mock_env, expected_conda_env_create_path):
     Verify that we correctly determine the path to executables to be used to
     create environments (for example, it could be mamba instead of conda)
     """
-    with mock.patch.dict("os.environ", mock_env):
+    with mock.patch.dict("os.environ", mock_env, clear=True):
         conda_env_create_path = mlflow.utils.conda._get_conda_executable_for_create_env()
         assert conda_env_create_path == expected_conda_env_create_path
 
@@ -450,7 +439,7 @@ def test_credential_propagation(get_config, synchronous):
         def communicate(self, _):
             return "", ""
 
-    get_config.return_value = DatabricksConfig("host", None, None, "mytoken", insecure=False)
+    get_config.return_value = DatabricksConfig.from_token("host", "mytoken", insecure=False)
     with mock.patch("subprocess.Popen") as popen_mock, mock.patch(
         "mlflow.utils.uri.is_databricks_uri"
     ) as is_databricks_tracking_uri_mock:

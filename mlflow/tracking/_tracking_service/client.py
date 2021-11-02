@@ -16,8 +16,12 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location,
     _validate_experiment_name,
     _validate_metric,
+    _validate_param_keys_unique,
+    PARAM_VALIDATION_MSG,
 )
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, ExperimentTag
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
@@ -229,7 +233,14 @@ class TrackingServiceClient(object):
         """
         _validate_param_name(key)
         param = Param(key, str(value))
-        self.store.log_param(run_id, param)
+        try:
+            self.store.log_param(run_id, param)
+        except MlflowException as e:
+            if e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE):
+                msg = f"{e.message}{PARAM_VALIDATION_MSG}'"
+                raise MlflowException(msg, INVALID_PARAMETER_VALUE)
+            else:
+                raise e
 
     def set_experiment_tag(self, experiment_id, key, value):
         """
@@ -278,6 +289,8 @@ class TrackingServiceClient(object):
         """
         if len(metrics) == 0 and len(params) == 0 and len(tags) == 0:
             return
+        if len(params) > 1:
+            _validate_param_keys_unique(params)
         for metric in metrics:
             _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
         for param in params:

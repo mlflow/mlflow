@@ -915,7 +915,7 @@ def spark_udf(spark, model_uri, result_type="double"):
                     "Attempting to apply udf on zero columns because no column names were "
                     "specified as arguments or inferred from the model signature."
                 )
-                return udf()
+                return udf()  # pylint: disable=no-value-for-parameter
         else:
             return udf(*args)
 

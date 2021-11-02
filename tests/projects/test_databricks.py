@@ -426,7 +426,7 @@ class MockProfileConfigProvider:
         assert profile == "my-profile"
 
     def get_config(self):
-        return DatabricksConfig("host", "user", "pass", None, insecure=False)
+        return DatabricksConfig.from_password("host", "user", "pass", insecure=False)
 
 
 @mock.patch("requests.Session.request")
@@ -453,7 +453,7 @@ def test_databricks_http_request_integration(get_config, request):
         return http_response
 
     request.side_effect = confirm_request_params
-    get_config.return_value = DatabricksConfig("host", "user", "pass", None, insecure=False)
+    get_config.return_value = DatabricksConfig.from_password("host", "user", "pass", insecure=False)
 
     response = DatabricksJobRunner(databricks_profile_uri=None)._databricks_api_request(
         "/clusters/list", "PUT", json={"a": "b"}

@@ -33,6 +33,11 @@ echo -e "\n========== black ==========\n"
 # Exclude proto files because they are auto-generated
 black --check .
 
+if [ $? -ne 0 ]; then
+  echo 'Run this command to apply Black formatting:'
+  echo '$ pip install $(cat dev/lint-requirements.txt | grep "black==") && black .'
+fi
+
 echo -e "\n========== pycodestyle ==========\n"
 exclude=$(join "," "${exclude_dirs[@]}")
 include=$(join " " "${include_dirs[@]}")
@@ -49,8 +54,7 @@ exclude="^\($(join "\|" "${exclude_dirs[@]}")\)/.\+\.py$"
 include="^\($(join "\|" "${include_dirs[@]}")\)/.\+\.py$"
 msg_template="{path} ({line},{column}): [{msg_id} {symbol}] {msg}"
 
-git ls-files | grep $include | grep -v $exclude | \
-xargs pylint --msg-template="$msg_template" --rcfile="$FWDIR/pylintrc"
+pylint --jobs=0 --msg-template="$msg_template" --rcfile="$FWDIR/pylintrc" $(git ls-files | grep $include | grep -v $exclude)
 
 echo -e "\n========== rstcheck ==========\n"
 rstcheck README.rst
