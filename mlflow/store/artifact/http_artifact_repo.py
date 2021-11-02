@@ -38,8 +38,8 @@ class HttpArtifactRepository(ArtifactRepository):
         sep = "/mlflow-artifacts/artifacts"
         head, tail = self.artifact_uri.split(sep, maxsplit=1)
         url = head + sep
-        tail = tail.lstrip("/")
-        params = {"path": posixpath.join(tail, path) if path else tail}
+        root = tail.lstrip("/")
+        params = {"path": posixpath.join(root, path) if path else root}
         resp = requests.get(url, params=params)
         resp.raise_for_status()
         file_infos = []
