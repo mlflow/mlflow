@@ -32,6 +32,8 @@ import {
   DEFAULT_DIFF_SWITCH_SELECTED,
   COLUMN_SORT_BY_ASC,
   COLUMN_SORT_BY_DESC,
+  DEFAULT_LIFECYCLE_FILTER,
+  DEFAULT_MODEL_VERSION_FILTER,
 } from '../constants';
 
 const EXPERIMENT_ID = '3';
@@ -70,8 +72,8 @@ const getDefaultExperimentViewProps = () => {
     metricsList: [[Metric.fromJs({ key: 'acc', value: 0.1 })]],
     tagsList: [],
     experimentTags: {},
-    modelVersionFilter: MODEL_VERSION_FILTER.ALL_RUNS,
-    lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
+    modelVersionFilter: DEFAULT_MODEL_VERSION_FILTER,
+    lifecycleFilter: DEFAULT_LIFECYCLE_FILTER,
     searchInput: '',
     searchRunsError: '',
     isLoading: true,
@@ -79,6 +81,7 @@ const getDefaultExperimentViewProps = () => {
     handleLoadMoreRuns: jest.fn(),
     orderByKey: DEFAULT_ORDER_BY_KEY,
     orderByAsc: DEFAULT_ORDER_BY_ASC,
+    startTime: DEFAULT_START_TIME,
     setExperimentTagApi: jest.fn(),
     location: { pathname: '/' },
     modelVersionsByRunUuid: {},
@@ -182,9 +185,10 @@ test(`Clearing filter state calls search handler with correct arguments`, () => 
   wrapper.instance().onClear();
   expect(onSearchSpy.mock.calls.length).toBe(1);
   expect(onSearchSpy.mock.calls[0][0]).toBe('');
-  expect(onSearchSpy.mock.calls[0][1]).toBe(LIFECYCLE_FILTER.ACTIVE);
+  expect(onSearchSpy.mock.calls[0][1]).toBe(DEFAULT_LIFECYCLE_FILTER);
   expect(onSearchSpy.mock.calls[0][2]).toBe(DEFAULT_ORDER_BY_KEY);
   expect(onSearchSpy.mock.calls[0][3]).toBe(DEFAULT_ORDER_BY_ASC);
+  expect(onSearchSpy.mock.calls[0][4]).toBe(DEFAULT_MODEL_VERSION_FILTER);
   expect(onSearchSpy.mock.calls[0][5]).toBe(DEFAULT_START_TIME);
 });
 
@@ -332,19 +336,12 @@ describe('ExperimentView event handlers', () => {
 
   const getSearchParams = ({
     searchInput = '',
-    lifecycleFilterInput = LIFECYCLE_FILTER.ACTIVE,
-    modelVersionFilterInput = MODEL_VERSION_FILTER.ALL_RUNS,
+    lifecycleFilter = DEFAULT_LIFECYCLE_FILTER,
+    modelVersionFilter = DEFAULT_MODEL_VERSION_FILTER,
     orderByKey = DEFAULT_ORDER_BY_KEY,
     orderByAsc = DEFAULT_ORDER_BY_ASC,
-    startTime = undefined,
-  } = {}) => [
-    searchInput,
-    lifecycleFilterInput,
-    orderByKey,
-    orderByAsc,
-    modelVersionFilterInput,
-    startTime,
-  ];
+    startTime = DEFAULT_START_TIME,
+  } = {}) => [searchInput, lifecycleFilter, orderByKey, orderByAsc, modelVersionFilter, startTime];
 
   beforeEach(() => {
     wrapper = getExperimentViewMock({});
@@ -358,7 +355,7 @@ describe('ExperimentView event handlers', () => {
     expect(onSearchSpy).toHaveBeenCalledTimes(1);
     expect(onSearchSpy).toBeCalledWith(
       ...getSearchParams({
-        lifecycleFilterInput: newFilterInput,
+        lifecycleFilter: newFilterInput,
       }),
     );
   });
@@ -370,7 +367,7 @@ describe('ExperimentView event handlers', () => {
     expect(onSearchSpy).toHaveBeenCalledTimes(1);
     expect(onSearchSpy).toBeCalledWith(
       ...getSearchParams({
-        modelVersionFilterInput: newFilterInput,
+        modelVersionFilter: newFilterInput,
       }),
     );
   });
@@ -391,8 +388,11 @@ describe('ExperimentView event handlers', () => {
     expect(onSearchSpy).toHaveBeenCalledTimes(1);
     expect(onSearchSpy).toBeCalledWith(
       ...getSearchParams({
+        searchInput: '',
+        lifecycleFilter: DEFAULT_LIFECYCLE_FILTER,
         orderByKey: DEFAULT_ORDER_BY_KEY,
         orderByAsc: DEFAULT_ORDER_BY_ASC,
+        modelVersionFilter: DEFAULT_MODEL_VERSION_FILTER,
         startTime: DEFAULT_START_TIME,
       }),
     );

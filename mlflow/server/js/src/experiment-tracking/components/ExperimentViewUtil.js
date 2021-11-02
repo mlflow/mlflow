@@ -731,6 +731,8 @@ export default class ExperimentViewUtil {
     orderByKey,
     orderByAsc,
     startTime,
+    lifecycleFilter,
+    modelVersionFilter,
     showMultiColumns,
     categorizedUncheckedKeys,
     diffSwitchSelected,
@@ -750,6 +752,12 @@ export default class ExperimentViewUtil {
     // orderByAsc defaults to false, so only encode it if it is true.
     if (orderByAsc === true) {
       state['orderByAsc'] = orderByAsc;
+    }
+    if (lifecycleFilter) {
+      state['lifecycle'] = lifecycleFilter;
+    }
+    if (modelVersionFilter) {
+      state['modelVersion'] = modelVersionFilter;
     }
     // showMultiColumns defaults to true, so only encode it if it is false.
     if (showMultiColumns === false) {

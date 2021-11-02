@@ -63,6 +63,8 @@ import {
   COLUMN_SORT_BY_ASC,
   COLUMN_SORT_BY_DESC,
   SORT_DELIMITER_SYMBOL,
+  DEFAULT_LIFECYCLE_FILTER,
+  DEFAULT_MODEL_VERSION_FILTER,
 } from '../constants';
 
 export const DEFAULT_EXPANDED_VALUE = false;
@@ -391,7 +393,6 @@ export class ExperimentView extends Component {
         />
       </div>
     );
-
     return this.state.showOnboardingHelper ? (
       <Alert
         className='information'
@@ -527,12 +528,10 @@ export class ExperimentView extends Component {
     /* eslint-disable prefer-const */
     let breadcrumbs = [];
     let form;
-
     const artifactLocationProps = {
       experiment: this.props.experiment,
       intl: this.props.intl,
     };
-
     const ColumnSortByOrder = [COLUMN_SORT_BY_ASC, COLUMN_SORT_BY_DESC];
 
     return (
@@ -1065,32 +1064,35 @@ export class ExperimentView extends Component {
 
   initiateSearch({
     searchInput,
-    lifecycleFilterInput,
-    modelVersionFilterInput,
+    lifecycleFilter,
+    modelVersionFilter,
     orderByKey,
     orderByAsc,
     startTime,
   }) {
     const mySearchInput = searchInput !== undefined ? searchInput : this.props.searchInput;
-    const myLifecycleFilterInput =
-      lifecycleFilterInput !== undefined ? lifecycleFilterInput : this.props.lifecycleFilter;
+    const myLifecycleFilter =
+      lifecycleFilter !== undefined ? lifecycleFilter : this.props.lifecycleFilter;
     const myOrderByKey = orderByKey !== undefined ? orderByKey : this.props.orderByKey;
     const myOrderByAsc = orderByAsc !== undefined ? orderByAsc : this.props.orderByAsc;
-    const myModelVersionFilterInput = modelVersionFilterInput || this.props.modelVersionFilter;
-    const myStartTime = startTime || this.props.startTime;
+    const myModelVersionFilter =
+      modelVersionFilter !== undefined ? modelVersionFilter : this.props.modelVersionFilter;
+    const myStartTime = startTime !== undefined ? startTime : this.props.startTime;
     try {
       this.updateUrlWithViewState({
         searchInput: mySearchInput,
+        lifecycleFilter: myLifecycleFilter,
+        modelVersionFilter: myModelVersionFilter,
         orderByKey: myOrderByKey,
         orderByAsc: myOrderByAsc,
         startTime: myStartTime,
       });
       this.props.onSearch(
         mySearchInput,
-        myLifecycleFilterInput,
+        myLifecycleFilter,
         myOrderByKey,
         myOrderByAsc,
-        myModelVersionFilterInput,
+        myModelVersionFilter,
         myStartTime,
       );
     } catch (ex) {
@@ -1184,12 +1186,12 @@ export class ExperimentView extends Component {
     this.setState({ searchInput: event.target.value });
   };
 
-  handleLifecycleFilterInput({ key: lifecycleFilterInput }) {
-    this.initiateSearch({ lifecycleFilterInput });
+  handleLifecycleFilterInput({ key: lifecycleFilter }) {
+    this.initiateSearch({ lifecycleFilter });
   }
 
-  handleModelVersionFilterInput({ key: modelVersionFilterInput }) {
-    this.initiateSearch({ modelVersionFilterInput });
+  handleModelVersionFilterInput({ key: modelVersionFilter }) {
+    this.initiateSearch({ modelVersionFilter });
   }
 
   handleDiffSwitchChange() {
@@ -1269,8 +1271,8 @@ export class ExperimentView extends Component {
         this.snapshotComponentState();
         this.initiateSearch({
           searchInput: '',
-          lifecycleFilterInput: LIFECYCLE_FILTER.ACTIVE,
-          modelVersionFilterInput: MODEL_VERSION_FILTER.ALL_RUNS,
+          lifecycleFilter: DEFAULT_LIFECYCLE_FILTER,
+          modelVersionFilter: DEFAULT_MODEL_VERSION_FILTER,
           orderByKey: DEFAULT_ORDER_BY_KEY,
           orderByAsc: DEFAULT_ORDER_BY_ASC,
           startTime: DEFAULT_START_TIME,

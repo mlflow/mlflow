@@ -22,13 +22,14 @@ import { Experiment } from '../sdk/MlflowMessages';
 import { injectIntl } from 'react-intl';
 import {
   LIFECYCLE_FILTER,
-  MODEL_VERSION_FILTER,
   PAGINATION_DEFAULT_STATE,
   MAX_DETECT_NEW_RUNS_RESULTS,
   DETECT_NEW_RUNS_INTERVAL,
   DEFAULT_ORDER_BY_KEY,
   DEFAULT_ORDER_BY_ASC,
   DEFAULT_START_TIME,
+  DEFAULT_LIFECYCLE_FILTER,
+  DEFAULT_MODEL_VERSION_FILTER,
   ATTRIBUTE_COLUMN_SORT_KEY,
 } from '../constants';
 
@@ -73,10 +74,6 @@ export class ExperimentPage extends Component {
       numberOfNewRuns: 0,
       // Last experiment, if any, displayed by this instance of ExperimentPage
       lastExperimentId: undefined,
-      // Lifecycle filter of runs to display
-      lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
-      // Filter of model versions to display
-      modelVersionFilter: MODEL_VERSION_FILTER.ALL_RUNS,
       ...PAGINATION_DEFAULT_STATE,
       getExperimentRequestId: null,
       searchRunsRequestId: null,
@@ -85,6 +82,12 @@ export class ExperimentPage extends Component {
         orderByKey: urlState.orderByKey === undefined ? DEFAULT_ORDER_BY_KEY : urlState.orderByKey,
         orderByAsc: urlState.orderByAsc === undefined ? DEFAULT_ORDER_BY_ASC : urlState.orderByAsc,
         startTime: urlState.startTime === undefined ? DEFAULT_START_TIME : urlState.startTime,
+        lifecycleFilter:
+          urlState.lifecycle === undefined ? DEFAULT_LIFECYCLE_FILTER : urlState.lifecycle,
+        modelVersionFilter:
+          urlState.modelVersion === undefined
+            ? DEFAULT_MODEL_VERSION_FILTER
+            : urlState.modelVersion,
       },
     };
   }
@@ -104,9 +107,8 @@ export class ExperimentPage extends Component {
         persistedState:
           state.lastExperimentId === undefined
             ? state.persistedState
-            : new ExperimentPagePersistedState({ orderByKey: DEFAULT_ORDER_BY_KEY }).toJSON(),
+            : new ExperimentPagePersistedState().toJSON(),
         lastExperimentId: props.experimentId,
-        lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
         nextPageToken: null,
         getExperimentRequestId: getUUID(),
         searchRunsRequestId: getUUID(),
@@ -197,8 +199,8 @@ export class ExperimentPage extends Component {
   }
 
   handleGettingRuns = (getRunsAction, requestId) => {
-    const { persistedState, lifecycleFilter, nextPageToken } = this.state;
-    const { searchInput } = persistedState;
+    const { persistedState, nextPageToken } = this.state;
+    const { searchInput, lifecycleFilter } = persistedState;
     const viewType = lifecycleFilterToRunViewType(lifecycleFilter);
     const orderBy = this.getOrderByExpr();
     const startTime = this.getStartTimeExpr();
@@ -247,10 +249,10 @@ export class ExperimentPage extends Component {
 
   onSearch = (
     searchInput,
-    lifecycleFilterInput,
+    lifecycleFilter,
     orderByKey,
     orderByAsc,
-    modelVersionFilterInput,
+    modelVersionFilter,
     startTime,
   ) => {
     this.setState(
@@ -262,9 +264,9 @@ export class ExperimentPage extends Component {
           orderByKey,
           orderByAsc,
           startTime,
+          lifecycleFilter,
+          modelVersionFilter,
         }).toJSON(),
-        lifecycleFilter: lifecycleFilterInput,
-        modelVersionFilter: modelVersionFilterInput,
         nextPageToken: null,
       },
       () => {
@@ -345,15 +347,22 @@ export class ExperimentPage extends Component {
       return <Spinner />;
     }
 
-    const { searchInput, orderByKey, orderByAsc, startTime } = this.state.persistedState;
+    const {
+      searchInput,
+      orderByKey,
+      orderByAsc,
+      startTime,
+      lifecycleFilter,
+      modelVersionFilter,
+    } = this.state.persistedState;
 
     const experimentViewProps = {
       experimentId: this.props.experimentId,
       experiment: this.props.experiment,
       location: this.props.location,
       searchRunsRequestId: this.state.searchRunsRequestId,
-      modelVersionFilter: this.state.modelVersionFilter,
-      lifecycleFilter: this.state.lifecycleFilter,
+      modelVersionFilter: modelVersionFilter,
+      lifecycleFilter: lifecycleFilter,
       onSearch: this.onSearch,
       searchRunsError: searchRunsError,
       searchInput: searchInput,

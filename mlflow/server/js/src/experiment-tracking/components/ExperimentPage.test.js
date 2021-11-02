@@ -17,6 +17,8 @@ import {
   DEFAULT_ORDER_BY_KEY,
   DEFAULT_ORDER_BY_ASC,
   DEFAULT_START_TIME,
+  DEFAULT_LIFECYCLE_FILTER,
+  DEFAULT_MODEL_VERSION_FILTER,
 } from '../constants';
 
 const EXPERIMENT_ID = '17';
@@ -62,10 +64,10 @@ test('State and search params are correct for blank search', () => {
   wrapper.instance().onSearch('', 'Active', null, true, null);
 
   expect(wrapper.state().persistedState.searchInput).toEqual('');
-  expect(wrapper.state().lifecycleFilter).toEqual('Active');
+  expect(wrapper.state().persistedState.lifecycleFilter).toEqual('Active');
   expect(wrapper.state().persistedState.orderByKey).toEqual(null);
   expect(wrapper.state().persistedState.orderByAsc).toEqual(true);
-  expect(wrapper.state().modelVersionFilter).toEqual(null);
+  expect(wrapper.state().persistedState.modelVersionFilter).toEqual(null);
   expect(wrapper.state().persistedState.startTime).toEqual(undefined);
 
   const searchRunsCallParams = searchRunsApi.mock.calls[1][0];
@@ -81,10 +83,10 @@ test('State and search params are correct for complete search', () => {
   wrapper.instance().onSearch('metrics.metric0 > 3', 'Deleted', null, true, null, 'ALL');
 
   expect(wrapper.state().persistedState.searchInput).toEqual('metrics.metric0 > 3');
-  expect(wrapper.state().lifecycleFilter).toEqual('Deleted');
+  expect(wrapper.state().persistedState.lifecycleFilter).toEqual('Deleted');
   expect(wrapper.state().persistedState.orderByKey).toEqual(null);
   expect(wrapper.state().persistedState.orderByAsc).toEqual(true);
-  expect(wrapper.state().modelVersionFilter).toEqual(null);
+  expect(wrapper.state().persistedState.modelVersionFilter).toEqual(null);
   expect(wrapper.state().persistedState.startTime).toEqual('ALL');
 
   const searchRunsCallParams = searchRunsApi.mock.calls[1][0];
@@ -97,10 +99,10 @@ test('State and search params are correct for search with order_by', () => {
   wrapper.instance().onSearch('', 'Active', 'my_key', false, null);
 
   expect(wrapper.state().persistedState.searchInput).toEqual('');
-  expect(wrapper.state().lifecycleFilter).toEqual('Active');
+  expect(wrapper.state().persistedState.lifecycleFilter).toEqual('Active');
   expect(wrapper.state().persistedState.orderByKey).toEqual('my_key');
   expect(wrapper.state().persistedState.orderByAsc).toEqual(false);
-  expect(wrapper.state().modelVersionFilter).toEqual(null);
+  expect(wrapper.state().persistedState.modelVersionFilter).toEqual(null);
   expect(wrapper.state().persistedState.startTime).toEqual(undefined);
 
   const searchRunsCallParams = searchRunsApi.mock.calls[1][0];
@@ -112,16 +114,21 @@ test('Loading state without any URL params', () => {
   const wrapper = getExperimentPageMock();
   const { state } = wrapper.instance();
   expect(state.persistedState.searchInput).toEqual('');
+  expect(state.persistedState.lifecycleFilter).toEqual(DEFAULT_LIFECYCLE_FILTER);
+  expect(state.persistedState.modelVersionFilter).toEqual(DEFAULT_MODEL_VERSION_FILTER);
   expect(state.persistedState.orderByKey).toBe(DEFAULT_ORDER_BY_KEY);
   expect(state.persistedState.orderByAsc).toEqual(DEFAULT_ORDER_BY_ASC);
   expect(state.persistedState.startTime).toEqual(DEFAULT_START_TIME);
 });
 
 test('Loading state with all URL params', () => {
-  location.search = 'search=c&orderByKey=d&orderByAsc=false&startTime=LAST_HOUR';
+  location.search =
+    'search=c&orderByKey=d&orderByAsc=false&startTime=LAST_HOUR&lifecycle=Deleted&modelVersion=With%20Model%20Versions';
   const wrapper = getExperimentPageMock();
   const { state } = wrapper.instance();
   expect(state.persistedState.searchInput).toEqual('c');
+  expect(state.persistedState.lifecycleFilter).toEqual('Deleted');
+  expect(state.persistedState.modelVersionFilter).toEqual('With Model Versions');
   expect(state.persistedState.orderByKey).toEqual('d');
   expect(state.persistedState.orderByAsc).toEqual(false);
   expect(state.persistedState.startTime).toEqual('LAST_HOUR');

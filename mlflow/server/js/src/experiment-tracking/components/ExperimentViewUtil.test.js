@@ -13,6 +13,8 @@ import {
   DEFAULT_START_TIME,
   DEFAULT_SHOW_MULTI_COLUMNS,
   DEFAULT_DIFF_SWITCH_SELECTED,
+  DEFAULT_LIFECYCLE_FILTER,
+  DEFAULT_MODEL_VERSION_FILTER,
 } from '../constants';
 import { Metric, Param, RunTag, RunInfo } from '../sdk/MlflowMessages';
 import Utils from '../../common/utils/Utils';
@@ -486,6 +488,8 @@ describe('updateUrlWithViewState', () => {
     defaultParameters.experimentId = EXPERIMENT_ID;
     defaultParameters.history = history;
     defaultParameters.searchInput = '';
+    defaultParameters.lifecycleFilter = DEFAULT_LIFECYCLE_FILTER;
+    defaultParameters.modelVersionFilter = DEFAULT_MODEL_VERSION_FILTER;
     defaultParameters.orderByKey = DEFAULT_ORDER_BY_KEY;
     defaultParameters.orderByAsc = DEFAULT_ORDER_BY_ASC;
     defaultParameters.startTime = DEFAULT_START_TIME;
@@ -501,7 +505,7 @@ describe('updateUrlWithViewState', () => {
     });
     expectSearchState(
       history.push.mock.calls[0][0],
-      'startTime=ALL&orderByKey=attributes.start_time',
+      'startTime=ALL&orderByKey=attributes.start_time&lifecycle=Active&modelVersion=All%20Runs',
     );
   });
 
@@ -512,7 +516,19 @@ describe('updateUrlWithViewState', () => {
     });
     expectSearchState(
       history.push.mock.calls[0][0],
-      'startTime=ALL&orderByKey=attributes.start_time&orderByAsc=true',
+      'startTime=ALL&orderByKey=attributes.start_time&orderByAsc=true&lifecycle=Active&modelVersion=All%20Runs',
+    );
+  });
+
+  test('updateUrlWithViewState updates URL correctly with lifecycle & model filter', () => {
+    ExperimentViewUtil.updateUrlWithViewState({
+      ...defaultParameters,
+      lifecycleFilter: 'life',
+      modelVersionFilter: 'model',
+    });
+    expectSearchState(
+      history.push.mock.calls[0][0],
+      'startTime=ALL&orderByKey=attributes.start_time&lifecycle=life&modelVersion=model',
     );
   });
 
@@ -523,7 +539,7 @@ describe('updateUrlWithViewState', () => {
     });
     expectSearchState(
       history.push.mock.calls[0][0],
-      'search=metrics.metric0%20%3E%203&startTime=ALL&orderByKey=attributes.start_time',
+      'search=metrics.metric0%20%3E%203&startTime=ALL&orderByKey=attributes.start_time&lifecycle=Active&modelVersion=All%20Runs',
     );
   });
 
@@ -534,7 +550,7 @@ describe('updateUrlWithViewState', () => {
     });
     expectSearchState(
       history.push.mock.calls[0][0],
-      'startTime=ALL&orderByKey=attributes.start_time&showMultiColumns=false',
+      'startTime=ALL&orderByKey=attributes.start_time&lifecycle=Active&modelVersion=All%20Runs&showMultiColumns=false',
     );
   });
 
@@ -545,7 +561,7 @@ describe('updateUrlWithViewState', () => {
     });
     expectSearchState(
       history.push.mock.calls[0][0],
-      'startTime=ALL&orderByKey=attributes.start_time&diffSwitchSelected=true',
+      'startTime=ALL&orderByKey=attributes.start_time&lifecycle=Active&modelVersion=All%20Runs&diffSwitchSelected=true',
     );
 
     const preSwitchCategorizedUncheckedKeys = {
@@ -570,7 +586,8 @@ describe('updateUrlWithViewState', () => {
     });
     expectSearchState(
       history.push.mock.calls[1][0],
-      'startTime=ALL&orderByKey=attributes.start_time&diffSwitchSelected=true' +
+      'startTime=ALL&orderByKey=attributes.start_time&lifecycle=Active' +
+        '&modelVersion=All%20Runs&diffSwitchSelected=true' +
         '&preSwitchCategorizedUncheckedKeys%5Battributes%5D%5B0%5D=a1' +
         '&preSwitchCategorizedUncheckedKeys%5Bparams%5D%5B0%5D=p1' +
         '&preSwitchCategorizedUncheckedKeys%5Bmetrics%5D%5B0%5D=m1' +
