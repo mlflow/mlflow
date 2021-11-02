@@ -636,14 +636,14 @@ class MlflowClient(object):
         Log a metric against the run ID.
 
         :param run_id: The run id to which the metric should be logged.
-        :param key: Metric name (string). This string may only contain alphanumerics, underscores 
+        :param key: Metric name (string). This string may only contain alphanumerics, underscores
                     (_), dashes (-), periods (.), spaces ( ), and slashes (/).
-                    All backend stores will support keys up to length 250, but some may 
+                    All backend stores will support keys up to length 250, but some may
                     support larger keys.
         :param value: Metric value (float). Note that some special values such
                       as +/- Infinity may be replaced by other values depending on the store. For
                       example, the SQLAlchemy store replaces +/- Inf with max / min float values.
-                      All backend stores will support values up to length 5000, but some 
+                      All backend stores will support values up to length 5000, but some
                       may support larger values.
         :param timestamp: Time when this metric was calculated. Defaults to the current system time.
         :param step: Integer training step (iteration) at which was the metric calculated.
@@ -694,12 +694,12 @@ class MlflowClient(object):
         Log a parameter against the run ID.
 
         :param run_id: The run id to which the param should be logged.
-        :param key: Parameter name (string). This string may only contain alphanumerics, underscores 
+        :param key: Parameter name (string). This string may only contain alphanumerics, underscores
                     (_), dashes (-), periods (.), spaces ( ), and slashes (/).
-                    All backend stores will support keys up to length 250, but some may 
+                    All backend stores will support keys up to length 250, but some may
                     support larger keys.
         :param value: Parameter value (string, but will be string-ified if not).
-                      All backend stores will support values up to length 5000, but some 
+                      All backend stores will support values up to length 5000, but some
                       may support larger values.
 
         .. code-block:: python
@@ -778,12 +778,12 @@ class MlflowClient(object):
         Set a tag on the run with the specified ID. Value is converted to a string.
 
         :param run_id: String ID of the run.
-        :param key: Tag name (string). This string may only contain alphanumerics, 
-                    underscores (_), dashes (-), periods (.), spaces ( ), and slashes (/). 
-                    All backend stores will support keys up to length 250, but some may 
+        :param key: Tag name (string). This string may only contain alphanumerics,
+                    underscores (_), dashes (-), periods (.), spaces ( ), and slashes (/).
+                    All backend stores will support keys up to length 250, but some may
                     support larger keys.
         :param value: Tag value (string, but will be string-ified if not).
-                      All backend stores will support values up to length 5000, but some 
+                      All backend stores will support values up to length 5000, but some
                       may support larger values.
 
         .. code-block:: python

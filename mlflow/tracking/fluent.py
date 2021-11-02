@@ -358,12 +358,12 @@ def log_param(key: str, value: Any) -> None:
     Log a parameter under the current run. If no run is active, this method will create
     a new active run.
 
-    :param key: Parameter name (string). This string may only contain alphanumerics, 
+    :param key: Parameter name (string). This string may only contain alphanumerics,
                 underscores (_), dashes (-), periods (.), spaces ( ), and slashes (/).
-                All backend stores will support keys up to length 250, but some may 
+                All backend stores will support keys up to length 250, but some may
                 support larger keys.
     :param value: Parameter value (string, but will be string-ified if not).
-                  All backend stores will support values up to length 5000, but some 
+                  All backend stores will support values up to length 5000, but some
                   may support larger values.
 
     .. code-block:: python
@@ -383,12 +383,12 @@ def set_tag(key: str, value: Any) -> None:
     Set a tag under the current run. If no run is active, this method will create a
     new active run.
 
-    :param key: Tag name (string). This string may only contain alphanumerics, underscores 
+    :param key: Tag name (string). This string may only contain alphanumerics, underscores
                 (_), dashes (-), periods (.), spaces ( ), and slashes (/).
-                All backend stores will support keys up to length 250, but some may 
+                All backend stores will support keys up to length 250, but some may
                 support larger keys.
     :param value: Tag value (string, but will be string-ified if not).
-                  All backend stores will support values up to length 5000, but some 
+                  All backend stores will support values up to length 5000, but some
                   may support larger values.
 
     .. code-block:: python
@@ -435,12 +435,12 @@ def log_metric(key: str, value: float, step: Optional[int] = None) -> None:
 
     :param key: Metric name (string). This string may only contain alphanumerics, underscores (_),
                 dashes (-), periods (.), spaces ( ), and slashes (/).
-                All backend stores will support keys up to length 250, but some may 
+                All backend stores will support keys up to length 250, but some may
                 support larger keys.
     :param value: Metric value (float). Note that some special values such as +/- Infinity may be
                   replaced by other values depending on the store. For example, the
                   SQLAlchemy store replaces +/- Infinity with max / min float values.
-                  All backend stores will support values up to length 5000, but some 
+                  All backend stores will support values up to length 5000, but some
                   may support larger values.
     :param step: Metric step (int). Defaults to zero if unspecified.
 
