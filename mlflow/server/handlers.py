@@ -130,6 +130,10 @@ _model_registry_store_registry = ModelRegistryStoreRegistryWrapper()
 
 
 def _get_artifact_repo_mlflow_artifacts():
+    """
+    Get an artifact repository specified by `--artifacts-destination` option for `mlflow server`
+    command.
+    """
     from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR
 
     global _artifact_repo
