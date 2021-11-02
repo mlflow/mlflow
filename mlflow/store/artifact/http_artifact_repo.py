@@ -17,7 +17,7 @@ class HttpArtifactRepository(ArtifactRepository):
         paths = (artifact_path, file_name) if artifact_path else (file_name,)
         with open(local_file, "rb") as f:
             url = posixpath.join(self.artifact_uri, *paths)
-            resp = requests.post(url, data=f)
+            resp = requests.put(url, data=f)
             resp.raise_for_status()
 
     def log_artifacts(self, local_dir, artifact_path=None):

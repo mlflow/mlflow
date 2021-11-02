@@ -57,7 +57,7 @@ def read_file(path):
 
 def upload_file(url, local_path):
     with open(local_path, "rb") as f:
-        requests.post(url, data=f).raise_for_status()
+        requests.put(url, data=f).raise_for_status()
 
 
 def download_file(url, local_path):

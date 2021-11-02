@@ -4112,22 +4112,22 @@ public final class MlflowArtifacts {
       ")\n\005files\030\001 \003(\0132\032.mlflow.artifacts.FileIn" +
       "fo:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
       "sponse]\";\n\010FileInfo\022\014\n\004path\030\001 \001(\t\022\016\n\006is_" +
-      "dir\030\002 \001(\010\022\021\n\tfile_size\030\003 \001(\0032\260\004\n\026MlflowA" +
+      "dir\030\002 \001(\010\022\021\n\tfile_size\030\003 \001(\0032\257\004\n\026MlflowA" +
       "rtifactsService\022\275\001\n\020downloadArtifact\022\".m" +
       "lflow.artifacts.DownloadArtifact\032+.mlflo" +
       "w.artifacts.DownloadArtifact.Response\"X\362" +
       "\206\031T\n=\n\003GET\0220/mlflow-artifacts/artifacts/" +
       "<path:artifact_path>\032\004\010\002\020\000\020\001*\021Download A" +
-      "rtifact\022\266\001\n\016uploadArtifact\022 .mlflow.arti" +
+      "rtifact\022\265\001\n\016uploadArtifact\022 .mlflow.arti" +
       "facts.UploadArtifact\032).mlflow.artifacts." +
-      "UploadArtifact.Response\"W\362\206\031S\n>\n\004POST\0220/" +
-      "mlflow-artifacts/artifacts/<path:artifac" +
-      "t_path>\032\004\010\002\020\000\020\001*\017Upload Artifact\022\234\001\n\rlis" +
-      "tArtifacts\022\037.mlflow.artifacts.ListArtifa" +
-      "cts\032(.mlflow.artifacts.ListArtifacts.Res" +
-      "ponse\"@\362\206\031<\n(\n\003GET\022\033/mlflow-artifacts/ar" +
-      "tifacts\032\004\010\002\020\000\020\001*\016List ArtifactsB\036\n\024org.m" +
-      "lflow.api.proto\220\001\001\342?\002\020\001"
+      "UploadArtifact.Response\"V\362\206\031R\n=\n\003PUT\0220/m" +
+      "lflow-artifacts/artifacts/<path:artifact" +
+      "_path>\032\004\010\002\020\000\020\001*\017Upload Artifact\022\234\001\n\rlist" +
+      "Artifacts\022\037.mlflow.artifacts.ListArtifac" +
+      "ts\032(.mlflow.artifacts.ListArtifacts.Resp" +
+      "onse\"@\362\206\031<\n(\n\003GET\022\033/mlflow-artifacts/art" +
+      "ifacts\032\004\010\002\020\000\020\001*\016List ArtifactsB\036\n\024org.ml" +
+      "flow.api.proto\220\001\001\342?\002\020\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {

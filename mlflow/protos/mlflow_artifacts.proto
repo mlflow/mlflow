@@ -28,7 +28,7 @@ service MlflowArtifactsService {
   rpc uploadArtifact (UploadArtifact) returns (UploadArtifact.Response) {
     option (rpc) = {
       endpoints: [{
-        method: "POST",
+        method: "PUT",
         path: "/mlflow-artifacts/artifacts/<path:artifact_path>",
         since { major: 2, minor: 0 },
       }],
