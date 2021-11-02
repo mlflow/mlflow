@@ -49,7 +49,7 @@ class HttpArtifactRepository(ArtifactRepository):
                 FileInfo(
                     posixpath.join(path, f["path"]) if path else f["path"],
                     f["is_dir"],
-                    f.get("file_size"),
+                    int(f.get("file_size")),
                 )
                 for f in files
             ],
