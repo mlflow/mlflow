@@ -44,18 +44,17 @@ class HttpArtifactRepository(ArtifactRepository):
         resp.raise_for_status()
         json = resp.json()
         files = json.get("files", [])
-        if files:
-            file_infos = []
-            for f in files:
-                file_info = FileInfo(
+        return sorted(
+            [
+                FileInfo(
                     posixpath.join(path, f["path"]) if path else f["path"],
                     f["is_dir"],
                     f.get("file_size"),
                 )
-                file_infos.append(file_info)
-            return sorted(file_infos, key=lambda f: f.path)
-        else:
-            return []
+                for f in files
+            ],
+            key=lambda f: f.path,
+        )
 
     def _download_file(self, remote_file_path, local_path):
         url = posixpath.join(self.artifact_uri, remote_file_path)
