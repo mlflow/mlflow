@@ -14,6 +14,7 @@ from tests.tracking.integration_test_utils import _await_server_up_or_die
 def _launch_server(backend_store_uri, artifacts_destination):
     port = get_safe_port()
     url = f"http://{LOCALHOST}:{port}"
+    extra_cmd = ["--gunicorn-opts", "--log-level debug"] if os.name == "posix" else []
     cmd = [
         "mlflow",
         "server",
@@ -27,8 +28,7 @@ def _launch_server(backend_store_uri, artifacts_destination):
         LOCALHOST,
         "--port",
         str(port),
-        "--gunicorn-opts",
-        "--log-level debug",
+        *extra_cmd,
     ]
     process = subprocess.Popen(cmd)
     _await_server_up_or_die(port)
