@@ -324,7 +324,7 @@ def _get_hdfs_artifact_cmd_and_envs(artifact_repo):
 
     if "MLFLOW_KERBEROS_TICKET_CACHE" in envs:
         ticket_cache = envs["MLFLOW_KERBEROS_TICKET_CACHE"]
-        cmds = ["-v", "{}:{}".format(ticket_cache, ticket_cache)]
+        cmds = ["-v", f"{ticket_cache}:{ticket_cache}"]
     return cmds, envs
 
 

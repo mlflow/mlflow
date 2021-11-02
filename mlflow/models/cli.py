@@ -31,7 +31,10 @@ def commands():
 @cli_args.WORKERS
 @cli_args.NO_CONDA
 @cli_args.INSTALL_MLFLOW
-def serve(model_uri, port, host, workers, no_conda=False, install_mlflow=False):
+@cli_args.ENABLE_MLSERVER
+def serve(
+    model_uri, port, host, workers, no_conda=False, install_mlflow=False, enable_mlserver=False
+):
     """
     Serve a model saved with MLflow by launching a webserver on the specified host and port.
     The command supports models with the ``python_function`` or ``crate`` (R Function) flavor.
@@ -53,7 +56,7 @@ def serve(model_uri, port, host, workers, no_conda=False, install_mlflow=False):
     """
     return _get_flavor_backend(
         model_uri, no_conda=no_conda, workers=workers, install_mlflow=install_mlflow
-    ).serve(model_uri=model_uri, port=port, host=host)
+    ).serve(model_uri=model_uri, port=port, host=host, enable_mlserver=enable_mlserver)
 
 
 @commands.command("predict")
@@ -125,7 +128,8 @@ def prepare_env(model_uri, no_conda, install_mlflow):
 @cli_args.MODEL_URI
 @click.option("--name", "-n", default="mlflow-pyfunc-servable", help="Name to use for built image")
 @cli_args.INSTALL_MLFLOW
-def build_docker(model_uri, name, install_mlflow):
+@cli_args.ENABLE_MLSERVER
+def build_docker(model_uri, name, install_mlflow, enable_mlserver):
     """
     Builds a Docker image whose default entrypoint serves the specified MLflow
     model at port 8080 within the container, using the 'python_function' flavor.
@@ -157,7 +161,11 @@ def build_docker(model_uri, name, install_mlflow):
     """
     mlflow_home = os.environ.get("MLFLOW_HOME", None)
     _get_flavor_backend(model_uri, docker_build=True).build_image(
-        model_uri, name, mlflow_home=mlflow_home, install_mlflow=install_mlflow
+        model_uri,
+        name,
+        mlflow_home=mlflow_home,
+        install_mlflow=install_mlflow,
+        enable_mlserver=enable_mlserver,
     )
 
 
