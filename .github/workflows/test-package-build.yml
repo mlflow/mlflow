@@ -12,7 +12,7 @@ concurrency:
 
 defaults:
   run:
-    shell: bash
+    shell: bash --noprofile --norc -euxo pipefail {0}
 
 jobs:
   build:
