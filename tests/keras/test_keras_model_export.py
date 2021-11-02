@@ -149,9 +149,8 @@ def custom_layer():
             )
             super().build(input_shape)
 
-        def call(self, x):
-            # pylint: disable=arguments-differ
-            return K.dot(x, self.kernel)
+        def call(self, inputs):  # pylint: disable=arguments-differ
+            return K.dot(inputs, self.kernel)
 
         def compute_output_shape(self, input_shape):
             return (input_shape[0], self.output_dim)
