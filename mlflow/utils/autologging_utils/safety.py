@@ -4,7 +4,6 @@ import itertools
 import functools
 import os
 import uuid
-import warnings
 from abc import abstractmethod
 from contextlib import contextmanager
 
