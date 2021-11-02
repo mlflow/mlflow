@@ -924,9 +924,9 @@ def autolog(
         from torchvision.datasets import MNIST
 
         try:
-            from torchmetrics import accuracy
+            from torchmetrics.functional import accuracy
         except ImportError:
-            from pytorch_lightning.metrics import accuracy
+            from pytorch_lightning.metrics.functional import accuracy
 
         import mlflow.pytorch
         from mlflow.tracking import MlflowClient

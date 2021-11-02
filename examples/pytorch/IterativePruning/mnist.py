@@ -17,9 +17,9 @@ from torch.utils.data import DataLoader, random_split
 from torchvision import datasets, transforms
 
 try:
-    from torchmetrics import accuracy
+    from torchmetrics.functional import accuracy
 except ImportError:
-    from pytorch_lightning.metrics import accuracy
+    from pytorch_lightning.metrics.functional import accuracy
 
 
 class MNISTDataModule(pl.LightningDataModule):
