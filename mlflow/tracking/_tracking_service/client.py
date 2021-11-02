@@ -251,11 +251,11 @@ class TrackingServiceClient(object):
         :param run_id: String ID of the run.
         :param key: Tag name (string). This string may only contain alphanumerics, underscores 
                     (_), dashes (-), periods (.), spaces ( ), and slashes (/).
-                    All backend stores will support keys up to length 250 but some may 
-                    support larger key values.
+                    All backend stores will support keys up to length 250, but some may 
+                    support larger keys.
         :param value: Tag value (string, but will be string-ified if not).
-                      All backend stores will support values up to length 5000 but some 
-                      may support larger key values.
+                      All backend stores will support values up to length 5000, but some 
+                      may support larger values.
         """
         _validate_tag_name(key)
         tag = RunTag(key, str(value))
