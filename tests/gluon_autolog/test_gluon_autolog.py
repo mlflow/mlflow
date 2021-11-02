@@ -44,11 +44,17 @@ def is_mxnet_older_than_1_6_0():
     return Version(mx.__version__) < Version("1.6.0")
 
 
-def get_metrics():
+def get_estimator(net, trainer):
     # `metrics` argument was split into `train_metrics` and `val_metrics` in mxnet 1.6.0:
     # https://github.com/apache/incubator-mxnet/pull/17048
-    arg_name = "metrics" if is_mxnet_older_than_1_6_0() else "train_metrics"
-    return {arg_name: Accuracy()}
+    acc = Accuracy()
+    loss = SoftmaxCrossEntropyLoss()
+    return (
+        # pylint: disable=unexpected-keyword-arg
+        estimator.Estimator(net=net, loss=loss, trainer=trainer, metrics=acc)
+        if is_mxnet_older_than_1_6_0()
+        else estimator.Estimator(net=net, loss=loss, trainer=trainer, train_metrics=acc)
+    )
 
 
 def get_train_prefix():
@@ -75,9 +81,7 @@ def get_gluon_random_data_run(log_models=True):
             "adam",
             optimizer_params={"learning_rate": 0.001, "epsilon": 1e-07},
         )
-        est = estimator.Estimator(
-            net=model, loss=SoftmaxCrossEntropyLoss(), trainer=trainer, **get_metrics()
-        )
+        est = get_estimator(model, trainer)
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -178,9 +182,7 @@ def test_autolog_ends_auto_created_run():
     trainer = Trainer(
         model.collect_params(), "adam", optimizer_params={"learning_rate": 0.001, "epsilon": 1e-07}
     )
-    est = estimator.Estimator(
-        net=model, loss=SoftmaxCrossEntropyLoss(), trainer=trainer, **get_metrics()
-    )
+    est = get_estimator(model, trainer)
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -208,9 +210,7 @@ def test_autolog_persists_manually_created_run():
             "adam",
             optimizer_params={"learning_rate": 0.001, "epsilon": 1e-07},
         )
-        est = estimator.Estimator(
-            net=model, loss=SoftmaxCrossEntropyLoss(), trainer=trainer, **get_metrics()
-        )
+        est = get_estimator(model, trainer)
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
