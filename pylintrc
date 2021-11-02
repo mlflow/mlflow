@@ -152,6 +152,16 @@ disable=print-statement,
         broad-except,
         no-name-in-module,
         import-error,
+        unspecified-encoding,
+        raise-missing-from,
+        unnecessary-pass,
+        logging-fstring-interpolation,
+        subprocess-popen-preexec-fn,
+        global-variable-not-assigned,
+        comparison-with-callable,
+        not-an-iterable,
+        unsubscriptable-object,
+        unsupported-assignment-operation,
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
