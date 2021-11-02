@@ -3,6 +3,7 @@ import json
 import os
 import re
 import tempfile
+import posixpath
 
 import logging
 from functools import wraps
@@ -820,7 +821,7 @@ def _delete_model_version_tag():
 
 @catch_mlflow_exception
 def _download_artifact(artifact_path):
-    basename = os.path.basename(artifact_path)
+    basename = posixpath.basename(artifact_path)
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = os.path.join(tmp_dir, basename)
         artifact_repo = _get_artifact_repo_mlflow_artifacts()
@@ -830,7 +831,7 @@ def _download_artifact(artifact_path):
 
 @catch_mlflow_exception
 def _upload_artifact(artifact_path):
-    head, tail = os.path.split(artifact_path)
+    head, tail = posixpath.split(artifact_path)
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = os.path.join(tmp_dir, tail)
         with open(tmp_path, "wb") as f:
@@ -855,7 +856,7 @@ def _list_artifacts_mlflow_artifacts():
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     files = []
     for file_info in artifact_repo.list_artifacts(path):
-        basename = os.path.basename(file_info.path)
+        basename = posixpath.basename(file_info.path)
         new_file_info = FileInfo(basename, file_info.is_dir, file_info.file_size)
         files.append(new_file_info.to_proto())
     response_message.files.extend(files)
