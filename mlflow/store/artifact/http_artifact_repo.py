@@ -43,7 +43,7 @@ class HttpArtifactRepository(ArtifactRepository):
         resp = requests.get(url, params=params)
         resp.raise_for_status()
         json = resp.json()
-        files = json.get("files")
+        files = json.get("files", [])
         if files:
             file_infos = []
             for f in files:
