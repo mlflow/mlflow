@@ -318,7 +318,7 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
     " used, then this option is required.",
 )
 @click.option(
-    "--artifacts-destination", metavar="URI", default="./artifacts", help="<Add description>",
+    "--artifacts-destination", metavar="URI", default="./mlartifacts", help="<Add description>",
 )
 @cli_args.HOST
 @cli_args.PORT
