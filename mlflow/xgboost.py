@@ -268,20 +268,16 @@ def _load_model(path):
     model_dir = os.path.dirname(path) if os.path.isfile(path) else path
     flavor_conf = _get_flavor_configuration(model_path=model_dir, flavor_name=FLAVOR_NAME)
 
-    if "data" in flavor_conf:
-        # XGBoost Booster models saved in MLflow (<x.x.x) specify
-        # the ``data`` field within its flavor configuration.
-        # In this case, we create a Booster() instance and load model weights.
-        model_class = "xgboost.core.Booster"
-        xgb_model_path = os.path.join(model_dir, flavor_conf["data"])
-    else:
-        # In contrast, XGBoost models saved in new MLflow (>=x.x.x) do not
-        # specify the ``data`` field within its flavor configuration.
-        # We use ``model_class`` to specify its XGBoost model class.
-        # In this case, we first get the XGBoost model from
-        # its flavor configuration and then create an instance based on its class.
-        model_class = flavor_conf.get("model_class", "xgboost.core.Booster")
-        xgb_model_path = os.path.join(model_dir, "model.xgb")
+    # XGBoost Booster models saved in MLflow (<x.x.x) specify
+    # the ``data`` field within its flavor configuration.
+    # In this case, we create a Booster() instance and load model weights.
+    # In contrast, XGBoost models saved in new MLflow (>=x.x.x) do not
+    # specify the ``data`` field within its flavor configuration.
+    # We use ``model_class`` to specify its XGBoost model class.
+    # In this case, we first get the XGBoost model from
+    # its flavor configuration and then create an instance based on its class.
+    model_class = flavor_conf.get("model_class", "xgboost.core.Booster")
+    xgb_model_path = os.path.join(model_dir, flavor_conf.get("data", "model.xgb"))
 
     module, cls = model_class.rsplit(".", maxsplit=1)
     model = getattr(importlib.import_module(module), cls)()
