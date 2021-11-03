@@ -912,7 +912,7 @@ def test_import_tensorflow_with_fluent_autolog_enables_tf_autologging():
 
     # NB: For backwards compatibility, fluent autologging enables TensorFlow and
     # Keras autologging upon tensorflow import in TensorFlow 2.5.1
-    if Version(tensorflow.keras.__version__) >= Version("2.6"):
+    if Version(tf.__version__) >= Version("2.6"):
         assert autologging_is_disabled(mlflow.keras.FLAVOR_NAME)
 
 
@@ -927,7 +927,7 @@ def test_import_tf_keras_with_fluent_autolog_enables_tf_autologging():
 
     # NB: For backwards compatibility, fluent autologging enables TensorFlow and
     # Keras autologging upon tf.keras import in TensorFlow 2.5.1
-    if Version(tensorflow.keras.__version__) >= Version("2.6"):
+    if Version(tf.__version__) >= Version("2.6"):
         assert autologging_is_disabled(mlflow.keras.FLAVOR_NAME)
 
 
