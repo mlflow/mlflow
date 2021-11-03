@@ -65,10 +65,10 @@ class _Example(object):
             if isinstance(input_tensor, dict):
                 result = {}
                 for name in input_tensor.keys():
-                    result[name] = input_tensor[name].tolist()
+                    result[name] = input_tensor[name].where(input_ex.notnull(), None).tolist()
                 return {"inputs": result}
             else:
-                return {"inputs": input_tensor.tolist()}
+                return {"inputs": input_tensor.where(input_ex.notnull(), None).tolist()}
 
         def _handle_dataframe_input(input_ex):
             if isinstance(input_ex, dict):
