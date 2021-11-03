@@ -166,7 +166,6 @@ def verify_rest_response(response, endpoint):
     """Verify the return code and format, raise exception if the request was not successful."""
     if response.status_code != 200:
         if _can_parse_as_json(response.text):
-            print(response.text)
             raise RestException(json.loads(response.text))
         else:
             base_msg = "API request to endpoint %s failed with error code " "%s != 200" % (
