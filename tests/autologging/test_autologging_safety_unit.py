@@ -22,6 +22,7 @@ from mlflow.utils.autologging_utils import (
     PatchFunction,
     with_managed_run,
     is_testing,
+    try_mlflow_log,
 )
 from mlflow.utils.autologging_utils.safety import (
     _AutologgingSessionManager,
@@ -1374,6 +1375,27 @@ def test_validate_autologging_run_validates_run_status_correctly():
     )
     with pytest.raises(AssertionError, match="has a non-terminal status"):
         _validate_autologging_run("test_integration", run_id_non_terminal)
+
+
+def test_try_mlflow_log_emits_exceptions_as_warnings_in_standard_mode():
+    assert not autologging_utils.is_testing()
+
+    def throwing_function():
+        raise Exception("bad implementation")
+
+    with pytest.warns(UserWarning, match="bad implementation"):
+        try_mlflow_log(throwing_function)
+
+
+@pytest.mark.usefixtures(test_mode_on.__name__)
+def test_try_mlflow_log_propagates_exceptions_in_test_mode():
+    assert autologging_utils.is_testing()
+
+    def throwing_function():
+        raise Exception("bad implementation")
+
+    with pytest.raises(Exception, match="bad implementation"):
+        try_mlflow_log(throwing_function)
 
 
 def test_session_manager_creates_session_before_patch_executes(
