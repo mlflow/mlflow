@@ -68,7 +68,7 @@ def download_file(url, local_path):
                 f.write(chunk)
 
 
-def test_rest_apis(tmpdir):
+def test_mlflow_artifacts_rest_apis(tmpdir):
     backend_store_uri = f"{tmpdir}/mlruns"
     artifacts_destination = f"{tmpdir}/artifacts"
     url, _ = _launch_server(backend_store_uri, artifacts_destination)
@@ -83,29 +83,29 @@ def test_rest_apis(tmpdir):
 
     file_b = tmpdir.join("b.txt")
     file_b.write("1")
-    upload_file(f"{api_url}/subdir/b.txt", file_b)
-    assert os.path.join(artifacts_destination, "subdir", "b.txt")
-    assert read_file(os.path.join(artifacts_destination, "subdir", "b.txt")) == "1"
+    upload_file(f"{api_url}/dir/b.txt", file_b)
+    assert os.path.join(artifacts_destination, "dir", "b.txt")
+    assert read_file(os.path.join(artifacts_destination, "dir", "b.txt")) == "1"
 
     # Download artifact
-    new_dir = tmpdir.mkdir("new")
-    new_file_a = new_dir.join("a.txt")
-    download_file(f"{api_url}/a.txt", new_file_a)
-    assert read_file(new_file_a) == "0"
+    local_dir = tmpdir.mkdir("folder")
+    local_path_a = local_dir.join("a.txt")
+    download_file(f"{api_url}/a.txt", local_path_a)
+    assert read_file(local_path_a) == "0"
 
-    new_file_b = new_dir.join("b.txt")
-    download_file(f"{api_url}/subdir/b.txt", new_file_b)
-    assert read_file(new_file_b) == "1"
+    local_path_b = local_dir.join("b.txt")
+    download_file(f"{api_url}/dir/b.txt", local_path_b)
+    assert read_file(local_path_b) == "1"
 
     # List artifacts
     resp = requests.get(api_url)
     assert resp.json() == {
         "files": [
             {"path": "a.txt", "is_dir": False, "file_size": "1"},
-            {"path": "subdir", "is_dir": True},
+            {"path": "dir", "is_dir": True},
         ]
     }
-    resp = requests.get(api_url, params={"path": "subdir"})
+    resp = requests.get(api_url, params={"path": "dir"})
     assert resp.json() == {"files": [{"path": "b.txt", "is_dir": False, "file_size": "1"}]}
 
 
@@ -117,7 +117,7 @@ def test_log_artifact(artifacts_server, tmpdir):
     tmp_path = tmpdir.join("a.txt")
     tmp_path.write("0")
 
-    # withtout `artifact_path`
+    # Withtout `artifact_path`
     with mlflow.start_run() as run:
         mlflow.log_artifact(tmp_path)
 
@@ -129,14 +129,14 @@ def test_log_artifact(artifacts_server, tmpdir):
     assert os.path.exists(dest_path)
     assert read_file(dest_path) == "0"
 
-    # with `artifact_path`
+    # With `artifact_path`
     with mlflow.start_run() as run:
-        mlflow.log_artifact(tmp_path, artifact_path="artifact_path")
+        mlflow.log_artifact(tmp_path, artifact_path="folder")
 
     run_artifact_root = os.path.join(
         artifacts_destination, experiment_id, run.info.run_id, "artifacts"
     )
-    dest_path = os.path.join(run_artifact_root, "artifact_path", tmp_path.basename)
+    dest_path = os.path.join(run_artifact_root, "folder", tmp_path.basename)
     assert os.path.exists(dest_path)
     assert read_file(dest_path) == "0"
 
@@ -146,65 +146,66 @@ def test_log_artifacts(artifacts_server, tmpdir):
     mlflow.set_tracking_uri(url)
 
     tmpdir.join("a.txt").write("0")
-    tmpdir.mkdir("subdir").join("b.txt").write("1")
+    tmpdir.mkdir("dir").join("b.txt").write("1")
 
-    # without `artifact_path`
+    # Without `artifact_path`
     with mlflow.start_run() as run:
         mlflow.log_artifacts(tmpdir)
 
     client = mlflow.tracking.MlflowClient()
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
-    assert artifacts == ["a.txt", "subdir"]
-    artifacts = [a.path for a in client.list_artifacts(run.info.run_id, "subdir")]
-    assert artifacts == ["subdir/b.txt"]
+    assert artifacts == ["a.txt", "dir"]
+    artifacts = [a.path for a in client.list_artifacts(run.info.run_id, "dir")]
+    assert artifacts == ["dir/b.txt"]
 
-    # with `artifact_path`
+    # With `artifact_path`
     with mlflow.start_run() as run:
-        mlflow.log_artifacts(tmpdir, artifact_path="artifact_path")
+        mlflow.log_artifacts(tmpdir, artifact_path="folder")
 
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
-    assert artifacts == ["artifact_path"]
-    artifacts = [a.path for a in client.list_artifacts(run.info.run_id, "artifact_path")]
-    assert artifacts == ["artifact_path/a.txt", "artifact_path/subdir"]
-    artifacts = [a.path for a in client.list_artifacts(run.info.run_id, "artifact_path/subdir")]
-    assert artifacts == ["artifact_path/subdir/b.txt"]
+    assert artifacts == ["folder"]
+    artifacts = [a.path for a in client.list_artifacts(run.info.run_id, "folder")]
+    assert artifacts == ["folder/a.txt", "folder/dir"]
+    artifacts = [a.path for a in client.list_artifacts(run.info.run_id, "folder/dir")]
+    assert artifacts == ["folder/dir/b.txt"]
 
 
 def test_list_artifacts(artifacts_server, tmpdir):
     url = artifacts_server.url
     mlflow.set_tracking_uri(url)
 
-    tmp_path1 = tmpdir.join("a.txt")
-    tmp_path1.write("0")
-    tmp_path2 = tmpdir.join("b.txt")
-    tmp_path2.write("1")
+    tmp_path_a = tmpdir.join("a.txt")
+    tmp_path_a.write("0")
+    tmp_path_b = tmpdir.join("b.txt")
+    tmp_path_b.write("1")
     client = mlflow.tracking.MlflowClient()
     with mlflow.start_run() as run:
         assert client.list_artifacts(run.info.run_id) == []
-        mlflow.log_artifact(tmp_path1)
-        mlflow.log_artifact(tmp_path2, "subdir")
+        mlflow.log_artifact(tmp_path_a)
+        mlflow.log_artifact(tmp_path_b, "dir")
 
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
-    assert artifacts == ["a.txt", "subdir"]
-    artifacts = [a.path for a in client.list_artifacts(run.info.run_id, "subdir")]
-    assert artifacts == ["subdir/b.txt"]
+    assert artifacts == ["a.txt", "dir"]
+    artifacts = [a.path for a in client.list_artifacts(run.info.run_id, "dir")]
+    assert artifacts == ["dir/b.txt"]
 
 
 def test_download_artifacts(artifacts_server, tmpdir):
     url = artifacts_server.url
     mlflow.set_tracking_uri(url)
 
-    tmp_path1 = tmpdir.join("a.txt")
-    tmp_path1.write("0")
-    tmp_path2 = tmpdir.join("b.txt")
-    tmp_path2.write("1")
+    tmp_path_a = tmpdir.join("a.txt")
+    tmp_path_a.write("0")
+    tmp_path_b = tmpdir.join("b.txt")
+    tmp_path_b.write("1")
     with mlflow.start_run() as run:
-        mlflow.log_artifact(tmp_path1)
-        mlflow.log_artifact(tmp_path2, "subdir")
+        mlflow.log_artifact(tmp_path_a)
+        mlflow.log_artifact(tmp_path_b, "dir")
 
     client = mlflow.tracking.MlflowClient()
-    dest_path = client.download_artifacts(run.info.run_id, "a.txt")
-    assert read_file(dest_path) == "0"
-    dest_path = client.download_artifacts(run.info.run_id, "subdir")
+    dest_path = client.download_artifacts(run.info.run_id, "")
+    assert os.listdir(dest_path) == ["a.txt", "dir"]
+    assert read_file(os.path.join(dest_path, "a.txt")) == "0"
+    dest_path = client.download_artifacts(run.info.run_id, "dir")
     assert os.listdir(dest_path) == ["b.txt"]
     assert read_file(os.path.join(dest_path, "b.txt")) == "1"
