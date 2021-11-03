@@ -825,6 +825,10 @@ def _delete_model_version_tag():
 
 @catch_mlflow_exception
 def _download_artifact(artifact_path):
+    """
+    A request handler for `GET /mlflow-artifacts/artifacts/<artifact_path>` to download an artifact
+    from `artifact_path` (a relative path from the root artifact directory).
+    """
     basename = posixpath.basename(artifact_path)
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = os.path.join(tmp_dir, basename)
@@ -835,6 +839,10 @@ def _download_artifact(artifact_path):
 
 @catch_mlflow_exception
 def _upload_artifact(artifact_path):
+    """
+    A request handler for `PUT /mlflow-artifacts/artifacts/<artifact_path>` to upload an artifact
+    to `artifact_path` (a relative path from the root artifact directory).
+    """
     head, tail = posixpath.split(artifact_path)
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = os.path.join(tmp_dir, tail)
@@ -854,8 +862,11 @@ def _upload_artifact(artifact_path):
 
 @catch_mlflow_exception
 def _list_artifacts_mlflow_artifacts():
+    """
+    A request handler for `GET /mlflow-artifacts/artifacts?path=<value>` to list artifacts in `path`
+    (a relative path from the root artifact directory).
+    """
     request_message = _get_request_message(ListArtifactsMlflowArtifacts())
-    response_message = ListArtifacts.Response()
     path = request_message.path if request_message.HasField("path") else None
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     files = []
@@ -863,6 +874,7 @@ def _list_artifacts_mlflow_artifacts():
         basename = posixpath.basename(file_info.path)
         new_file_info = FileInfo(basename, file_info.is_dir, file_info.file_size)
         files.append(new_file_info.to_proto())
+    response_message = ListArtifacts.Response()
     response_message.files.extend(files)
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
