@@ -1,7 +1,8 @@
 """
 The :py:mod:`mlflow.models.grpc` module provides an API to generate the model gRPC grammar.
 
-The grammar is generated using the Model Signature. See :py:class:`mlflow.models.signature.ModelSignature`
+The grammar is generated using the Model Signature.
+See :py:class:`mlflow.models.signature.ModelSignature`
 for more details on the signature.
 """
 from typing import List, Tuple
@@ -21,7 +22,7 @@ package {{ package }};
 {% if importTimestamp %}
 import "google/protobuf/timestamp.proto";
 {% endif %}
-        
+
 message ModelInput {
     {% for input in inputs %}
         {{ input[0] }} {{ input[1] }} = {{loop.index}};
@@ -64,7 +65,8 @@ def generate_grammar(signature: ModelSignature, package: str = _DEFAULT_PACKAGE)
     - the signature contains columns without name
 
     :param signature: the Model Signature.
-    :param package: an optional string to override the default package `org.mlflow.models.grpc` in the gRPC grammar.
+    :param package: an optional string to override the default package
+    `org.mlflow.models.grpc` in the gRPC grammar.
 
     :return: The gRPC grammar as string.
     """
@@ -73,8 +75,8 @@ def generate_grammar(signature: ModelSignature, package: str = _DEFAULT_PACKAGE)
             "Output signature is not present for signature {}".format(signature.to_dict())
         )
 
-    input_signature: List[Tuple[str, str]] = _map_to_proto_types(signature.inputs)
-    output_signature: List[Tuple[str, str]] = _map_to_proto_types(signature.outputs)
+    input_signature = _map_to_proto_types(signature.inputs)
+    output_signature = _map_to_proto_types(signature.outputs)
 
     has_datetime = any(
         map(
@@ -108,21 +110,21 @@ def _map_to_proto_types(schema: Schema) -> List[Tuple[str, str]]:
     return list(map(_map_col_spec, schema.inputs))
 
 
-def _map_col_spec(input: ColSpec) -> Tuple[str, str]:
+def _map_col_spec(col: ColSpec) -> Tuple[str, str]:
     """
     Transforms a :py:class:`mlflow.types.ColSpec` into a tuple (protobuf-type, name).
 
     This method will raise an exception if either the column type can't be mapped to one
     of :py:class:`mlflow.types.DataType` or the column name is not present.
 
-    :param input: the column to transform.
+    :param col: the column to transform.
 
     :return: A tuple containing the protobuf type and the name.
     """
-    if input.type.name not in _NUMPY_TO_PROTO_TYPE:
-        raise MlflowException("Invalid type for ColSpec {}".format(input.to_dict()))
+    if col.type.name not in _NUMPY_TO_PROTO_TYPE:
+        raise MlflowException("Invalid type for ColSpec {}".format(col.to_dict()))
 
-    if input.name is None:
-        raise MlflowException("Missing name for ColSpec {}".format(input.to_dict()))
+    if col.name is None:
+        raise MlflowException("Missing name for ColSpec {}".format(col.to_dict()))
 
-    return _NUMPY_TO_PROTO_TYPE.get(input.type.name), input.name
+    return _NUMPY_TO_PROTO_TYPE.get(col.type.name), col.name

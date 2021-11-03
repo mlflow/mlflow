@@ -40,19 +40,19 @@ def test_grpc_grammar_generation(sample_schema):
 
     expected_grammar = """
         syntax = "proto3";
-        
+
         package org.mlflow.models.grpc;
-        
+
         message ModelInput {
                 bool c1 = 1;
                 int32 c2 = 2;
         }
-        
+
         message ModelOutput {
                 bool c1 = 1;
                 int32 c2 = 2;
         }
-        
+
         service ModelService {
           rpc predict (ModelInput) returns (ModelOutput) {}
         }
@@ -69,21 +69,21 @@ def test_grpc_grammar_generation_with_datetime(sample_schema_with_datetime):
 
     expected_grammar = """
         syntax = "proto3";
-        
+
         package org.mlflow.models.grpc;
-        
+
         import "google/protobuf/timestamp.proto";
-        
+
         message ModelInput {
                 bool c1 = 1;
                 google.protobuf.Timestamp c2 = 2;
         }
-        
+
         message ModelOutput {
                 bool c1 = 1;
                 google.protobuf.Timestamp c2 = 2;
         }
-        
+
         service ModelService {
           rpc predict (ModelInput) returns (ModelOutput) {}
         }
