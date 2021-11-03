@@ -224,7 +224,9 @@ class BatchMetricsLogger:
             for i in range(0, len(self.data), MAX_METRICS_PER_BATCH)
         ]
         for metrics_slice in metrics_slices:
-            exception_safe_function(self.client.log_batch)(run_id=current_run_id, metrics=metrics_slice)
+            exception_safe_function(self.client.log_batch)(
+                run_id=current_run_id, metrics=metrics_slice
+            )
         end = time.time()
         self.total_log_batch_time += end - start
 
