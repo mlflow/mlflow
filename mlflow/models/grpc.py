@@ -39,17 +39,17 @@ service ModelService {
 }
 """
 
-_DEFAULT_PACKAGE = 'org.mlflow.models.grpc'
+_DEFAULT_PACKAGE = "org.mlflow.models.grpc"
 
 _NUMPY_TO_PROTO_TYPE = {
-    DataType.boolean.name: 'bool',
-    DataType.integer.name: 'int32',
-    DataType.long.name: 'int64',
-    DataType.float.name: 'float',
-    DataType.double.name: 'double',
-    DataType.string.name: 'string',
-    DataType.binary.name: 'bytes',
-    DataType.datetime.name: 'google.protobuf.Timestamp'
+    DataType.boolean.name: "bool",
+    DataType.integer.name: "int32",
+    DataType.long.name: "int64",
+    DataType.float.name: "float",
+    DataType.double.name: "double",
+    DataType.string.name: "string",
+    DataType.binary.name: "bytes",
+    DataType.datetime.name: "google.protobuf.Timestamp",
 }
 
 
@@ -69,17 +69,27 @@ def generate_grammar(signature: ModelSignature, package: str = _DEFAULT_PACKAGE)
     :return: The gRPC grammar as string.
     """
     if signature.outputs is None:
-        raise MlflowException('Output signature is not present for signature {}'.format(signature.to_dict()))
+        raise MlflowException(
+            "Output signature is not present for signature {}".format(signature.to_dict())
+        )
 
     input_signature: List[Tuple[str, str]] = _map_to_proto_types(signature.inputs)
     output_signature: List[Tuple[str, str]] = _map_to_proto_types(signature.outputs)
 
-    has_datetime = any(map(lambda t: t[0] == _NUMPY_TO_PROTO_TYPE[DataType.datetime.name],
-                           input_signature + output_signature))
+    has_datetime = any(
+        map(
+            lambda t: t[0] == _NUMPY_TO_PROTO_TYPE[DataType.datetime.name],
+            input_signature + output_signature,
+        )
+    )
 
     template = Template(_TEMPLATE, trim_blocks=True, lstrip_blocks=True)
-    return template.render(package=package, importTimestamp=has_datetime, inputs=input_signature,
-                           outputs=output_signature)
+    return template.render(
+        package=package,
+        importTimestamp=has_datetime,
+        inputs=input_signature,
+        outputs=output_signature,
+    )
 
 
 def _map_to_proto_types(schema: Schema) -> List[Tuple[str, str]]:
@@ -110,10 +120,9 @@ def _map_col_spec(input: ColSpec) -> Tuple[str, str]:
     :return: A tuple containing the protobuf type and the name.
     """
     if input.type.name not in _NUMPY_TO_PROTO_TYPE:
-        raise MlflowException('Invalid type for ColSpec {}'.format(input.to_dict()))
+        raise MlflowException("Invalid type for ColSpec {}".format(input.to_dict()))
 
     if input.name is None:
-        raise MlflowException('Missing name for ColSpec {}'.format(input.to_dict()))
+        raise MlflowException("Missing name for ColSpec {}".format(input.to_dict()))
 
     return _NUMPY_TO_PROTO_TYPE.get(input.type.name), input.name
-
