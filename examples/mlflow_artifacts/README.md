@@ -1,34 +1,45 @@
-This directory contains a set of files for demonstrating the mlflow artifacts service.
+This directory contains a set of files for demonstrating the MLflow Artifacts service.
 
 ## Build a wheel
 
+This example requires a wheel for `mlflow` to be stored in `dist`.
+
 ```sh
-# Use the development version of mlflow
+# Clean up existing wheels
+rm dist/*
+
+# Build a wheel for the development version of mlflow
 pip wheel --no-deps --wheel-dir dist ../..
 
-# Use mlflow on PyPI
+# Build a wheel for the latest version of mlflow on PyPI
 pip wheel --no-deps --wheel-dir dist mlflow
 ```
 
-## Run the MLflow Tracking & Artifacts services
+## Run the example
 
 ```sh
-docker-compose up
+# Build services
+docker-compose build
+
+# Launch tracking and artifacts servers
+docker-compose up -d
+
+# Run `run.py` that uploads, downloads, and list artifacts
+docker-compose run -v ${PWD}/run.py:/app/run.py client python run.py
 ```
 
-## Run artifact operations
+## Explore the logging results:
 
 ```sh
-python run_artifact_operations.py
+# Make sure both tracking and artifacts servers are running
+docker-compose ps
 ```
 
-## View the logging results:
+- MLflow UI is available at http://localhost:5000 to explore tracking results.
+- MinIO Console is available at http://localhost:9001 to explore logged artifacts. The login username and password are `user` and `password`.
 
-- MLflow UI: http://localhost:5000
-- MinIO Console: http://localhost:9001 (username: user, password: password)
-
-## Clean up the services
+## Reset tracking and artifacts servers
 
 ```
-docker-compose down --volumes
+docker-compose down --volumes --remove-orphans
 ```

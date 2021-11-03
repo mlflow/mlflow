@@ -238,12 +238,10 @@ jobs:
       working-directory: examples/mlflow_artifacts
       run: |
         set -x
-        pip wheel --no-deps --wheel-dir dist ../..
-        docker-compose up -d
+        ./rebuild.sh
+        docker-compose run -v ${PWD}/run.py:/app/run.py client python run.py
         docker-compose logs
-        python run_artifact_operations.py
-        docker-compose logs
-        docker-compose down --rmi all --volumes
+        docker-compose down --rmi all --volumes --remove-orphans
 
     - name: Run anaconda compatibility tests
       run: |
