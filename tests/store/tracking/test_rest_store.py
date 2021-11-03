@@ -309,7 +309,7 @@ class TestRestStore(object):
         with mock_http_request() as mock_http:
             run_id = "run_id"
             m = Model(artifact_path="model/path", run_id="run_id", flavors={"tf": "flavor body"})
-            result = store.record_logged_model("run_id", m)
+            store.record_logged_model("run_id", m)
             expected_message = LogModel(run_id=run_id, model_json=m.to_json())
             self._verify_requests(
                 mock_http, creds, "runs/log-model", "POST", message_to_json(expected_message)

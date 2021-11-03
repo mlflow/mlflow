@@ -198,6 +198,13 @@ def test_append_to_uri_path_handles_special_uri_characters_in_posixpaths():
     not receive special treatment. This test case verifies that `append_to_uri_path` properly joins
     POSIX paths containing these characters.
     """
+
+    def create_char_case(special_char):
+        def char_case(*case_args):
+            return tuple([item.format(c=special_char) for item in case_args])
+
+        return char_case
+
     for special_char in [
         ".",
         "-",
@@ -217,10 +224,7 @@ def test_append_to_uri_path_handles_special_uri_characters_in_posixpaths():
         "'",
         ",",
     ]:
-
-        def char_case(*case_args):
-            return tuple([item.format(c=special_char) for item in case_args])
-
+        char_case = create_char_case(special_char)
         validate_append_to_uri_path_test_cases(
             [
                 char_case("", "{c}subpath", "{c}subpath"),

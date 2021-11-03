@@ -150,7 +150,8 @@ class RestStore(AbstractStore):
 
         :param experiment_id: ID of the experiment for this run
         :param user_id: ID of the user launching this run
-        :param source_type: Enum (integer) describing the source of the run
+        :param start_time: timestamp of the initialization of the run
+        :param tags: tags to apply to this run at initialization
 
         :return: The created Run object
         """

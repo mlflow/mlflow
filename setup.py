@@ -109,6 +109,9 @@ setup(
             # Required by the mlflow.projects module, when running projects against
             # a remote Kubernetes cluster
             "kubernetes",
+            # Required to serve models through MLServer
+            "mlserver>=0.5.3",
+            "mlserver-mlflow>=0.5.3",
         ],
         "sqlserver": ["mlflow-dbstore"],
         "aliyun-oss": ["aliyunstoreplugin"],
