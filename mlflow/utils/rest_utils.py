@@ -9,7 +9,7 @@ from urllib3.util import Retry
 
 from mlflow import __version__
 from mlflow.protos import databricks_pb2
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ENDPOINT_NOT_FOUND, ErrorCode
 from mlflow.utils.proto_json_utils import parse_dict
 from mlflow.utils.string_utils import strip_suffix
 from mlflow.exceptions import MlflowException, RestException
@@ -166,6 +166,7 @@ def verify_rest_response(response, endpoint):
     """Verify the return code and format, raise exception if the request was not successful."""
     if response.status_code != 200:
         if _can_parse_as_json(response.text):
+            print(response.text)
             raise RestException(json.loads(response.text))
         else:
             base_msg = "API request to endpoint %s failed with error code " "%s != 200" % (
@@ -202,6 +203,25 @@ def extract_api_info_for_service(service, path_prefix):
     return res
 
 
+def extract_all_api_info_for_service(service, path_prefix):
+    """ Return a dictionary mapping each API method to a list of tuples [(path, HTTP method)]"""
+    service_methods = service.DESCRIPTOR.methods
+    res = {}
+    for service_method in service_methods:
+        seen = set()
+        endpoints = service_method.GetOptions().Extensions[databricks_pb2.rpc].endpoints
+        req_class = service().GetRequestClass(service_method)
+        api_info = []
+        # add the first occurrence of each method
+        for e in endpoints:
+            class_method_pair = (req_class, e.method)
+            if class_method_pair not in seen:
+                api_info.append((_get_path(path_prefix, e.path), e.method))
+                seen.add(class_method_pair)
+        res[req_class] = api_info
+    return res
+
+
 def call_endpoint(host_creds, endpoint, method, json_body, response_proto):
     # Convert json string to json dictionary, to pass to requests
     if json_body:
@@ -218,6 +238,15 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto):
     js_dict = json.loads(response.text)
     parse_dict(js_dict=js_dict, message=response_proto)
     return response_proto
+
+
+def call_endpoints(host_creds, endpoints, json_body, response_proto):
+    for i, (endpoint, method) in enumerate(endpoints):
+        try:
+            return call_endpoint(host_creds, endpoint, method, json_body, response_proto)
+        except RestException as e:
+            if e.error_code != ErrorCode.Name(ENDPOINT_NOT_FOUND) or i == len(endpoints) - 1:
+                raise e
 
 
 @contextmanager
