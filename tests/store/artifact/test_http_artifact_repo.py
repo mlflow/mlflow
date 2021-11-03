@@ -162,7 +162,7 @@ def test_download_artifacts(http_artifact_repo, tmpdir):
         MockResponse(
             {
                 "files": [
-                    {"path": "a.txt", "is_dir": False, "file_size": 5},
+                    {"path": "a.txt", "is_dir": False, "file_size": 6},
                     {"path": "dir", "is_dir": True},
                 ]
             },
@@ -172,18 +172,18 @@ def test_download_artifacts(http_artifact_repo, tmpdir):
         MockResponse(
             {
                 "files": [
-                    {"path": "a.txt", "is_dir": False, "file_size": 5},
+                    {"path": "a.txt", "is_dir": False, "file_size": 6},
                     {"path": "dir", "is_dir": True},
                 ]
             },
             200,
         ),
         # Response for `_download_file("a.txt")`
-        MockStreamResponse("data1", 200),
+        MockStreamResponse("data_a", 200),
         # Response for `list_experiments("dir")`
         MockResponse({"files": [{"path": "b.txt", "is_dir": False, "file_size": 1}]}, 200),
         # Response for `_download_file("dir/b.txt")`
-        MockStreamResponse("data2", 200),
+        MockStreamResponse("data_b", 200),
     ]
     with mock.patch("requests.get", side_effect=side_effect) as mock_get:
         http_artifact_repo.download_artifacts("", tmpdir)
@@ -192,5 +192,5 @@ def test_download_artifacts(http_artifact_repo, tmpdir):
             "a.txt",
             os.path.join("dir", "b.txt"),
         ]
-        assert read_file(paths[0]) == "data1"
-        assert read_file(paths[1]) == "data2"
+        assert read_file(paths[0]) == "data_a"
+        assert read_file(paths[1]) == "data_b"

@@ -74,7 +74,7 @@ def test_mlflow_artifacts_rest_apis(tmpdir):
     url, _ = _launch_server(backend_store_uri, artifacts_destination)
     api_url = f"{url}/api/2.0/mlflow-artifacts/artifacts"
 
-    # Upload artifact
+    # Upload artifacts
     file_a = tmpdir.join("a.txt")
     file_a.write("0")
     upload_file(f"{api_url}/a.txt", file_a)
@@ -87,7 +87,7 @@ def test_mlflow_artifacts_rest_apis(tmpdir):
     assert os.path.join(artifacts_destination, "dir", "b.txt")
     assert read_file(os.path.join(artifacts_destination, "dir", "b.txt")) == "1"
 
-    # Download artifact
+    # Download artifacts
     local_dir = tmpdir.mkdir("folder")
     local_path_a = local_dir.join("a.txt")
     download_file(f"{api_url}/a.txt", local_path_a)
@@ -117,7 +117,6 @@ def test_log_artifact(artifacts_server, tmpdir):
     tmp_path = tmpdir.join("a.txt")
     tmp_path.write("0")
 
-    # Withtout `artifact_path`
     with mlflow.start_run() as run:
         mlflow.log_artifact(tmp_path)
 
@@ -129,14 +128,13 @@ def test_log_artifact(artifacts_server, tmpdir):
     assert os.path.exists(dest_path)
     assert read_file(dest_path) == "0"
 
-    # With `artifact_path`
     with mlflow.start_run() as run:
-        mlflow.log_artifact(tmp_path, artifact_path="folder")
+        mlflow.log_artifact(tmp_path, artifact_path="artifact_path")
 
     run_artifact_root = os.path.join(
         artifacts_destination, experiment_id, run.info.run_id, "artifacts"
     )
-    dest_path = os.path.join(run_artifact_root, "folder", tmp_path.basename)
+    dest_path = os.path.join(run_artifact_root, "artifact_path", tmp_path.basename)
     assert os.path.exists(dest_path)
     assert read_file(dest_path) == "0"
 
@@ -148,26 +146,25 @@ def test_log_artifacts(artifacts_server, tmpdir):
     tmpdir.join("a.txt").write("0")
     tmpdir.mkdir("dir").join("b.txt").write("1")
 
-    # Without `artifact_path`
     with mlflow.start_run() as run:
         mlflow.log_artifacts(tmpdir)
 
     client = mlflow.tracking.MlflowClient()
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
-    assert artifacts == ["a.txt", "dir"]
+    assert sorted(artifacts) == ["a.txt", "dir"]
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id, "dir")]
     assert artifacts == ["dir/b.txt"]
 
     # With `artifact_path`
     with mlflow.start_run() as run:
-        mlflow.log_artifacts(tmpdir, artifact_path="folder")
+        mlflow.log_artifacts(tmpdir, artifact_path="artifact_path")
 
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
-    assert artifacts == ["folder"]
-    artifacts = [a.path for a in client.list_artifacts(run.info.run_id, "folder")]
-    assert artifacts == ["folder/a.txt", "folder/dir"]
-    artifacts = [a.path for a in client.list_artifacts(run.info.run_id, "folder/dir")]
-    assert artifacts == ["folder/dir/b.txt"]
+    assert artifacts == ["artifact_path"]
+    artifacts = [a.path for a in client.list_artifacts(run.info.run_id, "artifact_path")]
+    assert sorted(artifacts) == ["artifact_path/a.txt", "artifact_path/dir"]
+    artifacts = [a.path for a in client.list_artifacts(run.info.run_id, "artifact_path/dir")]
+    assert artifacts == ["artifact_path/dir/b.txt"]
 
 
 def test_list_artifacts(artifacts_server, tmpdir):
@@ -185,7 +182,7 @@ def test_list_artifacts(artifacts_server, tmpdir):
         mlflow.log_artifact(tmp_path_b, "dir")
 
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
-    assert artifacts == ["a.txt", "dir"]
+    assert sorted(artifacts) == ["a.txt", "dir"]
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id, "dir")]
     assert artifacts == ["dir/b.txt"]
 
@@ -204,7 +201,7 @@ def test_download_artifacts(artifacts_server, tmpdir):
 
     client = mlflow.tracking.MlflowClient()
     dest_path = client.download_artifacts(run.info.run_id, "")
-    assert os.listdir(dest_path) == ["a.txt", "dir"]
+    assert sorted(os.listdir(dest_path)) == ["a.txt", "dir"]
     assert read_file(os.path.join(dest_path, "a.txt")) == "0"
     dest_path = client.download_artifacts(run.info.run_id, "dir")
     assert os.listdir(dest_path) == ["b.txt"]
