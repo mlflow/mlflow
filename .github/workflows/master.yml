@@ -408,12 +408,26 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: 3.7
-      - name: Install dependecies
+      - name: Install python dependencies
         run: |
           pip install -r dev-requirements.txt
           pip install -r dev/small-requirements.txt
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install -e .[extras]
-      - name: Run tests
+      - name: Run python tests
         run: |
           pytest --ignore-flavors --ignore=tests/projects tests
+      - name: Set up Node
+        uses: actions/setup-node@v1
+        with:
+          node-version: 10.x
+      - name: Install JS dependencies
+        working-directory: mlflow/server/js
+        shell: pwsh
+        run: |
+          npm i
+      - name: Run JS tests
+        working-directory: mlflow/server/js
+        shell: pwsh
+        run: |
+          npm run test
