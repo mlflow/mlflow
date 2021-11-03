@@ -261,7 +261,7 @@ def _load_pyfunc(path):
     return _LGBModelWrapper(_load_model(path))
 
 
-def load_model(model_uri):
+def load_model(model_uri, artifact_path=None):
     """
     Load a LightGBM model from a local file or a run.
 
@@ -275,10 +275,13 @@ def load_model(model_uri):
                       For more information about supported URI schemes, see
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
                       artifact-locations>`_.
+    :param artifact_path: The local filesystem path to which to download the model artifact.
+                          This directory must already exist. If unspecified, a local output
+                          path will be created.
 
     :return: A LightGBM model (an instance of `lightgbm.Booster`_).
     """
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=artifact_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     lgb_model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model.lgb"))
     return _load_model(path=lgb_model_file_path)

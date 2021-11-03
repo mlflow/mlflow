@@ -509,7 +509,7 @@ def _load_pyfunc(path):
         raise MlflowException("Unsupported backend '%s'" % K._BACKEND)
 
 
-def load_model(model_uri, **kwargs):
+def load_model(model_uri, artifact_path=None, **kwargs):
     """
     Load a Keras model from a local file or a run.
 
@@ -527,6 +527,9 @@ def load_model(model_uri, **kwargs):
                       For more information about supported URI schemes, see
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
                       artifact-locations>`_.
+    :param artifact_path: The local filesystem path to which to download the model artifact.
+                          This directory must already exist. If unspecified, a local output
+                          path will be created.
 
     :return: A Keras model instance.
 
@@ -537,7 +540,7 @@ def load_model(model_uri, **kwargs):
         keras_model = mlflow.keras.load_model("runs:/96771d893a5e46159d9f3b49bf9013e2" + "/models")
         predictions = keras_model.predict(x_test)
     """
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=artifact_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     keras_module = importlib.import_module(flavor_conf.get("keras_module", "keras"))
     keras_model_artifacts_path = os.path.join(
