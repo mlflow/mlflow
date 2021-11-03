@@ -23,7 +23,7 @@ def _launch_server(backend_store_uri, artifacts_destination):
         "--default-artifact-root",
         f"{url}/api/2.0/mlflow-artifacts/artifacts",
         "--artifacts-destination",
-        artifacts_destination,
+        f"file://{artifacts_destination}",
         "--host",
         LOCALHOST,
         "--port",
