@@ -105,7 +105,7 @@ class _Example(object):
                     "(pandas.DataFrame, numpy.ndarray, dict, list), "
                     "got {}".format(type(input_example))
                 )
-            result = input_ex.to_dict(orient="split")
+            result = input_ex.where(input_ex.notnull(), None).to_dict(orient="split")
             # Do not include row index
             del result["index"]
             if all(input_ex.columns == range(len(input_ex.columns))):
