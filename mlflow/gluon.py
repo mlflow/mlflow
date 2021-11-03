@@ -73,7 +73,9 @@ def load_model(model_uri, ctx, artifact_path=None):
     from mxnet import gluon
     from mxnet import sym
 
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=artifact_path)
+    local_model_path = _download_artifact_from_uri(
+        artifact_uri=model_uri, output_path=artifact_path
+    )
 
     model_arch_path = os.path.join(local_model_path, "data", _MODEL_SAVE_PATH) + "-symbol.json"
     model_params_path = os.path.join(local_model_path, "data", _MODEL_SAVE_PATH) + "-0000.params"

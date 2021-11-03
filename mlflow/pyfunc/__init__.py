@@ -629,10 +629,8 @@ class PyFuncModel(object):
 
 
 def load_model(
-        model_uri: str,
-        suppress_warnings: bool = True,
-        artifact_path: str = None
-    ) -> PyFuncModel:
+    model_uri: str, suppress_warnings: bool = True, artifact_path: str = None
+) -> PyFuncModel:
     """
     Load a model stored in Python function format.
 

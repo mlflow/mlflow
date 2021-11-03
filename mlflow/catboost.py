@@ -293,7 +293,9 @@ def load_model(model_uri, artifact_path=None):
     :return: A CatBoost model (an instance of `CatBoost`_, `CatBoostClassifier`_,
              or `CatBoostRegressor`_)
     """
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=artifact_path)
+    local_model_path = _download_artifact_from_uri(
+        artifact_uri=model_uri, output_path=artifact_path
+    )
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     cb_model_file_path = os.path.join(
         local_model_path, flavor_conf.get(_MODEL_BINARY_KEY, _MODEL_BINARY_FILE_NAME)

@@ -693,7 +693,9 @@ def load_model(model_uri, artifact_path=None, **kwargs):
     """
     import torch
 
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=artifact_path)
+    local_model_path = _download_artifact_from_uri(
+        artifact_uri=model_uri, output_path=artifact_path
+    )
     try:
         pyfunc_conf = _get_flavor_configuration(
             model_path=local_model_path, flavor_name=pyfunc.FLAVOR_NAME

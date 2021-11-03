@@ -292,7 +292,9 @@ def load_model(model_uri, artifact_path=None):
 
     :return: A spaCy loaded model
     """
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=artifact_path)
+    local_model_path = _download_artifact_from_uri(
+        artifact_uri=model_uri, output_path=artifact_path
+    )
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     # Flavor configurations for models saved in MLflow version <= 0.8.0 may not contain a
     # `data` key; in this case, we assume the model artifact path to be `model.spacy`

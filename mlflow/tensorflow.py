@@ -365,7 +365,9 @@ def load_model(model_uri, artifact_path=None):
             output_tensors = [tf_graph.get_tensor_by_name(output_signature.name)
                                 for _, output_signature in signature_definition.outputs.items()]
     """
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=artifact_path)
+    local_model_path = _download_artifact_from_uri(
+        artifact_uri=model_uri, output_path=artifact_path
+    )
     (
         tf_saved_model_dir,
         tf_meta_graph_tags,
