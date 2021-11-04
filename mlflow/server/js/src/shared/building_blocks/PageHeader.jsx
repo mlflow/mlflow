@@ -11,24 +11,13 @@ import { PreviewIcon } from './PreviewIcon';
 import { Spacer } from './Spacer';
 
 // Note: this button has a different size from normal AntD buttons.
-export class HeaderButton extends React.Component {
-  static propTypes = {
-    dataTestId: PropTypes.string,
-    onClick: PropTypes.func.isRequired,
-    children: PropTypes.node,
-  };
-
-  render() {
-    const { dataTestId, onClick, children } = this.props;
-    return (
-      <>
-        <Button dataTestId={dataTestId} size='middle' onClick={onClick}>
-          {children}
-        </Button>
-      </>
-    );
-  }
-}
+export function HeaderButton({ dataTestId, onClick, children, ...props }){
+  return (
+    <Button dataTestId={dataTestId} size='middle' onClick={onClick} {...props} >
+      {children}
+    </Button>
+  )
+};
 
 export function OverflowMenu({ menu }) {
   const overflowMenu = (
