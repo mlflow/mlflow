@@ -43,7 +43,7 @@ import { ExperimentTrackingDocUrl, onboarding } from '../../common/constants';
 import filterIcon from '../../common/static/filter-icon.svg';
 import { StyledDropdown } from '../../common/components/StyledDropdown';
 import { ExperimentNoteSection, ArtifactLocation } from './ExperimentViewHelpers';
-import { OverflowMenu, PageHeader } from '../../shared/building_blocks/PageHeader';
+import { OverflowMenu, PageHeader, HeaderButton } from '../../shared/building_blocks/PageHeader';
 import { FlexBar } from '../../shared/building_blocks/FlexBar';
 import { Button } from '../../shared/building_blocks/Button';
 import { Spacer } from '../../shared/building_blocks/Spacer';
@@ -557,6 +557,19 @@ export class ExperimentView extends Component {
           feedbackForm={form}
         >
           <OverflowMenu menu={this.getExperimentOverflowItems()} />
+          <Tooltip
+            title={this.props.intl.formatMessage({
+              defaultMessage: 'Share experiment view',
+              description: 'Label for the share experiment view button',
+            })}
+          >
+            <HeaderButton dataTestId='share-button' onClick={this.onShare}>
+              <FormattedMessage
+                defaultMessage='Share'
+                description='String for the share button to share experiment view'
+              />
+            </HeaderButton>
+          </Tooltip>
         </PageHeader>
         {this.renderOnboardingContent()}
         <Descriptions className='metadata-list'>
@@ -786,21 +799,6 @@ export class ExperimentView extends Component {
                         </Option>
                       ))}
                     </Select>
-                  </Tooltip>
-                  <Tooltip
-                    title={this.props.intl.formatMessage({
-                      defaultMessage: 'Share experiment view',
-                      description: 'Label for the share experiment view button',
-                    })}
-                  >
-                    <Button dataTestId='share-button' onClick={this.onShare}>
-                      <div style={{ display: 'flex', alignItems: 'center' }}>
-                        <FormattedMessage
-                          defaultMessage='Share'
-                          description='String for the share button to share experiment view'
-                        />
-                      </div>
-                    </Button>
                   </Tooltip>
                 </Spacer>
               }

@@ -11,7 +11,24 @@ import { PreviewIcon } from './PreviewIcon';
 import { Spacer } from './Spacer';
 
 // Note: this button has a different size from normal AntD buttons.
-export { Button as HeaderButton };
+export class HeaderButton extends React.Component {
+  static propTypes = {
+    dataTestId: PropTypes.string,
+    onClick: PropTypes.func.isRequired,
+    children: PropTypes.node,
+  };
+
+  render() {
+    const { dataTestId, onClick, children } = this.props;
+    return (
+      <>
+        <Button dataTestId={dataTestId} size='middle' onClick={onClick}>
+          {children}
+        </Button>
+      </>
+    );
+  }
+}
 
 export function OverflowMenu({ menu }) {
   const overflowMenu = (
@@ -102,7 +119,7 @@ export class PageHeader extends React.Component {
 const antButtonHeight = '32px';
 const styles = {
   titleContainer: {
-    marginBottom: 8,
+    marginBottom: 16,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -117,6 +134,11 @@ const styles = {
     flexShrink: 1,
     display: 'flex',
     alignItems: 'flex-end',
+    button: {
+      padding: '6px 12px',
+      display: 'flex', 
+      alignItems: 'center',
+    }
   },
   hr: {
     marginTop: 0, // hr margin comes from bootstrap. Must override.
