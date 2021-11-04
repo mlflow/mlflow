@@ -12,11 +12,11 @@ from tests.tracking.integration_test_utils import _await_server_up_or_die
 
 
 def is_windows():
-    return os.name == "posix"
+    return os.name == "nt"
 
 
 def _launch_server(host, port, backend_store_uri, default_artifact_root, artifacts_destination):
-    extra_cmd = ["--gunicorn-opts", "--log-level debug"] if is_windows() else []
+    extra_cmd = [] if is_windows() else ["--gunicorn-opts", "--log-level debug"]
     cmd = [
         "mlflow",
         "server",
