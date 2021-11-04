@@ -44,11 +44,13 @@ def random_int(lo=1, hi=1e10):
 
 
 def random_str(size=10):
-    """UUID4 generated strings have a high potential for collision at small sizes.
-    10 is lower bounds for this test harness utility."""
-    generated_string = uuid.uuid4().hex[:size]
-    assert len(generated_string) >= 10
-    return generated_string
+    msg = (
+        "UUID4 generated strings have a high potential for collision at small sizes."
+        "10 is set as the lower bounds for random string generation to prevent non-deterministic"
+        "test failures."
+    )
+    assert size >= 10, msg
+    return uuid.uuid4().hex[:size]
 
 
 def random_file(ext):
