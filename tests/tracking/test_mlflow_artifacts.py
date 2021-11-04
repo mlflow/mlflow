@@ -219,3 +219,22 @@ def test_download_artifacts(artifacts_server, tmpdir):
     dest_path = client.download_artifacts(run.info.run_id, "dir")
     assert os.listdir(dest_path) == ["b.txt"]
     assert read_file(os.path.join(dest_path, "b.txt")) == "1"
+
+
+def test_mlflow_artifacts_example(tmpdir):
+    # On GitHub Actions, remove generated images to save disk space
+    rmi_option = "--rmi all" if "GITHUB_ACTIONS" in os.environ else ""
+    cmd = f"""
+set -ex
+pip wheel --no-deps --wheel-dir dist ../..
+docker-compose run -v ${{PWD}}/run.py:/app/run.py client python run.py
+docker-compose logs
+docker-compose down {rmi_option} --volumes --remove-orphans
+"""
+    script_path = tmpdir.join("test.sh")
+    script_path.write(cmd)
+    subprocess.run(
+        ["bash", script_path],
+        check=True,
+        cwd=os.path.join(os.getcwd(), "examples", "mlflow_artifacts"),
+    )
