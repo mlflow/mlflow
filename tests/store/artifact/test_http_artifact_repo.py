@@ -28,7 +28,7 @@ class MockResponse:
 
 
 class MockStreamResponse(MockResponse):
-    def iter_content(self, chunk_size):
+    def iter_content(self, chunk_size):  # pylint: disable=abstract-method
         yield self.data.encode("utf-8")
 
     def __enter__(self):
@@ -49,7 +49,7 @@ class FileObjectMatcher:
 
 @pytest.fixture
 def http_artifact_repo():
-    artifact_uri = f"http://test.com/api/2.0/mlflow-artifacts/artifacts"
+    artifact_uri = "http://test.com/api/2.0/mlflow-artifacts/artifacts"
     return HttpArtifactRepository(artifact_uri)
 
 
@@ -185,7 +185,7 @@ def test_download_artifacts(http_artifact_repo, tmpdir):
         # Response for `_download_file("dir/b.txt")`
         MockStreamResponse("data_b", 200),
     ]
-    with mock.patch("requests.get", side_effect=side_effect) as mock_get:
+    with mock.patch("requests.get", side_effect=side_effect):
         http_artifact_repo.download_artifacts("", tmpdir)
         paths = [os.path.join(root, f) for root, _, files in os.walk(tmpdir) for f in files]
         assert [os.path.relpath(p, tmpdir) for p in paths] == [
