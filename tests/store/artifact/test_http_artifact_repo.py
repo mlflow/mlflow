@@ -56,14 +56,14 @@ def http_artifact_repo():
 @pytest.mark.parametrize("artifact_path", [None, "dir"])
 def test_log_artifact(http_artifact_repo, tmpdir, artifact_path):
     tmp_path = tmpdir.join("a.txt")
-    tmp_path.write("")
-    with mock.patch("requests.put", return_value=MockResponse({}, 200)) as mock_put:
+    tmp_path.write("0")
+    with mock.patch("requests.Session.put", return_value=MockResponse({}, 200)) as mock_put:
         http_artifact_repo.log_artifact(tmp_path, artifact_path)
         paths = (artifact_path,) if artifact_path else ()
         expected_url = posixpath.join(http_artifact_repo.artifact_uri, *paths, tmp_path.basename)
         mock_put.assert_called_once_with(expected_url, data=FileObjectMatcher(tmp_path, "rb"))
 
-    with mock.patch("requests.put", return_value=MockResponse({}, 400)) as mock_put:
+    with mock.patch("requests.Session.put", return_value=MockResponse({}, 400)) as mock_put:
         with pytest.raises(Exception, match="request failed"):
             http_artifact_repo.log_artifact(tmp_path, artifact_path)
 
@@ -72,10 +72,10 @@ def test_log_artifact(http_artifact_repo, tmpdir, artifact_path):
 def test_log_artifacts(http_artifact_repo, tmpdir, artifact_path):
     tmp_path_a = tmpdir.join("a.txt")
     tmp_path_b = tmpdir.mkdir("dir").join("b.txt")
-    tmp_path_a.write("")
-    tmp_path_b.write("")
+    tmp_path_a.write("0")
+    tmp_path_b.write("1")
 
-    with mock.patch("requests.put", return_value=MockResponse({}, 200)) as mock_put:
+    with mock.patch("requests.Session.put", return_value=MockResponse({}, 200)) as mock_put:
         http_artifact_repo.log_artifacts(tmpdir, artifact_path)
         paths = (artifact_path,) if artifact_path else ()
         expected_url_1 = posixpath.join(
@@ -90,18 +90,18 @@ def test_log_artifacts(http_artifact_repo, tmpdir, artifact_path):
             (expected_url_2, FileObjectMatcher(tmp_path_b, "rb")),
         ]
 
-    with mock.patch("requests.put", return_value=MockResponse({}, 400)) as mock_put:
+    with mock.patch("requests.Session.put", return_value=MockResponse({}, 400)) as mock_put:
         with pytest.raises(Exception, match="request failed"):
             http_artifact_repo.log_artifacts(tmpdir, artifact_path)
 
 
 def test_list_artifacts(http_artifact_repo):
-    with mock.patch("requests.get", return_value=MockResponse({}, 200)) as mock_get:
+    with mock.patch("requests.Session.get", return_value=MockResponse({}, 200)) as mock_get:
         assert http_artifact_repo.list_artifacts() == []
         mock_get.assert_called_once_with(http_artifact_repo.artifact_uri, params={"path": ""})
 
     with mock.patch(
-        "requests.get",
+        "requests.Session.get",
         return_value=MockResponse(
             {
                 "files": [
@@ -115,7 +115,7 @@ def test_list_artifacts(http_artifact_repo):
         assert [a.path for a in http_artifact_repo.list_artifacts()] == ["1.txt", "dir"]
 
     with mock.patch(
-        "requests.get",
+        "requests.Session.get",
         return_value=MockResponse(
             {
                 "files": [
@@ -131,7 +131,7 @@ def test_list_artifacts(http_artifact_repo):
             "path/dir",
         ]
 
-    with mock.patch("requests.get", return_value=MockResponse({}, 400)) as mock_get:
+    with mock.patch("requests.Session.get", return_value=MockResponse({}, 400)) as mock_get:
         with pytest.raises(Exception, match="request failed"):
             http_artifact_repo.list_artifacts()
 
@@ -143,7 +143,9 @@ def read_file(path):
 
 @pytest.mark.parametrize("remote_file_path", ["a.txt", "dir/b.xtx"])
 def test_download_file(http_artifact_repo, tmpdir, remote_file_path):
-    with mock.patch("requests.get", return_value=MockStreamResponse("data", 200)) as mock_get:
+    with mock.patch(
+        "requests.Session.get", return_value=MockStreamResponse("data", 200)
+    ) as mock_get:
         tmp_path = tmpdir.join(posixpath.basename(remote_file_path))
         http_artifact_repo._download_file(remote_file_path, tmp_path)
         expected_url = posixpath.join(http_artifact_repo.artifact_uri, remote_file_path)
@@ -151,7 +153,9 @@ def test_download_file(http_artifact_repo, tmpdir, remote_file_path):
         with open(tmp_path) as f:
             assert f.read() == "data"
 
-    with mock.patch("requests.get", return_value=MockStreamResponse("data", 400)) as mock_get:
+    with mock.patch(
+        "requests.Session.get", return_value=MockStreamResponse("data", 400)
+    ) as mock_get:
         with pytest.raises(Exception, match="request failed"):
             http_artifact_repo._download_file(remote_file_path, tmp_path)
 
@@ -185,7 +189,7 @@ def test_download_artifacts(http_artifact_repo, tmpdir):
         # Response for `_download_file("dir/b.txt")`
         MockStreamResponse("data_b", 200),
     ]
-    with mock.patch("requests.get", side_effect=side_effect):
+    with mock.patch("requests.Session.get", side_effect=side_effect):
         http_artifact_repo.download_artifacts("", tmpdir)
         paths = [os.path.join(root, f) for root, _, files in os.walk(tmpdir) for f in files]
         assert [os.path.relpath(p, tmpdir) for p in paths] == [
