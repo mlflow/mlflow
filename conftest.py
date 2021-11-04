@@ -97,7 +97,6 @@ def pytest_ignore_collect(path, config):
             "tests/catboost",
             "tests/statsmodels",
             "tests/spacy",
-            "tests/spark_autologging",
             "tests/fastai",
             "tests/models",
             "tests/shap",

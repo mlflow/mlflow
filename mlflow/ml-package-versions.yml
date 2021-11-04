@@ -300,7 +300,7 @@ spark:
         cat $SAGEMAKER_OUT;
         exit 1
       fi
-      pytest tests/spark --large --ignore tests/spark/test_mleap_model_export.py
+      pytest tests/spark --large --ignore tests/spark/autologging
 
   autologging:
     minimum: "3.0.0"
@@ -311,7 +311,7 @@ spark:
     allow_unreleased_max_version: True
     requirements: ["scikit-learn"]
     run: |
-      find tests/spark_autologging/ml -name 'test*.py' | xargs -L 1 pytest --large
+      find tests/spark/autologging/ml -name 'test*.py' | xargs -L 1 pytest --large
 
       # TODO: Fix spark datasource autologging and test it against non-preview versions of pyspark
       if [ "$(pip show pyspark | grep Version | cut -d' ' -f2)" = "3.0.0" ]; then
@@ -320,7 +320,7 @@ spark:
         echo -e "${YELLOW}WARNING: Spark datasource autologging currently only works for Spark 3.0.0-preview.${NO_COLOR}"
         pip uninstall -y pyspark
         ./dev/setup-spark-datasource-autologging.sh
-        find tests/spark_autologging/datasource -name 'test*.py' | xargs -L 1 pytest --large
+        find tests/spark/autologging/datasource -name 'test*.py' | xargs -L 1 pytest --large
       fi
 
 mleap:
