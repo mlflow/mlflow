@@ -44,8 +44,8 @@ def random_int(lo=1, hi=1e10):
     return random.randint(lo, hi)
 
 
-def random_str(size=10, chars=string.ascii_uppercase + string.digits):
-    return "".join(random.choice(chars) for _ in range(size))
+def random_str(size=10):
+    return uuid.uuid4().hex[:size]
 
 
 def random_file(ext):
