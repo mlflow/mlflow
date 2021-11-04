@@ -85,7 +85,7 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
                 "Failed to parse input from JSON. Ensure that input is a valid JSON"
                 " formatted string."
             ),
-            error_code=MALFORMED_REQUEST,
+            error_code=BAD_REQUEST,
         )
 
     if isinstance(decoded_input, list):
