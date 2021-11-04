@@ -10,14 +10,21 @@ from mlflow.utils.file_utils import relative_path_to_artifact_path
 class HttpArtifactRepository(ArtifactRepository):
     """Stores artifacts in a remote artifact storage using HTTP requests"""
 
+    def __init__(self, artifact_uri):
+        super().__init__(artifact_uri)
+        self._session = requests.Session()
+
+    def __del__(self):
+        self._session.close()
+
     def log_artifact(self, local_file, artifact_path=None):
         verify_artifact_path(artifact_path)
 
         file_name = os.path.basename(local_file)
         paths = (artifact_path, file_name) if artifact_path else (file_name,)
+        url = posixpath.join(self.artifact_uri, *paths)
         with open(local_file, "rb") as f:
-            url = posixpath.join(self.artifact_uri, *paths)
-            resp = requests.put(url, data=f)
+            resp = self._session.put(url, data=f)
             resp.raise_for_status()
 
     def log_artifacts(self, local_dir, artifact_path=None):
@@ -40,7 +47,7 @@ class HttpArtifactRepository(ArtifactRepository):
         url = head + sep
         root = tail.lstrip("/")
         params = {"path": posixpath.join(root, path) if path else root}
-        resp = requests.get(url, params=params)
+        resp = self._session.get(url, params=params)
         resp.raise_for_status()
         file_infos = []
         for f in resp.json().get("files", []):
@@ -55,7 +62,7 @@ class HttpArtifactRepository(ArtifactRepository):
 
     def _download_file(self, remote_file_path, local_path):
         url = posixpath.join(self.artifact_uri, remote_file_path)
-        with requests.get(url, stream=True) as resp:
+        with self._session.get(url, stream=True) as resp:
             resp.raise_for_status()
             with open(local_path, "wb") as f:
                 chunk_size = 1024 * 1024  # 1 MB
