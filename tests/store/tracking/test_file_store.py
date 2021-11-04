@@ -94,7 +94,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 os.makedirs(params_folder)
                 params = {}
                 for _ in range(5):
-                    param_name = random_str(random_int(4, 12))
+                    param_name = random_str(random_int(10, 12))
                     param_value = random_str(random_int(10, 15))
                     param_file = os.path.join(params_folder, param_name)
                     with open(param_file, "w") as f:
@@ -106,7 +106,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 os.makedirs(metrics_folder)
                 metrics = {}
                 for _ in range(3):
-                    metric_name = random_str(random_int(6, 10))
+                    metric_name = random_str(random_int(10, 12))
                     timestamp = int(time.time())
                     metric_file = os.path.join(metrics_folder, metric_name)
                     values = []
@@ -205,7 +205,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs = FileStore(self.test_root)
         fs.list_experiments = mock.Mock(return_value=[])
         fs._create_experiment_with_id = mock.Mock()
-        fs.create_experiment(random_str(1))
+        fs.create_experiment(random_str())
         fs._create_experiment_with_id.assert_called_once()
         experiment_id = fs._create_experiment_with_id.call_args[0][1]
         self.assertEqual(experiment_id, FileStore.DEFAULT_EXPERIMENT_ID)
