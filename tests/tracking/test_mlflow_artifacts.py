@@ -234,7 +234,7 @@ docker-compose down {rmi_option} --volumes --remove-orphans
     script_path = tmpdir.join("test.sh")
     script_path.write(cmd)
     subprocess.run(
-        ["bash", script_path],
+        ["bash", script_path.strpath],
         check=True,
         cwd=os.path.join(os.getcwd(), "examples", "mlflow_artifacts"),
     )
