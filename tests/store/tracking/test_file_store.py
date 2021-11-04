@@ -83,7 +83,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                     "start_time": random_int(1, 10),
                     "end_time": random_int(20, 30),
                     "tags": [],
-                    "artifact_uri": "%s/%s" % (run_folder, FileStore.ARTIFACTS_FOLDER_NAME),
+                    "artifact_uri": os.path.join(run_folder, FileStore.ARTIFACTS_FOLDER_NAME),
                 }
                 write_yaml(run_folder, FileStore.META_DATA_FILE_NAME, run_info)
                 self.run_data[run_id] = run_info
