@@ -272,10 +272,9 @@ jobs:
     - name: Run lint
       run: |
         npm run lint
-    - name: Run extract-i18n
+    - name: Run extract-i18n lint
       run: |
-        npm run extract-i18n
-        git diff --exit-code
+        node scripts/extract-i18n.js --lint
     - name: Run tests
       run: |
         npm run test
