@@ -487,8 +487,8 @@ def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(xgb_model,
     """
     This test verifies that xgboost models saved in older versions of MLflow are loaded
     successfully by ``mlflow.pyfunc.load_model``. These older models specify a pyfunc ``data``
-    field referring directly to a serialized scikit-learn model file. In contrast, newer models
-    omit the ``data`` field.
+    field referring directly to a XGBoost model file. In contrast, newer models add the
+    ``model_class`` in XGBoost flavor and omit the ``data`` field in pyfunc flavor.
     """
     model = xgb_model.model
     mlflow.xgboost.save_model(xgb_model=model, path=model_path)
@@ -499,20 +499,22 @@ def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(xgb_model,
     xgboost_conf = model_conf.flavors.get(mlflow.xgboost.FLAVOR_NAME)
     assert xgboost_conf is not None
     assert "model_class" in xgboost_conf
-    assert "data" not in xgboost_conf
+    assert "data" in xgboost_conf
     assert pyfunc_conf is not None
-    assert "model_class" in pyfunc_conf
+    assert "model_class" not in pyfunc_conf
     assert pyfunc.DATA not in pyfunc_conf
 
+    # test old MLmodel conf
+    # add ``data`` field to pyfunc flavor and xgboost flavor
     pyfunc.add_to_model(model_conf, loader_module="mlflow.xgboost", data="model.xgb")
-    model_conf.add_flavor(mlflow.xgboost.FLAVOR_NAME, data="model.xgb")
+    model_conf.flavors["xgboost"] = {"xgb_version": xgb.__version__, "data": "model.xgb"}
     model_conf.save(model_conf_path)
     model_conf = Model.load(model_conf_path)
     xgboost_conf = model_conf.flavors.get(mlflow.xgboost.FLAVOR_NAME)
     assert "data" in xgboost_conf
     assert xgboost_conf["data"] == "model.xgb"
 
-    reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+    reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
     assert isinstance(reloaded_pyfunc._model_impl.xgb_model, xgb.Booster)
     reloaded_xgb = mlflow.xgboost.load_model(model_uri=model_path)
     assert isinstance(reloaded_xgb, xgb.Booster)

@@ -154,13 +154,13 @@ def save_model(
     # Save an XGBoost model
     xgb_model.save_model(model_data_path)
     xgb_model_class = _get_fully_qualified_class_name(xgb_model)
-    pyfunc.add_to_model(
-        mlflow_model,
-        loader_module="mlflow.xgboost",
+    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.xgboost", env=_CONDA_ENV_FILE_NAME)
+    mlflow_model.add_flavor(
+        FLAVOR_NAME,
+        xgb_version=xgb.__version__,
         model_class=xgb_model_class,
-        env=_CONDA_ENV_FILE_NAME,
+        data=model_data_subpath,
     )
-    mlflow_model.add_flavor(FLAVOR_NAME, xgb_version=xgb.__version__, model_class=xgb_model_class)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
@@ -269,15 +269,14 @@ def _load_model(path):
     flavor_conf = _get_flavor_configuration(model_path=model_dir, flavor_name=FLAVOR_NAME)
 
     # XGBoost Booster models saved in MLflow (<x.x.x) specify
-    # the ``data`` field within its flavor configuration.
-    # In this case, we create a Booster() instance and load model weights.
+    # the ``data`` field within its pyfunc and XGBoost flavor configurations.
     # In contrast, XGBoost models saved in new MLflow (>=x.x.x) do not
-    # specify the ``data`` field within its flavor configuration.
-    # We use ``model_class`` to specify its XGBoost model class.
-    # In this case, we first get the XGBoost model from
-    # its flavor configuration and then create an instance based on its class.
+    # specify the ``data`` field within its pyfunc flavor configuration.
+    # We also add ``model_class`` in XGBoost flavor configuration to specify
+    # its XGBoost model class. When loading models, we first get the XGBoost
+    # model from its flavor configuration and then create an instance based on its class.
     model_class = flavor_conf.get("model_class", "xgboost.core.Booster")
-    xgb_model_path = os.path.join(model_dir, flavor_conf.get("data", "model.xgb"))
+    xgb_model_path = os.path.join(model_dir, flavor_conf.get("data"))
 
     module, cls = model_class.rsplit(".", maxsplit=1)
     model = getattr(importlib.import_module(module), cls)()
