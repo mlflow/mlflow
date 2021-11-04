@@ -23,7 +23,7 @@ def _launch_server(backend_store_uri, artifacts_destination):
         "--default-artifact-root",
         f"{url}/api/2.0/mlflow-artifacts/artifacts",
         "--artifacts-destination",
-        f"file://{artifacts_destination}",
+        artifacts_destination,
         "--host",
         LOCALHOST,
         "--port",
@@ -43,9 +43,11 @@ ArtifactsServer = namedtuple(
 @pytest.fixture(scope="module")
 def artifacts_server():
     with tempfile.TemporaryDirectory() as tmpdir:
-        backend_store_uri = f"{tmpdir}/mlruns"
-        artifacts_destination = f"{tmpdir}/artifacts"
-        url, process = _launch_server(backend_store_uri, artifacts_destination)
+        backend_store_uri = os.path.join(tmpdir, "mlruns")
+        artifacts_destination = os.path.join(tmpdir, "mlartifacts")
+        url, process = _launch_server(
+            "file://" + backend_store_uri, "file://" + artifacts_destination,
+        )
         yield ArtifactsServer(backend_store_uri, artifacts_destination, url, process)
         process.kill()
 
