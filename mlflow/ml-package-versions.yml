@@ -77,7 +77,7 @@ tensorflow:
       ">= 2.6.0, < 2.7.0": ["tensorflow-estimator < 2.7.0"]
       "== dev": ["scikit-learn"]
     run: |
-      pytest tests/tensorflow_autolog/test_tensorflow2_autolog.py --large
+      pytest tests/tensorflow/test_tensorflow2_autolog.py --large
 
       if [ "$PACKAGE_VERSION" == "dev" ]; then
         pytest tests/keras/test_keras_autolog.py --large
