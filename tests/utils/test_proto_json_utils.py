@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 
 from mlflow.entities import Experiment, Metric
-from mlflow.entities.model_registry import (RegisteredModel, ModelVersion)
+from mlflow.entities.model_registry import RegisteredModel, ModelVersion
 from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import Experiment as ProtoExperiment
 from mlflow.protos.service_pb2 import Metric as ProtoMetric
@@ -61,8 +61,8 @@ def test_message_to_json():
                     run_id="123",
                     status="READY",
                     status_message=None,
-                )
-            ]
+                ),
+            ],
         ).to_proto()
     )
     assert json.loads(json_out) == {
@@ -81,7 +81,7 @@ def test_message_to_json():
                 "user_id": "u1",
                 "source": "A/B",
                 "run_id": "9245c6ce1e2d475b82af84b0d36b52f4",
-                "status": "READY"
+                "status": "READY",
             },
             {
                 "name": "mv-2",
@@ -93,9 +93,9 @@ def test_message_to_json():
                 "user_id": "u2",
                 "source": "A/C",
                 "run_id": "123",
-                "status": "READY"
-            }
-        ]
+                "status": "READY",
+            },
+        ],
     }
 
 

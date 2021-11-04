@@ -19,7 +19,11 @@ def _mark_int64_fields(proto_message):
     for field, value in proto_message.ListFields():
         if field.type == FieldDescriptor.TYPE_MESSAGE:
             ftype = partial(_mark_int64_fields)
-        elif field.type in [FieldDescriptor.TYPE_INT64, FieldDescriptor.TYPE_UINT64, FieldDescriptor.TYPE_FIXED64]:
+        elif field.type in [
+            FieldDescriptor.TYPE_INT64,
+            FieldDescriptor.TYPE_UINT64,
+            FieldDescriptor.TYPE_FIXED64,
+        ]:
             ftype = int
         else:
             # Skip all non-int64 fields.
@@ -53,18 +57,22 @@ def _merge_json_dicts(from_dict, to_dict):
             to_dict[key] = from_dict[key]
     return to_dict
 
+
 def message_to_json(message):
     """Converts a message to JSON, using snake_case for field names."""
 
     # Google's MessageToJson API converts int64/fixed64/unit64 proto fields to JSON strings.
-    json_dict_with_int64_converted_to_str = json.loads(MessageToJson(message, preserving_proto_field_name=True))
+    json_dict_with_int64_converted_to_str = json.loads(
+        MessageToJson(message, preserving_proto_field_name=True)
+    )
     # We convert this proto message into a JSON dict where only int64/fixed64/unit64 proto fields are preserved, and
     # they are treated as JSON numbers, not strings.
     json_dict_with_int64_fields_only = _mark_int64_fields(message)
     # By merging these two JSON dicts, we end up with a JSON dict where int64/fixed64/unit64 proto fields are not
     # converted to JSON strings.
-    json_dict_with_int64_as_numbers =\
-        _merge_json_dicts(json_dict_with_int64_fields_only, json_dict_with_int64_converted_to_str)
+    json_dict_with_int64_as_numbers = _merge_json_dicts(
+        json_dict_with_int64_fields_only, json_dict_with_int64_converted_to_str
+    )
     return json.dumps(json_dict_with_int64_as_numbers, indent=2)
 
 
