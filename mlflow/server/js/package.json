@@ -80,8 +80,8 @@
   "scripts": {
     "start": "react-app-rewired start",
     "build": "react-app-rewired --max_old_space_size=8192 build",
-    "test": "TZ=GMT react-app-rewired test --env=jsdom --colors",
-    "test:debug": "TZ=GMT react-app-rewired --inspect-brk test --runInBand --no-cache --env=jsdom",
+    "test": "react-app-rewired test --env=jsdom --colors",
+    "test:debug": "react-app-rewired --inspect-brk test --runInBand --no-cache --env=jsdom",
     "eject": "react-scripts eject",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
@@ -101,7 +101,8 @@
     "setupFiles": [
       "jest-canvas-mock",
       "<rootDir>/scripts/throw-on-prop-type-warning.js"
-    ]
+    ],
+    "globalSetup": "<rootDir>/scripts/global-setup.js"
   },
   "browserslist": [
     "defaults"
