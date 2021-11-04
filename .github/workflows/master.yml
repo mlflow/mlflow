@@ -14,15 +14,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# Use `bash` by default for all `run` steps in this workflow:
+# Use `bash --noprofile --norc -exo pipefail` by default for all `run` steps in this workflow:
 # https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#defaultsrun
 defaults:
   run:
-    # GitHub Actions runner executes commands specified in a run step via:
-    # $ bash --noprofile --norc -eo pipefail < commands >
-    #
-    # https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#using-a-specific-shell
-    shell: bash
+    shell: bash --noprofile --norc -exo pipefail {0}
 
 env:
   # Note miniconda is pre-installed in the virtual environments for GitHub Actions:
@@ -218,7 +214,6 @@ jobs:
         ./dev/run-large-python-tests.sh
     - name: Run database initialization tests
       run: |
-        set -x
         # Build wheel and copy it under tests/db
         python setup.py bdist_wheel
         cp -r dist tests/db
