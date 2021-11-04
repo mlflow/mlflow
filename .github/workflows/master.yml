@@ -272,6 +272,10 @@ jobs:
     - name: Run lint
       run: |
         npm run lint
+    - name: Run extract-i18n
+      run: |
+        npm run extract-i18n
+        git diff --exit-code
     - name: Run tests
       run: |
         npm run test
