@@ -91,7 +91,6 @@ def pytest_ignore_collect(path, config):
             "tests/tensorflow",
             "tests/azureml",
             "tests/onnx",
-            "tests/keras_autolog",
             "tests/tensorflow_autolog",
             "tests/gluon",
             "tests/gluon_autolog",

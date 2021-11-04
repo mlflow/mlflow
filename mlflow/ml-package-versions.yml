@@ -80,7 +80,7 @@ tensorflow:
       pytest tests/tensorflow_autolog/test_tensorflow2_autolog.py --large
 
       if [ "$PACKAGE_VERSION" == "dev" ]; then
-        pytest tests/keras_autolog/test_keras_autolog.py --large
+        pytest tests/keras/test_keras_autolog.py --large
       fi
 
 keras:
@@ -107,7 +107,7 @@ keras:
       "> 2.3.1, < 2.6.0": ["tensorflow<2.5.0"]
       ">= 2.6.0": ["tensorflow"]
     run: |
-      pytest tests/keras_autolog/test_keras_autolog.py --large
+      pytest tests/keras/test_keras_autolog.py --large
 
 xgboost:
   package_info:
