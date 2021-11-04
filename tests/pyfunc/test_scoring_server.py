@@ -350,7 +350,7 @@ def test_parse_json_input_records_oriented():
     size = 2
     data = {
         "col_m": [random_int(0, 1000) for _ in range(size)],
-        "col_z": [random_str(4) for _ in range(size)],
+        "col_z": [random_str() for _ in range(size)],
         "col_a": [random_int() for _ in range(size)],
     }
     p1 = pd.DataFrame.from_dict(data)
@@ -365,7 +365,7 @@ def test_parse_json_input_split_oriented():
     size = 200
     data = {
         "col_m": [random_int(0, 1000) for _ in range(size)],
-        "col_z": [random_str(4) for _ in range(size)],
+        "col_z": [random_str() for _ in range(size)],
         "col_a": [random_int() for _ in range(size)],
     }
     p1 = pd.DataFrame.from_dict(data)
@@ -379,7 +379,7 @@ def test_parse_json_input_split_oriented_to_numpy_array():
     data = OrderedDict(
         [
             ("col_m", [random_int(0, 1000) for _ in range(size)]),
-            ("col_z", [random_str(4) for _ in range(size)]),
+            ("col_z", [random_str() for _ in range(size)]),
             ("col_a", [random_int() for _ in range(size)]),
         ]
     )
@@ -478,7 +478,7 @@ def test_infer_and_parse_json_input():
     # input is correctly recognized as list, and parsed as pd df with orient 'records'
     data = {
         "col_m": [random_int(0, 1000) for _ in range(size)],
-        "col_z": [random_str(4) for _ in range(size)],
+        "col_z": [random_str() for _ in range(size)],
         "col_a": [random_int() for _ in range(size)],
     }
     p1 = pd.DataFrame.from_dict(data)
@@ -488,7 +488,7 @@ def test_infer_and_parse_json_input():
     # input is correctly recognized as a dict, and parsed as pd df with orient 'split'
     data = {
         "col_m": [random_int(0, 1000) for _ in range(size)],
-        "col_z": [random_str(4) for _ in range(size)],
+        "col_z": [random_str() for _ in range(size)],
         "col_a": [random_int() for _ in range(size)],
     }
     p1 = pd.DataFrame.from_dict(data)
