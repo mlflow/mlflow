@@ -318,7 +318,13 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
     " used, then this option is required.",
 )
 @click.option(
-    "--artifacts-destination", metavar="URI", default="./mlartifacts", help="<Add description>",
+    "--artifacts-destination",
+    metavar="URI",
+    default="./mlartifacts",
+    help=(
+        "The base artifact location from which to resolve artifact upload/download/list requests "
+        "(e.g. 's3://my-bucket'). Default: './mlartifacts'"
+    ),
 )
 @cli_args.HOST
 @cli_args.PORT
