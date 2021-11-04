@@ -35,6 +35,7 @@ class ShowArtifactLoggedModelView extends Component {
     error: undefined,
     inputs: undefined,
     outputs: undefined,
+    hasPyfuncFlavor: undefined,
   };
 
   componentDidMount() {
@@ -221,6 +222,15 @@ class ShowArtifactLoggedModelView extends Component {
           />
         </div>
       );
+    } else if (!this.state.hasPyfuncFlavor) {
+      return (
+        <div className='artifact-logged-model-view-no-pyfunc-flavor'>
+          <FormattedMessage
+            defaultMessage="This model doesn't have the pyfunc flavor"
+            description="Error state text when the model doesn't have the pyfunc flavor"
+          />
+        </div>
+      );
     } else {
       return (
         <div className='ShowArtifactPage'>
@@ -311,6 +321,11 @@ class ShowArtifactLoggedModelView extends Component {
           });
         } else {
           this.setState({ inputs: '', outputs: '' });
+        }
+        if (parsedJson.flavors && parsedJson.flavors.python_function) {
+          this.setState({ hasPyfuncFlavor: true });
+        } else {
+          this.setState({ hasPyfuncFlavor: false });
         }
         this.setState({ loading: false });
       })

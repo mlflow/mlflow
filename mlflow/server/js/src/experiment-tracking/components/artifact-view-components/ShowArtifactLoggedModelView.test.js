@@ -174,4 +174,22 @@ describe('ShowArtifactLoggedModelView', () => {
     expect(instance.fetchLoggedModelMetadata).toBeCalled();
     expect(instance.props.getArtifact).toBeCalled();
   });
+
+  test('should not render code snippets when model does not have pyfunc flavor', (done) => {
+    const getArtifact = jest.fn((artifactLocation) => {
+      return Promise.resolve(`
+flavors:
+  sklearn:
+    pickled_model: model.pkl
+`);
+    });
+    const props = { ...minimalProps, getArtifact };
+    wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
+    setImmediate(() => {
+      wrapper.update();
+      expect(wrapper.state().hasPyfuncFlavor).toBe(false);
+      expect(wrapper.find('.artifact-logged-model-view-no-pyfunc-flavor').length).toBe(1);
+      done();
+    });
+  });
 });
