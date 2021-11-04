@@ -161,8 +161,14 @@ def test_download_file(http_artifact_repo, tmpdir, remote_file_path):
 
 
 def test_download_artifacts(http_artifact_repo, tmpdir):
+    # This test simulates downloading artifacts in the following structure:
+    # ---------
+    # - a.txt
+    # - dir
+    #   - b.txt
+    # ---------
     side_effect = [
-        # Response for `list_experiments("")` called by `_is_directory`
+        # Response for `list_experiments("")` called by `_is_directory("")`
         MockResponse(
             {
                 "files": [
