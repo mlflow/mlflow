@@ -130,10 +130,6 @@ service ModelRegistryService {
     option(rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/preview/mlflow/registered-models/get-latest-versions"
-        since { major: 2, minor: 0 },
-      }, {
-        method: "POST",
         path: "/mlflow/registered-models/get-latest-versions"
         since { major: 2, minor: 0 },
       }, {

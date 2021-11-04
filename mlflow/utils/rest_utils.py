@@ -207,17 +207,10 @@ def extract_all_api_info_for_service(service, path_prefix):
     service_methods = service.DESCRIPTOR.methods
     res = {}
     for service_method in service_methods:
-        seen = set()
         endpoints = service_method.GetOptions().Extensions[databricks_pb2.rpc].endpoints
-        req_class = service().GetRequestClass(service_method)
-        api_info = []
-        # add the first occurrence of each method
-        for e in endpoints:
-            class_method_pair = (req_class, e.method)
-            if class_method_pair not in seen:
-                api_info.append((_get_path(path_prefix, e.path), e.method))
-                seen.add(class_method_pair)
-        res[req_class] = api_info
+        res[service().GetRequestClass(service_method)] = [
+            (_get_path(path_prefix, endpoint.path), endpoint.method) for endpoint in endpoints
+        ]
     return res
 
 
