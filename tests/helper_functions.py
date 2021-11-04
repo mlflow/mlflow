@@ -3,7 +3,6 @@ import random
 from unittest import mock
 
 import requests
-import string
 import time
 import signal
 import socket
