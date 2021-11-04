@@ -11,44 +11,57 @@ from tests.helper_functions import LOCALHOST, get_safe_port
 from tests.tracking.integration_test_utils import _await_server_up_or_die
 
 
-def _launch_server(backend_store_uri, artifacts_destination):
-    port = get_safe_port()
-    url = f"http://{LOCALHOST}:{port}"
-    extra_cmd = ["--gunicorn-opts", "--log-level debug"] if os.name == "posix" else []
+def is_windows():
+    return os.name == "posix"
+
+
+def _launch_server(host, port, backend_store_uri, default_artifact_root, artifacts_destination):
+    extra_cmd = ["--gunicorn-opts", "--log-level debug"] if is_windows() else []
     cmd = [
         "mlflow",
         "server",
+        "--host",
+        host,
+        "--port",
+        str(port),
         "--backend-store-uri",
         backend_store_uri,
         "--default-artifact-root",
-        f"{url}/api/2.0/mlflow-artifacts/artifacts",
+        default_artifact_root,
         "--artifacts-destination",
         artifacts_destination,
-        "--host",
-        LOCALHOST,
-        "--port",
-        str(port),
         *extra_cmd,
     ]
     process = subprocess.Popen(cmd)
     _await_server_up_or_die(port)
-    return url, process
+    return process
 
 
 ArtifactsServer = namedtuple(
-    "ArtifactsServer", ["backend_store_uri", "artifacts_destination", "url", "process"]
+    "ArtifactsServer",
+    ["backend_store_uri", "default_artifact_root", "artifacts_destination", "url", "process"],
 )
 
 
 @pytest.fixture(scope="module")
 def artifacts_server():
     with tempfile.TemporaryDirectory() as tmpdir:
+        port = get_safe_port()
         backend_store_uri = os.path.join(tmpdir, "mlruns")
         artifacts_destination = os.path.join(tmpdir, "mlartifacts")
-        url, process = _launch_server(
-            "file://" + backend_store_uri, "file://" + artifacts_destination,
+        url = f"http://{LOCALHOST}:{port}"
+        default_artifact_root = f"{url}/api/2.0/mlflow-artifacts/artifacts"
+        uri_prefix = "file:///" if is_windows() else ""
+        process = _launch_server(
+            LOCALHOST,
+            port,
+            uri_prefix + backend_store_uri,
+            default_artifact_root,
+            uri_prefix + artifacts_destination,
         )
-        yield ArtifactsServer(backend_store_uri, artifacts_destination, url, process)
+        yield ArtifactsServer(
+            backend_store_uri, default_artifact_root, artifacts_destination, url, process
+        )
         process.kill()
 
 
@@ -57,8 +70,8 @@ def read_file(path):
         return f.read()
 
 
-def upload_file(url, local_path):
-    with open(local_path, "rb") as f:
+def upload_file(path, url):
+    with open(path, "rb") as f:
         requests.put(url, data=f).raise_for_status()
 
 
@@ -70,44 +83,42 @@ def download_file(url, local_path):
                 f.write(chunk)
 
 
-def test_mlflow_artifacts_rest_apis(tmpdir):
-    backend_store_uri = f"{tmpdir}/mlruns"
-    artifacts_destination = f"{tmpdir}/artifacts"
-    url, _ = _launch_server(backend_store_uri, artifacts_destination)
-    api_url = f"{url}/api/2.0/mlflow-artifacts/artifacts"
+def test_mlflow_artifacts_rest_apis(artifacts_server, tmpdir):
+    default_artifact_root = artifacts_server.default_artifact_root
+    artifacts_destination = artifacts_server.artifacts_destination
 
     # Upload artifacts
     file_a = tmpdir.join("a.txt")
     file_a.write("0")
-    upload_file(f"{api_url}/a.txt", file_a)
+    upload_file(file_a, f"{default_artifact_root}/a.txt")
     assert os.path.exists(os.path.join(artifacts_destination, "a.txt"))
     assert read_file(os.path.join(artifacts_destination, "a.txt")) == "0"
 
     file_b = tmpdir.join("b.txt")
     file_b.write("1")
-    upload_file(f"{api_url}/dir/b.txt", file_b)
+    upload_file(file_b, f"{default_artifact_root}/dir/b.txt")
     assert os.path.join(artifacts_destination, "dir", "b.txt")
     assert read_file(os.path.join(artifacts_destination, "dir", "b.txt")) == "1"
 
     # Download artifacts
     local_dir = tmpdir.mkdir("folder")
     local_path_a = local_dir.join("a.txt")
-    download_file(f"{api_url}/a.txt", local_path_a)
+    download_file(f"{default_artifact_root}/a.txt", local_path_a)
     assert read_file(local_path_a) == "0"
 
     local_path_b = local_dir.join("b.txt")
-    download_file(f"{api_url}/dir/b.txt", local_path_b)
+    download_file(f"{default_artifact_root}/dir/b.txt", local_path_b)
     assert read_file(local_path_b) == "1"
 
     # List artifacts
-    resp = requests.get(api_url)
+    resp = requests.get(default_artifact_root)
     assert resp.json() == {
         "files": [
             {"path": "a.txt", "is_dir": False, "file_size": "1"},
             {"path": "dir", "is_dir": True},
         ]
     }
-    resp = requests.get(api_url, params={"path": "dir"})
+    resp = requests.get(default_artifact_root, params={"path": "dir"})
     assert resp.json() == {"files": [{"path": "b.txt", "is_dir": False, "file_size": "1"}]}
 
 
