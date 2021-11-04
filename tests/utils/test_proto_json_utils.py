@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 
 from mlflow.entities import Experiment, Metric
+from mlflow.entities.model_registry import (RegisteredModel, ModelVersion)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import Experiment as ProtoExperiment
 from mlflow.protos.service_pb2 import Metric as ProtoMetric
@@ -26,6 +27,75 @@ def test_message_to_json():
         "name": "name",
         "artifact_location": "arty",
         "lifecycle_stage": "active",
+    }
+
+    json_out = message_to_json(
+        RegisteredModel(
+            name="model_1",
+            creation_timestamp=111,
+            last_updated_timestamp=222,
+            description="Test model",
+            latest_versions=[
+                ModelVersion(
+                    name="mv-1",
+                    version="1",
+                    creation_timestamp=333,
+                    last_updated_timestamp=444,
+                    description="v 1",
+                    user_id="u1",
+                    current_stage="Production",
+                    source="A/B",
+                    run_id="9245c6ce1e2d475b82af84b0d36b52f4",
+                    status="READY",
+                    status_message=None,
+                ),
+                ModelVersion(
+                    name="mv-2",
+                    version="2",
+                    creation_timestamp=555,
+                    last_updated_timestamp=666,
+                    description="v 2",
+                    user_id="u2",
+                    current_stage="Staging",
+                    source="A/C",
+                    run_id="123",
+                    status="READY",
+                    status_message=None,
+                )
+            ]
+        ).to_proto()
+    )
+    assert json.loads(json_out) == {
+        "name": "model_1",
+        "creation_timestamp": 111,
+        "last_updated_timestamp": 222,
+        "description": "Test model",
+        "latest_versions": [
+            {
+                "name": "mv-1",
+                "version": "1",
+                "creation_timestamp": 333,
+                "last_updated_timestamp": 444,
+                "current_stage": "Production",
+                "description": "v 1",
+                "user_id": "u1",
+                "source": "A/B",
+                "run_id": "9245c6ce1e2d475b82af84b0d36b52f4",
+                "status": "READY"
+            },
+            {
+                "name": "mv-2",
+                "version": "2",
+                "creation_timestamp": 555,
+                "last_updated_timestamp": 666,
+                "current_stage": "Staging",
+                "description": "v 2",
+                "user_id": "u2",
+                "source": "A/C",
+                "run_id": "123",
+                "status": "READY"
+            }
+        ]
     }
 
 
