@@ -10,4 +10,4 @@ for name in ["COM6", "foo"]:
                 f.write("bar")
         print("succeeded")
     except Exception:
-        print("failed")
+        print(e)
