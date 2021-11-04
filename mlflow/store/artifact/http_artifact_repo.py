@@ -58,5 +58,6 @@ class HttpArtifactRepository(ArtifactRepository):
         with requests.get(url, stream=True) as resp:
             resp.raise_for_status()
             with open(local_path, "wb") as f:
-                for chunk in resp.iter_content(chunk_size=8192):
+                chunk_size = 1024 * 1024  # 1 MB
+                for chunk in resp.iter_content(chunk_size=chunk_size):
                     f.write(chunk)

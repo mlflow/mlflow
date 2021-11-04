@@ -847,7 +847,7 @@ def _upload_artifact(artifact_path):
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = os.path.join(tmp_dir, tail)
         with open(tmp_path, "wb") as f:
-            chunk_size = 8192
+            chunk_size = 1024 * 1024  # 1 MB
             while True:
                 chunk = request.stream.read(chunk_size)
                 if len(chunk) == 0:
