@@ -33,6 +33,20 @@ def pandas_df_with_all_types():
     df["string_ext"] = df["string_ext"].astype("string")
     return df
 
+@pytest.fixture
+def df_with_nan():
+    return pd.DataFrame(
+        {
+            "boolean": [True, False, True],
+            "integer": np.array([1, 2, 3], np.int32),
+            "long": np.array([1, 2, 3], np.int64),
+            "float": np.array([np.nan, 2 * math.pi, 3 * math.pi], np.float32),
+            "double": [math.pi, np.nan, 3 * math.pi],
+            "binary": [bytes([1, 2, 3]), bytes([4, 5, 6]), bytes([7, 8, 9])],
+            "string": ["a", "b", "c"],
+        }
+    )
+
 
 @pytest.fixture
 def dict_of_ndarrays():
@@ -41,6 +55,14 @@ def dict_of_ndarrays():
         "2D": np.arange(0, 12, 0.5).reshape(3, 8),
         "3D": np.arange(0, 12, 0.5).reshape(2, 3, 4),
         "4D": np.arange(0, 12, 0.5).reshape(3, 2, 2, 2),
+    }
+
+@pytest.fixture
+def dict_of_ndarrays_with_nans():
+    return {
+        "1D": np.array([0.5, np.nan, 2.0]),
+        "2D": np.array([[0.1, 0.2], [np.nan, 0.5]]),
+        "3D": np.array([[[0.1, np.nan],[0.3, 0.4]], [[np.nan, 0.6],[0.7,np.nan]]])
     }
 
 
@@ -117,3 +139,38 @@ def test_input_examples(pandas_df_with_all_types, dict_of_ndarrays):
         filename = x.info["artifact_path"]
         parsed_df = _dataframe_from_json(tmp.path(filename))
         assert example == parsed_df.to_dict(orient="records")[0]
+
+def test_input_examples_with_nan(df_with_nan, dict_of_ndarrays_with_nans):
+    # test setting example with data frame with NaN values in it
+    sig = infer_signature(df_with_nan)
+    with TempDir() as tmp:
+        example = _Example(df_with_nan)
+        example.save(tmp.path())
+        filename = example.info["artifact_path"]
+        with open(tmp.path(filename), "r") as f:
+            data = json.load(f)
+            assert set(data.keys()) == set(("columns", "data"))
+        parsed_df = _dataframe_from_json(tmp.path(filename), schema=sig.inputs)
+        # by definition of NaN, NaN == NaN is False but NaN != NaN is True
+        assert ((df_with_nan == parsed_df) | ((df_with_nan != df_with_nan) & (parsed_df != parsed_df))).all().all()
+        # the frame read without schema should match except for the binary values
+        no_schema_df = _dataframe_from_json(tmp.path(filename))
+        # the frame read without schema should match except for the binary values
+        a = parsed_df.drop(columns=["binary"])
+        b = no_schema_df.drop(columns=["binary"])
+        assert ((a == b) | ((a != a) & (b != b))).all().all()
+
+    # pass multidimensional array
+    for col in dict_of_ndarrays_with_nans:
+        input_example = dict_of_ndarrays_with_nans[col]
+        sig = infer_signature(input_example)
+        with TempDir() as tmp:
+            example = _Example(input_example)
+            example.save(tmp.path())
+            filename = example.info["artifact_path"]
+            parsed_ary = _read_tensor_input_from_json(tmp.path(filename), schema=sig.inputs)
+            assert np.array_equal(parsed_ary, input_example, equal_nan=True)
+
+            # without a schema/dtype specified, the resulting tensor will keep the None type
+            no_schema_df = _read_tensor_input_from_json(tmp.path(filename))
+            assert np.array_equal(no_schema_df, np.where(np.isnan(input_example), None, input_example))

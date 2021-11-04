@@ -61,14 +61,20 @@ class _Example(object):
                 isinstance(x, dict) and all([isinstance(ary, np.ndarray) for ary in x.values()])
             )
 
+        def _handle_tensor_nans(x: np.ndarray):
+            if np.issubdtype(x.dtype, np.number):
+                return np.where(np.isnan(x), None, x)
+            else:
+                return x
+
         def _handle_tensor_input(input_tensor: Union[np.ndarray, dict]):
             if isinstance(input_tensor, dict):
                 result = {}
                 for name in input_tensor.keys():
-                    result[name] = input_tensor[name].where(input_ex.notnull(), None).tolist()
+                    result[name] = _handle_tensor_nans(input_tensor[name]).tolist()
                 return {"inputs": result}
             else:
-                return {"inputs": input_tensor.where(input_ex.notnull(), None).tolist()}
+                return {"inputs": _handle_tensor_nans(input_tensor).tolist()}
 
         def _handle_dataframe_input(input_ex):
             if isinstance(input_ex, dict):
