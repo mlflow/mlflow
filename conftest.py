@@ -92,7 +92,6 @@ def pytest_ignore_collect(path, config):
             "tests/azureml",
             "tests/onnx",
             "tests/gluon",
-            "tests/gluon_autolog",
             "tests/xgboost",
             "tests/lightgbm",
             "tests/catboost",

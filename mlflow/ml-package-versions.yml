@@ -187,7 +187,7 @@ gluon:
     maximum: "1.8.0.post0"
     unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
     run: |
-      pytest tests/gluon_autolog/test_gluon_autolog.py --large
+      pytest tests/gluon/test_gluon_autolog.py --large
 
 fastai:
   package_info:
