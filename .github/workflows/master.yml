@@ -408,6 +408,7 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: 3.7
+      - run: python create_temp_file.py
       - name: Install dependecies
         run: |
           pip install -r dev-requirements.txt
