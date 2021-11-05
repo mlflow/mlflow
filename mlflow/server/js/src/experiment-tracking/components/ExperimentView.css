@@ -373,7 +373,7 @@ span.error-message {
 }
 
 .ExperimentView .sort-select {
-    width: 300px;
+    width: auto;
 }
 
 .ExperimentView .start-time-select {
