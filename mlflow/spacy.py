@@ -11,6 +11,8 @@ spaCy (native) format
 """
 import logging
 import os
+import sys
+from typing import IO, Any, Callable, Dict, List, Optional, Tuple
 
 import pandas as pd
 import yaml
@@ -22,6 +24,8 @@ from mlflow.models import Model, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils.annotations import experimental
+from mlflow.utils.autologging_utils import autologging_integration
 from mlflow.utils.environment import (
     _mlflow_conda_env,
     _validate_env_arguments,
@@ -295,3 +299,114 @@ def load_model(model_uri):
     # `data` key; in this case, we assume the model artifact path to be `model.spacy`
     spacy_model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model.spacy"))
     return _load_model(path=spacy_model_file_path)
+
+
+@experimental
+@autologging_integration(FLAVOR_NAME)
+def auto_logger(
+    log_models: Optional[bool] = True,
+    disable: Optional[bool] = False,
+    exclusive: Optional[bool] = False,
+    disable_for_unsupported_versions: Optional[bool] = False,
+    silent: Optional[bool] = False,
+    run_name: Optional[str] = None,
+    remove_config_values: List[str] = [],
+    log_interval: Optional[int] = None,
+    log_dataset_dir: Optional[str] = None,
+    log_best_model: Optional[bool] = False
+):
+    """
+    Autologging should be used as an entry point for spaCy to log training metrics, configurations and 
+    models to MLflow. Autologging captures the following information:
+
+    **Metrics** and **Parameters**
+     - losses; scores; other_scores
+     - training configs
+    **Artifacts**
+     - `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Spacy model) on spcified checkpoints 
+        and the final best model
+
+    .. code-block
+        :caption: Example config for spaCy
+
+        [training.logger]
+        @loggers = "spacy.MLFlow.v1"
+        run_name = "monitor_spacy_training"
+        remove_config_values = ["paths.train", "paths.dev", "corpora.train.path", "corpora.dev.path"]
+        log_interval = 100
+        log_dataset_dir = "corpus"
+        log_best_model = true
+
+    :param log_models: If ``True``, trained models and checkpoints are logged as MLflow model artifacts.
+                       If ``False``, trained models are not logged.
+    :param disable: If ``True``, disables the spaCy autologging integration. If ``False``,
+                    enables the spaCy autologging integration.
+    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+                      If ``False``, autologged content is logged to the active fluent run,
+                      which may be user-created.
+    :param disable_for_unsupported_versions: If ``True``, disable autologging for versions of
+                      spaCy that have not been tested against this version of the MLflow client
+                      or are incompatible.
+    :param silent: If ``True``, suppress all event logs and warnings from MLflow during spaCy
+                   autologging. If ``False``, show all events and warnings during spaCy
+                   autologging.
+    :param run_name: If provided, the run is started with the given name.
+    :param remove_config_values: Parameters with these keys are removed from logging
+    :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
+                       If ``False``, trained models are not logged.
+    :param log_interval: When provided, the pipeline object be logged into checkpoints directory as 
+                        MLFlow models artifacts and the metrices will be logged at the given intervals.
+    :param log_dataset_dir: When the path to the corpus/dataset directory is given, the dataset will
+                            be logged into datasets directory as an artifact.
+    :param log_best_model: If ``True``, the spaCy pipeline with maximum value for matric ``score`` 
+                            will be logged into best-model directory as MLFlow spacy model.
+    """
+
+    import spacy
+    import re
+
+    def setup_logger(
+        nlp: spacy.language.Language, stdout: IO = sys.stdout, stderr: IO = sys.stderr
+    ) -> Tuple[Callable[[Dict[str, Any]], None], Callable[[], None]]:
+        mlflow.start_run(run_name=run_name)
+        config = nlp.config.interpolate()
+        config_dot = spacy.util.dict_to_dot(config)
+        for _field in remove_config_values:
+            del config_dot[_field]
+        pattern = re.compile('[\W]+')
+        mlflow.log_params(
+            {pattern.sub('.', _field): _value for _field, _value in config_dot.items()})
+
+        def _log_metrics(metric: Dict[str, Any], parent: str = '', step: Optional[int] = None):
+            for k, v in metric.items():
+                if isinstance(v, (dict,)):
+                    if parent:
+                        _log_metrics(v, f"{parent}.{k}", step)
+                    else:
+                        _log_metrics(v, k, step)
+                else:
+                    if parent:
+                        mlflow.log_metric(f"{parent}.{k}", v, step=step)
+                    else:
+                        mlflow.log_metric(k, v, step=step)
+
+        if log_dataset_dir:
+            mlflow.log_artifact(log_dataset_dir, "dataset")
+
+        def log_step(info: Optional[Dict[str, Any]]):
+            if info is not None and log_interval:
+                if info["step"] % log_interval == 0 and info["step"] != 0:
+                    _log_metrics({k: info.get(k) for k in (
+                        "losses", "score", "other_scores")}, step=info.get("step"))
+                    if log_models:
+                        log_model(
+                            nlp, f"models/checkpoints/epoch_{info['epoch']}_step_{info['step']}")
+                        if log_best_model and info["score"] == max(info["checkpoints"])[0]:
+                            log_model(nlp, f"models/best-model")
+
+        def finalize() -> None:
+            mlflow.end_run()
+
+        return log_step, finalize
+
+    return setup_logger
