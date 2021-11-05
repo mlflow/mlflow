@@ -74,7 +74,7 @@ $ rm -rf mlartifacts
 
 ## Advanced example using `docker-compose`
 
-`docker-compose.yml` provides a more advanced setup than the previous one:
+[`docker-compose.yml`](./docker-compose.yml) provides a more advanced setup than the previous one:
 
 - Tracking service uses PostgreSQL as a backend store.
 - Artifact service uses MinIO as a artifact store.
