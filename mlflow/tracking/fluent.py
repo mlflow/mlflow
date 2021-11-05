@@ -89,7 +89,9 @@ def set_experiment(experiment_name: str = None, experiment_id: str = None) -> No
         Tags: {}
         Lifecycle_stage: active
     """
-    if (experiment_name is not None and experiment_id is not None) or (experiment_name is None and experiment_id is None):
+    if (experiment_name is not None and experiment_id is not None) or (
+        experiment_name is None and experiment_id is None
+    ):
         raise MlflowException(
             message="Must specify exactly one of: `experiment_id` or `experiment_name`.",
             error_code=INVALID_PARAMETER_VALUE,
