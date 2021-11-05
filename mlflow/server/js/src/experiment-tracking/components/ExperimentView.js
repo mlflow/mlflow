@@ -1245,10 +1245,11 @@ export class ExperimentView extends Component {
   };
 
   onShare = () => {
+    this.updateUrlWithViewState({});
     navigator.clipboard.writeText(window.location.href);
     message.info(
       this.props.intl.formatMessage({
-        defaultMessage: 'Experiment view copied to clipboard',
+        defaultMessage: 'Experiment view URL copied to clipboard',
         description: 'Content of the message after clicking the share experiment button',
       }),
     );

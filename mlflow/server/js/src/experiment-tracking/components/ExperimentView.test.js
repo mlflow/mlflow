@@ -39,9 +39,11 @@ import {
 const EXPERIMENT_ID = '3';
 
 let onSearchSpy;
+let historyPushSpy;
 
 beforeEach(() => {
   onSearchSpy = jest.fn();
+  historyPushSpy = jest.fn();
 });
 
 const getDefaultExperimentViewProps = () => {
@@ -64,7 +66,7 @@ const getDefaultExperimentViewProps = () => {
       location: {
         pathname: '/',
       },
-      push: jest.fn(),
+      push: historyPushSpy,
     },
     paramKeyList: ['batch_size'],
     metricKeyList: ['acc'],
@@ -346,6 +348,11 @@ describe('ExperimentView event handlers', () => {
   beforeEach(() => {
     wrapper = getExperimentViewMock({});
     instance = wrapper.instance();
+    Object.assign(navigator, {
+      clipboard: {
+        writeText: () => {},
+      },
+    });
   });
 
   test('handleLifecycleFilterInput calls onSearch with the right params', () => {
@@ -370,6 +377,47 @@ describe('ExperimentView event handlers', () => {
         modelVersionFilter: newFilterInput,
       }),
     );
+  });
+
+  test('onShare copies default state to clipboard', () => {
+    const updateUrlWithViewStateSpy = jest.spyOn(instance, 'updateUrlWithViewState');
+    const writeTextSpy = jest.spyOn(navigator.clipboard, 'writeText');
+
+    // Set default state
+    instance.state.persistedState = new ExperimentViewPersistedState().toJSON();
+
+    instance.onShare();
+
+    const expectedHistoryPush =
+      `/experiments/${EXPERIMENT_ID}/s?startTime=ALL` +
+      `&orderByKey=attributes.start_time&lifecycle=Active&modelVersion=All%20Runs`;
+    expect(updateUrlWithViewStateSpy).toHaveBeenCalledTimes(1);
+    expect(historyPushSpy).toHaveBeenCalledWith(expectedHistoryPush);
+    expect(writeTextSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test('onShare copies edited state & props to clipboard', () => {
+    wrapper = getExperimentViewMock({
+      orderByKey: 'test-key',
+    });
+    instance = wrapper.instance();
+
+    const updateUrlWithViewStateSpy = jest.spyOn(instance, 'updateUrlWithViewState');
+    const writeTextSpy = jest.spyOn(navigator.clipboard, 'writeText');
+
+    // Set non-default state
+    instance.state.persistedState = new ExperimentViewPersistedState({
+      showMultiColumns: false,
+    }).toJSON();
+
+    instance.onShare();
+
+    const expectedHistoryPush =
+      `/experiments/${EXPERIMENT_ID}/s?startTime=ALL` +
+      '&orderByKey=test-key&lifecycle=Active&modelVersion=All%20Runs&showMultiColumns=false';
+    expect(updateUrlWithViewStateSpy).toHaveBeenCalledTimes(1);
+    expect(historyPushSpy).toHaveBeenCalledWith(expectedHistoryPush);
+    expect(writeTextSpy).toHaveBeenCalledTimes(1);
   });
 
   test('onClear clears all parameters', () => {
