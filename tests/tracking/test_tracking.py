@@ -16,7 +16,7 @@ from mlflow import tracking
 from mlflow.entities import RunStatus, LifecycleStage, Metric, Param, RunTag, ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.file_store import FileStore
-from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import start_run
 from mlflow.utils.file_utils import local_file_uri_to_path
@@ -77,30 +77,56 @@ def test_create_experiments_with_bad_name_types(name):
 
 
 @pytest.mark.usefixtures("reset_active_experiment")
-def test_set_experiment():
-    with pytest.raises(TypeError):
-        mlflow.set_experiment()  # pylint: disable=no-value-for-parameter
-
-    with pytest.raises(Exception):
-        mlflow.set_experiment(None)
-
-    with pytest.raises(Exception):
-        mlflow.set_experiment("")
-
+def test_set_experiment_by_name():
     name = "random_exp"
     exp_id = mlflow.create_experiment(name)
-    mlflow.set_experiment(name)
+    exp1 = mlflow.set_experiment(name)
+    assert exp1.experiment_id == exp_id
     with start_run() as run:
         assert run.info.experiment_id == exp_id
 
     another_name = "another_experiment"
-    mlflow.set_experiment(another_name)
-    exp_id2 = mlflow.tracking.MlflowClient().get_experiment_by_name(another_name)
+    exp2 = mlflow.set_experiment(another_name)
     with start_run() as another_run:
-        assert another_run.info.experiment_id == exp_id2.experiment_id
+        assert another_run.info.experiment_id == exp2.experiment_id
 
 
-def test_set_experiment_with_deleted_experiment_name():
+@pytest.mark.usefixtures("reset_active_experiment")
+def test_set_experiment_by_id():
+    name = "random_exp"
+    exp_id = mlflow.create_experiment(name)
+    active_exp = mlflow.set_experiment(experiment_id=exp_id)
+    assert active_exp.experiment_id == exp_id
+    with start_run() as run:
+        assert run.info.experiment_id == exp_id
+
+    nonexistent_id = "-1337"
+    with pytest.raises(MlflowException) as exc:
+        mlflow.set_experiment(experiment_id=nonexistent_id)
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+    with start_run() as run:
+        assert run.info.experiment_id == exp_id
+
+
+def test_set_experiment_parameter_validation():
+    with pytest.raises(MlflowException, match="Must specify exactly one") as exc:
+        mlflow.set_experiment()
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+    with pytest.raises(MlflowException, match="Must specify exactly one") as exc:
+        mlflow.set_experiment(None)
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+    with pytest.raises(MlflowException, match="Must specify exactly one") as exc:
+        mlflow.set_experiment(None, None)
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+    with pytest.raises(MlflowException, match="Must specify exactly one") as exc:
+        mlflow.set_experiment("name", "id")
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_set_experiment_with_deleted_experiment():
     name = "dead_exp"
     mlflow.set_experiment(name)
     with start_run() as run:
@@ -108,8 +134,13 @@ def test_set_experiment_with_deleted_experiment_name():
 
     tracking.MlflowClient().delete_experiment(exp_id)
 
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="Cannot set a deleted experiment") as exc:
         mlflow.set_experiment(name)
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+    with pytest.raises(MlflowException, match="Cannot set a deleted experiment") as exc:
+        mlflow.set_experiment(experiment_id=exp_id)
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
 def test_list_experiments():

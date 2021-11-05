@@ -14,6 +14,10 @@ from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 from mlflow.entities import Experiment, Run, RunInfo, RunStatus, Param, RunTag, Metric, ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import (
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+)
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking import artifact_utils, _get_store
 from mlflow.tracking.context import registry as context_registry
@@ -50,12 +54,19 @@ NUM_RUNS_PER_PAGE_PANDAS = 10000
 _logger = logging.getLogger(__name__)
 
 
-def set_experiment(experiment_name: str) -> None:
+def set_experiment(experiment_name: str = None, experiment_id: str = None) -> None:
     """
-    Set given experiment as active experiment. If experiment does not exist, create an experiment
-    with provided name.
+    Set the given experiment as the active experiment. The experiment must either be specified by
+    name via `experiment_name` or by ID via `experiment_id`. The experiment name and ID cannot
+    both be specified.
 
-    :param experiment_name: Case sensitive name of an experiment to be activated.
+    :param experiment_name: Case sensitive name of the experiment to be activated. If an experiment
+                            with this name does not exist, a new experiment wth this name is
+                            created.
+    :param experiment_id: ID of the experiment to be activated. If an experiment with this ID
+                          does not exist, an exception is thrown.
+    :return: An instance of :py:class:`mlflow.entities.Experiment` representing the new active
+             experiment.
 
     .. code-block:: python
         :caption: Example
@@ -80,20 +91,48 @@ def set_experiment(experiment_name: str) -> None:
         Tags: {}
         Lifecycle_stage: active
     """
-    client = MlflowClient()
-    experiment = client.get_experiment_by_name(experiment_name)
-    exp_id = experiment.experiment_id if experiment else None
-    if exp_id is None:  # id can be 0
-        print("INFO: '{}' does not exist. Creating a new experiment".format(experiment_name))
-        exp_id = client.create_experiment(experiment_name)
-    elif experiment.lifecycle_stage == LifecycleStage.DELETED:
+    if (experiment_name is not None and experiment_id is not None) or (
+        experiment_name is None and experiment_id is None
+    ):
         raise MlflowException(
-            "Cannot set a deleted experiment '%s' as the active experiment."
-            " You can restore the experiment, or permanently delete the "
-            " experiment to create a new one." % experiment.name
+            message="Must specify exactly one of: `experiment_id` or `experiment_name`.",
+            error_code=INVALID_PARAMETER_VALUE,
         )
+
+    client = MlflowClient()
+    if experiment_id is None:
+        experiment = client.get_experiment_by_name(experiment_name)
+        if not experiment:
+            _logger.info(
+                "Experiment with name '%s' does not exist. Creating a new experiment.",
+                experiment_name,
+            )
+            # NB: If two simultaneous threads or processes attempt to set the same experiment
+            # simultaneously, a race condition may be encountered here wherein experiment creation
+            # fails
+            experiment_id = client.create_experiment(experiment_name)
+            experiment = client.get_experiment(experiment_id)
+    else:
+        experiment = client.get_experiment(experiment_id)
+        if experiment is None:
+            raise MlflowException(
+                message=f"Experiment with ID '{experiment_id}' does not exist.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+
+    if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
+        raise MlflowException(
+            message=(
+                "Cannot set a deleted experiment '%s' as the active experiment."
+                " You can restore the experiment, or permanently delete the "
+                " experiment to create a new one." % experiment.name
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
     global _active_experiment_id
-    _active_experiment_id = exp_id
+    _active_experiment_id = experiment.experiment_id
+    return experiment
 
 
 class ActiveRun(Run):  # pylint: disable=W0223
