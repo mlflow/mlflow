@@ -44,7 +44,6 @@ from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
     ExceptionSafeClass,
-    try_mlflow_log,
     log_fn_args_as_params,
     batch_metrics_logger,
 )
@@ -645,24 +644,22 @@ def autolog(
             """
 
             def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
-                try_mlflow_log(mlflow.log_param, "num_layers", len(self.model.layers))
-                try_mlflow_log(
-                    mlflow.log_param, "optimizer_name", type(self.model.optimizer).__name__
-                )
+                mlflow.log_param("num_layers", len(self.model.layers))
+                mlflow.log_param("optimizer_name", type(self.model.optimizer).__name__)
                 if hasattr(self.model.optimizer, "lr"):
                     lr = (
                         self.model.optimizer.lr
                         if type(self.model.optimizer.lr) is float
                         else keras.backend.eval(self.model.optimizer.lr)
                     )
-                    try_mlflow_log(mlflow.log_param, "learning_rate", lr)
+                    mlflow.log_param("learning_rate", lr)
                 if hasattr(self.model.optimizer, "epsilon"):
                     epsilon = (
                         self.model.optimizer.epsilon
                         if type(self.model.optimizer.epsilon) is float
                         else keras.backend.eval(self.model.optimizer.epsilon)
                     )
-                    try_mlflow_log(mlflow.log_param, "epsilon", epsilon)
+                    mlflow.log_param("epsilon", epsilon)
 
                 sum_list = []
                 self.model.summary(print_fn=sum_list.append)
@@ -672,7 +669,7 @@ def autolog(
                     summary_file = os.path.join(tempdir, "model_summary.txt")
                     with open(summary_file, "w") as f:
                         f.write(summary)
-                    try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
+                    mlflow.log_artifact(local_path=summary_file)
                 finally:
                     shutil.rmtree(tempdir)
 
@@ -683,7 +680,7 @@ def autolog(
 
             def on_train_end(self, logs=None):
                 if log_models:
-                    try_mlflow_log(log_model, self.model, artifact_path="model")
+                    log_model(self.model, artifact_path="model")
 
             # As of Keras 2.4.0, Keras Callback implementations must define the following
             # methods indicating whether or not the callback overrides functions for
@@ -718,7 +715,7 @@ def autolog(
                 "baseline": callback.baseline,
                 "restore_best_weights": callback.restore_best_weights,
             }
-            try_mlflow_log(mlflow.log_params, earlystopping_params)
+            mlflow.log_params(earlystopping_params)
 
     def _get_early_stop_callback_attrs(callback):
         try:
@@ -779,13 +776,11 @@ def autolog(
             else:
                 kwargs["callbacks"] = [mlflowKerasCallback]
 
-            try_mlflow_log(_log_early_stop_callback_params, early_stop_callback)
+            _log_early_stop_callback_params(early_stop_callback)
 
             history = original(self, *args, **kwargs)
 
-            try_mlflow_log(
-                _log_early_stop_callback_metrics, early_stop_callback, history, metrics_logger
-            )
+            _log_early_stop_callback_metrics(early_stop_callback, history, metrics_logger)
 
         return history
 
