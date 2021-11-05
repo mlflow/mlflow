@@ -6,23 +6,19 @@ import mxnet as mx
 import numpy as np
 import pytest
 from mxnet.gluon import Trainer
-from mxnet.gluon.contrib.estimator import estimator
 from mxnet.gluon.data import Dataset, DataLoader
-from mxnet.gluon.loss import SoftmaxCrossEntropyLoss
 from mxnet.gluon.nn import HybridSequential, Dense
 
 import mlflow
 import mlflow.gluon
 from mlflow.utils.autologging_utils import BatchMetricsLogger
 from unittest.mock import patch
+from tests.gluon.utils import is_mxnet_older_than_1_6_0, get_estimator
+
 
 if Version(mx.__version__) >= Version("2.0.0"):
-    from mxnet.gluon.metric import Accuracy  # pylint: disable=import-error
-
     array_module = mx.np
 else:
-    from mxnet.metric import Accuracy  # pylint: disable=import-error
-
     array_module = mx.nd
 
 
@@ -38,23 +34,6 @@ class LogsDataset(Dataset):
 
     def __len__(self):
         return self.len
-
-
-def is_mxnet_older_than_1_6_0():
-    return Version(mx.__version__) < Version("1.6.0")
-
-
-def get_estimator(net, trainer):
-    # `metrics` argument was split into `train_metrics` and `val_metrics` in mxnet 1.6.0:
-    # https://github.com/apache/incubator-mxnet/pull/17048
-    acc = Accuracy()
-    loss = SoftmaxCrossEntropyLoss()
-    return (
-        # pylint: disable=unexpected-keyword-arg
-        estimator.Estimator(net=net, loss=loss, trainer=trainer, metrics=acc)
-        if is_mxnet_older_than_1_6_0()
-        else estimator.Estimator(net=net, loss=loss, trainer=trainer, train_metrics=acc)
-    )
 
 
 def get_train_prefix():
