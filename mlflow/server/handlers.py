@@ -8,7 +8,7 @@ import posixpath
 import logging
 from functools import wraps
 
-from flask import Response, request, send_file, send_from_directory
+from flask import Response, request, current_app, send_file
 from google.protobuf import descriptor
 
 from mlflow.entities import Metric, Param, RunTag, ViewType, ExperimentTag, FileInfo
@@ -830,11 +830,23 @@ def _download_artifact(artifact_path):
     from `artifact_path` (a relative path from the root artifact directory).
     """
     basename = posixpath.basename(artifact_path)
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        tmp_path = os.path.join(tmp_dir, basename)
-        artifact_repo = _get_artifact_repo_mlflow_artifacts()
-        artifact_repo._download_file(artifact_path, tmp_path)
-        return send_from_directory(tmp_dir, basename)
+    tmp_dir = tempfile.TemporaryDirectory()
+    tmp_path = os.path.join(tmp_dir.name, basename)
+    artifact_repo = _get_artifact_repo_mlflow_artifacts()
+    artifact_repo._download_file(artifact_path, tmp_path)
+
+    # Ref: https://stackoverflow.com/a/24613980/6943581
+    file_handle = open(tmp_path, "rb")
+
+    def stream_and_remove_file():
+        yield from file_handle
+        file_handle.close()
+        tmp_dir.cleanup()
+
+    return current_app.response_class(
+        stream_and_remove_file(),
+        headers={"Content-Disposition": "attachment", "filename": basename},
+    )
 
 
 @catch_mlflow_exception
