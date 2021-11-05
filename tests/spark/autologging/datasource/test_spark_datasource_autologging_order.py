@@ -10,8 +10,8 @@ import time
 from pyspark.sql import Row
 from pyspark.sql.types import StructType, IntegerType, StructField
 
-from tests.spark_autologging.utils import _get_or_create_spark_session
-from tests.spark_autologging.utils import (
+from tests.spark.autologging.utils import _get_or_create_spark_session
+from tests.spark.autologging.utils import (
     _assert_spark_data_logged,
     _assert_spark_data_not_logged,
 )
