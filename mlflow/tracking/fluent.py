@@ -65,6 +65,8 @@ def set_experiment(experiment_name: str = None, experiment_id: str = None) -> No
                             created.
     :param experiment_id: ID of the experiment to be activated. If an experiment with this ID
                           does not exist, an exception is thrown.
+    :return: An instance of :py:class:`mlflow.entities.Experiment` representing the new active
+             experiment.
 
     .. code-block:: python
         :caption: Example
@@ -97,24 +99,10 @@ def set_experiment(experiment_name: str = None, experiment_id: str = None) -> No
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    def verify_experiment_active(experiment):
-        if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
-            raise MlflowException(
-                message=(
-                    "Cannot set a deleted experiment '%s' as the active experiment."
-                    " You can restore the experiment, or permanently delete the "
-                    " experiment to create a new one." % experiment.name
-                ),
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-
     client = MlflowClient()
     if experiment_id is None:
         experiment = client.get_experiment_by_name(experiment_name)
-        if experiment:
-            verify_experiment_active(experiment)
-            experiment_id = experiment.experiment_id
-        else:
+        if not experiment:
             _logger.info(
                 "Experiment with name '%s' does not exist. Creating a new experiment.",
                 experiment_name,
@@ -123,6 +111,7 @@ def set_experiment(experiment_name: str = None, experiment_id: str = None) -> No
             # simultaneously, a race condition may be encountered here wherein experiment creation
             # fails
             experiment_id = client.create_experiment(experiment_name)
+            experiment = client.get_experiment(experiment_id)
     else:
         experiment = client.get_experiment(experiment_id)
         if experiment is None:
@@ -130,10 +119,20 @@ def set_experiment(experiment_name: str = None, experiment_id: str = None) -> No
                 message=f"Experiment with ID '{experiment_id}' does not exist.",
                 error_code=RESOURCE_DOES_NOT_EXIST,
             )
-        verify_experiment_active(experiment)
+
+    if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
+        raise MlflowException(
+            message=(
+                "Cannot set a deleted experiment '%s' as the active experiment."
+                " You can restore the experiment, or permanently delete the "
+                " experiment to create a new one." % experiment.name
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     global _active_experiment_id
-    _active_experiment_id = experiment_id
+    _active_experiment_id = experiment.experiment_id
+    return experiment
 
 
 class ActiveRun(Run):  # pylint: disable=W0223

@@ -80,22 +80,23 @@ def test_create_experiments_with_bad_name_types(name):
 def test_set_experiment_by_name():
     name = "random_exp"
     exp_id = mlflow.create_experiment(name)
-    mlflow.set_experiment(name)
+    exp1 = mlflow.set_experiment(name)
+    assert exp1.experiment_id == exp_id
     with start_run() as run:
         assert run.info.experiment_id == exp_id
 
     another_name = "another_experiment"
-    mlflow.set_experiment(another_name)
-    exp_id2 = mlflow.tracking.MlflowClient().get_experiment_by_name(another_name)
+    exp2 = mlflow.set_experiment(another_name)
     with start_run() as another_run:
-        assert another_run.info.experiment_id == exp_id2.experiment_id
+        assert another_run.info.experiment_id == exp2.experiment_id
 
 
 @pytest.mark.usefixtures("reset_active_experiment")
 def test_set_experiment_by_id():
     name = "random_exp"
     exp_id = mlflow.create_experiment(name)
-    mlflow.set_experiment(experiment_id=exp_id)
+    active_exp = mlflow.set_experiment(experiment_id=exp_id)
+    assert active_exp.experiment_id == exp_id
     with start_run() as run:
         assert run.info.experiment_id == exp_id
 
