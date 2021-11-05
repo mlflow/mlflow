@@ -41,7 +41,9 @@ def _mark_int64_fields(proto_message):
 
 
 def _merge_json_dicts(from_dict, to_dict):
-    """Merges the json elements of from_dict into to_dict. Only works for json dicts converted from proto messages"""
+    """Merges the json elements of from_dict into to_dict. Only works for json dicts
+    converted from proto messages
+    """
 
     for key in from_dict:
         value = to_dict[key]
@@ -65,11 +67,11 @@ def message_to_json(message):
     json_dict_with_int64_converted_to_str = json.loads(
         MessageToJson(message, preserving_proto_field_name=True)
     )
-    # We convert this proto message into a JSON dict where only int64/fixed64/unit64 proto fields are preserved, and
-    # they are treated as JSON numbers, not strings.
+    # We convert this proto message into a JSON dict where only int64/fixed64/unit64 proto fields
+    # are preserved, and they are treated as JSON numbers, not strings.
     json_dict_with_int64_fields_only = _mark_int64_fields(message)
-    # By merging these two JSON dicts, we end up with a JSON dict where int64/fixed64/unit64 proto fields are not
-    # converted to JSON strings.
+    # By merging these two JSON dicts, we end up with a JSON dict where int64/fixed64/unit64 proto
+    # fields are not converted to JSON strings.
     json_dict_with_int64_as_numbers = _merge_json_dicts(
         json_dict_with_int64_fields_only, json_dict_with_int64_converted_to_str
     )
