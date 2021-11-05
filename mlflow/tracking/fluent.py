@@ -95,11 +95,22 @@ def set_experiment(experiment_name: str = None, experiment_id: str = None) -> No
             error_code=INVALID_PARAMETER_VALUE,
         )
 
+    def verify_experiment_active(experiment):
+        if experiment.lifecycle_stage == LifecycleStage.DELETED:
+            raise MlflowException(
+                message=(
+                    "Cannot set a deleted experiment '%s' as the active experiment."
+                    " You can restore the experiment, or permanently delete the "
+                    " experiment to create a new one." % experiment.name
+                ),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
     client = MlflowClient()
     if experiment_id is None:
         experiment = client.get_experiment_by_name(experiment_name)
         if experiment:
+            verify_experiment_active(experiment)
             experiment_id = experiment.experiment_id
         else:
             _logger.info(
@@ -114,15 +125,7 @@ def set_experiment(experiment_name: str = None, experiment_id: str = None) -> No
                 message=f"Experiment with ID '{experiment_id}' does not exist.",
                 error_code=RESOURCE_DOES_NOT_EXIST,
             )
-        elif experiment.lifecycle_stage == LifecycleStage.DELETED:
-            raise MlflowException(
-                message=(
-                    "Cannot set a deleted experiment '%s' as the active experiment."
-                    " You can restore the experiment, or permanently delete the "
-                    " experiment to create a new one." % experiment.name
-                ),
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+        verify_experiment_active(experiment)
 
     global _active_experiment_id
     _active_experiment_id = experiment_id
