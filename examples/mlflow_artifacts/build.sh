@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 
-rm dist/*
+rm -rf dist
 pip wheel --no-deps --wheel-dir dist ../..
-docker-compose build
+DOCKERFILE=Dockerfile.dev docker-compose build

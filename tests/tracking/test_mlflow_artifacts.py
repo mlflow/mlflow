@@ -231,7 +231,7 @@ def test_mlflow_artifacts_example(tmpdir):
     rmi_option = "--rmi all" if is_github_actions() else ""
     cmd = f"""
 set -ex
-pip wheel --no-deps --wheel-dir dist ../..
+./build.sh
 docker-compose run -v ${{PWD}}/run.py:/app/run.py client python run.py
 docker-compose logs
 docker-compose down {rmi_option} --volumes --remove-orphans

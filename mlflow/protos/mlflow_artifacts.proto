@@ -1,4 +1,4 @@
-// This proto file defines MLflow Artifacts Service that provides the following REST APIs
+// This proto file defines the MLflow Artifacts Service that provides the following REST APIs
 // for proxied artifact operations:
 // - /mlflow-artifacts/artifacts/<artifact_path> GET: Download an artifact
 // - /mlflow-artifacts/artifacts/<artifact_path> PUT: Upload an artifact

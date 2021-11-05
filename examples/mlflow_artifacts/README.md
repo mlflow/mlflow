@@ -1,45 +1,48 @@
-This directory contains a set of files for demonstrating the MLflow Artifacts service.
+This directory contains a set of files for demonstrating the MLflow Artifacts Service.
 
-## Build a wheel
-
-This example requires a wheel for `mlflow` to be stored in `dist`.
+## Quick start
 
 ```sh
-# Clean up existing wheels
-rm dist/*
-
-# Build a wheel for the development version of mlflow
-pip wheel --no-deps --wheel-dir dist ../..
-
-# Build a wheel for the latest version of mlflow on PyPI
-pip wheel --no-deps --wheel-dir dist mlflow
+mlflow server --default-artifact-root http://localhost:5000/api/2.0/mlflow-artifacts/artifacts
+MLFLOW_TRACKING_URI=http://localhost:5000 python run.py
 ```
 
-## Run the example
+### Clean up
 
 ```sh
-# Build services
+rm -rf mlruns
+rm -rf mlartifacts
+```
+
+MLflow UI is available at http://localhost:5000 to explore the logging results.
+
+## Advanced example using `docker-compose`
+
+```sh
+# Build service images
 docker-compose build
 
-# Launch tracking and artifacts servers
+# Launch tracking and artifacts servers in the background
 docker-compose up -d
 
-# Run `run.py` that uploads, downloads, and list artifacts
+# Run `run.py` in the client container
 docker-compose run -v ${PWD}/run.py:/app/run.py client python run.py
 ```
 
-## Explore the logging results:
+- MLflow UI is available at http://localhost:5000 to explore the logging results.
+- MinIO Console is available at http://localhost:9001 to explore the logged artifacts. The login username and password are `user` and `password`.
+
+### Clean up
 
 ```sh
-# Make sure both tracking and artifacts servers are running
-docker-compose ps
+# Remove containers, networks, volumes, and images
+docker-compose --rmi all --volumes --remove-orphans
 ```
 
-- MLflow UI is available at http://localhost:5000 to explore tracking results.
-- MinIO Console is available at http://localhost:9001 to explore logged artifacts. The login username and password are `user` and `password`.
+### Development
 
-## Reset tracking and artifacts servers
-
-```
-docker-compose down --volumes --remove-orphans
+```sh
+# Build services using the dev version of mlflow
+./build.sh
+docker-compose run -v ${PWD}/run.py:/app/run.py client python run.py
 ```

@@ -37,6 +37,7 @@ services:
   artifacts-server:
     build:
       context: .
+      dockerfile: "${DOCKERFILE:-Dockerfile}"
     depends_on:
       - minio-create-bucket
     expose:
@@ -65,6 +66,7 @@ services:
   tracking-server:
     build:
       context: .
+      dockerfile: "${DOCKERFILE:-Dockerfile}"
     depends_on:
       - postgres
       - artifacts-server
@@ -84,6 +86,7 @@ services:
   client:
     build:
       context: .
+      dockerfile: "${DOCKERFILE:-Dockerfile}"
     depends_on:
       - tracking-server
     environment:
