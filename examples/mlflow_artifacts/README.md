@@ -3,14 +3,20 @@ This directory contains a set of files for demonstrating the MLflow Artifacts Se
 ## Quick start
 
 ```sh
+# Launch tracking and artifacts servers
 mlflow server --default-artifact-root http://localhost:5000/api/2.0/mlflow-artifacts/artifacts
+
+# Run `run.py` that performs upload/download/list operations for artifacts
 MLFLOW_TRACKING_URI=http://localhost:5000 python run.py
 ```
 
 ### Clean up
 
 ```sh
+# Remove experiment and run data
 rm -rf mlruns
+
+# Remove artifacts
 rm -rf mlartifacts
 ```
 
@@ -19,7 +25,7 @@ MLflow UI is available at http://localhost:5000 to explore the logging results.
 ## Advanced example using `docker-compose`
 
 ```sh
-# Build service images
+# Build services
 docker-compose build
 
 # Launch tracking and artifacts servers in the background
