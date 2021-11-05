@@ -76,8 +76,8 @@ $ rm -rf mlartifacts
 
 `docker-compose.yml` provides a more advanced setup than the previous one:
 
-- Tracking server connects to a remote database (PostgreSQL).
-- Artifact service connects to a remote a artifact storage (MinIO).
+- Tracking service uses PostgreSQL as a backend store.
+- Artifact service uses MinIO as a artifact store.
 - Tracking and artifacts services are running on different servers.
 
 ```sh
