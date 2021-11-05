@@ -44,16 +44,15 @@ def _merge_json_dicts(from_dict, to_dict):
     converted from proto messages
     """
 
-    for key in from_dict:
-        value = to_dict[key]
+    for key, value in from_dict.items():
         if isinstance(value, dict):
             _merge_json_dicts(from_dict[key], to_dict[key])
         elif isinstance(value, list):
-            for i in range(len(value)):
-                if isinstance(value[i], dict):
-                    _merge_json_dicts(from_dict[key][i], to_dict[key][i])
+            for i, v in enumerate(value):
+                if isinstance(v, dict):
+                    _merge_json_dicts(v, to_dict[key][i])
                 else:
-                    to_dict[key][i] = from_dict[key][i]
+                    to_dict[key][i] = v
         else:
             to_dict[key] = from_dict[key]
     return to_dict
