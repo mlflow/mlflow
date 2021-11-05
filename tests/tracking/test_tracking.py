@@ -108,30 +108,21 @@ def test_set_experiment_by_id():
 
 
 def test_set_experiment_parameter_validation():
-    with pytest.raises(MlflowException) as exc:
+    with pytest.raises(MlflowException, match="Must specify exactly one") as exc:
         mlflow.set_experiment()
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-    assert "Must specify exactly one" in str(exc.value)
 
-    with pytest.raises(MlflowException) as exc:
+    with pytest.raises(MlflowException, match="Must specify exactly one") as exc:
         mlflow.set_experiment(None)
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-    assert "Must specify exactly one" in str(exc.value)
 
-    with pytest.raises(MlflowException) as exc:
+    with pytest.raises(MlflowException, match="Must specify exactly one") as exc:
         mlflow.set_experiment(None, None)
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-    assert "Must specify exactly one" in str(exc.value)
 
-    with pytest.raises(MlflowException) as exc:
+    with pytest.raises(MlflowException, match="Must specify exactly one") as exc:
         mlflow.set_experiment("name", "id")
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-    assert "Must specify exactly one" in str(exc.value)
-
-    with pytest.raises(MlflowException) as exc:
-        mlflow.set_experiment("")
-    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-    assert "Invalid experiment name" in str(exc.value)
 
 
 def test_set_experiment_with_deleted_experiment():
@@ -142,15 +133,13 @@ def test_set_experiment_with_deleted_experiment():
 
     tracking.MlflowClient().delete_experiment(exp_id)
 
-    with pytest.raises(MlflowException) as exc:
+    with pytest.raises(MlflowException, match="Cannot set a deleted experiment") as exc:
         mlflow.set_experiment(name)
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-    assert "Cannot set a deleted experiment" in str(exc.value)
 
-    with pytest.raises(MlflowException) as exc:
+    with pytest.raises(MlflowException, match="Cannot set a deleted experiment") as exc:
         mlflow.set_experiment(experiment_id=exp_id)
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-    assert "Cannot set a deleted experiment" in str(exc.value)
 
 
 def test_list_experiments():

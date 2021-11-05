@@ -98,7 +98,7 @@ def set_experiment(experiment_name: str = None, experiment_id: str = None) -> No
         )
 
     def verify_experiment_active(experiment):
-        if experiment.lifecycle_stage == LifecycleStage.DELETED:
+        if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise MlflowException(
                 message=(
                     "Cannot set a deleted experiment '%s' as the active experiment."
@@ -119,6 +119,9 @@ def set_experiment(experiment_name: str = None, experiment_id: str = None) -> No
                 "Experiment with name '%s' does not exist. Creating a new experiment.",
                 experiment_name,
             )
+            # NB: If two simultaneous threads or processes attempt to set the same experiment
+            # simultaneously, a race condition may be encountered here wherein experiment creation
+            # fails
             experiment_id = client.create_experiment(experiment_name)
     else:
         experiment = client.get_experiment(experiment_id)
