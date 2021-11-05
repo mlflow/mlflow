@@ -52,7 +52,6 @@ from mlflow.utils.autologging_utils import (
     exception_safe_function,
     ExceptionSafeClass,
     PatchFunction,
-    try_mlflow_log,
     log_fn_args_as_params,
     batch_metrics_logger,
 )
@@ -500,10 +499,6 @@ class _TF2Wrapper(object):
             return pandas.DataFrame.from_dict(data=pred_dict)
 
 
-def _log_artifacts_with_warning(**kwargs):
-    try_mlflow_log(mlflow.log_artifacts, **kwargs)
-
-
 def _assoc_list_to_map(lst):
     """
     Convert an association list to a dictionary.
@@ -538,7 +533,7 @@ def _flush_queue():
 
             metrics_by_run = _assoc_list_to_map(snapshot)
             for run_id, metrics in metrics_by_run.items():
-                try_mlflow_log(client.log_batch, run_id, metrics=metrics, params=[], tags=[])
+                client.log_batch(run_id, metrics=metrics, params=[], tags=[])
     finally:
         if acquired_lock:
             _metric_queue_lock.release()
@@ -617,7 +612,7 @@ def _setup_callbacks(lst, log_models, metrics_logger):
         def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
             config = self.model.optimizer.get_config()
             for attribute in config:
-                try_mlflow_log(mlflow.log_param, "opt_" + attribute, config[attribute])
+                mlflow.log_param("opt_" + attribute, config[attribute])
 
             sum_list = []
             self.model.summary(print_fn=sum_list.append)
@@ -627,7 +622,7 @@ def _setup_callbacks(lst, log_models, metrics_logger):
                 summary_file = os.path.join(tempdir, "model_summary.txt")
                 with open(summary_file, "w") as f:
                     f.write(summary)
-                try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
+                mlflow.log_artifact(local_path=summary_file)
             finally:
                 shutil.rmtree(tempdir)
 
@@ -641,7 +636,7 @@ def _setup_callbacks(lst, log_models, metrics_logger):
 
         def on_train_end(self, logs=None):  # pylint: disable=unused-argument
             if log_models:
-                try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path="model")
+                mlflow.keras.log_model(self.model, artifact_path="model")
 
     tb = _get_tensorboard_callback(lst)
     if tb is None:
@@ -761,13 +756,13 @@ def autolog(
 
         # Checking step and max_step parameters for logging
         if len(args) >= 3:
-            try_mlflow_log(mlflow.log_param, "steps", args[2])
+            mlflow.log_param("steps", args[2])
             if len(args) >= 4:
-                try_mlflow_log(mlflow.log_param, "max_steps", args[3])
+                mlflow.log_param("max_steps", args[3])
         if "steps" in kwargs:
-            try_mlflow_log(mlflow.log_param, "steps", kwargs["steps"])
+            mlflow.log_param("steps", kwargs["steps"])
         if "max_steps" in kwargs:
-            try_mlflow_log(mlflow.log_param, "max_steps", kwargs["max_steps"])
+            mlflow.log_param("max_steps", kwargs["max_steps"])
 
         result = original(self, *args, **kwargs)
 
@@ -779,10 +774,8 @@ def autolog(
             for file in os.listdir(self.model_dir):
                 if "tfevents" not in file:
                     continue
-                try_mlflow_log(
-                    mlflow.log_artifact,
-                    local_path=os.path.join(self.model_dir, file),
-                    artifact_path="tensorboard_logs",
+                mlflow.log_artifact(
+                    local_path=os.path.join(self.model_dir, file), artifact_path="tensorboard_logs",
                 )
         return result
 
@@ -822,7 +815,7 @@ def autolog(
                             _LOG_MODEL_METADATA_WARNING_TEMPLATE, get_artifact_uri(_AUTOLOG_RUN_ID),
                         )
 
-            try_mlflow_log(log_model_without_starting_new_run)
+            log_model_without_starting_new_run()
 
             _AUTOLOG_RUN_ID = None
 
@@ -845,7 +838,7 @@ def autolog(
                     "baseline": callback.baseline,
                     "restore_best_weights": callback.restore_best_weights,
                 }
-                try_mlflow_log(mlflow.log_params, earlystopping_params)
+                mlflow.log_params(earlystopping_params)
             except Exception:  # pylint: disable=W0703
                 return
 
@@ -937,7 +930,7 @@ def autolog(
                 )
 
             _flush_queue()
-            _log_artifacts_with_warning(
+            mlflow.log_artifacts(
                 local_dir=self.log_dir.location, artifact_path="tensorboard_logs",
             )
             if self.log_dir.is_temp:
@@ -1001,9 +994,7 @@ def autolog(
                 result = original(inst, *args, **kwargs)
 
             _flush_queue()
-            _log_artifacts_with_warning(
-                local_dir=self.log_dir.location, artifact_path="tensorboard_logs"
-            )
+            mlflow.log_artifacts(local_dir=self.log_dir.location, artifact_path="tensorboard_logs")
             if self.log_dir.is_temp:
                 shutil.rmtree(self.log_dir.location)
 
