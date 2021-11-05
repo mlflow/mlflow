@@ -41,7 +41,6 @@ from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
-    try_mlflow_log,
     log_fn_args_as_params,
     safe_patch,
     batch_metrics_logger,
@@ -491,7 +490,7 @@ def autolog(
                     "early_stop_patience": callback.patience,
                     "early_stop_comp": callback.comp.__name__,
                 }
-                try_mlflow_log(mlflow.log_params, earlystopping_params)
+                mlflow.log_params(earlystopping_params)
             except Exception:  # pylint: disable=W0703
                 return
 
@@ -506,8 +505,8 @@ def autolog(
         infos = layer_info(learner, *xb)
         bs = find_bs(xb)
         inp_sz = _print_shapes(map(lambda x: x.shape, xb), bs)
-        try_mlflow_log(mlflow.log_param, "input_size", inp_sz)
-        try_mlflow_log(mlflow.log_param, "num_layers", len(infos))
+        mlflow.log_param("input_size", inp_sz)
+        mlflow.log_param("num_layers", len(infos))
 
         summary = module_summary(learner, *xb)
 
@@ -520,7 +519,7 @@ def autolog(
             summary_file = os.path.join(tempdir, "module_summary.txt")
             with open(summary_file, "w") as f:
                 f.write(summary)
-            try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
+            mlflow.log_artifact(local_path=summary_file)
         finally:
             shutil.rmtree(tempdir)
 
@@ -546,7 +545,7 @@ def autolog(
 
                 # Log information regarding model and data without bar and print-out
                 with self.no_bar(), self.no_logging():
-                    try_mlflow_log(_log_model_info, learner=self)
+                    _log_model_info(learner=self)
 
                 mlflowFastaiCallback = getFastaiCallback(
                     metrics_logger=metrics_logger, is_fine_tune=is_fine_tune
