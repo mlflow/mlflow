@@ -1,3 +1,4 @@
+from datetime import time
 import os
 import posixpath
 from unittest import mock
@@ -61,7 +62,9 @@ def test_log_artifact(http_artifact_repo, tmpdir, artifact_path):
         http_artifact_repo.log_artifact(tmp_path, artifact_path)
         paths = (artifact_path,) if artifact_path else ()
         expected_url = posixpath.join(http_artifact_repo.artifact_uri, *paths, tmp_path.basename)
-        mock_put.assert_called_once_with(expected_url, data=FileObjectMatcher(tmp_path, "rb"))
+        mock_put.assert_called_once_with(
+            expected_url, data=FileObjectMatcher(tmp_path, "rb"), timeout=mock.ANY
+        )
 
     with mock.patch("requests.Session.put", return_value=MockResponse({}, 400)) as mock_put:
         with pytest.raises(Exception, match="request failed"):
@@ -98,7 +101,9 @@ def test_log_artifacts(http_artifact_repo, tmpdir, artifact_path):
 def test_list_artifacts(http_artifact_repo):
     with mock.patch("requests.Session.get", return_value=MockResponse({}, 200)) as mock_get:
         assert http_artifact_repo.list_artifacts() == []
-        mock_get.assert_called_once_with(http_artifact_repo.artifact_uri, params={"path": ""})
+        mock_get.assert_called_once_with(
+            http_artifact_repo.artifact_uri, params={"path": ""}, timeout=mock.ANY
+        )
 
     with mock.patch(
         "requests.Session.get",
@@ -149,7 +154,7 @@ def test_download_file(http_artifact_repo, tmpdir, remote_file_path):
         tmp_path = tmpdir.join(posixpath.basename(remote_file_path))
         http_artifact_repo._download_file(remote_file_path, tmp_path)
         expected_url = posixpath.join(http_artifact_repo.artifact_uri, remote_file_path)
-        mock_get.assert_called_once_with(expected_url, stream=True)
+        mock_get.assert_called_once_with(expected_url, stream=True, timeout=mock.ANY)
         with open(tmp_path) as f:
             assert f.read() == "data"
 
