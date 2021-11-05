@@ -225,6 +225,7 @@ def is_github_actions():
     return "GITHUB_ACTIONS" in os.environ
 
 
+@pytest.mark.skipif(is_windows(), reason="This example doesn't work on Windows")
 def test_mlflow_artifacts_example(tmpdir):
     # On GitHub Actions, remove generated images to save disk space
     rmi_option = "--rmi all" if is_github_actions() else ""
@@ -238,7 +239,7 @@ docker-compose down {rmi_option} --volumes --remove-orphans
     script_path = tmpdir.join("test.sh")
     script_path.write(cmd)
     subprocess.run(
-        ["sh", script_path.strpath],
+        ["bash", script_path.strpath],
         check=True,
         cwd=os.path.join(os.getcwd(), "examples", "mlflow_artifacts"),
     )
