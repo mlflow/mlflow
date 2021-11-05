@@ -1,4 +1,3 @@
-from datetime import time
 import os
 import posixpath
 from unittest import mock
