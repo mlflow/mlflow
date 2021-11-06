@@ -12,20 +12,51 @@ from collections import defaultdict
 from functools import partial
 
 
-def _mark_int64_fields(proto_message):
-    """Converts a proto message to JSON, preserving only the int64/uint64/fixed64 fields."""
+_PROTOBUF_INT64_FIELDS = [
+    FieldDescriptor.TYPE_INT64,
+    FieldDescriptor.TYPE_UINT64,
+    FieldDescriptor.TYPE_FIXED64,
+    FieldDescriptor.TYPE_SFIXED64,
+    FieldDescriptor.TYPE_SINT64,
+]
 
+
+def _mark_int64_fields_for_proto_maps(proto_map, value_field_type):
+    """Converts a proto map to JSON, preserving only int64-related fields."""
+    json_dict = {}
+    for key in proto_map:
+        # The value of a protobuf map can only be a scalar or a message (not a map or repeated
+        # field).
+        value = proto_map[key]
+        if value_field_type == FieldDescriptor.TYPE_MESSAGE:
+            json_dict[key] = _mark_int64_fields(value)
+        elif value_field_type in _PROTOBUF_INT64_FIELDS:
+            json_dict[key] = int(value)
+        elif isinstance(key, int):
+            json_dict[key] = value
+    return json_dict
+
+
+def _mark_int64_fields(proto_message):
+    """Converts a proto message to JSON, preserving only int64-related fields."""
     json_dict = {}
     for field, value in proto_message.ListFields():
+        if (
+            # These three conditions check if this field is a protobuf map.
+            # See the official implementation: https://bit.ly/3EMx1rl
+            field.type == FieldDescriptor.TYPE_MESSAGE
+            and field.message_type.has_options
+            and field.message_type.GetOptions().map_entry
+        ):
+            # Deal with proto map fields separately in another function.
+            json_dict[field.name] = _mark_int64_fields_for_proto_maps(
+                value, field.message_type.fields_by_name["value"].type
+            )
+            continue
+
         if field.type == FieldDescriptor.TYPE_MESSAGE:
             ftype = partial(_mark_int64_fields)
-        elif field.type in [
-            FieldDescriptor.TYPE_INT64,
-            FieldDescriptor.TYPE_UINT64,
-            FieldDescriptor.TYPE_FIXED64,
-            FieldDescriptor.TYPE_SFIXED64,
-            FieldDescriptor.TYPE_SINT64,
-        ]:
+        elif field.type in _PROTOBUF_INT64_FIELDS:
             ftype = int
         else:
             # Skip all non-int64 fields.
@@ -43,8 +74,19 @@ def _merge_json_dicts(from_dict, to_dict):
     """Merges the json elements of from_dict into to_dict. Only works for json dicts
     converted from proto messages
     """
-
     for key, value in from_dict.items():
+        if isinstance(key, int) and str(key) in to_dict:
+            # When the key (i.e. the proto field name) is an integer, it must be a proto map field
+            # with integer as the key. For example:
+            # from_dict is {'field_map': {1: '2', 3: '4'}}
+            # to_dict is {'field_map': {'1': '2', '3': '4'}}
+            # So we need to replace the str keys with int keys in to_dict.
+            to_dict[key] = to_dict[str(key)]
+            del to_dict[str(key)]
+
+        if key not in to_dict:
+            continue
+
         if isinstance(value, dict):
             _merge_json_dicts(from_dict[key], to_dict[key])
         elif isinstance(value, list):

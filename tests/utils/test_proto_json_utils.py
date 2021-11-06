@@ -11,6 +11,8 @@ from mlflow.protos.service_pb2 import Experiment as ProtoExperiment
 from mlflow.protos.service_pb2 import Metric as ProtoMetric
 from mlflow.types import Schema, TensorSpec, ColSpec
 from mlflow.protos.model_registry_pb2 import RegisteredModel as ProtoRegisteredModel
+from mlflow.protos.protos_for_test.test_message_pb2 import TestMessage
+from google.protobuf.text_format import Parse as ParseTextIntoProto
 
 from mlflow.utils.proto_json_utils import (
     message_to_json,
@@ -19,6 +21,9 @@ from mlflow.utils.proto_json_utils import (
     parse_tf_serving_input,
     _dataframe_from_json,
 )
+
+# Prevent pytest from trying to collect TestMessage as a test class:
+TestMessage.__test__ = False
 
 
 def test_message_to_json():
@@ -101,6 +106,92 @@ def test_message_to_json():
     new_proto_message = ProtoRegisteredModel()
     parse_dict(json_dict, new_proto_message)
     assert original_proto_message == new_proto_message
+
+    test_message = ParseTextIntoProto(
+        """
+        field_int32: 11
+        field_int64: 12
+        field_uint32: 13
+        field_uint64: 14
+        field_sint32: 15
+        field_sint64: 16
+        field_fixed32: 17
+        field_fixed64: 18
+        field_sfixed32: 19
+        field_sfixed64: 20
+        field_bool: true
+        field_string: "Im a string"
+        field_with_default1: 111
+        field_repeated_int64: [1, 2, 3]
+        field_enum: ENUM_VALUE1
+        field_inner_message {
+            field_inner_int64: 101
+            field_inner_repeated_int64: [102, 103]
+        }
+        field_inner_message {
+            field_inner_int64: 104
+            field_inner_repeated_int64: [105, 106]
+        }
+        oneof1: 207
+        [mlflow.ExtensionMessage.field_extended_int64]: 100
+        field_map1: [{key: 51 value: "52"}, {key: 53 value: "54"}]
+        field_map2: [{key: "61" value: 62}, {key: "63" value: 64}]
+        field_map3: [{key: 561 value: 562}, {key: 563 value: 564}]
+        field_map4: [{key: 71
+                      value: {field_inner_int64: 72
+                              field_inner_repeated_int64: [81, 82]
+                              field_inner_string: "str1"}},
+                     {key: 73
+                      value: {field_inner_int64: 74
+                              field_inner_repeated_int64: 83
+                              field_inner_string: "str2"}}]
+    """,
+        TestMessage(),
+    )
+    json_out = message_to_json(test_message)
+    json_dict = json.loads(json_out)
+    assert json_dict == {
+        "field_int32": 11,
+        "field_int64": 12,
+        "field_uint32": 13,
+        "field_uint64": 14,
+        "field_sint32": 15,
+        "field_sint64": 16,
+        "field_fixed32": 17,
+        "field_fixed64": 18,
+        "field_sfixed32": 19,
+        "field_sfixed64": 20,
+        "field_bool": True,
+        "field_string": "Im a string",
+        "field_with_default1": 111,
+        "field_repeated_int64": [1, 2, 3],
+        "field_enum": "ENUM_VALUE1",
+        "field_inner_message": [
+            {"field_inner_int64": 101, "field_inner_repeated_int64": [102, 103]},
+            {"field_inner_int64": 104, "field_inner_repeated_int64": [105, 106]},
+        ],
+        "oneof1": 207,
+        # JSON doesn't support non-string keys, so the int keys will be converted to strings.
+        "field_map1": {"51": "52", "53": "54"},
+        "field_map2": {"63": 64, "61": 62},
+        "field_map3": {"561": 562, "563": 564},
+        "field_map4": {
+            "73": {
+                "field_inner_int64": 74,
+                "field_inner_repeated_int64": [83],
+                "field_inner_string": "str2",
+            },
+            "71": {
+                "field_inner_int64": 72,
+                "field_inner_repeated_int64": [81, 82],
+                "field_inner_string": "str1",
+            },
+        },
+        "[mlflow.ExtensionMessage.field_extended_int64]": "100",
+    }
+    new_test_message = TestMessage()
+    parse_dict(json_dict, new_test_message)
+    assert new_test_message == test_message
 
 
 def test_parse_dict():
