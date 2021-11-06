@@ -17,7 +17,7 @@ protoc -I="$PROTOS" \
     "$PROTOS"/databricks_artifacts.proto \
     "$PROTOS"/scalapb/scalapb.proto
 
-# Only generate Python classes for test protos.
+# Generate only Python classes (no Java classes) for test protos.
 protoc -I="$PROTOS" \
     --python_out="$PROTOS" \
     "$PROTOS"/protos_for_test/test_message.proto
