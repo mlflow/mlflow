@@ -24,10 +24,9 @@ _PROTOBUF_INT64_FIELDS = [
 def _mark_int64_fields_for_proto_maps(proto_map, value_field_type):
     """Converts a proto map to JSON, preserving only int64-related fields."""
     json_dict = {}
-    for key in proto_map:
+    for key, value in proto_map.items():
         # The value of a protobuf map can only be a scalar or a message (not a map or repeated
         # field).
-        value = proto_map[key]
         if value_field_type == FieldDescriptor.TYPE_MESSAGE:
             json_dict[key] = _mark_int64_fields(value)
         elif value_field_type in _PROTOBUF_INT64_FIELDS:
