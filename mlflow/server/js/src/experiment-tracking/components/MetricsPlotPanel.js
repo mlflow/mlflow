@@ -2,7 +2,7 @@ import React from 'react';
 import { connect } from 'react-redux';
 import Utils from '../../common/utils/Utils';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
-import { getMetricHistoryApi,getRunApi } from '../actions';
+import { getMetricHistoryApi, getRunApi } from '../actions';
 import PropTypes from 'prop-types';
 import _ from 'lodash';
 import { MetricsPlotView } from './MetricsPlotView';
@@ -37,6 +37,8 @@ export class MetricsPlotPanel extends React.Component {
     location: PropTypes.object.isRequired,
     history: PropTypes.object.isRequired,
     runDisplayNames: PropTypes.arrayOf(PropTypes.string).isRequired,
+    runs: PropTypes.arrayOf(PropTypes.object).isRequired,
+    getRunApi: PropTypes.func.isRequired,
   };
 
   // The fields below are exposed as instance attributes rather than component state so that they
@@ -78,49 +80,37 @@ export class MetricsPlotPanel extends React.Component {
   }
 
   componentDidMount() {
+    if (this.checkOnRunUnfinished()) {
+      const timerId = setInterval(() => {
+        const requestIds = [];
 
-    if(this.checkOnRunUnfinished()){
-
-      const timerId = setInterval(() =>   {
-
-        if(this.checkOnRunUnfinished()) {
-        
-
-          var requestIds =  this.loadMetricHistory(this.props.runUuids, this.getUrlState().selectedMetricKeys)
-
+        if (this.checkOnRunUnfinished()) {
+          const getRequestIds = this.loadMetricHistory(
+            this.props.runUuids,
+            this.getUrlState().selectedMetricKeys,
+          );
+          requestIds.push(getRequestIds);
 
           this.props.runs.forEach((run) => {
+            const runUuid = run.getRunUuid();
 
-            const runUuid = run.getRunUuid()
-         
             const getRunRequestId = getUUID();
             requestIds.push(getRunRequestId);
             this.props.getRunApi(runUuid, getRunRequestId);
-
           });
 
-      
-          this.setState(
-            (prevState) => ({
-              historyRequestIds: [...prevState.historyRequestIds, ...requestIds],
-            }),
-          );
-
-
-        }  
-        else {
+          this.setState((prevState) => ({
+            historyRequestIds: [...prevState.historyRequestIds, ...requestIds],
+          }));
+        } else {
           clearInterval(this.state.timerId);
         }
-      
-      },8000)
+      }, 8000);
 
-      this.setState({timerId})
-    
+      // eslint-disable-next-line react/no-did-mount-set-state
+      this.setState({ timerId });
     }
-
   }
-
-
 
   getUrlState() {
     return Utils.getMetricPlotStateFromUrl(this.props.location.search);
@@ -505,14 +495,13 @@ export class MetricsPlotPanel extends React.Component {
     }, 300);
   };
 
-  checkOnRunUnfinished(){
-     
-    const {runs} = this.props
-  
-    var boolean = false 
-    runs.forEach((run) =>{
-      if(run.getStatus() === 'RUNNING') boolean = true;
-    })
+  checkOnRunUnfinished() {
+    const { runs } = this.props;
+
+    let boolean = false;
+    runs.forEach((run) => {
+      if (run.getStatus() === 'RUNNING') boolean = true;
+    });
 
     return boolean;
   }
@@ -594,7 +583,7 @@ const mapStateToProps = (state, ownProps) => {
   const distinctMetricKeys = [...new Set(metricKeys)].sort();
 
   const runDisplayNames = [];
-  const runs = runUuids.map((runUuid) =>   getRunInfo(runUuid, state));
+  const runs = runUuids.map((runUuid) => getRunInfo(runUuid, state));
 
   // Flat array of all metrics, with history and information of the run it belongs to
   // This is used for underlying MetricsPlotView & predicting chartType for MetricsPlotControls
@@ -621,10 +610,10 @@ const mapStateToProps = (state, ownProps) => {
     distinctMetricKeys,
     metricsWithRunInfoAndHistory,
     runs,
-    state
+    state,
   };
 };
 
-const mapDispatchToProps = { getMetricHistoryApi,getRunApi };
+const mapDispatchToProps = { getMetricHistoryApi, getRunApi };
 
 export default withRouter(connect(mapStateToProps, mapDispatchToProps)(MetricsPlotPanel));
