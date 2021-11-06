@@ -2,11 +2,11 @@ import React from 'react';
 import { connect } from 'react-redux';
 import Utils from '../../common/utils/Utils';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
-import { getMetricHistoryApi } from '../actions';
+import { getMetricHistoryApi,getRunApi } from '../actions';
 import PropTypes from 'prop-types';
 import _ from 'lodash';
 import { MetricsPlotView } from './MetricsPlotView';
-import { getRunTags } from '../reducers/Reducers';
+import { getRunTags, getRunInfo } from '../reducers/Reducers';
 import {
   MetricsPlotControls,
   X_AXIS_WALL,
@@ -71,10 +71,56 @@ export class MetricsPlotPanel extends React.Component {
       popoverX: 0,
       popoverY: 0,
       popoverRunItems: [],
+      timerId: null,
     };
     this.displayPopover = false;
     this.loadMetricHistory(this.props.runUuids, this.getUrlState().selectedMetricKeys);
   }
+
+  componentDidMount() {
+
+    if(this.checkOnRunUnfinished()){
+
+      const timerId = setInterval(() =>   {
+
+        if(this.checkOnRunUnfinished()) {
+        
+
+          var requestIds =  this.loadMetricHistory(this.props.runUuids, this.getUrlState().selectedMetricKeys)
+
+
+          this.props.runs.forEach((run) => {
+
+            const runUuid = run.getRunUuid()
+         
+            const getRunRequestId = getUUID();
+            requestIds.push(getRunRequestId);
+            this.props.getRunApi(runUuid, getRunRequestId);
+
+          });
+
+      
+          this.setState(
+            (prevState) => ({
+              historyRequestIds: [...prevState.historyRequestIds, ...requestIds],
+            }),
+          );
+
+
+        }  
+        else {
+          clearInterval(this.state.timerId);
+        }
+      
+      },8000)
+
+      this.setState({timerId})
+    
+    }
+
+  }
+
+
 
   getUrlState() {
     return Utils.getMetricPlotStateFromUrl(this.props.location.search);
@@ -459,6 +505,18 @@ export class MetricsPlotPanel extends React.Component {
     }, 300);
   };
 
+  checkOnRunUnfinished(){
+     
+    const {runs} = this.props
+  
+    var boolean = false 
+    runs.forEach((run) =>{
+      if(run.getStatus() === 'RUNNING') boolean = true;
+    })
+
+    return boolean;
+  }
+
   render() {
     const { experimentId, runUuids, runDisplayNames, distinctMetricKeys, location } = this.props;
     const { popoverVisible, popoverX, popoverY, popoverRunItems } = this.state;
@@ -536,6 +594,7 @@ const mapStateToProps = (state, ownProps) => {
   const distinctMetricKeys = [...new Set(metricKeys)].sort();
 
   const runDisplayNames = [];
+  const runs = runUuids.map((runUuid) =>   getRunInfo(runUuid, state));
 
   // Flat array of all metrics, with history and information of the run it belongs to
   // This is used for underlying MetricsPlotView & predicting chartType for MetricsPlotControls
@@ -561,9 +620,11 @@ const mapStateToProps = (state, ownProps) => {
     latestMetricsByRunUuid,
     distinctMetricKeys,
     metricsWithRunInfoAndHistory,
+    runs,
+    state
   };
 };
 
-const mapDispatchToProps = { getMetricHistoryApi };
+const mapDispatchToProps = { getMetricHistoryApi,getRunApi };
 
 export default withRouter(connect(mapStateToProps, mapDispatchToProps)(MetricsPlotPanel));
