@@ -25,6 +25,9 @@ export const RegisteringModelDocUrl =
 
 export const ExperimentTrackingDocUrl = 'https://www.mlflow.org/docs/latest/tracking.html';
 
+export const CustomPyfuncModelsDocUrl =
+  'https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html#creating-custom-pyfunc-models';
+
 export const LoggingRunsDocUrl =
   'https://www.mlflow.org/docs/latest/tracking.html#logging-data-to-runs';
 
