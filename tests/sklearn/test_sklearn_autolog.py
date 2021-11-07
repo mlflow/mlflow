@@ -16,6 +16,7 @@ import sklearn.datasets
 import sklearn.pipeline
 import sklearn.model_selection
 from scipy.stats import uniform
+from scipy.sparse import csr_matrix, csc_matrix
 
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -849,13 +850,16 @@ def test_parameter_search_handles_large_volume_of_metric_outputs():
     assert len(child_run.data.metrics) >= metrics_size
 
 
-@pytest.mark.parametrize("data_type", [pd.DataFrame, np.array])
+@pytest.mark.parametrize("data_type", [pd.DataFrame, np.array, csr_matrix, csc_matrix])
 def test_autolog_logs_signature_and_input_example(data_type):
     mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
 
     X, y = get_iris()
     X = data_type(X)
-    y = data_type(y)
+    if data_type in [csr_matrix, csc_matrix]:
+        y = np.array(y)
+    else:
+        y = data_type(y)
     model = sklearn.linear_model.LinearRegression()
 
     with mlflow.start_run() as run:

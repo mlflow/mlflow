@@ -73,7 +73,7 @@ class _Example(object):
             elif isinstance(input_tensor, np.ndarray):
                 return {"inputs": input_tensor.tolist()}
             else:
-                return input_tensor.toarray().tolist()
+                return {"inputs": input_tensor.toarray().tolist()}
 
         def _handle_dataframe_input(input_ex):
             if isinstance(input_ex, dict):
