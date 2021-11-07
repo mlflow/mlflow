@@ -9,8 +9,9 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.types.utils import TensorsNotSupportedException
 from mlflow.utils.proto_json_utils import NumpyEncoder, _dataframe_from_json, parse_tf_serving_input
+from scipy.sparse import csr_matrix, csc_matrix
 
-ModelInputExample = Union[pd.DataFrame, np.ndarray, dict, list]
+ModelInputExample = Union[pd.DataFrame, np.ndarray, dict, list, csr_matrix, csc_matrix]
 
 
 class _Example(object):
@@ -50,6 +51,8 @@ class _Example(object):
           encoded strings.
         - numpy types: Numpy types are converted to the corresponding python types or their closest
           equivalent.
+        - csc/csr matric: similar to 2 dims numpy array, csc/csr matric are converted to
+          corresponding python types or their closest equivalent.
     """
 
     def __init__(self, input_example: ModelInputExample):
@@ -59,16 +62,18 @@ class _Example(object):
         def _is_tensor(x):
             return isinstance(x, np.ndarray) or (
                 isinstance(x, dict) and all([isinstance(ary, np.ndarray) for ary in x.values()])
-            )
+            ) or isinstance(x, (csr_matrix, csc_matrix))
 
-        def _handle_tensor_input(input_tensor: Union[np.ndarray, dict]):
+        def _handle_tensor_input(input_tensor: Union[np.ndarray, dict, csr_matrix, csc_matrix]):
             if isinstance(input_tensor, dict):
                 result = {}
                 for name in input_tensor.keys():
                     result[name] = input_tensor[name].tolist()
                 return {"inputs": result}
-            else:
+            elif isinstance(input_tensor, np.ndarray):
                 return {"inputs": input_tensor.tolist()}
+            else:
+                return input_tensor.toarray().tolist()
 
         def _handle_dataframe_input(input_ex):
             if isinstance(input_ex, dict):

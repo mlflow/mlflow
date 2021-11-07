@@ -30,8 +30,9 @@ def _get_tensor_shape(data: np.ndarray, variable_dimension: Optional[int] = 0) -
     :param variable_dimension: An optional integer representing a variable dimension.
     :return: tuple : Shape of the inputted data (including a variable dimension)
     """
-    if not isinstance(data, np.ndarray):
-        raise TypeError("Expected numpy.ndarray, got '{}'.".format(type(data)))
+    from scipy.sparse import csr_matrix, csc_matrix
+    if not isinstance(data, (np.ndarray, csr_matrix, csc_matrix)):
+        raise TypeError("Expected numpy.ndarray or csc/csr matrix, got '{}'.".format(type(data)))
     variable_input_data_shape = data.shape
     if variable_dimension is not None:
         try:
@@ -90,6 +91,7 @@ def _infer_schema(data: Any) -> Schema:
       - dictionary of { name -> numpy.ndarray}
       - numpy.ndarray
       - pyspark.sql.DataFrame
+      - csc/csr matrix
 
     The element types should be mappable to one of :py:class:`mlflow.models.signature.DataType` for
     dataframes and to one of numpy types for tensors.
@@ -98,6 +100,7 @@ def _infer_schema(data: Any) -> Schema:
 
     :return: Schema
     """
+    from scipy.sparse import csr_matrix, csc_matrix
     if isinstance(data, dict):
         res = []
         for name in data.keys():
@@ -121,6 +124,10 @@ def _infer_schema(data: Any) -> Schema:
     elif isinstance(data, np.ndarray):
         schema = Schema(
             [TensorSpec(type=clean_tensor_type(data.dtype), shape=_get_tensor_shape(data))]
+        )
+    elif isinstance(data, (csc_matrix, csr_matrix)):
+        schema = Schema(
+            [TensorSpec(type=clean_tensor_type(data.data.dtype), shape=_get_tensor_shape(data))]
         )
     elif _is_spark_df(data):
         schema = Schema(
