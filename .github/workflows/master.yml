@@ -274,7 +274,7 @@ jobs:
         npm run lint
     - name: Run extract-i18n lint
       run: |
-        node scripts/extract-i18n.js --lint
+        npm run extract-i18n:lint
     - name: Run tests
       run: |
         npm run test
