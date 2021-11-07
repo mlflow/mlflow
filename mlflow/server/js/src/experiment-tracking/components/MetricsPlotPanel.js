@@ -37,8 +37,8 @@ export class MetricsPlotPanel extends React.Component {
     location: PropTypes.object.isRequired,
     history: PropTypes.object.isRequired,
     runDisplayNames: PropTypes.arrayOf(PropTypes.string).isRequired,
-    runs: PropTypes.arrayOf(PropTypes.object).isRequired,
-    getRunApi: PropTypes.func.isRequired,
+    runs: PropTypes.arrayOf(PropTypes.object),
+    getRunApi: PropTypes.func,
   };
 
   // The fields below are exposed as instance attributes rather than component state so that they
@@ -65,6 +65,8 @@ export class MetricsPlotPanel extends React.Component {
   // a single-click event.
   SINGLE_CLICK_EVENT_DELAY_MS = this.MAX_DOUBLE_CLICK_INTERVAL_MS + 10;
 
+  DURATION_BETWEEN_HISTORY_UPDATES_MS = 8000;
+
   constructor(props) {
     super(props);
     this.state = {
@@ -80,7 +82,9 @@ export class MetricsPlotPanel extends React.Component {
   }
 
   componentDidMount() {
-    if (this.checkOnRunUnfinished()) {
+    const { runs } = this.props;
+
+    if (runs && this.checkOnRunUnfinished()) {
       const timerId = setInterval(() => {
         const requestIds = [];
 
@@ -105,7 +109,7 @@ export class MetricsPlotPanel extends React.Component {
         } else {
           clearInterval(this.state.timerId);
         }
-      }, 8000);
+      }, this.DURATION_BETWEEN_HISTORY_UPDATES_MS);
 
       // eslint-disable-next-line react/no-did-mount-set-state
       this.setState({ timerId });
@@ -499,9 +503,10 @@ export class MetricsPlotPanel extends React.Component {
     const { runs } = this.props;
 
     let boolean = false;
-    runs.forEach((run) => {
-      if (run.getStatus() === 'RUNNING') boolean = true;
-    });
+    runs &&
+      runs.forEach((run) => {
+        if (run.getStatus() === 'RUNNING') boolean = true;
+      });
 
     return boolean;
   }
