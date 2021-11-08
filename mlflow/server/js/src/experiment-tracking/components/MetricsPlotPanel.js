@@ -14,6 +14,7 @@ import {
   X_AXIS_STEP,
 } from './MetricsPlotControls';
 import qs from 'qs';
+import { message } from 'antd';
 import { withRouter } from 'react-router-dom';
 import Routes from '../routes';
 import { RunLinksPopover } from './RunLinksPopover';
@@ -34,11 +35,11 @@ export class MetricsPlotPanel extends React.Component {
     // An array of { metricKey, history, runUuid, runDisplayName }
     metricsWithRunInfoAndHistory: PropTypes.arrayOf(PropTypes.object).isRequired,
     getMetricHistoryApi: PropTypes.func.isRequired,
+    getRunApi: PropTypes.func.isRequired,
     location: PropTypes.object.isRequired,
     history: PropTypes.object.isRequired,
     runDisplayNames: PropTypes.arrayOf(PropTypes.string).isRequired,
-    runs: PropTypes.arrayOf(PropTypes.object),
-    getRunApi: PropTypes.func,
+    allRunsCompleted: PropTypes.bool.isRequired,
   };
 
   // The fields below are exposed as instance attributes rather than component state so that they
@@ -65,7 +66,7 @@ export class MetricsPlotPanel extends React.Component {
   // a single-click event.
   SINGLE_CLICK_EVENT_DELAY_MS = this.MAX_DOUBLE_CLICK_INTERVAL_MS + 10;
 
-  DURATION_BETWEEN_HISTORY_UPDATES_MS = 8000;
+  DURATION_BETWEEN_HISTORY_UPDATES_MS = 3000;
 
   constructor(props) {
     super(props);
@@ -78,42 +79,40 @@ export class MetricsPlotPanel extends React.Component {
       timerId: null,
     };
     this.displayPopover = false;
+    this.intervalId = null;
     this.loadMetricHistory(this.props.runUuids, this.getUrlState().selectedMetricKeys);
   }
 
-  componentDidMount() {
-    const { runs } = this.props;
-
-    if (runs && this.checkOnRunUnfinished()) {
-      const timerId = setInterval(() => {
-        let requestIds = [];
-
-        if (this.checkOnRunUnfinished()) {
-          const getRequestIds = this.loadMetricHistory(
-            this.props.runUuids,
-            this.getUrlState().selectedMetricKeys,
-          );
-          requestIds = [...requestIds, ...getRequestIds];
-
-          this.props.runs.forEach((run) => {
-            const runUuid = run.getRunUuid();
-
-            const getRunRequestId = getUUID();
-            requestIds.push(getRunRequestId);
-            this.props.getRunApi(runUuid, getRunRequestId);
-          });
-
-          this.setState((prevState) => ({
-            historyRequestIds: [...prevState.historyRequestIds, ...requestIds],
-          }));
-        } else {
-          clearInterval(this.state.timerId);
-        }
-      }, this.DURATION_BETWEEN_HISTORY_UPDATES_MS);
-
-      // eslint-disable-next-line react/no-did-mount-set-state
-      this.setState({ timerId });
+  clearIntervalIfExists = () => {
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
     }
+  };
+
+  componentDidMount() {
+    if (!this.props.allRunsCompleted) {
+      this.intervalId = setInterval(() => {
+        const { runUuids } = this.props;
+        // Use `message` for demo purposes.
+        message.success({
+          content: 'Updated',
+          duration: 0.5,
+          style: {
+            marginTop: '20vh',
+          },
+        });
+        this.loadMetricHistory(runUuids, this.getUrlState().selectedMetricKeys);
+        if (this.props.allRunsCompleted) {
+          message.success('All runs completed');
+          this.clearIntervalIfExists();
+        }
+        runUuids.forEach(this.props.getRunApi);
+      }, this.DURATION_BETWEEN_HISTORY_UPDATES_MS);
+    }
+  }
+
+  componentWillUnmount() {
+    this.clearIntervalIfExists();
   }
 
   getUrlState() {
@@ -586,9 +585,11 @@ const mapStateToProps = (state, ownProps) => {
     return latestMetrics ? Object.keys(latestMetrics) : [];
   });
   const distinctMetricKeys = [...new Set(metricKeys)].sort();
+  const allRunsCompleted = runUuids
+    .map((runUuid) => getRunInfo(runUuid, state))
+    .every(({ status }) => status !== 'RUNNING');
 
   const runDisplayNames = [];
-  const runs = runUuids.map((runUuid) => getRunInfo(runUuid, state));
 
   // Flat array of all metrics, with history and information of the run it belongs to
   // This is used for underlying MetricsPlotView & predicting chartType for MetricsPlotControls
@@ -614,8 +615,7 @@ const mapStateToProps = (state, ownProps) => {
     latestMetricsByRunUuid,
     distinctMetricKeys,
     metricsWithRunInfoAndHistory,
-    runs,
-    state,
+    allRunsCompleted,
   };
 };
 
