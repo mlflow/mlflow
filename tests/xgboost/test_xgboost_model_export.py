@@ -502,11 +502,10 @@ def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(xgb_model,
     assert "data" in xgboost_conf
     assert pyfunc_conf is not None
     assert "model_class" not in pyfunc_conf
-    assert pyfunc.DATA not in pyfunc_conf
+    assert pyfunc.DATA in pyfunc_conf
 
     # test old MLmodel conf
     # add ``data`` field to pyfunc flavor and xgboost flavor
-    pyfunc.add_to_model(model_conf, loader_module="mlflow.xgboost", data="model.xgb")
     model_conf.flavors["xgboost"] = {"xgb_version": xgb.__version__, "data": "model.xgb"}
     model_conf.save(model_conf_path)
     model_conf = Model.load(model_conf_path)

@@ -154,12 +154,17 @@ def save_model(
     # Save an XGBoost model
     xgb_model.save_model(model_data_path)
     xgb_model_class = _get_fully_qualified_class_name(xgb_model)
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.xgboost", env=_CONDA_ENV_FILE_NAME)
+    pyfunc.add_to_model(
+        mlflow_model,
+        loader_module="mlflow.xgboost",
+        data=model_data_subpath,
+        env=_CONDA_ENV_FILE_NAME,
+    )
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         xgb_version=xgb.__version__,
-        model_class=xgb_model_class,
         data=model_data_subpath,
+        model_class=xgb_model_class,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
