@@ -317,6 +317,17 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
     "Default: Within file store, if a file:/ URI is provided. If a sql backend is"
     " used, then this option is required.",
 )
+@click.option(
+    "--artifacts-destination",
+    metavar="URI",
+    default="./mlartifacts",
+    help=(
+        "The base artifact location from which to resolve artifact upload/download/list requests "
+        "(e.g. 's3://my-bucket'). Defaults to a local './mlartifacts' directory. This option only "
+        "applies when the tracking server is configured to stream artifacts and the experiment's "
+        "artifact root location is http or mlflow-artifacts URI."
+    ),
+)
 @cli_args.HOST
 @cli_args.PORT
 @cli_args.WORKERS
@@ -344,6 +355,7 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 def server(
     backend_store_uri,
     default_artifact_root,
+    artifacts_destination,
     host,
     port,
     workers,
@@ -390,6 +402,7 @@ def server(
         _run_server(
             backend_store_uri,
             default_artifact_root,
+            artifacts_destination,
             host,
             port,
             static_prefix,
