@@ -669,7 +669,7 @@ export class ExperimentView extends Component {
                       size='large'
                       onChange={this.onHandleSortByDropdown}
                       data-test-id='sort-select-dropdown'
-                      dropdownStyle={{ minWidth: "20%"}}
+                      dropdownStyle={{ minWidth: '30%' }}
                     >
                       {Object.keys(ATTRIBUTE_COLUMN_SORT_LABEL).reduce(
                         (sortOptions, sortLabelKey) => {
