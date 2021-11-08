@@ -49,7 +49,7 @@ def dict_of_ndarrays():
 def dict_of_sparse_matrix():
     return {
         "csc": csc_matrix(np.arange(0, 12, 0.5).reshape(3, 8)),
-        "csr": csr_matrix(np.arange(0, 12, 0.5).reshape(3, 8))
+        "csr": csr_matrix(np.arange(0, 12, 0.5).reshape(3, 8)),
     }
 
 
