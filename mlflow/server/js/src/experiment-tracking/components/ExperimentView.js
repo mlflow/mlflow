@@ -707,7 +707,7 @@ export class ExperimentView extends Component {
                         ColumnSortByOrder.forEach((order) => {
                           sortOptions.push(
                             <Option
-                              key={metricKey}
+                              key={ExperimentViewUtil.middleTruncateKey(metricKey, 20)}
                               title={metricKey}
                               data-test-id={`sort-select-${metricKey}-${order}`}
                               value={`${ExperimentViewUtil.makeCanonicalKey(
@@ -732,7 +732,7 @@ export class ExperimentView extends Component {
                           sortOptions.push(
                             <Option
                               key={paramKey}
-                              title={paramKey}
+                              title={ExperimentViewUtil.middleTruncateKey(paramKey, 20)}
                               data-test-id={`sort-select-${paramKey}-${order}`}
                               value={`${ExperimentViewUtil.makeCanonicalKey(
                                 COLUMN_TYPES.PARAMS,

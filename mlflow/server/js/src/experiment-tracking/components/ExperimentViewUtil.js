@@ -273,6 +273,17 @@ export default class ExperimentViewUtil {
     return keyType + '.`' + keyName + '`';
   }
 
+  static middleTruncateKey(keyName, maxLen) {
+    if (keyName.length > maxLen) {
+        var firstPartLen = Math.floor((maxLen - 3) / 2)
+        var lastPartLen = maxLen - 3 - firstPartLen
+        return keyName.substring(0, firstPartLen) + '...' +
+            keyName.substring(keyName.length - lastPartLen, keyName.length)
+    } else {
+        return keyName
+    }
+  }
+
   static getExpanderHeader(cellType) {
     const CellComponent = `${cellType}`;
     return (
