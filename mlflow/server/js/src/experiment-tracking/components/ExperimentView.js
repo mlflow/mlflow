@@ -707,7 +707,7 @@ export class ExperimentView extends Component {
                         ColumnSortByOrder.forEach((order) => {
                           sortOptions.push(
                             <Option
-                              key={ExperimentViewUtil.middleTruncateKey(metricKey, 20)}
+                              key={metricKey}
                               title={metricKey}
                               data-test-id={`sort-select-${metricKey}-${order}`}
                               value={`${ExperimentViewUtil.makeCanonicalKey(
@@ -720,7 +720,7 @@ export class ExperimentView extends Component {
                               ) : (
                                 <Icon type='arrow-down' />
                               )}{' '}
-                              {metricKey}
+                              {ExperimentViewUtil.middleTruncateKey(metricKey, 20)}
                             </Option>,
                           );
                         });
@@ -732,7 +732,7 @@ export class ExperimentView extends Component {
                           sortOptions.push(
                             <Option
                               key={paramKey}
-                              title={ExperimentViewUtil.middleTruncateKey(paramKey, 20)}
+                              title={paramKey}
                               data-test-id={`sort-select-${paramKey}-${order}`}
                               value={`${ExperimentViewUtil.makeCanonicalKey(
                                 COLUMN_TYPES.PARAMS,
@@ -744,7 +744,7 @@ export class ExperimentView extends Component {
                               ) : (
                                 <Icon type='arrow-down' />
                               )}{' '}
-                              {paramKey}
+                              {ExperimentViewUtil.middleTruncateKey(paramKey, 20)}
                             </Option>,
                           );
                         });
