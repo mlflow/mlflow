@@ -275,12 +275,15 @@ export default class ExperimentViewUtil {
 
   static middleTruncateKey(keyName, maxLen) {
     if (keyName.length > maxLen) {
-        var firstPartLen = Math.floor((maxLen - 3) / 2)
-        var lastPartLen = maxLen - 3 - firstPartLen
-        return keyName.substring(0, firstPartLen) + '...' +
-            keyName.substring(keyName.length - lastPartLen, keyName.length)
+      const firstPartLen = Math.floor((maxLen - 3) / 2);
+      const lastPartLen = maxLen - 3 - firstPartLen;
+      return (
+        keyName.substring(0, firstPartLen) +
+        '...' +
+        keyName.substring(keyName.length - lastPartLen, keyName.length)
+      );
     } else {
-        return keyName
+      return keyName;
     }
   }
 
