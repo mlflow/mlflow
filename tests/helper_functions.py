@@ -3,7 +3,6 @@ import random
 from unittest import mock
 
 import requests
-import string
 import time
 import signal
 import socket
@@ -44,8 +43,14 @@ def random_int(lo=1, hi=1e10):
     return random.randint(lo, hi)
 
 
-def random_str(size=10, chars=string.ascii_uppercase + string.digits):
-    return "".join(random.choice(chars) for _ in range(size))
+def random_str(size=10):
+    msg = (
+        "UUID4 generated strings have a high potential for collision at small sizes."
+        "10 is set as the lower bounds for random string generation to prevent non-deterministic"
+        "test failures."
+    )
+    assert size >= 10, msg
+    return uuid.uuid4().hex[:size]
 
 
 def random_file(ext):

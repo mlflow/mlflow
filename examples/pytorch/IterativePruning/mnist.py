@@ -12,10 +12,14 @@ import pytorch_lightning as pl
 import torch
 import mlflow.pytorch
 from argparse import ArgumentParser
-from pytorch_lightning.metrics.functional import accuracy
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, random_split
 from torchvision import datasets, transforms
+
+try:
+    from torchmetrics.functional import accuracy
+except ImportError:
+    from pytorch_lightning.metrics.functional import accuracy
 
 
 class MNISTDataModule(pl.LightningDataModule):

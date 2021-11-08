@@ -30,7 +30,6 @@ from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
     ExceptionSafeClass,
-    try_mlflow_log,
     batch_metrics_logger,
 )
 
@@ -393,24 +392,20 @@ def autolog(
                 self.current_epoch += 1
 
             def train_begin(self, estimator, *args, **kwargs):
-                try_mlflow_log(mlflow.log_param, "num_layers", len(estimator.net))
+                mlflow.log_param("num_layers", len(estimator.net))
                 if estimator.max_epoch is not None:
-                    try_mlflow_log(mlflow.log_param, "epochs", estimator.max_epoch)
+                    mlflow.log_param("epochs", estimator.max_epoch)
                 if estimator.max_batch is not None:
-                    try_mlflow_log(mlflow.log_param, "batches", estimator.max_batch)
-                try_mlflow_log(
-                    mlflow.log_param, "optimizer_name", type(estimator.trainer.optimizer).__name__
-                )
+                    mlflow.log_param("batches", estimator.max_batch)
+                mlflow.log_param("optimizer_name", type(estimator.trainer.optimizer).__name__)
                 if hasattr(estimator.trainer.optimizer, "lr"):
-                    try_mlflow_log(
-                        mlflow.log_param, "learning_rate", estimator.trainer.optimizer.lr
-                    )
+                    mlflow.log_param("learning_rate", estimator.trainer.optimizer.lr)
                 if hasattr(estimator.trainer.optimizer, "epsilon"):
-                    try_mlflow_log(mlflow.log_param, "epsilon", estimator.trainer.optimizer.epsilon)
+                    mlflow.log_param("epsilon", estimator.trainer.optimizer.epsilon)
 
             def train_end(self, estimator, *args, **kwargs):
                 if isinstance(estimator.net, HybridSequential) and log_models:
-                    try_mlflow_log(log_model, estimator.net, artifact_path="model")
+                    log_model(estimator.net, artifact_path="model")
 
         return __MLflowGluonCallback()
 
@@ -420,9 +415,7 @@ def autolog(
         with batch_metrics_logger(run_id) as metrics_logger:
             mlflowGluonCallback = getGluonCallback(metrics_logger)
             if len(args) >= 4:
-                l = list(args)
-                l[3] += [mlflowGluonCallback]
-                args = tuple(l)
+                args = (*args[:3], args[3] + [mlflowGluonCallback], *args[4:])
             elif "event_handlers" in kwargs:
                 kwargs["event_handlers"] += [mlflowGluonCallback]
             else:

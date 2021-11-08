@@ -10,6 +10,7 @@ import warnings
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
+from mlflow.utils.arguments_utils import _get_arg_names
 
 _logger = logging.getLogger(__name__)
 
@@ -42,12 +43,6 @@ def _get_estimator_info_tags(estimator):
         "estimator_name": estimator.__class__.__name__,
         "estimator_class": (estimator.__class__.__module__ + "." + estimator.__class__.__name__),
     }
-
-
-def _get_arg_names(f):
-    # `inspect.getargspec` doesn't return a wrapped function's argspec
-    # See: https://hynek.me/articles/decorators#mangled-signatures
-    return list(inspect.signature(f).parameters.keys())
 
 
 def _get_args_for_metrics(fit_func, fit_args, fit_kwargs):

@@ -213,7 +213,7 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
     from pyspark.ml.pipeline import PipelineModel
     from pyspark.sql import DataFrame
     import mleap.version
-    from mleap.pyspark.spark_support import SimpleSparkSerializer  # pylint: disable=unused-variable
+    from mleap.pyspark.spark_support import SimpleSparkSerializer  # pylint: disable=unused-import
     from py4j.protocol import Py4JError
 
     if not isinstance(spark_model, PipelineModel):
