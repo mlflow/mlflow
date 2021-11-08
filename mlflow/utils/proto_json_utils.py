@@ -11,6 +11,8 @@ from collections import defaultdict
 
 def message_to_json(message):
     """Converts a message to JSON, using snake_case for field names."""
+    # Note protobuf encodes int64, fixed64, and uint64 to string:
+    # https://developers.google.com/protocol-buffers/docs/proto3#json
     return MessageToJson(message, preserving_proto_field_name=True)
 
 
