@@ -1,0 +1,8 @@
+set -ex
+
+diff=$(git diff --cached --name-only | grep '\.py$' || true)
+
+if [ ! -z "$diff" ]; then
+  black --check $diff
+  pylint $diff
+fi
