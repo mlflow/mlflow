@@ -273,13 +273,10 @@ def _load_model(path):
     model_dir = os.path.dirname(path) if os.path.isfile(path) else path
     flavor_conf = _get_flavor_configuration(model_path=model_dir, flavor_name=FLAVOR_NAME)
 
-    # XGBoost Booster models saved in MLflow (<x.x.x) specify
-    # the ``data`` field within its pyfunc and XGBoost flavor configurations.
-    # In contrast, XGBoost models saved in new MLflow (>=x.x.x) do not
-    # specify the ``data`` field within its pyfunc flavor configuration.
-    # We also add ``model_class`` in XGBoost flavor configuration to specify
-    # its XGBoost model class. When loading models, we first get the XGBoost
-    # model from its flavor configuration and then create an instance based on its class.
+    # XGBoost models saved in new MLflow (>=x.x.x) have ``model_class``
+    # in the XGBoost flavor configuration to specify its XGBoost model class.
+    # When loading models, we first get the XGBoost model from
+    # its flavor configuration and then create an instance based on its class.
     model_class = flavor_conf.get("model_class", "xgboost.core.Booster")
     xgb_model_path = os.path.join(model_dir, flavor_conf.get("data"))
 
