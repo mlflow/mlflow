@@ -261,11 +261,10 @@ def dict_of_sparse_matrix():
 
 
 def test_get_sparse_matrix_data_type_and_shape(dict_of_sparse_matrix):
-    for col in dict_of_sparse_matrix:
-        sparse_matrix = dict_of_sparse_matrix[col]
+    for _, sparse_matrix in dict_of_sparse_matrix.items():
         schema = _infer_schema(sparse_matrix)
-        schema.numpy_types() == ["float64"]
-        _get_tensor_shape(sparse_matrix) == (3, 8)
+        assert schema.numpy_types() == ["float64"]
+        assert _get_tensor_shape(sparse_matrix) == (-1, 8)
 
 
 def test_schema_inference_on_dictionary(dict_of_ndarrays):

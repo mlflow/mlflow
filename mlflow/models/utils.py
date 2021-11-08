@@ -60,12 +60,8 @@ class _Example(object):
             return np.isscalar(x) or x is None
 
         def _is_tensor(x):
-            return (
-                isinstance(x, np.ndarray)
-                or (
-                    isinstance(x, dict) and all([isinstance(ary, np.ndarray) for ary in x.values()])
-                )
-                or isinstance(x, (csr_matrix, csc_matrix))
+            return isinstance(x, (np.ndarray, csr_matrix, csc_matrix)) or (
+                isinstance(x, dict) and all(isinstance(ary, np.ndarray) for ary in x.values())
             )
 
         def _handle_tensor_input(input_tensor: Union[np.ndarray, dict, csr_matrix, csc_matrix]):
