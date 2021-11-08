@@ -174,8 +174,6 @@ def resolve_input_example_and_signature(
             model_signature = infer_model_signature(input_example)
         except Exception as e:
             model_signature_user_msg = "Failed to infer model signature: " + str(e)
-            import traceback
-            traceback.print_exc()
 
     if log_input_example and input_example_user_msg is not None:
         logger.warning(input_example_user_msg)

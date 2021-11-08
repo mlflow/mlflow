@@ -31,6 +31,7 @@ def _get_tensor_shape(data: np.ndarray, variable_dimension: Optional[int] = 0) -
     :return: tuple : Shape of the inputted data (including a variable dimension)
     """
     from scipy.sparse import csr_matrix, csc_matrix
+
     if not isinstance(data, (np.ndarray, csr_matrix, csc_matrix)):
         raise TypeError("Expected numpy.ndarray or csc/csr matrix, got '{}'.".format(type(data)))
     variable_input_data_shape = data.shape
@@ -101,6 +102,7 @@ def _infer_schema(data: Any) -> Schema:
     :return: Schema
     """
     from scipy.sparse import csr_matrix, csc_matrix
+
     if isinstance(data, dict):
         res = []
         for name in data.keys():
