@@ -271,7 +271,7 @@ def _load_pyfunc(path):
     return _XGBModelWrapper(_load_model(path))
 
 
-def load_model(model_uri, artifact_path=None):
+def load_model(model_uri, dst_path=None):
     """
     Load an XGBoost model from a local file or a run.
 
@@ -285,15 +285,13 @@ def load_model(model_uri, artifact_path=None):
                       For more information about supported URI schemes, see
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
                       artifact-locations>`_.
-    :param artifact_path: The local filesystem path to which to download the model artifact.
-                          This directory must already exist. If unspecified, a local output
-                          path will be created.
+    :param dst_path: The local filesystem path to which to download the model artifact.
+                     This directory must already exist. If unspecified, a local output
+                     path will be created.
 
     :return: An XGBoost model (an instance of `xgboost.Booster`_)
     """
-    local_model_path = _download_artifact_from_uri(
-        artifact_uri=model_uri, output_path=artifact_path
-    )
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     xgb_model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model.xgb"))
     return _load_model(path=xgb_model_file_path)
