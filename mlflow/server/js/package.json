@@ -86,8 +86,7 @@
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "extract-i18n:base": "node scripts/extract-i18n.js",
-    "extract-i18n": "npm run extract-i18n:base",
-    "extract-i18n:lint": "node scripts/extract-i18n.js --lint"
+    "extract-i18n": "npm run extract-i18n:base"
   },
   "homepage": "static-files",
   "jest": {
