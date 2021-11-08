@@ -3,6 +3,7 @@ import math
 import numpy as np
 import pandas as pd
 import pytest
+from scipy.sparse import csr_matrix, csc_matrix
 
 from mlflow.models.signature import infer_signature
 from mlflow.models.utils import _Example, _read_tensor_input_from_json
@@ -41,6 +42,14 @@ def dict_of_ndarrays():
         "2D": np.arange(0, 12, 0.5).reshape(3, 8),
         "3D": np.arange(0, 12, 0.5).reshape(2, 3, 4),
         "4D": np.arange(0, 12, 0.5).reshape(3, 2, 2, 2),
+    }
+
+
+@pytest.fixture
+def dict_of_sparse_matrix():
+    return {
+        "csc": csc_matrix(np.arange(0, 12, 0.5).reshape(3, 8)),
+        "csr": csr_matrix(np.arange(0, 12, 0.5).reshape(3, 8))
     }
 
 
@@ -117,3 +126,14 @@ def test_input_examples(pandas_df_with_all_types, dict_of_ndarrays):
         filename = x.info["artifact_path"]
         parsed_df = _dataframe_from_json(tmp.path(filename))
         assert example == parsed_df.to_dict(orient="records")[0]
+
+
+def test_sparse_matrix_input_examples(dict_of_sparse_matrix):
+    for col in dict_of_sparse_matrix:
+        input_example = dict_of_sparse_matrix[col]
+        with TempDir() as tmp:
+            example = _Example(input_example)
+            example.save(tmp.path())
+            filename = example.info["artifact_path"]
+            parsed_ary = _read_tensor_input_from_json(tmp.path(filename))
+            assert np.array_equal(parsed_ary, input_example.toarray())
