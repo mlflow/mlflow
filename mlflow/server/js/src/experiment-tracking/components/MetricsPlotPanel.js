@@ -86,14 +86,14 @@ export class MetricsPlotPanel extends React.Component {
 
     if (runs && this.checkOnRunUnfinished()) {
       const timerId = setInterval(() => {
-        const requestIds = [];
+        let requestIds = [];
 
         if (this.checkOnRunUnfinished()) {
           const getRequestIds = this.loadMetricHistory(
             this.props.runUuids,
             this.getUrlState().selectedMetricKeys,
           );
-          requestIds.push(getRequestIds);
+          requestIds = [...requestIds, ...getRequestIds];
 
           this.props.runs.forEach((run) => {
             const runUuid = run.getRunUuid();
