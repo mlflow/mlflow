@@ -1,5 +1,23 @@
 Changelog
 =========
+1.21.1.dev0 (2021-11-08)
+------------------------
+MLflow 1.21.1.dev0 includes several major features and improvements:
+
+Features:
+
+- Add optional experiment_id parameter to `mlflow.set_experiment` (#5012, @dbczumar)
+- Add support to serve MLflow models through MLServer (#4963, @adriangonz)
+- Improve statsmodels autologging metrics (#4942, @WeichenXu123)
+- tag nested runs with parent run ID (#4197, @yitao-li)
+
+Bug fixes and documentation updates:
+
+- updating documentation to address issue 4202 Signed-off-by: westford1 (#4991, @westford14)
+- Fix resources spec (#4948, @jianyuan)
+
+Small bug fixes and doc updates (#5014, #5008, #4998, #4985, #4984, #4970, #4966, #4980, #4967, #4978, #4979, #4968, #4976, #4975, #4934, #4956, #4938, #4950, #4939, #4913, #4940, #4935, @harupy; #5002, #4958, #4945, @BenWilson2; #5005, @you-n-g; #4952, @shrinath-suresh; #4962, #4995, @WeichenXu123; #5011, #4959, @dbczumar; #4964, #4989, @liangz1)
+
 1.21.0 (2021-10-23)
 -------------------
 MLflow 1.21.0 includes several major features and improvements:
