@@ -1,4 +1,4 @@
-import { truncateToFirstLineWithMaxLength, capitalizeFirstChar } from './StringUtils';
+import { truncateToFirstLineWithMaxLength, capitalizeFirstChar, middleTruncateKey } from './StringUtils';
 
 describe('truncateToFirstLineWithMaxLength', () => {
   test('should truncate to first line if it exists', () => {
@@ -43,3 +43,12 @@ describe('capitalizeFirstChar', () => {
     expect(capitalizeFirstChar(object)).toEqual(object);
   });
 });
+
+describe('middleTruncateKey', () => {
+  test('test middleTruncateKey', () => {
+    expect(middleTruncateKey('abc', 10)).toEqual('abc')
+    expect(middleTruncateKey('abcdefghij', 10)).toEqual('abcdefghij')
+    expect(middleTruncateKey('abcdefghijk', 10)).toEqual('abc...hijk')
+    expect(middleTruncateKey('abcdefghijkl', 10)).toEqual('abc...ijkl')
+  })
+})
