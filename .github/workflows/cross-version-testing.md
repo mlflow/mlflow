@@ -82,35 +82,35 @@ We determine which versions to test based on the following rules:
 The table below describes which `scikit-learn` versions to test for the example configuration in
 the previous section:
 
-| Version       | Tested | Comment                                |
-| :------------ | :----- | -------------------------------------- |
-| 0.20.3        | ✅     | The value of `minimum`                 |
-| 0.20.4        | ✅     | The latest micro version of `0.20`     |
-| 0.21rc2       |        |                                        |
-| 0.21.0        |        |                                        |
-| 0.21.1        |        |                                        |
-| 0.21.2        |        |                                        |
-| 0.21.3        |        | Excluded by `unsupported`              |
-| 0.22rc2.post1 |        |                                        |
-| 0.22rc3       |        |                                        |
-| 0.22          |        |                                        |
-| 0.22.1        |        |                                        |
-| 0.22.2        |        |                                        |
-| 0.22.2.post1  | ✅     | The latest micro version of `0.22`     |
-| 0.23.0rc1     |        |                                        |
-| 0.23.0        |        |                                        |
-| 0.23.1        |        |                                        |
-| 0.23.2        | ✅     | The latest micro version of `0.23`     |
-| 0.24.dev0     |        |                                        |
-| 0.24.0rc1     |        |                                        |
-| 0.24.0        |        |                                        |
-| 0.24.1        |        |                                        |
-| 0.24.2        | ✅     | The latest micro version of `0.24`     |
-| 1.0rc1        |        |                                        |
-| 1.0rc2        |        |                                        |
-| 1.0           |        | The value of `maximum`                 |
-| 1.0.1         | ✅     | The latest micro version of `1.0`      |
-| 1.1.dev       | ✅     | The version installed by `install_dev` |
+| Version       | Tested | Comment                                            |
+| :------------ | :----- | -------------------------------------------------- |
+| 0.20.3        | ✅     | The value of `minimum`                             |
+| 0.20.4        | ✅     | The latest micro version of `0.20`                 |
+| 0.21rc2       |        |                                                    |
+| 0.21.0        |        |                                                    |
+| 0.21.1        |        |                                                    |
+| 0.21.2        | ✅     | The latest micro version of `0.21` without`0.21.3` |
+| 0.21.3        |        | Excluded by `unsupported`                          |
+| 0.22rc2.post1 |        |                                                    |
+| 0.22rc3       |        |                                                    |
+| 0.22          |        |                                                    |
+| 0.22.1        |        |                                                    |
+| 0.22.2        |        |                                                    |
+| 0.22.2.post1  | ✅     | The latest micro version of `0.22`                 |
+| 0.23.0rc1     |        |                                                    |
+| 0.23.0        |        |                                                    |
+| 0.23.1        |        |                                                    |
+| 0.23.2        | ✅     | The latest micro version of `0.23`                 |
+| 0.24.dev0     |        |                                                    |
+| 0.24.0rc1     |        |                                                    |
+| 0.24.0        |        |                                                    |
+| 0.24.1        |        |                                                    |
+| 0.24.2        | ✅     | The latest micro version of `0.24`                 |
+| 1.0rc1        |        |                                                    |
+| 1.0rc2        |        |                                                    |
+| 1.0           |        | The value of `maximum`                             |
+| 1.0.1         | ✅     | The latest micro version of `1.0`                  |
+| 1.1.dev       | ✅     | The version installed by `install_dev`             |
 
 ## When do we run cross version tests?
 
