@@ -6,10 +6,10 @@
 
 (Details)
 
-## Does this PR affect the documentation?
+## Does this PR change the documentation?
 
 - [ ] No. You can skip the rest of this section.
-- [ ] Yes. Make sure the affected pages / sections render correctly by following the steps below.
+- [ ] Yes. Make sure the changed pages / sections render correctly by following the steps below.
 
 Steps:
 
@@ -18,7 +18,7 @@ Steps:
 2. Click `Details` on the right to open the job page of CircleCI.
 3. Click the `Artifacts` tab.
 4. Click `docs/build/html/index.html`.
-5. Find the affected pages / sections and make sure they render correctly.
+5. Find the changed pages / sections and make sure they render correctly.
 
 ## Release Notes
 
