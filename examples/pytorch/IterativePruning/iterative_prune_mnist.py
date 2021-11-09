@@ -17,7 +17,6 @@ from mnist import (
     LightningMNISTClassifier,
 )
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.autologging_utils import try_mlflow_log
 
 
 class IterativePrune:
@@ -97,7 +96,7 @@ class IterativePrune:
                 f.write("\n")
                 f.write(str(params))
 
-            try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
+            mlflow.log_artifact(local_path=summary_file)
         finally:
             shutil.rmtree(tempdir)
 

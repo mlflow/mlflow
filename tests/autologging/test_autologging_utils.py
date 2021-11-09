@@ -386,32 +386,6 @@ def test_batch_metrics_logger_logs_timestamps_as_int_milliseconds(start_run,):
         assert logged_metric.timestamp == 123456
 
 
-@pytest.mark.usefixtures(test_mode_off.__name__)
-def test_batch_metrics_logger_continues_if_log_batch_fails(start_run,):
-    with mock.patch.object(MlflowClient, "log_batch") as log_batch_mock:
-        log_batch_mock.side_effect = [Exception("asdf"), None]
-
-        run_id = mlflow.active_run().info.run_id
-        with batch_metrics_logger(run_id) as metrics_logger:
-            # this call should fail to record since log_batch raised exception
-            metrics_logger.record_metrics({"x": 1}, step=0)
-
-            metrics_logger.record_metrics({"y": 2}, step=1)
-
-        # even though the first call to log_batch failed, the BatchMetricsLogger should continue
-        #   logging subsequent batches
-        last_call = log_batch_mock.call_args_list[-1]
-
-        _, kwargs = last_call
-
-        assert kwargs["run_id"] == run_id
-        assert len(kwargs["metrics"]) == 1
-        metric = kwargs["metrics"][0]
-        assert metric.key == "y"
-        assert metric.value == 2
-        assert metric.step == 1
-
-
 def test_autologging_integration_calls_underlying_function_correctly():
     @autologging_integration("test_integration")
     def autolog(foo=7, disable=False, silent=False):

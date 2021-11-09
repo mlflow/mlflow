@@ -6,7 +6,7 @@ import traceback
 
 
 def get_distributions():
-    res = subprocess.run(["pip", "list"], stdout=subprocess.PIPE)
+    res = subprocess.run(["pip", "list"], stdout=subprocess.PIPE, check=True)
     pip_list_stdout = res.stdout.decode("utf-8")
     # `pip_list_stdout` looks like this:
     # ``````````````````````````````````````````````````````````
