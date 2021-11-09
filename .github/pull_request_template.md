@@ -6,6 +6,19 @@
 
 (Details)
 
+## Does this PR affect the documentation?
+
+- [ ] No. You can skip the rest of this section.
+- [ ] Yes. Make sure the affected pages / sections render correctly by following the steps below.
+
+Steps:
+
+1. Make sure the status of the `ci/circleci: build_doc` check is successful. If no, fix it.
+2. Click `Details` to open the job page of CircleCI.
+3. Click the `Artifacts` tab.
+4. Click `docs/build/html/index.html`.
+5. Find the affect pages / sections and make sure they render correctly.
+
 ## Release Notes
 
 ### Is this a user-facing change?
