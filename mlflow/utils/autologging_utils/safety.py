@@ -4,7 +4,6 @@ import itertools
 import functools
 import os
 import uuid
-import warnings
 from abc import abstractmethod
 from contextlib import contextmanager
 
@@ -24,19 +23,6 @@ from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 _AUTOLOGGING_TEST_MODE_ENV_VAR = "MLFLOW_AUTOLOGGING_TESTING"
 
 _AUTOLOGGING_PATCHES = {}
-
-
-def try_mlflow_log(fn, *args, **kwargs):
-    """
-    Catch exceptions and log a warning to avoid autolog throwing.
-    """
-    try:
-        return fn(*args, **kwargs)
-    except Exception as e:
-        if is_testing():
-            raise
-        else:
-            warnings.warn("Logging to MLflow failed: " + str(e), stacklevel=2)
 
 
 # Function attribute used for testing purposes to verify that a given function
@@ -859,7 +845,6 @@ def _validate_args(
 
 
 __all__ = [
-    "try_mlflow_log",
     "safe_patch",
     "is_testing",
     "exception_safe_function",
