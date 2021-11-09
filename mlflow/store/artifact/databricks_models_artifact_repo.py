@@ -31,7 +31,8 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
     The artifact_uri is expected to be of the form
     - `models:/<model_name>/<model_version>`
     - `models:/<model_name>/<stage>`  (refers to the latest model version in the given stage)
-    - `models://<profile>/<model_name>/<model_version or stage>`
+    - `models:/<model_name>/latest`  (refers to the latest of all model versions)
+    - `models://<profile>/<model_name>/<model_version or stage or 'latest'>`
 
     Note : This artifact repository is meant is to be instantiated by the ModelsArtifactRepository
     when the client is pointing to a Databricks-hosted model registry.
