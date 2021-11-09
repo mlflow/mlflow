@@ -139,9 +139,11 @@ See also:
 
 ## How to run cross version tests manually
 
+The `cross-version-tests.yml` workflow can be run manually without creating a pull request.
+
 1. Open https://github.com/mlflow/mlflow/actions/workflows/cross-version-tests.yml.
 2. Click `Run workflow`.
-3. Fill in the required input parameters.
+3. Fill in the input parameters.
 4. Click `Run workflow` at the bottom of the parameter input form.
 
 See also:
