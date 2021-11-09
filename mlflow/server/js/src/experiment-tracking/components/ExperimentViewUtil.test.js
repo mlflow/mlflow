@@ -494,6 +494,7 @@ describe('updateUrlWithViewState', () => {
     defaultParameters.orderByAsc = DEFAULT_ORDER_BY_ASC;
     defaultParameters.startTime = DEFAULT_START_TIME;
     defaultParameters.showMultiColumns = DEFAULT_SHOW_MULTI_COLUMNS;
+    defaultParameters.categorizedUncheckedKeys = DEFAULT_CATEGORIZED_UNCHECKED_KEYS;
     defaultParameters.diffSwitchSelected = DEFAULT_DIFF_SWITCH_SELECTED;
     defaultParameters.preSwitchCategorizedUncheckedKeys = DEFAULT_CATEGORIZED_UNCHECKED_KEYS;
     defaultParameters.postSwitchCategorizedUncheckedKeys = DEFAULT_CATEGORIZED_UNCHECKED_KEYS;

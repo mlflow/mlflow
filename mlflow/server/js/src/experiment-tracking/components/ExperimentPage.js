@@ -25,12 +25,8 @@ import {
   PAGINATION_DEFAULT_STATE,
   MAX_DETECT_NEW_RUNS_RESULTS,
   DETECT_NEW_RUNS_INTERVAL,
-  DEFAULT_ORDER_BY_KEY,
-  DEFAULT_ORDER_BY_ASC,
-  DEFAULT_START_TIME,
-  DEFAULT_LIFECYCLE_FILTER,
-  DEFAULT_MODEL_VERSION_FILTER,
   ATTRIBUTE_COLUMN_SORT_KEY,
+  COLUMN_TYPES,
 } from '../constants';
 
 export const isNewRun = (lastRunsRefreshTime, run) => {
@@ -68,7 +64,6 @@ export class ExperimentPage extends Component {
 
   constructor(props) {
     super(props);
-    const urlState = Utils.getSearchParamsFromUrl(props.location.search);
     this.state = {
       lastRunsRefreshTime: Date.now(),
       numberOfNewRuns: 0,
@@ -77,18 +72,10 @@ export class ExperimentPage extends Component {
       ...PAGINATION_DEFAULT_STATE,
       getExperimentRequestId: null,
       searchRunsRequestId: null,
-      persistedState: {
-        searchInput: urlState.search === undefined ? '' : urlState.search,
-        orderByKey: urlState.orderByKey === undefined ? DEFAULT_ORDER_BY_KEY : urlState.orderByKey,
-        orderByAsc: urlState.orderByAsc === undefined ? DEFAULT_ORDER_BY_ASC : urlState.orderByAsc,
-        startTime: urlState.startTime === undefined ? DEFAULT_START_TIME : urlState.startTime,
-        lifecycleFilter:
-          urlState.lifecycle === undefined ? DEFAULT_LIFECYCLE_FILTER : urlState.lifecycle,
-        modelVersionFilter:
-          urlState.modelVersion === undefined
-            ? DEFAULT_MODEL_VERSION_FILTER
-            : urlState.modelVersion,
-      },
+      urlState: Utils.getSearchParamsFromUrl(props.location.search),
+      persistedState: new ExperimentPagePersistedState({
+        ...this.urlState,
+      }).toJSON(),
     };
   }
 
@@ -247,14 +234,15 @@ export class ExperimentPage extends Component {
     return (!orderByKey && !searchInput) || orderByKey === ATTRIBUTE_COLUMN_SORT_KEY.DATE;
   }
 
-  onSearch = (
+  onSearch = ({
     searchInput,
     lifecycleFilter,
     orderByKey,
     orderByAsc,
     modelVersionFilter,
     startTime,
-  ) => {
+    experimentViewPersistedState,
+  }) => {
     this.setState(
       {
         lastRunsRefreshTime: Date.now(),
@@ -270,6 +258,7 @@ export class ExperimentPage extends Component {
         nextPageToken: null,
       },
       () => {
+        this.updateUrlWithViewState({ ...experimentViewPersistedState });
         this.handleGettingRuns(this.props.searchRunsApi, this.state.searchRunsRequestId);
         if (!this.detectNewRunsTimer) {
           this.detectNewRunsTimer = setInterval(
@@ -279,6 +268,63 @@ export class ExperimentPage extends Component {
         }
       },
     );
+  };
+
+  updateUrlWithViewState = ({
+    showMultiColumns,
+    categorizedUncheckedKeys,
+    diffSwitchSelected,
+    preSwitchCategorizedUncheckedKeys,
+    postSwitchCategorizedUncheckedKeys,
+  }) => {
+    const {
+      searchInput,
+      startTime,
+      orderByKey,
+      orderByAsc,
+      lifecycleFilter,
+      modelVersionFilter,
+    } = this.state.persistedState;
+    const { experimentId, history } = this.props;
+
+    const getCategorizedUncheckedKeysForUrl = (keys) => {
+      // Empty arrays are set to an array with a single null value
+      // so that the object can be stringified to the urlState
+      return {
+        [COLUMN_TYPES.ATTRIBUTES]: _.isEmpty(keys[COLUMN_TYPES.ATTRIBUTES])
+          ? [null]
+          : keys[COLUMN_TYPES.ATTRIBUTES],
+        [COLUMN_TYPES.PARAMS]: _.isEmpty(keys[COLUMN_TYPES.PARAMS])
+          ? [null]
+          : keys[COLUMN_TYPES.PARAMS],
+        [COLUMN_TYPES.METRICS]: _.isEmpty(keys[COLUMN_TYPES.METRICS])
+          ? [null]
+          : keys[COLUMN_TYPES.METRICS],
+        [COLUMN_TYPES.TAGS]: _.isEmpty(keys[COLUMN_TYPES.TAGS]) ? [null] : keys[COLUMN_TYPES.TAGS],
+      };
+    };
+
+    const state = {
+      search: searchInput,
+      startTime: startTime,
+      orderByKey: orderByKey,
+      orderByAsc: orderByAsc,
+      lifecycle: lifecycleFilter,
+      modelVersion: modelVersionFilter,
+      showMultiColumns: showMultiColumns,
+      categorizedUncheckedKeys: getCategorizedUncheckedKeysForUrl(categorizedUncheckedKeys),
+      diffSwitchSelected: diffSwitchSelected,
+      preSwitchCategorizedUncheckedKeys: getCategorizedUncheckedKeysForUrl(
+        preSwitchCategorizedUncheckedKeys,
+      ),
+      postSwitchCategorizedUncheckedKeys: getCategorizedUncheckedKeysForUrl(
+        postSwitchCategorizedUncheckedKeys,
+      ),
+    };
+    const newUrl = `/experiments/${experimentId}/s?${Utils.getSearchUrlFromState(state)}`;
+    if (newUrl !== history.location.pathname + history.location.search) {
+      history.push(newUrl);
+    }
   };
 
   async detectNewRuns() {
@@ -359,11 +405,12 @@ export class ExperimentPage extends Component {
     const experimentViewProps = {
       experimentId: this.props.experimentId,
       experiment: this.props.experiment,
-      location: this.props.location,
+      urlState: this.state.urlState,
       searchRunsRequestId: this.state.searchRunsRequestId,
       modelVersionFilter: modelVersionFilter,
       lifecycleFilter: lifecycleFilter,
       onSearch: this.onSearch,
+      updateUrlWithViewState: this.updateUrlWithViewState,
       searchRunsError: searchRunsError,
       searchInput: searchInput,
       isLoading: isLoading && !searchRunsError,

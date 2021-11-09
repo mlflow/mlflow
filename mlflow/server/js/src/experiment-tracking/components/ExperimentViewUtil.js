@@ -720,64 +720,6 @@ export default class ExperimentViewUtil {
       [COLUMN_TYPES.TAGS]: restoredUncheckedKeys(COLUMN_TYPES.TAGS),
     };
   }
-
-  /**
-   * Update the url in the browser with the current state of the ExperimentView
-   */
-  static updateUrlWithViewState({
-    experimentId,
-    history,
-    searchInput,
-    orderByKey,
-    orderByAsc,
-    startTime,
-    lifecycleFilter,
-    modelVersionFilter,
-    showMultiColumns,
-    categorizedUncheckedKeys,
-    diffSwitchSelected,
-    preSwitchCategorizedUncheckedKeys,
-    postSwitchCategorizedUncheckedKeys,
-  }) {
-    const state = {};
-    if (searchInput) {
-      state['search'] = searchInput;
-    }
-    if (startTime) {
-      state['startTime'] = startTime;
-    }
-    if (orderByKey) {
-      state['orderByKey'] = orderByKey;
-    }
-    // orderByAsc defaults to false, so only encode it if it is true.
-    if (orderByAsc === true) {
-      state['orderByAsc'] = orderByAsc;
-    }
-    if (lifecycleFilter) {
-      state['lifecycle'] = lifecycleFilter;
-    }
-    if (modelVersionFilter) {
-      state['modelVersion'] = modelVersionFilter;
-    }
-    // showMultiColumns defaults to true, so only encode it if it is false.
-    if (showMultiColumns === false) {
-      state['showMultiColumns'] = showMultiColumns;
-    }
-    if (categorizedUncheckedKeys) {
-      state['categorizedUncheckedKeys'] = categorizedUncheckedKeys;
-    }
-    // diffSwitchSelected defaults to false, so only encode it if it is true.
-    // Also only encode preSwitch & postSwitch keys when diff view is switched on.
-    if (diffSwitchSelected === true) {
-      state['diffSwitchSelected'] = diffSwitchSelected;
-      state['preSwitchCategorizedUncheckedKeys'] = preSwitchCategorizedUncheckedKeys;
-      state['postSwitchCategorizedUncheckedKeys'] = postSwitchCategorizedUncheckedKeys;
-    }
-    const newUrl = `/experiments/${experimentId}/s?${Utils.getSearchUrlFromState(state)}`;
-    if (newUrl !== history.location.pathname + history.location.search) {
-      history.push(newUrl);
-    }
-  }
 }
 
 export class TreeNode {

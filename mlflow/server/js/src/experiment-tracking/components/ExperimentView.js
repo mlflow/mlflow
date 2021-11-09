@@ -93,11 +93,10 @@ export class ExperimentView extends Component {
     this.getStartTimeColumnDisplayName = this.getStartTimeColumnDisplayName.bind(this);
     this.onHandleStartTimeDropdown = this.onHandleStartTimeDropdown.bind(this);
     this.handleDiffSwitchChange = this.handleDiffSwitchChange.bind(this);
-    const urlState = Utils.getSearchParamsFromUrl(this.props.location.search);
     const store = ExperimentView.getLocalStore(this.props.experiment.experiment_id);
     const persistedState = new ExperimentViewPersistedState({
       ...store.loadComponentState(),
-      ...urlState,
+      ...props.urlState,
     });
     const onboardingInformationStore = ExperimentView.getLocalStore(onboarding);
     this.state = {
@@ -118,7 +117,8 @@ export class ExperimentView extends Component {
     experimentId: PropTypes.string.isRequired,
     experiment: PropTypes.instanceOf(Experiment).isRequired,
     history: PropTypes.any,
-    location: PropTypes.object,
+    urlState: PropTypes.object.isRequired,
+    updateUrlWithViewState: PropTypes.func.isRequired,
     // List of all parameter keys available in the runs we're viewing
     paramKeyList: PropTypes.arrayOf(PropTypes.string).isRequired,
     // List of all metric keys available in the runs we're viewing
@@ -254,22 +254,24 @@ export class ExperimentView extends Component {
     };
   }
 
-  updateUrlWithViewState(diffState) {
-    ExperimentViewUtil.updateUrlWithViewState({
-      ...this.props,
+  updateUrlWithViewState() {
+    this.props.updateUrlWithViewState({
       ...this.state.persistedState,
-      ...diffState,
     });
   }
 
   setShowMultiColumns(value) {
-    this.updateUrlWithViewState({ showMultiColumns: value });
-    this.setState({
-      persistedState: new ExperimentViewPersistedState({
-        ...this.state.persistedState,
-        showMultiColumns: value,
-      }).toJSON(),
-    });
+    this.setState(
+      {
+        persistedState: new ExperimentViewPersistedState({
+          ...this.state.persistedState,
+          showMultiColumns: value,
+        }).toJSON(),
+      },
+      () => {
+        this.updateUrlWithViewState();
+      },
+    );
   }
 
   disableOnboardingHelper() {
@@ -351,13 +353,17 @@ export class ExperimentView extends Component {
   };
 
   handleColumnSelectionCheck = (categorizedUncheckedKeys) => {
-    this.updateUrlWithViewState({ categorizedUncheckedKeys });
-    this.setState({
-      persistedState: new ExperimentViewPersistedState({
-        ...this.state.persistedState,
-        categorizedUncheckedKeys,
-      }).toJSON(),
-    });
+    this.setState(
+      {
+        persistedState: new ExperimentViewPersistedState({
+          ...this.state.persistedState,
+          categorizedUncheckedKeys,
+        }).toJSON(),
+      },
+      () => {
+        this.updateUrlWithViewState();
+      },
+    );
   };
 
   handleFilterToggle = () => {
@@ -1069,31 +1075,18 @@ export class ExperimentView extends Component {
     orderByAsc,
     startTime,
   }) {
-    const mySearchInput = searchInput !== undefined ? searchInput : this.props.searchInput;
-    const myLifecycleFilter =
-      lifecycleFilter !== undefined ? lifecycleFilter : this.props.lifecycleFilter;
-    const myOrderByKey = orderByKey !== undefined ? orderByKey : this.props.orderByKey;
-    const myOrderByAsc = orderByAsc !== undefined ? orderByAsc : this.props.orderByAsc;
-    const myModelVersionFilter =
-      modelVersionFilter !== undefined ? modelVersionFilter : this.props.modelVersionFilter;
-    const myStartTime = startTime !== undefined ? startTime : this.props.startTime;
     try {
-      this.updateUrlWithViewState({
-        searchInput: mySearchInput,
-        lifecycleFilter: myLifecycleFilter,
-        modelVersionFilter: myModelVersionFilter,
-        orderByKey: myOrderByKey,
-        orderByAsc: myOrderByAsc,
-        startTime: myStartTime,
+      this.props.onSearch({
+        searchInput: searchInput !== undefined ? searchInput : this.props.searchInput,
+        lifecycleFilter:
+          lifecycleFilter !== undefined ? lifecycleFilter : this.props.lifecycleFilter,
+        orderByKey: orderByKey !== undefined ? orderByKey : this.props.orderByKey,
+        orderByAsc: orderByAsc !== undefined ? orderByAsc : this.props.orderByAsc,
+        modelVersionFilter:
+          modelVersionFilter !== undefined ? modelVersionFilter : this.props.modelVersionFilter,
+        startTime: startTime !== undefined ? startTime : this.props.startTime,
+        experimentViewPersistedState: this.state.persistedState,
       });
-      this.props.onSearch(
-        mySearchInput,
-        myLifecycleFilter,
-        myOrderByKey,
-        myOrderByAsc,
-        myModelVersionFilter,
-        myStartTime,
-      );
     } catch (ex) {
       if (ex.errorMessage !== undefined) {
         this.setState({ searchErrorMessage: ex.errorMessage });
@@ -1246,7 +1239,7 @@ export class ExperimentView extends Component {
   };
 
   onShare = () => {
-    this.updateUrlWithViewState({});
+    this.updateUrlWithViewState();
     navigator.clipboard.writeText(window.location.href);
     message.info(
       this.props.intl.formatMessage({
