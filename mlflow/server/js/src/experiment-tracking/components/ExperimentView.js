@@ -746,7 +746,7 @@ export class ExperimentView extends Component {
                               ) : (
                                 <Icon type='arrow-down' />
                               )}{' '}
-                              {ExperimentViewUtil.middleTruncateKey(paramKey, 40)}
+                              {middleTruncateKey(paramKey, 40)}
                             </Option>,
                           );
                         });

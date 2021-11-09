@@ -26,4 +26,4 @@ export const middleTruncateKey = (keyName, maxLen) => {
   } else {
     return keyName;
   }
-}
+};
