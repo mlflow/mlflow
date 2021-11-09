@@ -39,7 +39,6 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
@@ -555,7 +554,6 @@ def load_model(model_uri, dst_path=None, **kwargs):
     )
 
 
-@experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_models=True,

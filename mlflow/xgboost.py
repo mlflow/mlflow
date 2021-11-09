@@ -45,7 +45,6 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
-from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.arguments_utils import _get_arg_names
 from mlflow.utils.autologging_utils import (
@@ -307,7 +306,6 @@ class _XGBModelWrapper:
         return self.xgb_model.predict(xgb.DMatrix(dataframe))
 
 
-@experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     importance_types=None,

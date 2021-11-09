@@ -33,7 +33,7 @@ from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY
 from mlflow.tracking import MlflowClient
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, get_artifact_uri
-from mlflow.utils.annotations import keyword_only, experimental
+from mlflow.utils.annotations import keyword_only
 from mlflow.utils.environment import (
     _mlflow_conda_env,
     _validate_env_arguments,
@@ -657,7 +657,6 @@ def _setup_callbacks(lst, log_models, metrics_logger):
     return out_list, log_dir
 
 
-@experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     every_n_iter=1,

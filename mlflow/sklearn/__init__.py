@@ -33,7 +33,6 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _inspect_original_var_name
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import get_instance_method_first_arg_value
 from mlflow.utils.environment import (
     _mlflow_conda_env,
@@ -884,7 +883,6 @@ def _patch_estimator_method_if_available(flavor_name, class_def, func_name, patc
         pass
 
 
-@experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_input_examples=False,

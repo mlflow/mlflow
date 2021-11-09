@@ -345,7 +345,6 @@ def log_model(
     )
 
 
-@experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_models=True,
