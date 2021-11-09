@@ -2,8 +2,8 @@
 
 ## What is cross version testing?
 
-Cross version testing is a testing strategy we adopt to ensure ML integrations in MLflow
-(e.g. `mlflow.sklearn`) work properly with their associated packages across different versions.
+Cross version testing is to ensure ML integrations in MLflow (e.g. `mlflow.sklearn`)
+work properly with their associated packages across various versions.
 
 ## Key files
 
@@ -17,6 +17,8 @@ Cross version testing is a testing strategy we adopt to ensure ML integrations i
 ## Configuration keys in `ml-package-versions.yml`
 
 ```yml
+# Note this is just an example and not the actual sklearn configuration.
+
 # The top-level key specifies the integration name.
 sklearn:
   package_info:
@@ -26,6 +28,10 @@ sklearn:
     # [Optional] `install_dev` specifies a set of commands to install the dev version of the package.
     # For example, the command below builds a wheel from the latest main branch of
     # the scikit-learn repository and installs it.
+    #
+    # The aim of testing the dev version is to spot issues as early as possible before they get
+    # piled up, and fix them incrementally rather than fixing them at once when the package
+    # releases a new version.
     install_dev: |
       pip install git+https://github.com/scikit-learn/scikit-learn.git
 
@@ -43,8 +49,6 @@ sklearn:
     minimum: "0.20.3"
 
     # [Required] `maximum` specifies the maximum supported version for the latest release of MLflow.
-    # Our CI will still test all the way up through the current maximum version that's been released
-    # on PyPI. For example, if scikit-learn 1.0.1 is available on PyPI, our CI will pick it up.
     maximum: "1.0"
 
     # [Optional] `unsupported` specifies a list of versions that should NOT be supported due to
@@ -58,12 +62,14 @@ sklearn:
 
 ## How do we determine which versions to test?
 
-We determine which versions to test by filtering candidates between `minimum` and `maximum` based
-on the following rules:
+We determine which versions to test based on the following rules:
 
-1. Only test the latest micro version of each minor version.
-2. Skip [pre-releases](https://www.python.org/dev/peps/pep-0440/#pre-releases) (e.g. `1.0rc1`).
-3. Always test the `minimum` version.
+1. Only test final (e.g. `1.0.0`) and post (`1.0.0.post0`) releases (see [PEP 440](https://www.python.org/dev/peps/pep-0440/) for details).
+2. Only test the latest micro version in each minor version.
+   For example, if `1.0.0`, `1.0.1`, and `1.0.2` are available, we only test `1.0.2`.
+3. The `maximum` version defines the maximum **major** version to test.
+   For example, if `maximum` is `1.0.0`, we test `1.1.0` but not `2.0.0`.
+4. Always test the `minimum` version.
 
 The table below describes which `scikit-learn` versions to test for the example configuration in
 the previous section:
@@ -101,7 +107,7 @@ the previous section:
 ## When do we run cross version tests?
 
 1. Daily at 7:00 UTC using a cron scheduler.
-2. When a PR that affects the ML integrations is filed. Note we only run tests relevant to
+2. When a PR that affects the ML integrations is created. Note we only run tests relevant to
    the affected ML integrations. For example, a PR that affects files in `mlflow/sklearn` triggers
    cross version tests for `sklearn`.
 
