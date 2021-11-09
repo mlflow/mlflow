@@ -282,7 +282,7 @@ def _load_pyfunc(path):
 
 
 @experimental
-def load_model(model_uri):
+def load_model(model_uri, dst_path=None):
     """
     Load an ONNX model from a local file or a run.
 
@@ -298,11 +298,14 @@ def load_model(model_uri):
                       For more information about supported URI schemes, see the
                       `Artifacts Documentation <https://www.mlflow.org/docs/latest/
                       tracking.html#artifact-stores>`_.
+    :param dst_path: The local filesystem path to which to download the model artifact.
+                     This directory must already exist. If unspecified, a local output
+                     path will be created.
 
     :return: An ONNX model instance.
 
     """
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     onnx_model_artifacts_path = os.path.join(local_model_path, flavor_conf["data"])
     return _load_model(model_file=onnx_model_artifacts_path)
