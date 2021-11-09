@@ -77,7 +77,7 @@ We determine which versions to test based on the following rules:
 4. Always test the `minimum` version.
 
 [final]: https://www.python.org/dev/peps/pep-0440/#final-releases
-[post]: https://www.python.org/dev/peps/pep-0440/#final-releases
+[post]: https://www.python.org/dev/peps/pep-0440/#post-releases
 
 The table below describes which `scikit-learn` versions to test for the example configuration in
 the previous section:
