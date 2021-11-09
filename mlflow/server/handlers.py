@@ -262,6 +262,24 @@ _TEXT_EXTENSIONS = [
 ]
 
 
+def _disable_mlflow_artifacts_endpoints(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        from mlflow.server import SERVE_ARTIFACTS_ENV_VAR
+
+        if not os.environ.get(SERVE_ARTIFACTS_ENV_VAR):
+            return Response(
+                (
+                    "Endpoints for mlflow artifacts service are disabled. To enable them, "
+                    "run `mlflow server` with `--serve-artifacts`"
+                ),
+                503,
+            )
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
 @catch_mlflow_exception
 def get_artifact_handler():
     from querystring_parser import parser
@@ -824,6 +842,7 @@ def _delete_model_version_tag():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_endpoints
 def _download_artifact(artifact_path):
     """
     A request handler for `GET /mlflow-artifacts/artifacts/<artifact_path>` to download an artifact
@@ -850,6 +869,7 @@ def _download_artifact(artifact_path):
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_endpoints
 def _upload_artifact(artifact_path):
     """
     A request handler for `PUT /mlflow-artifacts/artifacts/<artifact_path>` to upload an artifact
@@ -873,6 +893,7 @@ def _upload_artifact(artifact_path):
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_endpoints
 def _list_artifacts_mlflow_artifacts():
     """
     A request handler for `GET /mlflow-artifacts/artifacts?path=<value>` to list artifacts in `path`

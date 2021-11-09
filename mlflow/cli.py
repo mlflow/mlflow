@@ -318,6 +318,9 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
     " used, then this option is required.",
 )
 @click.option(
+    "--serve-artifacts", is_flag=True, help=("< TODO >"),
+)
+@click.option(
     "--artifacts-destination",
     metavar="URI",
     default="./mlartifacts",
@@ -355,6 +358,7 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 def server(
     backend_store_uri,
     default_artifact_root,
+    serve_artifacts,
     artifacts_destination,
     host,
     port,
@@ -402,6 +406,7 @@ def server(
         _run_server(
             backend_store_uri,
             default_artifact_root,
+            serve_artifacts,
             artifacts_destination,
             host,
             port,
