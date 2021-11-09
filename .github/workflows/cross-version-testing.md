@@ -2,17 +2,22 @@
 
 ## What is cross version testing?
 
-Cross version testing is to ensure ML integrations in MLflow (e.g. `mlflow.sklearn`)
-work properly with their associated packages across various versions.
+Cross version testing is a testing strategy to ensure ML integrations in MLflow such as
+`mlflow.sklearn` work properly with their associated packages across various versions.
 
 ## Key files
 
-| File                                        | Role                                                           |
-| :------------------------------------------ | :------------------------------------------------------------- |
-| `mlflow/ml-package-versions.yml`            | Define which versions to test for each ML package.             |
-| `dev/set_matrix.py`                         | Generate a test matrix from `ml-package-versions.yml`.         |
-| `dev/update_ml_package_versions.py`         | Update `ml-package-versions.yml` when releasing a new version. |
-| `.github/workflows/cross-version-tests.yml` | Define a Github Actions workflow for cross version testing.    |
+| File (relative path from the root)              | Role                                                           |
+| :---------------------------------------------- | :------------------------------------------------------------- |
+| [`mlflow/ml-package-versions.yml`][]            | Define which versions to test for each ML package.             |
+| [`dev/set_matrix.py`][]                         | Generate a test matrix from `ml-package-versions.yml`.         |
+| [`dev/update_ml_package_versions.py`][]         | Update `ml-package-versions.yml` when releasing a new version. |
+| [`.github/workflows/cross-version-tests.yml`][] | Define a Github Actions workflow for cross version testing.    |
+
+[`mlflow/ml-package-versions.yml`]: ../../mlflow/ml-package-versions.yml
+[`dev/set_matrix.py`]: ../../dev/set_matrix.py
+[`dev/update_ml_package_versions.py`]: ../../dev/update_ml_package_versions.py
+[`.github/workflows/cross-version-tests.yml`]: ./cross-version-tests.yml
 
 ## Configuration keys in `ml-package-versions.yml`
 
@@ -107,9 +112,13 @@ the previous section:
 ## When do we run cross version tests?
 
 1. Daily at 7:00 UTC using a cron scheduler.
+   [README on the repository root](../../README.rst) has a badge ([![badge-img][]][badge-target]) that indicates the status of the most recent run.
 2. When a PR that affects the ML integrations is created. Note we only run tests relevant to
    the affected ML integrations. For example, a PR that affects files in `mlflow/sklearn` triggers
    cross version tests for `sklearn`.
+
+[badge-img]: https://github.com/mlflow/mlflow/workflows/Cross%20version%20tests/badge.svg?event=schedule
+[badge-target]: https://github.com/mlflow/mlflow/actions?query=workflow%3ACross%2Bversion%2Btests+event%3Aschedule
 
 ## How to run dev tests on a pull request
 
