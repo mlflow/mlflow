@@ -261,7 +261,7 @@ def dict_of_sparse_matrix():
 
 
 def test_get_sparse_matrix_data_type_and_shape(dict_of_sparse_matrix):
-    for _, sparse_matrix in dict_of_sparse_matrix.items():
+    for sparse_matrix in dict_of_sparse_matrix.values():
         schema = _infer_schema(sparse_matrix)
         assert schema.numpy_types() == ["float64"]
         assert _get_tensor_shape(sparse_matrix) == (-1, 8)

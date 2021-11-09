@@ -129,7 +129,7 @@ def test_input_examples(pandas_df_with_all_types, dict_of_ndarrays):
 
 
 def test_sparse_matrix_input_examples(dict_of_sparse_matrix):
-    for _, input_example in dict_of_sparse_matrix.items():
+    for input_example in dict_of_sparse_matrix.values():
         with TempDir() as tmp:
             example = _Example(input_example)
             example.save(tmp.path())
