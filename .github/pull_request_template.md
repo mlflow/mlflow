@@ -11,8 +11,6 @@
 - [ ] No. You can skip the rest of this section.
 - [ ] Yes. Make sure the changed pages / sections render correctly by following the steps below.
 
-Steps:
-
 1. Check the status of the `ci/circleci: build_doc` check. If it's successful, proceed to the
    next step, otherwise fix it.
 2. Click `Details` on the right to open the job page of CircleCI.
