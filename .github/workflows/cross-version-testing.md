@@ -123,7 +123,10 @@ the previous section:
 [badge-img]: https://github.com/mlflow/mlflow/workflows/Cross%20version%20tests/badge.svg?event=schedule
 [badge-target]: https://github.com/mlflow/mlflow/actions?query=workflow%3ACross%2Bversion%2Btests+event%3Aschedule
 
-## How to run dev tests on a pull request
+## How to run cross version test for dev versions on a pull request
+
+By default, cross version tests for dev versions are disabled on a pull request.
+To enable them, the following steps are required.
 
 Steps:
 
