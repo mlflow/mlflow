@@ -13,11 +13,12 @@
 
 Steps:
 
-1. Make sure the status of the `ci/circleci: build_doc` check is successful. If no, fix it.
-2. Click `Details` to open the job page of CircleCI.
+1. Check the status of the `ci/circleci: build_doc` check. If it's successful, proceed to the
+   next step, otherwise fix it.
+2. Click `Details` on the right to open the job page of CircleCI.
 3. Click the `Artifacts` tab.
 4. Click `docs/build/html/index.html`.
-5. Find the affect pages / sections and make sure they render correctly.
+5. Find the affected pages / sections and make sure they render correctly.
 
 ## Release Notes
 
