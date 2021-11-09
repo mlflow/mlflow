@@ -18,6 +18,7 @@ from mlflow.utils.process import exec_cmd
 # the cli and the forked gunicorn processes.
 BACKEND_STORE_URI_ENV_VAR = "_MLFLOW_SERVER_FILE_STORE"
 ARTIFACT_ROOT_ENV_VAR = "_MLFLOW_SERVER_ARTIFACT_ROOT"
+ARTIFACTS_DESTINATION_ENV_VAR = "_MLFLOW_SERVER_ARTIFACT_DESTINATION"
 PROMETHEUS_EXPORTER_ENV_VAR = "prometheus_multiproc_dir"
 
 REL_STATIC_DIR = "js/build"
@@ -105,6 +106,7 @@ def _build_gunicorn_command(gunicorn_opts, host, port, workers):
 def _run_server(
     file_store_path,
     default_artifact_root,
+    artifacts_destination,
     host,
     port,
     static_prefix=None,
@@ -124,6 +126,8 @@ def _run_server(
         env_map[BACKEND_STORE_URI_ENV_VAR] = file_store_path
     if default_artifact_root:
         env_map[ARTIFACT_ROOT_ENV_VAR] = default_artifact_root
+    if artifacts_destination:
+        env_map[ARTIFACTS_DESTINATION_ENV_VAR] = artifacts_destination
     if static_prefix:
         env_map[STATIC_PREFIX_ENV_VAR] = static_prefix
 

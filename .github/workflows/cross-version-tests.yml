@@ -114,7 +114,8 @@ jobs:
         run: |
           if [[ "${{ matrix.package }}" = "scikit-learn" && ! "${{ matrix.version }}" =~ ^0\.* ]] || \
              [[ "${{ matrix.package }}" = "statsmodels" ]] || \
-             [[ "${{ matrix.package }}" = "tensorflow" && "${{ matrix.version }}" = "dev" ]]
+             [[ "${{ matrix.package }}" = "tensorflow" && ! "${{ matrix.version }}" =~ ^2\.[0-6] ]] || \
+             [[ "${{ matrix.package }}" = "keras" && ! "${{ matrix.version }}" =~ ^2\.[0-6] ]]
           then
             python_version=3.7
           else

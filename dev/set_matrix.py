@@ -316,8 +316,7 @@ def process_requirements(requirements, version=None):
             )
             if match_all:
                 return packages
-        else:
-            return []
+        return []
 
     raise TypeError("Invalid object type for `requirements`: '{}'".format(type(requirements)))
 
