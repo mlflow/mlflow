@@ -128,10 +128,8 @@ the previous section:
 By default, cross version tests for dev versions are disabled on a pull request.
 To enable them, the following steps are required.
 
-Steps:
-
 1. Click `Labels` in the right sidebar.
-2. Select the `enable-dev-tests` label and make sure it's applied.
+2. Click the `enable-dev-tests` label and make sure it's applied on the pull request.
 3. Push a new commit or re-run the `cross-version-tests` workflow.
 
 See also:
@@ -141,12 +139,10 @@ See also:
 
 ## How to run cross version tests manually
 
-Steps:
-
 1. Open https://github.com/mlflow/mlflow/actions/workflows/cross-version-tests.yml.
-2. Select `Run workflow`.
+2. Click `Run workflow`.
 3. Fill in the required input parameters.
-4. Click `Run workflow` at the bottom.
+4. Click `Run workflow` at the bottom of the parameter input form.
 
 See also:
 
