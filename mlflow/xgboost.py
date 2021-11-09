@@ -265,15 +265,15 @@ def _load_model(path):
     Load Model Implementation.
 
     :param path: Local filesystem path to
-                    the MLflow Model with the ``xgboost`` flavor (MLflow < x.x.x) or
-                    the top-level MLflow Model directory (MLflow >= x.x.x).
+                    the MLflow Model with the ``xgboost`` flavor (MLflow < 1.22.0) or
+                    the top-level MLflow Model directory (MLflow >= 1.22.0).
     """
     import importlib
 
     model_dir = os.path.dirname(path) if os.path.isfile(path) else path
     flavor_conf = _get_flavor_configuration(model_path=model_dir, flavor_name=FLAVOR_NAME)
 
-    # XGBoost models saved in new MLflow (>=x.x.x) have ``model_class``
+    # XGBoost models saved in MLflow >=1.22.0 have `model_class`
     # in the XGBoost flavor configuration to specify its XGBoost model class.
     # When loading models, we first get the XGBoost model from
     # its flavor configuration and then create an instance based on its class.
@@ -290,11 +290,8 @@ def _load_pyfunc(path):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
 
-    :param path: Local filesystem path to
-                    the MLflow Model with the ``xgboost`` flavor (MLflow < x.x.x) or
-                    the top-level MLflow Model directory (MLflow >= x.x.x).
+    :param path: Local filesystem path to the MLflow Model with the ``xgboost`` flavor.
     """
-
     return _XGBModelWrapper(_load_model(path))
 
 
