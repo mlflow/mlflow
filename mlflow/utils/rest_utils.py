@@ -233,6 +233,8 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto):
 
 
 def call_endpoints(host_creds, endpoints, json_body, response_proto):
+    # The order that the endpoints are called in is defined by the order
+    # specified in ModelRegistryService in model_registry.proto
     for i, (endpoint, method) in enumerate(endpoints):
         try:
             return call_endpoint(host_creds, endpoint, method, json_body, response_proto)
