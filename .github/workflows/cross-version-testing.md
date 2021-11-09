@@ -69,12 +69,15 @@ sklearn:
 
 We determine which versions to test based on the following rules:
 
-1. Only test final (e.g. `1.0.0`) and post (`1.0.0.post0`) releases (see [PEP 440](https://www.python.org/dev/peps/pep-0440/) for details).
+1. Only test [final][] (e.g. `1.0.0`) and [post][] (`1.0.0.post0`) releases.
 2. Only test the latest micro version in each minor version.
    For example, if `1.0.0`, `1.0.1`, and `1.0.2` are available, we only test `1.0.2`.
 3. The `maximum` version defines the maximum **major** version to test.
-   For example, if `maximum` is `1.0.0`, we test `1.1.0` but not `2.0.0`.
+   For example, if the value of `maximum` is `1.0.0`, we test `1.1.0` (if available) but not `2.0.0`.
 4. Always test the `minimum` version.
+
+[final]: https://www.python.org/dev/peps/pep-0440/#final-releases
+[post]: https://www.python.org/dev/peps/pep-0440/#final-releases
 
 The table below describes which `scikit-learn` versions to test for the example configuration in
 the previous section:
@@ -130,8 +133,8 @@ Steps:
 
 See also:
 
-- https://docs.github.com/en/issues/using-labels-and-milestones-to-track-work/managing-labels#applying-a-label
-- https://docs.github.com/en/actions/managing-workflow-runs/re-running-workflows-and-jobs
+- [GitHub Docs - Applying a label](https://docs.github.com/en/issues/using-labels-and-milestones-to-track-work/managing-labels#applying-a-label)
+- [GitHub Docs - Re-running workflows and jobs](https://docs.github.com/en/actions/managing-workflow-runs/re-running-workflows-and-jobs)
 
 ## How to run cross version tests manually
 
@@ -144,4 +147,4 @@ Steps:
 
 See also:
 
-- https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow
+- [GitHub Docs - Manually running a workflow](https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow)
