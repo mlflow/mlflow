@@ -328,7 +328,7 @@ def _validate_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_d
     )
 
 
-def load_model(model_uri):
+def load_model(model_uri, dst_path=None):
     """
     Load an MLflow model that contains the TensorFlow flavor from the specified path.
 
@@ -344,6 +344,9 @@ def load_model(model_uri):
                       For more information about supported URI schemes, see
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
                       artifact-locations>`_.
+    :param dst_path: The local filesystem path to which to download the model artifact.
+                     This directory must already exist. If unspecified, a local output
+                     path will be created.
 
     :return: A callable graph (tf.function) that takes inputs and returns inferences.
 
@@ -362,7 +365,7 @@ def load_model(model_uri):
             output_tensors = [tf_graph.get_tensor_by_name(output_signature.name)
                                 for _, output_signature in signature_definition.outputs.items()]
     """
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     (
         tf_saved_model_dir,
         tf_meta_graph_tags,
