@@ -162,7 +162,6 @@ def test_input_examples_with_nan(df_with_nan, dict_of_ndarrays_with_nans):
         )
         # the frame read without schema should match except for the binary values
         no_schema_df = _dataframe_from_json(tmp.path(filename))
-        # the frame read without schema should match except for the binary values
         a = parsed_df.drop(columns=["binary"])
         b = no_schema_df.drop(columns=["binary"])
         assert ((a == b) | ((a != a) & (b != b))).all().all()

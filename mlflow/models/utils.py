@@ -76,6 +76,9 @@ class _Example(object):
             else:
                 return {"inputs": _handle_tensor_nans(input_tensor).tolist()}
 
+        def _handle_dataframe_nans(df: pd.DataFrame):
+            return df.where(df.notnull(), None)
+
         def _handle_dataframe_input(input_ex):
             if isinstance(input_ex, dict):
                 if all([_is_scalar(x) for x in input_ex.values()]):
@@ -111,7 +114,7 @@ class _Example(object):
                     "(pandas.DataFrame, numpy.ndarray, dict, list), "
                     "got {}".format(type(input_example))
                 )
-            result = input_ex.where(input_ex.notnull(), None).to_dict(orient="split")
+            result = _handle_dataframe_nans(input_ex).to_dict(orient="split")
             # Do not include row index
             del result["index"]
             if all(input_ex.columns == range(len(input_ex.columns))):
