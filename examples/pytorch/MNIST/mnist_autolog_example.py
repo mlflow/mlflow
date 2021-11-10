@@ -295,4 +295,4 @@ if __name__ == "__main__":
         args, callbacks=[lr_logger, early_stopping, checkpoint_callback], checkpoint_callback=True
     )
     trainer.fit(model, dm)
-    trainer.test()
+    trainer.test(datamodule=dm)
