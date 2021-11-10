@@ -9,6 +9,8 @@ def save_text(path, text):
     with open(path, "w") as f:
         f.write(text)
 
+#  NOTE: ensure the tracking server has been started with --serve-artifacts-opt to enable
+#        MLflow artifact serving functionality.
 
 def main():
     assert "MLFLOW_TRACKING_URI" in os.environ
