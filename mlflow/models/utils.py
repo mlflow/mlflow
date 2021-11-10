@@ -61,14 +61,23 @@ class _Example(object):
                 isinstance(x, dict) and all([isinstance(ary, np.ndarray) for ary in x.values()])
             )
 
+        def _handle_tensor_nans(x: np.ndarray):
+            if np.issubdtype(x.dtype, np.number):
+                return np.where(np.isnan(x), None, x)
+            else:
+                return x
+
         def _handle_tensor_input(input_tensor: Union[np.ndarray, dict]):
             if isinstance(input_tensor, dict):
                 result = {}
                 for name in input_tensor.keys():
-                    result[name] = input_tensor[name].tolist()
+                    result[name] = _handle_tensor_nans(input_tensor[name]).tolist()
                 return {"inputs": result}
             else:
-                return {"inputs": input_tensor.tolist()}
+                return {"inputs": _handle_tensor_nans(input_tensor).tolist()}
+
+        def _handle_dataframe_nans(df: pd.DataFrame):
+            return df.where(df.notnull(), None)
 
         def _handle_dataframe_input(input_ex):
             if isinstance(input_ex, dict):
@@ -105,7 +114,7 @@ class _Example(object):
                     "(pandas.DataFrame, numpy.ndarray, dict, list), "
                     "got {}".format(type(input_example))
                 )
-            result = input_ex.to_dict(orient="split")
+            result = _handle_dataframe_nans(input_ex).to_dict(orient="split")
             # Do not include row index
             del result["index"]
             if all(input_ex.columns == range(len(input_ex.columns))):

@@ -37,7 +37,6 @@ from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     log_fn_args_as_params,
     autologging_integration,
@@ -384,7 +383,6 @@ def _get_autolog_metrics(fitted_model):
     return result_metrics
 
 
-@experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_models=True,
