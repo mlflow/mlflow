@@ -1,7 +1,7 @@
 import {
   truncateToFirstLineWithMaxLength,
   capitalizeFirstChar,
-  middleTruncateKey,
+  middleTruncateStr,
 } from './StringUtils';
 
 describe('truncateToFirstLineWithMaxLength', () => {
@@ -48,11 +48,11 @@ describe('capitalizeFirstChar', () => {
   });
 });
 
-describe('middleTruncateKey', () => {
-  test('test middleTruncateKey', () => {
-    expect(middleTruncateKey('abc', 10)).toEqual('abc');
-    expect(middleTruncateKey('abcdefghij', 10)).toEqual('abcdefghij');
-    expect(middleTruncateKey('abcdefghijk', 10)).toEqual('abc...hijk');
-    expect(middleTruncateKey('abcdefghijkl', 10)).toEqual('abc...ijkl');
+describe('middleTruncateStr', () => {
+  test('test middleTruncateStr', () => {
+    expect(middleTruncateStr('abc', 10)).toEqual('abc');
+    expect(middleTruncateStr('abcdefghij', 10)).toEqual('abcdefghij');
+    expect(middleTruncateStr('abcdefghijk', 10)).toEqual('abc...hijk');
+    expect(middleTruncateStr('abcdefghijkl', 10)).toEqual('abc...ijkl');
   });
 });

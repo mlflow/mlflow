@@ -14,14 +14,12 @@ export const capitalizeFirstChar = (str) => {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 };
 
-export const middleTruncateKey = (str, maxLen) => {
+export const middleTruncateStr = (str, maxLen) => {
   if (str.length > maxLen) {
     const firstPartLen = Math.floor((maxLen - 3) / 2);
     const lastPartLen = maxLen - 3 - firstPartLen;
     return (
-      str.substring(0, firstPartLen) +
-      '...' +
-      str.substring(str.length - lastPartLen, str.length)
+      str.substring(0, firstPartLen) + '...' + str.substring(str.length - lastPartLen, str.length)
     );
   } else {
     return str;
