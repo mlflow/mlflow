@@ -265,7 +265,6 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="mxnet"))
 def log_model(
     gluon_model,
