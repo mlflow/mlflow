@@ -868,7 +868,6 @@ def load_state_dict(state_dict_uri, **kwargs):
     return torch.load(state_dict_path, **kwargs)
 
 
-@experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_every_n_epoch=1,

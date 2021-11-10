@@ -14,7 +14,6 @@ from mlflow.utils import (
     _get_fully_qualified_class_name,
     _inspect_original_var_name,
 )
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     _get_new_training_session_class,
     autologging_integration,
@@ -674,7 +673,6 @@ class _AutologgingMetricsManager:
 _AUTOLOGGING_METRICS_MANAGER = _AutologgingMetricsManager()
 
 
-@experimental
 @autologging_integration(AUTOLOGGING_INTEGRATION_NAME)
 def autolog(
     log_models=True,
