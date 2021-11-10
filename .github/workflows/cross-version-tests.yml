@@ -80,7 +80,7 @@ jobs:
             REPO="${{ github.repository }}"
             PR_NUMBER="${{ github.event.pull_request.number }}"
             REF_VERSIONS_YAML="https://raw.githubusercontent.com/$REPO/master/mlflow/ml-package-versions.yml"
-            API_URL="https://api.github.com/repos/$REPO/pulls/$PR_NUMBER/files"
+            API_URL="https://api.github.com/repos/$REPO/pulls/$PR_NUMBER/files?per_page=100"
             CHANGED_FILES="$(curl $API_URL | jq -r '.[].filename')"
             ENABLE_DEV_TESTS="${{ steps.enable-dev-tests.outputs.result }}"
             EXCLUDE_DEV_VERSIONS_FLAG=$([ "$ENABLE_DEV_TESTS" == "true" ] && echo "" || echo "--exclude-dev-versions")
