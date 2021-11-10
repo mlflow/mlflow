@@ -1,5 +1,11 @@
 """
-A python script to fetch all changed files in a specified pull request.
+A python script to list changed files in a specified pull request.
+
+Usage:
+-----------------------------------------------------------------------------------------
+# List changed files in https://github.com/mlflow/mlflow/pull/3191
+$ python .github/workflows/list_changed_files.py --repository mlflow/mlflow --pr-num 3191
+-----------------------------------------------------------------------------------------
 """
 import argparse
 import os
@@ -8,8 +14,8 @@ import requests
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--repository", required=True)
-    parser.add_argument("--pr-num", required=True)
+    parser.add_argument("--repository", help="Owner and repository name", required=True)
+    parser.add_argument("--pr-num", help="Pull request number", required=True)
     return parser.parse_args()
 
 
