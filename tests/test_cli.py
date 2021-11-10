@@ -1,3 +1,4 @@
+import requests
 from click.testing import CliRunner
 from unittest import mock
 import json
@@ -22,7 +23,8 @@ from mlflow.store.tracking.file_store import FileStore
 from mlflow.exceptions import MlflowException
 from mlflow.entities import ViewType
 
-from tests.helper_functions import pyfunc_serve_and_score_model
+from tests.helper_functions import pyfunc_serve_and_score_model, get_safe_port
+from tests.tracking.integration_test_utils import _await_server_up_or_die
 
 
 def test_server_static_prefix_validation():
@@ -40,6 +42,18 @@ def test_server_static_prefix_validation():
         result = CliRunner().invoke(server, ["--static-prefix", "/mlflow/"])
         assert "--static-prefix should not end with a '/'." in result.output
         run_server_mock.assert_not_called()
+
+
+def test_server_mlflow_artifacts_options():
+    with mock.patch("mlflow.server._run_server") as run_server_mock:
+        CliRunner().invoke(server, ["--artifacts-only"])
+        run_server_mock.assert_called_once()
+    with mock.patch("mlflow.server._run_server") as run_server_mock:
+        CliRunner().invoke(server, ["--serve-artifacts-opt"])
+        run_server_mock.assert_called_once()
+    with mock.patch("mlflow.server._run_server") as run_server_mock:
+        CliRunner().invoke(server, ["--artifacts-only", "--serve-artifacts-opt"])
+        run_server_mock.assert_called_once()
 
 
 def test_server_default_artifact_root_validation():
@@ -219,3 +233,47 @@ def test_mlflow_models_serve(enable_mlserver):
     assert scoring_response.status_code == 200
     served_model_preds = np.array(json.loads(scoring_response.content))
     np.testing.assert_array_equal(served_model_preds, model.predict(data, None))
+
+
+def test_mlflow_tracking_disabled_in_artifacts_only_mode():
+
+    port = get_safe_port()
+    cmd = ["mlflow", "server", "--port", str(port), "--artifacts-only"]
+    process = subprocess.Popen(cmd)
+    try:
+        _await_server_up_or_die(port, timeout=10)
+        resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow/experiments/list")
+        assert resp.text.startswith(
+            "Endpoints disabled due to the mlflow server running " "in `--artifacts-only` mode."
+        )
+        assert resp.status_code == 503
+    finally:
+        process.kill()
+
+
+def test_mlflow_artifact_list_in_artifacts_only_mode():
+
+    port = get_safe_port()
+    cmd = ["mlflow", "server", "--port", str(port), "--artifacts-only", "--serve-artifacts-opt"]
+    process = subprocess.Popen(cmd)
+    try:
+        _await_server_up_or_die(port, timeout=10)
+        resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow-artifacts/artifacts")
+        resp.raise_for_status()
+        assert resp.status_code == 200
+        assert resp.text == "{}"
+    finally:
+        process.kill()
+
+
+def test_mlflow_artifact_service_unavailable_without_config():
+
+    port = get_safe_port()
+    cmd = ["mlflow", "server", "--port", str(port)]
+    process = subprocess.Popen(cmd)
+    try:
+        _await_server_up_or_die(port, timeout=10)
+        resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow-artifacts/artifacts")
+        assert resp.status_code == 503
+    finally:
+        process.kill()

@@ -320,6 +320,25 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
     "Default: Within file store, if a file:/ URI is provided. If a sql backend is"
     " used, then this option is required.",
 )
+@click.option(
+    "--serve-artifacts-opt",
+    is_flag=True,
+    help="If specified, enables serving of artifact uploads, downloads, and list requests "
+    "by routing these requests to the storage location that is specified by "
+    "'--artifact-destination' directly through a proxy. The default location that "
+    "these requests are served from is a local './mlartifacts' directory which can be "
+    "overridden via '--artifact-destination' arguments. "
+    "Default: False",
+)
+@click.option(
+    "--artifacts-only",
+    is_flag=True,
+    help="If specified, configures the mlflow server to be used only for proxied artifact serving. "
+    "With this mode enabled, functionality of the mlflow tracking service (e.g. run creation, "
+    "metric logging, and parameter logging are disabled. The server will only expose "
+    "endpoints for uploading, downloading, and listing artifacts. "
+    "Default: False",
+)
 @cli_args.ARTIFACTS_DESTINATION
 @cli_args.HOST
 @cli_args.PORT
@@ -348,6 +367,8 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 def server(
     backend_store_uri,
     default_artifact_root,
+    serve_artifacts_opt,
+    artifacts_only,
     artifacts_destination,
     host,
     port,
@@ -395,6 +416,8 @@ def server(
         _run_server(
             backend_store_uri,
             default_artifact_root,
+            serve_artifacts_opt,
+            artifacts_only,
             artifacts_destination,
             host,
             port,

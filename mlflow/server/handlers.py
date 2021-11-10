@@ -262,6 +262,43 @@ _TEXT_EXTENSIONS = [
 ]
 
 
+def _disable_mlflow_artifacts_endpoint(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        from mlflow.server import SERVE_ARTIFACTS_ENV_VAR
+
+        if not os.environ.get(SERVE_ARTIFACTS_ENV_VAR):
+            return Response(
+                (
+                    "Endpoints for mlflow artifacts service are disabled. To enable them, "
+                    "run `mlflow server` with `--serve-artfiacts-opt`"
+                ),
+                503,
+            )
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+def _disable_mlflow_artifacts_only(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        from mlflow.server import ARTIFACTS_ONLY_ENV_VAR
+
+        if os.environ.get(ARTIFACTS_ONLY_ENV_VAR):
+            return Response(
+                (
+                    "Endpoints disabled due to the mlflow server running in `--artifacts-only` "
+                    "mode. To enable tracking server functionality, run `mlflow server` without "
+                    "`--artifacts-only`"
+                ),
+                503,
+            )
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
 @catch_mlflow_exception
 def get_artifact_handler():
     from querystring_parser import parser
@@ -279,7 +316,11 @@ def _not_implemented():
     return response
 
 
+# Tracking Server APIs
+
+
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _create_experiment():
     request_message = _get_request_message(CreateExperiment())
     tags = [ExperimentTag(tag.key, tag.value) for tag in request_message.tags]
@@ -294,6 +335,7 @@ def _create_experiment():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _get_experiment():
     request_message = _get_request_message(GetExperiment())
     response_message = GetExperiment.Response()
@@ -305,6 +347,7 @@ def _get_experiment():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _get_experiment_by_name():
     request_message = _get_request_message(GetExperimentByName())
     response_message = GetExperimentByName.Response()
@@ -322,6 +365,7 @@ def _get_experiment_by_name():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _delete_experiment():
     request_message = _get_request_message(DeleteExperiment())
     _get_tracking_store().delete_experiment(request_message.experiment_id)
@@ -332,6 +376,7 @@ def _delete_experiment():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _restore_experiment():
     request_message = _get_request_message(RestoreExperiment())
     _get_tracking_store().restore_experiment(request_message.experiment_id)
@@ -342,6 +387,7 @@ def _restore_experiment():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _update_experiment():
     request_message = _get_request_message(UpdateExperiment())
     if request_message.new_name:
@@ -355,6 +401,7 @@ def _update_experiment():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _create_run():
     request_message = _get_request_message(CreateRun())
 
@@ -374,6 +421,7 @@ def _create_run():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _update_run():
     request_message = _get_request_message(UpdateRun())
     run_id = request_message.run_id or request_message.run_uuid
@@ -387,6 +435,7 @@ def _update_run():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _delete_run():
     request_message = _get_request_message(DeleteRun())
     _get_tracking_store().delete_run(request_message.run_id)
@@ -397,6 +446,7 @@ def _delete_run():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _restore_run():
     request_message = _get_request_message(RestoreRun())
     _get_tracking_store().restore_run(request_message.run_id)
@@ -407,6 +457,7 @@ def _restore_run():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _log_metric():
     request_message = _get_request_message(LogMetric())
     metric = Metric(
@@ -421,6 +472,7 @@ def _log_metric():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _log_param():
     request_message = _get_request_message(LogParam())
     param = Param(request_message.key, request_message.value)
@@ -433,6 +485,7 @@ def _log_param():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _set_experiment_tag():
     request_message = _get_request_message(SetExperimentTag())
     tag = ExperimentTag(request_message.key, request_message.value)
@@ -444,6 +497,7 @@ def _set_experiment_tag():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _set_tag():
     request_message = _get_request_message(SetTag())
     tag = RunTag(request_message.key, request_message.value)
@@ -456,6 +510,7 @@ def _set_tag():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _delete_tag():
     request_message = _get_request_message(DeleteTag())
     _get_tracking_store().delete_tag(request_message.run_id, request_message.key)
@@ -466,6 +521,7 @@ def _delete_tag():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _get_run():
     request_message = _get_request_message(GetRun())
     response_message = GetRun.Response()
@@ -477,6 +533,7 @@ def _get_run():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _search_runs():
     request_message = _get_request_message(SearchRuns())
     response_message = SearchRuns.Response()
@@ -500,6 +557,7 @@ def _search_runs():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _list_artifacts():
     request_message = _get_request_message(ListArtifacts())
     response_message = ListArtifacts.Response()
@@ -518,6 +576,7 @@ def _list_artifacts():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _get_metric_history():
     request_message = _get_request_message(GetMetricHistory())
     response_message = GetMetricHistory.Response()
@@ -530,6 +589,7 @@ def _get_metric_history():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _list_experiments():
     request_message = _get_request_message(ListExperiments())
     # `ListFields` returns a list of (FieldDescriptor, value) tuples for *present* fields:
@@ -547,11 +607,13 @@ def _list_experiments():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _get_artifact_repo(run):
     return get_artifact_repository(run.info.artifact_uri)
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _log_batch():
     _validate_batch_log_api_req(_get_request_json())
     request_message = _get_request_message(LogBatch())
@@ -568,6 +630,7 @@ def _log_batch():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _log_model():
     request_message = _get_request_message(LogModel())
     try:
@@ -603,7 +666,11 @@ def _wrap_response(response_message):
     return response
 
 
+# Model Registry APIs
+
+
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _create_registered_model():
     request_message = _get_request_message(CreateRegisteredModel())
     registered_model = _get_model_registry_store().create_registered_model(
@@ -616,6 +683,7 @@ def _create_registered_model():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _get_registered_model():
     request_message = _get_request_message(GetRegisteredModel())
     registered_model = _get_model_registry_store().get_registered_model(name=request_message.name)
@@ -624,6 +692,7 @@ def _get_registered_model():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _update_registered_model():
     request_message = _get_request_message(UpdateRegisteredModel())
     name = request_message.name
@@ -636,6 +705,7 @@ def _update_registered_model():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _rename_registered_model():
     request_message = _get_request_message(RenameRegisteredModel())
     name = request_message.name
@@ -648,6 +718,7 @@ def _rename_registered_model():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _delete_registered_model():
     request_message = _get_request_message(DeleteRegisteredModel())
     _get_model_registry_store().delete_registered_model(name=request_message.name)
@@ -655,6 +726,7 @@ def _delete_registered_model():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _list_registered_models():
     request_message = _get_request_message(ListRegisteredModels())
     registered_models = _get_model_registry_store().list_registered_models(
@@ -668,6 +740,7 @@ def _list_registered_models():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _search_registered_models():
     request_message = _get_request_message(SearchRegisteredModels())
     store = _get_model_registry_store()
@@ -685,6 +758,7 @@ def _search_registered_models():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _get_latest_versions():
     request_message = _get_request_message(GetLatestVersions())
     latest_versions = _get_model_registry_store().get_latest_versions(
@@ -696,6 +770,7 @@ def _get_latest_versions():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _set_registered_model_tag():
     request_message = _get_request_message(SetRegisteredModelTag())
     tag = RegisteredModelTag(key=request_message.key, value=request_message.value)
@@ -704,6 +779,7 @@ def _set_registered_model_tag():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _delete_registered_model_tag():
     request_message = _get_request_message(DeleteRegisteredModelTag())
     _get_model_registry_store().delete_registered_model_tag(
@@ -713,6 +789,7 @@ def _delete_registered_model_tag():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _create_model_version():
     request_message = _get_request_message(CreateModelVersion())
     model_version = _get_model_registry_store().create_model_version(
@@ -728,6 +805,7 @@ def _create_model_version():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def get_model_version_artifact_handler():
     from querystring_parser import parser
 
@@ -740,6 +818,7 @@ def get_model_version_artifact_handler():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _get_model_version():
     request_message = _get_request_message(GetModelVersion())
     model_version = _get_model_registry_store().get_model_version(
@@ -751,6 +830,7 @@ def _get_model_version():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _update_model_version():
     request_message = _get_request_message(UpdateModelVersion())
     new_description = None
@@ -763,6 +843,7 @@ def _update_model_version():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _transition_stage():
     request_message = _get_request_message(TransitionModelVersionStage())
     model_version = _get_model_registry_store().transition_model_version_stage(
@@ -777,6 +858,7 @@ def _transition_stage():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _delete_model_version():
     request_message = _get_request_message(DeleteModelVersion())
     _get_model_registry_store().delete_model_version(
@@ -786,6 +868,7 @@ def _delete_model_version():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _get_model_version_download_uri():
     request_message = _get_request_message(GetModelVersionDownloadUri())
     download_uri = _get_model_registry_store().get_model_version_download_uri(
@@ -796,6 +879,7 @@ def _get_model_version_download_uri():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _search_model_versions():
     request_message = _get_request_message(SearchModelVersions())
     model_versions = _get_model_registry_store().search_model_versions(request_message.filter)
@@ -805,6 +889,7 @@ def _search_model_versions():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _set_model_version_tag():
     request_message = _get_request_message(SetModelVersionTag())
     tag = ModelVersionTag(key=request_message.key, value=request_message.value)
@@ -815,6 +900,7 @@ def _set_model_version_tag():
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_only
 def _delete_model_version_tag():
     request_message = _get_request_message(DeleteModelVersionTag())
     _get_model_registry_store().delete_model_version_tag(
@@ -823,7 +909,11 @@ def _delete_model_version_tag():
     return _wrap_response(DeleteModelVersionTag.Response())
 
 
+# MLflow Artifacts APIs
+
+
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_endpoint
 def _download_artifact(artifact_path):
     """
     A request handler for `GET /mlflow-artifacts/artifacts/<artifact_path>` to download an artifact
@@ -850,6 +940,7 @@ def _download_artifact(artifact_path):
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_endpoint
 def _upload_artifact(artifact_path):
     """
     A request handler for `PUT /mlflow-artifacts/artifacts/<artifact_path>` to upload an artifact
@@ -873,6 +964,7 @@ def _upload_artifact(artifact_path):
 
 
 @catch_mlflow_exception
+@_disable_mlflow_artifacts_endpoint
 def _list_artifacts_mlflow_artifacts():
     """
     A request handler for `GET /mlflow-artifacts/artifacts?path=<value>` to list artifacts in `path`
