@@ -11,7 +11,7 @@ from mlflow.protos.service_pb2 import Experiment as ProtoExperiment
 from mlflow.protos.service_pb2 import Metric as ProtoMetric
 from mlflow.types import Schema, TensorSpec, ColSpec
 from mlflow.protos.model_registry_pb2 import RegisteredModel as ProtoRegisteredModel
-from mlflow.protos.protos_for_test.test_message_pb2 import TestMessage
+from tests.protos.test_message_pb2 import TestMessage
 from google.protobuf.text_format import Parse as ParseTextIntoProto
 
 from mlflow.utils.proto_json_utils import (
