@@ -97,7 +97,7 @@ You can view the logged artifacts on MinIO Console served at http://localhost:90
 
 ```sh
 # Remove containers, networks, volumes, and images
-$ docker-compose --rmi all --volumes --remove-orphans
+$ docker-compose down --rmi all --volumes --remove-orphans
 ```
 
 ### Development
