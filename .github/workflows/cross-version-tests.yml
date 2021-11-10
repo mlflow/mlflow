@@ -48,7 +48,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
         with:
-          fetch-depth: 0
+          fetch-depth: 1000
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: actions/setup-python@v2
