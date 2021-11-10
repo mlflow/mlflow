@@ -21,7 +21,8 @@ ignore-paths=setup.py,
              mlflow/protos,
              mlflow/server/js,
              mlflow/store/db_migrations,
-             mlflow/temporary_db_migrations_for_pre_1_users
+             mlflow/temporary_db_migrations_for_pre_1_users,
+             tests/protos
 
 # Python code to execute, usually for sys.path manipulation such as
 # pygtk.require().
