@@ -722,7 +722,7 @@ export class ExperimentView extends Component {
                               ) : (
                                 <Icon type='arrow-down' />
                               )}{' '}
-                              {middleTruncateKey(metricKey, 40)}
+                              {middleTruncateKey(metricKey, 50)}
                             </Option>,
                           );
                         });
@@ -746,7 +746,7 @@ export class ExperimentView extends Component {
                               ) : (
                                 <Icon type='arrow-down' />
                               )}{' '}
-                              {middleTruncateKey(paramKey, 40)}
+                              {middleTruncateKey(paramKey, 50)}
                             </Option>,
                           );
                         });
