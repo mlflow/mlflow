@@ -24,7 +24,6 @@ from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
     _mlflow_conda_env,
     _validate_env_arguments,
@@ -453,7 +452,6 @@ def _contains_pdparams(path):
     return any(".pdparams" in file for file in file_list)
 
 
-@experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_every_n_epoch=1, log_models=True, disable=False, exclusive=False, silent=False,

@@ -46,7 +46,6 @@ from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
-from mlflow.utils.annotations import experimental
 from mlflow.utils.arguments_utils import _get_arg_names
 from mlflow.utils.autologging_utils import (
     autologging_integration,
@@ -295,7 +294,6 @@ class _LGBModelWrapper:
         return self.lgb_model.predict(dataframe)
 
 
-@experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_input_examples=False,
