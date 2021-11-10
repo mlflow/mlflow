@@ -5,7 +5,7 @@ import mlflow
 from mlflow.exceptions import MlflowException
 import mlflow.spark
 from mlflow._spark_autologging import _get_current_listener, PythonSubscriber
-from tests.spark_autologging.utils import _get_or_create_spark_session
+from tests.spark.autologging.utils import _get_or_create_spark_session
 
 
 @pytest.fixture()

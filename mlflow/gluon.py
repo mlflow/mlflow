@@ -30,7 +30,6 @@ from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
     ExceptionSafeClass,
-    try_mlflow_log,
     batch_metrics_logger,
 )
 
@@ -39,7 +38,7 @@ _MODEL_SAVE_PATH = "net"
 
 
 @experimental
-def load_model(model_uri, ctx):
+def load_model(model_uri, ctx, dst_path=None):
     """
     Load a Gluon model from a local file or a run.
 
@@ -56,6 +55,9 @@ def load_model(model_uri, ctx):
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
                       artifact-locations>`_.
     :param ctx: Either CPU or GPU.
+    :param dst_path: The local filesystem path to which to download the model artifact.
+                     This directory must already exist. If unspecified, a local output
+                     path will be created.
 
     :return: A Gluon model instance.
 
@@ -70,7 +72,7 @@ def load_model(model_uri, ctx):
     from mxnet import gluon
     from mxnet import sym
 
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
 
     model_arch_path = os.path.join(local_model_path, "data", _MODEL_SAVE_PATH) + "-symbol.json"
     model_params_path = os.path.join(local_model_path, "data", _MODEL_SAVE_PATH) + "-0000.params"
@@ -343,7 +345,6 @@ def log_model(
     )
 
 
-@experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_models=True,
@@ -393,24 +394,20 @@ def autolog(
                 self.current_epoch += 1
 
             def train_begin(self, estimator, *args, **kwargs):
-                try_mlflow_log(mlflow.log_param, "num_layers", len(estimator.net))
+                mlflow.log_param("num_layers", len(estimator.net))
                 if estimator.max_epoch is not None:
-                    try_mlflow_log(mlflow.log_param, "epochs", estimator.max_epoch)
+                    mlflow.log_param("epochs", estimator.max_epoch)
                 if estimator.max_batch is not None:
-                    try_mlflow_log(mlflow.log_param, "batches", estimator.max_batch)
-                try_mlflow_log(
-                    mlflow.log_param, "optimizer_name", type(estimator.trainer.optimizer).__name__
-                )
+                    mlflow.log_param("batches", estimator.max_batch)
+                mlflow.log_param("optimizer_name", type(estimator.trainer.optimizer).__name__)
                 if hasattr(estimator.trainer.optimizer, "lr"):
-                    try_mlflow_log(
-                        mlflow.log_param, "learning_rate", estimator.trainer.optimizer.lr
-                    )
+                    mlflow.log_param("learning_rate", estimator.trainer.optimizer.lr)
                 if hasattr(estimator.trainer.optimizer, "epsilon"):
-                    try_mlflow_log(mlflow.log_param, "epsilon", estimator.trainer.optimizer.epsilon)
+                    mlflow.log_param("epsilon", estimator.trainer.optimizer.epsilon)
 
             def train_end(self, estimator, *args, **kwargs):
                 if isinstance(estimator.net, HybridSequential) and log_models:
-                    try_mlflow_log(log_model, estimator.net, artifact_path="model")
+                    log_model(estimator.net, artifact_path="model")
 
         return __MLflowGluonCallback()
 

@@ -49,6 +49,7 @@ import { Spacer } from '../../shared/building_blocks/Spacer';
 import { SearchBox } from '../../shared/building_blocks/SearchBox';
 import { Radio } from '../../shared/building_blocks/Radio';
 import syncSvg from '../../common/static/sync.svg';
+import { middleTruncateStr } from '../../common/utils/StringUtils';
 import {
   COLUMN_TYPES,
   LIFECYCLE_FILTER,
@@ -669,6 +670,7 @@ export class ExperimentView extends Component {
                       size='large'
                       onChange={this.onHandleSortByDropdown}
                       data-test-id='sort-select-dropdown'
+                      dropdownStyle={{ minWidth: '30%' }}
                     >
                       {Object.keys(ATTRIBUTE_COLUMN_SORT_LABEL).reduce(
                         (sortOptions, sortLabelKey) => {
@@ -720,7 +722,7 @@ export class ExperimentView extends Component {
                               ) : (
                                 <Icon type='arrow-down' />
                               )}{' '}
-                              {metricKey}
+                              {middleTruncateStr(metricKey, 50)}
                             </Option>,
                           );
                         });
@@ -744,7 +746,7 @@ export class ExperimentView extends Component {
                               ) : (
                                 <Icon type='arrow-down' />
                               )}{' '}
-                              {paramKey}
+                              {middleTruncateStr(paramKey, 50)}
                             </Option>,
                           );
                         });

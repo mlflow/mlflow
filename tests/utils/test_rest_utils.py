@@ -12,8 +12,10 @@ from mlflow.utils.rest_utils import (
     MlflowHostCreds,
     _DEFAULT_HEADERS,
     call_endpoint,
+    call_endpoints,
 )
 from mlflow.protos.service_pb2 import GetRun
+from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, ErrorCode
 from tests import helper_functions
 
 
@@ -63,6 +65,41 @@ def test_malformed_json_error_response(response_mock):
         response_proto = GetRun.Response()
         with pytest.raises(MlflowException):
             call_endpoint(host_only, "/my/endpoint", "GET", "", response_proto)
+
+
+def test_call_endpoints():
+    with mock.patch("mlflow.utils.rest_utils.call_endpoint") as mock_call_endpoint:
+        response_proto = GetRun.Response()
+        mock_call_endpoint.side_effect = [
+            RestException({"error_code": ErrorCode.Name(ENDPOINT_NOT_FOUND)}),
+            None,
+        ]
+        host_only = MlflowHostCreds("http://my-host")
+        endpoints = [("/my/endpoint", "POST"), ("/my/endpoint", "GET")]
+        resp = call_endpoints(host_only, endpoints, "", response_proto)
+        mock_call_endpoint.assert_has_calls(
+            [
+                mock.call(host_only, endpoint, method, "", response_proto)
+                for endpoint, method in endpoints
+            ]
+        )
+        assert resp is None
+
+
+def test_call_endpoints_raises_exceptions():
+    with mock.patch("mlflow.utils.rest_utils.call_endpoint") as mock_call_endpoint:
+        response_proto = GetRun.Response()
+        mock_call_endpoint.side_effect = [
+            RestException({"error_code": ErrorCode.Name(ENDPOINT_NOT_FOUND)}),
+            RestException({"error_code": ErrorCode.Name(ENDPOINT_NOT_FOUND)}),
+        ]
+        host_only = MlflowHostCreds("http://my-host")
+        endpoints = [("/my/endpoint", "POST"), ("/my/endpoint", "GET")]
+        with pytest.raises(RestException):
+            call_endpoints(host_only, endpoints, "", response_proto)
+        mock_call_endpoint.side_effect = [RestException({}), None]
+        with pytest.raises(RestException):
+            call_endpoints(host_only, endpoints, "", response_proto)
 
 
 @mock.patch("requests.Session.request")

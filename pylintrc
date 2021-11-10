@@ -7,19 +7,28 @@ extension-pkg-whitelist=
 
 # Add files or directories to the denylist. They should be base names, not
 # paths.
-ignore=build,protos,sdk,db_migrations,temporary_db_migrations_for_pre_1_users
-
+ignore=
 
 # Add files or directories matching the regex patterns to the denylist. The
 # regex matches against base names, not paths.
 ignore-patterns=
+
+# Add files or directories matching the regex patterns to the ignore-list.
+# The regex matches against paths.
+ignore-paths=setup.py,
+             docs,
+             examples,
+             mlflow/protos,
+             mlflow/server/js,
+             mlflow/store/db_migrations,
+             mlflow/temporary_db_migrations_for_pre_1_users
 
 # Python code to execute, usually for sys.path manipulation such as
 # pygtk.require().
 #init-hook=
 
 # Use multiple processes to speed up Pylint.
-jobs=1
+jobs=0
 
 # List of plugins (as comma separated values of python modules names) to load,
 # usually to register additional checkers.

@@ -37,9 +37,7 @@ from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
-    try_mlflow_log,
     log_fn_args_as_params,
     autologging_integration,
     safe_patch,
@@ -281,7 +279,7 @@ def _load_pyfunc(path):
     return _StatsmodelsModelWrapper(_load_model(path))
 
 
-def load_model(model_uri):
+def load_model(model_uri, dst_path=None):
     """
     Load a statsmodels model from a local file or a run.
 
@@ -295,10 +293,13 @@ def load_model(model_uri):
                       For more information about supported URI schemes, see
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
                       artifact-locations>`_.
+    :param dst_path: The local filesystem path to which to download the model artifact.
+                     This directory must already exist. If unspecified, a local output
+                     path will be created.
 
     :return: A statsmodels model (an instance of `statsmodels.base.model.Results`_).
     """
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     statsmodels_model_file_path = os.path.join(
         local_model_path, flavor_conf.get("data", STATSMODELS_DATA_SUBPATH)
@@ -382,7 +383,6 @@ def _get_autolog_metrics(fitted_model):
     return result_metrics
 
 
-@experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_models=True,
@@ -503,17 +503,17 @@ def autolog(
                     global _save_model_called_from_autolog
                     _save_model_called_from_autolog = True
                     try:
-                        try_mlflow_log(log_model, model, artifact_path="model")
+                        log_model(model, artifact_path="model")
                     finally:
                         _save_model_called_from_autolog = False
 
                 # Log the most common metrics
                 if isinstance(model, statsmodels.base.wrapper.ResultsWrapper):
                     metrics_dict = _get_autolog_metrics(model)
-                    try_mlflow_log(mlflow.log_metrics, metrics_dict)
+                    mlflow.log_metrics(metrics_dict)
 
                     model_summary = model.summary().as_text()
-                    try_mlflow_log(mlflow.log_text, model_summary, "model_summary.txt")
+                    mlflow.log_text(model_summary, "model_summary.txt")
 
             return model
 

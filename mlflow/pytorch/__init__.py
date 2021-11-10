@@ -633,7 +633,7 @@ def _load_model(path, **kwargs):
             return torch.jit.load(model_path)
 
 
-def load_model(model_uri, **kwargs):
+def load_model(model_uri, dst_path=None, **kwargs):
     """
     Load a PyTorch model from a local file or a run.
 
@@ -649,6 +649,9 @@ def load_model(model_uri, **kwargs):
                       For more information about supported URI schemes, see
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
                       artifact-locations>`_.
+    :param dst_path: The local filesystem path to which to download the model artifact.
+                     This directory must already exist. If unspecified, a local output
+                     path will be created.
 
     :param kwargs: kwargs to pass to ``torch.load`` method.
     :return: A PyTorch model.
@@ -690,7 +693,7 @@ def load_model(model_uri, **kwargs):
     """
     import torch
 
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     try:
         pyfunc_conf = _get_flavor_configuration(
             model_path=local_model_path, flavor_name=pyfunc.FLAVOR_NAME
@@ -865,7 +868,6 @@ def load_state_dict(state_dict_uri, **kwargs):
     return torch.load(state_dict_path, **kwargs)
 
 
-@experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_every_n_epoch=1,
@@ -922,7 +924,11 @@ def autolog(
         from torch.utils.data import DataLoader
         from torchvision import transforms
         from torchvision.datasets import MNIST
-        from pytorch_lightning.metrics.functional import accuracy
+
+        try:
+            from torchmetrics.functional import accuracy
+        except ImportError:
+            from pytorch_lightning.metrics.functional import accuracy
 
         import mlflow.pytorch
         from mlflow.tracking import MlflowClient
