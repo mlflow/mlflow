@@ -4,7 +4,7 @@ A python script to list changed files in a specified pull request.
 Usage:
 -----------------------------------------------------------------------------------------
 # List changed files in https://github.com/mlflow/mlflow/pull/3191
-$ python .github/workflows/list_changed_files.py --repository mlflow/mlflow --pr-num 3191
+$ python dev/list_changed_files.py --repository mlflow/mlflow --pr-num 3191
 -----------------------------------------------------------------------------------------
 """
 import argparse
