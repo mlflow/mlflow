@@ -77,8 +77,10 @@ jobs:
         run: |
           EVENT_NAME="${{ github.event_name }}"
           if [ "$EVENT_NAME" = "pull_request" ]; then
-            REF_VERSIONS_YAML="https://raw.githubusercontent.com/${{ github.repository }}/mlflow/master/mlflow/ml-package-versions.yml"
-            API_URL="https://api.github.com/repos/${{ github.repository	}}/pulls/${{ github.event.issue.number }}/files"
+            REPO="${{ github.repository }}"
+            PR_NUMBER="${{ github.event.pull_request.number }}"
+            REF_VERSIONS_YAML="https://raw.githubusercontent.com/$REPO/master/mlflow/ml-package-versions.yml"
+            API_URL="https://api.github.com/repos/$REPO/pulls/$PR_NUMBER/files"
             CHANGED_FILES="$(curl $API_URL | jq -r '.[].filename')"
             ENABLE_DEV_TESTS="${{ steps.enable-dev-tests.outputs.result }}"
             EXCLUDE_DEV_VERSIONS_FLAG=$([ "$ENABLE_DEV_TESTS" == "true" ] && echo "" || echo "--exclude-dev-versions")
