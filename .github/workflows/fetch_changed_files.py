@@ -32,5 +32,5 @@ def main():
 
 
 if __name__ == "__main__":
-    # https://github.com/mlflow/mlflow/pull/3191 is a good example to test this script:
+    # https://github.com/mlflow/mlflow/pull/3191 is a good example to test this script.
     main()
