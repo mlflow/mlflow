@@ -1,3 +1,6 @@
+"""
+A python script to fetch all changed files in a specified pull request.
+"""
 import argparse
 import os
 import requests
