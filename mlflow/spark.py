@@ -58,7 +58,6 @@ from mlflow.utils.uri import (
 )
 from mlflow.utils import databricks_utils
 from mlflow.utils.model_utils import _get_flavor_configuration_from_uri
-from mlflow.utils.annotations import experimental
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
@@ -733,7 +732,6 @@ class _PyFuncModelWrapper(object):
         ]
 
 
-@experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
     """
