@@ -26,7 +26,6 @@ protoc -I="$TEST_PROTOS" \
 
 OLD_SCALAPB="from scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2"
 NEW_SCALAPB="from .scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2"
-
 sed -i'.old' -e "s/$OLD_SCALAPB/$NEW_SCALAPB/g" "$PROTOS/databricks_pb2.py" "$PROTOS/service_pb2.py" "$PROTOS/model_registry_pb2.py" "$PROTOS/databricks_artifacts_pb2.py" "$PROTOS/mlflow_artifacts_pb2.py" "$TEST_PROTOS/test_message_pb2.py"
 
 OLD_DATABRICKS="import databricks_pb2 as databricks__pb2"
