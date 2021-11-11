@@ -7,6 +7,7 @@ import shutil
 import tempfile
 import time
 import subprocess
+import requests
 
 from urllib.request import url2pathname
 from urllib.parse import urlparse, unquote
@@ -22,7 +23,22 @@ from mlflow.store.tracking.file_store import FileStore
 from mlflow.exceptions import MlflowException
 from mlflow.entities import ViewType
 
-from tests.helper_functions import pyfunc_serve_and_score_model
+from tests.helper_functions import pyfunc_serve_and_score_model, get_safe_port
+from tests.tracking.integration_test_utils import _await_server_up_or_die
+
+
+@pytest.mark.parametrize("command", ["server", "ui"])
+def test_mlflow_server_command(command):
+    port = get_safe_port()
+    cmd = ["mlflow", command, "--port", str(port)]
+    process = subprocess.Popen(cmd)
+    try:
+        _await_server_up_or_die(port, timeout=10)
+        resp = requests.get(f"http://localhost:{port}/health")
+        resp.raise_for_status()
+        assert resp.text == "OK"
+    finally:
+        process.kill()
 
 
 def test_server_static_prefix_validation():
