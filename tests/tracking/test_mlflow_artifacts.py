@@ -3,7 +3,7 @@ from collections import namedtuple
 import subprocess
 import tempfile
 import requests
-
+import pathlib
 import pytest
 
 import mlflow
@@ -26,6 +26,7 @@ def _launch_server(host, port, backend_store_uri, default_artifact_root, artifac
         str(port),
         "--backend-store-uri",
         backend_store_uri,
+        "--serve-artifacts",
         "--default-artifact-root",
         default_artifact_root,
         "--artifacts-destination",
@@ -227,6 +228,7 @@ def is_github_actions():
 
 @pytest.mark.skipif(is_windows(), reason="This example doesn't work on Windows")
 def test_mlflow_artifacts_example(tmpdir):
+    root = pathlib.Path(mlflow.__file__).parents[1]
     # On GitHub Actions, remove generated images to save disk space
     rmi_option = "--rmi all" if is_github_actions() else ""
     cmd = f"""
@@ -241,5 +243,5 @@ docker-compose down {rmi_option} --volumes --remove-orphans
     subprocess.run(
         ["bash", script_path.strpath],
         check=True,
-        cwd=os.path.join(os.getcwd(), "examples", "mlflow_artifacts"),
+        cwd=os.path.join(root, "examples", "mlflow_artifacts"),
     )

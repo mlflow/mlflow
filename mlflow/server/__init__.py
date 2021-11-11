@@ -108,7 +108,7 @@ def _build_gunicorn_command(gunicorn_opts, host, port, workers):
 def _run_server(
     file_store_path,
     default_artifact_root,
-    serve_artifacts_opt,
+    serve_artifacts,
     artifacts_only,
     artifacts_destination,
     host,
@@ -130,7 +130,7 @@ def _run_server(
         env_map[BACKEND_STORE_URI_ENV_VAR] = file_store_path
     if default_artifact_root:
         env_map[ARTIFACT_ROOT_ENV_VAR] = default_artifact_root
-    if serve_artifacts_opt:
+    if serve_artifacts:
         env_map[SERVE_ARTIFACTS_ENV_VAR] = "true"
     if artifacts_only:
         env_map[ARTIFACTS_ONLY_ENV_VAR] = "true"

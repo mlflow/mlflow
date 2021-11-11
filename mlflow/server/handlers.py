@@ -262,7 +262,7 @@ _TEXT_EXTENSIONS = [
 ]
 
 
-def _disable_mlflow_artifacts_endpoint(func):
+def _disable_unless_serving_artifacts(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         from mlflow.server import SERVE_ARTIFACTS_ENV_VAR
@@ -913,7 +913,7 @@ def _delete_model_version_tag():
 
 
 @catch_mlflow_exception
-@_disable_mlflow_artifacts_endpoint
+@_disable_unless_serving_artifacts
 def _download_artifact(artifact_path):
     """
     A request handler for `GET /mlflow-artifacts/artifacts/<artifact_path>` to download an artifact
@@ -940,7 +940,7 @@ def _download_artifact(artifact_path):
 
 
 @catch_mlflow_exception
-@_disable_mlflow_artifacts_endpoint
+@_disable_unless_serving_artifacts
 def _upload_artifact(artifact_path):
     """
     A request handler for `PUT /mlflow-artifacts/artifacts/<artifact_path>` to upload an artifact
@@ -964,7 +964,7 @@ def _upload_artifact(artifact_path):
 
 
 @catch_mlflow_exception
-@_disable_mlflow_artifacts_endpoint
+@_disable_unless_serving_artifacts
 def _list_artifacts_mlflow_artifacts():
     """
     A request handler for `GET /mlflow-artifacts/artifacts?path=<value>` to list artifacts in `path`

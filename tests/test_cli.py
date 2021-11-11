@@ -49,10 +49,10 @@ def test_server_mlflow_artifacts_options():
         CliRunner().invoke(server, ["--artifacts-only"])
         run_server_mock.assert_called_once()
     with mock.patch("mlflow.server._run_server") as run_server_mock:
-        CliRunner().invoke(server, ["--serve-artifacts-opt"])
+        CliRunner().invoke(server, ["--serve-artifacts"])
         run_server_mock.assert_called_once()
     with mock.patch("mlflow.server._run_server") as run_server_mock:
-        CliRunner().invoke(server, ["--artifacts-only", "--serve-artifacts-opt"])
+        CliRunner().invoke(server, ["--artifacts-only", "--serve-artifacts"])
         run_server_mock.assert_called_once()
 
 
@@ -254,7 +254,7 @@ def test_mlflow_tracking_disabled_in_artifacts_only_mode():
 def test_mlflow_artifact_list_in_artifacts_only_mode():
 
     port = get_safe_port()
-    cmd = ["mlflow", "server", "--port", str(port), "--artifacts-only", "--serve-artifacts-opt"]
+    cmd = ["mlflow", "server", "--port", str(port), "--artifacts-only", "--serve-artifacts"]
     process = subprocess.Popen(cmd)
     try:
         _await_server_up_or_die(port, timeout=10)

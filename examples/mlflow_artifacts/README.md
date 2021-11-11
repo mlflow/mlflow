@@ -16,7 +16,7 @@ First, launch the tracking server with the artifacts service via `mlflow server`
 ```sh
 # Launch a tracking server with the artifacts service
 $ mlflow server \
-    --serve-artifacts-opt
+    --serve-artifacts
     --artifacts-destination ./mlartifacts \
     --default-artifact-root http://localhost:5000/api/2.0/mlflow-artifacts/artifacts/experiments \
     --gunicorn-opts "--log-level debug"
@@ -24,7 +24,7 @@ $ mlflow server \
 
 Notes:
 
-- `--serve-artifacts-opt` enables the MLflow Artifacts service endpoints to enable proxied serving of artifacts through the REST API
+- `--serve-artifacts` enables the MLflow Artifacts service endpoints to enable proxied serving of artifacts through the REST API
 - `--artifacts-destination` specifies the base artifact location from which to resolve artifact upload/download/list requests. In this examples, we're using a local directory `./mlartifacts`, but it can be changed to a s3 bucket or
 - `--default-artifact-root` points to the `experiments` directory of the artifacts service. Therefore, the default artifact location of a newly-created experiment is set to `./mlartifacts/experiments/<experiment_id>`.
 - `--gunicorn-opts "--log-level debug"` is specified to print out request logs but can be omitted if unnecessary.

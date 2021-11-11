@@ -321,7 +321,7 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
     " used, then this option is required.",
 )
 @click.option(
-    "--serve-artifacts-opt",
+    "--serve-artifacts",
     is_flag=True,
     help="If specified, enables serving of artifact uploads, downloads, and list requests "
     "by routing these requests to the storage location that is specified by "
@@ -367,7 +367,7 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 def server(
     backend_store_uri,
     default_artifact_root,
-    serve_artifacts_opt,
+    serve_artifacts,
     artifacts_only,
     artifacts_destination,
     host,
@@ -416,7 +416,7 @@ def server(
         _run_server(
             backend_store_uri,
             default_artifact_root,
-            serve_artifacts_opt,
+            serve_artifacts,
             artifacts_only,
             artifacts_destination,
             host,

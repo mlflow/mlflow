@@ -10,7 +10,7 @@ def save_text(path, text):
         f.write(text)
 
 
-#  NOTE: ensure the tracking server has been started with --serve-artifacts-opt to enable
+#  NOTE: ensure the tracking server has been started with --serve-artifacts to enable
 #        MLflow artifact serving functionality.
 
 
