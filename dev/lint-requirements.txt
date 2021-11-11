@@ -2,5 +2,3 @@ pyarrow==0.17.0
 pylint==2.11.1
 rstcheck==3.2
 black==21.10b0
-# Pin isort version to prevent pylint from raising an error
-isort<5.0.0
