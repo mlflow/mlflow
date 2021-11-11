@@ -147,8 +147,9 @@ If you plan on doing development and testing, you will also need to install the 
 
 .. code-block:: bash
 
-    pip install -r dev-requirements.txt
-    pip install -r test-requirements.txt
+    pip install pip-tools
+    pip-compile --output-file compiled-requirements.txt dev-requirements.txt test-requirements.txt
+    pip install -r compiled-requirements.txt
     pip install -e .[extras]  # installs mlflow from current checkout
     pip install -e tests/resources/mlflow-test-plugin # installs `mlflow-test-plugin` that is required for running certain MLflow tests
 
@@ -156,11 +157,7 @@ You may need to run ``conda install cmake`` for the test requirements to properl
 
 Ensure `Docker <https://www.docker.com/>`_ is installed.
 
-Finally, we use ``pytest`` to test all Python contributed code. Install ``pytest``:
-
-.. code-block:: bash
-
-    pip install pytest
+Finally, we use ``pytest`` to test all Python contributed code.
 
 JavaScript and UI
 ~~~~~~~~~~~~~~~~~

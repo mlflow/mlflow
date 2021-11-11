@@ -8,14 +8,13 @@ keras
 # Required by mlflow.sklearn
 scikit-learn
 # Required by mlflow.gluon
-# TODO: Unpin once https://github.com/apache/incubator-mxnet/issues/20068 is fixed
-mxnet!=1.8.0
+mxnet==1.8.0.post0
 # Required by mlflow.fastai
 fastai>=2.4.1
 # Required by mlflow.spacy
 spacy
 # Required by mlflow.tensorflow
-tensorflow
+tensorflow==2.4.4
 # TODO: Stop excluding tensorflow-estimator 2.7.0 once tensorflow 2.7.0 is released:
 # https://github.com/tensorflow/tensorflow/issues/52883#issuecomment-955802164
 tensorflow-estimator!=2.7.0
