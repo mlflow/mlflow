@@ -16,7 +16,7 @@ First, launch the tracking server with the artifacts service via `mlflow server`
 ```sh
 # Launch a tracking server with the artifacts service
 $ mlflow server \
-    --serve-artifacts
+    --serve-artifacts \
     --artifacts-destination ./mlartifacts \
     --default-artifact-root http://localhost:5000/api/2.0/mlflow-artifacts/artifacts/experiments \
     --gunicorn-opts "--log-level debug"

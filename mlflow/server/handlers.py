@@ -270,8 +270,9 @@ def _disable_unless_serving_artifacts(func):
         if not os.environ.get(SERVE_ARTIFACTS_ENV_VAR):
             return Response(
                 (
-                    "Endpoints for mlflow artifacts service are disabled. To enable them, "
-                    "run `mlflow server` with `--serve-artfiacts-opt`"
+                    "Endpoint disabled due to the mlflow server running without "
+                    "`--serve-artifacts`. To enable artifacts server functionaltiy, "
+                    "run `mlflow server` with `--serve-artfiacts`"
                 ),
                 503,
             )
@@ -288,7 +289,7 @@ def _disable_mlflow_artifacts_only(func):
         if os.environ.get(ARTIFACTS_ONLY_ENV_VAR):
             return Response(
                 (
-                    "Endpoints disabled due to the mlflow server running in `--artifacts-only` "
+                    "Endpoint disabled due to the mlflow server running in `--artifacts-only` "
                     "mode. To enable tracking server functionality, run `mlflow server` without "
                     "`--artifacts-only`"
                 ),
