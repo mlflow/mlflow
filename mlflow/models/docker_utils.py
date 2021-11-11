@@ -127,7 +127,13 @@ def _build_image_from_context(context_dir: str, image_name: str):
         *platform_option,
         ".",
     ]
-    proc = Popen(commands, cwd=context_dir, stdout=PIPE, stderr=STDOUT, universal_newlines=True,)
+    proc = Popen(
+        commands,
+        cwd=context_dir,
+        stdout=PIPE,
+        stderr=STDOUT,
+        universal_newlines=True,
+    )
     for x in iter(proc.stdout.readline, ""):
         eprint(x, end="")
 

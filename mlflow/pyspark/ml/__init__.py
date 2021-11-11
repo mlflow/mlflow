@@ -189,7 +189,8 @@ def _get_uid_to_indexed_name_map(estimator):
 
 
 def _gen_stage_hierarchy_recursively(
-    stage, uid_to_indexed_name_map,
+    stage,
+    uid_to_indexed_name_map,
 ):
     from pyspark.ml import Pipeline
     from pyspark.ml.classification import OneVsRest
@@ -448,7 +449,10 @@ def _get_param_search_metrics_and_best_index(param_search_estimator, param_searc
 
 def _log_estimator_params(param_map):
     # Chunk model parameters to avoid hitting the log_batch API limit
-    for chunk in _chunk_dict(param_map, chunk_size=MAX_PARAMS_TAGS_PER_BATCH,):
+    for chunk in _chunk_dict(
+        param_map,
+        chunk_size=MAX_PARAMS_TAGS_PER_BATCH,
+    ):
         truncated = _truncate_dict(chunk, MAX_ENTITY_KEY_LENGTH, MAX_PARAM_VAL_LENGTH)
         mlflow.log_params(truncated)
 
@@ -898,11 +902,13 @@ def autolog(
             if _should_log_model(spark_model):
                 # TODO: support model signature
                 mlflow.spark.log_model(
-                    spark_model, artifact_path="model",
+                    spark_model,
+                    artifact_path="model",
                 )
                 if _is_parameter_search_model(spark_model):
                     mlflow.spark.log_model(
-                        spark_model.bestModel, artifact_path="best_model",
+                        spark_model.bestModel,
+                        artifact_path="best_model",
                     )
             else:
                 _logger.warning(_get_warning_msg_for_skip_log_model(spark_model))
@@ -993,13 +999,25 @@ def autolog(
             return original(self, *args, **kwargs)
 
     safe_patch(
-        AUTOLOGGING_INTEGRATION_NAME, Estimator, "fit", patched_fit, manage_run=True,
+        AUTOLOGGING_INTEGRATION_NAME,
+        Estimator,
+        "fit",
+        patched_fit,
+        manage_run=True,
     )
 
     if log_post_training_metrics:
         safe_patch(
-            AUTOLOGGING_INTEGRATION_NAME, Model, "transform", patched_transform, manage_run=False,
+            AUTOLOGGING_INTEGRATION_NAME,
+            Model,
+            "transform",
+            patched_transform,
+            manage_run=False,
         )
         safe_patch(
-            AUTOLOGGING_INTEGRATION_NAME, Evaluator, "evaluate", patched_evaluate, manage_run=False,
+            AUTOLOGGING_INTEGRATION_NAME,
+            Evaluator,
+            "evaluate",
+            patched_evaluate,
+            manage_run=False,
         )

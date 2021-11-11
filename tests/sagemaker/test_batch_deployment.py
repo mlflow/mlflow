@@ -484,7 +484,9 @@ def test_attempting_to_terminate_in_asynchronous_mode_without_archiving_throws_e
 
     with pytest.raises(MlflowException) as exc:
         mfs.terminate_transform_job(
-            job_name=job_name, archive=False, synchronous=False,
+            job_name=job_name,
+            archive=False,
+            synchronous=False,
         )
 
     assert "Resources must be archived" in exc.value.message
@@ -515,7 +517,8 @@ def test_terminate_in_sync_mode_waits_for_transform_job_termination_to_complete_
     )
 
     mfs.terminate_transform_job(
-        job_name=job_name, synchronous=True,
+        job_name=job_name,
+        synchronous=True,
     )
     termination_end_time = time.time()
 
@@ -548,7 +551,9 @@ def test_terminate_in_asynchronous_mode_returns_before_transform_job_termination
     )
 
     mfs.terminate_transform_job(
-        job_name=job_name, archive=True, synchronous=False,
+        job_name=job_name,
+        archive=True,
+        synchronous=False,
     )
     termination_end_time = time.time()
 

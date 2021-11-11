@@ -61,7 +61,11 @@ def dataset(data):
 
 @pytest.fixture(scope="module")
 def sample_input(dataset):
-    dataloader = DataLoader(dataset, batch_size=5, num_workers=1,)
+    dataloader = DataLoader(
+        dataset,
+        batch_size=5,
+        num_workers=1,
+    )
     # Load a batch from the data loader and return the samples
     x, _ = next(iter(dataloader))
     return x
@@ -69,7 +73,11 @@ def sample_input(dataset):
 
 @pytest.fixture(scope="module")
 def model(dataset):
-    model = nn.Sequential(nn.Linear(4, 3), nn.ReLU(), nn.Linear(3, 1),)
+    model = nn.Sequential(
+        nn.Linear(4, 3),
+        nn.ReLU(),
+        nn.Linear(3, 1),
+    )
     criterion = nn.MSELoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
     batch_size = 16
@@ -227,7 +235,8 @@ def model_path(tmpdir):
 def onnx_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
     _mlflow_conda_env(
-        conda_env, additional_pip_deps=["onnx", "pytest", "torch"],
+        conda_env,
+        additional_pip_deps=["onnx", "pytest", "torch"],
     )
     return conda_env
 

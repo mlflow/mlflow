@@ -186,7 +186,11 @@ def get_keras_random_data_run_with_callback(
         callback = CustomCallback()
 
     history = model.fit(
-        data, labels, epochs=initial_epoch + 10, callbacks=[callback], initial_epoch=initial_epoch,
+        data,
+        labels,
+        epochs=initial_epoch + 10,
+        callbacks=[callback],
+        initial_epoch=initial_epoch,
     )
 
     client = mlflow.tracking.MlflowClient()

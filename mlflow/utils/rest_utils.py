@@ -191,7 +191,7 @@ def _get_path(path_prefix, endpoint_path):
 
 
 def extract_api_info_for_service(service, path_prefix):
-    """ Return a dictionary mapping each API method to a tuple (path, HTTP method)"""
+    """Return a dictionary mapping each API method to a tuple (path, HTTP method)"""
     service_methods = service.DESCRIPTOR.methods
     res = {}
     for service_method in service_methods:
@@ -203,7 +203,7 @@ def extract_api_info_for_service(service, path_prefix):
 
 
 def extract_all_api_info_for_service(service, path_prefix):
-    """ Return a dictionary mapping each API method to a list of tuples [(path, HTTP method)]"""
+    """Return a dictionary mapping each API method to a list of tuples [(path, HTTP method)]"""
     service_methods = service.DESCRIPTOR.methods
     res = {}
     for service_method in service_methods:

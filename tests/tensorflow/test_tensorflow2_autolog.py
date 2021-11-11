@@ -201,7 +201,10 @@ def test_tf_keras_autolog_records_metrics_for_last_epoch(random_train_data, rand
     model = create_tf_keras_model()
     with mlflow.start_run() as run:
         model.fit(
-            random_train_data, random_one_hot_labels, epochs=num_training_epochs, initial_epoch=0,
+            random_train_data,
+            random_one_hot_labels,
+            epochs=num_training_epochs,
+            initial_epoch=0,
         )
 
     client = mlflow.tracking.MlflowClient()
@@ -227,7 +230,9 @@ def test_tf_keras_autolog_logs_metrics_for_single_epoch_training(
     model = create_tf_keras_model()
     with mlflow.start_run() as run:
         model.fit(
-            random_train_data, random_one_hot_labels, epochs=1,
+            random_train_data,
+            random_one_hot_labels,
+            epochs=1,
         )
 
     client = mlflow.tracking.MlflowClient()
@@ -373,7 +378,12 @@ def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback
 @pytest.mark.parametrize("patience", [0, 1, 5])
 @pytest.mark.parametrize("initial_epoch", [0, 10])
 def test_tf_keras_autolog_batch_metrics_logger_logs_expected_metrics(
-    callback, restore_weights, patience, initial_epoch, random_train_data, random_one_hot_labels,
+    callback,
+    restore_weights,
+    patience,
+    initial_epoch,
+    random_train_data,
+    random_one_hot_labels,
 ):
     patched_metrics_data = []
 
@@ -792,7 +802,11 @@ def get_text_vec_model(train_samples):
         [
             vectorizer_layer,
             tf.keras.layers.Embedding(
-                VOCAB_SIZE, EMBEDDING_DIM, name="embedding", mask_zero=True, input_shape=(1,),
+                VOCAB_SIZE,
+                EMBEDDING_DIM,
+                name="embedding",
+                mask_zero=True,
+                input_shape=(1,),
             ),
             tf.keras.layers.GlobalAveragePooling1D(),
             tf.keras.layers.Dense(16, activation="relu"),

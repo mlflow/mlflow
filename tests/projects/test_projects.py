@@ -79,14 +79,14 @@ def test_resolve_experiment_id_should_not_allow_both_name_and_id_in_use():
 
 
 def test_invalid_run_mode():
-    """ Verify that we raise an exception given an invalid run mode """
+    """Verify that we raise an exception given an invalid run mode"""
     with pytest.raises(ExecutionException):
         mlflow.projects.run(uri=TEST_PROJECT_DIR, backend="some unsupported mode")
 
 
 @pytest.mark.large
 def test_use_conda():
-    """ Verify that we correctly handle the `use_conda` argument."""
+    """Verify that we correctly handle the `use_conda` argument."""
     # Verify we throw an exception when conda is unavailable
     with mock.patch.dict("os.environ", {}, clear=True):
         with pytest.raises(ExecutionException):
@@ -303,7 +303,10 @@ def test_conda_path(mock_env, expected_conda, expected_activate):
             {"CONDA_EXE": "/abc/conda", mlflow.utils.conda.MLFLOW_CONDA_CREATE_ENV_CMD: "mamba"},
             "/abc/mamba",
         ),
-        ({mlflow.utils.conda.MLFLOW_CONDA_HOME: "/some/dir/"}, "/some/dir/bin/conda",),
+        (
+            {mlflow.utils.conda.MLFLOW_CONDA_HOME: "/some/dir/"},
+            "/some/dir/bin/conda",
+        ),
         (
             {
                 mlflow.utils.conda.MLFLOW_CONDA_HOME: "/some/dir/",

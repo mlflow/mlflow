@@ -592,11 +592,14 @@ class TestDatabricksArtifactRepository(object):
                 GetCredentialsForRead.Response(
                     credential_infos=credential_infos_mock_2, next_page_token="3"
                 ),
-                GetCredentialsForRead.Response(credential_infos=credential_infos_mock_3,),
+                GetCredentialsForRead.Response(
+                    credential_infos=credential_infos_mock_3,
+                ),
             ]
             call_endpoint_mock.side_effect = get_credentials_for_read_responses
             read_credential_infos = databricks_artifact_repo._get_read_credential_infos(
-                MOCK_RUN_ID, ["testpath"],
+                MOCK_RUN_ID,
+                ["testpath"],
             )
             assert read_credential_infos == credential_infos_mock_1 + credential_infos_mock_2
             message_mock.assert_has_calls(
@@ -655,13 +658,20 @@ class TestDatabricksArtifactRepository(object):
             DATABRICKS_ARTIFACT_REPOSITORY + "._call_endpoint"
         ) as call_endpoint_mock:
             call_endpoint_mock.side_effect = [
-                GetCredentialsForRead.Response(credential_infos=credential_infos_mock_1,),
-                GetCredentialsForRead.Response(credential_infos=credential_infos_mock_2,),
-                GetCredentialsForRead.Response(credential_infos=credential_infos_mock_3,),
+                GetCredentialsForRead.Response(
+                    credential_infos=credential_infos_mock_1,
+                ),
+                GetCredentialsForRead.Response(
+                    credential_infos=credential_infos_mock_2,
+                ),
+                GetCredentialsForRead.Response(
+                    credential_infos=credential_infos_mock_3,
+                ),
             ]
 
             databricks_artifact_repo._get_read_credential_infos(
-                MOCK_RUN_ID, paths_chunk_1 + paths_chunk_2 + paths_chunk_3,
+                MOCK_RUN_ID,
+                paths_chunk_1 + paths_chunk_2 + paths_chunk_3,
             )
             assert call_endpoint_mock.call_count == 3
             assert message_mock.call_count == 3
@@ -706,11 +716,14 @@ class TestDatabricksArtifactRepository(object):
                 GetCredentialsForWrite.Response(
                     credential_infos=credential_infos_mock_2, next_page_token="3"
                 ),
-                GetCredentialsForWrite.Response(credential_infos=credential_infos_mock_3,),
+                GetCredentialsForWrite.Response(
+                    credential_infos=credential_infos_mock_3,
+                ),
             ]
             call_endpoint_mock.side_effect = get_credentials_for_write_responses
             write_credential_infos = databricks_artifact_repo._get_write_credential_infos(
-                MOCK_RUN_ID, ["testpath"],
+                MOCK_RUN_ID,
+                ["testpath"],
             )
             assert write_credential_infos == credential_infos_mock_1 + credential_infos_mock_2
             message_mock.assert_has_calls(
@@ -768,13 +781,20 @@ class TestDatabricksArtifactRepository(object):
             DATABRICKS_ARTIFACT_REPOSITORY + "._call_endpoint"
         ) as call_endpoint_mock:
             call_endpoint_mock.side_effect = [
-                GetCredentialsForWrite.Response(credential_infos=credential_infos_mock_1,),
-                GetCredentialsForWrite.Response(credential_infos=credential_infos_mock_2,),
-                GetCredentialsForWrite.Response(credential_infos=credential_infos_mock_3,),
+                GetCredentialsForWrite.Response(
+                    credential_infos=credential_infos_mock_1,
+                ),
+                GetCredentialsForWrite.Response(
+                    credential_infos=credential_infos_mock_2,
+                ),
+                GetCredentialsForWrite.Response(
+                    credential_infos=credential_infos_mock_3,
+                ),
             ]
 
             databricks_artifact_repo._get_write_credential_infos(
-                MOCK_RUN_ID, paths_chunk_1 + paths_chunk_2 + paths_chunk_3,
+                MOCK_RUN_ID,
+                paths_chunk_1 + paths_chunk_2 + paths_chunk_3,
             )
             assert call_endpoint_mock.call_count == message_mock.call_count == 3
             message_mock.assert_has_calls(
@@ -816,7 +836,8 @@ class TestDatabricksArtifactRepository(object):
                 run_id=MOCK_RUN_ID, paths=[remote_file_path]
             )
             download_mock.assert_called_with(
-                cloud_credential_info=mock_credential_info, dst_local_file_path=ANY,
+                cloud_credential_info=mock_credential_info,
+                dst_local_file_path=ANY,
             )
 
     @pytest.mark.parametrize(
@@ -845,7 +866,8 @@ class TestDatabricksArtifactRepository(object):
                 run_id=MOCK_RUN_ID, paths=[posixpath.join(MOCK_SUBDIR, remote_file_path)]
             )
             download_mock.assert_called_with(
-                cloud_credential_info=mock_credential_info, dst_local_file_path=ANY,
+                cloud_credential_info=mock_credential_info,
+                dst_local_file_path=ANY,
             )
 
     def test_databricks_download_file_get_request_fail(self, databricks_artifact_repo, test_file):

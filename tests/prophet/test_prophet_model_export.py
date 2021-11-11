@@ -261,7 +261,9 @@ def test_log_model_no_registered_model_name(prophet_model):
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["pystan", "prophet"])
         mlflow.prophet.log_model(
-            pr_model=prophet_model.model, artifact_path=artifact_path, conda_env=conda_env,
+            pr_model=prophet_model.model,
+            artifact_path=artifact_path,
+            conda_env=conda_env,
         )
         mlflow.register_model.assert_not_called()
 

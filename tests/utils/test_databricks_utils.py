@@ -248,6 +248,7 @@ def test_get_repl_id():
             return original_import(name, *args, **kwargs)
 
     with mock.patch(
-        "builtins.__import__", side_effect=mock_import,
+        "builtins.__import__",
+        side_effect=mock_import,
     ):
         assert databricks_utils.get_repl_id() == "testReplId2"

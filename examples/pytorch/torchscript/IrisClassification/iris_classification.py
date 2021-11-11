@@ -70,7 +70,8 @@ def test_model(model, X_test, y_test):
         _, predict_y = torch.max(predict_out, 1)
 
         print(
-            "\nprediction accuracy", float(accuracy_score(y_test.cpu(), predict_y.cpu())),
+            "\nprediction accuracy",
+            float(accuracy_score(y_test.cpu(), predict_y.cpu())),
         )
 
 

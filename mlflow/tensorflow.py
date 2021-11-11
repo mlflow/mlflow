@@ -294,13 +294,17 @@ def save_model(
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
-                path, FLAVOR_NAME, fallback=default_reqs,
+                path,
+                FLAVOR_NAME,
+                fallback=default_reqs,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
             default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
-            default_reqs, pip_requirements, extra_pip_requirements,
+            default_reqs,
+            pip_requirements,
+            extra_pip_requirements,
         )
     else:
         conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
@@ -778,7 +782,8 @@ def autolog(
                 if "tfevents" not in file:
                     continue
                 mlflow.log_artifact(
-                    local_path=os.path.join(self.model_dir, file), artifact_path="tensorboard_logs",
+                    local_path=os.path.join(self.model_dir, file),
+                    artifact_path="tensorboard_logs",
                 )
         return result
 
@@ -815,7 +820,8 @@ def autolog(
                         # compatibility with older tracking servers. Only print out a warning
                         # for now.
                         _logger.warning(
-                            _LOG_MODEL_METADATA_WARNING_TEMPLATE, get_artifact_uri(_AUTOLOG_RUN_ID),
+                            _LOG_MODEL_METADATA_WARNING_TEMPLATE,
+                            get_artifact_uri(_AUTOLOG_RUN_ID),
                         )
 
             log_model_without_starting_new_run()
@@ -929,12 +935,15 @@ def autolog(
                 history = original(inst, *args, **kwargs)
 
                 _log_early_stop_callback_metrics(
-                    callback=early_stop_callback, history=history, metrics_logger=metrics_logger,
+                    callback=early_stop_callback,
+                    history=history,
+                    metrics_logger=metrics_logger,
                 )
 
             _flush_queue()
             mlflow.log_artifacts(
-                local_dir=self.log_dir.location, artifact_path="tensorboard_logs",
+                local_dir=self.log_dir.location,
+                artifact_path="tensorboard_logs",
             )
             if self.log_dir.is_temp:
                 shutil.rmtree(self.log_dir.location)

@@ -726,7 +726,11 @@ def deploy_transform_job(
 
 @experimental
 def terminate_transform_job(
-    job_name, region_name="us-west-2", archive=False, synchronous=True, timeout_seconds=300,
+    job_name,
+    region_name="us-west-2",
+    archive=False,
+    synchronous=True,
+    timeout_seconds=300,
 ):
     """
     Terminate a SageMaker batch transform job.
@@ -1345,7 +1349,9 @@ def _create_sagemaker_endpoint(
     )
 
     endpoint_response = sage_client.create_endpoint(
-        EndpointName=endpoint_name, EndpointConfigName=config_name, Tags=[],
+        EndpointName=endpoint_name,
+        EndpointConfigName=config_name,
+        Tags=[],
     )
     _logger.info("Created endpoint with arn: %s", endpoint_response["EndpointArn"])
 
@@ -1632,7 +1638,9 @@ def _find_transform_job(job_name, sage_client):
 
         if "NextToken" in transform_jobs_page:
             transform_jobs_page = sage_client.list_transform_jobs(
-                MaxResults=100, NextToken=transform_jobs_page["NextToken"], NameContains=job_name,
+                MaxResults=100,
+                NextToken=transform_jobs_page["NextToken"],
+                NameContains=job_name,
             )
         else:
             return None

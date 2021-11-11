@@ -36,7 +36,12 @@ class PyFuncBackend(FlavorBackend):
         return _execute_in_conda_env(conda_env_path, command, self._install_mlflow)
 
     def predict(
-        self, model_uri, input_path, output_path, content_type, json_format,
+        self,
+        model_uri,
+        input_path,
+        output_path,
+        content_type,
+        json_format,
     ):
         """
         Generate predictions using generic python model saved with MLflow.
