@@ -76,7 +76,9 @@ export class MetricsPlotView extends React.Component {
     const deselectedCurvesSet = new Set(deselectedCurves);
     const data = metrics.map((metric) => {
       const { metricKey, runDisplayName, history, runUuid } = metric;
-      const historyValues = history.map((entry) => entry.value);
+      const historyValues = history.map((entry) =>
+        typeof entry.value === 'number' ? entry.value : Number(entry.value),
+      );
       // For metrics with exactly one non-NaN item, we set `isSingleHistory` to `true` in order
       // to display the item as a point. For metrics with zero non-NaN items (i.e., empty metrics),
       // we also set `isSingleHistory` to `true` in order to populate the plot legend with a

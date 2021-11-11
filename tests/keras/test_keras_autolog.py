@@ -44,14 +44,6 @@ def random_one_hot_labels():
     return labels
 
 
-@pytest.fixture(params=[True, False])
-def manual_run(request):
-    if request.param:
-        mlflow.start_run()
-    yield
-    mlflow.end_run()
-
-
 def create_model():
     model = keras.Sequential()
 
@@ -94,7 +86,7 @@ def test_keras_autolog_persists_manually_created_run(random_train_data, random_o
 
 
 @pytest.fixture
-def keras_random_data_run(random_train_data, random_one_hot_labels, manual_run, initial_epoch):
+def keras_random_data_run(random_train_data, random_one_hot_labels, initial_epoch):
     # pylint: disable=unused-argument
     mlflow.keras.autolog()
 
@@ -152,15 +144,8 @@ def test_keras_autolog_model_can_load_from_artifact(keras_random_data_run, rando
     model.predict(random_train_data)
 
 
-@pytest.fixture
-def keras_random_data_run_with_callback(
-    random_train_data,
-    random_one_hot_labels,
-    manual_run,
-    callback,
-    restore_weights,
-    patience,
-    initial_epoch,
+def get_keras_random_data_run_with_callback(
+    random_train_data, random_one_hot_labels, callback, restore_weights, patience, initial_epoch,
 ):
     # pylint: disable=unused-argument
     mlflow.keras.autolog()
@@ -192,6 +177,20 @@ def keras_random_data_run_with_callback(
 
     client = mlflow.tracking.MlflowClient()
     return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id), history, callback
+
+
+@pytest.fixture
+def keras_random_data_run_with_callback(
+    random_train_data, random_one_hot_labels, callback, restore_weights, patience, initial_epoch,
+):
+    return get_keras_random_data_run_with_callback(
+        random_train_data,
+        random_one_hot_labels,
+        callback,
+        restore_weights,
+        patience,
+        initial_epoch,
+    )
 
 
 @pytest.mark.large
@@ -258,7 +257,7 @@ def test_keras_autolog_early_stop_logs(keras_random_data_run_with_callback, init
 @pytest.mark.parametrize("patience", patience_values)
 @pytest.mark.parametrize("initial_epoch", [0, 10])
 def test_keras_autolog_batch_metrics_logger_logs_expected_metrics(
-    callback, restore_weights, patience, initial_epoch
+    callback, restore_weights, patience, initial_epoch, random_train_data, random_one_hot_labels
 ):
     patched_metrics_data = []
 
@@ -275,10 +274,9 @@ def test_keras_autolog_batch_metrics_logger_logs_expected_metrics(
             original(self, metrics, step)
 
         record_metrics_mock.side_effect = record_metrics_side_effect
-        run, _, callback = keras_random_data_run_with_callback(
-            random_train_data(),
-            random_one_hot_labels(),
-            manual_run,
+        run, _, callback = get_keras_random_data_run_with_callback(
+            random_train_data,
+            random_one_hot_labels,
             callback,
             restore_weights,
             patience,

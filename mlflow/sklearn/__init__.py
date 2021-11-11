@@ -33,7 +33,6 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _inspect_original_var_name
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import get_instance_method_first_arg_value
 from mlflow.utils.environment import (
     _mlflow_conda_env,
@@ -505,7 +504,7 @@ def _save_model(sk_model, output_path, serialization_format):
             )
 
 
-def load_model(model_uri):
+def load_model(model_uri, dst_path=None):
     """
     Load a scikit-learn model from a local file or a run.
 
@@ -521,6 +520,9 @@ def load_model(model_uri):
                       For more information about supported URI schemes, see
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
                       artifact-locations>`_.
+    :param dst_path: The local filesystem path to which to download the model artifact.
+                     This directory must already exist. If unspecified, a local output
+                     path will be created.
 
     :return: A scikit-learn model.
 
@@ -534,7 +536,7 @@ def load_model(model_uri):
         pandas_df = ...
         predictions = sk_model.predict(pandas_df)
     """
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     sklearn_model_artifacts_path = os.path.join(local_model_path, flavor_conf["pickled_model"])
     serialization_format = flavor_conf.get("serialization_format", SERIALIZATION_FORMAT_PICKLE)
@@ -881,7 +883,6 @@ def _patch_estimator_method_if_available(flavor_name, class_def, func_name, patc
         pass
 
 
-@experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_input_examples=False,
@@ -1158,7 +1159,6 @@ def autolog(
         _get_args_for_metrics,
         _log_estimator_content,
         _all_estimators,
-        _get_arg_names,
         _get_estimator_info_tags,
         _get_meta_estimators_for_autologging,
         _is_parameter_search_estimator,

@@ -7,10 +7,10 @@ from sklearn.linear_model import LinearRegression
 import mlflow
 import mlflow.spark
 
-from tests.spark_autologging.utils import _assert_spark_data_logged
-from tests.spark_autologging.utils import spark_session  # pylint: disable=unused-import
-from tests.spark_autologging.utils import format_to_file_path  # pylint: disable=unused-import
-from tests.spark_autologging.utils import file_path, data_format  # pylint: disable=unused-import
+from tests.spark.autologging.utils import _assert_spark_data_logged
+from tests.spark.autologging.utils import spark_session  # pylint: disable=unused-import
+from tests.spark.autologging.utils import format_to_file_path  # pylint: disable=unused-import
+from tests.spark.autologging.utils import file_path, data_format  # pylint: disable=unused-import
 
 
 @pytest.fixture()
@@ -35,7 +35,6 @@ def _fit_sklearn(pandas_df):
 def _fit_sklearn_model_with_active_run(pandas_df):
     run_id = mlflow.active_run().info.run_id
     _fit_sklearn(pandas_df)
-    run_id = run_id
     return mlflow.get_run(run_id)
 
 

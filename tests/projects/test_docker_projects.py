@@ -111,8 +111,8 @@ def test_docker_project_tracking_uri_propagation(
     ProfileConfigProvider, tmpdir, tracking_uri, expected_command_segment, docker_example_base_image
 ):  # pylint: disable=unused-argument
     mock_provider = mock.MagicMock()
-    mock_provider.get_config.return_value = DatabricksConfig(
-        "host", "user", "pass", None, insecure=True
+    mock_provider.get_config.return_value = DatabricksConfig.from_password(
+        "host", "user", "pass", insecure=True
     )
     ProfileConfigProvider.return_value = mock_provider
     # Create and mock local tracking directory
@@ -196,8 +196,8 @@ def test_docker_mount_local_artifact_uri(
 @mock.patch("databricks_cli.configure.provider.ProfileConfigProvider")
 def test_docker_databricks_tracking_cmd_and_envs(ProfileConfigProvider):
     mock_provider = mock.MagicMock()
-    mock_provider.get_config.return_value = DatabricksConfig(
-        "host", "user", "pass", None, insecure=True
+    mock_provider.get_config.return_value = DatabricksConfig.from_password(
+        "host", "user", "pass", insecure=True
     )
     ProfileConfigProvider.return_value = mock_provider
 

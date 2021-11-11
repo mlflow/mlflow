@@ -9,9 +9,7 @@ import pandas as pd
 import pytest
 from mxnet import context as ctx
 from mxnet.gluon import Trainer
-from mxnet.gluon.contrib.estimator import estimator
 from mxnet.gluon.data import DataLoader
-from mxnet.gluon.loss import SoftmaxCrossEntropyLoss
 from mxnet.gluon.nn import HybridSequential, Dense
 
 import mlflow
@@ -25,6 +23,7 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 
+from tests.gluon.utils import get_estimator
 from tests.helper_functions import (
     pyfunc_serve_and_score_model,
     _compare_conda_env_requirements,
@@ -33,12 +32,8 @@ from tests.helper_functions import (
 )
 
 if Version(mx.__version__) >= Version("2.0.0"):
-    from mxnet.gluon.metric import Accuracy  # pylint: disable=import-error
-
     array_module = mx.np
 else:
-    from mxnet.metric import Accuracy  # pylint: disable=import-error
-
     array_module = mx.nd
 
 
@@ -81,11 +76,7 @@ def gluon_model(model_data):
         model.collect_params(), "adam", optimizer_params={"learning_rate": 0.001, "epsilon": 1e-07}
     )
 
-    # `metrics` was renamed in mxnet 1.6.0: https://github.com/apache/incubator-mxnet/pull/17048
-    arg_name = "metrics" if Version(mx.__version__) < Version("1.6.0") else "train_metrics"
-    est = estimator.Estimator(
-        net=model, loss=SoftmaxCrossEntropyLoss(), trainer=trainer, **{arg_name: Accuracy()}
-    )
+    est = get_estimator(model, trainer)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         est.fit(train_data_loader, epochs=3)

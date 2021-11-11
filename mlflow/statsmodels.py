@@ -15,7 +15,6 @@ statsmodels (native) format
 import os
 import yaml
 import logging
-import numpy as np
 
 import mlflow
 from mlflow import pyfunc
@@ -38,9 +37,7 @@ from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
-    try_mlflow_log,
     log_fn_args_as_params,
     autologging_integration,
     safe_patch,
@@ -74,6 +71,12 @@ def get_default_conda_env():
              :func:`save_model()` and :func:`log_model()`.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
+
+
+_model_size_threshold_for_emitting_warning = 100 * 1024 * 1024  # 100 MB
+
+
+_save_model_called_from_autolog = False
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
@@ -140,6 +143,17 @@ def save_model(
 
     # Save a statsmodels model
     statsmodels_model.save(model_data_path, remove_data)
+    if _save_model_called_from_autolog and not remove_data:
+        saved_model_size = os.path.getsize(model_data_path)
+        if saved_model_size >= _model_size_threshold_for_emitting_warning:
+            _logger.warning(
+                "The fitted model is larger than "
+                f"{_model_size_threshold_for_emitting_warning // (1024 * 1024)} MB, "
+                f"saving it as artifacts is time consuming.\n"
+                "To reduce model size, use `mlflow.statsmodels.autolog(log_models=False)` and "
+                "manually log model by "
+                '`mlflow.statsmodels.log_model(model, remove_data=True, artifact_path="model")`'
+            )
 
     pyfunc.add_to_model(
         mlflow_model,
@@ -192,7 +206,7 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements=None,
     extra_pip_requirements=None,
-    **kwargs
+    **kwargs,
 ):
     """
     Log a statsmodels model as an MLflow artifact for the current run.
@@ -246,7 +260,7 @@ def log_model(
         remove_data=remove_data,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
-        **kwargs
+        **kwargs,
     )
 
 
@@ -265,7 +279,7 @@ def _load_pyfunc(path):
     return _StatsmodelsModelWrapper(_load_model(path))
 
 
-def load_model(model_uri):
+def load_model(model_uri, dst_path=None):
     """
     Load a statsmodels model from a local file or a run.
 
@@ -279,10 +293,13 @@ def load_model(model_uri):
                       For more information about supported URI schemes, see
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
                       artifact-locations>`_.
+    :param dst_path: The local filesystem path to which to download the model artifact.
+                     This directory must already exist. If unspecified, a local output
+                     path will be created.
 
     :return: A statsmodels model (an instance of `statsmodels.base.model.Results`_).
     """
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     statsmodels_model_file_path = os.path.join(
         local_model_path, flavor_conf.get("data", STATSMODELS_DATA_SUBPATH)
@@ -323,7 +340,49 @@ class AutologHelpers:
     should_autolog = True
 
 
-@experimental
+# Currently we only autolog basic metrics
+_autolog_metric_allowlist = [
+    "aic",
+    "bic",
+    "centered_tss",
+    "condition_number",
+    "df_model",
+    "df_resid",
+    "ess",
+    "f_pvalue",
+    "fvalue",
+    "llf",
+    "mse_model",
+    "mse_resid",
+    "mse_total",
+    "rsquared",
+    "rsquared_adj",
+    "scale",
+    "ssr",
+    "uncentered_tss",
+]
+
+
+def _get_autolog_metrics(fitted_model):
+    result_metrics = {}
+
+    failed_evaluating_metrics = set()
+    for metric in _autolog_metric_allowlist:
+        try:
+            if hasattr(fitted_model, metric):
+                metric_value = getattr(fitted_model, metric)
+                if _is_numeric(metric_value):
+                    result_metrics[metric] = metric_value
+        except Exception:
+            failed_evaluating_metrics.add(metric)
+
+    if len(failed_evaluating_metrics) > 0:
+        _logger.warning(
+            f"Failed to autolog metrics: {', '.join(sorted(failed_evaluating_metrics))}."
+        )
+    return result_metrics
+
+
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_models=True,
@@ -336,8 +395,11 @@ def autolog(
     Enables (or disables) and configures automatic logging from statsmodels to MLflow.
     Logs the following:
 
-    - results metrics returned by method `fit` of any subclass of statsmodels.base.model.Model
+    - allowlisted metrics returned by method `fit` of any subclass of
+      statsmodels.base.model.Model, the allowlisted metrics including: {autolog_metric_allowlist}
     - trained model.
+    - an html artifact which shows the model summary.
+
 
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
@@ -420,68 +482,6 @@ def autolog(
         for clazz, method_name, patch_impl in patches_list:
             safe_patch(FLAVOR_NAME, clazz, method_name, patch_impl, manage_run=True)
 
-    def prepend_to_keys(dictionary: dict, preffix="_"):
-        """
-        Modifies all keys of a dictionary by adding a preffix string to all of them
-        and make them compliant with mlflow params & metrics naming rules.
-        :param dictionary:
-        :param preffix: a string to be prepended to existing keys, using _ as separator
-        :return: a new dictionary where all keys have been modified. No changes are
-            made to the input dictionary
-        """
-        import re
-
-        keys = list(dictionary.keys())
-        d2 = {}
-        for k in keys:
-            newkey = re.sub(r"[(|)|[|\]|.]+", "_", preffix + "_" + k)
-            d2[newkey] = dictionary.get(k)
-        return d2
-
-    def results_to_dict(results):
-        """
-        Turns a ResultsWrapper object into a python dict
-        :param results: instance of a ResultsWrapper returned by a call to `fit`
-        :return: a python dictionary with those metrics that are (a) a real number, or (b) an array
-                 of the same length of the number of coefficients
-        """
-        has_features = False
-        features = results.model.exog_names
-        if features is not None:
-            has_features = True
-            nfeat = len(features)
-
-        results_dict = {}
-        for f in dir(results):
-            try:
-                field = getattr(results, f)
-                # Get all fields except covariances and private ones
-                if (
-                    not callable(field)
-                    and not f.startswith("__")
-                    and not f.startswith("_")
-                    and not f.startswith("cov_")
-                ):
-
-                    if (
-                        has_features
-                        and isinstance(field, np.ndarray)
-                        and field.ndim == 1
-                        and field.shape[0] == nfeat
-                    ):
-
-                        d = dict(zip(features, field))
-                        renamed_keys_dict = prepend_to_keys(d, f)
-                        results_dict.update(renamed_keys_dict)
-
-                    elif _is_numeric(field):
-                        results_dict[f] = field
-
-            except Exception:
-                pass
-
-        return results_dict
-
     def wrapper_fit(original, self, *args, **kwargs):
 
         should_autolog = False
@@ -500,12 +500,20 @@ def autolog(
             if should_autolog:
                 # Log the model
                 if get_autologging_config(FLAVOR_NAME, "log_models", True):
-                    try_mlflow_log(log_model, model, artifact_path="model")
+                    global _save_model_called_from_autolog
+                    _save_model_called_from_autolog = True
+                    try:
+                        log_model(model, artifact_path="model")
+                    finally:
+                        _save_model_called_from_autolog = False
 
                 # Log the most common metrics
                 if isinstance(model, statsmodels.base.wrapper.ResultsWrapper):
-                    metrics_dict = results_to_dict(model)
-                    try_mlflow_log(mlflow.log_metrics, metrics_dict)
+                    metrics_dict = _get_autolog_metrics(model)
+                    mlflow.log_metrics(metrics_dict)
+
+                    model_summary = model.summary().as_text()
+                    mlflow.log_text(model_summary, "model_summary.txt")
 
             return model
 
@@ -515,3 +523,8 @@ def autolog(
                 AutologHelpers.should_autolog = True
 
     patch_class_tree(statsmodels.base.model.Model)
+
+
+autolog.__doc__ = autolog.__doc__.format(
+    autolog_metric_allowlist=", ".join(_autolog_metric_allowlist)
+)

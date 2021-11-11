@@ -22,7 +22,6 @@ import yaml
 import json
 import tempfile
 import shutil
-import inspect
 import logging
 from copy import deepcopy
 
@@ -47,7 +46,7 @@ from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
-from mlflow.utils.annotations import experimental
+from mlflow.utils.arguments_utils import _get_arg_names
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
@@ -261,7 +260,7 @@ def _load_pyfunc(path):
     return _LGBModelWrapper(_load_model(path))
 
 
-def load_model(model_uri):
+def load_model(model_uri, dst_path=None):
     """
     Load a LightGBM model from a local file or a run.
 
@@ -275,10 +274,13 @@ def load_model(model_uri):
                       For more information about supported URI schemes, see
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
                       artifact-locations>`_.
+    :param dst_path: The local filesystem path to which to download the model artifact.
+                     This directory must already exist. If unspecified, a local output
+                     path will be created.
 
     :return: A LightGBM model (an instance of `lightgbm.Booster`_).
     """
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     lgb_model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model.lgb"))
     return _load_model(path=lgb_model_file_path)
@@ -292,7 +294,6 @@ class _LGBModelWrapper:
         return self.lgb_model.predict(dataframe)
 
 
-@experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_input_examples=False,
@@ -452,7 +453,7 @@ def autolog(
 
         param_logging_operations = autologging_client.flush(synchronous=False)
 
-        all_arg_names = inspect.getfullargspec(original)[0]
+        all_arg_names = _get_arg_names(original)
         num_pos_args = len(args)
 
         # adding a callback that records evaluation results.

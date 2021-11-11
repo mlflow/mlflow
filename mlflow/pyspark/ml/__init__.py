@@ -14,12 +14,10 @@ from mlflow.utils import (
     _get_fully_qualified_class_name,
     _inspect_original_var_name,
 )
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     _get_new_training_session_class,
     autologging_integration,
     safe_patch,
-    try_mlflow_log,
 )
 from mlflow.utils.autologging_utils import get_method_call_arg_value
 from mlflow.utils.file_utils import TempDir
@@ -73,8 +71,10 @@ def _read_log_model_allowlist():
         except Exception:
             # fallback to built-in allowlist file
             _logger.exception(
-                "Reading from custom log_models allowlist file "
-                + "%s failed, fallback to built-in allowlist file.",
+                (
+                    "Reading from custom log_models allowlist file %s failed, "
+                    "fallback to built-in allowlist file."
+                ),
                 allowlist_file,
             )
             return _read_log_model_allowlist_from_file(builtin_allowlist_file)
@@ -384,7 +384,7 @@ def _log_parameter_search_results_as_artifact(param_maps, metrics_dict, run_id):
     with TempDir() as t:
         results_path = t.path("search_results.csv")
         results_df.to_csv(results_path, index=False)
-        try_mlflow_log(MlflowClient().log_artifact, run_id, results_path)
+        MlflowClient().log_artifact(run_id, results_path)
 
 
 def _get_warning_msg_for_fit_call_with_a_list_of_params(estimator):
@@ -450,7 +450,7 @@ def _log_estimator_params(param_map):
     # Chunk model parameters to avoid hitting the log_batch API limit
     for chunk in _chunk_dict(param_map, chunk_size=MAX_PARAMS_TAGS_PER_BATCH,):
         truncated = _truncate_dict(chunk, MAX_ENTITY_KEY_LENGTH, MAX_PARAM_VAL_LENGTH)
-        try_mlflow_log(mlflow.log_params, truncated)
+        mlflow.log_params(truncated)
 
 
 class _AutologgingMetricsManager:
@@ -673,7 +673,6 @@ class _AutologgingMetricsManager:
 _AUTOLOGGING_METRICS_MANAGER = _AutologgingMetricsManager()
 
 
-@experimental
 @autologging_integration(AUTOLOGGING_INTEGRATION_NAME)
 def autolog(
     log_models=True,
@@ -843,11 +842,11 @@ def autolog(
             )
 
         if artifact_dict:
-            try_mlflow_log(mlflow.log_dict, artifact_dict, artifact_file="estimator_info.json")
+            mlflow.log_dict(artifact_dict, artifact_file="estimator_info.json")
 
         _log_estimator_params(param_map)
 
-        try_mlflow_log(mlflow.set_tags, _get_estimator_info_tags(estimator))
+        mlflow.set_tags(_get_estimator_info_tags(estimator))
 
     def _log_posttraining_metadata(estimator, spark_model, params):
 
@@ -885,7 +884,7 @@ def autolog(
 
             # Log best_param_map as JSON artifact
             best_param_map = estimator_param_maps[best_index]
-            try_mlflow_log(mlflow.log_dict, best_param_map, artifact_file="best_parameters.json")
+            mlflow.log_dict(best_param_map, artifact_file="best_parameters.json")
 
             # Log best_param_map as autologging parameters as well
             _log_estimator_params(
@@ -898,12 +897,12 @@ def autolog(
         if log_models:
             if _should_log_model(spark_model):
                 # TODO: support model signature
-                try_mlflow_log(
-                    mlflow.spark.log_model, spark_model, artifact_path="model",
+                mlflow.spark.log_model(
+                    spark_model, artifact_path="model",
                 )
                 if _is_parameter_search_model(spark_model):
-                    try_mlflow_log(
-                        mlflow.spark.log_model, spark_model.bestModel, artifact_path="best_model",
+                    mlflow.spark.log_model(
+                        spark_model.bestModel, artifact_path="best_model",
                     )
             else:
                 _logger.warning(_get_warning_msg_for_skip_log_model(spark_model))

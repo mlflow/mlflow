@@ -1,4 +1,8 @@
-import { truncateToFirstLineWithMaxLength, capitalizeFirstChar } from './StringUtils';
+import {
+  truncateToFirstLineWithMaxLength,
+  capitalizeFirstChar,
+  middleTruncateStr,
+} from './StringUtils';
 
 describe('truncateToFirstLineWithMaxLength', () => {
   test('should truncate to first line if it exists', () => {
@@ -41,5 +45,14 @@ describe('capitalizeFirstChar', () => {
     expect(capitalizeFirstChar(number)).toEqual(number);
     expect(capitalizeFirstChar(array)).toEqual(array);
     expect(capitalizeFirstChar(object)).toEqual(object);
+  });
+});
+
+describe('middleTruncateStr', () => {
+  test('test middleTruncateStr', () => {
+    expect(middleTruncateStr('abc', 10)).toEqual('abc');
+    expect(middleTruncateStr('abcdefghij', 10)).toEqual('abcdefghij');
+    expect(middleTruncateStr('abcdefghijk', 10)).toEqual('abc...hijk');
+    expect(middleTruncateStr('abcdefghijkl', 10)).toEqual('abc...ijkl');
   });
 });

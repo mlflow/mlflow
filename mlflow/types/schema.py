@@ -54,9 +54,6 @@ class DataType(Enum):
     def __repr__(self):
         return self.name
 
-    def __str(self):
-        return self.name
-
     def to_numpy(self) -> np.dtype:
         """Get equivalent numpy data type. """
         return self._numpy_type

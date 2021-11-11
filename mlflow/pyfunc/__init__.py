@@ -628,7 +628,7 @@ class PyFuncModel(object):
         return yaml.safe_dump({"mlflow.pyfunc.loaded_model": info}, default_flow_style=False)
 
 
-def load_model(model_uri: str, suppress_warnings: bool = True) -> PyFuncModel:
+def load_model(model_uri: str, suppress_warnings: bool = True, dst_path: str = None) -> PyFuncModel:
     """
     Load a model stored in Python function format.
 
@@ -647,8 +647,11 @@ def load_model(model_uri: str, suppress_warnings: bool = True) -> PyFuncModel:
     :param suppress_warnings: If ``True``, non-fatal warning messages associated with the model
                               loading process will be suppressed. If ``False``, these warning
                               messages will be emitted.
+    :param dst_path: The local filesystem path to which to download the model artifact.
+                     This directory must already exist. If unspecified, a local output
+                     path will be created.
     """
-    local_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    local_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
 
     conf = model_meta.flavors.get(FLAVOR_NAME)
@@ -915,7 +918,7 @@ def spark_udf(spark, model_uri, result_type="double"):
                     "Attempting to apply udf on zero columns because no column names were "
                     "specified as arguments or inferred from the model signature."
                 )
-                return udf()
+                return udf()  # pylint: disable=no-value-for-parameter
         else:
             return udf(*args)
 
