@@ -279,7 +279,15 @@ def ui(backend_store_uri, default_artifact_root, artifacts_destination, port, ho
     # TODO: We eventually want to disable the write path in this version of the server.
     try:
         _run_server(
-            backend_store_uri, default_artifact_root, artifacts_destination, host, port, None, 1
+            backend_store_uri,
+            default_artifact_root,
+            "false",
+            "false",
+            artifacts_destination,
+            host,
+            port,
+            None,
+            1,
         )
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")

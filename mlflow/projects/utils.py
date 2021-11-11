@@ -28,7 +28,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_PROJECT_ENTRY_POINT,
     MLFLOW_PARENT_RUN_ID,
 )
-
+from mlflow.utils.rest_utils import augmented_raise_for_status
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
@@ -209,7 +209,7 @@ def _fetch_zip_repo(uri):
     # https://github.com/mlflow/mlflow/issues/763.
     response = requests.get(uri)
     try:
-        response.raise_for_status()
+        augmented_raise_for_status(response)
     except requests.HTTPError as error:
         raise ExecutionException("Unable to retrieve ZIP file. Reason: %s" % str(error))
     return BytesIO(response.content)

@@ -8,6 +8,7 @@ import tempfile
 import time
 import subprocess
 import requests
+from requests.exceptions import HTTPError
 
 from urllib.request import url2pathname
 from urllib.parse import urlparse, unquote
@@ -22,6 +23,7 @@ from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.exceptions import MlflowException
 from mlflow.entities import ViewType
+from mlflow.utils.rest_utils import augmented_raise_for_status
 
 from tests.helper_functions import pyfunc_serve_and_score_model, get_safe_port
 from tests.tracking.integration_test_utils import _await_server_up_or_die
@@ -35,7 +37,7 @@ def test_mlflow_server_command(command):
     try:
         _await_server_up_or_die(port, timeout=10)
         resp = requests.get(f"http://localhost:{port}/health")
-        resp.raise_for_status()
+        augmented_raise_for_status(resp)
         assert resp.text == "OK"
     finally:
         process.kill()
@@ -254,15 +256,14 @@ def test_mlflow_tracking_disabled_in_artifacts_only_mode():
     port = get_safe_port()
     cmd = ["mlflow", "server", "--port", str(port), "--artifacts-only"]
     process = subprocess.Popen(cmd)
-    try:
+    with pytest.raises(
+        HTTPError,
+        match="Endpoint disabled due to the mlflow server running in `--artifacts-only` mode.",
+    ):
         _await_server_up_or_die(port, timeout=10)
         resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow/experiments/list")
-        assert resp.text.startswith(
-            "Endpoints disabled due to the mlflow server running " "in `--artifacts-only` mode."
-        )
-        assert resp.status_code == 503
-    finally:
-        process.kill()
+        augmented_raise_for_status(resp)
+    process.kill()
 
 
 def test_mlflow_artifact_list_in_artifacts_only_mode():
@@ -273,7 +274,7 @@ def test_mlflow_artifact_list_in_artifacts_only_mode():
     try:
         _await_server_up_or_die(port, timeout=10)
         resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow-artifacts/artifacts")
-        resp.raise_for_status()
+        augmented_raise_for_status(resp)
         assert resp.status_code == 200
         assert resp.text == "{}"
     finally:

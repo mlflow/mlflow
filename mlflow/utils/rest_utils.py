@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from packaging.version import Version
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
+from requests.exceptions import HTTPError
 
 from mlflow import __version__
 from mlflow.protos import databricks_pb2
@@ -83,7 +84,7 @@ def http_request(
     backoff_factor=2,
     retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
     timeout=120,
-    **kwargs
+    **kwargs,
 ):
     """
     Makes an HTTP request with the specified method to the specified hostname/endpoint. Transient
@@ -140,7 +141,7 @@ def http_request(
             headers=headers,
             verify=verify,
             timeout=timeout,
-            **kwargs
+            **kwargs,
         )
     except Exception as e:
         raise MlflowException("API request to %s failed with exception %s" % (url, e))
@@ -184,6 +185,17 @@ def verify_rest_response(response, endpoint):
         raise MlflowException("%s. Response body: '%s'" % (base_msg, response.text))
 
     return response
+
+
+def augmented_raise_for_status(response):
+    """Wrap the standard `requests.response.raise_for_status()` method and return reason"""
+    try:
+        response.raise_for_status()
+    except HTTPError as e:
+        if response.text:
+            raise HTTPError(f"{response.status_code} Error: {response.text}")
+        else:
+            raise e
 
 
 def _get_path(path_prefix, endpoint_path):
@@ -251,7 +263,7 @@ def cloud_storage_http_request(
     backoff_factor=2,
     retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
     timeout=None,
-    **kwargs
+    **kwargs,
 ):
     """
     Performs an HTTP PUT/GET request using Python's `requests` module with automatic retry.
