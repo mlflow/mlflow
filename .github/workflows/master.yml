@@ -123,6 +123,7 @@ jobs:
       run: |
         export LINTR_COMMENT_BOT=false
         cd mlflow/R/mlflow/tests
+        sudo apt-get install pandoc -y
         Rscript ../.run-tests.R
     - name: Calculate code coverage
       if: ${{ success() }}
