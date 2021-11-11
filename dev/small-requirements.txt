@@ -12,3 +12,4 @@ pytest-localserver==0.5.0
 moto!=2.0.7
 azure-storage-blob>=12.0.0
 azure-identity>=1.6.1
+requests

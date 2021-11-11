@@ -27,6 +27,20 @@ from tests.helper_functions import pyfunc_serve_and_score_model, get_safe_port
 from tests.tracking.integration_test_utils import _await_server_up_or_die
 
 
+@pytest.mark.parametrize("command", ["server", "ui"])
+def test_mlflow_server_command(command):
+    port = get_safe_port()
+    cmd = ["mlflow", command, "--port", str(port)]
+    process = subprocess.Popen(cmd)
+    try:
+        _await_server_up_or_die(port, timeout=10)
+        resp = requests.get(f"http://localhost:{port}/health")
+        resp.raise_for_status()
+        assert resp.text == "OK"
+    finally:
+        process.kill()
+
+
 def test_server_static_prefix_validation():
     with mock.patch("mlflow.server._run_server") as run_server_mock:
         CliRunner().invoke(server)

@@ -115,12 +115,12 @@ def test_mlflow_artifacts_rest_apis(artifacts_server, tmpdir):
     resp = requests.get(default_artifact_root)
     assert resp.json() == {
         "files": [
-            {"path": "a.txt", "is_dir": False, "file_size": "1"},
+            {"path": "a.txt", "is_dir": False, "file_size": 1},
             {"path": "dir", "is_dir": True},
         ]
     }
     resp = requests.get(default_artifact_root, params={"path": "dir"})
-    assert resp.json() == {"files": [{"path": "b.txt", "is_dir": False, "file_size": "1"}]}
+    assert resp.json() == {"files": [{"path": "b.txt", "is_dir": False, "file_size": 1}]}
 
 
 def test_log_artifact(artifacts_server, tmpdir):
