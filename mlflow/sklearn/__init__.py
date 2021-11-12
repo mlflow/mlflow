@@ -1160,6 +1160,7 @@ def autolog(
                                       details.
     """
     _autolog(
+        flavor_name=FLAVOR_NAME,
         log_input_examples=log_input_examples,
         log_model_signatures=log_model_signatures,
         log_models=log_models,
@@ -1173,8 +1174,8 @@ def autolog(
     )
 
 
-@autologging_integration(FLAVOR_NAME)
 def _autolog(
+    flavor_name=FLAVOR_NAME,
     log_input_examples=False,
     log_model_signatures=True,
     log_models=True,
@@ -1409,7 +1410,7 @@ def _autolog(
                     # Fetch environment-specific tags (e.g., user and source) to ensure that lineage
                     # information is consistent with the parent run
                     child_tags = context_registry.resolve_tags()
-                    child_tags.update({MLFLOW_AUTOLOGGING: FLAVOR_NAME})
+                    child_tags.update({MLFLOW_AUTOLOGGING: flavor_name})
                     _create_child_runs_for_parameter_search(
                         autologging_client=autologging_client,
                         cv_estimator=estimator,
@@ -1625,28 +1626,28 @@ def _autolog(
         # Patch fitting methods
         for func_name in ["fit", "fit_transform", "fit_predict"]:
             _patch_estimator_method_if_available(
-                FLAVOR_NAME, class_def, func_name, patched_fit, manage_run=True,
+                flavor_name, class_def, func_name, patched_fit, manage_run=True,
             )
 
         # Patch inference methods
         for func_name in ["predict", "predict_proba", "transform", "predict_log_proba"]:
             _patch_estimator_method_if_available(
-                FLAVOR_NAME, class_def, func_name, patched_predict, manage_run=False,
+                flavor_name, class_def, func_name, patched_predict, manage_run=False,
             )
 
         # Patch scoring methods
         _patch_estimator_method_if_available(
-            FLAVOR_NAME, class_def, "score", patched_model_score, manage_run=False,
+            flavor_name, class_def, "score", patched_model_score, manage_run=False,
         )
 
     if log_post_training_metrics:
         for metric_name in _get_metric_name_list():
             safe_patch(
-                FLAVOR_NAME, sklearn.metrics, metric_name, patched_metric_api, manage_run=False
+                flavor_name, sklearn.metrics, metric_name, patched_metric_api, manage_run=False
             )
 
         for scorer in sklearn.metrics.SCORERS.values():
-            safe_patch(FLAVOR_NAME, scorer, "_score_func", patched_metric_api, manage_run=False)
+            safe_patch(flavor_name, scorer, "_score_func", patched_metric_api, manage_run=False)
 
     def patched_fn_with_autolog_disabled(original, *args, **kwargs):
         with disable_autologging():
@@ -1654,7 +1655,7 @@ def _autolog(
 
     for disable_autolog_func_name in _apis_autologging_disabled:
         safe_patch(
-            FLAVOR_NAME,
+            flavor_name,
             sklearn.model_selection,
             disable_autolog_func_name,
             patched_fn_with_autolog_disabled,

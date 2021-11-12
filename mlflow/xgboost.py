@@ -71,6 +71,7 @@ from mlflow.utils.autologging_utils import (  # pylint: disable=unused-import
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 FLAVOR_NAME = "xgboost"
+FLAVOR_NAME_SKLEARN = "xgboost_sklearn"
 
 _logger = logging.getLogger(__name__)
 
@@ -495,7 +496,9 @@ def autolog(
     # enable xgboost scikit-learn estimators autologging
     import mlflow.sklearn
 
-    mlflow.sklearn._autolog(
+    xgb_sklearn_autolog = autologging_integration(FLAVOR_NAME_SKLEARN)(mlflow.sklearn._autolog)
+    xgb_sklearn_autolog(
+        flavor_name=FLAVOR_NAME_SKLEARN,
         log_input_examples=log_input_examples,
         log_model_signatures=log_model_signatures,
         log_models=log_models,
