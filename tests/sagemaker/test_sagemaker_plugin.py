@@ -94,6 +94,24 @@ def mock_sagemaker_aws_services(fn):
     return mock_wrapper
 
 
+def test_initialize_sagemaker_plugin_with_only_target_name():
+    plugin = mfs.SageMakerPlugin("sagemaker")
+
+    assert plugin.region_name == mfs.DEFAULT_REGION_NAME
+
+
+def test_initialize_sagemaker_plugin_with_empty_path():
+    plugin = mfs.SageMakerPlugin("sagemaker:/")
+
+    assert plugin.region_name == mfs.DEFAULT_REGION_NAME
+
+
+def test_initialize_sagemaker_plugin_with_region_name():
+    plugin = mfs.SageMakerPlugin("sagemaker:/us-east-1")
+
+    assert plugin.region_name == "us-east-1"
+
+
 @pytest.mark.large
 def test_create_deployment_with_unsupported_flavor_raises_exception(
     pretrained_model, sagemaker_plugin

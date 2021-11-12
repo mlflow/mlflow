@@ -41,6 +41,8 @@ DEFAULT_BUCKET_NAME_PREFIX = "mlflow-sagemaker"
 DEFAULT_SAGEMAKER_INSTANCE_TYPE = "ml.m4.xlarge"
 DEFAULT_SAGEMAKER_INSTANCE_COUNT = 1
 
+DEFAULT_REGION_NAME = "us-west-2"
+
 _logger = logging.getLogger(__name__)
 
 _full_template = "{account}.dkr.ecr.{region}.amazonaws.com/{image}:{version}"
@@ -1658,15 +1660,37 @@ def _does_model_exist(model_name, sage_client):
 
 
 class SageMakerPlugin(BaseDeploymentClient):
+    """
+    Initialize a deployment client for SageMaker
+
+    :param target_uri: A URI that has the value of ``sagemaker`` or ``sagemaker:/region_name``.
+                       The provided region name will be used as the default region for subsequent function calls.
+                       When no region name is provided, the default region will be set to `us-west-2`.
+    """
+
     def __init__(self, target_uri):
         super(SageMakerPlugin, self).__init__(target_uri=target_uri)
+        self._get_region_name_from_uri()
+
+    def _get_region_name_from_uri(self):
+        parsed = urllib.parse.urlparse(self.target_uri)
+        if not parsed.scheme:
+            # The target_uri is only "sagemaker"
+            self.region_name = DEFAULT_REGION_NAME
+        else:
+            stripped_path = parsed.path.strip("/")
+            if stripped_path:
+                # The target_uri looks like "sagemaker:/us-east-1"
+                self.region_name = stripped_path
+            else:
+                self.region_name = DEFAULT_REGION_NAME
 
     def _default_config(self):
         return dict(
             execution_role_arn=None,
             bucket=None,
             image_url=None,
-            region_name="us-west-2",
+            region_name=self.region_name,
             mode=DEPLOYMENT_MODE_CREATE,
             archive=False,
             instance_type=DEFAULT_SAGEMAKER_INSTANCE_TYPE,
