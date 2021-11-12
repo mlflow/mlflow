@@ -495,8 +495,7 @@ def autolog(
     # enable xgboost scikit-learn estimators autologging
     import mlflow.sklearn
 
-    sklearn_autolog = autologging_integration(mlflow.sklearn.FLAVOR_NAME)(mlflow.sklearn._autolog)
-    sklearn_autolog(
+    mlflow.sklearn._autolog(
         log_input_examples=log_input_examples,
         log_model_signatures=log_model_signatures,
         log_models=log_models,
