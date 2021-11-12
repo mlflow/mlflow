@@ -31,7 +31,7 @@ from tests.helper_functions import (
     get_safe_port,
     pyfunc_serve_and_score_model,
 )
-from mlflow.protos.databricks_pb2 import ErrorCode, MALFORMED_REQUEST
+from mlflow.protos.databricks_pb2 import ErrorCode, BAD_REQUEST
 from mlflow.pyfunc.scoring_server import (
     CONTENT_TYPE_JSON_SPLIT_ORIENTED,
     CONTENT_TYPE_JSON,
@@ -458,6 +458,6 @@ def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model):
             )
             scoring_response_dict = json.loads(scoring_response.content)
             assert "error_code" in scoring_response_dict
-            assert scoring_response_dict["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
+            assert scoring_response_dict["error_code"] == ErrorCode.Name(BAD_REQUEST)
             assert "message" in scoring_response_dict
             assert "stack_trace" in scoring_response_dict
