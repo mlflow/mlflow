@@ -444,7 +444,7 @@ def autolog(
         )
 
         param_logging_operations = autologging_client.flush(synchronous=False)
-
+        # pylint: disable=unbalanced-tuple-unpacking
         (args, model, early_stopping, early_stopping_logging_operations,) = _mlflow_xgboost_logging(
             importance_types, autologging_client, _logger, original, None, *args, **kwargs,
         )

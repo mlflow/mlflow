@@ -896,6 +896,7 @@ def _patch_estimator_method_if_available(flavor_name, class_def, func_name, patc
         pass
 
 
+@autologging_integration(FLAVOR_NAME)
 def autolog(
     log_input_examples=False,
     log_model_signatures=True,
