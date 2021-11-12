@@ -8,7 +8,6 @@ import tempfile
 import time
 import subprocess
 import requests
-from requests.exceptions import HTTPError
 
 from urllib.request import url2pathname
 from urllib.parse import urlparse, unquote
