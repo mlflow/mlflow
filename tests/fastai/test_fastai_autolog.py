@@ -349,10 +349,7 @@ def test_fastai_autolog_early_stop_logs(fastai_random_data_run_with_callback, pa
 def test_fastai_autolog_early_stop_no_stop_does_not_log(
     fastai_random_data_run_with_callback, patience
 ):
-    (
-        model,
-        run,
-    ) = fastai_random_data_run_with_callback
+    model, run = fastai_random_data_run_with_callback
     params = run.data.params
     assert "early_stop_patience" in params
     assert params["early_stop_patience"] == str(patience)
@@ -375,10 +372,7 @@ def test_fastai_autolog_early_stop_no_stop_does_not_log(
 @pytest.mark.parametrize("callback", ["not-early"])
 @pytest.mark.parametrize("patience", [5])
 def test_fastai_autolog_non_early_stop_callback_does_not_log(fastai_random_data_run_with_callback):
-    (
-        model,
-        run,
-    ) = fastai_random_data_run_with_callback
+    model, run = fastai_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params
     assert "early_stop_patience" not in params

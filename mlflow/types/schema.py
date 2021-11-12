@@ -124,11 +124,7 @@ class TensorInfo(object):
     Representation of the shape and type of a Tensor.
     """
 
-    def __init__(
-        self,
-        dtype: np.dtype,
-        shape: Union[tuple, list],
-    ):
+    def __init__(self, dtype: np.dtype, shape: Union[tuple, list]):
         if not isinstance(dtype, np.dtype):
             raise TypeError(
                 "Expected `type` to be instance of `{0}`, received `{1}`".format(

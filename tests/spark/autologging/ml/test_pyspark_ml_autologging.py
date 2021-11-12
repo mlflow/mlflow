@@ -101,10 +101,7 @@ def dataset_regression(spark_session):
         label = float(np.dot(coef, features)) + err
         rows.append((label, Vectors.dense(*features)))
 
-    return spark_session.createDataFrame(
-        rows,
-        ["label", "features"],
-    ).cache()
+    return spark_session.createDataFrame(rows, ["label", "features"]).cache()
 
 
 @pytest.fixture(scope="module")

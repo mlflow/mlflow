@@ -828,7 +828,7 @@ def test_paginate_gt_maxresults_multipage():
 
 
 def test_paginate_gt_maxresults_onepage():
-    """ "
+    """
     Number of runs that fit search criteria is greater than max_results. Only one page expected.
     Expected to only get max_results number of results back.
     """

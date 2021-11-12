@@ -229,11 +229,7 @@ def test_tf_keras_autolog_logs_metrics_for_single_epoch_training(
 
     model = create_tf_keras_model()
     with mlflow.start_run() as run:
-        model.fit(
-            random_train_data,
-            random_one_hot_labels,
-            epochs=1,
-        )
+        model.fit(random_train_data, random_one_hot_labels, epochs=1)
 
     client = mlflow.tracking.MlflowClient()
     run_metrics = client.get_run(run.info.run_id).data.metrics

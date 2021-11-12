@@ -163,10 +163,7 @@ def test_statsmodels_autolog_works_after_exception():
 
 
 @pytest.mark.large
-@pytest.mark.parametrize(
-    "log_models",
-    [True, False],
-)
+@pytest.mark.parametrize("log_models", [True, False])
 def test_statsmodels_autolog_respects_log_models_flag(log_models):
     mlflow.statsmodels.autolog(log_models=log_models)
     ols_model()

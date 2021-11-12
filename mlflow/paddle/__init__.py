@@ -313,10 +313,7 @@ def load_model(model_uri, model=None, dst_path=None, **kwargs):
                 "`paddle.jit.load` or set `training` to True when saving a model."
             )
 
-        model.load(
-            pd_model_artifacts_path,
-            **kwargs,
-        )
+        model.load(pd_model_artifacts_path, **kwargs)
         return model
 
 

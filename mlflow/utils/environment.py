@@ -66,10 +66,7 @@ def _mlflow_conda_env(
         return env
 
 
-def _mlflow_additional_pip_env(
-    pip_deps,
-    path=None,
-):
+def _mlflow_additional_pip_env(pip_deps, path=None):
     requirements = "\n".join(pip_deps)
     if path is not None:
         with open(path, "w") as out:

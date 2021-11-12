@@ -69,9 +69,7 @@ class MNISTDataModule(pl.LightningDataModule):
         :return: Returns the constructed dataloader
         """
         return DataLoader(
-            df,
-            batch_size=self.args["batch_size"],
-            num_workers=self.args["num_workers"],
+            df, batch_size=self.args["batch_size"], num_workers=self.args["num_workers"]
         )
 
     def train_dataloader(self):

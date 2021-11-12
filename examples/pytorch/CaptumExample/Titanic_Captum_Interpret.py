@@ -337,14 +337,7 @@ if __name__ == "__main__":
     dict_args = vars(args)
 
     with mlflow.start_run(run_name="Titanic_Captum_mlflow"):
-        (
-            net,
-            train_features,
-            train_labels,
-            test_features,
-            test_labels,
-            feature_names,
-        ) = train()
+        net, train_features, train_labels, test_features, test_labels, feature_names = train()
 
         compute_accuracy(net, train_features, train_labels, title="Train Accuracy")
         test_input_tensor = compute_accuracy(net, test_features, test_labels, title="Test Accuracy")

@@ -261,9 +261,7 @@ def test_avoids_inferring_signature_if_not_needed(logger):
     logger.warning.assert_not_called()
 
 
-def test_batch_metrics_logger_logs_all_metrics(
-    start_run,
-):
+def test_batch_metrics_logger_logs_all_metrics(start_run):
     run_id = mlflow.active_run().info.run_id
     with batch_metrics_logger(run_id) as metrics_logger:
         for i in range(100):
@@ -298,9 +296,7 @@ def test_batch_metrics_logger_flush_logs_to_mlflow(start_run):
         assert metrics_on_run["my_metric"] == 10
 
 
-def test_batch_metrics_logger_runs_training_and_logging_in_correct_ratio(
-    start_run,
-):
+def test_batch_metrics_logger_runs_training_and_logging_in_correct_ratio(start_run):
     with mock.patch.object(MlflowClient, "log_batch") as log_batch_mock:
         run_id = mlflow.active_run().info.run_id
         with batch_metrics_logger(run_id) as metrics_logger:
@@ -342,9 +338,7 @@ def test_batch_metrics_logger_runs_training_and_logging_in_correct_ratio(
             log_batch_mock.assert_called_once()
 
 
-def test_batch_metrics_logger_chunks_metrics_when_batch_logging(
-    start_run,
-):
+def test_batch_metrics_logger_chunks_metrics_when_batch_logging(start_run):
     with mock.patch.object(MlflowClient, "log_batch") as log_batch_mock:
         run_id = mlflow.active_run().info.run_id
         with batch_metrics_logger(run_id) as metrics_logger:
@@ -362,9 +356,7 @@ def test_batch_metrics_logger_chunks_metrics_when_batch_logging(
                     assert metric.step == 0
 
 
-def test_batch_metrics_logger_records_time_correctly(
-    start_run,
-):
+def test_batch_metrics_logger_records_time_correctly(start_run):
     with mock.patch.object(MlflowClient, "log_batch", wraps=lambda *args, **kwargs: time.sleep(1)):
         run_id = mlflow.active_run().info.run_id
         with batch_metrics_logger(run_id) as metrics_logger:
@@ -379,9 +371,7 @@ def test_batch_metrics_logger_records_time_correctly(
             assert metrics_logger.total_training_time >= 2
 
 
-def test_batch_metrics_logger_logs_timestamps_as_int_milliseconds(
-    start_run,
-):
+def test_batch_metrics_logger_logs_timestamps_as_int_milliseconds(start_run):
     with mock.patch.object(MlflowClient, "log_batch") as log_batch_mock, mock.patch(
         "time.time", return_value=123.45678901234567890
     ):

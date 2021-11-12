@@ -507,10 +507,7 @@ def save_model(
                 _download_artifact_from_uri(
                     artifact_uri=extra_file, output_path=tmp_extra_files_dir.path()
                 )
-                rel_path = posixpath.join(
-                    _EXTRA_FILES_KEY,
-                    os.path.basename(extra_file),
-                )
+                rel_path = posixpath.join(_EXTRA_FILES_KEY, os.path.basename(extra_file))
                 torchserve_artifacts_config[_EXTRA_FILES_KEY].append({"path": rel_path})
             shutil.move(
                 tmp_extra_files_dir.path(),

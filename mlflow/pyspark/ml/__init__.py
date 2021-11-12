@@ -188,10 +188,7 @@ def _get_uid_to_indexed_name_map(estimator):
     }
 
 
-def _gen_stage_hierarchy_recursively(
-    stage,
-    uid_to_indexed_name_map,
-):
+def _gen_stage_hierarchy_recursively(stage, uid_to_indexed_name_map):
     from pyspark.ml import Pipeline
     from pyspark.ml.classification import OneVsRest
 

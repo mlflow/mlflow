@@ -516,10 +516,7 @@ def test_terminate_in_sync_mode_waits_for_transform_job_termination_to_complete_
         synchronous=True,
     )
 
-    mfs.terminate_transform_job(
-        job_name=job_name,
-        synchronous=True,
-    )
+    mfs.terminate_transform_job(job_name=job_name, synchronous=True)
     termination_end_time = time.time()
 
     assert (termination_end_time - termination_start_time) >= transform_job_termination_latency
@@ -550,11 +547,7 @@ def test_terminate_in_asynchronous_mode_returns_before_transform_job_termination
         synchronous=False,
     )
 
-    mfs.terminate_transform_job(
-        job_name=job_name,
-        archive=True,
-        synchronous=False,
-    )
+    mfs.terminate_transform_job(job_name=job_name, archive=True, synchronous=False)
     termination_end_time = time.time()
 
     assert (termination_end_time - termination_start_time) < transform_job_termination_latency
