@@ -84,7 +84,6 @@ services:
       --backend-store-uri postgresql://user:password@postgres:5432/db
       --default-artifact-root http://artifacts-server:5500/api/2.0/mlflow-artifacts/artifacts/experiments
       --gunicorn-opts "--log-level debug"
-      --serve-artifacts
 
   client:
     build:

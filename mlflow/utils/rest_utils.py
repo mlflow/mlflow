@@ -193,7 +193,7 @@ def augmented_raise_for_status(response):
         response.raise_for_status()
     except HTTPError as e:
         if response.text:
-            raise HTTPError(f"{response.status_code} Error: {response.text}")
+            raise HTTPError(f"{e}. Response text: {response.text}")
         else:
             raise e
 

@@ -281,8 +281,8 @@ def ui(backend_store_uri, default_artifact_root, artifacts_destination, port, ho
         _run_server(
             backend_store_uri,
             default_artifact_root,
-            "false",
-            "false",
+            False,
+            False,
             artifacts_destination,
             host,
             port,
@@ -335,7 +335,7 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
     "by routing these requests to the storage location that is specified by "
     "'--artifact-destination' directly through a proxy. The default location that "
     "these requests are served from is a local './mlartifacts' directory which can be "
-    "overridden via '--artifact-destination' arguments. "
+    "overridden via the '--artifacts-destination' argument. "
     "Default: False",
 )
 @click.option(

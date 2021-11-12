@@ -256,13 +256,12 @@ def test_mlflow_tracking_disabled_in_artifacts_only_mode():
     port = get_safe_port()
     cmd = ["mlflow", "server", "--port", str(port), "--artifacts-only"]
     process = subprocess.Popen(cmd)
-    with pytest.raises(
-        HTTPError,
-        match="Endpoint disabled due to the mlflow server running in `--artifacts-only` mode.",
-    ):
-        _await_server_up_or_die(port, timeout=10)
-        resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow/experiments/list")
-        augmented_raise_for_status(resp)
+    _await_server_up_or_die(port, timeout=10)
+    resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow/experiments/list")
+    assert (
+        "Endpoint disabled due to the mlflow server running in `--artifacts-only` mode."
+        in resp.text
+    )
     process.kill()
 
 
@@ -288,7 +287,11 @@ def test_mlflow_artifact_service_unavailable_without_config():
     process = subprocess.Popen(cmd)
     try:
         _await_server_up_or_die(port, timeout=10)
-        resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow-artifacts/artifacts")
-        assert resp.status_code == 503
+        endpoint = "/api/2.0/mlflow-artifacts/artifacts"
+        resp = requests.get(f"http://localhost:{port}{endpoint}")
+        assert (
+            f"Endpoint: {endpoint} disabled due to the mlflow server running without "
+            "`--serve-artifacts`" in resp.text
+        )
     finally:
         process.kill()
