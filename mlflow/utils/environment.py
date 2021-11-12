@@ -1,6 +1,7 @@
 import yaml
 import os
 import logging
+import re
 
 
 from mlflow.utils import PYTHON_VERSION
@@ -229,6 +230,18 @@ def _is_mlflow_requirement(requirement_string):
         return Requirement(requirement_string).name.lower() == "mlflow"
     except InvalidRequirement:
         # A local file path or URL falls into this branch.
+
+        # `Requirement` throws an `InvalidRequirement` exception if `requirement_string` contains per-requirement options (ex: package hashes)
+        # GitHub issue: https://github.com/pypa/packaging/issues/488
+        # Per-requirement-option spec: https://pip.pypa.io/en/stable/reference/requirements-file-format/#per-requirement-options
+        if "--" in requirement_string:
+            match = re.search("^(.*?)((?:\\s+--\\w+=\\S+)*)$", requirement_string)
+            if match:
+                try:
+                    # Try again with the per-requirement options removed
+                    return Requirement(match.group(1)).name.lower() == "mlflow"
+                except InvalidRequirement:
+                    return False
 
         # TODO: Return True if `requirement_string` represents a project directory for MLflow
         # (e.g. '/path/to/mlflow') or git repository URL (e.g. 'https://github.com/mlflow/mlflow').
