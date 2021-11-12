@@ -141,11 +141,7 @@ def save_model(
         _SAVE_FORMAT_KEY: kwargs.get("format", "cbm"),
         **model_bin_kwargs,
     }
-    mlflow_model.add_flavor(
-        FLAVOR_NAME,
-        catboost_version=cb.__version__,
-        **flavor_conf,
-    )
+    mlflow_model.add_flavor(FLAVOR_NAME, catboost_version=cb.__version__, **flavor_conf)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
