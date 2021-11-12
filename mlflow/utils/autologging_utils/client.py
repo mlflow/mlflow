@@ -170,10 +170,7 @@ class MlflowAutologgingQueueingClient:
         for the specified `run_id`.
         """
         self._get_pending_operations(run_id).enqueue(
-            set_terminated=_PendingSetTerminated(
-                status=status,
-                end_time=end_time,
-            )
+            set_terminated=_PendingSetTerminated(status=status, end_time=end_time)
         )
 
     def log_params(self, run_id: Union[str, PendingRunId], params: Dict[str, Any]) -> None:
@@ -328,11 +325,7 @@ class MlflowAutologgingQueueingClient:
             pending_operations.metrics_queue, chunk_size=MAX_METRICS_PER_BATCH
         ):
             operation_results.append(
-                self._try_operation(
-                    self._client.log_batch,
-                    run_id=run_id,
-                    metrics=metrics_batch,
-                )
+                self._try_operation(self._client.log_batch, run_id=run_id, metrics=metrics_batch)
             )
 
         if pending_operations.set_terminated:
@@ -350,10 +343,7 @@ class MlflowAutologgingQueueingClient:
             raise MlflowException(
                 message=(
                     "Failed to perform one or more operations on the run with ID {run_id}."
-                    " Failed operations: {failures}".format(
-                        run_id=run_id,
-                        failures=failures,
-                    )
+                    " Failed operations: {failures}".format(run_id=run_id, failures=failures)
                 )
             )
 

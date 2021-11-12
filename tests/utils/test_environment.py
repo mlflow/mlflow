@@ -189,11 +189,7 @@ def test_validate_env_arguments():
         _validate_env_arguments(conda_env={}, pip_requirements=[], extra_pip_requirements=None)
 
     with pytest.raises(ValueError, match=match):
-        _validate_env_arguments(
-            conda_env={},
-            pip_requirements=None,
-            extra_pip_requirements=[],
-        )
+        _validate_env_arguments(conda_env={}, pip_requirements=None, extra_pip_requirements=[])
 
     with pytest.raises(ValueError, match=match):
         _validate_env_arguments(conda_env=None, pip_requirements=[], extra_pip_requirements=[])

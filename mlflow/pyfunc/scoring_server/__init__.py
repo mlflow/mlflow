@@ -97,10 +97,7 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
             try:
                 return parse_tf_serving_input(decoded_input, schema=schema)
             except MlflowException as ex:
-                _handle_serving_error(
-                    error_message=(ex.message),
-                    error_code=MALFORMED_REQUEST,
-                )
+                _handle_serving_error(error_message=(ex.message), error_code=MALFORMED_REQUEST)
         else:
             return parse_json_input(json_input=json_input, orient="split", schema=schema)
     else:

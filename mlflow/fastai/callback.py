@@ -115,10 +115,7 @@ class __MlflowFastaiCallback(Callback, metaclass=ExceptionSafeClass):
 
         for param in self.opt.hypers[0]:
             if param not in params_not_to_log:
-                mlflow.log_param(
-                    self.freeze_prefix + param,
-                    [h[param] for h in self.opt.hypers],
-                )
+                mlflow.log_param(self.freeze_prefix + param, [h[param] for h in self.opt.hypers])
 
         if hasattr(self.opt, "true_wd"):
             mlflow.log_param(self.freeze_prefix + "true_wd", self.opt.true_wd)

@@ -303,10 +303,7 @@ def test_conda_path(mock_env, expected_conda, expected_activate):
             {"CONDA_EXE": "/abc/conda", mlflow.utils.conda.MLFLOW_CONDA_CREATE_ENV_CMD: "mamba"},
             "/abc/mamba",
         ),
-        (
-            {mlflow.utils.conda.MLFLOW_CONDA_HOME: "/some/dir/"},
-            "/some/dir/bin/conda",
-        ),
+        ({mlflow.utils.conda.MLFLOW_CONDA_HOME: "/some/dir/"}, "/some/dir/bin/conda"),
         (
             {
                 mlflow.utils.conda.MLFLOW_CONDA_HOME: "/some/dir/",
