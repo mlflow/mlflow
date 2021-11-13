@@ -23,14 +23,14 @@ validate_version() {
   fi
 }
 
-validate_version black
-validate_version pylint
-
 diff=$(git diff --cached --name-only | grep '\.py$' || true)
 
 if [ ! -z "$diff" ]; then
+  validate_version black
   echo "Running black..."
   black --check $diff
+
+  validate_version pylint
   echo "Running pylint..."
   pylint $diff
 fi
