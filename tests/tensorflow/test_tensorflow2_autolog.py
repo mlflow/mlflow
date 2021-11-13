@@ -265,7 +265,12 @@ def test_tf_keras_autolog_model_can_load_from_artifact(tf_keras_random_data_run,
 
 
 def get_tf_keras_random_data_run_with_callback(
-    random_train_data, random_one_hot_labels, callback, restore_weights, patience, initial_epoch,
+    random_train_data,
+    random_one_hot_labels,
+    callback,
+    restore_weights,
+    patience,
+    initial_epoch,
 ):
     # pylint: disable=unused-argument
     mlflow.tensorflow.autolog(every_n_iter=1)
@@ -301,7 +306,12 @@ def get_tf_keras_random_data_run_with_callback(
 
 @pytest.fixture
 def tf_keras_random_data_run_with_callback(
-    random_train_data, random_one_hot_labels, callback, restore_weights, patience, initial_epoch,
+    random_train_data,
+    random_one_hot_labels,
+    callback,
+    restore_weights,
+    patience,
+    initial_epoch,
 ):
     return get_tf_keras_random_data_run_with_callback(
         random_train_data,
