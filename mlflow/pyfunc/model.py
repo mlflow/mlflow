@@ -203,7 +203,7 @@ def _save_model_with_class_artifacts_params(
         loader_module=__name__,
         code=saved_code_subpath,
         env=_CONDA_ENV_FILE_NAME,
-        **custom_model_config_kwargs
+        **custom_model_config_kwargs,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 

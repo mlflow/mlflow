@@ -54,7 +54,7 @@ def databricks_artifact_repo():
 
 @pytest.fixture()
 def test_file(tmpdir):
-    test_file_content = u"Hello 🍆🍔".encode("utf-8")
+    test_file_content = "Hello 🍆🍔".encode("utf-8")
     p = tmpdir.join("test.txt")
     with open(p.strpath, "wb") as f:
         f.write(test_file_content)
@@ -63,7 +63,7 @@ def test_file(tmpdir):
 
 @pytest.fixture()
 def test_dir(tmpdir):
-    test_file_content = u"World 🍆🍔🍆".encode("utf-8")
+    test_file_content = "World 🍆🍔🍆".encode("utf-8")
     with open(tmpdir.mkdir("subdir").join("test.txt").strpath, "wb") as f:
         f.write(test_file_content)
     with open(tmpdir.join("test.txt").strpath, "wb") as f:

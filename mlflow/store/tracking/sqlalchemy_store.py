@@ -790,7 +790,7 @@ class SqlAlchemyStore(AbstractStore):
                 .filter(
                     SqlRun.experiment_id.in_(experiment_ids),
                     SqlRun.lifecycle_stage.in_(stages),
-                    *_get_attributes_filtering_clauses(parsed_filters)
+                    *_get_attributes_filtering_clauses(parsed_filters),
                 )
                 .order_by(*parsed_orderby)
                 .offset(offset)

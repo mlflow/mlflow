@@ -125,7 +125,7 @@ def log_model(
     extra_files=None,
     pip_requirements=None,
     extra_pip_requirements=None,
-    **kwargs
+    **kwargs,
 ):
     """
     Log a PyTorch model as an MLflow artifact for the current run.
@@ -318,7 +318,7 @@ def save_model(
     extra_files=None,
     pip_requirements=None,
     extra_pip_requirements=None,
-    **kwargs
+    **kwargs,
 ):
     """
     Save a PyTorch model to a path on the local file system.
