@@ -1170,7 +1170,6 @@ def autolog(
         silent=silent,
         max_tuning_runs=max_tuning_runs,
         log_post_training_metrics=log_post_training_metrics,
-        xgboost_estimator=False,
     )
 
 
@@ -1185,14 +1184,14 @@ def _autolog(
     silent=False,
     max_tuning_runs=5,
     log_post_training_metrics=True,
-    xgboost_estimator=False,
 ):  # pylint: disable=unused-argument
     """
     Internal autologging function for scikit-learn models.
-    :param xgboost_estimator: True or False. If the argument is `True`, autologging for
-                              XGBoost scikit-learn models is enabled. Otherwise, by default
-                              it enables autologging for original scikit-learn models, as
-                              ``mlflow.sklearn.autolog()`` does.
+    :param flavor_name: A string value. Enable a ``mlflow.sklearn`` autologging routine
+                        for a flavor. By default it enables autologging for original
+                        scikit-learn models, as ``mlflow.sklearn.autolog()`` does. If
+                        the argument is `xgboost`, autologging for XGBoost scikit-learn
+                        models is enabled.
     """
     import pandas as pd
     import sklearn
@@ -1242,7 +1241,7 @@ def _autolog(
         _log_pretraining_metadata(autologging_client, self, *args, **kwargs)
         params_logging_future = autologging_client.flush(synchronous=False)
 
-        if xgboost_estimator:
+        if flavor_name == "xgboost_sklearn":
             import mlflow.xgboost
 
             # mlflow xgboost autologging items:
@@ -1270,7 +1269,7 @@ def _autolog(
         autologging_client.flush(synchronous=True)
         params_logging_future.await_completion()
 
-        if xgboost_estimator and early_stopping:
+        if flavor_name == "xgboost_sklearn" and early_stopping:
             early_stopping_logging_operations.await_completion()
 
         return fit_output
@@ -1358,7 +1357,7 @@ def _autolog(
 
         def _log_model_with_except_handling(*args, **kwargs):
             try:
-                if xgboost_estimator:
+                if flavor_name == "xgboost_sklearn":
                     import mlflow.xgboost
 
                     return mlflow.xgboost.log_model(*args, **kwargs)
@@ -1617,7 +1616,7 @@ def _autolog(
 
     _apply_sklearn_descriptor_unbound_method_call_fix()
 
-    if xgboost_estimator:
+    if flavor_name == "xgboost_sklearn":
         estimators_to_patch = _gen_xgboost_sklearn_estimators_to_patch()
     else:
         estimators_to_patch = _gen_estimators_to_patch()
