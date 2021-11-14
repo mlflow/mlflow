@@ -122,9 +122,10 @@ export class ExperimentPage extends Component {
         ...PAGINATION_DEFAULT_STATE,
       };
     } else if (
-        // react to url being changed by user or using the back button
-        props.location.search !== state.urlState && props.history.action === 'POP'
-      ) {
+      // react to url being changed by user or using the back button
+      props.location.search !== state.urlState &&
+      props.history.action === 'POP'
+    ) {
       return {
         lastRunsRefreshTime: Date.now(),
         numberOfNewRuns: 0,
@@ -165,15 +166,14 @@ export class ExperimentPage extends Component {
   maybeReloadData(prevProps, prevState) {
     if (this.props.experimentId !== prevProps.experimentId) {
       this.loadData();
-    }
-    // Reload data if filter state change requires it
-    else if (this.filtersDidUpdate(prevState)) {
+    } else if (this.filtersDidUpdate(prevState)) {
+      // Reload data if filter state change requires it
       this.handleGettingRuns(this.props.searchRunsApi, this.state.searchRunsRequestId);
     }
   }
 
   filtersDidUpdate(prevState) {
-    const persistedState = this.state.persistedState;
+    const { persistedState } = this.state;
     return (
       persistedState.searchInput !== prevState.persistedState.searchInput ||
       persistedState.orderByKey !== prevState.persistedState.orderByKey ||
@@ -297,7 +297,7 @@ export class ExperimentPage extends Component {
     lifecycleFilter,
     modelVersionFilter,
   }) => {
-    const persistedState = this.state.persistedState;
+    const { persistedState } = this.state;
     this.setState(
       {
         lastRunsRefreshTime: Date.now(),
@@ -334,7 +334,7 @@ export class ExperimentPage extends Component {
     // When user clicks "Clear", preserve multicolumn toggle state but reset other persisted state
     // attributes to their default values.
     this.setState(
-      {        
+      {
         lastRunsRefreshTime: Date.now(),
         numberOfNewRuns: 0,
         persistedState: new ExperimentPagePersistedState({

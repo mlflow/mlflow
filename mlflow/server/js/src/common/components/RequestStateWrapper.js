@@ -44,7 +44,7 @@ export class RequestStateWrapper extends Component {
     const shouldRender = nextProps.requests.length
       ? nextProps.requests.every((r) => r && r.active === false)
       : false;
-      
+
     return {
       shouldRender,
       shouldRenderError: RequestStateWrapper.getErrorRequests(nextProps.requests).length > 0,
