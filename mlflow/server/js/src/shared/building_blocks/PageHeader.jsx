@@ -13,7 +13,7 @@ import { Spacer } from './Spacer';
 // Note: this button has a different size from normal AntD buttons.
 export function HeaderButton({ dataTestId, onClick, children, ...props }){
   return (
-    <Button dataTestId={dataTestId} size='middle' onClick={onClick} {...props} >
+    <Button dataTestId={dataTestId} size='default' onClick={onClick} {...props} >
       {children}
     </Button>
   )

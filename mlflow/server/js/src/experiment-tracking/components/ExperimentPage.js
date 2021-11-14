@@ -10,6 +10,7 @@ import { searchModelVersionsApi } from '../../model-registry/actions';
 import ExperimentView from './ExperimentView';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import { ViewType } from '../sdk/MlflowEnums';
+import LocalStorageUtils from '../../common/utils/LocalStorageUtils';
 import { ExperimentPagePersistedState } from '../sdk/MlflowLocalStorageMessages';
 import Utils from '../../common/utils/Utils';
 import { ErrorCodes } from '../../common/constants';
@@ -62,8 +63,17 @@ export class ExperimentPage extends Component {
     searchForNewRuns: searchRunsPayload,
   };
 
+  /* Returns a LocalStorageStore instance that can be used to persist data associated with the
+   * ExperimentView component (e.g. component state such as table sort settings), for the
+   * specified experiment.
+   */
+  static getLocalStore(experimentId) {
+    return LocalStorageUtils.getStoreForComponent('ExperimentPage', experimentId);
+  }
+
   constructor(props) {
     super(props);
+    const store = ExperimentPage.getLocalStore(this.props.experiment.experiment_id);
     this.state = {
       lastRunsRefreshTime: Date.now(),
       numberOfNewRuns: 0,
@@ -72,9 +82,10 @@ export class ExperimentPage extends Component {
       ...PAGINATION_DEFAULT_STATE,
       getExperimentRequestId: null,
       searchRunsRequestId: null,
-      urlState: Utils.getSearchParamsFromUrl(props.location.search),
+      urlState: props.location.search,
       persistedState: new ExperimentPagePersistedState({
-        ...this.urlState,
+        ...store.loadComponentState(),
+        ...Utils.getSearchParamsFromUrl(props.location.search),
       }).toJSON(),
     };
   }
@@ -84,20 +95,45 @@ export class ExperimentPage extends Component {
     this.detectNewRunsTimer = setInterval(() => this.detectNewRuns(), DETECT_NEW_RUNS_INTERVAL);
   }
 
-  componentDidUpdate(prevProps) {
-    this.maybeReloadData(prevProps);
+  componentDidUpdate(prevProps, prevState) {
+    this.maybeReloadData(prevProps, prevState);
+  }
+
+  /** Snapshots desired attributes of the component's current state in local storage. */
+  snapshotComponentState() {
+    const store = ExperimentPage.getLocalStore(this.props.experiment.experiment_id);
+    store.saveComponentState(new ExperimentPagePersistedState(this.state.persistedState));
   }
 
   static getDerivedStateFromProps(props, state) {
+    const store = ExperimentPage.getLocalStore(props.experiment.experiment_id);
     if (props.experimentId !== state.lastExperimentId) {
       return {
         persistedState:
           state.lastExperimentId === undefined
             ? state.persistedState
-            : new ExperimentPagePersistedState().toJSON(),
+            : new ExperimentPagePersistedState({
+                ...store.loadComponentState(),
+              }).toJSON(),
         lastExperimentId: props.experimentId,
         nextPageToken: null,
         getExperimentRequestId: getUUID(),
+        searchRunsRequestId: getUUID(),
+        ...PAGINATION_DEFAULT_STATE,
+      };
+    } else if (
+        // react to url being changed by user or using the back button
+        props.location.search !== state.urlState && props.history.action === 'POP'
+      ) {
+      return {
+        lastRunsRefreshTime: Date.now(),
+        numberOfNewRuns: 0,
+        nextPageToken: null,
+        urlState: props.location.search,
+        persistedState: new ExperimentPagePersistedState({
+          ...store.loadComponentState(),
+          ...Utils.getSearchParamsFromUrl(props.location.search),
+        }).toJSON(),
         searchRunsRequestId: getUUID(),
         ...PAGINATION_DEFAULT_STATE,
       };
@@ -108,6 +144,9 @@ export class ExperimentPage extends Component {
   componentWillUnmount() {
     clearInterval(this.detectNewRunsTimer);
     this.detectNewRunsTimer = null;
+    // Snapshot component state on unmounts to ensure we've captured component state in cases where
+    // componentDidUpdate doesn't fire.
+    this.snapshotComponentState();
   }
 
   searchModelVersionsRequestId = getUUID();
@@ -123,10 +162,26 @@ export class ExperimentPage extends Component {
     this.handleGettingRuns(this.props.searchRunsApi, this.state.searchRunsRequestId);
   }
 
-  maybeReloadData(prevProps) {
+  maybeReloadData(prevProps, prevState) {
     if (this.props.experimentId !== prevProps.experimentId) {
       this.loadData();
     }
+    // Reload data if filter state change requires it
+    else if (this.filtersDidUpdate(prevState)) {
+      this.handleGettingRuns(this.props.searchRunsApi, this.state.searchRunsRequestId);
+    }
+  }
+
+  filtersDidUpdate(prevState) {
+    const persistedState = this.state.persistedState;
+    return (
+      persistedState.searchInput !== prevState.persistedState.searchInput ||
+      persistedState.orderByKey !== prevState.persistedState.orderByKey ||
+      persistedState.orderByAsc !== prevState.persistedState.orderByAsc ||
+      persistedState.startTime !== prevState.persistedState.startTime ||
+      persistedState.lifecycleFilter !== prevState.persistedState.lifecycleFilter ||
+      persistedState.modelVersionFilter !== prevState.persistedState.modelVersionFilter
+    );
   }
 
   updateNumRunsFromLatestSearch = (response = {}) => {
@@ -236,30 +291,35 @@ export class ExperimentPage extends Component {
 
   onSearch = ({
     searchInput,
-    lifecycleFilter,
     orderByKey,
     orderByAsc,
-    modelVersionFilter,
     startTime,
-    experimentViewPersistedState,
+    lifecycleFilter,
+    modelVersionFilter,
   }) => {
+    const persistedState = this.state.persistedState;
     this.setState(
       {
         lastRunsRefreshTime: Date.now(),
         numberOfNewRuns: 0,
         persistedState: new ExperimentPagePersistedState({
-          searchInput,
-          orderByKey,
-          orderByAsc,
-          startTime,
-          lifecycleFilter,
-          modelVersionFilter,
+          ...persistedState,
+          searchInput: searchInput !== undefined ? searchInput : persistedState.searchInput,
+          orderByKey: orderByKey !== undefined ? orderByKey : persistedState.orderByKey,
+          orderByAsc: orderByAsc !== undefined ? orderByAsc : persistedState.orderByAsc,
+          startTime: startTime !== undefined ? startTime : persistedState.startTime,
+          lifecycleFilter:
+            lifecycleFilter !== undefined ? lifecycleFilter : persistedState.lifecycleFilter,
+          modelVersionFilter:
+            modelVersionFilter !== undefined
+              ? modelVersionFilter
+              : persistedState.modelVersionFilter,
         }).toJSON(),
         nextPageToken: null,
       },
       () => {
-        this.updateUrlWithViewState({ ...experimentViewPersistedState });
-        this.handleGettingRuns(this.props.searchRunsApi, this.state.searchRunsRequestId);
+        this.updateUrlWithViewState();
+        this.snapshotComponentState();
         if (!this.detectNewRunsTimer) {
           this.detectNewRunsTimer = setInterval(
             () => this.detectNewRuns(),
@@ -270,13 +330,71 @@ export class ExperimentPage extends Component {
     );
   };
 
-  updateUrlWithViewState = ({
-    showMultiColumns,
-    categorizedUncheckedKeys,
-    diffSwitchSelected,
-    preSwitchCategorizedUncheckedKeys,
-    postSwitchCategorizedUncheckedKeys,
-  }) => {
+  onClear = () => {
+    // When user clicks "Clear", preserve multicolumn toggle state but reset other persisted state
+    // attributes to their default values.
+    this.setState(
+      {        
+        lastRunsRefreshTime: Date.now(),
+        numberOfNewRuns: 0,
+        persistedState: new ExperimentPagePersistedState({
+          showMultiColumns: this.state.persistedState.showMultiColumns,
+        }).toJSON(),
+        nextPageToken: null,
+      },
+      () => {
+        this.updateUrlWithViewState();
+        this.snapshotComponentState();
+      },
+    );
+  };
+
+  setShowMultiColumns = (value) => {
+    this.setState(
+      {
+        persistedState: new ExperimentPagePersistedState({
+          ...this.state.persistedState,
+          showMultiColumns: value,
+        }).toJSON(),
+      },
+      () => {
+        this.updateUrlWithViewState();
+        this.snapshotComponentState();
+      },
+    );
+  };
+
+  handleColumnSelectionCheck = (categorizedUncheckedKeys) => {
+    this.setState(
+      {
+        persistedState: new ExperimentPagePersistedState({
+          ...this.state.persistedState,
+          categorizedUncheckedKeys,
+        }).toJSON(),
+      },
+      () => {
+        this.updateUrlWithViewState();
+        this.snapshotComponentState();
+      },
+    );
+  };
+
+  handleDiffSwitchChange = (switchPersistedState) => {
+    this.setState(
+      {
+        persistedState: new ExperimentPagePersistedState({
+          ...this.state.persistedState,
+          diffSwitchSelected: !this.state.persistedState.diffSwitchSelected,
+          ...switchPersistedState,
+        }).toJSON(),
+      },
+      () => {
+        this.handleColumnSelectionCheck(switchPersistedState.categorizedUncheckedKeys);
+      },
+    );
+  };
+
+  updateUrlWithViewState = () => {
     const {
       searchInput,
       startTime,
@@ -284,6 +402,11 @@ export class ExperimentPage extends Component {
       orderByAsc,
       lifecycleFilter,
       modelVersionFilter,
+      showMultiColumns,
+      categorizedUncheckedKeys,
+      diffSwitchSelected,
+      preSwitchCategorizedUncheckedKeys,
+      postSwitchCategorizedUncheckedKeys,
     } = this.state.persistedState;
     const { experimentId, history } = this.props;
 
@@ -305,12 +428,12 @@ export class ExperimentPage extends Component {
     };
 
     const state = {
-      search: searchInput,
+      searchInput: searchInput,
       startTime: startTime,
       orderByKey: orderByKey,
       orderByAsc: orderByAsc,
-      lifecycle: lifecycleFilter,
-      modelVersion: modelVersionFilter,
+      lifecycleFilter: lifecycleFilter,
+      modelVersionFilter: modelVersionFilter,
       showMultiColumns: showMultiColumns,
       categorizedUncheckedKeys: getCategorizedUncheckedKeysForUrl(categorizedUncheckedKeys),
       diffSwitchSelected: diffSwitchSelected,
@@ -400,23 +523,36 @@ export class ExperimentPage extends Component {
       startTime,
       lifecycleFilter,
       modelVersionFilter,
+      showMultiColumns,
+      categorizedUncheckedKeys,
+      diffSwitchSelected,
+      preSwitchCategorizedUncheckedKeys,
+      postSwitchCategorizedUncheckedKeys,
     } = this.state.persistedState;
 
     const experimentViewProps = {
       experimentId: this.props.experimentId,
       experiment: this.props.experiment,
-      urlState: this.state.urlState,
       searchRunsRequestId: this.state.searchRunsRequestId,
-      modelVersionFilter: modelVersionFilter,
-      lifecycleFilter: lifecycleFilter,
       onSearch: this.onSearch,
+      onClear: this.onClear,
+      setShowMultiColumns: this.setShowMultiColumns,
+      handleColumnSelectionCheck: this.handleColumnSelectionCheck,
+      handleDiffSwitchChange: this.handleDiffSwitchChange,
       updateUrlWithViewState: this.updateUrlWithViewState,
       searchRunsError: searchRunsError,
-      searchInput: searchInput,
       isLoading: isLoading && !searchRunsError,
+      searchInput: searchInput,
       orderByKey: orderByKey,
       orderByAsc: orderByAsc,
       startTime: startTime,
+      modelVersionFilter: modelVersionFilter,
+      lifecycleFilter: lifecycleFilter,
+      showMultiColumns: showMultiColumns,
+      categorizedUncheckedKeys: categorizedUncheckedKeys,
+      diffSwitchSelected: diffSwitchSelected,
+      preSwitchCategorizedUncheckedKeys: preSwitchCategorizedUncheckedKeys,
+      postSwitchCategorizedUncheckedKeys: postSwitchCategorizedUncheckedKeys,
       nextPageToken: this.state.nextPageToken,
       numRunsFromLatestSearch: this.state.numRunsFromLatestSearch,
       handleLoadMoreRuns: this.handleLoadMoreRuns,

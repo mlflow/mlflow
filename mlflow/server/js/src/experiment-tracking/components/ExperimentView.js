@@ -56,16 +56,11 @@ import {
   LIFECYCLE_FILTER,
   MAX_DETECT_NEW_RUNS_RESULTS,
   MODEL_VERSION_FILTER,
-  DEFAULT_ORDER_BY_KEY,
-  DEFAULT_ORDER_BY_ASC,
-  DEFAULT_START_TIME,
   ATTRIBUTE_COLUMN_SORT_LABEL,
   ATTRIBUTE_COLUMN_SORT_KEY,
   COLUMN_SORT_BY_ASC,
   COLUMN_SORT_BY_DESC,
   SORT_DELIMITER_SYMBOL,
-  DEFAULT_LIFECYCLE_FILTER,
-  DEFAULT_MODEL_VERSION_FILTER,
 } from '../constants';
 
 export const DEFAULT_EXPANDED_VALUE = false;
@@ -94,10 +89,10 @@ export class ExperimentView extends Component {
     this.getStartTimeColumnDisplayName = this.getStartTimeColumnDisplayName.bind(this);
     this.onHandleStartTimeDropdown = this.onHandleStartTimeDropdown.bind(this);
     this.handleDiffSwitchChange = this.handleDiffSwitchChange.bind(this);
+
     const store = ExperimentView.getLocalStore(this.props.experiment.experiment_id);
     const persistedState = new ExperimentViewPersistedState({
       ...store.loadComponentState(),
-      ...props.urlState,
     });
     const onboardingInformationStore = ExperimentView.getLocalStore(onboarding);
     this.state = {
@@ -113,13 +108,16 @@ export class ExperimentView extends Component {
   }
   static propTypes = {
     onSearch: PropTypes.func.isRequired,
+    onClear: PropTypes.func.isRequired,
+    setShowMultiColumns: PropTypes.func.isRequired,
+    handleColumnSelectionCheck: PropTypes.func.isRequired,
+    handleDiffSwitchChange: PropTypes.func.isRequired,
+    updateUrlWithViewState: PropTypes.func.isRequired,
     runInfos: PropTypes.arrayOf(PropTypes.instanceOf(RunInfo)).isRequired,
     modelVersionsByRunUuid: PropTypes.object.isRequired,
     experimentId: PropTypes.string.isRequired,
     experiment: PropTypes.instanceOf(Experiment).isRequired,
     history: PropTypes.any,
-    urlState: PropTypes.object.isRequired,
-    updateUrlWithViewState: PropTypes.func.isRequired,
     // List of all parameter keys available in the runs we're viewing
     paramKeyList: PropTypes.arrayOf(PropTypes.string).isRequired,
     // List of all metric keys available in the runs we're viewing
@@ -132,14 +130,19 @@ export class ExperimentView extends Component {
     tagsList: PropTypes.arrayOf(PropTypes.object).isRequired,
     // Object of experiment tags
     experimentTags: PropTypes.object.isRequired,
-    // Input to the lifecycleFilter field
-    lifecycleFilter: PropTypes.string.isRequired,
-    modelVersionFilter: PropTypes.string.isRequired,
-    orderByKey: PropTypes.string,
-    orderByAsc: PropTypes.bool,
-    startTime: PropTypes.string,
     // The initial searchInput
     searchInput: PropTypes.string.isRequired,
+    orderByKey: PropTypes.string.isRequired,
+    orderByAsc: PropTypes.bool.isRequired,
+    startTime: PropTypes.string.isRequired,
+    lifecycleFilter: PropTypes.string.isRequired,
+    modelVersionFilter: PropTypes.string.isRequired,
+    showMultiColumns: PropTypes.bool.isRequired,
+    categorizedUncheckedKeys: PropTypes.object.isRequired,
+    diffSwitchSelected: PropTypes.bool.isRequired,
+    preSwitchCategorizedUncheckedKeys: PropTypes.object.isRequired,
+    postSwitchCategorizedUncheckedKeys: PropTypes.object.isRequired,
+
     searchRunsError: PropTypes.string,
     isLoading: PropTypes.bool.isRequired,
     numRunsFromLatestSearch: PropTypes.number,
@@ -255,26 +258,6 @@ export class ExperimentView extends Component {
     };
   }
 
-  updateUrlWithViewState() {
-    this.props.updateUrlWithViewState({
-      ...this.state.persistedState,
-    });
-  }
-
-  setShowMultiColumns(value) {
-    this.setState(
-      {
-        persistedState: new ExperimentViewPersistedState({
-          ...this.state.persistedState,
-          showMultiColumns: value,
-        }).toJSON(),
-      },
-      () => {
-        this.updateUrlWithViewState();
-      },
-    );
-  }
-
   disableOnboardingHelper() {
     const onboardingInformationStore = ExperimentView.getLocalStore(onboarding);
     onboardingInformationStore.setItem('showTrackingHelper', 'false');
@@ -353,26 +336,12 @@ export class ExperimentView extends Component {
     this.setState({ showNotesEditor: true });
   };
 
-  handleColumnSelectionCheck = (categorizedUncheckedKeys) => {
-    this.setState(
-      {
-        persistedState: new ExperimentViewPersistedState({
-          ...this.state.persistedState,
-          categorizedUncheckedKeys,
-        }).toJSON(),
-      },
-      () => {
-        this.updateUrlWithViewState();
-      },
-    );
-  };
-
   handleFilterToggle = () => {
     this.setState((previousState) => ({ showFilters: !previousState.showFilters }));
   };
 
   getFilteredKeys(keyList, columnType) {
-    const { categorizedUncheckedKeys } = this.state.persistedState;
+    const { categorizedUncheckedKeys } = this.props;
     return _.difference(keyList, categorizedUncheckedKeys[columnType]);
   }
 
@@ -476,17 +445,15 @@ export class ExperimentView extends Component {
       orderByKey,
       orderByAsc,
       startTime,
+      showMultiColumns,
+      categorizedUncheckedKeys,
+      diffSwitchSelected,
       nestChildren,
       numberOfNewRuns,
     } = this.props;
     const { experiment_id, name } = experiment;
     const { persistedState } = this.state;
-    const {
-      unbaggedParams,
-      unbaggedMetrics,
-      categorizedUncheckedKeys,
-      diffSwitchSelected,
-    } = persistedState;
+    const { unbaggedParams, unbaggedMetrics } = persistedState;
     const filteredParamKeys = this.getFilteredKeys(paramKeyList, COLUMN_TYPES.PARAMS);
     const filteredMetricKeys = this.getFilteredKeys(metricKeyList, COLUMN_TYPES.METRICS);
     const visibleTagKeyList = Utils.getVisibleTagKeyList(tagsList);
@@ -814,20 +781,18 @@ export class ExperimentView extends Component {
                 <Spacer size='large' direction='horizontal'>
                   <Spacer size='medium' direction='horizontal'>
                     <Radio
-                      defaultValue={
-                        this.state.persistedState.showMultiColumns ? 'gridView' : 'compactView'
-                      }
+                      defaultValue={showMultiColumns ? 'gridView' : 'compactView'}
                       items={[
                         {
                           value: 'compactView',
                           itemContent: <i className={'fas fa-list'} />,
-                          onClick: (e) => this.setShowMultiColumns(false),
+                          onClick: (e) => this.props.setShowMultiColumns(false),
                           dataTestId: 'compact-runs-table-view-button',
                         },
                         {
                           value: 'gridView',
                           itemContent: <i className={'fas fa-table'} />,
-                          onClick: (e) => this.setShowMultiColumns(true),
+                          onClick: (e) => this.props.setShowMultiColumns(true),
                           dataTestId: 'detailed-runs-table-view-button',
                         },
                       ]}
@@ -837,7 +802,7 @@ export class ExperimentView extends Component {
                       metricKeyList={metricKeyList}
                       visibleTagKeyList={visibleTagKeyList}
                       categorizedUncheckedKeys={categorizedUncheckedKeys}
-                      onCheck={this.handleColumnSelectionCheck}
+                      onCheck={this.props.handleColumnSelectionCheck}
                     />
                   </Spacer>
                   <Spacer size='small' direction='horizontal'>
@@ -989,7 +954,7 @@ export class ExperimentView extends Component {
                 </div>
               </div>
             </CSSTransition>
-            {this.state.persistedState.showMultiColumns && !this.props.forceCompactTableView ? (
+            {this.props.showMultiColumns && !this.props.forceCompactTableView ? (
               <ExperimentRunsTableMultiColumnView2
                 experimentId={experiment.experiment_id}
                 modelVersionsByRunUuid={this.props.modelVersionsByRunUuid}
@@ -1029,7 +994,7 @@ export class ExperimentView extends Component {
                 metricsList={this.props.metricsList}
                 tagsList={this.props.tagsList}
                 categorizedUncheckedKeys={categorizedUncheckedKeys}
-                onCheck={this.handleColumnSelectionCheck}
+                onCheck={this.props.handleColumnSelectionCheck}
                 onCheckAll={this.onCheckAll}
                 isAllChecked={this.isAllChecked()}
                 onSortBy={this.onSortBy}
@@ -1068,26 +1033,9 @@ export class ExperimentView extends Component {
     this.initiateSearch({ orderByKey, orderByAsc });
   }
 
-  initiateSearch({
-    searchInput,
-    lifecycleFilter,
-    modelVersionFilter,
-    orderByKey,
-    orderByAsc,
-    startTime,
-  }) {
+  initiateSearch(value) {
     try {
-      this.props.onSearch({
-        searchInput: searchInput !== undefined ? searchInput : this.props.searchInput,
-        lifecycleFilter:
-          lifecycleFilter !== undefined ? lifecycleFilter : this.props.lifecycleFilter,
-        orderByKey: orderByKey !== undefined ? orderByKey : this.props.orderByKey,
-        orderByAsc: orderByAsc !== undefined ? orderByAsc : this.props.orderByAsc,
-        modelVersionFilter:
-          modelVersionFilter !== undefined ? modelVersionFilter : this.props.modelVersionFilter,
-        startTime: startTime !== undefined ? startTime : this.props.startTime,
-        experimentViewPersistedState: this.state.persistedState,
-      });
+      this.props.onSearch(value);
     } catch (ex) {
       if (ex.errorMessage !== undefined) {
         this.setState({ searchErrorMessage: ex.errorMessage });
@@ -1187,12 +1135,12 @@ export class ExperimentView extends Component {
     this.initiateSearch({ modelVersionFilter });
   }
 
-  handleDiffSwitchChange() {
+  handleDiffSwitchChange = () => {
     let newCategorizedUncheckedKeys;
     let switchPersistedState;
-    if (!this.state.persistedState.diffSwitchSelected) {
+    if (!this.props.diffSwitchSelected) {
       // When turning on the diff switch
-      const { categorizedUncheckedKeys } = this.state.persistedState;
+      const { categorizedUncheckedKeys } = this.props;
       newCategorizedUncheckedKeys = ExperimentViewUtil.getCategorizedUncheckedKeysDiffView({
         ...this.props,
         categorizedUncheckedKeys,
@@ -1207,7 +1155,7 @@ export class ExperimentView extends Component {
         preSwitchCategorizedUncheckedKeys,
         postSwitchCategorizedUncheckedKeys,
         categorizedUncheckedKeys: currCategorizedUncheckedKeys,
-      } = this.state.persistedState;
+      } = this.props;
       newCategorizedUncheckedKeys = ExperimentViewUtil.getRestoredCategorizedUncheckedKeys({
         preSwitchCategorizedUncheckedKeys,
         postSwitchCategorizedUncheckedKeys,
@@ -1216,19 +1164,11 @@ export class ExperimentView extends Component {
       switchPersistedState = {};
     }
 
-    this.setState(
-      {
-        persistedState: new ExperimentViewPersistedState({
-          ...this.state.persistedState,
-          diffSwitchSelected: !this.state.persistedState.diffSwitchSelected,
-          ...switchPersistedState,
-        }).toJSON(),
-      },
-      () => {
-        this.handleColumnSelectionCheck(newCategorizedUncheckedKeys);
-      },
-    );
-  }
+    this.props.handleDiffSwitchChange({
+      categorizedUncheckedKeys: newCategorizedUncheckedKeys,
+      ...switchPersistedState,
+    });
+  };
 
   onSearch = (e, searchInput) => {
     if (e !== undefined) {
@@ -1240,7 +1180,7 @@ export class ExperimentView extends Component {
   };
 
   onShare = () => {
-    this.updateUrlWithViewState();
+    this.props.updateUrlWithViewState();
     navigator.clipboard.writeText(window.location.href);
     message.info(
       this.props.intl.formatMessage({
@@ -1251,26 +1191,12 @@ export class ExperimentView extends Component {
   };
 
   onClear = () => {
-    // When user clicks "Clear", preserve multicolumn toggle state but reset other persisted state
-    // attributes to their default values.
-    const newPersistedState = new ExperimentViewPersistedState({
-      showMultiColumns: this.state.persistedState.showMultiColumns,
-    });
     this.setState(
       {
-        persistedState: newPersistedState.toJSON(),
         searchInput: '',
       },
       () => {
-        this.snapshotComponentState();
-        this.initiateSearch({
-          searchInput: '',
-          lifecycleFilter: DEFAULT_LIFECYCLE_FILTER,
-          modelVersionFilter: DEFAULT_MODEL_VERSION_FILTER,
-          orderByKey: DEFAULT_ORDER_BY_KEY,
-          orderByAsc: DEFAULT_ORDER_BY_ASC,
-          startTime: DEFAULT_START_TIME,
-        });
+        this.props.onClear();
       },
     );
   };
