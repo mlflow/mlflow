@@ -11,9 +11,9 @@ import { PreviewIcon } from './PreviewIcon';
 import { Spacer } from './Spacer';
 
 // Note: this button has a different size from normal AntD buttons.
-export function HeaderButton({ dataTestId, onClick, children, ...props }){
+export function HeaderButton({ onClick, children, ...props }){
   return (
-    <Button dataTestId={dataTestId} size='default' onClick={onClick} {...props} >
+    <Button size='default' onClick={onClick} {...props} >
       {children}
     </Button>
   )

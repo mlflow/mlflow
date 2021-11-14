@@ -73,7 +73,7 @@ export class ExperimentPage extends Component {
 
   constructor(props) {
     super(props);
-    const store = ExperimentPage.getLocalStore(this.props.experiment.experiment_id);
+    const store = ExperimentPage.getLocalStore(this.props.experimentId);
     this.state = {
       lastRunsRefreshTime: Date.now(),
       numberOfNewRuns: 0,
@@ -101,12 +101,12 @@ export class ExperimentPage extends Component {
 
   /** Snapshots desired attributes of the component's current state in local storage. */
   snapshotComponentState() {
-    const store = ExperimentPage.getLocalStore(this.props.experiment.experiment_id);
+    const store = ExperimentPage.getLocalStore(this.props.experimentId);
     store.saveComponentState(new ExperimentPagePersistedState(this.state.persistedState));
   }
 
   static getDerivedStateFromProps(props, state) {
-    const store = ExperimentPage.getLocalStore(props.experiment.experiment_id);
+    const store = ExperimentPage.getLocalStore(props.experimentId);
     if (props.experimentId !== state.lastExperimentId) {
       return {
         persistedState:

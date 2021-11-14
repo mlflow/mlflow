@@ -537,7 +537,7 @@ export class ExperimentView extends Component {
               description: 'Label for the share experiment view button',
             })}
           >
-            <HeaderButton dataTestId='share-button' onClick={this.onShare}>
+            <HeaderButton onClick={this.onShare}>
               <FormattedMessage
                 defaultMessage='Share'
                 description='String for the share button to share experiment view'

@@ -4,6 +4,8 @@ import { MemoryRouter as Router } from 'react-router-dom';
 
 import { ErrorCodes } from '../../common/constants';
 import { ExperimentPage, isNewRun, lifecycleFilterToRunViewType } from './ExperimentPage';
+import { ExperimentPagePersistedState } from '../sdk/MlflowLocalStorageMessages';
+import Utils from '../../common/utils/Utils';
 import ExperimentView from './ExperimentView';
 import { PermissionDeniedView } from './PermissionDeniedView';
 import { ViewType } from '../sdk/MlflowEnums';
@@ -19,9 +21,16 @@ import {
   DEFAULT_START_TIME,
   DEFAULT_LIFECYCLE_FILTER,
   DEFAULT_MODEL_VERSION_FILTER,
+  MODEL_VERSION_FILTER,
+  DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
+  DEFAULT_SHOW_MULTI_COLUMNS,
+  DEFAULT_DIFF_SWITCH_SELECTED,
+  COLUMN_TYPES,
+  LIFECYCLE_FILTER,
 } from '../constants';
 
 const EXPERIMENT_ID = '17';
+const BASE_PATH = '/experiments/17/s';
 
 jest.useFakeTimers();
 
@@ -34,13 +43,22 @@ let history;
 let location;
 
 beforeEach(() => {
+  localStorage.clear();
   searchRunsApi = jest.fn(() => Promise.resolve());
   getExperimentApi = jest.fn(() => Promise.resolve());
   searchModelVersionsApi = jest.fn(() => Promise.resolve());
   loadMoreRunsApi = jest.fn(() => Promise.resolve());
   searchForNewRuns = jest.fn(() => Promise.resolve());
-  location = {};
-  history = {};
+  location = {
+    pathname: '/',
+  };
+  history = {
+    push: jest.fn(),
+    location: {
+      pathname: BASE_PATH,
+      search: '',
+    },
+  };
 });
 
 const getExperimentPageMock = (additionalProps) => {
@@ -60,57 +78,55 @@ const getExperimentPageMock = (additionalProps) => {
 };
 
 test('State and search params are correct for blank search', () => {
-  const wrapper = getExperimentPageMock();
-  wrapper.instance().onSearch('', 'Active', null, true, null);
+  const wrapper = getExperimentPageMock({
+    location: {
+      search: '?searchInput=test',
+    },
+  });
+  wrapper.instance().onSearch({ searchInput: '' });
 
   expect(wrapper.state().persistedState.searchInput).toEqual('');
-  expect(wrapper.state().persistedState.lifecycleFilter).toEqual('Active');
-  expect(wrapper.state().persistedState.orderByKey).toEqual(null);
-  expect(wrapper.state().persistedState.orderByAsc).toEqual(true);
-  expect(wrapper.state().persistedState.modelVersionFilter).toEqual(null);
-  expect(wrapper.state().persistedState.startTime).toEqual(undefined);
+  expect(wrapper.state().persistedState.orderByKey).toEqual(DEFAULT_ORDER_BY_KEY);
+  expect(wrapper.state().persistedState.orderByAsc).toEqual(DEFAULT_ORDER_BY_ASC);
+  expect(wrapper.state().persistedState.lifecycleFilter).toEqual(DEFAULT_LIFECYCLE_FILTER);
+  expect(wrapper.state().persistedState.modelVersionFilter).toEqual(DEFAULT_MODEL_VERSION_FILTER);
+  expect(wrapper.state().persistedState.startTime).toEqual(DEFAULT_START_TIME);
 
   const searchRunsCallParams = searchRunsApi.mock.calls[1][0];
 
   expect(searchRunsCallParams.experimentIds).toEqual([EXPERIMENT_ID]);
   expect(searchRunsCallParams.filter).toEqual('');
   expect(searchRunsCallParams.runViewType).toEqual(ViewType.ACTIVE_ONLY);
-  expect(searchRunsCallParams.orderBy).toEqual([]);
+  expect(searchRunsCallParams.orderBy).toEqual(['attributes.start_time DESC']);
 });
 
 test('State and search params are correct for complete search', () => {
   const wrapper = getExperimentPageMock();
-  wrapper.instance().onSearch('metrics.metric0 > 3', 'Deleted', null, true, null, 'ALL');
+  wrapper.instance().onSearch({
+    searchInput: 'metrics.metric0 > 3',
+    orderByKey: 'test-key',
+    orderByAsc: true,
+    lifecycleFilter: 'Deleted',
+    modelVersionFilter: MODEL_VERSION_FILTER.WTIHOUT_MODEL_VERSIONS,
+    startTime: '1 Hour',
+  });
 
   expect(wrapper.state().persistedState.searchInput).toEqual('metrics.metric0 > 3');
-  expect(wrapper.state().persistedState.lifecycleFilter).toEqual('Deleted');
-  expect(wrapper.state().persistedState.orderByKey).toEqual(null);
+  expect(wrapper.state().persistedState.orderByKey).toEqual('test-key');
   expect(wrapper.state().persistedState.orderByAsc).toEqual(true);
-  expect(wrapper.state().persistedState.modelVersionFilter).toEqual(null);
-  expect(wrapper.state().persistedState.startTime).toEqual('ALL');
+  expect(wrapper.state().persistedState.lifecycleFilter).toEqual('Deleted');
+  expect(wrapper.state().persistedState.modelVersionFilter).toEqual(
+    MODEL_VERSION_FILTER.WTIHOUT_MODEL_VERSIONS,
+  );
+  expect(wrapper.state().persistedState.startTime).toEqual('1 Hour');
 
   const searchRunsCallParams = searchRunsApi.mock.calls[1][0];
   expect(searchRunsCallParams.filter).toEqual('metrics.metric0 > 3');
   expect(searchRunsCallParams.runViewType).toEqual(ViewType.DELETED_ONLY);
+  expect(searchRunsCallParams.orderBy).toEqual(['test-key ASC']);
 });
 
-test('State and search params are correct for search with order_by', () => {
-  const wrapper = getExperimentPageMock();
-  wrapper.instance().onSearch('', 'Active', 'my_key', false, null);
-
-  expect(wrapper.state().persistedState.searchInput).toEqual('');
-  expect(wrapper.state().persistedState.lifecycleFilter).toEqual('Active');
-  expect(wrapper.state().persistedState.orderByKey).toEqual('my_key');
-  expect(wrapper.state().persistedState.orderByAsc).toEqual(false);
-  expect(wrapper.state().persistedState.modelVersionFilter).toEqual(null);
-  expect(wrapper.state().persistedState.startTime).toEqual(undefined);
-
-  const searchRunsCallParams = searchRunsApi.mock.calls[1][0];
-  expect(searchRunsCallParams.filter).toEqual('');
-  expect(searchRunsCallParams.orderBy).toEqual(['my_key DESC']);
-});
-
-test('Loading state without any URL params', () => {
+test('Loading state without any URL params and no snapshot', () => {
   const wrapper = getExperimentPageMock();
   const { state } = wrapper.instance();
   expect(state.persistedState.searchInput).toEqual('');
@@ -119,19 +135,105 @@ test('Loading state without any URL params', () => {
   expect(state.persistedState.orderByKey).toBe(DEFAULT_ORDER_BY_KEY);
   expect(state.persistedState.orderByAsc).toEqual(DEFAULT_ORDER_BY_ASC);
   expect(state.persistedState.startTime).toEqual(DEFAULT_START_TIME);
+  expect(state.persistedState.showMultiColumns).toEqual(DEFAULT_SHOW_MULTI_COLUMNS);
+  expect(state.persistedState.diffSwitchSelected).toEqual(DEFAULT_DIFF_SWITCH_SELECTED);
+  expect(state.persistedState.categorizedUncheckedKeys).toEqual(DEFAULT_CATEGORIZED_UNCHECKED_KEYS);
+  expect(state.persistedState.preSwitchCategorizedUncheckedKeys).toEqual(
+    DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
+  );
+  expect(state.persistedState.postSwitchCategorizedUncheckedKeys).toEqual(
+    DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
+  );
 });
 
-test('Loading state with all URL params', () => {
+test('Loading state with all URL params and no snapshot', () => {
   location.search =
-    'search=c&orderByKey=d&orderByAsc=false&startTime=LAST_HOUR&lifecycle=Deleted&modelVersion=With%20Model%20Versions';
+    'searchInput=c&orderByKey=d&orderByAsc=false&startTime=LAST_HOUR' +
+    '&lifecycleFilter=lifecycle&modelVersionFilter=With%20Model%20Versions' +
+    '&showMultiColumns=false' +
+    '&diffSwitchSelected=true' +
+    '&categorizedUncheckedKeys%5Battributes%5D%5B0%5D=a1' +
+    '&categorizedUncheckedKeys%5Bparams%5D%5B0%5D=p1' +
+    '&categorizedUncheckedKeys%5Bmetrics%5D%5B0%5D=m1' +
+    '&categorizedUncheckedKeys%5Btags%5D%5B0%5D=t1' +
+    '&preSwitchCategorizedUncheckedKeys%5Battributes%5D%5B0%5D=a2' +
+    '&preSwitchCategorizedUncheckedKeys%5Bparams%5D%5B0%5D=p2' +
+    '&preSwitchCategorizedUncheckedKeys%5Bmetrics%5D%5B0%5D=m2' +
+    '&preSwitchCategorizedUncheckedKeys%5Btags%5D%5B0%5D=t2' +
+    '&postSwitchCategorizedUncheckedKeys%5Battributes%5D%5B0%5D=a3' +
+    '&postSwitchCategorizedUncheckedKeys%5Bparams%5D%5B0%5D=p3' +
+    '&postSwitchCategorizedUncheckedKeys%5Bmetrics%5D%5B0%5D=m3' +
+    '&postSwitchCategorizedUncheckedKeys%5Btags%5D%5B0%5D=t3';
+
   const wrapper = getExperimentPageMock();
   const { state } = wrapper.instance();
   expect(state.persistedState.searchInput).toEqual('c');
-  expect(state.persistedState.lifecycleFilter).toEqual('Deleted');
+  expect(state.persistedState.lifecycleFilter).toEqual('lifecycle');
   expect(state.persistedState.modelVersionFilter).toEqual('With Model Versions');
   expect(state.persistedState.orderByKey).toEqual('d');
   expect(state.persistedState.orderByAsc).toEqual(false);
   expect(state.persistedState.startTime).toEqual('LAST_HOUR');
+  expect(state.persistedState.showMultiColumns).toEqual(false);
+  expect(state.persistedState.diffSwitchSelected).toEqual(true);
+  expect(state.persistedState.categorizedUncheckedKeys).toEqual({
+    [COLUMN_TYPES.ATTRIBUTES]: ['a1'],
+    [COLUMN_TYPES.PARAMS]: ['p1'],
+    [COLUMN_TYPES.METRICS]: ['m1'],
+    [COLUMN_TYPES.TAGS]: ['t1'],
+  });
+  expect(state.persistedState.preSwitchCategorizedUncheckedKeys).toEqual({
+    [COLUMN_TYPES.ATTRIBUTES]: ['a2'],
+    [COLUMN_TYPES.PARAMS]: ['p2'],
+    [COLUMN_TYPES.METRICS]: ['m2'],
+    [COLUMN_TYPES.TAGS]: ['t2'],
+  });
+  expect(state.persistedState.postSwitchCategorizedUncheckedKeys).toEqual({
+    [COLUMN_TYPES.ATTRIBUTES]: ['a3'],
+    [COLUMN_TYPES.PARAMS]: ['p3'],
+    [COLUMN_TYPES.METRICS]: ['m3'],
+    [COLUMN_TYPES.TAGS]: ['t3'],
+  });
+});
+
+test('onClear clears all parameters', () => {
+  const wrapper = getExperimentPageMock();
+  const instance = wrapper.instance();
+  const updateUrlWithViewStateSpy = jest.fn();
+  instance.updateUrlWithViewState = updateUrlWithViewStateSpy;
+  instance.setState({
+    persistedState: new ExperimentPagePersistedState({
+      searchInput: 'testing',
+      orderByKey: 'test-key',
+      orderByAsc: false,
+      startTime: 'HOUR',
+      lifecycleFilter: LIFECYCLE_FILTER.DELETED,
+      modelVersionFilter: MODEL_VERSION_FILTER.WITH_MODEL_VERSIONS,
+      showMultiColumns: false,
+      categorizedUncheckedKeys: {},
+      diffSwitchSelected: true,
+      preSwitchCategorizedUncheckedKeys: {},
+      postSwitchCategorizedUncheckedKeys: {},
+    }).toJSON(),
+  });
+
+  instance.onClear();
+  const { state } = instance;
+  expect(updateUrlWithViewStateSpy).toHaveBeenCalledTimes(1);
+  expect(state.persistedState.searchInput).toEqual('');
+  expect(state.persistedState.lifecycleFilter).toEqual(DEFAULT_LIFECYCLE_FILTER);
+  expect(state.persistedState.modelVersionFilter).toEqual(DEFAULT_MODEL_VERSION_FILTER);
+  expect(state.persistedState.orderByKey).toBe(DEFAULT_ORDER_BY_KEY);
+  expect(state.persistedState.orderByAsc).toEqual(DEFAULT_ORDER_BY_ASC);
+  expect(state.persistedState.startTime).toEqual(DEFAULT_START_TIME);
+  expect(state.persistedState.showMultiColumns).toEqual(false);
+  expect(state.persistedState.diffSwitchSelected).toEqual(DEFAULT_DIFF_SWITCH_SELECTED);
+  expect(state.persistedState.categorizedUncheckedKeys).toEqual(DEFAULT_CATEGORIZED_UNCHECKED_KEYS);
+  expect(state.persistedState.preSwitchCategorizedUncheckedKeys).toEqual(
+    DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
+  );
+  expect(state.persistedState.postSwitchCategorizedUncheckedKeys).toEqual(
+    DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
+  );
 });
 
 test('should render permission denied view when getExperiment yields permission error', () => {
@@ -240,7 +342,7 @@ test('should set state to default values on promise rejection onSearch', () => {
   searchRunsApi = jest.fn(() => Promise.reject());
   const wrapper = getExperimentPageMock();
   const instance = wrapper.instance();
-  return Promise.resolve(instance.onSearch()).then(() => {
+  return Promise.resolve(instance.onSearch({})).then(() => {
     expect(instance.state.nextPageToken).toBe(PAGINATION_DEFAULT_STATE.nextPageToken);
     expect(instance.state.numRunsFromLatestSearch).toBe(
       PAGINATION_DEFAULT_STATE.numRunsFromLatestSearch,
@@ -546,7 +648,7 @@ describe('detectNewRuns', () => {
         jest.advanceTimersByTime(DETECT_NEW_RUNS_INTERVAL * 100);
         expect(mockSearchForNewRuns).toHaveBeenCalledTimes(1);
 
-        await instance.onSearch();
+        await instance.onSearch({});
 
         jest.advanceTimersByTime(DETECT_NEW_RUNS_INTERVAL);
         expect(mockSearchForNewRuns).toHaveBeenCalledTimes(2);
@@ -680,36 +782,36 @@ describe('startTime select filters out the experiment runs correctly', () => {
 
     instance.setState(
       {
-        persistedState: {
+        persistedState: new ExperimentPagePersistedState({
           startTime: '',
-        },
+        }).toJSON(),
       },
       () => expect(instance.getStartTimeExpr()).toBe(null),
     );
 
     instance.setState(
       {
-        persistedState: {
+        persistedState: new ExperimentPagePersistedState({
           startTime: undefined,
-        },
+        }).toJSON(),
       },
       () => expect(instance.getStartTimeExpr()).toBe(null),
     );
 
     instance.setState(
       {
-        persistedState: {
+        persistedState: new ExperimentPagePersistedState({
           startTime: 'ALL',
-        },
+        }).toJSON(),
       },
       () => expect(instance.getStartTimeExpr()).toBe(null),
     );
 
     instance.setState(
       {
-        persistedState: {
+        persistedState: new ExperimentPagePersistedState({
           startTime: 'LAST_24_HOURS',
-        },
+        }).toJSON(),
       },
       () => expect(instance.getStartTimeExpr()).toMatch('attributes.start_time'),
     );
@@ -788,5 +890,266 @@ describe('startTime select filters out the experiment runs correctly', () => {
         );
       },
     );
+  });
+});
+
+function expectSearchState(historyEntry, searchQueryParams) {
+  const expectedPrefix = BASE_PATH + '?';
+  expect(historyEntry.startsWith(expectedPrefix)).toBe(true);
+  const search = historyEntry.substring(expectedPrefix.length);
+  expect(Utils.getSearchParamsFromUrl(search)).toEqual(searchQueryParams);
+}
+
+describe('updateUrlWithViewState', () => {
+  const emptyCategorizedUncheckedKeys = {
+    [COLUMN_TYPES.ATTRIBUTES]: [''],
+    [COLUMN_TYPES.PARAMS]: [''],
+    [COLUMN_TYPES.METRICS]: [''],
+    [COLUMN_TYPES.TAGS]: [''],
+  };
+  const defaultParameters = {
+    searchInput: '',
+    lifecycleFilter: DEFAULT_LIFECYCLE_FILTER,
+    modelVersionFilter: DEFAULT_MODEL_VERSION_FILTER,
+    orderByKey: DEFAULT_ORDER_BY_KEY,
+    orderByAsc: DEFAULT_ORDER_BY_ASC,
+    startTime: DEFAULT_START_TIME,
+    showMultiColumns: DEFAULT_SHOW_MULTI_COLUMNS,
+    categorizedUncheckedKeys: DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
+    diffSwitchSelected: DEFAULT_DIFF_SWITCH_SELECTED,
+    preSwitchCategorizedUncheckedKeys: DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
+    postSwitchCategorizedUncheckedKeys: DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
+  };
+  let wrapper;
+  let instance;
+  beforeEach(() => {
+    localStorage.clear();
+    wrapper = getExperimentPageMock({
+      history: history,
+    });
+    instance = wrapper.instance();
+  });
+
+  test('updateUrlWithViewState updates URL correctly with default params', () => {
+    const {
+      searchInput,
+      orderByKey,
+      orderByAsc,
+      startTime,
+      lifecycleFilter,
+      modelVersionFilter,
+      showMultiColumns,
+      diffSwitchSelected,
+    } = defaultParameters;
+
+    instance.updateUrlWithViewState();
+
+    expectSearchState(history.push.mock.calls[0][0], {
+      searchInput,
+      orderByKey,
+      orderByAsc,
+      startTime,
+      lifecycleFilter,
+      modelVersionFilter,
+      showMultiColumns,
+      categorizedUncheckedKeys: emptyCategorizedUncheckedKeys,
+      diffSwitchSelected,
+      preSwitchCategorizedUncheckedKeys: emptyCategorizedUncheckedKeys,
+      postSwitchCategorizedUncheckedKeys: emptyCategorizedUncheckedKeys,
+    });
+  });
+
+  test('updateUrlWithViewState updates URL correctly with orderByAsc true', () => {
+    instance.setState({
+      persistedState: new ExperimentPagePersistedState({
+        orderByAsc: true,
+      }).toJSON(),
+    });
+
+    const {
+      searchInput,
+      orderByKey,
+      startTime,
+      lifecycleFilter,
+      modelVersionFilter,
+      showMultiColumns,
+      diffSwitchSelected,
+    } = defaultParameters;
+
+    instance.updateUrlWithViewState();
+
+    expectSearchState(history.push.mock.calls[0][0], {
+      searchInput,
+      orderByKey,
+      orderByAsc: true,
+      startTime,
+      lifecycleFilter,
+      modelVersionFilter,
+      showMultiColumns,
+      categorizedUncheckedKeys: emptyCategorizedUncheckedKeys,
+      diffSwitchSelected,
+      preSwitchCategorizedUncheckedKeys: emptyCategorizedUncheckedKeys,
+      postSwitchCategorizedUncheckedKeys: emptyCategorizedUncheckedKeys,
+    });
+  });
+
+  test('updateUrlWithViewState updates URL correctly with lifecycle & model filter', () => {
+    instance.setState({
+      persistedState: new ExperimentPagePersistedState({
+        lifecycleFilter: 'life',
+        modelVersionFilter: 'model',
+      }).toJSON(),
+    });
+
+    const {
+      searchInput,
+      orderByKey,
+      orderByAsc,
+      startTime,
+      showMultiColumns,
+      diffSwitchSelected,
+    } = defaultParameters;
+
+    instance.updateUrlWithViewState();
+
+    expectSearchState(history.push.mock.calls[0][0], {
+      searchInput,
+      orderByKey,
+      orderByAsc,
+      startTime,
+      lifecycleFilter: 'life',
+      modelVersionFilter: 'model',
+      showMultiColumns,
+      categorizedUncheckedKeys: emptyCategorizedUncheckedKeys,
+      diffSwitchSelected,
+      preSwitchCategorizedUncheckedKeys: emptyCategorizedUncheckedKeys,
+      postSwitchCategorizedUncheckedKeys: emptyCategorizedUncheckedKeys,
+    });
+  });
+
+  test('updateUrlWithViewState updates URL correctly with searchInput', () => {
+    instance.setState({
+      persistedState: new ExperimentPagePersistedState({
+        searchInput: 'search-value',
+      }).toJSON(),
+    });
+
+    const {
+      orderByKey,
+      orderByAsc,
+      startTime,
+      lifecycleFilter,
+      modelVersionFilter,
+      showMultiColumns,
+      diffSwitchSelected,
+    } = defaultParameters;
+
+    instance.updateUrlWithViewState();
+
+    expectSearchState(history.push.mock.calls[0][0], {
+      searchInput: 'search-value',
+      orderByKey,
+      orderByAsc,
+      startTime,
+      lifecycleFilter,
+      modelVersionFilter,
+      showMultiColumns,
+      categorizedUncheckedKeys: emptyCategorizedUncheckedKeys,
+      diffSwitchSelected,
+      preSwitchCategorizedUncheckedKeys: emptyCategorizedUncheckedKeys,
+      postSwitchCategorizedUncheckedKeys: emptyCategorizedUncheckedKeys,
+    });
+  });
+
+  test('updateUrlWithViewState updates URL correctly with showMultiColumns false', () => {
+    instance.setState({
+      persistedState: new ExperimentPagePersistedState({
+        showMultiColumns: false,
+      }).toJSON(),
+    });
+
+    const {
+      searchInput,
+      orderByKey,
+      orderByAsc,
+      startTime,
+      lifecycleFilter,
+      modelVersionFilter,
+      diffSwitchSelected,
+    } = defaultParameters;
+
+    instance.updateUrlWithViewState();
+
+    expectSearchState(history.push.mock.calls[0][0], {
+      searchInput,
+      orderByKey,
+      orderByAsc,
+      startTime,
+      lifecycleFilter,
+      modelVersionFilter,
+      showMultiColumns: false,
+      categorizedUncheckedKeys: emptyCategorizedUncheckedKeys,
+      diffSwitchSelected,
+      preSwitchCategorizedUncheckedKeys: emptyCategorizedUncheckedKeys,
+      postSwitchCategorizedUncheckedKeys: emptyCategorizedUncheckedKeys,
+    });
+  });
+
+  test('updateUrlWithViewState updates URL correctly with diffSwitchSelected true', () => {
+    const categorizedUncheckedKeys = {
+      [COLUMN_TYPES.ATTRIBUTES]: ['a1'],
+      [COLUMN_TYPES.PARAMS]: ['p1'],
+      [COLUMN_TYPES.METRICS]: ['m1'],
+      [COLUMN_TYPES.TAGS]: ['t1'],
+    };
+
+    const preSwitchCategorizedUncheckedKeys = {
+      [COLUMN_TYPES.ATTRIBUTES]: ['a2'],
+      [COLUMN_TYPES.PARAMS]: ['p2'],
+      [COLUMN_TYPES.METRICS]: ['m2'],
+      [COLUMN_TYPES.TAGS]: ['t2'],
+    };
+
+    const postSwitchCategorizedUncheckedKeys = {
+      [COLUMN_TYPES.ATTRIBUTES]: ['a3'],
+      [COLUMN_TYPES.PARAMS]: ['p3'],
+      [COLUMN_TYPES.METRICS]: ['m3'],
+      [COLUMN_TYPES.TAGS]: ['t3'],
+    };
+
+    instance.setState({
+      persistedState: new ExperimentPagePersistedState({
+        diffSwitchSelected: true,
+        categorizedUncheckedKeys: categorizedUncheckedKeys,
+        preSwitchCategorizedUncheckedKeys: preSwitchCategorizedUncheckedKeys,
+        postSwitchCategorizedUncheckedKeys: postSwitchCategorizedUncheckedKeys,
+      }).toJSON(),
+    });
+
+    const {
+      searchInput,
+      orderByKey,
+      orderByAsc,
+      startTime,
+      lifecycleFilter,
+      modelVersionFilter,
+      showMultiColumns,
+    } = defaultParameters;
+
+    instance.updateUrlWithViewState();
+
+    expectSearchState(history.push.mock.calls[0][0], {
+      searchInput,
+      orderByKey,
+      orderByAsc,
+      startTime,
+      lifecycleFilter,
+      modelVersionFilter,
+      showMultiColumns,
+      categorizedUncheckedKeys: categorizedUncheckedKeys,
+      diffSwitchSelected: true,
+      preSwitchCategorizedUncheckedKeys: preSwitchCategorizedUncheckedKeys,
+      postSwitchCategorizedUncheckedKeys: postSwitchCategorizedUncheckedKeys,
+    });
   });
 });
