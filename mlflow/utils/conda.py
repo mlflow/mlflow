@@ -144,7 +144,16 @@ def get_or_create_conda_env(conda_env_path, env_id=None):
             )
         else:
             process.exec_cmd(
-                [conda_env_create_path, "create", "-n", project_env_name, "python"],
+                [
+                    conda_env_create_path,
+                    "create",
+                    "--channel",
+                    "conda-forge",
+                    "--override-channels",
+                    "-n",
+                    project_env_name,
+                    "python",
+                ],
                 stream_output=True,
             )
     return project_env_name

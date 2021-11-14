@@ -16,5 +16,6 @@ exclude = '''
   | dist
   # additional exclude
   | mlflow/protos
+  | tests/protos
 )/
 '''

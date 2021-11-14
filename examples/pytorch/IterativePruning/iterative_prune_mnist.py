@@ -37,7 +37,7 @@ class IterativePrune:
         model = LightningMNISTClassifier(**parser_dict)
         trainer = pl.Trainer.from_argparse_args(self.parser_args)
         trainer.fit(model, dm)
-        trainer.test()
+        trainer.test(datamodule=dm)
         if os.path.exists(self.base_model_path):
             shutil.rmtree(self.base_model_path)
         mlflow.pytorch.save_model(trainer.lightning_module, self.base_model_path)

@@ -341,8 +341,8 @@ The following libraries support autologging:
 For flavors that automatically save models as an artifact, `additional files <https://mlflow.org/docs/latest/models.html#storage-format>`_ for dependency management are logged.
 
 
-Scikit-learn (experimental)
----------------------------
+Scikit-learn
+------------
 
 Call :py:func:`mlflow.sklearn.autolog` before your training code to enable automatic logging of sklearn metrics, params, and models.
 See example usage `here <https://github.com/mlflow/mlflow/tree/master/examples/sklearn_autolog>`_.
@@ -389,11 +389,8 @@ containing the following data:
 .. _GridSearchCV:
     https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html
 
-.. note::
-  This feature is experimental - the API and format of the logged data are subject to change.
-
-TensorFlow and Keras (experimental)
------------------------------------
+TensorFlow and Keras
+--------------------
 Call :py:func:`mlflow.tensorflow.autolog` or :py:func:`mlflow.keras.autolog` before your training code to enable automatic logging of metrics and parameters. See example usages with `Keras <https://github.com/mlflow/mlflow/tree/master/examples/keras>`_ and
 `TensorFlow <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
 
@@ -432,10 +429,9 @@ If a run already exists when ``autolog()`` captures data, MLflow will log to tha
 
 .. note::
   - Parameters not explicitly passed by users (parameters that use default values) while using ``keras.Model.fit_generator()`` are not currently automatically logged.
-  - This feature is experimental - the API and format of the logged data are subject to change.
 
-Gluon (experimental)
---------------------
+Gluon
+-----
 Call :py:func:`mlflow.gluon.autolog` before your training code to enable automatic logging of metrics and parameters.
 See example usages with `Gluon <https://github.com/mlflow/mlflow/tree/master/examples/gluon>`_ .
 
@@ -447,11 +443,8 @@ Autologging captures the following information:
 | Gluon            | Training loss; validation loss; user-specified metrics | Number of layers; optimizer name; learning rate; epsilon | --            | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Gluon model); on training end                                   |
 +------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
 
-.. note::
-  This feature is experimental - the API and format of the logged data are subject to change.
-
-XGBoost (experimental)
-----------------------
+XGBoost
+-------
 Call :py:func:`mlflow.xgboost.autolog` before your training code to enable automatic logging of metrics and parameters.
 
 Autologging captures the following information:
@@ -465,15 +458,14 @@ Autologging captures the following information:
 If early stopping is activated, metrics at the best iteration will be logged as an extra step/iteration.
 
 .. note::
-  - This feature is experimental - the API and format of the logged data are subject to change.
   - The `scikit-learn API <https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn>`__ is not supported.
 
 .. _xgboost.train: https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.train
 .. _MLflow Model: https://mlflow.org/docs/latest/models.html
 
 
-LightGBM (experimental)
------------------------
+LightGBM
+--------
 Call :py:func:`mlflow.lightgbm.autolog` before your training code to enable automatic logging of metrics and parameters.
 
 Autologging captures the following information:
@@ -487,13 +479,12 @@ Autologging captures the following information:
 If early stopping is activated, metrics at the best iteration will be logged as an extra step/iteration.
 
 .. note::
-  - This feature is experimental - the API and format of the logged data are subject to change.
   - The `scikit-learn API <https://lightgbm.readthedocs.io/en/latest/Python-API.html#scikit-learn-api>`__ is not supported.
 
 .. _lightgbm.train: https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.train.html#lightgbm-train
 
-Statsmodels (experimental)
---------------------------
+Statsmodels
+-----------
 Call :py:func:`mlflow.statsmodels.autolog` before your training code to enable automatic logging of metrics and parameters.
 
 Autologging captures the following information:
@@ -505,13 +496,12 @@ Autologging captures the following information:
 +--------------+------------------------+------------------------------------------------+---------------+-----------------------------------------------------------------------------+
 
 .. note::
-  - This feature is experimental - the API and format of the logged data are subject to change.
   - Each model subclass that overrides `fit` expects and logs its own parameters.
 
 .. _statsmodels.base.model.Model.fit: https://www.statsmodels.org/dev/dev/generated/statsmodels.base.model.Model.html
 
-Spark (experimental)
---------------------
+Spark
+-----
 
 Initialize a SparkSession with the mlflow-spark JAR attached (e.g.
 ``SparkSession.builder.config("spark.jars.packages", "org.mlflow.mlflow-spark")``) and then
@@ -528,11 +518,10 @@ Autologging captures the following information:
 +------------------+---------+------------+----------------------------------------------------------------------------------------------+-----------+
 
 .. note::
-  - This feature is experimental - the API and format of the logged data are subject to change.
   - Moreover, Spark datasource autologging occurs asynchronously - as such, it's possible (though unlikely) to see race conditions when launching short-lived MLflow runs that result in datasource information not being logged.
 
-Fastai (experimental)
----------------------
+Fastai
+------
 
 Call :py:func:`mlflow.fastai.autolog` before your training code to enable automatic logging of metrics and parameters.
 See an example usage with `Fastai <https://github.com/mlflow/mlflow/tree/master/examples/fastai>`_.
@@ -551,8 +540,8 @@ Autologging captures the following information:
 |           |                        | `OneCycleScheduler`_ callbacks                           |               |                                                                                                                                                                       |
 +-----------+------------------------+----------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
-Pytorch (experimental)
---------------------------
+Pytorch
+-------
 
 Call :py:func:`mlflow.pytorch.autolog` before your Pytorch Lightning training code to enable automatic logging of metrics, parameters, and models. See example usages `here <https://github.com/chauhang/mlflow/tree/master/examples/pytorch/MNIST>`__. Note
 that currently, Pytorch autologging supports only models trained using Pytorch Lightning.
@@ -586,7 +575,6 @@ If a run already exists when ``autolog()`` captures data, MLflow will log to tha
 .. note::
   - Parameters not explicitly passed by users (parameters that use default values) while using ``pytorch_lightning.trainer.Trainer.fit()`` are not currently automatically logged
   - In case of a multi-optimizer scenario (such as usage of autoencoder), only the parameters for the first optimizer are logged
-  - This feature is experimental - the API and format of the logged data are subject to change
 
 
 .. _organizing_runs_in_experiments:
