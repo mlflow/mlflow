@@ -14,9 +14,7 @@ build-code-job:
     - cd mlflow/server/js
     - npm install && npm run build
     - cd ../../..
-    - pip install wheel
     - python setup.py bdist_wheel
-    - wheel_path=$(find dist -type f -name "*.whl")
 
 publish-code-job:
   stage: publish
