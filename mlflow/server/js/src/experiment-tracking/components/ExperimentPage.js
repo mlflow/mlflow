@@ -289,14 +289,7 @@ export class ExperimentPage extends Component {
     return (!orderByKey && !searchInput) || orderByKey === ATTRIBUTE_COLUMN_SORT_KEY.DATE;
   }
 
-  onSearch = ({
-    searchInput,
-    orderByKey,
-    orderByAsc,
-    startTime,
-    lifecycleFilter,
-    modelVersionFilter,
-  }) => {
+  onSearch = (searchValue) => {
     const { persistedState } = this.state;
     this.setState(
       {
@@ -304,16 +297,7 @@ export class ExperimentPage extends Component {
         numberOfNewRuns: 0,
         persistedState: new ExperimentPagePersistedState({
           ...persistedState,
-          searchInput: searchInput !== undefined ? searchInput : persistedState.searchInput,
-          orderByKey: orderByKey !== undefined ? orderByKey : persistedState.orderByKey,
-          orderByAsc: orderByAsc !== undefined ? orderByAsc : persistedState.orderByAsc,
-          startTime: startTime !== undefined ? startTime : persistedState.startTime,
-          lifecycleFilter:
-            lifecycleFilter !== undefined ? lifecycleFilter : persistedState.lifecycleFilter,
-          modelVersionFilter:
-            modelVersionFilter !== undefined
-              ? modelVersionFilter
-              : persistedState.modelVersionFilter,
+          ...searchValue,
         }).toJSON(),
         nextPageToken: null,
       },
@@ -395,21 +379,6 @@ export class ExperimentPage extends Component {
   };
 
   updateUrlWithViewState = () => {
-    const {
-      searchInput,
-      startTime,
-      orderByKey,
-      orderByAsc,
-      lifecycleFilter,
-      modelVersionFilter,
-      showMultiColumns,
-      categorizedUncheckedKeys,
-      diffSwitchSelected,
-      preSwitchCategorizedUncheckedKeys,
-      postSwitchCategorizedUncheckedKeys,
-    } = this.state.persistedState;
-    const { experimentId, history } = this.props;
-
     const getCategorizedUncheckedKeysForUrl = (keys) => {
       // Empty arrays are set to an array with a single null value
       // so that the object can be stringified to the urlState
@@ -427,24 +396,19 @@ export class ExperimentPage extends Component {
       };
     };
 
-    const state = {
-      searchInput: searchInput,
-      startTime: startTime,
-      orderByKey: orderByKey,
-      orderByAsc: orderByAsc,
-      lifecycleFilter: lifecycleFilter,
-      modelVersionFilter: modelVersionFilter,
-      showMultiColumns: showMultiColumns,
-      categorizedUncheckedKeys: getCategorizedUncheckedKeysForUrl(categorizedUncheckedKeys),
-      diffSwitchSelected: diffSwitchSelected,
-      preSwitchCategorizedUncheckedKeys: getCategorizedUncheckedKeysForUrl(
-        preSwitchCategorizedUncheckedKeys,
-      ),
-      postSwitchCategorizedUncheckedKeys: getCategorizedUncheckedKeysForUrl(
-        postSwitchCategorizedUncheckedKeys,
-      ),
-    };
-    const newUrl = `/experiments/${experimentId}/s?${Utils.getSearchUrlFromState(state)}`;
+    const { persistedState } = this.state;
+    const { experimentId, history } = this.props;
+    persistedState.categorizedUncheckedKeys = getCategorizedUncheckedKeysForUrl(
+      persistedState.categorizedUncheckedKeys,
+    );
+    persistedState.preSwitchCategorizedUncheckedKeys = getCategorizedUncheckedKeysForUrl(
+      persistedState.preSwitchCategorizedUncheckedKeys,
+    );
+    persistedState.postSwitchCategorizedUncheckedKeys = getCategorizedUncheckedKeysForUrl(
+      persistedState.postSwitchCategorizedUncheckedKeys,
+    );
+
+    const newUrl = `/experiments/${experimentId}/s?${Utils.getSearchUrlFromState(persistedState)}`;
     if (newUrl !== history.location.pathname + history.location.search) {
       history.push(newUrl);
     }

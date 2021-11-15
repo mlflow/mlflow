@@ -1153,3 +1153,150 @@ describe('updateUrlWithViewState', () => {
     });
   });
 });
+
+describe('filtersDidUpdate', () => {
+  let wrapper;
+  let instance;
+  let prevState;
+  beforeEach(() => {
+    localStorage.clear();
+    wrapper = getExperimentPageMock();
+    instance = wrapper.instance();
+    prevState = {
+      persistedState: {
+        searchInput: '',
+        orderByKey: DEFAULT_ORDER_BY_KEY,
+        orderByAsc: DEFAULT_ORDER_BY_ASC,
+        startTime: DEFAULT_START_TIME,
+        lifecycleFilter: DEFAULT_LIFECYCLE_FILTER,
+        modelVersionFilter: DEFAULT_MODEL_VERSION_FILTER,
+      },
+    };
+  });
+  test('filtersDidUpdate returns true when filters were not updated', () => {
+    expect(instance.filtersDidUpdate(prevState)).toEqual(false);
+  });
+
+  test('filtersDidUpdate returns false when searchinput was updated', () => {
+    prevState.persistedState.searchInput = 'updated';
+    expect(instance.filtersDidUpdate(prevState)).toEqual(true);
+  });
+
+  test('filtersDidUpdate returns false when orderByKey was updated', () => {
+    prevState.persistedState.orderByKey = 'updated';
+    expect(instance.filtersDidUpdate(prevState)).toEqual(true);
+  });
+
+  test('filtersDidUpdate returns false when orderByAsc was updated', () => {
+    prevState.persistedState.orderByAsc = 'updated';
+    expect(instance.filtersDidUpdate(prevState)).toEqual(true);
+  });
+
+  test('filtersDidUpdate returns false when startTime was updated', () => {
+    prevState.persistedState.startTime = 'updated';
+    expect(instance.filtersDidUpdate(prevState)).toEqual(true);
+  });
+
+  test('filtersDidUpdate returns false when lifecycleFilter was updated', () => {
+    prevState.persistedState.lifecycleFilter = 'updated';
+    expect(instance.filtersDidUpdate(prevState)).toEqual(true);
+  });
+
+  test('filtersDidUpdate returns false when modelVersionFilter was updated', () => {
+    prevState.persistedState.modelVersionFilter = 'updated';
+    expect(instance.filtersDidUpdate(prevState)).toEqual(true);
+  });
+});
+
+describe('setShowMultiColumns', () => {
+  test('setShowMultiColumns sets state correctly', () => {
+    const wrapper = getExperimentPageMock();
+    const instance = wrapper.instance();
+    const updateUrlWithViewStateSpy = jest.fn();
+    const snapshotComponentStateSpy = jest.fn();
+    instance.updateUrlWithViewState = updateUrlWithViewStateSpy;
+    instance.snapshotComponentState = snapshotComponentStateSpy;
+    instance.setShowMultiColumns(true);
+    expect(instance.state.persistedState.showMultiColumns).toEqual(true);
+    expect(updateUrlWithViewStateSpy).toHaveBeenCalledTimes(1);
+    expect(snapshotComponentStateSpy).toHaveBeenCalledTimes(1);
+    instance.setShowMultiColumns(false);
+    expect(instance.state.persistedState.showMultiColumns).toEqual(false);
+    expect(updateUrlWithViewStateSpy).toHaveBeenCalledTimes(2);
+    expect(snapshotComponentStateSpy).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('handleColumnSelectionCheck', () => {
+  test('handleColumnSelectionCheck sets state correctly', () => {
+    const wrapper = getExperimentPageMock();
+    const instance = wrapper.instance();
+    const updateUrlWithViewStateSpy = jest.fn();
+    const snapshotComponentStateSpy = jest.fn();
+    instance.updateUrlWithViewState = updateUrlWithViewStateSpy;
+    instance.snapshotComponentState = snapshotComponentStateSpy;
+    instance.handleColumnSelectionCheck({
+      key: 'value',
+    });
+    expect(instance.state.persistedState.categorizedUncheckedKeys).toEqual({
+      key: 'value',
+    });
+    expect(updateUrlWithViewStateSpy).toHaveBeenCalledTimes(1);
+    expect(snapshotComponentStateSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('handleDiffSwitchChange', () => {
+  test('handleDiffSwitchChange sets state correctly', () => {
+    const wrapper = getExperimentPageMock();
+    const instance = wrapper.instance();
+    const updateUrlWithViewStateSpy = jest.fn();
+    const snapshotComponentStateSpy = jest.fn();
+    instance.updateUrlWithViewState = updateUrlWithViewStateSpy;
+    instance.snapshotComponentState = snapshotComponentStateSpy;
+
+    instance.handleDiffSwitchChange({
+      categorizedUncheckedKeys: {
+        key1: 'value1',
+      },
+      preSwitchCategorizedUncheckedKeys: {
+        key2: 'value2',
+      },
+      postSwitchCategorizedUncheckedKeys: {
+        key3: 'value3',
+      },
+    });
+
+    expect(instance.state.persistedState.categorizedUncheckedKeys).toEqual({
+      key1: 'value1',
+    });
+    expect(instance.state.persistedState.preSwitchCategorizedUncheckedKeys).toEqual({
+      key2: 'value2',
+    });
+    expect(instance.state.persistedState.postSwitchCategorizedUncheckedKeys).toEqual({
+      key3: 'value3',
+    });
+    expect(instance.state.persistedState.diffSwitchSelected).toEqual(true);
+    expect(updateUrlWithViewStateSpy).toHaveBeenCalledTimes(1);
+    expect(snapshotComponentStateSpy).toHaveBeenCalledTimes(1);
+
+    instance.handleDiffSwitchChange({
+      categorizedUncheckedKeys: {
+        key4: 'value4',
+      },
+    });
+
+    expect(instance.state.persistedState.categorizedUncheckedKeys).toEqual({
+      key4: 'value4',
+    });
+    expect(instance.state.persistedState.preSwitchCategorizedUncheckedKeys).toEqual({
+      key2: 'value2',
+    });
+    expect(instance.state.persistedState.postSwitchCategorizedUncheckedKeys).toEqual({
+      key3: 'value3',
+    });
+    expect(instance.state.persistedState.diffSwitchSelected).toEqual(false);
+    expect(updateUrlWithViewStateSpy).toHaveBeenCalledTimes(2);
+    expect(snapshotComponentStateSpy).toHaveBeenCalledTimes(2);
+  });
+});
