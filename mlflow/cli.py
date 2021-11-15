@@ -243,10 +243,13 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
     "Note that this flag does not impact already-created experiments. "
     "Default: " + DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
 )
+@cli_args.SERVE_ARTIFACTS
 @cli_args.ARTIFACTS_DESTINATION
 @cli_args.PORT
 @cli_args.HOST
-def ui(backend_store_uri, default_artifact_root, artifacts_destination, port, host):
+def ui(
+    backend_store_uri, default_artifact_root, serve_artifacts, artifacts_destination, port, host
+):
     """
     Launch the MLflow tracking UI for local viewing of run results. To launch a production
     server, use the "mlflow server" command instead.
@@ -281,7 +284,7 @@ def ui(backend_store_uri, default_artifact_root, artifacts_destination, port, ho
         _run_server(
             backend_store_uri,
             default_artifact_root,
-            False,
+            serve_artifacts,
             False,
             artifacts_destination,
             host,
@@ -328,16 +331,7 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
     "Default: Within file store, if a file:/ URI is provided. If a sql backend is"
     " used, then this option is required.",
 )
-@click.option(
-    "--serve-artifacts",
-    is_flag=True,
-    help="If specified, enables serving of artifact uploads, downloads, and list requests "
-    "by routing these requests to the storage location that is specified by "
-    "'--artifact-destination' directly through a proxy. The default location that "
-    "these requests are served from is a local './mlartifacts' directory which can be "
-    "overridden via the '--artifacts-destination' argument. "
-    "Default: False",
-)
+@cli_args.SERVE_ARTIFACTS
 @click.option(
     "--artifacts-only",
     is_flag=True,

@@ -258,8 +258,8 @@ def test_mlflow_tracking_disabled_in_artifacts_only_mode():
     _await_server_up_or_die(port, timeout=10)
     resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow/experiments/list")
     assert (
-        "Endpoint disabled due to the mlflow server running in `--artifacts-only` mode."
-        in resp.text
+        "Endpoint: /api/2.0/mlflow/experiments/list disabled due to the mlflow server running "
+        "in `--artifacts-only` mode." in resp.text
     )
     process.kill()
 

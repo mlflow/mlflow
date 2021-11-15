@@ -289,9 +289,9 @@ def _disable_if_artifacts_only(func):
         if os.environ.get(ARTIFACTS_ONLY_ENV_VAR):
             return Response(
                 (
-                    "Endpoint disabled due to the mlflow server running in `--artifacts-only` "
-                    "mode. To enable tracking server functionality, run `mlflow server` without "
-                    "`--artifacts-only`"
+                    f"Endpoint: {request.url_rule} disabled due to the mlflow server running "
+                    "in `--artifacts-only` mode. To enable tracking server functionality, run "
+                    "`mlflow server` without `--artifacts-only`"
                 ),
                 503,
             )
