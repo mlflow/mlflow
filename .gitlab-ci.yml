@@ -1,0 +1,22 @@
+stages:
+  - build
+  - publish
+
+build-code-job:
+  stage: build
+  artifacts:
+    paths:
+      - dist/
+  script:
+    - cd mlflow/server/js
+    - npm install && npm run build
+    - cd ../../..
+    - pip install wheel
+    - python setup.py bdist_wheel
+    - wheel_path=$(find dist -type f -name "*.whl")
+
+publish-code-job:
+  stage: publish
+  script:
+    - pip install twine
+    - TWINE_PASSWORD=${CI_JOB_TOKEN} TWINE_USERNAME=gitlab-ci-token python -m twine upload --repository-url ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi dist/*
