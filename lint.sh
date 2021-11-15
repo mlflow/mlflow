@@ -7,7 +7,7 @@ trap 'err=1' ERR
 
 echo -e "\n========== black ==========\n"
 # Exclude proto files because they are auto-generated
-black --check --diff .
+black --check .
 
 if [ $? -ne 0 ]; then
   echo 'Run this command to apply Black formatting:'
