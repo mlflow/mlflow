@@ -954,7 +954,7 @@ export class ExperimentView extends Component {
                 </div>
               </div>
             </CSSTransition>
-            {this.props.showMultiColumns && !this.props.forceCompactTableView ? (
+            {showMultiColumns && !this.props.forceCompactTableView ? (
               <ExperimentRunsTableMultiColumnView2
                 experimentId={experiment.experiment_id}
                 modelVersionsByRunUuid={this.props.modelVersionsByRunUuid}
