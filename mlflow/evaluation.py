@@ -1,5 +1,4 @@
 from collections.abc import Mapping
-from typing import List
 import entrypoints
 import warnings
 import mlflow
@@ -84,7 +83,7 @@ class EvaluationDataset:
 class ModelEvaluator:
 
     def can_evaluate(
-        model_type, evaluator_config=None, **kwargs
+        self, model_type, evaluator_config=None, **kwargs
     ) -> bool:
         """
         :param model_type: A string describing the model type (e.g., "regressor",
@@ -100,7 +99,7 @@ class ModelEvaluator:
         raise NotImplementedError()
 
     def evaluate(
-        predict, dataset, run_id, evaluator_config=None, **kwargs
+        self, predict, dataset, run_id, evaluator_config=None, **kwargs
     ) -> EvaluationResult:
         """
         :param predict: A function used to compute model predictions. Predict
@@ -160,6 +159,7 @@ class ModelEvaluatorRegistry:
 
 
 _model_evaluation_registry = ModelEvaluatorRegistry()
+_model_evaluation_registry.register_entrypoints()
 
 
 def evaluate(
@@ -196,6 +196,7 @@ def evaluate(
 
     if not isinstance(evaluators, list):
         evaluators = [evaluators]
+        evaluator_config = {evaluators[0]: evaluator_config}
 
     if isinstance(model, str):
         model = mlflow.pyfunc.load_model(model)
@@ -204,14 +205,15 @@ def evaluate(
 
     eval_results = {}
     for evaluator_name in evaluators:
+        config = evaluator_config[evaluator_name]
         try:
             evaluator = _model_evaluation_registry.get_evaluator(evaluator_name)
         except MlflowException:
             eval_results[evaluator_name] = None
             continue
 
-        if evaluator.can_evaluate(model_type, evaluator_config):
-            result = evaluator.evaluate(predict, dataset, run_id, evaluator_config)
+        if evaluator.can_evaluate(model_type, config):
+            result = evaluator.evaluate(predict, dataset, run_id, config)
             eval_results[evaluator_name] = result
         else:
             eval_results[evaluator_name] = None
@@ -220,8 +222,3 @@ def evaluate(
         return eval_results
     else:
         return eval_results[evaluators[0]]
-
-
-
-
-
