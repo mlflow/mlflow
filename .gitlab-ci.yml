@@ -1,3 +1,6 @@
+image:
+  name: ${CI_REGISTRY}/ci-runner-images/ci-docker-images/ddi-yarn:master
+
 stages:
   - build
   - publish
