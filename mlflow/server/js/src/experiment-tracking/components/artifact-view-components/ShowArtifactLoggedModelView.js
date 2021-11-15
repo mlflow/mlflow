@@ -155,8 +155,8 @@ class ShowArtifactLoggedModelView extends Component {
                 <br />
               </pre>
             </Paragraph>
-            See <a href={CustomPyfuncModelsDocUrl}>Creating custom Pyfunc models</a> for how to log
-            this model as a PyFuncModel.
+            See <a href={CustomPyfuncModelsDocUrl}>creating custom Pyfunc models</a> to learn how
+            to customize this model and deploy it for batch or real-time scoring using the ``pyfunc`` model flavor.
           </div>
         </div>
       </>
