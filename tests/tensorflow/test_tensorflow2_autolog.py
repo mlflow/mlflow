@@ -860,6 +860,20 @@ def test_fluent_autolog_with_tf_keras_logs_expected_content(
 
 
 @pytest.mark.large
+def test_tf_keras_autolog_distributed_training(random_train_data, random_one_hot_labels):
+    # Ref: https://www.tensorflow.org/tutorials/distribute/keras
+    mlflow.tensorflow.autolog()
+
+    with tf.distribute.MirroredStrategy().scope():
+        model = create_tf_keras_model()
+    fit_params = {"epochs": 10, "batch_size": 10}
+    with mlflow.start_run() as run:
+        model.fit(random_train_data, random_one_hot_labels, **fit_params)
+    client = mlflow.tracking.MlflowClient()
+    assert client.get_run(run.info.run_id).data.params.keys() >= fit_params.keys()
+
+
+@pytest.mark.large
 @pytest.mark.skipif(
     Version(tf.__version__) < Version("2.6.0"),
     reason=("TensorFlow only has a hard dependency on Keras in version >= 2.6.0"),
