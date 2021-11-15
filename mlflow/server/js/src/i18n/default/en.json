@@ -15,9 +15,17 @@
     "defaultMessage": "Run ID:",
     "description": "Row title for the run id on the experiment compare runs page"
   },
+  "/2SlQ2": {
+    "defaultMessage": "Share",
+    "description": "String for the share button to share experiment view"
+  },
   "/2m1wK": {
     "defaultMessage": "Oops!",
     "description": "Error modal title to rendering errors"
+  },
+  "/3BTaS": {
+    "defaultMessage": "Experiment view URL copied to clipboard",
+    "description": "Content of the message after clicking the share experiment button"
   },
   "/738wy": {
     "defaultMessage": "Filter",
@@ -746,6 +754,10 @@
   "cK6riy": {
     "defaultMessage": "Schema",
     "description": "Table title text for schema table in the model comparison page"
+  },
+  "dA5sT3": {
+    "defaultMessage": "Share experiment view",
+    "description": "Label for the share experiment view button"
   },
   "dq8MJd": {
     "defaultMessage": "Contour Plot",
