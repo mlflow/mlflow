@@ -136,7 +136,6 @@ def _validate_param(key, value):
     Check that a param with the specified key & value is valid and raise an exception if it
     isn't.
     """
-    _validate_param_name(key)
     _validate_length_limit("Param key", MAX_ENTITY_KEY_LENGTH, key)
     _validate_length_limit("Param value", MAX_PARAM_VAL_LENGTH, value)
 
@@ -145,7 +144,6 @@ def _validate_tag(key, value):
     """
     Check that a tag with the specified key & value is valid and raise an exception if it isn't.
     """
-    _validate_tag_name(key)
     _validate_length_limit("Tag key", MAX_ENTITY_KEY_LENGTH, key)
     _validate_length_limit("Tag value", MAX_TAG_VAL_LENGTH, value)
 
