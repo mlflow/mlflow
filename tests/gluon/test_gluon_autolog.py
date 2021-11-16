@@ -1,4 +1,5 @@
 from packaging.version import Version
+import pickle
 import random
 import warnings
 
@@ -11,6 +12,7 @@ from mxnet.gluon.nn import HybridSequential, Dense
 
 import mlflow
 import mlflow.gluon
+from mlflow.gluon._autolog import __MLflowGluonCallback
 from mlflow.utils.autologging_utils import BatchMetricsLogger
 from unittest.mock import patch
 from tests.gluon.utils import is_mxnet_older_than_1_6_0, get_estimator
@@ -196,3 +198,8 @@ def test_autolog_persists_manually_created_run():
             est.fit(data, epochs=3)
 
         assert mlflow.active_run().info.run_id == run.info.run_id
+
+
+def test_callback_is_callable():
+    cb = __MLflowGluonCallback(log_models=True, metrics_logger=BatchMetricsLogger(run_id="1234"))
+    pickle.dumps(cb)
