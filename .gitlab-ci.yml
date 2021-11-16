@@ -24,4 +24,4 @@ publish-code-job:
     - REPO_URL=https://${SERVER_INT_FQDN}/projects/${CI_PROJECT_ID}/packages/pypi
     - TWINE_PASSWORD=${CI_JOB_TOKEN} 
     - TWINE_USERNAME=gitlab-ci-token 
-    - python -m twine upload --repository-url $REPO_URL dist/*
+    - python -m twine upload -u $TWINE_USERNAME -p $TWINE_PASSWORD --repository-url $REPO_URL dist/*
