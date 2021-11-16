@@ -127,7 +127,7 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
             # If validation loop is enabled (meaning `validation_step` is overridden),
             # log metrics in `on_validaion_epoch_end` to avoid logging the same metrics
             # records twice
-            if trainer.disable_validation:
+            if not trainer.enable_validation:
                 self._log_metrics(trainer, pl_module)
 
         @rank_zero_only
