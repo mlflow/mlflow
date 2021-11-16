@@ -4,6 +4,3 @@
 sphinx==3.5.4
 sphinx-autobuild
 sphinx-click
-scikit-learn
-scipy
-kubernetes
