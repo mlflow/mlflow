@@ -568,7 +568,8 @@ def test_callback_func_is_pickable():
 
 
 @pytest.mark.skipif(
-    IS_TRAINING_CALLBACK_SUPPORTED, reason="`xgboost.callback.TrainingCallback` is not supported",
+    not IS_TRAINING_CALLBACK_SUPPORTED,
+    reason="`xgboost.callback.TrainingCallback` is not supported",
 )
 def test_callback_class_is_pickable():
     from mlflow.xgboost._autolog import AutologCallback
