@@ -562,9 +562,8 @@ def test_xgb_autolog_does_not_break_dmatrix_instantiation_with_data_none():
 def test_callback_func_is_pickable():
     from mlflow.xgboost._autolog import autolog_callback
 
-    with mlflow.start_run() as run, batch_metrics_logger(run.info.run_id) as logger:
-        eval_results = {}
-        cb = functools.partial(autolog_callback, metrics_logger=logger, eval_results=eval_results)
+    with batch_metrics_logger(run_id="1234") as logger:
+        cb = functools.partial(autolog_callback, metrics_logger=logger, eval_results={})
         pickle.dumps(cb)
 
 
@@ -575,7 +574,6 @@ def test_callback_func_is_pickable():
 def test_callback_class_is_pickable():
     from mlflow.xgboost._autolog import AutologCallback
 
-    with mlflow.start_run() as run, batch_metrics_logger(run.info.run_id) as logger:
-        eval_results = {}
-        cb = AutologCallback(logger, eval_results)
+    with batch_metrics_logger(run_id="1234") as logger:
+        cb = AutologCallback(logger, {})
         pickle.dumps(cb)
