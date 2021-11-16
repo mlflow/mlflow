@@ -380,7 +380,6 @@ def autolog(
     import functools
     import xgboost
     import numpy as np
-    from mlflow.xgboost._autolog import AutologCallback, autolog_callback
 
     if importance_types is None:
         importance_types = ["weight"]
@@ -417,11 +416,15 @@ def autolog(
             # TODO: Remove `replace("SNAPSHOT", "dev")` once the following issue is addressed:
             #       https://github.com/dmlc/xgboost/issues/6984
             if Version(xgboost.__version__.replace("SNAPSHOT", "dev")) >= Version("1.3.0"):
+                from mlflow.xgboost._autolog import AutologCallback
+
                 # In xgboost >= 1.3.0, user-defined callbacks should inherit
                 # `xgboost.callback.TrainingCallback`:
                 # https://xgboost.readthedocs.io/en/latest/python/callbacks.html#defining-your-own-callback  # noqa
                 return AutologCallback(metrics_logger, eval_results)
             else:
+                from mlflow.xgboost._autolog import autolog_callback
+
                 return functools.partial(
                     autolog_callback, metrics_logger=metrics_logger, eval_results=eval_results
                 )
