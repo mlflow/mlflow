@@ -26,9 +26,6 @@ setup(
         "mlflow.project_backend": "dummy-backend=mlflow_test_plugin.dummy_backend:PluginDummyProjectBackend",  # noqa
         # Define a MLflow model deployment plugin for target 'faketarget'
         "mlflow.deployments": "faketarget=mlflow_test_plugin.fake_deployment_plugin",
-        "mlflow.model_evaluator": [
-            "dummy_classifier_evaluator=mlflow_test_plugin.dummy_evaluator:DummyClassifierEvaluator",  # noqa
-            "dummy_regressor_evaluator=mlflow_test_plugin.dummy_evaluator:DummyRegressorEvaluator",  # noqa
-        ],
+        "mlflow.model_evaluator": "dummy_evaluator=mlflow_test_plugin.dummy_evaluator:DummyEvaluator",
     },
 )

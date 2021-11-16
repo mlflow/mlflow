@@ -10,16 +10,16 @@ import pickle
 class DummyEvaluationArtifact(EvaluationArtifact):
 
     def __init__(self, content, location):
-        self.content = content
-        self.location = location
+        self._content = content
+        self._location = location
 
     @property
     def content(self):
-        return self.content
+        return self._content
 
     @property
     def location(self) -> str:
-        return self.location
+        return self._location
 
 
 class DummyEvaluationResult(EvaluationResult):
@@ -42,7 +42,7 @@ class DummyEvaluationResult(EvaluationResult):
 
     @property
     def metrics(self):
-        return self.metric_values()
+        return self.metric_values
 
     @property
     def artifacts(self):
@@ -91,10 +91,10 @@ class DummyEvaluator(ModelEvaluator):
         self, predict, dataset, run_id, evaluator_config=None
     ):
         if run_id is not None:
-            return self._evaluate(self, predict, dataset, run_id, evaluator_config)
+            return self._evaluate(predict, dataset, run_id, evaluator_config)
         elif mlflow.active_run() is not None:
-            return self._evaluate(self, predict, dataset, mlflow.active_run().info.run_id,
+            return self._evaluate(predict, dataset, mlflow.active_run().info.run_id,
                                   evaluator_config)
         else:
             with mlflow.start_run() as run:
-                return self._evaluate(self, predict, dataset, run.info.run_id, evaluator_config)
+                return self._evaluate(predict, dataset, run.info.run_id, evaluator_config)

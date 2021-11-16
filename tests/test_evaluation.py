@@ -42,13 +42,17 @@ def test_reg_evaluate(regressor_model, evaluation_dataset):
         'mean_absolute_error': expected_mae,
         'mean_squared_error': expected_mse,
     }
+    expected_saved_metrics = {
+        'mean_absolute_error_on_eval_data_1': expected_mae,
+        'mean_squared_error_on_eval_data_1': expected_mse,
+    }
 
     expected_artifact = expected_metrics
 
     with mlflow.start_run() as run:
         eval_result = evaluate(
             regressor_model, 'regressor', evaluation_dataset,
-            run_id=None, evaluators='dummy_regressor_evaluator',
+            run_id=None, evaluators='dummy_evaluator',
             evaluator_config={
                 'can_evaluate': True,
                 'metrics_to_calc': ['mean_absolute_error', 'mean_squared_error']
@@ -59,7 +63,7 @@ def test_reg_evaluate(regressor_model, evaluation_dataset):
         assert saved_artifact == expected_artifact
 
     _, saved_metrics, _, _ = get_run_data(run.info.run_id)
-    assert saved_metrics == expected_metrics
+    assert saved_metrics == expected_saved_metrics
 
     assert eval_result.metrics == expected_metrics
     assert eval_result.artifacts.content == expected_artifact
