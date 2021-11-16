@@ -12,7 +12,8 @@ class DummyEvaluationResult(EvaluationResult):
         self.evaluator_config = evaluator_config
 
 
-class DummyClassifierEvaluationResult(DummyEvaluationResult)
+class DummyClassifierEvaluationResult(DummyEvaluationResult):
+    pass
 
 
 class DummyClassifierEvaluator(ModelEvaluator):
@@ -35,7 +36,8 @@ class DummyClassifierEvaluator(ModelEvaluator):
                 return self._evaluate(self, predict, dataset, run.info.run_id, evaluator_config)
 
 
-class DummyRegressorEvaluationResult(DummyEvaluationResult)
+class DummyRegressorEvaluationResult(DummyEvaluationResult):
+    pass
 
 
 class DummyRegressorEvaluator(ModelEvaluator):
