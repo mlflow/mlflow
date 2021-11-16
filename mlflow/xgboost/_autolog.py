@@ -1,10 +1,7 @@
 from packaging.version import Version
 import xgboost
 
-from mlflow.utils.autologging_utils import exception_safe_function
 
-
-@exception_safe_function
 def autolog_callback(env, metrics_logger, eval_results):
     metrics_logger.record_metrics(dict(env.evaluation_result_list), env.iteration)
     eval_results.append(dict(env.evaluation_result_list))

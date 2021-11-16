@@ -51,6 +51,7 @@ from mlflow.utils.arguments_utils import _get_arg_names
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
+    picklable_exception_safe_function,
     get_mlflow_run_params_for_fn_args,
     INPUT_EXAMPLE_SAMPLE_ROWS,
     resolve_input_example_and_signature,
@@ -425,8 +426,10 @@ def autolog(
             else:
                 from mlflow.xgboost._autolog import autolog_callback
 
-                return functools.partial(
-                    autolog_callback, metrics_logger=metrics_logger, eval_results=eval_results
+                return picklable_exception_safe_function(
+                    functools.partial(
+                        autolog_callback, metrics_logger=metrics_logger, eval_results=eval_results
+                    )
                 )
 
         def log_feature_importance_plot(features, importance, importance_type):

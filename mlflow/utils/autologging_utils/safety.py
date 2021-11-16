@@ -51,6 +51,27 @@ def exception_safe_function(function):
     return safe_function
 
 
+def _safe_function(function, *args, **kwargs):
+    try:
+        return function(*args, **kwargs)
+    except Exception as e:
+        if is_testing():
+            raise
+        else:
+            _logger.warning("Encountered unexpected error during autologging: %s", e)
+
+
+def picklable_exception_safe_function(function):
+    """
+    Wraps the specified function with broad exception handling to guard
+    against unexpected errors during autologging.
+    """
+    if is_testing():
+        setattr(function, _ATTRIBUTE_EXCEPTION_SAFE, True)
+
+    return update_wrapper_extended(functools.partial(_safe_function, function), function)
+
+
 def _exception_safe_class_factory(base_class):
     """
     Creates an exception safe metaclass that inherits from `base_class`.
@@ -848,6 +869,7 @@ __all__ = [
     "safe_patch",
     "is_testing",
     "exception_safe_function",
+    "picklable_exception_safe_function",
     "ExceptionSafeClass",
     "ExceptionSafeAbstractClass",
     "PatchFunction",

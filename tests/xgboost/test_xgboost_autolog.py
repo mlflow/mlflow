@@ -13,9 +13,10 @@ import yaml
 
 import mlflow
 import mlflow.xgboost
+from mlflow.xgboost._autolog import autolog_callback
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
-from mlflow.utils.autologging_utils import BatchMetricsLogger
+from mlflow.utils.autologging_utils import BatchMetricsLogger, picklable_exception_safe_function
 
 mpl.use("Agg")
 
@@ -560,9 +561,9 @@ def test_xgb_autolog_does_not_break_dmatrix_instantiation_with_data_none():
 
 
 def test_callback_func_is_pickable():
-    from mlflow.xgboost._autolog import autolog_callback
-
-    cb = functools.partial(autolog_callback, BatchMetricsLogger(run_id="1234"), eval_results={})
+    cb = picklable_exception_safe_function(
+        functools.partial(autolog_callback, BatchMetricsLogger(run_id="1234"), eval_results={})
+    )
     pickle.dumps(cb)
 
 
