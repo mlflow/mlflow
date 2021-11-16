@@ -410,7 +410,6 @@ jobs:
           python-version: 3.7
       - name: Install python dependencies
         run: |
-          pip install -r dev-requirements.txt
           pip install -r dev/small-requirements.txt
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install -e .[extras]
