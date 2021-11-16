@@ -57,7 +57,8 @@ class DummyEvaluator(ModelEvaluator):
     def can_evaluate(
         self, model_type, evaluator_config=None, **kwargs
     ):
-        return evaluator_config.get('can_evaluate')
+        return evaluator_config.get('can_evaluate') and \
+               model_type in ['classifier', 'regressor']
 
     def _evaluate(self, predict, dataset, run_id, evaluator_config):
         X = dataset.data
@@ -76,14 +77,14 @@ class DummyEvaluator(ModelEvaluator):
             metric_key = f'{metric_name}_on_{dataset.name}'
             client.log_metric(run_id=run_id, key=metric_key, value=metric_value)
 
-        client.log_dict(run_id, metric_values, 'metrics_artifact')
+        client.log_dict(run_id, metric_values, 'metrics_artifact.json')
 
         # TODO: log `mlflow.datasets` tag containing a list of metadata for all datasets
 
         return DummyEvaluationResult(
             metric_values=metric_values,
             artifact_content=metric_values,
-            artifact_location=artifact_utils.get_artifact_uri('metrics_artifact')
+            artifact_location=artifact_utils.get_artifact_uri(run_id, 'metrics_artifact.json')
         )
 
     def evaluate(
@@ -91,26 +92,9 @@ class DummyEvaluator(ModelEvaluator):
     ):
         if run_id is not None:
             return self._evaluate(self, predict, dataset, run_id, evaluator_config)
+        elif mlflow.active_run() is not None:
+            return self._evaluate(self, predict, dataset, mlflow.active_run().info.run_id,
+                                  evaluator_config)
         else:
             with mlflow.start_run() as run:
                 return self._evaluate(self, predict, dataset, run.info.run_id, evaluator_config)
-
-
-class DummyRegressorEvaluator(DummyEvaluator):
-
-    def can_evaluate(
-        self, model_type, evaluator_config=None, **kwargs
-    ):
-        return model_type == 'regressor' and super(DummyRegressorEvaluator, self).can_evaluate(
-            model_type, evaluator_config=None, **kwargs
-        )
-
-
-class DummyClassifierEvaluator(DummyEvaluator):
-
-    def can_evaluate(
-        self, model_type, evaluator_config=None, **kwargs
-    ):
-        return model_type == 'classifier' and super(DummyClassifierEvaluator, self).can_evaluate(
-            model_type, evaluator_config=None, **kwargs
-        )

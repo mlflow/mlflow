@@ -1,4 +1,4 @@
-from collections.abc import Mapping
+from typing import Dict, Union
 import entrypoints
 import warnings
 import mlflow
@@ -47,7 +47,7 @@ class EvaluationResult:
         raise NotImplementedError()
 
     @property
-    def artifacts(self) -> Mapping[str, EvaluationArtifact]:
+    def artifacts(self) -> Dict[str, EvaluationArtifact]:
         """
         A dictionary mapping standardized artifact names (e.g. "roc_data") to
         artifact content and location information
@@ -164,7 +164,7 @@ _model_evaluation_registry.register_entrypoints()
 
 def evaluate(
    model, model_type, dataset, run_id=None, evaluators=None, evaluator_config=None
-) -> EvaluationResult | Mapping[str, EvaluationResult]:
+) -> Union[EvaluationResult, Dict[str, EvaluationResult]]:
     """
     :param model: A model supported by the specified `evaluator`, or a URI
                   referring to such a model. The default evaluator supports the
