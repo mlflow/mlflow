@@ -3,6 +3,7 @@
 import collections
 import pytest
 import sys
+import pickle
 from packaging.version import Version
 
 import numpy as np
@@ -12,6 +13,7 @@ from tensorflow.keras import layers
 
 import mlflow
 import mlflow.tensorflow
+from mlflow.tensorflow._autolog import _TensorBoard, __MLflowTfKeras2Callback
 import mlflow.keras
 from mlflow.utils.autologging_utils import BatchMetricsLogger, autologging_is_disabled
 from unittest.mock import patch
@@ -857,6 +859,16 @@ def test_fluent_autolog_with_tf_keras_logs_expected_content(
     artifacts = client.list_artifacts(run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert "model" in artifacts
+
+
+def test_callback_is_picklable():
+    cb = __MLflowTfKeras2Callback(
+        log_models=True, metrics_logger=BatchMetricsLogger(run_id="1234"), log_every_n_steps=5
+    )
+    pickle.dumps(cb)
+
+    tb = _TensorBoard()
+    pickle.dumps(tb)
 
 
 @pytest.mark.large
