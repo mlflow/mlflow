@@ -13,7 +13,7 @@ import yaml
 
 import mlflow
 import mlflow.xgboost
-from mlflow.xgboost._autolog import autolog_callback
+from mlflow.xgboost._autolog import IS_TRAINING_CALLBACK_SUPPORTED, autolog_callback
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
 from mlflow.utils.autologging_utils import BatchMetricsLogger, picklable_exception_safe_function
@@ -568,8 +568,7 @@ def test_callback_func_is_pickable():
 
 
 @pytest.mark.skipif(
-    Version(xgb.__version__.replace("SNAPSHOT", "dev")) < Version("1.3.0"),
-    reason="`xgboost.callback.TrainingCallback` is not supported",
+    IS_TRAINING_CALLBACK_SUPPORTED, reason="`xgboost.callback.TrainingCallback` is not supported",
 )
 def test_callback_class_is_pickable():
     from mlflow.xgboost._autolog import AutologCallback

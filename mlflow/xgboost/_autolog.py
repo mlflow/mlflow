@@ -1,16 +1,21 @@
 from packaging.version import Version
 import xgboost
 
+# Suppress a false positive pylint error: https://github.com/PyCQA/pylint/issues/1630
+# pylint: disable=unused-import
+from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
+
 
 def autolog_callback(env, metrics_logger, eval_results):
     metrics_logger.record_metrics(dict(env.evaluation_result_list), env.iteration)
     eval_results.append(dict(env.evaluation_result_list))
 
 
-if Version(xgboost.__version__.replace("SNAPSHOT", "dev")) >= Version("1.3.0"):
-    # Suppress a false positive pylint error: https://github.com/PyCQA/pylint/issues/1630
-    # pylint: disable=unused-import
-    from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
+IS_TRAINING_CALLBACK_SUPPORTED = Version(xgboost.__version__.replace("SNAPSHOT", "dev")) >= Version(
+    "1.3.0"
+)
+
+if IS_TRAINING_CALLBACK_SUPPORTED:
 
     class AutologCallback(
         xgboost.callback.TrainingCallback, metaclass=ExceptionSafeAbstractClass,

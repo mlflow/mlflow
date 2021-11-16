@@ -16,7 +16,6 @@ XGBoost (native) format
 .. _scikit-learn API:
     https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn
 """
-from packaging.version import Version
 import os
 import shutil
 import json
@@ -416,7 +415,9 @@ def autolog(
             """
             # TODO: Remove `replace("SNAPSHOT", "dev")` once the following issue is addressed:
             #       https://github.com/dmlc/xgboost/issues/6984
-            if Version(xgboost.__version__.replace("SNAPSHOT", "dev")) >= Version("1.3.0"):
+            from mlflow.xgboost._autolog import IS_TRAINING_CALLBACK_SUPPORTED
+
+            if IS_TRAINING_CALLBACK_SUPPORTED:
                 from mlflow.xgboost._autolog import AutologCallback
 
                 # In xgboost >= 1.3.0, user-defined callbacks should inherit
