@@ -6,8 +6,29 @@ import sklearn.datasets
 import sklearn.linear_model
 import pytest
 
-from tests.sklearn.test_sklearn_autolog import get_iris, get_run_data, load_json_artifact
 from sklearn.metrics import mean_absolute_error, mean_squared_error
+
+
+def get_iris():
+    iris = sklearn.datasets.load_iris()
+    return iris.data[:, :2], iris.target
+
+
+def get_run_data(run_id):
+    client = mlflow.tracking.MlflowClient()
+    data = client.get_run(run_id).data
+    # Ignore tags mlflow logs by default (e.g. "mlflow.user")
+    tags = {k: v for k, v in data.tags.items() if not k.startswith("mlflow.")}
+    artifacts = [f.path for f in client.list_artifacts(run_id)]
+    return data.params, data.metrics, tags, artifacts
+
+
+def load_json_artifact(artifact_path):
+    import json
+
+    fpath = mlflow.get_artifact_uri(artifact_path).replace("file://", "")
+    with open(fpath, "r") as f:
+        return json.load(f)
 
 
 @pytest.fixture(scope="module")
