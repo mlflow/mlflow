@@ -11,6 +11,6 @@ runs:
     - uses: actions/cache@v2
       with:
         path: ~/.cache/pip
-        key: ${{ steps.get-cache-key-prefix.outputs.prefix }}-pip-${{ hashFiles('**/*-requirements.txt') }}
+        key: ${{ steps.get-cache-key-prefix.outputs.prefix }}-pip-${{ hashFiles('requirements/*-requirements.txt') }}
         restore-keys: |
           ${{ steps.get-cache-key-prefix.outputs.prefix }}-pip-

@@ -105,7 +105,7 @@ jobs:
           name: Install Python dependencies
           command: |
             pip --version
-            pip install --progress-bar off -r doc-requirements.txt .
+            pip install --progress-bar off -r requirements/doc-requirements.txt .
       - run:
           name: Build documentation
           working_directory: docs

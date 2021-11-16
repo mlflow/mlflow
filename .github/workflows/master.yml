@@ -40,7 +40,7 @@ jobs:
         INSTALL_SMALL_PYTHON_DEPS: true
       run: |
         source ./dev/install-common-deps.sh
-        pip install -r ./dev/lint-requirements.txt
+        pip install -r requirements/lint-requirements.txt
     - name: Run tests
       run: |
         ./lint.sh
@@ -410,7 +410,7 @@ jobs:
           python-version: 3.7
       - name: Install python dependencies
         run: |
-          pip install -r dev/small-requirements.txt
+          pip install -r requirements/small-requirements.txt
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install -e .[extras]
       - name: Run python tests
