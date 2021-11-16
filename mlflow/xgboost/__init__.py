@@ -51,7 +51,6 @@ from mlflow.utils.arguments_utils import _get_arg_names
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
-    exception_safe_function,
     get_mlflow_run_params_for_fn_args,
     INPUT_EXAMPLE_SAMPLE_ROWS,
     resolve_input_example_and_signature,
@@ -385,8 +384,10 @@ def autolog(
                    autologging. If ``False``, show all events and warnings during XGBoost
                    autologging.
     """
+    import functools
     import xgboost
     import numpy as np
+    from mlflow.xgboost._autolog import AutologCallback, autolog_callback
 
     if importance_types is None:
         importance_types = ["weight"]
@@ -426,47 +427,11 @@ def autolog(
                 # In xgboost >= 1.3.0, user-defined callbacks should inherit
                 # `xgboost.callback.TrainingCallback`:
                 # https://xgboost.readthedocs.io/en/latest/python/callbacks.html#defining-your-own-callback  # noqa
-
-                class Callback(
-                    xgboost.callback.TrainingCallback, metaclass=ExceptionSafeAbstractClass,
-                ):
-                    def after_iteration(self, model, epoch, evals_log):
-                        """
-                        Run after each iteration. Return True when training should stop.
-                        """
-                        # `evals_log` is a nested dict (type: Dict[str, Dict[str, List[float]]])
-                        # that looks like this:
-                        # {
-                        #   "train": {
-                        #     "auc": [0.5, 0.6, 0.7, ...],
-                        #     ...
-                        #   },
-                        #   ...
-                        # }
-                        evaluation_result_dict = {}
-                        for data_name, metric_dict in evals_log.items():
-                            for metric_name, metric_values_on_each_iter in metric_dict.items():
-                                key = "{}-{}".format(data_name, metric_name)
-                                # The last element in `metric_values_on_each_iter` corresponds to
-                                # the meric on the current iteration
-                                evaluation_result_dict[key] = metric_values_on_each_iter[-1]
-
-                        metrics_logger.record_metrics(evaluation_result_dict, epoch)
-                        eval_results.append(evaluation_result_dict)
-
-                        # Return `False` to indicate training should not stop
-                        return False
-
-                return Callback()
-
+                return AutologCallback(metrics_logger, eval_results)
             else:
-
-                @exception_safe_function
-                def callback(env):
-                    metrics_logger.record_metrics(dict(env.evaluation_result_list), env.iteration)
-                    eval_results.append(dict(env.evaluation_result_list))
-
-                return callback
+                return functools.partial(
+                    autolog_callback, metrics_logger=metrics_logger, eval_results=eval_results
+                )
 
         def log_feature_importance_plot(features, importance, importance_type):
             """
