@@ -183,12 +183,12 @@ flavors:
     expect(instance.props.getArtifact).toBeCalled();
   });
 
-  test('should render code when model does not have pyfunc flavor', (done) => {
+  test('should render code snippet with original flavor when no pyfunc flavor', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve(`
 flavors:
   sklearn:
-    version: 1.1.1
+    version: 1.2.3
 `);
     });
     const props = { ...minimalProps, getArtifact };
@@ -196,17 +196,19 @@ flavors:
     setImmediate(() => {
       wrapper.update();
       expect(wrapper.state().flavor).toBe('sklearn');
-      expect(wrapper.find('.artifact-logged-model-view-code-content').length).toBe(1);
+      const codeContent = wrapper.find('.artifact-logged-model-view-code-content');
+      expect(codeContent.length).toBe(1);
+      expect(codeContent.text().includes('mlflow.sklearn.load_model')).toBe(true);
       done();
     });
   });
 
-  test('should not render code when model does not have pyfunc flavor', (done) => {
+  test('should not render code snippet for mleap flavor', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve(`
 flavors:
   mleap:
-    version: 1.1.1
+    version: 1.2.3
 `);
     });
     const props = { ...minimalProps, getArtifact };
