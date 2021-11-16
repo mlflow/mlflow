@@ -21,4 +21,11 @@ publish-code-job:
   stage: publish
   script:
     - pip install twine
-    - TWINE_PASSWORD=${CI_JOB_TOKEN} TWINE_USERNAME=gitlab-ci-token python -m twine upload --repository-url ${DUO_GITLAB_INT_HOSTNAME}/projects/${CI_PROJECT_ID}/packages/pypi dist/*
+    - echo ${DUO_GITLAB_INT_HOSTNAME}
+    - echo ${CI_REGISTRY}
+    - echo ${SERVER_INT_FQDN}
+    - REPO_URL=${DUO_GITLAB_INT_HOSTNAME}/projects/${CI_PROJECT_ID}/packages/pypi
+    - echo $REPO_URL
+    - TWINE_PASSWORD=${CI_JOB_TOKEN} 
+    - TWINE_USERNAME=gitlab-ci-token 
+    - python -m twine upload --repository-url $REPO_URL dist/*
