@@ -1,6 +1,7 @@
 import mlflow
 from mlflow.evaluation import ModelEvaluator, EvaluationMetrics, \
     EvaluationArtifact, EvaluationResult, EvaluationDataset
+from mlflow.tracking import artifact_utils
 from sklearn import metrics as sk_metrics
 import numpy as np
 import pickle
@@ -66,11 +67,24 @@ class DummyEvaluator(ModelEvaluator):
         y_pred = predict(X)
 
         metrics_to_calc = evaluator_config.get('metrics_to_calc')
+
+        client = mlflow.tracking.MlflowClient()
         metric_values = {}
         for metric_name in metrics_to_calc:
-            metric_values[metric_name] = getattr(sk_metrics, metric_name)(y, y_pred)
+            metric_value = getattr(sk_metrics, metric_name)(y, y_pred)
+            metric_values[metric_name] = metric_value
+            metric_key = f'{metric_name}_on_{dataset.name}'
+            client.log_metric(run_id=run_id, key=metric_key, value=metric_value)
 
-        return DummyEvaluationResult(metric_values)
+        client.log_dict(run_id, metric_values, 'metrics_artifact')
+
+        # TODO: log `mlflow.datasets` tag containing a list of metadata for all datasets
+
+        return DummyEvaluationResult(
+            metric_values=metric_values,
+            artifact_content=metric_values,
+            artifact_location=artifact_utils.get_artifact_uri('metrics_artifact')
+        )
 
     def evaluate(
         self, predict, dataset, run_id, evaluator_config=None
