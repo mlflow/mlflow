@@ -872,6 +872,9 @@ def test_callback_is_picklable():
 
 
 @pytest.mark.large
+@pytest.mark.skipif(
+    Version(tf.__version__) < Version("2.1.0"), reason="This test requires tensorflow >= 2.1.0"
+)
 def test_tf_keras_autolog_distributed_training(random_train_data, random_one_hot_labels):
     # Ref: https://www.tensorflow.org/tutorials/distribute/keras
     mlflow.tensorflow.autolog()
