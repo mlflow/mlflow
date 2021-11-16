@@ -11,8 +11,8 @@ RUN apt-get update && \
     cmake protobuf-compiler &&  \
     conda install python=3.6 && \
     # install required python packages
-    pip install -r dev-requirements.txt --no-cache-dir && \
-    pip install -r test-requirements.txt --no-cache-dir && \
+    pip install -r requirements/dev-requirements.txt --no-cache-dir && \
+    pip install -r requirements/test-requirements.txt --no-cache-dir && \
     # install mlflow in editable form
     pip install --no-cache-dir -e . && \
     # mkdir required to support install openjdk-11-jre-headless
