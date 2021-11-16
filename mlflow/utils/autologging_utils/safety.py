@@ -64,7 +64,7 @@ def _safe_function(function, *args, **kwargs):
 def picklable_exception_safe_function(function):
     """
     Wraps the specified function with broad exception handling to guard
-    against unexpected errors during autologging.
+    against unexpected errors during autologging while preserving picklability.
     """
     if is_testing():
         setattr(function, _ATTRIBUTE_EXCEPTION_SAFE, True)
