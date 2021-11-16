@@ -1,5 +1,5 @@
-image:
-  name: ${CI_REGISTRY}/ci-runner-images/ci-docker-images/ddi-yarn:master
+default:
+  image: ${CI_REGISTRY}/ci-runner-images/ci-docker-images/ddi-yarn:master
 
 stages:
   - build
@@ -21,11 +21,7 @@ publish-code-job:
   stage: publish
   script:
     - pip install twine
-    - echo ${DUO_GITLAB_INT_HOSTNAME}
-    - echo ${CI_REGISTRY}
-    - echo ${SERVER_INT_FQDN}
-    - REPO_URL=${DUO_GITLAB_INT_HOSTNAME}/projects/${CI_PROJECT_ID}/packages/pypi
-    - echo $REPO_URL
+    - REPO_URL=${SERVER_INT_FQDN}/projects/${CI_PROJECT_ID}/packages/pypi
     - TWINE_PASSWORD=${CI_JOB_TOKEN} 
     - TWINE_USERNAME=gitlab-ci-token 
     - python -m twine upload --repository-url $REPO_URL dist/*
