@@ -8,25 +8,25 @@ on:
           [Optional] Repository name with owner. For example, mlflow/mlflow.
            Defaults to the repository that triggered a workflow.
         required: false
-        default: ''
+        default: ""
       ref:
         description: >
           [Optional] The branch, tag or SHA to checkout. When checking out the repository that
            triggered a workflow, this defaults to the reference or SHA for that event. Otherwise,
            uses the default branch.
         required: false
-        default: ''
+        default: ""
       flavors:
         description: "[Optional] Comma-separated string specifying which flavors to test (e.g. 'sklearn, xgboost'). If unspecified, all flavors are tested."
         required: false
-        default: ''
+        default: ""
       versions:
         description: "[Optional] Comma-separated string specifying which versions to test (e.g. '1.2.3, 4.5.6'). If unspecified, all versions are tested."
         required: false
-        default: ''
+        default: ""
   schedule:
     # Run this workflow daily at 7:00 UTC
-    - cron: '0 7 * * *'
+    - cron: "0 7 * * *"
   pull_request:
     branches:
       - master
@@ -52,7 +52,7 @@ jobs:
           ref: ${{ github.event.inputs.ref }}
       - uses: actions/setup-python@v2
         with:
-          python-version: '3.6'
+          python-version: "3.6"
       - name: Install dependencies
         run: |
           pip install packaging requests pyyaml pytest
@@ -108,7 +108,7 @@ jobs:
           # GitHub Actions' Ubuntu 20.04 image uses Java 11 (which is incompatible with Spark 2.4.x) by default:
           # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md#java
           java-version: 8
-          distribution: 'adopt'
+          distribution: "adopt"
       - name: Get python version
         id: get-python-version
         run: |
