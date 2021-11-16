@@ -9,6 +9,7 @@ import { SchemaTable } from '../../../model-registry/components/SchemaTable';
 import {
   RegisteringModelDocUrl,
   ModelSignatureUrl,
+  PyfuncDocUrl,
   CustomPyfuncModelsDocUrl,
 } from '../../../common/constants';
 import { Typography } from 'antd';
@@ -123,6 +124,12 @@ class ShowArtifactLoggedModelView extends Component {
     const { flavor } = this.state;
     const { runUuid, path } = this.props;
     const modelPath = `runs:/${runUuid}/${path}`;
+
+    if (flavor === 'mleap') {
+      // MLeap models can't be reloaded in Python.
+      return <></>;
+    }
+
     return (
       <>
         <h2 style={styles.columnLabel}>
@@ -134,7 +141,7 @@ class ShowArtifactLoggedModelView extends Component {
         </h2>
         <div className='artifact-logged-model-view-code-content'>
           <div className='content' style={styles.item}>
-            <Paragraph copyable={{ text: this.pandasDataFrameCodeText(modelPath) }}>
+            <Paragraph copyable={{ text: this.loadModelCodeText(modelPath, flavor) }}>
               <pre style={{ wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
                 <div className='code'>
                   <span className='code-keyword'>import</span> mlflow{`\n`}
@@ -146,7 +153,7 @@ class ShowArtifactLoggedModelView extends Component {
                     {'# '}
                     <FormattedMessage
                       defaultMessage='Load model'
-                      description='Code comment which states how to load model'
+                      description='Code comment which states how to load the model'
                     />
                   </span>
                   {`\n`}
@@ -155,9 +162,20 @@ class ShowArtifactLoggedModelView extends Component {
                 <br />
               </pre>
             </Paragraph>
-            See <a href={CustomPyfuncModelsDocUrl}>creating custom Pyfunc models</a> to learn how to
-            customize this model and deploy it for batch or real-time scoring using the ``pyfunc``
-            model flavor.
+            <FormattedMessage
+              defaultMessage={`See the documents below to learn how to customize this model
+                               and deploy it for batch or real-time scoring using the pyfunc
+                               model flavor.`}
+              description='Subtext heading'
+            />
+            <ul>
+              <li>
+                <a href={PyfuncDocUrl}>API reference for the mlflow.pyfunc module</a>
+              </li>
+              <li>
+                <a href={CustomPyfuncModelsDocUrl}>Creating custom Pyfunc models</a>
+              </li>
+            </ul>
           </div>
         </div>
       </>
@@ -382,7 +400,9 @@ class ShowArtifactLoggedModelView extends Component {
         } else {
           this.setState({ inputs: '', outputs: '' });
         }
-        if (parsedJson.flavors.python_function) {
+        if (parsedJson.flavors.mleap) {
+          this.setState({ flavor: 'mleap' });
+        } else if (parsedJson.flavors.python_function) {
           this.setState({ flavor: 'pyfunc' });
         } else {
           this.setState({ flavor: Object.keys(parsedJson.flavors)[0] });

@@ -8,7 +8,13 @@ describe('ShowArtifactLoggedModelView', () => {
   let instance;
   let minimalProps;
   let commonProps;
+  const minimumFlavors = `
+flavors:
+  python_function:
+    loader_module: mlflow.sklearn
+`;
   const validMlModelFile =
+    minimumFlavors +
     'signature:\n' +
     '  inputs: \'[{"name": "sepal length (cm)", "type": "double"}, {"name": "sepal width\n' +
     '    (cm)", "type": "double"}, {"name": "petal length (cm)", "type": "double"}, {"name":\n' +
@@ -18,7 +24,7 @@ describe('ShowArtifactLoggedModelView', () => {
   beforeEach(() => {
     minimalProps = { path: 'fakePath', runUuid: 'fakeUuid', artifactRootUri: 'fakeRootUri' };
     const getArtifact = jest.fn((artifactLocation) => {
-      return Promise.resolve('some content');
+      return Promise.resolve(minimumFlavors);
     });
     commonProps = { ...minimalProps, getArtifact };
     wrapper = shallow(<ShowArtifactLoggedModelView {...commonProps} />);
@@ -78,7 +84,8 @@ describe('ShowArtifactLoggedModelView', () => {
   test('should not break schema table when inputs only in MLmodel file', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve(
-        'signature:\n' +
+        minimumFlavors +
+          'signature:\n' +
           '  inputs: \'[{"name": "sepal length (cm)", "type": "double"}, {"name": "sepal width\n' +
           '    (cm)", "type": "double"}, {"name": "petal length (cm)", "type": "double"}, {"name":\n' +
           '    "petal width (cm)", "type": "double"}]\'\n',
@@ -96,7 +103,8 @@ describe('ShowArtifactLoggedModelView', () => {
   test('should not break schema table when outputs only in MLmodel file', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve(
-        'signature:\n' +
+        minimumFlavors +
+          'signature:\n' +
           '  outputs: \'[{"name": "sepal length (cm)", "type": "double"}, {"name": "sepal width\n' +
           '    (cm)", "type": "double"}, {"name": "petal length (cm)", "type": "double"}, {"name":\n' +
           '    "petal width (cm)", "type": "double"}]\'\n',
@@ -113,7 +121,7 @@ describe('ShowArtifactLoggedModelView', () => {
 
   test('should not break schema table when no inputs or outputs in MLmodel file', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
-      return Promise.resolve('signature:\n  ');
+      return Promise.resolve(minimumFlavors + 'signature:');
     });
     const props = { ...minimalProps, getArtifact };
     wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
@@ -175,20 +183,38 @@ describe('ShowArtifactLoggedModelView', () => {
     expect(instance.props.getArtifact).toBeCalled();
   });
 
-  test('should not render code snippets when model does not have pyfunc flavor', (done) => {
+  test('should render code when model does not have pyfunc flavor', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve(`
 flavors:
   sklearn:
-    pickled_model: model.pkl
+    version: 1.1.1
 `);
     });
     const props = { ...minimalProps, getArtifact };
     wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
     setImmediate(() => {
       wrapper.update();
-      expect(wrapper.state().hasPyfuncFlavor).toBe(false);
-      expect(wrapper.find('.artifact-logged-model-view-no-pyfunc-flavor').length).toBe(1);
+      expect(wrapper.state().flavor).toBe('sklearn');
+      expect(wrapper.find('.artifact-logged-model-view-code-content').length).toBe(1);
+      done();
+    });
+  });
+
+  test('should not render code when model does not have pyfunc flavor', (done) => {
+    const getArtifact = jest.fn((artifactLocation) => {
+      return Promise.resolve(`
+flavors:
+  mleap:
+    version: 1.1.1
+`);
+    });
+    const props = { ...minimalProps, getArtifact };
+    wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
+    setImmediate(() => {
+      wrapper.update();
+      expect(wrapper.state().flavor).toBe('mleap');
+      expect(wrapper.find('.artifact-logged-model-view-code-content').length).toBe(0);
       done();
     });
   });
