@@ -163,10 +163,10 @@ class ShowArtifactLoggedModelView extends Component {
               </pre>
             </Paragraph>
             <FormattedMessage
-              defaultMessage={`See the documents below to learn how to customize this model
-                               and deploy it for batch or real-time scoring using the pyfunc
-                               model flavor.`}
-              description='Subtext heading'
+              // eslint-disable-next-line max-len
+              defaultMessage='See the documents below to learn how to customize this model and deploy it for batch or real-time scoring using the pyfunc model flavor.'
+              // eslint-disable-next-line max-len
+              description='Subtext heading for a list of documents that describe how to customize the model using the mlflow.pyfunc module'
             />
             <ul>
               <li>
