@@ -1,3 +1,4 @@
+import pickle
 from functools import partial
 from unittest.mock import patch
 
@@ -14,6 +15,7 @@ from fastai.callback.all import EarlyStoppingCallback, SaveModelCallback
 
 import mlflow
 import mlflow.fastai
+from mlflow.fastai.callback import __MlflowFastaiCallback
 from mlflow.utils.autologging_utils import BatchMetricsLogger
 from tests.conftest import tracking_uri_mock  # pylint: disable=unused-import
 
@@ -411,3 +413,10 @@ def test_fastai_autolog_batch_metrics_logger_logs_expected_metrics(
 
     assert "train_loss" in original_metrics
     assert "train_loss" in patched_metrics_data
+
+
+def test_callback_is_picklable():
+    cb = __MlflowFastaiCallback(
+        BatchMetricsLogger(run_id="1234"), log_models=True, is_fine_tune=False
+    )
+    pickle.dumps(cb)
