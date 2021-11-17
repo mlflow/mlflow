@@ -50,7 +50,7 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
-    exception_safe_function,
+    picklable_exception_safe_function,
     PatchFunction,
     log_fn_args_as_params,
     batch_metrics_logger,
@@ -575,7 +575,7 @@ def _log_event(event):
                     )
 
 
-@exception_safe_function
+@picklable_exception_safe_function
 def _get_tensorboard_callback(lst):
     import tensorflow
 
@@ -779,7 +779,7 @@ def autolog(
 
         return serialized
 
-    @exception_safe_function
+    @picklable_exception_safe_function
     def _get_early_stop_callback(callbacks):
         for callback in callbacks:
             if isinstance(callback, tensorflow.keras.callbacks.EarlyStopping):
