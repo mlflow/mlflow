@@ -26,14 +26,19 @@ _AUTOLOGGING_PATCHES = {}
 
 
 # Function attribute used for testing purposes to verify that a given function
-# has been wrapped with the `exception_safe_function` decorator
+# has been wrapped with the `exception_safe_function_for_class` and
+# `picklable_exception_safe_function` decorators
 _ATTRIBUTE_EXCEPTION_SAFE = "exception_safe"
 
 
-def exception_safe_function(function):
+def exception_safe_function_for_class(function):
     """
     Wraps the specified function with broad exception handling to guard
     against unexpected errors during autologging.
+    Note this function creates an unpicklable function as `safe_function` is locally defined,
+    but a class instance containing methods decorated by this function should be pickalable,
+    because pickle only saves instance attributes, not methods.
+    See https://docs.python.org/3/library/pickle.html#pickling-class-instances for more details.
     """
     if is_testing():
         setattr(function, _ATTRIBUTE_EXCEPTION_SAFE, True)
@@ -49,6 +54,27 @@ def exception_safe_function(function):
 
     safe_function = update_wrapper_extended(safe_function, function)
     return safe_function
+
+
+def _safe_function(function, *args, **kwargs):
+    try:
+        return function(*args, **kwargs)
+    except Exception as e:
+        if is_testing():
+            raise
+        else:
+            _logger.warning("Encountered unexpected error during autologging: %s", e)
+
+
+def picklable_exception_safe_function(function):
+    """
+    Wraps the specified function with broad exception handling to guard
+    against unexpected errors during autologging while preserving picklability.
+    """
+    if is_testing():
+        setattr(function, _ATTRIBUTE_EXCEPTION_SAFE, True)
+
+    return update_wrapper_extended(functools.partial(_safe_function, function), function)
 
 
 def _exception_safe_class_factory(base_class):
@@ -75,7 +101,7 @@ def _exception_safe_class_factory(base_class):
             for m in dct:
                 # class methods or static methods are not callable.
                 if callable(dct[m]):
-                    dct[m] = exception_safe_function(dct[m])
+                    dct[m] = exception_safe_function_for_class(dct[m])
             return base_class.__new__(cls, name, bases, dct)
 
     return _ExceptionSafeClass
@@ -753,8 +779,9 @@ def _validate_args(
         - All arguments supplied to the patched ML function are forwarded to the
           original ML function
         - Any additional arguments supplied to the original function are exception safe (i.e.
-          they are either functions decorated with the `@exception_safe_function` decorator
-          or classes / instances of classes with type `ExceptionSafeClass`
+          they are either functions decorated with the `@exception_safe_function_for_class` or
+          `@pickalable_exception_safe_function` decorators, or classes / instances of classes with
+          type `ExceptionSafeClass`
     """
 
     def _validate_new_input(inp):
@@ -762,7 +789,8 @@ def _validate_args(
         Validates a new input (arg or kwarg) introduced to the underlying / original ML function
         call during the execution of a patched ML function. The new input is valid if:
 
-            - The new input is a function that has been decorated with `exception_safe_function`
+            - The new input is a function that has been decorated with
+              `exception_safe_function_for_class` or `pickalable_exception_safe_function`
             - OR the new input is a class with the `ExceptionSafeClass` metaclass
             - OR the new input is a list and each of its elements is valid according to the
               these criteria
@@ -773,8 +801,9 @@ def _validate_args(
         elif callable(inp):
             assert getattr(inp, _ATTRIBUTE_EXCEPTION_SAFE, False), (
                 "New function argument '{}' passed to original function is not exception-safe."
-                " Please decorate the function with `exception_safe_function`.".format(inp)
-            )
+                " Please decorate the function with `exception_safe_function` or "
+                "`pickalable_exception_safe_function`"
+            ).format(inp)
         else:
             assert hasattr(inp, "__class__") and type(inp.__class__) in [
                 ExceptionSafeClass,
@@ -782,9 +811,9 @@ def _validate_args(
             ], (
                 "Invalid new input '{}'. New args / kwargs introduced to `original` function "
                 "calls by patched code must either be functions decorated with "
-                "`exception_safe_function`, instances of classes with the `ExceptionSafeClass` "
-                "or `ExceptionSafeAbstractClass` metaclass safe or lists of such exception safe "
-                "functions / classes.".format(inp)
+                "`exception_safe_function_for_class`, instances of classes with the "
+                "`ExceptionSafeClass` or `ExceptionSafeAbstractClass` metaclass safe or lists of "
+                "such exception safe functions / classes.".format(inp)
             )
 
     def _validate(autologging_call_input, user_call_input=None):
@@ -847,7 +876,8 @@ def _validate_args(
 __all__ = [
     "safe_patch",
     "is_testing",
-    "exception_safe_function",
+    "exception_safe_function_for_class",
+    "picklable_exception_safe_function",
     "ExceptionSafeClass",
     "ExceptionSafeAbstractClass",
     "PatchFunction",

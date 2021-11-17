@@ -3,6 +3,7 @@
 import collections
 import pytest
 import sys
+import pickle
 from packaging.version import Version
 
 import numpy as np
@@ -12,6 +13,7 @@ from tensorflow.keras import layers
 
 import mlflow
 import mlflow.tensorflow
+from mlflow.tensorflow._autolog import _TensorBoard, __MLflowTfKeras2Callback
 import mlflow.keras
 from mlflow.utils.autologging_utils import BatchMetricsLogger, autologging_is_disabled
 from unittest.mock import patch
@@ -857,6 +859,33 @@ def test_fluent_autolog_with_tf_keras_logs_expected_content(
     artifacts = client.list_artifacts(run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert "model" in artifacts
+
+
+def test_callback_is_picklable():
+    cb = __MLflowTfKeras2Callback(
+        log_models=True, metrics_logger=BatchMetricsLogger(run_id="1234"), log_every_n_steps=5
+    )
+    pickle.dumps(cb)
+
+    tb = _TensorBoard()
+    pickle.dumps(tb)
+
+
+@pytest.mark.large
+@pytest.mark.skipif(
+    Version(tf.__version__) < Version("2.1.0"), reason="This test requires tensorflow >= 2.1.0"
+)
+def test_tf_keras_autolog_distributed_training(random_train_data, random_one_hot_labels):
+    # Ref: https://www.tensorflow.org/tutorials/distribute/keras
+    mlflow.tensorflow.autolog()
+
+    with tf.distribute.MirroredStrategy().scope():
+        model = create_tf_keras_model()
+    fit_params = {"epochs": 10, "batch_size": 10}
+    with mlflow.start_run() as run:
+        model.fit(random_train_data, random_one_hot_labels, **fit_params)
+    client = mlflow.tracking.MlflowClient()
+    assert client.get_run(run.info.run_id).data.params.keys() >= fit_params.keys()
 
 
 @pytest.mark.large
