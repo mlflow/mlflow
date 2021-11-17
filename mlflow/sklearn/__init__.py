@@ -1190,7 +1190,7 @@ def _autolog(
     :param flavor_name: A string value. Enable a ``mlflow.sklearn`` autologging routine
                         for a flavor. By default it enables autologging for original
                         scikit-learn models, as ``mlflow.sklearn.autolog()`` does. If
-                        the argument is `xgboost`, autologging for XGBoost scikit-learn
+                        the argument is `xgboost_sklearn`, autologging for XGBoost scikit-learn
                         models is enabled.
     """
     import pandas as pd
@@ -1247,7 +1247,7 @@ def _autolog(
             # mlflow xgboost autologging items:
             # (1) record eval results and (2) log feature importance plot
             if self.importance_type is None:
-                importance_types = ["weights"]
+                importance_types = ["weight"]
             else:
                 importance_types = (
                     self.importance_type
