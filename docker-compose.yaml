@@ -1,0 +1,45 @@
+version: "3"
+
+services:
+  backend_store:
+    image: postgres:13
+    restart: always
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_is_ready -U ${POSTGRES_USER} --db-name ${POSTGRES_DB} -q"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  mlflow_server:
+    image: popszer/mlflow:1.2.0
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - backend_store
+    restart: always
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      ARTIFACT_ROOT_URI: ${ARTIFACT_ROOT_URI}
+    ports:
+      - "5000:5000"
+
+    command: sh -c 'mlflow server \
+                    --backend-store-uri postgresql://"$${POSTGRES_DB:?err}":"$${POSTGRES_PASSWORD:?err}"@0.0.0.0:5432/"$${POSTGRES_DB:?err}" \
+                    --default-artifact-root "$${ARTIFACT_ROOT_URI:?err}" \
+                    --host 0.0.0.0'
+
+volumes:
+  postgres_data:
