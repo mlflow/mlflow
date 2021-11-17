@@ -24,6 +24,7 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.models.container import SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS
 from mlflow.models.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME
 
+
 DEFAULT_IMAGE_NAME = "mlflow-pyfunc"
 DEPLOYMENT_MODE_ADD = "add"
 DEPLOYMENT_MODE_REPLACE = "replace"
@@ -159,6 +160,7 @@ def deploy(
     app_name,
     model_uri,
     execution_role_arn=None,
+    assume_role_arn=None,
     bucket=None,
     image_url=None,
     region_name="us-west-2",
@@ -205,6 +207,9 @@ def deploy(
                                call. For more information about SageMaker execution roles for model
                                creation, see
                                https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html.
+    :param assume_role_arn: The name of an IAM cross-account role to be assumed to deploy SageMaker
+                            to another AWS account. If unspecified, SageMaker will be deployed to
+                            the the currently active AWS account.
     :param bucket: S3 bucket where model artifacts will be stored. Defaults to a
                    SageMaker-compatible bucket name.
     :param image_url: URL of the ECR-hosted Docker image the model should be deployed into, produced
@@ -319,8 +324,13 @@ def deploy(
         _validate_deployment_flavor(model_config, flavor)
     _logger.info("Using the %s flavor for deployment!", flavor)
 
-    sage_client = boto3.client("sagemaker", region_name=region_name)
-    s3_client = boto3.client("s3", region_name=region_name)
+    if assume_role_arn is None:
+        assume_role_credentials = dict()
+    else:
+        assume_role_credentials = _assume_role_and_get_credentials(assume_role_arn=assume_role_arn)
+
+    s3_client = boto3.client("s3", region_name=region_name, **assume_role_credentials)
+    sage_client = boto3.client("sagemaker", region_name=region_name, **assume_role_credentials)
 
     endpoint_exists = _find_endpoint(endpoint_name=app_name, sage_client=sage_client) is not None
     if endpoint_exists and mode == DEPLOYMENT_MODE_CREATE:
@@ -343,10 +353,10 @@ def deploy(
     if not image_url:
         image_url = _get_default_image_url(region_name=region_name)
     if not execution_role_arn:
-        execution_role_arn = _get_assumed_role_arn()
+        execution_role_arn = _get_assumed_role_arn(**assume_role_credentials)
     if not bucket:
         _logger.info("No model data bucket specified, using the default bucket")
-        bucket = _get_default_s3_bucket(region_name)
+        bucket = _get_default_s3_bucket(region_name, **assume_role_credentials)
 
     model_s3_path = _upload_s3(
         local_model_path=model_path,
@@ -354,6 +364,7 @@ def deploy(
         prefix=model_name,
         region_name=region_name,
         s3_client=s3_client,
+        **assume_role_credentials
     )
 
     if endpoint_exists:
@@ -404,12 +415,22 @@ def deploy(
             deployment_operation.clean_up()
 
 
-def delete(app_name, region_name="us-west-2", archive=False, synchronous=True, timeout_seconds=300):
+def delete(
+    app_name,
+    region_name="us-west-2",
+    assume_role_arn=None,
+    archive=False,
+    synchronous=True,
+    timeout_seconds=300,
+):
     """
     Delete a SageMaker application.
 
     :param app_name: Name of the deployed application.
     :param region_name: Name of the AWS region in which the application is deployed.
+    :param assume_role_arn: The name of an IAM cross-account role to be assumed to deploy SageMaker
+                            to another AWS account. If unspecified, SageMaker will be deployed to
+                            the the currently active AWS account.
     :param archive: If ``True``, resources associated with the specified application, such
                     as its associated models and endpoint configuration, are preserved.
                     If ``False``, these resources are deleted. In order to use
@@ -439,8 +460,13 @@ def delete(app_name, region_name="us-west-2", archive=False, synchronous=True, t
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    s3_client = boto3.client("s3", region_name=region_name)
-    sage_client = boto3.client("sagemaker", region_name=region_name)
+    if assume_role_arn is None:
+        assume_role_credentials = dict()
+    else:
+        assume_role_credentials = _assume_role_and_get_credentials(assume_role_arn=assume_role_arn)
+
+    s3_client = boto3.client("s3", region_name=region_name, **assume_role_credentials)
+    sage_client = boto3.client("sagemaker", region_name=region_name, **assume_role_credentials)
 
     endpoint_info = sage_client.describe_endpoint(EndpointName=app_name)
     endpoint_arn = endpoint_info["EndpointArn"]
@@ -508,6 +534,7 @@ def deploy_transform_job(
     output_filter="$",
     join_resource="None",
     execution_role_arn=None,
+    assume_role_arn=None,
     bucket=None,
     image_url=None,
     region_name="us-west-2",
@@ -564,6 +591,9 @@ def deploy_transform_job(
                                call. For more information about SageMaker execution roles for model
                                creation, see
                                https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html.
+    :param assume_role_arn: The name of an IAM cross-account role to be assumed to deploy SageMaker
+                            to another AWS account. If unspecified, SageMaker will be deployed to
+                            the the currently active AWS account.
     :param bucket: S3 bucket where model artifacts will be stored. Defaults to a
                    SageMaker-compatible bucket name.
     :param image_url: URL of the ECR-hosted Docker image the model should be deployed into, produced
@@ -647,8 +677,13 @@ def deploy_transform_job(
         _validate_deployment_flavor(model_config, flavor)
     _logger.info("Using the %s flavor for deployment!", flavor)
 
-    sage_client = boto3.client("sagemaker", region_name=region_name)
-    s3_client = boto3.client("s3", region_name=region_name)
+    if assume_role_arn is None:
+        assume_role_credentials = dict()
+    else:
+        assume_role_credentials = _assume_role_and_get_credentials(assume_role_arn=assume_role_arn)
+
+    s3_client = boto3.client("s3", region_name=region_name, **assume_role_credentials)
+    sage_client = boto3.client("sagemaker", region_name=region_name, **assume_role_credentials)
 
     transform_job_exists = (
         _find_transform_job(job_name=job_name, sage_client=sage_client) is not None
@@ -668,10 +703,10 @@ def deploy_transform_job(
     if not image_url:
         image_url = _get_default_image_url(region_name=region_name)
     if not execution_role_arn:
-        execution_role_arn = _get_assumed_role_arn()
+        execution_role_arn = _get_assumed_role_arn(**assume_role_credentials)
     if not bucket:
         _logger.info("No model data bucket specified, using the default bucket")
-        bucket = _get_default_s3_bucket(region_name)
+        bucket = _get_default_s3_bucket(region_name, **assume_role_credentials)
 
     model_s3_path = _upload_s3(
         local_model_path=model_path,
@@ -679,6 +714,7 @@ def deploy_transform_job(
         prefix=model_name,
         region_name=region_name,
         s3_client=s3_client,
+        **assume_role_credentials
     )
 
     deployment_operation = _create_sagemaker_transform_job(
@@ -726,13 +762,21 @@ def deploy_transform_job(
 
 @experimental
 def terminate_transform_job(
-    job_name, region_name="us-west-2", archive=False, synchronous=True, timeout_seconds=300,
+    job_name,
+    region_name="us-west-2",
+    assume_role_arn=None,
+    archive=False,
+    synchronous=True,
+    timeout_seconds=300,
 ):
     """
     Terminate a SageMaker batch transform job.
 
     :param job_name: Name of the deployed Sagemaker batch transform job.
     :param region_name: Name of the AWS region in which the batch transform job is deployed.
+    :param assume_role_arn: The name of an IAM cross-account role to be assumed to deploy SageMaker
+                            to another AWS account. If unspecified, SageMaker will be deployed to
+                            the the currently active AWS account.
     :param archive: If ``True``, resources associated with the specified batch transform job,
                     such as its associated models and model artifacts, are preserved.
                     If ``False``, these resources are deleted. In order to use ``archive=False``,
@@ -763,8 +807,13 @@ def terminate_transform_job(
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    s3_client = boto3.client("s3", region_name=region_name)
-    sage_client = boto3.client("sagemaker", region_name=region_name)
+    if assume_role_arn is None:
+        assume_role_credentials = dict()
+    else:
+        assume_role_credentials = _assume_role_and_get_credentials(assume_role_arn=assume_role_arn)
+
+    s3_client = boto3.client("s3", region_name=region_name, **assume_role_credentials)
+    sage_client = boto3.client("sagemaker", region_name=region_name, **assume_role_credentials)
 
     transform_job_info = sage_client.describe_transform_job(TransformJobName=job_name)
     transform_job_arn = transform_job_info["TransformJobArn"]
@@ -817,6 +866,7 @@ def push_model_to_sagemaker(
     model_name,
     model_uri,
     execution_role_arn=None,
+    assume_role_arn=None,
     bucket=None,
     image_url=None,
     region_name="us-west-2",
@@ -853,6 +903,9 @@ def push_model_to_sagemaker(
                                call. For more information about SageMaker execution roles for model
                                creation, see
                                https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html.
+    :param assume_role_arn: The name of an IAM cross-account role to be assumed to deploy SageMaker
+                            to another AWS account. If unspecified, SageMaker will be deployed to
+                            the the currently active AWS account.
     :param bucket: S3 bucket where model artifacts will be stored. Defaults to a
                    SageMaker-compatible bucket name.
     :param image_url: URL of the ECR-hosted Docker image the model should be deployed into, produced
@@ -906,8 +959,13 @@ def push_model_to_sagemaker(
         _validate_deployment_flavor(model_config, flavor)
     _logger.info("Using the %s flavor for deployment!", flavor)
 
-    sage_client = boto3.client("sagemaker", region_name=region_name)
-    s3_client = boto3.client("s3", region_name=region_name)
+    if assume_role_arn is None:
+        assume_role_credentials = dict()
+    else:
+        assume_role_credentials = _assume_role_and_get_credentials(assume_role_arn=assume_role_arn)
+
+    s3_client = boto3.client("s3", region_name=region_name, **assume_role_credentials)
+    sage_client = boto3.client("sagemaker", region_name=region_name, **assume_role_credentials)
 
     if _does_model_exist(model_name=model_name, sage_client=sage_client):
         raise MlflowException(
@@ -921,10 +979,10 @@ def push_model_to_sagemaker(
     if not image_url:
         image_url = _get_default_image_url(region_name=region_name)
     if not execution_role_arn:
-        execution_role_arn = _get_assumed_role_arn()
+        execution_role_arn = _get_assumed_role_arn(**assume_role_credentials)
     if not bucket:
         _logger.info("No model data bucket specified, using the default bucket")
-        bucket = _get_default_s3_bucket(region_name)
+        bucket = _get_default_s3_bucket(region_name, **assume_role_credentials)
 
     model_s3_path = _upload_s3(
         local_model_path=model_path,
@@ -932,6 +990,7 @@ def push_model_to_sagemaker(
         prefix=model_name,
         region_name=region_name,
         s3_client=s3_client,
+        **assume_role_credentials
     )
 
     model_response = _create_sagemaker_model(
@@ -1026,42 +1085,65 @@ def _get_default_image_url(region_name):
     return (repository_conf["repositoryUri"] + ":{version}").format(version=mlflow.version.VERSION)
 
 
-def _get_account_id():
+def _get_account_id(**assume_role_credentials):
     import boto3
 
     sess = boto3.Session()
-    sts_client = sess.client("sts")
+    sts_client = sess.client("sts", **assume_role_credentials)
     identity_info = sts_client.get_caller_identity()
     account_id = identity_info["Account"]
     return account_id
 
 
-def _get_assumed_role_arn():
+def _get_assumed_role_arn(**assume_role_credentials):
     """
     :return: ARN of the user's current IAM role.
     """
     import boto3
 
     sess = boto3.Session()
-    sts_client = sess.client("sts")
+    sts_client = sess.client("sts", **assume_role_credentials)
     identity_info = sts_client.get_caller_identity()
     sts_arn = identity_info["Arn"]
     role_name = sts_arn.split("/")[1]
-    iam_client = sess.client("iam")
+    iam_client = sess.client("iam", **assume_role_credentials)
     role_response = iam_client.get_role(RoleName=role_name)
     return role_response["Role"]["Arn"]
 
 
-def _get_default_s3_bucket(region_name):
+def _assume_role_and_get_credentials(assume_role_arn):
+    """
+    Assume a new role in AWS and return the credentials for that role.
+
+    :param assume_role_arn: The ARN of the role that will be assumed
+    :return: Dict with credentials of the assumed role
+    """
+    import boto3
+
+    sts_client = boto3.client("sts")
+    sts_response = sts_client.assume_role(
+        RoleArn=assume_role_arn, RoleSessionName="mlflow-sagemaker"
+    )
+
+    _logger.info("Assuming role %s for deployment!", assume_role_arn)
+
+    return dict(
+        aws_access_key_id=sts_response["Credentials"]["AccessKeyId"],
+        aws_secret_access_key=sts_response["Credentials"]["SecretAccessKey"],
+        aws_session_token=sts_response["Credentials"]["SessionToken"],
+    )
+
+
+def _get_default_s3_bucket(region_name, **assume_role_credentials):
     import boto3
 
     # create bucket if it does not exist
     sess = boto3.Session()
-    account_id = _get_account_id()
+    account_id = _get_account_id(**assume_role_credentials)
     bucket_name = "{pfx}-{rn}-{aid}".format(
         pfx=DEFAULT_BUCKET_NAME_PREFIX, rn=region_name, aid=account_id
     )
-    s3 = sess.client("s3")
+    s3 = sess.client("s3", **assume_role_credentials)
     response = s3.list_buckets()
     buckets = [b["Name"] for b in response["Buckets"]]
     if bucket_name not in buckets:
@@ -1095,7 +1177,7 @@ def _make_tarfile(output_filename, source_dir):
             tar.add(os.path.join(source_dir, f), arcname=f)
 
 
-def _upload_s3(local_model_path, bucket, prefix, region_name, s3_client):
+def _upload_s3(local_model_path, bucket, prefix, region_name, s3_client, **assume_role_credentials):
     """
     Upload dir to S3 as .tar.gz.
     :param local_model_path: Local path to a dir.
@@ -1107,7 +1189,7 @@ def _upload_s3(local_model_path, bucket, prefix, region_name, s3_client):
     """
     import boto3
 
-    sess = boto3.Session(region_name=region_name)
+    sess = boto3.Session(region_name=region_name, **assume_role_credentials)
     with TempDir() as tmp:
         model_data_file = tmp.path("model.tar.gz")
         _make_tarfile(model_data_file, local_model_path)
