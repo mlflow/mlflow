@@ -1,11 +1,9 @@
-default:
-  image: ${CI_REGISTRY}/ci-runner-images/ci-docker-images/ddi-yarn:master
-
 stages:
   - build
   - publish
 
 build-code-job:
+  image: ${CI_REGISTRY}/ci-runner-images/ci-docker-images/ddi-yarn:master
   stage: build
   artifacts:
     paths:
@@ -18,6 +16,7 @@ build-code-job:
     - python setup.py bdist_wheel
 
 publish-code-job:
+  image: ${CI_REGISTRY}/ci-runner-images/ci-docker-images/ddi-yarn:master
   stage: publish
   script:
     - pip install twine
