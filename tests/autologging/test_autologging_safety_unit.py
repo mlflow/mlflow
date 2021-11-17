@@ -15,7 +15,7 @@ from mlflow.tracking.client import MlflowClient
 from mlflow.utils.autologging_utils import (
     safe_patch,
     autologging_integration,
-    exception_safe_function,
+    picklable_exception_safe_function,
     AutologgingEventLogger,
     ExceptionSafeClass,
     ExceptionSafeAbstractClass,
@@ -617,7 +617,7 @@ def test_safe_patch_makes_expected_event_logging_calls_for_successful_patch_invo
 
     def patch_impl(original, *args, **kwargs):
         nonlocal og_call_kwargs
-        kwargs.update({"extra_func": exception_safe_function(lambda k: "foo")})
+        kwargs.update({"extra_func": picklable_exception_safe_function(lambda k: "foo")})
         og_call_kwargs = kwargs
 
         nonlocal patch_session
@@ -812,10 +812,10 @@ def test_safe_patch_succeeds_when_event_logging_throws_in_standard_mode(
     assert [call.method for call in logger.calls] == expected_calls
 
 
-def test_exception_safe_function_exhibits_expected_behavior_in_standard_mode():
+def test_picklable_exception_safe_function_exhibits_expected_behavior_in_standard_mode():
     assert not autologging_utils.is_testing()
 
-    @exception_safe_function
+    @picklable_exception_safe_function
     def non_throwing_function():
         return 10
 
@@ -823,7 +823,7 @@ def test_exception_safe_function_exhibits_expected_behavior_in_standard_mode():
 
     exc_to_throw = Exception("bad implementation")
 
-    @exception_safe_function
+    @picklable_exception_safe_function
     def throwing_function():
         raise exc_to_throw
 
@@ -836,10 +836,10 @@ def test_exception_safe_function_exhibits_expected_behavior_in_standard_mode():
 
 
 @pytest.mark.usefixtures(test_mode_on.__name__)
-def test_exception_safe_function_exhibits_expected_behavior_in_test_mode():
+def test_picklable_exception_safe_function_exhibits_expected_behavior_in_test_mode():
     assert autologging_utils.is_testing()
 
-    @exception_safe_function
+    @picklable_exception_safe_function
     def non_throwing_function():
         return 10
 
@@ -847,7 +847,7 @@ def test_exception_safe_function_exhibits_expected_behavior_in_test_mode():
 
     exc_to_throw = Exception("function error")
 
-    @exception_safe_function
+    @picklable_exception_safe_function
     def throwing_function():
         raise exc_to_throw
 
@@ -1207,7 +1207,7 @@ def test_validate_args_throws_when_extra_args_are_not_exception_safe():
 @pytest.mark.parametrize(
     "baseclass, metaclass", [(object, ExceptionSafeClass), (abc.ABC, ExceptionSafeAbstractClass)]
 )
-def test_validate_args_succeeds_when_extra_args_are_exception_safe_functions_or_classes(
+def test_validate_args_succeeds_when_extra_args_are_picklable_exception_safe_functions_or_classes(
     baseclass, metaclass
 ):
     user_call_args = (1, "b", ["c"])
@@ -1220,10 +1220,10 @@ def test_validate_args_succeeds_when_extra_args_are_exception_safe_functions_or_
 
     autologging_call_args = copy.deepcopy(user_call_args)
     autologging_call_args[2].append(Safe())
-    autologging_call_args += (exception_safe_function(lambda: "foo"),)
+    autologging_call_args += (picklable_exception_safe_function(lambda: "foo"),)
 
     autologging_call_kwargs = copy.deepcopy(user_call_kwargs)
-    autologging_call_kwargs["foo"].append(exception_safe_function(lambda: "foo"))
+    autologging_call_kwargs["foo"].append(picklable_exception_safe_function(lambda: "foo"))
     autologging_call_kwargs["new"] = Safe()
 
     _validate_args(user_call_args, user_call_kwargs, autologging_call_args, autologging_call_kwargs)
