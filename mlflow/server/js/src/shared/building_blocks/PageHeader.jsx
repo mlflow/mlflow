@@ -11,13 +11,7 @@ import { PreviewIcon } from './PreviewIcon';
 import { Spacer } from './Spacer';
 
 // Note: this button has a different size from normal AntD buttons.
-export function HeaderButton({ onClick, children, ...props }){
-  return (
-    <Button size='default' onClick={onClick} {...props} >
-      {children}
-    </Button>
-  )
-};
+export { Button as HeaderButton };
 
 export function OverflowMenu({ menu }) {
   const overflowMenu = (
