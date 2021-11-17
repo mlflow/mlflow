@@ -90,14 +90,26 @@ def test_autologging_integrations_use_safe_patch_for_monkey_patching(integration
         ) as gorilla_mock, mock.patch(
             integration.__name__ + ".safe_patch", wraps=safe_patch
         ) as safe_patch_mock:
-            integration.autolog(disable=False)
-            assert safe_patch_mock.call_count > 0
+            if integration.__name__ == "mlflow.xgboost":
+                with mock.patch(
+                    "mlflow.sklearn.safe_patch", wraps=safe_patch
+                ) as xgb_sklearn_safe_patch_mock:
+                    integration.autolog(disable=False)
+
+                    safe_patch_call_count = (
+                        safe_patch_mock.call_count + xgb_sklearn_safe_patch_mock.call_count
+                    )
+            else:
+                integration.autolog(disable=False)
+                safe_patch_call_count = safe_patch_mock.call_count
+
+            assert safe_patch_call_count > 0
             # `safe_patch` leverages `gorilla.apply` in its implementation. Accordingly, we expect
             # that the total number of `gorilla.apply` calls to be equivalent to the number of
             # `safe_patch` calls. This verifies that autologging integrations are leveraging
             # `safe_patch`, rather than calling `gorilla.apply` directly (which does not provide
             # exception safety properties)
-            assert safe_patch_mock.call_count == gorilla_mock.call_count
+            assert safe_patch_call_count == gorilla_mock.call_count
 
 
 def test_autolog_respects_exclusive_flag(setup_sklearn_model):
