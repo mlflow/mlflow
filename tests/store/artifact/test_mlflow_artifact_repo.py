@@ -57,7 +57,7 @@ def mlflow_artifact_repo_with_host():
     return MlflowArtifactsRepository(artifact_uri)
 
 
-@pytest.mark.parametrize("artifact_path", [None, "dir"])
+@pytest.mark.parametrize("artifact_path", [None, "dir", "path/to/artifacts/storage"])
 def test_log_artifact(mlflow_artifact_repo, tmpdir, artifact_path):
     tmp_path = tmpdir.join("a.txt")
     tmp_path.write("0")
@@ -74,7 +74,7 @@ def test_log_artifact(mlflow_artifact_repo, tmpdir, artifact_path):
             mlflow_artifact_repo.log_artifact(tmp_path, artifact_path)
 
 
-@pytest.mark.parametrize("artifact_path", [None, "dir"])
+@pytest.mark.parametrize("artifact_path", [None, "dir", "path/to/artifacts/storage"])
 def test_log_artifact_with_host_and_port(mlflow_artifact_repo_with_host, tmpdir, artifact_path):
     tmp_path = tmpdir.join("a.txt")
     tmp_path.write("0")
@@ -93,7 +93,7 @@ def test_log_artifact_with_host_and_port(mlflow_artifact_repo_with_host, tmpdir,
             mlflow_artifact_repo_with_host.log_artifact(tmp_path, artifact_path)
 
 
-@pytest.mark.parametrize("artifact_path", [None, "dir"])
+@pytest.mark.parametrize("artifact_path", [None, "dir", "path/to/artifacts/storage"])
 def test_log_artifacts(mlflow_artifact_repo, tmpdir, artifact_path):
     tmp_path_a = tmpdir.join("a.txt")
     tmp_path_b = tmpdir.mkdir("dir").join("b.txt")
