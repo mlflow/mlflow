@@ -36,7 +36,7 @@ def exception_safe_function_for_class(function):
     Wraps the specified function with broad exception handling to guard
     against unexpected errors during autologging.
     Note this function creates an unpicklable function as `safe_function` is locally defined,
-    but a class instance containing methods decorated by this function should remain pickalable,
+    but a class instance containing methods decorated by this function should be pickalable,
     because pickle only saves instance attributes, not methods.
     See https://docs.python.org/3/library/pickle.html#pickling-class-instances for more details.
     """
