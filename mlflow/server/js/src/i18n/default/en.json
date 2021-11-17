@@ -79,6 +79,10 @@
     "defaultMessage": "Creator",
     "description": "Lable name for the creator under details tab on the model view page"
   },
+  "25EUlg": {
+    "defaultMessage": "The code snippets below demonstrate how to load the logged model.",
+    "description": "Subtext heading explaining the below section of the model artifact view on how users can load the registered logged model"
+  },
   "27oNFE": {
     "defaultMessage": "Model schema",
     "description": "Heading text for the model schema of the registered model from the experiment run"
@@ -90,6 +94,10 @@
   "2Exf7S": {
     "defaultMessage": "Supported formats: image, text, html, pdf, geojson files",
     "description": "Text to explain users which formats are supported to display the artifacts"
+  },
+  "2NfDVN": {
+    "defaultMessage": "Load the model",
+    "description": "Heading text for stating how to load the model from the experiment run"
   },
   "2f2qeb": {
     "defaultMessage": "Type",
@@ -162,6 +170,10 @@
   "6b6fTN": {
     "defaultMessage": "Select a file to preview",
     "description": "Label to suggests users to select a file to preview the output"
+  },
+  "6bmLqb": {
+    "defaultMessage": "Load model",
+    "description": "Code comment which states how to load the model"
   },
   "6kSKRk": {
     "defaultMessage": "Comparing {numVersions} Versions",
@@ -714,6 +726,10 @@
   "axF2gD": {
     "defaultMessage": "Full Path:",
     "description": "Label to display the full path of where the artifact of the experiment runs is located"
+  },
+  "bHuphj": {
+    "defaultMessage": "See the documents below to learn how to customize this model and deploy it for batch or real-time scoring using the pyfunc model flavor.",
+    "description": "Subtext heading for a list of documents that describe how to customize the model using the mlflow.pyfunc module"
   },
   "bSx/er": {
     "defaultMessage": "Parameters",
