@@ -3,3 +3,4 @@
 -r extra-ml-requirements.txt
 -r lint-requirements.txt
 -r doc-requirements.txt
+-r drivers-requirements.txt
