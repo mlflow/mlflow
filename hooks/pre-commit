@@ -1,11 +1,13 @@
-set -e
+#!/usr/bin/env bash
+
+set -eo pipefail
 
 get_installed_version() {
   echo $(pip freeze | grep "$1==" | sed -e "s/$1==//g")
 }
 
 get_version_from_lint_requirements() {
-  echo $(cat dev/lint-requirements.txt | grep "$1==" | sed -e "s/$1==//g")
+  echo $(cat requirements/lint-requirements.txt | grep "$1==" | sed -e "s/$1==//g")
 }
 
 validate_version() {

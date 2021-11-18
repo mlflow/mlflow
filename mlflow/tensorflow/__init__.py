@@ -50,8 +50,7 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
-    exception_safe_function,
-    ExceptionSafeClass,
+    picklable_exception_safe_function,
     PatchFunction,
     log_fn_args_as_params,
     batch_metrics_logger,
@@ -580,7 +579,7 @@ def _log_event(event):
                     )
 
 
-@exception_safe_function
+@picklable_exception_safe_function
 def _get_tensorboard_callback(lst):
     import tensorflow
 
@@ -603,61 +602,17 @@ def _setup_callbacks(lst, log_models, metrics_logger):
     input list, and returns the new list and appropriate log directory.
     """
     # pylint: disable=no-name-in-module
-    from tensorflow.keras.callbacks import Callback, TensorBoard
-
-    class __MLflowTfKeras2Callback(Callback, metaclass=ExceptionSafeClass):
-        """
-        Callback for auto-logging parameters and metrics in TensorFlow >= 2.0.0.
-        Records model structural information as params when training starts.
-        """
-
-        def __enter__(self):
-            pass
-
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            pass
-
-        def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
-            config = self.model.optimizer.get_config()
-            for attribute in config:
-                mlflow.log_param("opt_" + attribute, config[attribute])
-
-            sum_list = []
-            self.model.summary(print_fn=sum_list.append)
-            summary = "\n".join(sum_list)
-            tempdir = tempfile.mkdtemp()
-            try:
-                summary_file = os.path.join(tempdir, "model_summary.txt")
-                with open(summary_file, "w") as f:
-                    f.write(summary)
-                mlflow.log_artifact(local_path=summary_file)
-            finally:
-                shutil.rmtree(tempdir)
-
-        def on_epoch_end(self, epoch, logs=None):
-            # NB: tf.Keras uses zero-indexing for epochs, while other TensorFlow Estimator
-            # APIs (e.g., tf.Estimator) use one-indexing. Accordingly, the modular arithmetic
-            # used here is slightly different from the arithmetic used in `_log_event`, which
-            # provides  metric logging hooks for TensorFlow Estimator & other TensorFlow APIs
-            if epoch % _LOG_EVERY_N_STEPS == 0:
-                metrics_logger.record_metrics(logs, epoch)
-
-        def on_train_end(self, logs=None):  # pylint: disable=unused-argument
-            if log_models:
-                mlflow.keras.log_model(self.model, artifact_path="model")
+    from mlflow.tensorflow._autolog import _TensorBoard, __MLflowTfKeras2Callback
 
     tb = _get_tensorboard_callback(lst)
     if tb is None:
         log_dir = _TensorBoardLogDir(location=tempfile.mkdtemp(), is_temp=True)
 
-        class _TensorBoard(TensorBoard, metaclass=ExceptionSafeClass):
-            pass
-
         out_list = lst + [_TensorBoard(log_dir.location)]
     else:
         log_dir = _TensorBoardLogDir(location=tb.log_dir, is_temp=False)
         out_list = lst
-    out_list += [__MLflowTfKeras2Callback()]
+    out_list += [__MLflowTfKeras2Callback(log_models, metrics_logger, _LOG_EVERY_N_STEPS)]
     return out_list, log_dir
 
 
@@ -830,7 +785,7 @@ def autolog(
 
         return serialized
 
-    @exception_safe_function
+    @picklable_exception_safe_function
     def _get_early_stop_callback(callbacks):
         for callback in callbacks:
             if isinstance(callback, tensorflow.keras.callbacks.EarlyStopping):

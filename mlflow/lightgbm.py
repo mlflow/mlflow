@@ -23,6 +23,7 @@ import json
 import tempfile
 import shutil
 import logging
+import functools
 from copy import deepcopy
 
 import mlflow
@@ -50,7 +51,7 @@ from mlflow.utils.arguments_utils import _get_arg_names
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
-    exception_safe_function,
+    picklable_exception_safe_function,
     get_mlflow_run_params_for_fn_args,
     INPUT_EXAMPLE_SAMPLE_ROWS,
     resolve_input_example_and_signature,
@@ -298,6 +299,15 @@ class _LGBModelWrapper:
         return self.lgb_model.predict(dataframe)
 
 
+def _autolog_callback(env, metrics_logger, eval_results):
+    res = {}
+    for data_name, eval_name, value, _ in env.evaluation_result_list:
+        key = data_name + "-" + eval_name
+        res[key] = value
+    metrics_logger.record_metrics(res, env.iteration)
+    eval_results.append(res)
+
+
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_input_examples=False,
@@ -381,17 +391,11 @@ def autolog(
             """
             Create a callback function that records evaluation results.
             """
-
-            @exception_safe_function
-            def callback(env):
-                res = {}
-                for data_name, eval_name, value, _ in env.evaluation_result_list:
-                    key = data_name + "-" + eval_name
-                    res[key] = value
-                metrics_logger.record_metrics(res, env.iteration)
-                eval_results.append(res)
-
-            return callback
+            return picklable_exception_safe_function(
+                functools.partial(
+                    _autolog_callback, metrics_logger=metrics_logger, eval_results=eval_results
+                )
+            )
 
         def log_feature_importance_plot(features, importance, importance_type):
             """
