@@ -18,8 +18,7 @@ IS_TRAINING_CALLBACK_SUPPORTED = Version(xgboost.__version__.replace("SNAPSHOT",
 if IS_TRAINING_CALLBACK_SUPPORTED:
 
     class AutologCallback(
-        xgboost.callback.TrainingCallback,
-        metaclass=ExceptionSafeAbstractClass,
+        xgboost.callback.TrainingCallback, metaclass=ExceptionSafeAbstractClass,
     ):
         def __init__(self, metrics_logger, eval_results):
             # pylint: disable=super-init-not-called
