@@ -12,7 +12,7 @@ X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
 
 # Train model
 with mlflow.start_run() as run:
-    print(f"MLFlow run ID: {run.info.run_id}")
+    print(f"MLflow run ID: {run.info.run_id}")
 
     model = sklearn.linear_model.Ridge(alpha=0.03)
     model.fit(X_train, y_train)
