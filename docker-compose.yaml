@@ -40,7 +40,7 @@ services:
     - sh
     - -c
     - mlflow server
-      --backend-store-uri "postgresql://"$${POSTGRES_DB:?err}":"$${POSTGRES_PASSWORD:?err}"@backend_store:5432/"$${POSTGRES_DB:?err}""
+      --backend-store-uri "postgresql://"$${POSTGRES_USER:?err}":"$${POSTGRES_PASSWORD:?err}"@backend_store:5432/"$${POSTGRES_DB:?err}""
       --default-artifact-root "$${ARTIFACT_ROOT_URI:?err}"
       --host 0.0.0.0
 
