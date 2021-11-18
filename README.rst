@@ -12,6 +12,7 @@ To get started:
 ```shell
 cp .env.example .env
 ```
+_Note: if you change the `ML_FLOW_PORT` env var, also update the port defined in `nginx/mlflow.conf` accordingly.
 
 2. Start the service with docker-compose:
 ```
