@@ -1,11 +1,14 @@
 import mlflow
 import sklearn
 
-mlflow.sklearn.autolog(log_models=False) # Use explicit model logging to control the conda environment and pip requirements
+# Use explicit model logging to control the conda environment and pip requirements
+mlflow.sklearn.autolog(log_models=False)
 
 # Load data
-X, y = sklearn.datasets.load_diabetes(return_X_y = True)
-X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, test_size=0.2, random_state=0)
+X, y = sklearn.datasets.load_diabetes(return_X_y=True)
+X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+    X, y, test_size=0.2, random_state=0
+)
 
 # Train model
 with mlflow.start_run() as run:
@@ -16,8 +19,8 @@ with mlflow.start_run() as run:
 
     mlflow.sklearn.log_model(
         model,
-        artifact_path = "model",
-        signature = mlflow.models.infer_signature(X_train[:10], y_train[:10]),
-        input_example = X_train[:10],
-        conda_env = "conda.yaml")
-    
+        artifact_path="model",
+        signature=mlflow.models.infer_signature(X_train[:10], y_train[:10]),
+        input_example=X_train[:10],
+        conda_env="conda.yaml",
+    )
