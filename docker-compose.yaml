@@ -32,6 +32,7 @@ services:
     env_file:
       - .env
     environment:
+      ML_FLOW_PORT: ${ML_FLOW_PORT}
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PORT: ${POSTGRES_PORT}
@@ -46,6 +47,7 @@ services:
       --backend-store-uri "postgresql://"$${POSTGRES_USER:?err}":"$${POSTGRES_PASSWORD:?err}"@backend_store:"$${POSTGRES_PORT:?err}"/"$${POSTGRES_DB:?err}""
       --default-artifact-root "$${ARTIFACT_ROOT_URI:?err}"
       --host 0.0.0.0
+      --port '$${ML_FLOW_PORT}"
 
 
   nginx:
