@@ -22,7 +22,7 @@ services:
     image: popszer/mlflow:1.2.0
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: mlFlow.DockerFile
     depends_on:
       - backend_store
     restart: always
