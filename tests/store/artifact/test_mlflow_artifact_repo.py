@@ -18,34 +18,28 @@ def test_artifact_uri_factory():
 def test_mlflow_artifact_uri_formats_resolved():
 
     tracking_uri = urlparse(get_tracking_uri())
-
+    base_api_uri = "api/2.0/mlflow-artifacts/artifacts"
+    base_path = "/my/artifact/path"
     conditions = [
         (
-            "mlflow-artifacts://myhostname:4242/my/artifact/path/hostport",
-            f"{tracking_uri.scheme}:"
-            f"//myhostname:4242/api/2.0/mlflow-artifacts/artifacts/my/artifact/path/hostport",
+            f"mlflow-artifacts://myhostname:4242{base_path}/hostport",
+            f"{tracking_uri.scheme}://myhostname:4242/{base_api_uri}{base_path}/hostport",
         ),
         (
-            "mlflow-artifacts://myhostname/my/artifact/path/host",
-            f"{tracking_uri.scheme}:"
-            f"//myhostname/api/2.0/mlflow-artifacts/artifacts/my/artifact/path/host",
+            f"mlflow-artifacts://myhostname{base_path}/host",
+            f"{tracking_uri.scheme}://myhostname/{base_api_uri}{base_path}/host",
         ),
         (
-            "mlflow-artifacts:/my/artifact/path/nohost",
-            f"{tracking_uri.scheme}:"
-            f"{tracking_uri.path}/api/2.0/mlflow-artifacts/artifacts/my/artifact/path/nohost",
+            f"mlflow-artifacts:{base_path}/nohost",
+            f"{tracking_uri.scheme}:{tracking_uri.path}/{base_api_uri}{base_path}/nohost",
         ),
         (
-            "mlflow-artifacts:///my/artifact/path/redundant",
-            f"{tracking_uri.scheme}:"
-            f"{tracking_uri.path}/api/2.0/mlflow-artifacts/artifacts/my/artifact/path/redundant",
+            f"mlflow-artifacts://{base_path}/redundant",
+            f"{tracking_uri.scheme}:{tracking_uri.path}/{base_api_uri}{base_path}/redundant",
         ),
-        (
-            "mlflow-artifacts:/",
-            f"{tracking_uri.scheme}:{tracking_uri.path}/api/2.0/mlflow-artifacts/artifacts",
-        ),
+        ("mlflow-artifacts:/", f"{tracking_uri.scheme}:{tracking_uri.path}/{base_api_uri}",),
     ]
-    failing_condition = "mlflow-artifacts://5000/my/artifact/path"
+    failing_condition = f"mlflow-artifacts://5000/{base_path}"
 
     for submit, resolved in conditions:
         artifact_repo = MlflowArtifactsRepository(submit)
