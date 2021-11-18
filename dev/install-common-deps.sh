@@ -53,7 +53,7 @@ if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
   requirements+=" -r requirements/extra-ml-requirements.txt"
 fi
 
-if [ ! -z $requirements ]; then
+if [[ ! -z $requirements ]]; then
   retry-with-backoff pip install $requirements
 fi
 
