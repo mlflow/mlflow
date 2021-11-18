@@ -106,40 +106,42 @@ export class ExperimentPage extends Component {
   }
 
   static getDerivedStateFromProps(props, state) {
-    const store = ExperimentPage.getLocalStore(props.experimentId);
-    if (props.experimentId !== state.lastExperimentId) {
-      return {
-        persistedState:
-          state.lastExperimentId === undefined
-            ? state.persistedState
-            : new ExperimentPagePersistedState({
-                ...store.loadComponentState(),
-              }).toJSON(),
-        lastExperimentId: props.experimentId,
-        nextPageToken: null,
-        getExperimentRequestId: getUUID(),
-        searchRunsRequestId: getUUID(),
-        ...PAGINATION_DEFAULT_STATE,
-      };
-    } else if (
-      // react to url being changed by user or using the back button
-      props.location.search !== state.urlState &&
-      props.history.action === 'POP'
-    ) {
-      return {
-        lastRunsRefreshTime: Date.now(),
-        numberOfNewRuns: 0,
-        nextPageToken: null,
-        urlState: props.location.search,
-        persistedState: new ExperimentPagePersistedState({
-          ...store.loadComponentState(),
-          ...Utils.getSearchParamsFromUrl(props.location.search),
-        }).toJSON(),
-        searchRunsRequestId: getUUID(),
-        ...PAGINATION_DEFAULT_STATE,
-      };
+    const experimentChanged = props.experimentId !== state.lastExperimentId;
+    const urlStateChanged =
+      props.location.search !== state.urlState && props.history.action === 'POP';
+
+    // Early return if experiment & urlState are unchanged
+    if (!experimentChanged && !urlStateChanged) {
+      return null;
     }
-    return null;
+
+    const store = ExperimentPage.getLocalStore(props.experimentId);
+    const returnValue = {
+      searchRunsRequestId: getUUID(),
+      lastRunsRefreshTime: Date.now(),
+      lastExperimentId: props.experimentId,
+      ...PAGINATION_DEFAULT_STATE,
+    };
+
+    if (experimentChanged) {
+      returnValue.getExperimentRequestId = getUUID();
+      returnValue.persistedState =
+        state.lastExperimentId === undefined
+          ? state.persistedState
+          : new ExperimentPagePersistedState({
+              ...store.loadComponentState(),
+              ...Utils.getSearchParamsFromUrl(props.location.search),
+            }).toJSON();
+    }
+
+    if (urlStateChanged) {
+      returnValue.persistedState = new ExperimentPagePersistedState({
+        ...Utils.getSearchParamsFromUrl(props.location.search),
+      }).toJSON();
+      returnValue.urlState = props.location.search;
+    }
+
+    return returnValue;
   }
 
   componentWillUnmount() {
