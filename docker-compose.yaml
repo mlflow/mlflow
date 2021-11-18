@@ -9,6 +9,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PORT: ${POSTGRES_PORT}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     healthcheck:
       test: ["CMD-SHELL", "pg_is_ready -U ${POSTGRES_USER} --db-name ${POSTGRES_DB} -q"]
@@ -31,6 +32,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PORT: ${POSTGRES_PORT}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       ARTIFACT_ROOT_URI: ${ARTIFACT_ROOT_URI}
     ports:
@@ -40,9 +42,21 @@ services:
     - sh
     - -c
     - mlflow server
-      --backend-store-uri "postgresql://"$${POSTGRES_USER:?err}":"$${POSTGRES_PASSWORD:?err}"@backend_store:5432/"$${POSTGRES_DB:?err}""
+      --backend-store-uri "postgresql://"$${POSTGRES_USER:?err}":"$${POSTGRES_PASSWORD:?err}"@backend_store:"$${POSTGRES_PORT:?err}"/"$${POSTGRES_DB:?err}""
       --default-artifact-root "$${ARTIFACT_ROOT_URI:?err}"
       --host 0.0.0.0
 
+
+  nginx:
+      restart: always
+      build: ./nginx
+      image: mlflow_nginx
+      container_name: mlflow_nginx
+      ports:
+          - "80:80"
+      networks:
+          - frontend
+      depends_on:
+          - app
 volumes:
   postgres_data:
