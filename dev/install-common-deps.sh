@@ -53,7 +53,9 @@ if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
   requirements+=" -r requirements/extra-ml-requirements.txt"
 fi
 
-retry-with-backoff pip install $requirements
+if [ ! -z $requirements ]; then
+  retry-with-backoff pip install $requirements
+fi
 
 # Install `mlflow-test-plugin` without dependencies
 pip install --no-dependencies tests/resources/mlflow-test-plugin
