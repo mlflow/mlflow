@@ -1,55 +1,22 @@
 import mlflow
 from mlflow.evaluation import ModelEvaluator, EvaluationMetrics, \
     EvaluationArtifact, EvaluationResult, EvaluationDataset
-from mlflow.tracking import artifact_utils
+from mlflow.tracking.artifact_utils import get_artifact_uri
 from sklearn import metrics as sk_metrics
 import numpy as np
-import pickle
+import json
 
 
-class DummyEvaluationArtifact(EvaluationArtifact):
+class JsonEvaluationArtifact(EvaluationArtifact):
 
-    def __init__(self, content, location):
-        self._content = content
-        self._location = location
-
-    @property
-    def content(self):
-        return self._content
-
-    @property
-    def location(self) -> str:
-        return self._location
-
-
-class DummyEvaluationResult(EvaluationResult):
-
-    def __init__(self, metric_values, artifact_content, artifact_location):
-        self.metric_values = metric_values
-        self.artifact_content = artifact_content
-        self.artifact_location = artifact_location
+    def save_content_to_file(self, content, output_artifact_path):
+        with open(output_artifact_path, 'w') as fp:
+            json.dump(content, fp)
 
     @classmethod
-    def load(cls, path):
-        with open(path, 'r') as f:
-            obj = pickle.load(f)
-        return obj
-
-    def save(self, path):
-        with open(path, 'w') as f:
-            # TODO: skip dump artifact, instead, download artifact content when loading
-            pickle.dump(self, f)
-
-    @property
-    def metrics(self):
-        return self.metric_values
-
-    @property
-    def artifacts(self):
-        return DummyEvaluationArtifact(
-            content=self.artifact_content,
-            location=self.artifact_location
-        )
+    def load_content_from_file(cls, local_artifact_path):
+        with open(local_artifact_path, 'r') as fp:
+            return json.load(fp)
 
 
 class DummyEvaluator(ModelEvaluator):
@@ -60,41 +27,35 @@ class DummyEvaluator(ModelEvaluator):
         return evaluator_config.get('can_evaluate') and \
                model_type in ['classifier', 'regressor']
 
-    def _evaluate(self, predict, dataset, run_id, evaluator_config):
+    def compute_metrics_and_compute_and_log_artifacts(
+            self, model_type, predict, dataset, evaluator_config, run_id
+    ):
         X = dataset.data
         assert isinstance(X, np.ndarray), 'Only support array type feature input'
         assert dataset.name is not None, 'Dataset name required'
         y = dataset.labels
         y_pred = predict(X)
+        if model_type == 'classifier':
+            accuracy_score = sk_metrics.accuracy_score(y, y_pred)
+            brier_score_loss = sk_metrics.brier_score_loss(y, y_pred)
 
-        metrics_to_calc = evaluator_config.get('metrics_to_calc')
-
-        client = mlflow.tracking.MlflowClient()
-        metric_values = {}
-        for metric_name in metrics_to_calc:
-            metric_value = getattr(sk_metrics, metric_name)(y, y_pred)
-            metric_values[metric_name] = metric_value
-            metric_key = f'{metric_name}_on_{dataset.name}'
-            client.log_metric(run_id=run_id, key=metric_key, value=metric_value)
-
-        client.log_dict(run_id, metric_values, 'metrics_artifact.json')
-
-        # TODO: log `mlflow.datasets` tag containing a list of metadata for all datasets
-
-        return DummyEvaluationResult(
-            metric_values=metric_values,
-            artifact_content=metric_values,
-            artifact_location=artifact_utils.get_artifact_uri(run_id, 'metrics_artifact.json')
-        )
-
-    def evaluate(
-        self, predict, dataset, run_id, evaluator_config=None
-    ):
-        if run_id is not None:
-            return self._evaluate(predict, dataset, run_id, evaluator_config)
-        elif mlflow.active_run() is not None:
-            return self._evaluate(predict, dataset, mlflow.active_run().info.run_id,
-                                  evaluator_config)
-        else:
-            with mlflow.start_run() as run:
-                return self._evaluate(predict, dataset, run.info.run_id, evaluator_config)
+            metrics = EvaluationMetrics(
+                accuracy_score=accuracy_score,
+                brier_score_loss=brier_score_loss
+            )
+            confusion_matrix = sk_metrics.confusion_matrix(y, y_pred)
+            confusion_matrix_artifact_name = f'confusion_matrix_on_{dataset.name}.json'
+            confusion_matrix_artifact = JsonEvaluationArtifact(
+                location=get_artifact_uri(run_id, confusion_matrix_artifact_name),
+                content=confusion_matrix
+            )
+            self.mlflow_client.log_dict(run_id, confusion_matrix)
+            artifacts = {confusion_matrix_artifact_name: confusion_matrix_artifact}
+            return metrics, artifacts
+        elif model_type == 'regressor':
+            mean_absolute_error = sk_metrics.mean_absolute_error(y, y_pred)
+            mean_squared_error = sk_metrics.mean_squared_error(y, y_pred)
+            return EvaluationMetrics(
+                mean_absolute_error=mean_absolute_error,
+                mean_squared_error=mean_squared_error
+            ), {}

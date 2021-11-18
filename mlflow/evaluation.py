@@ -27,7 +27,7 @@ class EvaluationArtifact:
         self._location = location
 
     @classmethod
-    def load_content_from_file(self, local_artifact_path):
+    def load_content_from_file(cls, local_artifact_path):
         raise NotImplementedError()
 
     def save_content_to_file(self, content, output_artifact_path):
@@ -240,21 +240,19 @@ class ModelEvaluator:
         """
         raise NotImplementedError()
 
-    def compute_metrics(self, predict, dataset):
+    def compute_metrics_and_compute_and_log_artifacts(
+            self, model_type, predict, dataset, evaluator_config, run_id
+    ):
         """
-        return an instance of EvaluationMetrics
-        """
-        raise NotImplementedError()
-
-    def compute_and_log_artifacts(self, predict, dataset, run_id, mlflow_client):
-        """
-        compute and log artifact, and return a dict of
-        artifact_name -> instance_of_EvaluationArtifact
+        return an tuple of:
+         - an instance of EvaluationMetrics
+         - a dict of artifact_name -> instance_of_EvaluationArtifact
+        and log artifacts into run specified by run_id
         """
         raise NotImplementedError()
 
     def evaluate(
-        self, predict, dataset, run_id=None, evaluator_config=None, **kwargs
+        self, model_type, predict, dataset, run_id=None, evaluator_config=None, **kwargs
     ) -> EvaluationResult:
         """
         :param predict: A function used to compute model predictions. Predict
@@ -271,18 +269,27 @@ class ModelEvaluator:
         :return: An `EvaluationResult` instance containing evaluation results.
         """
         client = mlflow.tracking.MlflowClient()
+        self.mlflow_client = client
+
         with GetOrCreateRunId(run_id) as run_id:
-            metrics_dict = self.compute_metrics(predict, dataset)
             timestamp = int(time.time() * 1000)
             existing_dataset_metadata_str = client.get_run(run_id).data.tags.get('mlflow.datasets')
             if existing_dataset_metadata_str is not None:
                 dataset_metadata_list = json.loads(existing_dataset_metadata_str)
             else:
                 dataset_metadata_list = []
+
+            for metadata in dataset_metadata_list:
+                if metadata['hash'] == dataset.hash:
+                    raise ValueError(f'The dataset {dataset.name} evaluation results has been '
+                                     'logged.')
             dataset_metadata_list.append(dataset.metadata)
 
             dataset_metadata_str = json.dumps(dataset_metadata_list)
 
+            metrics_dict, artifacts_dict = self.compute_metrics_and_compute_and_log_artifacts(
+                model_type, predict, dataset, run_id, client
+            )
             client.log_batch(
                 run_id,
                 metrics=[
@@ -291,8 +298,8 @@ class ModelEvaluator:
                 ],
                 tags=[RunTag('mlflow.datasets', dataset_metadata_str)]
             )
-            artifact_dict = self.compute_and_log_artifact(predict, dataset, run_id, client)
-            return EvaluationResult(metrics_dict, artifact_dict)
+
+            return EvaluationResult(metrics_dict, artifacts_dict)
 
 
 class ModelEvaluatorRegistry:
