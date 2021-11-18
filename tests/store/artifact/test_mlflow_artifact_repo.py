@@ -2,14 +2,62 @@ import os
 from unittest import mock
 import posixpath
 import pytest
+from urllib.parse import urlparse
 
 from mlflow.store.artifact.mlflow_artifacts_repo import MlflowArtifactsRepository
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.exceptions import MlflowException
+from mlflow.tracking._tracking_service.utils import get_tracking_uri
 
 
 def test_artifact_uri_factory():
     repo = get_artifact_repository("mlflow-artifacts://test.com")
     assert isinstance(repo, MlflowArtifactsRepository)
+
+
+def test_mlflow_artifact_uri_formats_resolved():
+
+    tracking_uri = urlparse(get_tracking_uri())
+
+    conditions = [
+        (
+            "mlflow-artifacts://myhostname:4242/my/artifact/path/hostport",
+            f"{tracking_uri.scheme}:"
+            f"//myhostname:4242/api/2.0/mlflow-artifacts/artifacts/my/artifact/path/hostport",
+        ),
+        (
+            "mlflow-artifacts://myhostname/my/artifact/path/host",
+            f"{tracking_uri.scheme}:"
+            f"//myhostname/api/2.0/mlflow-artifacts/artifacts/my/artifact/path/host",
+        ),
+        (
+            "mlflow-artifacts:/my/artifact/path/nohost",
+            f"{tracking_uri.scheme}:"
+            f"{tracking_uri.path}/api/2.0/mlflow-artifacts/artifacts/my/artifact/path/nohost",
+        ),
+        (
+            "mlflow-artifacts:///my/artifact/path/redundant",
+            f"{tracking_uri.scheme}:"
+            f"{tracking_uri.path}/api/2.0/mlflow-artifacts/artifacts/my/artifact/path/redundant",
+        ),
+        (
+            "mlflow-artifacts:/",
+            f"{tracking_uri.scheme}:{tracking_uri.path}/api/2.0/mlflow-artifacts/artifacts",
+        ),
+    ]
+    failing_condition = "mlflow-artifacts://5000/my/artifact/path"
+
+    for submit, resolved in conditions:
+        artifact_repo = MlflowArtifactsRepository(submit)
+        assert artifact_repo.resolve_uri(submit) == resolved
+    with pytest.raises(
+        MlflowException,
+        match="The mlflow-artifacts uri was supplied with a port number: 5000, but no "
+        "host was defined.",
+    ):
+        uri = MlflowArtifactsRepository(  # pylint: disable=unused-variable
+            failing_condition
+        ).artifact_uri
 
 
 class MockResponse:
