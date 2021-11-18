@@ -36,10 +36,13 @@ services:
     ports:
       - "5000:5000"
 
-    command: sh -c 'mlflow server \
-                    --backend-store-uri "postgresql://"$${POSTGRES_DB:?err}":"$${POSTGRES_PASSWORD:?err}"@0.0.0.0:5432/"$${POSTGRES_DB:?err}"" \
-                    --default-artifact-root "$${ARTIFACT_ROOT_URI:?err}" \
-                    --host 0.0.0.0'
+    command:
+    - sh
+    - -c
+    - mlflow server
+      --backend-store-uri "postgresql://"$${POSTGRES_DB:?err}":"$${POSTGRES_PASSWORD:?err}"@0.0.0.0:5432/"$${POSTGRES_DB:?err}""
+      --default-artifact-root "$${ARTIFACT_ROOT_URI:?err}"
+      --host 0.0.0.0
 
 volumes:
   postgres_data:
