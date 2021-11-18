@@ -11,6 +11,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PORT: ${POSTGRES_PORT}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    expose:
+      - ${POSTGRES_PORT}
     healthcheck:
       test: ["CMD-SHELL", "pg_is_ready -U ${POSTGRES_USER} --db-name ${POSTGRES_DB} -q"]
       interval: 5s
@@ -37,8 +39,6 @@ services:
       ARTIFACT_ROOT_URI: ${ARTIFACT_ROOT_URI}
     ports:
       - "5000:5000"
-    expose:
-      - ${POSTGRES_PORT}
     command:
     - sh
     - -c
