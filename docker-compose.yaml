@@ -37,7 +37,8 @@ services:
       ARTIFACT_ROOT_URI: ${ARTIFACT_ROOT_URI}
     ports:
       - "5000:5000"
-
+    expose:
+      - ${POSTGRES_PORT}
     command:
     - sh
     - -c
@@ -54,9 +55,8 @@ services:
       container_name: mlflow_nginx
       ports:
           - "80:80"
-      networks:
-          - frontend
       depends_on:
-          - app
+          - mlflow_server
+
 volumes:
   postgres_data:

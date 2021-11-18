@@ -2,6 +2,24 @@
 MLflow: A Machine Learning Lifecycle Platform
 =============================================
 
+A docker-compose ready version of ML Flow.
+
+_Using PostgresSQL for the backend storage and SFTP for artefact storage._
+
+To get started:
+
+1. Copy the provided example environment file and update it with your values
+```shell
+cp .env.example .env
+```
+
+2. Start the service with docker-compose:
+```
+docker-compose up -d
+```
+
+## Original project doc
+
 MLflow is a platform to streamline machine learning development, including tracking experiments, packaging code
 into reproducible runs, and sharing and deploying models. MLflow offers a set of lightweight APIs that can be
 used with any existing machine learning application or library (TensorFlow, PyTorch, XGBoost, etc), wherever you
