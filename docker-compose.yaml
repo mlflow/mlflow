@@ -24,8 +24,8 @@ services:
   mlflow_server:
     image: popszer/mlflow:1.2.0
     build:
-      context: .
-      dockerfile: mlFlow.DockerFile
+      context: mlflow
+      dockerfile: DockerFile
     depends_on:
       - backend_store
     restart: always
@@ -50,7 +50,9 @@ services:
 
   nginx:
       restart: always
-      build: ./nginx
+      build:
+        context: nginx
+        dockerfile: Dockerfile
       image: mlflow_nginx
       container_name: mlflow_nginx
       ports:
