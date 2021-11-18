@@ -7,23 +7,30 @@ import time
 import numpy as np
 import pandas as pd
 import pickle
+import json
+import os
 from mlflow.exceptions import MlflowException
 from mlflow.utils.file_utils import TempDir
-from mlflow.entities import Metric
-from mlflow.tracking.artifact_utils import get_artifact_uri, _download_artifact_from_uri
+from mlflow.entities import Metric, RunTag
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils import _get_fully_qualified_class_name, load_class
 
 
 class EvaluationMetrics(dict):
     pass
 
 
-class EvaluationArtifacts:
+class EvaluationArtifact:
 
     def __init__(self, location, content=None):
         self._content = content
         self._location = location
 
-    def load_content_from_file(self, local_artifact_file):
+    @classmethod
+    def load_content_from_file(self, local_artifact_path):
+        raise NotImplementedError()
+
+    def save_content_to_file(self, content, output_artifact_path):
         raise NotImplementedError()
 
     @property
@@ -52,9 +59,6 @@ class EvaluationArtifacts:
         del state['_content']
         return state
 
-    def __setstate__(self, state):
-        self.__dict__.update(state)
-
 
 class EvaluationResult:
 
@@ -65,16 +69,40 @@ class EvaluationResult:
     @classmethod
     def load(cls, path):
         """Load the evaluation results from the specified local filesystem path"""
-        with open(path, 'r') as f:
-            obj = pickle.load(f)
-        return obj
+        with open(os.path.join(path, 'metrics.json'), 'r') as fp:
+            metrics = EvaluationMetrics(json.load(fp))
+
+        with open(os.path.join(path, 'artifacts_metadata.json'), 'r') as fp:
+            artifacts_metadata = json.load(fp)
+
+        artifacts = {}
+
+        for artifact_name, meta in artifacts_metadata:
+            location = meta['location']
+            ArtifactCls = load_class(meta['class_name'])
+            content = ArtifactCls.load_content_from_file(os.path.join(path, artifact_name))
+            artifacts[artifact_name] = ArtifactCls(location=location, content=content)
+
+        return EvaluationResult(metrics=metrics, artifacts=artifacts)
 
     def save(self, path):
         """Write the evaluation results to the specified local filesystem path"""
-        # We will likely avoid serializing artifacts themselves, just locations.
-        # Deserialization will resolve locations to artifact contents.
-        with open(path, 'w') as f:
-            pickle.dump(self, f)
+        os.makedirs(path, exist_ok=True)
+        with open(os.path.join(path, 'metrics.json'), 'w') as fp:
+            json.dump(self.metrics, fp)
+
+        artifacts_metadata = {
+            artifact_name: {
+                'location': artifact.location,
+                'class_name': _get_fully_qualified_class_name(artifact)
+            }
+            for artifact_name, artifact in self.artifacts.items()
+        }
+        with open(os.path.join(path, 'artifacts_metadata.json'), 'w') as fp:
+            json.dump(artifacts_metadata, fp)
+
+        for artifact_name, artifact in self.artifacts.items():
+            artifact.save_content_to_file(artifact.content, os.path.join(path, artifact_name))
 
     @property
     def metrics(self) -> EvaluationMetrics:
@@ -84,7 +112,7 @@ class EvaluationResult:
         return self._metrics
 
     @property
-    def artifacts(self) -> Dict[str, EvaluationArtifacts]:
+    def artifacts(self) -> Dict[str, EvaluationArtifact]:
         """
         A dictionary mapping standardized artifact names (e.g. "roc_data") to
         artifact content and location information
@@ -118,10 +146,11 @@ class EvaluationDataset:
         :param path: (Optional) the path to a serialized DataFrame
           (e.g. a delta table, parquet file)
         """
-        self.name = name
+        self.user_specified_name = name
         self.data = data
         self.labels = labels
         self.path = path
+        self._hash = None
 
     @staticmethod
     def _gen_md5_for_arraylike_obj(md5_gen, data):
@@ -133,27 +162,36 @@ class EvaluationDataset:
             md5_gen.update(pickle.dumps(data[-EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH:]))
 
     @property
+    def name(self):
+        return self.user_specified_name if self.user_specified_name is not None else self.hash
+
+    @property
     def hash(self):
         """
         Compute a hash from the specified dataset by selecting the first 5 records, last 5 records,
         dataset size and feeding them through a cheap, low-collision hash function
         """
-        md5_gen = hashlib.md5()
-        if isinstance(self.data, np.ndarray):
-            EvaluationDataset._gen_md5_for_arraylike_obj(md5_gen, self.data)
-            EvaluationDataset._gen_md5_for_arraylike_obj(md5_gen, self.labels)
-        elif isinstance(self.data, pd.DataFrame):
-            EvaluationDataset._gen_md5_for_arraylike_obj(md5_gen, self.data)
-            md5_gen.update(self.labels.encode('UTF-8'))
-        return md5_gen.digest()
+        if self._hash is not None:
+            return self._hash
+        else:
+            md5_gen = hashlib.md5()
+            if isinstance(self.data, np.ndarray):
+                EvaluationDataset._gen_md5_for_arraylike_obj(md5_gen, self.data)
+                EvaluationDataset._gen_md5_for_arraylike_obj(md5_gen, self.labels)
+            elif isinstance(self.data, pd.DataFrame):
+                EvaluationDataset._gen_md5_for_arraylike_obj(md5_gen, self.data)
+                md5_gen.update(self.labels.encode('UTF-8'))
+            return md5_gen.hexdigest()
 
     @property
     def metadata(self):
-        return {
-            'name': self.name,
+        metadata = {
             'hash': self.hash,
             'path': self.path,
         }
+        if self.user_specified_name is not None:
+            metadata['name'] = self.user_specified_name
+        return metadata
 
 
 class GetOrCreateRunId:
@@ -211,7 +249,7 @@ class ModelEvaluator:
     def compute_and_log_artifacts(self, predict, dataset, run_id, mlflow_client):
         """
         compute and log artifact, and return a dict of
-        artifact_name -> instance_of_EvaluationArtifacts
+        artifact_name -> instance_of_EvaluationArtifact
         """
         raise NotImplementedError()
 
@@ -236,14 +274,22 @@ class ModelEvaluator:
         with GetOrCreateRunId(run_id) as run_id:
             metrics_dict = self.compute_metrics(predict, dataset)
             timestamp = int(time.time() * 1000)
-            dataset_id = dataset.name if dataset.name is not None else dataset.hash
-            # TODO: log tags of dataset metadata
+            existing_dataset_metadata_str = client.get_run(run_id).data.tags.get('mlflow.datasets')
+            if existing_dataset_metadata_str is not None:
+                dataset_metadata_list = json.loads(existing_dataset_metadata_str)
+            else:
+                dataset_metadata_list = []
+            dataset_metadata_list.append(dataset.metadata)
+
+            dataset_metadata_str = json.dumps(dataset_metadata_list)
+
             client.log_batch(
                 run_id,
                 metrics=[
-                    Metric(key=f'{key}_on_{dataset_id}', value=value, timestamp=timestamp, step=0)
+                    Metric(key=f'{key}_on_{dataset.name}', value=value, timestamp=timestamp, step=0)
                     for key, value in metrics_dict
                 ],
+                tags=[RunTag('mlflow.datasets', dataset_metadata_str)]
             )
             artifact_dict = self.compute_and_log_artifact(predict, dataset, run_id, client)
             return EvaluationResult(metrics_dict, artifact_dict)

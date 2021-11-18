@@ -1,6 +1,7 @@
 import logging
 from itertools import islice
 from sys import version_info
+import importlib
 
 
 _logger = logging.getLogger(__name__)
@@ -172,3 +173,11 @@ def _inspect_original_var_name(var, fallback_name):
 
     except Exception:
         return fallback_name
+
+
+def load_class(kls):
+    parts = kls.split('.')
+    module = ".".join(parts[:-1])
+    m = importlib.import_module(module)
+    name = parts[-1]
+    return getattr(m, name)
