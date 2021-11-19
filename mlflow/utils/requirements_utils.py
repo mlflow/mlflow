@@ -281,7 +281,8 @@ def _load_pypi_package_index():
         index_dict = json.load(f)
 
     return _PyPIPackageIndex(
-        date=index_dict["index_date"], package_names=set(index_dict["package_names"]),
+        date=index_dict["index_date"],
+        package_names=set(index_dict["package_names"]),
     )
 
 

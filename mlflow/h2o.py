@@ -141,13 +141,17 @@ def save_model(
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
-                path, FLAVOR_NAME, fallback=default_reqs,
+                path,
+                FLAVOR_NAME,
+                fallback=default_reqs,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
             default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
-            default_reqs, pip_requirements, extra_pip_requirements,
+            default_reqs,
+            pip_requirements,
+            extra_pip_requirements,
         )
     else:
         conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
@@ -173,7 +177,7 @@ def log_model(
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
-    **kwargs
+    **kwargs,
 ):
     """
     Log an H2O model as an MLflow artifact for the current run.
@@ -217,7 +221,7 @@ def log_model(
         input_example=input_example,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
-        **kwargs
+        **kwargs,
     )
 
 

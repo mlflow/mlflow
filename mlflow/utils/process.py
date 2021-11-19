@@ -48,7 +48,7 @@ def exec_cmd(
             stderr=subprocess.PIPE,
             cwd=cwd,
             universal_newlines=True,
-            **kwargs
+            **kwargs,
         )
         (stdout, stderr) = child.communicate(cmd_stdin)
         exit_code = child.wait()

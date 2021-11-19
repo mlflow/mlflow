@@ -23,6 +23,7 @@ import json
 import tempfile
 import shutil
 import logging
+import functools
 from copy import deepcopy
 
 import mlflow
@@ -50,7 +51,7 @@ from mlflow.utils.arguments_utils import _get_arg_names
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
-    exception_safe_function,
+    picklable_exception_safe_function,
     get_mlflow_run_params_for_fn_args,
     INPUT_EXAMPLE_SAMPLE_ROWS,
     resolve_input_example_and_signature,
@@ -159,13 +160,17 @@ def save_model(
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
-                path, FLAVOR_NAME, fallback=default_reqs,
+                path,
+                FLAVOR_NAME,
+                fallback=default_reqs,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
             default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
-            default_reqs, pip_requirements, extra_pip_requirements,
+            default_reqs,
+            pip_requirements,
+            extra_pip_requirements,
         )
     else:
         conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
@@ -192,7 +197,7 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements=None,
     extra_pip_requirements=None,
-    **kwargs
+    **kwargs,
 ):
     """
     Log a LightGBM model as an MLflow artifact for the current run.
@@ -241,7 +246,7 @@ def log_model(
         await_registration_for=await_registration_for,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
-        **kwargs
+        **kwargs,
     )
 
 
@@ -292,6 +297,15 @@ class _LGBModelWrapper:
 
     def predict(self, dataframe):
         return self.lgb_model.predict(dataframe)
+
+
+def _autolog_callback(env, metrics_logger, eval_results):
+    res = {}
+    for data_name, eval_name, value, _ in env.evaluation_result_list:
+        key = data_name + "-" + eval_name
+        res[key] = value
+    metrics_logger.record_metrics(res, env.iteration)
+    eval_results.append(res)
 
 
 @autologging_integration(FLAVOR_NAME)
@@ -377,17 +391,11 @@ def autolog(
             """
             Create a callback function that records evaluation results.
             """
-
-            @exception_safe_function
-            def callback(env):
-                res = {}
-                for data_name, eval_name, value, _ in env.evaluation_result_list:
-                    key = data_name + "-" + eval_name
-                    res[key] = value
-                metrics_logger.record_metrics(res, env.iteration)
-                eval_results.append(res)
-
-            return callback
+            return picklable_exception_safe_function(
+                functools.partial(
+                    _autolog_callback, metrics_logger=metrics_logger, eval_results=eval_results
+                )
+            )
 
         def log_feature_importance_plot(features, importance, importance_type):
             """
@@ -552,7 +560,10 @@ def autolog(
             )
 
             log_model(
-                model, artifact_path="model", signature=signature, input_example=input_example,
+                model,
+                artifact_path="model",
+                signature=signature,
+                input_example=input_example,
             )
 
         param_logging_operations.await_completion()

@@ -8,7 +8,10 @@ from mlflow.entities import ViewType
 
 class AbstractStoreTestImpl(AbstractStore):
     def list_experiments(
-        self, view_type=ViewType.ACTIVE_ONLY, max_results=None, page_token=None,
+        self,
+        view_type=ViewType.ACTIVE_ONLY,
+        max_results=None,
+        page_token=None,
     ):
         raise NotImplementedError()
 

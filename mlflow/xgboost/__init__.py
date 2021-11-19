@@ -16,7 +16,6 @@ XGBoost (native) format
 .. _scikit-learn API:
     https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn
 """
-from packaging.version import Version
 import os
 import shutil
 import json
@@ -51,7 +50,7 @@ from mlflow.utils.arguments_utils import _get_arg_names
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
-    exception_safe_function,
+    picklable_exception_safe_function,
     get_mlflow_run_params_for_fn_args,
     INPUT_EXAMPLE_SAMPLE_ROWS,
     resolve_input_example_and_signature,
@@ -59,13 +58,6 @@ from mlflow.utils.autologging_utils import (
     ENSURE_AUTOLOGGING_ENABLED_TEXT,
     batch_metrics_logger,
     MlflowAutologgingQueueingClient,
-)
-
-# Pylint doesn't detect objects used in class keyword arguments (e.g., metaclass) and considers
-# `ExceptionSafeAbstractClass` as 'unused-import': https://github.com/PyCQA/pylint/issues/1630
-# To avoid this bug, disable 'unused-import' on this line.
-from mlflow.utils.autologging_utils import (  # pylint: disable=unused-import
-    ExceptionSafeAbstractClass,
 )
 
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -173,13 +165,17 @@ def save_model(
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
-                path, FLAVOR_NAME, fallback=default_reqs,
+                path,
+                FLAVOR_NAME,
+                fallback=default_reqs,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
             default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
-            default_reqs, pip_requirements, extra_pip_requirements,
+            default_reqs,
+            pip_requirements,
+            extra_pip_requirements,
         )
     else:
         conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
@@ -385,6 +381,7 @@ def autolog(
                    autologging. If ``False``, show all events and warnings during XGBoost
                    autologging.
     """
+    import functools
     import xgboost
     import numpy as np
 
@@ -422,51 +419,23 @@ def autolog(
             """
             # TODO: Remove `replace("SNAPSHOT", "dev")` once the following issue is addressed:
             #       https://github.com/dmlc/xgboost/issues/6984
-            if Version(xgboost.__version__.replace("SNAPSHOT", "dev")) >= Version("1.3.0"):
+            from mlflow.xgboost._autolog import IS_TRAINING_CALLBACK_SUPPORTED
+
+            if IS_TRAINING_CALLBACK_SUPPORTED:
+                from mlflow.xgboost._autolog import AutologCallback
+
                 # In xgboost >= 1.3.0, user-defined callbacks should inherit
                 # `xgboost.callback.TrainingCallback`:
                 # https://xgboost.readthedocs.io/en/latest/python/callbacks.html#defining-your-own-callback  # noqa
-
-                class Callback(
-                    xgboost.callback.TrainingCallback, metaclass=ExceptionSafeAbstractClass,
-                ):
-                    def after_iteration(self, model, epoch, evals_log):
-                        """
-                        Run after each iteration. Return True when training should stop.
-                        """
-                        # `evals_log` is a nested dict (type: Dict[str, Dict[str, List[float]]])
-                        # that looks like this:
-                        # {
-                        #   "train": {
-                        #     "auc": [0.5, 0.6, 0.7, ...],
-                        #     ...
-                        #   },
-                        #   ...
-                        # }
-                        evaluation_result_dict = {}
-                        for data_name, metric_dict in evals_log.items():
-                            for metric_name, metric_values_on_each_iter in metric_dict.items():
-                                key = "{}-{}".format(data_name, metric_name)
-                                # The last element in `metric_values_on_each_iter` corresponds to
-                                # the meric on the current iteration
-                                evaluation_result_dict[key] = metric_values_on_each_iter[-1]
-
-                        metrics_logger.record_metrics(evaluation_result_dict, epoch)
-                        eval_results.append(evaluation_result_dict)
-
-                        # Return `False` to indicate training should not stop
-                        return False
-
-                return Callback()
-
+                return AutologCallback(metrics_logger, eval_results)
             else:
+                from mlflow.xgboost._autolog import autolog_callback
 
-                @exception_safe_function
-                def callback(env):
-                    metrics_logger.record_metrics(dict(env.evaluation_result_list), env.iteration)
-                    eval_results.append(dict(env.evaluation_result_list))
-
-                return callback
+                return picklable_exception_safe_function(
+                    functools.partial(
+                        autolog_callback, metrics_logger=metrics_logger, eval_results=eval_results
+                    )
+                )
 
         def log_feature_importance_plot(features, importance, importance_type):
             """
@@ -687,7 +656,10 @@ def autolog(
             )
 
             log_model(
-                model, artifact_path="model", signature=signature, input_example=input_example,
+                model,
+                artifact_path="model",
+                signature=signature,
+                input_example=input_example,
             )
 
         param_logging_operations.await_completion()

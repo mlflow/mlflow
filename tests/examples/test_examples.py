@@ -110,6 +110,7 @@ def report_free_disk_space(capsys):
             ["-P", "max_epochs=1", "-P", "total_trials=1"],
         ),
         (os.path.join("pytorch", "CaptumExample"), ["-P", "max_epochs=50"]),
+        ("supply_chain_security", []),
     ],
 )
 def test_mlflow_run_example(directory, params, tmpdir):
