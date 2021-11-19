@@ -92,7 +92,7 @@ def test_pytorch_autolog_logs_expected_data(pytorch_model):
 
 def test_pytorch_autolog_logs_expected_metrics_without_validation(pytorch_model_without_validation):
     trainer, run = pytorch_model_without_validation
-    assert trainer.disable_validation
+    assert not trainer.enable_validation
 
     client = mlflow.tracking.MlflowClient()
     for metric_key in ["loss", "train_acc"]:
@@ -136,11 +136,16 @@ def pytorch_model_with_callback(patience):
     with TempDir() as tmp:
         keyword = "dirpath" if Version(pl.__version__) >= Version("1.2.0") else "filepath"
         checkpoint_callback = ModelCheckpoint(
-            **{keyword: tmp.path()}, save_top_k=1, verbose=True, monitor="val_loss", mode="min",
+            **{keyword: tmp.path()},
+            save_top_k=1,
+            verbose=True,
+            monitor="val_loss",
+            mode="min",
         )
 
         trainer = pl.Trainer(
-            max_epochs=NUM_EPOCHS * 2, callbacks=[early_stopping, checkpoint_callback],
+            max_epochs=NUM_EPOCHS * 2,
+            callbacks=[early_stopping, checkpoint_callback],
         )
         trainer.fit(model, dm)
 
@@ -184,11 +189,16 @@ def test_pytorch_with_early_stopping_autolog_log_models_configuration_with(log_m
     with TempDir() as tmp:
         keyword = "dirpath" if Version(pl.__version__) >= Version("1.2.0") else "filepath"
         checkpoint_callback = ModelCheckpoint(
-            **{keyword: tmp.path()}, save_top_k=1, verbose=True, monitor="val_loss", mode="min",
+            **{keyword: tmp.path()},
+            save_top_k=1,
+            verbose=True,
+            monitor="val_loss",
+            mode="min",
         )
 
         trainer = pl.Trainer(
-            max_epochs=NUM_EPOCHS * 2, callbacks=[early_stopping, checkpoint_callback],
+            max_epochs=NUM_EPOCHS * 2,
+            callbacks=[early_stopping, checkpoint_callback],
         )
         trainer.fit(model, dm)
 

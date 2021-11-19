@@ -176,7 +176,9 @@ def test_log_model_calls_register_model(pd_model):
     register_model_patch = mock.patch("mlflow.register_model")
     with mlflow.start_run(), register_model_patch:
         mlflow.paddle.log_model(
-            pd_model=pd_model.model, artifact_path=artifact_path, registered_model_name="AdsModel1",
+            pd_model=pd_model.model,
+            artifact_path=artifact_path,
+            registered_model_name="AdsModel1",
         )
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path

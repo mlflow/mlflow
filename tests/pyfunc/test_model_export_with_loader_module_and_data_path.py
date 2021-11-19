@@ -433,7 +433,7 @@ def test_tensor_multi_named_schema_enforcement():
     ) in str(ex)
 
     # test dataframe input fails at shape enforcement
-    pdf = pd.DataFrame(data=[[1, 2, 3]], columns=["a", "b", "c"],)
+    pdf = pd.DataFrame(data=[[1, 2, 3]], columns=["a", "b", "c"])
     pdf["a"] = pdf["a"].astype(np.uint64)
     pdf["b"] = pdf["b"].astype(np.short)
     pdf["c"] = pdf["c"].astype(np.float32)
@@ -506,13 +506,13 @@ def test_missing_value_hint_is_displayed_when_it_should():
     input_schema = Schema([ColSpec("integer", "a")])
     m.signature = ModelSignature(inputs=input_schema)
     pyfunc_model = PyFuncModel(model_meta=m, model_impl=TestModel())
-    pdf = pd.DataFrame(data=[[1], [None]], columns=["a"],)
+    pdf = pd.DataFrame(data=[[1], [None]], columns=["a"])
     with pytest.raises(MlflowException) as ex:
         pyfunc_model.predict(pdf)
     hint = "Hint: the type mismatch is likely caused by missing values."
     assert "Incompatible input types" in str(ex.value.message)
     assert hint in str(ex.value.message)
-    pdf = pd.DataFrame(data=[[1.5], [None]], columns=["a"],)
+    pdf = pd.DataFrame(data=[[1.5], [None]], columns=["a"])
     with pytest.raises(MlflowException) as ex:
         pyfunc_model.predict(pdf)
     assert "Incompatible input types" in str(ex)

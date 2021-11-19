@@ -75,7 +75,7 @@ class MlflowArtifactsRepository(HttpArtifactRepository):
 
         if uri_parse.host and uri_parse.port:
             resolved_artifacts_uri = (
-                f"{track_parse.scheme}://{uri_parse.host}:{uri_parse.port}" f"{resolved}"
+                f"{track_parse.scheme}://{uri_parse.host}:{uri_parse.port}{resolved}"
             )
         elif uri_parse.host and not uri_parse.port:
             resolved_artifacts_uri = f"{track_parse.scheme}://{uri_parse.host}{resolved}"

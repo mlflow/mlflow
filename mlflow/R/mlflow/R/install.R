@@ -49,7 +49,7 @@ mlflow_maybe_create_conda_env <- function(python_version) {
 #' @param python_version Optional Python version to use within conda environment created for
 #' installing the MLflow CLI. If unspecified, defaults to using Python 3.6
 #' @export
-install_mlflow <- function(python_version = "3.6") {
+install_mlflow <- function(python_version = "3.7") {
   mlflow_maybe_create_conda_env(python_version)
   # Install the Python MLflow package with version == the current R package version
   packages <- c(paste("mlflow", "==", mlflow_version(), sep = ""))

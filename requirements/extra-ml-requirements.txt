@@ -16,9 +16,6 @@ fastai>=2.4.1
 spacy
 # Required by mlflow.tensorflow
 tensorflow
-# TODO: Stop excluding tensorflow-estimator 2.7.0 once tensorflow 2.7.0 is released:
-# https://github.com/tensorflow/tensorflow/issues/52883#issuecomment-955802164
-tensorflow-estimator!=2.7.0
 # Required by mlflow.pytorch
 torch
 torchvision
