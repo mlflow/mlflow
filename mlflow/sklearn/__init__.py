@@ -252,7 +252,9 @@ def save_model(
     model_data_subpath = "model.pkl"
     model_data_path = os.path.join(path, model_data_subpath)
     _save_model(
-        sk_model=sk_model, output_path=model_data_path, serialization_format=serialization_format,
+        sk_model=sk_model,
+        output_path=model_data_path,
+        serialization_format=serialization_format,
     )
 
     # `PyFuncModel` only works for sklearn models that define `predict()`.
@@ -278,13 +280,17 @@ def save_model(
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
-                model_data_path, FLAVOR_NAME, fallback=default_reqs,
+                model_data_path,
+                FLAVOR_NAME,
+                fallback=default_reqs,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
             default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
-            default_reqs, pip_requirements, extra_pip_requirements,
+            default_reqs,
+            pip_requirements,
+            extra_pip_requirements,
         )
     else:
         conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
@@ -1303,7 +1309,8 @@ def _autolog(
             params=estimator.get_params(deep=should_log_params_deeply),
         )
         autologging_client.set_tags(
-            run_id=run_id, tags=_get_estimator_info_tags(estimator),
+            run_id=run_id,
+            tags=_get_estimator_info_tags(estimator),
         )
 
     def _log_posttraining_metadata(autologging_client, estimator, *args, **kwargs):
@@ -1377,7 +1384,10 @@ def _autolog(
             )
 
             _log_model_with_except_handling(
-                estimator, artifact_path="model", signature=signature, input_example=input_example,
+                estimator,
+                artifact_path="model",
+                signature=signature,
+                input_example=input_example,
             )
 
         if _is_parameter_search_estimator(estimator):
@@ -1401,7 +1411,8 @@ def _autolog(
                     for param_name, param_value in estimator.best_params_.items()
                 }
                 autologging_client.log_params(
-                    run_id=mlflow.active_run().info.run_id, params=best_params,
+                    run_id=mlflow.active_run().info.run_id,
+                    params=best_params,
                 )
 
             if hasattr(estimator, "cv_results_"):
@@ -1625,18 +1636,30 @@ def _autolog(
         # Patch fitting methods
         for func_name in ["fit", "fit_transform", "fit_predict"]:
             _patch_estimator_method_if_available(
-                flavor_name, class_def, func_name, patched_fit, manage_run=True,
+                FLAVOR_NAME,
+                class_def,
+                func_name,
+                patched_fit,
+                manage_run=True,
             )
 
         # Patch inference methods
         for func_name in ["predict", "predict_proba", "transform", "predict_log_proba"]:
             _patch_estimator_method_if_available(
-                flavor_name, class_def, func_name, patched_predict, manage_run=False,
+                FLAVOR_NAME,
+                class_def,
+                func_name,
+                patched_predict,
+                manage_run=False,
             )
 
         # Patch scoring methods
         _patch_estimator_method_if_available(
-            flavor_name, class_def, "score", patched_model_score, manage_run=False,
+            FLAVOR_NAME,
+            class_def,
+            "score",
+            patched_model_score,
+            manage_run=False,
         )
 
     if log_post_training_metrics:

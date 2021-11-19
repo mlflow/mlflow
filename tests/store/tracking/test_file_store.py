@@ -633,10 +633,12 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             [], self._search(fs, experiment_id, filter_str="tags.generic_tag != 'p_val'")
         )
         self.assertCountEqual(
-            [r1, r2], self._search(fs, experiment_id, filter_str="tags.generic_tag != 'wrong_val'"),
+            [r1, r2],
+            self._search(fs, experiment_id, filter_str="tags.generic_tag != 'wrong_val'"),
         )
         self.assertCountEqual(
-            [r1, r2], self._search(fs, experiment_id, filter_str="tags.generic_2 != 'wrong_val'"),
+            [r1, r2],
+            self._search(fs, experiment_id, filter_str="tags.generic_2 != 'wrong_val'"),
         )
         self.assertCountEqual([r1], self._search(fs, experiment_id, filter_str="tags.p_a = 'abc'"))
         self.assertCountEqual([r2], self._search(fs, experiment_id, filter_str="tags.p_b = 'ABC'"))
@@ -844,7 +846,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
     def test_unicode_tag(self):
         fs = FileStore(self.test_root)
         run_id = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
-        value = u"𝐼 𝓈𝑜𝓁𝑒𝓂𝓃𝓁𝓎 𝓈𝓌𝑒𝒶𝓇 𝓉𝒽𝒶𝓉 𝐼 𝒶𝓂 𝓊𝓅 𝓉𝑜 𝓃𝑜 𝑔𝑜𝑜𝒹"
+        value = "𝐼 𝓈𝑜𝓁𝑒𝓂𝓃𝓁𝓎 𝓈𝓌𝑒𝒶𝓇 𝓉𝒽𝒶𝓉 𝐼 𝒶𝓂 𝓊𝓅 𝓉𝑜 𝓃𝑜 𝑔𝑜𝑜𝒹"
         fs.set_tag(run_id, RunTag("message", value))
         tags = fs.get_run(run_id).data.tags
         assert tags["message"] == value

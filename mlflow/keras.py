@@ -115,7 +115,7 @@ def save_model(
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
-    **kwargs
+    **kwargs,
 ):
     """
     Save a Keras model to a path on the local file system.
@@ -285,7 +285,9 @@ def save_model(
         else:
             default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
-            default_reqs, pip_requirements, extra_pip_requirements,
+            default_reqs,
+            pip_requirements,
+            extra_pip_requirements,
         )
     else:
         conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
@@ -314,7 +316,7 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements=None,
     extra_pip_requirements=None,
-    **kwargs
+    **kwargs,
 ):
     """
     Log a Keras model as an MLflow artifact for the current run.
@@ -387,7 +389,7 @@ def log_model(
         await_registration_for=await_registration_for,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
-        **kwargs
+        **kwargs,
     )
 
 
@@ -550,7 +552,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
         model_path=keras_model_artifacts_path,
         keras_module=keras_module,
         save_format=save_format,
-        **kwargs
+        **kwargs,
     )
 
 
