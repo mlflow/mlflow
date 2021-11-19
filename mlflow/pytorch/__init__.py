@@ -125,7 +125,7 @@ def log_model(
     extra_files=None,
     pip_requirements=None,
     extra_pip_requirements=None,
-    **kwargs
+    **kwargs,
 ):
     """
     Log a PyTorch model as an MLflow artifact for the current run.
@@ -318,7 +318,7 @@ def save_model(
     extra_files=None,
     pip_requirements=None,
     extra_pip_requirements=None,
-    **kwargs
+    **kwargs,
 ):
     """
     Save a PyTorch model to a path on the local file system.
@@ -507,10 +507,11 @@ def save_model(
                 _download_artifact_from_uri(
                     artifact_uri=extra_file, output_path=tmp_extra_files_dir.path()
                 )
-                rel_path = posixpath.join(_EXTRA_FILES_KEY, os.path.basename(extra_file),)
+                rel_path = posixpath.join(_EXTRA_FILES_KEY, os.path.basename(extra_file))
                 torchserve_artifacts_config[_EXTRA_FILES_KEY].append({"path": rel_path})
             shutil.move(
-                tmp_extra_files_dir.path(), posixpath.join(path, _EXTRA_FILES_KEY),
+                tmp_extra_files_dir.path(),
+                posixpath.join(path, _EXTRA_FILES_KEY),
             )
 
     if requirements_file:
@@ -561,13 +562,17 @@ def save_model(
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
-                model_data_path, FLAVOR_NAME, fallback=default_reqs,
+                model_data_path,
+                FLAVOR_NAME,
+                fallback=default_reqs,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
             default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
-            default_reqs, pip_requirements, extra_pip_requirements,
+            default_reqs,
+            pip_requirements,
+            extra_pip_requirements,
         )
     else:
         conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)

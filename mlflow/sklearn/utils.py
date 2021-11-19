@@ -282,7 +282,10 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
                     name=prefix + "roc_curve",
                     function=sklearn.metrics.plot_roc_curve,
                     arguments=dict(
-                        estimator=fitted_estimator, X=X, y=y_true, sample_weight=sample_weight,
+                        estimator=fitted_estimator,
+                        X=X,
+                        y=y_true,
+                        sample_weight=sample_weight,
                     ),
                     title="ROC curve",
                 ),
@@ -290,7 +293,10 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
                     name=prefix + "precision_recall_curve",
                     function=sklearn.metrics.plot_precision_recall_curve,
                     arguments=dict(
-                        estimator=fitted_estimator, X=X, y=y_true, sample_weight=sample_weight,
+                        estimator=fitted_estimator,
+                        X=X,
+                        y=y_true,
+                        sample_weight=sample_weight,
                     ),
                     title="Precision recall curve",
                 ),
@@ -638,7 +644,8 @@ def _create_child_runs_for_parameter_search(
             rank_column_name = first_custom_rank_column(cv_results_df)
             warnings.warn(
                 "Top {} child runs will be created based on ordering in {} column.".format(
-                    max_tuning_runs, rank_column_name,
+                    max_tuning_runs,
+                    rank_column_name,
                 )
                 + " You can choose not to limit the number of child runs created by"
                 + " setting `max_tuning_runs=None`."
@@ -677,7 +684,8 @@ def _create_child_runs_for_parameter_search(
             and isinstance(value, Number)
         }
         autologging_client.log_metrics(
-            run_id=pending_child_run_id, metrics=metrics_to_log,
+            run_id=pending_child_run_id,
+            metrics=metrics_to_log,
         )
 
         autologging_client.set_terminated(run_id=pending_child_run_id, end_time=child_run_end_time)
