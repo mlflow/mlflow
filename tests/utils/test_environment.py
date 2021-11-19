@@ -262,12 +262,8 @@ def test_process_pip_requirements(tmpdir):
     conda_env, reqs, cons = _process_pip_requirements(
         ["a"], pip_requirements=[f"mlflow==1.20.2 --hash={hash1} --hash={hash2}"],
     )
-    assert _get_pip_deps(conda_env) == [
-        "mlflow==1.20.2 --hash=sha256:963c22532e82a93450674ab97d62f9e528ed0906b580fadb7c003e696197557c --hash=sha256:b15ff0c7e5e64f864a0b40c99b9a582227315eca2065d9f831db9aeb8f24637b"
-    ]
-    assert reqs == [
-        "mlflow==1.20.2 --hash=sha256:963c22532e82a93450674ab97d62f9e528ed0906b580fadb7c003e696197557c --hash=sha256:b15ff0c7e5e64f864a0b40c99b9a582227315eca2065d9f831db9aeb8f24637b"
-    ]
+    assert _get_pip_deps(conda_env) == [f"mlflow==1.20.2 --hash={hash1} --hash={hash2}"]
+    assert reqs == [f"mlflow==1.20.2 --hash={hash1} --hash={hash2}"]
     assert cons == []
 
     conda_env, reqs, cons = _process_pip_requirements(["a"], extra_pip_requirements=["b"])
