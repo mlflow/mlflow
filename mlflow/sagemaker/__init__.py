@@ -1745,7 +1745,7 @@ def _does_model_exist(model_name, sage_client):
         return True if response else False
 
 
-class SageMakerPlugin(BaseDeploymentClient):
+class SageMakerDeploymentClient(BaseDeploymentClient):
     """
     Initialize a deployment client for SageMaker
 
@@ -1755,7 +1755,7 @@ class SageMakerPlugin(BaseDeploymentClient):
     """
 
     def __init__(self, target_uri):
-        super(SageMakerPlugin, self).__init__(target_uri=target_uri)
+        super(SageMakerDeploymentClient, self).__init__(target_uri=target_uri)
         self._get_region_name_from_uri()
 
     def _get_region_name_from_uri(self):

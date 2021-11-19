@@ -50,8 +50,8 @@ def sagemaker_client():
 
 
 @pytest.fixture
-def sagemaker_plugin():
-    return mfs.SageMakerPlugin("sagemaker")
+def sagemaker_deployment_client():
+    return mfs.SageMakerDeploymentClient("sagemaker")
 
 
 def get_sagemaker_backend(region_name):
@@ -94,31 +94,31 @@ def mock_sagemaker_aws_services(fn):
     return mock_wrapper
 
 
-def test_initialize_sagemaker_plugin_with_only_target_name():
-    plugin = mfs.SageMakerPlugin("sagemaker")
+def test_initialize_sagemaker_deployment_client_with_only_target_name():
+    plugin = mfs.SageMakerDeploymentClient("sagemaker")
 
     assert plugin.region_name == mfs.DEFAULT_REGION_NAME
 
 
-def test_initialize_sagemaker_plugin_with_empty_path():
-    plugin = mfs.SageMakerPlugin("sagemaker:/")
+def test_initialize_sagemaker_deployment_client_with_empty_path():
+    plugin = mfs.SageMakerDeploymentClient("sagemaker:/")
 
     assert plugin.region_name == mfs.DEFAULT_REGION_NAME
 
 
-def test_initialize_sagemaker_plugin_with_region_name():
-    plugin = mfs.SageMakerPlugin("sagemaker:/us-east-1")
+def test_initialize_sagemaker_deployment_client_with_region_name():
+    plugin = mfs.SageMakerDeploymentClient("sagemaker:/us-east-1")
 
     assert plugin.region_name == "us-east-1"
 
 
 @pytest.mark.large
 def test_create_deployment_with_unsupported_flavor_raises_exception(
-    pretrained_model, sagemaker_plugin
+    pretrained_model, sagemaker_deployment_client
 ):
     unsupported_flavor = "this is not a valid flavor"
     with pytest.raises(MlflowException) as exc:
-        sagemaker_plugin.create_deployment(
+        sagemaker_deployment_client.create_deployment(
             name="bad_flavor", model_uri=pretrained_model.model_uri, flavor=unsupported_flavor
         )
 
@@ -126,10 +126,12 @@ def test_create_deployment_with_unsupported_flavor_raises_exception(
 
 
 @pytest.mark.large
-def test_create_deployment_with_missing_flavor_raises_exception(pretrained_model, sagemaker_plugin):
+def test_create_deployment_with_missing_flavor_raises_exception(
+    pretrained_model, sagemaker_deployment_client
+):
     missing_flavor = "mleap"
     with pytest.raises(MlflowException) as exc:
-        sagemaker_plugin.create_deployment(
+        sagemaker_deployment_client.create_deployment(
             name="missing-flavor", model_uri=pretrained_model.model_uri, flavor=missing_flavor
         )
 
@@ -138,7 +140,7 @@ def test_create_deployment_with_missing_flavor_raises_exception(pretrained_model
 
 @pytest.mark.large
 def test_create_deployment_of_model_with_no_supported_flavors_raises_exception(
-    pretrained_model, sagemaker_plugin
+    pretrained_model, sagemaker_deployment_client
 ):
     logged_model_path = _download_artifact_from_uri(pretrained_model.model_uri)
     model_config_path = os.path.join(logged_model_path, "MLmodel")
@@ -147,7 +149,7 @@ def test_create_deployment_of_model_with_no_supported_flavors_raises_exception(
     model_config.save(path=model_config_path)
 
     with pytest.raises(MlflowException) as exc:
-        sagemaker_plugin.create_deployment(
+        sagemaker_deployment_client.create_deployment(
             name="missing-flavor", model_uri=logged_model_path, flavor=None
         )
 
@@ -156,10 +158,10 @@ def test_create_deployment_of_model_with_no_supported_flavors_raises_exception(
 
 @pytest.mark.large
 def test_attempting_to_deploy_in_asynchronous_mode_without_archiving_throws_exception(
-    pretrained_model, sagemaker_plugin
+    pretrained_model, sagemaker_deployment_client
 ):
     with pytest.raises(MlflowException) as exc:
-        sagemaker_plugin.create_deployment(
+        sagemaker_deployment_client.create_deployment(
             name="test-app",
             model_uri=pretrained_model.model_uri,
             config=dict(archive=False, synchronous=False),
@@ -172,11 +174,12 @@ def test_attempting_to_deploy_in_asynchronous_mode_without_archiving_throws_exce
 @pytest.mark.large
 @mock_sagemaker_aws_services
 def test_create_deployment_creates_sagemaker_and_s3_resources_with_expected_names_from_local(
-    pretrained_model, sagemaker_client, sagemaker_plugin
+    pretrained_model, sagemaker_client, sagemaker_deployment_client
 ):
     name = "test-app"
-    sagemaker_plugin.create_deployment(
-        name=name, model_uri=pretrained_model.model_uri,
+    sagemaker_deployment_client.create_deployment(
+        name=name,
+        model_uri=pretrained_model.model_uri,
     )
 
     region_name = sagemaker_client.meta.region_name
@@ -205,7 +208,7 @@ def test_create_deployment_creates_sagemaker_and_s3_resources_with_expected_name
 @pytest.mark.large
 @mock_sagemaker_aws_services
 def test_create_deployment_creates_sagemaker_and_s3_resources_with_expected_names_from_s3(
-    pretrained_model, sagemaker_client, sagemaker_plugin
+    pretrained_model, sagemaker_client, sagemaker_deployment_client
 ):
     local_model_path = _download_artifact_from_uri(pretrained_model.model_uri)
     artifact_path = "model"
@@ -218,8 +221,9 @@ def test_create_deployment_creates_sagemaker_and_s3_resources_with_expected_name
     )
 
     name = "test-app"
-    sagemaker_plugin.create_deployment(
-        name=name, model_uri=model_s3_uri,
+    sagemaker_deployment_client.create_deployment(
+        name=name,
+        model_uri=model_s3_uri,
     )
 
     endpoint_description = sagemaker_client.describe_endpoint(EndpointName=name)
@@ -247,16 +251,18 @@ def test_create_deployment_creates_sagemaker_and_s3_resources_with_expected_name
 @pytest.mark.large
 @mock_sagemaker_aws_services
 def test_create_deployment_with_preexisting_name_throws_exception(
-    pretrained_model, sagemaker_plugin
+    pretrained_model, sagemaker_deployment_client
 ):
     name = "test-app"
-    sagemaker_plugin.create_deployment(
-        name=name, model_uri=pretrained_model.model_uri,
+    sagemaker_deployment_client.create_deployment(
+        name=name,
+        model_uri=pretrained_model.model_uri,
     )
 
     with pytest.raises(MlflowException) as exc:
-        sagemaker_plugin.create_deployment(
-            name=name, model_uri=pretrained_model.model_uri,
+        sagemaker_deployment_client.create_deployment(
+            name=name,
+            model_uri=pretrained_model.model_uri,
         )
 
     assert "an application with the same name already exists" in exc.value.message
@@ -266,7 +272,7 @@ def test_create_deployment_with_preexisting_name_throws_exception(
 @pytest.mark.large
 @mock_sagemaker_aws_services
 def test_create_deployment_in_synchronous_mode_waits_for_endpoint_creation_to_complete_before_returning(
-    pretrained_model, sagemaker_client, sagemaker_plugin
+    pretrained_model, sagemaker_client, sagemaker_deployment_client
 ):
     endpoint_creation_latency = 10
     get_sagemaker_backend(sagemaker_client.meta.region_name).set_endpoint_update_latency(
@@ -275,8 +281,10 @@ def test_create_deployment_in_synchronous_mode_waits_for_endpoint_creation_to_co
 
     name = "test-app"
     deployment_start_time = time.time()
-    sagemaker_plugin.create_deployment(
-        name=name, model_uri=pretrained_model.model_uri, config=dict(synchronous=True),
+    sagemaker_deployment_client.create_deployment(
+        name=name,
+        model_uri=pretrained_model.model_uri,
+        config=dict(synchronous=True),
     )
     deployment_end_time = time.time()
 
@@ -288,7 +296,7 @@ def test_create_deployment_in_synchronous_mode_waits_for_endpoint_creation_to_co
 @pytest.mark.large
 @mock_sagemaker_aws_services
 def test_create_deployment_in_asynchronous_mode_returns_before_endpoint_creation_completes(
-    pretrained_model, sagemaker_client, sagemaker_plugin
+    pretrained_model, sagemaker_client, sagemaker_deployment_client
 ):
     endpoint_creation_latency = 10
     get_sagemaker_backend(sagemaker_client.meta.region_name).set_endpoint_update_latency(
@@ -297,7 +305,7 @@ def test_create_deployment_in_asynchronous_mode_returns_before_endpoint_creation
 
     name = "test-app"
     deployment_start_time = time.time()
-    sagemaker_plugin.create_deployment(
+    sagemaker_deployment_client.create_deployment(
         name=name,
         model_uri=pretrained_model.model_uri,
         config=dict(synchronous=False, archive=True),
@@ -312,7 +320,7 @@ def test_create_deployment_in_asynchronous_mode_returns_before_endpoint_creation
 # @pytest.mark.large
 # @mock_sagemaker_aws_services
 # def test_deploy_replace_in_asynchronous_mode_returns_before_endpoint_creation_completes(
-#     pretrained_model, sagemaker_client, sagemaker_plugin
+#     pretrained_model, sagemaker_client, sagemaker_deployment_client
 # ):
 #     endpoint_update_latency = 10
 #     get_sagemaker_backend(sagemaker_client.meta.region_name).set_endpoint_update_latency(
@@ -320,14 +328,14 @@ def test_create_deployment_in_asynchronous_mode_returns_before_endpoint_creation
 #     )
 
 #     name = "test-app"
-#     sagemaker_plugin.create_deployment(
+#     sagemaker_deployment_client.create_deployment(
 #         name=name,
 #         model_uri=pretrained_model.model_uri,
 #         config=dict(mode=mfs.DEPLOYMENT_MODE_CREATE, synchronous=True),
 #     )
 
 #     update_start_time = time.time()
-#     sagemaker_plugin.create_deployment(
+#     sagemaker_deployment_client.create_deployment(
 #         name=name,
 #         model_uri=pretrained_model.model_uri,
 #         config=dict(mode=mfs.DEPLOYMENT_MODE_REPLACE, synchronous=False, archive=True),
@@ -342,7 +350,7 @@ def test_create_deployment_in_asynchronous_mode_returns_before_endpoint_creation
 @pytest.mark.large
 @mock_sagemaker_aws_services
 def test_create_deployment_throws_exception_after_endpoint_creation_fails(
-    pretrained_model, sagemaker_client, sagemaker_plugin
+    pretrained_model, sagemaker_client, sagemaker_deployment_client
 ):
     endpoint_creation_latency = 10
     sagemaker_backend = get_sagemaker_backend(sagemaker_client.meta.region_name)
@@ -371,8 +379,9 @@ def test_create_deployment_throws_exception_after_endpoint_creation_fails(
     with mock.patch(
         "botocore.client.BaseClient._make_api_call", new=fail_endpoint_creations
     ), pytest.raises(MlflowException) as exc:
-        sagemaker_plugin.create_deployment(
-            name="test-app", model_uri=pretrained_model.model_uri,
+        sagemaker_deployment_client.create_deployment(
+            name="test-app",
+            model_uri=pretrained_model.model_uri,
         )
 
     assert "deployment operation failed" in exc.value.message
@@ -382,17 +391,17 @@ def test_create_deployment_throws_exception_after_endpoint_creation_fails(
 # @pytest.mark.large
 # @mock_sagemaker_aws_services
 # def test_deploy_in_add_mode_adds_new_model_to_existing_endpoint(
-#     pretrained_model, sagemaker_client, sagemaker_plugin
+#     pretrained_model, sagemaker_client, sagemaker_deployment_client
 # ):
 #     name = "test-app"
-#     sagemaker_plugin.create_deployment(
+#     sagemaker_deployment_client.create_deployment(
 #         name=name,
 #         model_uri=pretrained_model.model_uri,
 #         config=dict(mode=mfs.DEPLOYMENT_MODE_CREATE),
 #     )
 #     models_added = 1
 #     for _ in range(11):
-#         sagemaker_plugin.create_deployment(
+#         sagemaker_deployment_client.create_deployment(
 #             name=name,
 #             model_uri=pretrained_model.model_uri,
 #             config=dict(mode=mfs.DEPLOYMENT_MODE_ADD, archive=True, synchronous=False,),
@@ -411,15 +420,15 @@ def test_create_deployment_throws_exception_after_endpoint_creation_fails(
 # @pytest.mark.large
 # @mock_sagemaker_aws_services
 # def test_deploy_in_replace_model_removes_preexisting_models_from_endpoint(
-#     pretrained_model, sagemaker_client, sagemaker_plugin
+#     pretrained_model, sagemaker_client, sagemaker_deployment_client
 # ):
 #     name = "test-app"
-#     sagemaker_plugin.create_deployment(
+#     sagemaker_deployment_client.create_deployment(
 #         name=name, model_uri=pretrained_model.model_uri, config=dict(mode=mfs.DEPLOYMENT_MODE_ADD),
 #     )
 
 #     for _ in range(11):
-#         sagemaker_plugin.create_deployment(
+#         sagemaker_deployment_client.create_deployment(
 #             name=name,
 #             model_uri=pretrained_model.model_uri,
 #             config=dict(mode=mfs.DEPLOYMENT_MODE_ADD, archive=True, synchronous=False,),
@@ -439,7 +448,7 @@ def test_create_deployment_throws_exception_after_endpoint_creation_fails(
 #         variant["ModelName"] for variant in production_variants_before_replacement
 #     ]
 
-#     sagemaker_plugin.create_deployment(
+#     sagemaker_deployment_client.create_deployment(
 #         name=name,
 #         model_uri=pretrained_model.model_uri,
 #         config=dict(mode=mfs.DEPLOYMENT_MODE_REPLACE, archive=True, synchronous=False,),
@@ -470,14 +479,14 @@ def test_create_deployment_throws_exception_after_endpoint_creation_fails(
 # @pytest.mark.large
 # @mock_sagemaker_aws_services
 # def test_deploy_in_replace_mode_throws_exception_after_endpoint_update_fails(
-#     pretrained_model, sagemaker_client, sagemaker_plugin
+#     pretrained_model, sagemaker_client, sagemaker_deployment_client
 # ):
 #     endpoint_update_latency = 5
 #     sagemaker_backend = get_sagemaker_backend(sagemaker_client.meta.region_name)
 #     sagemaker_backend.set_endpoint_update_latency(endpoint_update_latency)
 
 #     name = "test-app"
-#     sagemaker_plugin.create_deployment(
+#     sagemaker_deployment_client.create_deployment(
 #         name=name,
 #         model_uri=pretrained_model.model_uri,
 #         config=dict(mode=mfs.DEPLOYMENT_MODE_CREATE),
@@ -506,7 +515,7 @@ def test_create_deployment_throws_exception_after_endpoint_creation_fails(
 #     with mock.patch(
 #         "botocore.client.BaseClient._make_api_call", new=fail_endpoint_updates
 #     ), pytest.raises(MlflowException) as exc:
-#         sagemaker_plugin.create_deployment(
+#         sagemaker_deployment_client.create_deployment(
 #             name="test-app",
 #             model_uri=pretrained_model.model_uri,
 #             config=dict(mode=mfs.DEPLOYMENT_MODE_REPLACE),
@@ -519,14 +528,14 @@ def test_create_deployment_throws_exception_after_endpoint_creation_fails(
 # @pytest.mark.large
 # @mock_sagemaker_aws_services
 # def test_deploy_in_replace_mode_waits_for_endpoint_update_completion_before_deleting_resources(
-#     pretrained_model, sagemaker_client, sagemaker_plugin
+#     pretrained_model, sagemaker_client, sagemaker_deployment_client
 # ):
 #     endpoint_update_latency = 10
 #     sagemaker_backend = get_sagemaker_backend(sagemaker_client.meta.region_name)
 #     sagemaker_backend.set_endpoint_update_latency(endpoint_update_latency)
 
 #     name = "test-app"
-#     sagemaker_plugin.create_deployment(
+#     sagemaker_deployment_client.create_deployment(
 #         name=name,
 #         model_uri=pretrained_model.model_uri,
 #         config=dict(mode=mfs.DEPLOYMENT_MODE_CREATE),
@@ -556,7 +565,7 @@ def test_create_deployment_throws_exception_after_endpoint_creation_fails(
 #         return result
 
 #     with mock.patch("botocore.client.BaseClient._make_api_call", new=validate_deletes):
-#         sagemaker_plugin.create_deployment(
+#         sagemaker_deployment_client.create_deployment(
 #             name=name,
 #             model_uri=pretrained_model.model_uri,
 #             config=dict(mode=mfs.DEPLOYMENT_MODE_REPLACE, archive=False,),
@@ -566,14 +575,14 @@ def test_create_deployment_throws_exception_after_endpoint_creation_fails(
 # @pytest.mark.large
 # @mock_sagemaker_aws_services
 # def test_deploy_in_replace_mode_with_archiving_does_not_delete_resources(
-#     pretrained_model, sagemaker_client, sagemaker_plugin
+#     pretrained_model, sagemaker_client, sagemaker_deployment_client
 # ):
 #     region_name = sagemaker_client.meta.region_name
 #     sagemaker_backend = get_sagemaker_backend(region_name)
 #     sagemaker_backend.set_endpoint_update_latency(5)
 
 #     name = "test-app"
-#     sagemaker_plugin.create_deployment(
+#     sagemaker_deployment_client.create_deployment(
 #         name=name,
 #         model_uri=pretrained_model.model_uri,
 #         config=dict(mode=mfs.DEPLOYMENT_MODE_CREATE),
@@ -602,7 +611,7 @@ def test_create_deployment_throws_exception_after_endpoint_creation_fails(
 #         new_model_uri = "runs:/{run_id}/{artifact_path}".format(
 #             run_id=mlflow.active_run().info.run_id, artifact_path=new_artifact_path
 #         )
-#     sagemaker_plugin.create_deployment(
+#     sagemaker_deployment_client.create_deployment(
 #         name=name,
 #         model_uri=new_model_uri,
 #         config=dict(mode=mfs.DEPLOYMENT_MODE_REPLACE, archive=True, synchronous=True,),
