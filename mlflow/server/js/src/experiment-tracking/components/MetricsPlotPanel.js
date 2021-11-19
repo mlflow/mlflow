@@ -498,18 +498,6 @@ export class MetricsPlotPanel extends React.Component {
     }, 300);
   };
 
-  checkOnRunUnfinished() {
-    const { runs } = this.props;
-
-    let boolean = false;
-    runs &&
-      runs.forEach((run) => {
-        if (run.getStatus() === 'RUNNING') boolean = true;
-      });
-
-    return boolean;
-  }
-
   render() {
     const { experimentId, runUuids, runDisplayNames, distinctMetricKeys, location } = this.props;
     const { popoverVisible, popoverX, popoverY, popoverRunItems } = this.state;
