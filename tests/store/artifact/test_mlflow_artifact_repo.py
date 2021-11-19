@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 from mlflow.store.artifact.mlflow_artifacts_repo import MlflowArtifactsRepository
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.exceptions import MlflowException
-from mlflow.tracking._tracking_service.utils import get_tracking_uri
+from mlflow.tracking._tracking_service.utils import get_tracking_uri, set_tracking_uri
 
 
 def test_artifact_uri_factory():
@@ -16,9 +16,12 @@ def test_artifact_uri_factory():
 
 
 def test_mlflow_artifact_uri_formats_resolved():
-
-    tracking_uri = urlparse(get_tracking_uri())
     base_api_uri = "api/2.0/mlflow-artifacts/artifacts"
+
+    old_tracking_uri = get_tracking_uri()
+    uri_temp = f"http://localhost:5000/{base_api_uri}"
+    tracking_uri = urlparse(uri_temp)
+    set_tracking_uri(uri_temp)
     base_path = "/my/artifact/path"
     conditions = [
         (
@@ -31,25 +34,34 @@ def test_mlflow_artifact_uri_formats_resolved():
         ),
         (
             f"mlflow-artifacts:{base_path}/nohost",
-            f"{tracking_uri.scheme}:{tracking_uri.path}/{base_api_uri}{base_path}/nohost",
+            f"{tracking_uri.scheme}://{tracking_uri.netloc}/{base_api_uri}{base_path}/nohost",
         ),
         (
             f"mlflow-artifacts://{base_path}/redundant",
-            f"{tracking_uri.scheme}:{tracking_uri.path}/{base_api_uri}{base_path}/redundant",
+            f"{tracking_uri.scheme}://{tracking_uri.netloc}/{base_api_uri}{base_path}/redundant",
         ),
-        ("mlflow-artifacts:/", f"{tracking_uri.scheme}:{tracking_uri.path}/{base_api_uri}",),
+        ("mlflow-artifacts:/", uri_temp,),
     ]
-    failing_condition = f"mlflow-artifacts://5000/{base_path}"
+    failing_conditions = [f"mlflow-artifacts://5000/{base_path}", "mlflow-artifacts://5000/"]
 
     for submit, resolved in conditions:
         artifact_repo = MlflowArtifactsRepository(submit)
-        assert artifact_repo.resolve_uri(submit) == resolved
+        assert artifact_repo.resolve_uri(submit).replace("sqlite", "http") == resolved
+    for failing_condition in failing_conditions:
+        with pytest.raises(
+            MlflowException,
+            match="The mlflow-artifacts uri was supplied with a port number: 5000, but no "
+            "host was defined.",
+        ):
+            MlflowArtifactsRepository(failing_condition)
+
+    # Set tracking uri back to test env default (sqlite) and verify that it raises
+    set_tracking_uri(old_tracking_uri)
+    old_uri_scheme = urlparse(old_tracking_uri).scheme
     with pytest.raises(
-        MlflowException,
-        match="The mlflow-artifacts uri was supplied with a port number: 5000, but no "
-        "host was defined.",
+        MlflowException, match=f"The configured tracking uri scheme: '{old_uri_scheme}' is invalid"
     ):
-        MlflowArtifactsRepository(failing_condition)
+        MlflowArtifactsRepository("mlflow-artifacts:/localhost:5000/my/artifacts")
 
 
 class MockResponse:

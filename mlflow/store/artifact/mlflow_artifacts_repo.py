@@ -1,5 +1,4 @@
 from urllib.parse import urlparse
-import posixpath
 from collections import namedtuple
 
 from mlflow.store.artifact.http_artifact_repo import HttpArtifactRepository
@@ -36,6 +35,15 @@ def _validate_port_mapped_to_hostname(uri_parse):
         )
 
 
+def _validate_uri_scheme(scheme):
+    allowable_schemes = {"http", "https"}
+    if scheme not in allowable_schemes:
+        raise MlflowException(
+            f"The configured tracking uri scheme: '{scheme}' is invalid for use with the proxy "
+            f"mlflow-artifact scheme. The allowed tracking schemes are: {allowable_schemes}"
+        )
+
+
 class MlflowArtifactsRepository(HttpArtifactRepository):
     """Scheme wrapper around HttpArtifactRepository for mlflow-artifacts server functionality"""
 
@@ -54,23 +62,20 @@ class MlflowArtifactsRepository(HttpArtifactRepository):
         # Check to ensure that a port is present with no hostname
         _validate_port_mapped_to_hostname(uri_parse)
 
-        api_path = "/api/2.0/mlflow-artifacts/artifacts"
-
-        # If root directory is specified (empty path), `urllib.parse.urlparse` will pull
-        # the api path from the uri. This logic is to handle this.
-        if uri_parse.path != api_path:
-            request_path = posixpath.join(api_path, uri_parse.path.lstrip("/"))
-        else:
-            request_path = api_path
+        # Check that tracking uri is http or https
+        _validate_uri_scheme(track_parse.scheme)
 
         if uri_parse.host and uri_parse.port:
             resolved_artifacts_uri = (
-                f"{track_parse.scheme}://{uri_parse.host}:{uri_parse.port}{request_path}"
+                f"{track_parse.scheme}://{uri_parse.host}:{uri_parse.port}"
+                f"{track_parse.path}{uri_parse.path}"
             )
         elif uri_parse.host and not uri_parse.port:
-            resolved_artifacts_uri = f"{track_parse.scheme}://{uri_parse.host}{request_path}"
+            resolved_artifacts_uri = (
+                f"{track_parse.scheme}://{uri_parse.host}{track_parse.path}{uri_parse.path}"
+            )
         elif not uri_parse.host and not uri_parse.port:
-            resolved_artifacts_uri = f"{tracking_uri}{request_path}"
+            resolved_artifacts_uri = f"{tracking_uri}{uri_parse.path}"
         else:
             raise MlflowException(
                 f"The supplied artifact uri {artifact_uri} could not be resolved."
