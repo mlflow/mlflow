@@ -59,6 +59,14 @@ class MlflowArtifactsRepository(HttpArtifactRepository):
 
         uri_parse = _parse_artifact_uri(artifact_uri)
 
+        print(f"\nuri_parse: {uri_parse}")
+        print(f"track_parse: {track_parse}")
+
+        if track_parse.path == uri_parse.path:
+            resolved = "/"
+        else:
+            resolved = f"{track_parse.path}{uri_parse.path}"
+
         # Check to ensure that a port is present with no hostname
         _validate_port_mapped_to_hostname(uri_parse)
 
@@ -67,15 +75,19 @@ class MlflowArtifactsRepository(HttpArtifactRepository):
 
         if uri_parse.host and uri_parse.port:
             resolved_artifacts_uri = (
-                f"{track_parse.scheme}://{uri_parse.host}:{uri_parse.port}"
-                f"{track_parse.path}{uri_parse.path}"
+                f"{track_parse.scheme}://{uri_parse.host}:{uri_parse.port}" f"{resolved}"
             )
         elif uri_parse.host and not uri_parse.port:
+            resolved_artifacts_uri = f"{track_parse.scheme}://{uri_parse.host}{resolved}"
+        elif not uri_parse.host and not uri_parse.port and uri_parse.path == track_parse.path:
             resolved_artifacts_uri = (
-                f"{track_parse.scheme}://{uri_parse.host}{track_parse.path}{uri_parse.path}"
+                f"{track_parse.scheme}://{track_parse.host}:{track_parse.port}{track_parse.path}"
             )
-        elif not uri_parse.host and not uri_parse.port:
-            resolved_artifacts_uri = f"{tracking_uri}{uri_parse.path}"
+        elif not uri_parse.host and not uri_parse.port and uri_parse.path != track_parse.path:
+            resolved_artifacts_uri = (
+                f"{track_parse.scheme}://{track_parse.host}:"
+                f"{track_parse.port}{track_parse.path}{uri_parse.path}"
+            )
         else:
             raise MlflowException(
                 f"The supplied artifact uri {artifact_uri} could not be resolved."

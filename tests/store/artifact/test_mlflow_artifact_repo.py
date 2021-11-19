@@ -9,19 +9,26 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.exceptions import MlflowException
 from mlflow.tracking._tracking_service.utils import get_tracking_uri, set_tracking_uri
 
+ORIGINAL_TRACKING_URI = get_tracking_uri()
+
+
+def _set_temp_tracking_uri():
+    temp_uri = "http://localhost:5000/api/2.0/mlflow-artifacts/artifacts"
+    set_tracking_uri(temp_uri)
+    return temp_uri
+
 
 def test_artifact_uri_factory():
+    _set_temp_tracking_uri()
     repo = get_artifact_repository("mlflow-artifacts://test.com")
     assert isinstance(repo, MlflowArtifactsRepository)
+    set_tracking_uri(ORIGINAL_TRACKING_URI)
 
 
 def test_mlflow_artifact_uri_formats_resolved():
     base_api_uri = "api/2.0/mlflow-artifacts/artifacts"
-
-    old_tracking_uri = get_tracking_uri()
-    uri_temp = f"http://localhost:5000/{base_api_uri}"
+    uri_temp = _set_temp_tracking_uri()
     tracking_uri = urlparse(uri_temp)
-    set_tracking_uri(uri_temp)
     base_path = "/my/artifact/path"
     conditions = [
         (
@@ -56,8 +63,8 @@ def test_mlflow_artifact_uri_formats_resolved():
             MlflowArtifactsRepository(failing_condition)
 
     # Set tracking uri back to test env default (sqlite) and verify that it raises
-    set_tracking_uri(old_tracking_uri)
-    old_uri_scheme = urlparse(old_tracking_uri).scheme
+    set_tracking_uri(ORIGINAL_TRACKING_URI)
+    old_uri_scheme = urlparse(ORIGINAL_TRACKING_URI).scheme
     with pytest.raises(
         MlflowException, match=f"The configured tracking uri scheme: '{old_uri_scheme}' is invalid"
     ):
@@ -99,12 +106,14 @@ class FileObjectMatcher:
 
 @pytest.fixture
 def mlflow_artifact_repo():
+    _set_temp_tracking_uri()
     artifact_uri = "mlflow-artifacts:/api/2.0/mlflow-artifacts/artifacts"
     return MlflowArtifactsRepository(artifact_uri)
 
 
 @pytest.fixture
 def mlflow_artifact_repo_with_host():
+    _set_temp_tracking_uri()
     artifact_uri = "mlflow-artifacts://test.com:5000/api/2.0/mlflow-artifacts/artifacts"
     return MlflowArtifactsRepository(artifact_uri)
 
@@ -124,6 +133,7 @@ def test_log_artifact(mlflow_artifact_repo, tmpdir, artifact_path):
     with mock.patch("requests.Session.put", return_value=MockResponse({}, 400)) as mock_put:
         with pytest.raises(Exception, match="request failed"):
             mlflow_artifact_repo.log_artifact(tmp_path, artifact_path)
+    set_tracking_uri(ORIGINAL_TRACKING_URI)
 
 
 @pytest.mark.parametrize("artifact_path", [None, "dir", "path/to/artifacts/storage"])
@@ -143,6 +153,7 @@ def test_log_artifact_with_host_and_port(mlflow_artifact_repo_with_host, tmpdir,
     with mock.patch("requests.Session.put", return_value=MockResponse({}, 400)) as mock_put:
         with pytest.raises(Exception, match="request failed"):
             mlflow_artifact_repo_with_host.log_artifact(tmp_path, artifact_path)
+    set_tracking_uri(ORIGINAL_TRACKING_URI)
 
 
 @pytest.mark.parametrize("artifact_path", [None, "dir", "path/to/artifacts/storage"])
@@ -170,6 +181,7 @@ def test_log_artifacts(mlflow_artifact_repo, tmpdir, artifact_path):
     with mock.patch("requests.Session.put", return_value=MockResponse({}, 400)) as mock_put:
         with pytest.raises(Exception, match="request failed"):
             mlflow_artifact_repo.log_artifacts(tmpdir, artifact_path)
+    set_tracking_uri(ORIGINAL_TRACKING_URI)
 
 
 def test_list_artifacts(mlflow_artifact_repo):
@@ -213,6 +225,7 @@ def test_list_artifacts(mlflow_artifact_repo):
     with mock.patch("requests.Session.get", return_value=MockResponse({}, 400)) as mock_get:
         with pytest.raises(Exception, match="request failed"):
             mlflow_artifact_repo.list_artifacts()
+    set_tracking_uri(ORIGINAL_TRACKING_URI)
 
 
 def read_file(path):
@@ -237,6 +250,7 @@ def test_download_file(mlflow_artifact_repo, tmpdir, remote_file_path):
     ) as mock_get:
         with pytest.raises(Exception, match="request failed"):
             mlflow_artifact_repo._download_file(remote_file_path, tmp_path)
+    set_tracking_uri(ORIGINAL_TRACKING_URI)
 
 
 def test_download_artifacts(mlflow_artifact_repo, tmpdir):
@@ -283,3 +297,4 @@ def test_download_artifacts(mlflow_artifact_repo, tmpdir):
         ]
         assert read_file(paths[0]) == "data_a"
         assert read_file(paths[1]) == "data_b"
+    set_tracking_uri(ORIGINAL_TRACKING_URI)
