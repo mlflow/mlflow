@@ -1,10 +1,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Button, Dropdown, Icon, Menu } from 'antd';
+import { Menu, Pagination } from 'antd';
 import { css } from 'emotion';
-import { FormattedMessage } from 'react-intl';
-
-const ButtonGroup = Button.Group;
 
 export class SimplePagination extends React.Component {
   static propTypes = {
@@ -34,50 +31,32 @@ export class SimplePagination extends React.Component {
   }
 
   render() {
-    const { currentPage, isLastPage, onClickNext, onClickPrev } = this.props;
+    const { currentPage, isLastPage, onClickNext, onClickPrev, maxResultOptions } = this.props;
+    const numEntries = this.props.getSelectedPerPageSelection();
+    let total;
+
+    // This is necessary because for tables using this component, we do not know the total records.
+    // Thus this is a proxy to determine whether or not the "next" button should be disabled ==>
+    // if it's the last page, we set total = max number of entries, else we add 1 page more than
+    // the current page.
+    if (isLastPage) {
+      total = currentPage * numEntries;
+    } else {
+      total = (currentPage + 1) * numEntries;
+    }
+
     return (
       <div className={`pagination-section ${classNames.wrapper}`}>
-        <ButtonGroup>
-          <Button
-            disabled={currentPage === 1}
-            className='prev-page-btn'
-            onClick={onClickPrev}
-            size='small'
-            type='link'
-          >
-            <Icon type='left' />
-          </Button>
-          <span>
-            <FormattedMessage
-              defaultMessage='Page {currentPage}'
-              description='Text for page number for pagination in MLflow'
-              values={{ currentPage: currentPage }}
-            />
-          </span>
-          <Button
-            disabled={isLastPage}
-            className='next-page-btn'
-            onClick={onClickNext}
-            size='small'
-            type='link'
-          >
-            <Icon type='right' />
-          </Button>
-          {this.props.maxResultOptions ? (
-            <Dropdown disabled={this.props.loading} overlay={this.constructDropdown()}>
-              <Button>
-                <span>
-                  <FormattedMessage
-                    defaultMessage='{numEntries} / page'
-                    description='Text for number of entries in pagination in MLflow'
-                    values={{ numEntries: this.props.getSelectedPerPageSelection() }}
-                  />{' '}
-                  <Icon type='down' />
-                </span>
-              </Button>
-            </Dropdown>
-          ) : null}
-        </ButtonGroup>
+        <Pagination
+          className={classNames.paginationOverride}
+          current={currentPage}
+          total={total}
+          onChange={(nextPage) => (nextPage > currentPage ? onClickNext() : onClickPrev())}
+          showSizeChanger
+          pageSize={numEntries}
+          pageSizeOptions={maxResultOptions}
+          onShowSizeChange={(current, size) => this.props.handleSetMaxResult({ key: size })}
+        />
       </div>
     );
   }
@@ -91,6 +70,11 @@ const classNames = {
   paginationDropdownMenuWrapper: css({
     '.ant-dropdown-menu-item': {
       textAlign: 'center',
+    },
+  }),
+  paginationOverride: css({
+    '.ant-pagination-item:not(.ant-pagination-item-active)': {
+      display: 'none',
     },
   }),
 };

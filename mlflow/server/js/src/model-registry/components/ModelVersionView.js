@@ -47,6 +47,8 @@ export class ModelVersionViewImpl extends React.Component {
     isTagsRequestPending: false,
   };
 
+  formRef = React.createRef();
+
   componentDidMount() {
     const pageTitle = `${this.props.modelName} v${this.props.modelVersion.version} - MLflow Model`;
     Utils.updatePageTitle(pageTitle);
@@ -98,41 +100,32 @@ export class ModelVersionViewImpl extends React.Component {
     this.setState({ showDescriptionEditor: true });
   };
 
-  saveFormRef = (formRef) => {
-    this.formRef = formRef;
-  };
-
-  handleAddTag = (e) => {
-    e.preventDefault();
-    const { form } = this.formRef.props;
+  handleAddTag = (values) => {
+    const form = this.formRef.current;
     const { modelName } = this.props;
     const { version } = this.props.modelVersion;
-    form.validateFields((err, values) => {
-      if (!err) {
-        this.setState({ isTagsRequestPending: true });
-        this.props
-          .setModelVersionTagApi(modelName, version, values.name, values.value)
-          .then(() => {
-            this.setState({ isTagsRequestPending: false });
-            form.resetFields();
-          })
-          .catch((ex) => {
-            this.setState({ isTagsRequestPending: false });
-            console.error(ex);
-            message.error(
-              this.props.intl.formatMessage(
-                {
-                  defaultMessage: 'Failed to add tag. Error: {userVisibleError}',
-                  description: 'Text for user visible error when adding tag in model version view',
-                },
-                {
-                  userVisibleError: ex.getUserVisibleError(),
-                },
-              ),
-            );
-          });
-      }
-    });
+    this.setState({ isTagsRequestPending: true });
+    this.props
+      .setModelVersionTagApi(modelName, version, values.name, values.value)
+      .then(() => {
+        this.setState({ isTagsRequestPending: false });
+        form.resetFields();
+      })
+      .catch((ex) => {
+        this.setState({ isTagsRequestPending: false });
+        console.error(ex);
+        message.error(
+          this.props.intl.formatMessage(
+            {
+              defaultMessage: 'Failed to add tag. Error: {userVisibleError}',
+              description: 'Text for user visible error when adding tag in model version view',
+            },
+            {
+              userVisibleError: ex.getUserVisibleError(),
+            },
+          ),
+        );
+      });
   };
 
   handleSaveEdit = ({ name, value }) => {
@@ -181,6 +174,7 @@ export class ModelVersionViewImpl extends React.Component {
     const { handleStageTransitionDropdownSelect } = this.props;
     return (
       <Descriptions.Item
+        key='description-key-stage'
         label={this.props.intl.formatMessage({
           defaultMessage: 'Stage',
           description: 'Label name for stage metadata in model version page',
@@ -202,6 +196,7 @@ export class ModelVersionViewImpl extends React.Component {
   renderRegisteredTimestampDescription(creation_timestamp) {
     return (
       <Descriptions.Item
+        key='description-key-register'
         label={this.props.intl.formatMessage({
           defaultMessage: 'Registered At',
           description: 'Label name for registered timestamp metadata in model version page',
@@ -215,6 +210,7 @@ export class ModelVersionViewImpl extends React.Component {
   renderCreatorDescription(user_id) {
     return (
       <Descriptions.Item
+        key='description-key-creator'
         label={this.props.intl.formatMessage({
           defaultMessage: 'Creator',
           description: 'Label name for creator metadata in model version page',
@@ -228,6 +224,7 @@ export class ModelVersionViewImpl extends React.Component {
   renderLastModifiedDescription(last_updated_timestamp) {
     return (
       <Descriptions.Item
+        key='description-key-modified'
         label={this.props.intl.formatMessage({
           defaultMessage: 'Last Modified',
           description: 'Label name for last modified timestamp metadata in model version page',
@@ -241,6 +238,7 @@ export class ModelVersionViewImpl extends React.Component {
   renderSourceRunDescription() {
     return (
       <Descriptions.Item
+        key='description-key-source-run'
         label={this.props.intl.formatMessage({
           defaultMessage: 'Source Run',
           description: 'Label name for source run metadata in model version page',
@@ -294,7 +292,6 @@ export class ModelVersionViewImpl extends React.Component {
         type='link'
         onClick={this.startEditingDescription}
       >
-        {' '}
         <FormattedMessage
           defaultMessage='Edit'
           description='Text for the edit button next to the description section title on
@@ -406,7 +403,7 @@ export class ModelVersionViewImpl extends React.Component {
               <FormattedMessage
                 defaultMessage='Description'
                 description='Title text for the description section on the model version view page'
-              />
+              />{' '}
               {!showDescriptionEditor ? this.renderDescriptionEditIcon() : null}
             </span>
           }
@@ -433,7 +430,7 @@ export class ModelVersionViewImpl extends React.Component {
             data-test-id='model-version-tags-section'
           >
             <EditableTagsTableView
-              wrappedComponentRef={this.saveFormRef}
+              innerRef={this.formRef}
               handleAddTag={this.handleAddTag}
               handleDeleteTag={this.handleDeleteTag}
               handleSaveEdit={this.handleSaveEdit}

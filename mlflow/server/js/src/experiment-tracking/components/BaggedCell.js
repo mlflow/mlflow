@@ -63,7 +63,7 @@ export default class BaggedCell extends PureComponent {
           }
           trigger={['click']}
         >
-          <span>
+          <span className='flex'>
             <span
               className='run-table-container underline-on-hover metric-param-sort-toggle'
               style={styles.metricParamCellContent}

@@ -1,5 +1,7 @@
 import React from 'react';
-import { Dropdown, Icon, Menu } from 'antd';
+import { css } from 'emotion';
+import { SettingOutlined } from '@ant-design/icons';
+import { Dropdown, Menu } from 'antd';
 import { Button } from '../../shared/building_blocks/Button';
 import { SearchTree } from '../../common/components/SearchTree';
 import PropTypes from 'prop-types';
@@ -112,12 +114,14 @@ export class RunsTableColumnSelectionDropdown extends React.Component {
     const { menuVisible } = this.state;
     const content = (
       <Menu style={{ maxHeight: 480, overflowY: 'scroll' }}>
-        <SearchTree
-          data={this.getData()}
-          onCheck={this.handleCheck}
-          checkedKeys={this.getCheckedKeys()}
-          onSearchInputEscapeKeyPress={this.handleSearchInputEscapeKeyPress}
-        />
+        <Menu.Item className={styles.menuItem} key='this-menu-needs-at-least-1-menu-item'>
+          <SearchTree
+            data={this.getData()}
+            onCheck={this.handleCheck}
+            checkedKeys={this.getCheckedKeys()}
+            onSearchInputEscapeKeyPress={this.handleSearchInputEscapeKeyPress}
+          />
+        </Menu.Item>
       </Menu>
     );
     return (
@@ -131,7 +135,7 @@ export class RunsTableColumnSelectionDropdown extends React.Component {
           style={{ display: 'flex', alignItems: 'center' }}
           dataTestId='column-selection-dropdown'
         >
-          <Icon type='setting' style={{ marginTop: 2 }} />
+          <SettingOutlined style={{ marginTop: 2 }} />
           <FormattedMessage
             defaultMessage='Columns'
             // eslint-disable-next-line max-len
@@ -166,3 +170,11 @@ export function getCategorizedUncheckedKeys(checkedKeys, allKeys) {
   });
   return result;
 }
+
+const styles = {
+  menuItem: css({
+    '&:hover': {
+      backgroundColor: 'inherit !important;',
+    },
+  }),
+};
