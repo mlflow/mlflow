@@ -139,7 +139,7 @@ class _Example(object):
             }
 
     def save(self, parent_dir_path: str):
-        """Save the example as json at ``parent_dir_path``/`self.info['artifact_path']`.  """
+        """Save the example as json at ``parent_dir_path``/`self.info['artifact_path']`."""
         with open(os.path.join(parent_dir_path, self.info["artifact_path"]), "w") as f:
             json.dump(self.data, f, cls=NumpyEncoder)
 

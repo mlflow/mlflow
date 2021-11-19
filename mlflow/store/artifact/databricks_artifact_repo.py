@@ -325,7 +325,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
     def log_artifact(self, local_file, artifact_path=None):
         run_relative_artifact_path = self._get_run_relative_artifact_path_for_upload(
-            src_file_path=local_file, dst_artifact_dir=artifact_path,
+            src_file_path=local_file,
+            dst_artifact_dir=artifact_path,
         )
         write_credential_info = self._get_write_credential_infos(
             run_id=self.run_id, paths=[run_relative_artifact_path]
@@ -362,7 +363,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
             for name in filenames:
                 file_path = os.path.join(dirpath, name)
                 dst_run_relative_artifact_path = self._get_run_relative_artifact_path_for_upload(
-                    src_file_path=file_path, dst_artifact_dir=artifact_subdir,
+                    src_file_path=file_path,
+                    dst_artifact_dir=artifact_subdir,
                 )
                 staged_uploads.append(
                     StagedArtifactUpload(
@@ -401,7 +403,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 message=(
                     "The following failures occurred while uploading one or more artifacts"
                     " to {artifact_root}: {failures}".format(
-                        artifact_root=self.artifact_uri, failures=failed_uploads,
+                        artifact_root=self.artifact_uri,
+                        failures=failed_uploads,
                     )
                 )
             )
@@ -615,7 +618,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 message=(
                     "The following failures occurred while downloading one or more"
                     " artifacts from {artifact_root}: {failures}".format(
-                        artifact_root=self.artifact_uri, failures=failed_downloads,
+                        artifact_root=self.artifact_uri,
+                        failures=failed_downloads,
                     )
                 )
             )
