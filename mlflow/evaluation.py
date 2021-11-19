@@ -21,7 +21,6 @@ class EvaluationMetrics(dict):
 
 
 class EvaluationArtifact:
-
     def __init__(self, location, content=None):
         self._content = content
         self._location = location
@@ -30,7 +29,8 @@ class EvaluationArtifact:
     def load_content_from_file(cls, local_artifact_path):
         raise NotImplementedError()
 
-    def save_content_to_file(self, content, output_artifact_path):
+    @classmethod
+    def save_content_to_file(cls, content, output_artifact_path):
         raise NotImplementedError()
 
     @property
@@ -40,7 +40,7 @@ class EvaluationArtifact:
         """
         if self._content is None:
             with TempDir() as temp_dir:
-                local_artifact_file = temp_dir.path('local_artifact')
+                local_artifact_file = temp_dir.path("local_artifact")
                 _download_artifact_from_uri(self._location, local_artifact_file)
                 self._content = self.load_content_from_file(local_artifact_file)
 
@@ -56,12 +56,11 @@ class EvaluationArtifact:
     def __getstate__(self, state):
         state = state.__dict__.copy()
         # skip pickling artifact content
-        del state['_content']
+        del state["_content"]
         return state
 
 
 class EvaluationResult:
-
     def __init__(self, metrics, artifacts):
         self._metrics = metrics
         self._artifacts = artifacts
@@ -69,17 +68,17 @@ class EvaluationResult:
     @classmethod
     def load(cls, path):
         """Load the evaluation results from the specified local filesystem path"""
-        with open(os.path.join(path, 'metrics.json'), 'r') as fp:
+        with open(os.path.join(path, "metrics.json"), "r") as fp:
             metrics = EvaluationMetrics(json.load(fp))
 
-        with open(os.path.join(path, 'artifacts_metadata.json'), 'r') as fp:
+        with open(os.path.join(path, "artifacts_metadata.json"), "r") as fp:
             artifacts_metadata = json.load(fp)
 
         artifacts = {}
 
         for artifact_name, meta in artifacts_metadata:
-            location = meta['location']
-            ArtifactCls = load_class(meta['class_name'])
+            location = meta["location"]
+            ArtifactCls = load_class(meta["class_name"])
             content = ArtifactCls.load_content_from_file(os.path.join(path, artifact_name))
             artifacts[artifact_name] = ArtifactCls(location=location, content=content)
 
@@ -88,17 +87,17 @@ class EvaluationResult:
     def save(self, path):
         """Write the evaluation results to the specified local filesystem path"""
         os.makedirs(path, exist_ok=True)
-        with open(os.path.join(path, 'metrics.json'), 'w') as fp:
+        with open(os.path.join(path, "metrics.json"), "w") as fp:
             json.dump(self.metrics, fp)
 
         artifacts_metadata = {
             artifact_name: {
-                'location': artifact.location,
-                'class_name': _get_fully_qualified_class_name(artifact)
+                "location": artifact.location,
+                "class_name": _get_fully_qualified_class_name(artifact),
             }
             for artifact_name, artifact in self.artifacts.items()
         }
-        with open(os.path.join(path, 'artifacts_metadata.json'), 'w') as fp:
+        with open(os.path.join(path, "artifacts_metadata.json"), "w") as fp:
             json.dump(artifacts_metadata, fp)
 
         for artifact_name, artifact in self.artifacts.items():
@@ -158,8 +157,8 @@ class EvaluationDataset:
         if len(data) < EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH * 2:
             md5_gen.update(pickle.dumps(data))
         else:
-            md5_gen.update(pickle.dumps(data[:EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH]))
-            md5_gen.update(pickle.dumps(data[-EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH:]))
+            md5_gen.update(pickle.dumps(data[: EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH]))
+            md5_gen.update(pickle.dumps(data[-EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH :]))
 
     @property
     def name(self):
@@ -180,17 +179,17 @@ class EvaluationDataset:
                 EvaluationDataset._gen_md5_for_arraylike_obj(md5_gen, self.labels)
             elif isinstance(self.data, pd.DataFrame):
                 EvaluationDataset._gen_md5_for_arraylike_obj(md5_gen, self.data)
-                md5_gen.update(self.labels.encode('UTF-8'))
+                md5_gen.update(self.labels.encode("UTF-8"))
             return md5_gen.hexdigest()
 
     @property
     def metadata(self):
         metadata = {
-            'hash': self.hash,
-            'path': self.path,
+            "hash": self.hash,
+            "path": self.path,
         }
         if self.user_specified_name is not None:
-            metadata['name'] = self.user_specified_name
+            metadata["name"] = self.user_specified_name
         return metadata
 
 
@@ -201,6 +200,7 @@ class GetOrCreateRunId:
     otherwise if there's an active run, use it
     otherwise create a managed run.
     """
+
     def __init__(self, run_id):
         self.managed_run_context = None
         if run_id is not None:
@@ -223,10 +223,7 @@ class GetOrCreateRunId:
 
 
 class ModelEvaluator:
-
-    def can_evaluate(
-        self, model_type, evaluator_config=None, **kwargs
-    ) -> bool:
+    def can_evaluate(self, model_type, evaluator_config=None, **kwargs) -> bool:
         """
         :param model_type: A string describing the model type (e.g., "regressor",
                            "classifier", …).
@@ -241,7 +238,7 @@ class ModelEvaluator:
         raise NotImplementedError()
 
     def compute_metrics_and_compute_and_log_artifacts(
-            self, model_type, predict, dataset, evaluator_config, run_id
+        self, model_type, predict, dataset, evaluator_config, run_id
     ):
         """
         return an tuple of:
@@ -273,7 +270,7 @@ class ModelEvaluator:
 
         with GetOrCreateRunId(run_id) as run_id:
             timestamp = int(time.time() * 1000)
-            existing_dataset_metadata_str = client.get_run(run_id).data.tags.get('mlflow.datasets')
+            existing_dataset_metadata_str = client.get_run(run_id).data.tags.get("mlflow.datasets")
             if existing_dataset_metadata_str is not None:
                 dataset_metadata_list = json.loads(existing_dataset_metadata_str)
             else:
@@ -281,8 +278,10 @@ class ModelEvaluator:
 
             metadata_exists = False
             for metadata in dataset_metadata_list:
-                if metadata['hash'] == dataset.hash and \
-                        metadata['name'] == dataset.user_specified_name:
+                if (
+                    metadata["hash"] == dataset.hash
+                    and metadata["name"] == dataset.user_specified_name
+                ):
                     metadata_exists = True
                     break
 
@@ -292,15 +291,15 @@ class ModelEvaluator:
             dataset_metadata_str = json.dumps(dataset_metadata_list)
 
             metrics_dict, artifacts_dict = self.compute_metrics_and_compute_and_log_artifacts(
-                model_type, predict, dataset, run_id, client
+                model_type, predict, dataset, evaluator_config, run_id
             )
             client.log_batch(
                 run_id,
                 metrics=[
-                    Metric(key=f'{key}_on_{dataset.name}', value=value, timestamp=timestamp, step=0)
-                    for key, value in metrics_dict
+                    Metric(key=f"{key}_on_{dataset.name}", value=value, timestamp=timestamp, step=0)
+                    for key, value in metrics_dict.items()
                 ],
-                tags=[RunTag('mlflow.datasets', dataset_metadata_str)]
+                tags=[RunTag("mlflow.datasets", dataset_metadata_str)],
             )
 
             return EvaluationResult(metrics_dict, artifacts_dict)
@@ -351,7 +350,7 @@ _model_evaluation_registry.register_entrypoints()
 
 
 def evaluate(
-   model, model_type, dataset, run_id=None, evaluators=None, evaluator_config=None
+    model, model_type, dataset, run_id=None, evaluators=None, evaluator_config=None
 ) -> Union[EvaluationResult, Dict[str, EvaluationResult]]:
     """
     :param model: A model supported by the specified `evaluator`, or a URI
@@ -380,7 +379,7 @@ def evaluate(
     :return: An `EvaluationResult` instance containing evaluation results.
     """
     if evaluators is None:
-        evaluators = 'default_evaluator'
+        evaluators = "default_evaluator"
 
     if not isinstance(evaluators, list):
         evaluators = [evaluators]
@@ -400,7 +399,7 @@ def evaluate(
             continue
 
         if evaluator.can_evaluate(model_type, config):
-            result = evaluator.evaluate(predict, dataset, run_id, config)
+            result = evaluator.evaluate(model_type, predict, dataset, run_id, config)
             eval_results.append(result)
 
     merged_eval_result = EvaluationResult(EvaluationMetrics(), dict())

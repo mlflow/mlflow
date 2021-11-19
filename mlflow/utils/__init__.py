@@ -176,7 +176,7 @@ def _inspect_original_var_name(var, fallback_name):
 
 
 def load_class(kls):
-    parts = kls.split('.')
+    parts = kls.split(".")
     module = ".".join(parts[:-1])
     m = importlib.import_module(module)
     name = parts[-1]
