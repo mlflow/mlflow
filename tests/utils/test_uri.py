@@ -293,25 +293,25 @@ def test_append_to_uri_path_preserves_uri_schemes_hosts_queries_and_fragments():
             (
                 "dbscheme+dbdriver://root:password//path/#myfragmentwith$pecial@",
                 "subpath/anotherpath",
-                "dbscheme+dbdriver://root:password//path/subpath/anotherpath#myfragmentwith$pecial@",  # noqa
+                "dbscheme+dbdriver://root:password//path/subpath/anotherpath#myfragmentwith$pecial@",  # pylint: disable=line-too-long
             ),
             (
                 "dbscheme+dbdriver://root:password@myhostname?creds=mycreds#myfragmentwith$pecial@",
                 "subpath",
-                "dbscheme+dbdriver://root:password@myhostname/subpath?creds=mycreds#myfragmentwith$pecial@",  # noqa
+                "dbscheme+dbdriver://root:password@myhostname/subpath?creds=mycreds#myfragmentwith$pecial@",  # pylint: disable=line-too-long
             ),
             (
                 "dbscheme+dbdriver://root:password@myhostname.com/path?creds=mycreds#*frag@*",
                 "subpath/dir",
-                "dbscheme+dbdriver://root:password@myhostname.com/path/subpath/dir?creds=mycreds#*frag@*",  # noqa
+                "dbscheme+dbdriver://root:password@myhostname.com/path/subpath/dir?creds=mycreds#*frag@*",  # pylint: disable=line-too-long
             ),
             (
                 "dbscheme-dbdriver://root:password@myhostname.com/path?creds=mycreds#*frag@*",
                 "subpath/dir",
-                "dbscheme-dbdriver://root:password@myhostname.com/path/subpath/dir?creds=mycreds#*frag@*",  # noqa
+                "dbscheme-dbdriver://root:password@myhostname.com/path/subpath/dir?creds=mycreds#*frag@*",  # pylint: disable=line-too-long
             ),
             (
-                "dbscheme+dbdriver://root:password@myhostname.com/path?creds=mycreds,param=value#*frag@*",  # noqa
+                "dbscheme+dbdriver://root:password@myhostname.com/path?creds=mycreds,param=value#*frag@*",  # pylint: disable=line-too-long
                 "subpath/dir",
                 "dbscheme+dbdriver://root:password@myhostname.com/path/subpath/dir?"
                 "creds=mycreds,param=value#*frag@*",
