@@ -187,22 +187,16 @@ def test_validate_env_arguments():
 
     match = "Only one of `conda_env`, `pip_requirements`, and `extra_pip_requirements`"
     with pytest.raises(ValueError, match=match):
-        _validate_env_arguments(
-            conda_env={}, pip_requirements=[], extra_pip_requirements=None,
-        )
+        _validate_env_arguments(conda_env={}, pip_requirements=[], extra_pip_requirements=None)
 
     with pytest.raises(ValueError, match=match):
-        _validate_env_arguments(
-            conda_env={}, pip_requirements=None, extra_pip_requirements=[],
-        )
+        _validate_env_arguments(conda_env={}, pip_requirements=None, extra_pip_requirements=[])
 
     with pytest.raises(ValueError, match=match):
         _validate_env_arguments(conda_env=None, pip_requirements=[], extra_pip_requirements=[])
 
     with pytest.raises(ValueError, match=match):
-        _validate_env_arguments(
-            conda_env={}, pip_requirements=[], extra_pip_requirements=[],
-        )
+        _validate_env_arguments(conda_env={}, pip_requirements=[], extra_pip_requirements=[])
 
 
 def test_is_mlflow_requirement():
