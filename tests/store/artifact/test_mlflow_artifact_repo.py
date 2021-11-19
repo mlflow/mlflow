@@ -49,9 +49,7 @@ def test_mlflow_artifact_uri_formats_resolved():
         match="The mlflow-artifacts uri was supplied with a port number: 5000, but no "
         "host was defined.",
     ):
-        uri = MlflowArtifactsRepository(  # pylint: disable=unused-variable
-            failing_condition
-        ).artifact_uri
+        MlflowArtifactsRepository(failing_condition)
 
 
 class MockResponse:

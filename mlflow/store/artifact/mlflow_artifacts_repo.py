@@ -31,7 +31,7 @@ def _validate_port_mapped_to_hostname(uri_parse):
     # validated.
     if uri_parse.host and _check_if_host_is_numeric(uri_parse.host) and not uri_parse.port:
         raise MlflowException(
-            f"The mlflow-artifacts uri was supplied with a port number: "
+            "The mlflow-artifacts uri was supplied with a port number: "
             f"{uri_parse.host}, but no host was defined."
         )
 
