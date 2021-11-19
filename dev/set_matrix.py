@@ -259,7 +259,8 @@ def get_operator_and_version(ver_spec):
     if m is None:
         raise ValueError(
             "Invalid value for `ver_spec`: '{}'. Must match this regular expression: '{}'".format(
-                ver_spec, regexp,
+                ver_spec,
+                regexp,
             )
         )
 
@@ -310,7 +311,8 @@ def process_requirements(requirements, version=None):
             op_and_ver_pairs = map(get_operator_and_version, ver_spec.split(","))
             match_all = all(
                 comp_op(
-                    Version(version), Version(dev_numeric if req_ver == DEV_VERSION else req_ver),
+                    Version(version),
+                    Version(dev_numeric if req_ver == DEV_VERSION else req_ver),
                 )
                 for comp_op, req_ver in op_and_ver_pairs
             )

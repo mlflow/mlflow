@@ -269,7 +269,9 @@ def test_transformer_model_export(spark_model_transformer, model_path, spark_cus
 @pytest.mark.large
 def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
     sparkm.save_model(
-        spark_model_iris.model, path=model_path, conda_env=spark_custom_env,
+        spark_model_iris.model,
+        path=model_path,
+        conda_env=spark_custom_env,
     )
     scoring_response = score_model_in_sagemaker_docker_container(
         model_uri=model_path,
@@ -320,7 +322,9 @@ def test_sparkml_model_log(tmpdir, spark_model_iris, should_start_run, use_dfs_t
             mlflow.start_run()
         artifact_path = "model"
         sparkm.log_model(
-            artifact_path=artifact_path, spark_model=spark_model_iris.model, dfs_tmpdir=dfs_tmpdir,
+            artifact_path=artifact_path,
+            spark_model=spark_model_iris.model,
+            dfs_tmpdir=dfs_tmpdir,
         )
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path

@@ -142,7 +142,7 @@ def run_databricks_project(cluster_spec, **kwargs):
         backend="databricks",
         backend_config=cluster_spec,
         parameters={"alpha": "0.4"},
-        **kwargs
+        **kwargs,
     )
 
 
