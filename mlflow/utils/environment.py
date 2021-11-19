@@ -237,7 +237,8 @@ def _is_mlflow_requirement(requirement_string):
     except InvalidRequirement:
         # A local file path or URL falls into this branch.
 
-        # `Requirement` throws an `InvalidRequirement` exception if `requirement_string` contains per-requirement options (ex: package hashes)
+        # `Requirement` throws an `InvalidRequirement` exception if `requirement_string` contains
+        # per-requirement options (ex: package hashes)
         # GitHub issue: https://github.com/pypa/packaging/issues/488
         # Per-requirement-option spec: https://pip.pypa.io/en/stable/reference/requirements-file-format/#per-requirement-options
         requirement_specifier = _get_pip_requirement_specifier(requirement_string)
