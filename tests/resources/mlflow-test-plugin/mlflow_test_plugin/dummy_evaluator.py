@@ -59,3 +59,5 @@ class DummyEvaluator(ModelEvaluator):
                 mean_absolute_error=mean_absolute_error,
                 mean_squared_error=mean_squared_error
             ), {}
+        else:
+            raise ValueError(f'Unsupported model type {model_type}')

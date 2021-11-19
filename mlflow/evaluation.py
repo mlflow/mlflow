@@ -279,11 +279,15 @@ class ModelEvaluator:
             else:
                 dataset_metadata_list = []
 
+            metadata_exists = False
             for metadata in dataset_metadata_list:
-                if metadata['hash'] == dataset.hash:
-                    raise ValueError(f'The dataset {dataset.name} evaluation results has been '
-                                     'logged.')
-            dataset_metadata_list.append(dataset.metadata)
+                if metadata['hash'] == dataset.hash and \
+                        metadata['name'] == dataset.user_specified_name:
+                    metadata_exists = True
+                    break
+
+            if not metadata_exists:
+                dataset_metadata_list.append(dataset.metadata)
 
             dataset_metadata_str = json.dumps(dataset_metadata_list)
 
