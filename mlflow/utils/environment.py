@@ -1,7 +1,6 @@
 import yaml
 import os
 import logging
-import re
 
 
 from mlflow.utils import PYTHON_VERSION
