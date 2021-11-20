@@ -1065,6 +1065,33 @@ def run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
     proc.wait()
 
 
+def _target_help(_):
+    """
+    Provide help information for the SageMaker deployment client.
+
+    :return:
+    :rtype: str
+    """
+    help_str = """For detailed documentation on the SageMaker deployment client, please visit
+    https://mlflow.org/docs/latest/python_api/mlflow.sagemaker.html#mlflow.sagemaker.SageMakerDeploymentClient
+
+    The target URI must follow the following formats:
+    - sagemaker
+    - sagemaker:/region_name
+    - sagemaker:/region_name/assume_role_arn
+
+    When the region_name or assume_role_arn are provided, they will be used as the default region
+    and assumed role ARN when executing the commands.
+
+    The `create` and `update` commands require a deployment name and a model_uri. The model flavor
+    and deployment configuration can be optionally provided.
+
+    The `delete` command accepts configurations to archive a model instead of deleting, execute
+    in asynchronous mode and timeout period.
+    """
+    return help_str
+
+
 def _get_default_image_url(region_name):
     import boto3
 
