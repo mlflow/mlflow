@@ -213,7 +213,7 @@ export class ModelVersionViewImpl extends React.Component {
   }
 
   renderCreatorDescription(user_id) {
-    return (
+    return (user_id && (
       <Descriptions.Item
         label={this.props.intl.formatMessage({
           defaultMessage: 'Creator',
@@ -222,7 +222,7 @@ export class ModelVersionViewImpl extends React.Component {
       >
         {user_id}
       </Descriptions.Item>
-    );
+    ))
   }
 
   renderLastModifiedDescription(last_updated_timestamp) {
