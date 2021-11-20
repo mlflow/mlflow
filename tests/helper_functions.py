@@ -1,5 +1,6 @@
 import os
 import random
+import functools
 from unittest import mock
 from contextlib import ExitStack, contextmanager
 
@@ -408,6 +409,30 @@ def allow_infer_pip_requirements_fallback_if(condition):
         return pytest.mark.allow_infer_pip_requirements_fallback(f) if condition else f
 
     return decorator
+
+
+def mock_method_chain(mock_obj, methods, return_value=None, side_effect=None):
+    """
+    Mock a chain of methods.
+
+    Examples
+    --------
+    >>> m = mock.MagicMock()
+    >>> mock_methods(m, ["a", "b"], 0)
+    >>> m.a().b()
+    0
+    >>> mock_methods(m, ["c.d", "e"], 1)
+    >>> m.c.d().e()
+    1
+    """
+    length = len(methods)
+    for idx, method in enumerate(methods):
+        mock_obj = functools.reduce(getattr, method.split("."), mock_obj)
+        if idx != length - 1:
+            mock_obj = mock_obj.return_value
+        else:
+            mock_obj.return_value = return_value
+            mock_obj.side_effect = side_effect
 
 
 @contextmanager
