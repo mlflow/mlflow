@@ -5,10 +5,11 @@ import pytest
 from unittest import mock
 
 from google.cloud.storage import client as gcs_client
+from google.auth.exceptions import DefaultCredentialsError
 
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
-from google.auth.exceptions import DefaultCredentialsError
+from tests.helper_functions import mock_method_chain
 
 
 @pytest.fixture
@@ -123,8 +124,15 @@ def test_log_artifact(gcs_mock, tmpdir):
 
     # This will call isfile on the code path being used,
     # thus testing that it's being called with an actually file path
-    gcs_mock.Client.return_value.bucket.return_value.blob.return_value.upload_from_filename.side_effect = (  # pylint: disable=line-too-long
-        os.path.isfile
+    mock_method_chain(
+        gcs_mock,
+        [
+            "Client",
+            "bucket",
+            "blob",
+            "upload_from_filename",
+        ],
+        os.path.isfile,
     )
     repo.log_artifact(fpath)
 
@@ -141,8 +149,15 @@ def test_log_artifacts(gcs_mock, tmpdir):
     subd.join("b.txt").write("B")
     subd.join("c.txt").write("C")
 
-    gcs_mock.Client.return_value.bucket.return_value.blob.return_value.upload_from_filename.side_effect = (  # pylint: disable=line-too-long
-        os.path.isfile
+    mock_method_chain(
+        gcs_mock,
+        [
+            "Client",
+            "bucket",
+            "blob",
+            "upload_from_filename",
+        ],
+        os.path.isfile,
     )
     repo.log_artifacts(subd.strpath)
 
@@ -165,8 +180,15 @@ def test_download_artifacts_calls_expected_gcs_client_methods(gcs_mock, tmpdir):
         f = tmpdir.join(fname)
         f.write("hello world!")
 
-    gcs_mock.Client.return_value.bucket.return_value.blob.return_value.download_to_filename.side_effect = (  # pylint: disable=line-too-long
-        mkfile
+    mock_method_chain(
+        gcs_mock,
+        [
+            "Client",
+            "bucket",
+            "blob",
+            "download_to_filename",
+        ],
+        side_effect=mkfile,
     )
 
     repo.download_artifacts("test.txt")
@@ -230,10 +252,24 @@ def test_download_artifacts_downloads_expected_content(gcs_mock, tmpdir):
         f = tmpdir.join(fname)
         f.write("hello world!")
 
-    gcs_mock.Client.return_value.bucket.return_value.list_blobs.side_effect = get_mock_listing
-
-    gcs_mock.Client.return_value.bucket.return_value.blob.return_value.download_to_filename.side_effect = (  # pylint: disable=line-too-long
-        mkfile
+    mock_method_chain(
+        gcs_mock,
+        [
+            "Client",
+            "bucket",
+            "list_blobs",
+        ],
+        side_effect=get_mock_listing,
+    )
+    mock_method_chain(
+        gcs_mock,
+        [
+            "Client",
+            "bucket",
+            "blob",
+            "download_to_filename",
+        ],
+        side_effect=mkfile,
     )
 
     # Ensure that the root directory can be downloaded successfully

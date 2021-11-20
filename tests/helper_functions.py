@@ -431,8 +431,10 @@ def mock_method_chain(mock_obj, methods, return_value=None, side_effect=None):
         if idx != length - 1:
             mock_obj = mock_obj.return_value
         else:
-            mock_obj.return_value = return_value
-            mock_obj.side_effect = side_effect
+            if return_value:
+                mock_obj.return_value = return_value
+            if side_effect:
+                mock_obj.side_effect = side_effect
 
 
 @contextmanager
