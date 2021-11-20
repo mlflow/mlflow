@@ -98,18 +98,41 @@ def test_initialize_sagemaker_deployment_client_with_only_target_name():
     plugin = mfs.SageMakerDeploymentClient("sagemaker")
 
     assert plugin.region_name == mfs.DEFAULT_REGION_NAME
+    assert plugin.assumed_role_arn is None
 
 
 def test_initialize_sagemaker_deployment_client_with_empty_path():
     plugin = mfs.SageMakerDeploymentClient("sagemaker:/")
 
     assert plugin.region_name == mfs.DEFAULT_REGION_NAME
+    assert plugin.assumed_role_arn is None
 
 
 def test_initialize_sagemaker_deployment_client_with_region_name():
     plugin = mfs.SageMakerDeploymentClient("sagemaker:/us-east-1")
 
     assert plugin.region_name == "us-east-1"
+    assert plugin.assumed_role_arn is None
+
+
+def test_initialize_sagemaker_deployment_client_with_region_name_and_iam_role_arn():
+    plugin = mfs.SageMakerDeploymentClient(
+        "sagemaker:/us-east-1/arn:aws:iam::123456789012:role/dummy.company.com/assumed_role"
+    )
+
+    assert plugin.region_name == "us-east-1"
+    assert (
+        plugin.assumed_role_arn == "arn:aws:iam::123456789012:role/dummy.company.com/assumed_role"
+    )
+
+
+def test_initialize_sagemaker_deployment_client_with_iam_role_arn_but_no_region_name_raises_exception():
+    with pytest.raises(MlflowException) as exc:
+        mfs.SageMakerDeploymentClient(
+            "sagemaker:/arn:aws:iam::123456789012:role/dummy.company.com/assumed_role"
+        )
+
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
 @pytest.mark.large

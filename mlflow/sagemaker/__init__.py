@@ -1747,29 +1747,59 @@ def _does_model_exist(model_name, sage_client):
 
 class SageMakerDeploymentClient(BaseDeploymentClient):
     """
-    Initialize a deployment client for SageMaker
+    Initialize a deployment client for SageMaker. The default region and assumed role ARN will
+    be set according to the value of the `target_uri`.
 
-    :param target_uri: A URI that has the value of ``sagemaker`` or ``sagemaker:/region_name``.
-                       The provided region name will be used as the default region for subsequent function calls.
-                       When no region name is provided, the default region will be set to `us-west-2`.
+    :param target_uri: A URI that follows one of the following formats:
+
+                       - ``sagemaker``: This will set the default region to `us-west-2` and
+                         the default assumed role ARN to `None`.
+
+                       - ``sagemaker:/region_name``: This will set the default region to `region_name`
+                         and the default assumed role ARN to `None`.
+
+                       - ``sagemaker:/region_name/assumed_role_arn``: This will set the default
+                         region to `region_name` and the default assumed role ARN to `assumed_role_arn`.
+
+                       When an `assumed_role_arn` is provided without a `region_name`,
+                       an MlflowException will be raised.
     """
 
     def __init__(self, target_uri):
         super(SageMakerDeploymentClient, self).__init__(target_uri=target_uri)
-        self._get_region_name_from_uri()
 
-    def _get_region_name_from_uri(self):
+        # Default region_name and assumed_role_arn when
+        # the target_uri is `sagemaker` or `sagemaker:/`
+        self.region_name = DEFAULT_REGION_NAME
+        self.assumed_role_arn = None
+        self._get_values_from_target_uri()
+
+    def _get_values_from_target_uri(self):
         parsed = urllib.parse.urlparse(self.target_uri)
-        if not parsed.scheme:
-            # The target_uri is only "sagemaker"
-            self.region_name = DEFAULT_REGION_NAME
+        values_str = parsed.path.strip("/")
+
+        if not parsed.scheme or not values_str:
+            return
+
+        separator_index = values_str.find("/")
+        if separator_index == -1:
+            # values_str would look like us-east-1
+            self.region_name = values_str
         else:
-            stripped_path = parsed.path.strip("/")
-            if stripped_path:
-                # The target_uri looks like "sagemaker:/us-east-1"
-                self.region_name = stripped_path
-            else:
-                self.region_name = DEFAULT_REGION_NAME
+            # values_str would look like us-east-1/arn:aws:1234:role/assumed_role
+            self.region_name = values_str[:separator_index]
+            self.assumed_role_arn = values_str[separator_index + 1 :]
+
+        if self.region_name.startswith("arn"):
+            raise MlflowException(
+                message=(
+                    "It looks like the target_uri contains an IAM role ARN without a region name.\n"
+                    "A region name must be provided when the target_uri contains a role ARN.\n"
+                    "In this case, the target_uri must follow the format: sagemaker:/region_name/assumed_role_arn.\n"
+                    f"The provided target_uri is: {self.target_uri}\n"
+                ),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
     def _default_config(self):
         return dict(
