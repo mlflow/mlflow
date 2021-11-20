@@ -244,7 +244,7 @@ class RestEndpoint:
                 pgrp = os.getpgid(self._proc.pid)
                 os.killpg(pgrp, signal.SIGTERM)
             else:
-                # https://stackoverflow.com/questions/47016723/windows-equivalent-for-spawning-and-killing-separate-process-group-in-python-3  # noqa
+                # https://stackoverflow.com/questions/47016723/windows-equivalent-for-spawning-and-killing-separate-process-group-in-python-3
                 self._proc.send_signal(signal.CTRL_BREAK_EVENT)
                 self._proc.kill()
 

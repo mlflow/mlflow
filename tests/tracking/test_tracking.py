@@ -786,7 +786,7 @@ def test_log_image_numpy_shape(size):
 @pytest.mark.parametrize(
     "dtype",
     [
-        # Ref.: https://numpy.org/doc/stable/user/basics.types.html#array-types-and-conversions-between-types  # noqa
+        # Ref.: https://numpy.org/doc/stable/user/basics.types.html#array-types-and-conversions-between-types
         "int8",
         "int16",
         "int32",
