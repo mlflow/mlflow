@@ -12,8 +12,7 @@ import { Provider } from 'react-redux';
 import { mockRunInfo } from '../../experiment-tracking/utils/test-utils/ReduxStoreFixtures';
 import Routers from '../../experiment-tracking/routes';
 import { mountWithIntl } from '../../common/utils/TestUtils';
-import {ModelView} from "./ModelView";
-import {NONE} from "draft-js/lib/SampleDraftInlineStyle";
+
 
 describe('ModelVersionView', () => {
   let wrapper;
