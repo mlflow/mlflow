@@ -13,7 +13,6 @@ import { mockRunInfo } from '../../experiment-tracking/utils/test-utils/ReduxSto
 import Routers from '../../experiment-tracking/routes';
 import { mountWithIntl } from '../../common/utils/TestUtils';
 
-
 describe('ModelVersionView', () => {
   let wrapper;
   let minimalProps;
@@ -236,84 +235,91 @@ describe('ModelVersionView', () => {
   test('creator description not rendered if user_id is unavailable', () => {
     const props = {
       ...minimalProps,
-      modelVersion: mockModelVersionDetailed('Model A', 1, Stages.NONE,
-          ModelVersionStatus.READY, [], null,
-          'b99a0fc567ae4d32994392c800c0b6ce', null),
+      modelVersion: mockModelVersionDetailed(
+        'Model A',
+        1,
+        Stages.NONE,
+        ModelVersionStatus.READY,
+        [],
+        null,
+        'b99a0fc567ae4d32994392c800c0b6ce',
+        null,
+      ),
     };
     wrapper = mountWithIntl(
-        <Provider store={minimalStore}>
-            <BrowserRouter>
-                <ModelVersionView {...props} />
-            </BrowserRouter>
-        </Provider>,
+      <Provider store={minimalStore}>
+        <BrowserRouter>
+          <ModelVersionView {...props} />
+        </BrowserRouter>
+      </Provider>,
     );
 
     expect(wrapper.find('.metadata-list td.ant-descriptions-item').length).toBe(4);
     expect(
-        wrapper
-            .find('.metadata-list span.ant-descriptions-item-label')
-            .at(0)
-            .text(),
+      wrapper
+        .find('.metadata-list span.ant-descriptions-item-label')
+        .at(0)
+        .text(),
     ).toBe('Registered At');
     expect(
-        wrapper
-            .find('.metadata-list span.ant-descriptions-item-label')
-            .at(1)
-            .text(),
+      wrapper
+        .find('.metadata-list span.ant-descriptions-item-label')
+        .at(1)
+        .text(),
     ).toBe('Stage');
     expect(
-        wrapper
-            .find('.metadata-list span.ant-descriptions-item-label')
-            .at(2)
-            .text(),
+      wrapper
+        .find('.metadata-list span.ant-descriptions-item-label')
+        .at(2)
+        .text(),
     ).toBe('Last Modified');
     expect(
-        wrapper
-            .find('.metadata-list span.ant-descriptions-item-label')
-            .at(3)
-            .text(),
+      wrapper
+        .find('.metadata-list span.ant-descriptions-item-label')
+        .at(3)
+        .text(),
     ).toBe('Source Run');
   });
 
   test('creator description rendered if user_id is available', () => {
     wrapper = mountWithIntl(
-        <Provider store={minimalStore}>
-          <BrowserRouter>
-            <ModelVersionView {...minimalProps} />
-          </BrowserRouter>
-        </Provider>,
+      <Provider store={minimalStore}>
+        <BrowserRouter>
+          <ModelVersionView {...minimalProps} />
+        </BrowserRouter>
+      </Provider>,
     );
 
     expect(wrapper.find('.metadata-list td.ant-descriptions-item').length).toBe(5);
     expect(
-        wrapper
-            .find('.metadata-list span.ant-descriptions-item-label')
-            .at(0)
-            .text(),
+      wrapper
+        .find('.metadata-list span.ant-descriptions-item-label')
+        .at(0)
+        .text(),
     ).toBe('Registered At');
     expect(
-        wrapper
-            .find('.metadata-list span.ant-descriptions-item-label')
-            .at(1)
-            .text(),
+      wrapper
+        .find('.metadata-list span.ant-descriptions-item-label')
+        .at(1)
+        .text(),
     ).toBe('Creator');
     expect(
-        wrapper
-            .find('.metadata-list span.ant-descriptions-item-label')
-            .at(2)
-            .text(),
+      wrapper
+        .find('.metadata-list span.ant-descriptions-item-label')
+        .at(2)
+        .text(),
     ).toBe('Stage');
     expect(
-        wrapper
-            .find('.metadata-list span.ant-descriptions-item-label')
-            .at(3)
-            .text(),
+      wrapper
+        .find('.metadata-list span.ant-descriptions-item-label')
+        .at(3)
+        .text(),
     ).toBe('Last Modified');
     expect(
-        wrapper
-            .find('.metadata-list span.ant-descriptions-item-label')
-            .at(4)
-            .text(),
+      wrapper
+        .find('.metadata-list span.ant-descriptions-item-label')
+        .at(4)
+        .text(),
     ).toBe('Source Run');
   });
 });
