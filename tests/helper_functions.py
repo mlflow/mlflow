@@ -1,6 +1,8 @@
 import os
 import random
 from unittest import mock
+from contextlib import ExitStack, contextmanager
+
 
 import requests
 import time
@@ -406,3 +408,9 @@ def allow_infer_pip_requirements_fallback_if(condition):
         return pytest.mark.allow_infer_pip_requirements_fallback(f) if condition else f
 
     return decorator
+
+
+@contextmanager
+def multi_context(*cms):
+    with ExitStack() as stack:
+        yield map(stack.enter_context, cms)
