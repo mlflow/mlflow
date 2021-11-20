@@ -1065,7 +1065,7 @@ def run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
     proc.wait()
 
 
-def _target_help(_):
+def target_help(_):
     """
     Provide help information for the SageMaker deployment client.
 
