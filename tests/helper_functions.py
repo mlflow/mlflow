@@ -418,10 +418,10 @@ def mock_method_chain(mock_obj, methods, return_value=None, side_effect=None):
     Examples
     --------
     >>> m = mock.MagicMock()
-    >>> mock_methods(m, ["a", "b"], 0)
+    >>> mock_method_chain(m, ["a", "b"], 0)
     >>> m.a().b()
     0
-    >>> mock_methods(m, ["c.d", "e"], 1)
+    >>> mock_method_chain(m, ["c.d", "e"], 1)
     >>> m.c.d().e()
     1
     """
