@@ -29,13 +29,13 @@ class DummyEvaluator(ModelEvaluator):
         return evaluator_config.get("can_evaluate") and model_type in ["classifier", "regressor"]
 
     def compute_metrics_and_compute_and_log_artifacts(
-        self, model_type, predict, dataset, evaluator_config, run_id
+        self, model, model_type, dataset, evaluator_config, run_id
     ):
         X = dataset.data
         assert isinstance(X, np.ndarray), "Only support array type feature input"
         assert dataset.name is not None, "Dataset name required"
         y = dataset.labels
-        y_pred = predict(X)
+        y_pred = model.predict(X)
         if model_type == "classifier":
             accuracy_score = sk_metrics.accuracy_score(y, y_pred)
 

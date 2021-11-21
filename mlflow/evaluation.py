@@ -14,6 +14,7 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.entities import Metric, RunTag
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _get_fully_qualified_class_name, load_class
+from mlflow.pyfunc import PyFuncModel
 
 
 class EvaluationMetrics(dict):
@@ -238,7 +239,7 @@ class ModelEvaluator:
         raise NotImplementedError()
 
     def compute_metrics_and_compute_and_log_artifacts(
-        self, model_type, predict, dataset, evaluator_config, run_id
+        self, model, model_type, dataset, evaluator_config, run_id
     ):
         """
         return an tuple of:
@@ -249,12 +250,18 @@ class ModelEvaluator:
         raise NotImplementedError()
 
     def evaluate(
-        self, model_type, predict, dataset, run_id=None, evaluator_config=None, **kwargs
+            self,
+            model: PyFuncModel,
+            model_type,
+            dataset,
+            run_id=None,
+            evaluator_config=None,
+            **kwargs
     ) -> EvaluationResult:
         """
-        :param predict: A function used to compute model predictions. Predict
-                        accepts features from the specified `dataset` and
-                        feeds them to the model, producing output predictions.
+        :param model: A pyfunc model instance.
+        :param model_type: A string describing the model type (e.g., "regressor",
+                   "classifier", …).
         :param dataset: An instance of `EvaluationDataset` containing features
                         and labels (optional) for model evaluation.
         :param run_id: The ID of the MLflow Run to which to log results.
@@ -291,7 +298,7 @@ class ModelEvaluator:
             dataset_metadata_str = json.dumps(dataset_metadata_list)
 
             metrics_dict, artifacts_dict = self.compute_metrics_and_compute_and_log_artifacts(
-                model_type, predict, dataset, evaluator_config, run_id
+                model, model_type, dataset, evaluator_config, run_id
             )
             client.log_batch(
                 run_id,
@@ -350,14 +357,14 @@ _model_evaluation_registry.register_entrypoints()
 
 
 def evaluate(
-    model, model_type, dataset, run_id=None, evaluators=None, evaluator_config=None
+        model: Union[str, PyFuncModel],
+        model_type, dataset,
+        run_id=None,
+        evaluators=None,
+        evaluator_config=None
 ) -> Union[EvaluationResult, Dict[str, EvaluationResult]]:
     """
-    :param model: A model supported by the specified `evaluator`, or a URI
-                  referring to such a model. The default evaluator supports the
-                  following:
-
-                  - A pyfunc model instance (an instance of class `PyFuncModel`)
+    :param model: A pyfunc model instance, or a URI referring to such a model.
 
     :param model_type: A string describing the model type. The default evaluator
                        supports "regressor" and "classifier" as model types.
@@ -388,8 +395,6 @@ def evaluate(
     if isinstance(model, str):
         model = mlflow.pyfunc.load_model(model)
 
-    predict = model.predict
-
     eval_results = []
     for evaluator_name in evaluators:
         config = evaluator_config[evaluator_name]
@@ -399,7 +404,7 @@ def evaluate(
             continue
 
         if evaluator.can_evaluate(model_type, config):
-            result = evaluator.evaluate(model_type, predict, dataset, run_id, config)
+            result = evaluator.evaluate(model, model_type, dataset, run_id, config)
             eval_results.append(result)
 
     merged_eval_result = EvaluationResult(EvaluationMetrics(), dict())
