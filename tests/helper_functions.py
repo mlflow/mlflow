@@ -440,4 +440,4 @@ def mock_method_chain(mock_obj, methods, return_value=None, side_effect=None):
 @contextmanager
 def multi_context(*cms):
     with ExitStack() as stack:
-        yield map(stack.enter_context, cms)
+        yield list(map(stack.enter_context, cms))
