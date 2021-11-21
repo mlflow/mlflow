@@ -128,7 +128,7 @@ class EvaluationDataset:
 
     NUM_SAMPLE_ROWS_FOR_HASH = 5
 
-    def __init__(self, data, labels=None, name=None, path=None):
+    def __init__(self, data, labels, name=None, path=None):
         """
         :param data: One of the following:
          - A numpy array or list of evaluation features, excluding labels.
@@ -151,6 +151,15 @@ class EvaluationDataset:
         self.labels = labels
         self.path = path
         self._hash = None
+
+    def extract_features_and_labels(self):
+        if isinstance(self.data, np.ndarray):
+            return self.data, self.labels
+        elif isinstance(self.data, pd.DataFrame):
+            feature_cols = [x for x in self.data.columns if x != self.labels]
+            return self.data[feature_cols], self.data[self.labels]
+        else:
+            raise ValueError(f'Unsupported data type: {type(self.data)}')
 
     @staticmethod
     def _gen_md5_for_arraylike_obj(md5_gen, data):
