@@ -269,9 +269,9 @@ class ModelEvaluator:
         client = mlflow.tracking.MlflowClient()
         self.mlflow_client = client
 
-        with mlflow.start_run(run_id=run_id):
+        def do_evaluate(_run_id):
             timestamp = int(time.time() * 1000)
-            existing_dataset_metadata_str = client.get_run(run_id).data.tags.get("mlflow.datasets")
+            existing_dataset_metadata_str = client.get_run(_run_id).data.tags.get("mlflow.datasets")
             if existing_dataset_metadata_str is not None:
                 dataset_metadata_list = json.loads(existing_dataset_metadata_str)
             else:
@@ -292,10 +292,10 @@ class ModelEvaluator:
             dataset_metadata_str = json.dumps(dataset_metadata_list)
 
             metrics_dict, artifacts_dict = self.compute_metrics_and_compute_and_log_artifacts(
-                model, model_type, dataset, evaluator_config, run_id
+                model, model_type, dataset, evaluator_config, _run_id
             )
             client.log_batch(
-                run_id,
+                _run_id,
                 metrics=[
                     Metric(key=f"{key}_on_{dataset.name}", value=value, timestamp=timestamp, step=0)
                     for key, value in metrics_dict.items()
@@ -304,6 +304,12 @@ class ModelEvaluator:
             )
 
             return EvaluationResult(metrics_dict, artifacts_dict)
+
+        if mlflow.active_run() is not None:
+            return do_evaluate(mlflow.active_run().info.run_id)
+        else:
+            with mlflow.start_run(run_id=run_id):
+                return do_evaluate(run_id)
 
 
 class ModelEvaluatorRegistry:
