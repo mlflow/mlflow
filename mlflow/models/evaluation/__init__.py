@@ -1,6 +1,4 @@
 from typing import Dict, Union
-import entrypoints
-import warnings
 import mlflow
 import hashlib
 import time
@@ -15,6 +13,7 @@ from mlflow.entities import Metric, RunTag
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _get_fully_qualified_class_name, load_class
 from mlflow.pyfunc import PyFuncModel
+from mlflow.models.evaluation.evaluator_registry import ModelEvaluatorRegistry
 
 
 class EvaluationMetrics(dict):
@@ -310,46 +309,6 @@ class ModelEvaluator:
         else:
             with mlflow.start_run(run_id=run_id):
                 return do_evaluate(run_id)
-
-
-class ModelEvaluatorRegistry:
-    """
-    Scheme-based registry for model evaluator implementations
-    """
-
-    def __init__(self):
-        self._registry = {}
-
-    def register(self, scheme, evaluator):
-        """Register model evaluator provided by other packages"""
-        self._registry[scheme] = evaluator
-
-    def register_entrypoints(self):
-        # Register artifact repositories provided by other packages
-        for entrypoint in entrypoints.get_group_all("mlflow.model_evaluator"):
-            try:
-                self.register(entrypoint.name, entrypoint.load())
-            except (AttributeError, ImportError) as exc:
-                warnings.warn(
-                    'Failure attempting to register model evaluator for scheme "{}": {}'.format(
-                        entrypoint.name, str(exc)
-                    ),
-                    stacklevel=2,
-                )
-
-    def get_evaluator(self, evaluator_name):
-        """
-        Get an evaluator instance from the registry based on the name of evaluator
-        """
-        evaluator_cls = self._registry.get(evaluator_name)
-        if evaluator_cls is None:
-            raise MlflowException(
-                "Could not find a registered model evaluator for: {}. "
-                "Currently registered evaluator names are: {}".format(
-                    evaluator_name, list(self._registry.keys())
-                )
-            )
-        return evaluator_cls()
 
 
 _model_evaluation_registry = ModelEvaluatorRegistry()

@@ -1,5 +1,5 @@
 import mlflow
-from mlflow.evaluation import (
+from mlflow.models.evaluation import (
     ModelEvaluator,
     EvaluationMetrics,
     EvaluationArtifact,

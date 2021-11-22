@@ -1,6 +1,6 @@
 import mlflow
 
-from mlflow.evaluation import evaluate, EvaluationDataset
+from mlflow.models.evaluation import evaluate, EvaluationDataset
 import sklearn
 import sklearn.datasets
 import sklearn.linear_model
