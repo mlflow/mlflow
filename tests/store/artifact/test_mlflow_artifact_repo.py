@@ -47,7 +47,10 @@ def test_mlflow_artifact_uri_formats_resolved():
             f"mlflow-artifacts://{base_path}/redundant",
             f"{tracking_uri.scheme}://{tracking_uri.netloc}/{base_api_uri}{base_path}/redundant",
         ),
-        ("mlflow-artifacts:/", uri_temp,),
+        (
+            "mlflow-artifacts:/",
+            uri_temp,
+        ),
     ]
     failing_conditions = [f"mlflow-artifacts://5000/{base_path}", "mlflow-artifacts://5000/"]
 
