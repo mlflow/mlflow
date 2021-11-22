@@ -426,7 +426,7 @@ def autolog(
 
                 # In xgboost >= 1.3.0, user-defined callbacks should inherit
                 # `xgboost.callback.TrainingCallback`:
-                # https://xgboost.readthedocs.io/en/latest/python/callbacks.html#defining-your-own-callback  # noqa
+                # https://xgboost.readthedocs.io/en/latest/python/callbacks.html#defining-your-own-callback
                 return AutologCallback(metrics_logger, eval_results)
             else:
                 from mlflow.xgboost._autolog import autolog_callback
