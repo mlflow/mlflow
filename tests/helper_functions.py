@@ -417,13 +417,19 @@ def mock_method_chain(mock_obj, methods, return_value=None, side_effect=None):
 
     Examples
     --------
+    >>> from unittest import mock
     >>> m = mock.MagicMock()
-    >>> mock_method_chain(m, ["a", "b"], 0)
+    >>> mock_method_chain(m, ["a", "b"], return_value=0)
     >>> m.a().b()
     0
-    >>> mock_method_chain(m, ["c.d", "e"], 1)
+    >>> mock_method_chain(m, ["c.d", "e"], return_value=1)
     >>> m.c.d().e()
     1
+    >>> mock_method_chain(m, ["f"], side_effect=Exception("side_effect"))
+    >>> m.f()
+    Traceback (most recent call last):
+      ...
+    Exception: side_effect
     """
     length = len(methods)
     for idx, method in enumerate(methods):

@@ -132,7 +132,7 @@ def test_log_artifact(gcs_mock, tmpdir):
             "blob",
             "upload_from_filename",
         ],
-        os.path.isfile,
+        side_effect=os.path.isfile,
     )
     repo.log_artifact(fpath)
 
@@ -157,7 +157,7 @@ def test_log_artifacts(gcs_mock, tmpdir):
             "blob",
             "upload_from_filename",
         ],
-        os.path.isfile,
+        side_effect=os.path.isfile,
     )
     repo.log_artifacts(subd.strpath)
 
