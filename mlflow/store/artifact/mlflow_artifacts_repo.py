@@ -59,9 +59,6 @@ class MlflowArtifactsRepository(HttpArtifactRepository):
 
         uri_parse = _parse_artifact_uri(artifact_uri)
 
-        print(f"\nuri_parse: {uri_parse}")
-        print(f"track_parse: {track_parse}")
-
         if track_parse.path == uri_parse.path:
             resolved = "/"
         else:
@@ -93,4 +90,4 @@ class MlflowArtifactsRepository(HttpArtifactRepository):
                 f"The supplied artifact uri {artifact_uri} could not be resolved."
             )
 
-        return resolved_artifacts_uri.replace("///", "/").rstrip("/")
+        return resolved_artifacts_uri.replace("///", "/")

@@ -2,61 +2,56 @@ import os
 from unittest import mock
 import posixpath
 import pytest
-from urllib.parse import urlparse
 
 from mlflow.store.artifact.mlflow_artifacts_repo import MlflowArtifactsRepository
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.exceptions import MlflowException
-from mlflow.tracking._tracking_service.utils import get_tracking_uri, set_tracking_uri
-
-ORIGINAL_TRACKING_URI = get_tracking_uri()
 
 
-def _set_temp_tracking_uri():
-    temp_uri = "http://localhost:5000/api/2.0/mlflow-artifacts/artifacts"
-    set_tracking_uri(temp_uri)
-    return temp_uri
+@pytest.fixture(scope="module", autouse=True)
+def set_tracking_uri():
+    with mock.patch(
+        "mlflow.store.artifact.mlflow_artifacts_repo.get_tracking_uri",
+        return_value="http://localhost:5000/",
+    ):
+        yield
 
 
 def test_artifact_uri_factory():
-    _set_temp_tracking_uri()
     repo = get_artifact_repository("mlflow-artifacts://test.com")
     assert isinstance(repo, MlflowArtifactsRepository)
-    set_tracking_uri(ORIGINAL_TRACKING_URI)
 
 
 def test_mlflow_artifact_uri_formats_resolved():
-    base_api_uri = "api/2.0/mlflow-artifacts/artifacts"
-    uri_temp = _set_temp_tracking_uri()
-    tracking_uri = urlparse(uri_temp)
+
     base_path = "/my/artifact/path"
     conditions = [
         (
             f"mlflow-artifacts://myhostname:4242{base_path}/hostport",
-            f"{tracking_uri.scheme}://myhostname:4242/{base_api_uri}{base_path}/hostport",
+            f"http://myhostname:4242/{base_path}/hostport",
         ),
         (
             f"mlflow-artifacts://myhostname{base_path}/host",
-            f"{tracking_uri.scheme}://myhostname/{base_api_uri}{base_path}/host",
+            f"http://myhostname/{base_path}/host",
         ),
         (
             f"mlflow-artifacts:{base_path}/nohost",
-            f"{tracking_uri.scheme}://{tracking_uri.netloc}/{base_api_uri}{base_path}/nohost",
+            f"http://localhost:5000/{base_path}/nohost",
         ),
         (
             f"mlflow-artifacts://{base_path}/redundant",
-            f"{tracking_uri.scheme}://{tracking_uri.netloc}/{base_api_uri}{base_path}/redundant",
+            f"http://localhost:5000/{base_path}/redundant",
         ),
         (
             "mlflow-artifacts:/",
-            uri_temp,
+            "http://localhost:5000/",
         ),
     ]
     failing_conditions = [f"mlflow-artifacts://5000/{base_path}", "mlflow-artifacts://5000/"]
 
     for submit, resolved in conditions:
         artifact_repo = MlflowArtifactsRepository(submit)
-        assert artifact_repo.resolve_uri(submit).replace("sqlite", "http") == resolved
+        assert artifact_repo.resolve_uri(submit) == resolved
     for failing_condition in failing_conditions:
         with pytest.raises(
             MlflowException,
@@ -64,14 +59,6 @@ def test_mlflow_artifact_uri_formats_resolved():
             "host was defined.",
         ):
             MlflowArtifactsRepository(failing_condition)
-
-    # Set tracking uri back to test env default (sqlite) and verify that it raises
-    set_tracking_uri(ORIGINAL_TRACKING_URI)
-    old_uri_scheme = urlparse(ORIGINAL_TRACKING_URI).scheme
-    with pytest.raises(
-        MlflowException, match=f"The configured tracking uri scheme: '{old_uri_scheme}' is invalid"
-    ):
-        MlflowArtifactsRepository("mlflow-artifacts:/localhost:5000/my/artifacts")
 
 
 class MockResponse:
@@ -109,14 +96,12 @@ class FileObjectMatcher:
 
 @pytest.fixture
 def mlflow_artifact_repo():
-    _set_temp_tracking_uri()
     artifact_uri = "mlflow-artifacts:/api/2.0/mlflow-artifacts/artifacts"
     return MlflowArtifactsRepository(artifact_uri)
 
 
 @pytest.fixture
 def mlflow_artifact_repo_with_host():
-    _set_temp_tracking_uri()
     artifact_uri = "mlflow-artifacts://test.com:5000/api/2.0/mlflow-artifacts/artifacts"
     return MlflowArtifactsRepository(artifact_uri)
 
@@ -136,7 +121,6 @@ def test_log_artifact(mlflow_artifact_repo, tmpdir, artifact_path):
     with mock.patch("requests.Session.put", return_value=MockResponse({}, 400)) as mock_put:
         with pytest.raises(Exception, match="request failed"):
             mlflow_artifact_repo.log_artifact(tmp_path, artifact_path)
-    set_tracking_uri(ORIGINAL_TRACKING_URI)
 
 
 @pytest.mark.parametrize("artifact_path", [None, "dir", "path/to/artifacts/storage"])
@@ -156,7 +140,6 @@ def test_log_artifact_with_host_and_port(mlflow_artifact_repo_with_host, tmpdir,
     with mock.patch("requests.Session.put", return_value=MockResponse({}, 400)) as mock_put:
         with pytest.raises(Exception, match="request failed"):
             mlflow_artifact_repo_with_host.log_artifact(tmp_path, artifact_path)
-    set_tracking_uri(ORIGINAL_TRACKING_URI)
 
 
 @pytest.mark.parametrize("artifact_path", [None, "dir", "path/to/artifacts/storage"])
@@ -184,7 +167,6 @@ def test_log_artifacts(mlflow_artifact_repo, tmpdir, artifact_path):
     with mock.patch("requests.Session.put", return_value=MockResponse({}, 400)) as mock_put:
         with pytest.raises(Exception, match="request failed"):
             mlflow_artifact_repo.log_artifacts(tmpdir, artifact_path)
-    set_tracking_uri(ORIGINAL_TRACKING_URI)
 
 
 def test_list_artifacts(mlflow_artifact_repo):
@@ -228,7 +210,6 @@ def test_list_artifacts(mlflow_artifact_repo):
     with mock.patch("requests.Session.get", return_value=MockResponse({}, 400)) as mock_get:
         with pytest.raises(Exception, match="request failed"):
             mlflow_artifact_repo.list_artifacts()
-    set_tracking_uri(ORIGINAL_TRACKING_URI)
 
 
 def read_file(path):
@@ -253,7 +234,6 @@ def test_download_file(mlflow_artifact_repo, tmpdir, remote_file_path):
     ) as mock_get:
         with pytest.raises(Exception, match="request failed"):
             mlflow_artifact_repo._download_file(remote_file_path, tmp_path)
-    set_tracking_uri(ORIGINAL_TRACKING_URI)
 
 
 def test_download_artifacts(mlflow_artifact_repo, tmpdir):
@@ -300,4 +280,3 @@ def test_download_artifacts(mlflow_artifact_repo, tmpdir):
         ]
         assert read_file(paths[0]) == "data_a"
         assert read_file(paths[1]) == "data_b"
-    set_tracking_uri(ORIGINAL_TRACKING_URI)
