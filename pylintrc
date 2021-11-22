@@ -177,7 +177,8 @@ disable=print-statement,
 # either give multiple identifier separated by comma (,) or put this option
 # multiple time (only on the command line, not in the configuration file where
 # it should appear only once). See also the "--disable" option for examples.
-enable=c-extension-no-member
+enable=c-extension-no-member,
+       line-too-long
 
 
 [REPORTS]
@@ -330,7 +331,7 @@ variable-naming-style=snake_case
 expected-line-ending-format=
 
 # Regexp for a line that is allowed to be longer than the limit.
-ignore-long-lines=^\s*(# )?<?https?://\S+>?$
+ignore-long-lines=https?://\S+
 
 # Number of spaces of indent required inside a hanging  or continued line.
 indent-after-paren=4

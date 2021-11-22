@@ -786,7 +786,7 @@ def test_log_image_numpy_shape(size):
 @pytest.mark.parametrize(
     "dtype",
     [
-        # Ref.: https://numpy.org/doc/stable/user/basics.types.html#array-types-and-conversions-between-types  # noqa
+        # Ref.: https://numpy.org/doc/stable/user/basics.types.html#array-types-and-conversions-between-types
         "int8",
         "int16",
         "int32",
@@ -947,7 +947,7 @@ def test_get_artifact_uri_uses_currently_active_run_id():
         ),
         (
             "mysql+driver://user:password@host:port/dbname/subpath/#fragment",
-            "mysql+driver://user:password@host:port/dbname/subpath/{run_id}/artifacts/{path}#fragment",  # noqa
+            "mysql+driver://user:password@host:port/dbname/subpath/{run_id}/artifacts/{path}#fragment",  # pylint: disable=line-too-long
         ),
         ("s3://bucketname/rootpath", "s3://bucketname/rootpath/{run_id}/artifacts/{path}"),
         ("/dirname/rootpa#th?", "/dirname/rootpa#th?/{run_id}/artifacts/{path}"),

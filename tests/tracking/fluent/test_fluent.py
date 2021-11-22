@@ -47,6 +47,7 @@ from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
 
 from tests.tracking.integration_test_utils import _init_server
+from tests.helper_functions import multi_context
 
 
 class HelperEnv:
@@ -334,7 +335,15 @@ def test_start_run_defaults(empty_active_run_stack):  # pylint: disable=unused-a
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with experiment_id_patch, databricks_notebook_patch, user_patch, source_name_patch, source_type_patch, source_version_patch, create_run_patch:  # noqa
+    with multi_context(
+        experiment_id_patch,
+        databricks_notebook_patch,
+        user_patch,
+        source_name_patch,
+        source_type_patch,
+        source_version_patch,
+        create_run_patch,
+    ):
         active_run = start_run()
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id, tags=expected_tags
@@ -386,7 +395,16 @@ def test_start_run_defaults_databricks_notebook(
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with experiment_id_patch, databricks_notebook_patch, user_patch, source_version_patch, notebook_id_patch, notebook_path_patch, webapp_url_patch, create_run_patch:  # noqa
+    with multi_context(
+        experiment_id_patch,
+        databricks_notebook_patch,
+        user_patch,
+        source_version_patch,
+        notebook_id_patch,
+        notebook_path_patch,
+        webapp_url_patch,
+        create_run_patch,
+    ):
         active_run = start_run()
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id, tags=expected_tags
@@ -435,7 +453,15 @@ def test_start_run_creates_new_run_with_user_specified_tags():
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with experiment_id_patch, databricks_notebook_patch, user_patch, source_name_patch, source_type_patch, source_version_patch, create_run_patch:  # noqa
+    with multi_context(
+        experiment_id_patch,
+        databricks_notebook_patch,
+        user_patch,
+        source_name_patch,
+        source_type_patch,
+        source_version_patch,
+        create_run_patch,
+    ):
         active_run = start_run(tags=user_specified_tags)
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id, tags=expected_tags
@@ -483,7 +509,13 @@ def test_start_run_with_parent():
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with databricks_notebook_patch, active_run_stack_patch, create_run_patch, user_patch, source_name_patch:  # noqa
+    with multi_context(
+        databricks_notebook_patch,
+        active_run_stack_patch,
+        create_run_patch,
+        user_patch,
+        source_name_patch,
+    ):
         active_run = start_run(experiment_id=mock_experiment_id, nested=True)
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id, tags=expected_tags

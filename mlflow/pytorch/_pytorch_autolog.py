@@ -69,7 +69,7 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         # pytorch-lightning runs a few steps of validation in the beginning of training
         # as a sanity check to catch bugs without having to wait for the training routine
         # to complete. During this check, we should skip logging metrics.
-        # https://pytorch-lightning.readthedocs.io/en/stable/common/trainer.html#num-sanity-val-steps # noqa
+        # https://pytorch-lightning.readthedocs.io/en/stable/common/trainer.html#num-sanity-val-steps
         sanity_checking = (
             # `running_sanity_check` has been renamed to `sanity_checking`:
             # https://github.com/PyTorchLightning/pytorch-lightning/pull/9209
