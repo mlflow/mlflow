@@ -92,7 +92,7 @@ def _get_args_for_metrics(fit_func, fit_args, fit_kwargs):
 
     # In most cases, X_var_name and y_var_name become "X" and "y", respectively.
     # However, certain sklearn models use different variable names for X and y.
-    # E.g., see: https://scikit-learn.org/stable/modules/generated/sklearn.multioutput.MultiOutputClassifier.html#sklearn.multioutput.MultiOutputClassifier.fit # noqa: E501
+    # E.g., see: https://scikit-learn.org/stable/modules/generated/sklearn.multioutput.MultiOutputClassifier.html#sklearn.multioutput.MultiOutputClassifier.fit
     X_var_name, y_var_name = fit_arg_names[:2]
     Xy = _get_Xy(fit_args, fit_kwargs, X_var_name, y_var_name)
     sample_weight = (
@@ -598,7 +598,7 @@ def _create_child_runs_for_parameter_search(
     parameter search estimator - `cv_estimator`, which provides relevant performance
     metrics for each point in the parameter search space. One child run is created
     for each point in the parameter search space. For additional information, see
-    `https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html`_. # noqa: E501
+    `https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html`_.
 
     :param autologging_client: An instance of `MlflowAutologgingQueueingClient` used for
                                efficiently logging run data to MLflow Tracking.

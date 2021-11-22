@@ -562,7 +562,7 @@ def main(args):
 
     if "GITHUB_ACTIONS" in os.environ:
         # `::set-output` is a special syntax for GitHub Actions to set an action's output parameter.
-        # https://docs.github.com/en/free-pro-team@latest/actions/reference/workflow-commands-for-github-actions#setting-an-output-parameter # noqa
+        # https://docs.github.com/en/free-pro-team@latest/actions/reference/workflow-commands-for-github-actions#setting-an-output-parameter
         # Note that this actually doesn't print anything to the console.
         print("::set-output name=matrix::{}".format(json.dumps(matrix)))
 
