@@ -13,17 +13,17 @@ setup(
         # Define a Tracking Store plugin for tracking URIs with scheme 'file-plugin'
         "mlflow.tracking_store": "file-plugin=mlflow_test_plugin.file_store:PluginFileStore",
         # Define a ArtifactRepository plugin for artifact URIs with scheme 'file-plugin'
-        "mlflow.artifact_repository": "file-plugin=mlflow_test_plugin.local_artifact:PluginLocalArtifactRepository",  # noqa
+        "mlflow.artifact_repository": "file-plugin=mlflow_test_plugin.local_artifact:PluginLocalArtifactRepository",  # pylint: disable=line-too-long
         # Define a RunContextProvider plugin. The entry point name for run context providers
         # is not used, and so is set to the string "unused" here
-        "mlflow.run_context_provider": "unused=mlflow_test_plugin.run_context_provider:PluginRunContextProvider",  # noqa
+        "mlflow.run_context_provider": "unused=mlflow_test_plugin.run_context_provider:PluginRunContextProvider",  # pylint: disable=line-too-long
         # Define a RequestHeaderProvider plugin. The entry point name for request header providers
         # is not used, and so is set to the string "unused" here
-        "mlflow.request_header_provider": "unused=mlflow_test_plugin.request_header_provider:PluginRequestHeaderProvider",  # noqa
+        "mlflow.request_header_provider": "unused=mlflow_test_plugin.request_header_provider:PluginRequestHeaderProvider",  # pylint: disable=line-too-long
         # Define a Model Registry Store plugin for tracking URIs with scheme 'file-plugin'
-        "mlflow.model_registry_store": "file-plugin=mlflow_test_plugin.sqlalchemy_store:PluginRegistrySqlAlchemyStore",  # noqa
+        "mlflow.model_registry_store": "file-plugin=mlflow_test_plugin.sqlalchemy_store:PluginRegistrySqlAlchemyStore",  # pylint: disable=line-too-long
         # Define a MLflow Project Backend plugin called 'dummy-backend'
-        "mlflow.project_backend": "dummy-backend=mlflow_test_plugin.dummy_backend:PluginDummyProjectBackend",  # noqa
+        "mlflow.project_backend": "dummy-backend=mlflow_test_plugin.dummy_backend:PluginDummyProjectBackend",  # pylint: disable=line-too-long
         # Define a MLflow model deployment plugin for target 'faketarget'
         "mlflow.deployments": "faketarget=mlflow_test_plugin.fake_deployment_plugin",
         "mlflow.model_evaluator": "dummy_evaluator=mlflow_test_plugin.dummy_evaluator:DummyEvaluator",

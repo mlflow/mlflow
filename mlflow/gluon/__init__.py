@@ -28,7 +28,6 @@ from mlflow.utils.file_utils import write_to
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
-    ExceptionSafeClass,
     batch_metrics_logger,
 )
 
@@ -223,13 +222,17 @@ def save_model(
         if pip_requirements is None:
             default_reqs = get_default_pip_requirements()
             inferred_reqs = mlflow.models.infer_pip_requirements(
-                path, FLAVOR_NAME, fallback=default_reqs,
+                path,
+                FLAVOR_NAME,
+                fallback=default_reqs,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
             default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
-            default_reqs, pip_requirements, extra_pip_requirements,
+            default_reqs,
+            pip_requirements,
+            extra_pip_requirements,
         )
     else:
         conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
@@ -370,42 +373,11 @@ def autolog(
                    autologging.
     """
 
-    from mxnet.gluon.contrib.estimator import Estimator, EpochEnd, TrainBegin, TrainEnd
-    from mxnet.gluon.nn import HybridSequential
+    from mxnet.gluon.contrib.estimator import Estimator
+    from mlflow.gluon._autolog import __MLflowGluonCallback
 
     def getGluonCallback(metrics_logger):
-        class __MLflowGluonCallback(EpochEnd, TrainEnd, TrainBegin, metaclass=ExceptionSafeClass):
-            def __init__(self):
-                self.current_epoch = 0
-
-            def epoch_end(self, estimator, *args, **kwargs):
-                logs = {}
-                for metric in estimator.train_metrics:
-                    metric_name, metric_val = metric.get()
-                    logs[metric_name] = metric_val
-                for metric in estimator.val_metrics:
-                    metric_name, metric_val = metric.get()
-                    logs[metric_name] = metric_val
-                metrics_logger.record_metrics(logs, self.current_epoch)
-                self.current_epoch += 1
-
-            def train_begin(self, estimator, *args, **kwargs):
-                mlflow.log_param("num_layers", len(estimator.net))
-                if estimator.max_epoch is not None:
-                    mlflow.log_param("epochs", estimator.max_epoch)
-                if estimator.max_batch is not None:
-                    mlflow.log_param("batches", estimator.max_batch)
-                mlflow.log_param("optimizer_name", type(estimator.trainer.optimizer).__name__)
-                if hasattr(estimator.trainer.optimizer, "lr"):
-                    mlflow.log_param("learning_rate", estimator.trainer.optimizer.lr)
-                if hasattr(estimator.trainer.optimizer, "epsilon"):
-                    mlflow.log_param("epsilon", estimator.trainer.optimizer.epsilon)
-
-            def train_end(self, estimator, *args, **kwargs):
-                if isinstance(estimator.net, HybridSequential) and log_models:
-                    log_model(estimator.net, artifact_path="model")
-
-        return __MLflowGluonCallback()
+        return __MLflowGluonCallback(log_models, metrics_logger)
 
     def fit(original, self, *args, **kwargs):
         # Wrap `fit` execution within a batch metrics logger context.

@@ -23,7 +23,7 @@ dependencies before calling other MLflow APIs.
 
 .. code:: r
 
-   install_mlflow(python_version = "3.6")
+   install_mlflow(python_version = "3.7")
 
 Arguments
 ---------

@@ -224,7 +224,8 @@ def test_describe_endpoint_config_response_contains_expected_attributes(sagemake
         },
     ]
     sagemaker_client.create_endpoint_config(
-        EndpointConfigName=endpoint_config_name, ProductionVariants=production_variants,
+        EndpointConfigName=endpoint_config_name,
+        ProductionVariants=production_variants,
     )
 
     describe_endpoint_config_response = sagemaker_client.describe_endpoint_config(
@@ -390,12 +391,14 @@ def test_describe_endpoint_response_contains_expected_attributes(sagemaker_clien
         },
     ]
     sagemaker_client.create_endpoint_config(
-        EndpointConfigName=endpoint_config_name, ProductionVariants=production_variants,
+        EndpointConfigName=endpoint_config_name,
+        ProductionVariants=production_variants,
     )
 
     endpoint_name = "sample-endpoint"
     sagemaker_client.create_endpoint(
-        EndpointName=endpoint_name, EndpointConfigName=endpoint_config_name,
+        EndpointName=endpoint_name,
+        EndpointConfigName=endpoint_config_name,
     )
 
     describe_endpoint_response = sagemaker_client.describe_endpoint(EndpointName=endpoint_name)
@@ -426,7 +429,8 @@ def test_endpoint_is_no_longer_listed_after_deletion(sagemaker_client):
 
     endpoint_name = "sample-endpoint"
     sagemaker_client.create_endpoint(
-        EndpointConfigName=endpoint_config_name, EndpointName=endpoint_name,
+        EndpointConfigName=endpoint_config_name,
+        EndpointName=endpoint_name,
     )
 
     sagemaker_client.delete_endpoint(EndpointName=endpoint_name)
@@ -457,7 +461,8 @@ def test_update_endpoint_modifies_config_correctly(sagemaker_client):
 
     endpoint_name = "sample-endpoint"
     sagemaker_client.create_endpoint(
-        EndpointConfigName=first_endpoint_config_name, EndpointName=endpoint_name,
+        EndpointConfigName=first_endpoint_config_name,
+        EndpointName=endpoint_name,
     )
 
     first_describe_endpoint_response = sagemaker_client.describe_endpoint(
@@ -489,7 +494,8 @@ def test_update_endpoint_with_nonexistent_config_throws_exception(sagemaker_clie
 
     endpoint_name = "sample-endpoint"
     sagemaker_client.create_endpoint(
-        EndpointConfigName=endpoint_config_name, EndpointName=endpoint_name,
+        EndpointConfigName=endpoint_config_name,
+        EndpointName=endpoint_name,
     )
 
     with pytest.raises(ValueError):

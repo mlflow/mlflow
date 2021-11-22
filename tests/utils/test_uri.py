@@ -266,24 +266,24 @@ def test_append_to_uri_path_preserves_uri_schemes_hosts_queries_and_fragments():
             ("dbscheme+dbdriver://#somefrag", "subpath", "dbscheme+dbdriver:subpath#somefrag"),
             ("dbscheme+dbdriver:///#somefrag", "/subpath", "dbscheme+dbdriver:/subpath#somefrag"),
             (
-                "dbscheme+dbdriver://root:password?creds=mycreds",
+                "dbscheme+dbdriver://root:password?creds=creds",
                 "subpath",
-                "dbscheme+dbdriver://root:password/subpath?creds=mycreds",
+                "dbscheme+dbdriver://root:password/subpath?creds=creds",
             ),
             (
-                "dbscheme+dbdriver://root:password/path/?creds=mycreds",
+                "dbscheme+dbdriver://root:password/path/?creds=creds",
                 "/subpath/anotherpath",
-                "dbscheme+dbdriver://root:password/path/subpath/anotherpath?creds=mycreds",
+                "dbscheme+dbdriver://root:password/path/subpath/anotherpath?creds=creds",
             ),
             (
-                "dbscheme+dbdriver://root:password///path/?creds=mycreds",
+                "dbscheme+dbdriver://root:password///path/?creds=creds",
                 "subpath/anotherpath",
-                "dbscheme+dbdriver://root:password///path/subpath/anotherpath?creds=mycreds",
+                "dbscheme+dbdriver://root:password///path/subpath/anotherpath?creds=creds",
             ),
             (
-                "dbscheme+dbdriver://root:password///path/?creds=mycreds",
+                "dbscheme+dbdriver://root:password///path/?creds=creds",
                 "/subpath",
-                "dbscheme+dbdriver://root:password///path/subpath?creds=mycreds",
+                "dbscheme+dbdriver://root:password///path/subpath?creds=creds",
             ),
             (
                 "dbscheme+dbdriver://root:password#myfragment",
@@ -291,30 +291,30 @@ def test_append_to_uri_path_preserves_uri_schemes_hosts_queries_and_fragments():
                 "dbscheme+dbdriver://root:password/subpath#myfragment",
             ),
             (
-                "dbscheme+dbdriver://root:password//path/#myfragmentwith$pecial@",
+                "dbscheme+dbdriver://root:password//path/#fragmentwith$pecial@",
                 "subpath/anotherpath",
-                "dbscheme+dbdriver://root:password//path/subpath/anotherpath#myfragmentwith$pecial@",  # noqa
+                "dbscheme+dbdriver://root:password//path/subpath/anotherpath#fragmentwith$pecial@",
             ),
             (
-                "dbscheme+dbdriver://root:password@myhostname?creds=mycreds#myfragmentwith$pecial@",
+                "dbscheme+dbdriver://root:password@host?creds=creds#fragmentwith$pecial@",
                 "subpath",
-                "dbscheme+dbdriver://root:password@myhostname/subpath?creds=mycreds#myfragmentwith$pecial@",  # noqa
+                "dbscheme+dbdriver://root:password@host/subpath?creds=creds#fragmentwith$pecial@",
             ),
             (
-                "dbscheme+dbdriver://root:password@myhostname.com/path?creds=mycreds#*frag@*",
+                "dbscheme+dbdriver://root:password@host.com/path?creds=creds#*frag@*",
                 "subpath/dir",
-                "dbscheme+dbdriver://root:password@myhostname.com/path/subpath/dir?creds=mycreds#*frag@*",  # noqa
+                "dbscheme+dbdriver://root:password@host.com/path/subpath/dir?creds=creds#*frag@*",
             ),
             (
-                "dbscheme-dbdriver://root:password@myhostname.com/path?creds=mycreds#*frag@*",
+                "dbscheme-dbdriver://root:password@host.com/path?creds=creds#*frag@*",
                 "subpath/dir",
-                "dbscheme-dbdriver://root:password@myhostname.com/path/subpath/dir?creds=mycreds#*frag@*",  # noqa
+                "dbscheme-dbdriver://root:password@host.com/path/subpath/dir?creds=creds#*frag@*",
             ),
             (
-                "dbscheme+dbdriver://root:password@myhostname.com/path?creds=mycreds,param=value#*frag@*",  # noqa
+                "dbscheme+dbdriver://root:password@host.com/path?creds=creds,param=value#*frag@*",
                 "subpath/dir",
-                "dbscheme+dbdriver://root:password@myhostname.com/path/subpath/dir?"
-                "creds=mycreds,param=value#*frag@*",
+                "dbscheme+dbdriver://root:password@host.com/path/subpath/dir?"
+                "creds=creds,param=value#*frag@*",
             ),
         ]
     )
@@ -560,7 +560,8 @@ def test_dbfs_hdfs_uri_to_fuse_path(uri, result):
 
 
 @pytest.mark.parametrize(
-    "path", ["some/relative/local/path", "s3:/some/s3/path", "C:/cool/windows/path"],
+    "path",
+    ["some/relative/local/path", "s3:/some/s3/path", "C:/cool/windows/path"],
 )
 def test_dbfs_hdfs_uri_to_fuse_path_raises(path):
     with pytest.raises(MlflowException):

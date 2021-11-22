@@ -147,8 +147,7 @@ If you plan on doing development and testing, you will also need to install the 
 
 .. code-block:: bash
 
-    pip install -r dev-requirements.txt
-    pip install -r test-requirements.txt
+    pip install -r requirements/test-requirements.txt
     pip install -e .[extras]  # installs mlflow from current checkout
     pip install -e tests/resources/mlflow-test-plugin # installs `mlflow-test-plugin` that is required for running certain MLflow tests
 
@@ -355,7 +354,7 @@ Then, verify that the unit tests & linter pass before submitting a pull request 
 Python tests are split into "small" & "large" categories, with new tests falling into the "small"
 category by default. Tests that take 10 or more seconds to run should be marked as large tests
 via the ``@pytest.mark.large`` annotation. Dependencies for small and large tests can be added to
-``dev/small-requirements.txt`` and ``dev/large-requirements.txt``, respectively.
+``requirements/small-requirements.txt`` and ``requirements/large-requirements.txt``, respectively.
 
 We use `pytest <https://docs.pytest.org/en/latest/contents.html>`_ to run Python tests.
 You can run tests for one or more test directories or files via
@@ -391,7 +390,7 @@ If you are adding new framework flavor support, you'll need to modify ``pytest``
   a. Add your tests to the ignore list, where the other frameworks are ignored
   b. Add a pytest command for your tests along with the other framework tests (as a separate command to avoid OOM issues)
 
-4. ``dev/large-requirements.txt``: add your framework and version to the list of requirements
+4. ``requirements/large-requirements.txt``: add your framework and version to the list of requirements
 
 You can see an example of a `flavor PR <https://github.com/mlflow/mlflow/pull/2136/files>`_.
 

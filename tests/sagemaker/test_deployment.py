@@ -86,9 +86,57 @@ def mock_sagemaker_aws_services(fn):
         iam_client = boto3.client("iam", region_name="us-west-2")
         iam_client.create_role(RoleName="moto", AssumeRolePolicyDocument=role_policy)
 
+        # Create IAM role to be asssumed (could be in another AWS account)
+        iam_client.create_role(RoleName="assumed_role", AssumeRolePolicyDocument=role_policy)
         return fn(*args, **kwargs)
 
     return mock_wrapper
+
+
+@mock_sagemaker_aws_services
+def test_assume_role_and_get_credentials():
+    assumed_role_credentials = mfs._assume_role_and_get_credentials(
+        assume_role_arn="arn:aws:iam::123456789012:role/assumed_role"
+    )
+    assert "aws_access_key_id" in assumed_role_credentials.keys()
+    assert "aws_secret_access_key" in assumed_role_credentials.keys()
+    assert "aws_session_token" in assumed_role_credentials.keys()
+    assert len(assumed_role_credentials["aws_session_token"]) == 356
+    assert assumed_role_credentials["aws_session_token"].startswith("FQoGZXIvYXdzE")
+    assert len(assumed_role_credentials["aws_access_key_id"]) == 20
+    assert assumed_role_credentials["aws_access_key_id"].startswith("ASIA")
+    assert len(assumed_role_credentials["aws_secret_access_key"]) == 40
+
+
+@pytest.mark.large
+@mock_sagemaker_aws_services
+def test_deployment_with_non_existent_assume_role_arn_raises_exception(pretrained_model):
+
+    with pytest.raises(botocore.exceptions.ClientError) as exc:
+        mfs.deploy(
+            app_name="bad_assume_role_arn",
+            model_uri=pretrained_model.model_uri,
+            assume_role_arn="arn:aws:iam::123456789012:role/non-existent-role-arn",
+        )
+
+    assert (
+        str(exc.value) == "An error occurred (NoSuchEntity) when calling the GetRole "
+        "operation: Role non-existent-role-arn not found"
+    )
+
+
+@pytest.mark.large
+@mock_sagemaker_aws_services
+def test_deployment_with_assume_role_arn(pretrained_model, sagemaker_client):
+    app_name = "deploy_with_assume_role_arn"
+    mfs.deploy(
+        app_name=app_name,
+        model_uri=pretrained_model.model_uri,
+        assume_role_arn="arn:aws:iam::123456789012:role/assumed_role",
+    )
+    assert app_name in [
+        endpoint["EndpointName"] for endpoint in sagemaker_client.list_endpoints()["Endpoints"]
+    ]
 
 
 @pytest.mark.large
