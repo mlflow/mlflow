@@ -54,12 +54,6 @@ class EvaluationArtifact:
         """
         return self._location
 
-    def __getstate__(self, state):
-        state = state.__dict__.copy()
-        # skip pickling artifact content
-        del state["_content"]
-        return state
-
 
 class EvaluationResult:
     def __init__(self, metrics, artifacts):
@@ -143,16 +137,37 @@ class EvaluationDataset:
 
         :param name: (Optional) The name of the dataset (must not contain ").
 
-        :param path: (Optional) the path to a serialized DataFrame
+        :param path: (Optional) the path to a serialized DataFrame (must not contain ").
           (e.g. a delta table, parquet file)
         """
-        self.user_specified_name = name
+        if name is not None and '"' in name:
+            raise ValueError(f'Dataset name cannot include " but get name {name}')
+        if path is not None and '"' in path:
+            raise ValueError(f'Dataset path cannot include " but get name {path}')
+
+        if isinstance(data, (np.ndarray, list)):
+            if not isinstance(labels, (np.ndarray, list)):
+                raise ValueError(
+                    'If data is a numpy array or list of evaluation features, '
+                    'labels must be a numpy array or list of evaluation labels'
+                )
+        elif isinstance(data, pd.DataFrame):
+            if not isinstance(labels, str):
+                raise ValueError(
+                    'If data is a Pandas DataFrame, labels must be the string name of a column '
+                    'from `data` that contains evaluation labels'
+                )
+        else:
+            raise ValueError('The data argument must be a numpy array, a list or a '
+                             'Pandas DataFrame.')
+
+        self._user_specified_name = name
         self.data = data
         self.labels = labels
         self.path = path
         self._hash = None
 
-    def extract_features_and_labels(self):
+    def _extract_features_and_labels(self):
         if isinstance(self.data, np.ndarray):
             return self.data, self.labels
         elif isinstance(self.data, pd.DataFrame):
@@ -172,7 +187,7 @@ class EvaluationDataset:
 
     @property
     def name(self):
-        return self.user_specified_name if self.user_specified_name is not None else self.hash
+        return self._user_specified_name if self._user_specified_name is not None else self.hash
 
     @property
     def hash(self):
@@ -180,9 +195,7 @@ class EvaluationDataset:
         Compute a hash from the specified dataset by selecting the first 5 records, last 5 records,
         dataset size and feeding them through a cheap, low-collision hash function
         """
-        if self._hash is not None:
-            return self._hash
-        else:
+        if self._hash is None:
             md5_gen = hashlib.md5()
             if isinstance(self.data, np.ndarray):
                 EvaluationDataset._gen_md5_for_arraylike_obj(md5_gen, self.data)
@@ -190,46 +203,18 @@ class EvaluationDataset:
             elif isinstance(self.data, pd.DataFrame):
                 EvaluationDataset._gen_md5_for_arraylike_obj(md5_gen, self.data)
                 md5_gen.update(self.labels.encode("UTF-8"))
-            return md5_gen.hexdigest()
+            self._hash = md5_gen.hexdigest()
+        return self._hash
 
     @property
-    def metadata(self):
+    def _metadata(self):
         metadata = {
+            "name": self.name,
             "hash": self.hash,
-            "path": self.path,
         }
-        if self.user_specified_name is not None:
-            metadata["name"] = self.user_specified_name
+        if self.path is not None:
+            metadata["path"] = self.path
         return metadata
-
-
-class GetOrCreateRunId:
-    """
-    Get or create a run, return a run_id
-    if user specified a run_id, use it.
-    otherwise if there's an active run, use it
-    otherwise create a managed run.
-    """
-
-    def __init__(self, run_id):
-        self.managed_run_context = None
-        if run_id is not None:
-            self.run_id = run_id
-        elif mlflow.active_run() is not None:
-            self.run_id = mlflow.active_run().info.run_id
-        else:
-            self.run_id = None
-
-    def __enter__(self):
-        if self.run_id is not None:
-            return self.run_id
-        else:
-            self.managed_run_context = mlflow.start_run()
-            return self.managed_run_context.__enter__().info.run_id
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.managed_run_context is not None:
-            return self.managed_run_context.__exit__(exc_type, exc_val, exc_tb)
 
 
 class ModelEvaluator:
@@ -284,7 +269,7 @@ class ModelEvaluator:
         client = mlflow.tracking.MlflowClient()
         self.mlflow_client = client
 
-        with GetOrCreateRunId(run_id) as run_id:
+        with mlflow.start_run(run_id=run_id):
             timestamp = int(time.time() * 1000)
             existing_dataset_metadata_str = client.get_run(run_id).data.tags.get("mlflow.datasets")
             if existing_dataset_metadata_str is not None:
@@ -296,13 +281,13 @@ class ModelEvaluator:
             for metadata in dataset_metadata_list:
                 if (
                     metadata["hash"] == dataset.hash
-                    and metadata["name"] == dataset.user_specified_name
+                    and metadata["name"] == dataset._user_specified_name
                 ):
                     metadata_exists = True
                     break
 
             if not metadata_exists:
-                dataset_metadata_list.append(dataset.metadata)
+                dataset_metadata_list.append(dataset._metadata)
 
             dataset_metadata_str = json.dumps(dataset_metadata_list)
 
@@ -371,7 +356,7 @@ def evaluate(
         run_id=None,
         evaluators=None,
         evaluator_config=None
-) -> Union[EvaluationResult, Dict[str, EvaluationResult]]:
+) -> EvaluationResult:
     """
     :param model: A pyfunc model instance, or a URI referring to such a model.
 
@@ -387,7 +372,8 @@ def evaluate(
     :param evaluators: The name of the evaluator to use for model evaluations, or
                        a list of evaluator names. If unspecified, all evaluators
                        capable  of evaluating the specified model on the specified
-                       dataset are used.
+                       dataset are used. The default evaluator can be referred to
+                       by the name 'default'.
     :param evaluator_config: A dictionary of additional configurations to supply
                              to the evaluator. If multiple evaluators are
                              specified, each configuration should be supplied as
@@ -395,7 +381,7 @@ def evaluate(
     :return: An `EvaluationResult` instance containing evaluation results.
     """
     if evaluators is None:
-        evaluators = "default_evaluator"
+        evaluators = "default"
 
     if not isinstance(evaluators, list):
         evaluators = [evaluators]

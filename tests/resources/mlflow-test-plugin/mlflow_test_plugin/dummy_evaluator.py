@@ -31,7 +31,7 @@ class DummyEvaluator(ModelEvaluator):
     def compute_metrics_and_compute_and_log_artifacts(
         self, model, model_type, dataset, evaluator_config, run_id
     ):
-        X, y = dataset.extract_features_and_labels()
+        X, y = dataset._extract_features_and_labels()
         y_pred = model.predict(X)
         if model_type == "classifier":
             accuracy_score = sk_metrics.accuracy_score(y, y_pred)
