@@ -182,13 +182,15 @@ class EvaluationDataset:
             raise ValueError(f'Unsupported data type: {type(self.data)}')
 
     @staticmethod
-    def _array_like_obj_to_bytes(self, data):
+    def _array_like_obj_to_bytes(data):
         if isinstance(data, pd.DataFrame):
             return data.to_numpy().tobytes()
         elif isinstance(data, np.ndarray):
             return data.tobytes()
         elif isinstance(data, list):
             return np.array(data).tobytes()
+        else:
+            raise ValueError('Unsupported data type.')
 
     @staticmethod
     def _gen_md5_for_arraylike_obj(md5_gen, data):
