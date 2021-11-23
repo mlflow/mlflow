@@ -14,7 +14,7 @@ for (i in 0:4){
             message("An error occured while getting a SparkContext:")
             print(e)
             sleep_duration = (2 * i) + 1
-            message(sprintf("\nSleeping for %s seconds and retrying...", sleep_duration)
+            message(sprintf("\nSleeping for %s seconds and retrying...", sleep_duration))
             Sys.sleep(sleep_duration)
         },
         warning = function(w){
