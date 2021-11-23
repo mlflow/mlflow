@@ -331,6 +331,7 @@ span.error-message {
     min-height: 800px;
     overflow-x: scroll;
     border-radius: 4px;
+    padding-top: 10px;
 }
 
 .ExperimentView .ReactVirtualized__Table__row:hover {
