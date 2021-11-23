@@ -262,7 +262,7 @@ export class ModelVersionViewImpl extends React.Component {
       this.renderLastModifiedDescription(modelVersion.last_updated_timestamp),
       this.renderSourceRunDescription(),
     ];
-    return defaultOrder.filter(x => x !== null);
+    return defaultOrder.filter((x) => x !== null);
   }
 
   renderMetadata(modelVersion) {
