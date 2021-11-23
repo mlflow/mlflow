@@ -187,22 +187,16 @@ def test_validate_env_arguments():
 
     match = "Only one of `conda_env`, `pip_requirements`, and `extra_pip_requirements`"
     with pytest.raises(ValueError, match=match):
-        _validate_env_arguments(
-            conda_env={}, pip_requirements=[], extra_pip_requirements=None,
-        )
+        _validate_env_arguments(conda_env={}, pip_requirements=[], extra_pip_requirements=None)
 
     with pytest.raises(ValueError, match=match):
-        _validate_env_arguments(
-            conda_env={}, pip_requirements=None, extra_pip_requirements=[],
-        )
+        _validate_env_arguments(conda_env={}, pip_requirements=None, extra_pip_requirements=[])
 
     with pytest.raises(ValueError, match=match):
         _validate_env_arguments(conda_env=None, pip_requirements=[], extra_pip_requirements=[])
 
     with pytest.raises(ValueError, match=match):
-        _validate_env_arguments(
-            conda_env={}, pip_requirements=[], extra_pip_requirements=[],
-        )
+        _validate_env_arguments(conda_env={}, pip_requirements=[], extra_pip_requirements=[])
 
 
 def test_is_mlflow_requirement():
@@ -260,7 +254,8 @@ def test_process_pip_requirements(tmpdir):
     hash1 = "sha256:963c22532e82a93450674ab97d62f9e528ed0906b580fadb7c003e696197557c"
     hash2 = "sha256:b15ff0c7e5e64f864a0b40c99b9a582227315eca2065d9f831db9aeb8f24637b"
     conda_env, reqs, cons = _process_pip_requirements(
-        ["a"], pip_requirements=[f"mlflow==1.20.2 --hash={hash1} --hash={hash2}"],
+        ["a"],
+        pip_requirements=[f"mlflow==1.20.2 --hash={hash1} --hash={hash2}"],
     )
     assert _get_pip_deps(conda_env) == [f"mlflow==1.20.2 --hash={hash1} --hash={hash2}"]
     assert reqs == [f"mlflow==1.20.2 --hash={hash1} --hash={hash2}"]

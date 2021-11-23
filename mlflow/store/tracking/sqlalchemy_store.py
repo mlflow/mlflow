@@ -310,7 +310,10 @@ class SqlAlchemyStore(AbstractStore):
             return PagedList(experiments, None)
 
     def list_experiments(
-        self, view_type=ViewType.ACTIVE_ONLY, max_results=None, page_token=None,
+        self,
+        view_type=ViewType.ACTIVE_ONLY,
+        max_results=None,
+        page_token=None,
     ):
         """
         :param view_type: Qualify requested type of experiments.
@@ -787,7 +790,7 @@ class SqlAlchemyStore(AbstractStore):
                 .filter(
                     SqlRun.experiment_id.in_(experiment_ids),
                     SqlRun.lifecycle_stage.in_(stages),
-                    *_get_attributes_filtering_clauses(parsed_filters)
+                    *_get_attributes_filtering_clauses(parsed_filters),
                 )
                 .order_by(*parsed_orderby)
                 .offset(offset)

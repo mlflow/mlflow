@@ -20,6 +20,8 @@ with mlflow.start_run() as run:
     mlflow.log_metric("m", 1.0)
     mlflow.set_tag("t", "tag")
     mlflow.pyfunc.log_model(
-        artifact_path="model", python_model=MockModel(), registered_model_name="mock",
+        artifact_path="model",
+        python_model=MockModel(),
+        registered_model_name="mock",
     )
     print(mlflow.get_run(run.info.run_id))
