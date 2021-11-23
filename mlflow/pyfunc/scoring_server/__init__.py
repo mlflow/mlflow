@@ -39,7 +39,7 @@ try:
     from mlflow.pyfunc import load_model, PyFuncModel
 except ImportError:
     from mlflow.pyfunc import load_pyfunc as load_model
-from mlflow.protos.databricks_pb2 import BAD_REQUEST, MALFORMED_REQUEST
+from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.server.handlers import catch_mlflow_exception
 
 try:
@@ -96,7 +96,7 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
                 return parse_tf_serving_input(decoded_input, schema=schema)
             except MlflowException as ex:
                 _handle_serving_error(
-                    error_message=(ex.message), error_code=MALFORMED_REQUEST,
+                    error_message=(ex.message), error_code=BAD_REQUEST,
                 )
         else:
             return parse_json_input(json_input=json_input, orient="split", schema=schema)
