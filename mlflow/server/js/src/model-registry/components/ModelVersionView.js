@@ -214,14 +214,16 @@ export class ModelVersionViewImpl extends React.Component {
 
   renderCreatorDescription(user_id) {
     return (
-      <Descriptions.Item
-        label={this.props.intl.formatMessage({
-          defaultMessage: 'Creator',
-          description: 'Label name for creator metadata in model version page',
-        })}
-      >
-        {user_id}
-      </Descriptions.Item>
+      user_id && (
+        <Descriptions.Item
+          label={this.props.intl.formatMessage({
+            defaultMessage: 'Creator',
+            description: 'Label name for creator metadata in model version page',
+          })}
+        >
+          {user_id}
+        </Descriptions.Item>
+      )
     );
   }
 
@@ -260,7 +262,7 @@ export class ModelVersionViewImpl extends React.Component {
       this.renderLastModifiedDescription(modelVersion.last_updated_timestamp),
       this.renderSourceRunDescription(),
     ];
-    return defaultOrder;
+    return defaultOrder.filter((x) => x !== null);
   }
 
   renderMetadata(modelVersion) {
