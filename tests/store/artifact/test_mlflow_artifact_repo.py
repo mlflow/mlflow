@@ -23,28 +23,28 @@ def test_artifact_uri_factory():
 
 
 def test_mlflow_artifact_uri_formats_resolved():
-
+    base_url = "/api/2.0/mlflow-artifacts/artifacts"
     base_path = "/my/artifact/path"
     conditions = [
         (
             f"mlflow-artifacts://myhostname:4242{base_path}/hostport",
-            f"http://myhostname:4242/{base_path}/hostport",
+            f"http://myhostname:4242{base_url}{base_path}/hostport",
         ),
         (
             f"mlflow-artifacts://myhostname{base_path}/host",
-            f"http://myhostname/{base_path}/host",
+            f"http://myhostname{base_url}{base_path}/host",
         ),
         (
             f"mlflow-artifacts:{base_path}/nohost",
-            f"http://localhost:5000/{base_path}/nohost",
+            f"http://localhost:5000{base_url}{base_path}/nohost",
         ),
         (
             f"mlflow-artifacts://{base_path}/redundant",
-            f"http://localhost:5000/{base_path}/redundant",
+            f"http://localhost:5000{base_url}{base_path}/redundant",
         ),
         (
             "mlflow-artifacts:/",
-            "http://localhost:5000/",
+            f"http://localhost:5000{base_url}",
         ),
     ]
     failing_conditions = [f"mlflow-artifacts://5000/{base_path}", "mlflow-artifacts://5000/"]
