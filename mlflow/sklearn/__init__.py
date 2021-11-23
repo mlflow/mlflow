@@ -1481,7 +1481,7 @@ def _autolog(
             return original(self, *args, **kwargs)
 
     def patched_metric_api(original, *args, **kwargs):
-        print("running...")
+ 
         if _AUTOLOGGING_METRICS_MANAGER.should_log_post_training_metrics():
             # one metric api may call another metric api,
             # to avoid this, call disable_log_post_training_metrics to avoid nested patch
