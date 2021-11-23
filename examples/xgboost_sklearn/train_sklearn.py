@@ -23,14 +23,13 @@ def main():
     # enable auto logging
     # this includes xgboost.sklearn estimators
     mlflow.xgboost.autolog()
-    run_id = None
+
     with mlflow.start_run() as run:
 
         regressor = xgb.XGBRegressor(n_estimators=100, reg_lambda=1, gamma=0, max_depth=3)
         regressor.fit(X_train, y_train)
         y_pred = regressor.predict(X_test)
         mse = mean_squared_error(y_test, y_pred)
-        mlflow.log_metrics({"mse": mse})
         run_id = run.info.run_id
         print("Logged data and model in run {}".format(run_id))
         mlflow.xgboost.log_model(regressor, artifact_path="log_model")

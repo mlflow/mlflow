@@ -1196,7 +1196,7 @@ def _autolog(
     :param flavor_name: A string value. Enable a ``mlflow.sklearn`` autologging routine
                         for a flavor. By default it enables autologging for original
                         scikit-learn models, as ``mlflow.sklearn.autolog()`` does. If
-                        the argument is `xgboost_sklearn`, autologging for XGBoost scikit-learn
+                        the argument is `xgboost`, autologging for XGBoost scikit-learn
                         models is enabled.
     """
     import pandas as pd
@@ -1246,38 +1246,12 @@ def _autolog(
         autologging_client = MlflowAutologgingQueueingClient()
         _log_pretraining_metadata(autologging_client, self, *args, **kwargs)
         params_logging_future = autologging_client.flush(synchronous=False)
-
-        if flavor_name == "xgboost_sklearn":
-            import mlflow.xgboost
-
-            # mlflow xgboost autologging items:
-            # (1) record eval results and (2) log feature importance plot
-            if self.importance_type is None:
-                importance_types = ["weight"]
-            else:
-                importance_types = (
-                    self.importance_type
-                    if isinstance(self.importance_type, list)
-                    else [self.importance_type]
-                )
-
-            (
-                fit_output,
-                early_stopping,
-                early_stopping_logging_operations,
-            ) = mlflow.xgboost._mlflow_xgboost_logging(
-                importance_types, autologging_client, _logger, original, self, *args, **kwargs,
-            )
-        else:
-            fit_output = original(self, *args, **kwargs)
-
-        _log_posttraining_metadata(autologging_client, self, *args, **kwargs)
-        autologging_client.flush(synchronous=True)
+        fit_output = original(self, *args, **kwargs)
+        # params of xgboost sklearn models are logged in train() in mlflow.xgboost.autolog()
+        if flavor_name == FLAVOR_NAME:
+            _log_posttraining_metadata(autologging_client, self, *args, **kwargs)
+            autologging_client.flush(synchronous=True)
         params_logging_future.await_completion()
-
-        if flavor_name == "xgboost_sklearn" and early_stopping:
-            early_stopping_logging_operations.await_completion()
-
         return fit_output
 
     def _log_pretraining_metadata(
@@ -1304,10 +1278,12 @@ def _autolog(
         # for these seed estimators.
         should_log_params_deeply = not _is_parameter_search_estimator(estimator)
         run_id = mlflow.active_run().info.run_id
-        autologging_client.log_params(
-            run_id=mlflow.active_run().info.run_id,
-            params=estimator.get_params(deep=should_log_params_deeply),
-        )
+        # params of xgboost sklearn models are logged in train() in mlflow.xgboost.autolog()
+        if flavor_name == FLAVOR_NAME:
+            autologging_client.log_params(
+                run_id=mlflow.active_run().info.run_id,
+                params=estimator.get_params(deep=should_log_params_deeply),
+            )
         autologging_client.set_tags(
             run_id=run_id,
             tags=_get_estimator_info_tags(estimator),
@@ -1364,12 +1340,7 @@ def _autolog(
 
         def _log_model_with_except_handling(*args, **kwargs):
             try:
-                if flavor_name == "xgboost_sklearn":
-                    import mlflow.xgboost
-
-                    return mlflow.xgboost.log_model(*args, **kwargs)
-                else:
-                    return log_model(*args, **kwargs)
+                return log_model(*args, **kwargs)
             except _SklearnCustomModelPicklingError as e:
                 _logger.warning(str(e))
 
@@ -1464,7 +1435,6 @@ def _autolog(
             log_post_training_metrics
             and _AUTOLOGGING_METRICS_MANAGER.should_log_post_training_metrics()
         )
-
         with _SklearnTrainingSession(clazz=self.__class__, allow_children=False) as t:
             if t.should_log():
                 # In `fit_mlflow` call, it will also call metric API for computing training metrics
@@ -1510,6 +1480,7 @@ def _autolog(
             return original(self, *args, **kwargs)
 
     def patched_metric_api(original, *args, **kwargs):
+        print("running...")
         if _AUTOLOGGING_METRICS_MANAGER.should_log_post_training_metrics():
             # one metric api may call another metric api,
             # to avoid this, call disable_log_post_training_metrics to avoid nested patch
@@ -1627,7 +1598,7 @@ def _autolog(
 
     _apply_sklearn_descriptor_unbound_method_call_fix()
 
-    if flavor_name == "xgboost_sklearn":
+    if flavor_name == mlflow.xgboost.FLAVOR_NAME:
         estimators_to_patch = _gen_xgboost_sklearn_estimators_to_patch()
     else:
         estimators_to_patch = _gen_estimators_to_patch()
@@ -1636,7 +1607,7 @@ def _autolog(
         # Patch fitting methods
         for func_name in ["fit", "fit_transform", "fit_predict"]:
             _patch_estimator_method_if_available(
-                FLAVOR_NAME,
+                flavor_name,
                 class_def,
                 func_name,
                 patched_fit,
@@ -1646,7 +1617,7 @@ def _autolog(
         # Patch inference methods
         for func_name in ["predict", "predict_proba", "transform", "predict_log_proba"]:
             _patch_estimator_method_if_available(
-                FLAVOR_NAME,
+                flavor_name,
                 class_def,
                 func_name,
                 patched_predict,
@@ -1655,7 +1626,7 @@ def _autolog(
 
         # Patch scoring methods
         _patch_estimator_method_if_available(
-            FLAVOR_NAME,
+            flavor_name,
             class_def,
             "score",
             patched_model_score,
