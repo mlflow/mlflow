@@ -30,7 +30,7 @@ Notes:
 Then, run `example.py` that performs upload, download, and list operations for artifacts:
 
 ```
-$ MLFLOW_TRACKING_URI=mlflow://localhost:5000 python example.py
+$ MLFLOW_TRACKING_URI=http://localhost:5000 python example.py
 ```
 
 After running the command above, the server should print out request logs for artifact operations:
