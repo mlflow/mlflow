@@ -108,7 +108,8 @@ def test_model_signature_with_colspec_and_tensorspec():
         outputs=Schema([TensorSpec(np.dtype("float"), (-1, 28, 28))]),
     )
     signature4 = ModelSignature(
-        inputs=Schema([ColSpec(DataType.double)]), outputs=Schema([ColSpec(DataType.double)]),
+        inputs=Schema([ColSpec(DataType.double)]),
+        outputs=Schema([ColSpec(DataType.double)]),
     )
     assert signature3 != signature4
     assert signature4 != signature3

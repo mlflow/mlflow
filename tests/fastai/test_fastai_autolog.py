@@ -1,3 +1,4 @@
+import pickle
 from functools import partial
 from unittest.mock import patch
 
@@ -14,6 +15,7 @@ from fastai.callback.all import EarlyStoppingCallback, SaveModelCallback
 
 import mlflow
 import mlflow.fastai
+from mlflow.fastai.callback import __MlflowFastaiCallback
 from mlflow.utils.autologging_utils import BatchMetricsLogger
 from tests.conftest import tracking_uri_mock  # pylint: disable=unused-import
 
@@ -23,14 +25,6 @@ np.random.seed(1337)
 
 NUM_EPOCHS = 3
 MIN_DELTA = 99999999  # Forces earlystopping
-
-
-@pytest.fixture(params=[True, False])
-def manual_run(request):
-    if request.param:
-        mlflow.start_run()
-    yield
-    mlflow.end_run()
 
 
 def iris_dataframe():
@@ -111,7 +105,7 @@ def test_fastai_autolog_persists_manually_created_run(iris_data, fit_variant):
 
 
 @pytest.fixture
-def fastai_random_tabular_data_run(iris_data, fit_variant, manual_run):
+def fastai_random_tabular_data_run(iris_data, fit_variant):
     # pylint: disable=unused-argument
     mlflow.fastai.autolog()
 
@@ -187,7 +181,7 @@ def test_fastai_autolog_logs_expected_data(fastai_random_tabular_data_run, fit_v
 
 @pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle", "fine_tune"])
-def test_fastai_autolog_opt_func_expected_data(iris_data, fit_variant, manual_run):
+def test_fastai_autolog_opt_func_expected_data(iris_data, fit_variant):
     # pylint: disable=unused-argument
     mlflow.fastai.autolog()
     model = fastai_tabular_model(iris_data, opt_func=partial(OptimWrapper, opt=optim.Adam))
@@ -256,9 +250,7 @@ def test_fastai_autolog_model_can_load_from_artifact(fastai_random_tabular_data_
     model_wrapper.predict(iris_dataframe())
 
 
-def get_fastai_random_data_run_with_callback(
-    iris_data, fit_variant, manual_run, callback, patience, tmpdir
-):
+def get_fastai_random_data_run_with_callback(iris_data, fit_variant, callback, patience, tmpdir):
     # pylint: disable=unused-argument
     mlflow.fastai.autolog()
 
@@ -284,11 +276,9 @@ def get_fastai_random_data_run_with_callback(
 
 
 @pytest.fixture
-def fastai_random_data_run_with_callback(
-    iris_data, fit_variant, manual_run, callback, patience, tmpdir
-):
+def fastai_random_data_run_with_callback(iris_data, fit_variant, callback, patience, tmpdir):
     return get_fastai_random_data_run_with_callback(
-        iris_data, fit_variant, manual_run, callback, patience, tmpdir
+        iris_data, fit_variant, callback, patience, tmpdir
     )
 
 
@@ -349,7 +339,7 @@ def test_fastai_autolog_early_stop_logs(fastai_random_data_run_with_callback, pa
 def test_fastai_autolog_early_stop_no_stop_does_not_log(
     fastai_random_data_run_with_callback, patience
 ):
-    model, run, = fastai_random_data_run_with_callback
+    model, run = fastai_random_data_run_with_callback
     params = run.data.params
     assert "early_stop_patience" in params
     assert params["early_stop_patience"] == str(patience)
@@ -372,7 +362,7 @@ def test_fastai_autolog_early_stop_no_stop_does_not_log(
 @pytest.mark.parametrize("callback", ["not-early"])
 @pytest.mark.parametrize("patience", [5])
 def test_fastai_autolog_non_early_stop_callback_does_not_log(fastai_random_data_run_with_callback):
-    model, run, = fastai_random_data_run_with_callback
+    model, run = fastai_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params
     assert "early_stop_patience" not in params
@@ -412,7 +402,7 @@ def test_fastai_autolog_batch_metrics_logger_logs_expected_metrics(
 
         record_metrics_mock.side_effect = record_metrics_side_effect
         _, run = get_fastai_random_data_run_with_callback(
-            iris_data, fit_variant, manual_run, callback, patience, tmpdir
+            iris_data, fit_variant, callback, patience, tmpdir
         )
 
     patched_metrics_data = dict(patched_metrics_data)
@@ -423,3 +413,10 @@ def test_fastai_autolog_batch_metrics_logger_logs_expected_metrics(
 
     assert "train_loss" in original_metrics
     assert "train_loss" in patched_metrics_data
+
+
+def test_callback_is_picklable():
+    cb = __MlflowFastaiCallback(
+        BatchMetricsLogger(run_id="1234"), log_models=True, is_fine_tune=False
+    )
+    pickle.dumps(cb)

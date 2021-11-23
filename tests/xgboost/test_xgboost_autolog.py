@@ -1,6 +1,8 @@
 from packaging.version import Version
 import os
 import json
+import functools
+import pickle
 import pytest
 import numpy as np
 import pandas as pd
@@ -11,8 +13,10 @@ import yaml
 
 import mlflow
 import mlflow.xgboost
+from mlflow.xgboost._autolog import IS_TRAINING_CALLBACK_SUPPORTED, autolog_callback
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
+from mlflow.utils.autologging_utils import BatchMetricsLogger, picklable_exception_safe_function
 
 mpl.use("Agg")
 
@@ -554,3 +558,21 @@ def test_xgb_autolog_does_not_break_dmatrix_instantiation_with_data_none():
     """
     mlflow.xgboost.autolog()
     xgb.DMatrix(None)
+
+
+def test_callback_func_is_pickable():
+    cb = picklable_exception_safe_function(
+        functools.partial(autolog_callback, BatchMetricsLogger(run_id="1234"), eval_results={})
+    )
+    pickle.dumps(cb)
+
+
+@pytest.mark.skipif(
+    not IS_TRAINING_CALLBACK_SUPPORTED,
+    reason="`xgboost.callback.TrainingCallback` is not supported",
+)
+def test_callback_class_is_pickable():
+    from mlflow.xgboost._autolog import AutologCallback
+
+    cb = AutologCallback(BatchMetricsLogger(run_id="1234"), eval_results={})
+    pickle.dumps(cb)

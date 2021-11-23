@@ -15,6 +15,10 @@
     "defaultMessage": "Run ID:",
     "description": "Row title for the run id on the experiment compare runs page"
   },
+  "/2m1wK": {
+    "defaultMessage": "Oops!",
+    "description": "Error modal title to rendering errors"
+  },
   "/738wy": {
     "defaultMessage": "Filter",
     "description": "String for the filter button to filter experiment runs table which match the search criteria"
@@ -75,6 +79,10 @@
     "defaultMessage": "Creator",
     "description": "Lable name for the creator under details tab on the model view page"
   },
+  "25EUlg": {
+    "defaultMessage": "The code snippets below demonstrate how to load the logged model.",
+    "description": "Subtext heading explaining the below section of the model artifact view on how users can load the registered logged model"
+  },
   "27oNFE": {
     "defaultMessage": "Model schema",
     "description": "Heading text for the model schema of the registered model from the experiment run"
@@ -86,6 +94,10 @@
   "2Exf7S": {
     "defaultMessage": "Supported formats: image, text, html, pdf, geojson files",
     "description": "Text to explain users which formats are supported to display the artifacts"
+  },
+  "2NfDVN": {
+    "defaultMessage": "Load the model",
+    "description": "Heading text for stating how to load the model from the experiment run"
   },
   "2f2qeb": {
     "defaultMessage": "Type",
@@ -159,6 +171,10 @@
     "defaultMessage": "Select a file to preview",
     "description": "Label to suggests users to select a file to preview the output"
   },
+  "6bmLqb": {
+    "defaultMessage": "Load model",
+    "description": "Code comment which states how to load the model"
+  },
   "6kSKRk": {
     "defaultMessage": "Comparing {numVersions} Versions",
     "description": "Text for main title for the model comparison page"
@@ -166,6 +182,10 @@
   "6xPc4W": {
     "defaultMessage": "Predict on a Spark DataFrame:",
     "description": "Section heading to display the code block on how we can use registered model to predict using spark DataFrame"
+  },
+  "739thv": {
+    "defaultMessage": "Lifecycle Stage",
+    "description": "Label for displaying lifecycle stage of the experiment run to see if its active or deleted"
   },
   "79dD5F": {
     "defaultMessage": "There was an error submitting your note.",
@@ -243,9 +263,17 @@
     "defaultMessage": "Register",
     "description": "Confirmation text to register the model"
   },
+  "9fVZg8": {
+    "defaultMessage": "Delete",
+    "description": "Text for disabled delete button due to active versions on model view page header"
+  },
   "9mAGv0": {
     "defaultMessage": "Model name",
     "description": "Text for form title on creating model in the model registry"
+  },
+  "9y+yUQ": {
+    "defaultMessage": "File is too large to preview",
+    "description": "Label to indicate that the file is too large to preview"
   },
   "AEzy9w": {
     "defaultMessage": "After creation, you can register logged models as new versions.&nbsp;",
@@ -266,14 +294,6 @@
   "BQt0TQ": {
     "defaultMessage": "This model is also registered to the <link>model registry</link>.",
     "description": "Sub text to tell the users where the registered models are located "
-  },
-  "BSVpSb": {
-    "defaultMessage": "Delete",
-    "description": "Text for delete button on model view page header"
-  },
-  "Ba2hAt": {
-    "defaultMessage": "Delete",
-    "description": "Text for disabled deleted button due to inactive stage on model\n                   version view page header"
   },
   "BwyYS1": {
     "defaultMessage": "Value",
@@ -314,6 +334,10 @@
   "EKyt+3": {
     "defaultMessage": "Metrics:",
     "description": "Label text for metrics in parallel coordinates plot in MLflow"
+  },
+  "EMNpby": {
+    "defaultMessage": "Only show differences",
+    "description": "Switch to select only columns with different values across runs"
   },
   "EwcVCu": {
     "defaultMessage": "Clear",
@@ -443,13 +467,13 @@
     "defaultMessage": "Last Modified",
     "description": "Column title for last modified timestamp for a model in the registered model page"
   },
+  "K4Ujb4": {
+    "defaultMessage": "Only show columns with differences",
+    "description": "Switch to select only columns with different values across runs"
+  },
   "KEL9Js": {
     "defaultMessage": "Active",
     "description": "Tab text to view active versions under details tab\n                               on the model view page"
-  },
-  "KeuSRX": {
-    "defaultMessage": "Delete",
-    "description": "Text for disabled delete button due to active versions on\n                   model view page header"
   },
   "L26D19": {
     "defaultMessage": "X-axis:",
@@ -486,6 +510,10 @@
   "OGWg8l": {
     "defaultMessage": "State:",
     "description": "Filtering label to filter experiments based on state of active or deleted"
+  },
+  "OfLABN": {
+    "defaultMessage": "Close",
+    "description": "Error modal close button text"
   },
   "OimAJb": {
     "defaultMessage": "Scatter Plot",
@@ -699,6 +727,10 @@
     "defaultMessage": "Full Path:",
     "description": "Label to display the full path of where the artifact of the experiment runs is located"
   },
+  "bHuphj": {
+    "defaultMessage": "See the documents below to learn how to customize this model and deploy it for batch or real-time scoring using the pyfunc model flavor.",
+    "description": "Subtext heading for a list of documents that describe how to customize the model using the mlflow.pyfunc module"
+  },
   "bSx/er": {
     "defaultMessage": "Parameters",
     "description": "Table title text for parameters table in the model comparison page"
@@ -842,6 +874,10 @@
   "llVQ2r": {
     "defaultMessage": "Outputs ({numOutputs})",
     "description": "Input section header for schema table in model version page"
+  },
+  "lw2NyM": {
+    "defaultMessage": "Comparing {length} Runs",
+    "description": "Breadcrumb title for metrics page when comparing multiple runs"
   },
   "mI1o3S": {
     "defaultMessage": "Artifacts",
@@ -1006,6 +1042,10 @@
   "wBFfWW": {
     "defaultMessage": "Register",
     "description": "Register button text to register the model"
+  },
+  "wbRVln": {
+    "defaultMessage": "Metrics",
+    "description": "Title for metrics page"
   },
   "x0jbgQ": {
     "defaultMessage": "inputs",

@@ -195,7 +195,7 @@ def test_autolog_respects_disable_flag_across_import_orders():
         assert all("mlflow." in key for key in tags)
 
     def import_sklearn():
-        import sklearn  # pylint: disable=unused-variable
+        import sklearn  # pylint: disable=unused-import
 
     def disable_autolog():
         mlflow.sklearn.autolog(disable=True)

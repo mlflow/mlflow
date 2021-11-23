@@ -1241,7 +1241,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             [r1], self._search(experiment_id, filter_string="tags.generic_2 = 'some value'")
         )
         self.assertCountEqual(
-            [r2], self._search(experiment_id, filter_string="tags.generic_2 = 'another value'"),
+            [r2],
+            self._search(experiment_id, filter_string="tags.generic_2 = 'another value'"),
         )
         self.assertCountEqual(
             [], self._search(experiment_id, filter_string="tags.generic_tag = 'wrong_val'")
@@ -1250,10 +1251,12 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             [], self._search(experiment_id, filter_string="tags.generic_tag != 'p_val'")
         )
         self.assertCountEqual(
-            [r1, r2], self._search(experiment_id, filter_string="tags.generic_tag != 'wrong_val'"),
+            [r1, r2],
+            self._search(experiment_id, filter_string="tags.generic_tag != 'wrong_val'"),
         )
         self.assertCountEqual(
-            [r1, r2], self._search(experiment_id, filter_string="tags.generic_2 != 'wrong_val'"),
+            [r1, r2],
+            self._search(experiment_id, filter_string="tags.generic_2 != 'wrong_val'"),
         )
         self.assertCountEqual([r1], self._search(experiment_id, filter_string="tags.p_a = 'abc'"))
         self.assertCountEqual([r2], self._search(experiment_id, filter_string="tags.p_b = 'ABC'"))
@@ -1470,7 +1473,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
         # all params and metrics match
         filter_string = (
-            "params.generic_param = 'p_val' and metrics.common = 1.0 " "and metrics.m_a > 1.0"
+            "params.generic_param = 'p_val' and metrics.common = 1.0 and metrics.m_a > 1.0"
         )
         self.assertCountEqual([r1], self._search(experiment_id, filter_string))
 
@@ -1494,13 +1497,13 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
         # test with mismatch param
         filter_string = (
-            "params.random_bad_name = 'p_val' and metrics.common = 1.0 " "and metrics.m_a > 1.0"
+            "params.random_bad_name = 'p_val' and metrics.common = 1.0 and metrics.m_a > 1.0"
         )
         self.assertCountEqual([], self._search(experiment_id, filter_string))
 
         # test with mismatch metric
         filter_string = (
-            "params.generic_param = 'p_val' and metrics.common = 1.0 " "and metrics.m_a > 100.0"
+            "params.generic_param = 'p_val' and metrics.common = 1.0 and metrics.m_a > 100.0"
         )
         self.assertCountEqual([], self._search(experiment_id, filter_string))
 

@@ -2,14 +2,16 @@
 import json
 import os
 import re
+import tempfile
+import posixpath
 
 import logging
 from functools import wraps
 
-from flask import Response, request, send_file
+from flask import Response, request, current_app, send_file
 from google.protobuf import descriptor
 
-from mlflow.entities import Metric, Param, RunTag, ViewType, ExperimentTag
+from mlflow.entities import Metric, Param, RunTag, ViewType, ExperimentTag, FileInfo
 from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -63,6 +65,12 @@ from mlflow.protos.model_registry_pb2 import (
     SetModelVersionTag,
     DeleteModelVersionTag,
 )
+from mlflow.protos.mlflow_artifacts_pb2 import (
+    MlflowArtifactsService,
+    DownloadArtifact,
+    UploadArtifact,
+    ListArtifacts as ListArtifactsMlflowArtifacts,
+)
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
@@ -76,6 +84,7 @@ from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 _logger = logging.getLogger(__name__)
 _tracking_store = None
 _model_registry_store = None
+_artifact_repo = None
 STATIC_PREFIX_ENV_VAR = "_MLFLOW_STATIC_PREFIX"
 
 
@@ -118,6 +127,21 @@ class ModelRegistryStoreRegistryWrapper(ModelRegistryStoreRegistry):
 
 _tracking_store_registry = TrackingStoreRegistryWrapper()
 _model_registry_store_registry = ModelRegistryStoreRegistryWrapper()
+
+
+def _get_artifact_repo_mlflow_artifacts():
+    """
+    Get an artifact repository specified by `--artifacts-destination` option for `mlflow server`
+    command.
+    """
+    from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR
+
+    global _artifact_repo
+
+    if _artifact_repo is None:
+        _artifact_repo = get_artifact_repository(os.environ[ARTIFACTS_DESTINATION_ENV_VAR])
+
+    return _artifact_repo
 
 
 def _get_tracking_store(backend_store_uri=None, default_artifact_root=None):
@@ -548,7 +572,7 @@ def _log_model():
     request_message = _get_request_message(LogModel())
     try:
         model = json.loads(request_message.model_json)
-    except:  # NB: can not be more specific here due to python2 compatibility
+    except Exception:
         raise MlflowException(
             "Malformed model info. \n {} \n is not a valid JSON.".format(
                 request_message.model_json
@@ -799,6 +823,76 @@ def _delete_model_version_tag():
     return _wrap_response(DeleteModelVersionTag.Response())
 
 
+@catch_mlflow_exception
+def _download_artifact(artifact_path):
+    """
+    A request handler for `GET /mlflow-artifacts/artifacts/<artifact_path>` to download an artifact
+    from `artifact_path` (a relative path from the root artifact directory).
+    """
+    basename = posixpath.basename(artifact_path)
+    tmp_dir = tempfile.TemporaryDirectory()
+    tmp_path = os.path.join(tmp_dir.name, basename)
+    artifact_repo = _get_artifact_repo_mlflow_artifacts()
+    artifact_repo._download_file(artifact_path, tmp_path)
+
+    # Ref: https://stackoverflow.com/a/24613980/6943581
+    file_handle = open(tmp_path, "rb")
+
+    def stream_and_remove_file():
+        yield from file_handle
+        file_handle.close()
+        tmp_dir.cleanup()
+
+    return current_app.response_class(
+        stream_and_remove_file(),
+        headers={"Content-Disposition": "attachment", "filename": basename},
+    )
+
+
+@catch_mlflow_exception
+def _upload_artifact(artifact_path):
+    """
+    A request handler for `PUT /mlflow-artifacts/artifacts/<artifact_path>` to upload an artifact
+    to `artifact_path` (a relative path from the root artifact directory).
+    """
+    head, tail = posixpath.split(artifact_path)
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = os.path.join(tmp_dir, tail)
+        with open(tmp_path, "wb") as f:
+            chunk_size = 1024 * 1024  # 1 MB
+            while True:
+                chunk = request.stream.read(chunk_size)
+                if len(chunk) == 0:
+                    break
+                f.write(chunk)
+
+        artifact_repo = _get_artifact_repo_mlflow_artifacts()
+        artifact_repo.log_artifact(tmp_path, artifact_path=head or None)
+
+    return _wrap_response(UploadArtifact.Response())
+
+
+@catch_mlflow_exception
+def _list_artifacts_mlflow_artifacts():
+    """
+    A request handler for `GET /mlflow-artifacts/artifacts?path=<value>` to list artifacts in `path`
+    (a relative path from the root artifact directory).
+    """
+    request_message = _get_request_message(ListArtifactsMlflowArtifacts())
+    path = request_message.path if request_message.HasField("path") else None
+    artifact_repo = _get_artifact_repo_mlflow_artifacts()
+    files = []
+    for file_info in artifact_repo.list_artifacts(path):
+        basename = posixpath.basename(file_info.path)
+        new_file_info = FileInfo(basename, file_info.is_dir, file_info.file_size)
+        files.append(new_file_info.to_proto())
+    response_message = ListArtifacts.Response()
+    response_message.files.extend(files)
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
 def _add_static_prefix(route):
     prefix = os.environ.get(STATIC_PREFIX_ENV_VAR)
     if prefix:
@@ -838,7 +932,11 @@ def get_endpoints():
                     ret.append((http_path, handler, [endpoint.method]))
         return ret
 
-    return get_service_endpoints(MlflowService) + get_service_endpoints(ModelRegistryService)
+    return (
+        get_service_endpoints(MlflowService)
+        + get_service_endpoints(ModelRegistryService)
+        + get_service_endpoints(MlflowArtifactsService)
+    )
 
 
 HANDLERS = {
@@ -885,4 +983,8 @@ HANDLERS = {
     DeleteRegisteredModelTag: _delete_registered_model_tag,
     SetModelVersionTag: _set_model_version_tag,
     DeleteModelVersionTag: _delete_model_version_tag,
+    # MLflow Artifacts APIs
+    DownloadArtifact: _download_artifact,
+    UploadArtifact: _upload_artifact,
+    ListArtifactsMlflowArtifacts: _list_artifacts_mlflow_artifacts,
 }

@@ -32,13 +32,13 @@ if [[ "$INSTALL_SMALL_PYTHON_DEPS" == "true" ]]; then
   # When downloading large packages from PyPI, the connection is sometimes aborted by the
   # remote host. See https://github.com/pypa/pip/issues/8510.
   # As a workaround, we retry installation of large packages.
-  retry-with-backoff pip install -r ./dev/small-requirements.txt
+  retry-with-backoff pip install -r requirements/small-requirements.txt
 fi
 if [[ "$INSTALL_SKINNY_PYTHON_DEPS" == "true" ]]; then
-  retry-with-backoff pip install -r ./dev/skinny-requirements.txt
+  retry-with-backoff pip install -r requirements/skinny-requirements.txt
 fi
 if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
-  retry-with-backoff pip install -r ./dev/large-requirements.txt
+  retry-with-backoff pip install -r requirements/large-requirements.txt
 
   # Install prophet's dependencies beforehand, otherwise pip would fail to build a wheel for prophet
   if [[ -z "$(pip cache list prophet --format abspath)" ]]; then
@@ -49,14 +49,14 @@ if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
     rm -rf $tmp_dir
   fi
 
-  retry-with-backoff pip install -r ./dev/extra-ml-requirements.txt
+  retry-with-backoff pip install -r requirements/extra-ml-requirements.txt
 fi
 
 # Install `mlflow-test-plugin` without dependencies
 pip install --no-dependencies tests/resources/mlflow-test-plugin
 
 # Print current environment info
-pip list
+python dev/show_package_release_dates.py
 which mlflow
 echo $MLFLOW_HOME
 

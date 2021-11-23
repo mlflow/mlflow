@@ -104,12 +104,14 @@ def test_model_save_load(cb_model, model_path):
 
     loaded_model = mlflow.catboost.load_model(model_uri=model_path)
     np.testing.assert_array_almost_equal(
-        model.predict(inference_dataframe), loaded_model.predict(inference_dataframe),
+        model.predict(inference_dataframe),
+        loaded_model.predict(inference_dataframe),
     )
 
     loaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
     np.testing.assert_array_almost_equal(
-        loaded_model.predict(inference_dataframe), loaded_pyfunc.predict(inference_dataframe),
+        loaded_model.predict(inference_dataframe),
+        loaded_pyfunc.predict(inference_dataframe),
     )
 
 
@@ -180,7 +182,8 @@ def test_model_load_from_remote_uri_succeeds(reg_model, model_path, mock_s3_buck
     model_uri = artifact_root + "/" + artifact_path
     loaded_model = mlflow.catboost.load_model(model_uri=model_uri)
     np.testing.assert_array_almost_equal(
-        model.predict(inference_dataframe), loaded_model.predict(inference_dataframe),
+        model.predict(inference_dataframe),
+        loaded_model.predict(inference_dataframe),
     )
 
 
@@ -197,7 +200,8 @@ def test_log_model(cb_model, tmpdir):
 
         loaded_model = mlflow.catboost.load_model(model_uri)
         np.testing.assert_array_almost_equal(
-            model.predict(inference_dataframe), loaded_model.predict(inference_dataframe),
+            model.predict(inference_dataframe),
+            loaded_model.predict(inference_dataframe),
         )
 
         local_path = _download_artifact_from_uri(model_uri)

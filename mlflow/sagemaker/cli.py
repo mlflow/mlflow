@@ -511,7 +511,14 @@ def terminate_transform_job(job_name, region_name, archive, asynchronous, timeou
 )
 @experimental
 def push_model_to_sagemaker(
-    model_name, model_uri, execution_role_arn, bucket, image_url, region_name, vpc_config, flavor,
+    model_name,
+    model_uri,
+    execution_role_arn,
+    bucket,
+    image_url,
+    region_name,
+    vpc_config,
+    flavor,
 ):
     """
     Push an MLflow model to Sagemaker model registry. Current active AWS account needs to have

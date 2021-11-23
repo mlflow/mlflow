@@ -259,7 +259,8 @@ def get_operator_and_version(ver_spec):
     if m is None:
         raise ValueError(
             "Invalid value for `ver_spec`: '{}'. Must match this regular expression: '{}'".format(
-                ver_spec, regexp,
+                ver_spec,
+                regexp,
             )
         )
 
@@ -310,14 +311,14 @@ def process_requirements(requirements, version=None):
             op_and_ver_pairs = map(get_operator_and_version, ver_spec.split(","))
             match_all = all(
                 comp_op(
-                    Version(version), Version(dev_numeric if req_ver == DEV_VERSION else req_ver),
+                    Version(version),
+                    Version(dev_numeric if req_ver == DEV_VERSION else req_ver),
                 )
                 for comp_op, req_ver in op_and_ver_pairs
             )
             if match_all:
                 return packages
-        else:
-            return []
+        return []
 
     raise TypeError("Invalid object type for `requirements`: '{}'".format(type(requirements)))
 
@@ -561,7 +562,7 @@ def main(args):
 
     if "GITHUB_ACTIONS" in os.environ:
         # `::set-output` is a special syntax for GitHub Actions to set an action's output parameter.
-        # https://docs.github.com/en/free-pro-team@latest/actions/reference/workflow-commands-for-github-actions#setting-an-output-parameter # noqa
+        # https://docs.github.com/en/free-pro-team@latest/actions/reference/workflow-commands-for-github-actions#setting-an-output-parameter
         # Note that this actually doesn't print anything to the console.
         print("::set-output name=matrix::{}".format(json.dumps(matrix)))
 

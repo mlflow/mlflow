@@ -182,7 +182,9 @@ def test_log_model_with_pip_requirements(h2o_iris_model, tmpdir):
     # List of requirements
     with mlflow.start_run():
         mlflow.h2o.log_model(
-            h2o_iris_model.model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"],
+            h2o_iris_model.model,
+            "model",
+            pip_requirements=[f"-r {req_file.strpath}", "b"],
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"], strict=True
