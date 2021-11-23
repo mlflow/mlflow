@@ -92,11 +92,12 @@ def test_classifier_evaluate(classifier_model, iris_dataset):
     assert eval_result.metrics == expected_metrics
     returned_confusion_matrix_artifact = eval_result.artifacts[artifact_name]
     assert np.array_equal(returned_confusion_matrix_artifact.content, expected_artifact)
-    assert np.array_equal(
-        Array2DEvaluationArtifact.load_content_from_file(saved_artifact_path), expected_artifact
-    )
     assert returned_confusion_matrix_artifact.location == get_artifact_uri(
         run.info.run_id, artifact_name
+    )
+    assert np.array_equal(
+        returned_confusion_matrix_artifact._load_content_from_file(saved_artifact_path),
+        expected_artifact
     )
 
 

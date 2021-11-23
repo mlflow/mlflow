@@ -1,6 +1,7 @@
 import entrypoints
 import warnings
 from mlflow.exceptions import MlflowException
+from mlflow.utils.import_hooks import register_post_import_hook
 
 
 class ModelEvaluatorRegistry:
@@ -41,3 +42,14 @@ class ModelEvaluatorRegistry:
                 )
             )
         return evaluator_cls()
+
+
+_model_evaluation_registry = ModelEvaluatorRegistry()
+
+
+def register_entrypoints(module):
+    module._model_evaluation_registry.register_entrypoints()
+
+
+# Put it in post-importing hook to avoid circuit importing
+register_post_import_hook(register_entrypoints, __name__, overwrite=True)
