@@ -6,9 +6,9 @@ from unittest.mock import PropertyMock
 
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 
-TEST_FILE_1_CONTENT = u"Hello 🍆🍔".encode("utf-8")
-TEST_FILE_2_CONTENT = u"World 🍆🍔🍆".encode("utf-8")
-TEST_FILE_3_CONTENT = u"¡🍆🍆🍔🍆🍆!".encode("utf-8")
+TEST_FILE_1_CONTENT = "Hello 🍆🍔".encode("utf-8")
+TEST_FILE_2_CONTENT = "World 🍆🍔🍆".encode("utf-8")
+TEST_FILE_3_CONTENT = "¡🍆🍆🍔🍆🍆!".encode("utf-8")
 
 
 @pytest.fixture()

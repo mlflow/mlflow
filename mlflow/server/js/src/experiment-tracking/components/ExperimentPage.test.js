@@ -36,6 +36,7 @@ jest.useFakeTimers();
 
 let searchRunsApi;
 let getExperimentApi;
+let batchGetExperimentsApi;
 let loadMoreRunsApi;
 let searchModelVersionsApi;
 let searchForNewRuns;
@@ -46,6 +47,7 @@ beforeEach(() => {
   localStorage.clear();
   searchRunsApi = jest.fn(() => Promise.resolve());
   getExperimentApi = jest.fn(() => Promise.resolve());
+  batchGetExperimentsApi = jest.fn(() => Promise.resolve());
   searchModelVersionsApi = jest.fn(() => Promise.resolve());
   loadMoreRunsApi = jest.fn(() => Promise.resolve());
   searchForNewRuns = jest.fn(() => Promise.resolve());
@@ -67,6 +69,7 @@ const getExperimentPageMock = (additionalProps) => {
       experimentId={EXPERIMENT_ID}
       searchRunsApi={searchRunsApi}
       getExperimentApi={getExperimentApi}
+      batchGetExperimentsApi={batchGetExperimentsApi}
       searchModelVersionsApi={searchModelVersionsApi}
       loadMoreRunsApi={loadMoreRunsApi}
       searchForNewRuns={searchForNewRuns}

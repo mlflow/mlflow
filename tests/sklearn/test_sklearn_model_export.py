@@ -215,7 +215,9 @@ def test_log_model_no_registered_model_name(sklearn_logreg_model):
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn"])
         mlflow.sklearn.log_model(
-            sk_model=sklearn_logreg_model.model, artifact_path=artifact_path, conda_env=conda_env,
+            sk_model=sklearn_logreg_model.model,
+            artifact_path=artifact_path,
+            conda_env=conda_env,
         )
         mlflow.register_model.assert_not_called()
 

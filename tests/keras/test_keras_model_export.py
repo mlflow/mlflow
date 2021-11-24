@@ -521,7 +521,9 @@ def test_log_model_with_extra_pip_requirements(model, tmpdir):
     # List of requirements
     with mlflow.start_run():
         mlflow.keras.log_model(
-            model, "model", extra_pip_requirements=[f"-r {req_file.strpath}", "b"],
+            model,
+            "model",
+            extra_pip_requirements=[f"-r {req_file.strpath}", "b"],
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a", "b"]
@@ -530,7 +532,9 @@ def test_log_model_with_extra_pip_requirements(model, tmpdir):
     # Constraints file
     with mlflow.start_run():
         mlflow.keras.log_model(
-            model, "model", extra_pip_requirements=[f"-c {req_file.strpath}", "b"],
+            model,
+            "model",
+            extra_pip_requirements=[f"-c {req_file.strpath}", "b"],
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),

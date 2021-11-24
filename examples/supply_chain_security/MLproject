@@ -1,0 +1,5 @@
+name: supply-chain-security-example
+conda_env: conda.yaml
+entry_points:
+  main:
+    command: python train.py

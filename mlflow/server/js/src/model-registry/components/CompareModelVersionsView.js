@@ -154,7 +154,7 @@ export class CompareModelVersionsViewImpl extends Component {
             {this.renderSchema(
               'inputActive',
               <FormattedMessage
-                defaultMessage='inputs'
+                defaultMessage='Inputs'
                 description='Table section name for schema inputs in the model comparison page'
               />,
               inputsListByIndex,
@@ -170,7 +170,7 @@ export class CompareModelVersionsViewImpl extends Component {
             {this.renderSchema(
               'outputActive',
               <FormattedMessage
-                defaultMessage='outputs'
+                defaultMessage='Outputs'
                 description='Table section name for schema outputs in the model comparison page'
               />,
               outputsListByIndex,
@@ -338,10 +338,10 @@ export class CompareModelVersionsViewImpl extends Component {
             className='block-content main-table-header'
             colSpan={runInfos.length + 1}
           >
-            <div className='flex-container'>
+            <div className='switch-button-container'>
               <button className='collapse-button' onClick={() => this.onToggleClick(activeSection)}>
                 {isActive ? downIcon : rightIcon}
-                <h2 className='padding-left-text'>{sectionName}</h2>
+                <span className='header'>{sectionName}</span>
               </button>
               {additionalSwitch}
               {additionalSwitchText}
@@ -420,7 +420,11 @@ export class CompareModelVersionsViewImpl extends Component {
     const showSchemaSection = schemaActive && isActive;
     const showListByIndex = !compareByColumnNameToggle && !_.isEmpty(listByIndex);
     const showListByName = compareByColumnNameToggle && !_.isEmpty(listByName);
-    const listByIndexHeaderMap = (key, data) => `${sectionName} [${key}]`;
+    const listByIndexHeaderMap = (key, data) => (
+      <>
+        {sectionName} [{key}]
+      </>
+    );
     const listByNameHeaderMap = (key, data) => key;
     const schemaFormatter = (value) => value;
     const schemaFieldName = (
@@ -466,6 +470,7 @@ export class CompareModelVersionsViewImpl extends Component {
             // on the linked page is for model registry
             runInfos[0].experiment_id,
           )}
+          target='_blank'
           title='Plot chart'
         >
           {key}
@@ -535,16 +540,14 @@ export class CompareModelVersionsViewImpl extends Component {
       return (
         <tr
           key={k}
-          className={`table-row
-          ${(toggle && !isDifferent) || !show ? 'hidden-row' : ''}`}
+          className={`table-row ${(toggle && !isDifferent) || !show ? 'hidden-row' : ''}`}
         >
           <th scope='row' className='rowHeader block-content'>
             {headerMap(k, data[k])}
           </th>
           {data[k].map((value, i) => (
             <td
-              className={`data-value block-content
-              ${isDifferent ? 'hightlight-data' : ''}`}
+              className={`data-value block-content ${isDifferent ? 'highlight-data' : ''}`}
               key={this.props.runInfos[i].getRunUuid()}
             >
               <span className='truncate-text single-line cell-content'>
@@ -672,8 +675,6 @@ const classNames = {
       '.compare-table': {
         // 1 extra unit for header column
         minWidth: (numRuns + 1) * DEFAULT_COLUMN_WIDTH,
-        borderTop: '2px solid rgb(221, 221, 221)',
-        borderBottom: '2px solid rgb(221, 221, 221)',
       },
     }),
 };
@@ -715,11 +716,12 @@ const compareModelVersionsViewClassName = css({
   'tbody.schema-scrollable-table': {
     maxHeight: 200,
   },
-  'td.hightlight-data': {
+  'td.highlight-data': {
     backgroundColor: 'rgba(249, 237, 190, 0.5)',
   },
-  'div.flex-container': {
+  '.switch-button-container': {
     display: 'flex',
+    paddingBottom: 16,
   },
   'button.schema-collapse-button': {
     textAlign: 'left',
@@ -728,9 +730,10 @@ const compareModelVersionsViewClassName = css({
     height: '100%',
     border: 'none',
   },
-  'button.collapse-button': {
+  '.collapse-button': {
     textAlign: 'left',
     display: 'flex',
+    alignItems: 'center',
     border: 'none',
     backgroundColor: 'white',
     paddingLeft: 0,
@@ -755,6 +758,10 @@ const compareModelVersionsViewClassName = css({
     textAlign: 'center',
     color: '#6B6B6B',
     marginBottom: 0,
+  },
+  '.header': {
+    paddingLeft: 8,
+    fontSize: 16,
   },
 });
 

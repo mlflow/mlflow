@@ -145,6 +145,10 @@ export class ModelVersionTableImpl extends React.Component {
             disabled: record.status !== ModelVersionStatus.READY,
           }),
         }}
+        pagination={{
+          position: ['bottomRight'],
+          size: 'default',
+        }}
       />
     );
   }

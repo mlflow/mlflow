@@ -874,25 +874,30 @@ def get_experiment_by_name(name: str) -> Optional[Experiment]:
 
 
 def list_experiments(
-    view_type: int = ViewType.ACTIVE_ONLY, max_results: Optional[int] = None,
+    view_type: int = ViewType.ACTIVE_ONLY,
+    max_results: Optional[int] = None,
 ) -> List[Experiment]:
     """
-        :param view_type: Qualify requested type of experiments.
-        :param max_results: If passed, specifies the maximum number of experiments desired. If not
-                            passed, all experiments will be returned.
-        :return: A list of :py:class:`Experiment <mlflow.entities.Experiment>` objects.
-        """
+    :param view_type: Qualify requested type of experiments.
+    :param max_results: If passed, specifies the maximum number of experiments desired. If not
+                        passed, all experiments will be returned.
+    :return: A list of :py:class:`Experiment <mlflow.entities.Experiment>` objects.
+    """
 
     def pagination_wrapper_func(number_to_get, next_page_token):
         return MlflowClient().list_experiments(
-            view_type=view_type, max_results=number_to_get, page_token=next_page_token,
+            view_type=view_type,
+            max_results=number_to_get,
+            page_token=next_page_token,
         )
 
     return _paginate(pagination_wrapper_func, SEARCH_MAX_RESULTS_DEFAULT, max_results)
 
 
 def create_experiment(
-    name: str, artifact_location: Optional[str] = None, tags: Optional[Dict[str, Any]] = None,
+    name: str,
+    artifact_location: Optional[str] = None,
+    tags: Optional[Dict[str, Any]] = None,
 ) -> str:
     """
     Create an experiment.
@@ -1112,7 +1117,12 @@ def search_runs(
     # full thing is a mess
     def pagination_wrapper_func(number_to_get, next_page_token):
         return MlflowClient().search_runs(
-            experiment_ids, filter_string, run_view_type, number_to_get, order_by, next_page_token,
+            experiment_ids,
+            filter_string,
+            run_view_type,
+            number_to_get,
+            order_by,
+            next_page_token,
         )
 
     runs = _paginate(pagination_wrapper_func, NUM_RUNS_PER_PAGE_PANDAS, max_results)

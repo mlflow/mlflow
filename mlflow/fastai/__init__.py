@@ -81,7 +81,7 @@ def save_model(
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
-    **kwargs
+    **kwargs,
 ):
     """
     Save a fastai Learner to a path on the local file system.
@@ -177,13 +177,17 @@ def save_model(
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
-                path, FLAVOR_NAME, fallback=default_reqs,
+                path,
+                FLAVOR_NAME,
+                fallback=default_reqs,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
             default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
-            default_reqs, pip_requirements, extra_pip_requirements,
+            default_reqs,
+            pip_requirements,
+            extra_pip_requirements,
         )
     else:
         conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
@@ -210,7 +214,7 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements=None,
     extra_pip_requirements=None,
-    **kwargs
+    **kwargs,
 ):
     """
     Log a fastai model as an MLflow artifact for the current run.
@@ -473,7 +477,9 @@ def autolog(
         from mlflow.fastai.callback import __MlflowFastaiCallback
 
         return __MlflowFastaiCallback(
-            metrics_logger=metrics_logger, log_models=log_models, is_fine_tune=is_fine_tune,
+            metrics_logger=metrics_logger,
+            log_models=log_models,
+            is_fine_tune=is_fine_tune,
         )
 
     def _find_callback_of_type(callback_type, callbacks):

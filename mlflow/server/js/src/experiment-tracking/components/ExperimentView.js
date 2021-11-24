@@ -5,11 +5,11 @@ import { connect } from 'react-redux';
 import { injectIntl, FormattedMessage } from 'react-intl';
 // eslint-disable-next-line no-unused-vars
 import { Link, withRouter } from 'react-router-dom';
+import { ArrowDownOutlined, ArrowUpOutlined, QuestionCircleFilled } from '@ant-design/icons';
 import {
   Alert,
   Badge,
   Descriptions,
-  Icon,
   Menu,
   Popover,
   Select,
@@ -51,6 +51,7 @@ import { SearchBox } from '../../shared/building_blocks/SearchBox';
 import { Radio } from '../../shared/building_blocks/Radio';
 import syncSvg from '../../common/static/sync.svg';
 import { middleTruncateStr } from '../../common/utils/StringUtils';
+import { css } from 'emotion';
 import {
   COLUMN_TYPES,
   LIFECYCLE_FILTER,
@@ -71,9 +72,6 @@ export class ExperimentView extends Component {
     super(props);
     this.onSortBy = this.onSortBy.bind(this);
     this.onHandleSortByDropdown = this.onHandleSortByDropdown.bind(this);
-    this.isAllChecked = this.isAllChecked.bind(this);
-    this.onCheckbox = this.onCheckbox.bind(this);
-    this.onCheckAll = this.onCheckAll.bind(this);
     this.initiateSearch = this.initiateSearch.bind(this);
     this.onDeleteRun = this.onDeleteRun.bind(this);
     this.onRestoreRun = this.onRestoreRun.bind(this);
@@ -145,6 +143,7 @@ export class ExperimentView extends Component {
 
     searchRunsError: PropTypes.string,
     isLoading: PropTypes.bool.isRequired,
+    nextPageToken: PropTypes.string,
     numRunsFromLatestSearch: PropTypes.number,
     handleLoadMoreRuns: PropTypes.func.isRequired,
     loadingMore: PropTypes.bool.isRequired,
@@ -371,8 +370,8 @@ export class ExperimentView extends Component {
     );
     return this.state.showOnboardingHelper ? (
       <Alert
-        className='information'
-        description={content}
+        className={css(styles.alert)}
+        message={content}
         type='info'
         showIcon
         closable
@@ -399,7 +398,7 @@ export class ExperimentView extends Component {
   getStartTimeColumnDisplayName() {
     return {
       ALL: this.props.intl.formatMessage({
-        defaultMessage: 'All',
+        defaultMessage: 'All time',
         description: 'Option for the start select dropdown to render all runs',
       }),
       LAST_HOUR: this.props.intl.formatMessage({
@@ -435,6 +434,7 @@ export class ExperimentView extends Component {
       runInfos,
       isLoading,
       loadingMore,
+      nextPageToken,
       numRunsFromLatestSearch,
       handleLoadMoreRuns,
       experimentTags,
@@ -466,8 +466,9 @@ export class ExperimentView extends Component {
     const searchInputHelpTooltipContent = (
       <div className='search-input-tooltip-content'>
         <FormattedMessage
-          defaultMessage='Search runs using a simplified version of the SQL <b>WHERE</b> clause'
+          defaultMessage='Search runs using a simplified version of the SQL {whereBold} clause'
           description='Tooltip string to explain how to search runs from the experiments table'
+          values={{ whereBold: <b>WHERE</b> }}
         />
         <br />
         <FormattedMessage
@@ -507,6 +508,53 @@ export class ExperimentView extends Component {
       intl: this.props.intl,
     };
     const ColumnSortByOrder = [COLUMN_SORT_BY_ASC, COLUMN_SORT_BY_DESC];
+    let sortOptions = [];
+    const attributesSortBy = Object.keys(ATTRIBUTE_COLUMN_SORT_LABEL).reduce(
+      (options, sortLabelKey) => {
+        const sortLabel = ATTRIBUTE_COLUMN_SORT_LABEL[sortLabelKey];
+        if (!categorizedUncheckedKeys[COLUMN_TYPES.ATTRIBUTES].includes(sortLabel)) {
+          ColumnSortByOrder.forEach((order) => {
+            options.push({
+              label: sortLabel,
+              value: ATTRIBUTE_COLUMN_SORT_KEY[sortLabelKey] + SORT_DELIMITER_SYMBOL + order,
+              order,
+            });
+          });
+        }
+
+        return options;
+      },
+      [],
+    );
+    const metricsSortBy = filteredMetricKeys.reduce((options, sortLabelKey) => {
+      ColumnSortByOrder.forEach((order) => {
+        options.push({
+          label: sortLabelKey,
+          value: `${ExperimentViewUtil.makeCanonicalKey(
+            COLUMN_TYPES.METRICS,
+            sortLabelKey,
+          )}${SORT_DELIMITER_SYMBOL}${order}`,
+          order,
+        });
+      });
+
+      return options;
+    }, []);
+    const paramsSortBy = filteredParamKeys.reduce((options, sortLabelKey) => {
+      ColumnSortByOrder.forEach((order) => {
+        options.push({
+          label: sortLabelKey,
+          value: `${ExperimentViewUtil.makeCanonicalKey(
+            COLUMN_TYPES.PARAMS,
+            sortLabelKey,
+          )}${SORT_DELIMITER_SYMBOL}${order}`,
+          order,
+        });
+      });
+
+      return options;
+    }, []);
+    sortOptions = [...attributesSortBy, ...metricsSortBy, ...paramsSortBy];
 
     return (
       <div className='ExperimentView runs-table-flex-container'>
@@ -524,13 +572,27 @@ export class ExperimentView extends Component {
           title={
             <>
               {name}
-              <Text copyable={{ text: name }} />
+              <Text
+                copyable={{
+                  text: name,
+                  tooltips: [
+                    this.props.intl.formatMessage({
+                      defaultMessage: 'Copy',
+                      description:
+                        'Copy tooltip to copy experiment name from experiment runs table header',
+                    }),
+                  ],
+                }}
+              />
             </>
           }
           breadcrumbs={breadcrumbs}
           feedbackForm={form}
         >
-          <OverflowMenu menu={this.getExperimentOverflowItems()} />
+          <OverflowMenu
+            data-test-id='experiment-view-page-header'
+            menu={this.getExperimentOverflowItems()}
+          />
           <Tooltip
             title={this.props.intl.formatMessage({
               defaultMessage: 'Share experiment view',
@@ -573,15 +635,6 @@ export class ExperimentView extends Component {
             </div>
           ) : null}
           <Spacer size='medium'>
-            <div>
-              <FormattedMessage
-                // eslint-disable-next-line max-len
-                defaultMessage='Showing {length} matching {length, plural, =0 {runs} =1 {run} other {runs}}'
-                // eslint-disable-next-line max-len
-                description='Message for displaying how many runs match search criteria on experiment page'
-                values={{ length: runInfos.length }}
-              />
-            </div>
             <FlexBar
               left={
                 <Spacer size='small' direction='horizontal'>
@@ -661,97 +714,32 @@ export class ExperimentView extends Component {
                                 'Sort by default option for sort by select dropdown for experiment runs',
                             })
                       }
+                      virtual={false}
                       size='large'
                       onChange={this.onHandleSortByDropdown}
                       data-test-id='sort-select-dropdown'
                       dropdownStyle={{ minWidth: '30%' }}
                     >
-                      {Object.keys(ATTRIBUTE_COLUMN_SORT_LABEL).reduce(
-                        (sortOptions, sortLabelKey) => {
-                          const sortLabel = ATTRIBUTE_COLUMN_SORT_LABEL[sortLabelKey];
-                          if (
-                            !categorizedUncheckedKeys[COLUMN_TYPES.ATTRIBUTES].includes(sortLabel)
-                          ) {
-                            ColumnSortByOrder.forEach((order) => {
-                              sortOptions.push(
-                                <Option
-                                  key={sortLabel}
-                                  title={sortLabel}
-                                  data-test-id={`sort-select-${sortLabel}-${order}`}
-                                  value={
-                                    ATTRIBUTE_COLUMN_SORT_KEY[sortLabelKey] +
-                                    SORT_DELIMITER_SYMBOL +
-                                    order
-                                  }
-                                >
-                                  {order === COLUMN_SORT_BY_ASC ? (
-                                    <Icon type='arrow-up' />
-                                  ) : (
-                                    <Icon type='arrow-down' />
-                                  )}{' '}
-                                  {sortLabel}
-                                </Option>,
-                              );
-                            });
-                          }
-
-                          return sortOptions;
-                        },
-                        [],
-                      )}
-                      {filteredMetricKeys.reduce((sortOptions, metricKey) => {
-                        ColumnSortByOrder.forEach((order) => {
-                          sortOptions.push(
-                            <Option
-                              key={metricKey}
-                              title={metricKey}
-                              data-test-id={`sort-select-${metricKey}-${order}`}
-                              value={`${ExperimentViewUtil.makeCanonicalKey(
-                                COLUMN_TYPES.METRICS,
-                                metricKey,
-                              )}${SORT_DELIMITER_SYMBOL}${order}`}
-                            >
-                              {order === COLUMN_SORT_BY_ASC ? (
-                                <Icon type='arrow-up' />
-                              ) : (
-                                <Icon type='arrow-down' />
-                              )}{' '}
-                              {middleTruncateStr(metricKey, 50)}
-                            </Option>,
-                          );
-                        });
-
-                        return sortOptions;
-                      }, [])}
-                      {filteredParamKeys.reduce((sortOptions, paramKey) => {
-                        ColumnSortByOrder.forEach((order) => {
-                          sortOptions.push(
-                            <Option
-                              key={paramKey}
-                              title={paramKey}
-                              data-test-id={`sort-select-${paramKey}-${order}`}
-                              value={`${ExperimentViewUtil.makeCanonicalKey(
-                                COLUMN_TYPES.PARAMS,
-                                paramKey,
-                              )}${SORT_DELIMITER_SYMBOL}${order}`}
-                            >
-                              {order === COLUMN_SORT_BY_ASC ? (
-                                <Icon type='arrow-up' />
-                              ) : (
-                                <Icon type='arrow-down' />
-                              )}{' '}
-                              {middleTruncateStr(paramKey, 50)}
-                            </Option>,
-                          );
-                        });
-
-                        return sortOptions;
-                      }, [])}
+                      {sortOptions.map((sortOption) => (
+                        <Option
+                          key={sortOption.value}
+                          title={sortOption.label}
+                          data-test-id={`sort-select-${sortOption.label}-${sortOption.order}`}
+                          value={sortOption.value}
+                        >
+                          {sortOption.order === COLUMN_SORT_BY_ASC ? (
+                            <ArrowUpOutlined />
+                          ) : (
+                            <ArrowDownOutlined />
+                          )}{' '}
+                          {middleTruncateStr(sortOption.label, 50)}
+                        </Option>
+                      ))}
                     </Select>
                   </Tooltip>
                   <Tooltip
                     title={this.props.intl.formatMessage({
-                      defaultMessage: 'Start time',
+                      defaultMessage: 'Started during',
                       description:
                         'Label for the start time select dropdown for experiment runs view',
                     })}
@@ -832,11 +820,7 @@ export class ExperimentView extends Component {
                       content={searchInputHelpTooltipContent}
                       placement='bottom'
                     >
-                      <Icon
-                        type='question-circle'
-                        className='ExperimentView-search-help'
-                        theme='filled'
-                      />
+                      <QuestionCircleFilled className='ExperimentView-search-help' />
                     </Popover>
                     <div style={styles.searchBox}>
                       <SearchBox
@@ -881,7 +865,6 @@ export class ExperimentView extends Component {
                     description='Filtering label to filter experiments based on state of active or deleted'
                   />
                   <StyledDropdown
-                    key={this.props.lifecycleFilter}
                     title={experimentRunsState(this.props.lifecycleFilter)}
                     dropdownOptions={
                       <Menu onClick={this.handleLifecycleFilterInput}>
@@ -954,6 +937,15 @@ export class ExperimentView extends Component {
                 </div>
               </div>
             </CSSTransition>
+            <div>
+              <FormattedMessage
+                // eslint-disable-next-line max-len
+                defaultMessage='Showing {length} matching {length, plural, =0 {runs} =1 {run} other {runs}}'
+                // eslint-disable-next-line max-len
+                description='Message for displaying how many runs match search criteria on experiment page'
+                values={{ length: runInfos.length }}
+              />
+            </div>
             {showMultiColumns && !this.props.forceCompactTableView ? (
               <ExperimentRunsTableMultiColumnView2
                 experimentId={experiment.experiment_id}
@@ -974,6 +966,7 @@ export class ExperimentView extends Component {
                 runsSelected={this.state.runsSelected}
                 runsExpanded={this.state.persistedState.runsExpanded}
                 onExpand={this.onExpand}
+                nextPageToken={nextPageToken}
                 numRunsFromLatestSearch={numRunsFromLatestSearch}
                 handleLoadMoreRuns={handleLoadMoreRuns}
                 loadingMore={loadingMore}
@@ -1007,6 +1000,7 @@ export class ExperimentView extends Component {
                 unbaggedParams={filteredUnbaggedParamKeys}
                 onAddBagged={this.addBagged}
                 onRemoveBagged={this.removeBagged}
+                nextPageToken={nextPageToken}
                 numRunsFromLatestSearch={numRunsFromLatestSearch}
                 handleLoadMoreRuns={handleLoadMoreRuns}
                 loadingMore={loadingMore}
@@ -1214,7 +1208,7 @@ export class ExperimentView extends Component {
     const filteredMetricKeys = this.getFilteredKeys(metricKeyList, COLUMN_TYPES.METRICS);
     const visibleTagKeys = Utils.getVisibleTagKeyList(tagsList);
     const filteredTagKeys = this.getFilteredKeys(visibleTagKeys, COLUMN_TYPES.TAGS);
-    const csv = ExperimentView.runInfosToCsv(
+    const csv = ExperimentViewUtil.runInfosToCsv(
       runInfos,
       filteredParamKeys,
       filteredMetricKeys,
@@ -1226,116 +1220,6 @@ export class ExperimentView extends Component {
     const blob = new Blob([csv], { type: 'application/csv;charset=utf-8' });
     saveAs(blob, 'runs.csv');
   };
-
-  // Format a string for insertion into a CSV file.
-  static csvEscape(str) {
-    if (str === undefined) {
-      return '';
-    }
-    if (/[,"\r\n]/.test(str)) {
-      return '"' + str.replace(/"/g, '""') + '"';
-    }
-    return str;
-  }
-
-  /**
-   * Convert a table to a CSV string.
-   *
-   * @param columns Names of columns
-   * @param data Array of rows, each of which are an array of field values
-   */
-  static tableToCsv(columns, data) {
-    let csv = '';
-    let i;
-
-    for (i = 0; i < columns.length; i++) {
-      csv += ExperimentView.csvEscape(columns[i]);
-      if (i < columns.length - 1) {
-        csv += ',';
-      }
-    }
-    csv += '\n';
-
-    for (i = 0; i < data.length; i++) {
-      for (let j = 0; j < data[i].length; j++) {
-        csv += ExperimentView.csvEscape(data[i][j]);
-        if (j < data[i].length - 1) {
-          csv += ',';
-        }
-      }
-      csv += '\n';
-    }
-
-    return csv;
-  }
-
-  /**
-   * Convert an array of run infos to a CSV string, extracting the params and metrics in the
-   * provided lists.
-   */
-  static runInfosToCsv(
-    runInfos,
-    paramKeyList,
-    metricKeyList,
-    tagKeyList,
-    paramsList,
-    metricsList,
-    tagsList,
-  ) {
-    const columns = [
-      'Start Time',
-      'Duration',
-      'Run ID',
-      'Name',
-      'Source Type',
-      'Source Name',
-      'User',
-      'Status',
-      ...paramKeyList,
-      ...metricKeyList,
-      ...tagKeyList,
-    ];
-
-    const data = runInfos.map((runInfo, index) => {
-      const row = [
-        Utils.formatTimestamp(runInfo.start_time),
-        Utils.getDuration(runInfo.start_time, runInfo.end_time) || '',
-        runInfo.run_uuid,
-        Utils.getRunName(tagsList[index]), // add run name to csv export row
-        Utils.getSourceType(tagsList[index]),
-        Utils.getSourceName(tagsList[index]),
-        Utils.getUser(runInfo, tagsList[index]),
-        runInfo.status,
-      ];
-      const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[index]);
-      const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[index]);
-      const tagsMap = tagsList[index];
-
-      paramKeyList.forEach((paramKey) => {
-        if (paramsMap[paramKey]) {
-          row.push(paramsMap[paramKey].getValue());
-        } else {
-          row.push('');
-        }
-      });
-      metricKeyList.forEach((metricKey) => {
-        if (metricsMap[metricKey]) {
-          row.push(metricsMap[metricKey].getValue());
-        } else {
-          row.push('');
-        }
-      });
-      tagKeyList.forEach((tagKey) => {
-        if (tagsMap[tagKey]) {
-          row.push(tagsMap[tagKey].getValue());
-        } else {
-          row.push('');
-        }
-      });
-      return row;
-    });
-    return ExperimentView.tableToCsv(columns, data);
-  }
 }
 
 export const mapStateToProps = (state, ownProps) => {
@@ -1412,6 +1296,14 @@ const styles = {
   },
   searchBox: {
     width: '446px',
+  },
+  alert: {
+    marginBottom: 16,
+    padding: 16,
+    background: '#edfafe' /* Gray-background */,
+    border: '1px solid #eeeeee',
+    boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.12)' /* Dropshadow */,
+    borderRadius: 4,
   },
 };
 
