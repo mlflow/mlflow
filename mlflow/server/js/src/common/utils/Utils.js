@@ -711,10 +711,9 @@ class Utils {
 
   static getSearchParamsFromUrl(search) {
     const params = qs.parse(search, { ignoreQueryPrefix: true });
-    const str = JSON.stringify(params, function replaceUndefined(key, value) {
-      return value === undefined ? '' : value;
+    const str = JSON.stringify(params, function replaceUndefinedAndBools(key, value) {
+      return value === undefined ? '' : value === 'true' ? true : value === 'false' ? false : value;
     });
-
     return params ? JSON.parse(str) : [];
   }
 
