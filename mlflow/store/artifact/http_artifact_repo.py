@@ -15,7 +15,8 @@ class HttpArtifactRepository(ArtifactRepository):
         self._session = requests.Session()
 
     def __del__(self):
-        self._session.close()
+        if hasattr(self, "_session"):
+            self._session.close()
 
     def log_artifact(self, local_file, artifact_path=None):
         verify_artifact_path(artifact_path)
