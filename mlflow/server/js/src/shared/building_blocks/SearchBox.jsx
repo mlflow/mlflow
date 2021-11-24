@@ -28,7 +28,7 @@ export class SearchBox extends React.Component {
     onChange: PropTypes.func,
     onSearch: PropTypes.func.isRequired,
     placeholder: PropTypes.string,
-  }
+  };
 
   getInputValue(value, state) {
     return value === undefined ? state.searchInput : value;
@@ -67,15 +67,12 @@ export class SearchBox extends React.Component {
           onChange={(e) => this.triggerChange(e, value, onChange)}
           onPressEnter={this.triggerSearch}
           placeholder={placeholder}
-          prefix={<i className='fas fa-search' style={{ fontStyle: 'normal' }}/>}
+          prefix={<i className='fas fa-search' style={{ fontStyle: 'normal' }} />}
           data-test-id='search-box'
           className={css(styles.searchBox)}
         />
         <span data-test-id='search-button'>
-          <Button
-            onClick={this.triggerSearch}
-            data-test-id='search-button'
-          >
+          <Button onClick={this.triggerSearch} data-test-id='search-button'>
             <FormattedMessage
               defaultMessage='Search'
               description='String for the search button to search objects in MLflow'
@@ -91,6 +88,7 @@ const styles = {
   searchBox: {
     height: '40px',
     padding: 0,
+    borderRadius: 4,
     boxSizing: 'border-box',
     '.ant-input-prefix': {
       marginLeft: '16px',

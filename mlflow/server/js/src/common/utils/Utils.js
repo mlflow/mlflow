@@ -742,7 +742,7 @@ class Utils {
   static getVisibleTagValues(tags) {
     // Collate tag objects into list of [key, value] lists and filter MLflow-internal tags
     return Object.values(tags)
-      .map((t) => [t.getKey(), t.getValue()])
+      .map((t) => [t.key || t.getKey(), t.value || t.getValue()])
       .filter((t) => !t[0].startsWith(MLFLOW_INTERNAL_PREFIX));
   }
 

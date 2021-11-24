@@ -306,6 +306,7 @@ export const Experiment = Immutable.Record({
 
   // repeated ExperimentTag
   tags: Immutable.List(),
+
 }, 'Experiment');
 
 /**
@@ -325,7 +326,6 @@ Experiment.fromJsReviver = function fromJsReviver(key, value) {
 };
 
 const extended_Experiment = ModelBuilder.extend(Experiment, {
-
   getExperimentId() {
     return this.experiment_id !== undefined ? this.experiment_id : '0';
   },
@@ -346,7 +346,7 @@ const extended_Experiment = ModelBuilder.extend(Experiment, {
   },
   getTags() {
     return this.tags !== undefined ? this.tags : [];
-  }
+  },
 });
 
 /**

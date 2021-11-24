@@ -17,14 +17,6 @@
 
 
 /* BEGIN css for when experiment list collapsed */
-.experiment-page-container {
-  width: 100%;
-  padding: 0 64px 0 32px;
-}
-.collapsed-expander-container {
-  float: left;
-}
-
 .expander {
   display: inline-block;
   background-color: #082142d6;

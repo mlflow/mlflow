@@ -5,6 +5,7 @@ import _ from 'lodash';
 import { LazyPlot } from './LazyPlot';
 
 const AXIS_LABEL_CLS = '.pcp-plot .parcoords .y-axis .axis-heading .axis-title';
+export const UNKNOWN_TERM = 'unknown';
 
 export class ParallelCoordinatesPlotView extends React.Component {
   static propTypes = {
@@ -130,17 +131,31 @@ export const generateAttributesForCategoricalDimension = (labels) => {
   // Create a lookup from label to its own alphabetical sorted order.
   // Ex. ['A', 'B', 'C'] => { 'A': '0', 'B': '1', 'C': '2' }
   const sortedUniqLabels = _.uniq(labels).sort();
-  const labelToIndexStr = _.invert(sortedUniqLabels);
+
+  // We always want the UNKNOWN_TERM to be at the top
+  // of the chart which is end of the sorted label array
+  // Ex. ['A', 'UNKNOWN_TERM', 'B'] => { 'A': '0', 'B': '1', 'UNKNOWN_TERM': '2' }
+  let addUnknownTerm = false;
+  const filteredSortedUniqLabels = sortedUniqLabels.filter((label) => {
+    if (label === UNKNOWN_TERM) addUnknownTerm = true;
+    return label !== UNKNOWN_TERM;
+  });
+  if (addUnknownTerm) {
+    filteredSortedUniqLabels.push(UNKNOWN_TERM);
+  }
+  const labelToIndexStr = _.invert(filteredSortedUniqLabels);
   const attributes = {};
 
   // Values are assigned to their alphabetical sorted index number
   attributes.values = labels.map((label) => Number(labelToIndexStr[label]));
 
   // Default to alphabetical order for categorical axis here. Ex. [0, 1, 2, 3 ...]
-  attributes.tickvals = _.range(sortedUniqLabels.length);
+  attributes.tickvals = _.range(filteredSortedUniqLabels.length);
 
   // Default to alphabetical order for categorical axis here. Ex. ['A', 'B', 'C', 'D' ...]
-  attributes.ticktext = sortedUniqLabels;
+  attributes.ticktext = filteredSortedUniqLabels.map((sortedUniqLabel) =>
+    sortedUniqLabel.substring(0, 10),
+  );
 
   return attributes;
 };
@@ -167,17 +182,28 @@ export const createDimension = (key, runUuids, entryByRunUuid) => {
   if (dataType === 'string') {
     attributes = generateAttributesForCategoricalDimension(
       runUuids.map((runUuid) =>
-        entryByRunUuid[runUuid][key] ? entryByRunUuid[runUuid][key].value : '',
+        entryByRunUuid[runUuid][key] ? entryByRunUuid[runUuid][key].value : UNKNOWN_TERM,
       ),
     );
   } else {
-    attributes.values = runUuids.map((runUuid) => {
+    let maxValue = Number.MIN_SAFE_INTEGER;
+    const values = runUuids.map((runUuid) => {
       if (entryByRunUuid[runUuid][key]) {
         const { value } = entryByRunUuid[runUuid][key];
-        return Number(value);
+        const numericValue = Number(value);
+        if (maxValue < numericValue) maxValue = numericValue;
+        return numericValue;
       }
-      return NaN;
+      return UNKNOWN_TERM;
     });
+
+    // For Numerical values, we take the max value of all the attribute
+    // values and 0.01 to it so it is always at top of the graph.
+    attributes.values = values.map((value) => {
+      if (value === UNKNOWN_TERM) return maxValue + 0.01;
+      return value;
+    });
+
     // For some reason, Plotly tries to plot these values with SI prefixes by default
     // Explicitly set to 5 fixed digits float here
     attributes.tickformat = '.5f';
