@@ -381,9 +381,9 @@ def autolog(
                    autologging. If ``False``, show all events and warnings during XGBoost
                    autologging.
     """
-    import functools
     import xgboost
     import numpy as np
+    import functools
 
     if importance_types is None:
         importance_types = ["weight"]
@@ -412,16 +412,7 @@ def autolog(
 
         original(self, *args, **kwargs)
 
-    def train(original, *args, **kwargs):
-        def _get_xgb_caller_info():
-            import inspect
-
-            xgb_caller = inspect.stack()[4]
-            is_caller_fit = xgb_caller[3] == "fit"
-            return xgb_caller[0].f_locals["self"] if is_caller_fit else None
-
-        xgb_caller = _get_xgb_caller_info()
-
+    def train(_log_models, original, *args, **kwargs):
         def record_eval_results(eval_results, metrics_logger):
             """
             Create a callback function that records evaluation results.
@@ -588,8 +579,6 @@ def autolog(
 
             # training model
             model = original(*args, **kwargs)
-            if xgb_caller:
-                xgb_caller._Booster = model
 
             # If early_stopping_rounds is present, logging metrics at the best iteration
             # as extra metrics with the max step + 1.
@@ -656,7 +645,7 @@ def autolog(
             return model_signature
 
         # Only log the model if the autolog() param log_models is set to True.
-        if log_models:
+        if _log_models:
             # Will only resolve `input_example` and `signature` if `log_models` is `True`.
             input_example, signature = resolve_input_example_and_signature(
                 get_input_example,
@@ -667,7 +656,7 @@ def autolog(
             )
 
             log_model(
-                xgb_caller if xgb_caller else model,
+                model,
                 artifact_path="model",
                 signature=signature,
                 input_example=input_example,
@@ -679,8 +668,10 @@ def autolog(
 
         return model
 
-    safe_patch(FLAVOR_NAME, xgboost, "train", train, manage_run=True)
-    safe_patch(FLAVOR_NAME, xgboost.sklearn, "train", train, manage_run=True)
+    safe_patch(FLAVOR_NAME, xgboost, "train", functools.partial(train, log_models), manage_run=True)
+    safe_patch(
+        FLAVOR_NAME, xgboost.sklearn, "train", functools.partial(train, False), manage_run=True
+    )
     safe_patch(FLAVOR_NAME, xgboost.DMatrix, "__init__", __init__)
 
     # enable xgboost scikit-learn estimators autologging
