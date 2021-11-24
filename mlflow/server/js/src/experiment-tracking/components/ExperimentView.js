@@ -16,6 +16,7 @@ import {
   Tooltip,
   Typography,
   Switch,
+  message,
 } from 'antd';
 
 import './ExperimentView.css';
@@ -42,7 +43,7 @@ import { ExperimentTrackingDocUrl, onboarding } from '../../common/constants';
 import filterIcon from '../../common/static/filter-icon.svg';
 import { StyledDropdown } from '../../common/components/StyledDropdown';
 import { ExperimentNoteSection, ArtifactLocation } from './ExperimentViewHelpers';
-import { OverflowMenu, PageHeader } from '../../shared/building_blocks/PageHeader';
+import { OverflowMenu, PageHeader, HeaderButton } from '../../shared/building_blocks/PageHeader';
 import { FlexBar } from '../../shared/building_blocks/FlexBar';
 import { Button } from '../../shared/building_blocks/Button';
 import { Spacer } from '../../shared/building_blocks/Spacer';
@@ -56,9 +57,6 @@ import {
   LIFECYCLE_FILTER,
   MAX_DETECT_NEW_RUNS_RESULTS,
   MODEL_VERSION_FILTER,
-  DEFAULT_ORDER_BY_KEY,
-  DEFAULT_ORDER_BY_ASC,
-  DEFAULT_START_TIME,
   ATTRIBUTE_COLUMN_SORT_LABEL,
   ATTRIBUTE_COLUMN_SORT_KEY,
   COLUMN_SORT_BY_ASC,
@@ -89,8 +87,11 @@ export class ExperimentView extends Component {
     this.getStartTimeColumnDisplayName = this.getStartTimeColumnDisplayName.bind(this);
     this.onHandleStartTimeDropdown = this.onHandleStartTimeDropdown.bind(this);
     this.handleDiffSwitchChange = this.handleDiffSwitchChange.bind(this);
+
     const store = ExperimentView.getLocalStore(this.props.experiment.experiment_id);
-    const persistedState = new ExperimentViewPersistedState(store.loadComponentState());
+    const persistedState = new ExperimentViewPersistedState({
+      ...store.loadComponentState(),
+    });
     const onboardingInformationStore = ExperimentView.getLocalStore(onboarding);
     this.state = {
       ...ExperimentView.getDefaultUnpersistedState(),
@@ -105,16 +106,20 @@ export class ExperimentView extends Component {
   }
   static propTypes = {
     onSearch: PropTypes.func.isRequired,
+    onClear: PropTypes.func.isRequired,
+    setShowMultiColumns: PropTypes.func.isRequired,
+    handleColumnSelectionCheck: PropTypes.func.isRequired,
+    handleDiffSwitchChange: PropTypes.func.isRequired,
+    updateUrlWithViewState: PropTypes.func.isRequired,
     runInfos: PropTypes.arrayOf(PropTypes.instanceOf(RunInfo)).isRequired,
     modelVersionsByRunUuid: PropTypes.object.isRequired,
+    experimentId: PropTypes.string.isRequired,
     experiment: PropTypes.instanceOf(Experiment).isRequired,
     history: PropTypes.any,
-
     // List of all parameter keys available in the runs we're viewing
     paramKeyList: PropTypes.arrayOf(PropTypes.string).isRequired,
     // List of all metric keys available in the runs we're viewing
     metricKeyList: PropTypes.arrayOf(PropTypes.string).isRequired,
-
     // List of list of params in all the visible runs
     paramsList: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.object)).isRequired,
     // List of list of metrics in all the visible runs
@@ -123,17 +128,19 @@ export class ExperimentView extends Component {
     tagsList: PropTypes.arrayOf(PropTypes.object).isRequired,
     // Object of experiment tags
     experimentTags: PropTypes.object.isRequired,
-
-    // Input to the lifecycleFilter field
-    lifecycleFilter: PropTypes.string.isRequired,
-    modelVersionFilter: PropTypes.string.isRequired,
-
-    orderByKey: PropTypes.string,
-    orderByAsc: PropTypes.bool,
-    startTime: PropTypes.string,
-
     // The initial searchInput
     searchInput: PropTypes.string.isRequired,
+    orderByKey: PropTypes.string.isRequired,
+    orderByAsc: PropTypes.bool.isRequired,
+    startTime: PropTypes.string.isRequired,
+    lifecycleFilter: PropTypes.string.isRequired,
+    modelVersionFilter: PropTypes.string.isRequired,
+    showMultiColumns: PropTypes.bool.isRequired,
+    categorizedUncheckedKeys: PropTypes.object.isRequired,
+    diffSwitchSelected: PropTypes.bool.isRequired,
+    preSwitchCategorizedUncheckedKeys: PropTypes.object.isRequired,
+    postSwitchCategorizedUncheckedKeys: PropTypes.object.isRequired,
+
     searchRunsError: PropTypes.string,
     isLoading: PropTypes.bool.isRequired,
     nextPageToken: PropTypes.string,
@@ -141,7 +148,6 @@ export class ExperimentView extends Component {
     handleLoadMoreRuns: PropTypes.func.isRequired,
     loadingMore: PropTypes.bool.isRequired,
     setExperimentTagApi: PropTypes.func.isRequired,
-
     // If child runs should be nested under their parents
     nestChildren: PropTypes.bool,
     // ML-13038: Whether to force the compact view upon page load. Used only for testing;
@@ -172,8 +178,7 @@ export class ExperimentView extends Component {
     };
   }
 
-  /**
-   * Returns a LocalStorageStore instance that can be used to persist data associated with the
+  /* Returns a LocalStorageStore instance that can be used to persist data associated with the
    * ExperimentView component (e.g. component state such as table sort settings), for the
    * specified experiment.
    */
@@ -188,8 +193,7 @@ export class ExperimentView extends Component {
     return true;
   }
 
-  /**
-   * Returns true if search filter text was updated, e.g. if a user entered new text into the
+  /* Returns true if search filter text was updated, e.g. if a user entered new text into the
    * param filter, metric filter, or search text boxes.
    */
   filtersDidUpdate(prevState) {
@@ -251,15 +255,6 @@ export class ExperimentView extends Component {
       ...newPersistedState,
       runsSelected: newRunsSelected,
     };
-  }
-
-  setShowMultiColumns(value) {
-    this.setState({
-      persistedState: new ExperimentViewPersistedState({
-        ...this.state.persistedState,
-        showMultiColumns: value,
-      }).toJSON(),
-    });
   }
 
   disableOnboardingHelper() {
@@ -340,21 +335,12 @@ export class ExperimentView extends Component {
     this.setState({ showNotesEditor: true });
   };
 
-  handleColumnSelectionCheck = (categorizedUncheckedKeys) => {
-    this.setState({
-      persistedState: new ExperimentViewPersistedState({
-        ...this.state.persistedState,
-        categorizedUncheckedKeys,
-      }).toJSON(),
-    });
-  };
-
   handleFilterToggle = () => {
     this.setState((previousState) => ({ showFilters: !previousState.showFilters }));
   };
 
   getFilteredKeys(keyList, columnType) {
-    const { categorizedUncheckedKeys } = this.state.persistedState;
+    const { categorizedUncheckedKeys } = this.props;
     return _.difference(keyList, categorizedUncheckedKeys[columnType]);
   }
 
@@ -382,7 +368,6 @@ export class ExperimentView extends Component {
         />
       </div>
     );
-
     return this.state.showOnboardingHelper ? (
       <Alert
         className={css(styles.alert)}
@@ -393,6 +378,17 @@ export class ExperimentView extends Component {
         onClose={() => this.disableOnboardingHelper()}
       />
     ) : null;
+  }
+
+  renderShareButton() {
+    return (
+      <HeaderButton onClick={this.onShare} className={css(styles.shareButton)}>
+        <FormattedMessage
+          defaultMessage='Share'
+          description='String for the share button to share experiment view'
+        />
+      </HeaderButton>
+    );
   }
 
   static getLearnMoreLinkUrl = () => ExperimentTrackingDocUrl;
@@ -460,17 +456,15 @@ export class ExperimentView extends Component {
       orderByKey,
       orderByAsc,
       startTime,
+      showMultiColumns,
+      categorizedUncheckedKeys,
+      diffSwitchSelected,
       nestChildren,
       numberOfNewRuns,
     } = this.props;
     const { experiment_id, name } = experiment;
     const { persistedState } = this.state;
-    const {
-      unbaggedParams,
-      unbaggedMetrics,
-      categorizedUncheckedKeys,
-      diffSwitchSelected,
-    } = persistedState;
+    const { unbaggedParams, unbaggedMetrics } = persistedState;
     const filteredParamKeys = this.getFilteredKeys(paramKeyList, COLUMN_TYPES.PARAMS);
     const filteredMetricKeys = this.getFilteredKeys(metricKeyList, COLUMN_TYPES.METRICS);
     const visibleTagKeyList = Utils.getVisibleTagKeyList(tagsList);
@@ -520,12 +514,10 @@ export class ExperimentView extends Component {
     /* eslint-disable prefer-const */
     let breadcrumbs = [];
     let form;
-
     const artifactLocationProps = {
       experiment: this.props.experiment,
       intl: this.props.intl,
     };
-
     const ColumnSortByOrder = [COLUMN_SORT_BY_ASC, COLUMN_SORT_BY_DESC];
     let sortOptions = [];
     const attributesSortBy = Object.keys(ATTRIBUTE_COLUMN_SORT_LABEL).reduce(
@@ -612,6 +604,14 @@ export class ExperimentView extends Component {
             data-test-id='experiment-view-page-header'
             menu={this.getExperimentOverflowItems()}
           />
+          <Tooltip
+            title={this.props.intl.formatMessage({
+              defaultMessage: 'Share experiment view',
+              description: 'Label for the share experiment view button',
+            })}
+          >
+            {this.renderShareButton()}
+          </Tooltip>
         </PageHeader>
         {this.renderOnboardingContent()}
         <Descriptions className='metadata-list'>
@@ -775,20 +775,18 @@ export class ExperimentView extends Component {
                 <Spacer size='large' direction='horizontal'>
                   <Spacer size='medium' direction='horizontal'>
                     <Radio
-                      defaultValue={
-                        this.state.persistedState.showMultiColumns ? 'gridView' : 'compactView'
-                      }
+                      defaultValue={showMultiColumns ? 'gridView' : 'compactView'}
                       items={[
                         {
                           value: 'compactView',
                           itemContent: <i className={'fas fa-list'} />,
-                          onClick: (e) => this.setShowMultiColumns(false),
+                          onClick: (e) => this.props.setShowMultiColumns(false),
                           dataTestId: 'compact-runs-table-view-button',
                         },
                         {
                           value: 'gridView',
                           itemContent: <i className={'fas fa-table'} />,
-                          onClick: (e) => this.setShowMultiColumns(true),
+                          onClick: (e) => this.props.setShowMultiColumns(true),
                           dataTestId: 'detailed-runs-table-view-button',
                         },
                       ]}
@@ -798,7 +796,7 @@ export class ExperimentView extends Component {
                       metricKeyList={metricKeyList}
                       visibleTagKeyList={visibleTagKeyList}
                       categorizedUncheckedKeys={categorizedUncheckedKeys}
-                      onCheck={this.handleColumnSelectionCheck}
+                      onCheck={this.props.handleColumnSelectionCheck}
                     />
                   </Spacer>
                   <Spacer size='small' direction='horizontal'>
@@ -954,7 +952,7 @@ export class ExperimentView extends Component {
                 values={{ length: runInfos.length }}
               />
             </div>
-            {this.state.persistedState.showMultiColumns && !this.props.forceCompactTableView ? (
+            {showMultiColumns && !this.props.forceCompactTableView ? (
               <ExperimentRunsTableMultiColumnView2
                 experimentId={experiment.experiment_id}
                 modelVersionsByRunUuid={this.props.modelVersionsByRunUuid}
@@ -995,7 +993,7 @@ export class ExperimentView extends Component {
                 metricsList={this.props.metricsList}
                 tagsList={this.props.tagsList}
                 categorizedUncheckedKeys={categorizedUncheckedKeys}
-                onCheck={this.handleColumnSelectionCheck}
+                onCheck={this.props.handleColumnSelectionCheck}
                 onCheckAll={this.onCheckAll}
                 isAllChecked={this.isAllChecked()}
                 onSortBy={this.onSortBy}
@@ -1035,30 +1033,9 @@ export class ExperimentView extends Component {
     this.initiateSearch({ orderByKey, orderByAsc });
   }
 
-  initiateSearch({
-    searchInput,
-    lifecycleFilterInput,
-    modelVersionFilterInput,
-    orderByKey,
-    orderByAsc,
-    startTime,
-  }) {
-    const mySearchInput = searchInput !== undefined ? searchInput : this.props.searchInput;
-    const myLifecycleFilterInput =
-      lifecycleFilterInput !== undefined ? lifecycleFilterInput : this.props.lifecycleFilter;
-    const myOrderByKey = orderByKey !== undefined ? orderByKey : this.props.orderByKey;
-    const myOrderByAsc = orderByAsc !== undefined ? orderByAsc : this.props.orderByAsc;
-    const myModelVersionFilterInput = modelVersionFilterInput || this.props.modelVersionFilter;
-    const myStartTime = startTime || this.props.startTime;
+  initiateSearch(value) {
     try {
-      this.props.onSearch(
-        mySearchInput,
-        myLifecycleFilterInput,
-        myOrderByKey,
-        myOrderByAsc,
-        myModelVersionFilterInput,
-        myStartTime,
-      );
+      this.props.onSearch(value);
     } catch (ex) {
       if (ex.errorMessage !== undefined) {
         this.setState({ searchErrorMessage: ex.errorMessage });
@@ -1150,20 +1127,20 @@ export class ExperimentView extends Component {
     this.setState({ searchInput: event.target.value });
   };
 
-  handleLifecycleFilterInput({ key: lifecycleFilterInput }) {
-    this.initiateSearch({ lifecycleFilterInput });
+  handleLifecycleFilterInput({ key: lifecycleFilter }) {
+    this.initiateSearch({ lifecycleFilter });
   }
 
-  handleModelVersionFilterInput({ key: modelVersionFilterInput }) {
-    this.initiateSearch({ modelVersionFilterInput });
+  handleModelVersionFilterInput({ key: modelVersionFilter }) {
+    this.initiateSearch({ modelVersionFilter });
   }
 
-  handleDiffSwitchChange() {
+  handleDiffSwitchChange = () => {
     let newCategorizedUncheckedKeys;
     let switchPersistedState;
-    if (!this.state.persistedState.diffSwitchSelected) {
+    if (!this.props.diffSwitchSelected) {
       // When turning on the diff switch
-      const { categorizedUncheckedKeys } = this.state.persistedState;
+      const { categorizedUncheckedKeys } = this.props;
       newCategorizedUncheckedKeys = ExperimentViewUtil.getCategorizedUncheckedKeysDiffView({
         ...this.props,
         categorizedUncheckedKeys,
@@ -1178,7 +1155,7 @@ export class ExperimentView extends Component {
         preSwitchCategorizedUncheckedKeys,
         postSwitchCategorizedUncheckedKeys,
         categorizedUncheckedKeys: currCategorizedUncheckedKeys,
-      } = this.state.persistedState;
+      } = this.props;
       newCategorizedUncheckedKeys = ExperimentViewUtil.getRestoredCategorizedUncheckedKeys({
         preSwitchCategorizedUncheckedKeys,
         postSwitchCategorizedUncheckedKeys,
@@ -1187,19 +1164,11 @@ export class ExperimentView extends Component {
       switchPersistedState = {};
     }
 
-    this.setState(
-      {
-        persistedState: new ExperimentViewPersistedState({
-          ...this.state.persistedState,
-          diffSwitchSelected: !this.state.persistedState.diffSwitchSelected,
-          ...switchPersistedState,
-        }).toJSON(),
-      },
-      () => {
-        this.handleColumnSelectionCheck(newCategorizedUncheckedKeys);
-      },
-    );
-  }
+    this.props.handleDiffSwitchChange({
+      categorizedUncheckedKeys: newCategorizedUncheckedKeys,
+      ...switchPersistedState,
+    });
+  };
 
   onSearch = (e, searchInput) => {
     if (e !== undefined) {
@@ -1210,27 +1179,24 @@ export class ExperimentView extends Component {
     });
   };
 
+  onShare = () => {
+    this.props.updateUrlWithViewState();
+    navigator.clipboard.writeText(window.location.href);
+    message.info(
+      this.props.intl.formatMessage({
+        defaultMessage: 'Experiment view URL copied to clipboard',
+        description: 'Content of the message after clicking the share experiment button',
+      }),
+    );
+  };
+
   onClear = () => {
-    // When user clicks "Clear", preserve multicolumn toggle state but reset other persisted state
-    // attributes to their default values.
-    const newPersistedState = new ExperimentViewPersistedState({
-      showMultiColumns: this.state.persistedState.showMultiColumns,
-    });
     this.setState(
       {
-        persistedState: newPersistedState.toJSON(),
         searchInput: '',
       },
       () => {
-        this.snapshotComponentState();
-        this.initiateSearch({
-          searchInput: '',
-          lifecycleFilterInput: LIFECYCLE_FILTER.ACTIVE,
-          modelVersionFilterInput: MODEL_VERSION_FILTER.ALL_RUNS,
-          orderByKey: DEFAULT_ORDER_BY_KEY,
-          orderByAsc: DEFAULT_ORDER_BY_ASC,
-          startTime: DEFAULT_START_TIME,
-        });
+        this.props.onClear();
       },
     );
   };
@@ -1344,6 +1310,12 @@ const styles = {
     border: '1px solid #eeeeee',
     boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.12)' /* Dropshadow */,
     borderRadius: 4,
+  },
+  shareButton: {
+    padding: '6px 12px',
+    marginBottom: 8,
+    display: 'flex',
+    alignItems: 'center',
   },
 };
 
