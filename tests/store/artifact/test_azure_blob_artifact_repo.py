@@ -60,12 +60,12 @@ def test_default_az_cred_if_no_env_vars(mock_default_azure_credential, mock_clie
     assert mock_default_azure_credential.call_count == 1
 
 
-def test_parse_wasbs_uri():
+def test_parse_global_wasbs_uri():
     parse = AzureBlobArtifactRepository.parse_wasbs_uri
-    assert parse("wasbs://cont@acct.blob.core.windows.net/path") == ("cont", "acct", "path")
-    assert parse("wasbs://cont@acct.blob.core.windows.net") == ("cont", "acct", "")
-    assert parse("wasbs://cont@acct.blob.core.windows.net/") == ("cont", "acct", "")
-    assert parse("wasbs://cont@acct.blob.core.windows.net/a/b") == ("cont", "acct", "a/b")
+    assert parse("wasbs://cont@acct.blob.core.windows.net/path") == ("cont", "acct", "path", "blob.core.windows.net")
+    assert parse("wasbs://cont@acct.blob.core.windows.net") == ("cont", "acct", "", "blob.core.windows.net")
+    assert parse("wasbs://cont@acct.blob.core.windows.net/") == ("cont", "acct", "", "blob.core.windows.net")
+    assert parse("wasbs://cont@acct.blob.core.windows.net/a/b") == ("cont", "acct", "a/b", "blob.core.windows.net")
     with pytest.raises(Exception, match="WASBS URI must be of the form"):
         parse("wasbs://cont@acct.blob.core.evil.net/path")
     with pytest.raises(Exception, match="WASBS URI must be of the form"):
@@ -78,6 +78,26 @@ def test_parse_wasbs_uri():
         parse("wasbs://cont@acctxblob.core.windows.net/path")
     with pytest.raises(Exception, match="Not a WASBS URI"):
         parse("wasb://cont@acct.blob.core.windows.net/path")
+
+
+def test_parse_cn_wasbs_uri():
+    parse = AzureBlobArtifactRepository.parse_wasbs_uri
+    assert parse("wasbs://cont@acct.blob.core.chinacloudapi.cn/path") == ("cont", "acct", "path", "blob.core.chinacloudapi.cn")
+    assert parse("wasbs://cont@acct.blob.core.chinacloudapi.cn") == ("cont", "acct", "", "blob.core.chinacloudapi.cn")
+    assert parse("wasbs://cont@acct.blob.core.chinacloudapi.cn/") == ("cont", "acct", "", "blob.core.chinacloudapi.cn")
+    assert parse("wasbs://cont@acct.blob.core.chinacloudapi.cn/a/b") == ("cont", "acct", "a/b", "blob.core.chinacloudapi.cn")
+    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+        parse("wasbs://cont@acct.blob.core.chinacloudapi.cn/path")
+    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+        parse("wasbs://cont@acct/path")
+    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+        parse("wasbs://acct.blob.core.chinacloudapi.cn/path")
+    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+        parse("wasbs://@acct.blob.core.chinacloudapi.cn/path")
+    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+        parse("wasbs://cont@acctxblob.core.chinacloudapi.cn/path")
+    with pytest.raises(Exception, match="Not a WASBS URI"):
+        parse("wasb://cont@acct.blob.core.chinacloudapi.cn/path")
 
 
 def test_list_artifacts_empty(mock_client):
