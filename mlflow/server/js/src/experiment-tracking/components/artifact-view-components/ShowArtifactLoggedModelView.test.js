@@ -31,7 +31,6 @@ flavors:
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<ShowArtifactLoggedModelView {...minimalProps} />);
     expect(wrapper.length).toBe(1);
   });
 

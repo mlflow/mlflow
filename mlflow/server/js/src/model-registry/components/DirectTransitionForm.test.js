@@ -11,7 +11,7 @@ describe('DirectTransitionForm', () => {
 
   beforeEach(() => {
     minimalProps = {
-      form: { getFieldDecorator: jest.fn(() => (c) => c) },
+      innerRef: React.createRef(),
     };
   });
 
