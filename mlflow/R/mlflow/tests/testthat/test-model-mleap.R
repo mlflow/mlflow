@@ -7,7 +7,7 @@ for (i in 0:4){
         expr = {
             config <- spark_config()
             config$sparklyr.gateway.port <- httpuv::randomPort()
-            sc <- sparklyr::spark_connect(master = host, version = "2.4.5", config=config)
+            sc <- sparklyr::spark_connect(master = "local", version = "2.4.5", config=config)
         },
         error = function(e){
             if (i == 4){
