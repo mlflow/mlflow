@@ -2,7 +2,7 @@ name: prophet-example
 channels:
   - conda-forge
 dependencies:
-  - python=3.6
+  - python=3.8
   - pip
   - pip:
     - prophet>=1.0.1
