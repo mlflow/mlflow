@@ -94,7 +94,8 @@ test_that("mlflow models server api works with R model function", {
   fn <- crate(~ stats::predict(model, .x), model = model)
   mlflow_save_model(fn, path = "model")
   expect_true(dir.exists("model"))
-  port <- httpuv::randomPort()
+  # port <- httpuv::randomPort()
+  port <- 8880
   testthat_model_server <<- mlflow:::mlflow_cli("models", "serve", "-m", "model", "-p", as.character(port),
     background = TRUE
   )

@@ -2,6 +2,7 @@ context("Model mleap")
 
 library(mleap)
 
+options(sparklyr.log.console = TRUE)
 sc <- sparklyr::spark_connect(master = "local", version = "2.4.5")
 testthat_model_dir <- basename(tempfile("model_"))
 
