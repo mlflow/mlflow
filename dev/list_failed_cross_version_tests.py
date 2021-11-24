@@ -47,14 +47,12 @@ def create_session():
 
 
 def main():
-    session = create_session()
-    url = (
-        "https://api.github.com/repos/mlflow/mlflow/actions/workflows/cross-version-tests.yml/runs"
-    )
-    resp = session.get(url, params={"event": "schedule"})
-    latest_run_id = resp.json()["workflow_runs"][0]["id"]
-    failed_jobs = fetch_failed_jobs(session, latest_run_id)
-    print(json.dumps(failed_jobs, indent=2))
+    with create_session() as session:
+        url = "https://api.github.com/repos/mlflow/mlflow/actions/workflows/cross-version-tests.yml/runs"
+        resp = session.get(url, params={"event": "schedule"})
+        latest_run_id = resp.json()["workflow_runs"][0]["id"]
+        failed_jobs = fetch_failed_jobs(session, latest_run_id)
+        print(json.dumps(failed_jobs, indent=2))
 
 
 if __name__ == "__main__":
