@@ -5,7 +5,8 @@ library(mleap)
 for (i in 0:4){
     tryCatch(
         expr = {
-            sc <- sparklyr::spark_connect(master = "local", version = "2.4.5")
+            host <- sprintf("local:%s"), 8881 + i)
+            sc <- sparklyr::spark_connect(master = host, version = "2.4.5")
         },
         error = function(e){
             if (i == 4){
