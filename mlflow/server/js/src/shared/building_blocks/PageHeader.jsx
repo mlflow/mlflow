@@ -102,7 +102,7 @@ export class PageHeader extends React.Component {
 const antButtonHeight = '32px';
 const styles = {
   titleContainer: {
-    marginBottom: 16,
+    marginBottom: 8,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -117,11 +117,6 @@ const styles = {
     flexShrink: 1,
     display: 'flex',
     alignItems: 'flex-end',
-    button: {
-      padding: '6px 12px',
-      display: 'flex', 
-      alignItems: 'center',
-    }
   },
   hr: {
     marginTop: 0, // hr margin comes from bootstrap. Must override.

@@ -380,6 +380,17 @@ export class ExperimentView extends Component {
     ) : null;
   }
 
+  renderShareButton() {
+    return (
+      <HeaderButton onClick={this.onShare} className={css(styles.shareButton)}>
+        <FormattedMessage
+          defaultMessage='Share'
+          description='String for the share button to share experiment view'
+        />
+      </HeaderButton>
+    );
+  }
+
   static getLearnMoreLinkUrl = () => ExperimentTrackingDocUrl;
 
   getModelVersionMenuItem(key, data_test_id, text) {
@@ -599,12 +610,7 @@ export class ExperimentView extends Component {
               description: 'Label for the share experiment view button',
             })}
           >
-            <HeaderButton onClick={this.onShare}>
-              <FormattedMessage
-                defaultMessage='Share'
-                description='String for the share button to share experiment view'
-              />
-            </HeaderButton>
+            {this.renderShareButton()}
           </Tooltip>
         </PageHeader>
         {this.renderOnboardingContent()}
@@ -1304,6 +1310,12 @@ const styles = {
     border: '1px solid #eeeeee',
     boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.12)' /* Dropshadow */,
     borderRadius: 4,
+  },
+  shareButton: {
+    padding: '6px 12px',
+    marginBottom: 8,
+    display: 'flex',
+    alignItems: 'center',
   },
 };
 
