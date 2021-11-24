@@ -13,6 +13,7 @@ from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.artifact.sftp_artifact_repo import SFTPArtifactRepository
 from mlflow.store.artifact.http_artifact_repo import HttpArtifactRepository
+from mlflow.store.artifact.mlflow_artifacts_repo import MlflowArtifactsRepository
 
 from mlflow.utils.uri import get_uri_scheme
 
@@ -88,6 +89,7 @@ _artifact_repository_registry.register("runs", RunsArtifactRepository)
 _artifact_repository_registry.register("models", ModelsArtifactRepository)
 for scheme in ["http", "https"]:
     _artifact_repository_registry.register(scheme, HttpArtifactRepository)
+_artifact_repository_registry.register("mlflow-artifacts", MlflowArtifactsRepository)
 
 _artifact_repository_registry.register_entrypoints()
 
