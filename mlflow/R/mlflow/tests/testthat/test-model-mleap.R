@@ -2,7 +2,30 @@ context("Model mleap")
 
 library(mleap)
 
-sc <- sparklyr::spark_connect(master = "local", version = "2.4.5")
+for (i in 0:4){
+    tryCatch(
+        expr = {
+            config <- sparklyr::spark_config()
+            config$sparklyr.gateway.port <- httpuv::randomPort()
+            sc <- sparklyr::spark_connect(master = "local", version = "2.4.5", config=config)
+        },
+        error = function(e){
+            if (i == 4){
+                stop("Exhausted retries in getting SparkContext. Aborting.")
+            }
+            message("An error occured while getting a SparkContext:")
+            print(e)
+            sleep_duration = (2 * i) + 1
+            message(sprintf("\nSleeping for %s seconds and retrying...", sleep_duration))
+            Sys.sleep(sleep_duration)
+        },
+        warning = function(w){
+            message("A warning occurred:")
+            print(w)
+        }
+    )
+}
+
 testthat_model_dir <- basename(tempfile("model_"))
 
 teardown({
