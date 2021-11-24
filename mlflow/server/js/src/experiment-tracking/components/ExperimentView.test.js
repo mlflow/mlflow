@@ -370,23 +370,27 @@ describe('Sort by dropdown', () => {
       startTime: 'ALL',
     });
 
-    const sortSelect = wrapper.find("Select [data-test-id='sort-select-dropdown']").first();
-    sortSelect.simulate('click');
+    const sortSelect = wrapper
+      .find("Select [data-test-id='sort-select-dropdown'] > .ant-select-selector")
+      .first();
+    sortSelect.simulate('mousedown');
+    wrapper.update();
 
-    expect(wrapper.exists(`[data-test-id="sort-select-User-${COLUMN_SORT_BY_ASC}"] li`)).toBe(true);
-    expect(wrapper.exists(`[data-test-id="sort-select-batch_size-${COLUMN_SORT_BY_ASC}"] li`)).toBe(
+    expect(wrapper.exists(`[data-test-id="sort-select-User-${COLUMN_SORT_BY_ASC}"]`)).toBe(true);
+    expect(wrapper.exists(`[data-test-id="sort-select-batch_size-${COLUMN_SORT_BY_ASC}"]`)).toBe(
       true,
     );
-    expect(wrapper.exists(`[data-test-id="sort-select-acc-${COLUMN_SORT_BY_ASC}"] li`)).toBe(true);
-    expect(wrapper.exists(`[data-test-id="sort-select-User-${COLUMN_SORT_BY_DESC}"] li`)).toBe(
+    expect(wrapper.exists(`[data-test-id="sort-select-acc-${COLUMN_SORT_BY_ASC}"]`)).toBe(true);
+    expect(wrapper.exists(`[data-test-id="sort-select-User-${COLUMN_SORT_BY_DESC}"]`)).toBe(true);
+    expect(wrapper.exists(`[data-test-id="sort-select-batch_size-${COLUMN_SORT_BY_DESC}"]`)).toBe(
       true,
     );
-    expect(
-      wrapper.exists(`[data-test-id="sort-select-batch_size-${COLUMN_SORT_BY_DESC}"] li`),
-    ).toBe(true);
-    expect(wrapper.exists(`[data-test-id="sort-select-acc-${COLUMN_SORT_BY_DESC}"] li`)).toBe(true);
+    expect(wrapper.exists(`[data-test-id="sort-select-acc-${COLUMN_SORT_BY_DESC}"]`)).toBe(true);
 
-    sortSelect.prop('onChange')('attributes.start_time');
+    wrapper
+      .find("Select [data-test-id='sort-select-dropdown']")
+      .first()
+      .prop('onChange')('attributes.start_time');
     expect(onSearchSpy).toBeCalledWith(
       '',
       LIFECYCLE_FILTER.ACTIVE,
@@ -407,18 +411,21 @@ describe('Start time dropdown', () => {
     });
 
     const startTimeSelect = wrapper
-      .find("Select [data-test-id='start-time-select-dropdown']")
+      .find("Select [data-test-id='start-time-select-dropdown'] > .ant-select-selector")
       .first();
-    startTimeSelect.simulate('click');
+    startTimeSelect.simulate('mousedown');
 
-    expect(wrapper.exists('[data-test-id="start-time-select-ALL"] li')).toBe(true);
-    expect(wrapper.exists('[data-test-id="start-time-select-LAST_HOUR"] li')).toBe(true);
-    expect(wrapper.exists('[data-test-id="start-time-select-LAST_24_HOURS"] li')).toBe(true);
-    expect(wrapper.exists('[data-test-id="start-time-select-LAST_7_DAYS"] li')).toBe(true);
-    expect(wrapper.exists('[data-test-id="start-time-select-LAST_30_DAYS"] li')).toBe(true);
-    expect(wrapper.exists('[data-test-id="start-time-select-LAST_YEAR"] li')).toBe(true);
+    expect(wrapper.exists('[data-test-id="start-time-select-ALL"]')).toBe(true);
+    expect(wrapper.exists('[data-test-id="start-time-select-LAST_HOUR"]')).toBe(true);
+    expect(wrapper.exists('[data-test-id="start-time-select-LAST_24_HOURS"]')).toBe(true);
+    expect(wrapper.exists('[data-test-id="start-time-select-LAST_7_DAYS"]')).toBe(true);
+    expect(wrapper.exists('[data-test-id="start-time-select-LAST_30_DAYS"]')).toBe(true);
+    expect(wrapper.exists('[data-test-id="start-time-select-LAST_YEAR"]')).toBe(true);
 
-    startTimeSelect.prop('onChange')('LAST_7_DAYS');
+    wrapper
+      .find("Select [data-test-id='start-time-select-dropdown']")
+      .first()
+      .prop('onChange')('LAST_7_DAYS');
     expect(onSearchSpy).toBeCalledWith(
       '',
       LIFECYCLE_FILTER.ACTIVE,

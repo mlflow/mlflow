@@ -65,9 +65,10 @@ describe('SearchTree', () => {
   });
 
   test('should render search tree properly', () => {
-    wrapper = shallowWithInjectIntl(<SearchTree {...commonProps} />);
+    // TODO: this is a dumb test; make this better
+    wrapper = mountWithIntl(<SearchTree {...commonProps} />);
     const treeNodes = wrapper.find(TreeNode);
-    expect(treeNodes.length).toBe(7);
+    expect(treeNodes.length).toBe(3);
   });
 
   test('should highlight filter matched nodes correctly', () => {

@@ -25,9 +25,13 @@ export class CollapsibleTagsCell extends React.Component {
 
   render() {
     const visibleTags = Utils.getVisibleTagValues(this.props.tags);
-    const tagsToDisplay = this.state.collapsed
-      ? visibleTags.slice(0, NUM_TAGS_ON_COLLAPSED)
-      : visibleTags;
+    // In cases where only 1 tag would be shown on expansion,
+    // we should just show the tag instead of the expansion button
+    const showCellExpansion = visibleTags.length > NUM_TAGS_ON_COLLAPSED + 1;
+    const tagsToDisplay =
+      this.state.collapsed && showCellExpansion
+        ? visibleTags.slice(0, NUM_TAGS_ON_COLLAPSED)
+        : visibleTags;
     const showLess = (
       <div onClick={this.handleToggleCollapse} className='expander-text'>
         Less
@@ -56,7 +60,7 @@ export class CollapsibleTagsCell extends React.Component {
             </div>
           );
         })}
-        {visibleTags.length > 3 ? (this.state.collapsed ? showMore : showLess) : null}
+        {showCellExpansion ? (this.state.collapsed ? showMore : showLess) : null}
       </div>
     );
   }
