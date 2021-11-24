@@ -2,6 +2,7 @@ context("Model mleap")
 
 library(mleap)
 
+mlflow:::mlflow_cli("server", "-p", "8880", background = TRUE)
 options(sparklyr.log.console = TRUE)
 sc <- sparklyr::spark_connect(master = "local", version = "2.4.5")
 testthat_model_dir <- basename(tempfile("model_"))
