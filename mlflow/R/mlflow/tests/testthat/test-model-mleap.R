@@ -5,7 +5,7 @@ library(mleap)
 for (i in 0:4){
     tryCatch(
         expr = {
-            config <- spark_config()
+            config <- sparklyr::spark_config()
             config$sparklyr.gateway.port <- httpuv::randomPort()
             sc <- sparklyr::spark_connect(master = "local", version = "2.4.5", config=config)
         },
