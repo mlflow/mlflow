@@ -381,9 +381,9 @@ def autolog(
                    autologging. If ``False``, show all events and warnings during XGBoost
                    autologging.
     """
+    import functools
     import xgboost
     import numpy as np
-    import functools
 
     if importance_types is None:
         importance_types = ["weight"]
@@ -583,8 +583,8 @@ def autolog(
             # If early_stopping_rounds is present, logging metrics at the best iteration
             # as extra metrics with the max step + 1.
             early_stopping_index = all_arg_names.index("early_stopping_rounds")
-            early_stopping = (
-                num_pos_args >= early_stopping_index + 1 or "early_stopping_rounds" in kwargs
+            early_stopping = num_pos_args >= early_stopping_index + 1 or (
+                "early_stopping_rounds" in kwargs and kwargs["early_stopping_rounds"]
             )
             if early_stopping:
                 extra_step = len(eval_results)
@@ -669,6 +669,11 @@ def autolog(
         return model
 
     safe_patch(FLAVOR_NAME, xgboost, "train", functools.partial(train, log_models), manage_run=True)
+    # The `train()` method logs XGBoost models as Booster objects. When using XGBoost
+    # scikit-learn models, we want to save / log models as their model classes. So we turn
+    # off the log_models functionality in the `train()` method patched to `xgboost.sklearn`.
+    # Instead the model logging is handled in `fit_mlflow_sklearn()` in `mlflow.sklearn._autolog()`,
+    # where models are logged as XGBoost scikit-learn models after the `fit()` method returns.
     safe_patch(
         FLAVOR_NAME, xgboost.sklearn, "train", functools.partial(train, False), manage_run=True
     )

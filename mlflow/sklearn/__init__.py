@@ -1229,12 +1229,6 @@ def _autolog(
         """
         Autologging function for XGBoost scikit-learn models
         """
-        autologging_client = MlflowAutologgingQueueingClient()
-        autologging_client.set_tags(
-            run_id=mlflow.active_run().info.run_id,
-            tags=_get_estimator_info_tags(self),
-        )
-        tags_logging = autologging_client.flush(synchronous=False)
         # parameter, metric, and non-model artifact logging
         # are done in `train()` in `mlflow.xgboost.autolog()`
         fit_output = original(self, *args, **kwargs)
@@ -1254,7 +1248,6 @@ def _autolog(
                 signature=signature,
                 input_example=input_example,
             )
-        tags_logging.await_completion()
         return fit_output
 
     def fit_mlflow(original, self, *args, **kwargs):

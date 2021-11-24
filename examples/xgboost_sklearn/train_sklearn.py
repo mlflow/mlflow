@@ -2,7 +2,7 @@ from pprint import pprint
 
 import pandas as pd
 import xgboost as xgb
-from sklearn.datasets import load_wine
+from sklearn.datasets import load_diabetes
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 
@@ -15,9 +15,9 @@ from utils import fetch_logged_data
 
 def main():
     # prepare example dataset
-    wine = load_wine()
-    X = pd.DataFrame(wine.data, columns=wine.feature_names)
-    y = pd.Series(wine.target)
+    diabetes = load_diabetes()
+    X = pd.DataFrame(diabetes.data, columns=diabetes.feature_names)
+    y = pd.Series(diabetes.target)
     X_train, X_test, y_train, y_test = train_test_split(X, y)
 
     # enable auto logging
@@ -26,8 +26,8 @@ def main():
 
     with mlflow.start_run() as run:
 
-        regressor = xgb.XGBRegressor(n_estimators=100, reg_lambda=1, gamma=0, max_depth=3)
-        regressor.fit(X_train, y_train)
+        regressor = xgb.XGBRegressor(n_estimators=20, reg_lambda=1, gamma=0, max_depth=3)
+        regressor.fit(X_train, y_train, eval_set=[(X_test, y_test)])
         y_pred = regressor.predict(X_test)
         mse = mean_squared_error(y_test, y_pred)
         run_id = run.info.run_id
