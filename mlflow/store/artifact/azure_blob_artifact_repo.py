@@ -56,7 +56,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
 
     @staticmethod
     def parse_wasbs_uri(uri):
-        """Parse a wasbs:// URI, returning (container, storage_account, path)."""
+        """Parse a wasbs:// URI, returning (container, storage_account, path, api_uri_suffix)."""
         parsed = urllib.parse.urlparse(uri)
         if parsed.scheme != "wasbs":
             raise Exception("Not a WASBS URI: %s" % uri)
@@ -67,11 +67,11 @@ class AzureBlobArtifactRepository(ArtifactRepository):
             )
         container = match.group(1)
         storage_account = match.group(2)
-        api_uri = match.group(3)
+        api_uri_suffix = match.group(3)
         path = parsed.path
         if path.startswith("/"):
             path = path[1:]
-        return container, storage_account, path, api_uri
+        return container, storage_account, path, api_uri_suffix
 
     def log_artifact(self, local_file, artifact_path=None):
         (container, _, dest_path, _) = self.parse_wasbs_uri(self.artifact_uri)
