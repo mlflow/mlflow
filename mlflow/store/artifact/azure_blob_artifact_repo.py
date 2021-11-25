@@ -36,7 +36,9 @@ class AzureBlobArtifactRepository(ArtifactRepository):
                 conn_str=os.environ.get("AZURE_STORAGE_CONNECTION_STRING")
             )
         elif "AZURE_STORAGE_ACCESS_KEY" in os.environ:
-            account_url = "https://{account}.{api_uri_suffix}".format(account=account, api_uri_suffix=api_uri_suffix)
+            account_url = "https://{account}.{api_uri_suffix}".format(
+                account=account, api_uri_suffix=api_uri_suffix
+            )
             self.client = BlobServiceClient(
                 account_url=account_url, credential=os.environ.get("AZURE_STORAGE_ACCESS_KEY")
             )
@@ -49,7 +51,9 @@ class AzureBlobArtifactRepository(ArtifactRepository):
                     "Please install it via: pip install azure-identity"
                 ) from exc
 
-            account_url = "https://{account}.{api_uri_suffix}".format(account=account, api_uri_suffix=api_uri_suffix)
+            account_url = "https://{account}.{api_uri_suffix}".format(
+                account=account, api_uri_suffix=api_uri_suffix
+            )
             self.client = BlobServiceClient(
                 account_url=account_url, credential=DefaultAzureCredential()
             )
@@ -60,10 +64,16 @@ class AzureBlobArtifactRepository(ArtifactRepository):
         parsed = urllib.parse.urlparse(uri)
         if parsed.scheme != "wasbs":
             raise Exception("Not a WASBS URI: %s" % uri)
-        match = re.match(r"([^@]+)@([^.]+)\.(blob\.core\.(windows\.net|chinacloudapi\.cn))", parsed.netloc)
+
+        match = re.match(
+            r"([^@]+)@([^.]+)\.(blob\.core\.(windows\.net|chinacloudapi\.cn))", parsed.netloc
+        )
+
         if match is None:
             raise Exception(
-                "WASBS URI must be of the form " "<container>@<account>.blob.core.windows.net" " or <container>@<account>.blob.core.chinacloudapi.cn"
+                "WASBS URI must be of the form "
+                "<container>@<account>.blob.core.windows.net"
+                " or <container>@<account>.blob.core.chinacloudapi.cn"
             )
         container = match.group(1)
         storage_account = match.group(2)
