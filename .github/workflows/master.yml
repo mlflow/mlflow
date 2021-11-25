@@ -36,9 +36,10 @@ jobs:
     - name: Install dependencies
       timeout-minutes: 30
       run: |
-        pip install -U pip wheel
+        pip install -U pip wheel pip-tools
         pip install -e '.[extras]'
-        pip install -r requirements/test-requirements.txt
+        pip-compile --output-file compiled-requirements.txt requirements/dev-requirements
+        pip install -r compiled-requirements.txt
   windows:
     runs-on: windows-latest
     steps:
@@ -49,9 +50,10 @@ jobs:
     - name: Install dependencies
       timeout-minutes: 30
       run: |
-        pip install -U pip wheel
+        pip install -U pip wheel pip-tools
         pip install -e '.[extras]'
-        pip install -r requirements/test-requirements.txt
+        pip-compile --output-file compiled-requirements.txt requirements/dev-requirements
+        pip install -r compiled-requirements.txt
   macos:
     runs-on: macos-latest
     steps:
@@ -62,9 +64,10 @@ jobs:
     - name: Install dependencies
       timeout-minutes: 30
       run: |
-        pip install -U pip wheel
+        pip install -U pip wheel pip-tools
         pip install -e '.[extras]'
-        pip install -r requirements/test-requirements.txt
+        pip-compile --output-file compiled-requirements.txt requirements/dev-requirements
+        pip install -r compiled-requirements.txt
   # lint:
   #   runs-on: ubuntu-latest
   #   steps:
