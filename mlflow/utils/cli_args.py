@@ -103,6 +103,7 @@ ARTIFACTS_DESTINATION = click.option(
 SERVE_ARTIFACTS = click.option(
     "--serve-artifacts",
     is_flag=True,
+    default=False,
     help="If specified, enables serving of artifact uploads, downloads, and list requests "
     "by routing these requests to the storage location that is specified by "
     "'--artifact-destination' directly through a proxy. The default location that "
