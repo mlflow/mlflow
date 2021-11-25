@@ -98,8 +98,8 @@ def save_model(
     """
     Save an XGBoost model to a path on the local file system.
 
-    :param xgb_model: XGBoost model (an instance of `xgboost.Booster`_ or models that implement the `scikit-learn API`_) to be saved.
-
+    :param xgb_model: XGBoost model (an instance of `xgboost.Booster`_ or
+                      models that implement the `scikit-learn API`_) to be saved.
     :param path: Local path where the model is to be saved.
     :param conda_env: {{ conda_env }}
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
@@ -207,7 +207,8 @@ def log_model(
     """
     Log an XGBoost model as an MLflow artifact for the current run.
 
-    :param xgb_model: XGBoost model (an instance of `xgboost.Booster`_ or models that implement the `scikit-learn API`_) to be saved.
+    :param xgb_model: XGBoost model (an instance of `xgboost.Booster`_ or
+                      models that implement the `scikit-learn API`_) to be saved.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: {{ conda_env }}
     :param registered_model_name: If given, create a model version under
