@@ -60,7 +60,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
         parsed = urllib.parse.urlparse(uri)
         if parsed.scheme != "wasbs":
             raise Exception("Not a WASBS URI: %s" % uri)
-        match = re.match("([^@]+)@([^.]+)\\.(blob\\.core\\.(windows\\.net|chinacloudapi\\.cn))", parsed.netloc)
+        match = re.match(r"([^@]+)@([^.]+)\.(blob\.core\.(windows\.net|chinacloudapi\.cn))", parsed.netloc)
         if match is None:
             raise Exception(
                 "WASBS URI must be of the form " "<container>@<account>.blob.core.windows.net" " or <container>@<account>.blob.core.chinacloudapi.cn"
