@@ -21,7 +21,7 @@ def parse_args(args):
     parser.add_argument(
         "-p",
         "--path",
-        help="Path to the ML package versions yaml (default: mlflow/pypi_package_index.json)",
+        help="Path to the PyPI package index (default: mlflow/pypi_package_index.json)",
         default="mlflow/pypi_package_index.json",
         required=False,
     )
