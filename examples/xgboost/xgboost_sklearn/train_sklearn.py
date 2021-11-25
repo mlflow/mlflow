@@ -39,10 +39,6 @@ def main():
         print("\n---------- logged {} ----------".format(key))
         pprint(data)
 
-    mlflow.xgboost.save_model(regressor, "trained_model/")
-    reload_model = mlflow.pyfunc.load_model("trained_model/")
-    np.testing.assert_array_almost_equal(y_pred, reload_model.predict(X_test))
-
 
 if __name__ == "__main__":
     main()
