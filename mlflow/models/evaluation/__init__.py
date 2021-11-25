@@ -13,6 +13,11 @@ from mlflow.entities import Metric, RunTag
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _get_fully_qualified_class_name, load_class
 from mlflow.pyfunc import PyFuncModel
+import pyspark.sql
+import logging
+
+
+_logger = logging.getLogger(__name__)
 
 
 class EvaluationMetrics(dict):
@@ -20,14 +25,23 @@ class EvaluationMetrics(dict):
 
 
 class EvaluationArtifact:
-    def __init__(self, location, content=None):
+    def __init__(self, uri, content=None):
         self._content = content
-        self._location = location
+        self._uri = uri
 
     def _load_content_from_file(self, local_artifact_path):
         raise NotImplementedError()
 
-    def _save_content_to_file(self, output_artifact_path):
+    def load(self, local_artifact_path=None):
+        if local_artifact_path is None:
+            return self._load_content_from_file(local_artifact_path)
+        else:
+            with TempDir() as temp_dir:
+                local_artifact_file = temp_dir.path("local_artifact")
+                _download_artifact_from_uri(self._uri, local_artifact_file)
+                self._load_content_from_file(local_artifact_file)
+
+    def save(self, output_artifact_path):
         raise NotImplementedError()
 
     @property
@@ -36,19 +50,15 @@ class EvaluationArtifact:
         The content of the artifact (representation varies)
         """
         if self._content is None:
-            with TempDir() as temp_dir:
-                local_artifact_file = temp_dir.path("local_artifact")
-                _download_artifact_from_uri(self._location, local_artifact_file)
-                self._load_content_from_file(local_artifact_file)
-
+            self.load()
         return self._content
 
     @property
-    def location(self) -> str:
+    def uri(self) -> str:
         """
-        The location of the artifact
+        The URI of the artifact
         """
-        return self._location
+        return self._uri
 
 
 class EvaluationResult:
@@ -99,7 +109,7 @@ class EvaluationResult:
         os.mkdir(artifacts_dir)
 
         for artifact_name, artifact in self.artifacts.items():
-            artifact._save_content_to_file(
+            artifact.save(
                 os.path.join(artifacts_dir, artifact_name)
             )
 
@@ -119,6 +129,16 @@ class EvaluationResult:
         return self._artifacts
 
 
+_cached_mlflow_client = None
+
+
+def _get_mlflow_client():
+    global _cached_mlflow_client
+    if _cached_mlflow_client is None:
+        _cached_mlflow_client = mlflow.tracking.MlflowClient()
+    return _cached_mlflow_client
+
+
 class EvaluationDataset:
     """
     Represents an input dataset for model evaluation. This is intended for
@@ -126,12 +146,13 @@ class EvaluationDataset:
     """
 
     NUM_SAMPLE_ROWS_FOR_HASH = 5
+    SPARK_DATAFRAME_LIMIT = 10000
 
     def __init__(self, data, labels, name=None, path=None):
         """
         :param data: One of the following:
          - A numpy array or list of evaluation features, excluding labels.
-         - A Pandas DataFrame, or the path to a serialized DataFrame,
+         - A Pandas DataFrame, or a spark DataFrame,
            containing evaluation features and labels. All columns will be regarded as feature
            columns except the "labels" column.
 
@@ -146,9 +167,9 @@ class EvaluationDataset:
           (e.g. a delta table, parquet file)
         """
         if name is not None and '"' in name:
-            raise ValueError(f'Dataset name cannot include " but got name {name}')
+            raise ValueError(f'Dataset name cannot include a double quote (") but got name {name}')
         if path is not None and '"' in path:
-            raise ValueError(f'Dataset path cannot include " but got name {path}')
+            raise ValueError(f'Dataset path cannot include a double quote (") but got name {path}')
 
         if isinstance(data, (np.ndarray, list)):
             if not isinstance(labels, (np.ndarray, list)):
@@ -156,7 +177,7 @@ class EvaluationDataset:
                     'If data is a numpy array or list of evaluation features, '
                     'labels must be a numpy array or list of evaluation labels'
                 )
-        elif isinstance(data, pd.DataFrame):
+        elif isinstance(data, (pd.DataFrame, pyspark.sql.DataFrame)):
             if not isinstance(labels, str):
                 raise ValueError(
                     'If data is a Pandas DataFrame, labels must be the string name of a column '
@@ -175,16 +196,23 @@ class EvaluationDataset:
     def _extract_features_and_labels(self):
         if isinstance(self.data, np.ndarray):
             return self.data, self.labels
-        elif isinstance(self.data, pd.DataFrame):
-            feature_cols = [x for x in self.data.columns if x != self.labels]
-            return self.data[feature_cols], self.data[self.labels]
+        elif isinstance(self.data, (pd.DataFrame, pyspark.sql.DataFrame)):
+            if isinstance(self.data, pyspark.sql.DataFrame):
+                data = self.data.limit(EvaluationDataset.SPARK_DATAFRAME_LIMIT).toPandas()
+                _logger.warning(
+                    f'Only the first {EvaluationDataset.SPARK_DATAFRAME_LIMIT} rows in the '
+                    f'spark dataframe are examined.')
+            else:
+                data = self.data
+            feature_cols = [x for x in data.columns if x != self.labels]
+            return data[feature_cols], data[self.labels]
         else:
             raise ValueError(f'Unsupported data type: {type(self.data)}')
 
     @staticmethod
     def _array_like_obj_to_bytes(data):
         if isinstance(data, pd.DataFrame):
-            return data.to_numpy().tobytes()
+            return data.to_numpy().tobytes() + data.columns.to_numpy().tobytes()
         elif isinstance(data, np.ndarray):
             return data.tobytes()
         elif isinstance(data, list):
@@ -194,7 +222,7 @@ class EvaluationDataset:
 
     @staticmethod
     def _gen_md5_for_arraylike_obj(md5_gen, data):
-        md5_gen.update(pickle.dumps(len(data)))
+        md5_gen.update(np.int64(len(data)).tobytes())
         if len(data) < EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH * 2:
             md5_gen.update(EvaluationDataset._array_like_obj_to_bytes(data))
         else:
@@ -240,6 +268,33 @@ class EvaluationDataset:
             metadata["path"] = self.path
         return metadata
 
+    def _log_dataset_tag(self, run_id):
+        client = _get_mlflow_client()
+        timestamp = int(time.time() * 1000)
+        existing_dataset_metadata_str = client.get_run(run_id).data.tags.get("mlflow.datasets")
+        if existing_dataset_metadata_str is not None:
+            dataset_metadata_list = json.loads(existing_dataset_metadata_str)
+        else:
+            dataset_metadata_list = []
+
+        metadata_exists = False
+        for metadata in dataset_metadata_list:
+            if (
+                    metadata["hash"] == self.hash
+                    and metadata["name"] == self._user_specified_name
+            ):
+                metadata_exists = True
+                break
+
+        if not metadata_exists:
+            dataset_metadata_list.append(self._metadata)
+
+        dataset_metadata_str = json.dumps(dataset_metadata_list)
+        client.log_batch(
+            run_id,
+            tags=[RunTag("mlflow.datasets", dataset_metadata_str)],
+        )
+
 
 class ModelEvaluator:
     def can_evaluate(self, model_type, evaluator_config=None, **kwargs) -> bool:
@@ -253,17 +308,6 @@ class ModelEvaluator:
                          in the future.
         :return: True if the evaluator can evaluate the specified model on the
                  specified dataset. False otherwise.
-        """
-        raise NotImplementedError()
-
-    def compute_metrics_and_compute_and_log_artifacts(
-        self, model, model_type, dataset, evaluator_config, run_id
-    ):
-        """
-        return an tuple of:
-         - an instance of EvaluationMetrics
-         - a dict of artifact_name -> instance_of_EvaluationArtifact
-        and log artifacts into run specified by run_id
         """
         raise NotImplementedError()
 
@@ -290,50 +334,43 @@ class ModelEvaluator:
                          in the future.
         :return: An `EvaluationResult` instance containing evaluation results.
         """
-        client = mlflow.tracking.MlflowClient()
-        self.mlflow_client = client
+        raise NotImplementedError()
 
-        def do_evaluate(_run_id):
-            timestamp = int(time.time() * 1000)
-            existing_dataset_metadata_str = client.get_run(_run_id).data.tags.get("mlflow.datasets")
-            if existing_dataset_metadata_str is not None:
-                dataset_metadata_list = json.loads(existing_dataset_metadata_str)
-            else:
-                dataset_metadata_list = []
 
-            metadata_exists = False
-            for metadata in dataset_metadata_list:
-                if (
-                    metadata["hash"] == dataset.hash
-                    and metadata["name"] == dataset._user_specified_name
-                ):
-                    metadata_exists = True
-                    break
+def list_evaluators():
+    """
+    Return a name list for all available Evaluators.
+    """
+    # import _model_evaluation_registry inside function to avoid circuit importing
+    from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
+    return list(_model_evaluation_registry._registry.keys())
 
-            if not metadata_exists:
-                dataset_metadata_list.append(dataset._metadata)
 
-            dataset_metadata_str = json.dumps(dataset_metadata_list)
+class StartRunOrReuseActiveRun:
 
-            metrics_dict, artifacts_dict = self.compute_metrics_and_compute_and_log_artifacts(
-                model, model_type, dataset, evaluator_config, _run_id
-            )
-            client.log_batch(
-                _run_id,
-                metrics=[
-                    Metric(key=f"{key}_on_{dataset.name}", value=value, timestamp=timestamp, step=0)
-                    for key, value in metrics_dict.items()
-                ],
-                tags=[RunTag("mlflow.datasets", dataset_metadata_str)],
-            )
+    def __init__(self, run_id):
+        self.user_specified_run_id = run_id
+        self.managed_run = None
 
-            return EvaluationResult(metrics_dict, artifacts_dict)
-
+    def __enter__(self):
         if mlflow.active_run() is not None:
-            return do_evaluate(mlflow.active_run().info.run_id)
+            active_run_id = mlflow.active_run().info.run_id
+            if self.user_specified_run_id is not None and \
+                    self.user_specified_run_id != active_run_id:
+                raise ValueError("An active run exists, you cannot specify another run_id when "
+                                 "evaluating.")
+            return active_run_id
         else:
-            with mlflow.start_run(run_id=run_id) as run:
-                return do_evaluate(run.info.run_id)
+            if self.user_specified_run_id is None:
+                raise ValueError("Active run does not exist, you need specify a run_id when "
+                                 "evaluating.")
+            self.managed_run = \
+                mlflow.start_run(run_id=self.user_specified_run_id).__enter__()
+            return self.user_specified_run_id
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.managed_run is not None:
+            return self.managed_run.__exit__(exc_type, exc_val, exc_tb)
 
 
 def evaluate(
@@ -379,21 +416,26 @@ def evaluate(
     if isinstance(model, str):
         model = mlflow.pyfunc.load_model(model)
 
-    eval_results = []
-    for evaluator_name in evaluators:
-        config = evaluator_config[evaluator_name]
-        try:
-            evaluator = _model_evaluation_registry.get_evaluator(evaluator_name)
-        except MlflowException:
-            continue
+    with StartRunOrReuseActiveRun(run_id) as actual_run_id:
+        dataset._log_dataset_tag(actual_run_id)
 
-        if evaluator.can_evaluate(model_type, config):
-            result = evaluator.evaluate(model, model_type, dataset, run_id, config)
-            eval_results.append(result)
+        eval_results = []
+        for evaluator_name in evaluators:
+            config = evaluator_config[evaluator_name]
+            try:
+                evaluator = _model_evaluation_registry.get_evaluator(evaluator_name)
+            except MlflowException:
+                _logger.warning(f"Evaluator '{evaluator_name}' is not registered.")
+                continue
 
-    merged_eval_result = EvaluationResult(EvaluationMetrics(), dict())
-    for eval_result in eval_results:
-        merged_eval_result.metrics.update(eval_result.metrics)
-        merged_eval_result.artifacts.update(eval_result.artifacts)
+            if evaluator.can_evaluate(model_type, config):
+                _logger.info(f"Evaluating the model with the {evaluator_name} evaluator.")
+                result = evaluator.evaluate(model, model_type, dataset, actual_run_id, config)
+                eval_results.append(result)
 
-    return merged_eval_result
+        merged_eval_result = EvaluationResult(EvaluationMetrics(), dict())
+        for eval_result in eval_results:
+            merged_eval_result.metrics.update(eval_result.metrics)
+            merged_eval_result.artifacts.update(eval_result.artifacts)
+
+        return merged_eval_result

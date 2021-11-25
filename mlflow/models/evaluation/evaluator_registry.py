@@ -17,7 +17,7 @@ class ModelEvaluatorRegistry:
         self._registry[scheme] = evaluator
 
     def register_entrypoints(self):
-        # Register artifact repositories provided by other packages
+        # Register ModelEvaluator implementation provided by other packages
         for entrypoint in entrypoints.get_group_all("mlflow.model_evaluator"):
             try:
                 self.register(entrypoint.name, entrypoint.load())

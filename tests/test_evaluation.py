@@ -96,7 +96,7 @@ def test_classifier_evaluate(classifier_model, iris_dataset):
         run.info.run_id, artifact_name
     )
     assert np.array_equal(
-        returned_confusion_matrix_artifact._load_content_from_file(saved_artifact_path),
+        returned_confusion_matrix_artifact.load(saved_artifact_path),
         expected_artifact
     )
 
