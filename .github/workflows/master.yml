@@ -38,7 +38,7 @@ jobs:
       run: |
         pip install -U pip wheel pip-tools
         pip install -e '.[extras]'
-        pip-compile --output-file compiled-requirements.txt requirements/dev-requirements
+        pip-compile --output-file compiled-requirements.txt requirements/dev-requirements.txt
         pip install -r compiled-requirements.txt
   windows:
     runs-on: windows-latest
@@ -52,7 +52,7 @@ jobs:
       run: |
         pip install -U pip wheel pip-tools
         pip install -e '.[extras]'
-        pip-compile --output-file compiled-requirements.txt requirements/dev-requirements
+        pip-compile --output-file compiled-requirements.txt requirements/dev-requirements.txt
         pip install -r compiled-requirements.txt
   macos:
     runs-on: macos-latest
@@ -66,7 +66,7 @@ jobs:
       run: |
         pip install -U pip wheel pip-tools
         pip install -e '.[extras]'
-        pip-compile --output-file compiled-requirements.txt requirements/dev-requirements
+        pip-compile --output-file compiled-requirements.txt requirements/dev-requirements.txt
         pip install -r compiled-requirements.txt
   # lint:
   #   runs-on: ubuntu-latest
