@@ -32,7 +32,7 @@ def main(args):
     args = parse_args(args)
     package_names = set()
 
-    class PyPIHTMLParser(HTMLParser):
+    class PyPIHTMLParser(HTMLParser):  # pylint: disable=abstract-method
         def handle_starttag(self, tag, attrs):
             if tag == "a":
                 for name, value in attrs:
