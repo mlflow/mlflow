@@ -43,7 +43,6 @@ def main(args):
                         package_name = posixpath.basename(value.rstrip("/"))
                         package_names.add(package_name)
 
-
     index_url = "https://pypi.org/simple/"
     raw_index_html = requests.get(index_url).text
 
