@@ -98,8 +98,8 @@ def save_model(
     """
     Save an XGBoost model to a path on the local file system.
 
-    :param xgb_model: XGBoost model (an instance of `xgboost.Booster`_) to be saved.
-                      Note that models that implement the `scikit-learn API`_  are not supported.
+    :param xgb_model: XGBoost model (an instance of `xgboost.Booster`_ or models that implement the `scikit-learn API`_) to be saved.
+
     :param path: Local path where the model is to be saved.
     :param conda_env: {{ conda_env }}
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
@@ -207,8 +207,7 @@ def log_model(
     """
     Log an XGBoost model as an MLflow artifact for the current run.
 
-    :param xgb_model: XGBoost model (an instance of `xgboost.Booster`_) to be saved.
-                      Note that models that implement the `scikit-learn API`_  are not supported.
+    :param xgb_model: XGBoost model (an instance of `xgboost.Booster`_ or models that implement the `scikit-learn API`_) to be saved.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: {{ conda_env }}
     :param registered_model_name: If given, create a model version under
@@ -350,7 +349,7 @@ def autolog(
         - an example of valid input.
         - inferred signature of the inputs and outputs of the model.
 
-    Note that the `scikit-learn API`_ is not supported.
+    Note that the `scikit-learn API`_ is now supported.
 
     :param importance_types: Importance types to log. If unspecified, defaults to ``["weight"]``.
     :param log_input_examples: If ``True``, input examples from training datasets are collected and
@@ -583,8 +582,8 @@ def autolog(
             # If early_stopping_rounds is present, logging metrics at the best iteration
             # as extra metrics with the max step + 1.
             early_stopping_index = all_arg_names.index("early_stopping_rounds")
-            early_stopping = num_pos_args >= early_stopping_index + 1 or (
-                "early_stopping_rounds" in kwargs and kwargs["early_stopping_rounds"]
+            early_stopping = num_pos_args >= early_stopping_index + 1 or kwargs.get(
+                "early_stopping_rounds"
             )
             if early_stopping:
                 extra_step = len(eval_results)
