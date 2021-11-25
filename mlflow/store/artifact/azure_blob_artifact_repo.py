@@ -30,13 +30,13 @@ class AzureBlobArtifactRepository(ArtifactRepository):
 
         from azure.storage.blob import BlobServiceClient
 
-        (_, account, _, api_uri) = AzureBlobArtifactRepository.parse_wasbs_uri(artifact_uri)
+        (_, account, _, api_uri_suffix) = AzureBlobArtifactRepository.parse_wasbs_uri(artifact_uri)
         if "AZURE_STORAGE_CONNECTION_STRING" in os.environ:
             self.client = BlobServiceClient.from_connection_string(
                 conn_str=os.environ.get("AZURE_STORAGE_CONNECTION_STRING")
             )
         elif "AZURE_STORAGE_ACCESS_KEY" in os.environ:
-            account_url = "https://{account}.{api_uri}".format(account=account, api_uri=api_uri)
+            account_url = "https://{account}.{api_uri_suffix}".format(account=account, api_uri_suffix=api_uri_suffix)
             self.client = BlobServiceClient(
                 account_url=account_url, credential=os.environ.get("AZURE_STORAGE_ACCESS_KEY")
             )
@@ -49,7 +49,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
                     "Please install it via: pip install azure-identity"
                 ) from exc
 
-            account_url = "https://{account}.{api_uri}".format(account=account, api_uri=api_uri)
+            account_url = "https://{account}.{api_uri_suffix}".format(account=account, api_uri_suffix=api_uri_suffix)
             self.client = BlobServiceClient(
                 account_url=account_url, credential=DefaultAzureCredential()
             )
