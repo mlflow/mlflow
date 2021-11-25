@@ -36,6 +36,7 @@ jobs:
     - name: Install dependencies
       timeout-minutes: 30
       run: |
+        pip install -u pip wheel
         pip install -e '.[extras]'
         pip install -r requirements/test-requirements.txt
   windows:
@@ -48,6 +49,7 @@ jobs:
     - name: Install dependencies
       timeout-minutes: 30
       run: |
+        pip install -u pip wheel
         pip install -e '.[extras]'
         pip install -r requirements/test-requirements.txt
   macos:
@@ -60,6 +62,7 @@ jobs:
     - name: Install dependencies
       timeout-minutes: 30
       run: |
+        pip install -u pip wheel
         pip install -e '.[extras]'
         pip install -r requirements/test-requirements.txt
   # lint:
