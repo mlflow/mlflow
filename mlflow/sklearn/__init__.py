@@ -1233,7 +1233,7 @@ def _autolog(
         # are done in `train()` in `mlflow.xgboost.autolog()`
         fit_output = original(self, *args, **kwargs)
         # log models after training
-        (X, _, _) = _get_args_for_metrics(self.fit, args, kwargs)
+        X = _get_args_for_metrics(self.fit, args, kwargs)[0]
         if log_models:
             input_example, signature = resolve_input_example_and_signature(
                 lambda: X[:INPUT_EXAMPLE_SAMPLE_ROWS],

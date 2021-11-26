@@ -32,7 +32,6 @@ def main():
         mse = mean_squared_error(y_test, y_pred)
         run_id = run.info.run_id
         print("Logged data and model in run {}".format(run_id))
-        mlflow.xgboost.log_model(regressor, artifact_path="log_model")
 
     # show logged data
     for key, data in fetch_logged_data(run.info.run_id).items():

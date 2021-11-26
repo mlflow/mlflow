@@ -168,7 +168,7 @@ def test_mlflow_run_example(directory, params, tmpdir):
                 "0.9",
             ],
         ),
-        (os.path.join("xgboost", "xgboost_sklearn"), ["python", "train_sklearn.py"]),
+        (os.path.join("xgboost", "xgboost_sklearn"), ["python", "train.py"]),
         ("catboost", ["python", "train.py"]),
         ("prophet", ["python", "train.py"]),
         ("sklearn_autolog", ["python", "linear_regression.py"]),
