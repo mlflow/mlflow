@@ -43,7 +43,7 @@ jobs:
         pip install -r requirements/lint-requirements.txt
     - name: Run tests
       run: |
-        ./lint.sh
+        ./dev/lint.sh
   r:
     runs-on: ubuntu-latest
     steps:
@@ -298,7 +298,7 @@ jobs:
         sudo unzip $HOME/protoc.zip -d /usr
     - name: Run tests
       run: |
-        ./test-generate-protos.sh
+        ./dev/test-generate-protos.sh
 
   flavors:
     runs-on: ubuntu-latest
