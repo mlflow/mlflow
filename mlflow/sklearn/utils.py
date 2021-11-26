@@ -47,7 +47,7 @@ def _get_estimator_info_tags(estimator):
 
 def _get_X_y_and_sample_weight(fit_func, fit_args, fit_kwargs):
     """
-    Get a tuple of (X, y, sample_weight) using the given arguments in the following steps.
+    Extract (X, y, sample_weight) from `fit_args` and `fit_kwargs`.
 
     1. Extract X and y from fit_args and fit_kwargs.
     2. If the sample_weight argument exists in fit_func,
