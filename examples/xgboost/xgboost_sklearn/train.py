@@ -1,12 +1,10 @@
 from pprint import pprint
 
-import pandas as pd
 import xgboost as xgb
 from sklearn.datasets import load_diabetes
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 
-import numpy as np
 import mlflow
 import mlflow.xgboost
 
@@ -15,9 +13,7 @@ from utils import fetch_logged_data
 
 def main():
     # prepare example dataset
-    diabetes = load_diabetes()
-    X = pd.DataFrame(diabetes.data, columns=diabetes.feature_names)
-    y = pd.Series(diabetes.target)
+    X, y = load_diabetes(return_X_y=True, as_frame=True)
     X_train, X_test, y_train, y_test = train_test_split(X, y)
 
     # enable auto logging
