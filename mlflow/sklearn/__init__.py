@@ -1162,7 +1162,7 @@ def autolog(
         _MIN_SKLEARN_VERSION,
         _TRAINING_PREFIX,
         _is_supported_version,
-        _get_args_for_metrics,
+        _get_X_y_and_sample_weight,
         _log_estimator_content,
         _all_estimators,
         _get_estimator_info_tags,
@@ -1262,7 +1262,7 @@ def autolog(
 
             return infer_signature(input_example, estimator.predict(input_example))
 
-        (X, y_true, sample_weight) = _get_args_for_metrics(estimator.fit, args, kwargs)
+        (X, y_true, sample_weight) = _get_X_y_and_sample_weight(estimator.fit, args, kwargs)
 
         # log common metrics and artifacts for estimators (classifier, regressor)
         logged_metrics = _log_estimator_content(
