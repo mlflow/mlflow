@@ -41,6 +41,7 @@ from mlflow.utils.environment import (
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
 )
+from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -263,8 +264,6 @@ def _load_model(path):
                     the MLflow Model with the ``xgboost`` flavor (MLflow < 1.22.0) or
                     the top-level MLflow Model directory (MLflow >= 1.22.0).
     """
-    import importlib
-
     model_dir = os.path.dirname(path) if os.path.isfile(path) else path
     flavor_conf = _get_flavor_configuration(model_path=model_dir, flavor_name=FLAVOR_NAME)
 
@@ -275,8 +274,7 @@ def _load_model(path):
     model_class = flavor_conf.get("model_class", "xgboost.core.Booster")
     xgb_model_path = os.path.join(model_dir, flavor_conf.get("data"))
 
-    module, cls = model_class.rsplit(".", maxsplit=1)
-    model = getattr(importlib.import_module(module), cls)()
+    model = _get_class_from_string(model_class)()
     model.load_model(xgb_model_path)
     return model
 
