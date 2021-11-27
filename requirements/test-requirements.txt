@@ -1,5 +1,0 @@
--r small-requirements.txt
--r large-requirements.txt
--r extra-ml-requirements.txt
--r lint-requirements.txt
--r doc-requirements.txt

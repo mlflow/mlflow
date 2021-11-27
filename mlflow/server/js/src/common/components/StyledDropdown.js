@@ -5,21 +5,12 @@ import expandIcon from '../static/expand-more.svg';
 import { getUUID } from '../utils/ActionUtils';
 import { css } from 'emotion';
 
-export const StyledDropdown = ({
-  id,
-  className,
-  key,
-  title,
-  triggers,
-  dropdownOptions,
-  buttonSize,
-}) => {
+export const StyledDropdown = ({ id, className, title, triggers, dropdownOptions, buttonSize }) => {
   return (
     <div className={classNames.wrapper}>
       <Dropdown
         id={id}
         className={className}
-        key={key}
         title={title}
         trigger={triggers}
         overlay={dropdownOptions}
@@ -54,7 +45,6 @@ const classNames = {
 StyledDropdown.propTypes = {
   dropdownOptions: PropTypes.node.isRequired,
   title: PropTypes.string.isRequired,
-  key: PropTypes.string,
   buttonSize: PropTypes.string,
   triggers: PropTypes.array,
   className: PropTypes.string,

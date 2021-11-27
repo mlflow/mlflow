@@ -1,6 +1,7 @@
 import React from 'react';
 import _ from 'lodash';
-import { Radio, Switch, TreeSelect, Icon, Tooltip } from 'antd';
+import { QuestionCircleOutlined } from '@ant-design/icons';
+import { Radio, Switch, TreeSelect, Tooltip } from 'antd';
 import PropTypes from 'prop-types';
 import { CHART_TYPE_LINE } from './MetricsPlotPanel';
 import { LineSmoothSlider } from './LineSmoothSlider';
@@ -87,7 +88,7 @@ export class MetricsPlotControlsImpl extends React.Component {
                   description='Label for the smoothness slider for the graph plot for metrics'
                 />{' '}
                 <Tooltip title={lineSmoothnessTooltipText}>
-                  <Icon type='question-circle' />
+                  <QuestionCircleOutlined />
                 </Tooltip>
               </div>
               <LineSmoothSlider

@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
 import { AllHtmlEntities } from 'html-entities';
-import { Switch } from 'antd';
+import { css } from 'emotion';
+import { Switch, Row, Col, Select } from 'antd';
 import PropTypes from 'prop-types';
 import { getParams, getRunInfo } from '../reducers/Reducers';
 import { connect } from 'react-redux';
@@ -13,6 +14,7 @@ import CompareRunUtil from './CompareRunUtil';
 import { FormattedMessage } from 'react-intl';
 import { LazyPlot } from './LazyPlot';
 
+const { Option, OptGroup } = Select;
 export class CompareRunContour extends Component {
   static propTypes = {
     runInfos: PropTypes.arrayOf(PropTypes.instanceOf(RunInfo)).isRequired,
@@ -241,9 +243,9 @@ export class CompareRunContour extends Component {
     return (
       <div className='responsive-table-container'>
         <div className='container-fluid'>
-          <div className='row'>
-            <form className='col-xs-3'>
-              <div className='form-group'>
+          <Row>
+            <Col span={6}>
+              <div className={css(styles.group)}>
                 <label htmlFor='x-axis-selector'>
                   <FormattedMessage
                     defaultMessage='X-axis:'
@@ -252,7 +254,7 @@ export class CompareRunContour extends Component {
                 </label>
                 {this.renderSelect('xaxis')}
               </div>
-              <div className='form-group'>
+              <div className={css(styles.group)}>
                 <label htmlFor='y-axis-selector'>
                   <FormattedMessage
                     defaultMessage='Y-axis:'
@@ -261,7 +263,7 @@ export class CompareRunContour extends Component {
                 </label>
                 {this.renderSelect('yaxis')}
               </div>
-              <div className='form-group'>
+              <div className={css(styles.group)}>
                 <label htmlFor='z-axis-selector'>
                   <FormattedMessage
                     defaultMessage='Z-axis:'
@@ -297,9 +299,9 @@ export class CompareRunContour extends Component {
                   onChange={(checked) => this.setState({ reverseColor: checked })}
                 />
               </div>
-            </form>
-            <div className='col-xs-9'>{maybeRenderPlot()}</div>
-          </div>
+            </Col>
+            <Col span={18}>{maybeRenderPlot()}</Col>
+          </Row>
         </div>
       </div>
     );
@@ -307,33 +309,33 @@ export class CompareRunContour extends Component {
 
   renderSelect(axis) {
     return (
-      <select
-        className='form-control'
+      <Select
+        className={css(styles.select)}
         id={axis + '-axis-selector'}
         aria-label={`${axis} axis`}
-        onChange={(e) => {
-          const [prefix, ...keyParts] = e.target.value.split('-');
+        onChange={(value) => {
+          const [prefix, ...keyParts] = value.split('-');
           const key = keyParts.join('-');
           const isMetric = prefix === 'metric';
           this.setState({ [axis]: { isMetric, key } });
         }}
         value={(this.state[axis].isMetric ? 'metric-' : 'param-') + this.state[axis].key}
       >
-        <optgroup label='Parameter'>
+        <OptGroup label='Parameter'>
           {this.paramKeys.map((p) => (
-            <option key={'param-' + p} value={'param-' + p}>
+            <Option key={'param-' + p} value={'param-' + p}>
               {p}
-            </option>
+            </Option>
           ))}
-        </optgroup>
-        <optgroup label='Metric'>
+        </OptGroup>
+        <OptGroup label='Metric'>
           {this.metricKeys.map((m) => (
-            <option key={'metric-' + m} value={'metric-' + m}>
+            <Option key={'metric-' + m} value={'metric-' + m}>
               {m}
-            </option>
+            </Option>
           ))}
-        </optgroup>
-      </select>
+        </OptGroup>
+      </Select>
     );
   }
 
@@ -364,6 +366,15 @@ export class CompareRunContour extends Component {
     return result;
   }
 }
+
+const styles = {
+  select: {
+    width: '100%',
+  },
+  group: {
+    marginBottom: 16,
+  },
+};
 
 const mapStateToProps = (state, ownProps) => {
   const runInfos = [];

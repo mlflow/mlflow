@@ -58,6 +58,8 @@ export class ModelViewImpl extends React.Component {
     isTagsRequestPending: false,
   };
 
+  formRef = React.createRef();
+
   componentDidMount() {
     const pageTitle = `${this.props.model.name} - MLflow Model`;
     Utils.updatePageTitle(pageTitle);
@@ -138,31 +140,22 @@ export class ModelViewImpl extends React.Component {
       });
   };
 
-  saveFormRef = (formRef) => {
-    this.formRef = formRef;
-  };
-
-  handleAddTag = (e) => {
-    e.preventDefault();
-    const { form } = this.formRef.props;
+  handleAddTag = (values) => {
+    const form = this.formRef.current;
     const { model } = this.props;
     const modelName = model.name;
-    form.validateFields((err, values) => {
-      if (!err) {
-        this.setState({ isTagsRequestPending: true });
-        this.props
-          .setRegisteredModelTagApi(modelName, values.name, values.value)
-          .then(() => {
-            this.setState({ isTagsRequestPending: false });
-            form.resetFields();
-          })
-          .catch((ex) => {
-            this.setState({ isTagsRequestPending: false });
-            console.error(ex);
-            message.error('Failed to add tag. Error: ' + ex.getUserVisibleError());
-          });
-      }
-    });
+    this.setState({ isTagsRequestPending: true });
+    this.props
+      .setRegisteredModelTagApi(modelName, values.name, values.value)
+      .then(() => {
+        this.setState({ isTagsRequestPending: false });
+        form.resetFields();
+      })
+      .catch((ex) => {
+        this.setState({ isTagsRequestPending: false });
+        console.error(ex);
+        message.error('Failed to add tag. Error: ' + ex.getUserVisibleError());
+      });
   };
 
   handleSaveEdit = ({ name, value }) => {
@@ -298,7 +291,7 @@ export class ModelViewImpl extends React.Component {
             data-test-id='model-tags-section'
           >
             <EditableTagsTableView
-              wrappedComponentRef={this.saveFormRef}
+              innerRef={this.formRef}
               handleAddTag={this.handleAddTag}
               handleDeleteTag={this.handleDeleteTag}
               handleSaveEdit={this.handleSaveEdit}

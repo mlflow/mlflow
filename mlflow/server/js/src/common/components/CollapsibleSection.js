@@ -1,5 +1,6 @@
 import React from 'react';
-import { Collapse, Icon } from 'antd';
+import { CaretRightOutlined } from '@ant-design/icons';
+import { Collapse } from 'antd';
 import { SectionErrorBoundary } from './error-boundaries/SectionErrorBoundary';
 import PropTypes from 'prop-types';
 import { css } from 'emotion';
@@ -16,7 +17,7 @@ export function CollapsibleSection(props) {
       bordered={false}
       {...activeKeyProp}
       defaultActiveKey={defaultActiveKey}
-      expandIcon={({ isActive }) => <Icon type='caret-right' rotate={isActive ? 90 : 0} />}
+      expandIcon={({ isActive }) => <CaretRightOutlined rotate={isActive ? 90 : 0} />}
       onChange={onChange}
     >
       <Collapse.Panel className='collapsible-panel' header={title} key='1'>
