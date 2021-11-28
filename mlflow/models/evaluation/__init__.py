@@ -11,7 +11,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.utils.file_utils import TempDir
 from mlflow.entities import Metric, RunTag
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils import _get_fully_qualified_class_name, load_class
+from mlflow.utils import _get_fully_qualified_class_name
+from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.pyfunc import PyFuncModel
 import pyspark.sql
 import logging
@@ -26,8 +27,8 @@ class EvaluationMetrics(dict):
 
 class EvaluationArtifact:
     def __init__(self, uri, content=None):
-        self._content = content
         self._uri = uri
+        self._content = content
 
     def _load_content_from_file(self, local_artifact_path):
         raise NotImplementedError()
@@ -81,7 +82,7 @@ class EvaluationResult:
 
         for artifact_name, meta in artifacts_metadata:
             location = meta["location"]
-            ArtifactCls = load_class(meta["class_name"])
+            ArtifactCls = _get_class_from_string(meta["class_name"])
             content = ArtifactCls.load_content_from_file(
                 os.path.join(artifacts_dir, artifact_name)
             )
@@ -130,13 +131,6 @@ class EvaluationResult:
 
 
 _cached_mlflow_client = None
-
-
-def _get_mlflow_client():
-    global _cached_mlflow_client
-    if _cached_mlflow_client is None:
-        _cached_mlflow_client = mlflow.tracking.MlflowClient()
-    return _cached_mlflow_client
 
 
 class EvaluationDataset:
@@ -268,9 +262,7 @@ class EvaluationDataset:
             metadata["path"] = self.path
         return metadata
 
-    def _log_dataset_tag(self, run_id):
-        client = _get_mlflow_client()
-        timestamp = int(time.time() * 1000)
+    def _log_dataset_tag(self, client, run_id):
         existing_dataset_metadata_str = client.get_run(run_id).data.tags.get("mlflow.datasets")
         if existing_dataset_metadata_str is not None:
             dataset_metadata_list = json.loads(existing_dataset_metadata_str)
@@ -311,12 +303,23 @@ class ModelEvaluator:
         """
         raise NotImplementedError()
 
+    def _log_metrics(self, run_id, metrics, dataset_name):
+        client = mlflow.tracking.MlflowClient()
+        timestamp = int(time.time() * 1000)
+        client.log_batch(
+            run_id,
+            metrics=[
+                Metric(key=f"{key}_on_{dataset_name}", value=value, timestamp=timestamp, step=0)
+                for key, value in metrics.items()
+            ],
+        )
+
     def evaluate(
             self,
             model: PyFuncModel,
             model_type,
             dataset,
-            run_id=None,
+            run_id,
             evaluator_config=None,
             **kwargs
     ) -> EvaluationResult:
@@ -417,7 +420,8 @@ def evaluate(
         model = mlflow.pyfunc.load_model(model)
 
     with StartRunOrReuseActiveRun(run_id) as actual_run_id:
-        dataset._log_dataset_tag(actual_run_id)
+        client = mlflow.tracking.MlflowClient()
+        dataset._log_dataset_tag(client, actual_run_id)
 
         eval_results = []
         for evaluator_name in evaluators:
