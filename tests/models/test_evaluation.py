@@ -79,7 +79,9 @@ def test_classifier_evaluate(classifier_model, iris_dataset):
             iris_dataset,
             run_id=None,
             evaluators="dummy_evaluator",
-            evaluator_config={"can_evaluate": True,},
+            evaluator_config={
+                "can_evaluate": True,
+            },
         )
 
     artifact_name = "confusion_matrix_on_iris_dataset.csv"
@@ -96,8 +98,7 @@ def test_classifier_evaluate(classifier_model, iris_dataset):
         run.info.run_id, artifact_name
     )
     assert np.array_equal(
-        returned_confusion_matrix_artifact.load(saved_artifact_path),
-        expected_artifact
+        returned_confusion_matrix_artifact.load(saved_artifact_path), expected_artifact
     )
 
 
@@ -121,7 +122,9 @@ def test_regressor_evaluate(regressor_model, iris_dataset):
             iris_dataset,
             run_id=None,
             evaluators="dummy_evaluator",
-            evaluator_config={"can_evaluate": True,},
+            evaluator_config={
+                "can_evaluate": True,
+            },
         )
     _, saved_metrics, _, _ = get_run_data(run.info.run_id)
     assert saved_metrics == expected_saved_metrics

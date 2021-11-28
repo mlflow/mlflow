@@ -14,7 +14,6 @@ import io
 
 
 class Array2DEvaluationArtifact(EvaluationArtifact):
-
     def save(self, output_artifact_path):
         pd.DataFrame(self._content).to_csv(output_artifact_path, index=False)
 
@@ -29,13 +28,7 @@ class DummyEvaluator(ModelEvaluator):
         return evaluator_config.get("can_evaluate") and model_type in ["classifier", "regressor"]
 
     def evaluate(
-            self,
-            model,
-            model_type,
-            dataset,
-            run_id,
-            evaluator_config=None,
-            **kwargs
+        self, model, model_type, dataset, run_id, evaluator_config=None, **kwargs
     ) -> EvaluationResult:
         client = mlflow.tracking.MlflowClient()
         X, y = dataset._extract_features_and_labels()
@@ -61,8 +54,7 @@ class DummyEvaluator(ModelEvaluator):
             mean_absolute_error = sk_metrics.mean_absolute_error(y, y_pred)
             mean_squared_error = sk_metrics.mean_squared_error(y, y_pred)
             metrics = EvaluationMetrics(
-                mean_absolute_error=mean_absolute_error,
-                mean_squared_error=mean_squared_error
+                mean_absolute_error=mean_absolute_error, mean_squared_error=mean_squared_error
             )
             self._log_metrics(run_id, metrics, dataset.name)
             artifacts = {}
