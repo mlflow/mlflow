@@ -14,7 +14,6 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.pyfunc import PyFuncModel
-import pyspark.sql
 import logging
 
 
@@ -156,6 +155,13 @@ class EvaluationDataset:
         :param path: (Optional) the path to a serialized DataFrame (must not contain ").
           (e.g. a delta table, parquet file)
         """
+        try:
+            from pyspark.sql import DataFrame as SparkDataFrame
+
+            supported_dataframe_types = (pd.DataFrame, SparkDataFrame)
+        except ImportError:
+            supported_dataframe_types = (pd.DataFrame,)
+
         if name is not None and '"' in name:
             raise ValueError(f'Dataset name cannot include a double quote (") but got name {name}')
         if path is not None and '"' in path:
@@ -167,11 +173,11 @@ class EvaluationDataset:
                     "If data is a numpy array or list of evaluation features, "
                     "labels must be a numpy array or list of evaluation labels"
                 )
-        elif isinstance(data, (pd.DataFrame, pyspark.sql.DataFrame)):
+        elif isinstance(data, supported_dataframe_types):
             if not isinstance(labels, str):
                 raise ValueError(
-                    "If data is a Pandas DataFrame, labels must be the string name of a column "
-                    "from `data` that contains evaluation labels"
+                    "If data is a Pandas DataFrame or Spark DataFrame, labels must be the "
+                    "string name of a column from `data` that contains evaluation labels"
                 )
         else:
             raise ValueError(
@@ -187,8 +193,8 @@ class EvaluationDataset:
     def _extract_features_and_labels(self):
         if isinstance(self.data, np.ndarray):
             return self.data, self.labels
-        elif isinstance(self.data, (pd.DataFrame, pyspark.sql.DataFrame)):
-            if isinstance(self.data, pyspark.sql.DataFrame):
+        else:
+            if not isinstance(self.data, pd.DataFrame):
                 data = self.data.limit(EvaluationDataset.SPARK_DATAFRAME_LIMIT).toPandas()
                 _logger.warning(
                     f"Only the first {EvaluationDataset.SPARK_DATAFRAME_LIMIT} rows in the "
@@ -198,8 +204,6 @@ class EvaluationDataset:
                 data = self.data
             feature_cols = [x for x in data.columns if x != self.labels]
             return data[feature_cols], data[self.labels]
-        else:
-            raise ValueError(f"Unsupported data type: {type(self.data)}")
 
     @staticmethod
     def _array_like_obj_to_bytes(data):
