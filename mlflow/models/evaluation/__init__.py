@@ -1,4 +1,4 @@
-from .base import (
+from mlflow.models.evaluation.base import (
     ModelEvaluator,
     EvaluationDataset,
     EvaluationResult,
@@ -7,3 +7,13 @@ from .base import (
     evaluate,
     list_evaluators,
 )
+
+__all__ = [
+    "ModelEvaluator",
+    "EvaluationDataset",
+    "EvaluationResult",
+    "EvaluationMetrics",
+    "EvaluationArtifact",
+    "evaluate",
+    "list_evaluators",
+]

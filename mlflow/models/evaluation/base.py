@@ -4,7 +4,6 @@ import hashlib
 import time
 import numpy as np
 import pandas as pd
-import pickle
 import json
 import os
 from mlflow.exceptions import MlflowException
@@ -13,7 +12,6 @@ from mlflow.entities import Metric, RunTag
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.class_utils import _get_class_from_string
-from mlflow.pyfunc import PyFuncModel
 import logging
 
 
@@ -206,9 +204,15 @@ class EvaluationDataset:
             return data[feature_cols], data[self.labels]
 
     @staticmethod
+    def _gen_md5(data):
+        md5_gen = hashlib.md5()
+        md5_gen.update(data)
+        return md5_gen.hexdigest()
+
+    @staticmethod
     def _array_like_obj_to_bytes(data):
         if isinstance(data, pd.DataFrame):
-            return data.to_numpy().tobytes() + data.columns.to_numpy().tobytes()
+            return data.to_numpy().tobytes() + ','.join(list(data.columns)).encode("UTF-8")
         elif isinstance(data, np.ndarray):
             return data.tobytes()
         elif isinstance(data, list):
@@ -229,7 +233,7 @@ class EvaluationDataset:
             )
             md5_gen.update(
                 EvaluationDataset._array_like_obj_to_bytes(
-                    data[-EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH :]
+                    data[-EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH:]
                 )
             )
 
@@ -314,7 +318,13 @@ class ModelEvaluator:
         )
 
     def evaluate(
-        self, model: PyFuncModel, model_type, dataset, run_id, evaluator_config=None, **kwargs
+            self,
+            model: "mlflow.pyfunc.PyFuncModel",
+            model_type,
+            dataset,
+            run_id,
+            evaluator_config=None,
+            **kwargs
     ) -> EvaluationResult:
         """
         :param model: A pyfunc model instance.
@@ -373,7 +383,7 @@ class StartRunOrReuseActiveRun:
 
 
 def evaluate(
-    model: Union[str, PyFuncModel],
+    model: Union[str, "mlflow.pyfunc.PyFuncModel"],
     model_type,
     dataset,
     run_id=None,
@@ -403,8 +413,9 @@ def evaluate(
                              a nested dictionary whose key is the evaluator name.
     :return: An `EvaluationResult` instance containing evaluation results.
     """
-    # import _model_evaluation_registry inside function to avoid circuit importing
+    # import _model_evaluation_registry and PyFuncModel inside function to avoid circuit importing
     from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
+    from mlflow.pyfunc import PyFuncModel
 
     if evaluators is None:
         evaluators = "default"
@@ -415,6 +426,11 @@ def evaluate(
 
     if isinstance(model, str):
         model = mlflow.pyfunc.load_model(model)
+    elif isinstance(model, PyFuncModel):
+        pass
+    else:
+        raise ValueError('The model argument must be a URI str referring to mlflow model or '
+                         'an instance of `mlflow.pyfunc.PyFuncModel`.')
 
     with StartRunOrReuseActiveRun(run_id) as actual_run_id:
         client = mlflow.tracking.MlflowClient()

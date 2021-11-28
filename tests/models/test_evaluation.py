@@ -6,6 +6,7 @@ import sklearn.datasets
 import sklearn.linear_model
 import pytest
 import numpy as np
+import pandas as pd
 
 from sklearn.metrics import (
     accuracy_score,
@@ -57,6 +58,15 @@ def iris_dataset():
     X, y = get_iris()
     eval_X, eval_y = X[0::3], y[0::3]
     return EvaluationDataset(data=eval_X, labels=eval_y, name="iris_dataset")
+
+
+@pytest.fixture(scope="module")
+def iris_pandas_df_dataset():
+    X, y = get_iris()
+    eval_X, eval_y = X[0::3], y[0::3]
+    data = pd.DataFrame({'f1': eval_X[:, 0], 'f2': eval_X[:, 1], 'y': eval_y})
+    labels = 'y'
+    return EvaluationDataset(data=data, labels=labels, name="iris_pandas_df_dataset")
 
 
 def test_classifier_evaluate(classifier_model, iris_dataset):
@@ -130,3 +140,16 @@ def test_regressor_evaluate(regressor_model, iris_dataset):
     assert saved_metrics == expected_saved_metrics
 
     assert eval_result.metrics == expected_metrics
+
+
+def test_dataset_name():
+    X, y = get_iris()
+    d1 = EvaluationDataset(data=X, labels=y, name='a1')
+    assert d1.name == 'a1'
+    d2 = EvaluationDataset(data=X, labels=y)
+    d2.name == d2.hash
+
+
+def test_dataset_hash(iris_dataset, iris_pandas_df_dataset):
+    assert iris_dataset.hash == '49a04c127e5441e0f27e63a325b5fa69'
+    assert iris_pandas_df_dataset.hash == 'd6770fd5fffe651cb95e965854920df9'
