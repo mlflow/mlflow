@@ -15,8 +15,8 @@ from sklearn.metrics import (
     mean_squared_error,
 )
 
-from mlflow_test_plugin.dummy_evaluator import Array2DEvaluationArtifact
 from mlflow.tracking.artifact_utils import get_artifact_uri
+import json
 
 
 def get_iris():
@@ -27,8 +27,7 @@ def get_iris():
 def get_run_data(run_id):
     client = mlflow.tracking.MlflowClient()
     data = client.get_run(run_id).data
-    # Ignore tags mlflow logs by default (e.g. "mlflow.user")
-    tags = {k: v for k, v in data.tags.items() if not k.startswith("mlflow.")}
+    tags = {k: v for k, v in data.tags.items()}
     artifacts = [f.path for f in client.list_artifacts(run_id)]
     return data.params, data.metrics, tags, artifacts
 
@@ -38,19 +37,25 @@ def get_local_artifact_path(run_id, artifact_path):
 
 
 @pytest.fixture(scope="module")
-def regressor_model():
+def regressor_model_uri():
     X, y = get_iris()
     reg = sklearn.linear_model.LinearRegression()
     reg.fit(X, y)
-    return reg
+    with mlflow.start_run() as run:
+        mlflow.sklearn.log_model(reg, 'reg_model')
+
+    return get_artifact_uri(run.info.run_id, 'reg_model')
 
 
 @pytest.fixture(scope="module")
-def classifier_model():
+def classifier_model_uri():
     X, y = get_iris()
     clf = sklearn.linear_model.LogisticRegression()
     clf.fit(X, y)
-    return clf
+    with mlflow.start_run() as run:
+        mlflow.sklearn.log_model(clf, 'clf_model')
+
+    return get_artifact_uri(run.info.run_id, 'clf_model')
 
 
 @pytest.fixture(scope="module")
@@ -69,8 +74,9 @@ def iris_pandas_df_dataset():
     return EvaluationDataset(data=data, labels=labels, name="iris_pandas_df_dataset")
 
 
-def test_classifier_evaluate(classifier_model, iris_dataset):
+def test_classifier_evaluate(classifier_model_uri, iris_dataset):
     y_true = iris_dataset.labels
+    classifier_model = mlflow.pyfunc.load_model(classifier_model_uri)
     y_pred = classifier_model.predict(iris_dataset.data)
     expected_accuracy_score = accuracy_score(y_true, y_pred)
     expected_metrics = {
@@ -89,9 +95,6 @@ def test_classifier_evaluate(classifier_model, iris_dataset):
             iris_dataset,
             run_id=None,
             evaluators="dummy_evaluator",
-            evaluator_config={
-                "can_evaluate": True,
-            },
         )
 
     artifact_name = "confusion_matrix_on_iris_dataset.csv"
@@ -112,8 +115,9 @@ def test_classifier_evaluate(classifier_model, iris_dataset):
     )
 
 
-def test_regressor_evaluate(regressor_model, iris_dataset):
+def test_regressor_evaluate(regressor_model_uri, iris_dataset):
     y_true = iris_dataset.labels
+    regressor_model = mlflow.pyfunc.load_model(regressor_model_uri)
     y_pred = regressor_model.predict(iris_dataset.data)
     expected_mae = mean_absolute_error(y_true, y_pred)
     expected_mse = mean_squared_error(y_true, y_pred)
@@ -125,21 +129,19 @@ def test_regressor_evaluate(regressor_model, iris_dataset):
         "mean_absolute_error_on_iris_dataset": expected_mae,
         "mean_squared_error_on_iris_dataset": expected_mse,
     }
-    with mlflow.start_run() as run:
-        eval_result = evaluate(
-            regressor_model,
-            "regressor",
-            iris_dataset,
-            run_id=None,
-            evaluators="dummy_evaluator",
-            evaluator_config={
-                "can_evaluate": True,
-            },
-        )
-    _, saved_metrics, _, _ = get_run_data(run.info.run_id)
-    assert saved_metrics == expected_saved_metrics
 
-    assert eval_result.metrics == expected_metrics
+    for model in [regressor_model, regressor_model_uri]:
+        with mlflow.start_run() as run:
+            eval_result = evaluate(
+                model,
+                "regressor",
+                iris_dataset,
+                run_id=None,
+                evaluators="dummy_evaluator",
+            )
+        _, saved_metrics, _, _ = get_run_data(run.info.run_id)
+        assert saved_metrics == expected_saved_metrics
+        assert eval_result.metrics == expected_metrics
 
 
 def test_dataset_name():
@@ -153,3 +155,27 @@ def test_dataset_name():
 def test_dataset_hash(iris_dataset, iris_pandas_df_dataset):
     assert iris_dataset.hash == '49a04c127e5441e0f27e63a325b5fa69'
     assert iris_pandas_df_dataset.hash == 'd6770fd5fffe651cb95e965854920df9'
+
+
+def test_log_dataset_tag(iris_dataset, iris_pandas_df_dataset):
+    with mlflow.start_run() as run:
+        client = mlflow.tracking.MlflowClient()
+        iris_dataset._log_dataset_tag(client, run.info.run_id)
+        _, _, tags, _ = get_run_data(run.info.run_id)
+        assert json.loads(tags['mlflow.datasets']) == [iris_dataset._metadata]
+
+        # Test appending dataset tag
+        iris_pandas_df_dataset._log_dataset_tag(client, run.info.run_id)
+        _, _, tags, _ = get_run_data(run.info.run_id)
+        assert json.loads(tags['mlflow.datasets']) == [
+            iris_dataset._metadata, iris_pandas_df_dataset._metadata
+        ]
+
+        # Test log repetitive dataset
+        iris_dataset._log_dataset_tag(client, run.info.run_id)
+        _, _, tags, _ = get_run_data(run.info.run_id)
+        assert json.loads(tags['mlflow.datasets']) == [
+            iris_dataset._metadata, iris_pandas_df_dataset._metadata
+        ]
+
+

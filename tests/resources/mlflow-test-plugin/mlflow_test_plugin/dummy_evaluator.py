@@ -25,7 +25,7 @@ class Array2DEvaluationArtifact(EvaluationArtifact):
 
 class DummyEvaluator(ModelEvaluator):
     def can_evaluate(self, model_type, evaluator_config=None, **kwargs):
-        return evaluator_config.get("can_evaluate") and model_type in ["classifier", "regressor"]
+        return model_type in ["classifier", "regressor"]
 
     def evaluate(
         self, model, model_type, dataset, run_id, evaluator_config=None, **kwargs

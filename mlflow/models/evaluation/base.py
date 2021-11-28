@@ -323,9 +323,9 @@ class ModelEvaluator:
             model_type,
             dataset,
             run_id,
-            evaluator_config=None,
+            evaluator_config,
             **kwargs
-    ) -> EvaluationResult:
+    ) -> "mlflow.models.evaluation.EvaluationResult":
         """
         :param model: A pyfunc model instance.
         :param model_type: A string describing the model type (e.g., "regressor",
@@ -420,9 +420,22 @@ def evaluate(
     if evaluators is None:
         evaluators = "default"
 
-    if not isinstance(evaluators, list):
+    if isinstance(evaluators, str):
         evaluators = [evaluators]
+        if not (evaluator_config is None or isinstance(evaluator_config, dict)):
+            raise ValueError('If `evaluators` argument is a str, evaluator_config must be None '
+                             'or a dict.')
         evaluator_config = {evaluators[0]: evaluator_config}
+    elif isinstance(evaluators, list):
+        if not (
+            isinstance(evaluator_config, dict) and all(
+                k in evaluators and isinstance(v, dict)
+                for k, v in evaluator_config.items()
+            )
+        ):
+            raise ValueError('If `evaluators` argument is a evaluator name list, evaluator_config'
+                             'must be a dict contains mapping from evaluator name to individual '
+                             'evaluator config dict.')
 
     if isinstance(model, str):
         model = mlflow.pyfunc.load_model(model)
@@ -438,7 +451,9 @@ def evaluate(
 
         eval_results = []
         for evaluator_name in evaluators:
-            config = evaluator_config[evaluator_name]
+            config = evaluator_config.get(evaluator_name)
+            if config is None:
+                config = {}
             try:
                 evaluator = _model_evaluation_registry.get_evaluator(evaluator_name)
             except MlflowException:
