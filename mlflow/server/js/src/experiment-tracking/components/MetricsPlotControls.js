@@ -143,7 +143,7 @@ export class MetricsPlotControlsImpl extends React.Component {
           </div>
           <TreeSelect
             className='metrics-select'
-            searchPlaceholder={this.props.intl.formatMessage({
+            placeholder={this.props.intl.formatMessage({
               defaultMessage: 'Please select metric',
               description:
                 // eslint-disable-next-line max-len
