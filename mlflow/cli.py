@@ -271,7 +271,7 @@ def ui(
         backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 
     default_artifact_root = resolve_default_artifact_root(
-        serve_artifacts, default_artifact_root, backend_store_uri, True
+        serve_artifacts, default_artifact_root, backend_store_uri, resolve_to_local=True
     )
 
     try:

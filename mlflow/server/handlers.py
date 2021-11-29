@@ -271,8 +271,8 @@ def _disable_unless_serve_artifacts(func):
             return Response(
                 (
                     f"Endpoint: {request.url_rule} disabled due to the mlflow server running "
-                    "without `--serve-artifacts`. To enable artifacts server functionaltiy, "
-                    "run `mlflow server` with `--serve-artfiacts`"
+                    "without `--serve-artifacts`. To enable artifacts server functionality, "
+                    "run `mlflow server` with `--serve-artifacts`"
                 ),
                 503,
             )
