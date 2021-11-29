@@ -104,7 +104,7 @@ export class MetricsPlotPanel extends React.Component {
     return this.props.completedRunUuids.length === this.props.runUuids.length;
   };
 
-  exceedsPollingDurationThreshold = () => {
+  exceedsPollingDuration = () => {
     if (!this.mountedAt) {
       return false;
     }
@@ -112,9 +112,7 @@ export class MetricsPlotPanel extends React.Component {
   };
 
   componentDidMount() {
-    if (!this.mountedAt) {
-      this.mountedAt = new Date().getTime();
-    }
+    this.mountedAt = new Date().getTime();
     window.addEventListener('focus', this.onFocus);
     window.addEventListener('blur', this.onBlur);
 
@@ -126,7 +124,7 @@ export class MetricsPlotPanel extends React.Component {
           this.loadMetricHistory(uncompletedRuns, this.getUrlState().selectedMetricKeys);
           this.loadRuns(uncompletedRuns);
         }
-        if (this.exceedsPollingDurationThreshold() || this.allRunsCompleted()) {
+        if (this.exceedsPollingDuration() || this.allRunsCompleted()) {
           this.clearIntervalIfExists();
         }
       }, METRICS_PLOT_POLLING_INTERVAL_MS);
