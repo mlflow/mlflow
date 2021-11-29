@@ -14,7 +14,6 @@ import {
   X_AXIS_STEP,
 } from './MetricsPlotControls';
 import qs from 'qs';
-import { message } from 'antd';
 import { withRouter } from 'react-router-dom';
 import Routes from '../routes';
 import { RunLinksPopover } from './RunLinksPopover';
@@ -39,7 +38,7 @@ export class MetricsPlotPanel extends React.Component {
     location: PropTypes.object.isRequired,
     history: PropTypes.object.isRequired,
     runDisplayNames: PropTypes.arrayOf(PropTypes.string).isRequired,
-    allRunsCompleted: PropTypes.bool.isRequired,
+    numCompletedRuns: PropTypes.number.isRequired,
   };
 
   // The fields below are exposed as instance attributes rather than component state so that they
@@ -66,7 +65,9 @@ export class MetricsPlotPanel extends React.Component {
   // a single-click event.
   SINGLE_CLICK_EVENT_DELAY_MS = this.MAX_DOUBLE_CLICK_INTERVAL_MS + 10;
 
-  DURATION_BETWEEN_HISTORY_UPDATES_MS = 3000;
+  DURATION_BETWEEN_HISTORY_UPDATES_MS = 5000;
+
+  DURATION_THRESHOLD_MS = 3600 * 1000; // 1 hour
 
   constructor(props) {
     super(props);
@@ -76,12 +77,21 @@ export class MetricsPlotPanel extends React.Component {
       popoverX: 0,
       popoverY: 0,
       popoverRunItems: [],
-      timerId: null,
+      focused: true,
     };
     this.displayPopover = false;
     this.intervalId = null;
+    this.constructedAt = new Date().getTime();
     this.loadMetricHistory(this.props.runUuids, this.getUrlState().selectedMetricKeys);
   }
+
+  onFocus = () => {
+    this.setState({ focused: true });
+  };
+
+  onBlur = () => {
+    this.setState({ focused: false });
+  };
 
   clearIntervalIfExists = () => {
     if (this.intervalId) {
@@ -89,24 +99,32 @@ export class MetricsPlotPanel extends React.Component {
     }
   };
 
+  loadMetricHistoryAndRuns = () => {
+    const { runUuids } = this.props;
+    this.loadMetricHistory(runUuids, this.getUrlState().selectedMetricKeys);
+    runUuids.forEach(this.props.getRunApi);
+  };
+
+  allRunsCompleted = () => {
+    return this.props.numCompletedRuns === this.props.runUuids.length;
+  };
+
+  exceedsDurationThreshold = () => {
+    return new Date().getTime() - this.constructedAt > this.DURATION_THRESHOLD_MS;
+  };
+
   componentDidMount() {
-    if (!this.props.allRunsCompleted) {
+    window.addEventListener('focus', this.onFocus);
+    window.addEventListener('blur', this.onBlur);
+
+    if (!this.allRunsCompleted()) {
       this.intervalId = setInterval(() => {
-        const { runUuids } = this.props;
-        // Use `message` for demo purposes.
-        message.success({
-          content: 'Updated',
-          duration: 0.5,
-          style: {
-            marginTop: '20vh',
-          },
-        });
-        this.loadMetricHistory(runUuids, this.getUrlState().selectedMetricKeys);
-        if (this.props.allRunsCompleted) {
-          message.success('All runs completed');
-          this.clearIntervalIfExists();
+        if (this.state.focused) {
+          this.loadMetricHistoryAndRuns();
+          if (this.exceedsDurationThreshold() || this.allRunsCompleted()) {
+            this.clearIntervalIfExists();
+          }
         }
-        runUuids.forEach(this.props.getRunApi);
       }, this.DURATION_BETWEEN_HISTORY_UPDATES_MS);
     }
   }
@@ -510,6 +528,8 @@ export class MetricsPlotPanel extends React.Component {
     return (
       <div className='metrics-plot-container'>
         <MetricsPlotControls
+          numRuns={this.props.runUuids.length}
+          numCompletedRuns={this.props.numCompletedRuns}
           distinctMetricKeys={distinctMetricKeys}
           selectedXAxis={selectedXAxis}
           selectedMetricKeys={selectedMetricKeys}
@@ -573,9 +593,9 @@ const mapStateToProps = (state, ownProps) => {
     return latestMetrics ? Object.keys(latestMetrics) : [];
   });
   const distinctMetricKeys = [...new Set(metricKeys)].sort();
-  const allRunsCompleted = runUuids
-    .map((runUuid) => getRunInfo(runUuid, state))
-    .every(({ status }) => status !== 'RUNNING');
+  const numCompletedRuns = runUuids.filter(
+    (runUuid) => getRunInfo(runUuid, state).status !== 'RUNNING',
+  ).length;
 
   const runDisplayNames = [];
 
@@ -603,7 +623,7 @@ const mapStateToProps = (state, ownProps) => {
     latestMetricsByRunUuid,
     distinctMetricKeys,
     metricsWithRunInfoAndHistory,
-    allRunsCompleted,
+    numCompletedRuns,
   };
 };
 
