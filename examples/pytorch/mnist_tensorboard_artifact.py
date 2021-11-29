@@ -83,7 +83,7 @@ train_loader = torch.utils.data.DataLoader(
     ),
     batch_size=args.batch_size,
     shuffle=True,
-    **kwargs
+    **kwargs,
 )
 test_loader = torch.utils.data.DataLoader(
     datasets.MNIST(
@@ -95,7 +95,7 @@ test_loader = torch.utils.data.DataLoader(
     ),
     batch_size=args.test_batch_size,
     shuffle=True,
-    **kwargs
+    **kwargs,
 )
 
 

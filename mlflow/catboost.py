@@ -77,7 +77,7 @@ def save_model(
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
-    **kwargs
+    **kwargs,
 ):
     """
     Save a CatBoost model to a path on the local file system.
@@ -130,7 +130,10 @@ def save_model(
 
     model_bin_kwargs = {_MODEL_BINARY_KEY: _MODEL_BINARY_FILE_NAME}
     pyfunc.add_to_model(
-        mlflow_model, loader_module="mlflow.catboost", env=_CONDA_ENV_FILE_NAME, **model_bin_kwargs,
+        mlflow_model,
+        loader_module="mlflow.catboost",
+        env=_CONDA_ENV_FILE_NAME,
+        **model_bin_kwargs,
     )
 
     flavor_conf = {
@@ -138,9 +141,7 @@ def save_model(
         _SAVE_FORMAT_KEY: kwargs.get("format", "cbm"),
         **model_bin_kwargs,
     }
-    mlflow_model.add_flavor(
-        FLAVOR_NAME, catboost_version=cb.__version__, **flavor_conf,
-    )
+    mlflow_model.add_flavor(FLAVOR_NAME, catboost_version=cb.__version__, **flavor_conf)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
@@ -149,13 +150,17 @@ def save_model(
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
-                path, FLAVOR_NAME, fallback=default_reqs,
+                path,
+                FLAVOR_NAME,
+                fallback=default_reqs,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
             default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
-            default_reqs, pip_requirements, extra_pip_requirements,
+            default_reqs,
+            pip_requirements,
+            extra_pip_requirements,
         )
     else:
         conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
@@ -182,7 +187,7 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements=None,
     extra_pip_requirements=None,
-    **kwargs
+    **kwargs,
 ):
     """
     Log a CatBoost model as an MLflow artifact for the current run.

@@ -9,7 +9,6 @@ import _ from 'lodash';
 import ExpandableList from '../../common/components/ExpandableList';
 import registryIcon from '../../common/static/registryIcon.svg';
 import { TrimmedText } from '../../common/components/TrimmedText';
-import { SEARCH_MAX_RESULTS } from '../actions';
 import {
   ATTRIBUTE_COLUMN_LABELS,
   ATTRIBUTE_COLUMN_SORT_KEY,
@@ -34,9 +33,6 @@ export default class ExperimentViewUtil {
     sortIconStyle: {
       verticalAlign: 'middle',
       fontSize: 20,
-    },
-    headerCellText: {
-      verticalAlign: 'middle',
     },
     sortIconContainer: {
       marginLeft: 2,
@@ -167,6 +163,119 @@ export default class ExperimentViewUtil {
   }
 
   /**
+   * Format a string for insertion into a CSV file.
+   */
+  static csvEscape(str) {
+    if (str === undefined) {
+      return '';
+    }
+    if (/[,"\r\n]/.test(str)) {
+      return '"' + str.replace(/"/g, '""') + '"';
+    }
+    return str;
+  }
+
+  /**
+   * Convert a table to a CSV string.
+   *
+   * @param columns Names of columns
+   * @param data Array of rows, each of which are an array of field values
+   */
+  static tableToCsv(columns, data) {
+    let csv = '';
+    let i;
+
+    for (i = 0; i < columns.length; i++) {
+      csv += ExperimentViewUtil.csvEscape(columns[i]);
+      if (i < columns.length - 1) {
+        csv += ',';
+      }
+    }
+    csv += '\n';
+
+    for (i = 0; i < data.length; i++) {
+      for (let j = 0; j < data[i].length; j++) {
+        csv += ExperimentViewUtil.csvEscape(data[i][j]);
+        if (j < data[i].length - 1) {
+          csv += ',';
+        }
+      }
+      csv += '\n';
+    }
+
+    return csv;
+  }
+
+  /**
+   * Convert an array of run infos to a CSV string, extracting the params and metrics in the
+   * provided lists.
+   */
+  static runInfosToCsv(
+    runInfos,
+    paramKeyList,
+    metricKeyList,
+    tagKeyList,
+    paramsList,
+    metricsList,
+    tagsList,
+  ) {
+    const columns = [
+      'Start Time',
+      'Duration',
+      'Run ID',
+      'Name',
+      'Source Type',
+      'Source Name',
+      'User',
+      'Status',
+      ...paramKeyList,
+      ...metricKeyList,
+      ...tagKeyList,
+    ];
+
+    const data = runInfos.map((runInfo, index) => {
+      const row = [
+        Utils.formatTimestamp(runInfo.start_time),
+        Utils.getDuration(runInfo.start_time, runInfo.end_time) || '',
+        runInfo.run_uuid,
+        Utils.getRunName(tagsList[index]), // add run name to csv export row
+        Utils.getSourceType(tagsList[index]),
+        Utils.getSourceName(tagsList[index]),
+        Utils.getUser(runInfo, tagsList[index]),
+        runInfo.status,
+      ];
+      const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[index]);
+      const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[index]);
+      const tagsMap = tagsList[index];
+
+      paramKeyList.forEach((paramKey) => {
+        if (paramsMap[paramKey]) {
+          row.push(paramsMap[paramKey].getValue());
+        } else {
+          row.push('');
+        }
+      });
+      metricKeyList.forEach((metricKey) => {
+        if (metricsMap[metricKey]) {
+          row.push(metricsMap[metricKey].getValue());
+        } else {
+          row.push('');
+        }
+      });
+      tagKeyList.forEach((tagKey) => {
+        if (tagsMap[tagKey]) {
+          row.push(tagsMap[tagKey].getValue());
+        } else {
+          row.push('');
+        }
+      });
+      return row;
+    });
+
+    return ExperimentViewUtil.tableToCsv(columns, data);
+  }
+
+  /**
    * Returns an icon for sorting the metric or param column with the specified key. The icon
    * is visible if we're currently sorting by the corresponding column. Otherwise, the icon is
    * invisible but takes up space.
@@ -207,7 +316,7 @@ export default class ExperimentViewUtil {
         canonicalSortKey,
       );
       const isSortable = canonicalSortKey !== null;
-      const cellClassName = classNames('bottom-row', 'run-table-container', {
+      const cellClassName = classNames('run-table-container', {
         sortable: isSortable,
       });
       return (
@@ -216,7 +325,7 @@ export default class ExperimentViewUtil {
           className={cellClassName}
           onClick={() => (isSortable ? onSortBy(canonicalSortKey, !curOrderByAsc) : null)}
         >
-          <span style={ExperimentViewUtil.styles.headerCellText}>{text}</span>
+          <span>{text}</span>
           {isSortable && (
             <span style={ExperimentViewUtil.styles.sortIconContainer}>{sortIcon}</span>
           )}
@@ -357,7 +466,7 @@ export default class ExperimentViewUtil {
   }
 
   static getLinkedModelCell(associatedModelVersions, handleCellToggle) {
-    const className = 'left-border run-table-container';
+    const className = 'run-table-container';
     if (associatedModelVersions && associatedModelVersions.length > 0) {
       return (
         <div className={className} key='linked=models'>
@@ -545,12 +654,12 @@ export default class ExperimentViewUtil {
     });
   }
 
-  static disableLoadMoreButton({ numRunsFromLatestSearch }) {
+  static disableLoadMoreButton({ numRunsFromLatestSearch, nextPageToken }) {
     if (numRunsFromLatestSearch === null) {
       // numRunsFromLatestSearch is null by default, so we should not disable the button
       return false;
     }
-    return numRunsFromLatestSearch < SEARCH_MAX_RESULTS;
+    return nextPageToken === null;
   }
 
   /**

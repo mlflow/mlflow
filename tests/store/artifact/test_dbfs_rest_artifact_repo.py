@@ -25,9 +25,9 @@ def dbfs_artifact_repo():
         return get_artifact_repository("dbfs:/test/")
 
 
-TEST_FILE_1_CONTENT = u"Hello 🍆🍔".encode("utf-8")
-TEST_FILE_2_CONTENT = u"World 🍆🍔🍆".encode("utf-8")
-TEST_FILE_3_CONTENT = u"¡🍆🍆🍔🍆🍆!".encode("utf-8")
+TEST_FILE_1_CONTENT = "Hello 🍆🍔".encode("utf-8")
+TEST_FILE_2_CONTENT = "World 🍆🍔🍆".encode("utf-8")
+TEST_FILE_3_CONTENT = "¡🍆🍆🍔🍆🍆!".encode("utf-8")
 
 DBFS_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.dbfs_artifact_repo"
 DBFS_ARTIFACT_REPOSITORY = DBFS_ARTIFACT_REPOSITORY_PACKAGE + ".DbfsRestArtifactRepository"

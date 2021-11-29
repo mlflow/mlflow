@@ -110,7 +110,11 @@ def test_http_request_hostonly(request):
     request.return_value = response
     http_request(host_only, "/my/endpoint", "GET")
     request.assert_called_with(
-        "GET", "http://my-host/my/endpoint", verify=True, headers=_DEFAULT_HEADERS, timeout=120,
+        "GET",
+        "http://my-host/my/endpoint",
+        verify=True,
+        headers=_DEFAULT_HEADERS,
+        timeout=120,
     )
 
 
@@ -123,7 +127,11 @@ def test_http_request_cleans_hostname(request):
     request.return_value = response
     http_request(host_only, "/my/endpoint", "GET")
     request.assert_called_with(
-        "GET", "http://my-host/my/endpoint", verify=True, headers=_DEFAULT_HEADERS, timeout=120,
+        "GET",
+        "http://my-host/my/endpoint",
+        verify=True,
+        headers=_DEFAULT_HEADERS,
+        timeout=120,
     )
 
 
@@ -137,7 +145,11 @@ def test_http_request_with_basic_auth(request):
     headers = dict(_DEFAULT_HEADERS)
     headers["Authorization"] = "Basic dXNlcjpwYXNz"
     request.assert_called_with(
-        "GET", "http://my-host/my/endpoint", verify=True, headers=headers, timeout=120,
+        "GET",
+        "http://my-host/my/endpoint",
+        verify=True,
+        headers=headers,
+        timeout=120,
     )
 
 
@@ -151,7 +163,11 @@ def test_http_request_with_token(request):
     headers = dict(_DEFAULT_HEADERS)
     headers["Authorization"] = "Bearer my-token"
     request.assert_called_with(
-        "GET", "http://my-host/my/endpoint", verify=True, headers=headers, timeout=120,
+        "GET",
+        "http://my-host/my/endpoint",
+        verify=True,
+        headers=headers,
+        timeout=120,
     )
 
 
@@ -163,7 +179,11 @@ def test_http_request_with_insecure(request):
     request.return_value = response
     http_request(host_only, "/my/endpoint", "GET")
     request.assert_called_with(
-        "GET", "http://my-host/my/endpoint", verify=False, headers=_DEFAULT_HEADERS, timeout=120,
+        "GET",
+        "http://my-host/my/endpoint",
+        verify=False,
+        headers=_DEFAULT_HEADERS,
+        timeout=120,
     )
 
 
@@ -229,7 +249,9 @@ def test_http_request_request_headers(request):
 def test_ignore_tls_verification_not_server_cert_path():
     with pytest.raises(MlflowException):
         MlflowHostCreds(
-            "http://my-host", ignore_tls_verification=True, server_cert_path="/some/path",
+            "http://my-host",
+            ignore_tls_verification=True,
+            server_cert_path="/some/path",
         )
 
 
@@ -242,13 +264,21 @@ def test_http_request_wrapper(request):
     request.return_value = response
     http_request_safe(host_only, "/my/endpoint", "GET")
     request.assert_called_with(
-        "GET", "http://my-host/my/endpoint", verify=False, headers=_DEFAULT_HEADERS, timeout=120,
+        "GET",
+        "http://my-host/my/endpoint",
+        verify=False,
+        headers=_DEFAULT_HEADERS,
+        timeout=120,
     )
     response.text = "non json"
     request.return_value = response
     http_request_safe(host_only, "/my/endpoint", "GET")
     request.assert_called_with(
-        "GET", "http://my-host/my/endpoint", verify=False, headers=_DEFAULT_HEADERS, timeout=120,
+        "GET",
+        "http://my-host/my/endpoint",
+        verify=False,
+        headers=_DEFAULT_HEADERS,
+        timeout=120,
     )
     response.status_code = 400
     response.text = ""

@@ -14,7 +14,7 @@ import { mountWithIntl } from '../../common/utils/TestUtils';
 
 const mockStore = configureStore([thunk, promiseMiddleware()]);
 
-const ANTD_TABLE_PLACEHOLDER_CLS = '.ant-table-placeholder';
+const ANTD_TABLE_PLACEHOLDER_CLS = 'tr.ant-table-placeholder';
 
 describe('ModelListView', () => {
   let wrapper;
@@ -136,23 +136,6 @@ describe('ModelListView', () => {
         [
           { key: 'key', value: 'value' },
           { key: 'key2', value: 'value2' },
-        ],
-      ),
-    ];
-    const props = { ...minimalProps, models };
-    wrapper = setupModelListViewWithIntl(props);
-    expect(wrapper.find('td.table-tag-container').text()).toContain('key:value');
-    expect(wrapper.find('td.table-tag-container').text()).toContain('key2:value2');
-  });
-
-  test('tags cell renders multiple tags and collapses with more than 3 tags', () => {
-    const models = [
-      mockRegisteredModelDetailed(
-        'Model A',
-        [],
-        [
-          { key: 'key', value: 'value' },
-          { key: 'key2', value: 'value2' },
           { key: 'key3', value: 'value3' },
           { key: 'key4', value: 'value4' },
         ],
@@ -163,7 +146,29 @@ describe('ModelListView', () => {
     expect(wrapper.find('td.table-tag-container').text()).toContain('key:value');
     expect(wrapper.find('td.table-tag-container').text()).toContain('key2:value2');
     expect(wrapper.find('td.table-tag-container').text()).toContain('key3:value3');
-    expect(wrapper.find('td.table-tag-container').text()).toContain('1 more');
+    expect(wrapper.find('td.table-tag-container').text()).toContain('key4:value4');
+  });
+
+  test('tags cell renders multiple tags and collapses with more than 4 tags', () => {
+    const models = [
+      mockRegisteredModelDetailed(
+        'Model A',
+        [],
+        [
+          { key: 'key', value: 'value' },
+          { key: 'key2', value: 'value2' },
+          { key: 'key3', value: 'value3' },
+          { key: 'key4', value: 'value4' },
+          { key: 'key5', value: 'value5' },
+        ],
+      ),
+    ];
+    const props = { ...minimalProps, models };
+    wrapper = setupModelListViewWithIntl(props);
+    expect(wrapper.find('td.table-tag-container').text()).toContain('key:value');
+    expect(wrapper.find('td.table-tag-container').text()).toContain('key2:value2');
+    expect(wrapper.find('td.table-tag-container').text()).toContain('key3:value3');
+    expect(wrapper.find('td.table-tag-container').text()).toContain('2 more');
   });
 
   test('should render `_` when there are no tags to display for the cell', () => {

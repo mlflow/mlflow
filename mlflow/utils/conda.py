@@ -120,7 +120,9 @@ def get_or_create_conda_env(conda_env_path, env_id=None):
             "it is not working properly. Note that {1} and the conda executable need to be "
             "in the same conda environment. You can change the search path by"
             "modifying the env variable {2}".format(
-                MLFLOW_CONDA_CREATE_ENV_CMD, conda_env_create_path, MLFLOW_CONDA_HOME,
+                MLFLOW_CONDA_CREATE_ENV_CMD,
+                conda_env_create_path,
+                MLFLOW_CONDA_HOME,
             )
         )
 

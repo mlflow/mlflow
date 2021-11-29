@@ -16,6 +16,7 @@ export const mockModelVersionDetailed = (
   tags = [],
   run_link = undefined,
   run_id = 'b99a0fc567ae4d32994392c800c0b6ce',
+  user_id = 'richard@example.com',
 ) => {
   return {
     name,
@@ -23,7 +24,7 @@ export const mockModelVersionDetailed = (
     // and prevent React duplicate key warning.
     creation_timestamp: version.toString(),
     last_updated_timestamp: (version + 1).toString(),
-    user_id: 'richard@example.com',
+    user_id: user_id,
     current_stage: stage,
     description: '',
     source: 'path/to/model',

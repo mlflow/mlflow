@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 set -e
-source generate-protos.sh
+source dev/generate-protos.sh
 
 GIT_STATUS="$(git status --porcelain)"
 if [ "$GIT_STATUS" ]; then 
