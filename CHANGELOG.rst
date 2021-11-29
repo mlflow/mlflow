@@ -8,9 +8,9 @@ Features:
 
 - [UI] Add a share button to the Experiment page (#4936, @marijncv)
 - [UI] Improve readability of column sorting dropdown on Experiment page (#5022, @WeichenXu123; #5018, @NieuweNils, @coder-freestyle)
-- [Tracking] Mark all autologging integrations as stable by removing `@experimental` decorators (#5028, @liangz1)
-- [Tracking] Add optional `experiment_id` parameter to `mlflow.set_experiment()` (#5012, @dbczumar)
-- [Tracking] Add support for XGBoost scikit-learn models to `mlflow.xgboost.autolog()` (#5078, @jwyyy)
+- [Tracking] Mark all autologging integrations as stable by removing ``@experimental`` decorators (#5028, @liangz1)
+- [Tracking] Add optional ``experiment_id`` parameter to ``mlflow.set_experiment()`` (#5012, @dbczumar)
+- [Tracking] Add support for XGBoost scikit-learn models to ``mlflow.xgboost.autolog()`` (#5078, @jwyyy)
 - [Tracking] Improve statsmodels autologging performance by removing unnecessary metrics (#4942, @WeichenXu123)
 - [Tracking] Update R client to tag nested runs with parent run ID (#4197, @yitao-li)
 - [Models] Support saving and loading all XGBoost model types (#4954, @jwyyy)
@@ -21,12 +21,12 @@ Bug fixes and documentation updates:
 
 - [UI] Fix bug causing Metric Plot page to crash when metric values are too large (#4947, @ianshan0915)
 - [UI] Fix bug causing parallel coordinate curves to vanish (#5087, @harupy)
-- [UI] Remove `Creator` field from Model Version page if user information is absent (#5089, @jinzhang21)
+- [UI] Remove ``Creator`` field from Model Version page if user information is absent (#5089, @jinzhang21)
 - [UI] Fix model loading instructions for non-pyfunc models in Artifact Viewer (#5006, @harupy)
-- [Models] Fix a bug that added `mlflow` to `conda.yaml` even if a hashed version was already present (#5058, @maitre-matt)
+- [Models] Fix a bug that added ``mlflow`` to ``conda.yaml`` even if a hashed version was already present (#5058, @maitre-matt)
 - [Docs] Add Python documentation for metric, parameter, and tag key / value length limits (#4991, @westford14)
 - [Examples] Update Python version used in Prophet example to fix installation errors (#5101, @BenWilson2)
-- [Examples] Fix Kubernetes `resources` specification in MLflow Projects + Kubernetes example (#4948, @jianyuan)
+- [Examples] Fix Kubernetes ``resources`` specification in MLflow Projects + Kubernetes example (#4948, @jianyuan)
 
 Small bug fixes and doc updates (#5119, #5107, #5105, #5103, #5085, #5088, #5051, #5081, #5039, #5073, #5072, #5066, #5064, #5063, #5060, #4718, #5053, #5052, #5041, #5043, #5047, #5036, #5037, #5029, #5031, #5032, #5030, #5007, #5019, #5014, #5008, #4998, #4985, #4984, #4970, #4966, #4980, #4967, #4978, #4979, #4968, #4976, #4975, #4934, #4956, #4938, #4950, #4946, #4939, #4913, #4940, #4935, @harupy; #5095, #5070, #5002, #4958, #4945, @BenWilson2; #5099, @chaosddp; #5005, @you-n-g; #5042, #4952, @shrinath-suresh; #4962, #4995, @WeichenXu123; #5010, @lichenran1234; #5000, @wentinghu; #5111, @alexott; #5102, #5024, #5011, #4959, @dbczumar; #5075, #5044, #5026, #4997, #4964, #4989, @liangz1; #4999, @stevenchen-db)
 
