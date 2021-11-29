@@ -1,7 +1,7 @@
 import os
-import stat
 import inspect
 import shutil
+import subprocess
 from unittest import mock
 
 import pytest
@@ -100,11 +100,6 @@ def prevent_infer_pip_requirements_fallback(request):
         yield
 
 
-def on_rm_error(func, path, exc_info):  # pylint: disable=unused-argument
-    os.chmod(path, stat.S_IWRITE)
-    os.unlink(path)
-
-
 @pytest.fixture(autouse=True, scope="module")
 def clean_up_mlruns_direcotry(request):
     """
@@ -113,4 +108,9 @@ def clean_up_mlruns_direcotry(request):
     yield
     mlruns_dir = os.path.join(request.config.rootpath, "mlruns")
     if os.path.exists(mlruns_dir):
-        shutil.rmtree(mlruns_dir, onerror=on_rm_error)
+        try:
+            shutil.rmtree(mlruns_dir)
+        except IOError:
+            if os.name == "nt":
+                raise
+            subprocess.run(["sudo", "rm", "-rf", mlruns_dir], check=True)
