@@ -142,6 +142,28 @@ def test_xgb_autolog_logs_specified_params(bst_params, dtrain):
 
 
 @pytest.mark.large
+def test_xgb_autolog_sklearn():
+
+    mlflow.xgboost.autolog()
+
+    X, y = datasets.load_iris(return_X_y=True)
+    params = {"n_estimators": 10, "reg_lambda": 1}
+    model = xgb.XGBRegressor(**params)
+
+    with mlflow.start_run() as run:
+        model.fit(X, y)
+        model_uri = mlflow.get_artifact_uri("model")
+
+    client = mlflow.tracking.MlflowClient()
+    run = client.get_run(run.info.run_id)
+    assert run.data.metrics.items() <= params.items()
+    artifacts = set(x.path for x in client.list_artifacts(run.info.run_id))
+    assert artifacts >= set(["feature_importance_weight.png", "feature_importance_weight.json"])
+    loaded_model = mlflow.xgboost.load_model(model_uri)
+    np.testing.assert_allclose(loaded_model.predict(X), model.predict(X))
+
+
+@pytest.mark.large
 def test_xgb_autolog_logs_metrics_with_validation_data(bst_params, dtrain):
     mlflow.xgboost.autolog()
     evals_result = {}
