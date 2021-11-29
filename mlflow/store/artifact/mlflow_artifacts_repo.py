@@ -1,5 +1,6 @@
 from urllib.parse import urlparse
 from collections import namedtuple
+import re
 
 from mlflow.store.artifact.http_artifact_repo import HttpArtifactRepository
 from mlflow.tracking._tracking_service.utils import get_tracking_uri
@@ -72,7 +73,8 @@ class MlflowArtifactsRepository(HttpArtifactRepository):
         elif uri_parse.path == base_url:  # for operations like list artifacts
             resolved = base_url
         else:
-            resolved = f"{base_url}{track_parse.path}{uri_parse.path.lstrip('/')}"
+            resolved = f"{base_url}/{track_parse.path}{uri_parse.path}"
+        resolved = re.sub("//+", "/", resolved)
 
         if uri_parse.host and uri_parse.port:
             resolved_artifacts_uri = (

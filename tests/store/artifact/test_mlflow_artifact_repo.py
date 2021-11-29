@@ -8,11 +8,13 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.exceptions import MlflowException
 
 
-@pytest.fixture(scope="module", autouse=True)
-def set_tracking_uri():
+@pytest.fixture(
+    scope="module", autouse=True, params=["http://localhost:5000", "http://localhost:5000/"]
+)
+def set_tracking_uri(request):
     with mock.patch(
         "mlflow.store.artifact.mlflow_artifacts_repo.get_tracking_uri",
-        return_value="http://localhost:5000/",
+        return_value=request.param,
     ):
         yield
 
