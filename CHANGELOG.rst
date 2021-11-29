@@ -1,5 +1,40 @@
 Changelog
 =========
+1.21.1.dev0 (2021-11-29)
+------------------------
+MLflow 1.21.1.dev0 includes several major features and improvements:
+
+Features:
+
+- Add share button in experiment view (#4936, @marijncv)
+- Enable mlflow-artifacts scheme as wrapper around http artifact scheme (#5070, @BenWilson2)
+- UI updates (#5087, @harupy)
+- [FR] Allow Deploying SageMaker Endpoints to Another AWS Account #4921 (#4923, @andresionek91)
+- Truncate in middle for the dropdown of sorting columns in Experiment View (#5022, @WeichenXu123)
+- Remove the experimental decorators on autolog() for all flavors (#5028, @liangz1)
+- Autologging functionality for scikit-learn integration with XGBoost (Part 1) (#4954, @jwyyy)
+- [Proxied artifact operations] Implement REST API endpoints and artifact repository (#4946, @harupy)
+- Add optional experiment_id parameter to `mlflow.set_experiment` (#5012, @dbczumar)
+- Add support to serve MLflow models through MLServer (#4963, @adriangonz)
+- Improve statsmodels autologging metrics (#4942, @WeichenXu123)
+- tag nested runs with parent run ID (#4197, @yitao-li)
+
+Bug fixes and documentation updates:
+
+- Update python version in conda.yaml for prophet example (#5101, @BenWilson2)
+- Removed Creator field in ModelVersionView if user_id is undefined (#5089, @jinzhang21)
+- Unblock PIP package hashes when logging models (#5058, @maitre-matt)
+- Render code to load model when pyfunc flavor is unavailable (#5006, @harupy)
+- Add POST version of GetLatestVersions api (#4999, @stevenchen-db)
+- fix metricplotview crashes while metric value is large (#4947, @ianshan0915)
+- Bugfix: Truncated values in sortBy column (#5018, @NieuweNils)
+-  Autologging functionality for scikit-learn integration with XGBoost (Part 2) (#5078, @jwyyy)
+- Unblock PIP package hashes when logging models (#5058, @maitre-matt)
+- updating documentation to address issue 4202 Signed-off-by: westford1 (#4991, @westford14)
+- Fix resources spec (#4948, @jianyuan)
+
+Small bug fixes and doc updates (#5107, #5105, #5103, #5085, #5088, #5051, #5081, #5039, #5073, #5072, #5066, #5064, #5063, #5060, #4718, #5053, #5052, #5041, #5043, #5047, #5036, #5037, #5029, #5031, #5032, #5030, #5007, #5019, #5014, #5008, #4998, #4985, #4984, #4970, #4966, #4980, #4967, #4978, #4979, #4968, #4976, #4975, #4934, #4956, #4938, #4950, #4939, #4913, #4940, #4935, @harupy; #5095, #5002, #4958, #4945, @BenWilson2; #5099, @chaosddp; #5005, @you-n-g; #5042, #4952, @shrinath-suresh; #4962, #4995, @WeichenXu123; #5010, @lichenran1234; #5000, @wentinghu; #5111, @alexott; #5102, #5024, #5011, #4959, @dbczumar; #5075, #5044, #5026, #4997, #4964, #4989, @liangz1)
+
 1.21.0 (2021-10-23)
 -------------------
 MLflow 1.21.0 includes several major features and improvements:
