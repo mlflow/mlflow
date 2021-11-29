@@ -9,11 +9,11 @@ def activate_prometheus_exporter(app):
         return mlflow.__version__
 
     metrics = GunicornInternalPrometheusMetrics(
-        app, 
-        export_defaults=True, 
+        app,
+        export_defaults=True,
         defaults_prefix="mlflow",
         excluded_paths=["/health"],
-        group_by=mlflow_version
+        group_by=mlflow_version,
     )
 
-    return app
+    return metrics
