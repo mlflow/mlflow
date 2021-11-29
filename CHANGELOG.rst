@@ -21,14 +21,14 @@ Bug fixes and documentation updates:
 
 - [UI] Fix bug causing Metric Plot page to crash when metric values are too large (#4947, @ianshan0915)
 - [UI] Fix bug causing parallel coordinate curves to vanish (#5087, @harupy)
-- [UI] Remove `Creator` field in Model Version page if user information is absent (#5089, @jinzhang21)
+- [UI] Remove `Creator` field from Model Version page if user information is absent (#5089, @jinzhang21)
 - [UI] Fix model loading instructions for non-pyfunc models in Artifact Viewer (#5006, @harupy)
 - [Models] Fix a bug that added `mlflow` to `conda.yaml` even if a hashed version was already present (#5058, @maitre-matt)
 - [Docs] Add Python documentation for metric, parameter, and tag key / value length limits (#4991, @westford14)
 - [Examples] Update Python version used in Prophet example to fix installation errors (#5101, @BenWilson2)
 - [Examples] Fix Kubernetes `resources` specification in MLflow Projects + Kubernetes example (#4948, @jianyuan)
 
-Small bug fixes and doc updates (#5119, #5107, #5105, #5103, #5085, #5088, #5051, #5081, #5039, #5073, #5072, #5066, #5064, #5063, #5060, #4718, #5053, #5052, #5041, #5043, #5047, #5036, #5037, #5029, #5031, #5032, #5030, #5007, #5019, #5014, #5008, #4998, #4985, #4984, #4970, #4966, #4980, #4967, #4978, #4979, #4968, #4976, #4975, #4934, #4956, #4938, #4950, #4946, #4939, #4913, #4940, #4935, @harupy; #5095, #5070, #5002, #4958, #4945, @BenWilson2; #5099, @chaosddp; #5005, @you-n-g; #5042, #4952, @shrinath-suresh; #4962, #4995, @WeichenXu123; #5010, @lichenran1234; #5000, @wentinghu; #5111, @alexott; #5102, #5024, #5011, #4959, @dbczumar; #5075, #5044, #5026, #4997, #4964, #4989, @liangz1; #4999 @stevenchen-db)
+Small bug fixes and doc updates (#5119, #5107, #5105, #5103, #5085, #5088, #5051, #5081, #5039, #5073, #5072, #5066, #5064, #5063, #5060, #4718, #5053, #5052, #5041, #5043, #5047, #5036, #5037, #5029, #5031, #5032, #5030, #5007, #5019, #5014, #5008, #4998, #4985, #4984, #4970, #4966, #4980, #4967, #4978, #4979, #4968, #4976, #4975, #4934, #4956, #4938, #4950, #4946, #4939, #4913, #4940, #4935, @harupy; #5095, #5070, #5002, #4958, #4945, @BenWilson2; #5099, @chaosddp; #5005, @you-n-g; #5042, #4952, @shrinath-suresh; #4962, #4995, @WeichenXu123; #5010, @lichenran1234; #5000, @wentinghu; #5111, @alexott; #5102, #5024, #5011, #4959, @dbczumar; #5075, #5044, #5026, #4997, #4964, #4989, @liangz1; #4999, @stevenchen-db)
 
 1.21.0 (2021-10-23)
 -------------------
