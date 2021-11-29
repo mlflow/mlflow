@@ -1,39 +1,34 @@
 Changelog
 =========
-1.21.1.dev0 (2021-11-29)
+1.22.0 (2021-11-29)
 ------------------------
-MLflow 1.21.1.dev0 includes several major features and improvements:
+MLflow 1.22.0 includes several major features and improvements:
 
 Features:
 
-- Add share button in experiment view (#4936, @marijncv)
-- Enable mlflow-artifacts scheme as wrapper around http artifact scheme (#5070, @BenWilson2)
-- UI updates (#5087, @harupy)
-- [FR] Allow Deploying SageMaker Endpoints to Another AWS Account #4921 (#4923, @andresionek91)
-- Truncate in middle for the dropdown of sorting columns in Experiment View (#5022, @WeichenXu123)
-- Remove the experimental decorators on autolog() for all flavors (#5028, @liangz1)
-- Autologging functionality for scikit-learn integration with XGBoost (Part 1) (#4954, @jwyyy)
-- [Proxied artifact operations] Implement REST API endpoints and artifact repository (#4946, @harupy)
-- Add optional experiment_id parameter to `mlflow.set_experiment` (#5012, @dbczumar)
-- Add support to serve MLflow models through MLServer (#4963, @adriangonz)
-- Improve statsmodels autologging metrics (#4942, @WeichenXu123)
-- tag nested runs with parent run ID (#4197, @yitao-li)
+- [UI] Add a share button to the Experiment page (#4936, @marijncv)
+- [UI] Improve experiment page stying, fix bug causing parallel coordinate curves to vanish (#5087, @harupy)
+- [UI] Improve readability of column sorting dropdown on Experiment page (#5022, @WeichenXu123; #5018, @NieuweNils, @coder-freestyle)
+- [Tracking] Mark all autologging integrations as stable by removing `@experimental` decorator (#5028, @liangz1)
+- [Tracking] Add optional `experiment_id` parameter to `mlflow.set_experiment` (#5012, @dbczumar)
+- [Tracking] Add support for XGBoost scikit-learn models to `mlflow.xgboost.autolog()` (#5078, @jwyyy)
+- [Tracking] Improve statsmodels autologging performance by removing unnecessary metrics (#4942, @WeichenXu123)
+- [Tracking] Update R client to tag nested runs with parent run ID (#4197, @yitao-li)
+- [Models] Support saving and loading all XGBoost model types (#4954, @jwyyy)
+- [Scoring] Support specifying AWS account and role when deploying models to SageMaker (#4923, @andresionek91)
+- [Scoring] Support serving MLflow models with MLServer (#4963, @adriangonz)
 
 Bug fixes and documentation updates:
 
-- Update python version in conda.yaml for prophet example (#5101, @BenWilson2)
-- Removed Creator field in ModelVersionView if user_id is undefined (#5089, @jinzhang21)
-- Unblock PIP package hashes when logging models (#5058, @maitre-matt)
-- Render code to load model when pyfunc flavor is unavailable (#5006, @harupy)
-- Add POST version of GetLatestVersions api (#4999, @stevenchen-db)
-- fix metricplotview crashes while metric value is large (#4947, @ianshan0915)
-- Bugfix: Truncated values in sortBy column (#5018, @NieuweNils)
--  Autologging functionality for scikit-learn integration with XGBoost (Part 2) (#5078, @jwyyy)
-- Unblock PIP package hashes when logging models (#5058, @maitre-matt)
-- updating documentation to address issue 4202 Signed-off-by: westford1 (#4991, @westford14)
-- Fix resources spec (#4948, @jianyuan)
+- [UI] Fix bug causing Metric Plot page to crash when metric values are too large (#4947, @ianshan0915)
+- [UI] Remove `Creator` field in Model Version page if user information is absent (#5089, @jinzhang21)
+- [UI] Fix model loading instructions for non-pyfunc models in Artifact Viewer (#5006, @harupy)
+- [Models] Fix a bug that added `mlflow` to `conda.yaml` even if a hashed version was already present (#5058, @maitre-matt)
+- [Docs] Add Python documentation for metric, parameter, and tag key / value length limits (#4991, @westford14)
+- [Examples] Update Python version used in Prophet example to fix installation errors (#5101, @BenWilson2)
+- [Examples] Fix Kubernetes `resources` specification in MLflow Projects + Kubernetes example (#4948, @jianyuan)
 
-Small bug fixes and doc updates (#5107, #5105, #5103, #5085, #5088, #5051, #5081, #5039, #5073, #5072, #5066, #5064, #5063, #5060, #4718, #5053, #5052, #5041, #5043, #5047, #5036, #5037, #5029, #5031, #5032, #5030, #5007, #5019, #5014, #5008, #4998, #4985, #4984, #4970, #4966, #4980, #4967, #4978, #4979, #4968, #4976, #4975, #4934, #4956, #4938, #4950, #4939, #4913, #4940, #4935, @harupy; #5095, #5002, #4958, #4945, @BenWilson2; #5099, @chaosddp; #5005, @you-n-g; #5042, #4952, @shrinath-suresh; #4962, #4995, @WeichenXu123; #5010, @lichenran1234; #5000, @wentinghu; #5111, @alexott; #5102, #5024, #5011, #4959, @dbczumar; #5075, #5044, #5026, #4997, #4964, #4989, @liangz1)
+Small bug fixes and doc updates (#5107, #5105, #5103, #5085, #5088, #5051, #5081, #5039, #5073, #5072, #5066, #5064, #5063, #5060, #4718, #5053, #5052, #5041, #5043, #5047, #5036, #5037, #5029, #5031, #5032, #5030, #5007, #5019, #5014, #5008, #4998, #4985, #4984, #4970, #4966, #4980, #4967, #4978, #4979, #4968, #4976, #4975, #4934, #4956, #4938, #4950, #4946, #4939, #4913, #4940, #4935, @harupy; #5095, #5070, #5002, #4958, #4945, @BenWilson2; #5099, @chaosddp; #5005, @you-n-g; #5042, #4952, @shrinath-suresh; #4962, #4995, @WeichenXu123; #5010, @lichenran1234; #5000, @wentinghu; #5111, @alexott; #5102, #5024, #5011, #4959, @dbczumar; #5075, #5044, #5026, #4997, #4964, #4989, @liangz1; #4999 @stevenchen-db)
 
 1.21.0 (2021-10-23)
 -------------------
