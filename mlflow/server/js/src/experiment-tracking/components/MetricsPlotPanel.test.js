@@ -1,4 +1,10 @@
 import React from 'react';
+import { BrowserRouter } from 'react-router-dom';
+import { Provider } from 'react-redux';
+import thunk from 'redux-thunk';
+import configureStore from 'redux-mock-store';
+import promiseMiddleware from 'redux-promise-middleware';
+import { Progress } from 'antd';
 import { shallow } from 'enzyme';
 import {
   MetricsPlotPanel,
@@ -9,6 +15,7 @@ import {
 } from './MetricsPlotPanel';
 import { X_AXIS_RELATIVE, X_AXIS_STEP, X_AXIS_WALL } from './MetricsPlotControls';
 import Utils from '../../common/utils/Utils';
+import { mountWithIntl } from '../../common/utils/TestUtils';
 import { RunLinksPopover } from './RunLinksPopover';
 
 describe('unit tests', () => {
@@ -388,6 +395,39 @@ describe('unit tests', () => {
       done();
     }, 1000);
   });
+  test('should render the number of completed runs correctly', () => {
+    const mountWithProps = (props) => {
+      const mockStore = configureStore([thunk, promiseMiddleware()]);
+      return mountWithIntl(
+        <Provider store={mockStore({})}>
+          <BrowserRouter>
+            <MetricsPlotPanel {...props} />
+          </BrowserRouter>
+        </Provider>,
+      );
+    };
+    // no runs completed
+    wrapper = mountWithProps({
+      ...minimalPropsForLineChart,
+      completedRunUuids: [],
+    });
+    wrapper.update();
+    expect(wrapper.find(Progress).text()).toContain('0/2');
+    // 1 run completed
+    wrapper = mountWithProps({
+      ...minimalPropsForLineChart,
+      completedRunUuids: ['runUuid1'],
+    });
+    wrapper.update();
+    expect(wrapper.find(Progress).text()).toContain('1/2');
+    // all runs completed
+    wrapper = mountWithProps({
+      ...minimalPropsForLineChart,
+      completedRunUuids: ['runUuid1', 'runUuid2'],
+    });
+    wrapper.update();
+    expect(wrapper.find(Progress).text()).toContain('2/2');
+  });
 
   test('should not set polling interval if all runs already completed', () => {
     jest.useFakeTimers();
@@ -428,7 +468,7 @@ describe('unit tests', () => {
     expect(getRunApi).toHaveBeenCalledTimes(1);
   });
 
-  test('should stop polling when polling duration exceeds threshold', () => {
+  test('should stop polling when exceeding polling duration', () => {
     jest.useFakeTimers();
     const props = {
       ...minimalPropsForLineChart,
