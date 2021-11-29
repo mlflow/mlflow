@@ -22,10 +22,16 @@ import { getUUID } from '../../common/utils/ActionUtils';
 export const CHART_TYPE_LINE = 'line';
 export const CHART_TYPE_BAR = 'bar';
 
+// Polling interval
+export const METRICS_PLOT_POLLING_INTERVAL_MS = 5000;
+// Stop polling when the polling duration exceeds this value
+export const METRICS_PLOT_POLLING_DURATION_MS = 3600 * 1000; // 1 hour
+
 export class MetricsPlotPanel extends React.Component {
   static propTypes = {
     experimentId: PropTypes.string.isRequired,
     runUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
+    completedRunUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
     metricKey: PropTypes.string.isRequired,
     // A map of { runUuid : { metricKey: value } }
     latestMetricsByRunUuid: PropTypes.object.isRequired,
@@ -38,7 +44,6 @@ export class MetricsPlotPanel extends React.Component {
     location: PropTypes.object.isRequired,
     history: PropTypes.object.isRequired,
     runDisplayNames: PropTypes.arrayOf(PropTypes.string).isRequired,
-    numCompletedRuns: PropTypes.number.isRequired,
   };
 
   // The fields below are exposed as instance attributes rather than component state so that they
@@ -65,10 +70,6 @@ export class MetricsPlotPanel extends React.Component {
   // a single-click event.
   SINGLE_CLICK_EVENT_DELAY_MS = this.MAX_DOUBLE_CLICK_INTERVAL_MS + 10;
 
-  DURATION_BETWEEN_HISTORY_UPDATES_MS = 5000;
-
-  DURATION_THRESHOLD_MS = 3600 * 1000; // 1 hour
-
   constructor(props) {
     super(props);
     this.state = {
@@ -81,7 +82,7 @@ export class MetricsPlotPanel extends React.Component {
     };
     this.displayPopover = false;
     this.intervalId = null;
-    this.constructedAt = new Date().getTime();
+    this.mountedAt = null;
     this.loadMetricHistory(this.props.runUuids, this.getUrlState().selectedMetricKeys);
   }
 
@@ -99,37 +100,42 @@ export class MetricsPlotPanel extends React.Component {
     }
   };
 
-  loadMetricHistoryAndRuns = () => {
-    const { runUuids } = this.props;
-    this.loadMetricHistory(runUuids, this.getUrlState().selectedMetricKeys);
-    runUuids.forEach(this.props.getRunApi);
-  };
-
   allRunsCompleted = () => {
-    return this.props.numCompletedRuns === this.props.runUuids.length;
+    return this.props.completedRunUuids.length === this.props.runUuids.length;
   };
 
-  exceedsDurationThreshold = () => {
-    return new Date().getTime() - this.constructedAt > this.DURATION_THRESHOLD_MS;
+  exceedsPollingDurationThreshold = () => {
+    if (!this.mountedAt) {
+      return false;
+    }
+    return new Date().getTime() - this.mountedAt >= METRICS_PLOT_POLLING_DURATION_MS;
   };
 
   componentDidMount() {
+    if (!this.mountedAt) {
+      this.mountedAt = new Date().getTime();
+    }
     window.addEventListener('focus', this.onFocus);
     window.addEventListener('blur', this.onBlur);
 
     if (!this.allRunsCompleted()) {
       this.intervalId = setInterval(() => {
         if (this.state.focused) {
-          this.loadMetricHistoryAndRuns();
-          if (this.exceedsDurationThreshold() || this.allRunsCompleted()) {
-            this.clearIntervalIfExists();
-          }
+          const { completedRunUuids, runUuids } = this.props;
+          const uncompletedRuns = _.difference(runUuids, completedRunUuids);
+          this.loadMetricHistory(uncompletedRuns, this.getUrlState().selectedMetricKeys);
+          this.loadRuns(uncompletedRuns);
         }
-      }, this.DURATION_BETWEEN_HISTORY_UPDATES_MS);
+        if (this.exceedsPollingDurationThreshold() || this.allRunsCompleted()) {
+          this.clearIntervalIfExists();
+        }
+      }, METRICS_PLOT_POLLING_INTERVAL_MS);
     }
   }
 
   componentWillUnmount() {
+    window.removeEventListener('focus', this.onFocus);
+    window.removeEventListener('blur', this.onBlur);
     this.clearIntervalIfExists();
   }
 
@@ -202,6 +208,16 @@ export class MetricsPlotPanel extends React.Component {
           requestIds.push(id);
         }
       });
+    });
+    return requestIds;
+  };
+
+  loadRuns = (runUuids) => {
+    const requestIds = [];
+    runUuids.forEach((runUuid) => {
+      const id = getUUID();
+      this.props.getRunApi(runUuid);
+      requestIds.push(id);
     });
     return requestIds;
   };
@@ -529,7 +545,7 @@ export class MetricsPlotPanel extends React.Component {
       <div className='metrics-plot-container'>
         <MetricsPlotControls
           numRuns={this.props.runUuids.length}
-          numCompletedRuns={this.props.numCompletedRuns}
+          numCompletedRuns={this.props.completedRunUuids.length}
           distinctMetricKeys={distinctMetricKeys}
           selectedXAxis={selectedXAxis}
           selectedMetricKeys={selectedMetricKeys}
@@ -593,9 +609,9 @@ const mapStateToProps = (state, ownProps) => {
     return latestMetrics ? Object.keys(latestMetrics) : [];
   });
   const distinctMetricKeys = [...new Set(metricKeys)].sort();
-  const numCompletedRuns = runUuids.filter(
+  const completedRunUuids = runUuids.filter(
     (runUuid) => getRunInfo(runUuid, state).status !== 'RUNNING',
-  ).length;
+  );
 
   const runDisplayNames = [];
 
@@ -623,7 +639,7 @@ const mapStateToProps = (state, ownProps) => {
     latestMetricsByRunUuid,
     distinctMetricKeys,
     metricsWithRunInfoAndHistory,
-    numCompletedRuns,
+    completedRunUuids,
   };
 };
 

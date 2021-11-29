@@ -1,6 +1,12 @@
 import React from 'react';
 import { shallow } from 'enzyme';
-import { MetricsPlotPanel, CHART_TYPE_BAR, CHART_TYPE_LINE } from './MetricsPlotPanel';
+import {
+  MetricsPlotPanel,
+  CHART_TYPE_BAR,
+  CHART_TYPE_LINE,
+  METRICS_PLOT_POLLING_INTERVAL_MS,
+  METRICS_PLOT_POLLING_DURATION_MS,
+} from './MetricsPlotPanel';
 import { X_AXIS_RELATIVE, X_AXIS_STEP, X_AXIS_WALL } from './MetricsPlotControls';
 import Utils from '../../common/utils/Utils';
 import { RunLinksPopover } from './RunLinksPopover';
@@ -10,6 +16,8 @@ describe('unit tests', () => {
   let instance;
   let minimalPropsForLineChart;
   let minimalPropsForBarChart;
+  let getMetricHistoryApi;
+  let getRunApi;
 
   beforeEach(() => {
     const location = {
@@ -22,9 +30,12 @@ describe('unit tests', () => {
         location.search = '?' + url.split('?')[1];
       },
     };
+    getMetricHistoryApi = jest.fn(() => Promise.resolve());
+    getRunApi = jest.fn(() => Promise.resolve());
     minimalPropsForLineChart = {
       experimentId: '1',
       runUuids: ['runUuid1', 'runUuid2'],
+      completedRunUuids: ['runUuid1', 'runUuid2'],
       metricKey: 'metric_1',
       latestMetricsByRunUuid: {
         runUuid1: { metric_1: 100, metric_2: 200 },
@@ -71,15 +82,17 @@ describe('unit tests', () => {
           runDisplayName: 'runDisplayName2',
         },
       ],
-      getMetricHistoryApi: jest.fn(),
-      location: location,
-      history: history,
+      getMetricHistoryApi,
+      getRunApi,
+      location,
+      history,
       runDisplayNames: ['runDisplayName1', 'runDisplayName2'],
     };
 
     minimalPropsForBarChart = {
       experimentId: '1',
       runUuids: ['runUuid1', 'runUuid2'],
+      completedRunUuids: ['runUuid1', 'runUuid2'],
       metricKey: 'metric_1',
       latestMetricsByRunUuid: {
         runUuid1: { metric_1: 100, metric_2: 200 },
@@ -113,9 +126,10 @@ describe('unit tests', () => {
           runDisplayName: 'runDisplayName2',
         },
       ],
-      getMetricHistoryApi: jest.fn(),
-      location: location,
-      history: history,
+      getMetricHistoryApi,
+      getRunApi,
+      location,
+      history,
       runDisplayNames: ['runDisplayName1', 'runDisplayName2'],
       deselectedCurves: [],
     };
@@ -373,5 +387,91 @@ describe('unit tests', () => {
       expect(popover.props().runItems).toEqual(props.runItems);
       done();
     }, 1000);
+  });
+
+  test('should not set polling interval if all runs already completed', () => {
+    jest.useFakeTimers();
+    wrapper = shallow(<MetricsPlotPanel {...minimalPropsForLineChart} />);
+    expect(wrapper.instance().intervalId).toBe(null);
+    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    expect(getRunApi).toHaveBeenCalledTimes(0);
+  });
+
+  test('should poll when some runs are active', () => {
+    jest.useFakeTimers();
+    const props = {
+      ...minimalPropsForLineChart,
+      completedRunUuids: ['runUuid1'],
+    };
+    wrapper = shallow(<MetricsPlotPanel {...props} />);
+    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    expect(getRunApi).toHaveBeenCalledTimes(1);
+    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    expect(getRunApi).toHaveBeenCalledTimes(2);
+  });
+
+  test('should stop polling when all runs complete', () => {
+    jest.useFakeTimers();
+    const props = {
+      ...minimalPropsForLineChart,
+      completedRunUuids: ['runUuid1'],
+    };
+    wrapper = shallow(<MetricsPlotPanel {...props} />);
+    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    expect(getRunApi).toHaveBeenCalledTimes(1);
+    const nextProps = {
+      ...minimalPropsForLineChart,
+      completedRunUuids: ['runUuid1', 'runUuid2'],
+    };
+    wrapper.setProps(nextProps);
+    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    expect(getRunApi).toHaveBeenCalledTimes(1);
+  });
+
+  test('should stop polling when polling duration exceeds threshold', () => {
+    jest.useFakeTimers();
+    const props = {
+      ...minimalPropsForLineChart,
+      completedRunUuids: ['runUuid1'],
+    };
+    wrapper = shallow(<MetricsPlotPanel {...props} />);
+    const mockDate = new Date();
+    mockDate.setMilliseconds(mockDate.getMilliseconds() + METRICS_PLOT_POLLING_DURATION_MS);
+    jest.spyOn(global, 'Date').mockImplementation(() => mockDate);
+    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    expect(getRunApi).toHaveBeenCalledTimes(1);
+    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    expect(getRunApi).toHaveBeenCalledTimes(1);
+  });
+
+  test('should not poll when component is not in focus', () => {
+    jest.useFakeTimers();
+    const props = {
+      ...minimalPropsForLineChart,
+      completedRunUuids: ['runUuid1'],
+    };
+    wrapper = shallow(<MetricsPlotPanel {...props} />);
+    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    expect(getRunApi).toHaveBeenCalledTimes(1);
+    wrapper.instance().onBlur();
+    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    expect(getRunApi).toHaveBeenCalledTimes(1);
+    wrapper.instance().onFocus();
+    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    expect(getRunApi).toHaveBeenCalledTimes(2);
+  });
+
+  test('should not poll after unmount', () => {
+    jest.useFakeTimers();
+    const props = {
+      ...minimalPropsForLineChart,
+      completedRunUuids: ['runUuid1'],
+    };
+    wrapper = shallow(<MetricsPlotPanel {...props} />);
+    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    expect(getRunApi).toHaveBeenCalledTimes(1);
+    wrapper.unmount();
+    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    expect(getRunApi).toHaveBeenCalledTimes(1);
   });
 });
