@@ -1,5 +1,6 @@
 import os
 import inspect
+import shutil
 from unittest import mock
 
 import pytest
@@ -96,3 +97,14 @@ def prevent_infer_pip_requirements_fallback(request):
             yield
     else:
         yield
+
+
+@pytest.fixture(autouse=True, scope="module")
+def clean_up_mlruns_direcotry(request):
+    """
+    Clean up an `mlruns` directory on each test module teardown.
+    """
+    yield
+    mlruns_dir = os.path.join(request.config.rootpath, "mlruns")
+    if os.path.exists(mlruns_dir):
+        shutil.rmtree(mlruns_dir)
