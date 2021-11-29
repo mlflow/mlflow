@@ -392,7 +392,7 @@ describe('unit tests', () => {
   test('should not set polling interval if all runs already completed', () => {
     jest.useFakeTimers();
     wrapper = shallow(<MetricsPlotPanel {...minimalPropsForLineChart} />);
-    expect(wrapper.instance().intervalId).toBe(null);
+    expect(wrapper.instance().intervalId).toBeNull();
     jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
     expect(getRunApi).toHaveBeenCalledTimes(0);
   });
@@ -451,12 +451,15 @@ describe('unit tests', () => {
       completedRunUuids: ['runUuid1'],
     };
     wrapper = shallow(<MetricsPlotPanel {...props} />);
+    expect(wrapper.state().focused).toBe(true);
     jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
     expect(getRunApi).toHaveBeenCalledTimes(1);
     wrapper.instance().onBlur();
+    expect(wrapper.state().focused).toBe(false);
     jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
     expect(getRunApi).toHaveBeenCalledTimes(1);
     wrapper.instance().onFocus();
+    expect(wrapper.state().focused).toBe(true);
     jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
     expect(getRunApi).toHaveBeenCalledTimes(2);
   });
