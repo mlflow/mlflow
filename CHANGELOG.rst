@@ -7,7 +7,6 @@ MLflow 1.22.0 includes several major features and improvements:
 Features:
 
 - [UI] Add a share button to the Experiment page (#4936, @marijncv)
-- [UI] Improve experiment page stying, fix bug causing parallel coordinate curves to vanish (#5087, @harupy)
 - [UI] Improve readability of column sorting dropdown on Experiment page (#5022, @WeichenXu123; #5018, @NieuweNils, @coder-freestyle)
 - [Tracking] Mark all autologging integrations as stable by removing `@experimental` decorator (#5028, @liangz1)
 - [Tracking] Add optional `experiment_id` parameter to `mlflow.set_experiment` (#5012, @dbczumar)
@@ -21,6 +20,7 @@ Features:
 Bug fixes and documentation updates:
 
 - [UI] Fix bug causing Metric Plot page to crash when metric values are too large (#4947, @ianshan0915)
+- [UI] Fix bug causing parallel coordinate curves to vanish (#5087, @harupy)
 - [UI] Remove `Creator` field in Model Version page if user information is absent (#5089, @jinzhang21)
 - [UI] Fix model loading instructions for non-pyfunc models in Artifact Viewer (#5006, @harupy)
 - [Models] Fix a bug that added `mlflow` to `conda.yaml` even if a hashed version was already present (#5058, @maitre-matt)
