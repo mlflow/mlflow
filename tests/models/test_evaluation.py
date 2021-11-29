@@ -37,25 +37,19 @@ def get_local_artifact_path(run_id, artifact_path):
 
 
 @pytest.fixture(scope="module")
-def regressor_model_uri():
+def regressor_model():
     X, y = get_iris()
     reg = sklearn.linear_model.LinearRegression()
     reg.fit(X, y)
-    with mlflow.start_run() as run:
-        mlflow.sklearn.log_model(reg, 'reg_model')
-
-    return get_artifact_uri(run.info.run_id, 'reg_model')
+    return reg
 
 
 @pytest.fixture(scope="module")
-def classifier_model_uri():
+def classifier_model():
     X, y = get_iris()
     clf = sklearn.linear_model.LogisticRegression()
     clf.fit(X, y)
-    with mlflow.start_run() as run:
-        mlflow.sklearn.log_model(clf, 'clf_model')
-
-    return get_artifact_uri(run.info.run_id, 'clf_model')
+    return clf
 
 
 @pytest.fixture(scope="module")
@@ -74,7 +68,11 @@ def iris_pandas_df_dataset():
     return EvaluationDataset(data=data, labels=labels, name="iris_pandas_df_dataset")
 
 
-def test_classifier_evaluate(classifier_model_uri, iris_dataset):
+def test_classifier_evaluate(classifier_model, iris_dataset):
+    with mlflow.start_run() as run:
+        mlflow.sklearn.log_model(classifier_model, 'clf_model')
+        classifier_model_uri = get_artifact_uri(run.info.run_id, 'clf_model')
+
     y_true = iris_dataset.labels
     classifier_model = mlflow.pyfunc.load_model(classifier_model_uri)
     y_pred = classifier_model.predict(iris_dataset.data)
@@ -115,7 +113,11 @@ def test_classifier_evaluate(classifier_model_uri, iris_dataset):
     )
 
 
-def test_regressor_evaluate(regressor_model_uri, iris_dataset):
+def test_regressor_evaluate(regressor_model, iris_dataset):
+    with mlflow.start_run() as run:
+        mlflow.sklearn.log_model(regressor_model, 'reg_model')
+        regressor_model_uri = get_artifact_uri(run.info.run_id, 'reg_model')
+
     y_true = iris_dataset.labels
     regressor_model = mlflow.pyfunc.load_model(regressor_model_uri)
     y_pred = regressor_model.predict(iris_dataset.data)
