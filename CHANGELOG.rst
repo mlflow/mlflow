@@ -8,8 +8,8 @@ Features:
 
 - [UI] Add a share button to the Experiment page (#4936, @marijncv)
 - [UI] Improve readability of column sorting dropdown on Experiment page (#5022, @WeichenXu123; #5018, @NieuweNils, @coder-freestyle)
-- [Tracking] Mark all autologging integrations as stable by removing `@experimental` decorator (#5028, @liangz1)
-- [Tracking] Add optional `experiment_id` parameter to `mlflow.set_experiment` (#5012, @dbczumar)
+- [Tracking] Mark all autologging integrations as stable by removing `@experimental` decorators (#5028, @liangz1)
+- [Tracking] Add optional `experiment_id` parameter to `mlflow.set_experiment()` (#5012, @dbczumar)
 - [Tracking] Add support for XGBoost scikit-learn models to `mlflow.xgboost.autolog()` (#5078, @jwyyy)
 - [Tracking] Improve statsmodels autologging performance by removing unnecessary metrics (#4942, @WeichenXu123)
 - [Tracking] Update R client to tag nested runs with parent run ID (#4197, @yitao-li)
