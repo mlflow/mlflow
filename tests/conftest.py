@@ -105,4 +105,6 @@ def clean_up_mlruns_direcotry(request):
     Clean up an `mlruns` directory on each test module teardown.
     """
     yield
-    shutil.rmtree(os.path.join(request.config.rootpath, "mlruns"))
+    mlruns_dir = os.path.join(request.config.rootpath, "mlruns")
+    if os.path.exists(mlruns_dir):
+        shutil.rmtree(mlruns_dir)
