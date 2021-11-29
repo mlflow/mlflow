@@ -19,10 +19,18 @@ _logger = logging.getLogger(__name__)
 
 
 class EvaluationMetrics(dict):
+    """
+    Represent a dict of metrics.
+    """
+
     pass
 
 
 class EvaluationArtifact:
+    """
+    Represent a artifact. Contains artifact uri and content.
+    """
+
     def __init__(self, uri, content=None):
         self._uri = uri
         self._content = content
@@ -31,6 +39,10 @@ class EvaluationArtifact:
         raise NotImplementedError()
 
     def load(self, local_artifact_path=None):
+        """
+        If `local_artifact_path` is None, download artifact from the artifact uri and load it.
+        otherwise load artifact content from specified path.
+        """
         if local_artifact_path is None:
             return self._load_content_from_file(local_artifact_path)
         else:
@@ -40,6 +52,7 @@ class EvaluationArtifact:
                 self._load_content_from_file(local_artifact_file)
 
     def save(self, output_artifact_path):
+        """Save artifact content into specified path."""
         raise NotImplementedError()
 
     @property
@@ -60,6 +73,11 @@ class EvaluationArtifact:
 
 
 class EvaluationResult:
+    """
+    Represent an return value of `mlflow.evaluate()` API. Contains metrics dict and
+    artifact dict.
+    """
+
     def __init__(self, metrics, artifacts):
         self._metrics = metrics
         self._artifacts = artifacts
@@ -189,6 +207,11 @@ class EvaluationDataset:
         self._hash = None
 
     def _extract_features_and_labels(self):
+        """
+        Extract features data and labels data.
+        For spark dataframe, will only extract the first SPARK_DATAFRAME_LIMIT rows data
+        and emit warning.
+        """
         if isinstance(self.data, np.ndarray):
             return self.data, self.labels
         else:
@@ -204,15 +227,13 @@ class EvaluationDataset:
             return data[feature_cols], data[self.labels]
 
     @staticmethod
-    def _gen_md5(data):
-        md5_gen = hashlib.md5()
-        md5_gen.update(data)
-        return md5_gen.hexdigest()
-
-    @staticmethod
     def _array_like_obj_to_bytes(data):
+        """
+        Helper method to convert pandas dataframe/numpy array/list into bytes for
+        MD5 calculation purpose.
+        """
         if isinstance(data, pd.DataFrame):
-            return data.to_numpy().tobytes() + ','.join(list(data.columns)).encode("UTF-8")
+            return data.to_numpy().tobytes() + ",".join(list(data.columns)).encode("UTF-8")
         elif isinstance(data, np.ndarray):
             return data.tobytes()
         elif isinstance(data, list):
@@ -222,6 +243,12 @@ class EvaluationDataset:
 
     @staticmethod
     def _gen_md5_for_arraylike_obj(md5_gen, data):
+        """
+        Helper method to generate MD5 hash array-like object, the MD5 will calculate over:
+         - array length
+         - first NUM_SAMPLE_ROWS_FOR_HASH rows content
+         - last NUM_SAMPLE_ROWS_FOR_HASH rows content
+        """
         md5_gen.update(np.int64(len(data)).tobytes())
         if len(data) < EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH * 2:
             md5_gen.update(EvaluationDataset._array_like_obj_to_bytes(data))
@@ -233,12 +260,16 @@ class EvaluationDataset:
             )
             md5_gen.update(
                 EvaluationDataset._array_like_obj_to_bytes(
-                    data[-EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH:]
+                    data[-EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH :]
                 )
             )
 
     @property
     def name(self):
+        """
+        Dataset name, which is specified dataset name or the dataset hash if user don't specify
+        name.
+        """
         return self._user_specified_name if self._user_specified_name is not None else self.hash
 
     @property
@@ -260,6 +291,9 @@ class EvaluationDataset:
 
     @property
     def _metadata(self):
+        """
+        Return dataset metadata containing name, hash, and optional path.
+        """
         metadata = {
             "name": self.name,
             "hash": self.hash,
@@ -269,6 +303,10 @@ class EvaluationDataset:
         return metadata
 
     def _log_dataset_tag(self, client, run_id):
+        """
+        Log dataset metadata as a tag "mlflow.datasets", if the tag already exists, it will
+        append current dataset metadata into existing tag content.
+        """
         existing_dataset_metadata_str = client.get_run(run_id).data.tags.get("mlflow.datasets")
         if existing_dataset_metadata_str is not None:
             dataset_metadata_list = json.loads(existing_dataset_metadata_str)
@@ -307,6 +345,9 @@ class ModelEvaluator:
         raise NotImplementedError()
 
     def _log_metrics(self, run_id, metrics, dataset_name):
+        """
+        Helper method to log metrics into specified run.
+        """
         client = mlflow.tracking.MlflowClient()
         timestamp = int(time.time() * 1000)
         client.log_batch(
@@ -318,15 +359,17 @@ class ModelEvaluator:
         )
 
     def evaluate(
-            self,
-            model: "mlflow.pyfunc.PyFuncModel",
-            model_type,
-            dataset,
-            run_id,
-            evaluator_config,
-            **kwargs
+        self,
+        model: "mlflow.pyfunc.PyFuncModel",
+        model_type,
+        dataset,
+        run_id,
+        evaluator_config,
+        **kwargs,
     ) -> "mlflow.models.evaluation.EvaluationResult":
         """
+        The abstract API to log metrics and artifacts, and return evaluation results.
+
         :param model: A pyfunc model instance.
         :param model_type: A string describing the model type (e.g., "regressor",
                    "classifier", …).
@@ -354,6 +397,12 @@ def list_evaluators():
 
 
 class StartRunOrReuseActiveRun:
+    """
+    A manager context return:
+     - If there's an active run, return the active run id.
+     - otherwise start a mflow run with the specified run_id.
+    """
+
     def __init__(self, run_id):
         self.user_specified_run_id = run_id
         self.managed_run = None
@@ -389,8 +438,12 @@ def evaluate(
     run_id=None,
     evaluators=None,
     evaluator_config=None,
-) -> EvaluationResult:
+) -> "mlflow.models.evaluation.EvaluationResult":
     """
+    Evaluate a pyfunc model on specified dataset, log evaluation results (metrics and
+    artifacts) into active run or specified mlflow run), and return evaluation results
+    containing metrics and artifacts.
+
     :param model: A pyfunc model instance, or a URI referring to such a model.
 
     :param model_type: A string describing the model type. The default evaluator
@@ -423,27 +476,30 @@ def evaluate(
     if isinstance(evaluators, str):
         evaluators = [evaluators]
         if not (evaluator_config is None or isinstance(evaluator_config, dict)):
-            raise ValueError('If `evaluators` argument is a str, evaluator_config must be None '
-                             'or a dict.')
+            raise ValueError(
+                "If `evaluators` argument is a str, evaluator_config must be None " "or a dict."
+            )
         evaluator_config = {evaluators[0]: evaluator_config}
     elif isinstance(evaluators, list):
         if not (
-            isinstance(evaluator_config, dict) and all(
-                k in evaluators and isinstance(v, dict)
-                for k, v in evaluator_config.items()
-            )
+            isinstance(evaluator_config, dict)
+            and all(k in evaluators and isinstance(v, dict) for k, v in evaluator_config.items())
         ):
-            raise ValueError('If `evaluators` argument is a evaluator name list, evaluator_config'
-                             'must be a dict contains mapping from evaluator name to individual '
-                             'evaluator config dict.')
+            raise ValueError(
+                "If `evaluators` argument is a evaluator name list, evaluator_config"
+                "must be a dict contains mapping from evaluator name to individual "
+                "evaluator config dict."
+            )
 
     if isinstance(model, str):
         model = mlflow.pyfunc.load_model(model)
     elif isinstance(model, PyFuncModel):
         pass
     else:
-        raise ValueError('The model argument must be a URI str referring to mlflow model or '
-                         'an instance of `mlflow.pyfunc.PyFuncModel`.')
+        raise ValueError(
+            "The model argument must be a URI str referring to mlflow model or "
+            "an instance of `mlflow.pyfunc.PyFuncModel`."
+        )
 
     with StartRunOrReuseActiveRun(run_id) as actual_run_id:
         client = mlflow.tracking.MlflowClient()
