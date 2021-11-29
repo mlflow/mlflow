@@ -203,7 +203,7 @@ def _save_model_with_class_artifacts_params(
         loader_module=__name__,
         code=saved_code_subpath,
         env=_CONDA_ENV_FILE_NAME,
-        **custom_model_config_kwargs
+        **custom_model_config_kwargs,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
@@ -213,13 +213,17 @@ def _save_model_with_class_artifacts_params(
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
-                path, mlflow.pyfunc.FLAVOR_NAME, fallback=default_reqs,
+                path,
+                mlflow.pyfunc.FLAVOR_NAME,
+                fallback=default_reqs,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
             default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
-            default_reqs, pip_requirements, extra_pip_requirements,
+            default_reqs,
+            pip_requirements,
+            extra_pip_requirements,
         )
     else:
         conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)

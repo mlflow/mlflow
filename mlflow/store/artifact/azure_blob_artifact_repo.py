@@ -30,13 +30,15 @@ class AzureBlobArtifactRepository(ArtifactRepository):
 
         from azure.storage.blob import BlobServiceClient
 
-        (_, account, _) = AzureBlobArtifactRepository.parse_wasbs_uri(artifact_uri)
+        (_, account, _, api_uri_suffix) = AzureBlobArtifactRepository.parse_wasbs_uri(artifact_uri)
         if "AZURE_STORAGE_CONNECTION_STRING" in os.environ:
             self.client = BlobServiceClient.from_connection_string(
                 conn_str=os.environ.get("AZURE_STORAGE_CONNECTION_STRING")
             )
         elif "AZURE_STORAGE_ACCESS_KEY" in os.environ:
-            account_url = "https://{account}.blob.core.windows.net".format(account=account)
+            account_url = "https://{account}.{api_uri_suffix}".format(
+                account=account, api_uri_suffix=api_uri_suffix
+            )
             self.client = BlobServiceClient(
                 account_url=account_url, credential=os.environ.get("AZURE_STORAGE_ACCESS_KEY")
             )
@@ -49,40 +51,49 @@ class AzureBlobArtifactRepository(ArtifactRepository):
                     "Please install it via: pip install azure-identity"
                 ) from exc
 
-            account_url = "https://{account}.blob.core.windows.net".format(account=account)
+            account_url = "https://{account}.{api_uri_suffix}".format(
+                account=account, api_uri_suffix=api_uri_suffix
+            )
             self.client = BlobServiceClient(
                 account_url=account_url, credential=DefaultAzureCredential()
             )
 
     @staticmethod
     def parse_wasbs_uri(uri):
-        """Parse a wasbs:// URI, returning (container, storage_account, path)."""
+        """Parse a wasbs:// URI, returning (container, storage_account, path, api_uri_suffix)."""
         parsed = urllib.parse.urlparse(uri)
         if parsed.scheme != "wasbs":
             raise Exception("Not a WASBS URI: %s" % uri)
-        match = re.match("([^@]+)@([^.]+)\\.blob\\.core\\.windows\\.net", parsed.netloc)
+
+        match = re.match(
+            r"([^@]+)@([^.]+)\.(blob\.core\.(windows\.net|chinacloudapi\.cn))", parsed.netloc
+        )
+
         if match is None:
             raise Exception(
-                "WASBS URI must be of the form " "<container>@<account>.blob.core.windows.net"
+                "WASBS URI must be of the form "
+                "<container>@<account>.blob.core.windows.net"
+                " or <container>@<account>.blob.core.chinacloudapi.cn"
             )
         container = match.group(1)
         storage_account = match.group(2)
+        api_uri_suffix = match.group(3)
         path = parsed.path
         if path.startswith("/"):
             path = path[1:]
-        return container, storage_account, path
+        return container, storage_account, path, api_uri_suffix
 
     def log_artifact(self, local_file, artifact_path=None):
-        (container, _, dest_path) = self.parse_wasbs_uri(self.artifact_uri)
+        (container, _, dest_path, _) = self.parse_wasbs_uri(self.artifact_uri)
         container_client = self.client.get_container_client(container)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
         dest_path = posixpath.join(dest_path, os.path.basename(local_file))
         with open(local_file, "rb") as file:
-            container_client.upload_blob(dest_path, file)
+            container_client.upload_blob(dest_path, file, overwrite=True)
 
     def log_artifacts(self, local_dir, artifact_path=None):
-        (container, _, dest_path) = self.parse_wasbs_uri(self.artifact_uri)
+        (container, _, dest_path, _) = self.parse_wasbs_uri(self.artifact_uri)
         container_client = self.client.get_container_client(container)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
@@ -96,7 +107,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
                 remote_file_path = posixpath.join(upload_path, f)
                 local_file_path = os.path.join(root, f)
                 with open(local_file_path, "rb") as file:
-                    container_client.upload_blob(remote_file_path, file)
+                    container_client.upload_blob(remote_file_path, file, overwrite=True)
 
     def list_artifacts(self, path=None):
         # Newer versions of `azure-storage-blob` (>= 12.4.0) provide a public
@@ -108,7 +119,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
         except ImportError:
             from azure.storage.blob._models import BlobPrefix
 
-        (container, _, artifact_path) = self.parse_wasbs_uri(self.artifact_uri)
+        (container, _, artifact_path, _) = self.parse_wasbs_uri(self.artifact_uri)
         container_client = self.client.get_container_client(container)
         dest_path = artifact_path
         if path:
@@ -139,7 +150,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
         return sorted(infos, key=lambda f: f.path)
 
     def _download_file(self, remote_file_path, local_path):
-        (container, _, remote_root_path) = self.parse_wasbs_uri(self.artifact_uri)
+        (container, _, remote_root_path, _) = self.parse_wasbs_uri(self.artifact_uri)
         container_client = self.client.get_container_client(container)
         remote_full_path = posixpath.join(remote_root_path, remote_file_path)
         with open(local_path, "wb") as file:

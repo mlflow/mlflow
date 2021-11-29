@@ -4,7 +4,6 @@ import itertools
 import functools
 import os
 import uuid
-import warnings
 from abc import abstractmethod
 from contextlib import contextmanager
 
@@ -26,28 +25,20 @@ _AUTOLOGGING_TEST_MODE_ENV_VAR = "MLFLOW_AUTOLOGGING_TESTING"
 _AUTOLOGGING_PATCHES = {}
 
 
-def try_mlflow_log(fn, *args, **kwargs):
-    """
-    Catch exceptions and log a warning to avoid autolog throwing.
-    """
-    try:
-        return fn(*args, **kwargs)
-    except Exception as e:
-        if is_testing():
-            raise
-        else:
-            warnings.warn("Logging to MLflow failed: " + str(e), stacklevel=2)
-
-
 # Function attribute used for testing purposes to verify that a given function
-# has been wrapped with the `exception_safe_function` decorator
+# has been wrapped with the `exception_safe_function_for_class` and
+# `picklable_exception_safe_function` decorators
 _ATTRIBUTE_EXCEPTION_SAFE = "exception_safe"
 
 
-def exception_safe_function(function):
+def exception_safe_function_for_class(function):
     """
     Wraps the specified function with broad exception handling to guard
     against unexpected errors during autologging.
+    Note this function creates an unpicklable function as `safe_function` is locally defined,
+    but a class instance containing methods decorated by this function should be pickalable,
+    because pickle only saves instance attributes, not methods.
+    See https://docs.python.org/3/library/pickle.html#pickling-class-instances for more details.
     """
     if is_testing():
         setattr(function, _ATTRIBUTE_EXCEPTION_SAFE, True)
@@ -63,6 +54,27 @@ def exception_safe_function(function):
 
     safe_function = update_wrapper_extended(safe_function, function)
     return safe_function
+
+
+def _safe_function(function, *args, **kwargs):
+    try:
+        return function(*args, **kwargs)
+    except Exception as e:
+        if is_testing():
+            raise
+        else:
+            _logger.warning("Encountered unexpected error during autologging: %s", e)
+
+
+def picklable_exception_safe_function(function):
+    """
+    Wraps the specified function with broad exception handling to guard
+    against unexpected errors during autologging while preserving picklability.
+    """
+    if is_testing():
+        setattr(function, _ATTRIBUTE_EXCEPTION_SAFE, True)
+
+    return update_wrapper_extended(functools.partial(_safe_function, function), function)
 
 
 def _exception_safe_class_factory(base_class):
@@ -89,7 +101,7 @@ def _exception_safe_class_factory(base_class):
             for m in dct:
                 # class methods or static methods are not callable.
                 if callable(dct[m]):
-                    dct[m] = exception_safe_function(dct[m])
+                    dct[m] = exception_safe_function_for_class(dct[m])
             return base_class.__new__(cls, name, bases, dct)
 
     return _ExceptionSafeClass
@@ -213,20 +225,20 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
 
             def _patch_implementation(self, original, *args, **kwargs):
                 if not mlflow.active_run():
-                    self.managed_run = try_mlflow_log(create_managed_run)
+                    self.managed_run = create_managed_run()
 
                 result = super(PatchWithManagedRun, self)._patch_implementation(
                     original, *args, **kwargs
                 )
 
                 if self.managed_run:
-                    try_mlflow_log(mlflow.end_run, RunStatus.to_string(RunStatus.FINISHED))
+                    mlflow.end_run(RunStatus.to_string(RunStatus.FINISHED))
 
                 return result
 
             def _on_exception(self, e):
                 if self.managed_run:
-                    try_mlflow_log(mlflow.end_run, RunStatus.to_string(RunStatus.FAILED))
+                    mlflow.end_run(RunStatus.to_string(RunStatus.FAILED))
                 super(PatchWithManagedRun, self)._on_exception(e)
 
         return PatchWithManagedRun
@@ -236,7 +248,7 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
         def patch_with_managed_run(original, *args, **kwargs):
             managed_run = None
             if not mlflow.active_run():
-                managed_run = try_mlflow_log(create_managed_run)
+                managed_run = create_managed_run()
 
             try:
                 result = patch_function(original, *args, **kwargs)
@@ -245,11 +257,11 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
                 # that runs are terminated if a user prematurely interrupts training execution
                 # (e.g. via sigint / ctrl-c)
                 if managed_run:
-                    try_mlflow_log(mlflow.end_run, RunStatus.to_string(RunStatus.FAILED))
+                    mlflow.end_run(RunStatus.to_string(RunStatus.FAILED))
                 raise
             else:
                 if managed_run:
-                    try_mlflow_log(mlflow.end_run, RunStatus.to_string(RunStatus.FINISHED))
+                    mlflow.end_run(RunStatus.to_string(RunStatus.FINISHED))
                 return result
 
         return patch_with_managed_run
@@ -417,7 +429,8 @@ def safe_patch(
                 # warning behavior during original function execution, since autologging is being
                 # skipped
                 with set_non_mlflow_warnings_behavior_for_current_thread(
-                    disable_warnings=False, reroute_warnings=False,
+                    disable_warnings=False,
+                    reroute_warnings=False,
                 ):
                     return original(*args, **kwargs)
 
@@ -440,7 +453,9 @@ def safe_patch(
                     log_fn(*args)
                 except Exception as e:
                     _logger.debug(
-                        "Failed to log autologging event via '%s'. Exception: %s", log_fn, e,
+                        "Failed to log autologging event via '%s'. Exception: %s",
+                        log_fn,
+                        e,
                     )
 
             def call_original_fn_with_event_logging(original_fn, og_args, og_kwargs):
@@ -505,7 +520,8 @@ def safe_patch(
                             # (`silent=True`), since these warnings originate from the ML framework
                             # or one of its dependencies and are likely relevant to the caller
                             with set_non_mlflow_warnings_behavior_for_current_thread(
-                                disable_warnings=False, reroute_warnings=False,
+                                disable_warnings=False,
+                                reroute_warnings=False,
                             ):
                                 original_result = original(*_og_args, **_og_kwargs)
                                 return original_result
@@ -767,8 +783,9 @@ def _validate_args(
         - All arguments supplied to the patched ML function are forwarded to the
           original ML function
         - Any additional arguments supplied to the original function are exception safe (i.e.
-          they are either functions decorated with the `@exception_safe_function` decorator
-          or classes / instances of classes with type `ExceptionSafeClass`
+          they are either functions decorated with the `@exception_safe_function_for_class` or
+          `@pickalable_exception_safe_function` decorators, or classes / instances of classes with
+          type `ExceptionSafeClass`
     """
 
     def _validate_new_input(inp):
@@ -776,7 +793,8 @@ def _validate_args(
         Validates a new input (arg or kwarg) introduced to the underlying / original ML function
         call during the execution of a patched ML function. The new input is valid if:
 
-            - The new input is a function that has been decorated with `exception_safe_function`
+            - The new input is a function that has been decorated with
+              `exception_safe_function_for_class` or `pickalable_exception_safe_function`
             - OR the new input is a class with the `ExceptionSafeClass` metaclass
             - OR the new input is a list and each of its elements is valid according to the
               these criteria
@@ -787,8 +805,9 @@ def _validate_args(
         elif callable(inp):
             assert getattr(inp, _ATTRIBUTE_EXCEPTION_SAFE, False), (
                 "New function argument '{}' passed to original function is not exception-safe."
-                " Please decorate the function with `exception_safe_function`.".format(inp)
-            )
+                " Please decorate the function with `exception_safe_function` or "
+                "`pickalable_exception_safe_function`"
+            ).format(inp)
         else:
             assert hasattr(inp, "__class__") and type(inp.__class__) in [
                 ExceptionSafeClass,
@@ -796,9 +815,9 @@ def _validate_args(
             ], (
                 "Invalid new input '{}'. New args / kwargs introduced to `original` function "
                 "calls by patched code must either be functions decorated with "
-                "`exception_safe_function`, instances of classes with the `ExceptionSafeClass` "
-                "or `ExceptionSafeAbstractClass` metaclass safe or lists of such exception safe "
-                "functions / classes.".format(inp)
+                "`exception_safe_function_for_class`, instances of classes with the "
+                "`ExceptionSafeClass` or `ExceptionSafeAbstractClass` metaclass safe or lists of "
+                "such exception safe functions / classes.".format(inp)
             )
 
     def _validate(autologging_call_input, user_call_input=None):
@@ -827,9 +846,10 @@ def _validate_args(
 
         if type(autologging_call_input) in [list, tuple]:
             length_difference = len(autologging_call_input) - len(user_call_input)
-            assert length_difference >= 0, (
-                "{} expected inputs are missing from the call"
-                " to the original function.".format(length_difference)
+            assert (
+                length_difference >= 0
+            ), "{} expected inputs are missing from the call" " to the original function.".format(
+                length_difference
             )
             # If the autologging call input is longer than the user call input, we `zip_longest`
             # will pad the user call input with `None` values to ensure that the subsequent calls
@@ -859,10 +879,10 @@ def _validate_args(
 
 
 __all__ = [
-    "try_mlflow_log",
     "safe_patch",
     "is_testing",
-    "exception_safe_function",
+    "exception_safe_function_for_class",
+    "picklable_exception_safe_function",
     "ExceptionSafeClass",
     "ExceptionSafeAbstractClass",
     "PatchFunction",

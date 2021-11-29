@@ -56,7 +56,10 @@ class RestStore(AbstractStore):
         return call_endpoint(self.get_host_creds(), endpoint, method, json_body, response_proto)
 
     def list_experiments(
-        self, view_type=ViewType.ACTIVE_ONLY, max_results=None, page_token=None,
+        self,
+        view_type=ViewType.ACTIVE_ONLY,
+        max_results=None,
+        page_token=None,
     ):
         """
         :param view_type: Qualify requested type of experiments.
@@ -136,7 +139,7 @@ class RestStore(AbstractStore):
         return Run.from_proto(response_proto.run)
 
     def update_run_info(self, run_id, run_status, end_time):
-        """ Updates the metadata of the specified run. """
+        """Updates the metadata of the specified run."""
         req_body = message_to_json(
             UpdateRun(run_uuid=run_id, run_id=run_id, status=run_status, end_time=end_time)
         )
@@ -150,7 +153,8 @@ class RestStore(AbstractStore):
 
         :param experiment_id: ID of the experiment for this run
         :param user_id: ID of the user launching this run
-        :param source_type: Enum (integer) describing the source of the run
+        :param start_time: timestamp of the initialization of the run
+        :param tags: tags to apply to this run at initialization
 
         :return: The created Run object
         """

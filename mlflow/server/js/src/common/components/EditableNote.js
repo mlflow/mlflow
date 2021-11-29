@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
-import { Alert, Button, Icon, Tooltip } from 'antd';
+import { LoadingOutlined } from '@ant-design/icons';
+import { Alert, Button, Tooltip } from 'antd';
 import { Prompt } from 'react-router';
 import ReactMde, { SvgIcon } from 'react-mde';
 import { getConverter, sanitizeConvertedHtml } from '../utils/MarkdownUtils';
@@ -115,7 +116,7 @@ export class EditableNoteImpl extends Component {
             onClick={this.handleSubmitClick}
             disabled={!this.contentHasChanged() || confirmLoading}
           >
-            {confirmLoading && <Icon type='loading' />} {this.props.saveText}
+            {confirmLoading && <LoadingOutlined />} {this.props.saveText}
           </Button>
           <Button
             htmlType='button'

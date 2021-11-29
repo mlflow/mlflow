@@ -6,6 +6,7 @@ import { getExperimentApi, getRunApi } from '../actions';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import CompareRunView from './CompareRunView';
 import { getUUID } from '../../common/utils/ActionUtils';
+import { PageContainer } from '../../common/components/PageContainer';
 
 class CompareRunPage extends Component {
   static propTypes = {
@@ -32,11 +33,11 @@ class CompareRunPage extends Component {
 
   render() {
     return (
-      <div className='App-content'>
+      <PageContainer>
         <RequestStateWrapper requestIds={this.requestIds}>
           <CompareRunView runUuids={this.props.runUuids} experimentId={this.props.experimentId} />
         </RequestStateWrapper>
-      </div>
+      </PageContainer>
     );
   }
 }

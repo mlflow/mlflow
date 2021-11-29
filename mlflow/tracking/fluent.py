@@ -14,6 +14,10 @@ from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 from mlflow.entities import Experiment, Run, RunInfo, RunStatus, Param, RunTag, Metric, ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import (
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+)
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking import artifact_utils, _get_store
 from mlflow.tracking.context import registry as context_registry
@@ -50,12 +54,19 @@ NUM_RUNS_PER_PAGE_PANDAS = 10000
 _logger = logging.getLogger(__name__)
 
 
-def set_experiment(experiment_name: str) -> None:
+def set_experiment(experiment_name: str = None, experiment_id: str = None) -> None:
     """
-    Set given experiment as active experiment. If experiment does not exist, create an experiment
-    with provided name.
+    Set the given experiment as the active experiment. The experiment must either be specified by
+    name via `experiment_name` or by ID via `experiment_id`. The experiment name and ID cannot
+    both be specified.
 
-    :param experiment_name: Case sensitive name of an experiment to be activated.
+    :param experiment_name: Case sensitive name of the experiment to be activated. If an experiment
+                            with this name does not exist, a new experiment wth this name is
+                            created.
+    :param experiment_id: ID of the experiment to be activated. If an experiment with this ID
+                          does not exist, an exception is thrown.
+    :return: An instance of :py:class:`mlflow.entities.Experiment` representing the new active
+             experiment.
 
     .. code-block:: python
         :caption: Example
@@ -80,20 +91,48 @@ def set_experiment(experiment_name: str) -> None:
         Tags: {}
         Lifecycle_stage: active
     """
-    client = MlflowClient()
-    experiment = client.get_experiment_by_name(experiment_name)
-    exp_id = experiment.experiment_id if experiment else None
-    if exp_id is None:  # id can be 0
-        print("INFO: '{}' does not exist. Creating a new experiment".format(experiment_name))
-        exp_id = client.create_experiment(experiment_name)
-    elif experiment.lifecycle_stage == LifecycleStage.DELETED:
+    if (experiment_name is not None and experiment_id is not None) or (
+        experiment_name is None and experiment_id is None
+    ):
         raise MlflowException(
-            "Cannot set a deleted experiment '%s' as the active experiment."
-            " You can restore the experiment, or permanently delete the "
-            " experiment to create a new one." % experiment.name
+            message="Must specify exactly one of: `experiment_id` or `experiment_name`.",
+            error_code=INVALID_PARAMETER_VALUE,
         )
+
+    client = MlflowClient()
+    if experiment_id is None:
+        experiment = client.get_experiment_by_name(experiment_name)
+        if not experiment:
+            _logger.info(
+                "Experiment with name '%s' does not exist. Creating a new experiment.",
+                experiment_name,
+            )
+            # NB: If two simultaneous threads or processes attempt to set the same experiment
+            # simultaneously, a race condition may be encountered here wherein experiment creation
+            # fails
+            experiment_id = client.create_experiment(experiment_name)
+            experiment = client.get_experiment(experiment_id)
+    else:
+        experiment = client.get_experiment(experiment_id)
+        if experiment is None:
+            raise MlflowException(
+                message=f"Experiment with ID '{experiment_id}' does not exist.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+
+    if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
+        raise MlflowException(
+            message=(
+                "Cannot set a deleted experiment '%s' as the active experiment."
+                " You can restore the experiment, or permanently delete the "
+                " experiment to create a new one." % experiment.name
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
     global _active_experiment_id
-    _active_experiment_id = exp_id
+    _active_experiment_id = experiment.experiment_id
+    return experiment
 
 
 class ActiveRun(Run):  # pylint: disable=W0223
@@ -358,8 +397,13 @@ def log_param(key: str, value: Any) -> None:
     Log a parameter under the current run. If no run is active, this method will create
     a new active run.
 
-    :param key: Parameter name (string)
-    :param value: Parameter value (string, but will be string-ified if not)
+    :param key: Parameter name (string). This string may only contain alphanumerics,
+                underscores (_), dashes (-), periods (.), spaces ( ), and slashes (/).
+                All backend stores will support keys up to length 250, but some may
+                support larger keys.
+    :param value: Parameter value (string, but will be string-ified if not).
+                  All backend stores will support values up to length 5000, but some
+                  may support larger values.
 
     .. code-block:: python
         :caption: Example
@@ -378,8 +422,13 @@ def set_tag(key: str, value: Any) -> None:
     Set a tag under the current run. If no run is active, this method will create a
     new active run.
 
-    :param key: Tag name (string)
-    :param value: Tag value (string, but will be string-ified if not)
+    :param key: Tag name (string). This string may only contain alphanumerics, underscores
+                (_), dashes (-), periods (.), spaces ( ), and slashes (/).
+                All backend stores will support keys up to length 250, but some may
+                support larger keys.
+    :param value: Tag value (string, but will be string-ified if not).
+                  All backend stores will support values up to length 5000, but some
+                  may support larger values.
 
     .. code-block:: python
         :caption: Example
@@ -423,10 +472,15 @@ def log_metric(key: str, value: float, step: Optional[int] = None) -> None:
     Log a metric under the current run. If no run is active, this method will create
     a new active run.
 
-    :param key: Metric name (string).
+    :param key: Metric name (string). This string may only contain alphanumerics, underscores (_),
+                dashes (-), periods (.), spaces ( ), and slashes (/).
+                All backend stores will support keys up to length 250, but some may
+                support larger keys.
     :param value: Metric value (float). Note that some special values such as +/- Infinity may be
                   replaced by other values depending on the store. For example, the
                   SQLAlchemy store replaces +/- Infinity with max / min float values.
+                  All backend stores will support values up to length 5000, but some
+                  may support larger values.
     :param step: Metric step (int). Defaults to zero if unspecified.
 
     .. code-block:: python
@@ -820,25 +874,30 @@ def get_experiment_by_name(name: str) -> Optional[Experiment]:
 
 
 def list_experiments(
-    view_type: int = ViewType.ACTIVE_ONLY, max_results: Optional[int] = None,
+    view_type: int = ViewType.ACTIVE_ONLY,
+    max_results: Optional[int] = None,
 ) -> List[Experiment]:
     """
-        :param view_type: Qualify requested type of experiments.
-        :param max_results: If passed, specifies the maximum number of experiments desired. If not
-                            passed, all experiments will be returned.
-        :return: A list of :py:class:`Experiment <mlflow.entities.Experiment>` objects.
-        """
+    :param view_type: Qualify requested type of experiments.
+    :param max_results: If passed, specifies the maximum number of experiments desired. If not
+                        passed, all experiments will be returned.
+    :return: A list of :py:class:`Experiment <mlflow.entities.Experiment>` objects.
+    """
 
     def pagination_wrapper_func(number_to_get, next_page_token):
         return MlflowClient().list_experiments(
-            view_type=view_type, max_results=number_to_get, page_token=next_page_token,
+            view_type=view_type,
+            max_results=number_to_get,
+            page_token=next_page_token,
         )
 
     return _paginate(pagination_wrapper_func, SEARCH_MAX_RESULTS_DEFAULT, max_results)
 
 
 def create_experiment(
-    name: str, artifact_location: Optional[str] = None, tags: Optional[Dict[str, Any]] = None,
+    name: str,
+    artifact_location: Optional[str] = None,
+    tags: Optional[Dict[str, Any]] = None,
 ) -> str:
     """
     Create an experiment.
@@ -1058,7 +1117,12 @@ def search_runs(
     # full thing is a mess
     def pagination_wrapper_func(number_to_get, next_page_token):
         return MlflowClient().search_runs(
-            experiment_ids, filter_string, run_view_type, number_to_get, order_by, next_page_token,
+            experiment_ids,
+            filter_string,
+            run_view_type,
+            number_to_get,
+            order_by,
+            next_page_token,
         )
 
     runs = _paginate(pagination_wrapper_func, NUM_RUNS_PER_PAGE_PANDAS, max_results)

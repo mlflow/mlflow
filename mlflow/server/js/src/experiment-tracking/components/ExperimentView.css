@@ -17,30 +17,6 @@
     color: #2374BB;
 }
 
-.ExperimentView .information {
-    margin: 0px 0px 16px 0px;
-    padding-left: 56px;
-    padding-top: 14px;
-
-    background: #EDFAFE;
-    /* Gray-background */
-
-    border: 1px solid #EEEEEE;
-    box-sizing: border-box;
-    /* Dropshadow */
-
-    box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.12);
-    border-radius: 4px;
-}
-
-.ExperimentView .ant-alert-info .ant-alert-icon {
-    color: #00B379;
-}
-
-.ExperimentView .ant-select-selection-selected-value {
-    font-size: 14px;
-}
-
 .ExperimentView .top-row {
     text-align: center;
     border-bottom: none;
@@ -53,7 +29,7 @@
 }
 
 .ExperimentView .left-border {
-    border-left: 1px solid #e2e2e2;
+    border-left: 1px solid rgb(240, 240, 240);
 }
 
 .ExperimentView-run-buttons .btn {
@@ -108,10 +84,6 @@
 .ExperimentView-search-input {
     flex: 1;
     width: auto;
-}
-
-.ant-input-affix-wrapper .ant-input:not(:first-child) {
-    padding-left: 40px;
 }
 
 .ExperimentView-search-help {
@@ -256,8 +228,13 @@ span.error-message {
 }
 
 .ExperimentView .metric-param-sort-toggle {
-    color: #888;
+    color: #2272B4;
     cursor: pointer;
+}
+
+.ExperimentView .param-sort-toggle-group {
+    display: flex;
+    align-items: center;
 }
 
 .ExperimentView .underline-on-hover:hover {
@@ -285,14 +262,18 @@ span.error-message {
 }
 
 .ExperimentView .metric-param-container-cell {
-    min-width: 280px;
-    padding: 8px;
+    width: 250px;
+    padding: 12px 8px;
+    overflow-x: hidden;
+    text-overflow: ellipsis;
 }
 
 .ExperimentView .metric-param-cell {
-    display: inline-block;
-    width: 250px;
-    padding: 0;
+    box-sizing: border-box;
+}
+
+.ExperimentView .flex {
+    display: flex;
 }
 
 .ExperimentView .tag-cell-item {
@@ -306,7 +287,7 @@ span.error-message {
 .ExperimentView .ReactVirtualized__Table__headerRow {
     overflow: visible;
     text-transform: inherit;
-    font-weight: inherit;
+    font-weight: 500;
 }
 
 .ExperimentView .ReactVirtualized__Table__Grid:focus {
@@ -316,14 +297,18 @@ span.error-message {
 /* Workaround as per https://github.com/bvaughn/react-virtualized/issues/876#issuecomment-367029529 */
 .ExperimentView .ReactVirtualized__Table__rowColumn {
     overflow: visible !important;
+    margin-right: 0;
 }
 
 .ExperimentView .ReactVirtualized__Table__headerColumn {
-    color: rgb(136, 136, 136);
+    color: rgba(0, 0, 0, 0.85); /* Mimic antd v4 */
+    background-color: #fafafa;
+    margin-right: 0;
+    font-size: 14px;
 }
 
 .ExperimentView .ReactVirtualized__Table .run-table-container {
-    padding: 8px;
+    padding: 12px 8px;
 }
 
 .ExperimentView .ReactVirtualized__Table .run-table-container.metric-param-sort-toggle {
@@ -344,10 +329,16 @@ span.error-message {
     flex-direction: column;
     display: flex;
     min-height: 800px;
+    overflow-x: scroll;
+    border-radius: 4px;
+}
+
+.ExperimentView-runs {
+    padding-top: 5px;
 }
 
 .ExperimentView .ReactVirtualized__Table__row:hover {
-    background-color: #f5f5f5;
+    background-color: #fafafa;
 }
 
 .search-input-tooltip .ant-popover-inner-content {
@@ -373,11 +364,15 @@ span.error-message {
 }
 
 .ExperimentView .sort-select {
-    width: 200px;
+    width: auto;
 }
 
 .ExperimentView .start-time-select {
     width: 150px;
+}
+
+.ExperimentView .sort-select .ant-select-selection-item, .ExperimentView .start-time-select .ant-select-selection-item {
+    font-size: 14px;
 }
 
 .ExperimentView .ag-row-hover, .ExperimentView .ag-column-hover {

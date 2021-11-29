@@ -11,6 +11,7 @@ import { ErrorCodes } from '../../common/constants';
 import { RunNotFoundView } from './RunNotFoundView';
 import { getUUID } from '../../common/utils/ActionUtils';
 import { Spinner } from '../../common/components/Spinner';
+import { PageContainer } from '../../common/components/PageContainer';
 
 export class RunPageImpl extends Component {
   static propTypes = {
@@ -71,9 +72,9 @@ export class RunPageImpl extends Component {
   render() {
     const requestIds = [this.getRunRequestId, this.getExperimentRequestId];
     return (
-      <div className='App-content'>
+      <PageContainer>
         <RequestStateWrapper requestIds={requestIds}>{this.renderRunView}</RequestStateWrapper>
-      </div>
+      </PageContainer>
     );
   }
 }

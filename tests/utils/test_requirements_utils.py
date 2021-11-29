@@ -285,7 +285,8 @@ def test_infer_requirements_excludes_mlflow():
 
 def test_infer_requirements_prints_warning_for_unrecognized_packages():
     with mock.patch(
-        "mlflow.utils.requirements_utils._capture_imported_modules", return_value=["sklearn"],
+        "mlflow.utils.requirements_utils._capture_imported_modules",
+        return_value=["sklearn"],
     ), mock.patch(
         "mlflow.utils.requirements_utils._PYPI_PACKAGE_INDEX",
         _PyPIPackageIndex(date="2022-01-01", package_names=set()),
@@ -304,7 +305,8 @@ def test_infer_requirements_prints_warning_for_unrecognized_packages():
 
 def test_infer_requirements_does_not_print_warning_for_recognized_packages():
     with mock.patch(
-        "mlflow.utils.requirements_utils._capture_imported_modules", return_value=["sklearn"],
+        "mlflow.utils.requirements_utils._capture_imported_modules",
+        return_value=["sklearn"],
     ), mock.patch(
         "mlflow.utils.requirements_utils._PYPI_PACKAGE_INDEX",
         _PyPIPackageIndex(date="2022-01-01", package_names=set(["scikit-learn"])),

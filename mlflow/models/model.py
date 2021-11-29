@@ -41,7 +41,7 @@ class Model(object):
         flavors=None,
         signature=None,  # ModelSignature
         saved_input_example_info: Dict[str, Any] = None,
-        **kwargs
+        **kwargs,
     ):
         # store model id instead of run_id and path to avoid confusion when model gets exported
         if run_id:
@@ -143,7 +143,7 @@ class Model(object):
         flavor,
         registered_model_name=None,
         await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-        **kwargs
+        **kwargs,
     ):
         """
         Log model using supplied flavor module. If no run is active, this method will create a new

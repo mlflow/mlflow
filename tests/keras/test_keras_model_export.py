@@ -149,9 +149,8 @@ def custom_layer():
             )
             super().build(input_shape)
 
-        def call(self, x):
-            # pylint: disable=arguments-differ
-            return K.dot(x, self.kernel)
+        def call(self, inputs):  # pylint: disable=arguments-differ
+            return K.dot(inputs, self.kernel)
 
         def compute_output_shape(self, input_shape):
             return (input_shape[0], self.output_dim)
@@ -522,7 +521,9 @@ def test_log_model_with_extra_pip_requirements(model, tmpdir):
     # List of requirements
     with mlflow.start_run():
         mlflow.keras.log_model(
-            model, "model", extra_pip_requirements=[f"-r {req_file.strpath}", "b"],
+            model,
+            "model",
+            extra_pip_requirements=[f"-r {req_file.strpath}", "b"],
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a", "b"]
@@ -531,7 +532,9 @@ def test_log_model_with_extra_pip_requirements(model, tmpdir):
     # Constraints file
     with mlflow.start_run():
         mlflow.keras.log_model(
-            model, "model", extra_pip_requirements=[f"-c {req_file.strpath}", "b"],
+            model,
+            "model",
+            extra_pip_requirements=[f"-c {req_file.strpath}", "b"],
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
