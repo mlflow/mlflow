@@ -102,7 +102,7 @@ def prevent_infer_pip_requirements_fallback(request):
 @pytest.fixture(autouse=True, scope="module")
 def clean_up_mlruns_direcotry(request):
     """
-    Clean up an `mlruns` directory in module teardown.
+    Clean up an `mlruns` directory on each test module teardown.
     """
     yield
     shutil.rmtree(os.path.join(request.config.rootpath, "mlruns"))
