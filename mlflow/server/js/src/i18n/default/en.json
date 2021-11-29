@@ -475,6 +475,10 @@
     "defaultMessage": "Last Modified",
     "description": "Column title for last modified timestamp for a model in the registered model page"
   },
+  "K3HkG/": {
+    "defaultMessage": "MLflow UI periodically fetches metric histories for active runs and updates the metrics plot.",
+    "description": "Helpful tooltip message to explain the automatic metrics plot update"
+  },
   "K4Ujb4": {
     "defaultMessage": "Only show columns with differences",
     "description": "Switch to select only columns with different values across runs"
@@ -783,13 +787,13 @@
     "defaultMessage": "Schema",
     "description": "Table title text for schema table in the model comparison page"
   },
-  "dA5sT3": {
-    "defaultMessage": "Share experiment view",
-    "description": "Label for the share experiment view button"
-  },
   "d/cZ34": {
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on the run view"
+  },
+  "dA5sT3": {
+    "defaultMessage": "Share experiment view",
+    "description": "Label for the share experiment view button"
   },
   "dq8MJd": {
     "defaultMessage": "Contour Plot",
@@ -926,6 +930,10 @@
   "nC54Nf": {
     "defaultMessage": "Tags",
     "description": "Column title for model tags in the registered model page"
+  },
+  "nEoTsR": {
+    "defaultMessage": "Completed Runs",
+    "description": "Label for the progress bar to show the number of completed runs"
   },
   "nQoUED": {
     "defaultMessage": "Step",
