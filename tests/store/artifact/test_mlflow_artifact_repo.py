@@ -8,15 +8,30 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.exceptions import MlflowException
 
 
-@pytest.fixture(
-    scope="module", autouse=True, params=["http://localhost:5000", "http://localhost:5000/"]
-)
-def set_tracking_uri(request):
+@pytest.fixture(scope="module", autouse=True)
+def set_tracking_uri():
     with mock.patch(
         "mlflow.store.artifact.mlflow_artifacts_repo.get_tracking_uri",
-        return_value=request.param,
+        return_value="http://localhost:5000/",
     ):
         yield
+
+
+@pytest.fixture(scope="module", autouse=False)
+def set_alternate_tracking_uri():
+    with mock.patch(
+        "mlflow.store.artifact.mlflow_artifacts_repo.get_tracking_uri",
+        return_value="http://localhost:5000",
+    ):
+        yield
+
+
+@pytest.mark.usefixtures("set_alternate_tracking_uri")
+def test_mlflow_artifact_uri_alternate_host_uri():
+    submitted = "mlflow-artifacts://myhostname:5045/my/artifacts"
+    resolved = "http://myhostname:5045/api/2.0/mlflow-artifacts/artifacts/my/artifacts"
+    artifact_repo = MlflowArtifactsRepository(submitted)
+    assert artifact_repo.resolve_uri(submitted) == resolved
 
 
 def test_artifact_uri_factory():
