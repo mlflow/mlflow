@@ -5,6 +5,7 @@ import { Radio, Switch, TreeSelect, Tooltip, Progress } from 'antd';
 import PropTypes from 'prop-types';
 import { CHART_TYPE_LINE } from './MetricsPlotPanel';
 import { LineSmoothSlider } from './LineSmoothSlider';
+import { METRICS_PLOT_POLLING_INTERVAL_MS } from './MetricsPlotPanel';
 
 import { FormattedMessage, injectIntl } from 'react-intl';
 
@@ -67,8 +68,9 @@ export class MetricsPlotControlsImpl extends React.Component {
     const completedRunsTooltipText = (
       <FormattedMessage
         // eslint-disable-next-line max-len
-        defaultMessage='MLflow UI periodically fetches metric histories for active runs and updates the metrics plot.'
+        defaultMessage='MLflow UI automatically fetches metric histories for active runs and updates the metrics plot with a {interval} second interval.'
         description='Helpful tooltip message to explain the automatic metrics plot update'
+        values={{ interval: Math.round(METRICS_PLOT_POLLING_INTERVAL_MS / 1000) }}
       />
     );
     return (
