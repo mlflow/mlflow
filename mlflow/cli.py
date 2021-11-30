@@ -13,7 +13,7 @@ import mlflow.projects as projects
 import mlflow.runs
 import mlflow.store.artifact.cli
 from mlflow import tracking
-from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, DEFAULT_BACKEND_STORE_URI
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking import _get_store
 from mlflow.utils import cli_args
@@ -228,7 +228,7 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
 @click.option(
     "--backend-store-uri",
     metavar="PATH",
-    default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+    default=DEFAULT_BACKEND_STORE_URI,
     help="URI to which to persist experiment and run data. Acceptable URIs are "
     "SQLAlchemy-compatible database connection strings "
     "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
@@ -238,7 +238,7 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
 @click.option(
     "--default-artifact-root",
     metavar="URI",
-    default=None,
+    default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
     help="Path to local directory to store artifacts, for new experiments. "
     "Note that this flag does not impact already-created experiments. "
     "Default: " + DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
@@ -258,16 +258,6 @@ def ui(backend_store_uri, default_artifact_root, artifacts_destination, port, ho
     """
     from mlflow.server import _run_server
     from mlflow.server.handlers import initialize_backend_stores
-
-    # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
-    if not backend_store_uri:
-        backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
-
-    if not default_artifact_root:
-        if is_local_uri(backend_store_uri):
-            default_artifact_root = backend_store_uri
-        else:
-            default_artifact_root = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 
     try:
         initialize_backend_stores(backend_store_uri, default_artifact_root)
@@ -304,7 +294,7 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 @click.option(
     "--backend-store-uri",
     metavar="PATH",
-    default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+    default=DEFAULT_BACKEND_STORE_URI,
     help="URI to which to persist experiment and run data. Acceptable URIs are "
     "SQLAlchemy-compatible database connection strings "
     "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "

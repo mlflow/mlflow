@@ -167,10 +167,7 @@ def _get_model_registry_store(backend_store_uri=None):
 
 def initialize_backend_stores(backend_store_uri=None, default_artifact_root=None):
     _get_tracking_store(backend_store_uri, default_artifact_root)
-    try:
-        _get_model_registry_store(backend_store_uri)
-    except UnsupportedModelRegistryStoreURIException:
-        pass
+    _get_model_registry_store(backend_store_uri)
 
 
 def _get_request_json(flask_request=request):
