@@ -3,9 +3,8 @@ import _ from 'lodash';
 import { QuestionCircleOutlined } from '@ant-design/icons';
 import { Radio, Switch, TreeSelect, Tooltip, Progress } from 'antd';
 import PropTypes from 'prop-types';
-import { CHART_TYPE_LINE } from './MetricsPlotPanel';
+import { CHART_TYPE_LINE, METRICS_PLOT_POLLING_INTERVAL_MS } from './MetricsPlotPanel';
 import { LineSmoothSlider } from './LineSmoothSlider';
-import { METRICS_PLOT_POLLING_INTERVAL_MS } from './MetricsPlotPanel';
 
 import { FormattedMessage, injectIntl } from 'react-intl';
 
