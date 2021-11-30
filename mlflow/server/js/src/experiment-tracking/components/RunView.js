@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { Component, createRef } from 'react';
 import PropTypes from 'prop-types';
 import { FormattedMessage, injectIntl } from 'react-intl';
 import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
@@ -14,10 +14,9 @@ import Utils from '../../common/utils/Utils';
 import { NOTE_CONTENT_TAG, NoteInfo } from '../utils/NoteUtils';
 import { RenameRunModal } from './modals/RenameRunModal';
 import { EditableTagsTableView } from '../../common/components/EditableTagsTableView';
-import { Icon, Descriptions, message } from 'antd';
+import { Button, Descriptions, message } from 'antd';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { EditableNote } from '../../common/components/EditableNote';
-import { IconButton } from '../../common/components/IconButton';
 import { setTagApi, deleteTagApi } from '../actions';
 import { PageHeader, OverflowMenu } from '../../shared/building_blocks/PageHeader';
 
@@ -47,6 +46,8 @@ export class RunViewImpl extends Component {
     isTagsRequestPending: false,
   };
 
+  formRef = createRef();
+
   componentDidMount() {
     const pageTitle = `${this.props.runDisplayName} - MLflow Run`;
     Utils.updatePageTitle(pageTitle);
@@ -60,37 +61,29 @@ export class RunViewImpl extends Component {
     this.setState({ showRunRenameModal: false });
   };
 
-  saveFormRef = (formRef) => {
-    this.formRef = formRef;
-  };
-
-  handleAddTag = (e) => {
-    e.preventDefault();
-    const { form } = this.formRef.props;
+  handleAddTag = (values) => {
+    const form = this.formRef.current;
     const { runUuid } = this.props;
-    form.validateFields((err, values) => {
-      if (!err) {
-        this.setState({ isTagsRequestPending: true });
-        this.props
-          .setTagApi(runUuid, values.name, values.value)
-          .then(() => {
-            this.setState({ isTagsRequestPending: false });
-            form.resetFields();
-          })
-          .catch((ex) => {
-            this.setState({ isTagsRequestPending: false });
-            console.error(ex);
-            const errorMessage = (
-              <FormattedMessage
-                defaultMessage='Failed to add tag. Error: {errorTrace}'
-                description='Error message when add to tag feature fails'
-                values={{ errorTrace: ex.getUserVisibleError() }}
-              />
-            );
-            message.error(errorMessage);
-          });
-      }
-    });
+
+    this.setState({ isTagsRequestPending: true });
+    this.props
+      .setTagApi(runUuid, values.name, values.value)
+      .then(() => {
+        this.setState({ isTagsRequestPending: false });
+        form.resetFields();
+      })
+      .catch((ex) => {
+        this.setState({ isTagsRequestPending: false });
+        console.error(ex);
+        const errorMessage = (
+          <FormattedMessage
+            defaultMessage='Failed to add tag. Error: {errorTrace}'
+            description='Error message when add to tag feature fails'
+            values={{ errorTrace: ex.getUserVisibleError() }}
+          />
+        );
+        message.error(errorMessage);
+      });
   };
 
   handleSaveEdit = ({ name, value }) => {
@@ -201,12 +194,6 @@ export class RunViewImpl extends Component {
     const lifecycleStage = run.getLifecycleStage();
     const queryParams = window.location && window.location.search ? window.location.search : '';
     const runCommand = this.getRunCommand();
-    const editIcon = (
-      <IconButton
-        icon={<Icon className='edit-icon' type='form' />}
-        onClick={this.startEditingDescription}
-      />
-    );
     const noteContent = noteInfo && noteInfo.content;
     const breadcrumbs = [
       <Link
@@ -271,8 +258,10 @@ export class RunViewImpl extends Component {
               description: 'Label for displaying source notebook of the experiment run',
             })}
           >
-            {Utils.renderSourceTypeIcon(tags)}
-            {Utils.renderSource(tags, queryParams, runUuid)}
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              {Utils.renderSourceTypeIcon(tags)}
+              {Utils.renderSource(tags, queryParams, runUuid)}
+            </div>
           </Descriptions.Item>
           {Utils.getSourceVersion(tags) ? (
             <Descriptions.Item
@@ -392,10 +381,25 @@ export class RunViewImpl extends Component {
             title={
               <span>
                 <FormattedMessage
-                  defaultMessage='Notes'
+                  defaultMessage='Description'
                   description='Label for the notes editable content for the experiment run'
-                />{' '}
-                {showNoteEditor ? null : editIcon}
+                />
+                {!showNoteEditor && (
+                  <>
+                    {' '}
+                    <Button
+                      type='link'
+                      onClick={this.startEditingDescription}
+                      data-test-id='edit-description-button'
+                    >
+                      <FormattedMessage
+                        defaultMessage='Edit'
+                        // eslint-disable-next-line max-len
+                        description='Text for the edit button next to the description section title on the run view'
+                      />
+                    </Button>
+                  </>
+                )}
               </span>
             }
             forceOpen={showNoteEditor}
@@ -503,7 +507,7 @@ export class RunViewImpl extends Component {
               data-test-id='run-tags-section'
             >
               <EditableTagsTableView
-                wrappedComponentRef={this.saveFormRef}
+                innerRef={this.formRef}
                 handleAddTag={this.handleAddTag}
                 handleDeleteTag={this.handleDeleteTag}
                 handleSaveEdit={this.handleSaveEdit}

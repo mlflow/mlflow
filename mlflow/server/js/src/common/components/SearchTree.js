@@ -8,7 +8,6 @@ import _ from 'lodash';
 import PropTypes from 'prop-types';
 import { injectIntl } from 'react-intl';
 
-const { TreeNode } = Tree;
 const { Search } = Input;
 export const NodeShape = {
   // display name of the node
@@ -115,13 +114,18 @@ export class SearchTreeImpl extends React.Component {
           </span>
         );
       if (item.children) {
-        return (
-          <TreeNode data-test-id={item.key} key={item.key} title={title}>
-            {this.renderTreeNodes(item.children)}
-          </TreeNode>
-        );
+        return {
+          key: item.key,
+          title,
+          children: this.renderTreeNodes(item.children),
+          'data-test-id': item.key,
+        };
       }
-      return <TreeNode data-test-id={item.key} key={item.key} title={title} />;
+      return {
+        key: item.key,
+        title,
+        'data-test-id': item.key,
+      };
     });
   };
 
@@ -149,9 +153,8 @@ export class SearchTreeImpl extends React.Component {
           expandedKeys={expandedKeys}
           autoExpandParent={autoExpandParent}
           checkedKeys={checkedKeys}
-        >
-          {this.renderTreeNodes(data)}
-        </Tree>
+          treeData={this.renderTreeNodes(data)}
+        />
       </div>
     );
   }
@@ -199,11 +202,9 @@ export const getParentKey = (key, treeData) => {
 
 export const styles = {
   treeNodeTextStyle: {
-    display: 'inline-block',
     maxWidth: 400,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
-    marginRight: 20,
   },
   searchHighlight: { color: '#f50' },
 };

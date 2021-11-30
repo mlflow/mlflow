@@ -34,11 +34,11 @@ export class Button extends React.Component {
       ...restProps
     } = this.props;
     return (
-      <div className={cx(btnTextClassName, this.props.className)} data-test-id={dataTestId}>
+      <span className={cx(btnTextClassName, this.props.className)} data-test-id={dataTestId}>
         <AntdButton onClick={onClick} type={type} disabled={disabled} size={size} {...restProps}>
           {children}
         </AntdButton>
-      </div>
+      </span>
     );
   }
 }

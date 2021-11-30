@@ -181,8 +181,9 @@ describe('ModelVersionView', () => {
         </BrowserRouter>
       </Provider>,
     );
-    expect(wrapper.find('.linked-run').html()).toContain(runLink);
-    expect(wrapper.find('.linked-run').html()).toContain(runLink.substr(0, 37) + '...');
+    const linkedRun = wrapper.find('.linked-run').at(0); // TODO: Figure out why it returns 2.
+    expect(linkedRun.html()).toContain(runLink);
+    expect(linkedRun.html()).toContain(runLink.substr(0, 37) + '...');
   });
 
   test('run name and link render if runinfo provided', () => {
@@ -203,8 +204,9 @@ describe('ModelVersionView', () => {
         </BrowserRouter>
       </Provider>,
     );
-    expect(wrapper.find('.linked-run').html()).toContain(expectedRunLink);
-    expect(wrapper.find('.linked-run').html()).toContain(expectedRunDisplayName);
+    const linkedRun = wrapper.find('.linked-run').at(0); // TODO: Figure out why it returns 2.
+    expect(linkedRun.html()).toContain(expectedRunLink);
+    expect(linkedRun.html()).toContain(expectedRunDisplayName);
   });
 
   test('Page title is set', () => {
