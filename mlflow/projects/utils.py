@@ -50,14 +50,19 @@ _logger = logging.getLogger(__name__)
 def _parse_subdirectory(uri):
     # Parses a uri and returns the uri and subdirectory as separate values.
     # Uses '#' as a delimiter.
+    unquoted_uri = _strip_quotes(uri)
     subdirectory = ""
-    parsed_uri = uri
-    if "#" in uri:
-        subdirectory = uri[uri.find("#") + 1 :]
-        parsed_uri = uri[: uri.find("#")]
+    parsed_uri = unquoted_uri
+    if "#" in unquoted_uri:
+        subdirectory = unquoted_uri[unquoted_uri.find("#") + 1 :]
+        parsed_uri = unquoted_uri[: unquoted_uri.find("#")]
     if subdirectory and "." in subdirectory:
         raise ExecutionException("'.' is not allowed in project subdirectory paths.")
     return parsed_uri, subdirectory
+
+
+def _strip_quotes(uri):
+    return uri.strip("'\"")
 
 
 def _get_storage_dir(storage_dir):
