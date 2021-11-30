@@ -22,36 +22,43 @@ def test_artifact_uri_factory():
     assert isinstance(repo, MlflowArtifactsRepository)
 
 
-def test_mlflow_artifact_uri_formats_resolved():
-    base_url = "/api/2.0/mlflow-artifacts/artifacts"
-    base_path = "/my/artifact/path"
-    conditions = [
-        (
-            f"mlflow-artifacts://myhostname:4242{base_path}/hostport",
-            f"http://myhostname:4242{base_url}{base_path}/hostport",
-            "http://myhostname:4242",
-        ),
-        (
-            f"mlflow-artifacts://myhostname{base_path}/host",
-            f"http://myhostname{base_url}{base_path}/host",
-            "http://myhostname",
-        ),
-        (
-            f"mlflow-artifacts:{base_path}/nohost",
-            f"http://localhost:5000{base_url}{base_path}/nohost",
-            "http://localhost:5000/",
-        ),
-        (
-            f"mlflow-artifacts://{base_path}/redundant",
-            f"http://localhost:5000{base_url}{base_path}/redundant",
-            "http://localhost:5000",
-        ),
-        ("mlflow-artifacts:/", f"http://localhost:5000{base_url}", "http://localhost:5000/"),
-    ]
-    failing_conditions = [f"mlflow-artifacts://5000/{base_path}", "mlflow-artifacts://5000/"]
+base_url = "/api/2.0/mlflow-artifacts/artifacts"
+base_path = "/my/artifact/path"
+conditions = [
+    (
+        f"mlflow-artifacts://myhostname:4242{base_path}/hostport",
+        f"http://myhostname:4242{base_url}{base_path}/hostport",
+        "http://myhostname:4242",
+    ),
+    (
+        f"mlflow-artifacts://myhostname{base_path}/host",
+        f"http://myhostname{base_url}{base_path}/host",
+        "http://myhostname",
+    ),
+    (
+        f"mlflow-artifacts:{base_path}/nohost",
+        f"http://localhost:5000{base_url}{base_path}/nohost",
+        "http://localhost:5000/",
+    ),
+    (
+        f"mlflow-artifacts://{base_path}/redundant",
+        f"http://localhost:5000{base_url}{base_path}/redundant",
+        "http://localhost:5000",
+    ),
+    ("mlflow-artifacts:/", f"http://localhost:5000{base_url}", "http://localhost:5000/"),
+]
+
+
+@pytest.mark.parametrize("submit, resolved, tracking_uri", conditions)
+def test_mlflow_artifact_uri_formats_resolved(submit, resolved, tracking_uri):
 
     for submit, resolved, tracking_uri in conditions:
         assert MlflowArtifactsRepository.resolve_uri(submit, tracking_uri) == resolved
+
+
+def test_mlflow_artifact_uri_raises_with_invalid_tracking_uri():
+    failing_conditions = [f"mlflow-artifacts://5000/{base_path}", "mlflow-artifacts://5000/"]
+
     for failing_condition in failing_conditions:
         with pytest.raises(
             MlflowException,
