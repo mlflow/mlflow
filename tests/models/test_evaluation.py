@@ -24,6 +24,11 @@ def get_iris():
     return iris.data[:, :2], iris.target
 
 
+def get_diabetes_dataset():
+    data = sklearn.datasets.load_diabetes()
+    return data.data[:, :2], data.target
+
+
 def get_run_data(run_id):
     client = mlflow.tracking.MlflowClient()
     data = client.get_run(run_id).data
@@ -38,7 +43,7 @@ def get_local_artifact_path(run_id, artifact_path):
 
 @pytest.fixture(scope="module")
 def regressor_model():
-    X, y = get_iris()
+    X, y = get_diabetes_dataset()
     reg = sklearn.linear_model.LinearRegression()
     reg.fit(X, y)
     return reg

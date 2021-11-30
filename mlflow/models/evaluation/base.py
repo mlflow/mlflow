@@ -470,7 +470,7 @@ def evaluate(
     from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
     from mlflow.pyfunc import PyFuncModel
 
-    if evaluators is None:
+    if not evaluators:
         evaluators = "default"
 
     if isinstance(evaluators, str):
@@ -481,6 +481,7 @@ def evaluate(
             )
         evaluator_config = {evaluators[0]: evaluator_config}
     elif isinstance(evaluators, list):
+        evaluators = set(evaluators)
         if not (
             isinstance(evaluator_config, dict)
             and all(k in evaluators and isinstance(v, dict) for k, v in evaluator_config.items())
