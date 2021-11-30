@@ -18,6 +18,7 @@ LightGBM (native) format
     https://lightgbm.readthedocs.io/en/latest/Python-API.html#scikit-learn-api
 """
 import os
+
 import yaml
 import json
 import tempfile
@@ -32,6 +33,7 @@ from mlflow.models import Model, infer_signature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
+from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import (
     _mlflow_conda_env,
@@ -61,6 +63,8 @@ from mlflow.utils.autologging_utils import (
     MlflowAutologgingQueueingClient,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.lightgbm.utils import _save_lgb_model, _load_lgb_model
+
 
 FLAVOR_NAME = "lightgbm"
 
@@ -143,7 +147,7 @@ def save_model(
         _save_example(mlflow_model, input_example, path)
 
     # Save a LightGBM model
-    lgb_model.save_model(model_data_path)
+    _save_lgb_model(lgb_model, model_data_path)
 
     pyfunc.add_to_model(
         mlflow_model,
@@ -151,7 +155,12 @@ def save_model(
         data=model_data_subpath,
         env=_CONDA_ENV_FILE_NAME,
     )
-    mlflow_model.add_flavor(FLAVOR_NAME, lgb_version=lgb.__version__, data=model_data_subpath)
+    mlflow_model.add_flavor(
+        FLAVOR_NAME,
+        lgb_version=lgb.__version__,
+        data=model_data_subpath,
+        model_class=_get_fully_qualified_class_name(lgb_model),
+    )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
@@ -251,9 +260,18 @@ def log_model(
 
 
 def _load_model(path):
-    import lightgbm as lgb
+    """
+    :param path: Local filesystem path to
+                 the MLflow Model with the ``lightgbm`` flavor (MLflow < x.x.x) or
+                 the top-level MLflow Model directory (MLflow >= x.x.x).
+    """
+    model_dir = os.path.dirname(path) if os.path.isfile(path) else path
+    flavor_conf = _get_flavor_configuration(model_path=model_dir, flavor_name=FLAVOR_NAME)
 
-    return lgb.Booster(model_file=path)
+    model_class = flavor_conf.get("model_class", "lightgbm.basic.Booster")
+    lgb_model_path = os.path.join(model_dir, flavor_conf.get("data"))
+
+    return _load_lgb_model(model_class, lgb_model_path)
 
 
 def _load_pyfunc(path):
@@ -283,12 +301,11 @@ def load_model(model_uri, dst_path=None):
                      This directory must already exist. If unspecified, a local output
                      path will be created.
 
-    :return: A LightGBM model (an instance of `lightgbm.Booster`_).
+    :return: A LightGBM model (an instance of `lightgbm.Booster`_) or LightGBM scikit-learn
+             models, depending on the saved model class specification.
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
-    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
-    lgb_model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model.lgb"))
-    return _load_model(path=lgb_model_file_path)
+    return _load_model(path=local_model_path)
 
 
 class _LGBModelWrapper:
