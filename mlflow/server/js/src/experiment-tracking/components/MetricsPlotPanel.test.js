@@ -541,7 +541,7 @@ describe('unit tests', () => {
     expect(getRunApi).toHaveBeenCalledTimes(0);
   });
 
-  test('should not poll when component is not in focus', () => {
+  test('should skip polling when component is out of focus', () => {
     jest.useFakeTimers();
     const props = {
       ...minimalPropsForLineChart,
