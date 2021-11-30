@@ -475,10 +475,6 @@
     "defaultMessage": "Last Modified",
     "description": "Column title for last modified timestamp for a model in the registered model page"
   },
-  "K3HkG/": {
-    "defaultMessage": "MLflow UI periodically fetches metric histories for active runs and updates the metrics plot.",
-    "description": "Helpful tooltip message to explain the automatic metrics plot update"
-  },
   "K4Ujb4": {
     "defaultMessage": "Only show columns with differences",
     "description": "Switch to select only columns with different values across runs"
@@ -614,6 +610,10 @@
   "U82iv6": {
     "defaultMessage": "Registered Models",
     "description": "Text for registered model link in the title for model comparison page"
+  },
+  "UEDu0c": {
+    "defaultMessage": "MLflow UI automatically fetches metric histories for active runs and updates the metrics plot with a {interval} second interval.",
+    "description": "Helpful tooltip message to explain the automatic metrics plot update"
   },
   "UGAKJp": {
     "defaultMessage": "X-axis:",
