@@ -1196,8 +1196,8 @@ def _autolog(
         _MIN_SKLEARN_VERSION,
         _TRAINING_PREFIX,
         _is_supported_version,
+        _get_X_y_and_sample_weight,
         _gen_xgboost_sklearn_estimators_to_patch,
-        _get_args_for_metrics,
         _log_estimator_content,
         _all_estimators,
         _get_estimator_info_tags,
@@ -1233,7 +1233,7 @@ def _autolog(
         # are done in `train()` in `mlflow.xgboost.autolog()`
         fit_output = original(self, *args, **kwargs)
         # log models after training
-        X = _get_args_for_metrics(self.fit, args, kwargs)[0]
+        X = _get_X_y_and_sample_weight(self.fit, args, kwargs)[0]
         if log_models:
             input_example, signature = resolve_input_example_and_signature(
                 lambda: X[:INPUT_EXAMPLE_SAMPLE_ROWS],
@@ -1322,7 +1322,7 @@ def _autolog(
 
             return infer_signature(input_example, estimator.predict(input_example))
 
-        (X, y_true, sample_weight) = _get_args_for_metrics(estimator.fit, args, kwargs)
+        (X, y_true, sample_weight) = _get_X_y_and_sample_weight(estimator.fit, args, kwargs)
 
         # log common metrics and artifacts for estimators (classifier, regressor)
         logged_metrics = _log_estimator_content(
