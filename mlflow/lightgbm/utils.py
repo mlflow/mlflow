@@ -3,8 +3,6 @@ import json
 import os.path
 import warnings
 import numpy as np
-import lightgbm as lgb
-from lightgbm.compat import _LGBMLabelEncoder
 
 
 def _label_encoder_to_json(le):
@@ -20,6 +18,8 @@ def _label_encoder_to_json(le):
 
 def _label_encoder_from_json(doc):
     """Load the encoder back from a JSON compatible dict"""
+    from lightgbm.compat import _LGBMLabelEncoder
+
     le = _LGBMLabelEncoder()
     meta = {}
     for k, v in doc.items():
@@ -46,6 +46,8 @@ def _load_lgb_attr(model_dir, fname):
 
 
 def _save_lgb_model(lgb_model, model_path) -> None:
+    import lightgbm as lgb
+
     model_dir = os.path.dirname(model_path)
 
     if not isinstance(lgb_model, lgb.Booster):
@@ -77,6 +79,8 @@ def _save_lgb_model(lgb_model, model_path) -> None:
 
 
 def _load_lgb_model(lgb_model_class, model_path):
+    import lightgbm as lgb
+
     module, cls = lgb_model_class.rsplit(".", maxsplit=1)
     model_dir = os.path.dirname(model_path)
     sk_attr = _load_lgb_attr(model_dir, "scikit-learn")

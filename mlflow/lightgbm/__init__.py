@@ -18,7 +18,6 @@ LightGBM (native) format
     https://lightgbm.readthedocs.io/en/latest/Python-API.html#scikit-learn-api
 """
 import os
-
 import yaml
 import json
 import tempfile
