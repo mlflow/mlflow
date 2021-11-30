@@ -17,23 +17,6 @@ def set_tracking_uri():
         yield
 
 
-@pytest.fixture(scope="module", autouse=False)
-def set_alternate_tracking_uri():
-    with mock.patch(
-        "mlflow.store.artifact.mlflow_artifacts_repo.get_tracking_uri",
-        return_value="http://localhost:5000",
-    ):
-        yield
-
-
-@pytest.mark.usefixtures("set_alternate_tracking_uri")
-def test_mlflow_artifact_uri_alternate_host_uri():
-    submitted = "mlflow-artifacts://myhostname:5045/my/artifacts"
-    resolved = "http://myhostname:5045/api/2.0/mlflow-artifacts/artifacts/my/artifacts"
-    artifact_repo = MlflowArtifactsRepository(submitted)
-    assert artifact_repo.resolve_uri(submitted) == resolved
-
-
 def test_artifact_uri_factory():
     repo = get_artifact_repository("mlflow-artifacts://test.com")
     assert isinstance(repo, MlflowArtifactsRepository)
@@ -46,29 +29,29 @@ def test_mlflow_artifact_uri_formats_resolved():
         (
             f"mlflow-artifacts://myhostname:4242{base_path}/hostport",
             f"http://myhostname:4242{base_url}{base_path}/hostport",
+            "http://myhostname:4242",
         ),
         (
             f"mlflow-artifacts://myhostname{base_path}/host",
             f"http://myhostname{base_url}{base_path}/host",
+            "http://myhostname",
         ),
         (
             f"mlflow-artifacts:{base_path}/nohost",
             f"http://localhost:5000{base_url}{base_path}/nohost",
+            "http://localhost:5000/",
         ),
         (
             f"mlflow-artifacts://{base_path}/redundant",
             f"http://localhost:5000{base_url}{base_path}/redundant",
+            "http://localhost:5000",
         ),
-        (
-            "mlflow-artifacts:/",
-            f"http://localhost:5000{base_url}",
-        ),
+        ("mlflow-artifacts:/", f"http://localhost:5000{base_url}", "http://localhost:5000/"),
     ]
     failing_conditions = [f"mlflow-artifacts://5000/{base_path}", "mlflow-artifacts://5000/"]
 
-    for submit, resolved in conditions:
-        artifact_repo = MlflowArtifactsRepository(submit)
-        assert artifact_repo.resolve_uri(submit) == resolved
+    for submit, resolved, tracking_uri in conditions:
+        assert MlflowArtifactsRepository.resolve_uri(submit, tracking_uri) == resolved
     for failing_condition in failing_conditions:
         with pytest.raises(
             MlflowException,

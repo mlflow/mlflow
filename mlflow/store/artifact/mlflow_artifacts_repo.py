@@ -50,13 +50,12 @@ class MlflowArtifactsRepository(HttpArtifactRepository):
 
     def __init__(self, artifact_uri):
 
-        super().__init__(self.resolve_uri(artifact_uri))
+        super().__init__(self.resolve_uri(artifact_uri, get_tracking_uri()))
 
     @classmethod
-    def resolve_uri(cls, artifact_uri):
+    def resolve_uri(cls, artifact_uri, tracking_uri):
 
         base_url = "/api/2.0/mlflow-artifacts/artifacts"
-        tracking_uri = get_tracking_uri()
 
         track_parse = _parse_artifact_uri(tracking_uri)
 
