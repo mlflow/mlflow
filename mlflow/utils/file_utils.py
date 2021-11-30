@@ -96,7 +96,7 @@ def find(root, name, full_path=False):
     return list_all(root, lambda x: x == path_name, full_path)
 
 
-def mkdir(root, name=None):  # noqa
+def mkdir(root, name=None):
     """
     Make directory with name "root/name", or just "root" if name is None.
 
