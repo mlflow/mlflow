@@ -135,13 +135,14 @@ def get_notebook_id():
 
 def get_notebook_path():
     """Should only be called if is_in_databricks_notebook is true"""
-    path = _get_property_from_spark_context("spark.databricks.notebook.path")
-    if path is not None:
-        return path
-    try:
-        return _get_command_context().notebookPath().get()
-    except Exception:
-        return _get_extra_context("notebook_path")
+    return os.environ.get("NOTEBOOK_PATH")
+    # path = _get_property_from_spark_context("spark.databricks.notebook.path")
+    # if path is not None:
+    #     return path
+    # try:
+    #     return _get_command_context().notebookPath().get()
+    # except Exception:
+    #     return _get_extra_context("notebook_path")
 
 
 def get_databricks_runtime():
