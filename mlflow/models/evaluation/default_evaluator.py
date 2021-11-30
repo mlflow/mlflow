@@ -3,6 +3,7 @@ from mlflow.models.evaluation.base import (
     ModelEvaluator,
     EvaluationMetrics,
     EvaluationArtifact,
+    EvaluationResult,
 )
 from mlflow.utils.file_utils import TempDir
 from mlflow.tracking.artifact_utils import get_artifact_uri
@@ -105,7 +106,7 @@ class DefaultEvaluator(ModelEvaluator):
         artifacts[artifact_file_name] = artifact
 
     def _log_model_explainality(self, artifacts, temp_dir, model, X, dataset_name, run_id):
-        explainer = shap.Explainer(model.predict, X)
+        explainer = shap.Explainer(model._model_impl, X)
         shap_values = explainer(X)
 
         def plot_summary():
@@ -208,7 +209,7 @@ class DefaultEvaluator(ModelEvaluator):
         self._log_metrics(run_id, metrics, dataset_name)
         self._log_model_explainality(artifacts, temp_dir, model, X, dataset_name, run_id)
 
-        return metrics, artifacts
+        return EvaluationResult(metrics, artifacts)
 
     def _evaluate_regressor(self, temp_dir, model, X, y, dataset_name, run_id, evaluator_config):
         metrics = EvaluationMetrics()
@@ -220,7 +221,7 @@ class DefaultEvaluator(ModelEvaluator):
         metrics["root_mean_squared_error"] = math.sqrt(metrics["mean_squared_error"])
         self._log_model_explainality(artifacts, temp_dir, model, X, dataset_name, run_id)
         self._log_metrics(run_id, metrics, dataset_name)
-        return metrics, artifacts
+        return EvaluationResult(metrics, artifacts)
 
     def evaluate(
         self,
