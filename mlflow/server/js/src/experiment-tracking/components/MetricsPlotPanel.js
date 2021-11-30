@@ -23,7 +23,7 @@ export const CHART_TYPE_LINE = 'line';
 export const CHART_TYPE_BAR = 'bar';
 
 // Polling interval
-export const METRICS_PLOT_POLLING_INTERVAL_MS = 5000;
+export const METRICS_PLOT_POLLING_INTERVAL_MS = 10 * 1000; // 10 seconds
 // Stop polling when the polling duration exceeds this value
 export const METRICS_PLOT_POLLING_DURATION_MS = 3600 * 1000; // 1 hour
 
