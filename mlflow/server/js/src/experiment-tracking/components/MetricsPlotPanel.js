@@ -22,10 +22,10 @@ import { getUUID } from '../../common/utils/ActionUtils';
 export const CHART_TYPE_LINE = 'line';
 export const CHART_TYPE_BAR = 'bar';
 
-// Polling interval
 export const METRICS_PLOT_POLLING_INTERVAL_MS = 10 * 1000; // 10 seconds
-// Stop polling when the polling duration exceeds this value
-export const METRICS_PLOT_POLLING_DURATION_MS = 3600 * 1000; // 1 hour
+// A run is considered as 'hanging' if its status is 'RUNNING' but its latest metric was logged
+// prior to this threshold. The metrics plot doesn't automatically update hanging runs.
+export const METRICS_PLOT_HANGING_RUN_THRESHOLD_MS = 3600 * 24 * 7 * 1000; // 1 week
 
 export class MetricsPlotPanel extends React.Component {
   static propTypes = {
@@ -82,7 +82,6 @@ export class MetricsPlotPanel extends React.Component {
     };
     this.displayPopover = false;
     this.intervalId = null;
-    this.mountedAt = null;
     this.loadMetricHistory(this.props.runUuids, this.getUrlState().selectedMetricKeys);
   }
 
@@ -94,47 +93,70 @@ export class MetricsPlotPanel extends React.Component {
     this.setState({ focused: false });
   };
 
-  clearIntervalIfExists = () => {
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-    }
+  clearEventListeners = () => {
+    // `window.removeEventListener` does nothing when called with an unregistered event listener:
+    // https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/removeEventListener
+    window.removeEventListener('focus', this.onFocus);
+    window.removeEventListener('blur', this.onBlur);
+  };
+
+  clearInterval = () => {
+    // `clearInterval` does nothing when called with `null` or `undefine`:
+    // https://www.w3.org/TR/2011/WD-html5-20110525/timers.html#dom-windowtimers-cleartimeout
+    clearInterval(this.intervalId);
   };
 
   allRunsCompleted = () => {
     return this.props.completedRunUuids.length === this.props.runUuids.length;
   };
 
-  exceedsPollingDuration = () => {
-    if (!this.mountedAt) {
-      return false;
-    }
-    return new Date().getTime() - this.mountedAt >= METRICS_PLOT_POLLING_DURATION_MS;
+  getHangingRunUuids = (activeRunUuids) => {
+    const { latestMetricsByRunUuid } = this.props;
+    return activeRunUuids.filter((runUuid) => {
+      const metrics = latestMetricsByRunUuid[runUuid];
+      const timestamps = Object.values(metrics).map(({ timestamp }) => timestamp);
+      const latestTimestamp = Math.max(...timestamps);
+      return new Date().getTime() - latestTimestamp > METRICS_PLOT_HANGING_RUN_THRESHOLD_MS;
+    });
+  };
+
+  getActiveRunUuids = () => {
+    const { completedRunUuids, runUuids } = this.props;
+    const activeRunUuids = _.difference(runUuids, completedRunUuids);
+    // Filter out hanging runs
+    const hangingRunUuids = this.getHangingRunUuids(activeRunUuids);
+    return _.difference(activeRunUuids, hangingRunUuids);
+  };
+
+  shouldPoll = () => {
+    return !(this.allRunsCompleted() || this.getActiveRunUuids().length === 0);
   };
 
   componentDidMount() {
-    this.mountedAt = new Date().getTime();
-    window.addEventListener('focus', this.onFocus);
-    window.addEventListener('blur', this.onBlur);
-
-    if (!this.allRunsCompleted()) {
+    if (this.shouldPoll()) {
+      // Set event listeners to detect when this component gains/loses focus,
+      // e.g., a user switches to a different browser tab or app.
+      window.addEventListener('blur', this.onBlur);
+      window.addEventListener('focus', this.onFocus);
       this.intervalId = setInterval(() => {
+        // Skip polling if this component is out of focus.
         if (this.state.focused) {
-          const { completedRunUuids, runUuids } = this.props;
-          const uncompletedRuns = _.difference(runUuids, completedRunUuids);
-          this.loadMetricHistory(uncompletedRuns, this.getUrlState().selectedMetricKeys);
-          this.loadRuns(uncompletedRuns);
-        }
-        if (this.exceedsPollingDuration() || this.allRunsCompleted()) {
-          this.clearIntervalIfExists();
+          const activeRunUuids = this.getActiveRunUuids();
+          this.loadMetricHistory(activeRunUuids, this.getUrlState().selectedMetricKeys);
+          this.loadRuns(activeRunUuids);
+
+          if (!this.shouldPoll()) {
+            this.clearEventListeners();
+            this.clearInterval();
+          }
         }
       }, METRICS_PLOT_POLLING_INTERVAL_MS);
     }
   }
 
   componentWillUnmount() {
-    window.removeEventListener('focus', this.onFocus);
-    window.removeEventListener('blur', this.onBlur);
-    this.clearIntervalIfExists();
+    this.clearEventListeners();
+    this.clearInterval();
   }
 
   getUrlState() {
@@ -599,6 +621,9 @@ export class MetricsPlotPanel extends React.Component {
 
 const mapStateToProps = (state, ownProps) => {
   const { runUuids } = ownProps;
+  const completedRunUuids = runUuids.filter(
+    (runUuid) => getRunInfo(runUuid, state).status !== 'RUNNING',
+  );
   const { latestMetricsByRunUuid, metricsByRunUuid } = state.entities;
 
   // All metric keys from all runUuids, non-distinct
@@ -607,10 +632,6 @@ const mapStateToProps = (state, ownProps) => {
     return latestMetrics ? Object.keys(latestMetrics) : [];
   });
   const distinctMetricKeys = [...new Set(metricKeys)].sort();
-  const completedRunUuids = runUuids.filter(
-    (runUuid) => getRunInfo(runUuid, state).status !== 'RUNNING',
-  );
-
   const runDisplayNames = [];
 
   // Flat array of all metrics, with history and information of the run it belongs to

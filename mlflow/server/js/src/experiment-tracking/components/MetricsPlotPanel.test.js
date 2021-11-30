@@ -11,7 +11,7 @@ import {
   CHART_TYPE_BAR,
   CHART_TYPE_LINE,
   METRICS_PLOT_POLLING_INTERVAL_MS,
-  METRICS_PLOT_POLLING_DURATION_MS,
+  METRICS_PLOT_HANGING_RUN_THRESHOLD_MS,
 } from './MetricsPlotPanel';
 import { X_AXIS_RELATIVE, X_AXIS_STEP, X_AXIS_WALL } from './MetricsPlotControls';
 import Utils from '../../common/utils/Utils';
@@ -39,24 +39,32 @@ describe('unit tests', () => {
     };
     getMetricHistoryApi = jest.fn(() => Promise.resolve());
     getRunApi = jest.fn(() => Promise.resolve());
+    const now = new Date().getTime();
     minimalPropsForLineChart = {
       experimentId: '1',
       runUuids: ['runUuid1', 'runUuid2'],
       completedRunUuids: ['runUuid1', 'runUuid2'],
       metricKey: 'metric_1',
       latestMetricsByRunUuid: {
-        runUuid1: { metric_1: 100, metric_2: 200 },
-        runUuid2: { metric_1: 111, metric_2: 222 },
+        runUuid1: {
+          metric_1: { key: 'metric_1', value: 100, step: 2, timestamp: now },
+          metric_2: { key: 'metric_2', value: 111, step: 0, timestamp: now },
+        },
+        runUuid2: {
+          metric_1: { key: 'metric_1', value: 200, step: 4, timestamp: now },
+          metric_2: { key: 'metric_2', value: 222, step: -3, timestamp: now },
+        },
       },
       distinctMetricKeys: ['metric_1', 'metric_2'],
       // An array of { metricKey, history, runUuid, runDisplayName }
       metricsWithRunInfoAndHistory: [
+        // Metrics for runUuid1
         {
           metricKey: 'metric_1',
           history: [
             /* Intentionally reversed timestamp and step here for testing */
-            { key: 'metric_1', value: 100, step: 2, timestamp: 1556662044000 },
-            { key: 'metric_1', value: 50, step: 1, timestamp: 1556662043000 },
+            { key: 'metric_1', value: 100, step: 2, timestamp: now },
+            { key: 'metric_1', value: 50, step: 1, timestamp: now - 1 },
           ],
           runUuid: 'runUuid1',
           runDisplayName: 'runDisplayName1',
@@ -64,17 +72,18 @@ describe('unit tests', () => {
         {
           metricKey: 'metric_2',
           history: [
-            { key: 'metric_2', value: 55, step: -1, timestamp: 1556662043000 },
-            { key: 'metric_2', value: 111, step: 0, timestamp: 1556662044000 },
+            { key: 'metric_2', value: 55, step: -1, timestamp: now - 1 },
+            { key: 'metric_2', value: 111, step: 0, timestamp: now },
           ],
           runUuid: 'runUuid1',
           runDisplayName: 'runDisplayName1',
         },
+        // Metrics for runUuid2
         {
           metricKey: 'metric_1',
           history: [
-            { key: 'metric_1', value: 150, step: 3, timestamp: 1556662043000 },
-            { key: 'metric_1', value: 200, step: 4, timestamp: 1556662044000 },
+            { key: 'metric_1', value: 150, step: 3, timestamp: now - 1 },
+            { key: 'metric_1', value: 200, step: 4, timestamp: now },
           ],
           runUuid: 'runUuid2',
           runDisplayName: 'runDisplayName2',
@@ -82,8 +91,8 @@ describe('unit tests', () => {
         {
           metricKey: 'metric_2',
           history: [
-            { key: 'metric_2', value: 155, step: -4, timestamp: 1556662043000 },
-            { key: 'metric_2', value: 222, step: -3, timestamp: 1556662044000 },
+            { key: 'metric_2', value: 155, step: -4, timestamp: now - 1 },
+            { key: 'metric_2', value: 222, step: -3, timestamp: now },
           ],
           runUuid: 'runUuid2',
           runDisplayName: 'runDisplayName2',
@@ -102,33 +111,41 @@ describe('unit tests', () => {
       completedRunUuids: ['runUuid1', 'runUuid2'],
       metricKey: 'metric_1',
       latestMetricsByRunUuid: {
-        runUuid1: { metric_1: 100, metric_2: 200 },
-        runUuid2: { metric_1: 111, metric_2: 222 },
+        runUuid1: {
+          metric_1: { key: 'metric_1', value: 50, step: 0, timestamp: now },
+          metric_2: { key: 'metric_2', value: 55, step: 0, timestamp: now },
+        },
+        runUuid2: {
+          metric_1: { key: 'metric_2', value: 55, step: 0, timestamp: now },
+          metric_2: { key: 'metric_2', value: 155, step: 0, timestamp: now },
+        },
       },
       distinctMetricKeys: ['metric_1', 'metric_2'],
       // An array of { metricKey, history, runUuid, runDisplayName }
       metricsWithRunInfoAndHistory: [
+        // Metrics for runUuid1
         {
           metricKey: 'metric_1',
-          history: [{ key: 'metric_1', value: 50, step: 0, timestamp: 1556662043000 }],
+          history: [{ key: 'metric_1', value: 50, step: 0, timestamp: now }],
           runUuid: 'runUuid1',
           runDisplayName: 'runDisplayName1',
         },
         {
           metricKey: 'metric_2',
-          history: [{ key: 'metric_2', value: 55, step: 0, timestamp: 1556662043000 }],
+          history: [{ key: 'metric_2', value: 55, step: 0, timestamp: now }],
           runUuid: 'runUuid1',
           runDisplayName: 'runDisplayName1',
         },
+        // Metrics for runUuid2
         {
           metricKey: 'metric_1',
-          history: [{ key: 'metric_1', value: 150, step: 0, timestamp: 1556662043000 }],
+          history: [{ key: 'metric_1', value: 150, step: 0, timestamp: now }],
           runUuid: 'runUuid2',
           runDisplayName: 'runDisplayName2',
         },
         {
           metricKey: 'metric_2',
-          history: [{ key: 'metric_2', value: 155, step: 0, timestamp: 1556662043000 }],
+          history: [{ key: 'metric_2', value: 155, step: 0, timestamp: now }],
           runUuid: 'runUuid2',
           runDisplayName: 'runDisplayName2',
         },
@@ -429,7 +446,7 @@ describe('unit tests', () => {
     expect(wrapper.find(Progress).text()).toContain('2/2');
   });
 
-  test('should not set polling interval if all runs already completed', () => {
+  test('should not poll if all runs already completed', () => {
     jest.useFakeTimers();
     wrapper = shallow(<MetricsPlotPanel {...minimalPropsForLineChart} />);
     expect(wrapper.instance().intervalId).toBeNull();
@@ -468,20 +485,60 @@ describe('unit tests', () => {
     expect(getRunApi).toHaveBeenCalledTimes(1);
   });
 
-  test('should stop polling when exceeding polling duration', () => {
+  test('should ignore hanging runs', () => {
     jest.useFakeTimers();
+    const latestTimestamp = new Date().getTime() - METRICS_PLOT_HANGING_RUN_THRESHOLD_MS;
     const props = {
       ...minimalPropsForLineChart,
+      // `runUuid1` has already completed and `runUuid2` is hanging.
       completedRunUuids: ['runUuid1'],
+      latestMetricsByRunUuid: {
+        runUuid1: minimalPropsForLineChart.latestMetricsByRunUuid.runUuid1,
+        runUuid2: {
+          metric_1: {
+            key: 'metric_1',
+            value: 200,
+            step: 4,
+            timestamp: latestTimestamp,
+          },
+          metric_2: {
+            key: 'metric_2',
+            value: 222,
+            step: -3,
+            timestamp: latestTimestamp,
+          },
+        },
+      },
+      metricsWithRunInfoAndHistory: [
+        // Metrics for runUuid1
+        ...minimalPropsForLineChart.metricsWithRunInfoAndHistory.slice(0, 2),
+        // Metrics for runUuid2
+        {
+          metricKey: 'metric_1',
+          history: [
+            { key: 'metric_1', value: 150, step: 3, timestamp: latestTimestamp - 1 },
+            { key: 'metric_1', value: 200, step: 4, timestamp: latestTimestamp },
+          ],
+          runUuid: 'runUuid2',
+          runDisplayName: 'runDisplayName2',
+        },
+        {
+          metricKey: 'metric_2',
+          history: [
+            { key: 'metric_2', value: 155, step: -4, timestamp: latestTimestamp - 1 },
+            { key: 'metric_2', value: 222, step: -3, timestamp: latestTimestamp },
+          ],
+          runUuid: 'runUuid2',
+          runDisplayName: 'runDisplayName2',
+        },
+      ],
     };
+
     wrapper = shallow(<MetricsPlotPanel {...props} />);
-    const mockDate = new Date();
-    mockDate.setMilliseconds(mockDate.getMilliseconds() + METRICS_PLOT_POLLING_DURATION_MS);
-    jest.spyOn(global, 'Date').mockImplementation(() => mockDate);
     jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
-    expect(getRunApi).toHaveBeenCalledTimes(1);
+    expect(getRunApi).toHaveBeenCalledTimes(0);
     jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
-    expect(getRunApi).toHaveBeenCalledTimes(1);
+    expect(getRunApi).toHaveBeenCalledTimes(0);
   });
 
   test('should not poll when component is not in focus', () => {
