@@ -105,7 +105,7 @@ class DefaultEvaluator(ModelEvaluator):
         artifacts[artifact_file_name] = artifact
 
     def _log_model_explainality(self, artifacts, temp_dir, model, X, dataset_name, run_id):
-        explainer = shap.Explainer(model, X)
+        explainer = shap.Explainer(model.predict, X)
         shap_values = explainer(X)
 
         def plot_summary():
