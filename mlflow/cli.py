@@ -243,9 +243,9 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
     "server backends that rely on SQL, this option is required in order to store artifacts. "
     "Note that this flag does not impact already-created experiments with any previous "
     "configuration of an MLflow server instance. "
-    f"By default, data will be logged to the {DEFAULT_ARTIFACTS_URI} uri proxy if "
-    "the --serve-artifacts option is enabled. Otherwise, the default location will "
-    f"be {DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH}.",
+    "If the --serve-artifacts option is specified, the default artifact root is "
+    f"{DEFAULT_ARTIFACTS_URI}. Otherwise, the default artifact root is "
+    f"{DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH}.",
 )
 @cli_args.SERVE_ARTIFACTS
 @cli_args.ARTIFACTS_DESTINATION
