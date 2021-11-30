@@ -49,7 +49,7 @@ class EvaluationArtifact:
             with TempDir() as temp_dir:
                 local_artifact_file = temp_dir.path("local_artifact")
                 _download_artifact_from_uri(self._uri, local_artifact_file)
-                self._load_content_from_file(local_artifact_file)
+                return self._load_content_from_file(local_artifact_file)
 
     def save(self, output_artifact_path):
         """Save artifact content into specified path."""

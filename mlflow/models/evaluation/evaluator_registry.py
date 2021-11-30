@@ -47,9 +47,12 @@ class ModelEvaluatorRegistry:
 _model_evaluation_registry = ModelEvaluatorRegistry()
 
 
-def register_entrypoints(module):
+def register_evaluators(module):
+    from mlflow.models.evaluation.default_evaluator import DefaultEvaluator
+
+    module._model_evaluation_registry.register("default", DefaultEvaluator)
     module._model_evaluation_registry.register_entrypoints()
 
 
 # Put it in post-importing hook to avoid circuit importing
-register_post_import_hook(register_entrypoints, __name__, overwrite=True)
+register_post_import_hook(register_evaluators, __name__, overwrite=True)
