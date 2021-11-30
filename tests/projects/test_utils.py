@@ -137,6 +137,12 @@ def test_parse_subdirectory():
     assert parsed_uri == "uri"
     assert parsed_subdirectory == "subdirectory"
 
+    # Make sure the parsing works with quotes.
+    test_uri = "'uri#subdirectory'"
+    parsed_uri, parsed_subdirectory = _parse_subdirectory(test_uri)
+    assert parsed_uri == "uri"
+    assert parsed_subdirectory == "subdirectory"
+
     # Make sure periods are restricted in Git repo subdirectory paths.
     period_fail_uri = GIT_PROJECT_URI + "#.."
     with pytest.raises(ExecutionException):
