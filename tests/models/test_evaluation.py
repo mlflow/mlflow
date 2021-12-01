@@ -186,12 +186,3 @@ def test_log_dataset_tag(iris_dataset, iris_pandas_df_dataset):
             iris_dataset._metadata,
             iris_pandas_df_dataset._metadata,
         ]
-
-
-# test hash with data change
-# test hash logged in evaluator
-# test artifact save/load
-# test Start/Create Run
-# test dataset with spark
-# test extract features label
-# test evalute correct args passing to Evaluator, multi evals, config, etc.
