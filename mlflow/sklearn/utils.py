@@ -34,6 +34,19 @@ _SklearnArtifact = collections.namedtuple(
 _SklearnMetric = collections.namedtuple("_SklearnMetric", ["name", "function", "arguments"])
 
 
+def _gen_xgboost_sklearn_estimators_to_patch():
+    import xgboost as xgb
+
+    all_classes = inspect.getmembers(xgb.sklearn, inspect.isclass)
+    base_class = xgb.sklearn.XGBModel
+    sklearn_estimators = []
+    for _, class_object in all_classes:
+        if issubclass(class_object, base_class) and class_object != base_class:
+            sklearn_estimators.append(class_object)
+
+    return sklearn_estimators
+
+
 def _get_estimator_info_tags(estimator):
     """
     :return: A dictionary of MLflow run tag keys and values
@@ -45,9 +58,9 @@ def _get_estimator_info_tags(estimator):
     }
 
 
-def _get_args_for_metrics(fit_func, fit_args, fit_kwargs):
+def _get_X_y_and_sample_weight(fit_func, fit_args, fit_kwargs):
     """
-    Get arguments to pass to metric computations in the following steps.
+    Get a tuple of (X, y, sample_weight) in the following steps.
 
     1. Extract X and y from fit_args and fit_kwargs.
     2. If the sample_weight argument exists in fit_func,

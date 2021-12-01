@@ -99,3 +99,15 @@ ARTIFACTS_DESTINATION = click.option(
         "artifact root location is http or mlflow-artifacts URI."
     ),
 )
+
+SERVE_ARTIFACTS = click.option(
+    "--serve-artifacts",
+    is_flag=True,
+    default=False,
+    help="If specified, enables serving of artifact uploads, downloads, and list requests "
+    "by routing these requests to the storage location that is specified by "
+    "'--artifact-destination' directly through a proxy. The default location that "
+    "these requests are served from is a local './mlartifacts' directory which can be "
+    "overridden via the '--artifacts-destination' argument. "
+    "Default: False",
+)

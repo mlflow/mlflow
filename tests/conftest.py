@@ -1,5 +1,7 @@
 import os
 import inspect
+import shutil
+import subprocess
 from unittest import mock
 
 import pytest
@@ -96,3 +98,25 @@ def prevent_infer_pip_requirements_fallback(request):
             yield
     else:
         yield
+
+
+@pytest.fixture(autouse=True, scope="module")
+def clean_up_mlruns_direcotry(request):
+    """
+    Clean up an `mlruns` directory on each test module teardown on CI to save the disk space.
+    """
+    yield
+
+    # Only run this fixture on CI.
+    if "GITHUB_ACTIONS" not in os.environ:
+        return
+
+    mlruns_dir = os.path.join(request.config.rootpath, "mlruns")
+    if os.path.exists(mlruns_dir):
+        try:
+            shutil.rmtree(mlruns_dir)
+        except IOError:
+            if os.name == "nt":
+                raise
+            # `shutil.rmtree` can't remove files owned by root in a docker container.
+            subprocess.run(["sudo", "rm", "-rf", mlruns_dir], check=True)
