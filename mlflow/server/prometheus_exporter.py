@@ -3,8 +3,9 @@ from flask import request
 
 from mlflow.version import VERSION
 
+
 def activate_prometheus_exporter(app):
-    def mlflow_version(req: request):
+    def mlflow_version(req: request):  # noqa: W0613
         return VERSION
 
     metrics = GunicornInternalPrometheusMetrics(
