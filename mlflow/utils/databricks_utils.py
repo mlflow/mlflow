@@ -16,11 +16,12 @@ _env_var_prefix = "DATABRICKS_"
 
 def _use_env_var_if_exists(env_var, *, if_exists=os.getenv):
     """
-    Creates a decorator to insert a short circuit that returns `if_exists(env_var)` if `env_var`
-    exists.
+    Creates a decorator to insert a short circuit that returns `if_exists(env_var)` if
+    the environment variable `env_var` exists.
 
     :param env_var: The name of an environment variable to use.
     :param if_exists: A function to evaluate if `env_var` exists. Defaults to `os.getenv`.
+    :return: A decorator to insert the short circuit.
     """
 
     def decorator(f):
