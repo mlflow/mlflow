@@ -1,9 +1,6 @@
 from typing import Dict, Union
 import mlflow
 import hashlib
-import time
-import numpy as np
-import pandas as pd
 import json
 import os
 from mlflow.exceptions import MlflowException
@@ -20,7 +17,7 @@ _logger = logging.getLogger(__name__)
 
 class EvaluationMetrics(dict):
     """
-    Represent a dict of metrics.
+    A dictionary of model evaluation metrics.
     """
 
     pass
@@ -28,7 +25,7 @@ class EvaluationMetrics(dict):
 
 class EvaluationArtifact:
     """
-    Represent a artifact. Contains artifact uri and content.
+    A model evaluation artifact containing an artifact uri and content.
     """
 
     def __init__(self, uri, content=None):
@@ -36,21 +33,27 @@ class EvaluationArtifact:
         self._content = content
 
     def _load_content_from_file(self, local_artifact_path):
+        """
+        Abstract interface to load the content from local artifact file path,
+        assign the loaded content to `self._content`, and return the loaded content.
+        """
         raise NotImplementedError()
 
     def load(self, local_artifact_path=None):
         """
-        If `local_artifact_path` is None, download artifact from the artifact uri and load it.
+        If `local_artifact_path` is None, download artifact from the artifact uri,
         otherwise load artifact content from specified path.
+        then assign the loaded content to `self._content`, and return the loaded content.
         """
         if local_artifact_path is None:
-            return self._load_content_from_file(local_artifact_path)
+            self._load_content_from_file(local_artifact_path)
         else:
             with TempDir() as temp_dir:
                 temp_dir_path = temp_dir.path()
                 _download_artifact_from_uri(self._uri, temp_dir_path)
                 local_artifact_file = temp_dir.path(os.listdir(temp_dir_path)[0])
-                return self._load_content_from_file(local_artifact_file)
+                self._load_content_from_file(local_artifact_file)
+        return self._content
 
     def save(self, output_artifact_path):
         """Save artifact content into specified path."""
@@ -97,10 +100,11 @@ class EvaluationResult:
         artifacts_dir = os.path.join(path, "artifacts")
 
         for artifact_name, meta in artifacts_metadata:
-            location = meta["location"]
+            uri = meta["uri"]
             ArtifactCls = _get_class_from_string(meta["class_name"])
-            content = ArtifactCls.load_content_from_file(os.path.join(artifacts_dir, artifact_name))
-            artifacts[artifact_name] = ArtifactCls(location=location, content=content)
+            artifact = ArtifactCls(uri=uri)
+            artifact.load(os.path.join(artifacts_dir, artifact_name))
+            artifacts[artifact_name] = artifact
 
         return EvaluationResult(metrics=metrics, artifacts=artifacts)
 
@@ -112,7 +116,7 @@ class EvaluationResult:
 
         artifacts_metadata = {
             artifact_name: {
-                "location": artifact.location,
+                "uri": artifact.uri,
                 "class_name": _get_fully_qualified_class_name(artifact),
             }
             for artifact_name, artifact in self.artifacts.items()
@@ -147,8 +151,8 @@ _cached_mlflow_client = None
 
 class EvaluationDataset:
     """
-    Represents an input dataset for model evaluation. This is intended for
-    use with the `mlflow.evaluate()`API.
+    An input dataset for model evaluation. This is intended for use with the `mlflow.evaluate()`
+    API.
     """
 
     NUM_SAMPLE_ROWS_FOR_HASH = 5
@@ -172,6 +176,9 @@ class EvaluationDataset:
         :param path: (Optional) the path to a serialized DataFrame (must not contain ").
           (e.g. a delta table, parquet file)
         """
+        import numpy as np
+        import pandas as pd
+
         try:
             from pyspark.sql import DataFrame as SparkDataFrame
 
@@ -180,9 +187,9 @@ class EvaluationDataset:
             supported_dataframe_types = (pd.DataFrame,)
 
         if name is not None and '"' in name:
-            raise ValueError(f'Dataset name cannot include a double quote (") but got name {name}')
+            raise ValueError(f'Dataset name cannot include a double quote (") but got {name}')
         if path is not None and '"' in path:
-            raise ValueError(f'Dataset path cannot include a double quote (") but got name {path}')
+            raise ValueError(f'Dataset path cannot include a double quote (") but got {path}')
 
         if isinstance(data, (np.ndarray, list)):
             if not isinstance(labels, (np.ndarray, list)):
@@ -198,14 +205,46 @@ class EvaluationDataset:
                 )
         else:
             raise ValueError(
-                "The data argument must be a numpy array, a list or a " "Pandas DataFrame."
+                "The data argument must be a numpy array, a list or a Pandas DataFrame, or "
+                "spark DataFrame if pyspark package installed."
             )
 
         self._user_specified_name = name
-        self.data = data
+        self._original_data = data
+        self._data = None
         self.labels = labels
         self.path = path
         self._hash = None
+
+    @property
+    def data(self):
+        """
+        Return original data if data is numpy array or pandas dataframe,
+        For spark dataframe, will only return the first SPARK_DATAFRAME_LIMIT rows as pandas
+        dataframe and emit warning.
+        """
+        if self._data is not None:
+            return self._data
+
+        try:
+            from pyspark.sql import DataFrame as SparkDataFrame
+
+            spark_df_type = SparkDataFrame
+        except ImportError:
+            spark_df_type = None
+
+        if spark_df_type and isinstance(self._original_data, spark_df_type):
+            self._data = self._original_data.limit(
+                EvaluationDataset.SPARK_DATAFRAME_LIMIT
+            ).toPandas()
+            _logger.warning(
+                f"Specified Spark DataFrame is too large for model evaluation. Only "
+                f"the first {EvaluationDataset.SPARK_DATAFRAME_LIMIT} rows will be used."
+            )
+        else:
+            self._data = self._original_data
+
+        return self._data
 
     def _extract_features_and_labels(self):
         """
@@ -213,19 +252,15 @@ class EvaluationDataset:
         For spark dataframe, will only extract the first SPARK_DATAFRAME_LIMIT rows data
         and emit warning.
         """
+        import numpy as np
+
         if isinstance(self.data, np.ndarray):
             return self.data, self.labels
         else:
-            if not isinstance(self.data, pd.DataFrame):
-                data = self.data.limit(EvaluationDataset.SPARK_DATAFRAME_LIMIT).toPandas()
-                _logger.warning(
-                    f"Only the first {EvaluationDataset.SPARK_DATAFRAME_LIMIT} rows in the "
-                    f"spark dataframe are examined."
-                )
-            else:
-                data = self.data
-            feature_cols = [x for x in data.columns if x != self.labels]
-            return data[feature_cols], data[self.labels]
+            return (
+                self.data.drop(self.labels, axis=1, inplace=False),
+                self.data[self.labels].to_numpy(),
+            )
 
     @staticmethod
     def _array_like_obj_to_bytes(data):
@@ -233,8 +268,11 @@ class EvaluationDataset:
         Helper method to convert pandas dataframe/numpy array/list into bytes for
         MD5 calculation purpose.
         """
+        import numpy as np
+        import pandas as pd
+
         if isinstance(data, pd.DataFrame):
-            return data.to_numpy().tobytes() + ",".join(list(data.columns)).encode("UTF-8")
+            return data.to_numpy().tobytes() + ",".join(data.columns).encode("UTF-8")
         elif isinstance(data, np.ndarray):
             return data.tobytes()
         elif isinstance(data, list):
@@ -250,6 +288,8 @@ class EvaluationDataset:
          - first NUM_SAMPLE_ROWS_FOR_HASH rows content
          - last NUM_SAMPLE_ROWS_FOR_HASH rows content
         """
+        import numpy as np
+
         md5_gen.update(np.int64(len(data)).tobytes())
         if len(data) < EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH * 2:
             md5_gen.update(EvaluationDataset._array_like_obj_to_bytes(data))
@@ -279,6 +319,9 @@ class EvaluationDataset:
         Compute a hash from the specified dataset by selecting the first 5 records, last 5 records,
         dataset size and feeding them through a cheap, low-collision hash function
         """
+        import numpy as np
+        import pandas as pd
+
         if self._hash is None:
             md5_gen = hashlib.md5()
             if isinstance(self.data, np.ndarray):
@@ -308,19 +351,15 @@ class EvaluationDataset:
         Log dataset metadata as a tag "mlflow.datasets", if the tag already exists, it will
         append current dataset metadata into existing tag content.
         """
-        existing_dataset_metadata_str = client.get_run(run_id).data.tags.get("mlflow.datasets")
-        if existing_dataset_metadata_str is not None:
-            dataset_metadata_list = json.loads(existing_dataset_metadata_str)
-        else:
-            dataset_metadata_list = []
+        existing_dataset_metadata_str = client.get_run(run_id).data.tags.get(
+            "mlflow.datasets", "[]"
+        )
+        dataset_metadata_list = json.loads(existing_dataset_metadata_str)
 
-        metadata_exists = False
         for metadata in dataset_metadata_list:
             if metadata["hash"] == self.hash and metadata["name"] == self._user_specified_name:
-                metadata_exists = True
                 break
-
-        if not metadata_exists:
+        else:
             dataset_metadata_list.append(self._metadata)
 
         dataset_metadata_str = json.dumps(dataset_metadata_list)
@@ -345,29 +384,15 @@ class ModelEvaluator:
         """
         raise NotImplementedError()
 
-    def _log_metrics(self, run_id, metrics, dataset_name):
-        """
-        Helper method to log metrics into specified run.
-        """
-        client = mlflow.tracking.MlflowClient()
-        timestamp = int(time.time() * 1000)
-        client.log_batch(
-            run_id,
-            metrics=[
-                Metric(key=f"{key}_on_{dataset_name}", value=value, timestamp=timestamp, step=0)
-                for key, value in metrics.items()
-            ],
-        )
-
     def evaluate(
         self,
-        model: "mlflow.pyfunc.PyFuncModel",
+        model,
         model_type,
         dataset,
         run_id,
         evaluator_config,
         **kwargs,
-    ) -> "mlflow.models.evaluation.EvaluationResult":
+    ):
         """
         The abstract API to log metrics and artifacts, and return evaluation results.
 
@@ -397,7 +422,7 @@ def list_evaluators():
     return list(_model_evaluation_registry._registry.keys())
 
 
-class StartRunOrReuseActiveRun:
+class _StartRunOrReuseActiveRun:
     """
     A manager context return:
      - If there's an active run, return the active run id.
@@ -420,12 +445,8 @@ class StartRunOrReuseActiveRun:
                 )
             return active_run_id
         else:
-            if self.user_specified_run_id is None:
-                raise ValueError(
-                    "Active run does not exist, you need specify a run_id when " "evaluating."
-                )
             self.managed_run = mlflow.start_run(run_id=self.user_specified_run_id).__enter__()
-            return self.user_specified_run_id
+            return self.managed_run.info.run_id
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.managed_run is not None:
@@ -434,8 +455,8 @@ class StartRunOrReuseActiveRun:
 
 def evaluate(
     model: Union[str, "mlflow.pyfunc.PyFuncModel"],
-    model_type,
-    dataset,
+    model_type: str,
+    dataset: "mlflow.models.evaluation.EvaluationDataset",
     run_id=None,
     evaluators=None,
     evaluator_config=None,
@@ -499,11 +520,11 @@ def evaluate(
         pass
     else:
         raise ValueError(
-            "The model argument must be a URI str referring to mlflow model or "
+            "The model argument must be a string URI referring to an MLflow model or "
             "an instance of `mlflow.pyfunc.PyFuncModel`."
         )
 
-    with StartRunOrReuseActiveRun(run_id) as actual_run_id:
+    with _StartRunOrReuseActiveRun(run_id) as actual_run_id:
         client = mlflow.tracking.MlflowClient()
         dataset._log_dataset_tag(client, actual_run_id)
 

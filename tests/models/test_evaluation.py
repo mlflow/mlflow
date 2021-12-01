@@ -156,7 +156,7 @@ def test_dataset_name():
     d1 = EvaluationDataset(data=X, labels=y, name="a1")
     assert d1.name == "a1"
     d2 = EvaluationDataset(data=X, labels=y)
-    d2.name == d2.hash
+    assert d2.name == d2.hash
 
 
 def test_dataset_hash(iris_dataset, iris_pandas_df_dataset):
@@ -186,3 +186,12 @@ def test_log_dataset_tag(iris_dataset, iris_pandas_df_dataset):
             iris_dataset._metadata,
             iris_pandas_df_dataset._metadata,
         ]
+
+
+# test hash with data change
+# test hash logged in evaluator
+# test artifact save/load
+# test Start/Create Run
+# test dataset with spark
+# test extract features label
+# test evalute correct args passing to Evaluator, multi evals, config, etc.

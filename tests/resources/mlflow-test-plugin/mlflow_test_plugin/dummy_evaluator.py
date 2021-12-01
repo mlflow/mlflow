@@ -7,7 +7,9 @@ from mlflow.models.evaluation import (
     EvaluationDataset,
 )
 from mlflow.tracking.artifact_utils import get_artifact_uri
+from mlflow.entities import Metric, RunTag
 from sklearn import metrics as sk_metrics
+import time
 import numpy as np
 import pandas as pd
 import io
@@ -17,7 +19,7 @@ class Array2DEvaluationArtifact(EvaluationArtifact):
     def save(self, output_artifact_path):
         pd.DataFrame(self._content).to_csv(output_artifact_path, index=False)
 
-    def load(self, local_artifact_path):
+    def _load_content_from_file(self, local_artifact_path):
         pdf = pd.read_csv(local_artifact_path)
         self._content = pdf.to_numpy()
         return self._content
@@ -26,6 +28,20 @@ class Array2DEvaluationArtifact(EvaluationArtifact):
 class DummyEvaluator(ModelEvaluator):
     def can_evaluate(self, model_type, evaluator_config=None, **kwargs):
         return model_type in ["classifier", "regressor"]
+
+    def _log_metrics(self, run_id, metrics, dataset_name):
+        """
+        Helper method to log metrics into specified run.
+        """
+        client = mlflow.tracking.MlflowClient()
+        timestamp = int(time.time() * 1000)
+        client.log_batch(
+            run_id,
+            metrics=[
+                Metric(key=f"{key}_on_{dataset_name}", value=value, timestamp=timestamp, step=0)
+                for key, value in metrics.items()
+            ],
+        )
 
     def evaluate(
         self, model, model_type, dataset, run_id, evaluator_config=None, **kwargs

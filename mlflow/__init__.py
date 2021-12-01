@@ -42,6 +42,7 @@ warnings.filterwarnings("ignore", message="numpy.ufunc size changed")  # noqa: E
 
 import mlflow.projects as projects  # noqa: E402
 import mlflow.tracking as tracking  # noqa: E402
+import mlflow.models
 
 # model flavors
 _model_flavors_supported = []
@@ -151,7 +152,7 @@ delete_experiment = mlflow.tracking.fluent.delete_experiment
 delete_run = mlflow.tracking.fluent.delete_run
 register_model = mlflow.tracking._model_registry.fluent.register_model
 autolog = mlflow.tracking.fluent.autolog
-
+evaluate = mlflow.models.evaluate
 
 run = projects.run
 
