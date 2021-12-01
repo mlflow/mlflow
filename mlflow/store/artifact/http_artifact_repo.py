@@ -5,6 +5,7 @@ import posixpath
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository, verify_artifact_path
 from mlflow.utils.file_utils import relative_path_to_artifact_path
+from mlflow.utils.rest_utils import augmented_raise_for_status
 
 
 class HttpArtifactRepository(ArtifactRepository):
@@ -26,7 +27,7 @@ class HttpArtifactRepository(ArtifactRepository):
         url = posixpath.join(self.artifact_uri, *paths)
         with open(local_file, "rb") as f:
             resp = self._session.put(url, data=f, timeout=600)
-            resp.raise_for_status()
+            augmented_raise_for_status(resp)
 
     def log_artifacts(self, local_dir, artifact_path=None):
         local_dir = os.path.abspath(local_dir)
@@ -49,7 +50,7 @@ class HttpArtifactRepository(ArtifactRepository):
         root = tail.lstrip("/")
         params = {"path": posixpath.join(root, path) if path else root}
         resp = self._session.get(url, params=params, timeout=10)
-        resp.raise_for_status()
+        augmented_raise_for_status(resp)
         file_infos = []
         for f in resp.json().get("files", []):
             file_info = FileInfo(
@@ -64,7 +65,7 @@ class HttpArtifactRepository(ArtifactRepository):
     def _download_file(self, remote_file_path, local_path):
         url = posixpath.join(self.artifact_uri, remote_file_path)
         with self._session.get(url, stream=True, timeout=10) as resp:
-            resp.raise_for_status()
+            augmented_raise_for_status(resp)
             with open(local_path, "wb") as f:
                 chunk_size = 1024 * 1024  # 1 MB
                 for chunk in resp.iter_content(chunk_size=chunk_size):

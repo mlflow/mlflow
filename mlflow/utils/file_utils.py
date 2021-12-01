@@ -22,7 +22,7 @@ except ImportError:
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MissingConfigException
-from mlflow.utils.rest_utils import cloud_storage_http_request
+from mlflow.utils.rest_utils import cloud_storage_http_request, augmented_raise_for_status
 
 ENCODING = "utf-8"
 
@@ -453,7 +453,7 @@ def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000):
             providers.
     """
     with cloud_storage_http_request("get", http_uri, stream=True) as response:
-        response.raise_for_status()
+        augmented_raise_for_status(response)
         with open(download_path, "wb") as output_file:
             for chunk in response.iter_content(chunk_size=chunk_size):
                 if not chunk:
