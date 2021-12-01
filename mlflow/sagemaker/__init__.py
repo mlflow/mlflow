@@ -23,6 +23,7 @@ from mlflow.utils.annotations import experimental
 from mlflow.utils.file_utils import TempDir
 from mlflow.models.container import SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS
 from mlflow.models.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME
+from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 
 
 DEFAULT_IMAGE_NAME = "mlflow-pyfunc"
@@ -1196,7 +1197,8 @@ def _upload_s3(local_model_path, bucket, prefix, region_name, s3_client, **assum
         with open(model_data_file, "rb") as fobj:
             key = os.path.join(prefix, "model.tar.gz")
             obj = sess.resource("s3").Bucket(bucket).Object(key)
-            obj.upload_fileobj(fobj)
+            environ_extra_args = S3ArtifactRepository.get_s3_file_upload_extra_args()
+            obj.upload_fileobj(fobj, ExtraArgs=environ_extra_args)
             response = s3_client.put_object_tagging(
                 Bucket=bucket, Key=key, Tagging={"TagSet": [{"Key": "SageMaker", "Value": "true"}]}
             )
