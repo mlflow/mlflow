@@ -200,7 +200,7 @@ class DefaultEvaluator(ModelEvaluator):
                 )
 
             def plot_confusion_matrix():
-                sk_metrics.ConfusionMatrixDisplay.from_predictions(y, y_pred)
+                sk_metrics.ConfusionMatrixDisplay.from_predictions(y, y_pred, normalize='all')
 
             self._log_image_artifact(
                 artifacts, temp_dir, plot_confusion_matrix, run_id, "confusion_matrix", dataset_name
