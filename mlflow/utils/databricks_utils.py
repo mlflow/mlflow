@@ -25,7 +25,7 @@ def _use_env_var_if_exists(env_var, *, if_exists=lambda x: os.environ[x]):
     """
 
     def decorator(f):
-        @functools.wraps
+        @functools.wraps(f)
         def wrapper(*args, **kwargs):
             if env_var in os.environ:
                 return if_exists(env_var)
