@@ -37,7 +37,7 @@ def test_mlflow_lazily_import_ml_packages():
     # Ensure ML packages are not loaded before importing mlflow
     assert _get_loaded_packages().intersection(ml_packages) == set()
 
-    import mlflow  # pylint: disable=unused-variable
+    import mlflow  # pylint: disable=unused-import
 
     # Ensure ML packages are not loaded after importing mlflow
     assert _get_loaded_packages().intersection(ml_packages) == set()

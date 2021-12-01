@@ -28,7 +28,6 @@ export class ModelListPageImpl extends React.Component {
   }
   static propTypes = {
     models: PropTypes.arrayOf(PropTypes.object),
-    endpoints: PropTypes.object,
     searchRegisteredModelsApi: PropTypes.func.isRequired,
     // react-router props
     history: PropTypes.object.isRequired,

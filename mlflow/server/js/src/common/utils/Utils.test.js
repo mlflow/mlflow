@@ -70,6 +70,21 @@ test('formatDuration', () => {
   expect(Utils.formatDuration(480 * 60 * 60 * 1000)).toEqual('20.0d');
 });
 
+test('getDuration', () => {
+  expect(Utils.getDuration(1, null)).toEqual(null);
+  expect(Utils.getDuration(1, undefined)).toEqual(null);
+  expect(Utils.getDuration(null, 1)).toEqual(null);
+  expect(Utils.getDuration(undefined, 1)).toEqual(null);
+  expect(Utils.getDuration(undefined, undefined)).toEqual(null);
+  expect(Utils.getDuration(null, null)).toEqual(null);
+  expect(Utils.getDuration(1, 11)).toEqual('10ms');
+  expect(Utils.getDuration(1, 501)).toEqual('0.5s');
+  expect(Utils.getDuration(1, 901)).toEqual('0.9s');
+  expect(Utils.getDuration(1, 60001)).toEqual('1.0min');
+  expect(Utils.getDuration(1, 60 * 60 * 1000 + 1)).toEqual('1.0h');
+  expect(Utils.getDuration(1, 24 * 60 * 60 * 1000 + 1)).toEqual('1.0d');
+});
+
 test('baseName', () => {
   expect(Utils.baseName('foo')).toEqual('foo');
   expect(Utils.baseName('foo/bar/baz')).toEqual('baz');
@@ -443,22 +458,22 @@ test('getMetricPlotStateFromUrl', () => {
 });
 
 test('getSearchParamsFromUrl', () => {
-  const url0 = '?paramKeyFilterString=filt&metricKeyFilterString=metrics&searchInput=';
+  const url0 = '?searchInput=';
   const url1 = '?p=&q=&r=';
   const url2 = '?';
-  const url3 =
-    '?paramKeyFilterString=some=param&metricKeyFilterString=somemetric&searchInput=some-Input';
+  const url3 = '?searchInput=some-Input';
+  const url4 = '?boolVal1=true&boolVal2=false';
   expect(Utils.getSearchParamsFromUrl(url0)).toEqual({
-    paramKeyFilterString: 'filt',
-    metricKeyFilterString: 'metrics',
     searchInput: '',
   });
   expect(Utils.getSearchParamsFromUrl(url1)).toEqual({ p: '', q: '', r: '' });
   expect(Utils.getSearchParamsFromUrl(url2)).toEqual({});
   expect(Utils.getSearchParamsFromUrl(url3)).toEqual({
-    paramKeyFilterString: 'some=param',
-    metricKeyFilterString: 'somemetric',
     searchInput: 'some-Input',
+  });
+  expect(Utils.getSearchParamsFromUrl(url4)).toEqual({
+    boolVal1: true,
+    boolVal2: false,
   });
 });
 

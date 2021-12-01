@@ -14,36 +14,36 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# Use `bash` by default for all `run` steps in this workflow:
+# Use `bash --noprofile --norc -exo pipefail` by default for all `run` steps in this workflow:
 # https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#defaultsrun
 defaults:
   run:
-    # GitHub Actions runner executes commands specified in a run step via:
-    # $ bash --noprofile --norc -eo pipefail < commands >
-    #
-    # https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#using-a-specific-shell
-    shell: bash
+    shell: bash --noprofile --norc -exo pipefail {0}
 
 env:
-  CONDA_DIR: /usr/share/miniconda
+  # Note miniconda is pre-installed in the virtual environments for GitHub Actions:
+  # https://github.com/actions/virtual-environments/blob/main/images/linux/scripts/installers/miniconda.sh
+  MLFLOW_CONDA_HOME: /usr/share/miniconda
 
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - uses: ./.github/actions/setup-python
+      with:
+        python-version: 3.6
+    - uses: ./.github/actions/cache-pip
     - name: Install dependencies
       env:
         INSTALL_LARGE_PYTHON_DEPS: true
         INSTALL_SMALL_PYTHON_DEPS: true
       run: |
         source ./dev/install-common-deps.sh
-        pip install -r ./dev/lint-requirements.txt
+        pip install -r requirements/lint-requirements.txt
     - name: Run tests
       run: |
-        export PATH="$CONDA_DIR/bin:$PATH"
-        source activate test-environment
-        ./lint.sh
+        ./dev/lint.sh
   r:
     runs-on: ubuntu-latest
     steps:
@@ -123,6 +123,8 @@ jobs:
       run: |
         export LINTR_COMMENT_BOT=false
         cd mlflow/R/mlflow/tests
+        # `devtools::check_built` requires `pandoc` to analyze README.md
+        sudo apt-get install pandoc -y
         Rscript ../.run-tests.R
     - name: Calculate code coverage
       if: ${{ success() }}
@@ -152,6 +154,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - uses: ./.github/actions/setup-python
+      with:
+        python-version: 3.6
     - name: Install dependencies
       env:
         INSTALL_SKINNY_PYTHON_DEPS: true
@@ -160,14 +165,15 @@ jobs:
         source ./dev/install-common-deps.sh
     - name: Run tests
       run: |
-        export PATH="$CONDA_DIR/bin:$PATH"
-        source activate test-environment
         ./dev/run-python-skinny-tests.sh
 
   python-small:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - uses: ./.github/actions/setup-python
+      with:
+        python-version: 3.6
     - name: Install dependencies
       env:
         INSTALL_SMALL_PYTHON_DEPS: true
@@ -175,8 +181,6 @@ jobs:
         source ./dev/install-common-deps.sh
     - name: Run tests
       run: |
-        export PATH="$CONDA_DIR/bin:$PATH"
-        source activate test-environment
         ./dev/run-small-python-tests.sh
 
   python-large:
@@ -188,12 +192,16 @@ jobs:
         # Increase available disk space by removing unnecessary tool chains:
         # https://github.com/actions/virtual-environments/issues/709#issuecomment-612569242
         rm -rf "$AGENT_TOOLSDIRECTORY"
+    - uses: ./.github/actions/setup-python
+      with:
+        python-version: 3.6
     - uses: actions/setup-java@v2
       with:
         # GitHub Actions' Ubuntu 20.04 image uses Java 11 (which is incompatible with Spark 2.4.x) by default:
         # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md#java
         java-version: 8
         distribution: 'adopt'
+    - uses: ./.github/actions/cache-pip
     - name: Install dependencies
       env:
         INSTALL_LARGE_PYTHON_DEPS: true
@@ -205,12 +213,9 @@ jobs:
         # Fix for https://github.com/mlflow/mlflow/issues/4229
         SPARK_LOCAL_IP: 127.0.0.1
       run: |
-        export PATH="$CONDA_DIR/bin:$PATH"
-        source activate test-environment
         ./dev/run-large-python-tests.sh
     - name: Run database initialization tests
       run: |
-        set -x
         # Build wheel and copy it under tests/db
         python setup.py bdist_wheel
         cp -r dist tests/db
@@ -220,6 +225,8 @@ jobs:
         docker-compose build
         docker-compose run mlflow-postgres python log.py
         docker-compose run mlflow-mysql python log.py
+        docker-compose run mlflow-mssql ./init-mssql-db.sh
+        docker-compose run mlflow-mssql python log.py
 
         # Clean up
         docker-compose down --rmi all --volumes
@@ -232,6 +239,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - uses: ./.github/actions/setup-python
+      with:
+        python-version: 3.6
     - name: Set up Java
       uses: actions/setup-java@v2
       with:
@@ -244,8 +254,6 @@ jobs:
       env:
         SPARK_LOCAL_IP: 127.0.0.1
       run: |
-        export PATH="$CONDA_DIR/bin:$PATH"
-        source activate test-environment
         cd mlflow/java
         mvn clean package -q
 
@@ -266,6 +274,9 @@ jobs:
     - name: Run lint
       run: |
         npm run lint
+    - name: Run extract-i18n lint
+      run: |
+        npm run extract-i18n:base -- --lint
     - name: Run tests
       run: |
         npm run test
@@ -287,7 +298,7 @@ jobs:
         sudo unzip $HOME/protoc.zip -d /usr
     - name: Run tests
       run: |
-        ./test-generate-protos.sh
+        ./dev/test-generate-protos.sh
 
   flavors:
     runs-on: ubuntu-latest
@@ -298,10 +309,14 @@ jobs:
           # Increase available disk space by removing unnecessary tool chains:
           # https://github.com/actions/virtual-environments/issues/709#issuecomment-612569242
           rm -rf "$AGENT_TOOLSDIRECTORY"
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: 3.6
       - uses: actions/setup-java@v2
         with:
           java-version: 8
           distribution: 'adopt'
+      - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         env:
           INSTALL_LARGE_PYTHON_DEPS: true
@@ -312,8 +327,6 @@ jobs:
         env:
           SPARK_LOCAL_IP: 127.0.0.1
         run: |
-          export PATH="$CONDA_DIR/bin:$PATH"
-          source activate test-environment
           # Install libopenblas-dev for mxnet 1.8.0.post0
           sudo apt-get install libopenblas-dev
           ./dev/run-python-flavor-tests.sh;
@@ -324,6 +337,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: 3.6
       - uses: actions/setup-java@v2
         with:
           java-version: 8
@@ -339,8 +355,6 @@ jobs:
         env:
           SPARK_LOCAL_IP: 127.0.0.1
         run: |
-          export PATH="$CONDA_DIR/bin:$PATH"
-          source activate test-environment
           export MLFLOW_HOME=$(pwd)
           pytest tests/models --large
 
@@ -368,6 +382,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: 3.6
       - uses: actions/setup-java@v2
         with:
           java-version: 8
@@ -382,8 +399,6 @@ jobs:
         env:
           SPARK_LOCAL_IP: 127.0.0.1
         run: |
-          export PATH="$CONDA_DIR/bin:$PATH"
-          source activate test-environment
           ./dev/run-python-sagemaker-tests.sh;
 
   windows:
@@ -393,12 +408,25 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: 3.7
-      - name: Install dependecies
+      - name: Install python dependencies
         run: |
-          pip install -r dev-requirements.txt
-          pip install -r dev/small-requirements.txt
+          pip install -r requirements/small-requirements.txt
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install -e .[extras]
-      - name: Run tests
+      - name: Run python tests
         run: |
           pytest --ignore-flavors --ignore=tests/projects tests
+      - name: Set up Node
+        uses: actions/setup-node@v1
+        with:
+          node-version: 10.x
+      - name: Install JS dependencies
+        working-directory: mlflow/server/js
+        shell: pwsh
+        run: |
+          npm i
+      - name: Run JS tests
+        working-directory: mlflow/server/js
+        shell: pwsh
+        run: |
+          npm run test

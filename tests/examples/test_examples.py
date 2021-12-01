@@ -86,17 +86,16 @@ def report_free_disk_space(capsys):
             ["-P", "learning_rate=0.1", "-P", "colsample_bytree=0.8", "-P", "subsample=0.9"],
         ),
         ("statsmodels", ["-P", "inverse_method=qr"]),
-        ("prophet", []),
         ("pytorch", ["-P", "epochs=2"]),
         ("sklearn_logistic_regression", []),
         ("sklearn_elasticnet_wine", ["-P", "alpha=0.5"]),
         (os.path.join("sklearn_elasticnet_diabetes", "linux"), []),
         ("spacy", []),
-        (os.path.join("tensorflow", "tf1"), ["-P", "steps=10"]),
         (
-            "xgboost",
+            os.path.join("xgboost", "xgboost_native"),
             ["-P", "learning_rate=0.3", "-P", "colsample_bytree=0.8", "-P", "subsample=0.9"],
         ),
+        (os.path.join("xgboost", "xgboost_sklearn"), []),
         ("fastai", ["-P", "lr=0.02", "-P", "epochs=3"]),
         (os.path.join("pytorch", "MNIST"), ["-P", "max_epochs=1"]),
         (
@@ -112,6 +111,7 @@ def report_free_disk_space(capsys):
             ["-P", "max_epochs=1", "-P", "total_trials=1"],
         ),
         (os.path.join("pytorch", "CaptumExample"), ["-P", "max_epochs=50"]),
+        ("supply_chain_security", []),
     ],
 )
 def test_mlflow_run_example(directory, params, tmpdir):
@@ -156,7 +156,7 @@ def test_mlflow_run_example(directory, params, tmpdir):
         ("quickstart", ["python", "mlflow_tracking.py"]),
         ("remote_store", ["python", "remote_server.py"]),
         (
-            "xgboost",
+            os.path.join("xgboost", "xgboost_native"),
             [
                 "python",
                 "train.py",
@@ -168,7 +168,9 @@ def test_mlflow_run_example(directory, params, tmpdir):
                 "0.9",
             ],
         ),
+        (os.path.join("xgboost", "xgboost_sklearn"), ["python", "train.py"]),
         ("catboost", ["python", "train.py"]),
+        ("prophet", ["python", "train.py"]),
         ("sklearn_autolog", ["python", "linear_regression.py"]),
         ("sklearn_autolog", ["python", "pipeline.py"]),
         ("sklearn_autolog", ["python", "grid_search_cv.py"]),
@@ -181,6 +183,7 @@ def test_mlflow_run_example(directory, params, tmpdir):
         ("shap", ["python", "explainer_logging.py"]),
         ("ray_serve", ["python", "train_model.py"]),
         ("pip_requirements", ["python", "pip_requirements.py"]),
+        ("fastai", ["python", "train.py", "--lr", "0.02", "--epochs", "3"]),
     ],
 )
 def test_command_example(directory, command):

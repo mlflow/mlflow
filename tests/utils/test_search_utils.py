@@ -80,6 +80,10 @@ from mlflow.utils.search_utils import SearchUtils
             [{"type": "attribute", "comparator": "=", "key": "artifact_uri", "value": "1/23/4"}],
         ),
         (
+            "attribute.start_time >= 1234",
+            [{"type": "attribute", "comparator": ">=", "key": "start_time", "value": "1234"}],
+        ),
+        (
             "run.status = 'RUNNING'",
             [{"type": "attribute", "comparator": "=", "key": "status", "value": "RUNNING"}],
         ),
@@ -123,7 +127,6 @@ def test_correct_quote_trimming(filter_string, parsed_filter):
         ("`dummy.A > 0.1", "Invalid clause(s) in filter string"),
         ("dummy`.A > 0.1", "Invalid clause(s) in filter string"),
         ("attribute.start != 1", "Invalid attribute key"),
-        ("attribute.start_time != 1", "Invalid attribute key"),
         ("attribute.end_time != 1", "Invalid attribute key"),
         ("attribute.run_id != 1", "Invalid attribute key"),
         ("attribute.run_uuid != 1", "Invalid attribute key"),
@@ -205,6 +208,7 @@ def test_invalid_clauses(filter_string, error_message):
         ("params", [">", "<", ">=", "<=", "~"], "abc", "'my-param-value'"),
         ("tags", [">", "<", ">=", "<=", "~"], "abc", "'my-tag-value'"),
         ("attributes", [">", "<", ">=", "<=", "~"], "status", "'my-tag-value'"),
+        ("attributes", ["LIKE", "ILIKE"], "start_time", 1234),
     ],
 )
 def test_bad_comparators(entity_type, bad_comparators, key, entity_value):
@@ -299,6 +303,28 @@ def test_correct_filtering(filter_string, matching_runs):
     ]
     filtered_runs = SearchUtils.filter(runs, filter_string)
     assert set(filtered_runs) == set([runs[i] for i in matching_runs])
+
+
+def test_filter_runs_by_start_time():
+    runs = [
+        Run(
+            run_info=RunInfo(
+                run_uuid=run_id,
+                run_id=run_id,
+                experiment_id=0,
+                user_id="user-id",
+                status=RunStatus.to_string(RunStatus.FINISHED),
+                start_time=idx,
+                end_time=1,
+                lifecycle_stage=LifecycleStage.ACTIVE,
+            ),
+            run_data=RunData(),
+        )
+        for idx, run_id in enumerate(["a", "b", "c"])
+    ]
+    assert SearchUtils.filter(runs, "attribute.start_time >= 0") == runs
+    assert SearchUtils.filter(runs, "attribute.start_time > 1") == runs[2:]
+    assert SearchUtils.filter(runs, "attribute.start_time = 2") == runs[2:]
 
 
 @pytest.mark.parametrize(

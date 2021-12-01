@@ -1,7 +1,10 @@
 import React from 'react';
-import { RunsTableColumnSelectionDropdown } from './RunsTableColumnSelectionDropdown';
+import {
+  RunsTableColumnSelectionDropdown,
+  getCategorizedUncheckedKeys,
+} from './RunsTableColumnSelectionDropdown';
 import { SearchTree } from '../../common/components/SearchTree';
-import { ColumnTypes } from '../constants';
+import { COLUMN_TYPES } from '../constants';
 import { mountWithIntl, shallowWithIntl } from '../../common/utils/TestUtils';
 
 describe('RunsTableColumnSelectionDropdown', () => {
@@ -17,10 +20,10 @@ describe('RunsTableColumnSelectionDropdown', () => {
       visibleTagKeyList: [],
       onCheck: jest.fn(),
       categorizedUncheckedKeys: {
-        [ColumnTypes.ATTRIBUTES]: [],
-        [ColumnTypes.PARAMS]: [],
-        [ColumnTypes.METRICS]: [],
-        [ColumnTypes.TAGS]: [],
+        [COLUMN_TYPES.ATTRIBUTES]: [],
+        [COLUMN_TYPES.PARAMS]: [],
+        [COLUMN_TYPES.METRICS]: [],
+        [COLUMN_TYPES.TAGS]: [],
       },
     };
 
@@ -44,6 +47,7 @@ describe('RunsTableColumnSelectionDropdown', () => {
     wrapper.update();
     expect(wrapper.find(SearchTree).prop('data')).toEqual([
       { key: 'attributes-Start Time', title: 'Start Time' },
+      { key: 'attributes-Duration', title: 'Duration' },
       { key: 'attributes-User', title: 'User' },
       { key: 'attributes-Run Name', title: 'Run Name' },
       { key: 'attributes-Source', title: 'Source' },
@@ -83,6 +87,7 @@ describe('RunsTableColumnSelectionDropdown', () => {
     wrapper.update();
     expect(wrapper.find(SearchTree).prop('checkedKeys')).toEqual([
       'attributes-Start Time',
+      'attributes-Duration',
       'attributes-User',
       'attributes-Run Name',
       'attributes-Source',
@@ -101,10 +106,10 @@ describe('RunsTableColumnSelectionDropdown', () => {
     const props = {
       ...commonProps,
       categorizedUncheckedKeys: {
-        [ColumnTypes.ATTRIBUTES]: ['User', 'Run Name', 'Source', 'Models', 'Version'],
-        [ColumnTypes.PARAMS]: ['p1'],
-        [ColumnTypes.METRICS]: ['m1'],
-        [ColumnTypes.TAGS]: ['t1'],
+        [COLUMN_TYPES.ATTRIBUTES]: ['User', 'Run Name', 'Source', 'Models', 'Version'],
+        [COLUMN_TYPES.PARAMS]: ['p1'],
+        [COLUMN_TYPES.METRICS]: ['m1'],
+        [COLUMN_TYPES.TAGS]: ['t1'],
       },
     };
     wrapper = mountWithIntl(<RunsTableColumnSelectionDropdown {...props} />);
@@ -113,9 +118,131 @@ describe('RunsTableColumnSelectionDropdown', () => {
     wrapper.update();
     expect(wrapper.find(SearchTree).prop('checkedKeys')).toEqual([
       'attributes-Start Time',
+      'attributes-Duration',
       'params-p2',
       'metrics-m2',
       'tags-t2',
     ]);
+  });
+});
+
+describe('getCategorizedUncheckedKeys', () => {
+  test('getCategorizedUncheckedKeys should return correct keys when all checked', () => {
+    const allKeys = [
+      'attributes-Start Time',
+      'attributes-Duration',
+      'attributes-User',
+      'attributes-Run Name',
+      'attributes-Source',
+      'attributes-Version',
+      'attributes-Models',
+      'params',
+      'params-p1',
+      'params-p2',
+      'metrics',
+      'metrics-m1',
+      'metrics-m2',
+      'tags',
+      'tags-t1',
+      'tags-t2',
+    ];
+    const checkedKeys = [
+      'attributes-Start Time',
+      'attributes-Duration',
+      'attributes-User',
+      'attributes-Run Name',
+      'attributes-Source',
+      'attributes-Version',
+      'attributes-Models',
+      'params',
+      'params-p1',
+      'params-p2',
+      'metrics',
+      'metrics-m1',
+      'metrics-m2',
+      'tags',
+      'tags-t1',
+      'tags-t2',
+    ];
+    const expectedResult = {
+      [COLUMN_TYPES.ATTRIBUTES]: [],
+      [COLUMN_TYPES.PARAMS]: [],
+      [COLUMN_TYPES.METRICS]: [],
+      [COLUMN_TYPES.TAGS]: [],
+    };
+    expect(getCategorizedUncheckedKeys(checkedKeys, allKeys)).toEqual(expectedResult);
+  });
+  test('getCategorizedUncheckedKeys should return correct keys when some checked', () => {
+    const allKeys = [
+      'attributes-Start Time',
+      'attributes-Duration',
+      'attributes-User',
+      'attributes-Run Name',
+      'attributes-Source',
+      'attributes-Version',
+      'attributes-Models',
+      'params',
+      'params-p1',
+      'params-p2',
+      'metrics',
+      'metrics-m1',
+      'metrics-m2',
+      'tags',
+      'tags-t1',
+      'tags-t2',
+    ];
+    const checkedKeys = [
+      'attributes-Start Time',
+      'attributes-Duration',
+      'attributes-Source',
+      'attributes-Version',
+      'attributes-Models',
+      'params-p1',
+      'metrics-m1',
+      'tags-t1',
+    ];
+    const expectedResult = {
+      [COLUMN_TYPES.ATTRIBUTES]: ['User', 'Run Name'],
+      [COLUMN_TYPES.PARAMS]: ['p2'],
+      [COLUMN_TYPES.METRICS]: ['m2'],
+      [COLUMN_TYPES.TAGS]: ['t2'],
+    };
+    expect(getCategorizedUncheckedKeys(checkedKeys, allKeys)).toEqual(expectedResult);
+  });
+  test('getCategorizedUncheckedKeys should return correct keys when nothing checked', () => {
+    const allKeys = [
+      'attributes-Start Time',
+      'attributes-Duration',
+      'attributes-User',
+      'attributes-Run Name',
+      'attributes-Source',
+      'attributes-Version',
+      'attributes-Models',
+      'params',
+      'params-p1',
+      'params-p2',
+      'metrics',
+      'metrics-m1',
+      'metrics-m2',
+      'tags',
+      'tags-t1',
+      'tags-t2',
+    ];
+    const checkedKeys = [];
+    const expectedResult = {
+      [COLUMN_TYPES.ATTRIBUTES]: [
+        'Start Time',
+        'Duration',
+        'User',
+        'Run Name',
+        'Source',
+        'Version',
+        'Models',
+      ],
+      [COLUMN_TYPES.PARAMS]: ['p1', 'p2'],
+      [COLUMN_TYPES.METRICS]: ['m1', 'm2'],
+      [COLUMN_TYPES.TAGS]: ['t1', 't2'],
+    };
+    expect(getCategorizedUncheckedKeys(checkedKeys, allKeys)).toEqual(expectedResult);
   });
 });

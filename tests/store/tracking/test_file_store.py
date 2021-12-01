@@ -83,7 +83,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                     "start_time": random_int(1, 10),
                     "end_time": random_int(20, 30),
                     "tags": [],
-                    "artifact_uri": "%s/%s" % (run_folder, FileStore.ARTIFACTS_FOLDER_NAME),
+                    "artifact_uri": os.path.join(run_folder, FileStore.ARTIFACTS_FOLDER_NAME),
                 }
                 write_yaml(run_folder, FileStore.META_DATA_FILE_NAME, run_info)
                 self.run_data[run_id] = run_info
@@ -94,7 +94,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 os.makedirs(params_folder)
                 params = {}
                 for _ in range(5):
-                    param_name = random_str(random_int(4, 12))
+                    param_name = random_str(random_int(10, 12))
                     param_value = random_str(random_int(10, 15))
                     param_file = os.path.join(params_folder, param_name)
                     with open(param_file, "w") as f:
@@ -106,7 +106,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 os.makedirs(metrics_folder)
                 metrics = {}
                 for _ in range(3):
-                    metric_name = random_str(random_int(6, 10))
+                    metric_name = random_str(random_int(10, 12))
                     timestamp = int(time.time())
                     metric_file = os.path.join(metrics_folder, metric_name)
                     values = []
@@ -205,7 +205,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs = FileStore(self.test_root)
         fs.list_experiments = mock.Mock(return_value=[])
         fs._create_experiment_with_id = mock.Mock()
-        fs.create_experiment(random_str(1))
+        fs.create_experiment(random_str())
         fs._create_experiment_with_id.assert_called_once()
         experiment_id = fs._create_experiment_with_id.call_args[0][1]
         self.assertEqual(experiment_id, FileStore.DEFAULT_EXPERIMENT_ID)
@@ -278,6 +278,19 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 self.assertEqual(
                     exp.artifact_location, expected_artifact_uri_format.format(e=exp_id)
                 )
+
+    def test_create_experiment_with_tags_works_correctly(self):
+        fs = FileStore(self.test_root)
+
+        created_id = fs.create_experiment(
+            "heresAnExperiment",
+            "heresAnArtifact",
+            [ExperimentTag("key1", "val1"), ExperimentTag("key2", "val2")],
+        )
+        experiment = fs.get_experiment(created_id)
+        assert len(experiment.tags) == 2
+        assert experiment.tags["key1"] == "val1"
+        assert experiment.tags["key2"] == "val2"
 
     def test_create_duplicate_experiments(self):
         fs = FileStore(self.test_root)
@@ -620,10 +633,12 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             [], self._search(fs, experiment_id, filter_str="tags.generic_tag != 'p_val'")
         )
         self.assertCountEqual(
-            [r1, r2], self._search(fs, experiment_id, filter_str="tags.generic_tag != 'wrong_val'"),
+            [r1, r2],
+            self._search(fs, experiment_id, filter_str="tags.generic_tag != 'wrong_val'"),
         )
         self.assertCountEqual(
-            [r1, r2], self._search(fs, experiment_id, filter_str="tags.generic_2 != 'wrong_val'"),
+            [r1, r2],
+            self._search(fs, experiment_id, filter_str="tags.generic_2 != 'wrong_val'"),
         )
         self.assertCountEqual([r1], self._search(fs, experiment_id, filter_str="tags.p_a = 'abc'"))
         self.assertCountEqual([r2], self._search(fs, experiment_id, filter_str="tags.p_b = 'ABC'"))
@@ -715,9 +730,11 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs.log_param(run_id, Param(param_name, "value1"))
         # Duplicate calls to `log_param` with the same key and value should succeed
         fs.log_param(run_id, Param(param_name, "value1"))
-        with pytest.raises(MlflowException) as exc:
+        with self.assertRaisesRegex(
+            MlflowException, "Changing param values is not allowed. Param with key="
+        ) as e:
             fs.log_param(run_id, Param(param_name, "value2"))
-        assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert e.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         run = fs.get_run(run_id)
         assert run.data.params[param_name] == "value1"
 
@@ -829,7 +846,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
     def test_unicode_tag(self):
         fs = FileStore(self.test_root)
         run_id = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
-        value = u"𝐼 𝓈𝑜𝓁𝑒𝓂𝓃𝓁𝓎 𝓈𝓌𝑒𝒶𝓇 𝓉𝒽𝒶𝓉 𝐼 𝒶𝓂 𝓊𝓅 𝓉𝑜 𝓃𝑜 𝑔𝑜𝑜𝒹"
+        value = "𝐼 𝓈𝑜𝓁𝑒𝓂𝓃𝓁𝓎 𝓈𝓌𝑒𝒶𝓇 𝓉𝒽𝒶𝓉 𝐼 𝒶𝓂 𝓊𝓅 𝓉𝑜 𝓃𝑜 𝑔𝑜𝑜𝒹"
         fs.set_tag(run_id, RunTag("message", value))
         tags = fs.get_run(run_id).data.tags
         assert tags["message"] == value
@@ -1068,4 +1085,16 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs = FileStore(self.test_root)
         run = self._create_run(fs)
         fs.log_batch(run.info.run_id, metrics=[], params=[], tags=[])
+        self._verify_logged(fs, run.info.run_id, metrics=[], params=[], tags=[])
+
+    def test_log_batch_with_duplicate_params_errors_no_partial_write(self):
+        fs = FileStore(self.test_root)
+        run = self._create_run(fs)
+        with self.assertRaisesRegex(
+            MlflowException, "Duplicate parameter keys have been submitted"
+        ) as e:
+            fs.log_batch(
+                run.info.run_id, metrics=[], params=[Param("a", "1"), Param("a", "2")], tags=[]
+            )
+        assert e.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         self._verify_logged(fs, run.info.run_id, metrics=[], params=[], tags=[])

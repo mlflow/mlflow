@@ -17,7 +17,16 @@ from unittest import mock
 
 import mlflow.db
 import mlflow.store.db.base_sql_model
-from mlflow.entities import ViewType, RunTag, SourceType, RunStatus, Experiment, Metric, Param
+from mlflow.entities import (
+    ViewType,
+    RunTag,
+    SourceType,
+    RunStatus,
+    Experiment,
+    Metric,
+    Param,
+    ExperimentTag,
+)
 from mlflow.protos.databricks_pb2 import (
     ErrorCode,
     RESOURCE_DOES_NOT_EXIST,
@@ -353,6 +362,17 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
                     self.assertEqual(
                         exp.artifact_location, expected_artifact_uri_format.format(e=exp_id)
                     )
+
+    def test_create_experiment_with_tags_works_correctly(self):
+        experiment_id = self.store.create_experiment(
+            name="test exp",
+            artifact_location="some location",
+            tags=[ExperimentTag("key1", "val1"), ExperimentTag("key2", "val2")],
+        )
+        experiment = self.store.get_experiment(experiment_id)
+        assert len(experiment.tags) == 2
+        assert experiment.tags["key1"] == "val1"
+        assert experiment.tags["key2"] == "val2"
 
     def test_create_run_appends_to_artifact_uri_path_correctly(self):
         cases = [
@@ -1221,7 +1241,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             [r1], self._search(experiment_id, filter_string="tags.generic_2 = 'some value'")
         )
         self.assertCountEqual(
-            [r2], self._search(experiment_id, filter_string="tags.generic_2 = 'another value'"),
+            [r2],
+            self._search(experiment_id, filter_string="tags.generic_2 = 'another value'"),
         )
         self.assertCountEqual(
             [], self._search(experiment_id, filter_string="tags.generic_tag = 'wrong_val'")
@@ -1230,10 +1251,12 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             [], self._search(experiment_id, filter_string="tags.generic_tag != 'p_val'")
         )
         self.assertCountEqual(
-            [r1, r2], self._search(experiment_id, filter_string="tags.generic_tag != 'wrong_val'"),
+            [r1, r2],
+            self._search(experiment_id, filter_string="tags.generic_tag != 'wrong_val'"),
         )
         self.assertCountEqual(
-            [r1, r2], self._search(experiment_id, filter_string="tags.generic_2 != 'wrong_val'"),
+            [r1, r2],
+            self._search(experiment_id, filter_string="tags.generic_2 != 'wrong_val'"),
         )
         self.assertCountEqual([r1], self._search(experiment_id, filter_string="tags.p_a = 'abc'"))
         self.assertCountEqual([r2], self._search(experiment_id, filter_string="tags.p_b = 'ABC'"))
@@ -1450,7 +1473,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
         # all params and metrics match
         filter_string = (
-            "params.generic_param = 'p_val' and metrics.common = 1.0 " "and metrics.m_a > 1.0"
+            "params.generic_param = 'p_val' and metrics.common = 1.0 and metrics.m_a > 1.0"
         )
         self.assertCountEqual([r1], self._search(experiment_id, filter_string))
 
@@ -1474,13 +1497,13 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
         # test with mismatch param
         filter_string = (
-            "params.random_bad_name = 'p_val' and metrics.common = 1.0 " "and metrics.m_a > 1.0"
+            "params.random_bad_name = 'p_val' and metrics.common = 1.0 and metrics.m_a > 1.0"
         )
         self.assertCountEqual([], self._search(experiment_id, filter_string))
 
         # test with mismatch metric
         filter_string = (
-            "params.generic_param = 'p_val' and metrics.common = 1.0 " "and metrics.m_a > 100.0"
+            "params.generic_param = 'p_val' and metrics.common = 1.0 and metrics.m_a > 100.0"
         )
         self.assertCountEqual([], self._search(experiment_id, filter_string))
 

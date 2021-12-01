@@ -461,12 +461,20 @@ class MlflowClient(object):
         """
         return self._tracking_client.get_experiment_by_name(name)
 
-    def create_experiment(self, name: str, artifact_location: Optional[str] = None) -> str:
+    def create_experiment(
+        self,
+        name: str,
+        artifact_location: Optional[str] = None,
+        tags: Optional[Dict[str, Any]] = None,
+    ) -> str:
         """Create an experiment.
 
         :param name: The experiment name. Must be unique.
         :param artifact_location: The location to store run artifacts.
                                   If not provided, the server picks an appropriate default.
+        :param tags: A dictionary of key-value pairs that are converted into
+                                :py:class:`mlflow.entities.ExperimentTag` objects, set as
+                                experiment tags upon experiment creation.
         :return: String as an integer ID of the created experiment.
 
         .. code-block:: python
@@ -496,7 +504,7 @@ class MlflowClient(object):
             Tags: {'nlp.framework': 'Spark NLP'}
             Lifecycle_stage: active
         """
-        return self._tracking_client.create_experiment(name, artifact_location)
+        return self._tracking_client.create_experiment(name, artifact_location, tags)
 
     def delete_experiment(self, experiment_id: str) -> None:
         """
@@ -628,10 +636,15 @@ class MlflowClient(object):
         Log a metric against the run ID.
 
         :param run_id: The run id to which the metric should be logged.
-        :param key: Metric name.
+        :param key: Metric name (string). This string may only contain alphanumerics, underscores
+                    (_), dashes (-), periods (.), spaces ( ), and slashes (/).
+                    All backend stores will support keys up to length 250, but some may
+                    support larger keys.
         :param value: Metric value (float). Note that some special values such
                       as +/- Infinity may be replaced by other values depending on the store. For
                       example, the SQLAlchemy store replaces +/- Inf with max / min float values.
+                      All backend stores will support values up to length 5000, but some
+                      may support larger values.
         :param timestamp: Time when this metric was calculated. Defaults to the current system time.
         :param step: Integer training step (iteration) at which was the metric calculated.
                      Defaults to 0.
@@ -681,7 +694,13 @@ class MlflowClient(object):
         Log a parameter against the run ID.
 
         :param run_id: The run id to which the param should be logged.
-        :param value: Value is converted to a string.
+        :param key: Parameter name (string). This string may only contain alphanumerics, underscores
+                    (_), dashes (-), periods (.), spaces ( ), and slashes (/).
+                    All backend stores will support keys up to length 250, but some may
+                    support larger keys.
+        :param value: Parameter value (string, but will be string-ified if not).
+                      All backend stores will support values up to length 5000, but some
+                      may support larger values.
 
         .. code-block:: python
             :caption: Example
@@ -759,8 +778,13 @@ class MlflowClient(object):
         Set a tag on the run with the specified ID. Value is converted to a string.
 
         :param run_id: String ID of the run.
-        :param key: Name of the tag.
-        :param value: Tag value (converted to a string)
+        :param key: Tag name (string). This string may only contain alphanumerics,
+                    underscores (_), dashes (-), periods (.), spaces ( ), and slashes (/).
+                    All backend stores will support keys up to length 250, but some may
+                    support larger keys.
+        :param value: Tag value (string, but will be string-ified if not).
+                      All backend stores will support values up to length 5000, but some
+                      may support larger values.
 
         .. code-block:: python
             :caption: Example
@@ -1211,7 +1235,7 @@ class MlflowClient(object):
             return isinstance(image, np.ndarray)
 
         def _normalize_to_uint8(x):
-            # Based on: https://github.com/matplotlib/matplotlib/blob/06567e021f21be046b6d6dcf00380c1cb9adaf3c/lib/matplotlib/image.py#L684  # noqa
+            # Based on: https://github.com/matplotlib/matplotlib/blob/06567e021f21be046b6d6dcf00380c1cb9adaf3c/lib/matplotlib/image.py#L684
 
             is_int = np.issubdtype(x.dtype, np.integer)
             low = 0
@@ -1244,7 +1268,7 @@ class MlflowClient(object):
                         "Please install it via: pip install Pillow"
                     ) from exc
 
-                # Ref.: https://numpy.org/doc/stable/reference/generated/numpy.dtype.kind.html#numpy-dtype-kind  # noqa
+                # Ref.: https://numpy.org/doc/stable/reference/generated/numpy.dtype.kind.html#numpy-dtype-kind
                 valid_data_types = {
                     "b": "bool",
                     "i": "signed integer",
@@ -1739,7 +1763,7 @@ class MlflowClient(object):
         Delete registered model.
         Backend raises exception if a registered model with given name does not exist.
 
-        :param name: Name of the registered model to update.
+        :param name: Name of the registered model to delete.
 
         .. code-block:: python
             :caption: Example
@@ -1920,7 +1944,7 @@ class MlflowClient(object):
 
     def get_registered_model(self, name: str) -> RegisteredModel:
         """
-        :param name: Name of the registered model to update.
+        :param name: Name of the registered model to get.
         :return: A single :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
 
         .. code-block:: python
@@ -1961,7 +1985,7 @@ class MlflowClient(object):
         Latest version models for each requests stage. If no ``stages`` provided, returns the
         latest version for each stage.
 
-        :param name: Name of the registered model to update.
+        :param name: Name of the registered model from which to get the latest versions.
         :param stages: List of desired stages. If input list is None, return latest versions for
                        for ALL_STAGES.
         :return: List of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.

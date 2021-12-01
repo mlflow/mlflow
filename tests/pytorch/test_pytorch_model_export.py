@@ -571,7 +571,9 @@ def test_pyfunc_model_serving_with_module_scoped_subclassed_model_and_default_co
     module_scoped_subclassed_model, model_path, data
 ):
     mlflow.pytorch.save_model(
-        path=model_path, pytorch_model=module_scoped_subclassed_model, code_paths=[__file__],
+        path=model_path,
+        pytorch_model=module_scoped_subclassed_model,
+        code_paths=[__file__],
     )
 
     scoring_response = pyfunc_serve_and_score_model(
@@ -590,7 +592,7 @@ def test_pyfunc_model_serving_with_module_scoped_subclassed_model_and_default_co
     )
 
 
-def test_save_model_with_wrong_codepaths_fails_corrrectly(
+def test_save_model_with_wrong_codepaths_fails_correctly(
     module_scoped_subclassed_model, model_path, data
 ):
     # pylint: disable=unused-argument
@@ -598,9 +600,7 @@ def test_save_model_with_wrong_codepaths_fails_corrrectly(
         mlflow.pytorch.save_model(
             path=model_path, pytorch_model=module_scoped_subclassed_model, code_paths="some string"
         )
-    assert "TypeError: Argument code_paths should be a list, not {}".format(type("")) in str(
-        exc_info
-    )
+    assert "Argument code_paths should be a list, not {}".format(type("")) in str(exc_info.value)
     assert not os.path.exists(model_path)
 
 
@@ -638,7 +638,9 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
     # `tests` module is not available when the model is deployed for local scoring, we include
     # the test suite file as a code dependency
     mlflow.pytorch.save_model(
-        path=model_path, pytorch_model=module_scoped_subclassed_model, code_paths=[__file__],
+        path=model_path,
+        pytorch_model=module_scoped_subclassed_model,
+        code_paths=[__file__],
     )
 
     # Define a custom pyfunc model that loads a PyTorch model artifact using
@@ -1018,7 +1020,9 @@ def test_save_model_emits_deprecation_warning_for_requirements_file(tmpdir):
     reqs_file.write("torch")
     with pytest.warns(FutureWarning, match="`requirements_file` has been deprecated"):
         mlflow.pytorch.save_model(
-            get_sequential_model(), tmpdir.join("model"), requirements_file=reqs_file.strpath,
+            get_sequential_model(),
+            tmpdir.join("model"),
+            requirements_file=reqs_file.strpath,
         )
 
 
@@ -1139,7 +1143,9 @@ def test_save_state_dict(sequential_model, model_path, data):
     model = get_sequential_model()
     model.load_state_dict(loaded_state_dict)
     np.testing.assert_array_almost_equal(
-        _predict(model, data), _predict(sequential_model, data), decimal=4,
+        _predict(model, data),
+        _predict(sequential_model, data),
+        decimal=4,
     )
 
 
@@ -1183,5 +1189,7 @@ def test_log_state_dict(sequential_model, data):
     model = get_sequential_model()
     model.load_state_dict(loaded_state_dict)
     np.testing.assert_array_almost_equal(
-        _predict(model, data), _predict(sequential_model, data), decimal=4,
+        _predict(model, data),
+        _predict(sequential_model, data),
+        decimal=4,
     )

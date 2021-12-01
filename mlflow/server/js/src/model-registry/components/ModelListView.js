@@ -33,8 +33,8 @@ import { FlexBar } from '../../shared/building_blocks/FlexBar';
 import { Button } from '../../shared/building_blocks/Button';
 import { Spacer } from '../../shared/building_blocks/Spacer';
 import { SearchBox } from '../../shared/building_blocks/SearchBox';
-import { mlPagePadding } from '../../shared/styleConstants';
 import { FormattedMessage, injectIntl } from 'react-intl';
+import { PageContainer } from '../../common/components/PageContainer';
 
 const NAME_COLUMN_INDEX = 'name';
 const LAST_MODIFIED_COLUMN_INDEX = 'last_updated_timestamp';
@@ -286,8 +286,8 @@ export class ModelListViewImpl extends React.Component {
 
     return this.state.showOnboardingHelper ? (
       <Alert
-        className='onboarding-information'
-        description={content}
+        className={styles.alert}
+        message={content}
         type='info'
         showIcon
         closable
@@ -376,8 +376,10 @@ export class ModelListViewImpl extends React.Component {
       </Spacer>
     );
     return (
-      <div data-test-id='ModelListView-container' className={styles.rootContainer}>
-        <PageHeader title={title} />
+      <PageContainer data-test-id='ModelListView-container'>
+        <PageHeader title={title}>
+          <></>
+        </PageHeader>
         {this.renderOnboardingContent()}
         <FlexBar
           left={
@@ -457,6 +459,7 @@ export class ModelListViewImpl extends React.Component {
           }}
           loading={loading && { indicator: <Spinner /> }}
           onChange={this.handleTableChange}
+          showSorterTooltip={false}
         />
         <div>
           <SimplePagination
@@ -466,11 +469,11 @@ export class ModelListViewImpl extends React.Component {
             onClickNext={this.handleClickNext}
             onClickPrev={this.handleClickPrev}
             handleSetMaxResult={this.handleSetMaxResult}
-            maxResultOptions={[REGISTERED_MODELS_PER_PAGE, 25, 50, 100]}
+            maxResultOptions={[String(REGISTERED_MODELS_PER_PAGE), '25', '50', '100']}
             getSelectedPerPageSelection={this.props.getMaxResultValue}
           />
         </div>
-      </div>
+      </PageContainer>
     );
   }
 }
@@ -492,7 +495,12 @@ const styles = {
   nameSearchBox: css({
     width: '446px',
   }),
-  rootContainer: css({
-    margin: mlPagePadding,
+  alert: css({
+    marginBottom: 16,
+    padding: 16,
+    background: '#edfafe' /* Gray-background */,
+    border: '1px solid #eeeeee',
+    boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.12)' /* Dropshadow */,
+    borderRadius: 4,
   }),
 };

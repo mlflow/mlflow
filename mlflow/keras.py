@@ -39,12 +39,10 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
     ExceptionSafeClass,
-    try_mlflow_log,
     log_fn_args_as_params,
     batch_metrics_logger,
 )
@@ -59,25 +57,6 @@ _KERAS_SAVE_FORMAT_PATH = "save_format.txt"
 # File name to which keras model is saved
 _MODEL_SAVE_PATH = "model"
 _PIP_ENV_SUBPATH = "requirements.txt"
-
-
-def _raise_deprecation_warning():
-    # Avoid `ModuleNotFoundError` thrown when this function is called from `mlflow.tensorflow` to
-    # save a model created using `tensorflow.keras` but `keras` is not installed.
-    try:
-        import keras
-    except ImportError:
-        return
-
-    if Version(keras.__version__) < Version("2.3.0"):
-        warnings.warn(
-            (
-                "Support for keras < 2.3.0 has been deprecated and will be removed in a future "
-                "MLflow release"
-            ),
-            FutureWarning,
-            stacklevel=2,
-        )
 
 
 def get_default_pip_requirements(include_cloudpickle=False, keras_module=None):
@@ -136,7 +115,7 @@ def save_model(
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
-    **kwargs
+    **kwargs,
 ):
     """
     Save a Keras model to a path on the local file system.
@@ -190,7 +169,6 @@ def save_model(
         # Save the model as an MLflow Model
         mlflow.keras.save_model(keras_model, keras_model_path)
     """
-    _raise_deprecation_warning()
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     if keras_module is None:
@@ -199,15 +177,10 @@ def save_model(
             try:
                 import keras
 
-                if Version(keras.__version__) < Version("2.2.0"):
-                    import keras.engine
+                # NB: Network is the first parent with save method
+                import keras.engine.network
 
-                    return isinstance(model, keras.engine.Model)
-                else:
-                    # NB: Network is the first parent with save method
-                    import keras.engine.network
-
-                    return isinstance(model, keras.engine.network.Network)
+                return isinstance(model, keras.engine.network.Network)
             except ImportError:
                 return False
 
@@ -312,7 +285,9 @@ def save_model(
         else:
             default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
-            default_reqs, pip_requirements, extra_pip_requirements,
+            default_reqs,
+            pip_requirements,
+            extra_pip_requirements,
         )
     else:
         conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
@@ -341,7 +316,7 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements=None,
     extra_pip_requirements=None,
-    **kwargs
+    **kwargs,
 ):
     """
     Log a Keras model as an MLflow artifact for the current run.
@@ -414,7 +389,7 @@ def log_model(
         await_registration_for=await_registration_for,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
-        **kwargs
+        **kwargs,
     )
 
 
@@ -505,8 +480,6 @@ def _load_pyfunc(path):
 
     :param path: Local filesystem path to the MLflow Model with the ``keras`` flavor.
     """
-    import tensorflow as tf
-
     if os.path.isfile(os.path.join(path, _KERAS_MODULE_SPEC_PATH)):
         with open(os.path.join(path, _KERAS_MODULE_SPEC_PATH), "r") as f:
             keras_module = importlib.import_module(f.read())
@@ -526,34 +499,17 @@ def _load_pyfunc(path):
     should_compile = save_format == "tf"
     K = importlib.import_module(keras_module.__name__ + ".backend")
     if keras_module.__name__ == "tensorflow.keras" or K.backend() == "tensorflow":
-        if Version(tf.__version__) < Version("2.0.0"):
-            graph = tf.Graph()
-            sess = tf.Session(graph=graph)
-            # By default tf backed models depend on the global graph and session.
-            # We create an use new Graph and Session and store them with the model
-            # This way the model is independent on the global state.
-            with graph.as_default():
-                with sess.as_default():  # pylint:disable=not-context-manager
-                    K.set_learning_phase(0)
-                    m = _load_model(
-                        path,
-                        keras_module=keras_module,
-                        save_format=save_format,
-                        compile=should_compile,
-                    )
-                    return _KerasModelWrapper(m, graph, sess)
-        else:
-            K.set_learning_phase(0)
-            m = _load_model(
-                path, keras_module=keras_module, save_format=save_format, compile=should_compile
-            )
-            return _KerasModelWrapper(m, None, None)
+        K.set_learning_phase(0)
+        m = _load_model(
+            path, keras_module=keras_module, save_format=save_format, compile=should_compile
+        )
+        return _KerasModelWrapper(m, None, None)
 
     else:
         raise MlflowException("Unsupported backend '%s'" % K._BACKEND)
 
 
-def load_model(model_uri, **kwargs):
+def load_model(model_uri, dst_path=None, **kwargs):
     """
     Load a Keras model from a local file or a run.
 
@@ -571,6 +527,9 @@ def load_model(model_uri, **kwargs):
                       For more information about supported URI schemes, see
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
                       artifact-locations>`_.
+    :param dst_path: The local filesystem path to which to download the model artifact.
+                     This directory must already exist. If unspecified, a local output
+                     path will be created.
 
     :return: A Keras model instance.
 
@@ -581,8 +540,7 @@ def load_model(model_uri, **kwargs):
         keras_model = mlflow.keras.load_model("runs:/96771d893a5e46159d9f3b49bf9013e2" + "/models")
         predictions = keras_model.predict(x_test)
     """
-    _raise_deprecation_warning()
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     keras_module = importlib.import_module(flavor_conf.get("keras_module", "keras"))
     keras_model_artifacts_path = os.path.join(
@@ -594,11 +552,10 @@ def load_model(model_uri, **kwargs):
         model_path=keras_model_artifacts_path,
         keras_module=keras_module,
         save_format=save_format,
-        **kwargs
+        **kwargs,
     )
 
 
-@experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_models=True,
@@ -671,8 +628,6 @@ def autolog(
     """
     import keras
 
-    _raise_deprecation_warning()
-
     if Version(keras.__version__) >= Version("2.6.0"):
         warnings.warn(
             (
@@ -692,24 +647,22 @@ def autolog(
             """
 
             def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
-                try_mlflow_log(mlflow.log_param, "num_layers", len(self.model.layers))
-                try_mlflow_log(
-                    mlflow.log_param, "optimizer_name", type(self.model.optimizer).__name__
-                )
+                mlflow.log_param("num_layers", len(self.model.layers))
+                mlflow.log_param("optimizer_name", type(self.model.optimizer).__name__)
                 if hasattr(self.model.optimizer, "lr"):
                     lr = (
                         self.model.optimizer.lr
                         if type(self.model.optimizer.lr) is float
                         else keras.backend.eval(self.model.optimizer.lr)
                     )
-                    try_mlflow_log(mlflow.log_param, "learning_rate", lr)
+                    mlflow.log_param("learning_rate", lr)
                 if hasattr(self.model.optimizer, "epsilon"):
                     epsilon = (
                         self.model.optimizer.epsilon
                         if type(self.model.optimizer.epsilon) is float
                         else keras.backend.eval(self.model.optimizer.epsilon)
                     )
-                    try_mlflow_log(mlflow.log_param, "epsilon", epsilon)
+                    mlflow.log_param("epsilon", epsilon)
 
                 sum_list = []
                 self.model.summary(print_fn=sum_list.append)
@@ -719,7 +672,7 @@ def autolog(
                     summary_file = os.path.join(tempdir, "model_summary.txt")
                     with open(summary_file, "w") as f:
                         f.write(summary)
-                    try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
+                    mlflow.log_artifact(local_path=summary_file)
                 finally:
                     shutil.rmtree(tempdir)
 
@@ -730,7 +683,7 @@ def autolog(
 
             def on_train_end(self, logs=None):
                 if log_models:
-                    try_mlflow_log(log_model, self.model, artifact_path="model")
+                    log_model(self.model, artifact_path="model")
 
             # As of Keras 2.4.0, Keras Callback implementations must define the following
             # methods indicating whether or not the callback overrides functions for
@@ -747,9 +700,7 @@ def autolog(
         return __MLflowKerasCallback()
 
     def _early_stop_check(callbacks):
-        if Version(keras.__version__) < Version("2.3.0") or Version(keras.__version__) >= Version(
-            "2.4.0"
-        ):
+        if Version(keras.__version__) >= Version("2.4.0"):
             es_callback = keras.callbacks.EarlyStopping
         else:
             es_callback = keras.callbacks.callbacks.EarlyStopping
@@ -767,7 +718,7 @@ def autolog(
                 "baseline": callback.baseline,
                 "restore_best_weights": callback.restore_best_weights,
             }
-            try_mlflow_log(mlflow.log_params, earlystopping_params)
+            mlflow.log_params(earlystopping_params)
 
     def _get_early_stop_callback_attrs(callback):
         try:
@@ -828,13 +779,11 @@ def autolog(
             else:
                 kwargs["callbacks"] = [mlflowKerasCallback]
 
-            try_mlflow_log(_log_early_stop_callback_params, early_stop_callback)
+            _log_early_stop_callback_params(early_stop_callback)
 
             history = original(self, *args, **kwargs)
 
-            try_mlflow_log(
-                _log_early_stop_callback_metrics, early_stop_callback, history, metrics_logger
-            )
+            _log_early_stop_callback_metrics(early_stop_callback, history, metrics_logger)
 
         return history
 

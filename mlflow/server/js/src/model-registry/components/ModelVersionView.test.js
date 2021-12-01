@@ -2,7 +2,6 @@ import React from 'react';
 import { ModelVersionView, ModelVersionViewImpl } from './ModelVersionView';
 import { mockModelVersionDetailed } from '../test-utils';
 import { Stages, ModelVersionStatus, ACTIVE_STAGES } from '../constants';
-import { Dropdown, Tooltip } from 'antd';
 import { BrowserRouter } from 'react-router-dom';
 import Utils from '../../common/utils/Utils';
 import configureStore from 'redux-mock-store';
@@ -83,7 +82,7 @@ describe('ModelVersionView', () => {
         </BrowserRouter>
       </Provider>,
     );
-    expect(wrapper.find('[data-test-id="breadCrumbMenuDropdown"]').find(Dropdown).length).toBe(1);
+    expect(wrapper.find('button[data-test-id="overflow-menu-trigger"]').length).toBe(1);
   });
 
   test('should disable dropdown delete menu item when model version is in active stage', () => {
@@ -106,45 +105,16 @@ describe('ModelVersionView', () => {
         </Provider>,
       );
       wrapper
-        .find("[data-test-id='breadCrumbMenuDropdown']")
+        .find("[data-test-id='overflow-menu-trigger']")
         .at(0)
         .simulate('click');
       // The antd `Menu.Item` component converts the `disabled` attribute to `aria-disabled`
       // when generating HTML. Accordingly, we check for the presence of the `aria-disabled`
       // attribute within the rendered HTML.
-      const deleteMenuItem = wrapper.find('.delete').hostNodes();
+      const deleteMenuItem = wrapper.find('[data-test-id="delete"]').hostNodes();
       expect(deleteMenuItem.prop('aria-disabled')).toBe(true);
       deleteMenuItem.simulate('click');
       expect(wrapper.find(ModelVersionViewImpl).instance().state.isDeleteModalVisible).toBe(false);
-    }
-  });
-
-  test('should place tooltip on the right', () => {
-    let i;
-    for (i = 0; i < ACTIVE_STAGES.length; ++i) {
-      const props = {
-        ...minimalProps,
-        modelVersion: mockModelVersionDetailed(
-          'Model A',
-          1,
-          ACTIVE_STAGES[i],
-          ModelVersionStatus.READY,
-        ),
-      };
-      wrapper = mountWithIntl(
-        <Provider store={minimalStore}>
-          <BrowserRouter>
-            <ModelVersionView {...props} />
-          </BrowserRouter>
-        </Provider>,
-      );
-      wrapper
-        .find("[data-test-id='breadCrumbMenuDropdown']")
-        .at(0)
-        .simulate('click');
-      const deleteMenuItem = wrapper.find('.delete').hostNodes();
-      const tooltip = deleteMenuItem.find(Tooltip);
-      expect(tooltip.prop('placement')).toBe('right');
     }
   });
 
@@ -169,14 +139,14 @@ describe('ModelVersionView', () => {
         </Provider>,
       );
       wrapper
-        .find("[data-test-id='breadCrumbMenuDropdown']")
+        .find('button[data-test-id="overflow-menu-trigger"]')
         .at(0)
         .simulate('click');
       // The antd `Menu.Item` component converts the `disabled` attribute to `aria-disabled`
       // when generating HTML. Accordingly, we check for the presence of the `aria-disabled`
       // attribute within the rendered HTML.
-      const deleteMenuItem = wrapper.find('.delete').hostNodes();
-      expect(deleteMenuItem.prop('aria-disabled')).toBeUndefined();
+      const deleteMenuItem = wrapper.find('[data-test-id="delete"]').hostNodes();
+      expect(deleteMenuItem.prop('aria-disabled')).toBeFalsy();
       deleteMenuItem.simulate('click');
       expect(wrapper.find(ModelVersionViewImpl).instance().state.isDeleteModalVisible).toBe(true);
     }
@@ -211,8 +181,9 @@ describe('ModelVersionView', () => {
         </BrowserRouter>
       </Provider>,
     );
-    expect(wrapper.find('.linked-run').html()).toContain(runLink);
-    expect(wrapper.find('.linked-run').html()).toContain(runLink.substr(0, 37) + '...');
+    const linkedRun = wrapper.find('.linked-run').at(0); // TODO: Figure out why it returns 2.
+    expect(linkedRun.html()).toContain(runLink);
+    expect(linkedRun.html()).toContain(runLink.substr(0, 37) + '...');
   });
 
   test('run name and link render if runinfo provided', () => {
@@ -233,8 +204,9 @@ describe('ModelVersionView', () => {
         </BrowserRouter>
       </Provider>,
     );
-    expect(wrapper.find('.linked-run').html()).toContain(expectedRunLink);
-    expect(wrapper.find('.linked-run').html()).toContain(expectedRunDisplayName);
+    const linkedRun = wrapper.find('.linked-run').at(0); // TODO: Figure out why it returns 2.
+    expect(linkedRun.html()).toContain(expectedRunLink);
+    expect(linkedRun.html()).toContain(expectedRunDisplayName);
   });
 
   test('Page title is set', () => {
@@ -260,5 +232,96 @@ describe('ModelVersionView', () => {
     );
     expect(wrapper.html()).toContain('special key');
     expect(wrapper.html()).toContain('not so special value');
+  });
+
+  test('creator description not rendered if user_id is unavailable', () => {
+    const props = {
+      ...minimalProps,
+      modelVersion: mockModelVersionDetailed(
+        'Model A',
+        1,
+        Stages.NONE,
+        ModelVersionStatus.READY,
+        [],
+        null,
+        'b99a0fc567ae4d32994392c800c0b6ce',
+        null,
+      ),
+    };
+    wrapper = mountWithIntl(
+      <Provider store={minimalStore}>
+        <BrowserRouter>
+          <ModelVersionView {...props} />
+        </BrowserRouter>
+      </Provider>,
+    );
+
+    expect(wrapper.find('.metadata-list td.ant-descriptions-item').length).toBe(4);
+    expect(
+      wrapper
+        .find('.metadata-list span.ant-descriptions-item-label')
+        .at(0)
+        .text(),
+    ).toBe('Registered At');
+    expect(
+      wrapper
+        .find('.metadata-list span.ant-descriptions-item-label')
+        .at(1)
+        .text(),
+    ).toBe('Stage');
+    expect(
+      wrapper
+        .find('.metadata-list span.ant-descriptions-item-label')
+        .at(2)
+        .text(),
+    ).toBe('Last Modified');
+    expect(
+      wrapper
+        .find('.metadata-list span.ant-descriptions-item-label')
+        .at(3)
+        .text(),
+    ).toBe('Source Run');
+  });
+
+  test('creator description rendered if user_id is available', () => {
+    wrapper = mountWithIntl(
+      <Provider store={minimalStore}>
+        <BrowserRouter>
+          <ModelVersionView {...minimalProps} />
+        </BrowserRouter>
+      </Provider>,
+    );
+
+    expect(wrapper.find('.metadata-list td.ant-descriptions-item').length).toBe(5);
+    expect(
+      wrapper
+        .find('.metadata-list span.ant-descriptions-item-label')
+        .at(0)
+        .text(),
+    ).toBe('Registered At');
+    expect(
+      wrapper
+        .find('.metadata-list span.ant-descriptions-item-label')
+        .at(1)
+        .text(),
+    ).toBe('Creator');
+    expect(
+      wrapper
+        .find('.metadata-list span.ant-descriptions-item-label')
+        .at(2)
+        .text(),
+    ).toBe('Stage');
+    expect(
+      wrapper
+        .find('.metadata-list span.ant-descriptions-item-label')
+        .at(3)
+        .text(),
+    ).toBe('Last Modified');
+    expect(
+      wrapper
+        .find('.metadata-list span.ant-descriptions-item-label')
+        .at(4)
+        .text(),
+    ).toBe('Source Run');
   });
 });

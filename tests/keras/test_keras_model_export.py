@@ -87,8 +87,7 @@ def data():
     return x, y
 
 
-@pytest.fixture(scope="module")
-def model(data):
+def get_model(data):
     x, y = data
     model = Sequential()
     model.add(Dense(3, input_dim=4))
@@ -109,7 +108,11 @@ def model(data):
 
 
 @pytest.fixture(scope="module")
-def tf_keras_model(data):
+def model(data):
+    return get_model(data)
+
+
+def get_tf_keras_model(data):
     x, y = data
     model = TfSequential()
     model.add(TfDense(3, input_dim=4))
@@ -117,6 +120,11 @@ def tf_keras_model(data):
     model.compile(loss="mean_squared_error", optimizer=TfSGD(learning_rate=0.001))
     model.fit(x.values, y.values)
     return model
+
+
+@pytest.fixture(scope="module")
+def tf_keras_model(data):
+    return get_tf_keras_model(data)
 
 
 @pytest.fixture(scope="module")
@@ -141,9 +149,8 @@ def custom_layer():
             )
             super().build(input_shape)
 
-        def call(self, x):
-            # pylint: disable=arguments-differ
-            return K.dot(x, self.kernel)
+        def call(self, inputs):  # pylint: disable=arguments-differ
+            return K.dot(inputs, self.kernel)
 
         def compute_output_shape(self, input_shape):
             return (input_shape[0], self.output_dim)
@@ -247,13 +254,18 @@ def test_that_keras_module_arg_works(model_path):
 
 @pytest.mark.parametrize(
     "build_model,save_format",
-    [(model, None), (tf_keras_model, None), (tf_keras_model, "h5"), (tf_keras_model, "tf")],
+    [
+        (get_model, None),
+        (get_tf_keras_model, None),
+        (get_tf_keras_model, "h5"),
+        (get_tf_keras_model, "tf"),
+    ],
 )
 @pytest.mark.large
 def test_model_save_load(build_model, save_format, model_path, data):
     x, _ = data
     keras_model = build_model(data)
-    if build_model == tf_keras_model:
+    if build_model == get_tf_keras_model:
         model_path = os.path.join(model_path, "tf")
     else:
         model_path = os.path.join(model_path, "plain")
@@ -509,7 +521,9 @@ def test_log_model_with_extra_pip_requirements(model, tmpdir):
     # List of requirements
     with mlflow.start_run():
         mlflow.keras.log_model(
-            model, "model", extra_pip_requirements=[f"-r {req_file.strpath}", "b"],
+            model,
+            "model",
+            extra_pip_requirements=[f"-r {req_file.strpath}", "b"],
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a", "b"]
@@ -518,7 +532,9 @@ def test_log_model_with_extra_pip_requirements(model, tmpdir):
     # Constraints file
     with mlflow.start_run():
         mlflow.keras.log_model(
-            model, "model", extra_pip_requirements=[f"-c {req_file.strpath}", "b"],
+            model,
+            "model",
+            extra_pip_requirements=[f"-c {req_file.strpath}", "b"],
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
@@ -687,14 +703,3 @@ def test_pyfunc_serve_and_score_transformers():
     data = json.dumps({"inputs": dummy_inputs.tolist()})
     resp = pyfunc_serve_and_score_model(model_uri, data, pyfunc_scoring_server.CONTENT_TYPE_JSON)
     np.testing.assert_array_equal(json.loads(resp.content), model.predict(dummy_inputs))
-
-
-def test_raise_deprecation_warning():
-    with mock.patch("keras.__version__", new="2.2.0"), pytest.warns(
-        FutureWarning, match="Support for keras"
-    ):
-        mlflow.keras._raise_deprecation_warning()
-
-    with mock.patch("keras.__version__", new="2.3.0"), pytest.warns(None) as record:
-        mlflow.keras._raise_deprecation_warning()
-    assert len(record) == 0

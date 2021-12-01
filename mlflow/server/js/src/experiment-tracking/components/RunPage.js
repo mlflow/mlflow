@@ -11,12 +11,12 @@ import { ErrorCodes } from '../../common/constants';
 import { RunNotFoundView } from './RunNotFoundView';
 import { getUUID } from '../../common/utils/ActionUtils';
 import { Spinner } from '../../common/components/Spinner';
+import { PageContainer } from '../../common/components/PageContainer';
 
 export class RunPageImpl extends Component {
   static propTypes = {
     runUuid: PropTypes.string.isRequired,
     experimentId: PropTypes.string.isRequired,
-    initialSelectedArtifactPath: PropTypes.string,
     modelVersions: PropTypes.arrayOf(PropTypes.object),
     getRunApi: PropTypes.func.isRequired,
     getExperimentApi: PropTypes.func.isRequired,
@@ -32,7 +32,7 @@ export class RunPageImpl extends Component {
 
   setTagRequestId = getUUID();
 
-  componentWillMount() {
+  componentDidMount() {
     const { experimentId, runUuid } = this.props;
     this.props.getRunApi(runUuid, this.getRunRequestId);
     this.props.getExperimentApi(experimentId, this.getExperimentRequestId);
@@ -63,7 +63,6 @@ export class RunPageImpl extends Component {
           Routes.getMetricPageRoute([this.props.runUuid], key, this.props.experimentId)
         }
         experimentId={this.props.experimentId}
-        initialSelectedArtifactPath={this.props.initialSelectedArtifactPath}
         modelVersions={this.props.modelVersions}
         handleSetRunTag={this.handleSetRunTag}
       />
@@ -73,22 +72,21 @@ export class RunPageImpl extends Component {
   render() {
     const requestIds = [this.getRunRequestId, this.getExperimentRequestId];
     return (
-      <div className='App-content'>
+      <PageContainer>
         <RequestStateWrapper requestIds={requestIds}>{this.renderRunView}</RequestStateWrapper>
-      </div>
+      </PageContainer>
     );
   }
 }
 
 const mapStateToProps = (state, ownProps) => {
   const { match } = ownProps;
-  const { runUuid, experimentId, initialSelectedArtifactPath } = match.params;
+  const { runUuid, experimentId } = match.params;
   const { modelVersionsByRunUuid } = state.entities;
   const modelVersions = modelVersionsByRunUuid ? modelVersionsByRunUuid[runUuid] : null;
   return {
     runUuid,
     experimentId,
-    initialSelectedArtifactPath,
     modelVersions,
     // so that we re-render the component when the route changes
     key: runUuid + experimentId,

@@ -45,8 +45,4 @@
 .ant-popover-content {
     max-width: 500px;
 }
-
-.breadcrumb-link {
-    color: inherit;
-}
 /* <<< Extract to our own Alert wrapper component */

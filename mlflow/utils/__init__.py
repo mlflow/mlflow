@@ -78,15 +78,23 @@ def _chunk_dict(d, chunk_size):
         yield {k: d[k] for k in islice(it, chunk_size)}
 
 
+def _truncate_and_ellipsize(value, max_length):
+    """
+    Truncates the string representation of the specified value to the specified
+    maximum length, if necessary. The end of the string is ellipsized if truncation occurs
+    """
+    value = str(value)
+    if len(value) > max_length:
+        return value[: (max_length - 3)] + "..."
+    else:
+        return value
+
+
 def _truncate_dict(d, max_key_length=None, max_value_length=None):
     """
     Truncates keys and/or values in a dictionary to the specified maximum length.
     Truncated items will be converted to strings and ellipsized.
     """
-
-    def _truncate_and_ellipsize(value, max_length):
-        return str(value)[: (max_length - 3)] + "..."
-
     key_is_none = max_key_length is None
     val_is_none = max_value_length is None
 

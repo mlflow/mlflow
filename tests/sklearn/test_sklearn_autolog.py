@@ -11,6 +11,7 @@ from packaging.version import Version
 
 import sklearn
 import sklearn.base
+import sklearn.cluster
 import sklearn.datasets
 import sklearn.pipeline
 import sklearn.model_selection
@@ -242,7 +243,10 @@ def test_classifier_binary():
     }
     if _is_metric_supported("roc_auc_score"):
         expected_metrics["training_roc_auc_score"] = sklearn.metrics.roc_auc_score(
-            y_true, y_score=y_pred_prob_roc, average="weighted", multi_class="ovo",
+            y_true,
+            y_score=y_pred_prob_roc,
+            average="weighted",
+            multi_class="ovo",
         )
 
     assert metrics == expected_metrics
@@ -302,7 +306,10 @@ def test_classifier_multi_class():
     }
     if _is_metric_supported("roc_auc_score"):
         expected_metrics["training_roc_auc_score"] = sklearn.metrics.roc_auc_score(
-            y_true, y_score=y_pred_prob, average="weighted", multi_class="ovo",
+            y_true,
+            y_score=y_pred_prob,
+            average="weighted",
+            multi_class="ovo",
         )
 
     assert metrics == expected_metrics
@@ -717,7 +724,9 @@ def test_parameter_search_estimators_produce_expected_outputs(
     cv_class, search_space, backend, max_tuning_runs
 ):
     mlflow.sklearn.autolog(
-        log_input_examples=True, log_model_signatures=True, max_tuning_runs=max_tuning_runs,
+        log_input_examples=True,
+        log_model_signatures=True,
+        max_tuning_runs=max_tuning_runs,
     )
 
     svc = sklearn.svm.SVC()
@@ -1155,7 +1164,10 @@ def test_eval_and_log_metrics_for_binary_classifier():
     }
     if _is_metric_supported("roc_auc_score"):
         expected_metrics["val_roc_auc_score"] = sklearn.metrics.roc_auc_score(
-            y_eval, y_score=y_pred_prob_roc, average="weighted", multi_class="ovo",
+            y_eval,
+            y_score=y_pred_prob_roc,
+            average="weighted",
+            multi_class="ovo",
         )
     assert eval_metrics == expected_metrics
 
@@ -1212,7 +1224,10 @@ def test_eval_and_log_metrics_matches_training_metrics():
     }
     if _is_metric_supported("roc_auc_score"):
         expected_metrics["val_roc_auc_score"] = sklearn.metrics.roc_auc_score(
-            y_eval, y_score=y_pred_prob_roc, average="weighted", multi_class="ovo",
+            y_eval,
+            y_score=y_pred_prob_roc,
+            average="weighted",
+            multi_class="ovo",
         )
     assert eval_metrics == expected_metrics
 
@@ -1274,7 +1289,10 @@ def test_eval_and_log_metrics_for_classifier_multi_class():
     }
     if _is_metric_supported("roc_auc_score"):
         expected_metrics["eval_roc_auc_score"] = sklearn.metrics.roc_auc_score(
-            y_eval, y_score=y_pred_prob, average="weighted", multi_class="ovo",
+            y_eval,
+            y_score=y_pred_prob,
+            average="weighted",
+            multi_class="ovo",
         )
 
     assert eval_metrics == expected_metrics
@@ -1294,8 +1312,6 @@ def test_eval_and_log_metrics_for_classifier_multi_class():
 def test_eval_and_log_metrics_with_estimator(fit_func_name):
     # disable autologging so that we can check for the sole existence of eval-time metrics
     mlflow.sklearn.autolog(disable=True)
-
-    import sklearn.cluster
 
     # use `KMeans` because it implements `fit`, `fit_transform`, and `fit_predict`.
     model = sklearn.cluster.KMeans()
@@ -1621,8 +1637,6 @@ def test_post_training_metric_autologging_for_predict_prob():
 
 
 def test_post_training_metric_autologging_patch_transform():
-    import sklearn.cluster
-
     mlflow.sklearn.autolog()
     X, y = get_iris()
     kmeans_model = sklearn.cluster.KMeans().fit(X, y)
@@ -1765,7 +1779,7 @@ def test_gen_metric_call_commands():
         None,
         metric_fn1,
         *[np.array([1.0]), pd.DataFrame(data={"c1": [1]})],
-        **{"c2": 4, "d1": None, "d2": False, "d3": "def", "randarg1": "a" * 100, "randarg2": "0.1"}
+        **{"c2": 4, "d1": None, "d2": False, "d3": "def", "randarg1": "a" * 100, "randarg2": "0.1"},
     )
 
     assert (
@@ -1882,3 +1896,31 @@ def test_log_post_training_metrics_configuration():
 
         metrics = get_run_data(run.info.run_id)[1]
         assert any(k.startswith(metric_name) for k in metrics.keys()) is log_post_training_metrics
+
+
+class NonPickleableKmeans(sklearn.cluster.KMeans):
+    def __init__(self, n_clusters=8, *, init="k-means++"):
+        super(NonPickleableKmeans, self).__init__(n_clusters, init=init)
+        self.generator = (i for i in range(3))
+
+
+def test_autolog_print_warning_if_custom_estimator_pickling_raise_error():
+    import pickle
+
+    mlflow.sklearn.autolog()
+
+    with mlflow.start_run() as run, mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
+        non_pickable_kmeans = NonPickleableKmeans()
+
+        with pytest.raises(TypeError, match="can't pickle generator objects"):
+            pickle.dumps(non_pickable_kmeans)
+
+        non_pickable_kmeans.fit(*get_iris())
+        assert any(
+            call_args[0][0].startswith("Pickling custom sklearn model NonPickleableKmeans failed")
+            for call_args in mock_warning.call_args_list
+        )
+
+    run_id = run.info.run_id
+    params, metrics, tags, artifacts = get_run_data(run_id)
+    assert len(params) > 0 and len(metrics) > 0 and len(tags) > 0 and artifacts == []

@@ -1,9 +1,11 @@
 import os
 import random
+import functools
 from unittest import mock
+from contextlib import ExitStack, contextmanager
+
 
 import requests
-import string
 import time
 import signal
 import socket
@@ -44,8 +46,14 @@ def random_int(lo=1, hi=1e10):
     return random.randint(lo, hi)
 
 
-def random_str(size=10, chars=string.ascii_uppercase + string.digits):
-    return "".join(random.choice(chars) for _ in range(size))
+def random_str(size=10):
+    msg = (
+        "UUID4 generated strings have a high potential for collision at small sizes."
+        "10 is set as the lower bounds for random string generation to prevent non-deterministic"
+        "test failures."
+    )
+    assert size >= 10, msg
+    return uuid.uuid4().hex[:size]
 
 
 def random_file(ext):
@@ -88,7 +96,7 @@ def pyfunc_build_image(model_uri, extra_args=None):
     cmd = ["mlflow", "models", "build-docker", "-m", model_uri, "-n", name]
     if extra_args:
         cmd += extra_args
-    p = subprocess.Popen(cmd,)
+    p = subprocess.Popen(cmd)
     assert p.wait() == 0, "Failed to build docker image to serve model from %s" % model_uri
     return name
 
@@ -236,7 +244,7 @@ class RestEndpoint:
                 pgrp = os.getpgid(self._proc.pid)
                 os.killpg(pgrp, signal.SIGTERM)
             else:
-                # https://stackoverflow.com/questions/47016723/windows-equivalent-for-spawning-and-killing-separate-process-group-in-python-3  # noqa
+                # https://stackoverflow.com/questions/47016723/windows-equivalent-for-spawning-and-killing-separate-process-group-in-python-3
                 self._proc.send_signal(signal.CTRL_BREAK_EVENT)
                 self._proc.kill()
 
@@ -401,3 +409,39 @@ def allow_infer_pip_requirements_fallback_if(condition):
         return pytest.mark.allow_infer_pip_requirements_fallback(f) if condition else f
 
     return decorator
+
+
+def mock_method_chain(mock_obj, methods, return_value=None, side_effect=None):
+    """
+    Mock a chain of methods.
+
+    Examples
+    --------
+    >>> from unittest import mock
+    >>> m = mock.MagicMock()
+    >>> mock_method_chain(m, ["a", "b"], return_value=0)
+    >>> m.a().b()
+    0
+    >>> mock_method_chain(m, ["c.d", "e"], return_value=1)
+    >>> m.c.d().e()
+    1
+    >>> mock_method_chain(m, ["f"], side_effect=Exception("side_effect"))
+    >>> m.f()
+    Traceback (most recent call last):
+      ...
+    Exception: side_effect
+    """
+    length = len(methods)
+    for idx, method in enumerate(methods):
+        mock_obj = functools.reduce(getattr, method.split("."), mock_obj)
+        if idx != length - 1:
+            mock_obj = mock_obj.return_value
+        else:
+            mock_obj.return_value = return_value
+            mock_obj.side_effect = side_effect
+
+
+@contextmanager
+def multi_context(*cms):
+    with ExitStack() as stack:
+        yield list(map(stack.enter_context, cms))

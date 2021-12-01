@@ -4,27 +4,15 @@ import { ModelVersionTable } from './ModelVersionTable';
 import Utils from '../../common/utils/Utils';
 import { Link } from 'react-router-dom';
 import { modelListPageRoute, getCompareModelVersionsPageRoute, getModelPageRoute } from '../routes';
-import {
-  Button as AntdButton,
-  Icon,
-  Descriptions,
-  Menu,
-  Dropdown,
-  Modal,
-  Tooltip,
-  message,
-} from 'antd';
-import {
-  ACTIVE_STAGES,
-  REGISTERED_MODEL_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT,
-} from '../constants';
+import { Button as AntdButton, Descriptions, Modal, message } from 'antd';
+import { ACTIVE_STAGES } from '../constants';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { EditableNote } from '../../common/components/EditableNote';
 import { EditableTagsTableView } from '../../common/components/EditableTagsTableView';
 import { getRegisteredModelTags } from '../reducers';
 import { setRegisteredModelTagApi, deleteRegisteredModelTagApi } from '../actions';
 import { connect } from 'react-redux';
-import { PageHeader } from '../../shared/building_blocks/PageHeader';
+import { OverflowMenu, PageHeader } from '../../shared/building_blocks/PageHeader';
 import { Spacer } from '../../shared/building_blocks/Spacer';
 import { Button } from '../../shared/building_blocks/Button';
 import { Radio } from '../../shared/building_blocks/Radio';
@@ -70,6 +58,8 @@ export class ModelViewImpl extends React.Component {
     isTagsRequestPending: false,
   };
 
+  formRef = React.createRef();
+
   componentDidMount() {
     const pageTitle = `${this.props.model.name} - MLflow Model`;
     Utils.updatePageTitle(pageTitle);
@@ -101,37 +91,23 @@ export class ModelViewImpl extends React.Component {
     this.setState({ showDescriptionEditor: true });
   };
 
-  renderPageHeaderDropdown() {
-    const menu = (
-      <Menu>
-        {this.getActiveVersionsCount() > 0 ? (
-          <Menu.Item disabled className='delete'>
-            <Tooltip
-              placement='right'
-              title={REGISTERED_MODEL_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT}
-            >
-              <FormattedMessage
-                defaultMessage='Delete'
-                description='Text for disabled delete button due to active versions on
-                   model view page header'
-              />
-            </Tooltip>
-          </Menu.Item>
-        ) : (
-          <Menu.Item onClick={this.showDeleteModal} className='delete'>
-            <FormattedMessage
-              defaultMessage='Delete'
-              description='Text for delete button on model view page header'
-            />
-          </Menu.Item>
-        )}
-      </Menu>
-    );
-    return (
-      <Dropdown data-test-id='breadCrumbMenuDropdown' overlay={menu} trigger={['click']}>
-        <Icon type='caret-down' className='breadcrumb-caret' />
-      </Dropdown>
-    );
+  getOverflowMenuItems() {
+    const menuItems = [
+      {
+        id: 'delete',
+        itemName: (
+          <FormattedMessage
+            defaultMessage='Delete'
+            // eslint-disable-next-line max-len
+            description='Text for disabled delete button due to active versions on model view page header'
+          />
+        ),
+        onClick: this.showDeleteModal,
+        disabled: this.getActiveVersionsCount() > 0,
+      },
+    ];
+
+    return menuItems;
   }
 
   showDeleteModal = () => {
@@ -164,31 +140,22 @@ export class ModelViewImpl extends React.Component {
       });
   };
 
-  saveFormRef = (formRef) => {
-    this.formRef = formRef;
-  };
-
-  handleAddTag = (e) => {
-    e.preventDefault();
-    const { form } = this.formRef.props;
+  handleAddTag = (values) => {
+    const form = this.formRef.current;
     const { model } = this.props;
     const modelName = model.name;
-    form.validateFields((err, values) => {
-      if (!err) {
-        this.setState({ isTagsRequestPending: true });
-        this.props
-          .setRegisteredModelTagApi(modelName, values.name, values.value)
-          .then(() => {
-            this.setState({ isTagsRequestPending: false });
-            form.resetFields();
-          })
-          .catch((ex) => {
-            this.setState({ isTagsRequestPending: false });
-            console.error(ex);
-            message.error('Failed to add tag. Error: ' + ex.getUserVisibleError());
-          });
-      }
-    });
+    this.setState({ isTagsRequestPending: true });
+    this.props
+      .setRegisteredModelTagApi(modelName, values.name, values.value)
+      .then(() => {
+        this.setState({ isTagsRequestPending: false });
+        form.resetFields();
+      })
+      .catch((ex) => {
+        this.setState({ isTagsRequestPending: false });
+        console.error(ex);
+        message.error('Failed to add tag. Error: ' + ex.getUserVisibleError());
+      });
   };
 
   handleSaveEdit = ({ name, value }) => {
@@ -234,12 +201,11 @@ export class ModelViewImpl extends React.Component {
         type='link'
         onClick={this.startEditingDescription}
       >
-        {' '}
         <FormattedMessage
           defaultMessage='Edit'
           description='Text for the edit button next to the description section title on
              the model view page'
-        />{' '}
+        />
       </AntdButton>
     );
   }
@@ -325,7 +291,7 @@ export class ModelViewImpl extends React.Component {
             data-test-id='model-tags-section'
           >
             <EditableTagsTableView
-              wrappedComponentRef={this.saveFormRef}
+              innerRef={this.formRef}
               handleAddTag={this.handleAddTag}
               handleDeleteTag={this.handleDeleteTag}
               handleSaveEdit={this.handleSaveEdit}
@@ -436,17 +402,12 @@ export class ModelViewImpl extends React.Component {
     return this.renderDetails();
   }
 
-  getPageHeader(title, breadcrumbs) {
-    return <PageHeader title={title} breadcrumbs={breadcrumbs} />;
-  }
-
   render() {
     const { model } = this.props;
     const modelName = model.name;
     const title = (
       <Spacer size='small' direction='horizontal'>
         {modelName}
-        {this.renderPageHeaderDropdown()}
       </Spacer>
     );
     const breadcrumbs = [
@@ -462,7 +423,9 @@ export class ModelViewImpl extends React.Component {
     ];
     return (
       <div className='model-view-content'>
-        {this.getPageHeader(title, breadcrumbs)}
+        <PageHeader title={title} breadcrumbs={breadcrumbs}>
+          <OverflowMenu menu={this.getOverflowMenuItems()} />
+        </PageHeader>
         {this.renderMainPanel()}
       </div>
     );

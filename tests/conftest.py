@@ -1,5 +1,7 @@
 import os
 import inspect
+import shutil
+import subprocess
 from unittest import mock
 
 import pytest
@@ -7,7 +9,7 @@ import pytest
 import mlflow
 from mlflow.utils.file_utils import path_to_local_sqlite_uri
 
-from tests.autologging.fixtures import test_mode_on
+from tests.autologging.fixtures import enable_test_mode
 
 
 @pytest.fixture
@@ -46,7 +48,7 @@ def enable_test_mode_by_default_for_autologging_integrations():
     are raised and detected. For more information about autologging test mode, see the docstring
     for :py:func:`mlflow.utils.autologging_utils._is_testing()`.
     """
-    yield from test_mode_on()
+    yield from enable_test_mode()
 
 
 @pytest.fixture(autouse=True)
@@ -96,3 +98,25 @@ def prevent_infer_pip_requirements_fallback(request):
             yield
     else:
         yield
+
+
+@pytest.fixture(autouse=True, scope="module")
+def clean_up_mlruns_direcotry(request):
+    """
+    Clean up an `mlruns` directory on each test module teardown on CI to save the disk space.
+    """
+    yield
+
+    # Only run this fixture on CI.
+    if "GITHUB_ACTIONS" not in os.environ:
+        return
+
+    mlruns_dir = os.path.join(request.config.rootpath, "mlruns")
+    if os.path.exists(mlruns_dir):
+        try:
+            shutil.rmtree(mlruns_dir)
+        except IOError:
+            if os.name == "nt":
+                raise
+            # `shutil.rmtree` can't remove files owned by root in a docker container.
+            subprocess.run(["sudo", "rm", "-rf", mlruns_dir], check=True)

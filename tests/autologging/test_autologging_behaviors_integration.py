@@ -90,14 +90,29 @@ def test_autologging_integrations_use_safe_patch_for_monkey_patching(integration
         ) as gorilla_mock, mock.patch(
             integration.__name__ + ".safe_patch", wraps=safe_patch
         ) as safe_patch_mock:
-            integration.autolog(disable=False)
-            assert safe_patch_mock.call_count > 0
+            # In `mlflow.xgboost.autolog()`, we enable autologging for XGBoost sklearn
+            # models using `mlflow.sklearn._autolog()`. So besides `safe_patch` calls in
+            # `mlflow.xgboost.autolog()`, we need to count additional `safe_patch` calls
+            # in sklearn autologging routine as well.
+            if integration.__name__ == "mlflow.xgboost":
+                with mock.patch(
+                    "mlflow.sklearn.safe_patch", wraps=safe_patch
+                ) as xgb_sklearn_safe_patch_mock:
+                    integration.autolog(disable=False)
+                    safe_patch_call_count = (
+                        safe_patch_mock.call_count + xgb_sklearn_safe_patch_mock.call_count
+                    )
+            else:
+                integration.autolog(disable=False)
+                safe_patch_call_count = safe_patch_mock.call_count
+
+            assert safe_patch_call_count > 0
             # `safe_patch` leverages `gorilla.apply` in its implementation. Accordingly, we expect
             # that the total number of `gorilla.apply` calls to be equivalent to the number of
             # `safe_patch` calls. This verifies that autologging integrations are leveraging
             # `safe_patch`, rather than calling `gorilla.apply` directly (which does not provide
             # exception safety properties)
-            assert safe_patch_mock.call_count == gorilla_mock.call_count
+            assert safe_patch_call_count == gorilla_mock.call_count
 
 
 def test_autolog_respects_exclusive_flag(setup_sklearn_model):
@@ -195,7 +210,7 @@ def test_autolog_respects_disable_flag_across_import_orders():
         assert all("mlflow." in key for key in tags)
 
     def import_sklearn():
-        import sklearn  # pylint: disable=unused-variable
+        import sklearn  # pylint: disable=unused-import
 
     def disable_autolog():
         mlflow.sklearn.autolog(disable=True)
@@ -281,3 +296,24 @@ def test_autolog_respects_silent_mode(tmpdir):
     # `clean_up_leaked_runs` fixture in `tests/conftest.py` to fail.
     while mlflow.active_run():
         mlflow.end_run()
+
+
+def test_autolog_globally_configured_flag_set_correctly():
+    from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
+
+    AUTOLOGGING_INTEGRATIONS.clear()
+    import sklearn  # pylint: disable=unused-import,unused-variable
+    import pyspark  # pylint: disable=unused-import,unused-variable
+    import pyspark.ml  # pylint: disable=unused-import,unused-variable
+
+    integrations_to_test = ["sklearn", "spark", "pyspark.ml"]
+    mlflow.autolog()
+    for integration_name in integrations_to_test:
+        assert AUTOLOGGING_INTEGRATIONS[integration_name]["globally_configured"]
+
+    mlflow.sklearn.autolog()
+    mlflow.spark.autolog()
+    mlflow.pyspark.ml.autolog()
+
+    for integration_name in integrations_to_test:
+        assert "globally_configured" not in AUTOLOGGING_INTEGRATIONS[integration_name]

@@ -38,6 +38,7 @@ from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 FLAVOR_NAME = "paddle"
 
@@ -220,7 +221,9 @@ def save_model(
         env=_CONDA_ENV_FILE_NAME,
     )
     mlflow_model.add_flavor(
-        FLAVOR_NAME, pickled_model=model_data_subpath, paddle_version=paddle.__version__,
+        FLAVOR_NAME,
+        pickled_model=model_data_subpath,
+        paddle_version=paddle.__version__,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
@@ -230,13 +233,17 @@ def save_model(
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
-                path, FLAVOR_NAME, fallback=default_reqs,
+                path,
+                FLAVOR_NAME,
+                fallback=default_reqs,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
             default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
-            default_reqs, pip_requirements, extra_pip_requirements,
+            default_reqs,
+            pip_requirements,
+            extra_pip_requirements,
         )
     else:
         conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
@@ -252,7 +259,7 @@ def save_model(
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
 
-def load_model(model_uri, model=None, **kwargs):
+def load_model(model_uri, model=None, dst_path=None, **kwargs):
     """
     Load a paddle model from a local file or a run.
     :param model_uri: The location, in URI format, of the MLflow model, for example:
@@ -265,6 +272,9 @@ def load_model(model_uri, model=None, **kwargs):
             - ``models:/<model_name>/<stage>``
 
     :param model: Required when loading a `paddle.Model` model saved with `training=True`.
+    :param dst_path: The local filesystem path to which to download the model artifact.
+                     This directory must already exist. If unspecified, a local output
+                     path will be created.
     :param kwargs: The keyword arguments to pass to `paddle.jit.load`
                    or `model.load`.
 
@@ -285,7 +295,7 @@ def load_model(model_uri, model=None, **kwargs):
     """
     import paddle
 
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     pd_model_artifacts_path = os.path.join(local_model_path, flavor_conf["pickled_model"])
     if model is None:
@@ -303,9 +313,7 @@ def load_model(model_uri, model=None, **kwargs):
                 "`paddle.jit.load` or set `training` to True when saving a model."
             )
 
-        model.load(
-            pd_model_artifacts_path, **kwargs,
-        )
+        model.load(pd_model_artifacts_path, **kwargs)
         return model
 
 
@@ -446,3 +454,103 @@ class _PaddleWrapper(object):
 def _contains_pdparams(path):
     file_list = os.listdir(path)
     return any(".pdparams" in file for file in file_list)
+
+
+@autologging_integration(FLAVOR_NAME)
+def autolog(
+    log_every_n_epoch=1,
+    log_models=True,
+    disable=False,
+    exclusive=False,
+    silent=False,
+):  # pylint: disable=unused-argument
+    """
+    Enables (or disables) and configures autologging from PaddlePaddle to MLflow.
+
+    Autologging is performed when the `fit` method of `paddle.Model`_ is called.
+
+    .. _paddle.Model:
+        https://www.paddlepaddle.org.cn/documentation/docs/en/api/paddle/Model_en.html
+
+    :param log_every_n_epoch: If specified, logs metrics once every `n` epochs. By default, metrics
+                       are logged after every epoch.
+    :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
+                       If ``False``, trained models are not logged.
+    :param disable: If ``True``, disables the PaddlePaddle autologging integration.
+                    If ``False``, enables the PaddlePaddle autologging integration.
+    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+                      If ``False``, autologged content is logged to the active fluent run,
+                      which may be user-created.
+    :param silent: If ``True``, suppress all event logs and warnings from MLflow during PyTorch
+                   Lightning autologging. If ``False``, show all events and warnings during
+                   PaddlePaddle autologging.
+
+    .. code-block:: python
+        :caption: Example
+
+        import paddle
+        import mlflow
+
+
+        def show_run_data(run_id):
+            run = mlflow.get_run(run_id)
+            print("params: {}".format(run.data.params))
+            print("metrics: {}".format(run.data.metrics))
+            client = mlflow.tracking.MlflowClient()
+            artifacts = [f.path for f in client.list_artifacts(run.info.run_id, "model")]
+            print("artifacts: {}".format(artifacts))
+
+
+        class LinearRegression(paddle.nn.Layer):
+            def __init__(self):
+                super().__init__()
+                self.fc = paddle.nn.Linear(13, 1)
+
+            def forward(self, feature):
+                return self.fc(feature)
+
+
+        train_dataset = paddle.text.datasets.UCIHousing(mode="train")
+        eval_dataset = paddle.text.datasets.UCIHousing(mode="test")
+
+        model = paddle.Model(LinearRegression())
+        optim = paddle.optimizer.SGD(learning_rate=1e-2, parameters=model.parameters())
+        model.prepare(optim, paddle.nn.MSELoss(), paddle.metric.Accuracy())
+
+        mlflow.paddle.autolog()
+
+        with mlflow.start_run() as run:
+            model.fit(train_dataset, eval_dataset, batch_size=16, epochs=10)
+
+        show_run_data(run.info.run_id)
+
+    .. code-block:: text
+        :caption: Output
+
+        params: {
+            "learning_rate": "0.01",
+            "optimizer_name": "SGD",
+        }
+        metrics: {
+            "loss": 17.482044,
+            "step": 25.0,
+            "acc": 0.0,
+            "eval_step": 6.0,
+            "eval_acc": 0.0,
+            "eval_batch_size": 6.0,
+            "batch_size": 4.0,
+            "eval_loss": 24.717455,
+        }
+        artifacts: [
+            "model/MLmodel",
+            "model/conda.yaml",
+            "model/model.pdiparams",
+            "model/model.pdiparams.info",
+            "model/model.pdmodel",
+            "model/requirements.txt",
+        ]
+    """
+    import paddle
+    from mlflow.paddle._paddle_autolog import patched_fit
+
+    safe_patch(FLAVOR_NAME, paddle.Model, "fit", patched_fit, manage_run=True)

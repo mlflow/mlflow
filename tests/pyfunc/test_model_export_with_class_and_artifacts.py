@@ -110,7 +110,8 @@ def model_path(tmpdir):
 def pyfunc_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
     _mlflow_conda_env(
-        conda_env, additional_pip_deps=["scikit-learn", "pytest", "cloudpickle"],
+        conda_env,
+        additional_pip_deps=["scikit-learn", "pytest", "cloudpickle"],
     )
     return conda_env
 
@@ -1034,4 +1035,31 @@ def test_load_model_with_missing_cloudpickle_version_logs_warning(model_path):
             in log_message
             for log_message in log_messages
         ]
+    )
+
+
+@pytest.mark.large
+def test_save_and_load_model_with_special_chars(
+    sklearn_knn_model, main_scoped_model_class, iris_data, tmpdir
+):
+    sklearn_model_path = os.path.join(str(tmpdir), "sklearn_  model")
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
+
+    def test_predict(sk_model, model_input):
+        return sk_model.predict(model_input) * 2
+
+    # Intentionally create a path that has non-url-compatible characters
+    pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_ :% model")
+
+    mlflow.pyfunc.save_model(
+        path=pyfunc_model_path,
+        artifacts={"sk_model": sklearn_model_path},
+        conda_env=_conda_env(),
+        python_model=main_scoped_model_class(test_predict),
+    )
+
+    loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=pyfunc_model_path)
+    np.testing.assert_array_equal(
+        loaded_pyfunc_model.predict(iris_data[0]),
+        test_predict(sk_model=sklearn_knn_model, model_input=iris_data[0]),
     )

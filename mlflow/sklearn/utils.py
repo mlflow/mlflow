@@ -10,6 +10,7 @@ import warnings
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
+from mlflow.utils.arguments_utils import _get_arg_names
 
 _logger = logging.getLogger(__name__)
 
@@ -33,6 +34,19 @@ _SklearnArtifact = collections.namedtuple(
 _SklearnMetric = collections.namedtuple("_SklearnMetric", ["name", "function", "arguments"])
 
 
+def _gen_xgboost_sklearn_estimators_to_patch():
+    import xgboost as xgb
+
+    all_classes = inspect.getmembers(xgb.sklearn, inspect.isclass)
+    base_class = xgb.sklearn.XGBModel
+    sklearn_estimators = []
+    for _, class_object in all_classes:
+        if issubclass(class_object, base_class) and class_object != base_class:
+            sklearn_estimators.append(class_object)
+
+    return sklearn_estimators
+
+
 def _get_estimator_info_tags(estimator):
     """
     :return: A dictionary of MLflow run tag keys and values
@@ -42,12 +56,6 @@ def _get_estimator_info_tags(estimator):
         "estimator_name": estimator.__class__.__name__,
         "estimator_class": (estimator.__class__.__module__ + "." + estimator.__class__.__name__),
     }
-
-
-def _get_arg_names(f):
-    # `inspect.getargspec` doesn't return a wrapped function's argspec
-    # See: https://hynek.me/articles/decorators#mangled-signatures
-    return list(inspect.signature(f).parameters.keys())
 
 
 def _get_args_for_metrics(fit_func, fit_args, fit_kwargs):
@@ -97,7 +105,7 @@ def _get_args_for_metrics(fit_func, fit_args, fit_kwargs):
 
     # In most cases, X_var_name and y_var_name become "X" and "y", respectively.
     # However, certain sklearn models use different variable names for X and y.
-    # E.g., see: https://scikit-learn.org/stable/modules/generated/sklearn.multioutput.MultiOutputClassifier.html#sklearn.multioutput.MultiOutputClassifier.fit # noqa: E501
+    # E.g., see: https://scikit-learn.org/stable/modules/generated/sklearn.multioutput.MultiOutputClassifier.html#sklearn.multioutput.MultiOutputClassifier.fit
     X_var_name, y_var_name = fit_arg_names[:2]
     Xy = _get_Xy(fit_args, fit_kwargs, X_var_name, y_var_name)
     sample_weight = (
@@ -287,7 +295,10 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
                     name=prefix + "roc_curve",
                     function=sklearn.metrics.plot_roc_curve,
                     arguments=dict(
-                        estimator=fitted_estimator, X=X, y=y_true, sample_weight=sample_weight,
+                        estimator=fitted_estimator,
+                        X=X,
+                        y=y_true,
+                        sample_weight=sample_weight,
                     ),
                     title="ROC curve",
                 ),
@@ -295,7 +306,10 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
                     name=prefix + "precision_recall_curve",
                     function=sklearn.metrics.plot_precision_recall_curve,
                     arguments=dict(
-                        estimator=fitted_estimator, X=X, y=y_true, sample_weight=sample_weight,
+                        estimator=fitted_estimator,
+                        X=X,
+                        y=y_true,
+                        sample_weight=sample_weight,
                     ),
                     title="Precision recall curve",
                 ),
@@ -597,7 +611,7 @@ def _create_child_runs_for_parameter_search(
     parameter search estimator - `cv_estimator`, which provides relevant performance
     metrics for each point in the parameter search space. One child run is created
     for each point in the parameter search space. For additional information, see
-    `https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html`_. # noqa: E501
+    `https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html`_.
 
     :param autologging_client: An instance of `MlflowAutologgingQueueingClient` used for
                                efficiently logging run data to MLflow Tracking.
@@ -643,7 +657,8 @@ def _create_child_runs_for_parameter_search(
             rank_column_name = first_custom_rank_column(cv_results_df)
             warnings.warn(
                 "Top {} child runs will be created based on ordering in {} column.".format(
-                    max_tuning_runs, rank_column_name,
+                    max_tuning_runs,
+                    rank_column_name,
                 )
                 + " You can choose not to limit the number of child runs created by"
                 + " setting `max_tuning_runs=None`."
@@ -682,7 +697,8 @@ def _create_child_runs_for_parameter_search(
             and isinstance(value, Number)
         }
         autologging_client.log_metrics(
-            run_id=pending_child_run_id, metrics=metrics_to_log,
+            run_id=pending_child_run_id,
+            metrics=metrics_to_log,
         )
 
         autologging_client.set_terminated(run_id=pending_child_run_id, end_time=child_run_end_time)

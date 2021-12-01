@@ -58,7 +58,6 @@ from mlflow.utils.uri import (
 )
 from mlflow.utils import databricks_utils
 from mlflow.utils.model_utils import _get_flavor_configuration_from_uri
-from mlflow.utils.annotations import experimental
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
@@ -424,13 +423,17 @@ def _save_model_metadata(
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
-                dst_dir, FLAVOR_NAME, fallback=default_reqs,
+                dst_dir,
+                FLAVOR_NAME,
+                fallback=default_reqs,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
             default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
-            default_reqs, pip_requirements, extra_pip_requirements,
+            default_reqs,
+            pip_requirements,
+            extra_pip_requirements,
         )
     else:
         conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
@@ -733,7 +736,6 @@ class _PyFuncModelWrapper(object):
         ]
 
 
-@experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
     """

@@ -1,0 +1,3 @@
+## Test-only dependencies
+pytest
+pytest-cov

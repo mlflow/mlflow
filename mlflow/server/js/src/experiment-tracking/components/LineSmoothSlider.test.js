@@ -35,7 +35,7 @@ describe('LineSmoothSlider', () => {
     expect(slider.props.max).toBe(10);
     expect(slider.props.value).toBe(5);
 
-    const inputNumber = wrapper.find('InputNumber').get(0);
+    const inputNumber = wrapper.find('[data-test-id="InputNumber"]').get(0);
     expect(inputNumber.props.min).toBe(0);
     expect(inputNumber.props.max).toBe(10);
     expect(inputNumber.props.value).toBe(5);
@@ -49,7 +49,7 @@ describe('LineSmoothSlider', () => {
       defaultValue: 5,
     };
     wrapper = shallow(<LineSmoothSlider {...props} />);
-    const inputNumber = wrapper.find('InputNumber');
+    const inputNumber = wrapper.find('[data-test-id="InputNumber"]');
     inputNumber.simulate('change', 6);
     expect(props.handleLineSmoothChange).toHaveBeenCalledWith(6);
     expect(wrapper.state('inputValue')).toBe(6);

@@ -18,6 +18,7 @@ import { css } from 'emotion';
 import _ from 'lodash';
 import { getModelVersionSchemas } from '../reducers';
 import { FormattedMessage } from 'react-intl';
+import { PageHeader } from '../../shared/building_blocks/PageHeader';
 
 const { TabPane } = Tabs;
 
@@ -74,12 +75,30 @@ export class CompareModelVersionsViewImpl extends Component {
     const {
       inputsListByIndex,
       inputsListByName,
+      modelName,
       outputsListByIndex,
       outputsListByName,
       runInfos,
       runUuids,
       runDisplayNames,
     } = this.props;
+    const title = (
+      <FormattedMessage
+        defaultMessage='Comparing {numVersions} Versions'
+        description='Text for main title for the model comparison page'
+        values={{ numVersions: this.props.runInfos.length }}
+      />
+    );
+    const breadcrumbs = [
+      <Link to={modelListPageRoute}>
+        <FormattedMessage
+          defaultMessage='Registered Models'
+          description='Text for registered model link in the title for model comparison page'
+        />
+      </Link>,
+      <Link to={getModelPageRoute(modelName)}>{modelName}</Link>,
+      title,
+    ];
 
     return (
       <div
@@ -87,7 +106,7 @@ export class CompareModelVersionsViewImpl extends Component {
         ${compareModelVersionsViewClassName}
         ${classNames.wrapper(runInfos.length)}`}
       >
-        {this.renderBreadcrumb()}
+        <PageHeader title={title} breadcrumbs={breadcrumbs} />
         <div className='responsive-table-container'>
           <table className='compare-table table'>
             {this.renderTableHeader()}
@@ -135,7 +154,7 @@ export class CompareModelVersionsViewImpl extends Component {
             {this.renderSchema(
               'inputActive',
               <FormattedMessage
-                defaultMessage='inputs'
+                defaultMessage='Inputs'
                 description='Table section name for schema inputs in the model comparison page'
               />,
               inputsListByIndex,
@@ -151,7 +170,7 @@ export class CompareModelVersionsViewImpl extends Component {
             {this.renderSchema(
               'outputActive',
               <FormattedMessage
-                defaultMessage='outputs'
+                defaultMessage='Outputs'
                 description='Table section name for schema outputs in the model comparison page'
               />,
               outputsListByIndex,
@@ -204,34 +223,6 @@ export class CompareModelVersionsViewImpl extends Component {
           </TabPane>
         </Tabs>
       </div>
-    );
-  }
-
-  renderBreadcrumb() {
-    const { modelName } = this.props;
-    const breadcrumbItemClass = 'truncate-text single-line breadcrumb-title';
-    const chevronIcon = <i className='fas fa-chevron-right breadcrumb-chevron' />;
-    return (
-      <h1 className='breadcrumb-header'>
-        <Link to={modelListPageRoute} className={breadcrumbItemClass}>
-          <FormattedMessage
-            defaultMessage='Registered Models'
-            description='Text for registered model link in the title for model comparison page'
-          />
-        </Link>
-        {chevronIcon}
-        <Link to={getModelPageRoute(modelName)} className={breadcrumbItemClass}>
-          {modelName}
-        </Link>
-        {chevronIcon}
-        <span className={breadcrumbItemClass}>
-          <FormattedMessage
-            defaultMessage='Comparing {numVersions} Versions'
-            description='Text for main title for the model comparison page'
-            values={{ numVersions: this.props.runInfos.length }}
-          />
-        </span>
-      </h1>
     );
   }
 
@@ -347,10 +338,10 @@ export class CompareModelVersionsViewImpl extends Component {
             className='block-content main-table-header'
             colSpan={runInfos.length + 1}
           >
-            <div className='flex-container'>
+            <div className='switch-button-container'>
               <button className='collapse-button' onClick={() => this.onToggleClick(activeSection)}>
                 {isActive ? downIcon : rightIcon}
-                <h2 className='padding-left-text'>{sectionName}</h2>
+                <span className='header'>{sectionName}</span>
               </button>
               {additionalSwitch}
               {additionalSwitchText}
@@ -429,7 +420,11 @@ export class CompareModelVersionsViewImpl extends Component {
     const showSchemaSection = schemaActive && isActive;
     const showListByIndex = !compareByColumnNameToggle && !_.isEmpty(listByIndex);
     const showListByName = compareByColumnNameToggle && !_.isEmpty(listByName);
-    const listByIndexHeaderMap = (key, data) => `${sectionName} [${key}]`;
+    const listByIndexHeaderMap = (key, data) => (
+      <>
+        {sectionName} [{key}]
+      </>
+    );
     const listByNameHeaderMap = (key, data) => key;
     const schemaFormatter = (value) => value;
     const schemaFieldName = (
@@ -475,6 +470,7 @@ export class CompareModelVersionsViewImpl extends Component {
             // on the linked page is for model registry
             runInfos[0].experiment_id,
           )}
+          target='_blank'
           title='Plot chart'
         >
           {key}
@@ -544,16 +540,14 @@ export class CompareModelVersionsViewImpl extends Component {
       return (
         <tr
           key={k}
-          className={`table-row
-          ${(toggle && !isDifferent) || !show ? 'hidden-row' : ''}`}
+          className={`table-row ${(toggle && !isDifferent) || !show ? 'hidden-row' : ''}`}
         >
           <th scope='row' className='rowHeader block-content'>
             {headerMap(k, data[k])}
           </th>
           {data[k].map((value, i) => (
             <td
-              className={`data-value block-content
-              ${isDifferent ? 'hightlight-data' : ''}`}
+              className={`data-value block-content ${isDifferent ? 'highlight-data' : ''}`}
               key={this.props.runInfos[i].getRunUuid()}
             >
               <span className='truncate-text single-line cell-content'>
@@ -681,8 +675,6 @@ const classNames = {
       '.compare-table': {
         // 1 extra unit for header column
         minWidth: (numRuns + 1) * DEFAULT_COLUMN_WIDTH,
-        borderTop: '2px solid rgb(221, 221, 221)',
-        borderBottom: '2px solid rgb(221, 221, 221)',
       },
     }),
 };
@@ -724,11 +716,12 @@ const compareModelVersionsViewClassName = css({
   'tbody.schema-scrollable-table': {
     maxHeight: 200,
   },
-  'td.hightlight-data': {
+  'td.highlight-data': {
     backgroundColor: 'rgba(249, 237, 190, 0.5)',
   },
-  'div.flex-container': {
+  '.switch-button-container': {
     display: 'flex',
+    paddingBottom: 16,
   },
   'button.schema-collapse-button': {
     textAlign: 'left',
@@ -737,9 +730,10 @@ const compareModelVersionsViewClassName = css({
     height: '100%',
     border: 'none',
   },
-  'button.collapse-button': {
+  '.collapse-button': {
     textAlign: 'left',
     display: 'flex',
+    alignItems: 'center',
     border: 'none',
     backgroundColor: 'white',
     paddingLeft: 0,
@@ -764,6 +758,10 @@ const compareModelVersionsViewClassName = css({
     textAlign: 'center',
     color: '#6B6B6B',
     marginBottom: 0,
+  },
+  '.header': {
+    paddingLeft: 8,
+    fontSize: 16,
   },
 });
 

@@ -224,7 +224,7 @@ class SqlAlchemyStore(AbstractStore):
     def _get_artifact_location(self, experiment_id):
         return append_to_uri_path(self.artifact_root_uri, str(experiment_id))
 
-    def create_experiment(self, name, artifact_location=None):
+    def create_experiment(self, name, artifact_location=None, tags=None):
         if name is None or name == "":
             raise MlflowException("Invalid experiment name", INVALID_PARAMETER_VALUE)
 
@@ -234,6 +234,9 @@ class SqlAlchemyStore(AbstractStore):
                     name=name,
                     lifecycle_stage=LifecycleStage.ACTIVE,
                     artifact_location=artifact_location,
+                )
+                experiment.tags = (
+                    [SqlExperimentTag(key=tag.key, value=tag.value) for tag in tags] if tags else []
                 )
                 session.add(experiment)
                 if not artifact_location:
@@ -307,7 +310,10 @@ class SqlAlchemyStore(AbstractStore):
             return PagedList(experiments, None)
 
     def list_experiments(
-        self, view_type=ViewType.ACTIVE_ONLY, max_results=None, page_token=None,
+        self,
+        view_type=ViewType.ACTIVE_ONLY,
+        max_results=None,
+        page_token=None,
     ):
         """
         :param view_type: Qualify requested type of experiments.
@@ -433,10 +439,7 @@ class SqlAlchemyStore(AbstractStore):
                 lifecycle_stage=LifecycleStage.ACTIVE,
             )
 
-            tags_dict = {}
-            for tag in tags:
-                tags_dict[tag.key] = tag.value
-            run.tags = [SqlTag(key=key, value=value) for key, value in tags_dict.items()]
+            run.tags = [SqlTag(key=tag.key, value=tag.value) for tag in tags] if tags else []
             self._save_to_db(objs=run, session=session)
 
             return run.to_mlflow_entity()
@@ -787,7 +790,7 @@ class SqlAlchemyStore(AbstractStore):
                 .filter(
                     SqlRun.experiment_id.in_(experiment_ids),
                     SqlRun.lifecycle_stage.in_(stages),
-                    *_get_attributes_filtering_clauses(parsed_filters)
+                    *_get_attributes_filtering_clauses(parsed_filters),
                 )
                 .order_by(*parsed_orderby)
                 .offset(offset)
@@ -848,7 +851,9 @@ def _get_attributes_filtering_clauses(parsed):
         key_name = sql_statement.get("key")
         value = sql_statement.get("value")
         comparator = sql_statement.get("comparator").upper()
-        if SearchUtils.is_attribute(key_type, comparator):
+        if SearchUtils.is_string_attribute(
+            key_type, key_name, comparator
+        ) or SearchUtils.is_numeric_attribute(key_type, key_name, comparator):
             # key_name is guaranteed to be a valid searchable attribute of entities.RunInfo
             # by the call to parse_search_filter
             attribute = getattr(SqlRun, SqlRun.get_attribute_name(key_name))
@@ -874,7 +879,9 @@ def _to_sqlalchemy_filtering_statement(sql_statement, session):
         entity = SqlParam
     elif SearchUtils.is_tag(key_type, comparator):
         entity = SqlTag
-    elif SearchUtils.is_attribute(key_type, comparator):
+    elif SearchUtils.is_string_attribute(
+        key_type, key_name, comparator
+    ) or SearchUtils.is_numeric_attribute(key_type, key_name, comparator):
         return None
     else:
         raise MlflowException(
@@ -919,7 +926,9 @@ def _get_orderby_clauses(order_by_list, session):
         for order_by_clause in order_by_list:
             clause_id += 1
             (key_type, key, ascending) = SearchUtils.parse_order_by_for_search_runs(order_by_clause)
-            if SearchUtils.is_attribute(key_type, "="):
+            if SearchUtils.is_string_attribute(
+                key_type, key, "="
+            ) or SearchUtils.is_numeric_attribute(key_type, key, "="):
                 order_value = getattr(SqlRun, SqlRun.get_attribute_name(key))
             else:
                 if SearchUtils.is_metric(key_type, "="):  # any valid comparator
