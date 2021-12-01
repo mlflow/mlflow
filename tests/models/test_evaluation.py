@@ -160,8 +160,8 @@ def test_dataset_name():
 
 
 def test_dataset_hash(iris_dataset, iris_pandas_df_dataset):
-    assert iris_dataset.hash == "49a04c127e5441e0f27e63a325b5fa69"
-    assert iris_pandas_df_dataset.hash == "d6770fd5fffe651cb95e965854920df9"
+    assert iris_dataset.hash == "c7417e63a9ce038a32f37ecd7fb829f6"
+    assert iris_pandas_df_dataset.hash == "e796a0b1e0bef0fc06b4b1ad62e3ea63"
 
 
 def test_log_dataset_tag(iris_dataset, iris_pandas_df_dataset):

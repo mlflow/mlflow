@@ -10,6 +10,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.class_utils import _get_class_from_string
 import logging
+import struct
 
 
 _logger = logging.getLogger(__name__)
@@ -264,20 +265,32 @@ class EvaluationDataset:
             )
 
     @staticmethod
+    def _convert_uint64_ndarray_to_bytes(array):
+        assert len(array.shape) == 1
+        # see struct pack format string https://docs.python.org/3/library/struct.html#format-strings
+        return struct.pack(f'>{array.size}Q', *array)
+
+    @staticmethod
     def _array_like_obj_to_bytes(data):
         """
         Helper method to convert pandas dataframe/numpy array/list into bytes for
         MD5 calculation purpose.
         """
+        from pandas.util import hash_pandas_object, hash_array
         import numpy as np
         import pandas as pd
 
         if isinstance(data, pd.DataFrame):
-            return data.to_numpy().tobytes() + ",".join(data.columns).encode("UTF-8")
+            return EvaluationDataset._convert_uint64_ndarray_to_bytes(hash_pandas_object(data)) + \
+                   ",".join(data.columns).encode("UTF-8")
         elif isinstance(data, np.ndarray):
-            return data.tobytes()
+            return EvaluationDataset._convert_uint64_ndarray_to_bytes(
+                hash_array(data.flatten(order='C'))
+            )
         elif isinstance(data, list):
-            return np.array(data).tobytes()
+            return EvaluationDataset._convert_uint64_ndarray_to_bytes(
+                hash_array(np.array(data))
+            )
         else:
             raise ValueError("Unsupported data type.")
 
@@ -291,7 +304,10 @@ class EvaluationDataset:
         """
         import numpy as np
 
-        md5_gen.update(np.int64(len(data)).tobytes())
+        len_bytes = EvaluationDataset._convert_uint64_ndarray_to_bytes(
+            np.array([len(data)], dtype='uint64')
+        )
+        md5_gen.update(len_bytes)
         if len(data) < EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH * 2:
             md5_gen.update(EvaluationDataset._array_like_obj_to_bytes(data))
         else:
