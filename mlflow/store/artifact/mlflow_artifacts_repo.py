@@ -1,5 +1,6 @@
 from urllib.parse import urlparse
 from collections import namedtuple
+import re
 
 from mlflow.store.artifact.http_artifact_repo import HttpArtifactRepository
 from mlflow.tracking._tracking_service.utils import get_tracking_uri
@@ -49,13 +50,12 @@ class MlflowArtifactsRepository(HttpArtifactRepository):
 
     def __init__(self, artifact_uri):
 
-        super().__init__(self.resolve_uri(artifact_uri))
+        super().__init__(self.resolve_uri(artifact_uri, get_tracking_uri()))
 
     @classmethod
-    def resolve_uri(cls, artifact_uri):
+    def resolve_uri(cls, artifact_uri, tracking_uri):
 
         base_url = "/api/2.0/mlflow-artifacts/artifacts"
-        tracking_uri = get_tracking_uri()
 
         track_parse = _parse_artifact_uri(tracking_uri)
 
@@ -72,7 +72,8 @@ class MlflowArtifactsRepository(HttpArtifactRepository):
         elif uri_parse.path == base_url:  # for operations like list artifacts
             resolved = base_url
         else:
-            resolved = f"{base_url}{track_parse.path}{uri_parse.path.lstrip('/')}"
+            resolved = f"{base_url}/{track_parse.path}{uri_parse.path}"
+        resolved = re.sub("//+", "/", resolved)
 
         if uri_parse.host and uri_parse.port:
             resolved_artifacts_uri = (

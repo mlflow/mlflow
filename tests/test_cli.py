@@ -22,6 +22,7 @@ from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.exceptions import MlflowException
 from mlflow.entities import ViewType
+from mlflow.utils.rest_utils import augmented_raise_for_status
 
 from tests.helper_functions import pyfunc_serve_and_score_model, get_safe_port
 from tests.tracking.integration_test_utils import _await_server_up_or_die
@@ -35,7 +36,7 @@ def test_mlflow_server_command(command):
     try:
         _await_server_up_or_die(port, timeout=10)
         resp = requests.get(f"http://localhost:{port}/health")
-        resp.raise_for_status()
+        augmented_raise_for_status(resp)
         assert resp.text == "OK"
     finally:
         process.kill()
@@ -56,6 +57,18 @@ def test_server_static_prefix_validation():
         result = CliRunner().invoke(server, ["--static-prefix", "/mlflow/"])
         assert "--static-prefix should not end with a '/'." in result.output
         run_server_mock.assert_not_called()
+
+
+def test_server_mlflow_artifacts_options():
+    with mock.patch("mlflow.server._run_server") as run_server_mock:
+        CliRunner().invoke(server, ["--artifacts-only"])
+        run_server_mock.assert_called_once()
+    with mock.patch("mlflow.server._run_server") as run_server_mock:
+        CliRunner().invoke(server, ["--serve-artifacts"])
+        run_server_mock.assert_called_once()
+    with mock.patch("mlflow.server._run_server") as run_server_mock:
+        CliRunner().invoke(server, ["--artifacts-only", "--serve-artifacts"])
+        run_server_mock.assert_called_once()
 
 
 def test_server_default_artifact_root_validation():
@@ -235,3 +248,49 @@ def test_mlflow_models_serve(enable_mlserver):
     assert scoring_response.status_code == 200
     served_model_preds = np.array(json.loads(scoring_response.content))
     np.testing.assert_array_equal(served_model_preds, model.predict(data, None))
+
+
+def test_mlflow_tracking_disabled_in_artifacts_only_mode():
+
+    port = get_safe_port()
+    cmd = ["mlflow", "server", "--port", str(port), "--artifacts-only"]
+    process = subprocess.Popen(cmd)
+    _await_server_up_or_die(port, timeout=10)
+    resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow/experiments/list")
+    assert (
+        "Endpoint: /api/2.0/mlflow/experiments/list disabled due to the mlflow server running "
+        "in `--artifacts-only` mode." in resp.text
+    )
+    process.kill()
+
+
+def test_mlflow_artifact_list_in_artifacts_only_mode():
+
+    port = get_safe_port()
+    cmd = ["mlflow", "server", "--port", str(port), "--artifacts-only", "--serve-artifacts"]
+    process = subprocess.Popen(cmd)
+    try:
+        _await_server_up_or_die(port, timeout=10)
+        resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow-artifacts/artifacts")
+        augmented_raise_for_status(resp)
+        assert resp.status_code == 200
+        assert resp.text == "{}"
+    finally:
+        process.kill()
+
+
+def test_mlflow_artifact_service_unavailable_without_config():
+
+    port = get_safe_port()
+    cmd = ["mlflow", "server", "--port", str(port)]
+    process = subprocess.Popen(cmd)
+    try:
+        _await_server_up_or_die(port, timeout=10)
+        endpoint = "/api/2.0/mlflow-artifacts/artifacts"
+        resp = requests.get(f"http://localhost:{port}{endpoint}")
+        assert (
+            f"Endpoint: {endpoint} disabled due to the mlflow server running without "
+            "`--serve-artifacts`" in resp.text
+        )
+    finally:
+        process.kill()

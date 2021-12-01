@@ -13,14 +13,14 @@ import mlflow.projects as projects
 import mlflow.runs
 import mlflow.store.artifact.cli
 from mlflow import tracking
-from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, DEFAULT_ARTIFACTS_URI
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking import _get_store
 from mlflow.utils import cli_args
 from mlflow.utils.annotations import experimental
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.process import ShellCommandException
-from mlflow.utils.uri import is_local_uri
+from mlflow.utils.uri import resolve_default_artifact_root
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 
@@ -233,20 +233,27 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
     "SQLAlchemy-compatible database connection strings "
     "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
     "(e.g. 'file:///absolute/path/to/directory'). By default, data will be logged "
-    "to the ./mlruns directory.",
+    f"to {DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH}",
 )
 @click.option(
     "--default-artifact-root",
     metavar="URI",
     default=None,
-    help="Path to local directory to store artifacts, for new experiments. "
-    "Note that this flag does not impact already-created experiments. "
-    "Default: " + DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+    help="Directory in which to store artifacts for any new experiments created. For tracking "
+    "server backends that rely on SQL, this option is required in order to store artifacts. "
+    "Note that this flag does not impact already-created experiments with any previous "
+    "configuration of an MLflow server instance. "
+    "If the --serve-artifacts option is specified, the default artifact root is "
+    f"{DEFAULT_ARTIFACTS_URI}. Otherwise, the default artifact root is "
+    f"{DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH}.",
 )
+@cli_args.SERVE_ARTIFACTS
 @cli_args.ARTIFACTS_DESTINATION
 @cli_args.PORT
 @cli_args.HOST
-def ui(backend_store_uri, default_artifact_root, artifacts_destination, port, host):
+def ui(
+    backend_store_uri, default_artifact_root, serve_artifacts, artifacts_destination, port, host
+):
     """
     Launch the MLflow tracking UI for local viewing of run results. To launch a production
     server, use the "mlflow server" command instead.
@@ -263,11 +270,9 @@ def ui(backend_store_uri, default_artifact_root, artifacts_destination, port, ho
     if not backend_store_uri:
         backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 
-    if not default_artifact_root:
-        if is_local_uri(backend_store_uri):
-            default_artifact_root = backend_store_uri
-        else:
-            default_artifact_root = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+    default_artifact_root = resolve_default_artifact_root(
+        serve_artifacts, default_artifact_root, backend_store_uri, resolve_to_local=True
+    )
 
     try:
         initialize_backend_stores(backend_store_uri, default_artifact_root)
@@ -279,7 +284,15 @@ def ui(backend_store_uri, default_artifact_root, artifacts_destination, port, ho
     # TODO: We eventually want to disable the write path in this version of the server.
     try:
         _run_server(
-            backend_store_uri, default_artifact_root, artifacts_destination, host, port, None, 1
+            backend_store_uri,
+            default_artifact_root,
+            serve_artifacts,
+            False,
+            artifacts_destination,
+            host,
+            port,
+            None,
+            1,
         )
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")
@@ -315,10 +328,24 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
     "--default-artifact-root",
     metavar="URI",
     default=None,
-    help="Local or S3 URI to store artifacts, for new experiments. "
-    "Note that this flag does not impact already-created experiments. "
-    "Default: Within file store, if a file:/ URI is provided. If a sql backend is"
-    " used, then this option is required.",
+    help="Directory in which to store artifacts for any new experiments created. For tracking "
+    "server backends that rely on SQL, this option is required in order to store artifacts. "
+    "Note that this flag does not impact already-created experiments with any previous "
+    "configuration of an MLflow server instance. "
+    f"By default, data will be logged to the {DEFAULT_ARTIFACTS_URI} uri proxy if "
+    "the --serve-artifacts option is enabled. Otherwise, the default location will "
+    f"be {DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH}.",
+)
+@cli_args.SERVE_ARTIFACTS
+@click.option(
+    "--artifacts-only",
+    is_flag=True,
+    default=False,
+    help="If specified, configures the mlflow server to be used only for proxied artifact serving. "
+    "With this mode enabled, functionality of the mlflow tracking service (e.g. run creation, "
+    "metric logging, and parameter logging) is disabled. The server will only expose "
+    "endpoints for uploading, downloading, and listing artifacts. "
+    "Default: False",
 )
 @cli_args.ARTIFACTS_DESTINATION
 @cli_args.HOST
@@ -348,6 +375,8 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 def server(
     backend_store_uri,
     default_artifact_root,
+    serve_artifacts,
+    artifacts_only,
     artifacts_destination,
     host,
     port,
@@ -374,15 +403,9 @@ def server(
     if not backend_store_uri:
         backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 
-    if not default_artifact_root:
-        if is_local_uri(backend_store_uri):
-            default_artifact_root = backend_store_uri
-        else:
-            eprint(
-                "Option 'default-artifact-root' is required, when backend store is not "
-                "local file based."
-            )
-            sys.exit(1)
+    default_artifact_root = resolve_default_artifact_root(
+        serve_artifacts, default_artifact_root, backend_store_uri
+    )
 
     try:
         initialize_backend_stores(backend_store_uri, default_artifact_root)
@@ -395,6 +418,8 @@ def server(
         _run_server(
             backend_store_uri,
             default_artifact_root,
+            serve_artifacts,
+            artifacts_only,
             artifacts_destination,
             host,
             port,
