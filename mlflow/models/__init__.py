@@ -41,7 +41,6 @@ try:
         "infer_signature",
         "FlavorBackend",
         "infer_pip_requirements",
-        "evaluate",
     ]
 except ImportError:
     pass

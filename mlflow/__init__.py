@@ -193,4 +193,5 @@ __all__ = [
     "set_registry_uri",
     "list_run_infos",
     "autolog",
+    "evaluate",
 ] + _model_flavors_supported
