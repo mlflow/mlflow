@@ -1,11 +1,16 @@
 import os
 import posixpath
 import tarfile
+from datetime import datetime
 
 import pytest
 
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository, _get_boto3_client
+from mlflow.store.artifact.s3_artifact_repo import (
+    S3ArtifactRepository,
+    _cached_get_s3_client,
+    _MAX_CACHE_SECONDS,
+)
 
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
@@ -16,6 +21,11 @@ from unittest import mock
 @pytest.fixture
 def s3_artifact_root(mock_s3_bucket):
     return "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
+
+
+@pytest.fixture(autouse=True)
+def reset_cached_get_s3_client():
+    _cached_get_s3_client.cache_clear()
 
 
 def teardown_function():
@@ -56,22 +66,37 @@ def test_file_artifact_is_logged_with_content_metadata(s3_artifact_root, tmpdir)
 
 
 def test_get_s3_client_hits_cache(s3_artifact_root):
-    _get_boto3_client.cache_clear()
-    get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
-    cache_info = _get_boto3_client.cache_info()
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+    repo._get_s3_client()
+    cache_info = _cached_get_s3_client.cache_info()
     assert cache_info.hits == 0
     assert cache_info.misses == 1
     assert cache_info.currsize == 1
-    get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
-    cache_info = _get_boto3_client.cache_info()
+    repo._get_s3_client()
+    cache_info = _cached_get_s3_client.cache_info()
     assert cache_info.hits == 1
     assert cache_info.misses == 1
     assert cache_info.currsize == 1
-    get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
-    cache_info = _get_boto3_client.cache_info()
+    with mock.patch.dict(
+        "os.environ",
+        {"MLFLOW_EXPERIMENTAL_S3_SIGNATURE_VERSION": "s3v2"},
+        clear=True,
+    ):
+        repo._get_s3_client()
+    cache_info = _cached_get_s3_client.cache_info()
     assert cache_info.hits == 1
     assert cache_info.misses == 2
     assert cache_info.currsize == 2
+
+    with mock.patch(
+        "mlflow.store.artifact.s3_artifact_repo._get_utcnow_timestamp",
+        return_value=datetime.utcnow().timestamp() + _MAX_CACHE_SECONDS,
+    ):
+        repo._get_s3_client()
+    cache_info = _cached_get_s3_client.cache_info()
+    assert cache_info.hits == 1
+    assert cache_info.misses == 3
+    assert cache_info.currsize == 3
 
 
 @pytest.mark.parametrize("ignore_tls_env, verify", [("", None), ("true", False), ("false", None)])
@@ -81,7 +106,6 @@ def test_get_s3_client_verify_param_set_correctly(s3_artifact_root, ignore_tls_e
     with mock.patch.dict("os.environ", {"MLFLOW_S3_IGNORE_TLS": ignore_tls_env}, clear=True):
         with mock.patch("boto3.client") as mock_get_s3_client:
             repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
-            _get_boto3_client.cache_clear()
             repo._get_s3_client()
             mock_get_s3_client.assert_called_with("s3", config=ANY, endpoint_url=ANY, verify=verify)
 

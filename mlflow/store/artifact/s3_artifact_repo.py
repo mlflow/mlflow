@@ -1,4 +1,4 @@
-from datetime import datetime as dt
+from datetime import datetime
 from functools import lru_cache
 import os
 from mimetypes import guess_type
@@ -13,9 +13,19 @@ from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
 
+_MAX_CACHE_SECONDS = 300
+
+
+def _get_utcnow_timestamp():
+    return datetime.utcnow().timestamp()
+
+
 @lru_cache(maxsize=64)
-def _get_boto3_client(
-    signature_version, s3_endpoint_url, verify, timestamp,
+def _cached_get_s3_client(
+    signature_version,
+    s3_endpoint_url,
+    verify,
+    timestamp,
 ):  # pylint: disable=unused-argument
     """Returns a boto3 client, caching to avoid extra boto3 verify calls.
 
@@ -90,11 +100,10 @@ class S3ArtifactRepository(ArtifactRepository):
         # https://github.com/mlflow/mlflow/issues so we know your use-case!
         signature_version = os.environ.get("MLFLOW_EXPERIMENTAL_S3_SIGNATURE_VERSION", "s3v4")
 
-        # Invalidate cache every 5 minutes at least
-        max_cache_seconds = 300
-        timestamp = int(dt.utcnow().timestamp() / max_cache_seconds)
+        # Invalidate cache every `_MAX_CACHE_SECONDS`
+        timestamp = int(_get_utcnow_timestamp() / _MAX_CACHE_SECONDS)
 
-        return _get_boto3_client(signature_version, s3_endpoint_url, verify, timestamp)
+        return _cached_get_s3_client(signature_version, s3_endpoint_url, verify, timestamp)
 
     def _upload_file(self, s3_client, local_file, bucket, key):
         extra_args = dict()
