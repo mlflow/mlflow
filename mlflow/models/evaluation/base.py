@@ -152,7 +152,7 @@ _cached_mlflow_client = None
 class EvaluationDataset:
     """
     An input dataset for model evaluation. This is intended for use with the
-    :py:func:`mlflow.evaluate()`
+    :py:func:`mlflow.models.evaluation.evaluate()`
     API.
     """
 
@@ -377,7 +377,7 @@ class ModelEvaluator:
                            "classifier", …).
         :param evaluator_config: A dictionary of additional configurations for
                                  the evaluator.
-        :param **kwargs: For forwards compatibility, a placeholder for additional
+        :param kwargs: For forwards compatibility, a placeholder for additional
                          arguments that may be added to the evaluation interface
                          in the future.
         :return: True if the evaluator can evaluate the specified model on the
@@ -405,7 +405,7 @@ class ModelEvaluator:
         :param run_id: The ID of the MLflow Run to which to log results.
         :param evaluator_config: A dictionary of additional configurations for
                                  the evaluator.
-        :param **kwargs: For forwards compatibility, a placeholder for additional
+        :param kwargs: For forwards compatibility, a placeholder for additional
                          arguments that may be added to the evaluation interface
                          in the future.
         :return: An :py:class:`mlflow.models.evaluation.EvaluationResult` instance containing
@@ -472,7 +472,7 @@ def evaluate(
 
     :param model_type: A string describing the model type. The default evaluator
                        supports "regressor" and "classifier" as model types.
-    :param dataset: An instance of :py:class:`mlflow.models.evaluation.base.EvaluationDataset`
+    :param dataset: An instance of :py:class:`mlflow.models.evaluation.EvaluationDataset`
                     containing features labels (optional) for model evaluation.
     :param run_id: The ID of the MLflow Run to which to log results. If
                    unspecified, behavior depends on the specified `evaluator`.
