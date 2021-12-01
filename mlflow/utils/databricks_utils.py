@@ -14,14 +14,13 @@ _logger = logging.getLogger(__name__)
 _env_var_prefix = "DATABRICKS_"
 
 
-def _use_env_var_if_exists(env_var, *, if_exists=lambda x: os.environ[x]):
+def _use_env_var_if_exists(env_var, *, if_exists=os.getenv):
     """
-    Creates a decorator to insert a short circuit that's activated when the specified environment
-    variable exists.
+    Creates a decorator to insert a short circuit that returns `if_exists(env_var)` if `env_var`
+    exists.
 
     :param env_var: The name of an environment variable to use.
-    :param if_exists: A function to evalute if `env_var` exists. Defaults to
-                      `lambda x: os.environ[x]`.
+    :param if_exists: A function to evaluate if `env_var` exists. Defaults to `os.getenv`.
     """
 
     def decorator(f):
@@ -34,6 +33,10 @@ def _use_env_var_if_exists(env_var, *, if_exists=lambda x: os.environ[x]):
         return wrapper
 
     return decorator
+
+
+def _returns_true(_):
+    return True
 
 
 def _get_dbutils():
@@ -98,7 +101,7 @@ def is_databricks_default_tracking_uri(tracking_uri):
     return tracking_uri.lower().strip() == "databricks"
 
 
-@_use_env_var_if_exists(_env_var_prefix + "NOTEBOOK_ID", if_exists=lambda x: x in os.environ)
+@_use_env_var_if_exists(_env_var_prefix + "NOTEBOOK_ID", if_exists=_returns_true)
 def is_in_databricks_notebook():
     if _get_property_from_spark_context("spark.databricks.notebook.id") is not None:
         return True
@@ -138,7 +141,7 @@ def is_dbfs_fuse_available():
             return False
 
 
-@_use_env_var_if_exists(_env_var_prefix + "CLUSTER_ID", if_exists=lambda x: x in os.environ)
+@_use_env_var_if_exists(_env_var_prefix + "CLUSTER_ID", if_exists=_returns_true)
 def is_in_cluster():
     try:
         spark_session = _get_active_spark_session()
