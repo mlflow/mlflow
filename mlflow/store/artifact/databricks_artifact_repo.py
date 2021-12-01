@@ -39,6 +39,7 @@ from mlflow.utils.rest_utils import (
     call_endpoint,
     extract_api_info_for_service,
     _REST_API_PATH_PREFIX,
+    augmented_raise_for_status,
 )
 from mlflow.utils.uri import (
     extract_and_normalize_path,
@@ -247,13 +248,13 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 with rest_utils.cloud_storage_http_request(
                     "put", signed_write_uri, data="", headers=headers
                 ) as response:
-                    response.raise_for_status()
+                    augmented_raise_for_status(response)
             else:
                 with open(local_file, "rb") as file:
                     with rest_utils.cloud_storage_http_request(
                         "put", signed_write_uri, data=file, headers=headers
                     ) as response:
-                        response.raise_for_status()
+                        augmented_raise_for_status(response)
         except Exception as err:
             raise MlflowException(err)
 
