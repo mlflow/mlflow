@@ -131,14 +131,14 @@ class EvaluationResult:
             artifact.save(os.path.join(artifacts_dir, artifact_name))
 
     @property
-    def metrics(self) -> EvaluationMetrics:
+    def metrics(self) -> "mlflow.models.evaluation.EvaluationMetrics":
         """
         A dictionary mapping scalar metric names to scalar metric values
         """
         return self._metrics
 
     @property
-    def artifacts(self) -> Dict[str, EvaluationArtifact]:
+    def artifacts(self) -> Dict[str, "mlflow.models.evaluation.EvaluationArtifact"]:
         """
         A dictionary mapping standardized artifact names (e.g. "roc_data") to
         artifact content and location information
@@ -151,7 +151,8 @@ _cached_mlflow_client = None
 
 class EvaluationDataset:
     """
-    An input dataset for model evaluation. This is intended for use with the `mlflow.evaluate()`
+    An input dataset for model evaluation. This is intended for use with the
+    :py:func:`mlflow.evaluate()`
     API.
     """
 
@@ -399,15 +400,16 @@ class ModelEvaluator:
         :param model: A pyfunc model instance.
         :param model_type: A string describing the model type (e.g., "regressor",
                    "classifier", …).
-        :param dataset: An instance of `EvaluationDataset` containing features
-                        and labels (optional) for model evaluation.
+        :param dataset: An instance of :py:class:`mlflow.models.evaluation.EvaluationDataset`
+                        containing features and labels (optional) for model evaluation.
         :param run_id: The ID of the MLflow Run to which to log results.
         :param evaluator_config: A dictionary of additional configurations for
                                  the evaluator.
         :param **kwargs: For forwards compatibility, a placeholder for additional
                          arguments that may be added to the evaluation interface
                          in the future.
-        :return: An `EvaluationResult` instance containing evaluation results.
+        :return: An :py:class:`mlflow.models.evaluation.EvaluationResult` instance containing
+                 evaluation results.
         """
         raise NotImplementedError()
 
@@ -470,8 +472,8 @@ def evaluate(
 
     :param model_type: A string describing the model type. The default evaluator
                        supports "regressor" and "classifier" as model types.
-    :param dataset: An instance of `EvaluationDataset` containing features
-                    labels (optional) for model evaluation.
+    :param dataset: An instance of :py:class:`mlflow.models.evaluation.base.EvaluationDataset`
+                    containing features labels (optional) for model evaluation.
     :param run_id: The ID of the MLflow Run to which to log results. If
                    unspecified, behavior depends on the specified `evaluator`.
                    When `run_id` is unspecified, the default evaluator logs
@@ -486,7 +488,8 @@ def evaluate(
                              to the evaluator. If multiple evaluators are
                              specified, each configuration should be supplied as
                              a nested dictionary whose key is the evaluator name.
-    :return: An `EvaluationResult` instance containing evaluation results.
+    :return: An :py:class:`mlflow.models.evaluation.EvaluationDataset` instance containing
+             evaluation results.
     """
     # import _model_evaluation_registry and PyFuncModel inside function to avoid circuit importing
     from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
