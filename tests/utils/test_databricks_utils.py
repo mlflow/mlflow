@@ -11,7 +11,7 @@ from mlflow.utils.databricks_utils import (
     is_databricks_default_tracking_uri,
 )
 from mlflow.utils.uri import construct_db_uri_from_profile
-from tests.helper_functions import mock_method_chain
+from tests.helper_functions import mock_method_chain, multi_context
 
 
 def test_no_throw():
@@ -254,3 +254,24 @@ def test_get_repl_id():
 
     with mock.patch("builtins.__import__", side_effect=mock_import):
         assert databricks_utils.get_repl_id() == "testReplId2"
+
+
+def test_use_env_var_if_exists():
+    with mock.patch.dict(
+        "os.environ",
+        {
+            databricks_utils._ENV_VAR_PREFIX + "NOTEBOOK_ID": "1",
+            databricks_utils._ENV_VAR_PREFIX + "CLUSTER_ID": "a",
+        },
+        clear=True,
+    ):
+        with multi_context(
+            mock.patch("mlflow.utils.databricks_utils._get_dbutils"),
+            mock.patch("mlflow.utils.databricks_utils._get_property_from_spark_context"),
+            mock.patch("mlflow.utils._spark_utils._get_active_spark_session"),
+        ) as mocks:
+            assert databricks_utils.get_notebook_id() == "1"
+            assert databricks_utils.is_in_databricks_notebook()
+            assert databricks_utils.get_cluster_id() == "a"
+            assert databricks_utils.is_in_cluster()
+            assert all(m.call_count == 0 for m in mocks)
