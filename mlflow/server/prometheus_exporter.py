@@ -5,7 +5,7 @@ from mlflow.version import VERSION
 
 
 def activate_prometheus_exporter(app):
-    def mlflow_version(req: request):  # noqa: W0613
+    def mlflow_version(req: request):  # pylint: disable=unused-argument
         return VERSION
 
     metrics = GunicornInternalPrometheusMetrics(
