@@ -3,6 +3,7 @@ import mlflow
 import hashlib
 import json
 import os
+from contextlib import contextmanager
 from mlflow.exceptions import MlflowException
 from mlflow.utils.file_utils import TempDir
 from mlflow.entities import Metric, RunTag
@@ -440,35 +441,25 @@ def list_evaluators():
     return list(_model_evaluation_registry._registry.keys())
 
 
-class _StartRunOrReuseActiveRun:
+@contextmanager
+def _start_run_or_reuse_active_run(run_id):
     """
     A manager context return:
      - If there's an active run, return the active run id.
-     - otherwise start a mflow run with the specified run_id.
+     - otherwise start a mflow run with the specified run_id,
+       if specified run_id is None, start a new run.
     """
-
-    def __init__(self, run_id):
-        self.user_specified_run_id = run_id
-        self.managed_run = None
-
-    def __enter__(self):
-        if mlflow.active_run() is not None:
-            active_run_id = mlflow.active_run().info.run_id
-            if (
-                self.user_specified_run_id is not None
-                and self.user_specified_run_id != active_run_id
-            ):
-                raise ValueError(
-                    "An active run exists, you cannot specify another run_id when " "evaluating."
-                )
-            return active_run_id
-        else:
-            self.managed_run = mlflow.start_run(run_id=self.user_specified_run_id).__enter__()
-            return self.managed_run.info.run_id
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.managed_run is not None:
-            return self.managed_run.__exit__(exc_type, exc_val, exc_tb)
+    active_run = mlflow.active_run()
+    if not active_run:
+        # Note `mlflow.start_run` throws if `run_id` is not found.
+        with mlflow.start_run(run_id=run_id) as run:
+            yield run.info.run_id
+    else:
+        if run_id and active_run.info.run_id != run_id:
+            raise ValueError(
+                "An active run exists, you cannot specify another run_id when " "evaluating."
+            )
+        yield active_run.info.run_id
 
 
 def evaluate(
@@ -543,7 +534,7 @@ def evaluate(
             "an instance of `mlflow.pyfunc.PyFuncModel`."
         )
 
-    with _StartRunOrReuseActiveRun(run_id) as actual_run_id:
+    with _start_run_or_reuse_active_run(run_id) as actual_run_id:
         client = mlflow.tracking.MlflowClient()
         dataset._log_dataset_tag(client, actual_run_id)
 
