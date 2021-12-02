@@ -480,8 +480,9 @@ def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enabl
             scoring_response = endpoint.invoke(data="", content_type=content_type)
             expected_status_code = 500 if enable_mlserver else 400
             assert scoring_response.status_code == expected_status_code, (
-                "Expected server failure with error code 400, got response with status code %s "
-                "and body %s" % (scoring_response.status_code, scoring_response.text)
+                "Expected server failure with error code %s, got response with status code %s "
+                "and body %s"
+                % (expected_status_code, scoring_response.status_code, scoring_response.text)
             )
 
             if enable_mlserver:
