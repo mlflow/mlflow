@@ -542,7 +542,10 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
             extra_args=["--no-conda"],
         )
         response_json = json.loads(response.content)
-        assert response_json == [[k, str(v)] for k, v in pandas_df_with_all_types.dtypes.items()]
+
+        # np.objects are not converted to pandas Strings at the moment
+        expected_types = {**pandas_df_with_all_types.dtypes, "string": np.dtype(object)}
+        assert response_json == [[k, str(v)] for k, v in expected_types.items()]
         response = pyfunc_serve_and_score_model(
             model_uri="runs:/{}/model".format(run.info.run_id),
             data=json.dumps(pandas_df_with_all_types.to_dict(orient="records"), cls=NumpyEncoder),
@@ -550,7 +553,7 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
             extra_args=["--no-conda"],
         )
         response_json = json.loads(response.content)
-        assert response_json == [[k, str(v)] for k, v in pandas_df_with_all_types.dtypes.items()]
+        assert response_json == [[k, str(v)] for k, v in expected_types.items()]
 
 
 @pytest.mark.large
