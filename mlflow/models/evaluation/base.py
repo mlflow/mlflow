@@ -269,7 +269,7 @@ class EvaluationDataset:
     def _convert_uint64_ndarray_to_bytes(array):
         assert len(array.shape) == 1
         # see struct pack format string https://docs.python.org/3/library/struct.html#format-strings
-        return struct.pack(f'>{array.size}Q', *array)
+        return struct.pack(f">{array.size}Q", *array)
 
     @staticmethod
     def _array_like_obj_to_bytes(data):
@@ -282,16 +282,15 @@ class EvaluationDataset:
         import pandas as pd
 
         if isinstance(data, pd.DataFrame):
-            return EvaluationDataset._convert_uint64_ndarray_to_bytes(hash_pandas_object(data)) + \
-                   ",".join(data.columns).encode("UTF-8")
+            return EvaluationDataset._convert_uint64_ndarray_to_bytes(
+                hash_pandas_object(data)
+            ) + ",".join(data.columns).encode("UTF-8")
         elif isinstance(data, np.ndarray):
             return EvaluationDataset._convert_uint64_ndarray_to_bytes(
-                hash_array(data.flatten(order='C'))
+                hash_array(data.flatten(order="C"))
             )
         elif isinstance(data, list):
-            return EvaluationDataset._convert_uint64_ndarray_to_bytes(
-                hash_array(np.array(data))
-            )
+            return EvaluationDataset._convert_uint64_ndarray_to_bytes(hash_array(np.array(data)))
         else:
             raise ValueError("Unsupported data type.")
 
@@ -306,7 +305,7 @@ class EvaluationDataset:
         import numpy as np
 
         len_bytes = EvaluationDataset._convert_uint64_ndarray_to_bytes(
-            np.array([len(data)], dtype='uint64')
+            np.array([len(data)], dtype="uint64")
         )
         md5_gen.update(len_bytes)
         if len(data) < EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH * 2:
