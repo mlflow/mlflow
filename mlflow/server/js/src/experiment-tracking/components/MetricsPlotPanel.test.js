@@ -1,8 +1,21 @@
 import React from 'react';
+import { BrowserRouter } from 'react-router-dom';
+import { Provider } from 'react-redux';
+import thunk from 'redux-thunk';
+import configureStore from 'redux-mock-store';
+import promiseMiddleware from 'redux-promise-middleware';
+import { Progress } from 'antd';
 import { shallow } from 'enzyme';
-import { MetricsPlotPanel, CHART_TYPE_BAR, CHART_TYPE_LINE } from './MetricsPlotPanel';
+import {
+  MetricsPlotPanel,
+  CHART_TYPE_BAR,
+  CHART_TYPE_LINE,
+  METRICS_PLOT_POLLING_INTERVAL_MS,
+  METRICS_PLOT_HANGING_RUN_THRESHOLD_MS,
+} from './MetricsPlotPanel';
 import { X_AXIS_RELATIVE, X_AXIS_STEP, X_AXIS_WALL } from './MetricsPlotControls';
 import Utils from '../../common/utils/Utils';
+import { mountWithIntl } from '../../common/utils/TestUtils';
 import { RunLinksPopover } from './RunLinksPopover';
 
 describe('unit tests', () => {
@@ -10,6 +23,8 @@ describe('unit tests', () => {
   let instance;
   let minimalPropsForLineChart;
   let minimalPropsForBarChart;
+  let getMetricHistoryApi;
+  let getRunApi;
 
   beforeEach(() => {
     const location = {
@@ -22,23 +37,34 @@ describe('unit tests', () => {
         location.search = '?' + url.split('?')[1];
       },
     };
+    getMetricHistoryApi = jest.fn(() => Promise.resolve());
+    getRunApi = jest.fn(() => Promise.resolve());
+    const now = new Date().getTime();
     minimalPropsForLineChart = {
       experimentId: '1',
       runUuids: ['runUuid1', 'runUuid2'],
+      completedRunUuids: ['runUuid1', 'runUuid2'],
       metricKey: 'metric_1',
       latestMetricsByRunUuid: {
-        runUuid1: { metric_1: 100, metric_2: 200 },
-        runUuid2: { metric_1: 111, metric_2: 222 },
+        runUuid1: {
+          metric_1: { key: 'metric_1', value: 100, step: 2, timestamp: now },
+          metric_2: { key: 'metric_2', value: 111, step: 0, timestamp: now },
+        },
+        runUuid2: {
+          metric_1: { key: 'metric_1', value: 200, step: 4, timestamp: now },
+          metric_2: { key: 'metric_2', value: 222, step: -3, timestamp: now },
+        },
       },
       distinctMetricKeys: ['metric_1', 'metric_2'],
       // An array of { metricKey, history, runUuid, runDisplayName }
       metricsWithRunInfoAndHistory: [
+        // Metrics for runUuid1
         {
           metricKey: 'metric_1',
           history: [
             /* Intentionally reversed timestamp and step here for testing */
-            { key: 'metric_1', value: 100, step: 2, timestamp: 1556662044000 },
-            { key: 'metric_1', value: 50, step: 1, timestamp: 1556662043000 },
+            { key: 'metric_1', value: 100, step: 2, timestamp: now },
+            { key: 'metric_1', value: 50, step: 1, timestamp: now - 1 },
           ],
           runUuid: 'runUuid1',
           runDisplayName: 'runDisplayName1',
@@ -46,17 +72,18 @@ describe('unit tests', () => {
         {
           metricKey: 'metric_2',
           history: [
-            { key: 'metric_2', value: 55, step: -1, timestamp: 1556662043000 },
-            { key: 'metric_2', value: 111, step: 0, timestamp: 1556662044000 },
+            { key: 'metric_2', value: 55, step: -1, timestamp: now - 1 },
+            { key: 'metric_2', value: 111, step: 0, timestamp: now },
           ],
           runUuid: 'runUuid1',
           runDisplayName: 'runDisplayName1',
         },
+        // Metrics for runUuid2
         {
           metricKey: 'metric_1',
           history: [
-            { key: 'metric_1', value: 150, step: 3, timestamp: 1556662043000 },
-            { key: 'metric_1', value: 200, step: 4, timestamp: 1556662044000 },
+            { key: 'metric_1', value: 150, step: 3, timestamp: now - 1 },
+            { key: 'metric_1', value: 200, step: 4, timestamp: now },
           ],
           runUuid: 'runUuid2',
           runDisplayName: 'runDisplayName2',
@@ -64,58 +91,69 @@ describe('unit tests', () => {
         {
           metricKey: 'metric_2',
           history: [
-            { key: 'metric_2', value: 155, step: -4, timestamp: 1556662043000 },
-            { key: 'metric_2', value: 222, step: -3, timestamp: 1556662044000 },
+            { key: 'metric_2', value: 155, step: -4, timestamp: now - 1 },
+            { key: 'metric_2', value: 222, step: -3, timestamp: now },
           ],
           runUuid: 'runUuid2',
           runDisplayName: 'runDisplayName2',
         },
       ],
-      getMetricHistoryApi: jest.fn(),
-      location: location,
-      history: history,
+      getMetricHistoryApi,
+      getRunApi,
+      location,
+      history,
       runDisplayNames: ['runDisplayName1', 'runDisplayName2'],
     };
 
     minimalPropsForBarChart = {
       experimentId: '1',
       runUuids: ['runUuid1', 'runUuid2'],
+      completedRunUuids: ['runUuid1', 'runUuid2'],
       metricKey: 'metric_1',
       latestMetricsByRunUuid: {
-        runUuid1: { metric_1: 100, metric_2: 200 },
-        runUuid2: { metric_1: 111, metric_2: 222 },
+        runUuid1: {
+          metric_1: { key: 'metric_1', value: 50, step: 0, timestamp: now },
+          metric_2: { key: 'metric_2', value: 55, step: 0, timestamp: now },
+        },
+        runUuid2: {
+          metric_1: { key: 'metric_2', value: 55, step: 0, timestamp: now },
+          metric_2: { key: 'metric_2', value: 155, step: 0, timestamp: now },
+        },
       },
       distinctMetricKeys: ['metric_1', 'metric_2'],
       // An array of { metricKey, history, runUuid, runDisplayName }
       metricsWithRunInfoAndHistory: [
+        // Metrics for runUuid1
         {
           metricKey: 'metric_1',
-          history: [{ key: 'metric_1', value: 50, step: 0, timestamp: 1556662043000 }],
+          history: [{ key: 'metric_1', value: 50, step: 0, timestamp: now }],
           runUuid: 'runUuid1',
           runDisplayName: 'runDisplayName1',
         },
         {
           metricKey: 'metric_2',
-          history: [{ key: 'metric_2', value: 55, step: 0, timestamp: 1556662043000 }],
+          history: [{ key: 'metric_2', value: 55, step: 0, timestamp: now }],
           runUuid: 'runUuid1',
           runDisplayName: 'runDisplayName1',
         },
+        // Metrics for runUuid2
         {
           metricKey: 'metric_1',
-          history: [{ key: 'metric_1', value: 150, step: 0, timestamp: 1556662043000 }],
+          history: [{ key: 'metric_1', value: 150, step: 0, timestamp: now }],
           runUuid: 'runUuid2',
           runDisplayName: 'runDisplayName2',
         },
         {
           metricKey: 'metric_2',
-          history: [{ key: 'metric_2', value: 155, step: 0, timestamp: 1556662043000 }],
+          history: [{ key: 'metric_2', value: 155, step: 0, timestamp: now }],
           runUuid: 'runUuid2',
           runDisplayName: 'runDisplayName2',
         },
       ],
-      getMetricHistoryApi: jest.fn(),
-      location: location,
-      history: history,
+      getMetricHistoryApi,
+      getRunApi,
+      location,
+      history,
       runDisplayNames: ['runDisplayName1', 'runDisplayName2'],
       deselectedCurves: [],
     };
@@ -373,5 +411,167 @@ describe('unit tests', () => {
       expect(popover.props().runItems).toEqual(props.runItems);
       done();
     }, 1000);
+  });
+  test('should render the number of completed runs correctly', () => {
+    const mountWithProps = (props) => {
+      const mockStore = configureStore([thunk, promiseMiddleware()]);
+      return mountWithIntl(
+        <Provider store={mockStore({})}>
+          <BrowserRouter>
+            <MetricsPlotPanel {...props} />
+          </BrowserRouter>
+        </Provider>,
+      );
+    };
+    // no runs completed
+    wrapper = mountWithProps({
+      ...minimalPropsForLineChart,
+      completedRunUuids: [],
+    });
+    wrapper.update();
+    expect(wrapper.find(Progress).text()).toContain('0/2');
+    // 1 run completed
+    wrapper = mountWithProps({
+      ...minimalPropsForLineChart,
+      completedRunUuids: ['runUuid1'],
+    });
+    wrapper.update();
+    expect(wrapper.find(Progress).text()).toContain('1/2');
+    // all runs completed
+    wrapper = mountWithProps({
+      ...minimalPropsForLineChart,
+      completedRunUuids: ['runUuid1', 'runUuid2'],
+    });
+    wrapper.update();
+    expect(wrapper.find(Progress).text()).toContain('2/2');
+  });
+
+  test('should not poll if all runs already completed', () => {
+    jest.useFakeTimers();
+    wrapper = shallow(<MetricsPlotPanel {...minimalPropsForLineChart} />);
+    expect(wrapper.instance().intervalId).toBeNull();
+    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    expect(getRunApi).toHaveBeenCalledTimes(0);
+  });
+
+  test('should poll when some runs are active', () => {
+    jest.useFakeTimers();
+    const props = {
+      ...minimalPropsForLineChart,
+      completedRunUuids: ['runUuid1'],
+    };
+    wrapper = shallow(<MetricsPlotPanel {...props} />);
+    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    expect(getRunApi).toHaveBeenCalledTimes(1);
+    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    expect(getRunApi).toHaveBeenCalledTimes(2);
+  });
+
+  test('should stop polling when all runs complete', () => {
+    jest.useFakeTimers();
+    const props = {
+      ...minimalPropsForLineChart,
+      completedRunUuids: ['runUuid1'],
+    };
+    wrapper = shallow(<MetricsPlotPanel {...props} />);
+    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    expect(getRunApi).toHaveBeenCalledTimes(1);
+    const nextProps = {
+      ...minimalPropsForLineChart,
+      completedRunUuids: ['runUuid1', 'runUuid2'],
+    };
+    wrapper.setProps(nextProps);
+    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    expect(getRunApi).toHaveBeenCalledTimes(1);
+  });
+
+  test('should ignore hanging runs', () => {
+    jest.useFakeTimers();
+    const latestTimestamp = new Date().getTime() - (METRICS_PLOT_HANGING_RUN_THRESHOLD_MS + 1000);
+    const props = {
+      ...minimalPropsForLineChart,
+      // `runUuid1` has already completed and `runUuid2` is hanging.
+      completedRunUuids: ['runUuid1'],
+      latestMetricsByRunUuid: {
+        runUuid1: minimalPropsForLineChart.latestMetricsByRunUuid.runUuid1,
+        runUuid2: {
+          metric_1: {
+            key: 'metric_1',
+            value: 200,
+            step: 4,
+            timestamp: latestTimestamp,
+          },
+          metric_2: {
+            key: 'metric_2',
+            value: 222,
+            step: -3,
+            timestamp: latestTimestamp,
+          },
+        },
+      },
+      metricsWithRunInfoAndHistory: [
+        // Metrics for runUuid1
+        ...minimalPropsForLineChart.metricsWithRunInfoAndHistory.slice(0, 2),
+        // Metrics for runUuid2
+        {
+          metricKey: 'metric_1',
+          history: [
+            { key: 'metric_1', value: 150, step: 3, timestamp: latestTimestamp - 1 },
+            { key: 'metric_1', value: 200, step: 4, timestamp: latestTimestamp },
+          ],
+          runUuid: 'runUuid2',
+          runDisplayName: 'runDisplayName2',
+        },
+        {
+          metricKey: 'metric_2',
+          history: [
+            { key: 'metric_2', value: 155, step: -4, timestamp: latestTimestamp - 1 },
+            { key: 'metric_2', value: 222, step: -3, timestamp: latestTimestamp },
+          ],
+          runUuid: 'runUuid2',
+          runDisplayName: 'runDisplayName2',
+        },
+      ],
+    };
+
+    wrapper = shallow(<MetricsPlotPanel {...props} />);
+    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    expect(getRunApi).toHaveBeenCalledTimes(0);
+    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    expect(getRunApi).toHaveBeenCalledTimes(0);
+  });
+
+  test('should skip polling when component is out of focus', () => {
+    jest.useFakeTimers();
+    const props = {
+      ...minimalPropsForLineChart,
+      completedRunUuids: ['runUuid1'],
+    };
+    wrapper = shallow(<MetricsPlotPanel {...props} />);
+    expect(wrapper.state().focused).toBe(true);
+    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    expect(getRunApi).toHaveBeenCalledTimes(1);
+    wrapper.instance().onBlur();
+    expect(wrapper.state().focused).toBe(false);
+    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    expect(getRunApi).toHaveBeenCalledTimes(1);
+    wrapper.instance().onFocus();
+    expect(wrapper.state().focused).toBe(true);
+    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    expect(getRunApi).toHaveBeenCalledTimes(2);
+  });
+
+  test('should not poll after unmount', () => {
+    jest.useFakeTimers();
+    const props = {
+      ...minimalPropsForLineChart,
+      completedRunUuids: ['runUuid1'],
+    };
+    wrapper = shallow(<MetricsPlotPanel {...props} />);
+    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    expect(getRunApi).toHaveBeenCalledTimes(1);
+    wrapper.unmount();
+    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    expect(getRunApi).toHaveBeenCalledTimes(1);
   });
 });
