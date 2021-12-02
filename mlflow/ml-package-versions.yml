@@ -41,7 +41,7 @@ pytorch-lightning:
 
   autologging:
     minimum: "1.0.5"
-    maximum: "1.5.3"
+    maximum: "1.5.4"
     requirements: ["torchvision", "scikit-learn"]
     run: |
       pytest tests/pytorch/test_pytorch_autolog.py --large
