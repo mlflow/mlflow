@@ -66,17 +66,20 @@ def test_file_artifact_is_logged_with_content_metadata(s3_artifact_root, tmpdir)
 
 
 def test_get_s3_client_hits_cache(s3_artifact_root):
+    # pylint: disable=no-value-for-parameter
     repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
     repo._get_s3_client()
     cache_info = _cached_get_s3_client.cache_info()
     assert cache_info.hits == 0
     assert cache_info.misses == 1
     assert cache_info.currsize == 1
+
     repo._get_s3_client()
     cache_info = _cached_get_s3_client.cache_info()
     assert cache_info.hits == 1
     assert cache_info.misses == 1
     assert cache_info.currsize == 1
+
     with mock.patch.dict(
         "os.environ",
         {"MLFLOW_EXPERIMENTAL_S3_SIGNATURE_VERSION": "s3v2"},
@@ -97,6 +100,7 @@ def test_get_s3_client_hits_cache(s3_artifact_root):
     assert cache_info.hits == 1
     assert cache_info.misses == 3
     assert cache_info.currsize == 3
+
 
 
 @pytest.mark.parametrize("ignore_tls_env, verify", [("", None), ("true", False), ("false", None)])

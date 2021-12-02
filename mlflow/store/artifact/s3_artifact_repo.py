@@ -40,7 +40,6 @@ def _cached_get_s3_client(
     we throw an error on verification instead of using an expired endpoint
     we utilise the `timestamp` parameter to invalidate cache.
     """
-
     import boto3
     from botocore.client import Config
 
