@@ -477,8 +477,9 @@ def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enabl
             )
         # Try examples of bad input, verify we get a non-200 status code
         for content_type in [CONTENT_TYPE_JSON_SPLIT_ORIENTED, CONTENT_TYPE_CSV, CONTENT_TYPE_JSON]:
-            scoring_response = endpoint.invoke(data="this is,,,, not valid json", content_type=content_type)
-            assert scoring_response.status_code == 400, (
+            scoring_response = endpoint.invoke(data="", content_type=content_type)
+            expected_status_code = 500 if enable_mlserver else 400
+            assert scoring_response.status_code == expected_status_code, (
                 "Expected server failure with error code 400, got response with status code %s "
                 "and body %s" % (scoring_response.status_code, scoring_response.text)
             )
