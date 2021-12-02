@@ -487,7 +487,7 @@ describe('unit tests', () => {
 
   test('should ignore hanging runs', () => {
     jest.useFakeTimers();
-    const latestTimestamp = new Date().getTime() - METRICS_PLOT_HANGING_RUN_THRESHOLD_MS;
+    const latestTimestamp = new Date().getTime() - (METRICS_PLOT_HANGING_RUN_THRESHOLD_MS + 1000);
     const props = {
       ...minimalPropsForLineChart,
       // `runUuid1` has already completed and `runUuid2` is hanging.
