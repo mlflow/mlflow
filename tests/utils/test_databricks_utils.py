@@ -259,10 +259,7 @@ def test_get_repl_id():
 def test_use_env_var_if_exists():
     with mock.patch.dict(
         "os.environ",
-        {
-            databricks_utils._ENV_VAR_PREFIX + "NOTEBOOK_ID": "1",
-            databricks_utils._ENV_VAR_PREFIX + "CLUSTER_ID": "a",
-        },
+        {"DATABRICKS_NOTEBOOK_ID": "1", "DATABRICKS_CLUSTER_ID": "a"},
         clear=True,
     ):
         with multi_context(
