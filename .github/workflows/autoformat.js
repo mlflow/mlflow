@@ -18,9 +18,10 @@ const createStatus = async (context, github) => {
   const pull_number = context.issue.number;
   const pr = await github.pulls.get({ owner, repo, pull_number });
   const { sha, ref } = pr.data.head;
+  const repository = pr.data.repo.full_name;
   await createCommitStatus(context, github, sha, 'pending');
   return {
-    repository: `${owner}/${repo}`,
+    repository,
     pull_number,
     sha,
     ref,
