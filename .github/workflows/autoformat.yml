@@ -36,7 +36,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const autoformat = require('./.github/workflows/autoformat.js');
-            return await autoformat.createStatus(context, github);
+            return await autoformat.createStatus(context, github, core);
 
   check-diff:
     runs-on: ubuntu-latest
@@ -55,7 +55,7 @@ jobs:
       - name: Check diff
         id: check-diff
         run: |
-          repository="${{ needs.check-comment.outputs.repository }}"
+          repository="${{ github.repository }}"
           pull_number="${{ needs.check-comment.outputs.pull_number }}"
           changed_files="$(python dev/list_changed_files.py --repository $repository --pr-num $pull_number)"
           py_changed=$([[ -z $(echo "$changed_files" | grep '\.py$') ]] && echo "false" || echo "true")
