@@ -110,22 +110,20 @@ export class MetricsPlotPanel extends React.Component {
     return this.props.completedRunUuids.length === this.props.runUuids.length;
   };
 
-  getHangingRunUuids = (activeRunUuids) => {
-    const { latestMetricsByRunUuid } = this.props;
-    return activeRunUuids.filter((runUuid) => {
-      const metrics = latestMetricsByRunUuid[runUuid];
-      const timestamps = Object.values(metrics).map(({ timestamp }) => timestamp);
-      const latestTimestamp = Math.max(...timestamps);
-      return new Date().getTime() - latestTimestamp > METRICS_PLOT_HANGING_RUN_THRESHOLD_MS;
-    });
+  isHangingRunUuid = (activeRunUuid) => {
+    const metrics = this.props.latestMetricsByRunUuid[activeRunUuid];
+    if (!metrics) {
+      return false;
+    }
+    const timestamps = Object.values(metrics).map(({ timestamp }) => timestamp);
+    const latestTimestamp = Math.max(...timestamps);
+    return new Date().getTime() - latestTimestamp > METRICS_PLOT_HANGING_RUN_THRESHOLD_MS;
   };
 
   getActiveRunUuids = () => {
     const { completedRunUuids, runUuids } = this.props;
     const activeRunUuids = _.difference(runUuids, completedRunUuids);
-    // Filter out hanging runs
-    const hangingRunUuids = this.getHangingRunUuids(activeRunUuids);
-    return _.difference(activeRunUuids, hangingRunUuids);
+    return activeRunUuids.filter(_.negate(this.isHangingRunUuid)); // Exclude hanging runs
   };
 
   shouldPoll = () => {
