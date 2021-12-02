@@ -38,6 +38,39 @@ def _return_true(_):
     return True
 
 
+def _get_message_metadata():
+    try:
+        import IPython
+
+        ip_shell = IPython.get_ipython()
+        return ip_shell.parent_header["metadata"]
+    except Exception:
+        return None
+
+
+def _use_message_metadata_if_exists(key):
+    """
+    Creates a decorator to insert a short circuit that returns specified Jupyter message metadata
+    if it exists.
+
+    :param key: Metadata key.
+    :return: A decorator to insert the short circuit.
+    """
+
+    def decorator(f):
+        @functools.wraps(f)
+        def wrapper(*args, **kwargs):
+            metadata = _get_message_metadata()
+            if metadata and key in metadata:
+                return metadata[key]
+
+            return f(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
 def _get_dbutils():
     try:
         import IPython
@@ -259,6 +292,7 @@ def get_job_type():
         return _get_context_tag("jobTaskType")
 
 
+@_use_message_metadata_if_exists("commandRunId")
 def get_command_run_id():
     try:
         return _get_command_context().commandRunId().get()

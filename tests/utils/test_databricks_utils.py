@@ -272,3 +272,12 @@ def test_use_env_var_if_exists():
             assert databricks_utils.get_cluster_id() == "a"
             assert databricks_utils.is_in_cluster()
             assert all(m.call_count == 0 for m in mocks)
+
+
+def test_use_message_metadata_if_exists():
+    with mock.patch(
+        "mlflow.utils.databricks_utils._get_message_metadata",
+        return_value={"commandRunId": "1"},
+    ), mock.patch("mlflow.utils.databricks_utils._get_dbutils") as mock_dbutils:
+        assert databricks_utils.get_command_run_id() == "1"
+        mock_dbutils.assert_not_called()
