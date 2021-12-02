@@ -36,7 +36,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const autoformat = require('./.github/workflows/autoformat.js');
-            return await autoformat.createStatus(context, github);
+            return await autoformat.createStatus(context, github, core);
 
   check-diff:
     runs-on: ubuntu-latest
