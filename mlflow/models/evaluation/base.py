@@ -47,7 +47,7 @@ class EvaluationArtifact:
         otherwise load artifact content from specified path.
         then assign the loaded content to `self._content`, and return the loaded content.
         """
-        if local_artifact_path is None:
+        if local_artifact_path is not None:
             self._load_content_from_file(local_artifact_path)
         else:
             with TempDir() as temp_dir:
@@ -101,7 +101,7 @@ class EvaluationResult:
 
         artifacts_dir = os.path.join(path, "artifacts")
 
-        for artifact_name, meta in artifacts_metadata:
+        for artifact_name, meta in artifacts_metadata.items():
             uri = meta["uri"]
             ArtifactCls = _get_class_from_string(meta["class_name"])
             artifact = ArtifactCls(uri=uri)
