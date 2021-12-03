@@ -753,8 +753,11 @@ is no longer relevant to that experiment.
 To allow the server and clients to access the artifact location, you should configure your cloud
 provider credentials as normal. For example, for S3, you can set the ``AWS_ACCESS_KEY_ID``
 and ``AWS_SECRET_ACCESS_KEY`` environment variables, use an IAM role, or configure a default
-profile in ``~/.aws/credentials``.
+profile in ``~/.aws/credentials``. Please be cautious not to leak the credentials.
 See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_ for more info.
+
+For security perspective, we recommend using a separate bucket for MLflow artifacts
+rather than reusing existing buckets with sensitive data.
 
 .. important::
 
