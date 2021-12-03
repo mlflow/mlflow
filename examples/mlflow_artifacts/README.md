@@ -7,7 +7,9 @@ This directory contains a set of files for demonstrating the MLflow Artifacts Se
 The MLflow Artifacts Service serves as a proxy between the client and artifact storage (e.g. S3)
 and allows the client to upload, download, and list artifacts via REST API without configuring
 a set of credentials required to access resources in the artifact storage (e.g. `AWS_ACCESS_KEY_ID`
-and `AWS_SECRET_ACCESS_KEY` for S3).
+and `AWS_SECRET_ACCESS_KEY` for S3). Note the MLflow Artifacts Service doesn't support
+authentication out of the box. We recommend adding authentication in front of your MLflow server
+using a HTTP proxy such as nginx.
 
 ## Quick start
 

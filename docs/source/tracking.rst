@@ -756,8 +756,9 @@ and ``AWS_SECRET_ACCESS_KEY`` environment variables, use an IAM role, or configu
 profile in ``~/.aws/credentials``. Please be cautious not to leak the credentials.
 See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_ for more info.
 
-For security perspective, we recommend using a separate bucket for MLflow artifacts
-rather than reusing existing buckets with sensitive data.
+We recommend the following for security purposes:
+- Using a separate bucket for MLflow artifacts rather than reusing existing buckets with sensitive data.
+- Using least privileged credentials.
 
 .. important::
 
