@@ -179,6 +179,9 @@ def test_column_schema_enforcement():
     expected_types = dict(zip(input_schema.input_names(), input_schema.pandas_types()))
     # MLflow datetime type in input_schema does not encode precision, so add it for assertions
     expected_types["h"] = np.dtype("datetime64[ns]")
+    # np.object cannot be converted to pandas Strings at the moment
+    expected_types["f"] = np.object
+    expected_types["g"] = np.object
     actual_types = res.dtypes.to_dict()
     assert expected_types == actual_types
 

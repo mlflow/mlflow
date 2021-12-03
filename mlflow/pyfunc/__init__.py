@@ -326,18 +326,9 @@ def _enforce_mlflow_datatype(name, values: pandas.Series, t: DataType):
         values = values.infer_objects()
 
     if t == DataType.string and values.dtype == np.object:
-        #  NB: strings are by default parsed and inferred as objects, but it is
-        # recommended to use StringDtype extension type if available. See
-        #
-        # `https://pandas.pydata.org/pandas-docs/stable/user_guide/text.html`
-        #
-        # for more detail.
-        try:
-            return values.astype(t.to_pandas(), errors="raise")
-        except ValueError:
-            raise MlflowException(
-                "Failed to convert column {0} from type {1} to {2}.".format(name, values.dtype, t)
-            )
+        # NB: the object can contain any type and we currently cannot cast to pandas Strings
+        # due to how None is cast
+        return values
 
     # NB: Comparison of pandas and numpy data type fails when numpy data type is on the left hand
     # side of the comparison operator. It works, however, if pandas type is on the left hand side.
