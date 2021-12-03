@@ -1,8 +1,14 @@
 import mlflow
 
-from mlflow.models.evaluation import \
-    evaluate, EvaluationDataset, EvaluationResult, ModelEvaluator, EvaluationArtifact, \
-    EvaluationMetrics
+from mlflow.models.evaluation import (
+    evaluate,
+    EvaluationDataset,
+    EvaluationResult,
+    ModelEvaluator,
+    EvaluationArtifact,
+    EvaluationMetrics,
+)
+import hashlib
 from mlflow.models.evaluation.base import _start_run_or_reuse_active_run
 import sklearn
 import os
@@ -207,9 +213,26 @@ def test_dataset_name():
     assert d2.name == d2.hash
 
 
+def test_gen_md5_for_arraylike_obj():
+    def get_md5(data):
+        md5_gen = hashlib.md5()
+        EvaluationDataset._gen_md5_for_arraylike_obj(md5_gen, data)
+        return md5_gen.hexdigest()
+
+    list0 = list(range(20))
+    list1 = [100] + list0[1:]
+    list2 = list0[:-1] + [100]
+    list3 = list0[:10] + [100] + list0[10:]
+
+    assert 4 == len({get_md5(list0), get_md5(list1), get_md5(list2), get_md5(list3)})
+
+    list4 = list0[:10] + [99] + list0[10:]
+    assert get_md5(list3) == get_md5(list4)
+
+
 def test_dataset_hash(iris_dataset, iris_pandas_df_dataset):
     assert iris_dataset.hash == "c7417e63a9ce038a32f37ecd7fb829f6"
-    assert iris_pandas_df_dataset.hash == "e796a0b1e0bef0fc06b4b1ad62e3ea63"
+    assert iris_pandas_df_dataset.hash == "d06cfb6352dba29afe514d9be87021aa"
 
 
 def test_datasset_extract_features_label(iris_dataset, iris_pandas_df_dataset):
@@ -276,80 +299,88 @@ class FakeArtifact2(EvaluationArtifact):
 
 def test_evaluator_interface(classifier_model_uri, iris_dataset):
     with mock.patch.object(
-            _model_evaluation_registry,
-            '_registry', {'test_evaluator1': FakeEvauator1}
+        _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvauator1}
     ):
-        evaluator1_config = {'eval1_confg_a': 3, 'eval1_confg_b': 4}
+        evaluator1_config = {"eval1_confg_a": 3, "eval1_confg_b": 4}
         evaluator1_return_value = EvaluationResult(
-            metrics=EvaluationMetrics({'m1': 5, 'm2': 6}),
-            artifacts={'a1': FakeArtifact1(uri='uri1'), 'a2': FakeArtifact2(uri='uri2')}
+            metrics=EvaluationMetrics({"m1": 5, "m2": 6}),
+            artifacts={"a1": FakeArtifact1(uri="uri1"), "a2": FakeArtifact2(uri="uri2")},
         )
         with mock.patch.object(
-            FakeEvauator1, 'can_evaluate', return_value=False
+            FakeEvauator1, "can_evaluate", return_value=False
         ) as mock_can_evaluate, mock.patch.object(
-            FakeEvauator1, 'evaluate', return_value=evaluator1_return_value
+            FakeEvauator1, "evaluate", return_value=evaluator1_return_value
         ) as mock_evaluate:
             with mlflow.start_run():
                 evaluate(
-                    classifier_model_uri, 'classifier', iris_dataset,
-                    run_id=None, evaluators='test_evaluator1', evaluator_config=evaluator1_config)
-                mock_can_evaluate.assert_called_once_with('classifier', evaluator1_config)
+                    classifier_model_uri,
+                    "classifier",
+                    iris_dataset,
+                    run_id=None,
+                    evaluators="test_evaluator1",
+                    evaluator_config=evaluator1_config,
+                )
+                mock_can_evaluate.assert_called_once_with("classifier", evaluator1_config)
                 mock_evaluate.assert_not_called()
         with mock.patch.object(
-            FakeEvauator1, 'can_evaluate', return_value=True
+            FakeEvauator1, "can_evaluate", return_value=True
         ) as mock_can_evaluate, mock.patch.object(
-            FakeEvauator1, 'evaluate', return_value=evaluator1_return_value
+            FakeEvauator1, "evaluate", return_value=evaluator1_return_value
         ) as mock_evaluate:
             classifier_model = mlflow.pyfunc.load_model(classifier_model_uri)
             with mlflow.start_run() as run:
                 eval1_result = evaluate(
-                    classifier_model, 'classifier', iris_dataset,
-                    run_id=None, evaluators='test_evaluator1',
-                    evaluator_config=evaluator1_config
+                    classifier_model,
+                    "classifier",
+                    iris_dataset,
+                    run_id=None,
+                    evaluators="test_evaluator1",
+                    evaluator_config=evaluator1_config,
                 )
                 assert eval1_result.metrics == evaluator1_return_value.metrics
                 assert eval1_result.artifacts == evaluator1_return_value.artifacts
 
-                mock_can_evaluate.assert_called_once_with('classifier', evaluator1_config)
+                mock_can_evaluate.assert_called_once_with("classifier", evaluator1_config)
                 mock_evaluate.assert_called_once_with(
-                    classifier_model, 'classifier', iris_dataset, run.info.run_id,
-                    evaluator1_config
+                    classifier_model, "classifier", iris_dataset, run.info.run_id, evaluator1_config
                 )
 
 
 def test_evaluate_with_multi_evaluators(classifier_model_uri, iris_dataset):
     with mock.patch.object(
-            _model_evaluation_registry,
-            '_registry', {'test_evaluator1': FakeEvauator1, 'test_evaluator2': FakeEvauator2}
+        _model_evaluation_registry,
+        "_registry",
+        {"test_evaluator1": FakeEvauator1, "test_evaluator2": FakeEvauator2},
     ):
-        evaluator1_config = {'eval1_confg': 3}
-        evaluator2_config = {'eval2_confg': 4}
+        evaluator1_config = {"eval1_confg": 3}
+        evaluator2_config = {"eval2_confg": 4}
         evaluator1_return_value = EvaluationResult(
-            metrics=EvaluationMetrics({'m1': 5}),
-            artifacts={'a1': FakeArtifact1(uri='uri1')}
+            metrics=EvaluationMetrics({"m1": 5}), artifacts={"a1": FakeArtifact1(uri="uri1")}
         )
         evaluator2_return_value = EvaluationResult(
-            metrics=EvaluationMetrics({'m2': 6}),
-            artifacts={'a2': FakeArtifact2(uri='uri2')}
+            metrics=EvaluationMetrics({"m2": 6}), artifacts={"a2": FakeArtifact2(uri="uri2")}
         )
         with mock.patch.object(
-            FakeEvauator1, 'can_evaluate', return_value=True
+            FakeEvauator1, "can_evaluate", return_value=True
         ) as mock_can_evaluate1, mock.patch.object(
-            FakeEvauator1, 'evaluate', return_value=evaluator1_return_value
+            FakeEvauator1, "evaluate", return_value=evaluator1_return_value
         ) as mock_evaluate1, mock.patch.object(
-            FakeEvauator2, 'can_evaluate', return_value=True
+            FakeEvauator2, "can_evaluate", return_value=True
         ) as mock_can_evaluate2, mock.patch.object(
-            FakeEvauator2, 'evaluate', return_value=evaluator2_return_value
+            FakeEvauator2, "evaluate", return_value=evaluator2_return_value
         ) as mock_evaluate2:
             classifier_model = mlflow.pyfunc.load_model(classifier_model_uri)
             with mlflow.start_run() as run:
                 eval_result = evaluate(
-                    classifier_model, 'classifier', iris_dataset,
-                    run_id=None, evaluators=['test_evaluator1', 'test_evaluator2'],
+                    classifier_model,
+                    "classifier",
+                    iris_dataset,
+                    run_id=None,
+                    evaluators=["test_evaluator1", "test_evaluator2"],
                     evaluator_config={
-                        'test_evaluator1': evaluator1_config,
-                        'test_evaluator2': evaluator2_config
-                    }
+                        "test_evaluator1": evaluator1_config,
+                        "test_evaluator2": evaluator2_config,
+                    },
                 )
                 assert eval_result.metrics == {
                     **evaluator1_return_value.metrics,
@@ -359,15 +390,13 @@ def test_evaluate_with_multi_evaluators(classifier_model_uri, iris_dataset):
                     **evaluator1_return_value.artifacts,
                     **evaluator2_return_value.artifacts,
                 }
-                mock_can_evaluate1.assert_called_once_with('classifier', evaluator1_config)
+                mock_can_evaluate1.assert_called_once_with("classifier", evaluator1_config)
                 mock_evaluate1.assert_called_once_with(
-                    classifier_model, 'classifier', iris_dataset, run.info.run_id,
-                    evaluator1_config
+                    classifier_model, "classifier", iris_dataset, run.info.run_id, evaluator1_config
                 )
-                mock_can_evaluate2.assert_called_once_with('classifier', evaluator2_config)
+                mock_can_evaluate2.assert_called_once_with("classifier", evaluator2_config)
                 mock_evaluate2.assert_called_once_with(
-                    classifier_model, 'classifier', iris_dataset, run.info.run_id,
-                    evaluator2_config
+                    classifier_model, "classifier", iris_dataset, run.info.run_id, evaluator2_config
                 )
 
 
@@ -392,6 +421,6 @@ def test_start_run_or_reuse_active_run():
         with _start_run_or_reuse_active_run(run_id=active_run_id) as run_id:
             assert run_id == active_run_id
 
-        with pytest.raises(ValueError, match='An active run exists'):
+        with pytest.raises(ValueError, match="An active run exists"):
             with _start_run_or_reuse_active_run(run_id=previous_run_id):
                 pass

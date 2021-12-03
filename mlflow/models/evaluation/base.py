@@ -282,9 +282,7 @@ class EvaluationDataset:
         import pandas as pd
 
         if isinstance(data, pd.DataFrame):
-            return EvaluationDataset._convert_uint64_ndarray_to_bytes(
-                hash_pandas_object(data)
-            ) + ",".join(data.columns).encode("UTF-8")
+            return EvaluationDataset._convert_uint64_ndarray_to_bytes(hash_pandas_object(data))
         elif isinstance(data, np.ndarray):
             return EvaluationDataset._convert_uint64_ndarray_to_bytes(
                 hash_array(data.flatten(order="C"))
@@ -345,8 +343,10 @@ class EvaluationDataset:
                 EvaluationDataset._gen_md5_for_arraylike_obj(md5_gen, self.data)
                 EvaluationDataset._gen_md5_for_arraylike_obj(md5_gen, self.labels)
             elif isinstance(self.data, pd.DataFrame):
+                column_names = ",".join(self.data.columns)
+                meta_str = f"columns={column_names}\nlabels={self.labels}"
+                md5_gen.update(meta_str.encode("UTF-8"))
                 EvaluationDataset._gen_md5_for_arraylike_obj(md5_gen, self.data)
-                md5_gen.update(self.labels.encode("UTF-8"))
             self._hash = md5_gen.hexdigest()
         return self._hash
 
