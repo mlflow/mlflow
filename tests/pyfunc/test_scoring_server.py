@@ -15,7 +15,7 @@ from mlflow.exceptions import MlflowException
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
 from mlflow.models import ModelSignature, infer_signature
-from mlflow.protos.databricks_pb2 import ErrorCode, MALFORMED_REQUEST, BAD_REQUEST
+from mlflow.protos.databricks_pb2 import ErrorCode, BAD_REQUEST
 from mlflow.pyfunc import PythonModel
 from mlflow.pyfunc.scoring_server import get_cmd
 from mlflow.types import Schema, ColSpec, DataType
@@ -107,7 +107,7 @@ def test_scoring_server_responds_to_invalid_json_input_with_stacktrace_and_error
     )
     response_json = json.loads(response.content)
     assert "error_code" in response_json
-    assert response_json["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
+    assert response_json["error_code"] == ErrorCode.Name(BAD_REQUEST)
     assert "message" in response_json
     assert "stack_trace" in response_json
 
@@ -119,7 +119,7 @@ def test_scoring_server_responds_to_invalid_json_input_with_stacktrace_and_error
     )
     response_json = json.loads(response.content)
     assert "error_code" in response_json
-    assert response_json["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
+    assert response_json["error_code"] == ErrorCode.Name(BAD_REQUEST)
     assert "message" in response_json
     assert "stack_trace" in response_json
 
@@ -138,7 +138,7 @@ def test_scoring_server_responds_to_malformed_json_input_with_stacktrace_and_err
     )
     response_json = json.loads(response.content)
     assert "error_code" in response_json
-    assert response_json["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
+    assert response_json["error_code"] == ErrorCode.Name(BAD_REQUEST)
     assert "message" in response_json
     assert "stack_trace" in response_json
 
@@ -159,7 +159,7 @@ def test_scoring_server_responds_to_invalid_pandas_input_format_with_stacktrace_
     )
     response_json = json.loads(response.content)
     assert "error_code" in response_json
-    assert response_json["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
+    assert response_json["error_code"] == ErrorCode.Name(BAD_REQUEST)
     assert "message" in response_json
     assert "stack_trace" in response_json
 
@@ -198,7 +198,7 @@ def test_scoring_server_responds_to_invalid_csv_input_with_stacktrace_and_error_
     )
     response_json = json.loads(response.content)
     assert "error_code" in response_json
-    assert response_json["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
+    assert response_json["error_code"] == ErrorCode.Name(BAD_REQUEST)
     assert "message" in response_json
     assert "stack_trace" in response_json
 
