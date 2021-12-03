@@ -34,7 +34,7 @@ from tests.helper_functions import (
     get_safe_port,
     pyfunc_serve_and_score_model,
 )
-from mlflow.protos.databricks_pb2 import ErrorCode, MALFORMED_REQUEST
+from mlflow.protos.databricks_pb2 import ErrorCode, BAD_REQUEST
 from mlflow.pyfunc.scoring_server import (
     CONTENT_TYPE_JSON_SPLIT_ORIENTED,
     CONTENT_TYPE_JSON,
@@ -478,9 +478,11 @@ def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enabl
         # Try examples of bad input, verify we get a non-200 status code
         for content_type in [CONTENT_TYPE_JSON_SPLIT_ORIENTED, CONTENT_TYPE_CSV, CONTENT_TYPE_JSON]:
             scoring_response = endpoint.invoke(data="", content_type=content_type)
-            assert scoring_response.status_code == 500, (
-                "Expected server failure with error code 500, got response with status code %s "
-                "and body %s" % (scoring_response.status_code, scoring_response.text)
+            expected_status_code = 500 if enable_mlserver else 400
+            assert scoring_response.status_code == expected_status_code, (
+                "Expected server failure with error code %s, got response with status code %s "
+                "and body %s"
+                % (expected_status_code, scoring_response.status_code, scoring_response.text)
             )
 
             if enable_mlserver:
@@ -491,6 +493,6 @@ def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enabl
 
             scoring_response_dict = json.loads(scoring_response.content)
             assert "error_code" in scoring_response_dict
-            assert scoring_response_dict["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
+            assert scoring_response_dict["error_code"] == ErrorCode.Name(BAD_REQUEST)
             assert "message" in scoring_response_dict
             assert "stack_trace" in scoring_response_dict
