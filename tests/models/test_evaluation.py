@@ -1,6 +1,8 @@
 import mlflow
 
-from mlflow.models.evaluation import evaluate, EvaluationDataset, EvaluationResult
+from mlflow.models.evaluation import \
+    evaluate, EvaluationDataset, EvaluationResult, ModelEvaluator, EvaluationArtifact, \
+    EvaluationMetrics
 import sklearn
 import os
 import sklearn.datasets
@@ -11,6 +13,7 @@ import pandas as pd
 from unittest import mock
 from mlflow.utils.file_utils import TempDir
 from mlflow_test_plugin.dummy_evaluator import Array2DEvaluationArtifact
+from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
 
 from sklearn.metrics import (
     accuracy_score,
@@ -55,19 +58,29 @@ def spark_session():
 
 
 @pytest.fixture(scope="module")
-def regressor_model():
+def regressor_model_uri():
     X, y = get_diabetes_dataset()
     reg = sklearn.linear_model.LinearRegression()
     reg.fit(X, y)
-    return reg
+
+    with mlflow.start_run() as run:
+        mlflow.sklearn.log_model(reg, "reg_model")
+        regressor_model_uri = get_artifact_uri(run.info.run_id, "reg_model")
+
+    return regressor_model_uri
 
 
 @pytest.fixture(scope="module")
-def classifier_model():
+def classifier_model_uri():
     X, y = get_iris()
     clf = sklearn.linear_model.LogisticRegression()
     clf.fit(X, y)
-    return clf
+
+    with mlflow.start_run() as run:
+        mlflow.sklearn.log_model(clf, "clf_model")
+        classifier_model_uri = get_artifact_uri(run.info.run_id, "clf_model")
+
+    return classifier_model_uri
 
 
 @pytest.fixture(scope="module")
@@ -86,11 +99,7 @@ def iris_pandas_df_dataset():
     return EvaluationDataset(data=data, labels=labels, name="iris_pandas_df_dataset")
 
 
-def test_classifier_evaluate(classifier_model, iris_dataset):
-    with mlflow.start_run() as run:
-        mlflow.sklearn.log_model(classifier_model, "clf_model")
-        classifier_model_uri = get_artifact_uri(run.info.run_id, "clf_model")
-
+def test_classifier_evaluate(classifier_model_uri, iris_dataset):
     y_true = iris_dataset.labels
     classifier_model = mlflow.pyfunc.load_model(classifier_model_uri)
     y_pred = classifier_model.predict(iris_dataset.data)
@@ -160,11 +169,7 @@ def test_classifier_evaluate(classifier_model, iris_dataset):
         )
 
 
-def test_regressor_evaluate(regressor_model, iris_dataset):
-    with mlflow.start_run() as run:
-        mlflow.sklearn.log_model(regressor_model, "reg_model")
-        regressor_model_uri = get_artifact_uri(run.info.run_id, "reg_model")
-
+def test_regressor_evaluate(regressor_model_uri, iris_dataset):
     y_true = iris_dataset.labels
     regressor_model = mlflow.pyfunc.load_model(regressor_model_uri)
     y_pred = regressor_model.predict(iris_dataset.data)
@@ -250,3 +255,66 @@ def test_log_dataset_tag(iris_dataset, iris_pandas_df_dataset):
             iris_dataset._metadata,
             iris_pandas_df_dataset._metadata,
         ]
+
+
+class TestEvauator1(ModelEvaluator):
+    pass
+
+
+class TestEvauator2(ModelEvaluator):
+    pass
+
+
+class TestArtifact1(EvaluationArtifact):
+    pass
+
+
+class TestArtifact2(EvaluationArtifact):
+    pass
+
+
+def test_evaluator_interface(classifier_model_uri, iris_dataset):
+
+    with mock.patch.object(
+            _model_evaluation_registry,
+            '_registry', {'test_evaluator1': TestEvauator1, 'test_evaluator2': TestEvauator2}
+    ):
+        with mlflow.start_run() as run:
+            mlflow.sklearn.log_model(classifier_model_uri, "clf_model")
+            classifier_model_uri = get_artifact_uri(run.info.run_id, "clf_model")
+
+        evaluator1_config = {'eval1_confg_a': 3, 'eval1_confg_b': 4}
+        evaluator1_return_value = EvaluationResult(
+            metrics=EvaluationMetrics({'m1': 5, 'm2': 6}),
+            artifacts={'a1': TestArtifact1(), 'a2': TestArtifact2()}
+        )
+        with mock.patch.object(
+            TestEvauator1, 'can_evaluate', return_value=False
+        ) as mock_can_evaluate, mock.patch.object(
+            TestEvauator1, 'evaluate', return_value=evaluator1_return_value
+        ) as mock_evaluate:
+            with mlflow.start_run() as run:
+                evaluate(
+                    classifier_model_uri, 'classifier', iris_dataset,
+                    run_id=None, evaluators='test_evaluator1', evaluator_config=evaluator1_config)
+                mock_can_evaluate.assert_called_once_with('classifier', evaluator1_config)
+                mock_evaluate.assert_not_called()
+        with mock.patch.object(
+            TestEvauator1, 'can_evaluate', return_value=True
+        ) as mock_can_evaluate, mock.patch.object(
+            TestEvauator1, 'evaluate'
+        ) as mock_evaluate:
+            classifier_model = mlflow.pyfunc.load_model(classifier_model_uri)
+            with mlflow.start_run() as run:
+                eval1_result = evaluate(
+                    classifier_model, 'classifier', iris_dataset,
+                    run_id=None, evaluators='test_evaluator1', evaluator_config=evaluator1_config)
+                mock_can_evaluate.assert_called_once_with('classifier', evaluator1_config)
+                mock_evaluate.assert_called_once_with(
+                    classifier_model, 'classifier', iris_dataset, run.info.run_id,
+                    evaluator1_config
+                )
+                assert eval1_result.metrics == evaluator1_return_value.metrics
+                assert eval1_result.artifacts == evaluator1_return_value.artifacts
+
+
