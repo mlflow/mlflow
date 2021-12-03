@@ -539,9 +539,7 @@ def evaluate(
 
         eval_results = []
         for evaluator_name in evaluators:
-            config = evaluator_config.get(evaluator_name)
-            if config is None:
-                config = {}
+            config = evaluator_config.get(evaluator_name) or {}
             try:
                 evaluator = _model_evaluation_registry.get_evaluator(evaluator_name)
             except MlflowException:
