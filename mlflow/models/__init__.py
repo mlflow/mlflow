@@ -37,8 +37,8 @@ __all__ = [
 # Under skinny-mlflow requirements, the following packages cannot be imported
 # because of lack of numpy/pandas library, so wrap them with try...except block
 try:
-    from .signature import ModelSignature, infer_signature
-    from .utils import ModelInputExample
+    from .signature import ModelSignature, infer_signature  # pylint: disable=unused-import
+    from .utils import ModelInputExample  # pylint: disable=unused-import
 
     __all__ += [
         "ModelSignature",

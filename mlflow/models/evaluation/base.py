@@ -6,7 +6,7 @@ import os
 from contextlib import contextmanager
 from mlflow.exceptions import MlflowException
 from mlflow.utils.file_utils import TempDir
-from mlflow.entities import Metric, RunTag
+from mlflow.entities import RunTag
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.class_utils import _get_class_from_string

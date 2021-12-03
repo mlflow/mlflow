@@ -4,13 +4,11 @@ from mlflow.models.evaluation import (
     EvaluationMetrics,
     EvaluationArtifact,
     EvaluationResult,
-    EvaluationDataset,
 )
 from mlflow.tracking.artifact_utils import get_artifact_uri
-from mlflow.entities import Metric, RunTag
+from mlflow.entities import Metric
 from sklearn import metrics as sk_metrics
 import time
-import numpy as np
 import pandas as pd
 import io
 

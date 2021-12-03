@@ -282,19 +282,35 @@ def test_log_dataset_tag(iris_dataset, iris_pandas_df_dataset):
 
 
 class FakeEvauator1(ModelEvaluator):
-    pass
+    def can_evaluate(self, model_type, evaluator_config=None, **kwargs):
+        raise RuntimeError()
+
+    def evaluate(self, model, model_type, dataset, run_id, evaluator_config, **kwargs):
+        raise RuntimeError()
 
 
 class FakeEvauator2(ModelEvaluator):
-    pass
+    def can_evaluate(self, model_type, evaluator_config=None, **kwargs):
+        raise RuntimeError()
+
+    def evaluate(self, model, model_type, dataset, run_id, evaluator_config, **kwargs):
+        raise RuntimeError()
 
 
 class FakeArtifact1(EvaluationArtifact):
-    pass
+    def save(self, output_artifact_path):
+        raise RuntimeError()
+
+    def _load_content_from_file(self, local_artifact_path):
+        raise RuntimeError()
 
 
 class FakeArtifact2(EvaluationArtifact):
-    pass
+    def save(self, output_artifact_path):
+        raise RuntimeError()
+
+    def _load_content_from_file(self, local_artifact_path):
+        raise RuntimeError()
 
 
 def test_evaluator_interface(classifier_model_uri, iris_dataset):
