@@ -10,10 +10,12 @@
 
 ## Automation
 
-| File                        | Role                                                        |
-| :-------------------------- | :---------------------------------------------------------- |
-| `labeling.yml`              | Automatically apply labels on issues and PRs                |
-| `notify-dco-failure.yml`    | Notify a DCO check failure                                  |
-| `notify-dco-failure.js`     | The main script of the `notify-dco-failure.yml` workflow    |
-| `release-note-category.yml` | Validate a release-note category label is applied on a PR   |
-| `release-note-category.js`  | The main script of the `release-note-category.yml` workflow |
+| File                        | Role                                                           |
+| :-------------------------- | :------------------------------------------------------------- |
+| `autoformat.yml`            | Apply autoformatting when a PR is commented with `autoformat`  |
+| `autoformat.js`             | Define utility functions used in the `autoformat.yml` workflow |
+| `labeling.yml`              | Automatically apply labels on issues and PRs                   |
+| `notify-dco-failure.yml`    | Notify a DCO check failure                                     |
+| `notify-dco-failure.js`     | The main script of the `notify-dco-failure.yml` workflow       |
+| `release-note-category.yml` | Validate a release-note category label is applied on a PR      |
+| `release-note-category.js`  | The main script of the `release-note-category.yml` workflow    |
