@@ -216,7 +216,7 @@ def test_attempting_to_deploy_in_asynchronous_mode_without_archiving_throws_exce
 
 @pytest.mark.large
 @mock_sagemaker_aws_services
-def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names_from_local(
+def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names_and_env_from_local(
     pretrained_model, sagemaker_client
 ):
     app_name = "test-app"
@@ -245,11 +245,18 @@ def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names_from_loca
     assert app_name in [
         endpoint["EndpointName"] for endpoint in sagemaker_client.list_endpoints()["Endpoints"]
     ]
+    model_environment = sagemaker_client.describe_model(ModelName=model_name)["PrimaryContainer"][
+        "Environment"
+    ]
+    assert model_environment == {
+        "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
+        "SERVING_ENVIRONMENT": "SageMaker",
+    }
 
 
 @pytest.mark.large
 @mock_sagemaker_aws_services
-def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_from_local(
+def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_env_from_local(
     pretrained_model, sagemaker_client
 ):
     app_name = "test-app"
@@ -288,11 +295,18 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_from_
     assert app_name in [
         endpoint["EndpointName"] for endpoint in sagemaker_client.list_endpoints()["Endpoints"]
     ]
+    model_environment = sagemaker_client.describe_model(ModelName=model_name)["PrimaryContainer"][
+        "Environment"
+    ]
+    assert model_environment == {
+        "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
+        "SERVING_ENVIRONMENT": "SageMaker",
+    }
 
 
 @pytest.mark.large
 @mock_sagemaker_aws_services
-def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names_from_s3(
+def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names_and_env_from_s3(
     pretrained_model, sagemaker_client
 ):
     local_model_path = _download_artifact_from_uri(pretrained_model.model_uri)
@@ -328,11 +342,18 @@ def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names_from_s3(
     assert app_name in [
         endpoint["EndpointName"] for endpoint in sagemaker_client.list_endpoints()["Endpoints"]
     ]
+    model_environment = sagemaker_client.describe_model(ModelName=model_name)["PrimaryContainer"][
+        "Environment"
+    ]
+    assert model_environment == {
+        "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
+        "SERVING_ENVIRONMENT": "SageMaker",
+    }
 
 
 @pytest.mark.large
 @mock_sagemaker_aws_services
-def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_from_s3(
+def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_env_from_s3(
     pretrained_model, sagemaker_client
 ):
     local_model_path = _download_artifact_from_uri(pretrained_model.model_uri)
@@ -373,6 +394,13 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_from_
     assert app_name in [
         endpoint["EndpointName"] for endpoint in sagemaker_client.list_endpoints()["Endpoints"]
     ]
+    model_environment = sagemaker_client.describe_model(ModelName=model_name)["PrimaryContainer"][
+        "Environment"
+    ]
+    assert model_environment == {
+        "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
+        "SERVING_ENVIRONMENT": "SageMaker",
+    }
 
 
 @pytest.mark.large
