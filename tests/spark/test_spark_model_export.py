@@ -652,17 +652,6 @@ def test_spark_module_model_save_with_mleap_and_unsupported_transformer_raises_e
         )
 
 
-@pytest.mark.large
-def test_mleap_module_model_save_with_invalid_sample_input_type_raises_exception(
-    spark_model_iris, model_path
-):
-    with pytest.raises(Exception, match="must be a PySpark dataframe"):
-        invalid_input = pd.DataFrame()
-        sparkm.save_model(
-            spark_model=spark_model_iris.model, path=model_path, sample_input=invalid_input
-        )
-
-
 def test_shutil_copytree_without_file_permissions(tmpdir):
     src_dir = tmpdir.mkdir("src-dir")
     dst_dir = tmpdir.mkdir("dst-dir")

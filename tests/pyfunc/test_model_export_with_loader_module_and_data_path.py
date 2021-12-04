@@ -405,7 +405,9 @@ def test_tensor_multi_named_schema_enforcement():
         np.array([[0, 0], [1, 1]], dtype=np.short),
         np.array([[[0, 0]]], dtype=np.float32),
     ]
-    with pytest.raises(MlflowException, match="Model is missing inputs ['a', 'b', 'c']."):
+    with pytest.raises(
+        MlflowException, match=re.escape("Model is missing inputs ['a', 'b', 'c'].")
+    ):
         pyfunc_model.predict(inp6)
 
     # test empty ndarray does not work
