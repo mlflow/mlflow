@@ -176,10 +176,7 @@ def test_spark_udf_autofills_no_arguments(spark):
         udf = mlflow.pyfunc.spark_udf(
             spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
         )
-        # pylint: disable=pytest-raises-without-match
-        with pytest.raises(
-            pyspark.sql.utils.PythonException  # pylint: disable=pytest-raises-without-match
-        ):
+        with pytest.raises(pyspark.sql.utils.PythonException, match=r".+"):
             res = good_data.withColumn("res", udf()).select("res").toPandas()
 
 
@@ -202,8 +199,7 @@ def test_spark_udf_autofills_column_names_with_schema(spark):
                 columns=["a", "b", "c", "d"], data={"a": [1], "b": [2], "c": [3], "d": [4]}
             )
         )
-        # pylint: disable=pytest-raises-without-match
-        with pytest.raises(pyspark.sql.utils.PythonException):
+        with pytest.raises(pyspark.sql.utils.PythonException, match=r".+"):
             res = data.withColumn("res1", udf("a", "b")).select("res1").toPandas()
 
         res = data.withColumn("res2", udf("a", "b", "c")).select("res2").toPandas()
