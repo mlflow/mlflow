@@ -7,6 +7,7 @@ import os
 import pytest
 
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.rest_store import RestStore
@@ -192,9 +193,8 @@ def test_get_store_databricks_profile():
     with mock.patch.dict(os.environ, env):
         store = _get_store()
         assert isinstance(store, RestStore)
-        with pytest.raises(Exception) as e_info:
+        with pytest.raises(MlflowException, match="mycoolprofile"):
             store.get_host_creds()
-        assert "mycoolprofile" in str(e_info.value)
 
 
 def test_get_store_caches_on_store_uri_and_artifact_uri(tmpdir):
@@ -323,7 +323,10 @@ def test_get_store_for_unregistered_scheme():
 
     tracking_store = TrackingStoreRegistry()
 
-    with pytest.raises(UnsupportedModelRegistryStoreURIException):
+    with pytest.raises(
+        UnsupportedModelRegistryStoreURIException,
+        match="Model registry functionality is unavailable",
+    ):
         tracking_store.get_store("unknown-scheme://")
 
 

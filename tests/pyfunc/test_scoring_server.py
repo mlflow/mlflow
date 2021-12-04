@@ -506,20 +506,14 @@ def test_infer_and_parse_json_input():
     assert (result == np.array(arr)).all()
 
     # input is unrecognized JSON input
-    with pytest.raises(MlflowException) as ex:
+    match = "Failed to parse input from JSON. Ensure that input is a valid JSON list or dictionary."
+    with pytest.raises(MlflowException, match=match):
         pyfunc_scoring_server.infer_and_parse_json_input(json.dumps('"just a string"'))
-    assert (
-        "Failed to parse input from JSON. Ensure that input is a valid JSON"
-        " list or dictionary." in str(ex)
-    )
 
     # input is not json str
-    with pytest.raises(MlflowException) as ex:
+    match = "Failed to parse input from JSON. Ensure that input is a valid JSON formatted string."
+    with pytest.raises(MlflowException, match=match):
         pyfunc_scoring_server.infer_and_parse_json_input("(not a json string)")
-    assert (
-        "Failed to parse input from JSON. Ensure that input is a valid JSON"
-        " formatted string." in str(ex)
-    )
 
 
 @pytest.mark.large

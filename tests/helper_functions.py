@@ -445,3 +445,11 @@ def mock_method_chain(mock_obj, methods, return_value=None, side_effect=None):
 def multi_context(*cms):
     with ExitStack() as stack:
         yield list(map(stack.enter_context, cms))
+
+
+class StartsWithMatcher:
+    def __init__(self, prefix):
+        self.prefix = prefix
+
+    def __eq__(self, other):
+        return isinstance(other, str) and other.startswith(self.prefix)

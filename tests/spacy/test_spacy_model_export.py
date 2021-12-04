@@ -136,7 +136,7 @@ def test_predict_df_with_wrong_shape(spacy_model_with_data, model_path):
 
     # Concatenating with itself to duplicate column and mess up input shape
     # then asserting n MlflowException is raised
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="Shape of input dataframe must be"):
         pyfunc_loaded.predict(
             pd.concat(
                 [spacy_model_with_data.inference_data, spacy_model_with_data.inference_data], axis=1

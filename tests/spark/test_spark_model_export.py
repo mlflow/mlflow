@@ -259,11 +259,10 @@ def test_estimator_model_export(spark_model_estimator, model_path, spark_custom_
 
 @pytest.mark.large
 def test_transformer_model_export(spark_model_transformer, model_path, spark_custom_env):
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(MlflowException, match="Cannot serialize this model"):
         sparkm.save_model(
             spark_model_transformer.model, path=model_path, conda_env=spark_custom_env
         )
-    assert "Cannot serialize this model" in e.value.message
 
 
 @pytest.mark.large
@@ -378,9 +377,8 @@ def test_sparkml_estimator_model_log(
 @pytest.mark.large
 def test_sparkml_model_log_invalid_args(spark_model_transformer, model_path):
     # pylint: disable=unused-argument
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(MlflowException, match="Cannot serialize this model"):
         sparkm.log_model(spark_model=spark_model_transformer.model, artifact_path="model0")
-    assert "Cannot serialize this model" in e.value.message
 
 
 @pytest.mark.large
@@ -648,7 +646,7 @@ def test_spark_module_model_save_with_mleap_and_unsupported_transformer_raises_e
     unsupported_pipeline = Pipeline(stages=[CustomTransformer()])
     unsupported_model = unsupported_pipeline.fit(spark_model_iris.spark_df)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="CustomTransformer"):
         sparkm.save_model(
             spark_model=unsupported_model, path=model_path, sample_input=spark_model_iris.spark_df
         )
@@ -658,7 +656,7 @@ def test_spark_module_model_save_with_mleap_and_unsupported_transformer_raises_e
 def test_mleap_module_model_save_with_invalid_sample_input_type_raises_exception(
     spark_model_iris, model_path
 ):
-    with pytest.raises(Exception):
+    with pytest.raises(Exception, match="must be a PySpark dataframe"):
         invalid_input = pd.DataFrame()
         sparkm.save_model(
             spark_model=spark_model_iris.model, path=model_path, sample_input=invalid_input

@@ -911,9 +911,9 @@ def test_get_instance_method_first_arg_value():
     assert 3 == get_instance_method_first_arg_value(Test.f1, [3], {"cd2": 4})
     assert 3 == get_instance_method_first_arg_value(Test.f1, [], {"ab1": 3, "cd2": 4})
     assert 3 == get_instance_method_first_arg_value(Test.f2, [3, 4], {})
-    with pytest.raises(AssertionError):
+    with pytest.raises(AssertionError):  # pylint: disable=pytest-raises-without-match
         get_instance_method_first_arg_value(Test.f3, [], {"ab1": 3, "cd2": 4})
-    with pytest.raises(AssertionError):
+    with pytest.raises(AssertionError):  # pylint: disable=pytest-raises-without-match
         get_instance_method_first_arg_value(Test.f4, [], {"ab1": 3, "cd2": 4})
 
 

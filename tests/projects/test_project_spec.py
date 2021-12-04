@@ -35,7 +35,7 @@ def test_project_get_unspecified_entry_point():
     assert entry_point.name == "my_script.sh"
     assert entry_point.command == "%s my_script.sh" % os.environ.get("SHELL", "bash")
     assert entry_point.parameters == {}
-    with pytest.raises(ExecutionException):
+    with pytest.raises(ExecutionException, match="Could not find my_program.scala"):
         project.get_entry_point("my_program.scala")
 
 
@@ -111,6 +111,6 @@ def test_load_docker_project(tmpdir):
 )
 def test_load_invalid_project(tmpdir, invalid_project_contents, expected_error_msg):
     tmpdir.join("MLproject").write(invalid_project_contents)
-    with pytest.raises(ExecutionException) as e:
+    with pytest.raises(ExecutionException, match=expected_error_msg) as e:
         _project_spec.load_project(tmpdir.strpath)
     assert expected_error_msg in str(e.value)

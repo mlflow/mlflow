@@ -335,12 +335,12 @@ def test_delete_tag(mlflow_client, backend_store_uri):
     mlflow_client.delete_tag(run_id, "taggity")
     run = mlflow_client.get_run(run_id)
     assert "taggity" not in run.data.tags
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match=r"Run .+ not found"):
         mlflow_client.delete_tag("fake_run_id", "taggity")
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="No tag with name: fakeTag"):
         mlflow_client.delete_tag(run_id, "fakeTag")
     mlflow_client.delete_run(run_id)
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match=f"The run {run_id} must be in"):
         mlflow_client.delete_tag(run_id, "taggity")
 
 

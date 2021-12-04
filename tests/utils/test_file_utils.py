@@ -86,7 +86,7 @@ def test_mkdir(tmpdir):
     file_utils.mkdir(temp_dir, new_dir_name)
     assert os.listdir(temp_dir) == [new_dir_name]
 
-    with pytest.raises(OSError):
+    with pytest.raises(OSError, match="bad directory"):
         file_utils.mkdir("/   bad directory @ name ", "ouch")
 
     # does not raise if directory exists already
@@ -95,7 +95,7 @@ def test_mkdir(tmpdir):
     # raises if it exists already but is a file
     dummy_file_path = str(tmpdir.join("dummy_file"))
     open(dummy_file_path, "a").close()
-    with pytest.raises(OSError):
+    with pytest.raises(OSError, match="exists"):
         file_utils.mkdir(dummy_file_path)
 
 
