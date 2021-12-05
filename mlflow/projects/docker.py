@@ -1,5 +1,6 @@
 import logging
 import os
+import stat
 import posixpath
 import shutil
 import tempfile
@@ -99,24 +100,28 @@ def _get_docker_image_uri(repository_uri, work_dir):
     return repository_uri + version_string
 
 
-def onerror(func, path, exc_info):
+def handle_readonly(func, path, exc_info):
     """
-    Error handler for ``shutil.rmtree``.
+    Clear the readonly bit and reattempt the removal.
 
-    If the error is due to an access error (read only file)
-    it attempts to add write permission and then retries.
-
-    If the error is for another reason it re-raises the error.
-
-    Usage : ``shutil.rmtree(path, onerror=onerror)``
+    References:
+    - https://bugs.python.org/issue19643
+    - https://bugs.python.org/issue43657
     """
-    import stat
-    if not os.access(path, os.W_OK):
-        # Is the error an access error ?
-        os.chmod(path, stat.S_IWUSR)
-        func(path)
-    else:
-        raise
+    exc_class, exc_instance = exc_info[:2]
+    should_reattempt = (
+        func in (os.unlink, os.rmdir)
+        and issubclass(exc_class, PermissionError)
+        and (
+            (os.name == "nt" and exc_instance.winerror == 5)
+            or (os.name != "nt" and exc_instance.errno == 13)
+        )
+    )
+    if not should_reattempt:
+        raise exc_instance
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
 
 def _create_docker_build_ctx(work_dir, dockerfile_contents):
     """
@@ -133,7 +138,7 @@ def _create_docker_build_ctx(work_dir, dockerfile_contents):
             output_filename=result_path, source_dir=dst_path, archive_name=_PROJECT_TAR_ARCHIVE_NAME
         )
     finally:
-        shutil.rmtree(directory, onerror=onerror)
+        shutil.rmtree(directory, onerror=handle_readonly)
     return result_path
 
 
