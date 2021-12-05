@@ -130,7 +130,7 @@ def test_input_examples(pandas_df_with_all_types, dict_of_ndarrays):
 
     # pass multidimensional array as a list
     example = np.array([[1, 2, 3]])
-    with pytest.raises(TensorsNotSupportedException):
+    with pytest.raises(TensorsNotSupportedException, match=r"Row '0' has shape \(1, 3\)"):
         _Example([example, example])
 
     # pass dict with scalars

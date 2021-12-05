@@ -7,6 +7,7 @@ import random
 import tempfile
 import time
 import yaml
+import re
 
 import pytest
 from unittest import mock
@@ -32,13 +33,10 @@ MockExperiment = namedtuple("MockExperiment", ["experiment_id", "lifecycle_stage
 
 
 def test_create_experiment():
-    with pytest.raises(TypeError):
-        mlflow.create_experiment()  # pylint: disable=no-value-for-parameter
-
-    with pytest.raises(Exception):
+    with pytest.raises(MlflowException, match="Invalid experiment name"):
         mlflow.create_experiment(None)
 
-    with pytest.raises(Exception):
+    with pytest.raises(MlflowException, match="Invalid experiment name"):
         mlflow.create_experiment("")
 
     exp_id = mlflow.create_experiment("Some random experiment name %d" % random.randint(1, 1e6))
@@ -49,31 +47,30 @@ def test_create_experiment_with_duplicate_name():
     name = "popular_name"
     exp_id = mlflow.create_experiment(name)
 
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match=re.escape(f"Experiment(name={name}) already exists")):
         mlflow.create_experiment(name)
 
     tracking.MlflowClient().delete_experiment(exp_id)
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match=re.escape(f"Experiment(name={name}) already exists")):
         mlflow.create_experiment(name)
 
 
 def test_create_experiments_with_bad_names():
     # None for name
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(MlflowException, match="Invalid experiment name: 'None'"):
         mlflow.create_experiment(None)
-        assert e.message.contains("Invalid experiment name: 'None'")
 
     # empty string name
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(MlflowException, match="Invalid experiment name: ''"):
         mlflow.create_experiment("")
-        assert e.message.contains("Invalid experiment name: ''")
 
 
 @pytest.mark.parametrize("name", [123, 0, -1.2, [], ["A"], {1: 2}])
 def test_create_experiments_with_bad_name_types(name):
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(
+        MlflowException, match=re.escape(f"Invalid experiment name: {name}. Expects a string.")
+    ):
         mlflow.create_experiment(name)
-        assert e.message.contains("Invalid experiment name: %s. Expects a string." % name)
 
 
 @pytest.mark.usefixtures("reset_active_experiment")
@@ -101,7 +98,7 @@ def test_set_experiment_by_id():
         assert run.info.experiment_id == exp_id
 
     nonexistent_id = "-1337"
-    with pytest.raises(MlflowException) as exc:
+    with pytest.raises(MlflowException, match="No Experiment with id=-1337 exists") as exc:
         mlflow.set_experiment(experiment_id=nonexistent_id)
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
     with start_run() as run:
@@ -255,7 +252,7 @@ def test_start_run_context_manager():
     assert finished_run.info.status == RunStatus.to_string(RunStatus.FINISHED)
     # Launch a separate run that fails, verify the run status is FAILED and the run UUID is
     # different
-    with pytest.raises(Exception):
+    with pytest.raises(Exception, match="Failing run!"):
         with start_run() as second_run:
             second_run_id = second_run.info.run_id
             raise Exception("Failing run!")
@@ -453,7 +450,7 @@ def test_set_tags():
 def test_log_metric_validation():
     with start_run() as active_run:
         run_id = active_run.info.run_id
-        with pytest.raises(MlflowException) as e:
+        with pytest.raises(MlflowException, match="Got invalid value apple for metric") as e:
             mlflow.log_metric("name_1", "apple")
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     finished_run = tracking.MlflowClient().get_run(run_id)
@@ -509,28 +506,33 @@ def test_log_batch_duplicate_entries_raises():
 
 
 def test_log_batch_validates_entity_names_and_values():
-    bad_kwargs = {
-        "metrics": [
-            [Metric(key="../bad/metric/name", value=0.3, timestamp=3, step=0)],
-            [Metric(key="ok-name", value="non-numerical-value", timestamp=3, step=0)],
-            [Metric(key="ok-name", value=0.3, timestamp="non-numerical-timestamp", step=0)],
-        ],
-        "params": [[Param(key="../bad/param/name", value="my-val")]],
-        "tags": [[Param(key="../bad/tag/name", value="my-val")]],
-    }
     with start_run() as active_run:
-        for kwarg, bad_values in bad_kwargs.items():
-            for bad_kwarg_value in bad_values:
-                final_kwargs = {
-                    "run_id": active_run.info.run_id,
-                    "metrics": [],
-                    "params": [],
-                    "tags": [],
-                }
-                final_kwargs[kwarg] = bad_kwarg_value
-                with pytest.raises(MlflowException) as e:
-                    tracking.MlflowClient().log_batch(**final_kwargs)
-                assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        run_id = active_run.info.run_id
+
+        metrics = [Metric(key="../bad/metric/name", value=0.3, timestamp=3, step=0)]
+        with pytest.raises(MlflowException, match="Invalid metric name") as e:
+            tracking.MlflowClient().log_batch(run_id, metrics=metrics)
+        assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+        metrics = [Metric(key="ok-name", value="non-numerical-value", timestamp=3, step=0)]
+        with pytest.raises(MlflowException, match="Got invalid value") as e:
+            tracking.MlflowClient().log_batch(run_id, metrics=metrics)
+        assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+        metrics = [Metric(key="ok-name", value=0.3, timestamp="non-numerical-timestamp", step=0)]
+        with pytest.raises(MlflowException, match="Got invalid timestamp") as e:
+            tracking.MlflowClient().log_batch(run_id, metrics=metrics)
+        assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+        params = [Param(key="../bad/param/name", value="my-val")]
+        with pytest.raises(MlflowException, match="Invalid parameter name") as e:
+            tracking.MlflowClient().log_batch(run_id, params=params)
+        assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+        tags = [Param(key="../bad/tag/name", value="my-val")]
+        with pytest.raises(MlflowException, match="Invalid tag name") as e:
+            tracking.MlflowClient().log_batch(run_id, tags=tags)
+        assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
 def test_log_artifact_with_dirs(tmpdir):

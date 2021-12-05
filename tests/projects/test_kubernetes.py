@@ -232,7 +232,10 @@ def test_push_image_to_registry():
 
 def test_push_image_to_registry_handling_errors():
     image_uri = "dockerhub_account/mlflow-kubernetes-example"
-    with pytest.raises(ExecutionException):
+    with pytest.raises(
+        ExecutionException,
+        match="Error while pushing to docker registry: An image does not exist locally",
+    ):
         kb.push_image_to_registry(image_uri)
 
 

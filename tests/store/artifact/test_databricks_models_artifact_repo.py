@@ -77,7 +77,10 @@ class TestDatabricksModelArtifactRepository(object):
         ],
     )
     def test_init_with_invalid_artifact_uris(self, invalid_artifact_uri):
-        with pytest.raises(MlflowException):
+        with pytest.raises(
+            MlflowException,
+            match="A valid databricks profile is required to instantiate this repository",
+        ):
             DatabricksModelsArtifactRepository(invalid_artifact_uri)
 
     def test_init_with_version_uri_and_profile_is_inferred(self):
@@ -132,7 +135,10 @@ class TestDatabricksModelArtifactRepository(object):
             "mlflow.store.artifact.utils.models.mlflow.get_registry_uri",
             return_value=None,
         ):
-            with pytest.raises(MlflowException):
+            with pytest.raises(
+                MlflowException,
+                match="A valid databricks profile is required to instantiate this repository",
+            ):
                 DatabricksModelsArtifactRepository(valid_profileless_artifact_uri)
 
     def test_list_artifacts(self, databricks_model_artifact_repo):
@@ -207,17 +213,24 @@ class TestDatabricksModelArtifactRepository(object):
             DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._call_endpoint"
         ) as call_endpoint_mock:
             call_endpoint_mock.side_effect = MlflowException("MOCK ERROR")
-            with pytest.raises(MlflowException):
+            with pytest.raises(MlflowException, match=r".+"):
                 databricks_model_artifact_repo.download_artifacts("Something")
 
     def test_log_artifact_fail(self, databricks_model_artifact_repo):
-        with pytest.raises(MlflowException):
+        with pytest.raises(
+            MlflowException, match="This repository does not support logging artifacts"
+        ):
             databricks_model_artifact_repo.log_artifact("Some file")
 
     def test_log_artifacts_fail(self, databricks_model_artifact_repo):
-        with pytest.raises(MlflowException):
+        with pytest.raises(
+            MlflowException, match="This repository does not support logging artifacts"
+        ):
             databricks_model_artifact_repo.log_artifacts("Some dir")
 
     def test_delete_artifacts_fail(self, databricks_model_artifact_repo):
-        with pytest.raises(NotImplementedError):
+        with pytest.raises(
+            NotImplementedError,
+            match="This artifact repository does not support deleting artifacts",
+        ):
             databricks_model_artifact_repo.delete_artifacts()

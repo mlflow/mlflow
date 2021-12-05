@@ -4,19 +4,22 @@ from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 
 from mlflow.protos.service_pb2 import RunInfo as ProtoRunInfo
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 
 def check_run_is_active(run_info):
     if run_info.lifecycle_stage != LifecycleStage.ACTIVE:
         raise MlflowException(
-            "The run {} must be in 'active' lifecycle_stage.".format(run_info.run_id)
+            "The run {} must be in 'active' lifecycle_stage.".format(run_info.run_id),
+            error_code=INVALID_PARAMETER_VALUE,
         )
 
 
 def check_run_is_deleted(run_info):
     if run_info.lifecycle_stage != LifecycleStage.DELETED:
         raise MlflowException(
-            "The run {} must be in 'deleted' lifecycle_stage.".format(run_info.run_id)
+            "The run {} must be in 'deleted' lifecycle_stage.".format(run_info.run_id),
+            error_code=INVALID_PARAMETER_VALUE,
         )
 
 

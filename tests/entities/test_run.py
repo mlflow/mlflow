@@ -95,6 +95,6 @@ class TestRun(TestRunInfo, TestRunData):
 
     def test_creating_run_with_absent_info_throws_exception(self):
         run_data = TestRunData._create()[0]
-        with pytest.raises(MlflowException) as no_info_exc:
+        with pytest.raises(MlflowException, match="run_info cannot be None") as no_info_exc:
             Run(None, run_data)
         assert "run_info cannot be None" in str(no_info_exc)
