@@ -22,8 +22,8 @@ import yaml
 import json
 import tempfile
 import shutil
-import inspect
 import logging
+import functools
 from copy import deepcopy
 
 import mlflow
@@ -33,14 +33,25 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
+from mlflow.utils.environment import (
+    _mlflow_conda_env,
+    _validate_env_arguments,
+    _process_pip_requirements,
+    _process_conda_env,
+    _CONDA_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
+)
+from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.file_utils import write_to
+from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
-from mlflow.utils.annotations import experimental
+from mlflow.utils.arguments_utils import _get_arg_names
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
-    exception_safe_function,
+    picklable_exception_safe_function,
     get_mlflow_run_params_for_fn_args,
     INPUT_EXAMPLE_SAMPLE_ROWS,
     resolve_input_example_and_signature,
@@ -62,9 +73,7 @@ def get_default_pip_requirements():
              Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
              that, at minimum, contains these requirements.
     """
-    import lightgbm as lgb
-
-    return ["lightgbm=={}".format(lgb.__version__)]
+    return [_get_pinned_requirement("lightgbm")]
 
 
 def get_default_conda_env():
@@ -75,6 +84,7 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     lgb_model,
     path,
@@ -82,6 +92,8 @@ def save_model(
     mlflow_model=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
+    pip_requirements=None,
+    extra_pip_requirements=None,
 ):
     """
     Save a LightGBM model to a path on the local file system.
@@ -89,28 +101,10 @@ def save_model(
     :param lgb_model: LightGBM model (an instance of `lightgbm.Booster`_) to be saved.
                       Note that models that implement the `scikit-learn API`_  are not supported.
     :param path: Local path where the model is to be saved.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this describes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If ``None``, the default
-                      :func:`get_default_conda_env()` environment is added to the model.
-                      The following is an *example* dictionary representation of a Conda
-                      environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.7.0',
-                                'pip': [
-                                    'lightgbm==2.3.0'
-                                ]
-                            ]
-                        }
-
+    :param conda_env: {{ conda_env }}
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
 
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -123,13 +117,17 @@ def save_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
     """
     import lightgbm as lgb
+
+    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     path = os.path.abspath(path)
     if os.path.exists(path):
@@ -147,27 +145,48 @@ def save_model(
     # Save a LightGBM model
     lgb_model.save_model(model_data_path)
 
-    conda_env_subpath = "conda.yaml"
-    if conda_env is None:
-        conda_env = get_default_conda_env()
-    elif not isinstance(conda_env, dict):
-        with open(conda_env, "r") as f:
-            conda_env = yaml.safe_load(f)
-    with open(os.path.join(path, conda_env_subpath), "w") as f:
-        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
-
-    _log_pip_requirements(conda_env, path)
-
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.lightgbm",
         data=model_data_subpath,
-        env=conda_env_subpath,
+        env=_CONDA_ENV_FILE_NAME,
     )
     mlflow_model.add_flavor(FLAVOR_NAME, lgb_version=lgb.__version__, data=model_data_subpath)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
+    if conda_env is None:
+        if pip_requirements is None:
+            default_reqs = get_default_pip_requirements()
+            # To ensure `_load_pyfunc` can successfully load the model during the dependency
+            # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
+            inferred_reqs = mlflow.models.infer_pip_requirements(
+                path,
+                FLAVOR_NAME,
+                fallback=default_reqs,
+            )
+            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+        else:
+            default_reqs = None
+        conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
+            default_reqs,
+            pip_requirements,
+            extra_pip_requirements,
+        )
+    else:
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
 
+    with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
+        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    # Save `constraints.txt` if necessary
+    if pip_constraints:
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
+
+    # Save `requirements.txt`
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
+
+
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     lgb_model,
     artifact_path,
@@ -176,7 +195,9 @@ def log_model(
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-    **kwargs
+    pip_requirements=None,
+    extra_pip_requirements=None,
+    **kwargs,
 ):
     """
     Log a LightGBM model as an MLflow artifact for the current run.
@@ -184,29 +205,12 @@ def log_model(
     :param lgb_model: LightGBM model (an instance of `lightgbm.Booster`_) to be saved.
                       Note that models that implement the `scikit-learn API`_  are not supported.
     :param artifact_path: Run-relative artifact path.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this describes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If ``None``, the default
-                      :func:`get_default_conda_env()` environment is added to the model.
-                      The following is an *example* dictionary representation of a Conda
-                      environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.7.0',
-                                'pip': [
-                                    'lightgbm==2.3.0'
-                                ]
-                            ]
-                        }
-    :param registered_model_name: (Experimental) If given, create a model version under
+    :param conda_env: {{ conda_env }}
+    :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
 
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -219,7 +223,7 @@ def log_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
@@ -227,6 +231,8 @@ def log_model(
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param kwargs: kwargs to pass to `lightgbm.Booster.save_model`_ method.
     """
     Model.log(
@@ -238,7 +244,9 @@ def log_model(
         signature=signature,
         input_example=input_example,
         await_registration_for=await_registration_for,
-        **kwargs
+        pip_requirements=pip_requirements,
+        extra_pip_requirements=extra_pip_requirements,
+        **kwargs,
     )
 
 
@@ -257,7 +265,7 @@ def _load_pyfunc(path):
     return _LGBModelWrapper(_load_model(path))
 
 
-def load_model(model_uri):
+def load_model(model_uri, dst_path=None):
     """
     Load a LightGBM model from a local file or a run.
 
@@ -271,10 +279,13 @@ def load_model(model_uri):
                       For more information about supported URI schemes, see
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
                       artifact-locations>`_.
+    :param dst_path: The local filesystem path to which to download the model artifact.
+                     This directory must already exist. If unspecified, a local output
+                     path will be created.
 
     :return: A LightGBM model (an instance of `lightgbm.Booster`_).
     """
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     lgb_model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model.lgb"))
     return _load_model(path=lgb_model_file_path)
@@ -288,7 +299,15 @@ class _LGBModelWrapper:
         return self.lgb_model.predict(dataframe)
 
 
-@experimental
+def _autolog_callback(env, metrics_logger, eval_results):
+    res = {}
+    for data_name, eval_name, value, _ in env.evaluation_result_list:
+        key = data_name + "-" + eval_name
+        res[key] = value
+    metrics_logger.record_metrics(res, env.iteration)
+    eval_results.append(res)
+
+
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_input_examples=False,
@@ -372,17 +391,11 @@ def autolog(
             """
             Create a callback function that records evaluation results.
             """
-
-            @exception_safe_function
-            def callback(env):
-                res = {}
-                for data_name, eval_name, value, _ in env.evaluation_result_list:
-                    key = data_name + "-" + eval_name
-                    res[key] = value
-                metrics_logger.record_metrics(res, env.iteration)
-                eval_results.append(res)
-
-            return callback
+            return picklable_exception_safe_function(
+                functools.partial(
+                    _autolog_callback, metrics_logger=metrics_logger, eval_results=eval_results
+                )
+            )
 
         def log_feature_importance_plot(features, importance, importance_type):
             """
@@ -448,7 +461,7 @@ def autolog(
 
         param_logging_operations = autologging_client.flush(synchronous=False)
 
-        all_arg_names = inspect.getargspec(original)[0]  # pylint: disable=W1505
+        all_arg_names = _get_arg_names(original)
         num_pos_args = len(args)
 
         # adding a callback that records evaluation results.
@@ -547,7 +560,10 @@ def autolog(
             )
 
             log_model(
-                model, artifact_path="model", signature=signature, input_example=input_example,
+                model,
+                artifact_path="model",
+                signature=signature,
+                input_example=input_example,
             )
 
         param_logging_operations.await_completion()

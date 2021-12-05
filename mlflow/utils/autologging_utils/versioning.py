@@ -5,12 +5,13 @@ import yaml
 from packaging.version import Version, InvalidVersion
 from pkg_resources import resource_filename
 
+import mlflow
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
 
 # A map FLAVOR_NAME -> a tuple of (dependent_module_name, key_in_module_version_info_dict)
 FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY = {
-    "fastai": ("fastai", "fastai-1.x"),
+    "fastai": ("fastai", "fastai"),
     "gluon": ("mxnet", "gluon"),
     "keras": ("keras", "keras"),
     "lightgbm": ("lightgbm", "lightgbm"),
@@ -45,7 +46,7 @@ def _strip_dev_version_suffix(version):
 
 
 def _load_version_file_as_dict():
-    version_file_path = resource_filename(__name__, "../../ml-package-versions.yml")
+    version_file_path = resource_filename(mlflow.__name__, "ml-package-versions.yml")
     with open(version_file_path) as f:
         return yaml.load(f, Loader=yaml.SafeLoader)
 

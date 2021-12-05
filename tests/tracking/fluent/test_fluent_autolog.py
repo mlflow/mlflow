@@ -3,6 +3,7 @@ import sys
 from collections import namedtuple
 from io import StringIO
 from unittest import mock
+from packaging.version import Version
 
 import mlflow
 from mlflow.utils.autologging_utils import (
@@ -29,7 +30,9 @@ from tests.autologging.fixtures import reset_stderr  # pylint: disable=unused-im
 
 library_to_mlflow_module_without_spark_datasource = {
     tensorflow: mlflow.tensorflow,
-    keras: mlflow.keras,
+    # NB: In Keras >= 2.6.0, fluent autologging enables TensorFlow logging because Keras APIs
+    # are aliases for tf.keras APIs in these versions of Keras
+    keras: mlflow.keras if Version(keras.__version__) < Version("2.6.0") else mlflow.tensorflow,
     fastai: mlflow.fastai,
     sklearn: mlflow.sklearn,
     xgboost: mlflow.xgboost,
@@ -102,7 +105,17 @@ def test_universal_autolog_does_not_throw_if_specific_autolog_throws_in_standard
         mlflow.autolog()
         if library != pyspark and library != pyspark.ml:
             autolog_mock.assert_not_called()
-        mlflow.utils.import_hooks.notify_module_loaded(library)
+
+        if mlflow_module == mlflow.tensorflow and Version(tensorflow.__version__) >= Version(
+            "2.6.0"
+        ):
+            # NB: In TensorFlow >= 2.6.0, TensorFlow unconditionally imports Keras. Fluent
+            # autologging enablement logic relies on this import behavior.
+            mlflow.utils.import_hooks.notify_module_loaded(keras)
+            mlflow.utils.import_hooks.notify_module_loaded(tensorflow)
+        else:
+            mlflow.utils.import_hooks.notify_module_loaded(library)
+
         autolog_mock.assert_called_once()
 
 
@@ -122,7 +135,15 @@ def test_universal_autolog_throws_if_specific_autolog_throws_in_test_mode(librar
         else:
             mlflow.autolog()
             with pytest.raises(Exception, match="asdf"):
-                mlflow.utils.import_hooks.notify_module_loaded(library)
+                if mlflow_module == mlflow.tensorflow and Version(
+                    tensorflow.__version__
+                ) >= Version("2.6.0"):
+                    # NB: In TensorFlow >= 2.6.0, TensorFlow unconditionally imports Keras. Fluent
+                    # autologging enablement logic relies on this import behavior.
+                    mlflow.utils.import_hooks.notify_module_loaded(keras)
+                    mlflow.utils.import_hooks.notify_module_loaded(tensorflow)
+                else:
+                    mlflow.utils.import_hooks.notify_module_loaded(library)
 
         autolog_mock.assert_called_once()
 
@@ -144,7 +165,14 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
         args_to_test.update({"log_input_examples": True, "log_model_signatures": True})
 
     mlflow.autolog(**args_to_test)
-    mlflow.utils.import_hooks.notify_module_loaded(library)
+
+    if mlflow_module == mlflow.tensorflow and Version(tensorflow.__version__) >= Version("2.6.0"):
+        # NB: In TensorFlow >= 2.6.0, TensorFlow unconditionally imports Keras. Fluent
+        # autologging enablement logic relies on this import behavior.
+        mlflow.utils.import_hooks.notify_module_loaded(keras)
+        mlflow.utils.import_hooks.notify_module_loaded(tensorflow)
+    else:
+        mlflow.utils.import_hooks.notify_module_loaded(library)
 
     for arg_key, arg_value in args_to_test.items():
         assert (
@@ -257,17 +285,17 @@ def test_autolog_obeys_disabled():
 def test_autolog_success_message_obeys_disabled():
     with mock.patch("mlflow.tracking.fluent._logger.info") as autolog_logger_mock:
         mlflow.autolog(disable=True)
-        mlflow.utils.import_hooks.notify_module_loaded(tensorflow)
+        mlflow.utils.import_hooks.notify_module_loaded(sklearn)
         autolog_logger_mock.assert_not_called()
 
         mlflow.autolog()
-        mlflow.utils.import_hooks.notify_module_loaded(tensorflow)
+        mlflow.utils.import_hooks.notify_module_loaded(sklearn)
         autolog_logger_mock.assert_called()
 
         autolog_logger_mock.reset_mock()
 
         mlflow.autolog(disable=False)
-        mlflow.utils.import_hooks.notify_module_loaded(tensorflow)
+        mlflow.utils.import_hooks.notify_module_loaded(sklearn)
         autolog_logger_mock.assert_called()
 
 

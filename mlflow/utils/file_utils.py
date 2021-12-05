@@ -22,7 +22,7 @@ except ImportError:
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MissingConfigException
-from mlflow.utils.rest_utils import cloud_storage_http_request
+from mlflow.utils.rest_utils import cloud_storage_http_request, augmented_raise_for_status
 
 ENCODING = "utf-8"
 
@@ -96,7 +96,7 @@ def find(root, name, full_path=False):
     return list_all(root, lambda x: x == path_name, full_path)
 
 
-def mkdir(root, name=None):  # noqa
+def mkdir(root, name=None):
     """
     Make directory with name "root/name", or just "root" if name is None.
 
@@ -356,6 +356,29 @@ def _copy_file_or_tree(src, dst, dst_dir=None):
     return dst_subpath
 
 
+def _get_local_project_dir_size(project_path):
+    """
+    Internal function for reporting the size of a local project directory before copying to
+    destination for cli logging reporting to stdout.
+    :param project_path: local path of the project directory
+    :return: directory file sizes in KB, rounded to single decimal point for legibility
+    """
+
+    total_size = 0
+    for root, _, files in os.walk(project_path):
+        for f in files:
+            path = os.path.join(root, f)
+            total_size += os.path.getsize(path)
+    return round(total_size / 1024.0, 1)
+
+
+def _get_local_file_size(file):
+    """
+    Get the size of a local file in KB
+    """
+    return round(os.path.getsize(file) / 1024.0, 1)
+
+
 def get_parent_dir(path):
     return os.path.abspath(os.path.join(path, os.pardir))
 
@@ -430,7 +453,7 @@ def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000):
             providers.
     """
     with cloud_storage_http_request("get", http_uri, stream=True) as response:
-        response.raise_for_status()
+        augmented_raise_for_status(response)
         with open(download_path, "wb") as output_file:
             for chunk in response.iter_content(chunk_size=chunk_size):
                 if not chunk:

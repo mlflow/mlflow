@@ -184,6 +184,16 @@ class Utils {
     }
   }
 
+  /**
+   * Get the duration of a run given start- and end time.
+   *
+   * @param startTime in milliseconds
+   * @param endTime in milliseconds
+   */
+  static getDuration(startTime, endTime) {
+    return startTime && endTime ? this.formatDuration(endTime - startTime) : null;
+  }
+
   static baseName(path) {
     const pieces = path.split('/');
     return pieces[pieces.length - 1];
@@ -227,13 +237,13 @@ class Utils {
     if (gitHubMatch || gitLabMatch) {
       const baseUrl = gitHubMatch ? 'https://github.com/' : 'https://gitlab.com/';
       const match = gitHubMatch || gitLabMatch;
-      url = baseUrl + match[1] + '/' + match[2].replace(/\.git$/, '');
+      url = baseUrl + match[1] + '/' + match[2].replace(/.git/, '');
       if (match[3]) {
         url = url + '/tree/master/' + match[3];
       }
     } else if (bitbucketMatch) {
       const baseUrl = 'https://bitbucket.org/';
-      url = baseUrl + bitbucketMatch[1] + '/' + bitbucketMatch[2].replace(/\.git$/, '');
+      url = baseUrl + bitbucketMatch[1] + '/' + bitbucketMatch[2].replace(/.git/, '');
       if (bitbucketMatch[3]) {
         url = url + '/src/master/' + bitbucketMatch[3];
       }
@@ -253,7 +263,7 @@ class Utils {
         baseUrl +
         match[1] +
         '/' +
-        match[2].replace(/\.git$/, '') +
+        match[2].replace(/.git/, '') +
         '/tree/' +
         sourceVersion +
         '/' +
@@ -264,7 +274,7 @@ class Utils {
         baseUrl +
         bitbucketMatch[1] +
         '/' +
-        bitbucketMatch[2].replace(/\.git$/, '') +
+        bitbucketMatch[2].replace(/.git/, '') +
         '/src/' +
         sourceVersion +
         '/' +
@@ -287,6 +297,53 @@ class Utils {
     const urlObj = new URL(url);
     urlObj.search = queryParams || '';
     return urlObj.toString();
+  }
+
+  /**
+   * Set query params and returns the updated query params.
+   * @returns {string} updated query params
+   */
+  static addQueryParams(currentQueryParams, newQueryParams) {
+    if (!newQueryParams || Object.keys(newQueryParams).length === 0) {
+      return currentQueryParams;
+    }
+    const urlSearchParams = new URLSearchParams(currentQueryParams);
+    Object.entries(newQueryParams).forEach(
+      ([key, value]) => !!key && !!value && urlSearchParams.set(key, value),
+    );
+    const queryParams = urlSearchParams.toString();
+    if (queryParams !== '' && !queryParams.includes('?')) {
+      return `?${queryParams}`;
+    }
+    return queryParams;
+  }
+
+  static getDefaultJobRunName(jobId, runId, workspaceId = null) {
+    if (!jobId) {
+      return '-';
+    }
+    let name = `job ${jobId}`;
+    if (runId) {
+      name = `run ${runId} of ` + name;
+    }
+    if (workspaceId) {
+      name = `workspace ${workspaceId}: ` + name;
+    }
+    return name;
+  }
+
+  static getDefaultNotebookRevisionName(notebookId, revisionId, workspaceId = null) {
+    if (!notebookId) {
+      return '-';
+    }
+    let name = `notebook ${notebookId}`;
+    if (revisionId) {
+      name = `revision ${revisionId} of ` + name;
+    }
+    if (workspaceId) {
+      name = `workspace ${workspaceId}: ` + name;
+    }
+    return name;
   }
 
   static getNotebookId(tags) {
@@ -352,8 +409,20 @@ class Utils {
   /**
    * Renders the notebook source name and entry point into an HTML element. Used for display.
    */
-  static renderNotebookSource(queryParams, notebookId, revisionId, runUuid, sourceName) {
-    const baseName = Utils.baseName(sourceName);
+  static renderNotebookSource(
+    queryParams,
+    notebookId,
+    revisionId,
+    runUuid,
+    sourceName,
+    nameOverride = null,
+  ) {
+    // sourceName may not be present when rendering feature table notebook consumers from remote
+    // workspaces or when notebook fetcher failed to fetch the sourceName. Always provide a default
+    // notebook name in such case.
+    const baseName = sourceName
+      ? Utils.baseName(sourceName)
+      : Utils.getDefaultNotebookRevisionName(notebookId, revisionId);
     if (notebookId) {
       let url = Utils.setQueryParams(window.location.origin, queryParams);
       url += `#notebook/${notebookId}`;
@@ -364,23 +433,28 @@ class Utils {
         }
       }
       return (
-        <a title={sourceName} href={url} target='_top'>
-          {baseName}
+        <a
+          title={sourceName || Utils.getDefaultNotebookRevisionName(notebookId, revisionId)}
+          href={url}
+          target='_top'
+        >
+          {nameOverride || baseName}
         </a>
       );
     } else {
-      return baseName;
+      return nameOverride || baseName;
     }
   }
 
   /**
    * Renders the job source name and entry point into an HTML element. Used for display.
    */
-  static renderJobSource(queryParams, jobId, jobRunId, jobName) {
+  static renderJobSource(queryParams, jobId, jobRunId, jobName, nameOverride = null) {
     if (jobId) {
-      const reformatJobName = jobRunId
-        ? jobName || `run ${jobRunId} of job ${jobId}`
-        : jobName || `job ${jobId}`;
+      // jobName may not be present when rendering feature table job consumers from remote
+      // workspaces or when getJob API failed to fetch the jobName. Always provide a default
+      // job name in such case.
+      const reformatJobName = jobName || Utils.getDefaultJobRunName(jobId, jobRunId);
       let url = Utils.setQueryParams(window.location.origin, queryParams);
       url += `#job/${jobId}`;
       if (jobRunId) {
@@ -388,11 +462,11 @@ class Utils {
       }
       return (
         <a title={reformatJobName} href={url} target='_top'>
-          {reformatJobName}
+          {nameOverride || reformatJobName}
         </a>
       );
     } else {
-      return jobName;
+      return nameOverride || jobName;
     }
   }
 
@@ -451,12 +525,21 @@ class Utils {
       const jobId = tags && tags[jobIdTag] && tags[jobIdTag].value;
       const jobRunId = tags && tags[jobRunIdTag] && tags[jobRunIdTag].value;
       if (jobId && jobRunId) {
-        return `run ${jobRunId} of job ${jobId}`;
+        return Utils.getDefaultJobRunName(jobId, jobRunId);
       }
       return sourceName;
     } else {
       return Utils.baseName(sourceName);
     }
+  }
+
+  /**
+   * Returns the absolute path to a notebook given a notebook id
+   * @param notebookId Notebook object id
+   * @returns
+   */
+  static getNotebookLink(notebookId) {
+    return window.location.origin + '/#notebook/' + notebookId;
   }
 
   /**
@@ -628,10 +711,9 @@ class Utils {
 
   static getSearchParamsFromUrl(search) {
     const params = qs.parse(search, { ignoreQueryPrefix: true });
-    const str = JSON.stringify(params, function replaceUndefined(key, value) {
-      return value === undefined ? '' : value;
+    const str = JSON.stringify(params, function replaceUndefinedAndBools(key, value) {
+      return value === undefined ? '' : value === 'true' ? true : value === 'false' ? false : value;
     });
-
     return params ? JSON.parse(str) : [];
   }
 
@@ -659,7 +741,7 @@ class Utils {
   static getVisibleTagValues(tags) {
     // Collate tag objects into list of [key, value] lists and filter MLflow-internal tags
     return Object.values(tags)
-      .map((t) => [t.getKey(), t.getValue()])
+      .map((t) => [t.key || t.getKey(), t.value || t.getValue()])
       .filter((t) => !t[0].startsWith(MLFLOW_INTERNAL_PREFIX));
   }
 

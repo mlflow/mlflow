@@ -25,12 +25,20 @@ describe('unit tests', () => {
     expect(wrapper.length).toBe(1);
   });
 
-  test('should not show toggle link for less than NUM_TAGS_ON_COLLAPSED tags', () => {
+  test('should not show toggle link for NUM_TAGS_ON_COLLAPSED tags', () => {
     // Assume we have exactly `NUM_TAGS_ON_COLLAPSED` tags
     const props = setupProps(NUM_TAGS_ON_COLLAPSED);
     wrapper = shallow(<CollapsibleTagsCell {...props} />);
     instance = wrapper.instance();
-    expect(wrapper.find('.tag-cell-toggle-link')).toHaveLength(0);
+    expect(wrapper.find('.expander-test')).toHaveLength(0);
+  });
+
+  test('should not show toggle link for NUM_TAGS_ON_COLLAPSED + 1 tags', () => {
+    // Assume we have exactly `NUM_TAGS_ON_COLLAPSED` + 1 tags
+    const props = setupProps(NUM_TAGS_ON_COLLAPSED + 1);
+    wrapper = shallow(<CollapsibleTagsCell {...props} />);
+    instance = wrapper.instance();
+    expect(wrapper.find('.expander-text')).toHaveLength(0);
   });
 
   test('toggle link should work as expected', () => {
@@ -39,6 +47,7 @@ describe('unit tests', () => {
     wrapper = shallow(<CollapsibleTagsCell {...props} />);
     instance = wrapper.instance();
     expect(wrapper.find('.tag-cell-item')).toHaveLength(NUM_TAGS_ON_COLLAPSED);
+    expect(wrapper.find('.expander-text')).toHaveLength(1);
     instance.setState({ collapsed: false });
     expect(wrapper.find('.tag-cell-item')).toHaveLength(numTags);
   });

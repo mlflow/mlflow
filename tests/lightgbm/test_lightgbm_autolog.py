@@ -1,5 +1,7 @@
 import os
 import json
+import functools
+import pickle
 import pytest
 import yaml
 import numpy as np
@@ -7,12 +9,14 @@ import pandas as pd
 from sklearn import datasets
 import lightgbm as lgb
 import matplotlib as mpl
+from packaging.version import Version
 
 import mlflow
 import mlflow.lightgbm
+from mlflow.lightgbm import _autolog_callback
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
-from mlflow.utils.autologging_utils import BatchMetricsLogger
+from mlflow.utils.autologging_utils import picklable_exception_safe_function, BatchMetricsLogger
 from unittest.mock import patch
 
 mpl.use("Agg")
@@ -72,7 +76,13 @@ def test_lgb_autolog_logs_default_params(bst_params, train_set):
         "num_boost_round": 100,
         "feature_name": "auto",
         "categorical_feature": "auto",
-        "verbose_eval": True,
+        "verbose_eval": (
+            # The default value of `verbose_eval` in `lightgbm.train` has been changed to 'warn'
+            # in this PR: https://github.com/microsoft/LightGBM/pull/4577
+            "warn"
+            if Version(lgb.__version__) > Version("3.2.1")
+            else True
+        ),
         "keep_training_booster": False,
     }
     expected_params.update(bst_params)
@@ -519,3 +529,10 @@ def test_lgb_autolog_does_not_break_dataset_instantiation_with_data_none():
     """
     mlflow.lightgbm.autolog()
     lgb.Dataset(None)
+
+
+def test_callback_func_is_pickable():
+    cb = picklable_exception_safe_function(
+        functools.partial(_autolog_callback, BatchMetricsLogger(run_id="1234"), eval_results={})
+    )
+    pickle.dumps(cb)

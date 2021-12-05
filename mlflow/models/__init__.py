@@ -25,5 +25,13 @@ from .model import Model
 from .flavor_backend import FlavorBackend
 from .signature import ModelSignature, infer_signature
 from .utils import ModelInputExample
+from ..utils.environment import infer_pip_requirements
 
-__all__ = ["Model", "ModelSignature", "ModelInputExample", "infer_signature", "FlavorBackend"]
+__all__ = [
+    "Model",
+    "ModelSignature",
+    "ModelInputExample",
+    "infer_signature",
+    "FlavorBackend",
+    "infer_pip_requirements",
+]

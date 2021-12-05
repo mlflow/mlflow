@@ -1,7 +1,7 @@
 Type: Package
 Package: mlflow
 Title: Interface to 'MLflow'
-Version: 1.19.1
+Version: 1.22.1
 Authors@R: 
     c(person(given = "Matei",
              family = "Zaharia",
@@ -61,7 +61,7 @@ Suggests:
     testthat (>= 2.0.0),
     xgboost
 Encoding: UTF-8
-RoxygenNote: 7.1.1
+RoxygenNote: 7.1.2
 Collate:
     'cli.R'
     'databricks-utils.R'

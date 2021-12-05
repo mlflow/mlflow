@@ -506,11 +506,11 @@ execution. Replaced fields are indicated using bracketed text.
           image: "{replaced with URI of Docker image created during Project execution}"
           command: ["{replaced with MLflow Project entry point command}"]
           env: ["{appended with MLFLOW_TRACKING_URI, MLFLOW_RUN_ID and MLFLOW_EXPERIMENT_ID}"]
-        resources:
-          limits:
-            memory: 512Mi
-          requests:
-            memory: 256Mi
+          resources:
+            limits:
+              memory: 512Mi
+            requests:
+              memory: 256Mi
         restartPolicy: Never
 
 The ``container.name``, ``container.image``, and ``container.command`` fields are only replaced for

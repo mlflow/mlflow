@@ -77,14 +77,18 @@ class TestDatabricksModelArtifactRepository(object):
         ],
     )
     def test_init_with_invalid_artifact_uris(self, invalid_artifact_uri):
-        with pytest.raises(MlflowException):
+        with pytest.raises(
+            MlflowException,
+            match="A valid databricks profile is required to instantiate this repository",
+        ):
             DatabricksModelsArtifactRepository(invalid_artifact_uri)
 
     def test_init_with_version_uri_and_profile_is_inferred(self):
         # First mock for `is_using_databricks_registry` to pass
         # Second mock to set `databricks_profile_uri` during instantiation
         with mock.patch(
-            "mlflow.store.artifact.utils.models.mlflow.get_registry_uri", return_value=MOCK_PROFILE,
+            "mlflow.store.artifact.utils.models.mlflow.get_registry_uri",
+            return_value=MOCK_PROFILE,
         ), mock.patch("mlflow.tracking.get_registry_uri", return_value=MOCK_PROFILE):
             repo = DatabricksModelsArtifactRepository(MOCK_MODEL_ROOT_URI_WITHOUT_PROFILE)
             assert repo.artifact_uri == MOCK_MODEL_ROOT_URI_WITHOUT_PROFILE
@@ -93,7 +97,8 @@ class TestDatabricksModelArtifactRepository(object):
             assert repo.databricks_profile_uri == MOCK_PROFILE
 
     @pytest.mark.parametrize(
-        "stage_uri_without_profile", ["models:/MyModel/Staging", "models:/MyModel/Production"],
+        "stage_uri_without_profile",
+        ["models:/MyModel/Staging", "models:/MyModel/Production"],
     )
     def test_init_with_stage_uri_and_profile_is_inferred(self, stage_uri_without_profile):
         model_version_detailed = ModelVersion(
@@ -111,7 +116,8 @@ class TestDatabricksModelArtifactRepository(object):
             MlflowClient, "get_latest_versions", return_value=[model_version_detailed]
         )
         with get_latest_versions_patch, mock.patch(
-            "mlflow.store.artifact.utils.models.mlflow.get_registry_uri", return_value=MOCK_PROFILE,
+            "mlflow.store.artifact.utils.models.mlflow.get_registry_uri",
+            return_value=MOCK_PROFILE,
         ), mock.patch("mlflow.tracking.get_registry_uri", return_value=MOCK_PROFILE):
             repo = DatabricksModelsArtifactRepository(stage_uri_without_profile)
             assert repo.artifact_uri == stage_uri_without_profile
@@ -120,14 +126,19 @@ class TestDatabricksModelArtifactRepository(object):
             assert repo.databricks_profile_uri == MOCK_PROFILE
 
     @pytest.mark.parametrize(
-        "valid_profileless_artifact_uri", ["models:/MyModel/12", "models:/MyModel/Staging"],
+        "valid_profileless_artifact_uri",
+        ["models:/MyModel/12", "models:/MyModel/Staging"],
     )
     def test_init_with_valid_uri_but_no_profile(self, valid_profileless_artifact_uri):
         # Mock for `is_using_databricks_registry` fail when calling `get_registry_uri`
         with mock.patch(
-            "mlflow.store.artifact.utils.models.mlflow.get_registry_uri", return_value=None,
+            "mlflow.store.artifact.utils.models.mlflow.get_registry_uri",
+            return_value=None,
         ):
-            with pytest.raises(MlflowException):
+            with pytest.raises(
+                MlflowException,
+                match="A valid databricks profile is required to instantiate this repository",
+            ):
                 DatabricksModelsArtifactRepository(valid_profileless_artifact_uri)
 
     def test_list_artifacts(self, databricks_model_artifact_repo):
@@ -202,17 +213,24 @@ class TestDatabricksModelArtifactRepository(object):
             DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._call_endpoint"
         ) as call_endpoint_mock:
             call_endpoint_mock.side_effect = MlflowException("MOCK ERROR")
-            with pytest.raises(MlflowException):
+            with pytest.raises(MlflowException, match=r".+"):
                 databricks_model_artifact_repo.download_artifacts("Something")
 
     def test_log_artifact_fail(self, databricks_model_artifact_repo):
-        with pytest.raises(MlflowException):
+        with pytest.raises(
+            MlflowException, match="This repository does not support logging artifacts"
+        ):
             databricks_model_artifact_repo.log_artifact("Some file")
 
     def test_log_artifacts_fail(self, databricks_model_artifact_repo):
-        with pytest.raises(MlflowException):
+        with pytest.raises(
+            MlflowException, match="This repository does not support logging artifacts"
+        ):
             databricks_model_artifact_repo.log_artifacts("Some dir")
 
     def test_delete_artifacts_fail(self, databricks_model_artifact_repo):
-        with pytest.raises(NotImplementedError):
+        with pytest.raises(
+            NotImplementedError,
+            match="This artifact repository does not support deleting artifacts",
+        ):
             databricks_model_artifact_repo.delete_artifacts()

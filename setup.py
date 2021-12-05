@@ -28,7 +28,11 @@ alembic_files = [
     "../mlflow/store/db_migrations/alembic.ini",
     "../mlflow/temporary_db_migrations_for_pre_1_users/alembic.ini",
 ]
-extra_files = ["ml-package-versions.yml", "pyspark/ml/log_model_allowlist.txt"]
+extra_files = [
+    "ml-package-versions.yml",
+    "pypi_package_index.json",
+    "pyspark/ml/log_model_allowlist.txt",
+]
 
 """
 Minimal requirements for the skinny MLflow client which provides a limited
@@ -47,6 +51,11 @@ SKINNY_REQUIREMENTS = [
     "pytz",
     "requests>=2.17.3",
     "packaging",
+    # Automated dependency detection in MLflow Models relies on
+    # `importlib_metadata.packages_distributions` to resolve a module name to its package name
+    # (e.g. 'sklearn' -> 'scikit-learn'). importlib_metadata 3.7.0 or newer supports this function:
+    # https://github.com/python/importlib_metadata/blob/main/CHANGES.rst#v370
+    "importlib_metadata>=3.7.0,!=4.7.0",
 ]
 
 """
@@ -92,7 +101,6 @@ setup(
             "pyarrow",
             # Required to log artifacts and models to AWS S3 artifact locations
             "boto3",
-            "mleap",
             # Required to log artifacts and models to GCS artifact locations
             "google-cloud-storage",
             "azureml-core>=1.2.0",
@@ -101,6 +109,9 @@ setup(
             # Required by the mlflow.projects module, when running projects against
             # a remote Kubernetes cluster
             "kubernetes",
+            # Required to serve models through MLServer
+            "mlserver>=0.5.3",
+            "mlserver-mlflow>=0.5.3",
         ],
         "sqlserver": ["mlflow-dbstore"],
         "aliyun-oss": ["aliyunstoreplugin"],

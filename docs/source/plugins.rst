@@ -315,6 +315,7 @@ for usage instructions and examples.
 - `mlflow-torchserve <https://github.com/mlflow/mlflow-torchserve>`_
 - `mlflow-algorithmia <https://github.com/algorithmiaio/mlflow-algorithmia>`_
 - `mlflow-ray-serve <https://github.com/ray-project/mlflow-ray-serve>`_
+- `mlflow-azureml <https://docs.microsoft.com/en-us/azure/machine-learning/how-to-deploy-mlflow-models>`_
 
 Project Backend Plugins
 ~~~~~~~~~~~~~~~~~~~~~~~

@@ -8,7 +8,13 @@ describe('ShowArtifactLoggedModelView', () => {
   let instance;
   let minimalProps;
   let commonProps;
+  const minimumFlavors = `
+flavors:
+  python_function:
+    loader_module: mlflow.sklearn
+`;
   const validMlModelFile =
+    minimumFlavors +
     'signature:\n' +
     '  inputs: \'[{"name": "sepal length (cm)", "type": "double"}, {"name": "sepal width\n' +
     '    (cm)", "type": "double"}, {"name": "petal length (cm)", "type": "double"}, {"name":\n' +
@@ -18,14 +24,13 @@ describe('ShowArtifactLoggedModelView', () => {
   beforeEach(() => {
     minimalProps = { path: 'fakePath', runUuid: 'fakeUuid', artifactRootUri: 'fakeRootUri' };
     const getArtifact = jest.fn((artifactLocation) => {
-      return Promise.resolve('some content');
+      return Promise.resolve(minimumFlavors);
     });
     commonProps = { ...minimalProps, getArtifact };
     wrapper = shallow(<ShowArtifactLoggedModelView {...commonProps} />);
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<ShowArtifactLoggedModelView {...minimalProps} />);
     expect(wrapper.length).toBe(1);
   });
 
@@ -78,7 +83,8 @@ describe('ShowArtifactLoggedModelView', () => {
   test('should not break schema table when inputs only in MLmodel file', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve(
-        'signature:\n' +
+        minimumFlavors +
+          'signature:\n' +
           '  inputs: \'[{"name": "sepal length (cm)", "type": "double"}, {"name": "sepal width\n' +
           '    (cm)", "type": "double"}, {"name": "petal length (cm)", "type": "double"}, {"name":\n' +
           '    "petal width (cm)", "type": "double"}]\'\n',
@@ -96,7 +102,8 @@ describe('ShowArtifactLoggedModelView', () => {
   test('should not break schema table when outputs only in MLmodel file', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve(
-        'signature:\n' +
+        minimumFlavors +
+          'signature:\n' +
           '  outputs: \'[{"name": "sepal length (cm)", "type": "double"}, {"name": "sepal width\n' +
           '    (cm)", "type": "double"}, {"name": "petal length (cm)", "type": "double"}, {"name":\n' +
           '    "petal width (cm)", "type": "double"}]\'\n',
@@ -113,7 +120,7 @@ describe('ShowArtifactLoggedModelView', () => {
 
   test('should not break schema table when no inputs or outputs in MLmodel file', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
-      return Promise.resolve('signature:\n  ');
+      return Promise.resolve(minimumFlavors + 'signature:');
     });
     const props = { ...minimalProps, getArtifact };
     wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
@@ -173,5 +180,43 @@ describe('ShowArtifactLoggedModelView', () => {
     wrapper.setProps({ path: 'newpath', runUuid: 'newRunId' });
     expect(instance.fetchLoggedModelMetadata).toBeCalled();
     expect(instance.props.getArtifact).toBeCalled();
+  });
+
+  test('should render code snippet with original flavor when no pyfunc flavor', (done) => {
+    const getArtifact = jest.fn((artifactLocation) => {
+      return Promise.resolve(`
+flavors:
+  sklearn:
+    version: 1.2.3
+`);
+    });
+    const props = { ...minimalProps, getArtifact };
+    wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
+    setImmediate(() => {
+      wrapper.update();
+      expect(wrapper.state().flavor).toBe('sklearn');
+      const codeContent = wrapper.find('.artifact-logged-model-view-code-content');
+      expect(codeContent.length).toBe(1);
+      expect(codeContent.text().includes('mlflow.sklearn.load_model')).toBe(true);
+      done();
+    });
+  });
+
+  test('should not render code snippet for mleap flavor', (done) => {
+    const getArtifact = jest.fn((artifactLocation) => {
+      return Promise.resolve(`
+flavors:
+  mleap:
+    version: 1.2.3
+`);
+    });
+    const props = { ...minimalProps, getArtifact };
+    wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
+    setImmediate(() => {
+      wrapper.update();
+      expect(wrapper.state().flavor).toBe('mleap');
+      expect(wrapper.find('.artifact-logged-model-view-code-content').length).toBe(0);
+      done();
+    });
   });
 });

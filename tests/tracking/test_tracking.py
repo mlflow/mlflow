@@ -7,6 +7,7 @@ import random
 import tempfile
 import time
 import yaml
+import re
 
 import pytest
 from unittest import mock
@@ -16,7 +17,7 @@ from mlflow import tracking
 from mlflow.entities import RunStatus, LifecycleStage, Metric, Param, RunTag, ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.file_store import FileStore
-from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import start_run
 from mlflow.utils.file_utils import local_file_uri_to_path
@@ -32,13 +33,10 @@ MockExperiment = namedtuple("MockExperiment", ["experiment_id", "lifecycle_stage
 
 
 def test_create_experiment():
-    with pytest.raises(TypeError):
-        mlflow.create_experiment()  # pylint: disable=no-value-for-parameter
-
-    with pytest.raises(Exception):
+    with pytest.raises(MlflowException, match="Invalid experiment name"):
         mlflow.create_experiment(None)
 
-    with pytest.raises(Exception):
+    with pytest.raises(MlflowException, match="Invalid experiment name"):
         mlflow.create_experiment("")
 
     exp_id = mlflow.create_experiment("Some random experiment name %d" % random.randint(1, 1e6))
@@ -49,58 +47,83 @@ def test_create_experiment_with_duplicate_name():
     name = "popular_name"
     exp_id = mlflow.create_experiment(name)
 
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match=re.escape(f"Experiment(name={name}) already exists")):
         mlflow.create_experiment(name)
 
     tracking.MlflowClient().delete_experiment(exp_id)
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match=re.escape(f"Experiment(name={name}) already exists")):
         mlflow.create_experiment(name)
 
 
 def test_create_experiments_with_bad_names():
     # None for name
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(MlflowException, match="Invalid experiment name: 'None'"):
         mlflow.create_experiment(None)
-        assert e.message.contains("Invalid experiment name: 'None'")
 
     # empty string name
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(MlflowException, match="Invalid experiment name: ''"):
         mlflow.create_experiment("")
-        assert e.message.contains("Invalid experiment name: ''")
 
 
 @pytest.mark.parametrize("name", [123, 0, -1.2, [], ["A"], {1: 2}])
 def test_create_experiments_with_bad_name_types(name):
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(
+        MlflowException, match=re.escape(f"Invalid experiment name: {name}. Expects a string.")
+    ):
         mlflow.create_experiment(name)
-        assert e.message.contains("Invalid experiment name: %s. Expects a string." % name)
 
 
 @pytest.mark.usefixtures("reset_active_experiment")
-def test_set_experiment():
-    with pytest.raises(TypeError):
-        mlflow.set_experiment()  # pylint: disable=no-value-for-parameter
-
-    with pytest.raises(Exception):
-        mlflow.set_experiment(None)
-
-    with pytest.raises(Exception):
-        mlflow.set_experiment("")
-
+def test_set_experiment_by_name():
     name = "random_exp"
     exp_id = mlflow.create_experiment(name)
-    mlflow.set_experiment(name)
+    exp1 = mlflow.set_experiment(name)
+    assert exp1.experiment_id == exp_id
     with start_run() as run:
         assert run.info.experiment_id == exp_id
 
     another_name = "another_experiment"
-    mlflow.set_experiment(another_name)
-    exp_id2 = mlflow.tracking.MlflowClient().get_experiment_by_name(another_name)
+    exp2 = mlflow.set_experiment(another_name)
     with start_run() as another_run:
-        assert another_run.info.experiment_id == exp_id2.experiment_id
+        assert another_run.info.experiment_id == exp2.experiment_id
 
 
-def test_set_experiment_with_deleted_experiment_name():
+@pytest.mark.usefixtures("reset_active_experiment")
+def test_set_experiment_by_id():
+    name = "random_exp"
+    exp_id = mlflow.create_experiment(name)
+    active_exp = mlflow.set_experiment(experiment_id=exp_id)
+    assert active_exp.experiment_id == exp_id
+    with start_run() as run:
+        assert run.info.experiment_id == exp_id
+
+    nonexistent_id = "-1337"
+    with pytest.raises(MlflowException, match="No Experiment with id=-1337 exists") as exc:
+        mlflow.set_experiment(experiment_id=nonexistent_id)
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+    with start_run() as run:
+        assert run.info.experiment_id == exp_id
+
+
+def test_set_experiment_parameter_validation():
+    with pytest.raises(MlflowException, match="Must specify exactly one") as exc:
+        mlflow.set_experiment()
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+    with pytest.raises(MlflowException, match="Must specify exactly one") as exc:
+        mlflow.set_experiment(None)
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+    with pytest.raises(MlflowException, match="Must specify exactly one") as exc:
+        mlflow.set_experiment(None, None)
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+    with pytest.raises(MlflowException, match="Must specify exactly one") as exc:
+        mlflow.set_experiment("name", "id")
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_set_experiment_with_deleted_experiment():
     name = "dead_exp"
     mlflow.set_experiment(name)
     with start_run() as run:
@@ -108,8 +131,13 @@ def test_set_experiment_with_deleted_experiment_name():
 
     tracking.MlflowClient().delete_experiment(exp_id)
 
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="Cannot set a deleted experiment") as exc:
         mlflow.set_experiment(name)
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+    with pytest.raises(MlflowException, match="Cannot set a deleted experiment") as exc:
+        mlflow.set_experiment(experiment_id=exp_id)
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
 def test_list_experiments():
@@ -224,7 +252,7 @@ def test_start_run_context_manager():
     assert finished_run.info.status == RunStatus.to_string(RunStatus.FINISHED)
     # Launch a separate run that fails, verify the run status is FAILED and the run UUID is
     # different
-    with pytest.raises(Exception):
+    with pytest.raises(Exception, match="Failing run!"):
         with start_run() as second_run:
             second_run_id = second_run.info.run_id
             raise Exception("Failing run!")
@@ -422,7 +450,7 @@ def test_set_tags():
 def test_log_metric_validation():
     with start_run() as active_run:
         run_id = active_run.info.run_id
-        with pytest.raises(MlflowException) as e:
+        with pytest.raises(MlflowException, match="Got invalid value apple for metric") as e:
             mlflow.log_metric("name_1", "apple")
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     finished_run = tracking.MlflowClient().get_run(run_id)
@@ -450,29 +478,61 @@ def test_log_params():
     assert finished_run.data.params == {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
 
 
-def test_log_batch_validates_entity_names_and_values():
-    bad_kwargs = {
-        "metrics": [
-            [Metric(key="../bad/metric/name", value=0.3, timestamp=3, step=0)],
-            [Metric(key="ok-name", value="non-numerical-value", timestamp=3, step=0)],
-            [Metric(key="ok-name", value=0.3, timestamp="non-numerical-timestamp", step=0)],
-        ],
-        "params": [[Param(key="../bad/param/name", value="my-val")]],
-        "tags": [[Param(key="../bad/tag/name", value="my-val")]],
-    }
+def test_log_params_duplicate_keys_raises():
+    params = {"a": "1", "b": "2"}
     with start_run() as active_run:
-        for kwarg, bad_values in bad_kwargs.items():
-            for bad_kwarg_value in bad_values:
-                final_kwargs = {
-                    "run_id": active_run.info.run_id,
-                    "metrics": [],
-                    "params": [],
-                    "tags": [],
-                }
-                final_kwargs[kwarg] = bad_kwarg_value
-                with pytest.raises(MlflowException) as e:
-                    tracking.MlflowClient().log_batch(**final_kwargs)
-                assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        run_id = active_run.info.run_id
+        mlflow.log_params(params)
+        with pytest.raises(
+            expected_exception=MlflowException,
+            match=r"Changing param values is not allowed. Param with key=",
+        ) as e:
+            mlflow.log_param("a", "3")
+        assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    finished_run = tracking.MlflowClient().get_run(run_id)
+    assert finished_run.data.params == params
+
+
+def test_log_batch_duplicate_entries_raises():
+    with start_run() as active_run:
+        run_id = active_run.info.run_id
+        with pytest.raises(
+            MlflowException, match=r"Duplicate parameter keys have been submitted."
+        ) as e:
+            tracking.MlflowClient().log_batch(
+                run_id=run_id, params=[Param("a", "1"), Param("a", "2")]
+            )
+        assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_log_batch_validates_entity_names_and_values():
+    with start_run() as active_run:
+        run_id = active_run.info.run_id
+
+        metrics = [Metric(key="../bad/metric/name", value=0.3, timestamp=3, step=0)]
+        with pytest.raises(MlflowException, match="Invalid metric name") as e:
+            tracking.MlflowClient().log_batch(run_id, metrics=metrics)
+        assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+        metrics = [Metric(key="ok-name", value="non-numerical-value", timestamp=3, step=0)]
+        with pytest.raises(MlflowException, match="Got invalid value") as e:
+            tracking.MlflowClient().log_batch(run_id, metrics=metrics)
+        assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+        metrics = [Metric(key="ok-name", value=0.3, timestamp="non-numerical-timestamp", step=0)]
+        with pytest.raises(MlflowException, match="Got invalid timestamp") as e:
+            tracking.MlflowClient().log_batch(run_id, metrics=metrics)
+        assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+        params = [Param(key="../bad/param/name", value="my-val")]
+        with pytest.raises(MlflowException, match="Invalid parameter name") as e:
+            tracking.MlflowClient().log_batch(run_id, params=params)
+        assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+        tags = [Param(key="../bad/tag/name", value="my-val")]
+        with pytest.raises(MlflowException, match="Invalid tag name") as e:
+            tracking.MlflowClient().log_batch(run_id, tags=tags)
+        assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
 def test_log_artifact_with_dirs(tmpdir):
@@ -728,7 +788,7 @@ def test_log_image_numpy_shape(size):
 @pytest.mark.parametrize(
     "dtype",
     [
-        # Ref.: https://numpy.org/doc/stable/user/basics.types.html#array-types-and-conversions-between-types  # noqa
+        # Ref.: https://numpy.org/doc/stable/user/basics.types.html#array-types-and-conversions-between-types
         "int8",
         "int16",
         "int32",
@@ -846,7 +906,7 @@ def test_start_deleted_run():
     with mlflow.start_run() as active_run:
         run_id = active_run.info.run_id
     tracking.MlflowClient().delete_run(run_id)
-    with pytest.raises(MlflowException, matches="because it is in the deleted state."):
+    with pytest.raises(MlflowException, match="because it is in the deleted state."):
         with mlflow.start_run(run_id=run_id):
             pass
     assert mlflow.active_run() is None
@@ -889,10 +949,10 @@ def test_get_artifact_uri_uses_currently_active_run_id():
         ),
         (
             "mysql+driver://user:password@host:port/dbname/subpath/#fragment",
-            "mysql+driver://user:password@host:port/dbname/subpath/{run_id}/artifacts/{path}#fragment",  # noqa
+            "mysql+driver://user:password@host:port/dbname/subpath/{run_id}/artifacts/{path}#fragment",  # pylint: disable=line-too-long
         ),
-        ("s3://bucketname/rootpath", "s3://bucketname/rootpath/{run_id}/artifacts/{path}",),
-        ("/dirname/rootpa#th?", "/dirname/rootpa#th?/{run_id}/artifacts/{path}",),
+        ("s3://bucketname/rootpath", "s3://bucketname/rootpath/{run_id}/artifacts/{path}"),
+        ("/dirname/rootpa#th?", "/dirname/rootpa#th?/{run_id}/artifacts/{path}"),
     ],
 )
 def test_get_artifact_uri_appends_to_uri_path_component_correctly(

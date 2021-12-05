@@ -7,7 +7,6 @@ from collections import namedtuple
 from unittest.mock import Mock, call
 from unittest import mock
 
-
 import mlflow
 from mlflow.utils import gorilla
 from mlflow.tracking.client import MlflowClient
@@ -21,6 +20,8 @@ from mlflow.utils.autologging_utils import (
     autologging_integration,
     get_autologging_config,
     autologging_is_disabled,
+    get_instance_method_first_arg_value,
+    get_method_call_arg_value,
 )
 from mlflow.utils.autologging_utils.safety import _wrap_patch, AutologgingSession
 from mlflow.utils.autologging_utils.versioning import (
@@ -146,11 +147,8 @@ def test_wrap_patch_with_class():
         orig = gorilla.get_original_attribute(self, "add")
         return 2 * orig(*args, **kwargs)
 
-    before = get_func_attrs(Math.add)
     _wrap_patch(Math, Math.add.__name__, new_add)
-    after = get_func_attrs(Math.add)
 
-    assert after == before
     assert Math().add(1, 2) == 6
 
 
@@ -167,12 +165,8 @@ def test_wrap_patch_with_module():
         """new mlflow.log_param"""
         return a - b
 
-    before_attrs = get_func_attrs(mlflow.log_param)
     assert sample_function_to_patch(10, 5) == 15
-
     _wrap_patch(this_module, sample_function_to_patch.__name__, new_sample_function)
-    after_attrs = get_func_attrs(mlflow.log_param)
-    assert after_attrs == before_attrs
     assert sample_function_to_patch(10, 5) == 5
 
 
@@ -267,7 +261,7 @@ def test_avoids_inferring_signature_if_not_needed(logger):
     logger.warning.assert_not_called()
 
 
-def test_batch_metrics_logger_logs_all_metrics(start_run,):
+def test_batch_metrics_logger_logs_all_metrics(start_run):
     run_id = mlflow.active_run().info.run_id
     with batch_metrics_logger(run_id) as metrics_logger:
         for i in range(100):
@@ -302,7 +296,7 @@ def test_batch_metrics_logger_flush_logs_to_mlflow(start_run):
         assert metrics_on_run["my_metric"] == 10
 
 
-def test_batch_metrics_logger_runs_training_and_logging_in_correct_ratio(start_run,):
+def test_batch_metrics_logger_runs_training_and_logging_in_correct_ratio(start_run):
     with mock.patch.object(MlflowClient, "log_batch") as log_batch_mock:
         run_id = mlflow.active_run().info.run_id
         with batch_metrics_logger(run_id) as metrics_logger:
@@ -344,7 +338,7 @@ def test_batch_metrics_logger_runs_training_and_logging_in_correct_ratio(start_r
             log_batch_mock.assert_called_once()
 
 
-def test_batch_metrics_logger_chunks_metrics_when_batch_logging(start_run,):
+def test_batch_metrics_logger_chunks_metrics_when_batch_logging(start_run):
     with mock.patch.object(MlflowClient, "log_batch") as log_batch_mock:
         run_id = mlflow.active_run().info.run_id
         with batch_metrics_logger(run_id) as metrics_logger:
@@ -362,7 +356,7 @@ def test_batch_metrics_logger_chunks_metrics_when_batch_logging(start_run,):
                     assert metric.step == 0
 
 
-def test_batch_metrics_logger_records_time_correctly(start_run,):
+def test_batch_metrics_logger_records_time_correctly(start_run):
     with mock.patch.object(MlflowClient, "log_batch", wraps=lambda *args, **kwargs: time.sleep(1)):
         run_id = mlflow.active_run().info.run_id
         with batch_metrics_logger(run_id) as metrics_logger:
@@ -377,7 +371,7 @@ def test_batch_metrics_logger_records_time_correctly(start_run,):
             assert metrics_logger.total_training_time >= 2
 
 
-def test_batch_metrics_logger_logs_timestamps_as_int_milliseconds(start_run,):
+def test_batch_metrics_logger_logs_timestamps_as_int_milliseconds(start_run):
     with mock.patch.object(MlflowClient, "log_batch") as log_batch_mock, mock.patch(
         "time.time", return_value=123.45678901234567890
     ):
@@ -390,32 +384,6 @@ def test_batch_metrics_logger_logs_timestamps_as_int_milliseconds(start_run,):
         logged_metric = kwargs["metrics"][0]
 
         assert logged_metric.timestamp == 123456
-
-
-@pytest.mark.usefixtures(test_mode_off.__name__)
-def test_batch_metrics_logger_continues_if_log_batch_fails(start_run,):
-    with mock.patch.object(MlflowClient, "log_batch") as log_batch_mock:
-        log_batch_mock.side_effect = [Exception("asdf"), None]
-
-        run_id = mlflow.active_run().info.run_id
-        with batch_metrics_logger(run_id) as metrics_logger:
-            # this call should fail to record since log_batch raised exception
-            metrics_logger.record_metrics({"x": 1}, step=0)
-
-            metrics_logger.record_metrics({"y": 2}, step=1)
-
-        # even though the first call to log_batch failed, the BatchMetricsLogger should continue
-        #   logging subsequent batches
-        last_call = log_batch_mock.call_args_list[-1]
-
-        _, kwargs = last_call
-
-        assert kwargs["run_id"] == run_id
-        assert len(kwargs["metrics"]) == 1
-        metric = kwargs["metrics"][0]
-        assert metric.key == "y"
-        assert metric.value == 2
-        assert metric.step == 1
 
 
 def test_autologging_integration_calls_underlying_function_correctly():
@@ -770,9 +738,9 @@ _module_version_info_dict_patch = {
         "package_info": {"pip_release": "mxnet"},
         "autologging": {"minimum": "1.5.1", "maximum": "1.7.0.post1"},
     },
-    "fastai-1.x": {
+    "fastai": {
         "package_info": {"pip_release": "fastai"},
-        "autologging": {"minimum": "1.0.60", "maximum": "1.0.61"},
+        "autologging": {"minimum": "2.4.1", "maximum": "2.4.1"},
     },
     "statsmodels": {
         "package_info": {"pip_release": "statsmodels"},
@@ -788,8 +756,9 @@ _module_version_info_dict_patch = {
 @pytest.mark.parametrize(
     "flavor,module_version,expected_result",
     [
-        ("fastai", "1.0.60", True),
-        ("fastai", "1.0.50", False),
+        ("fastai", "2.4.1", True),
+        ("fastai", "2.3.1", False),
+        ("fastai", "1.0.60", False),
         ("gluon", "1.6.1", True),
         ("gluon", "1.5.0", False),
         ("keras", "2.2.4", True),
@@ -841,7 +810,8 @@ def test_dev_version_pyspark_is_supported_in_databricks(flavor, module_version, 
     with mock.patch(module_name + ".__version__", module_version):
         # In Databricks
         with mock.patch(
-            "mlflow.utils.autologging_utils.versioning.is_in_databricks_runtime", return_value=True,
+            "mlflow.utils.autologging_utils.versioning.is_in_databricks_runtime",
+            return_value=True,
         ) as mock_runtime:
             assert is_flavor_supported_for_associated_package_versions(flavor) == expected_result
             mock_runtime.assert_called()
@@ -921,3 +891,34 @@ def test_disable_for_unsupported_versions_warning_sklearn_integration():
         with mock.patch(log_warn_fn_name) as log_warn_fn:
             mlflow.sklearn.autolog(disable_for_unsupported_versions=False)
             assert log_warn_fn.call_count == 1 and is_sklearn_warning_fired(log_warn_fn.call_args)
+
+
+def test_get_instance_method_first_arg_value():
+    class Test:
+        def f1(self, ab1, cd2):
+            pass
+
+        def f2(self, *args):
+            pass
+
+        def f3(self, *kwargs):
+            pass
+
+        def f4(self, *args, **kwargs):
+            pass
+
+    assert 3 == get_instance_method_first_arg_value(Test.f1, [3, 4], {})
+    assert 3 == get_instance_method_first_arg_value(Test.f1, [3], {"cd2": 4})
+    assert 3 == get_instance_method_first_arg_value(Test.f1, [], {"ab1": 3, "cd2": 4})
+    assert 3 == get_instance_method_first_arg_value(Test.f2, [3, 4], {})
+    with pytest.raises(AssertionError, match=""):
+        get_instance_method_first_arg_value(Test.f3, [], {"ab1": 3, "cd2": 4})
+    with pytest.raises(AssertionError, match=""):
+        get_instance_method_first_arg_value(Test.f4, [], {"ab1": 3, "cd2": 4})
+
+
+def test_get_method_call_arg_value():
+    # suppose we call on a method defined like: `def f1(a, b=3, *, c=4, e=5)`
+    assert 2 == get_method_call_arg_value(1, "b", 3, [1, 2], {})
+    assert 3 == get_method_call_arg_value(1, "b", 3, [1], {})
+    assert 2 == get_method_call_arg_value(1, "b", 3, [1], {"b": 2})

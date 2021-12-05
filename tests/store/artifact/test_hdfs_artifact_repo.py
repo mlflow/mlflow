@@ -199,7 +199,7 @@ def test_parse_extra_conf():
     }
     assert _parse_extra_conf(None) is None
 
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError, match="not enough values to unpack "):
         _parse_extra_conf("missing_equals_sign")
 
 

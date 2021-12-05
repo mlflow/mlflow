@@ -1,11 +1,13 @@
 import yaml
-import tempfile
 import os
+import logging
+
 
 from mlflow.utils import PYTHON_VERSION
-from mlflow.utils.requirements_utils import _parse_requirements
-from packaging.requirements import Requirement
+from mlflow.utils.requirements_utils import _parse_requirements, _infer_requirements
+from packaging.requirements import Requirement, InvalidRequirement
 
+_logger = logging.getLogger(__name__)
 
 _conda_header = """\
 name: mlflow-env
@@ -13,6 +15,7 @@ channels:
   - conda-forge
 """
 
+_CONDA_ENV_FILE_NAME = "conda.yaml"
 _REQUIREMENTS_FILE_NAME = "requirements.txt"
 _CONSTRAINTS_FILE_NAME = "constraints.txt"
 
@@ -63,9 +66,7 @@ def _mlflow_conda_env(
         return env
 
 
-def _mlflow_additional_pip_env(
-    pip_deps, path=None,
-):
+def _mlflow_additional_pip_env(pip_deps, path=None):
     requirements = "\n".join(pip_deps)
     if path is not None:
         with open(path, "w") as out:
@@ -152,6 +153,9 @@ def _parse_pip_requirements(pip_requirements):
             return False
 
     if _is_string(pip_requirements):
+        with open(pip_requirements) as f:
+            return _parse_pip_requirements(f.read().splitlines())
+    elif _is_iterable(pip_requirements) and all(map(_is_string, pip_requirements)):
         requirements = []
         constraints = []
         for req_or_con in _parse_requirements(pip_requirements, is_constraint=False):
@@ -161,24 +165,6 @@ def _parse_pip_requirements(pip_requirements):
                 requirements.append(req_or_con.req_str)
 
         return requirements, constraints
-    elif _is_iterable(pip_requirements) and all(map(_is_string, pip_requirements)):
-        try:
-            # Create a temporary requirements file in the current working directory
-            tmp_req_file = tempfile.NamedTemporaryFile(
-                mode="w",
-                prefix="mlflow.",
-                suffix=".tmp.requirements.txt",
-                dir=os.getcwd(),
-                # Setting `delete` to True causes a permission-denied error on Windows
-                # while trying to read the generated temporary file.
-                delete=False,
-            )
-            tmp_req_file.write("\n".join(pip_requirements))
-            tmp_req_file.close()
-            return _parse_pip_requirements(tmp_req_file.name)
-        finally:
-            # Clean up the temporary requirements file
-            os.remove(tmp_req_file.name)
     else:
         raise TypeError(
             "`pip_requirements` must be either a string path to a pip requirements file on the "
@@ -186,6 +172,31 @@ def _parse_pip_requirements(pip_requirements):
                 type(pip_requirements)
             )
         )
+
+
+_INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE = (
+    "Encountered an unexpected error while inferring pip requirements (model URI: %s, flavor: %s)"
+)
+
+
+def infer_pip_requirements(model_uri, flavor, fallback=None):
+    """
+    Infers the pip requirements of the specified model by creating a subprocess and loading
+    the model in it to determine which packages are imported.
+
+    :param model_uri: The URI of the model.
+    :param flavor: The flavor name of the model.
+    :param fallback: If provided, an unexpected error during the inference procedure is swallowed
+                     and the value of ``fallback`` is returned. Otherwise, the error is raised.
+    :return: A list of inferred pip requirements (e.g. ``["scikit-learn==0.24.2", ...]``).
+    """
+    try:
+        return _infer_requirements(model_uri, flavor)
+    except Exception:
+        if fallback is not None:
+            _logger.exception(_INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE, model_uri, flavor)
+            return fallback
+        raise
 
 
 def _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements):
@@ -206,11 +217,40 @@ def _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
         )
 
 
+# PIP requirement parser inspired from https://github.com/pypa/pip/blob/b392833a0f1cff1bbee1ac6dbe0270cccdd0c11f/src/pip/_internal/req/req_file.py#L400
+def _get_pip_requirement_specifier(requirement_string):
+    tokens = requirement_string.split(" ")
+    for idx, token in enumerate(tokens):
+        if token.startswith("-"):
+            return " ".join(tokens[:idx])
+    return requirement_string
+
+
 def _is_mlflow_requirement(requirement_string):
     """
     Returns True if `requirement_string` represents a requirement for mlflow (e.g. 'mlflow==1.2.3').
     """
-    return Requirement(requirement_string).name.lower() == "mlflow"
+    try:
+        # `Requirement` throws an `InvalidRequirement` exception if `requirement_string` doesn't
+        # conform to PEP 508 (https://www.python.org/dev/peps/pep-0508).
+        return Requirement(requirement_string).name.lower() == "mlflow"
+    except InvalidRequirement:
+        # A local file path or URL falls into this branch.
+
+        # `Requirement` throws an `InvalidRequirement` exception if `requirement_string` contains
+        # per-requirement options (ex: package hashes)
+        # GitHub issue: https://github.com/pypa/packaging/issues/488
+        # Per-requirement-option spec: https://pip.pypa.io/en/stable/reference/requirements-file-format/#per-requirement-options
+        requirement_specifier = _get_pip_requirement_specifier(requirement_string)
+        try:
+            # Try again with the per-requirement options removed
+            return Requirement(requirement_specifier).name.lower() == "mlflow"
+        except InvalidRequirement:
+            return False
+
+        # TODO: Return True if `requirement_string` represents a project directory for MLflow
+        # (e.g. '/path/to/mlflow') or git repository URL (e.g. 'https://github.com/mlflow/mlflow').
+        return False
 
 
 def _contains_mlflow_requirement(requirements):

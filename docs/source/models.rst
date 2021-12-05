@@ -763,6 +763,19 @@ on a ``statsmodels`` model.
 
 For more information, see :py:mod:`mlflow.statsmodels`.
 
+Prophet (``prophet``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The ``prophet`` model flavor enables logging of `Prophet models
+<https://facebook.github.io/prophet/>`_ in MLflow format via the :py:func:`mlflow.prophet.save_model()`
+and :py:func:`mlflow.prophet.log_model()` methods.
+These methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
+models to be interpreted as generic Python functions for inference via
+:py:func:`mlflow.pyfunc.load_model()`. This loaded PyFunc model can only be scored with DataFrame input.
+You can also use the :py:func:`mlflow.prophet.load_model()`
+method to load MLflow Models with the ``prophet`` model flavor in native prophet format.
+
+For more information, see :py:mod:`mlflow.prophet`.
+
 Model Customization
 -------------------
 
@@ -1032,6 +1045,56 @@ For more information about serializing pandas DataFrames, see
 
 For more information about serializing tensor inputs using the TF serving format, see
 `TF serving's request format docs <https://www.tensorflow.org/tfx/serving/api_rest#request_format_2>`_.
+
+.. _serving_with_mlserver:
+
+Serving with MLServer (experimental)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Python models can be deployed using `Seldon's MLServer
+<https://mlserver.readthedocs.io/en/latest/>`_ as alternative inference server. 
+MLServer is integrated with two leading open source model deployment tools,
+`Seldon Core
+<https://docs.seldon.io/projects/seldon-core/en/latest/graph/protocols.html#v2-kfserving-protocol>`_
+and `KServe (formerly known as KFServing)
+<https://kserve.github.io/website/modelserving/v1beta1/sklearn/v2/>`_, and can
+be used to test and deploy models using these frameworks. 
+This is especially powerful when building docker images since the docker image
+built with MLServer can be deployed directly with both of these frameworks. 
+
+MLServer exposes the same scoring API through the ``/invocations`` endpoint.
+In addition, it supports the standard `V2 Inference Protocol
+<https://github.com/kubeflow/kfserving/tree/master/docs/predict-api/v2>`_.
+
+.. note::
+   To use MLServer with MLflow, please install ``mlflow`` as:
+
+   .. code-block:: bash
+
+       pip install mlflow[extras]
+
+To serve a MLflow model using MLServer, you can use the ``--enable-mlserver`` flag,
+such as:
+
+.. code-block:: bash
+
+    mlflow models serve -m my_model --enable-mlserver
+
+Similarly, to build a Docker image built with MLServer you can use the
+``--enable-mlserver`` flag, such as:
+
+.. code-block:: bash
+
+    mlflow models build -m my_model --enable-mlserver -n my-model
+
+To read more about the integration between MLflow and MLServer, please check
+the `end-to-end example in the MLServer documentation
+<https://mlserver.readthedocs.io/en/latest/examples/mlflow/README.html>`_ or
+visit the `MLServer docs <https://mlserver.readthedocs.io/en/latest/>`_.
+
+.. note::
+    - This feature is experimental and is subject to change.
+    - MLServer requires Python 3.7 or above.
 
 .. _encoding-complex-data:
 
@@ -1379,3 +1442,46 @@ For more info, see:
     mlflow deployments get --help
     mlflow deployments run-local --help
     mlflow deployments help --help
+
+
+Community Model Flavors
+-----------------------
+
+MLflow VizMod
+^^^^^^^^^^^^^
+
+The `mlflow-vizmod <https://github.com/JHibbard/mlflow-vizmod/>`_ project allows data scientists
+to be more productive with their visualizations. We treat visualizations as models - just like ML
+models - thus being able to use the same infrastructure as MLflow to track, create projects,
+register, and deploy visualizations.
+
+Installation:
+
+.. code-block:: bash
+
+    pip install mlflow-vizmod
+
+Example:
+
+.. code-block:: python
+
+    from sklearn.datasets import load_iris
+    import altair as alt
+    import mlflow_vismod
+
+    df_iris = load_iris(as_frame=True)
+
+    viz_iris = (
+        alt.Chart(df_iris)
+          .mark_circle(size=60)
+          .encode(x="x", y="y", color="z:N")
+          .properties(height=375, width=575)
+          .interactive()
+    )
+
+    mlflow_vismod.log_model(
+        model=viz_iris,
+        artifact_path="viz",
+        style="vegalite",
+        input_example=df_iris.head(5),
+    )

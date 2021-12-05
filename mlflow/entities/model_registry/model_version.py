@@ -9,9 +9,6 @@ from mlflow.protos.model_registry_pb2 import (
 
 class ModelVersion(_ModelRegistryEntity):
     """
-    .. note::
-        Experimental: This entity may change or be removed in a future release without warning.
-
     MLflow entity for Model Version.
     """
 

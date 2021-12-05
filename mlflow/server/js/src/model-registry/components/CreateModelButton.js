@@ -8,7 +8,7 @@ import { FormattedMessage } from 'react-intl';
 export class CreateModelButton extends React.Component {
   static propTypes = {
     buttonType: PropTypes.string,
-    buttonText: PropTypes.string,
+    buttonText: PropTypes.node,
   };
 
   state = {
@@ -54,7 +54,7 @@ const classNames = {
   }),
   buttonSize: css({
     height: '40px',
-    width: '120px',
+    width: 'fit-content',
   }),
 };
 

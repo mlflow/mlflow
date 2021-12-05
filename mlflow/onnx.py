@@ -23,12 +23,22 @@ from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import experimental
-from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
+from mlflow.utils.environment import (
+    _mlflow_conda_env,
+    _validate_env_arguments,
+    _process_pip_requirements,
+    _process_conda_env,
+    _CONDA_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
+)
+from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.file_utils import write_to
+from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 FLAVOR_NAME = "onnx"
-# TEMPORARY CHANGE to trigger cross version tests
 
 
 def get_default_pip_requirements():
@@ -37,16 +47,18 @@ def get_default_pip_requirements():
              Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
              that, at minimum, contains these requirements.
     """
-    import onnx
-    import onnxruntime
-
-    return [
-        "onnx=={}".format(onnx.__version__),
-        # The ONNX pyfunc representation requires the OnnxRuntime
-        # inference engine. Therefore, the conda environment must
-        # include OnnxRuntime
-        "onnxruntime=={}".format(onnxruntime.__version__),
-    ]
+    return list(
+        map(
+            _get_pinned_requirement,
+            [
+                "onnx",
+                # The ONNX pyfunc representation requires the OnnxRuntime
+                # inference engine. Therefore, the conda environment must
+                # include OnnxRuntime
+                "onnxruntime",
+            ],
+        )
+    )
 
 
 @experimental
@@ -59,6 +71,7 @@ def get_default_conda_env():
 
 
 @experimental
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     onnx_model,
     path,
@@ -66,33 +79,18 @@ def save_model(
     mlflow_model=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
+    pip_requirements=None,
+    extra_pip_requirements=None,
 ):
     """
     Save an ONNX model to a path on the local file system.
 
     :param onnx_model: ONNX model to be saved.
     :param path: Local path where the model is to be saved.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this describes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If `None`, the default
-                      :func:`get_default_conda_env()` environment is added to the model.
-                      The following is an *example* dictionary representation of a Conda
-                      environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.6.0',
-                                'onnx=1.4.1',
-                                'onnxruntime=0.3.0'
-                            ]
-                        }
-
+    :param conda_env: {{ conda_env }}
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
 
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -105,15 +103,18 @@ def save_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example can be a Pandas DataFrame where the given
                           example will be serialized to json using the Pandas split-oriented
                           format, or a numpy array where the example will be serialized to json
                           by converting it to a list. Bytes are base64-encoded.
-
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
     """
     import onnx
+
+    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     path = os.path.abspath(path)
     if os.path.exists(path):
@@ -133,22 +134,42 @@ def save_model(
     # Save onnx-model
     onnx.save_model(onnx_model, model_data_path)
 
-    conda_env_subpath = "conda.yaml"
-    if conda_env is None:
-        conda_env = get_default_conda_env()
-    elif not isinstance(conda_env, dict):
-        with open(conda_env, "r") as f:
-            conda_env = yaml.safe_load(f)
-    with open(os.path.join(path, conda_env_subpath), "w") as f:
-        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
-
-    _log_pip_requirements(conda_env, path)
-
     pyfunc.add_to_model(
-        mlflow_model, loader_module="mlflow.onnx", data=model_data_subpath, env=conda_env_subpath
+        mlflow_model, loader_module="mlflow.onnx", data=model_data_subpath, env=_CONDA_ENV_FILE_NAME
     )
     mlflow_model.add_flavor(FLAVOR_NAME, onnx_version=onnx.__version__, data=model_data_subpath)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+
+    if conda_env is None:
+        if pip_requirements is None:
+            default_reqs = get_default_pip_requirements()
+            # To ensure `_load_pyfunc` can successfully load the model during the dependency
+            # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
+            inferred_reqs = mlflow.models.infer_pip_requirements(
+                path,
+                FLAVOR_NAME,
+                fallback=default_reqs,
+            )
+            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+        else:
+            default_reqs = None
+        conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
+            default_reqs,
+            pip_requirements,
+            extra_pip_requirements,
+        )
+    else:
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
+
+    with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
+        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    # Save `constraints.txt` if necessary
+    if pip_constraints:
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
+
+    # Save `requirements.txt`
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
 
 def _load_model(model_file):
@@ -265,7 +286,7 @@ def _load_pyfunc(path):
 
 
 @experimental
-def load_model(model_uri):
+def load_model(model_uri, dst_path=None):
     """
     Load an ONNX model from a local file or a run.
 
@@ -281,17 +302,21 @@ def load_model(model_uri):
                       For more information about supported URI schemes, see the
                       `Artifacts Documentation <https://www.mlflow.org/docs/latest/
                       tracking.html#artifact-stores>`_.
+    :param dst_path: The local filesystem path to which to download the model artifact.
+                     This directory must already exist. If unspecified, a local output
+                     path will be created.
 
     :return: An ONNX model instance.
 
     """
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     onnx_model_artifacts_path = os.path.join(local_model_path, flavor_conf["data"])
     return _load_model(model_file=onnx_model_artifacts_path)
 
 
 @experimental
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     onnx_model,
     artifact_path,
@@ -300,34 +325,20 @@ def log_model(
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+    pip_requirements=None,
+    extra_pip_requirements=None,
 ):
     """
     Log an ONNX model as an MLflow artifact for the current run.
 
     :param onnx_model: ONNX model to be saved.
     :param artifact_path: Run-relative artifact path.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decsribes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If `None`, the default
-                      :func:`get_default_conda_env()` environment is added to the model.
-                      The following is an *example* dictionary representation of a Conda
-                      environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.6.0',
-                                'onnx=1.4.1',
-                                'onnxruntime=0.3.0'
-                            ]
-                        }
-    :param registered_model_name: (Experimental) If given, create a model version under
+    :param conda_env: {{ conda_env }}
+    :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
 
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -340,7 +351,7 @@ def log_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example can be a Pandas DataFrame where the given
                           example will be serialized to json using the Pandas split-oriented
@@ -349,7 +360,8 @@ def log_model(
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
-
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
     """
     Model.log(
         artifact_path=artifact_path,
@@ -360,4 +372,6 @@ def log_model(
         signature=signature,
         input_example=input_example,
         await_registration_for=await_registration_for,
+        pip_requirements=pip_requirements,
+        extra_pip_requirements=extra_pip_requirements,
     )

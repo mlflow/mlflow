@@ -9,9 +9,7 @@ import pandas as pd
 import pytest
 from mxnet import context as ctx
 from mxnet.gluon import Trainer
-from mxnet.gluon.contrib.estimator import estimator
 from mxnet.gluon.data import DataLoader
-from mxnet.gluon.loss import SoftmaxCrossEntropyLoss
 from mxnet.gluon.nn import HybridSequential, Dense
 
 import mlflow
@@ -25,16 +23,21 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 
-from tests.helper_functions import pyfunc_serve_and_score_model, _compare_conda_env_requirements
+from tests.gluon.utils import get_estimator
+from tests.helper_functions import (
+    pyfunc_serve_and_score_model,
+    _compare_conda_env_requirements,
+    _assert_pip_requirements,
+    _is_available_on_pypi,
+)
 
 if Version(mx.__version__) >= Version("2.0.0"):
-    from mxnet.gluon.metric import Accuracy  # pylint: disable=import-error
-
     array_module = mx.np
 else:
-    from mxnet.metric import Accuracy  # pylint: disable=import-error
-
     array_module = mx.nd
+
+
+EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("mxnet") else ["--no-conda"]
 
 
 @pytest.fixture
@@ -73,11 +76,7 @@ def gluon_model(model_data):
         model.collect_params(), "adam", optimizer_params={"learning_rate": 0.001, "epsilon": 1e-07}
     )
 
-    # `metrics` was renamed in mxnet 1.6.0: https://github.com/apache/incubator-mxnet/pull/17048
-    arg_name = "metrics" if Version(mx.__version__) < Version("1.6.0") else "train_metrics"
-    est = estimator.Estimator(
-        net=model, loss=SoftmaxCrossEntropyLoss(), trainer=trainer, **{arg_name: Accuracy()}
-    )
+    est = get_estimator(model, trainer)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         est.fit(train_data_loader, epochs=3)
@@ -179,6 +178,60 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
 
 
 @pytest.mark.large
+def test_save_model_with_pip_requirements(gluon_model, tmpdir):
+    # Path to a requirements file
+    tmpdir1 = tmpdir.join("1")
+    req_file = tmpdir.join("requirements.txt")
+    req_file.write("a")
+    mlflow.gluon.save_model(gluon_model, tmpdir1.strpath, pip_requirements=req_file.strpath)
+    _assert_pip_requirements(tmpdir1.strpath, ["mlflow", "a"], strict=True)
+
+    # List of requirements
+    tmpdir2 = tmpdir.join("2")
+    mlflow.gluon.save_model(
+        gluon_model, tmpdir2.strpath, pip_requirements=[f"-r {req_file.strpath}", "b"]
+    )
+    _assert_pip_requirements(tmpdir2.strpath, ["mlflow", "a", "b"], strict=True)
+
+    # Constraints file
+    tmpdir3 = tmpdir.join("3")
+    mlflow.gluon.save_model(
+        gluon_model, tmpdir3.strpath, pip_requirements=[f"-c {req_file.strpath}", "b"]
+    )
+    _assert_pip_requirements(
+        tmpdir3.strpath, ["mlflow", "b", "-c constraints.txt"], ["a"], strict=True
+    )
+
+
+@pytest.mark.large
+def test_save_model_with_extra_pip_requirements(gluon_model, tmpdir):
+    default_reqs = mlflow.gluon.get_default_pip_requirements()
+
+    # Path to a requirements file
+    tmpdir1 = tmpdir.join("1")
+    req_file = tmpdir.join("requirements.txt")
+    req_file.write("a")
+    mlflow.gluon.save_model(gluon_model, tmpdir1.strpath, extra_pip_requirements=req_file.strpath)
+    _assert_pip_requirements(tmpdir1.strpath, ["mlflow", *default_reqs, "a"])
+
+    # List of requirements
+    tmpdir2 = tmpdir.join("2")
+    mlflow.gluon.save_model(
+        gluon_model, tmpdir2.strpath, extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
+    )
+    _assert_pip_requirements(tmpdir2.strpath, ["mlflow", *default_reqs, "a", "b"])
+
+    # Constraints file
+    tmpdir3 = tmpdir.join("3")
+    mlflow.gluon.save_model(
+        gluon_model, tmpdir3.strpath, extra_pip_requirements=[f"-c {req_file.strpath}", "b"]
+    )
+    _assert_pip_requirements(
+        tmpdir3.strpath, ["mlflow", *default_reqs, "b", "-c constraints.txt"], ["a"]
+    )
+
+
+@pytest.mark.large
 def test_model_save_accepts_conda_env_as_dict(gluon_model, model_path):
     conda_env = dict(mlflow.gluon.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
@@ -253,7 +306,7 @@ def test_gluon_model_serving_and_scoring_as_pyfunc(gluon_model, model_data):
         model_uri=model_uri,
         data=pd.DataFrame(test_data.asnumpy()),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        extra_args=["--no-conda"],
+        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
     response_values = pd.read_json(scoring_response.content, orient="records").values.astype(
         np.float32

@@ -5,6 +5,7 @@ import {
   generateAttributesForCategoricalDimension,
   createDimension,
   inferType,
+  UNKNOWN_TERM,
 } from './ParallelCoordinatesPlotView';
 
 describe('unit tests', () => {
@@ -204,6 +205,73 @@ describe('unit tests', () => {
       values: [1, 0],
       tickvals: [0, 1],
       ticktext: ['A', 'B'],
+    });
+  });
+
+  test('createDimension should work with missing values and fill in NaN', () => {
+    const key = 'metric_0';
+    const runUuids = ['runUuid_0', 'runUuid_1'];
+    const entryByRunUuid = {
+      runUuid_0: {
+        metric_0: { value: 1 },
+      },
+      runUuid_1: {},
+    };
+    expect(createDimension(key, runUuids, entryByRunUuid)).toEqual({
+      label: 'metric_0',
+      values: [1, 1.01],
+      tickformat: '.5f',
+    });
+  });
+
+  test('createDimension should work with NaN and fill in NaN', () => {
+    const key = 'metric_0';
+    const runUuids = ['runUuid_0', 'runUuid_1'];
+    const entryByRunUuid = {
+      runUuid_0: {
+        metric_0: { value: 1 },
+      },
+      runUuid_1: {
+        metric_0: { value: NaN },
+      },
+    };
+    expect(createDimension(key, runUuids, entryByRunUuid)).toEqual({
+      label: 'metric_0',
+      values: [1, NaN],
+      tickformat: '.5f',
+    });
+  });
+
+  test('createDimension should work with undefined values for strings series', () => {
+    const key = 'metric_0';
+    const runUuids = ['runUuid_0', 'runUuid_1'];
+    const entryByRunUuid = {
+      runUuid_0: {
+        metric_0: { value: 'True' },
+      },
+      runUuid_1: {},
+    };
+    expect(createDimension(key, runUuids, entryByRunUuid)).toEqual({
+      label: 'metric_0',
+      ticktext: ['True', UNKNOWN_TERM],
+      tickvals: [0, 1],
+      values: [0, 1],
+    });
+  });
+
+  test('createDimension should work with undefined values for number series', () => {
+    const key = 'metric_0';
+    const runUuids = ['runUuid_0', 'runUuid_1'];
+    const entryByRunUuid = {
+      runUuid_0: {
+        metric_0: { value: 1 },
+      },
+      runUuid_1: {},
+    };
+    expect(createDimension(key, runUuids, entryByRunUuid)).toEqual({
+      label: 'metric_0',
+      values: [1, 1.01],
+      tickformat: '.5f',
     });
   });
 

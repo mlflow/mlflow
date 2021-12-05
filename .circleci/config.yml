@@ -3,12 +3,14 @@ version: 2.1
 jobs:
   build_doc_r:
     docker:
-      - image: ubuntu:16.04
+      - image: ubuntu:20.04
 
     steps:
       - checkout
       - run:
           name: Install dev tools
+          environment:
+            DEBIAN_FRONTEND: noninteractive
           command: |
             apt-get update --yes
             apt-get install sudo git wget curl jq software-properties-common apt-transport-https --yes
@@ -18,14 +20,18 @@ jobs:
           command: |
             sudo apt-get install default-jdk --yes
             java -version
+
       - run:
           name: Install R
           command: |
-            echo "deb https://cloud.r-project.org/bin/linux/ubuntu xenial-cran35/" | sudo tee -a /etc/apt/sources.list
-            sudo add-apt-repository ppa:cran/libgit2 --yes
-            sudo apt-get update --yes
-            sudo apt-get install --yes --allow-unauthenticated \
-              r-base r-base-dev libssl-dev libcurl4-openssl-dev texlive-latex-base libxml2-dev libssh2-1-dev libgit2-dev
+            # How To Install R on Ubuntu 20.04:
+            # https://www.digitalocean.com/community/tutorials/how-to-install-r-on-ubuntu-20-04
+
+            sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9
+            sudo add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu focal-cran40/'
+            sudo apt update -y
+            sudo apt install -y r-base libssl-dev libxml2-dev libcurl4-openssl-dev
+            R --version
 
       - run:
           name: Install pandoc
@@ -99,7 +105,7 @@ jobs:
           name: Install Python dependencies
           command: |
             pip --version
-            pip install --progress-bar off -r dev-requirements.txt .
+            pip install --progress-bar off -r requirements/doc-requirements.txt .
       - run:
           name: Build documentation
           working_directory: docs

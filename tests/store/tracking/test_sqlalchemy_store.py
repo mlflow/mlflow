@@ -17,7 +17,16 @@ from unittest import mock
 
 import mlflow.db
 import mlflow.store.db.base_sql_model
-from mlflow.entities import ViewType, RunTag, SourceType, RunStatus, Experiment, Metric, Param
+from mlflow.entities import (
+    ViewType,
+    RunTag,
+    SourceType,
+    RunStatus,
+    Experiment,
+    Metric,
+    Param,
+    ExperimentTag,
+)
 from mlflow.protos.databricks_pb2 import (
     ErrorCode,
     RESOURCE_DOES_NOT_EXIST,
@@ -28,8 +37,6 @@ from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.db.utils import (
     _get_schema_version,
     _get_latest_schema_revision,
-    MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW,
-    MLFLOW_SQLALCHEMYSTORE_POOL_SIZE,
 )
 from mlflow.store.tracking.dbmodels import models
 from mlflow.store.db.db_types import MYSQL, MSSQL
@@ -355,6 +362,17 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
                     self.assertEqual(
                         exp.artifact_location, expected_artifact_uri_format.format(e=exp_id)
                     )
+
+    def test_create_experiment_with_tags_works_correctly(self):
+        experiment_id = self.store.create_experiment(
+            name="test exp",
+            artifact_location="some location",
+            tags=[ExperimentTag("key1", "val1"), ExperimentTag("key2", "val2")],
+        )
+        experiment = self.store.get_experiment(experiment_id)
+        assert len(experiment.tags) == 2
+        assert experiment.tags["key1"] == "val1"
+        assert experiment.tags["key2"] == "val2"
 
     def test_create_run_appends_to_artifact_uri_path_correctly(self):
         cases = [
@@ -795,14 +813,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         self.assertTrue(experiment.tags["multiline tag"] == "value2\nvalue2\nvalue2")
         # test cannot set tags that are too long
         longTag = entities.ExperimentTag("longTagKey", "a" * 5001)
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match="exceeded length limit of 5000"):
             self.store.set_experiment_tag(exp_id, longTag)
         # test can set tags that are somewhat long
         longTag = entities.ExperimentTag("longTagKey", "a" * 4999)
         self.store.set_experiment_tag(exp_id, longTag)
         # test cannot set tags on deleted experiments
         self.store.delete_experiment(exp_id)
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match="must be in the 'active' state"):
             self.store.set_experiment_tag(exp_id, entities.ExperimentTag("should", "notset"))
 
     def test_set_tag(self):
@@ -817,7 +835,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         # Overwriting tags is allowed
         self.store.set_tag(run.info.run_id, new_tag)
         # test setting tags that are too long fails.
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match="exceeded length limit of 5000"):
             self.store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * 5001))
         # test can set tags that are somewhat long
         self.store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * 4999))
@@ -848,14 +866,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         self.assertTrue(k0 not in run.data.tags)
         self.assertTrue(k0 in run2.data.tags)
         # test that you cannot delete tags that don't exist.
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match="No tag with name"):
             self.store.delete_tag(run.info.run_id, "fakeTag")
         # test that you cannot delete tags for nonexistent runs
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match="Run with id=randomRunId not found"):
             self.store.delete_tag("randomRunId", k0)
         # test that you cannot delete tags for deleted runs.
         self.store.delete_run(run.info.run_id)
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match="must be in the 'active' state"):
             self.store.delete_tag(run.info.run_id, k1)
 
     def test_get_metric_history(self):
@@ -1223,7 +1241,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             [r1], self._search(experiment_id, filter_string="tags.generic_2 = 'some value'")
         )
         self.assertCountEqual(
-            [r2], self._search(experiment_id, filter_string="tags.generic_2 = 'another value'"),
+            [r2],
+            self._search(experiment_id, filter_string="tags.generic_2 = 'another value'"),
         )
         self.assertCountEqual(
             [], self._search(experiment_id, filter_string="tags.generic_tag = 'wrong_val'")
@@ -1232,10 +1251,12 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             [], self._search(experiment_id, filter_string="tags.generic_tag != 'p_val'")
         )
         self.assertCountEqual(
-            [r1, r2], self._search(experiment_id, filter_string="tags.generic_tag != 'wrong_val'"),
+            [r1, r2],
+            self._search(experiment_id, filter_string="tags.generic_tag != 'wrong_val'"),
         )
         self.assertCountEqual(
-            [r1, r2], self._search(experiment_id, filter_string="tags.generic_2 != 'wrong_val'"),
+            [r1, r2],
+            self._search(experiment_id, filter_string="tags.generic_2 != 'wrong_val'"),
         )
         self.assertCountEqual([r1], self._search(experiment_id, filter_string="tags.p_a = 'abc'"))
         self.assertCountEqual([r2], self._search(experiment_id, filter_string="tags.p_b = 'ABC'"))
@@ -1452,7 +1473,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
         # all params and metrics match
         filter_string = (
-            "params.generic_param = 'p_val' and metrics.common = 1.0 " "and metrics.m_a > 1.0"
+            "params.generic_param = 'p_val' and metrics.common = 1.0 and metrics.m_a > 1.0"
         )
         self.assertCountEqual([r1], self._search(experiment_id, filter_string))
 
@@ -1476,13 +1497,13 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
         # test with mismatch param
         filter_string = (
-            "params.random_bad_name = 'p_val' and metrics.common = 1.0 " "and metrics.m_a > 1.0"
+            "params.random_bad_name = 'p_val' and metrics.common = 1.0 and metrics.m_a > 1.0"
         )
         self.assertCountEqual([], self._search(experiment_id, filter_string))
 
         # test with mismatch metric
         filter_string = (
-            "params.generic_param = 'p_val' and metrics.common = 1.0 " "and metrics.m_a > 100.0"
+            "params.generic_param = 'p_val' and metrics.common = 1.0 and metrics.m_a > 100.0"
         )
         self.assertCountEqual([], self._search(experiment_id, filter_string))
 
@@ -1935,55 +1956,6 @@ class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
 
     def tearDown(self):
         os.remove(self.temp_dbfile)
-
-
-@pytest.mark.release
-class TestSqlAlchemyStoreMysqlDb(TestSqlAlchemyStoreSqlite):
-    """
-    Run tests against a MySQL database
-    """
-
-    DEFAULT_MYSQL_PORT = 3306
-
-    def setUp(self):
-        os.environ[MLFLOW_SQLALCHEMYSTORE_POOL_SIZE] = "2"
-        os.environ[MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW] = "1"
-        db_username = os.environ.get("MYSQL_TEST_USERNAME")
-        db_password = os.environ.get("MYSQL_TEST_PASSWORD")
-        db_port = (
-            int(os.environ["MYSQL_TEST_PORT"])
-            if "MYSQL_TEST_PORT" in os.environ
-            else TestSqlAlchemyStoreMysqlDb.DEFAULT_MYSQL_PORT
-        )
-        if db_username is None or db_password is None:
-            raise Exception(
-                "Username and password for database tests must be specified via the "
-                "MYSQL_TEST_USERNAME and MYSQL_TEST_PASSWORD environment variables. "
-                "environment variable. In posix shells, you can rerun your test command "
-                "with the environment variables set, e.g: MYSQL_TEST_USERNAME=your_username "
-                "MYSQL_TEST_PASSWORD=your_password <your-test-command>. You may optionally "
-                "specify a database port via MYSQL_TEST_PORT (default is 3306)."
-            )
-        self._db_name = "test_sqlalchemy_store_%s" % uuid.uuid4().hex[:5]
-        db_server_url = "mysql://%s:%s@localhost:%s" % (db_username, db_password, db_port)
-        self._engine = sqlalchemy.create_engine(db_server_url)
-        self._engine.execute("CREATE DATABASE %s" % self._db_name)
-        self.db_url = "%s/%s" % (db_server_url, self._db_name)
-        self.store = self._get_store(self.db_url)
-
-    def tearDown(self):
-        self._engine.execute("DROP DATABASE %s" % self._db_name)
-
-    def test_log_many_entities(self):
-        """
-        Sanity check: verify that we can log a reasonable number of entities without failures due
-        to connection leaks etc.
-        """
-        run = self._run_factory()
-        for i in range(100):
-            self.store.log_metric(run.info.run_id, entities.Metric("key", i, i * 2, i * 3))
-            self.store.log_param(run.info.run_id, entities.Param("pkey-%s" % i, "pval-%s" % i))
-            self.store.set_tag(run.info.run_id, entities.RunTag("tkey-%s" % i, "tval-%s" % i))
 
 
 @mock.patch("sqlalchemy.orm.session.Session", spec=True)

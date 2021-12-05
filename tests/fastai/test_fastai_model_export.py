@@ -7,12 +7,13 @@ from unittest import mock
 import numpy as np
 import pandas as pd
 import sklearn.datasets as datasets
-from fastai.tabular import tabular_learner, TabularList
+from fastai.tabular.all import tabular_learner, TabularDataLoaders
 from fastai.metrics import accuracy
 
 import mlflow.fastai
 import mlflow.utils
 from mlflow import pyfunc
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -20,12 +21,15 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
-from fastai.tabular import DatasetType
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
-from tests.helper_functions import _compare_conda_env_requirements
+from tests.helper_functions import (
+    pyfunc_serve_and_score_model,
+    _compare_conda_env_requirements,
+    _assert_pip_requirements,
+)
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
 
@@ -35,13 +39,10 @@ def fastai_model():
     iris = datasets.load_iris()
     X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
     y = pd.Series(iris.target, name="label")
-    data = (
-        TabularList.from_df(pd.concat([X, y], axis=1), cont_names=list(X.columns))
-        .split_by_rand_pct(valid_pct=0.1, seed=42)
-        .label_from_df(cols="label")
-        .databunch()
+    dl = TabularDataLoaders.from_df(
+        df=pd.concat([X, y], axis=1), cont_names=list(X.columns), y_names="label"
     )
-    model = tabular_learner(data, metrics=accuracy, layers=[3])
+    model = tabular_learner(dl, metrics=accuracy, layers=[3])
     model.fit(1)
     return ModelWithData(model=model, inference_dataframe=X)
 
@@ -58,14 +59,6 @@ def fastai_custom_env(tmpdir):
     return conda_env
 
 
-def compare_wrapper_results(wrapper1_results, wrapper2_results):
-    samples = wrapper1_results["predictions"].shape[0]
-    predictions1 = np.concatenate(wrapper1_results["predictions"], axis=0).reshape((samples, -1))
-    predictions2 = np.concatenate(wrapper2_results["predictions"], axis=0).reshape((samples, -1))
-    np.testing.assert_array_almost_equal(wrapper1_results["target"], wrapper2_results["target"])
-    np.testing.assert_array_almost_equal(predictions1, predictions2)
-
-
 @pytest.mark.large
 def test_model_save_load(fastai_model, model_path):
     model = fastai_model.model
@@ -75,17 +68,19 @@ def test_model_save_load(fastai_model, model_path):
     reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
 
     # Verify reloaded model computes same predictions as original model
-    test_data = TabularList.from_df(fastai_model.inference_dataframe)
-    model.data.add_test(test_data)
-    reloaded_model.data.add_test(test_data)
+    dl_model = model.dls.test_dl(fastai_model.inference_dataframe)
+    dl_reloaded_model = reloaded_model.dls.test_dl(fastai_model.inference_dataframe)
 
-    real_preds, real_target = map(lambda output: output.numpy(), model.get_preds(DatasetType.Test))
-    reloaded_preds, reloaded_target = map(
-        lambda output: output.numpy(), reloaded_model.get_preds(DatasetType.Test)
+    real_preds, _ = map(
+        lambda output: output.numpy() if output is not None else output,
+        model.get_preds(dl=dl_model),
+    )
+    reloaded_preds, _ = map(
+        lambda output: output.numpy() if output is not None else output,
+        reloaded_model.get_preds(dl=dl_reloaded_model),
     )
 
     np.testing.assert_array_almost_equal(real_preds, reloaded_preds)
-    np.testing.assert_array_almost_equal(real_target, reloaded_target)
 
     model_wrapper = mlflow.fastai._FastaiModelWrapper(model)
     reloaded_model_wrapper = mlflow.fastai._FastaiModelWrapper(reloaded_model)
@@ -94,8 +89,8 @@ def test_model_save_load(fastai_model, model_path):
     reloaded_result = reloaded_model_wrapper.predict(fastai_model.inference_dataframe)
     pyfunc_result = reloaded_pyfunc.predict(fastai_model.inference_dataframe)
 
-    compare_wrapper_results(model_result, reloaded_result)
-    compare_wrapper_results(reloaded_result, pyfunc_result)
+    np.testing.assert_array_almost_equal(model_result, reloaded_result)
+    np.testing.assert_array_almost_equal(reloaded_result, pyfunc_result)
 
 
 def test_signature_and_examples_are_saved_correctly(fastai_model):
@@ -133,7 +128,7 @@ def test_model_load_from_remote_uri_succeeds(fastai_model, model_path, mock_s3_b
     model_wrapper = mlflow.fastai._FastaiModelWrapper(model)
     reloaded_model_wrapper = mlflow.fastai._FastaiModelWrapper(reloaded_model)
 
-    compare_wrapper_results(
+    np.testing.assert_array_almost_equal(
         model_wrapper.predict(fastai_model.inference_dataframe),
         reloaded_model_wrapper.predict(fastai_model.inference_dataframe),
     )
@@ -167,7 +162,7 @@ def test_model_log(fastai_model, model_path):
                 model_wrapper = mlflow.fastai._FastaiModelWrapper(model)
                 reloaded_model_wrapper = mlflow.fastai._FastaiModelWrapper(reloaded_model)
 
-                compare_wrapper_results(
+                np.testing.assert_array_almost_equal(
                     model_wrapper.predict(fastai_model.inference_dataframe),
                     reloaded_model_wrapper.predict(fastai_model.inference_dataframe),
                 )
@@ -249,6 +244,62 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
 
 
 @pytest.mark.large
+def test_save_model_with_pip_requirements(fastai_model, tmpdir):
+    # Path to a requirements file
+    tmpdir1 = tmpdir.join("1")
+    req_file = tmpdir.join("requirements.txt")
+    req_file.write("a")
+    mlflow.fastai.save_model(fastai_model.model, tmpdir1.strpath, pip_requirements=req_file.strpath)
+    _assert_pip_requirements(tmpdir1.strpath, ["mlflow", "a"], strict=True)
+
+    # List of requirements
+    tmpdir2 = tmpdir.join("2")
+    mlflow.fastai.save_model(
+        fastai_model.model, tmpdir2.strpath, pip_requirements=[f"-r {req_file.strpath}", "b"]
+    )
+    _assert_pip_requirements(tmpdir2.strpath, ["mlflow", "a", "b"], strict=True)
+
+    # Constraints file
+    tmpdir3 = tmpdir.join("3")
+    mlflow.fastai.save_model(
+        fastai_model.model, tmpdir3.strpath, pip_requirements=[f"-c {req_file.strpath}", "b"]
+    )
+    _assert_pip_requirements(
+        tmpdir3.strpath, ["mlflow", "b", "-c constraints.txt"], ["a"], strict=True
+    )
+
+
+@pytest.mark.large
+def test_save_model_with_extra_pip_requirements(fastai_model, tmpdir):
+    default_reqs = mlflow.fastai.get_default_pip_requirements()
+
+    # Path to a requirements file
+    tmpdir1 = tmpdir.join("1")
+    req_file = tmpdir.join("requirements.txt")
+    req_file.write("a")
+    mlflow.fastai.save_model(
+        fastai_model.model, tmpdir1.strpath, extra_pip_requirements=req_file.strpath
+    )
+    _assert_pip_requirements(tmpdir1.strpath, ["mlflow", *default_reqs, "a"])
+
+    # List of requirements
+    tmpdir2 = tmpdir.join("2")
+    mlflow.fastai.save_model(
+        fastai_model.model, tmpdir2.strpath, extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
+    )
+    _assert_pip_requirements(tmpdir2.strpath, ["mlflow", *default_reqs, "a", "b"])
+
+    # Constraints file
+    tmpdir3 = tmpdir.join("3")
+    mlflow.fastai.save_model(
+        fastai_model.model, tmpdir3.strpath, extra_pip_requirements=[f"-c {req_file.strpath}", "b"]
+    )
+    _assert_pip_requirements(
+        tmpdir3.strpath, ["mlflow", *default_reqs, "b", "-c constraints.txt"], ["a"]
+    )
+
+
+@pytest.mark.large
 def test_model_save_accepts_conda_env_as_dict(fastai_model, model_path):
     conda_env = dict(mlflow.fastai.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
@@ -316,14 +367,8 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(fastai_model,
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     fastai_model, model_path
 ):
-    mlflow.fastai.save_model(fastai_learner=fastai_model.model, path=model_path, conda_env=None)
-
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
-
-    assert conda_env == mlflow.fastai.get_default_conda_env()
+    mlflow.fastai.save_model(fastai_learner=fastai_model.model, path=model_path)
+    _assert_pip_requirements(model_path, mlflow.fastai.get_default_pip_requirements())
 
 
 @pytest.mark.large
@@ -332,17 +377,26 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.fastai.log_model(
-            fastai_learner=fastai_model.model, artifact_path=artifact_path, conda_env=None
-        )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        mlflow.fastai.log_model(fastai_learner=fastai_model.model, artifact_path=artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+    _assert_pip_requirements(model_uri, mlflow.fastai.get_default_pip_requirements())
 
-    model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
 
-    assert conda_env == mlflow.fastai.get_default_conda_env()
+@pytest.mark.large
+def test_pyfunc_serve_and_score(fastai_model):
+    model, inference_dataframe = fastai_model
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.fastai.log_model(model, artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    resp = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_dataframe,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+    )
+    # `[:, -1]` extracts the prediction column
+    scores = pd.read_json(resp.content, orient="records").values[:, -1]
+    np.testing.assert_array_almost_equal(
+        scores, mlflow.fastai._FastaiModelWrapper(model).predict(inference_dataframe).values[:, -1]
+    )

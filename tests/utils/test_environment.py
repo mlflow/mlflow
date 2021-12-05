@@ -13,6 +13,7 @@ from mlflow.utils.environment import (
     _contains_mlflow_requirement,
     _process_pip_requirements,
     _process_conda_env,
+    _get_pip_requirement_specifier,
 )
 
 
@@ -169,7 +170,7 @@ def test_parse_pip_requirements_removes_temporary_requirements_file():
     assert _parse_pip_requirements(["a"]) == (["a"], [])
     assert all(not x.endswith(".tmp.requirements.txt") for x in os.listdir())
 
-    with pytest.raises(Exception):
+    with pytest.raises(FileNotFoundError, match="No such file or directory"):
         _parse_pip_requirements(["a", "-r does_not_exist.txt"])
     # Ensure the temporary requirements file has been removed even when parsing fails
     assert all(not x.endswith(".tmp.requirements.txt") for x in os.listdir())
@@ -182,30 +183,20 @@ def test_parse_pip_requirements_with_invalid_argument_types(invalid_argument):
 
 
 def test_validate_env_arguments():
-    _validate_env_arguments(
-        conda_env=None, pip_requirements=None, extra_pip_requirements=None,
-    )
+    _validate_env_arguments(pip_requirements=None, extra_pip_requirements=None, conda_env=None)
 
     match = "Only one of `conda_env`, `pip_requirements`, and `extra_pip_requirements`"
     with pytest.raises(ValueError, match=match):
-        _validate_env_arguments(
-            conda_env={}, pip_requirements=[], extra_pip_requirements=None,
-        )
+        _validate_env_arguments(conda_env={}, pip_requirements=[], extra_pip_requirements=None)
 
     with pytest.raises(ValueError, match=match):
-        _validate_env_arguments(
-            conda_env={}, pip_requirements=None, extra_pip_requirements=[],
-        )
+        _validate_env_arguments(conda_env={}, pip_requirements=None, extra_pip_requirements=[])
 
     with pytest.raises(ValueError, match=match):
-        _validate_env_arguments(
-            conda_env=None, pip_requirements=[], extra_pip_requirements=[],
-        )
+        _validate_env_arguments(conda_env=None, pip_requirements=[], extra_pip_requirements=[])
 
     with pytest.raises(ValueError, match=match):
-        _validate_env_arguments(
-            conda_env={}, pip_requirements=[], extra_pip_requirements=[],
-        )
+        _validate_env_arguments(conda_env={}, pip_requirements=[], extra_pip_requirements=[])
 
 
 def test_is_mlflow_requirement():
@@ -215,6 +206,8 @@ def test_is_mlflow_requirement():
     assert _is_mlflow_requirement("mlflow==1.2.3")
     assert _is_mlflow_requirement("mlflow < 1.2.3")
     assert _is_mlflow_requirement("mlflow; python_version < '3.8'")
+    assert _is_mlflow_requirement("mlflow @ https://github.com/mlflow/mlflow.git")
+    assert _is_mlflow_requirement("mlflow @ file:///path/to/mlflow")
     assert not _is_mlflow_requirement("foo")
     # Ensure packages that look like mlflow are NOT considered as mlflow.
     assert not _is_mlflow_requirement("mlflow-foo")
@@ -227,6 +220,17 @@ def test_contains_mlflow_requirement():
     assert _contains_mlflow_requirement(["mlflow", "foo"])
     assert not _contains_mlflow_requirement([])
     assert not _contains_mlflow_requirement(["foo"])
+
+
+def test_get_pip_requirement_specifier():
+    assert _get_pip_requirement_specifier("") == ""
+    assert _get_pip_requirement_specifier(" ") == " "
+    assert _get_pip_requirement_specifier("mlflow") == "mlflow"
+    assert _get_pip_requirement_specifier("mlflow==1.2.3") == "mlflow==1.2.3"
+    assert _get_pip_requirement_specifier("-r reqs.txt") == ""
+    assert _get_pip_requirement_specifier("  -r reqs.txt") == " "
+    assert _get_pip_requirement_specifier("mlflow==1.2.3 --hash=foo") == "mlflow==1.2.3"
+    assert _get_pip_requirement_specifier("mlflow==1.2.3       --hash=foo") == "mlflow==1.2.3      "
 
 
 def test_process_pip_requirements(tmpdir):
@@ -244,6 +248,17 @@ def test_process_pip_requirements(tmpdir):
     conda_env, reqs, cons = _process_pip_requirements(["a"], pip_requirements=["mlflow==1.2.3"])
     assert _get_pip_deps(conda_env) == ["mlflow==1.2.3"]
     assert reqs == ["mlflow==1.2.3"]
+    assert cons == []
+
+    # Ensure a requirement for mlflow is preserved when package hashes are specified
+    hash1 = "sha256:963c22532e82a93450674ab97d62f9e528ed0906b580fadb7c003e696197557c"
+    hash2 = "sha256:b15ff0c7e5e64f864a0b40c99b9a582227315eca2065d9f831db9aeb8f24637b"
+    conda_env, reqs, cons = _process_pip_requirements(
+        ["a"],
+        pip_requirements=[f"mlflow==1.20.2 --hash={hash1} --hash={hash2}"],
+    )
+    assert _get_pip_deps(conda_env) == [f"mlflow==1.20.2 --hash={hash1} --hash={hash2}"]
+    assert reqs == [f"mlflow==1.20.2 --hash={hash1} --hash={hash2}"]
     assert cons == []
 
     conda_env, reqs, cons = _process_pip_requirements(["a"], extra_pip_requirements=["b"])

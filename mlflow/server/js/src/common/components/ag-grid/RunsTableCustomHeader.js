@@ -35,6 +35,7 @@ export class RunsTableCustomHeader extends React.Component {
     orderByAsc: PropTypes.bool,
     orderByKey: PropTypes.string,
     onSortBy: PropTypes.func,
+    computedStylesOnSortKey: PropTypes.func,
   };
 
   static defaultProps = {
@@ -59,6 +60,7 @@ export class RunsTableCustomHeader extends React.Component {
       canonicalSortKey,
       displayName,
       style = '{}',
+      computedStylesOnSortKey = () => {},
       orderByKey,
       orderByAsc,
     } = this.props;
@@ -66,7 +68,11 @@ export class RunsTableCustomHeader extends React.Component {
     return (
       <div
         role='columnheader'
-        style={{ ...styles.headerLabelWrapper, ...JSON.parse(style) }}
+        style={{
+          ...styles.headerLabelWrapper,
+          ...JSON.parse(style),
+          ...computedStylesOnSortKey(canonicalSortKey),
+        }}
         onClick={enableSorting ? () => this.handleSortBy() : undefined}
       >
         {enableSorting && canonicalSortKey === orderByKey ? (
@@ -93,6 +99,7 @@ const styles = {
     width: '100%',
     display: 'flex',
     alignItems: 'center',
+    padding: '0 12px',
   },
   headerSortIcon: {
     marginRight: 4,

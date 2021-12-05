@@ -5,10 +5,14 @@ import pandas as pd
 import pytest
 
 from mlflow.entities import Experiment, Metric
+from mlflow.entities.model_registry import RegisteredModel, ModelVersion
 from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import Experiment as ProtoExperiment
 from mlflow.protos.service_pb2 import Metric as ProtoMetric
 from mlflow.types import Schema, TensorSpec, ColSpec
+from mlflow.protos.model_registry_pb2 import RegisteredModel as ProtoRegisteredModel
+from tests.protos.test_message_pb2 import TestMessage
+from google.protobuf.text_format import Parse as ParseTextIntoProto
 
 from mlflow.utils.proto_json_utils import (
     message_to_json,
@@ -17,6 +21,9 @@ from mlflow.utils.proto_json_utils import (
     parse_tf_serving_input,
     _dataframe_from_json,
 )
+
+# Prevent pytest from trying to collect TestMessage as a test class:
+TestMessage.__test__ = False
 
 
 def test_message_to_json():
@@ -27,6 +34,164 @@ def test_message_to_json():
         "artifact_location": "arty",
         "lifecycle_stage": "active",
     }
+
+    original_proto_message = RegisteredModel(
+        name="model_1",
+        creation_timestamp=111,
+        last_updated_timestamp=222,
+        description="Test model",
+        latest_versions=[
+            ModelVersion(
+                name="mv-1",
+                version="1",
+                creation_timestamp=333,
+                last_updated_timestamp=444,
+                description="v 1",
+                user_id="u1",
+                current_stage="Production",
+                source="A/B",
+                run_id="9245c6ce1e2d475b82af84b0d36b52f4",
+                status="READY",
+                status_message=None,
+            ),
+            ModelVersion(
+                name="mv-2",
+                version="2",
+                creation_timestamp=555,
+                last_updated_timestamp=666,
+                description="v 2",
+                user_id="u2",
+                current_stage="Staging",
+                source="A/C",
+                run_id="123",
+                status="READY",
+                status_message=None,
+            ),
+        ],
+    ).to_proto()
+    json_out = message_to_json(original_proto_message)
+    json_dict = json.loads(json_out)
+    assert json_dict == {
+        "name": "model_1",
+        "creation_timestamp": 111,
+        "last_updated_timestamp": 222,
+        "description": "Test model",
+        "latest_versions": [
+            {
+                "name": "mv-1",
+                "version": "1",
+                "creation_timestamp": 333,
+                "last_updated_timestamp": 444,
+                "current_stage": "Production",
+                "description": "v 1",
+                "user_id": "u1",
+                "source": "A/B",
+                "run_id": "9245c6ce1e2d475b82af84b0d36b52f4",
+                "status": "READY",
+            },
+            {
+                "name": "mv-2",
+                "version": "2",
+                "creation_timestamp": 555,
+                "last_updated_timestamp": 666,
+                "current_stage": "Staging",
+                "description": "v 2",
+                "user_id": "u2",
+                "source": "A/C",
+                "run_id": "123",
+                "status": "READY",
+            },
+        ],
+    }
+    new_proto_message = ProtoRegisteredModel()
+    parse_dict(json_dict, new_proto_message)
+    assert original_proto_message == new_proto_message
+
+    test_message = ParseTextIntoProto(
+        """
+        field_int32: 11
+        field_int64: 12
+        field_uint32: 13
+        field_uint64: 14
+        field_sint32: 15
+        field_sint64: 16
+        field_fixed32: 17
+        field_fixed64: 18
+        field_sfixed32: 19
+        field_sfixed64: 20
+        field_bool: true
+        field_string: "Im a string"
+        field_with_default1: 111
+        field_repeated_int64: [1, 2, 3]
+        field_enum: ENUM_VALUE1
+        field_inner_message {
+            field_inner_int64: 101
+            field_inner_repeated_int64: [102, 103]
+        }
+        field_inner_message {
+            field_inner_int64: 104
+            field_inner_repeated_int64: [105, 106]
+        }
+        oneof1: 207
+        [mlflow.ExtensionMessage.field_extended_int64]: 100
+        field_map1: [{key: 51 value: "52"}, {key: 53 value: "54"}]
+        field_map2: [{key: "61" value: 62}, {key: "63" value: 64}]
+        field_map3: [{key: 561 value: 562}, {key: 563 value: 564}]
+        field_map4: [{key: 71
+                      value: {field_inner_int64: 72
+                              field_inner_repeated_int64: [81, 82]
+                              field_inner_string: "str1"}},
+                     {key: 73
+                      value: {field_inner_int64: 74
+                              field_inner_repeated_int64: 83
+                              field_inner_string: "str2"}}]
+    """,
+        TestMessage(),
+    )
+    json_out = message_to_json(test_message)
+    json_dict = json.loads(json_out)
+    assert json_dict == {
+        "field_int32": 11,
+        "field_int64": 12,
+        "field_uint32": 13,
+        "field_uint64": 14,
+        "field_sint32": 15,
+        "field_sint64": 16,
+        "field_fixed32": 17,
+        "field_fixed64": 18,
+        "field_sfixed32": 19,
+        "field_sfixed64": 20,
+        "field_bool": True,
+        "field_string": "Im a string",
+        "field_with_default1": 111,
+        "field_repeated_int64": [1, 2, 3],
+        "field_enum": "ENUM_VALUE1",
+        "field_inner_message": [
+            {"field_inner_int64": 101, "field_inner_repeated_int64": [102, 103]},
+            {"field_inner_int64": 104, "field_inner_repeated_int64": [105, 106]},
+        ],
+        "oneof1": 207,
+        # JSON doesn't support non-string keys, so the int keys will be converted to strings.
+        "field_map1": {"51": "52", "53": "54"},
+        "field_map2": {"63": 64, "61": 62},
+        "field_map3": {"561": 562, "563": 564},
+        "field_map4": {
+            "73": {
+                "field_inner_int64": 74,
+                "field_inner_repeated_int64": [83],
+                "field_inner_string": "str2",
+            },
+            "71": {
+                "field_inner_int64": 72,
+                "field_inner_repeated_int64": [81, 82],
+                "field_inner_string": "str1",
+            },
+        },
+        "[mlflow.ExtensionMessage.field_extended_int64]": "100",
+    }
+    new_test_message = TestMessage()
+    parse_dict(json_dict, new_test_message)
+    assert new_test_message == test_message
 
 
 def test_parse_dict():
@@ -217,24 +382,21 @@ def test_parse_tf_serving_raises_expected_errors():
         "instances": [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
         "inputs": {"a": ["s1", "s2", "s3"], "b": [1, 2, 3], "c": [[1, 2, 3], [4, 5, 6], [7, 8, 9]]},
     }
-    with pytest.raises(MlflowException) as ex:
-        parse_tf_serving_input(tfserving_input)
-    assert (
+    match = (
         'Failed to parse data as TF serving input. One of "instances" and "inputs"'
-        " must be specified" in str(ex)
+        " must be specified"
     )
+    with pytest.raises(MlflowException, match=match):
+        parse_tf_serving_input(tfserving_input)
 
     # cannot specify signature name
     tfserving_input = {
         "signature_name": "hello",
         "inputs": {"a": ["s1", "s2", "s3"], "b": [1, 2, 3], "c": [[1, 2, 3], [4, 5, 6], [7, 8, 9]]},
     }
-    with pytest.raises(MlflowException) as ex:
+    match = 'Failed to parse data as TF serving input. "signature_name" is currently not supported'
+    with pytest.raises(MlflowException, match=match):
         parse_tf_serving_input(tfserving_input)
-    assert (
-        'Failed to parse data as TF serving input. "signature_name" is currently not supported'
-        in str(ex)
-    )
 
 
 def test_dataframe_from_json():
@@ -247,8 +409,18 @@ def test_dataframe_from_json():
             "integer": np.array([3, 4, 5], dtype=np.int32),
             "long": np.array([3, 4, 5], dtype=np.int64),
             "binary": [bytes([1, 2, 3]), bytes([4, 5]), bytes([6])],
+            "date_string": ["2018-02-03", "1996-03-02", "2021-03-05"],
         },
-        columns=["boolean", "string", "float", "double", "integer", "long", "binary"],
+        columns=[
+            "boolean",
+            "string",
+            "float",
+            "double",
+            "integer",
+            "long",
+            "binary",
+            "date_string",
+        ],
     )
 
     jsonable_df = pd.DataFrame(source, copy=True)
@@ -262,6 +434,7 @@ def test_dataframe_from_json():
             ColSpec("integer", "integer"),
             ColSpec("long", "long"),
             ColSpec("binary", "binary"),
+            ColSpec("string", "date_string"),
         ]
     )
     parsed = _dataframe_from_json(

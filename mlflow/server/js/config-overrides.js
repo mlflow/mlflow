@@ -50,6 +50,9 @@ function rewiredOverrides(config, env) {
       USE_ABSOLUTE_AJAX_URLS: process.env.USE_ABSOLUTE_AJAX_URLS
         ? JSON.stringify('true')
         : JSON.stringify('false'),
+      SHOULD_REDIRECT_IFRAME: process.env.SHOULD_REDIRECT_IFRAME
+        ? JSON.stringify('true')
+        : JSON.stringify('false'),
     },
   });
   return config;
@@ -62,7 +65,7 @@ function i18nOverrides(config) {
         ...rule,
         oneOf: [
           {
-            test: [new RegExp(path.join('src/i18n/lang', '.*json'))],
+            test: [new RegExp(path.join('src/i18n/', '.*json'))],
             use: [
               {
                 loader: require.resolve('./I18nCompileLoader'),

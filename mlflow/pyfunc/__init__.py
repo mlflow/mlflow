@@ -221,16 +221,28 @@ import mlflow.pyfunc.utils
 from mlflow.models import Model, ModelSignature, ModelInputExample
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
-from mlflow.pyfunc.model import PythonModel, PythonModelContext  # pylint: disable=unused-import
-from mlflow.pyfunc.model import get_default_conda_env
+from mlflow.pyfunc.model import (  # pylint: disable=unused-import
+    PythonModel,
+    PythonModelContext,
+    get_default_conda_env,
+)
+from mlflow.pyfunc.model import get_default_pip_requirements
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType, Schema, TensorSpec
 from mlflow.types.utils import clean_tensor_type
 from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
 from mlflow.utils.annotations import deprecated
-from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
+from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, write_to
 from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.utils.environment import _log_pip_requirements
+from mlflow.utils.environment import (
+    _validate_env_arguments,
+    _process_pip_requirements,
+    _process_conda_env,
+    _CONDA_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
+)
+from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.exceptions import MlflowException
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.protos.databricks_pb2 import (
@@ -314,18 +326,9 @@ def _enforce_mlflow_datatype(name, values: pandas.Series, t: DataType):
         values = values.infer_objects()
 
     if t == DataType.string and values.dtype == np.object:
-        #  NB: strings are by default parsed and inferred as objects, but it is
-        # recommended to use StringDtype extension type if available. See
-        #
-        # `https://pandas.pydata.org/pandas-docs/stable/user_guide/text.html`
-        #
-        # for more detail.
-        try:
-            return values.astype(t.to_pandas(), errors="raise")
-        except ValueError:
-            raise MlflowException(
-                "Failed to convert column {0} from type {1} to {2}.".format(name, values.dtype, t)
-            )
+        # NB: the object can contain any type and we currently cannot cast to pandas Strings
+        # due to how None is cast
+        return values
 
     # NB: Comparison of pandas and numpy data type fails when numpy data type is on the left hand
     # side of the comparison operator. It works, however, if pandas type is on the left hand side.
@@ -616,7 +619,7 @@ class PyFuncModel(object):
         return yaml.safe_dump({"mlflow.pyfunc.loaded_model": info}, default_flow_style=False)
 
 
-def load_model(model_uri: str, suppress_warnings: bool = True) -> PyFuncModel:
+def load_model(model_uri: str, suppress_warnings: bool = True, dst_path: str = None) -> PyFuncModel:
     """
     Load a model stored in Python function format.
 
@@ -635,8 +638,11 @@ def load_model(model_uri: str, suppress_warnings: bool = True) -> PyFuncModel:
     :param suppress_warnings: If ``True``, non-fatal warning messages associated with the model
                               loading process will be suppressed. If ``False``, these warning
                               messages will be emitted.
+    :param dst_path: The local filesystem path to which to download the model artifact.
+                     This directory must already exist. If unspecified, a local output
+                     path will be created.
     """
-    local_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    local_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
 
     conf = model_meta.flavors.get(FLAVOR_NAME)
@@ -800,7 +806,7 @@ def spark_udf(spark, model_uri, result_type="double"):
     if not any([isinstance(elem_type, x) for x in supported_types]):
         raise MlflowException(
             message="Invalid result_type '{}'. Result type can only be one of or an array of one "
-            "of the following types types: {}".format(str(elem_type), str(supported_types)),
+            "of the following types: {}".format(str(elem_type), str(supported_types)),
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -894,7 +900,8 @@ def spark_udf(spark, model_uri, result_type="double"):
                         message="Cannot apply udf because no column names specified. The udf "
                         "expects {} columns with types: {}. Input column names could not be "
                         "inferred from the model signature (column names not found).".format(
-                            len(input_schema.inputs), input_schema.inputs,
+                            len(input_schema.inputs),
+                            input_schema.inputs,
                         ),
                         error_code=INVALID_PARAMETER_VALUE,
                     )
@@ -903,13 +910,14 @@ def spark_udf(spark, model_uri, result_type="double"):
                     "Attempting to apply udf on zero columns because no column names were "
                     "specified as arguments or inferred from the model signature."
                 )
-                return udf()
+                return udf()  # pylint: disable=no-value-for-parameter
         else:
             return udf(*args)
 
     return udf_with_default_cols
 
 
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
 def save_model(
     path,
     loader_module=None,
@@ -921,7 +929,9 @@ def save_model(
     artifacts=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
-    **kwargs
+    pip_requirements=None,
+    extra_pip_requirements=None,
+    **kwargs,
 ):
     """
     save_model(path, loader_module=None, data_path=None, code_path=None, conda_env=None,\
@@ -952,23 +962,7 @@ def save_model(
     :param code_path: A list of local filesystem paths to Python file dependencies (or directories
                       containing file dependencies). These files are *prepended* to the system
                       path before the model is loaded.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. This decsribes the environment this model should
-                      be run in. If ``python_model`` is not ``None``, the Conda environment must
-                      at least specify the dependencies contained in
-                      :func:`get_default_conda_env()`. If ``None``, the default
-                      :func:`get_default_conda_env()` environment is added to the
-                      model. The following is an *example* dictionary representation of a Conda
-                      environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.7.0',
-                                'cloudpickle==0.5.8'
-                            ]
-                        }
+    :param conda_env: {{ conda_env }}
     :param mlflow_model: :py:mod:`mlflow.models.Model` configuration to which to add the
                          **python_function** flavor.
     :param python_model: An instance of a subclass of :class:`~PythonModel`. This class is
@@ -1001,7 +995,7 @@ def save_model(
 
                       If ``None``, no artifacts are added to the model.
 
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -1014,13 +1008,17 @@ def save_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example can be a Pandas DataFrame where the given
                           example will be serialized to json using the Pandas split-oriented
                           format, or a numpy array where the example will be serialized to json
                           by converting it to a list. Bytes are base64-encoded.
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
     """
+    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+
     mlflow_model = kwargs.pop("model", mlflow_model)
     if len(kwargs) > 0:
         raise TypeError("save_model() got unexpected keyword arguments: {}".format(kwargs))
@@ -1079,6 +1077,8 @@ def save_model(
             code_paths=code_path,
             conda_env=conda_env,
             mlflow_model=mlflow_model,
+            pip_requirements=pip_requirements,
+            extra_pip_requirements=extra_pip_requirements,
         )
     elif second_argument_set_specified:
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
@@ -1088,9 +1088,12 @@ def save_model(
             conda_env=conda_env,
             code_paths=code_path,
             mlflow_model=mlflow_model,
+            pip_requirements=pip_requirements,
+            extra_pip_requirements=extra_pip_requirements,
         )
 
 
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
 def log_model(
     artifact_path,
     loader_module=None,
@@ -1103,6 +1106,8 @@ def log_model(
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+    pip_requirements=None,
+    extra_pip_requirements=None,
 ):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
@@ -1129,24 +1134,7 @@ def log_model(
     :param code_path: A list of local filesystem paths to Python file dependencies (or directories
                       containing file dependencies). These files are *prepended* to the system
                       path before the model is loaded.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. This decsribes the environment this model should
-                      be run in. If ``python_model`` is not ``None``, the Conda environment must
-                      at least specify the dependencies contained in
-                      :func:`get_default_conda_env()`. If `None`, the default
-                      :func:`get_default_conda_env()` environment is added to the
-                      model. The following is an *example* dictionary representation of a Conda
-                      environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.7.0',
-                                'cloudpickle==0.5.8'
-                            ]
-                        }
-
+    :param conda_env: {{ conda_env }}
     :param python_model: An instance of a subclass of :class:`~PythonModel`. This class is
                          serialized using the CloudPickle library. Any dependencies of the class
                          should be included in one of the following locations:
@@ -1176,12 +1164,12 @@ def log_model(
                       path via ``context.artifacts["my_file"]``.
 
                       If ``None``, no artifacts are added to the model.
-    :param registered_model_name: Note:: Experimental: This argument may change or be removed in a
+    :param registered_model_name: This argument may change or be removed in a
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a
                                   registered model if one with the given name does not exist.
 
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -1194,7 +1182,7 @@ def log_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example can be a Pandas DataFrame where the given
                           example will be serialized to json using the Pandas split-oriented
@@ -1203,6 +1191,8 @@ def log_model(
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
     """
     return Model.log(
         artifact_path=artifact_path,
@@ -1217,11 +1207,20 @@ def log_model(
         signature=signature,
         input_example=input_example,
         await_registration_for=await_registration_for,
+        pip_requirements=pip_requirements,
+        extra_pip_requirements=extra_pip_requirements,
     )
 
 
 def _save_model_with_loader_module_and_data_path(
-    path, loader_module, data_path=None, code_paths=None, conda_env=None, mlflow_model=None
+    path,
+    loader_module,
+    data_path=None,
+    code_paths=None,
+    conda_env=None,
+    mlflow_model=None,
+    pip_requirements=None,
+    extra_pip_requirements=None,
 ):
     """
     Export model as a generic Python function model.
@@ -1254,21 +1253,41 @@ def _save_model_with_loader_module_and_data_path(
     if mlflow_model is None:
         mlflow_model = Model()
 
-    conda_env_subpath = "mlflow_env.yml"
-    if conda_env is None:
-        conda_env = get_default_conda_env()
-    elif not isinstance(conda_env, dict):
-        with open(conda_env, "r") as f:
-            conda_env = yaml.safe_load(f)
-    with open(os.path.join(path, conda_env_subpath), "w") as f:
-        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
-
-    _log_pip_requirements(conda_env, path)
-
     mlflow.pyfunc.add_to_model(
-        mlflow_model, loader_module=loader_module, code=code, data=data, env=conda_env_subpath
+        mlflow_model, loader_module=loader_module, code=code, data=data, env=_CONDA_ENV_FILE_NAME
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+
+    if conda_env is None:
+        if pip_requirements is None:
+            default_reqs = get_default_pip_requirements()
+            # To ensure `_load_pyfunc` can successfully load the model during the dependency
+            # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
+            inferred_reqs = mlflow.models.infer_pip_requirements(
+                path,
+                FLAVOR_NAME,
+                fallback=default_reqs,
+            )
+            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+        else:
+            default_reqs = None
+        conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
+            default_reqs,
+            pip_requirements,
+            extra_pip_requirements,
+        )
+    else:
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
+
+    with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
+        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    # Save `constraints.txt` if necessary
+    if pip_constraints:
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
+
+    # Save `requirements.txt`
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
     return mlflow_model
 
 

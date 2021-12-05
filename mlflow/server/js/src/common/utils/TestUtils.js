@@ -2,7 +2,7 @@ import React from 'react';
 import { IntlProvider } from 'react-intl';
 import $ from 'jquery';
 import { shallow, mount } from 'enzyme';
-import { DEFAULT_LOCALE } from '../../i18n/I18nUtils';
+import { DEFAULT_LOCALE } from '../../i18n/loadMessages';
 
 export const NOOP = () => {};
 

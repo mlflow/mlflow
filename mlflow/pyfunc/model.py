@@ -18,7 +18,16 @@ from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
+from mlflow.utils.environment import (
+    _mlflow_conda_env,
+    _process_pip_requirements,
+    _process_conda_env,
+    _CONDA_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
+)
+from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.file_utils import write_to
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
 
@@ -35,7 +44,7 @@ def get_default_pip_requirements():
              Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
              that, at minimum, contains these requirements.
     """
-    return ["cloudpickle=={}".format(cloudpickle.__version__)]
+    return [_get_pinned_requirement("cloudpickle")]
 
 
 def get_default_conda_env():
@@ -111,7 +120,14 @@ class PythonModelContext(object):
 
 
 def _save_model_with_class_artifacts_params(
-    path, python_model, artifacts=None, conda_env=None, code_paths=None, mlflow_model=None
+    path,
+    python_model,
+    artifacts=None,
+    conda_env=None,
+    code_paths=None,
+    mlflow_model=None,
+    pip_requirements=None,
+    extra_pip_requirements=None,
 ):
     """
     :param path: The path to which to save the Python model.
@@ -176,17 +192,6 @@ def _save_model_with_class_artifacts_params(
             shutil.move(tmp_artifacts_dir.path(), os.path.join(path, saved_artifacts_dir_subpath))
         custom_model_config_kwargs[CONFIG_KEY_ARTIFACTS] = saved_artifacts_config
 
-    conda_env_subpath = "conda.yaml"
-    if conda_env is None:
-        conda_env = get_default_conda_env()
-    elif not isinstance(conda_env, dict):
-        with open(conda_env, "r") as f:
-            conda_env = yaml.safe_load(f)
-    with open(os.path.join(path, conda_env_subpath), "w") as f:
-        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
-
-    _log_pip_requirements(conda_env, path)
-
     saved_code_subpath = None
     if code_paths is not None:
         saved_code_subpath = "code"
@@ -197,10 +202,41 @@ def _save_model_with_class_artifacts_params(
         model=mlflow_model,
         loader_module=__name__,
         code=saved_code_subpath,
-        env=conda_env_subpath,
-        **custom_model_config_kwargs
+        env=_CONDA_ENV_FILE_NAME,
+        **custom_model_config_kwargs,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+
+    if conda_env is None:
+        if pip_requirements is None:
+            default_reqs = get_default_pip_requirements()
+            # To ensure `_load_pyfunc` can successfully load the model during the dependency
+            # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
+            inferred_reqs = mlflow.models.infer_pip_requirements(
+                path,
+                mlflow.pyfunc.FLAVOR_NAME,
+                fallback=default_reqs,
+            )
+            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+        else:
+            default_reqs = None
+        conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
+            default_reqs,
+            pip_requirements,
+            extra_pip_requirements,
+        )
+    else:
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
+
+    with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
+        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    # Save `constraints.txt` if necessary
+    if pip_constraints:
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
+
+    # Save `requirements.txt`
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
 
 def _load_pyfunc(model_path):

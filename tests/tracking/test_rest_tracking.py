@@ -118,11 +118,14 @@ def cli_env(tracking_server_uri):
 
 def test_create_get_list_experiment(mlflow_client):
     experiment_id = mlflow_client.create_experiment(
-        "My Experiment", artifact_location="my_location"
+        "My Experiment", artifact_location="my_location", tags={"key1": "val1", "key2": "val2"}
     )
     exp = mlflow_client.get_experiment(experiment_id)
     assert exp.name == "My Experiment"
     assert exp.artifact_location == "my_location"
+    assert len(exp.tags) == 2
+    assert exp.tags["key1"] == "val1"
+    assert exp.tags["key2"] == "val2"
 
     experiments = mlflow_client.list_experiments()
     assert set([e.name for e in experiments]) == {"My Experiment", "Default"}
@@ -332,12 +335,12 @@ def test_delete_tag(mlflow_client, backend_store_uri):
     mlflow_client.delete_tag(run_id, "taggity")
     run = mlflow_client.get_run(run_id)
     assert "taggity" not in run.data.tags
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match=r"Run .+ not found"):
         mlflow_client.delete_tag("fake_run_id", "taggity")
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="No tag with name: fakeTag"):
         mlflow_client.delete_tag(run_id, "fakeTag")
     mlflow_client.delete_run(run_id)
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match=f"The run {run_id} must be in"):
         mlflow_client.delete_tag(run_id, "taggity")
 
 
@@ -364,6 +367,7 @@ def test_log_batch(mlflow_client, backend_store_uri):
     assert metric.step == 3
 
 
+@pytest.mark.allow_infer_pip_requirements_fallback
 def test_log_model(mlflow_client, backend_store_uri):
     experiment_id = mlflow_client.create_experiment("Log models")
     with TempDir(chdr=True):
