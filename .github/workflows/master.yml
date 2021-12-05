@@ -41,7 +41,10 @@ jobs:
       run: |
         source ./dev/install-common-deps.sh
         pip install -r requirements/lint-requirements.txt
-    - name: Run tests
+    - name: Test custom pylint-plugins
+      run : |
+        pytest tests/pylint_plugins
+    - name: Run lint checks
       run: |
         ./dev/lint.sh
   r:

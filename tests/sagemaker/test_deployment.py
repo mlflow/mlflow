@@ -112,17 +112,16 @@ def test_assume_role_and_get_credentials():
 @mock_sagemaker_aws_services
 def test_deployment_with_non_existent_assume_role_arn_raises_exception(pretrained_model):
 
-    with pytest.raises(botocore.exceptions.ClientError) as exc:
+    match = (
+        r"An error occurred \(NoSuchEntity\) when calling the GetRole "
+        r"operation: Role non-existent-role-arn not found"
+    )
+    with pytest.raises(botocore.exceptions.ClientError, match=match):
         mfs.deploy(
             app_name="bad_assume_role_arn",
             model_uri=pretrained_model.model_uri,
             assume_role_arn="arn:aws:iam::123456789012:role/non-existent-role-arn",
         )
-
-    assert (
-        str(exc.value) == "An error occurred (NoSuchEntity) when calling the GetRole "
-        "operation: Role non-existent-role-arn not found"
-    )
 
 
 @pytest.mark.large
@@ -142,7 +141,8 @@ def test_deployment_with_assume_role_arn(pretrained_model, sagemaker_client):
 @pytest.mark.large
 def test_deployment_with_unsupported_flavor_raises_exception(pretrained_model):
     unsupported_flavor = "this is not a valid flavor"
-    with pytest.raises(MlflowException) as exc:
+    match = "The specified flavor: `this is not a valid flavor` is not supported for deployment"
+    with pytest.raises(MlflowException, match=match) as exc:
         mfs.deploy(
             app_name="bad_flavor", model_uri=pretrained_model.model_uri, flavor=unsupported_flavor
         )
@@ -153,7 +153,8 @@ def test_deployment_with_unsupported_flavor_raises_exception(pretrained_model):
 @pytest.mark.large
 def test_deployment_with_missing_flavor_raises_exception(pretrained_model):
     missing_flavor = "mleap"
-    with pytest.raises(MlflowException) as exc:
+    match = "The specified model does not contain the specified deployment flavor"
+    with pytest.raises(MlflowException, match=match) as exc:
         mfs.deploy(
             app_name="missing-flavor", model_uri=pretrained_model.model_uri, flavor=missing_flavor
         )
@@ -169,7 +170,8 @@ def test_deployment_of_model_with_no_supported_flavors_raises_exception(pretrain
     del model_config.flavors[mlflow.pyfunc.FLAVOR_NAME]
     model_config.save(path=model_config_path)
 
-    with pytest.raises(MlflowException) as exc:
+    match = "The specified model does not contain any of the supported flavors for deployment"
+    with pytest.raises(MlflowException, match=match) as exc:
         mfs.deploy(app_name="missing-flavor", model_uri=logged_model_path, flavor=None)
 
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
@@ -201,7 +203,7 @@ def test_get_preferred_deployment_flavor_obtains_valid_flavor_from_model(pretrai
 def test_attempting_to_deploy_in_asynchronous_mode_without_archiving_throws_exception(
     pretrained_model,
 ):
-    with pytest.raises(MlflowException) as exc:
+    with pytest.raises(MlflowException, match="Resources must be archived") as exc:
         mfs.deploy(
             app_name="test-app",
             model_uri=pretrained_model.model_uri,
@@ -210,7 +212,6 @@ def test_attempting_to_deploy_in_asynchronous_mode_without_archiving_throws_exce
             synchronous=False,
         )
 
-    assert "Resources must be archived" in exc.value.message
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
@@ -413,12 +414,13 @@ def test_deploying_application_with_preexisting_name_in_create_mode_throws_excep
         app_name=app_name, model_uri=pretrained_model.model_uri, mode=mfs.DEPLOYMENT_MODE_CREATE
     )
 
-    with pytest.raises(MlflowException) as exc:
+    with pytest.raises(
+        MlflowException, match="an application with the same name already exists"
+    ) as exc:
         mfs.deploy(
             app_name=app_name, model_uri=pretrained_model.model_uri, mode=mfs.DEPLOYMENT_MODE_CREATE
         )
 
-    assert "an application with the same name already exists" in exc.value.message
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
@@ -537,14 +539,13 @@ def test_deploy_in_create_mode_throws_exception_after_endpoint_creation_fails(
 
     with mock.patch(
         "botocore.client.BaseClient._make_api_call", new=fail_endpoint_creations
-    ), pytest.raises(MlflowException) as exc:
+    ), pytest.raises(MlflowException, match="deployment operation failed") as exc:
         mfs.deploy(
             app_name="test-app",
             model_uri=pretrained_model.model_uri,
             mode=mfs.DEPLOYMENT_MODE_CREATE,
         )
 
-    assert "deployment operation failed" in exc.value.message
     assert exc.value.error_code == ErrorCode.Name(INTERNAL_ERROR)
 
 
@@ -674,14 +675,12 @@ def test_deploy_in_replace_mode_throws_exception_after_endpoint_update_fails(
 
     with mock.patch(
         "botocore.client.BaseClient._make_api_call", new=fail_endpoint_updates
-    ), pytest.raises(MlflowException) as exc:
+    ), pytest.raises(MlflowException, match="deployment operation failed") as exc:
         mfs.deploy(
             app_name="test-app",
             model_uri=pretrained_model.model_uri,
             mode=mfs.DEPLOYMENT_MODE_REPLACE,
         )
-
-    assert "deployment operation failed" in exc.value.message
     assert exc.value.error_code == ErrorCode.Name(INTERNAL_ERROR)
 
 

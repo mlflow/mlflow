@@ -1,6 +1,7 @@
 import os
 import pickle
 import yaml
+import re
 
 import numpy as np
 import pandas as pd
@@ -165,9 +166,9 @@ def test_column_schema_enforcement():
     pdf["d"] = pdf["d"].astype(np.float64)
     pdf["h"] = pdf["h"].astype(np.datetime64)
     # test that missing column raises
-    with pytest.raises(MlflowException) as ex:
+    match_missing_inputs = "Model is missing inputs"
+    with pytest.raises(MlflowException, match=match_missing_inputs):
         res = pyfunc_model.predict(pdf[["b", "d", "a", "e", "g", "f", "h"]])
-    assert "Model is missing inputs" in str(ex)
 
     # test that extra column is ignored
     pdf["x"] = 1
@@ -188,9 +189,9 @@ def test_column_schema_enforcement():
     # Test conversions
     # 1. long -> integer raises
     pdf["a"] = pdf["a"].astype(np.int64)
-    with pytest.raises(MlflowException) as ex:
+    match_incompatible_inputs = "Incompatible input types"
+    with pytest.raises(MlflowException, match=match_incompatible_inputs):
         pyfunc_model.predict(pdf)
-    assert "Incompatible input types" in str(ex)
     pdf["a"] = pdf["a"].astype(np.int32)
     # 2. integer -> long works
     pdf["b"] = pdf["b"].astype(np.int32)
@@ -208,35 +209,30 @@ def test_column_schema_enforcement():
 
     # 4. unsigned int -> int raises
     pdf["a"] = pdf["a"].astype(np.uint32)
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(MlflowException, match=match_incompatible_inputs):
         pyfunc_model.predict(pdf)
-    assert "Incompatible input types" in str(ex)
     pdf["a"] = pdf["a"].astype(np.int32)
 
     # 5. double -> float raises
     pdf["c"] = pdf["c"].astype(np.float64)
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(MlflowException, match=match_incompatible_inputs):
         pyfunc_model.predict(pdf)
-    assert "Incompatible input types" in str(ex)
     pdf["c"] = pdf["c"].astype(np.float32)
 
     # 6. float -> double works, double -> float does not
     pdf["d"] = pdf["d"].astype(np.float32)
     res = pyfunc_model.predict(pdf)
     assert res.dtypes.to_dict() == expected_types
-    assert "Incompatible input types" in str(ex)
     pdf["d"] = pdf["d"].astype(np.float64)
     pdf["c"] = pdf["c"].astype(np.float64)
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(MlflowException, match=match_incompatible_inputs):
         pyfunc_model.predict(pdf)
-    assert "Incompatible input types" in str(ex)
     pdf["c"] = pdf["c"].astype(np.float32)
 
     # 7. int -> float raises
     pdf["c"] = pdf["c"].astype(np.int32)
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(MlflowException, match=match_incompatible_inputs):
         pyfunc_model.predict(pdf)
-    assert "Incompatible input types" in str(ex)
     pdf["c"] = pdf["c"].astype(np.float32)
 
     # 8. int -> double works
@@ -247,33 +243,28 @@ def test_column_schema_enforcement():
 
     # 9. long -> double raises
     pdf["d"] = pdf["d"].astype(np.int64)
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(MlflowException, match=match_incompatible_inputs):
         pyfunc_model.predict(pdf)
-    assert "Incompatible input types" in str(ex)
     pdf["d"] = pdf["d"].astype(np.float64)
 
     # 10. any float -> any int raises
     pdf["a"] = pdf["a"].astype(np.float32)
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(MlflowException, match=match_incompatible_inputs):
         pyfunc_model.predict(pdf)
-    assert "Incompatible input types" in str(ex)
     # 10. any float -> any int raises
     pdf["a"] = pdf["a"].astype(np.float64)
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(MlflowException, match=match_incompatible_inputs):
         pyfunc_model.predict(pdf)
-    assert "Incompatible input types" in str(ex)
     pdf["a"] = pdf["a"].astype(np.int32)
     pdf["b"] = pdf["b"].astype(np.float64)
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(MlflowException, match=match_incompatible_inputs):
         pyfunc_model.predict(pdf)
-    assert "Incompatible input types" in str(ex)
     pdf["b"] = pdf["b"].astype(np.int64)
 
     pdf["b"] = pdf["b"].astype(np.float64)
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(MlflowException, match=match_incompatible_inputs):
         pyfunc_model.predict(pdf)
     pdf["b"] = pdf["b"].astype(np.int64)
-    assert "Incompatible input types" in str(ex)
 
     # 11. objects work
     pdf["b"] = pdf["b"].astype(np.object)
@@ -291,9 +282,8 @@ def test_column_schema_enforcement():
     pdf["h"] = pdf["h"].astype("datetime64[s]")
 
     # 13. np.ndarrays can be converted to dataframe but have no columns
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(MlflowException, match=match_missing_inputs):
         pyfunc_model.predict(pdf.values)
-    assert "Model is missing inputs" in str(ex)
 
     # 14. dictionaries of str -> list/nparray work
     arr = np.array([1, 2, 3])
@@ -321,9 +311,8 @@ def test_column_schema_enforcement():
         "f": [[bytes(0), bytes(1), bytes(1)]],
         "h": [np.array(["2020-01-01", "2020-02-02", "2020-03-03"], dtype=np.datetime64)],
     }
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(MlflowException, match=match_incompatible_inputs):
         pyfunc_model.predict(d)
-    assert "Incompatible input types" in str(ex)
 
     # 16. conversion to dataframe fails
     d = {
@@ -331,11 +320,11 @@ def test_column_schema_enforcement():
         "b": [1, 2],
         "c": [1, 2, 3],
     }
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(
+        MlflowException,
+        match="This model contains a column-based signature, which suggests a DataFrame input.",
+    ):
         pyfunc_model.predict(d)
-    assert "This model contains a column-based signature, which suggests a DataFrame input." in str(
-        ex
-    )
 
 
 def _compare_exact_tensor_dict_input(d1, d2):
@@ -364,9 +353,8 @@ def test_tensor_multi_named_schema_enforcement():
 
     # test that missing column raises
     inp1 = {k: v for k, v in inp.items()}
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(MlflowException, match="Model is missing inputs"):
         pyfunc_model.predict(inp1.pop("b"))
-    assert "Model is missing inputs" in str(ex)
 
     # test that extra column is ignored
     inp2 = {k: v for k, v in inp.items()}
@@ -394,9 +382,10 @@ def test_tensor_multi_named_schema_enforcement():
     # test that type casting is not supported
     inp4 = {k: v for k, v in inp.items()}
     inp4["a"] = inp4["a"].astype(np.int32)
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(
+        MlflowException, match="dtype of input int32 does not match expected dtype uint64"
+    ):
         pyfunc_model.predict(inp4)
-    assert "dtype of input int32 does not match expected dtype uint64" in str(ex)
 
     # test wrong shape
     inp5 = {
@@ -404,9 +393,11 @@ def test_tensor_multi_named_schema_enforcement():
         "b": np.array([[0, 0], [1, 1]], dtype=np.short),
         "c": np.array([[[0, 0]]], dtype=np.float32),
     }
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(
+        MlflowException,
+        match=re.escape("Shape of input (1, 4) does not match expected shape (-1, 5)"),
+    ):
         pyfunc_model.predict(inp5)
-    assert "Shape of input (1, 4) does not match expected shape (-1, 5)" in str(ex)
 
     # test non-dictionary input
     inp6 = [
@@ -414,35 +405,39 @@ def test_tensor_multi_named_schema_enforcement():
         np.array([[0, 0], [1, 1]], dtype=np.short),
         np.array([[[0, 0]]], dtype=np.float32),
     ]
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(
+        MlflowException, match=re.escape("Model is missing inputs ['a', 'b', 'c'].")
+    ):
         pyfunc_model.predict(inp6)
-    assert "Model is missing inputs ['a', 'b', 'c']." in str(ex)
 
     # test empty ndarray does not work
     inp7 = {k: v for k, v in inp.items()}
     inp7["a"] = np.array([])
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(
+        MlflowException, match=re.escape("Shape of input (0,) does not match expected shape")
+    ):
         pyfunc_model.predict(inp7)
-    assert "Shape of input (0,) does not match expected shape" in str(ex)
 
     # test dictionary of str -> list does not work
     inp8 = {k: list(v) for k, v in inp.items()}
-    with pytest.raises(MlflowException) as ex:
+    match = (
+        r"This model contains a tensor-based model signature with input names.+"
+        r"suggests a dictionary input mapping input name to a numpy array, but a dict"
+        r" with value type <class 'list'> was found"
+    )
+    with pytest.raises(MlflowException, match=match):
         pyfunc_model.predict(inp8)
-    assert "This model contains a tensor-based model signature with input names" in str(ex)
-    assert (
-        "suggests a dictionary input mapping input name to a numpy array, but a dict"
-        " with value type <class 'list'> was found"
-    ) in str(ex)
 
     # test dataframe input fails at shape enforcement
     pdf = pd.DataFrame(data=[[1, 2, 3]], columns=["a", "b", "c"])
     pdf["a"] = pdf["a"].astype(np.uint64)
     pdf["b"] = pdf["b"].astype(np.short)
     pdf["c"] = pdf["c"].astype(np.float32)
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(
+        MlflowException,
+        match=re.escape("Shape of input (1,) does not match expected shape (-1, 5)"),
+    ):
         pyfunc_model.predict(pdf)
-    assert "Shape of input (1,) does not match expected shape (-1, 5)" in str(ex)
 
 
 def test_schema_enforcement_single_named_tensor_schema():
@@ -469,9 +464,8 @@ def test_schema_enforcement_single_named_tensor_schema():
     assert expected_types == actual_types
 
     # test list does not work
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(MlflowException, match="Model is missing inputs"):
         pyfunc_model.predict([[0, 0], [1, 1]])
-    assert "Model is missing inputs ['a']" in str(ex)
 
 
 def test_schema_enforcement_named_tensor_schema_1d():
@@ -510,20 +504,18 @@ def test_missing_value_hint_is_displayed_when_it_should():
     m.signature = ModelSignature(inputs=input_schema)
     pyfunc_model = PyFuncModel(model_meta=m, model_impl=TestModel())
     pdf = pd.DataFrame(data=[[1], [None]], columns=["a"])
-    with pytest.raises(MlflowException) as ex:
+    match = "Incompatible input types"
+    with pytest.raises(MlflowException, match=match) as ex:
         pyfunc_model.predict(pdf)
     hint = "Hint: the type mismatch is likely caused by missing values."
-    assert "Incompatible input types" in str(ex.value.message)
     assert hint in str(ex.value.message)
     pdf = pd.DataFrame(data=[[1.5], [None]], columns=["a"])
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(MlflowException, match=match) as ex:
         pyfunc_model.predict(pdf)
-    assert "Incompatible input types" in str(ex)
     assert hint not in str(ex.value.message)
     pdf = pd.DataFrame(data=[[1], [2]], columns=["a"], dtype=np.float64)
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(MlflowException, match=match) as ex:
         pyfunc_model.predict(pdf)
-    assert "Incompatible input types" in str(ex.value.message)
     assert hint not in str(ex.value.message)
 
 
@@ -548,19 +540,16 @@ def test_column_schema_enforcement_no_col_names():
     assert pyfunc_model.predict(pdf).equals(pdf)
 
     # Must provide the right number of arguments
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(MlflowException, match="the provided value only has 2 inputs."):
         pyfunc_model.predict([[1.0, 2.0]])
-    assert "the provided value only has 2 inputs." in str(ex)
 
     # Must provide the right types
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(MlflowException, match="Can not safely convert int64 to float64"):
         pyfunc_model.predict([[1, 2, 3]])
-    assert "Can not safely convert int64 to float64" in str(ex)
 
     # Can only provide data type that can be converted to dataframe...
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(MlflowException, match="Expected input to be DataFrame or list. Found: set"):
         pyfunc_model.predict(set([1, 2, 3]))
-    assert "Expected input to be DataFrame or list. Found: set" in str(ex)
 
     # 9. dictionaries of str -> list/nparray work
     d = {"a": [1.0], "b": [2.0], "c": [3.0]}
@@ -581,33 +570,41 @@ def test_tensor_schema_enforcement_no_col_names():
     assert np.array_equal(pyfunc_model.predict(pd.DataFrame(test_data)), test_data)
 
     # Can not call with a list
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(
+        MlflowException,
+        match="This model contains a tensor-based model signature with no input names",
+    ):
         pyfunc_model.predict([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
-    assert "This model contains a tensor-based model signature with no input names" in str(ex)
 
     # Can not call with a dict
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(
+        MlflowException,
+        match="This model contains a tensor-based model signature with no input names",
+    ):
         pyfunc_model.predict({"blah": test_data})
-    assert "This model contains a tensor-based model signature with no input names" in str(ex)
 
     # Can not call with a np.ndarray of a wrong shape
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(
+        MlflowException,
+        match=re.escape("Shape of input (2, 2) does not match expected shape (-1, 3)"),
+    ):
         pyfunc_model.predict(np.array([[1.0, 2.0], [4.0, 5.0]]))
-    assert "Shape of input (2, 2) does not match expected shape (-1, 3)" in str(ex)
 
     # Can not call with a np.ndarray of a wrong type
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(
+        MlflowException, match="dtype of input uint32 does not match expected dtype float32"
+    ):
         pyfunc_model.predict(test_data.astype(np.uint32))
-    assert "dtype of input uint32 does not match expected dtype float32" in str(ex)
 
     # Can call with a np.ndarray with more elements along variable axis
     test_data2 = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]], dtype=np.float32)
     assert np.array_equal(pyfunc_model.predict(test_data2), test_data2)
 
     # Can not call with an empty ndarray
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(
+        MlflowException, match=re.escape("Shape of input () does not match expected shape (-1, 3)")
+    ):
         pyfunc_model.predict(np.ndarray([]))
-    assert "Shape of input () does not match expected shape (-1, 3)" in str(ex)
 
 
 @pytest.mark.large
@@ -672,16 +669,18 @@ def test_model_log_load_no_active_run(sklearn_knn_model, iris_data, tmpdir):
 
 @pytest.mark.large
 def test_save_model_with_unsupported_argument_combinations_throws_exception(model_path):
-    with pytest.raises(MlflowException) as exc_info:
+    with pytest.raises(
+        MlflowException, match="Either `loader_module` or `python_model` must be specified"
+    ):
         mlflow.pyfunc.save_model(path=model_path, data_path="/path/to/data")
-    assert "Either `loader_module` or `python_model` must be specified" in str(exc_info)
 
 
 @pytest.mark.large
 def test_log_model_with_unsupported_argument_combinations_throws_exception():
-    with mlflow.start_run(), pytest.raises(MlflowException) as exc_info:
+    with mlflow.start_run(), pytest.raises(
+        MlflowException, match="Either `loader_module` or `python_model` must be specified"
+    ):
         mlflow.pyfunc.log_model(artifact_path="pyfunc_model", data_path="/path/to/data")
-    assert "Either `loader_module` or `python_model` must be specified" in str(exc_info)
 
 
 @pytest.mark.large

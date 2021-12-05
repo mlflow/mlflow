@@ -6,6 +6,7 @@ import os
 import json
 import logging
 import pickle
+import re
 from unittest import mock
 
 import pytest
@@ -265,14 +266,14 @@ def test_log_model_no_registered_model_name(module_scoped_subclassed_model):
 def test_raise_exception(sequential_model):
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
         path = tmp.path("model")
-        with pytest.raises(IOError):
+        with pytest.raises(IOError, match="No such file or directory"):
             mlflow.pytorch.load_model(path)
 
-        with pytest.raises(TypeError):
+        with pytest.raises(TypeError, match="Argument 'pytorch_model' should be a torch.nn.Module"):
             mlflow.pytorch.save_model([1, 2, 3], path)
 
         mlflow.pytorch.save_model(sequential_model, path)
-        with pytest.raises(RuntimeError):
+        with pytest.raises(RuntimeError, match=f"Path '{os.path.abspath(path)}' already exists"):
             mlflow.pytorch.save_model(sequential_model, path)
 
         from mlflow import sklearn
@@ -284,7 +285,7 @@ def test_raise_exception(sequential_model):
             pickle.dump(knn, f)
         path = tmp.path("knn")
         sklearn.save_model(knn, path=path)
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match='Model does not have the "pytorch" flavor'):
             mlflow.pytorch.load_model(path)
 
 
@@ -325,14 +326,14 @@ def test_pyfunc_model_works_with_np_input_type(
     np.testing.assert_array_almost_equal(np_result[:, 0], sequential_predicted, decimal=4)
 
     # predict does not work with lists
-    with pytest.raises(TypeError) as exc_info:
+    with pytest.raises(
+        TypeError, match="The PyTorch flavor does not support List or Dict input types"
+    ):
         pyfunc_loaded.predict([1, 2, 3, 4])
-    assert "The PyTorch flavor does not support List or Dict input types" in str(exc_info)
 
     # predict does not work with scalars
-    with pytest.raises(TypeError) as exc_info:
+    with pytest.raises(TypeError, match="Input data should be pandas.DataFrame or numpy.ndarray"):
         pyfunc_loaded.predict(4)
-    assert "Input data should be pandas.DataFrame or numpy.ndarray" in str(exc_info)
 
 
 @pytest.mark.large
@@ -596,11 +597,10 @@ def test_save_model_with_wrong_codepaths_fails_correctly(
     module_scoped_subclassed_model, model_path, data
 ):
     # pylint: disable=unused-argument
-    with pytest.raises(TypeError) as exc_info:
+    with pytest.raises(TypeError, match="Argument code_paths should be a list, not <class 'str'>"):
         mlflow.pytorch.save_model(
             path=model_path, pytorch_model=module_scoped_subclassed_model, code_paths="some string"
         )
-    assert "Argument code_paths should be a list, not {}".format(type("")) in str(exc_info.value)
     assert not os.path.exists(model_path)
 
 
@@ -858,11 +858,11 @@ def test_load_model_raises_exception_when_pickle_module_cannot_be_imported(
     ) as f:
         f.write(bad_pickle_module_name)
 
-    with pytest.raises(MlflowException) as exc_info:
+    with pytest.raises(
+        MlflowException,
+        match=r"Failed to import the pickle module.+" + re.escape(bad_pickle_module_name),
+    ):
         mlflow.pytorch.load_model(model_uri=model_path)
-
-    assert "Failed to import the pickle module" in str(exc_info)
-    assert bad_pickle_module_name in str(exc_info)
 
 
 @pytest.mark.large
@@ -995,11 +995,11 @@ def test_requirements_file_save_model(create_requirements_file, sequential_model
 
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_log_model_invalid_requirement_file_path(sequential_model):
-    with mlflow.start_run(), pytest.raises(FileNotFoundError):
+    with mlflow.start_run(), pytest.raises(FileNotFoundError, match="non_existing_file.txt"):
         mlflow.pytorch.log_model(
             pytorch_model=sequential_model,
             artifact_path="models",
-            requirements_file="inexistent_file.txt",
+            requirements_file="non_existing_file.txt",
         )
 
 
@@ -1011,7 +1011,7 @@ def test_log_model_invalid_requirement_file_type(sequential_model):
         mlflow.pytorch.log_model(
             pytorch_model=sequential_model,
             artifact_path="models",
-            requirements_file=["inexistent_file.txt"],
+            requirements_file=["non_existing_file.txt"],
         )
 
 
@@ -1088,11 +1088,11 @@ def test_extra_files_save_model(create_extra_files, sequential_model):
 
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_log_model_invalid_extra_file_path(sequential_model):
-    with mlflow.start_run(), pytest.raises(FileNotFoundError):
+    with mlflow.start_run(), pytest.raises(FileNotFoundError, match="non_existing_file.txt"):
         mlflow.pytorch.log_model(
             pytorch_model=sequential_model,
             artifact_path="models",
-            extra_files=["inexistent_file.txt"],
+            extra_files=["non_existing_file.txt"],
         )
 
 
@@ -1104,7 +1104,7 @@ def test_log_model_invalid_extra_file_type(sequential_model):
         mlflow.pytorch.log_model(
             pytorch_model=sequential_model,
             artifact_path="models",
-            extra_files="inexistent_file.txt",
+            extra_files="non_existing_file.txt",
         )
 
 

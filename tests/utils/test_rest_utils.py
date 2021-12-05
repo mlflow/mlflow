@@ -28,7 +28,7 @@ def test_well_formed_json_error_response():
         request_mock.return_value = response_mock
 
         response_proto = GetRun.Response()
-        with pytest.raises(RestException):
+        with pytest.raises(RestException, match="INTERNAL_ERROR"):
             call_endpoint(host_only, "/my/endpoint", "GET", "", response_proto)
 
 
@@ -63,7 +63,9 @@ def test_malformed_json_error_response(response_mock):
         request_mock.return_value = response_mock
 
         response_proto = GetRun.Response()
-        with pytest.raises(MlflowException):
+        with pytest.raises(
+            MlflowException, match="API request to endpoint /my/endpoint failed with error code 400"
+        ):
             call_endpoint(host_only, "/my/endpoint", "GET", "", response_proto)
 
 
@@ -95,10 +97,10 @@ def test_call_endpoints_raises_exceptions():
         ]
         host_only = MlflowHostCreds("http://my-host")
         endpoints = [("/my/endpoint", "POST"), ("/my/endpoint", "GET")]
-        with pytest.raises(RestException):
+        with pytest.raises(RestException, match="ENDPOINT_NOT_FOUND"):
             call_endpoints(host_only, endpoints, "", response_proto)
         mock_call_endpoint.side_effect = [RestException({}), None]
-        with pytest.raises(RestException):
+        with pytest.raises(RestException, match="INTERNAL_ERROR"):
             call_endpoints(host_only, endpoints, "", response_proto)
 
 
@@ -247,7 +249,10 @@ def test_http_request_request_headers(request):
 
 
 def test_ignore_tls_verification_not_server_cert_path():
-    with pytest.raises(MlflowException):
+    with pytest.raises(
+        MlflowException,
+        match="When 'ignore_tls_verification' is true then 'server_cert_path' must not be set",
+    ):
         MlflowHostCreds(
             "http://my-host",
             ignore_tls_verification=True,
@@ -304,6 +309,6 @@ def test_numpy_encoder_fail():
     if not hasattr(numpy, "float128"):
         pytest.skip("numpy on exit" "this platform has no float128")
     test_number = numpy.float128
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match="not JSON serializable"):
         ne = NumpyEncoder()
         ne.default(test_number)

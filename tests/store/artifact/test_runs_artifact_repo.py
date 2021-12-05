@@ -36,7 +36,7 @@ def test_parse_runs_uri_valid_input(uri, expected_run_id, expected_artifact_path
     ],
 )
 def test_parse_runs_uri_invalid_input(uri):
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="Not a proper runs"):
         RunsArtifactRepository.parse_runs_uri(uri)
 
 

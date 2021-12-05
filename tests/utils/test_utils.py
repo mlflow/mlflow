@@ -16,10 +16,11 @@ def test_get_unique_resource_id_respects_max_length():
 
 
 def test_get_unique_resource_id_with_invalid_max_length_throws_exception():
-    with pytest.raises(ValueError):
+    match = "unique resource id must be positive"
+    with pytest.raises(ValueError, match=match):
         get_unique_resource_id(max_length=-50)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=match):
         get_unique_resource_id(max_length=0)
 
 

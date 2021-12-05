@@ -258,7 +258,7 @@ def is_databricks_model_registry_artifacts_uri(artifact_uri):
 def construct_run_url(hostname, experiment_id, run_id, workspace_id=None):
     if not hostname or not experiment_id or not run_id:
         raise MlflowException(
-            "Hostname, experiment ID, and run ID are all required to construct" "a run URL"
+            "Hostname, experiment ID, and run ID are all required to construct a run URL"
         )
     prefix = hostname
     if workspace_id and workspace_id != "0":
