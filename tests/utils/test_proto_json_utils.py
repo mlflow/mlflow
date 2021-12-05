@@ -382,24 +382,21 @@ def test_parse_tf_serving_raises_expected_errors():
         "instances": [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
         "inputs": {"a": ["s1", "s2", "s3"], "b": [1, 2, 3], "c": [[1, 2, 3], [4, 5, 6], [7, 8, 9]]},
     }
-    with pytest.raises(MlflowException) as ex:
-        parse_tf_serving_input(tfserving_input)
-    assert (
+    match = (
         'Failed to parse data as TF serving input. One of "instances" and "inputs"'
-        " must be specified" in str(ex)
+        " must be specified"
     )
+    with pytest.raises(MlflowException, match=match):
+        parse_tf_serving_input(tfserving_input)
 
     # cannot specify signature name
     tfserving_input = {
         "signature_name": "hello",
         "inputs": {"a": ["s1", "s2", "s3"], "b": [1, 2, 3], "c": [[1, 2, 3], [4, 5, 6], [7, 8, 9]]},
     }
-    with pytest.raises(MlflowException) as ex:
+    match = 'Failed to parse data as TF serving input. "signature_name" is currently not supported'
+    with pytest.raises(MlflowException, match=match):
         parse_tf_serving_input(tfserving_input)
-    assert (
-        'Failed to parse data as TF serving input. "signature_name" is currently not supported'
-        in str(ex)
-    )
 
 
 def test_dataframe_from_json():

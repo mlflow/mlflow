@@ -224,7 +224,9 @@ def test_client_registry_operations_raise_exception_with_unsupported_registry_st
             lambda: client.get_model_version("test", 1),
         ]
         for func in expected_failure_functions:
-            with pytest.raises(MlflowException) as exc:
+            with pytest.raises(
+                MlflowException, match="Model Registry features are not supported"
+            ) as exc:
                 func()
             assert exc.value.error_code == ErrorCode.Name(FEATURE_DISABLED)
 
@@ -431,9 +433,8 @@ def test_create_model_version_non_ready_model(mock_registry_store):
         run_id=run_id,
         status=ModelVersionStatus.to_string(ModelVersionStatus.FAILED_REGISTRATION),
     )
-    with pytest.raises(MlflowException) as exc:
+    with pytest.raises(MlflowException, match="Model version creation failed for model name"):
         client.create_model_version("name", "source")
-        assert "Model version creation failed for model name" in exc.value
 
 
 def test_create_model_version_run_link_with_configured_profile(mock_registry_store):

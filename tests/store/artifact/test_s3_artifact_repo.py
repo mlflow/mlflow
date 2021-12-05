@@ -1,6 +1,7 @@
 import os
 import posixpath
 import tarfile
+import json
 from datetime import datetime
 
 import pytest
@@ -276,7 +277,7 @@ def test_get_s3_file_upload_extra_args_invalid_json():
         "MLFLOW_S3_UPLOAD_EXTRA_ARGS", '"ServerSideEncryption": "aws:kms", "SSEKMSKeyId": "123456"}'
     )
 
-    with pytest.raises(ValueError):
+    with pytest.raises(json.decoder.JSONDecodeError, match=r".+"):
         S3ArtifactRepository.get_s3_file_upload_extra_args()
 
 

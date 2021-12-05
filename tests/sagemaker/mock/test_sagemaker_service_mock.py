@@ -63,7 +63,7 @@ def test_creating_model_with_name_already_in_use_raises_exception(sagemaker_clie
 
     create_sagemaker_model(sagemaker_client=sagemaker_client, model_name=model_name)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Attempted to create a model"):
         create_sagemaker_model(sagemaker_client=sagemaker_client, model_name=model_name)
 
 
@@ -110,7 +110,7 @@ def test_describe_model_response_contains_expected_attributes(sagemaker_client):
 
 @mock_sagemaker
 def test_describe_model_throws_exception_for_nonexistent_model(sagemaker_client):
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Attempted to describe a model"):
         sagemaker_client.describe_model(ModelName="nonexistent-model")
 
 
@@ -176,7 +176,7 @@ def test_creating_endpoint_config_with_name_already_in_use_raises_exception(sage
         model_name=model_name,
     )
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Attempted to create an endpoint configuration"):
         create_endpoint_config(
             sagemaker_client=sagemaker_client,
             endpoint_config_name=endpoint_config_name,
@@ -241,7 +241,7 @@ def test_describe_endpoint_config_response_contains_expected_attributes(sagemake
 
 @mock_sagemaker
 def test_describe_endpoint_config_throws_exception_for_nonexistent_config(sagemaker_client):
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Attempted to describe an endpoint config"):
         sagemaker_client.describe_endpoint_config(EndpointConfigName="nonexistent-config")
 
 
@@ -337,7 +337,7 @@ def test_creating_endpoint_with_name_already_in_use_raises_exception(sagemaker_c
         Tags=[{"Key": "Some Key", "Value": "Some Value"}],
     )
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Attempted to create an endpoint"):
         sagemaker_client.create_endpoint(
             EndpointConfigName=endpoint_config_name,
             EndpointName=endpoint_name,
@@ -411,7 +411,7 @@ def test_describe_endpoint_response_contains_expected_attributes(sagemaker_clien
 
 @mock_sagemaker
 def test_describe_endpoint_throws_exception_for_nonexistent_endpoint(sagemaker_client):
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Attempted to describe an endpoint"):
         sagemaker_client.describe_endpoint(EndpointName="nonexistent-endpoint")
 
 
@@ -498,7 +498,7 @@ def test_update_endpoint_with_nonexistent_config_throws_exception(sagemaker_clie
         EndpointName=endpoint_name,
     )
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Attempted to update an endpoint"):
         sagemaker_client.update_endpoint(
             EndpointName=endpoint_name, EndpointConfigName="nonexistent-config"
         )
@@ -587,7 +587,7 @@ def test_creating_transform_job_with_name_already_in_use_raises_exception(sagema
         Tags=[{"Key": "Some Key", "Value": "Some Value"}],
     )
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Attempted to create a transform job"):
         sagemaker_client.create_transform_job(
             TransformJobName=job_name,
             ModelName=model_name,
@@ -670,5 +670,5 @@ def test_describe_transform_job_response_contains_expected_attributes(sagemaker_
 
 @mock_sagemaker
 def test_describe_transform_job_throws_exception_for_nonexistent_transform_job(sagemaker_client):
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Attempted to describe a transform job"):
         sagemaker_client.describe_transform_job(TransformJobName="nonexistent-job")

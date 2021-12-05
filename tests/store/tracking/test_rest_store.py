@@ -56,7 +56,7 @@ class MyCoolException(Exception):
 
 class CustomErrorHandlingRestStore(RestStore):
     def _call_endpoint(self, api, json_body):
-        raise MyCoolException()
+        raise MyCoolException("cool")
 
 
 def mock_http_request():
@@ -98,9 +98,8 @@ class TestRestStore(object):
         request.return_value = response
 
         store = RestStore(lambda: MlflowHostCreds("https://hello"))
-        with pytest.raises(MlflowException) as cm:
+        with pytest.raises(MlflowException, match="RESOURCE_DOES_NOT_EXIST: No experiment"):
             store.list_experiments()
-        assert "RESOURCE_DOES_NOT_EXIST: No experiment" in str(cm.value)
 
     @mock.patch("requests.Session.request")
     def test_failed_http_request_custom_handler(self, request):
@@ -110,7 +109,7 @@ class TestRestStore(object):
         request.return_value = response
 
         store = CustomErrorHandlingRestStore(lambda: MlflowHostCreds("https://hello"))
-        with pytest.raises(MyCoolException):
+        with pytest.raises(MyCoolException, match="cool"):
             store.list_experiments()
 
     @mock.patch("requests.Session.request")
@@ -411,7 +410,7 @@ class TestRestStore(object):
                 )
 
             mock_http.side_effect = rate_limit_response_fn
-            with pytest.raises(MlflowException) as exc_info:
+            with pytest.raises(MlflowException, match="Hit rate limit") as exc_info:
                 store.get_experiment_by_name("imspamming")
             assert exc_info.value.error_code == ErrorCode.Name(REQUEST_LIMIT_EXCEEDED)
             assert mock_http.call_count == 1
@@ -428,10 +427,9 @@ class TestRestStore(object):
                 raise MlflowException("Some internal error!", INTERNAL_ERROR)
 
             mock_http.side_effect = rate_limit_response_fn
-            with pytest.raises(MlflowException) as exc_info:
+            with pytest.raises(MlflowException, match="Some internal error!") as exc_info:
                 store.get_experiment_by_name("abc")
             assert exc_info.value.error_code == ErrorCode.Name(INTERNAL_ERROR)
-            assert exc_info.value.message == "Some internal error!"
             expected_message0 = GetExperimentByName(experiment_name="abc")
             self._verify_requests(
                 mock_http,

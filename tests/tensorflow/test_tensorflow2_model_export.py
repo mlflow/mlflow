@@ -316,7 +316,7 @@ def test_schema_and_examples_are_save_correctly(saved_tf_iris_model):
 def test_save_model_with_invalid_path_signature_def_or_metagraph_tags_throws_exception(
     saved_tf_iris_model, model_path
 ):
-    with pytest.raises(IOError):
+    with pytest.raises(IOError, match=r".+"):
         mlflow.tensorflow.save_model(
             tf_saved_model_dir="not_a_valid_tf_model_dir",
             tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
@@ -324,7 +324,7 @@ def test_save_model_with_invalid_path_signature_def_or_metagraph_tags_throws_exc
             path=model_path,
         )
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError, match=r".+"):
         mlflow.tensorflow.save_model(
             tf_saved_model_dir=saved_tf_iris_model.path,
             tf_meta_graph_tags=["bad tags"],
@@ -332,7 +332,7 @@ def test_save_model_with_invalid_path_signature_def_or_metagraph_tags_throws_exc
             path=model_path,
         )
 
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="Could not find signature def key bad signature"):
         mlflow.tensorflow.save_model(
             tf_saved_model_dir=saved_tf_iris_model.path,
             tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
@@ -340,7 +340,7 @@ def test_save_model_with_invalid_path_signature_def_or_metagraph_tags_throws_exc
             path=model_path,
         )
 
-    with pytest.raises(IOError):
+    with pytest.raises(IOError, match=r".+"):
         mlflow.tensorflow.save_model(
             tf_saved_model_dir="bad path",
             tf_meta_graph_tags="bad tags",
@@ -369,7 +369,7 @@ def test_load_model_loads_artifacts_from_specified_model_directory(saved_tf_iris
 def test_log_model_with_non_keyword_args_fails(saved_tf_iris_model):
     artifact_path = "model"
     with mlflow.start_run():
-        with pytest.raises(TypeError):
+        with pytest.raises(TypeError, match="only takes keyword arguments"):
             mlflow.tensorflow.log_model(
                 saved_tf_iris_model.path,
                 saved_tf_iris_model.meta_graph_tags,
@@ -690,7 +690,7 @@ def test_iris_data_model_can_be_loaded_and_evaluated_as_pyfunc(saved_tf_iris_mod
     inp_list = []
     for df_col_name in list(saved_tf_iris_model.inference_df):
         inp_list.append(saved_tf_iris_model.inference_df[df_col_name].values)
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match="Only dict and DataFrame input types are supported"):
         results = pyfunc_wrapper.predict(inp_list)
 
 
@@ -730,7 +730,7 @@ def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(
     inp_list = []
     for df_col_name in list(saved_tf_categorical_model.inference_df):
         inp_list.append(saved_tf_categorical_model.inference_df[df_col_name].values)
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match="Only dict and DataFrame input types are supported"):
         results = pyfunc_wrapper.predict(inp_list)
 
 
