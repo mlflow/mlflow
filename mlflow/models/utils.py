@@ -59,29 +59,35 @@ class _Example(object):
         def _is_scalar(x):
             return np.isscalar(x) or x is None
 
-        def _is_tensor(x):
-            return isinstance(x, (np.ndarray, csr_matrix, csc_matrix)) or (
+        def _is_ndarray(x):
+            return isinstance(x, np.ndarray) or (
                 isinstance(x, dict) and all(isinstance(ary, np.ndarray) for ary in x.values())
             )
 
-        def _handle_tensor_nans(x: np.ndarray):
+        def _is_sparse_matrix(x):
+            return isinstance(x, (csc_matrix, csr_matrix))
+
+        def _handle_ndarray_nans(x: np.ndarray):
             if np.issubdtype(x.dtype, np.number):
                 return np.where(np.isnan(x), None, x)
             else:
                 return x
 
-        def _handle_tensor_input(input_tensor: Union[np.ndarray, dict]):
-            if isinstance(input_tensor, dict):
+        def _handle_ndarray_input(input_array: Union[np.ndarray, dict]):
+            if isinstance(input_array, dict):
                 result = {}
-                for name in input_tensor.keys():
-                    result[name] = _handle_tensor_nans(input_tensor[name]).tolist()
+                for name in input_array.keys():
+                    result[name] = _handle_ndarray_nans(input_array[name]).tolist()
                 return {"inputs": result}
-            elif isinstance(input_tensor, np.ndarray):
-                return {"inputs": _handle_tensor_nans(input_tensor).tolist()}
-            elif isinstance(input_tensor, csr_matrix, csc_matrix):
-                return {"inputs": _handle_tensor_nans(input_tensor).toarray().tolist()}
             else:
-                raise ValueError('Unknown input_tensor type.')
+                return {"inputs": _handle_ndarray_nans(input_array).tolist()}
+
+        def _handle_sparse_matrix(x: Union[csr_matrix, csc_matrix]):
+            return {
+                "data": _handle_ndarray_nans(x.data).tolist(),
+                "indices": x.indices.tolist(),
+                "indptr": x.indptr.tolist(),
+            }
 
         def _handle_dataframe_nans(df: pd.DataFrame):
             return df.where(df.notnull(), None)
@@ -130,12 +136,18 @@ class _Example(object):
             return result
 
         example_filename = "input_example.json"
-        if _is_tensor(input_example):
-            self.data = _handle_tensor_input(input_example)
+        if _is_ndarray(input_example):
+            self.data = _handle_ndarray_input(input_example)
             self.info = {
                 "artifact_path": example_filename,
                 "type": "ndarray",
                 "format": "tf-serving",
+            }
+        elif _is_sparse_matrix(input_example):
+            self.data = _handle_sparse_matrix(input_example)
+            self.info = {
+                "artifact_path": example_filename,
+                "type": "csc" if isinstance(input_example, csc_matrix) else "csr",
             }
         else:
             self.data = _handle_dataframe_input(input_example)

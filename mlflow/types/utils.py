@@ -17,7 +17,7 @@ class TensorsNotSupportedException(MlflowException):
         )
 
 
-def _get_tensor_shape(data: np.ndarray, variable_dimension: Optional[int] = 0) -> tuple:
+def _get_tensor_shape(data, variable_dimension: Optional[int] = 0) -> tuple:
     """
     Infer the shape of the inputted data.
 
