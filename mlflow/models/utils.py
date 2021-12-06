@@ -87,6 +87,7 @@ class _Example(object):
                 "data": _handle_ndarray_nans(x.data).tolist(),
                 "indices": x.indices.tolist(),
                 "indptr": x.indptr.tolist(),
+                "shape": list(x.shape),
             }
 
         def _handle_dataframe_nans(df: pd.DataFrame):
@@ -148,7 +149,6 @@ class _Example(object):
             self.info = {
                 "artifact_path": example_filename,
                 "type": "csc" if isinstance(input_example, csc_matrix) else "csr",
-                "shape": list(input_example.shape)
             }
         else:
             self.data = _handle_dataframe_input(input_example)
@@ -221,12 +221,12 @@ def _read_tensor_input_from_json(path, schema=None):
 def _read_sparse_matrix_from_json(path, type):
     with open(path, "r") as handle:
         matrix_data = json.load(handle)
-        data = matrix_data['data']
-        indices = matrix_data['indices']
-        indptr = matrix_data['indptr']
-        shape = tuple(matrix_data['shape'])
+        data = matrix_data["data"]
+        indices = matrix_data["indices"]
+        indptr = matrix_data["indptr"]
+        shape = tuple(matrix_data["shape"])
 
-        if type == 'csc':
+        if type == "csc":
             return csc_matrix((data, indices, indptr), shape=shape)
         else:
             return csr_matrix((data, indices, indptr), shape=shape)
