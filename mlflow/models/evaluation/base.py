@@ -379,7 +379,7 @@ class EvaluationDataset:
         else:
             dataset_metadata_list.append(self._metadata)
 
-        dataset_metadata_str = json.dumps(dataset_metadata_list)
+        dataset_metadata_str = json.dumps(dataset_metadata_list, separators=(",", ":"))
         client.log_batch(
             run_id,
             tags=[RunTag("mlflow.datasets", dataset_metadata_str)],
@@ -470,9 +470,8 @@ def evaluate(
     evaluator_config=None,
 ) -> "mlflow.models.evaluation.EvaluationResult":
     """
-    Evaluate a pyfunc model on specified dataset, log evaluation results (metrics and
-    artifacts) into active run or specified mlflow run), and return evaluation results
-    containing metrics and artifacts.
+    Evaluate a PyFunc model on the specified dataset using one or more specified evaluators, and
+    log resulting metrics & artifacts to MLflow Tracking.
 
     :param model: A pyfunc model instance, or a URI referring to such a model.
 
@@ -487,9 +486,10 @@ def evaluate(
                    one does not exist.
     :param evaluators: The name of the evaluator to use for model evaluations, or
                        a list of evaluator names. If unspecified, all evaluators
-                       capable  of evaluating the specified model on the specified
+                       capable of evaluating the specified model on the specified
                        dataset are used. The default evaluator can be referred to
-                       by the name 'default'.
+                       by the name 'default'. If this argument is unspecified, then
+                       fetch all evaluators from the registry.
     :param evaluator_config: A dictionary of additional configurations to supply
                              to the evaluator. If multiple evaluators are
                              specified, each configuration should be supplied as
@@ -502,13 +502,13 @@ def evaluate(
     from mlflow.pyfunc import PyFuncModel
 
     if not evaluators:
-        evaluators = "default"
+        evaluators = list(_model_evaluation_registry._registry.keys())
 
     if isinstance(evaluators, str):
         evaluators = [evaluators]
         if not (evaluator_config is None or isinstance(evaluator_config, dict)):
             raise ValueError(
-                "If `evaluators` argument is a str, evaluator_config must be None " "or a dict."
+                "If `evaluators` argument is a str, evaluator_config must be None or a dict."
             )
         evaluator_config = {evaluators[0]: evaluator_config}
     elif isinstance(evaluators, list):
