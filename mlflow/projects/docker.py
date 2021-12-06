@@ -113,8 +113,9 @@ def handle_readonly(func, path, exc_info):
         func in (os.unlink, os.rmdir)
         and issubclass(exc_class, PermissionError)
         and (
-            (os.name == "nt" and exc_instance.winerror == 5)
-            or (os.name != "nt" and exc_instance.errno == 13)
+            # Check whether the error code indicates "Permission Denied"
+            (os.name != "nt" and exc_instance.errno == 13)
+            or (os.name == "nt" and exc_instance.winerror == 5)
         )
     )
     if not should_reattempt:
