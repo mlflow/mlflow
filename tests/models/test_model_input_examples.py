@@ -6,7 +6,11 @@ import pytest
 from scipy.sparse import csr_matrix, csc_matrix
 
 from mlflow.models.signature import infer_signature
-from mlflow.models.utils import _Example, _read_tensor_input_from_json
+from mlflow.models.utils import (
+    _Example,
+    _read_tensor_input_from_json,
+    _read_sparse_matrix_from_json,
+)
 from mlflow.types.utils import TensorsNotSupportedException
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import _dataframe_from_json
@@ -153,13 +157,13 @@ def test_input_examples(pandas_df_with_all_types, dict_of_ndarrays):
 
 
 def test_sparse_matrix_input_examples(dict_of_sparse_matrix):
-    for input_example in dict_of_sparse_matrix.values():
+    for example_type, input_example in dict_of_sparse_matrix.items():
         with TempDir() as tmp:
             example = _Example(input_example)
             example.save(tmp.path())
             filename = example.info["artifact_path"]
-            parsed_ary = _read_tensor_input_from_json(tmp.path(filename))
-            assert np.array_equal(parsed_ary, input_example.toarray())
+            parsed_matrix = _read_sparse_matrix_from_json(tmp.path(filename), example_type)
+            assert np.array_equal(parsed_matrix.toarray(), input_example.toarray())
 
 
 def test_input_examples_with_nan(df_with_nan, dict_of_ndarrays_with_nans):

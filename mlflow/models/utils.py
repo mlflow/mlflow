@@ -218,7 +218,7 @@ def _read_tensor_input_from_json(path, schema=None):
         return parse_tf_serving_input(inp_dict, schema)
 
 
-def _read_sparse_matrix_from_json(path, type):
+def _read_sparse_matrix_from_json(path, example_type):
     with open(path, "r") as handle:
         matrix_data = json.load(handle)
         data = matrix_data["data"]
@@ -226,7 +226,7 @@ def _read_sparse_matrix_from_json(path, type):
         indptr = matrix_data["indptr"]
         shape = tuple(matrix_data["shape"])
 
-        if type == "csc":
+        if example_type == "csc":
             return csc_matrix((data, indices, indptr), shape=shape)
         else:
             return csr_matrix((data, indices, indptr), shape=shape)
