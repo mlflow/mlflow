@@ -7,6 +7,7 @@ import shutil
 import sys
 import tarfile
 import tempfile
+import stat
 
 import urllib.parse
 import urllib.request
@@ -459,3 +460,24 @@ def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000):
                 if not chunk:
                     break
                 output_file.write(chunk)
+
+
+def _handle_readonly_on_windows(func, path, exc_info):
+    """
+    Clear the readonly bit and reattempt the removal on Windows.
+
+    References:
+    - https://bugs.python.org/issue19643
+    - https://bugs.python.org/issue43657
+    """
+    exc_class, exc_instance = exc_info[:2]
+    should_reattempt = (
+        os.name == "nt"
+        and func in (os.unlink, os.rmdir)
+        and issubclass(exc_class, PermissionError)
+        and exc_instance.winerror == 5
+    )
+    if not should_reattempt:
+        raise exc_instance
+    os.chmod(path, stat.S_IWRITE)
+    func(path)

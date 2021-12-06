@@ -16,6 +16,7 @@ from mlflow.projects.utils import MLFLOW_DOCKER_WORKDIR_PATH
 from mlflow.tracking.context.git_context import _get_git_commit
 from mlflow.utils import process, file_utils
 from mlflow.utils.mlflow_tags import MLFLOW_DOCKER_IMAGE_URI, MLFLOW_DOCKER_IMAGE_ID
+from mlflow.utils.file_utils import _handle_readonly_on_windows
 
 _logger = logging.getLogger(__name__)
 
@@ -100,30 +101,6 @@ def _get_docker_image_uri(repository_uri, work_dir):
     return repository_uri + version_string
 
 
-def handle_readonly(func, path, exc_info):
-    """
-    Clear the readonly bit and reattempt the removal.
-
-    References:
-    - https://bugs.python.org/issue19643
-    - https://bugs.python.org/issue43657
-    """
-    exc_class, exc_instance = exc_info[:2]
-    should_reattempt = (
-        func in (os.unlink, os.rmdir)
-        and issubclass(exc_class, PermissionError)
-        and (
-            # Check whether the error code indicates "Permission Denied"
-            (os.name != "nt" and exc_instance.errno == 13)
-            or (os.name == "nt" and exc_instance.winerror == 5)
-        )
-    )
-    if not should_reattempt:
-        raise exc_instance
-    os.chmod(path, stat.S_IWRITE)
-    func(path)
-
-
 def _create_docker_build_ctx(work_dir, dockerfile_contents):
     """
     Creates build context tarfile containing Dockerfile and project code, returning path to tarfile
@@ -139,7 +116,7 @@ def _create_docker_build_ctx(work_dir, dockerfile_contents):
             output_filename=result_path, source_dir=dst_path, archive_name=_PROJECT_TAR_ARCHIVE_NAME
         )
     finally:
-        shutil.rmtree(directory, onerror=handle_readonly)
+        shutil.rmtree(directory, onerror=_handle_readonly_on_windows)
     return result_path
 
 

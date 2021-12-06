@@ -1,14 +1,14 @@
 import os
+import stat
 
 import pytest
-import posixpath  # pylint: disable=unused-import
 from unittest import mock
 
 from databricks_cli.configure.provider import DatabricksConfig
 
 import mlflow
 from mlflow.entities import ViewType
-from mlflow.projects.docker import _get_docker_image_uri
+from mlflow.projects.docker import _get_docker_image_uri, _handle_readonly_on_windows
 from mlflow.projects import ExecutionException
 from mlflow.projects.backend.local import _get_docker_command
 from mlflow.store.tracking import file_store
