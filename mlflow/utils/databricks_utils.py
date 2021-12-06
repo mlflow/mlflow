@@ -238,7 +238,7 @@ def get_cluster_id():
     return spark_session.conf.get("spark.databricks.clusterUsageTags.clusterId")
 
 
-@_use_context_metadata_if_available("groupId")
+@_use_context_metadata_if_available("jobGroupId")
 def get_job_group_id():
     try:
         dbutils = _get_dbutils()
