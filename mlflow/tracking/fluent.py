@@ -285,6 +285,7 @@ def start_run(
             user_specified_tags[MLFLOW_RUN_NAME] = run_name
 
         tags = context_registry.resolve_tags(user_specified_tags)
+        print(tags)  # debug
 
         active_run_obj = client.create_run(experiment_id=exp_id_for_run, tags=tags)
 
