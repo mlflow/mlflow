@@ -78,8 +78,10 @@ class _Example(object):
                 return {"inputs": result}
             elif isinstance(input_tensor, np.ndarray):
                 return {"inputs": _handle_tensor_nans(input_tensor).tolist()}
-            else:
+            elif isinstance(input_tensor, csr_matrix, csc_matrix):
                 return {"inputs": _handle_tensor_nans(input_tensor).toarray().tolist()}
+            else:
+                raise ValueError('Unknown input_tensor type.')
 
         def _handle_dataframe_nans(df: pd.DataFrame):
             return df.where(df.notnull(), None)
