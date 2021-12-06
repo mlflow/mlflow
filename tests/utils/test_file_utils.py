@@ -6,6 +6,7 @@ import os
 import shutil
 import pytest
 import tarfile
+import stat
 
 from mlflow.utils import file_utils
 from mlflow.utils.file_utils import (
@@ -177,14 +178,13 @@ def test_dir_copy():
 
 @pytest.mark.skipif(os.name != "nt", reason="requires Windows")
 def test_handle_readonly_on_windows(tmpdir):
-    import win32api
-    import win32con
-
     tmp_path = tmpdir.join("file").strpath
     with open(tmp_path, "w"):
         pass
 
-    win32api.SetFileAttributes(tmp_path, win32con.FILE_ATTRIBUTE_READONLY)
+    # Make the file read-only
+    os.chmod(tmp_path, stat.S_IREAD | stat.S_IRGRP | stat.S_IROTH)
+    # Ensure the file can't be removed
     with pytest.raises(PermissionError, match="Access is denied") as exc:
         os.unlink(tmp_path)
 
