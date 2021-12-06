@@ -11,7 +11,7 @@ from mlflow.utils.databricks_utils import (
     is_databricks_default_tracking_uri,
 )
 from mlflow.utils.uri import construct_db_uri_from_profile
-from tests.helper_functions import mock_method_chain, multi_context
+from tests.helper_functions import mock_method_chain
 
 
 def test_no_throw():
@@ -256,28 +256,52 @@ def test_get_repl_id():
         assert databricks_utils.get_repl_id() == "testReplId2"
 
 
-def test_use_env_var_if_exists():
-    with mock.patch.dict(
-        "os.environ",
-        {"DATABRICKS_NOTEBOOK_ID": "1", "DATABRICKS_CLUSTER_ID": "a"},
-        clear=True,
-    ):
-        with multi_context(
-            mock.patch("mlflow.utils.databricks_utils._get_dbutils"),
-            mock.patch("mlflow.utils.databricks_utils._get_property_from_spark_context"),
-            mock.patch("mlflow.utils._spark_utils._get_active_spark_session"),
-        ) as mocks:
-            assert databricks_utils.get_notebook_id() == "1"
-            assert databricks_utils.is_in_databricks_notebook()
-            assert databricks_utils.get_cluster_id() == "a"
-            assert databricks_utils.is_in_cluster()
-            assert all(m.call_count == 0 for m in mocks)
+def test_use_context_metadata_if_available():
+
+    with mock.patch(
+        "mlflow.utils.databricks_utils._get_context_metadata",
+        return_value="job_id",
+    ) as mock_context_metadata, mock.patch(
+        "mlflow.utils.databricks_utils._get_dbutils"
+    ) as mock_dbutils:
+        assert databricks_utils.get_job_id() == "job_id"
+        mock_context_metadata.assert_called_once_with("jobId")
+        mock_dbutils.assert_not_called()
+
+    with mock.patch(
+        "mlflow.utils.databricks_utils._get_context_metadata",
+        return_value="notebook_id",
+    ) as mock_context_metadata, mock.patch(
+        "mlflow.utils.databricks_utils._get_property_from_spark_context"
+    ) as mock_spark_context:
+        assert databricks_utils.get_notebook_id() == "notebook_id"
+        mock_context_metadata.assert_called_once_with("notebookId")
+        mock_context_metadata.reset_mock()
+        assert databricks_utils.is_in_databricks_notebook()
+        mock_context_metadata.assert_called_once_with("notebookId")
+        mock_spark_context.assert_not_called()
+
+    with mock.patch(
+        "mlflow.utils.databricks_utils._get_context_metadata",
+        return_value="cluster_id",
+    ) as mock_context_metadata, mock.patch(
+        "mlflow.utils._spark_utils._get_active_spark_session"
+    ) as mock_spark_session:
+        assert databricks_utils.get_cluster_id() == "cluster_id"
+        mock_context_metadata.assert_called_once_with("clusterId")
+        mock_context_metadata.reset_mock()
+        assert databricks_utils.is_in_cluster()
+        mock_context_metadata.assert_called_once_with("clusterId")
+        mock_spark_session.assert_not_called()
 
 
-def test_use_message_metadata_if_exists():
+def test_use_message_metadata_if_available():
     with mock.patch(
         "mlflow.utils.databricks_utils._get_message_metadata",
-        return_value={"commandRunId": "1"},
-    ), mock.patch("mlflow.utils.databricks_utils._get_dbutils") as mock_dbutils:
-        assert databricks_utils.get_command_run_id() == "1"
+        return_value="command_run_id",
+    ) as mock_message_metadata, mock.patch(
+        "mlflow.utils.databricks_utils._get_dbutils"
+    ) as mock_dbutils:
+        assert databricks_utils.get_command_run_id() == "command_run_id"
+        mock_message_metadata.assert_called_once_with("commandRunId")
         mock_dbutils.assert_not_called()
