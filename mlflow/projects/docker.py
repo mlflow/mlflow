@@ -1,6 +1,5 @@
 import logging
 import os
-import stat
 import posixpath
 import shutil
 import tempfile
