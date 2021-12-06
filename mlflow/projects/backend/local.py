@@ -229,7 +229,8 @@ def _get_docker_command(image, active_run, docker_args=None, volumes=None, user_
         active_run.info.artifact_uri
     )
 
-    cmd += tracking_cmds + artifact_cmds
+    cmd += tracking_cmds 
+    #+ artifact_cmds
     env_vars.update(tracking_envs)
     env_vars.update(artifact_envs)
     if user_env_vars is not None:
