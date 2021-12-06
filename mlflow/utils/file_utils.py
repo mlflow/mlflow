@@ -464,7 +464,9 @@ def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000):
 
 def _handle_readonly_on_windows(func, path, exc_info):
     """
-    Clear the readonly bit and reattempt the removal on Windows.
+    This function should not be called directly but should be passed to `onerror` of
+    `shutil.rmtree` in order to reattempt the removal of a read-only file after making
+    it writable on Windows.
 
     References:
     - https://bugs.python.org/issue19643
