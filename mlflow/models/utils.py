@@ -148,6 +148,7 @@ class _Example(object):
             self.info = {
                 "artifact_path": example_filename,
                 "type": "csc" if isinstance(input_example, csc_matrix) else "csr",
+                "shape": list(input_example.shape)
             }
         else:
             self.data = _handle_dataframe_input(input_example)
@@ -197,7 +198,7 @@ def _read_example(mlflow_model: Model, path: str):
     if mlflow_model.saved_input_example_info is None:
         return None
     example_type = mlflow_model.saved_input_example_info["type"]
-    if example_type not in ["dataframe", "ndarray"]:
+    if example_type not in ["dataframe", "ndarray", "csc", "csr"]:
         raise MlflowException(
             "This version of mlflow can not load example of type {}".format(example_type)
         )
@@ -205,6 +206,8 @@ def _read_example(mlflow_model: Model, path: str):
     path = os.path.join(path, mlflow_model.saved_input_example_info["artifact_path"])
     if example_type == "ndarray":
         return _read_tensor_input_from_json(path, schema=input_schema)
+    elif example_type in ["csc", "csr"]:
+        return _read_sparse_matrix_from_json(path, example_type)
     else:
         return _dataframe_from_json(path, schema=input_schema, precise_float=True)
 
@@ -213,3 +216,17 @@ def _read_tensor_input_from_json(path, schema=None):
     with open(path, "r") as handle:
         inp_dict = json.load(handle)
         return parse_tf_serving_input(inp_dict, schema)
+
+
+def _read_sparse_matrix_from_json(path, type):
+    with open(path, "r") as handle:
+        matrix_data = json.load(handle)
+        data = matrix_data['data']
+        indices = matrix_data['indices']
+        indptr = matrix_data['indptr']
+        shape = tuple(matrix_data['shape'])
+
+        if type == 'csc':
+            return csc_matrix((data, indices, indptr), shape=shape)
+        else:
+            return csr_matrix((data, indices, indptr), shape=shape)
