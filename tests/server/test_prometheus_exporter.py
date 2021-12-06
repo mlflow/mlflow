@@ -1,50 +1,69 @@
 import os
-from tempfile import TemporaryDirectory
 from unittest import mock
 
 import pytest
 
+
 from mlflow.server.prometheus_exporter import activate_prometheus_exporter
 
-tmpdir = TemporaryDirectory()
+
+@pytest.fixture(autouse=True)
+def mock_settings_env_vars(tmpdir):
+    with mock.patch.dict(os.environ, {"PROMETHEUS_MULTIPROC_DIR": tmpdir.strpath}):
+        yield
 
 
 @pytest.fixture()
 def app():
     from mlflow.server import app
 
-    ctx = app.app_context()
-    ctx.push()
-    yield app
-    ctx.pop()
+    with app.app_context():
+        yield app
 
 
-@mock.patch.dict(os.environ, {"PROMETHEUS_MULTIPROC_DIR": tmpdir.name})
-def test_metrics(app):
-    metrics = activate_prometheus_exporter(app)
-    metric_labels = {"method": "GET", "status": "200"}
-
+@pytest.fixture()
+def test_client(app):
     with app.test_client() as c:
-        assert (
-            metrics.registry.get_sample_value("mlflow_http_request_total", labels=metric_labels)
-            is None
-        )
-        c.get("/")
-        assert (
-            metrics.registry.get_sample_value("mlflow_http_request_total", labels=metric_labels)
-            == 1
-        )
+        yield c
 
-        # calling the metrics endpoint should not increment the counter
-        c.get("/metrics")
-        assert (
-            metrics.registry.get_sample_value("mlflow_http_request_total", labels=metric_labels)
-            == 1
-        )
 
-        # calling the health endpoint should not increment the counter
-        c.get("/health")
-        assert (
-            metrics.registry.get_sample_value("mlflow_http_request_total", labels=metric_labels)
-            == 1
-        )
+def test_metrics(app, test_client):
+    metrics = activate_prometheus_exporter(app)
+
+    # test metrics for successful responses
+    success_labels = {"method": "GET", "status": "200"}
+    assert (
+        metrics.registry.get_sample_value("mlflow_http_request_total", labels=success_labels)
+        is None
+    )
+    resp = test_client.get("/")
+    assert resp.status_code == 200
+    assert (
+        metrics.registry.get_sample_value("mlflow_http_request_total", labels=success_labels) == 1
+    )
+
+    # calling the metrics endpoint should not increment the counter
+    resp = test_client.get("/metrics")
+    assert resp.status_code == 200
+    assert (
+        metrics.registry.get_sample_value("mlflow_http_request_total", labels=success_labels) == 1
+    )
+
+    # calling the health endpoint should not increment the counter
+    resp = test_client.get("/health")
+    assert resp.status_code == 200
+    assert (
+        metrics.registry.get_sample_value("mlflow_http_request_total", labels=success_labels) == 1
+    )
+
+    # test metrics for failed responses
+    failure_labels = {"method": "GET", "status": "404"}
+    assert (
+        metrics.registry.get_sample_value("mlflow_http_request_total", labels=failure_labels)
+        is None
+    )
+    resp = test_client.get("/non-existent-endpoint")
+    assert resp.status_code == 404
+    assert (
+        metrics.registry.get_sample_value("mlflow_http_request_total", labels=failure_labels) == 1
+    )
