@@ -470,14 +470,14 @@ def _handle_readonly_on_windows(func, path, exc_info):
     - https://bugs.python.org/issue19643
     - https://bugs.python.org/issue43657
     """
-    exc_class, exc_instance = exc_info[:2]
+    exc_type, exc_value = exc_info[:2]
     should_reattempt = (
         os.name == "nt"
         and func in (os.unlink, os.rmdir)
-        and issubclass(exc_class, PermissionError)
-        and exc_instance.winerror == 5
+        and issubclass(exc_type, PermissionError)
+        and exc_value.winerror == 5
     )
     if not should_reattempt:
-        raise exc_instance
+        raise exc_value
     os.chmod(path, stat.S_IWRITE)
     func(path)
