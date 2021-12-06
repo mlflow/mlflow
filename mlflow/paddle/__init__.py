@@ -24,7 +24,6 @@ from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
     _mlflow_conda_env,
     _validate_env_arguments,
@@ -222,7 +221,9 @@ def save_model(
         env=_CONDA_ENV_FILE_NAME,
     )
     mlflow_model.add_flavor(
-        FLAVOR_NAME, pickled_model=model_data_subpath, paddle_version=paddle.__version__,
+        FLAVOR_NAME,
+        pickled_model=model_data_subpath,
+        paddle_version=paddle.__version__,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
@@ -232,13 +233,17 @@ def save_model(
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
-                path, FLAVOR_NAME, fallback=default_reqs,
+                path,
+                FLAVOR_NAME,
+                fallback=default_reqs,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
             default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
-            default_reqs, pip_requirements, extra_pip_requirements,
+            default_reqs,
+            pip_requirements,
+            extra_pip_requirements,
         )
     else:
         conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
@@ -254,7 +259,7 @@ def save_model(
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
 
-def load_model(model_uri, model=None, **kwargs):
+def load_model(model_uri, model=None, dst_path=None, **kwargs):
     """
     Load a paddle model from a local file or a run.
     :param model_uri: The location, in URI format, of the MLflow model, for example:
@@ -267,6 +272,9 @@ def load_model(model_uri, model=None, **kwargs):
             - ``models:/<model_name>/<stage>``
 
     :param model: Required when loading a `paddle.Model` model saved with `training=True`.
+    :param dst_path: The local filesystem path to which to download the model artifact.
+                     This directory must already exist. If unspecified, a local output
+                     path will be created.
     :param kwargs: The keyword arguments to pass to `paddle.jit.load`
                    or `model.load`.
 
@@ -287,7 +295,7 @@ def load_model(model_uri, model=None, **kwargs):
     """
     import paddle
 
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     pd_model_artifacts_path = os.path.join(local_model_path, flavor_conf["pickled_model"])
     if model is None:
@@ -305,9 +313,7 @@ def load_model(model_uri, model=None, **kwargs):
                 "`paddle.jit.load` or set `training` to True when saving a model."
             )
 
-        model.load(
-            pd_model_artifacts_path, **kwargs,
-        )
+        model.load(pd_model_artifacts_path, **kwargs)
         return model
 
 
@@ -450,10 +456,13 @@ def _contains_pdparams(path):
     return any(".pdparams" in file for file in file_list)
 
 
-@experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
-    log_every_n_epoch=1, log_models=True, disable=False, exclusive=False, silent=False,
+    log_every_n_epoch=1,
+    log_models=True,
+    disable=False,
+    exclusive=False,
+    silent=False,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging from PaddlePaddle to MLflow.

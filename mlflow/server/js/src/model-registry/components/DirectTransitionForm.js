@@ -1,4 +1,4 @@
-import { Checkbox, Form, Tooltip } from 'antd';
+import { Checkbox, Tooltip, Form } from 'antd';
 import React from 'react';
 import PropTypes from 'prop-types';
 import {
@@ -11,21 +11,24 @@ import { FormattedMessage, injectIntl } from 'react-intl';
 
 export class DirectTransitionFormImpl extends React.Component {
   static propTypes = {
-    form: PropTypes.object,
+    innerRef: PropTypes.object,
     toStage: PropTypes.string,
     intl: PropTypes.shape({ formatMessage: PropTypes.func.isRequired }).isRequired,
   };
 
   render() {
-    const { toStage, form } = this.props;
-    const { getFieldDecorator } = form;
-    const archiveExistingVersionsCheckbox =
-      toStage && ACTIVE_STAGES.includes(toStage) ? (
-        <Form.Item>
-          {getFieldDecorator('archiveExistingVersions', {
-            initialValue: true,
-            valuePropName: 'checked',
-          })(
+    const { toStage, innerRef } = this.props;
+
+    return (
+      <Form ref={innerRef} className='model-version-update-form'>
+        {/* prettier-ignore */}
+        {toStage && ACTIVE_STAGES.includes(toStage) && (
+          <Form.Item
+            name='archiveExistingVersions'
+            initialValue='true'
+            valuePropName='checked'
+            preserve={false}
+          >
             <Checkbox>
               <Tooltip title={archiveExistingVersionToolTipText(toStage)}>
                 <FormattedMessage
@@ -40,20 +43,12 @@ export class DirectTransitionFormImpl extends React.Component {
                 />
                 &nbsp;
               </Tooltip>
-            </Checkbox>,
-          )}
-        </Form.Item>
-      ) : (
-        ''
-      );
-
-    return (
-      <Form className='model-version-update-form'>
-        {/* prettier-ignore */}
-        {archiveExistingVersionsCheckbox}
+            </Checkbox>
+          </Form.Item>
+        )}
       </Form>
     );
   }
 }
 
-export const DirectTransitionForm = Form.create()(injectIntl(DirectTransitionFormImpl));
+export const DirectTransitionForm = injectIntl(DirectTransitionFormImpl);

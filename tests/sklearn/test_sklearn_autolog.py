@@ -244,7 +244,10 @@ def test_classifier_binary():
     }
     if _is_metric_supported("roc_auc_score"):
         expected_metrics["training_roc_auc_score"] = sklearn.metrics.roc_auc_score(
-            y_true, y_score=y_pred_prob_roc, average="weighted", multi_class="ovo",
+            y_true,
+            y_score=y_pred_prob_roc,
+            average="weighted",
+            multi_class="ovo",
         )
 
     assert metrics == expected_metrics
@@ -304,7 +307,10 @@ def test_classifier_multi_class():
     }
     if _is_metric_supported("roc_auc_score"):
         expected_metrics["training_roc_auc_score"] = sklearn.metrics.roc_auc_score(
-            y_true, y_score=y_pred_prob, average="weighted", multi_class="ovo",
+            y_true,
+            y_score=y_pred_prob,
+            average="weighted",
+            multi_class="ovo",
         )
 
     assert metrics == expected_metrics
@@ -719,7 +725,9 @@ def test_parameter_search_estimators_produce_expected_outputs(
     cv_class, search_space, backend, max_tuning_runs
 ):
     mlflow.sklearn.autolog(
-        log_input_examples=True, log_model_signatures=True, max_tuning_runs=max_tuning_runs,
+        log_input_examples=True,
+        log_model_signatures=True,
+        max_tuning_runs=max_tuning_runs,
     )
 
     svc = sklearn.svm.SVC()
@@ -1160,7 +1168,10 @@ def test_eval_and_log_metrics_for_binary_classifier():
     }
     if _is_metric_supported("roc_auc_score"):
         expected_metrics["val_roc_auc_score"] = sklearn.metrics.roc_auc_score(
-            y_eval, y_score=y_pred_prob_roc, average="weighted", multi_class="ovo",
+            y_eval,
+            y_score=y_pred_prob_roc,
+            average="weighted",
+            multi_class="ovo",
         )
     assert eval_metrics == expected_metrics
 
@@ -1217,7 +1228,10 @@ def test_eval_and_log_metrics_matches_training_metrics():
     }
     if _is_metric_supported("roc_auc_score"):
         expected_metrics["val_roc_auc_score"] = sklearn.metrics.roc_auc_score(
-            y_eval, y_score=y_pred_prob_roc, average="weighted", multi_class="ovo",
+            y_eval,
+            y_score=y_pred_prob_roc,
+            average="weighted",
+            multi_class="ovo",
         )
     assert eval_metrics == expected_metrics
 
@@ -1279,7 +1293,10 @@ def test_eval_and_log_metrics_for_classifier_multi_class():
     }
     if _is_metric_supported("roc_auc_score"):
         expected_metrics["eval_roc_auc_score"] = sklearn.metrics.roc_auc_score(
-            y_eval, y_score=y_pred_prob, average="weighted", multi_class="ovo",
+            y_eval,
+            y_score=y_pred_prob,
+            average="weighted",
+            multi_class="ovo",
         )
 
     assert eval_metrics == expected_metrics
@@ -1766,7 +1783,7 @@ def test_gen_metric_call_commands():
         None,
         metric_fn1,
         *[np.array([1.0]), pd.DataFrame(data={"c1": [1]})],
-        **{"c2": 4, "d1": None, "d2": False, "d3": "def", "randarg1": "a" * 100, "randarg2": "0.1"}
+        **{"c2": 4, "d1": None, "d2": False, "d3": "def", "randarg1": "a" * 100, "randarg2": "0.1"},
     )
 
     assert (

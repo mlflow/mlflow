@@ -44,14 +44,6 @@ def random_one_hot_labels():
     return labels
 
 
-@pytest.fixture(params=[True, False])
-def manual_run(request):
-    if request.param:
-        mlflow.start_run()
-    yield
-    mlflow.end_run()
-
-
 def create_model():
     model = keras.Sequential()
 
@@ -94,7 +86,7 @@ def test_keras_autolog_persists_manually_created_run(random_train_data, random_o
 
 
 @pytest.fixture
-def keras_random_data_run(random_train_data, random_one_hot_labels, manual_run, initial_epoch):
+def keras_random_data_run(random_train_data, random_one_hot_labels, initial_epoch):
     # pylint: disable=unused-argument
     mlflow.keras.autolog()
 
@@ -155,7 +147,6 @@ def test_keras_autolog_model_can_load_from_artifact(keras_random_data_run, rando
 def get_keras_random_data_run_with_callback(
     random_train_data,
     random_one_hot_labels,
-    manual_run,
     callback,
     restore_weights,
     patience,
@@ -186,7 +177,11 @@ def get_keras_random_data_run_with_callback(
         callback = CustomCallback()
 
     history = model.fit(
-        data, labels, epochs=initial_epoch + 10, callbacks=[callback], initial_epoch=initial_epoch,
+        data,
+        labels,
+        epochs=initial_epoch + 10,
+        callbacks=[callback],
+        initial_epoch=initial_epoch,
     )
 
     client = mlflow.tracking.MlflowClient()
@@ -197,7 +192,6 @@ def get_keras_random_data_run_with_callback(
 def keras_random_data_run_with_callback(
     random_train_data,
     random_one_hot_labels,
-    manual_run,
     callback,
     restore_weights,
     patience,
@@ -206,7 +200,6 @@ def keras_random_data_run_with_callback(
     return get_keras_random_data_run_with_callback(
         random_train_data,
         random_one_hot_labels,
-        manual_run,
         callback,
         restore_weights,
         patience,
@@ -298,7 +291,6 @@ def test_keras_autolog_batch_metrics_logger_logs_expected_metrics(
         run, _, callback = get_keras_random_data_run_with_callback(
             random_train_data,
             random_one_hot_labels,
-            manual_run,
             callback,
             restore_weights,
             patience,

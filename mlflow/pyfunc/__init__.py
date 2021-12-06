@@ -326,18 +326,9 @@ def _enforce_mlflow_datatype(name, values: pandas.Series, t: DataType):
         values = values.infer_objects()
 
     if t == DataType.string and values.dtype == np.object:
-        #  NB: strings are by default parsed and inferred as objects, but it is
-        # recommended to use StringDtype extension type if available. See
-        #
-        # `https://pandas.pydata.org/pandas-docs/stable/user_guide/text.html`
-        #
-        # for more detail.
-        try:
-            return values.astype(t.to_pandas(), errors="raise")
-        except ValueError:
-            raise MlflowException(
-                "Failed to convert column {0} from type {1} to {2}.".format(name, values.dtype, t)
-            )
+        # NB: the object can contain any type and we currently cannot cast to pandas Strings
+        # due to how None is cast
+        return values
 
     # NB: Comparison of pandas and numpy data type fails when numpy data type is on the left hand
     # side of the comparison operator. It works, however, if pandas type is on the left hand side.
@@ -628,7 +619,7 @@ class PyFuncModel(object):
         return yaml.safe_dump({"mlflow.pyfunc.loaded_model": info}, default_flow_style=False)
 
 
-def load_model(model_uri: str, suppress_warnings: bool = True) -> PyFuncModel:
+def load_model(model_uri: str, suppress_warnings: bool = True, dst_path: str = None) -> PyFuncModel:
     """
     Load a model stored in Python function format.
 
@@ -647,8 +638,11 @@ def load_model(model_uri: str, suppress_warnings: bool = True) -> PyFuncModel:
     :param suppress_warnings: If ``True``, non-fatal warning messages associated with the model
                               loading process will be suppressed. If ``False``, these warning
                               messages will be emitted.
+    :param dst_path: The local filesystem path to which to download the model artifact.
+                     This directory must already exist. If unspecified, a local output
+                     path will be created.
     """
-    local_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    local_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
 
     conf = model_meta.flavors.get(FLAVOR_NAME)
@@ -906,7 +900,8 @@ def spark_udf(spark, model_uri, result_type="double"):
                         message="Cannot apply udf because no column names specified. The udf "
                         "expects {} columns with types: {}. Input column names could not be "
                         "inferred from the model signature (column names not found).".format(
-                            len(input_schema.inputs), input_schema.inputs,
+                            len(input_schema.inputs),
+                            input_schema.inputs,
                         ),
                         error_code=INVALID_PARAMETER_VALUE,
                     )
@@ -936,7 +931,7 @@ def save_model(
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
-    **kwargs
+    **kwargs,
 ):
     """
     save_model(path, loader_module=None, data_path=None, code_path=None, conda_env=None,\
@@ -1269,13 +1264,17 @@ def _save_model_with_loader_module_and_data_path(
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
-                path, FLAVOR_NAME, fallback=default_reqs,
+                path,
+                FLAVOR_NAME,
+                fallback=default_reqs,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
             default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
-            default_reqs, pip_requirements, extra_pip_requirements,
+            default_reqs,
+            pip_requirements,
+            extra_pip_requirements,
         )
     else:
         conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)

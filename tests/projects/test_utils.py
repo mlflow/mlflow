@@ -113,11 +113,11 @@ def test_fetching_non_existing_version_fails(local_git_repo, local_git_repo_uri)
 def test_fetch_project_validations(local_git_repo_uri):
     # Verify that runs fail if given incorrect subdirectories via the `#` character.
     for base_uri in [TEST_PROJECT_DIR, local_git_repo_uri]:
-        with pytest.raises(ExecutionException):
+        with pytest.raises(ExecutionException, match="Could not find subdirectory fake"):
             _fetch_project(uri=_build_uri(base_uri, "fake"))
 
     # Passing `version` raises an exception for local projects
-    with pytest.raises(ExecutionException):
+    with pytest.raises(ExecutionException, match="Setting a version is only supported"):
         _fetch_project(uri=TEST_PROJECT_DIR, version="version")
 
 
@@ -137,9 +137,15 @@ def test_parse_subdirectory():
     assert parsed_uri == "uri"
     assert parsed_subdirectory == "subdirectory"
 
+    # Make sure the parsing works with quotes.
+    test_uri = "'uri#subdirectory'"
+    parsed_uri, parsed_subdirectory = _parse_subdirectory(test_uri)
+    assert parsed_uri == "uri"
+    assert parsed_subdirectory == "subdirectory"
+
     # Make sure periods are restricted in Git repo subdirectory paths.
     period_fail_uri = GIT_PROJECT_URI + "#.."
-    with pytest.raises(ExecutionException):
+    with pytest.raises(ExecutionException, match=r"'\.' is not allowed"):
         _parse_subdirectory(period_fail_uri)
 
 

@@ -3,8 +3,8 @@ from abc import ABCMeta, abstractmethod
 
 class FlavorBackend(object):
     """
-        Abstract class for Flavor Backend.
-        This class defines the API interface for local model deployment of MLflow model flavors.
+    Abstract class for Flavor Backend.
+    This class defines the API interface for local model deployment of MLflow model flavors.
     """
 
     __metaclass__ = ABCMeta

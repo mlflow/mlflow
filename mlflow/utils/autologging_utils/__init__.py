@@ -16,16 +16,15 @@ from mlflow.utils.validation import MAX_METRICS_PER_BATCH
 _logger = logging.getLogger(__name__)
 
 # Import autologging utilities used by this module
-from mlflow.utils.autologging_utils.logging_and_warnings import (  # noqa: E402
+from mlflow.utils.autologging_utils.logging_and_warnings import (
     set_mlflow_events_and_warnings_behavior_globally,
     set_non_mlflow_warnings_behavior_for_current_thread,
 )
-from mlflow.utils.autologging_utils.safety import (  # noqa: E402
-    try_mlflow_log,
+from mlflow.utils.autologging_utils.safety import (
     update_wrapper_extended,
     revert_patches,
 )
-from mlflow.utils.autologging_utils.versioning import (  # noqa: E402
+from mlflow.utils.autologging_utils.versioning import (
     FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY,
     get_min_max_version_and_pip_release,
     is_flavor_supported_for_associated_package_versions,
@@ -34,9 +33,9 @@ from mlflow.utils.autologging_utils.versioning import (  # noqa: E402
 # Wildcard import other autologging utilities (e.g. safety utilities, event logging utilities) used
 # in autologging integration implementations, which reference them via the
 # `mlflow.utils.autologging_utils` module
-from mlflow.utils.autologging_utils.safety import *  # noqa: E402
-from mlflow.utils.autologging_utils.events import *  # noqa: E402
-from mlflow.utils.autologging_utils.client import *  # noqa: E402
+from mlflow.utils.autologging_utils.safety import *
+from mlflow.utils.autologging_utils.events import *
+from mlflow.utils.autologging_utils.client import *
 
 
 INPUT_EXAMPLE_SAMPLE_ROWS = 5
@@ -224,7 +223,7 @@ class BatchMetricsLogger:
             for i in range(0, len(self.data), MAX_METRICS_PER_BATCH)
         ]
         for metrics_slice in metrics_slices:
-            try_mlflow_log(self.client.log_batch, run_id=current_run_id, metrics=metrics_slice)
+            self.client.log_batch(run_id=current_run_id, metrics=metrics_slice)
         end = time.time()
         self.total_log_batch_time += end - start
 

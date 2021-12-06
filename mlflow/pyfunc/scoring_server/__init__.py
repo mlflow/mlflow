@@ -41,7 +41,7 @@ try:
     from mlflow.pyfunc import load_model, PyFuncModel
 except ImportError:
     from mlflow.pyfunc import load_pyfunc as load_model
-from mlflow.protos.databricks_pb2 import MALFORMED_REQUEST, BAD_REQUEST
+from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.server.handlers import catch_mlflow_exception
 
 try:
@@ -87,7 +87,7 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
                 "Failed to parse input from JSON. Ensure that input is a valid JSON"
                 " formatted string."
             ),
-            error_code=MALFORMED_REQUEST,
+            error_code=BAD_REQUEST,
         )
 
     if isinstance(decoded_input, list):
@@ -98,7 +98,8 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
                 return parse_tf_serving_input(decoded_input, schema=schema)
             except MlflowException as ex:
                 _handle_serving_error(
-                    error_message=(ex.message), error_code=MALFORMED_REQUEST,
+                    error_message=(ex.message),
+                    error_code=BAD_REQUEST,
                 )
         else:
             return parse_json_input(json_input=json_input, orient="split", schema=schema)
@@ -108,7 +109,7 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
                 "Failed to parse input from JSON. Ensure that input is a valid JSON"
                 " list or dictionary."
             ),
-            error_code=MALFORMED_REQUEST,
+            error_code=BAD_REQUEST,
         )
 
 
@@ -131,7 +132,7 @@ def parse_json_input(json_input, orient="split", schema: Schema = None):
                 " produced using the `pandas.DataFrame.to_json(..., orient='{orient}')`"
                 " method.".format(orient=orient)
             ),
-            error_code=MALFORMED_REQUEST,
+            error_code=BAD_REQUEST,
         )
 
 
@@ -150,7 +151,7 @@ def parse_csv_input(csv_input):
                 " a valid CSV-formatted Pandas DataFrame produced using the"
                 " `pandas.DataFrame.to_csv()` method."
             ),
-            error_code=MALFORMED_REQUEST,
+            error_code=BAD_REQUEST,
         )
 
 
@@ -175,7 +176,7 @@ def parse_split_oriented_json_input_to_numpy(json_input):
                 " produced using the `pandas.DataFrame.to_json(..., orient='split')`"
                 " method."
             ),
-            error_code=MALFORMED_REQUEST,
+            error_code=BAD_REQUEST,
         )
 
 

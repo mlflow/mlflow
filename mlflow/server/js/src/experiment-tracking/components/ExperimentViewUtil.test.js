@@ -3,7 +3,6 @@ import { shallow, mount } from 'enzyme';
 import ExperimentViewUtil, { TreeNode } from './ExperimentViewUtil';
 import { getModelVersionPageRoute } from '../../model-registry/routes';
 import { BrowserRouter } from 'react-router-dom';
-import { SEARCH_MAX_RESULTS } from '../actions';
 import {
   ATTRIBUTE_COLUMN_LABELS,
   COLUMN_TYPES,
@@ -116,22 +115,25 @@ describe('ExperimentViewUtil', () => {
     expect(ranges.foo.max).toBe(2);
   });
 
-  test('disable loadMoreButton when numRunsFromLatestSearch is not null and less than SEARCH_MAX_RESULTS', () => {
+  test('disable loadMoreButton when numRunsFromLatestSearch is not null and there is no nextPageToken', () => {
     expect(
       ExperimentViewUtil.disableLoadMoreButton({
         numRunsFromLatestSearch: null,
+        nextPageToken: null,
       }),
     ).toBe(false);
 
     expect(
       ExperimentViewUtil.disableLoadMoreButton({
-        numRunsFromLatestSearch: SEARCH_MAX_RESULTS - 1,
+        numRunsFromLatestSearch: 50,
+        nextPageToken: null,
       }),
     ).toBe(true);
 
     expect(
       ExperimentViewUtil.disableLoadMoreButton({
-        numRunsFromLatestSearch: SEARCH_MAX_RESULTS,
+        numRunsFromLatestSearch: 50,
+        nextPageToken: 'There is a page token',
       }),
     ).toBe(false);
   });
@@ -453,6 +455,54 @@ describe('ExperimentViewUtil', () => {
         preSwitchCategorizedUncheckedKeys,
         postSwitchCategorizedUncheckedKeys,
         currCategorizedUncheckedKeys,
+      }),
+    ).toEqual(expectedCategorizedUncheckedKeys);
+  });
+
+  test('getNestedRowRenderMetadata ensures the UI renders properly when parent runs have been deleted and are referenced by their children', () => {
+    const createRun = (runId) =>
+      RunInfo.fromJs({
+        run_uuid: runId,
+        experiment_id: '3',
+        status: 'FINISHED',
+        start_time: 1,
+        end_time: 1,
+        artifact_uri: 'dummypath',
+        lifecycle_stage: 'active',
+      });
+    const runInfos = [createRun('run-id1'), createRun('run-id2')];
+    const createTag = (parentId) => ({
+      tag1: '1',
+      tag2: '1',
+      tag3: '1',
+      [Utils.runNameTag]: 'runname1',
+      [Utils.gitCommitTag]: 'gitcommit1',
+      'mlflow.parentRunId': parentId,
+    });
+    const tagsList = [
+      createTag(),
+      createTag({
+        value: 'run-id1',
+      }),
+    ];
+    const runsExpanded = { 'run-id1': true, 'run-id2': true };
+    const expectedCategorizedUncheckedKeys = [
+      {
+        childrenIds: ['run-id2'],
+        expanderOpen: true,
+        hasExpander: true,
+        idx: 0,
+        isParent: true,
+        runId: 'run-id1',
+      },
+      { hasExpander: false, idx: 1, isParent: false },
+    ];
+
+    expect(
+      ExperimentViewUtil.getNestedRowRenderMetadata({
+        runInfos,
+        tagsList,
+        runsExpanded,
       }),
     ).toEqual(expectedCategorizedUncheckedKeys);
   });

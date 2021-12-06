@@ -135,7 +135,9 @@ def save_model(
         **model_bin_kwargs,
     }
     mlflow_model.add_flavor(
-        FLAVOR_NAME, prophet_version=prophet.__version__, **flavor_conf,
+        FLAVOR_NAME,
+        prophet_version=prophet.__version__,
+        **flavor_conf,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
@@ -152,7 +154,9 @@ def save_model(
         else:
             default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
-            default_reqs, pip_requirements, extra_pip_requirements,
+            default_reqs,
+            pip_requirements,
+            extra_pip_requirements,
         )
     else:
         conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
@@ -258,7 +262,7 @@ def _load_pyfunc(path):
     return _ProphetModelWrapper(_load_model(path))
 
 
-def load_model(model_uri):
+def load_model(model_uri, dst_path=None):
     """
     Load a Prophet model from a local file or a run.
 
@@ -272,10 +276,13 @@ def load_model(model_uri):
                       For more information about supported URI schemes, see
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
                       artifact-locations>`_.
+    :param dst_path: The local filesystem path to which to download the model artifact.
+                     This directory must already exist. If unspecified, a local output
+                     path will be created.
 
     :return: A Prophet model instance
     """
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     pr_model_path = os.path.join(
         local_model_path, flavor_conf.get(_MODEL_BINARY_KEY, _MODEL_BINARY_FILE_NAME)

@@ -87,3 +87,27 @@ ENABLE_MLSERVER = click.option(
     default=False,
     help="Enable serving with MLServer through the v2 inference protocol.",
 )
+
+ARTIFACTS_DESTINATION = click.option(
+    "--artifacts-destination",
+    metavar="URI",
+    default="./mlartifacts",
+    help=(
+        "The base artifact location from which to resolve artifact upload/download/list requests "
+        "(e.g. 's3://my-bucket'). Defaults to a local './mlartifacts' directory. This option only "
+        "applies when the tracking server is configured to stream artifacts and the experiment's "
+        "artifact root location is http or mlflow-artifacts URI."
+    ),
+)
+
+SERVE_ARTIFACTS = click.option(
+    "--serve-artifacts",
+    is_flag=True,
+    default=False,
+    help="If specified, enables serving of artifact uploads, downloads, and list requests "
+    "by routing these requests to the storage location that is specified by "
+    "'--artifact-destination' directly through a proxy. The default location that "
+    "these requests are served from is a local './mlartifacts' directory which can be "
+    "overridden via the '--artifacts-destination' argument. "
+    "Default: False",
+)

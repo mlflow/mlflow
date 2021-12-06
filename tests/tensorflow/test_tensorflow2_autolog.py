@@ -3,6 +3,7 @@
 import collections
 import pytest
 import sys
+import pickle
 from packaging.version import Version
 
 import numpy as np
@@ -12,6 +13,7 @@ from tensorflow.keras import layers
 
 import mlflow
 import mlflow.tensorflow
+from mlflow.tensorflow._autolog import _TensorBoard, __MLflowTfKeras2Callback
 import mlflow.keras
 from mlflow.utils.autologging_utils import BatchMetricsLogger, autologging_is_disabled
 from unittest.mock import patch
@@ -44,14 +46,6 @@ def random_one_hot_labels():
     labels = np.zeros((n, n_class))
     labels[np.arange(n), classes] = 1
     return labels
-
-
-@pytest.fixture(params=[True, False])
-def manual_run(request):
-    if request.param:
-        mlflow.start_run()
-    yield
-    mlflow.end_run()
 
 
 @pytest.fixture
@@ -139,7 +133,7 @@ def test_tf_keras_autolog_persists_manually_created_run(random_train_data, rando
 
 
 @pytest.fixture
-def tf_keras_random_data_run(random_train_data, random_one_hot_labels, manual_run, initial_epoch):
+def tf_keras_random_data_run(random_train_data, random_one_hot_labels, initial_epoch):
     # pylint: disable=unused-argument
     mlflow.tensorflow.autolog()
 
@@ -201,7 +195,10 @@ def test_tf_keras_autolog_records_metrics_for_last_epoch(random_train_data, rand
     model = create_tf_keras_model()
     with mlflow.start_run() as run:
         model.fit(
-            random_train_data, random_one_hot_labels, epochs=num_training_epochs, initial_epoch=0,
+            random_train_data,
+            random_one_hot_labels,
+            epochs=num_training_epochs,
+            initial_epoch=0,
         )
 
     client = mlflow.tracking.MlflowClient()
@@ -226,9 +223,7 @@ def test_tf_keras_autolog_logs_metrics_for_single_epoch_training(
 
     model = create_tf_keras_model()
     with mlflow.start_run() as run:
-        model.fit(
-            random_train_data, random_one_hot_labels, epochs=1,
-        )
+        model.fit(random_train_data, random_one_hot_labels, epochs=1)
 
     client = mlflow.tracking.MlflowClient()
     run_metrics = client.get_run(run.info.run_id).data.metrics
@@ -274,7 +269,6 @@ def test_tf_keras_autolog_model_can_load_from_artifact(tf_keras_random_data_run,
 def get_tf_keras_random_data_run_with_callback(
     random_train_data,
     random_one_hot_labels,
-    manual_run,
     callback,
     restore_weights,
     patience,
@@ -316,7 +310,6 @@ def get_tf_keras_random_data_run_with_callback(
 def tf_keras_random_data_run_with_callback(
     random_train_data,
     random_one_hot_labels,
-    manual_run,
     callback,
     restore_weights,
     patience,
@@ -325,7 +318,6 @@ def tf_keras_random_data_run_with_callback(
     return get_tf_keras_random_data_run_with_callback(
         random_train_data,
         random_one_hot_labels,
-        manual_run,
         callback,
         restore_weights,
         patience,
@@ -373,7 +365,12 @@ def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback
 @pytest.mark.parametrize("patience", [0, 1, 5])
 @pytest.mark.parametrize("initial_epoch", [0, 10])
 def test_tf_keras_autolog_batch_metrics_logger_logs_expected_metrics(
-    callback, restore_weights, patience, initial_epoch, random_train_data, random_one_hot_labels,
+    callback,
+    restore_weights,
+    patience,
+    initial_epoch,
+    random_train_data,
+    random_one_hot_labels,
 ):
     patched_metrics_data = []
 
@@ -393,7 +390,6 @@ def test_tf_keras_autolog_batch_metrics_logger_logs_expected_metrics(
         run, _, callback = get_tf_keras_random_data_run_with_callback(
             random_train_data,
             random_one_hot_labels,
-            manual_run,
             callback,
             restore_weights,
             patience,
@@ -640,7 +636,7 @@ def test_tf_estimator_autolog_persists_manually_created_run(tmpdir, export):
 
 
 @pytest.fixture
-def tf_estimator_random_data_run(tmpdir, manual_run, export):
+def tf_estimator_random_data_run(tmpdir, export):
     # pylint: disable=unused-argument
     directory = tmpdir.mkdir("test")
     mlflow.tensorflow.autolog()
@@ -792,7 +788,11 @@ def get_text_vec_model(train_samples):
         [
             vectorizer_layer,
             tf.keras.layers.Embedding(
-                VOCAB_SIZE, EMBEDDING_DIM, name="embedding", mask_zero=True, input_shape=(1,),
+                VOCAB_SIZE,
+                EMBEDDING_DIM,
+                name="embedding",
+                mask_zero=True,
+                input_shape=(1,),
             ),
             tf.keras.layers.GlobalAveragePooling1D(),
             tf.keras.layers.Dense(16, activation="relu"),
@@ -879,6 +879,33 @@ def test_fluent_autolog_with_tf_keras_logs_expected_content(
     artifacts = client.list_artifacts(run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert "model" in artifacts
+
+
+def test_callback_is_picklable():
+    cb = __MLflowTfKeras2Callback(
+        log_models=True, metrics_logger=BatchMetricsLogger(run_id="1234"), log_every_n_steps=5
+    )
+    pickle.dumps(cb)
+
+    tb = _TensorBoard()
+    pickle.dumps(tb)
+
+
+@pytest.mark.large
+@pytest.mark.skipif(
+    Version(tf.__version__) < Version("2.1.0"), reason="This test requires tensorflow >= 2.1.0"
+)
+def test_tf_keras_autolog_distributed_training(random_train_data, random_one_hot_labels):
+    # Ref: https://www.tensorflow.org/tutorials/distribute/keras
+    mlflow.tensorflow.autolog()
+
+    with tf.distribute.MirroredStrategy().scope():
+        model = create_tf_keras_model()
+    fit_params = {"epochs": 10, "batch_size": 10}
+    with mlflow.start_run() as run:
+        model.fit(random_train_data, random_one_hot_labels, **fit_params)
+    client = mlflow.tracking.MlflowClient()
+    assert client.get_run(run.info.run_id).data.params.keys() >= fit_params.keys()
 
 
 @pytest.mark.large

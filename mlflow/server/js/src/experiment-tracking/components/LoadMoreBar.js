@@ -9,7 +9,8 @@
 */
 
 import React from 'react';
-import { Button, Icon, Tooltip } from 'antd';
+import { SyncOutlined } from '@ant-design/icons';
+import { Button, Tooltip } from 'antd';
 import PropTypes from 'prop-types';
 import { injectIntl, FormattedMessage } from 'react-intl';
 
@@ -85,7 +86,7 @@ export class LoadMoreBarImpl extends React.PureComponent {
       <div className='load-more-row' style={{ ...styles.loadMoreRows, ...style }}>
         {loadingMore ? (
           <div className='loading-more-wrapper' style={styles.loadingMoreWrapper}>
-            <Icon type='sync' spin style={styles.loadingMoreIcon} />
+            <SyncOutlined spin style={styles.loadingMoreIcon} />
           </div>
         ) : (
           this.renderButton()

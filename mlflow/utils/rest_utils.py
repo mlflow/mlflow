@@ -6,10 +6,11 @@ from contextlib import contextmanager
 from packaging.version import Version
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
+from requests.exceptions import HTTPError
 
 from mlflow import __version__
 from mlflow.protos import databricks_pb2
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ENDPOINT_NOT_FOUND, ErrorCode
 from mlflow.utils.proto_json_utils import parse_dict
 from mlflow.utils.string_utils import strip_suffix
 from mlflow.exceptions import MlflowException, RestException
@@ -83,7 +84,7 @@ def http_request(
     backoff_factor=2,
     retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
     timeout=120,
-    **kwargs
+    **kwargs,
 ):
     """
     Makes an HTTP request with the specified method to the specified hostname/endpoint. Transient
@@ -140,7 +141,7 @@ def http_request(
             headers=headers,
             verify=verify,
             timeout=timeout,
-            **kwargs
+            **kwargs,
         )
     except Exception as e:
         raise MlflowException("API request to %s failed with exception %s" % (url, e))
@@ -186,12 +187,23 @@ def verify_rest_response(response, endpoint):
     return response
 
 
+def augmented_raise_for_status(response):
+    """Wrap the standard `requests.response.raise_for_status()` method and return reason"""
+    try:
+        response.raise_for_status()
+    except HTTPError as e:
+        if response.text:
+            raise HTTPError(f"{e}. Response text: {response.text}")
+        else:
+            raise e
+
+
 def _get_path(path_prefix, endpoint_path):
     return "{}{}".format(path_prefix, endpoint_path)
 
 
 def extract_api_info_for_service(service, path_prefix):
-    """ Return a dictionary mapping each API method to a tuple (path, HTTP method)"""
+    """Return a dictionary mapping each API method to a tuple (path, HTTP method)"""
     service_methods = service.DESCRIPTOR.methods
     res = {}
     for service_method in service_methods:
@@ -199,6 +211,18 @@ def extract_api_info_for_service(service, path_prefix):
         endpoint = endpoints[0]
         endpoint_path = _get_path(path_prefix, endpoint.path)
         res[service().GetRequestClass(service_method)] = (endpoint_path, endpoint.method)
+    return res
+
+
+def extract_all_api_info_for_service(service, path_prefix):
+    """Return a dictionary mapping each API method to a list of tuples [(path, HTTP method)]"""
+    service_methods = service.DESCRIPTOR.methods
+    res = {}
+    for service_method in service_methods:
+        endpoints = service_method.GetOptions().Extensions[databricks_pb2.rpc].endpoints
+        res[service().GetRequestClass(service_method)] = [
+            (_get_path(path_prefix, endpoint.path), endpoint.method) for endpoint in endpoints
+        ]
     return res
 
 
@@ -220,6 +244,17 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto):
     return response_proto
 
 
+def call_endpoints(host_creds, endpoints, json_body, response_proto):
+    # The order that the endpoints are called in is defined by the order
+    # specified in ModelRegistryService in model_registry.proto
+    for i, (endpoint, method) in enumerate(endpoints):
+        try:
+            return call_endpoint(host_creds, endpoint, method, json_body, response_proto)
+        except RestException as e:
+            if e.error_code != ErrorCode.Name(ENDPOINT_NOT_FOUND) or i == len(endpoints) - 1:
+                raise e
+
+
 @contextmanager
 def cloud_storage_http_request(
     method,
@@ -228,7 +263,7 @@ def cloud_storage_http_request(
     backoff_factor=2,
     retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
     timeout=None,
-    **kwargs
+    **kwargs,
 ):
     """
     Performs an HTTP PUT/GET request using Python's `requests` module with automatic retry.

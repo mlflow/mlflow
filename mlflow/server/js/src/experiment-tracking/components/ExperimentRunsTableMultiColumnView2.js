@@ -57,6 +57,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     orderByAsc: PropTypes.bool,
     runsSelected: PropTypes.object.isRequired,
     runsExpanded: PropTypes.object.isRequired,
+    nextPageToken: PropTypes.string,
     numRunsFromLatestSearch: PropTypes.number,
     handleLoadMoreRuns: PropTypes.func.isRequired,
     loadingMore: PropTypes.bool.isRequired,
@@ -311,6 +312,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
       metricKeyList,
       modelVersionsByRunUuid,
       tagsList,
+      nextPageToken,
       numRunsFromLatestSearch,
       runsExpanded,
       onExpand,
@@ -371,6 +373,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
         isFullWidth: true,
         loadingMore,
         numRunsFromLatestSearch,
+        nextPageToken,
       });
     }
 
@@ -489,14 +492,32 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
   };
 
   render() {
-    const { handleLoadMoreRuns, loadingMore, numRunsFromLatestSearch, nestChildren } = this.props;
+    const {
+      handleLoadMoreRuns,
+      loadingMore,
+      nextPageToken,
+      numRunsFromLatestSearch,
+      nestChildren,
+    } = this.props;
     const {
       defaultColDef,
       frameworkComponents,
       isFullWidthCell,
     } = ExperimentRunsTableMultiColumnView2;
+    const agGridOverrides = css({
+      '--ag-border-color': 'rgba(0, 0, 0, 0.06)',
+      '--ag-header-foreground-color': '#20272e',
+      '.ag-root-wrapper': {
+        border: '0!important',
+        borderRadius: '4px',
+      },
+    });
+
     return (
-      <div className='ag-theme-balham multi-column-view' data-test-id='detailed-runs-table-view'>
+      <div
+        className={`ag-theme-balham multi-column-view ${agGridOverrides}`}
+        data-test-id='detailed-runs-table-view'
+      >
         <AgGridReact
           defaultColDef={defaultColDef}
           columnDefs={this.state.columnDefs}
@@ -520,6 +541,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
           fullWidthCellRendererParams={{
             handleLoadMoreRuns,
             loadingMore,
+            nextPageToken,
             numRunsFromLatestSearch,
             nestChildren,
           }}
@@ -537,6 +559,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
 function FullWidthCellRenderer({
   handleLoadMoreRuns,
   loadingMore,
+  nextPageToken,
   numRunsFromLatestSearch,
   nestChildren,
 }) {
@@ -547,6 +570,7 @@ function FullWidthCellRenderer({
         onLoadMore={handleLoadMoreRuns}
         disableButton={ExperimentViewUtil.disableLoadMoreButton({
           numRunsFromLatestSearch,
+          nextPageToken,
         })}
         nestChildren={nestChildren}
       />
@@ -558,6 +582,7 @@ FullWidthCellRenderer.propTypes = {
   handleLoadMoreRuns: PropTypes.func,
   loadingMore: PropTypes.bool,
   nestChildren: PropTypes.bool,
+  nextPageToken: PropTypes.string,
   numRunsFromLatestSearch: PropTypes.number,
 };
 

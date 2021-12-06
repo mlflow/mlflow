@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+get_installed_version() {
+  echo $(pip freeze | grep "$1==" | sed -e "s/$1==//g")
+}
+
+get_version_from_lint_requirements() {
+  echo $(cat requirements/lint-requirements.txt | grep "$1==" | sed -e "s/$1==//g")
+}
+
+validate_version() {
+  package_name=$1
+  installed_version=$(get_installed_version $package_name)
+  expected_version=$(get_version_from_lint_requirements $package_name)
+  if [ "$installed_version" != "$expected_version" ]; then
+    echo "Found version mismatch for $package_name:"
+    echo "Installed: $installed_version"
+    echo " Expected: $expected_version"
+    echo
+    echo "Please run:"
+    echo "pip install $package_name==$expected_version"
+    return 1
+  fi
+}
+
+diff=$(git diff --cached --name-only | grep '\.py$' || true)
+
+if [ ! -z "$diff" ]; then
+  validate_version black
+  echo "Running black..."
+  black --check $diff
+
+  validate_version pylint
+  echo "Running pylint..."
+  pylint $diff
+fi

@@ -9,13 +9,13 @@ sklearn:
 
   models:
     minimum: "0.20.3"
-    maximum: "1.0"
+    maximum: "1.0.1"
     run: |
       pytest tests/sklearn/test_sklearn_model_export.py --large
 
   autologging:
     minimum: "0.20.3"
-    maximum: "1.0"
+    maximum: "1.0.1"
     requirements: ["matplotlib"]
     run: |
       pytest tests/sklearn/test_sklearn_autolog.py --large
@@ -41,7 +41,7 @@ pytorch-lightning:
 
   autologging:
     minimum: "1.0.5"
-    maximum: "1.4.9"
+    maximum: "1.5.3"
     requirements: ["torchvision", "scikit-learn"]
     run: |
       pytest tests/pytorch/test_pytorch_autolog.py --large
@@ -54,10 +54,9 @@ tensorflow:
 
   models:
     minimum: "2.0.0"
-    maximum: "2.6.0"
+    maximum: "2.7.0"
     requirements:
       "< 2.2": ["h5py<3.0", "scikit-learn"]
-      ">= 2.6.0, < 2.7.0": ["tensorflow-estimator < 2.7.0"]
       # Requirements to run tests for keras
       "== dev": ["scikit-learn", "pyspark", "pyarrow"]
     run: |
@@ -71,10 +70,9 @@ tensorflow:
 
   autologging:
     minimum: "2.0.0"
-    maximum: "2.6.0"
+    maximum: "2.7.0"
     requirements:
       "< 2.2": ["h5py<3.0"]
-      ">= 2.6.0, < 2.7.0": ["tensorflow-estimator < 2.7.0"]
       "== dev": ["scikit-learn"]
     run: |
       pytest tests/tensorflow/test_tensorflow2_autolog.py --large
@@ -89,7 +87,7 @@ keras:
 
   models:
     minimum: "2.3.0"
-    maximum: "2.6.0"
+    maximum: "2.7.0"
     requirements:
       "<= 2.3.1": ["tensorflow==2.2.1", "scikit-learn", "pyspark", "pyarrow", "transformers<=4.11.3"]
       "> 2.3.1, < 2.6.0": ["tensorflow<2.5.0", "scikit-learn", "pyspark", "pyarrow", "transformers"]
@@ -99,7 +97,7 @@ keras:
 
   autologging:
     minimum: "2.3.0"
-    maximum: "2.6.0"
+    maximum: "2.7.0"
     requirements:
       # keras 2.3.1 is incompatible with tensorflow > 2.2.1 and causes the issue reported here:
       # https://github.com/tensorflow/tensorflow/issues/38589
@@ -117,14 +115,14 @@ xgboost:
 
   models:
     minimum: "0.90"
-    maximum: "1.5.0"
+    maximum: "1.5.1"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/xgboost/test_xgboost_model_export.py --large
 
   autologging:
     minimum: "0.90"
-    maximum: "1.5.0"
+    maximum: "1.5.1"
     requirements: ["scikit-learn", "matplotlib"]
     run: |
       pytest tests/xgboost/test_xgboost_autolog.py --large
@@ -137,14 +135,14 @@ lightgbm:
 
   models:
     minimum: "2.3.1"
-    maximum: "3.3.0"
+    maximum: "3.3.1"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/lightgbm/test_lightgbm_model_export.py --large
 
   autologging:
     minimum: "2.3.1"
-    maximum: "3.3.0"
+    maximum: "3.3.1"
     requirements: ["scikit-learn", "matplotlib"]
     run: |
       pytest tests/lightgbm/test_lightgbm_autolog.py --large
@@ -162,7 +160,7 @@ catboost:
 
   models:
     minimum: "0.23.1"
-    maximum: "1.0.0"
+    maximum: "1.0.3"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/catboost/test_catboost_model_export.py --large
@@ -195,14 +193,14 @@ fastai:
 
   models:
     minimum: "2.4.1"
-    maximum: "2.5.2"
+    maximum: "2.5.3"
     requirements: [torch, torchvision]
     run: |
       pytest tests/fastai/test_fastai_model_export.py --large
 
   autologging:
     minimum: "2.4.1"
-    maximum: "2.5.2"
+    maximum: "2.5.3"
     requirements: [torch, torchvision]
     run: |
       pytest tests/fastai/test_fastai_autolog.py --large
@@ -230,7 +228,7 @@ onnx:
 
   models:
     minimum: "1.5.0"
-    maximum: "1.10.1"
+    maximum: "1.10.2"
     requirements: ["onnxruntime", "torch", "scikit-learn"]
     run: |
       pytest tests/onnx/test_onnx_model_export.py --large
@@ -243,7 +241,7 @@ spacy:
 
   models:
     minimum: "2.2.4"
-    maximum: "3.1.3"
+    maximum: "3.2.0"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/spacy/test_spacy_model_export.py --large
@@ -256,13 +254,13 @@ statsmodels:
 
   models:
     minimum: "0.11.1"
-    maximum: "0.13.0"
+    maximum: "0.13.1"
     run: |
       pytest tests/statsmodels/test_statsmodels_model_export.py --large
 
   autologging:
     minimum: "0.11.1"
-    maximum: "0.13.0"
+    maximum: "0.13.1"
     run: |
       pytest tests/statsmodels/test_statsmodels_autolog.py --large
 

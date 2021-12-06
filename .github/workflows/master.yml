@@ -40,10 +40,13 @@ jobs:
         INSTALL_SMALL_PYTHON_DEPS: true
       run: |
         source ./dev/install-common-deps.sh
-        pip install -r ./dev/lint-requirements.txt
-    - name: Run tests
+        pip install -r requirements/lint-requirements.txt
+    - name: Test custom pylint-plugins
+      run : |
+        pytest tests/pylint_plugins
+    - name: Run lint checks
       run: |
-        ./lint.sh
+        ./dev/lint.sh
   r:
     runs-on: ubuntu-latest
     steps:
@@ -123,6 +126,8 @@ jobs:
       run: |
         export LINTR_COMMENT_BOT=false
         cd mlflow/R/mlflow/tests
+        # `devtools::check_built` requires `pandoc` to analyze README.md
+        sudo apt-get install pandoc -y
         Rscript ../.run-tests.R
     - name: Calculate code coverage
       if: ${{ success() }}
@@ -272,6 +277,9 @@ jobs:
     - name: Run lint
       run: |
         npm run lint
+    - name: Run extract-i18n lint
+      run: |
+        npm run extract-i18n:base -- --lint
     - name: Run tests
       run: |
         npm run test
@@ -293,7 +301,7 @@ jobs:
         sudo unzip $HOME/protoc.zip -d /usr
     - name: Run tests
       run: |
-        ./test-generate-protos.sh
+        ./dev/test-generate-protos.sh
 
   flavors:
     runs-on: ubuntu-latest
@@ -405,8 +413,7 @@ jobs:
           python-version: 3.7
       - name: Install python dependencies
         run: |
-          pip install -r dev-requirements.txt
-          pip install -r dev/small-requirements.txt
+          pip install -r requirements/small-requirements.txt
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install -e .[extras]
       - name: Run python tests

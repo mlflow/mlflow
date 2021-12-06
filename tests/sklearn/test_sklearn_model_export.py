@@ -1,7 +1,5 @@
-import sys
 from unittest import mock
 import os
-import pickle
 import pytest
 import yaml
 from collections import namedtuple
@@ -215,7 +213,9 @@ def test_log_model_no_registered_model_name(sklearn_logreg_model):
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn"])
         mlflow.sklearn.log_model(
-            sk_model=sklearn_logreg_model.model, artifact_path=artifact_path, conda_env=conda_env,
+            sk_model=sklearn_logreg_model.model,
+            artifact_path=artifact_path,
+            conda_env=conda_env,
         )
         mlflow.register_model.assert_not_called()
 
@@ -230,11 +230,7 @@ def test_custom_transformer_can_be_saved_and_loaded_with_cloudpickle_format(
     # current test module, we expect pickle to fail when attempting to serialize it. In contrast,
     # we expect cloudpickle to successfully locate the transformer definition and serialize the
     # model successfully.
-    if sys.version_info >= (3, 0):
-        expect_exception_context = pytest.raises(AttributeError)
-    else:
-        expect_exception_context = pytest.raises(pickle.PicklingError)
-    with expect_exception_context:
+    with pytest.raises(AttributeError, match="Can't pickle local object"):
         pickle_format_model_path = os.path.join(str(tmpdir), "pickle_model")
         mlflow.sklearn.save_model(
             sk_model=custom_transformer_model,
@@ -427,7 +423,7 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(
 def test_model_save_throws_exception_if_serialization_format_is_unrecognized(
     sklearn_knn_model, model_path
 ):
-    with pytest.raises(MlflowException) as exc:
+    with pytest.raises(MlflowException, match="Unrecognized serialization format") as exc:
         mlflow.sklearn.save_model(
             sk_model=sklearn_knn_model.model,
             path=model_path,

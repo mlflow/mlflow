@@ -1,6 +1,8 @@
 from packaging.version import Version
 import os
 import json
+import functools
+import pickle
 import pytest
 import numpy as np
 import pandas as pd
@@ -11,8 +13,10 @@ import yaml
 
 import mlflow
 import mlflow.xgboost
+from mlflow.xgboost._autolog import IS_TRAINING_CALLBACK_SUPPORTED, autolog_callback
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
+from mlflow.utils.autologging_utils import BatchMetricsLogger, picklable_exception_safe_function
 
 mpl.use("Agg")
 
@@ -135,6 +139,28 @@ def test_xgb_autolog_logs_specified_params(bst_params, dtrain):
 
     for param in unlogged_params:
         assert param not in params
+
+
+@pytest.mark.large
+def test_xgb_autolog_sklearn():
+
+    mlflow.xgboost.autolog()
+
+    X, y = datasets.load_iris(return_X_y=True)
+    params = {"n_estimators": 10, "reg_lambda": 1}
+    model = xgb.XGBRegressor(**params)
+
+    with mlflow.start_run() as run:
+        model.fit(X, y)
+        model_uri = mlflow.get_artifact_uri("model")
+
+    client = mlflow.tracking.MlflowClient()
+    run = client.get_run(run.info.run_id)
+    assert run.data.metrics.items() <= params.items()
+    artifacts = set(x.path for x in client.list_artifacts(run.info.run_id))
+    assert artifacts >= set(["feature_importance_weight.png", "feature_importance_weight.json"])
+    loaded_model = mlflow.xgboost.load_model(model_uri)
+    np.testing.assert_allclose(loaded_model.predict(X), model.predict(X))
 
 
 @pytest.mark.large
@@ -367,7 +393,7 @@ def test_xgb_autolog_does_not_throw_if_importance_values_not_supported(dtrain):
     #   importance values on a model with a linear booster.
     model = xgb.train(bst_params, dtrain)
 
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError, match="Feature importance is not defined"):
         model.get_score(importance_type="weight")
 
 
@@ -554,3 +580,21 @@ def test_xgb_autolog_does_not_break_dmatrix_instantiation_with_data_none():
     """
     mlflow.xgboost.autolog()
     xgb.DMatrix(None)
+
+
+def test_callback_func_is_pickable():
+    cb = picklable_exception_safe_function(
+        functools.partial(autolog_callback, BatchMetricsLogger(run_id="1234"), eval_results={})
+    )
+    pickle.dumps(cb)
+
+
+@pytest.mark.skipif(
+    not IS_TRAINING_CALLBACK_SUPPORTED,
+    reason="`xgboost.callback.TrainingCallback` is not supported",
+)
+def test_callback_class_is_pickable():
+    from mlflow.xgboost._autolog import AutologCallback
+
+    cb = AutologCallback(BatchMetricsLogger(run_id="1234"), eval_results={})
+    pickle.dumps(cb)

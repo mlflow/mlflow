@@ -12,8 +12,10 @@ from mlflow.utils.rest_utils import (
     MlflowHostCreds,
     _DEFAULT_HEADERS,
     call_endpoint,
+    call_endpoints,
 )
 from mlflow.protos.service_pb2 import GetRun
+from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, ErrorCode
 from tests import helper_functions
 
 
@@ -26,7 +28,7 @@ def test_well_formed_json_error_response():
         request_mock.return_value = response_mock
 
         response_proto = GetRun.Response()
-        with pytest.raises(RestException):
+        with pytest.raises(RestException, match="INTERNAL_ERROR"):
             call_endpoint(host_only, "/my/endpoint", "GET", "", response_proto)
 
 
@@ -61,8 +63,45 @@ def test_malformed_json_error_response(response_mock):
         request_mock.return_value = response_mock
 
         response_proto = GetRun.Response()
-        with pytest.raises(MlflowException):
+        with pytest.raises(
+            MlflowException, match="API request to endpoint /my/endpoint failed with error code 400"
+        ):
             call_endpoint(host_only, "/my/endpoint", "GET", "", response_proto)
+
+
+def test_call_endpoints():
+    with mock.patch("mlflow.utils.rest_utils.call_endpoint") as mock_call_endpoint:
+        response_proto = GetRun.Response()
+        mock_call_endpoint.side_effect = [
+            RestException({"error_code": ErrorCode.Name(ENDPOINT_NOT_FOUND)}),
+            None,
+        ]
+        host_only = MlflowHostCreds("http://my-host")
+        endpoints = [("/my/endpoint", "POST"), ("/my/endpoint", "GET")]
+        resp = call_endpoints(host_only, endpoints, "", response_proto)
+        mock_call_endpoint.assert_has_calls(
+            [
+                mock.call(host_only, endpoint, method, "", response_proto)
+                for endpoint, method in endpoints
+            ]
+        )
+        assert resp is None
+
+
+def test_call_endpoints_raises_exceptions():
+    with mock.patch("mlflow.utils.rest_utils.call_endpoint") as mock_call_endpoint:
+        response_proto = GetRun.Response()
+        mock_call_endpoint.side_effect = [
+            RestException({"error_code": ErrorCode.Name(ENDPOINT_NOT_FOUND)}),
+            RestException({"error_code": ErrorCode.Name(ENDPOINT_NOT_FOUND)}),
+        ]
+        host_only = MlflowHostCreds("http://my-host")
+        endpoints = [("/my/endpoint", "POST"), ("/my/endpoint", "GET")]
+        with pytest.raises(RestException, match="ENDPOINT_NOT_FOUND"):
+            call_endpoints(host_only, endpoints, "", response_proto)
+        mock_call_endpoint.side_effect = [RestException({}), None]
+        with pytest.raises(RestException, match="INTERNAL_ERROR"):
+            call_endpoints(host_only, endpoints, "", response_proto)
 
 
 @mock.patch("requests.Session.request")
@@ -73,7 +112,11 @@ def test_http_request_hostonly(request):
     request.return_value = response
     http_request(host_only, "/my/endpoint", "GET")
     request.assert_called_with(
-        "GET", "http://my-host/my/endpoint", verify=True, headers=_DEFAULT_HEADERS, timeout=120,
+        "GET",
+        "http://my-host/my/endpoint",
+        verify=True,
+        headers=_DEFAULT_HEADERS,
+        timeout=120,
     )
 
 
@@ -86,7 +129,11 @@ def test_http_request_cleans_hostname(request):
     request.return_value = response
     http_request(host_only, "/my/endpoint", "GET")
     request.assert_called_with(
-        "GET", "http://my-host/my/endpoint", verify=True, headers=_DEFAULT_HEADERS, timeout=120,
+        "GET",
+        "http://my-host/my/endpoint",
+        verify=True,
+        headers=_DEFAULT_HEADERS,
+        timeout=120,
     )
 
 
@@ -100,7 +147,11 @@ def test_http_request_with_basic_auth(request):
     headers = dict(_DEFAULT_HEADERS)
     headers["Authorization"] = "Basic dXNlcjpwYXNz"
     request.assert_called_with(
-        "GET", "http://my-host/my/endpoint", verify=True, headers=headers, timeout=120,
+        "GET",
+        "http://my-host/my/endpoint",
+        verify=True,
+        headers=headers,
+        timeout=120,
     )
 
 
@@ -114,7 +165,11 @@ def test_http_request_with_token(request):
     headers = dict(_DEFAULT_HEADERS)
     headers["Authorization"] = "Bearer my-token"
     request.assert_called_with(
-        "GET", "http://my-host/my/endpoint", verify=True, headers=headers, timeout=120,
+        "GET",
+        "http://my-host/my/endpoint",
+        verify=True,
+        headers=headers,
+        timeout=120,
     )
 
 
@@ -126,7 +181,11 @@ def test_http_request_with_insecure(request):
     request.return_value = response
     http_request(host_only, "/my/endpoint", "GET")
     request.assert_called_with(
-        "GET", "http://my-host/my/endpoint", verify=False, headers=_DEFAULT_HEADERS, timeout=120,
+        "GET",
+        "http://my-host/my/endpoint",
+        verify=False,
+        headers=_DEFAULT_HEADERS,
+        timeout=120,
     )
 
 
@@ -190,9 +249,14 @@ def test_http_request_request_headers(request):
 
 
 def test_ignore_tls_verification_not_server_cert_path():
-    with pytest.raises(MlflowException):
+    with pytest.raises(
+        MlflowException,
+        match="When 'ignore_tls_verification' is true then 'server_cert_path' must not be set",
+    ):
         MlflowHostCreds(
-            "http://my-host", ignore_tls_verification=True, server_cert_path="/some/path",
+            "http://my-host",
+            ignore_tls_verification=True,
+            server_cert_path="/some/path",
         )
 
 
@@ -205,13 +269,21 @@ def test_http_request_wrapper(request):
     request.return_value = response
     http_request_safe(host_only, "/my/endpoint", "GET")
     request.assert_called_with(
-        "GET", "http://my-host/my/endpoint", verify=False, headers=_DEFAULT_HEADERS, timeout=120,
+        "GET",
+        "http://my-host/my/endpoint",
+        verify=False,
+        headers=_DEFAULT_HEADERS,
+        timeout=120,
     )
     response.text = "non json"
     request.return_value = response
     http_request_safe(host_only, "/my/endpoint", "GET")
     request.assert_called_with(
-        "GET", "http://my-host/my/endpoint", verify=False, headers=_DEFAULT_HEADERS, timeout=120,
+        "GET",
+        "http://my-host/my/endpoint",
+        verify=False,
+        headers=_DEFAULT_HEADERS,
+        timeout=120,
     )
     response.status_code = 400
     response.text = ""
@@ -237,6 +309,6 @@ def test_numpy_encoder_fail():
     if not hasattr(numpy, "float128"):
         pytest.skip("numpy on exit" "this platform has no float128")
     test_number = numpy.float128
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match="not JSON serializable"):
         ne = NumpyEncoder()
         ne.default(test_number)
