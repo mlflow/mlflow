@@ -26,9 +26,10 @@ def _use_context_metadata_if_available(name, *, if_available=lambda x: x):
     Creates a decorator to insert a short circuit that returns `if_available(name)`
     if the specified metadata is available.
 
-    :param key: Metadata name.
-    :param if_available: A function to evaluate if `env_var` exists. Defaults to `lambda x: x`.
-    :return: A decorator to insert the short circuit.
+    :param name: Metadata name.
+    :param if_available: Function to evaluate when the specified metadata is available.
+                         Defaults to `lambda x: x`.
+    :return: Decorator to insert the short circuit.
     """
 
     def decorator(f):
@@ -63,8 +64,8 @@ def _use_message_metadata_if_available(name):
     Creates a decorator to insert a short circuit that returns specified Jupyter message metadata
     if it's available.
 
-    :param key: Metadata key.
-    :return: A decorator to insert the short circuit.
+    :param name: Metadata name.
+    :return: Decorator to insert the short circuit.
     """
 
     def decorator(f):
