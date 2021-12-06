@@ -37,7 +37,7 @@ class EvaluationArtifact:
     def _load_content_from_file(self, local_artifact_path):
         """
         Abstract interface to load the content from local artifact file path,
-        assign the loaded content to `self._content`, and return the loaded content.
+        and return the loaded content.
         """
         raise NotImplementedError()
 
@@ -48,13 +48,13 @@ class EvaluationArtifact:
         then assign the loaded content to `self._content`, and return the loaded content.
         """
         if local_artifact_path is not None:
-            self._load_content_from_file(local_artifact_path)
+            self._content = self._load_content_from_file(local_artifact_path)
         else:
             with TempDir() as temp_dir:
                 temp_dir_path = temp_dir.path()
                 _download_artifact_from_uri(self._uri, temp_dir_path)
                 local_artifact_file = temp_dir.path(os.listdir(temp_dir_path)[0])
-                self._load_content_from_file(local_artifact_file)
+                self._content = self._load_content_from_file(local_artifact_file)
         return self._content
 
     def save(self, output_artifact_path):

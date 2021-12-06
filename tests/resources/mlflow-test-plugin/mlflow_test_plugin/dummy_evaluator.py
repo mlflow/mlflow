@@ -19,8 +19,7 @@ class Array2DEvaluationArtifact(EvaluationArtifact):
 
     def _load_content_from_file(self, local_artifact_path):
         pdf = pd.read_csv(local_artifact_path)
-        self._content = pdf.to_numpy()
-        return self._content
+        return pdf.to_numpy()
 
 
 class DummyEvaluator(ModelEvaluator):
