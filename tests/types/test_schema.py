@@ -3,6 +3,7 @@ import math
 import numpy as np
 import pandas as pd
 import pytest
+from scipy.sparse import csr_matrix, csc_matrix
 
 from mlflow.exceptions import MlflowException
 from mlflow.pyfunc import _enforce_tensor_spec
@@ -251,6 +252,21 @@ def test_get_tensor_shape(dict_of_ndarrays):
 
     with pytest.raises(TypeError, match="Data in the dictionary must be of type numpy.ndarray"):
         _infer_schema({"x": 1})
+
+
+@pytest.fixture
+def dict_of_sparse_matrix():
+    return {
+        "csc": csc_matrix(np.arange(0, 12, 0.5).reshape(3, 8)),
+        "csr": csr_matrix(np.arange(0, 12, 0.5).reshape(3, 8)),
+    }
+
+
+def test_get_sparse_matrix_data_type_and_shape(dict_of_sparse_matrix):
+    for sparse_matrix in dict_of_sparse_matrix.values():
+        schema = _infer_schema(sparse_matrix)
+        assert schema.numpy_types() == ["float64"]
+        assert _get_tensor_shape(sparse_matrix) == (-1, 8)
 
 
 def test_schema_inference_on_dictionary(dict_of_ndarrays):
