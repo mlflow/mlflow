@@ -54,8 +54,8 @@ class Model(object):
         self.flavors = flavors if flavors is not None else {}
         self.signature = signature
         self.saved_input_example_info = saved_input_example_info
-        if self.model_uuid is None:
-            self.model_uuid = uuid.uuid4()
+        if model_uuid is None:
+            self.model_uuid = str(uuid.uuid4())
         else:
             self.model_uuid = model_uuid
         self.__dict__.update(kwargs)
