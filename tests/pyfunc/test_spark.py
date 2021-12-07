@@ -263,11 +263,6 @@ def test_model_cache(spark, model_path):
     # Note that we can't necessarily expect an even split, or even that there were only
     # exactly 2 python processes launched, due to Spark and its mysterious ways, but we do
     # expect significant reuse.
-    #
-    # BUG: In PySpark, if the user calls .map(...) with a range or xrange iterator and does
-    # not consume the iterator in the mapped function, then the Python worker will read the
-    # wrong signal and not be reused. See more details in SPARK-26573 and SPARK-26549. The
-    # mitigation is to make the iterator a list.
     results = spark.sparkContext.parallelize(range(100), 30).map(get_model).collect()
 
     assert max(results) > 10
