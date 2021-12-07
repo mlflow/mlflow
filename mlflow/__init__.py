@@ -44,6 +44,7 @@ warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
 
 import mlflow.projects as projects
 import mlflow.tracking as tracking
+import mlflow.models
 
 # model flavors
 _model_flavors_supported = []
@@ -152,7 +153,7 @@ delete_experiment = mlflow.tracking.fluent.delete_experiment
 delete_run = mlflow.tracking.fluent.delete_run
 register_model = mlflow.tracking._model_registry.fluent.register_model
 autolog = mlflow.tracking.fluent.autolog
-
+evaluate = mlflow.models.evaluate
 
 run = projects.run
 
@@ -192,4 +193,5 @@ __all__ = [
     "set_registry_uri",
     "list_run_infos",
     "autolog",
+    "evaluate",
 ] + _model_flavors_supported
