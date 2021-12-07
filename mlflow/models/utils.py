@@ -146,9 +146,13 @@ class _Example(object):
             }
         elif _is_sparse_matrix(input_example):
             self.data = _handle_sparse_matrix(input_example)
+            if isinstance(input_example, csc_matrix):
+                example_type = "sparse_matrix_csc"
+            else:
+                example_type = "sparse_matrix_csr"
             self.info = {
                 "artifact_path": example_filename,
-                "type": "csc" if isinstance(input_example, csc_matrix) else "csr",
+                "type": example_type,
             }
         else:
             self.data = _handle_dataframe_input(input_example)
@@ -206,7 +210,7 @@ def _read_example(mlflow_model: Model, path: str):
     path = os.path.join(path, mlflow_model.saved_input_example_info["artifact_path"])
     if example_type == "ndarray":
         return _read_tensor_input_from_json(path, schema=input_schema)
-    elif example_type in ["csc", "csr"]:
+    elif example_type in ["sparse_matrix_csc", "sparse_matrix_csr"]:
         return _read_sparse_matrix_from_json(path, example_type)
     else:
         return _dataframe_from_json(path, schema=input_schema, precise_float=True)
@@ -226,7 +230,7 @@ def _read_sparse_matrix_from_json(path, example_type):
         indptr = matrix_data["indptr"]
         shape = tuple(matrix_data["shape"])
 
-        if example_type == "csc":
+        if example_type == "sparse_matrix_csc":
             return csc_matrix((data, indices, indptr), shape=shape)
         else:
             return csr_matrix((data, indices, indptr), shape=shape)
