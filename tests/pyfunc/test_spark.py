@@ -268,9 +268,9 @@ def test_model_cache(spark, model_path):
     # not consume the iterator in the mapped function, then the Python worker will read the
     # wrong signal and not be reused. See more details in SPARK-26573 and SPARK-26549. The
     # mitigation is to make the iterator a list.
-    results = spark.sparkContext.parallelize(list(range(100)), 30).map(get_model).collect()
+    results = spark.sparkContext.parallelize(range(100), 30).map(get_model).collect()
 
     assert max(results) > 10
     # Running again should see no newly-loaded models.
-    results2 = spark.sparkContext.parallelize(list(range(100)), 30).map(get_model).collect()
+    results2 = spark.sparkContext.parallelize(range(100), 30).map(get_model).collect()
     assert min(results2) > 0
