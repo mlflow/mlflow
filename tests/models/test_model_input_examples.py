@@ -76,8 +76,8 @@ def dict_of_ndarrays_with_nans():
 @pytest.fixture
 def dict_of_sparse_matrix():
     return {
-        "csc": csc_matrix(np.arange(0, 12, 0.5).reshape(3, 8)),
-        "csr": csr_matrix(np.arange(0, 12, 0.5).reshape(3, 8)),
+        "sparse_matrix_csc": csc_matrix(np.arange(0, 12, 0.5).reshape(3, 8)),
+        "sparse_matrix_csr": csr_matrix(np.arange(0, 12, 0.5).reshape(3, 8)),
     }
 
 

@@ -202,7 +202,7 @@ def _read_example(mlflow_model: Model, path: str):
     if mlflow_model.saved_input_example_info is None:
         return None
     example_type = mlflow_model.saved_input_example_info["type"]
-    if example_type not in ["dataframe", "ndarray", "csc", "csr"]:
+    if example_type not in ["dataframe", "ndarray", "sparse_matrix_csc", "sparse_matrix_csr"]:
         raise MlflowException(
             "This version of mlflow can not load example of type {}".format(example_type)
         )
