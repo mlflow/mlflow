@@ -1,0 +1,15 @@
+channels:
+- conda-forge
+dependencies:
+- python=3.8.2
+- pip
+- pip:
+  - mlflow
+  - pandas
+  - scipy
+  - captum
+  - boto3
+  - sklearn
+  - prettytable
+  - ipython
+  - torch

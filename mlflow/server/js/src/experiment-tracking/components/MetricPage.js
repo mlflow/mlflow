@@ -7,6 +7,7 @@ import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import NotFoundPage from './NotFoundPage';
 import { MetricView } from './MetricView';
 import { getUUID } from '../../common/utils/ActionUtils';
+import { PageContainer } from '../../common/components/PageContainer';
 
 export class MetricPageImpl extends Component {
   static propTypes = {
@@ -16,8 +17,12 @@ export class MetricPageImpl extends Component {
     dispatch: PropTypes.func.isRequired,
   };
 
-  componentWillMount() {
+  constructor(props) {
+    super(props);
     this.requestIds = [];
+  }
+
+  componentDidMount() {
     if (this.props.experimentId !== null) {
       const experimentRequestId = getUUID();
       this.props.dispatch(getExperimentApi(this.props.experimentId, experimentRequestId));
@@ -51,11 +56,11 @@ export class MetricPageImpl extends Component {
 
   render() {
     return (
-      <div className='App-content'>
+      <PageContainer>
         <RequestStateWrapper requestIds={this.requestIds}>
           {this.renderPageContent()}
         </RequestStateWrapper>
-      </div>
+      </PageContainer>
     );
   }
 }

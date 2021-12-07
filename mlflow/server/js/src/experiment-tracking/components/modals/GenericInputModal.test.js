@@ -1,36 +1,22 @@
 import React, { Component } from 'react';
-import PropTypes from 'prop-types';
 import { shallow } from 'enzyme';
 import { GenericInputModal } from './GenericInputModal';
 import { Modal } from 'antd';
 
 class SimpleForm extends Component {
-  constructor(props) {
-    super(props);
-    this.resetFields = this.resetFields.bind(this);
-    this.validateFields = this.validateFields.bind(this);
-  }
-
-  static propTypes = {
-    shouldValidationThrow: PropTypes.bool.isRequired,
-    resetFieldsFn: PropTypes.func.isRequired,
-  };
-
-  validateFields(errAndValuesFn) {
-    if (this.props.shouldValidationThrow) {
-      return errAndValuesFn('Form validation failed!', { formField: 'formValue' });
-    } else {
-      return errAndValuesFn(undefined, { formField: 'formValue' });
-    }
-  }
-
-  resetFields() {
-    this.props.resetFieldsFn();
-  }
-
   render() {
     return null;
   }
+}
+function validateFields(isFieldValid) {
+  if (!isFieldValid) {
+    return Promise.reject(new Error("{ formField: 'formValue' }"));
+  } else {
+    return Promise.resolve({ formField: 'formValue' });
+  }
+}
+function resetFields(resetFieldsFn) {
+  resetFieldsFn();
 }
 
 describe('GenericInputModal', () => {
@@ -43,6 +29,7 @@ describe('GenericInputModal', () => {
     minimalProps = {
       isOpen: false,
       onClose: jest.fn(),
+      onCancel: jest.fn(),
       // Mock submission handler that sleeps 1s then resolves
       handleSubmit: (values) =>
         new Promise((resolve) => {
@@ -65,30 +52,30 @@ describe('GenericInputModal', () => {
   test(
     'should validate form contents and set submitting state in submission handler: ' +
       'successful submission case',
-    (done) => {
+    async (done) => {
       // Test that validateFields() is called, and that handleSubmit is not called
       // when validation fails (and submitting state remains false)
       wrapper = shallow(<GenericInputModal {...minimalProps} />);
       const instance = wrapper.instance();
-      // Call saveFormRef manually ourselves, since neither mount() nor shallow() seem to
-      // result in saveFormRef being called
-      instance.saveFormRef(shallow(minimalProps.children).instance());
-      const promise = instance.onSubmit();
+      wrapper.children(SimpleForm).props().innerRef.current = {
+        validateFields: () => validateFields(true),
+        resetFields: () => resetFields(resetFieldsMock),
+      };
+      const onValidationPromise = instance.onSubmit();
       expect(instance.state.isSubmitting).toEqual(true);
-      promise.then(() => {
-        // We expect submission to succeed, and for the form fields to be reset and for the form to
-        // no longer be submitting
-        expect(resetFieldsMock).toBeCalled();
-        expect(instance.state.isSubmitting).toEqual(false);
-        done();
-      });
+      await onValidationPromise;
+      // We expect submission to succeed, and for the form fields to be reset and for the form to
+      // no longer be submitting
+      expect(resetFieldsMock).toBeCalled();
+      expect(instance.state.isSubmitting).toEqual(false);
+      done();
     },
   );
 
   test(
     'should validate form contents and set submitting state in submission handler: ' +
       'failed validation case',
-    (done) => {
+    async (done) => {
       // Test that validateFields() is called, and that handleSubmit is not called
       // when validation fails (and submitting state remains false)
       const form = <SimpleForm shouldValidationThrow resetFieldsFn={resetFieldsMock} />;
@@ -97,12 +84,13 @@ describe('GenericInputModal', () => {
         <GenericInputModal {...{ ...minimalProps, children: form, handleSubmit }} />,
       );
       const instance = wrapper.instance();
-      // Call saveFormRef manually ourselves, since neither mount() nor shallow() seem to
-      // result in saveFormRef being called
-      instance.saveFormRef(shallow(form).instance());
-      const promise = instance.onSubmit();
-      expect(instance.state.isSubmitting).toEqual(false);
-      promise.catch((e) => {
+      wrapper.children(SimpleForm).props().innerRef.current = {
+        validateFields: () => validateFields(false),
+        resetFields: () => resetFields(resetFieldsMock),
+      };
+      const onValidationPromise = instance.onSubmit();
+      expect(instance.state.isSubmitting).toEqual(true);
+      await onValidationPromise.catch((e) => {
         // For validation errors, the form should not be reset (so that the user can fix the
         // validation error)
         expect(resetFieldsMock).not.toBeCalled();
@@ -116,32 +104,32 @@ describe('GenericInputModal', () => {
   test(
     'should validate form contents and set submitting state in submission handler: ' +
       'failed submission case',
-    (done) => {
+    async (done) => {
       // Test that validateFields() is called, and that handleSubmit is not called
       // when validation fails (and submitting state remains false)
       const form = <SimpleForm shouldValidationThrow={false} resetFieldsFn={resetFieldsMock} />;
       const handleSubmit = (values) =>
         new Promise((resolve, reject) => {
           window.setTimeout(() => {
-            reject();
+            reject(new Error());
           }, 1000);
         });
       wrapper = shallow(
         <GenericInputModal {...{ ...minimalProps, children: form, handleSubmit }} />,
       );
       const instance = wrapper.instance();
-      // Call saveFormRef manually ourselves, since neither mount() nor shallow() seem to
-      // result in saveFormRef being called
-      instance.saveFormRef(shallow(form).instance());
-      const promise = instance.onSubmit();
+      wrapper.children(SimpleForm).props().innerRef.current = {
+        validateFields: () => validateFields(true),
+        resetFields: () => resetFields(resetFieldsMock),
+      };
+      const onValidationPromise = instance.onSubmit();
       expect(instance.state.isSubmitting).toEqual(true);
-      promise.catch((e) => {
-        // For validation errors, the form should not be reset (so that the user can fix the
-        // validation error)
-        expect(resetFieldsMock).toBeCalled();
-        expect(instance.state.isSubmitting).toEqual(false);
-        done();
-      });
+      await onValidationPromise;
+      // For validation errors, the form should not be reset (so that the user can fix the
+      // validation error)
+      expect(resetFieldsMock).toBeCalled();
+      expect(instance.state.isSubmitting).toEqual(false);
+      done();
     },
   );
 });

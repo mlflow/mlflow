@@ -4,6 +4,7 @@ import { ModelStageTransitionDropdown } from './ModelStageTransitionDropdown';
 import { Stages } from '../constants';
 import { Dropdown } from 'antd';
 import { mockGetFieldValue } from '../test-utils';
+import { mountWithIntl } from '../../common/utils/TestUtils';
 
 describe('ModelStageTransitionDropdown', () => {
   let wrapper;
@@ -20,7 +21,7 @@ describe('ModelStageTransitionDropdown', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<ModelStageTransitionDropdown {...minimalProps} />);
+    wrapper = mountWithIntl(<ModelStageTransitionDropdown {...minimalProps} />);
     expect(wrapper.length).toBe(1);
   });
 
@@ -29,9 +30,12 @@ describe('ModelStageTransitionDropdown', () => {
       ...commonProps,
       currentStage: Stages.STAGING,
     };
-    wrapper = shallow(<ModelStageTransitionDropdown {...props} />);
-    wrapper.find('.stage-transition-dropdown').simulate('click');
-    const menuHtml = shallow(wrapper.find(Dropdown).props().overlay).html();
+    wrapper = mountWithIntl(<ModelStageTransitionDropdown {...props} />);
+    wrapper
+      .find('.stage-transition-dropdown')
+      .first()
+      .simulate('click');
+    const menuHtml = mountWithIntl(wrapper.find(Dropdown).props().overlay).html();
 
     expect(menuHtml).not.toContain(Stages.STAGING);
     expect(menuHtml).toContain(Stages.PRODUCTION);

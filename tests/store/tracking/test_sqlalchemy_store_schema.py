@@ -21,7 +21,7 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlModelVersionTag,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from tests.resources.db.initial_models import Base as InitialBase
+from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
 from tests.store.dump_schema import dump_db_schema
 from tests.integration.utils import invoke_cli_runner
 
@@ -97,9 +97,8 @@ def test_sqlalchemy_store_detects_schema_mismatch(
     tmpdir, db_url
 ):  # pylint: disable=unused-argument
     def _assert_invalid_schema(engine):
-        with pytest.raises(MlflowException) as ex:
+        with pytest.raises(MlflowException, match="Detected out-of-date database schema."):
             _verify_schema(engine)
-            assert ex.message.contains("Detected out-of-date database schema.")
 
     # Initialize an empty database & verify that we detect a schema mismatch
     engine = sqlalchemy.create_engine(db_url)

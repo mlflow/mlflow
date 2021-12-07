@@ -1,9 +1,11 @@
 import React from 'react';
-import { shallow } from 'enzyme';
 import { ModelVersionTable } from './ModelVersionTable';
 import { mockModelVersionDetailed } from '../test-utils';
 import { ModelVersionStatus, Stages } from '../constants';
 import { Table } from 'antd';
+import { RegisteringModelDocUrl } from '../../common/constants';
+import { mountWithIntl } from '../../common/utils/TestUtils';
+import { BrowserRouter } from 'react-router-dom';
 
 describe('ModelVersionTable', () => {
   let wrapper;
@@ -18,8 +20,21 @@ describe('ModelVersionTable', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<ModelVersionTable {...minimalProps} />);
+    wrapper = mountWithIntl(
+      <BrowserRouter>
+        <ModelVersionTable {...minimalProps} />
+      </BrowserRouter>,
+    );
     expect(wrapper.length).toBe(1);
+  });
+
+  test('should render correct empty text', () => {
+    wrapper = wrapper = mountWithIntl(
+      <BrowserRouter>
+        <ModelVersionTable {...minimalProps} />
+      </BrowserRouter>,
+    );
+    expect(wrapper.find(`a[href="${RegisteringModelDocUrl}"]`)).toHaveLength(1);
   });
 
   test('should render active versions when activeStageOnly is true', () => {
@@ -32,9 +47,22 @@ describe('ModelVersionTable', () => {
         mockModelVersionDetailed('Model A', 4, Stages.ARCHIVED, ModelVersionStatus.READY),
       ],
     };
-    wrapper = shallow(<ModelVersionTable {...props} />);
+    wrapper = mountWithIntl(
+      <BrowserRouter>
+        <ModelVersionTable {...props} />
+      </BrowserRouter>,
+    );
     expect(wrapper.find(Table).props().dataSource.length).toBe(4);
-    wrapper.setProps({ activeStageOnly: true });
+
+    const propsWithActive = {
+      ...props,
+      activeStageOnly: true,
+    };
+    wrapper = mountWithIntl(
+      <BrowserRouter>
+        <ModelVersionTable {...propsWithActive} />
+      </BrowserRouter>,
+    );
     expect(wrapper.find(Table).props().dataSource.length).toBe(2);
   });
 });

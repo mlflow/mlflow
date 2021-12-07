@@ -15,13 +15,20 @@ import { Switch } from 'react-router';
 import {
   modelListPageRoute,
   modelPageRoute,
+  modelSubpageRoute,
   modelVersionPageRoute,
   compareModelVersionsPageRoute,
 } from '../../model-registry/routes';
 import { ModelVersionPage } from '../../model-registry/components/ModelVersionPage';
-import ModelListPage from '../../model-registry/components/ModelListPage';
+import { ModelListPage } from '../../model-registry/components/ModelListPage';
 import { ModelPage } from '../../model-registry/components/ModelPage';
 import CompareModelVersionsPage from '../../model-registry/components/CompareModelVersionsPage';
+
+const isExperimentsActive = (match, location) => {
+  // eslint-disable-next-line prefer-const
+  let isActive = match && !location.pathname.includes('models');
+  return isActive;
+};
 
 const classNames = {
   activeNavLink: { borderBottom: '4px solid #43C9ED' },
@@ -45,7 +52,7 @@ class App extends Component {
                   strict
                   to={Routes.rootRoute}
                   activeStyle={classNames.activeNavLink}
-                  isActive={(match, location) => match && !location.pathname.includes('models')}
+                  isActive={isExperimentsActive}
                   className='header-nav-link'
                 >
                   <div className='experiments'>
@@ -81,6 +88,7 @@ class App extends Component {
             <Switch>
               <Route exact path={Routes.rootRoute} component={HomePage} />
               <Route exact path={Routes.experimentPageRoute} component={HomePage} />
+              <Route exact path={Routes.runPageWithArtifactSelectedRoute} component={RunPage} />
               <Route exact path={Routes.runPageRoute} component={RunPage} />
               <Route exact path={Routes.metricPageRoute} component={MetricPage} />
               <Route exact path={Routes.compareRunPageRoute} component={CompareRunPage} />
@@ -89,6 +97,7 @@ class App extends Component {
               <Route exact path={modelListPageRoute} component={ModelListPage} />
               <Route exact path={modelVersionPageRoute} component={ModelVersionPage} />
               <Route exact path={modelPageRoute} component={ModelPage} />
+              <Route exact path={modelSubpageRoute} component={ModelPage} />
               <Route
                 exact
                 path={compareModelVersionsPageRoute}

@@ -6,6 +6,7 @@ import ExperimentPage from './ExperimentPage';
 import { getExperiments } from '../reducers/Reducers';
 import { NoExperimentView } from './NoExperimentView';
 import Utils from '../../common/utils/Utils';
+import { PageContainer } from '../../common/components/PageContainer';
 
 export const getFirstActiveExperiment = (experiments) => {
   const sorted = experiments.concat().sort(Utils.compareExperiments);
@@ -35,56 +36,43 @@ class HomeView extends Component {
     const containerHeight = 'calc(100% - ' + headerHeight + 'px)';
     if (process.env.HIDE_EXPERIMENT_LIST === 'true') {
       return (
-        <div className='experiment-page-container' style={{ height: containerHeight }}>
+        <div style={{ height: containerHeight }}>
           {this.props.experimentId !== undefined ? (
-            <ExperimentPage experimentId={this.props.experimentId} />
+            <PageContainer>
+              <ExperimentPage experimentId={this.props.experimentId} />
+            </PageContainer>
           ) : (
             <NoExperimentView />
           )}
         </div>
       );
     }
-    if (this.state.listExperimentsExpanded) {
-      return (
-        <div className='outer-container' style={{ height: containerHeight }}>
-          <div className='HomePage-experiment-list-container'>
-            <div className='collapsed-expander-container'>
-              <ExperimentListView
-                activeExperimentId={this.props.experimentId}
-                onClickListExperiments={this.onClickListExperiments}
-              />
-            </div>
-          </div>
-          <div className='experiment-view-container'>
-            {this.props.experimentId !== undefined ? (
-              <ExperimentPage experimentId={this.props.experimentId} />
-            ) : (
-              <NoExperimentView />
-            )}
-          </div>
-        </div>
-      );
-    } else {
-      return (
-        <div className='outer-container' style={{ height: containerHeight }}>
-          <div className='collapsed-expander-container'>
+    return (
+      <div className='outer-container' style={{ height: containerHeight }}>
+        <div>
+          {this.state.listExperimentsExpanded ? (
+            <ExperimentListView
+              activeExperimentId={this.props.experimentId}
+              onClickListExperiments={this.onClickListExperiments}
+            />
+          ) : (
             <i
               onClick={this.onClickListExperiments}
               title='Show experiment list'
               style={styles.showExperimentListExpander}
               className='expander fa fa-chevron-right login-icon'
             />
-          </div>
-          <div className='experiment-page-container'>
-            {this.props.experimentId !== undefined ? (
-              <ExperimentPage experimentId={this.props.experimentId} />
-            ) : (
-              <NoExperimentView />
-            )}
-          </div>
+          )}
         </div>
-      );
-    }
+        <PageContainer>
+          {this.props.experimentId !== undefined ? (
+            <ExperimentPage experimentId={this.props.experimentId} />
+          ) : (
+            <NoExperimentView />
+          )}
+        </PageContainer>
+      </div>
+    );
   }
 }
 

@@ -105,6 +105,9 @@ The example package contains a ``setup.py`` that declares a number of
             # Define a RunContextProvider plugin. The entry point name for run context providers
             # is not used, and so is set to the string "unused" here
             "mlflow.run_context_provider": "unused=mlflow_test_plugin.run_context_provider:PluginRunContextProvider",
+            # Define a RequestHeaderProvider plugin. The entry point name for request header providers
+            # is not used, and so is set to the string "unused" here
+            "mlflow.request_header_provider": "unused=mlflow_test_plugin.request_header_provider:PluginRequestHeaderProvider",
             # Define a Model Registry Store plugin for tracking URIs with scheme 'file-plugin'
             "mlflow.model_registry_store":
                 "file-plugin=mlflow_test_plugin.sqlalchemy_store:PluginRegistrySqlAlchemyStore",
@@ -160,11 +163,18 @@ plugin:
    * - Plugins for specifying custom context tags at run creation time, e.g. tags identifying the git repository associated with a run.
      - mlflow.run_context_provider
      - The entry point name is unused. The entry point value (e.g. ``mlflow_test_plugin.run_context_provider:PluginRunContextProvider``) specifies a custom subclass of
-       `mlflow.tracking.context.abstract_context.RunContextProvider <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/tracking/context/abstract_context.py#L4>`_
-       (e.g., the `PluginRunContextProvider class <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/resources/mlflow-test-plugin/mlflow_test_plugin/__init__.py#L23>`_
+       `mlflow.tracking.context.abstract_context.RunContextProvider <https://github.com/mlflow/mlflow/blob/branch-1.13/mlflow/tracking/context/abstract_context.py#L4>`_
+       (e.g., the `PluginRunContextProvider class <https://github.com/mlflow/mlflow/blob/branch-1.13/tests/resources/mlflow-test-plugin/mlflow_test_plugin/run_context_provider.py>`_
        within the ``mlflow_test_plugin`` module) to register.
-     - `GitRunContext <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/tracking/context/git_context.py#L36>`_,
-       `DefaultRunContext <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/tracking/context/default_context.py#L41>`_
+     - `GitRunContext <https://github.com/mlflow/mlflow/blob/branch-1.13/mlflow/tracking/context/git_context.py#L38>`_,
+       `DefaultRunContext <https://github.com/mlflow/mlflow/blob/branch-1.13/mlflow/tracking/context/default_context.py#L41>`_
+   * - Plugins for specifying custom context request headers to attach to outgoing requests, e.g. headers identifying the client's environment.
+     - mlflow.request_header_provider
+     - The entry point name is unused. The entry point value (e.g. ``mlflow_test_plugin.request_header_provider:PluginRequestHeaderProvider``) specifies a custom subclass of
+       `mlflow.tracking.request_header.abstract_request_header_provider.RequestHeaderProvider <https://github.com/mlflow/mlflow/blob/master/mlflow/tracking/request_header/abstract_request_header_provider.py#L4>`_
+       (e.g., the `PluginRequestHeaderProvider class <https://github.com/mlflow/mlflow/blob/master/tests/resources/mlflow-test-plugin/mlflow_test_plugin/request_header_provider.py>`_
+       within the ``mlflow_test_plugin`` module) to register.
+     - `DatabricksRequestHeaderProvider <https://github.com/mlflow/mlflow/blob/master/mlflow/tracking/request_header/databricks_request_header_provider.py>`_
    * - Plugins for overriding definitions of Model Registry APIs like ``mlflow.register_model``.
      - mlflow.model_registry_store
      - .. note:: The Model Registry is in beta (as of MLflow 1.5). Model Registry APIs are not guaranteed to be stable, and Model Registry plugins may break in the future.
@@ -303,7 +313,9 @@ for usage instructions and examples.
 
 - `mlflow-redisai <https://github.com/RedisAI/mlflow-redisai>`_
 - `mlflow-torchserve <https://github.com/mlflow/mlflow-torchserve>`_
-
+- `mlflow-algorithmia <https://github.com/algorithmiaio/mlflow-algorithmia>`_
+- `mlflow-ray-serve <https://github.com/ray-project/mlflow-ray-serve>`_
+- `mlflow-azureml <https://docs.microsoft.com/en-us/azure/machine-learning/how-to-deploy-mlflow-models>`_
 
 Project Backend Plugins
 ~~~~~~~~~~~~~~~~~~~~~~~

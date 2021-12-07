@@ -30,7 +30,9 @@ def model_path(tmpdir):
 def test_get_flavor_configuration_throws_exception_when_model_configuration_does_not_exist(
     model_path,
 ):
-    with pytest.raises(MlflowException) as exc:
+    with pytest.raises(
+        MlflowException, match='Could not find an "MLmodel" configuration file'
+    ) as exc:
         mlflow_model_utils._get_flavor_configuration(
             model_path=model_path, flavor_name=mlflow.mleap.FLAVOR_NAME
         )
@@ -49,7 +51,7 @@ def test_get_flavor_configuration_throws_exception_when_requested_flavor_is_miss
     assert sklearn_flavor_config is not None
 
     # The saved model does not contain the "mleap" flavor, so this call should fail
-    with pytest.raises(MlflowException) as exc:
+    with pytest.raises(MlflowException, match='Model does not have the "mleap" flavor') as exc:
         mlflow_model_utils._get_flavor_configuration(
             model_path=model_path, flavor_name=MLEAP_FLAVOR_NAME
         )

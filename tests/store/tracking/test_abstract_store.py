@@ -7,10 +7,15 @@ from mlflow.entities import ViewType
 
 
 class AbstractStoreTestImpl(AbstractStore):
-    def list_experiments(self, view_type=ViewType.ACTIVE_ONLY):
+    def list_experiments(
+        self,
+        view_type=ViewType.ACTIVE_ONLY,
+        max_results=None,
+        page_token=None,
+    ):
         raise NotImplementedError()
 
-    def create_experiment(self, name, artifact_location):
+    def create_experiment(self, name, artifact_location, tags):
         raise NotImplementedError()
 
     def get_experiment(self, experiment_id):

@@ -1,11 +1,16 @@
 import entrypoints
 import warnings
+import logging
 
 from mlflow.tracking.context.default_context import DefaultRunContext
 from mlflow.tracking.context.git_context import GitRunContext
 from mlflow.tracking.context.databricks_notebook_context import DatabricksNotebookRunContext
 from mlflow.tracking.context.databricks_job_context import DatabricksJobRunContext
 from mlflow.tracking.context.databricks_cluster_context import DatabricksClusterRunContext
+from mlflow.tracking.context.databricks_command_context import DatabricksCommandRunContext
+
+
+_logger = logging.getLogger(__name__)
 
 
 class RunContextProviderRegistry(object):
@@ -49,6 +54,7 @@ _run_context_provider_registry.register(GitRunContext)
 _run_context_provider_registry.register(DatabricksNotebookRunContext)
 _run_context_provider_registry.register(DatabricksJobRunContext)
 _run_context_provider_registry.register(DatabricksClusterRunContext)
+_run_context_provider_registry.register(DatabricksCommandRunContext)
 
 _run_context_provider_registry.register_entrypoints()
 
@@ -68,9 +74,11 @@ def resolve_tags(tags=None):
 
     all_tags = {}
     for provider in _run_context_provider_registry:
-        if provider.in_context():
-            # TODO: Error out gracefully if provider's tags are not valid or have wrong types.
-            all_tags.update(provider.tags())
+        try:
+            if provider.in_context():
+                all_tags.update(provider.tags())
+        except Exception as e:
+            _logger.warning("Encountered unexpected error during resolving tags: %s", e)
 
     if tags is not None:
         all_tags.update(tags)

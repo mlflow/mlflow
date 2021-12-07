@@ -76,6 +76,109 @@ There are different kinds of remote tracking URIs:
   `[Azure] <http://docs.microsoft.com/azure/databricks/applications/mlflow/access-hosted-tracking-server>`_, or :ref:`the quickstart <quickstart_logging_to_remote_server>` to
   easily get started with hosted MLflow on Databricks Community Edition.
 
+How Runs and Artifacts are Recorded
+===================================
+As mentioned above, MLflow runs can be recorded to local files, to a SQLAlchemy compatible database, or remotely to a tracking server. MLflow artifacts can be persisted to local files
+and a variety of remote file storage solutions. For storing runs and artifacts, MLflow uses two components for `storage <https://mlflow.org/docs/latest/tracking.html#storage>`_: backend store and artifact store. While the backend store persists
+MLflow entities (runs, parameters, metrics, tags, notes, metadata, etc), the artifact store persists artifacts
+(files, models, images, in-memory objects, or model summary, etc).
+
+The MLflow client can interface with a variety of `backend <https://mlflow.org/docs/latest/tracking.html#backend-stores>`_ and `artifact <https://mlflow.org/docs/latest/tracking.html#artifact-stores>`_ storage configurations.
+Here are four common configuration scenarios:
+
+Scenario 1: MLflow on localhost
+-------------------------------
+
+Many developers run MLflow on their local machine, where both the backend and artifact store share a directory
+on the local filesystem—``./mlruns``—as shown in the diagram. The MLflow client directly interfaces with an
+instance of a `FileStore` and `LocalArtifactRepository`.
+
+.. figure:: _static/images/scenario_1.png
+
+In this simple scenario, the MLflow client uses the following interfaces to record MLflow entities and artifacts:
+
+ * An instance of a `LocalArtifactRepository` (to store artifacts)
+ * An instance of a `FileStore` (to save MLflow entities)
+
+Scenario 2: MLflow on localhost with SQLite
+-------------------------------------------
+
+Many users also run MLflow on their local machines with a `SQLAlchemy-compatible <https://docs.sqlalchemy.org/en/14/core/engines.html#database-urls>`_ database: `SQLite <https://sqlite.org/docs.html>`_. In this case, artifacts
+are stored under the local ``./mlruns`` directory, and MLflow entities are inserted in a SQLite database file ``mlruns.db``.
+
+.. figure:: _static/images/scenario_2.png
+
+In this scenario, the MLflow client uses the following interfaces to record MLflow entities and artifacts:
+
+ * An instance of a `LocalArtifactRepository` (to save artifacts)
+ * An instance of an `SQLAlchemyStore` (to store MLflow entities to a SQLite file ``mlruns.db``)
+
+Scenario 3: MLflow on localhost with Tracking Server
+----------------------------------------------------
+
+Similar to scenario 1 but a tracking server is launched, listening for REST request calls at the default port 5000.
+The arguments supplied to the ``mlflow server <args>`` dictate what backend and artifact stores are used.
+The default is local `FileStore`. For example, if a user launched a tracking server as
+``mlflow server --backend-store-uri sqlite:///mydb.sqlite``, then SQLite would be used for backend storage instead.
+
+As in scenario 1, MLflow uses a local `mlruns` filesystem directory as a backend store and artifact store. With a tracking
+server running, the MLflow client interacts with the tracking server via REST requests, as shown in the diagram.
+
+.. figure:: _static/images/scenario_3.png
+
+To store all runs' MLflow entities, the MLflow client interacts with the tracking server via a series of REST requests:
+
+ * **Part 1a and b**:
+
+  * The MLflow client creates an instance of a `RestStore` and sends REST API requests to log MLflow entities
+  * The Tracking Server creates an instance of a `FileStore` to save MLflow entities and writes directly to the local `mlruns` directory
+
+For the artifacts, the MLflow client interacts with the tracking server via a REST request:
+
+ * **Part 2a, b, and c**:
+
+   * The MLflow client uses `RestStore` to send a REST request to fetch the artifact store URI location
+   * The Tracking Server responds with an artifact store URI location
+   * The MLflow client creates an instance of a `LocalArtifactRepository` and saves artifacts to the local filesystem location specified by the artifact store URI (a subdirectory of `mlruns`)
+
+Scenario 4: MLflow with remote Tracking Server, backend and artifact stores
+---------------------------------------------------------------------------
+
+MLflow also supports distributed architectures, where the tracking server, backend store, and artifact store
+reside on remote hosts. This example scenario depicts an architecture with a remote MLflow Tracking Server,
+a Postgres database for backend entity storage, and an S3 bucket for artifact storage.
+
+.. figure:: _static/images/scenario_4.png
+
+To record all runs' MLflow entities, the MLflow client interacts with the tracking server via a series of REST requests:
+
+ * **Part 1a and b**:
+
+  * The MLflow client creates an instance of a `RestStore` and sends REST API requests to log MLflow entities
+  * The Tracking Server creates an instance of an `SQLAlchemyStore` and connects to the remote host to
+    insert MLflow entities in the database
+
+For artifact logging, the MLflow client interacts with the remote Tracking Server and artifact storage host:
+
+ * **Part 2a, b, and c**:
+
+  * The MLflow client uses `RestStore` to send a REST request to fetch the artifact store URI location from the Tracking Server
+  * The Tracking Server responds with an artifact store URI location (an S3 storage URI in this case)
+  * The MLflow client creates an instance of an `S3ArtifactRepository`, connects to the remote AWS host using the
+    `boto client <https://boto3.amazonaws.com/v1/documentation/api/latest/index.html>`_ libraries, and uploads the artifacts to the S3 bucket URI location
+
+.. note::
+
+    In all scenarios, the MLflow client directly logs artifacts to the remote artifact store. It does not proxy these through the
+    tracking server.
+
+The `FileStore <https://github.com/mlflow/mlflow/blob/master/mlflow/store/tracking/file_store.py#L115>`_,
+`RestStore <https://github.com/mlflow/mlflow/blob/master/mlflow/store/tracking/rest_store.py#L39>`_,
+and `SQLAlchemyStore <https://github.com/mlflow/mlflow/blob/master/mlflow/store/tracking/sqlalchemy_store.py#L61>`_ are
+concrete implementations of the abstract class `AbstractStore <https://github.com/mlflow/mlflow/blob/master/mlflow/store/tracking/abstract_store.py>`_,
+and the `LocalArtifactRepository <https://github.com/mlflow/mlflow/blob/master/mlflow/store/artifact/local_artifact_repo.py#L15>`_ and
+`S3ArtifactRepository <https://github.com/mlflow/mlflow/blob/master/mlflow/store/artifact/s3_artifact_repo.py#L14>`_ are
+concrete implementations of the abstract class `ArtifactRepository <https://github.com/mlflow/mlflow/blob/master/mlflow/store/artifact/artifact_repo.py#L13>`_.
 
 Logging Data to Runs
 ====================
@@ -87,7 +190,6 @@ shows the Python API.
   :depth: 1
   :local:
 
-.. _basic_logging_functions:
 
 Logging Functions
 ------------------
@@ -236,9 +338,11 @@ The following libraries support autologging:
   :local:
   :depth: 1
 
+For flavors that automatically save models as an artifact, `additional files <https://mlflow.org/docs/latest/models.html#storage-format>`_ for dependency management are logged.
 
-Scikit-learn (experimental)
----------------------------
+
+Scikit-learn
+------------
 
 Call :py:func:`mlflow.sklearn.autolog` before your training code to enable automatic logging of sklearn metrics, params, and models.
 See example usage `here <https://github.com/mlflow/mlflow/tree/master/examples/sklearn_autolog>`_.
@@ -285,11 +389,8 @@ containing the following data:
 .. _GridSearchCV:
     https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html
 
-.. note::
-  This feature is experimental - the API and format of the logged data are subject to change.  
-
-TensorFlow and Keras (experimental)
------------------------------------
+TensorFlow and Keras
+--------------------
 Call :py:func:`mlflow.tensorflow.autolog` or :py:func:`mlflow.keras.autolog` before your training code to enable automatic logging of metrics and parameters. See example usages with `Keras <https://github.com/mlflow/mlflow/tree/master/examples/keras>`_ and
 `TensorFlow <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
 
@@ -328,10 +429,9 @@ If a run already exists when ``autolog()`` captures data, MLflow will log to tha
 
 .. note::
   - Parameters not explicitly passed by users (parameters that use default values) while using ``keras.Model.fit_generator()`` are not currently automatically logged.
-  - This feature is experimental - the API and format of the logged data are subject to change.
 
-Gluon (experimental)
---------------------
+Gluon
+-----
 Call :py:func:`mlflow.gluon.autolog` before your training code to enable automatic logging of metrics and parameters.
 See example usages with `Gluon <https://github.com/mlflow/mlflow/tree/master/examples/gluon>`_ .
 
@@ -343,11 +443,8 @@ Autologging captures the following information:
 | Gluon            | Training loss; validation loss; user-specified metrics | Number of layers; optimizer name; learning rate; epsilon | --            | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Gluon model); on training end                                   |
 +------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
 
-.. note::
-  This feature is experimental - the API and format of the logged data are subject to change.
-
-XGBoost (experimental)
-----------------------
+XGBoost
+-------
 Call :py:func:`mlflow.xgboost.autolog` before your training code to enable automatic logging of metrics and parameters.
 
 Autologging captures the following information:
@@ -361,15 +458,14 @@ Autologging captures the following information:
 If early stopping is activated, metrics at the best iteration will be logged as an extra step/iteration.
 
 .. note::
-  - This feature is experimental - the API and format of the logged data are subject to change.
   - The `scikit-learn API <https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn>`__ is not supported.
 
 .. _xgboost.train: https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.train
 .. _MLflow Model: https://mlflow.org/docs/latest/models.html
 
 
-LightGBM (experimental)
------------------------
+LightGBM
+--------
 Call :py:func:`mlflow.lightgbm.autolog` before your training code to enable automatic logging of metrics and parameters.
 
 Autologging captures the following information:
@@ -383,13 +479,12 @@ Autologging captures the following information:
 If early stopping is activated, metrics at the best iteration will be logged as an extra step/iteration.
 
 .. note::
-  - This feature is experimental - the API and format of the logged data are subject to change.
   - The `scikit-learn API <https://lightgbm.readthedocs.io/en/latest/Python-API.html#scikit-learn-api>`__ is not supported.
 
 .. _lightgbm.train: https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.train.html#lightgbm-train
 
-Statsmodels (experimental)
---------------------------
+Statsmodels
+-----------
 Call :py:func:`mlflow.statsmodels.autolog` before your training code to enable automatic logging of metrics and parameters.
 
 Autologging captures the following information:
@@ -401,13 +496,12 @@ Autologging captures the following information:
 +--------------+------------------------+------------------------------------------------+---------------+-----------------------------------------------------------------------------+
 
 .. note::
-  - This feature is experimental - the API and format of the logged data are subject to change.
   - Each model subclass that overrides `fit` expects and logs its own parameters.
 
 .. _statsmodels.base.model.Model.fit: https://www.statsmodels.org/dev/dev/generated/statsmodels.base.model.Model.html
 
-Spark (experimental)
---------------------
+Spark
+-----
 
 Initialize a SparkSession with the mlflow-spark JAR attached (e.g.
 ``SparkSession.builder.config("spark.jars.packages", "org.mlflow.mlflow-spark")``) and then
@@ -424,11 +518,10 @@ Autologging captures the following information:
 +------------------+---------+------------+----------------------------------------------------------------------------------------------+-----------+
 
 .. note::
-  - This feature is experimental - the API and format of the logged data are subject to change.
   - Moreover, Spark datasource autologging occurs asynchronously - as such, it's possible (though unlikely) to see race conditions when launching short-lived MLflow runs that result in datasource information not being logged.
 
-Fastai (experimental)
----------------------
+Fastai
+------
 
 Call :py:func:`mlflow.fastai.autolog` before your training code to enable automatic logging of metrics and parameters.
 See an example usage with `Fastai <https://github.com/mlflow/mlflow/tree/master/examples/fastai>`_.
@@ -447,11 +540,11 @@ Autologging captures the following information:
 |           |                        | `OneCycleScheduler`_ callbacks                           |               |                                                                                                                                                                       |
 +-----------+------------------------+----------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
-Pytorch (experimental)
---------------------------
+Pytorch
+-------
 
 Call :py:func:`mlflow.pytorch.autolog` before your Pytorch Lightning training code to enable automatic logging of metrics, parameters, and models. See example usages `here <https://github.com/chauhang/mlflow/tree/master/examples/pytorch/MNIST>`__. Note
-that currently, Pytorch autologging supports only models trained using Pytorch Lightning. 
+that currently, Pytorch autologging supports only models trained using Pytorch Lightning.
 
 Autologging is triggered on calls to ``pytorch_lightning.trainer.Trainer.fit`` and captures the following information:
 
@@ -482,7 +575,6 @@ If a run already exists when ``autolog()`` captures data, MLflow will log to tha
 .. note::
   - Parameters not explicitly passed by users (parameters that use default values) while using ``pytorch_lightning.trainer.Trainer.fit()`` are not currently automatically logged
   - In case of a multi-optimizer scenario (such as usage of autoencoder), only the parameters for the first optimizer are logged
-  - This feature is experimental - the API and format of the logged data are subject to change
 
 
 .. _organizing_runs_in_experiments:
@@ -492,7 +584,7 @@ Organizing Runs in Experiments
 
 MLflow allows you to group runs under experiments, which can be useful for comparing runs intended
 to tackle a particular task. You can create experiments using the :ref:`cli` (``mlflow experiments``) or
-the :py:func:`mlflow.create_experiment` Python API. You can pass the experiment name for a individual run
+the :py:func:`mlflow.create_experiment` Python API. You can pass the experiment name for an individual run
 using the CLI (for example, ``mlflow run ... --experiment-name [name]``) or the ``MLFLOW_EXPERIMENT_NAME``
 environment variable. Alternatively, you can use the experiment ID instead, via the
 ``--experiment-id`` CLI flag or the ``MLFLOW_EXPERIMENT_ID`` environment variable.
@@ -647,6 +739,9 @@ default location to store artifacts for all runs in this experiment. Additional,
 is a property on :py:class:`mlflow.entities.RunInfo` to indicate location where all artifacts for
 this run are stored.
 
+The MLflow client caches artifact location information on a per-run basis.
+It is therefore not recommended to alter a run's artifact location before it has terminated.
+
 In addition to local file paths, MLflow supports the following storage systems as artifact
 stores: Amazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NFS.
 
@@ -672,7 +767,7 @@ See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.
 Amazon S3 and S3-compatible storage
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To store artifacts in S3 (whether on Amazon S3 or on an S3-compatible alternative, such as 
+To store artifacts in S3 (whether on Amazon S3 or on an S3-compatible alternative, such as
 `MinIO <https://min.io/>`_), specify a URI of the form ``s3://<bucket>/<path>``. MLflow obtains
 credentials to access S3 from your machine's IAM role, a profile in ``~/.aws/credentials``, or
 the environment variables ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` depending on which of
@@ -718,11 +813,19 @@ Azure Blob Storage
 To store artifacts in Azure Blob Storage, specify a URI of the form
 ``wasbs://<container>@<storage-account>.blob.core.windows.net/<path>``.
 MLflow expects Azure Storage access credentials in the
-``AZURE_STORAGE_CONNECTION_STRING`` or ``AZURE_STORAGE_ACCESS_KEY`` environment variables (preferring
-a connection string if one is set), so you must set one of these variables on both your client
-application and your MLflow tracking server. Finally, you must run ``pip install azure-storage-blob``
-separately (on both your client and the server) to access Azure Blob Storage; MLflow does not declare
-a dependency on this package by default.
+``AZURE_STORAGE_CONNECTION_STRING``, ``AZURE_STORAGE_ACCESS_KEY`` environment variables
+or having your credentials configured such that the `DefaultAzureCredential()
+<https://docs.microsoft.com/en-us/python/api/overview/azure/identity-readme?view=azure-python>`_. class can pick them up.
+The order of precedence is:
+
+#. ``AZURE_STORAGE_CONNECTION_STRING``
+#. ``AZURE_STORAGE_ACCESS_KEY``
+#. ``DefaultAzureCredential()``
+
+You must set one of these options on both your client application and your MLflow tracking server.
+Also, you must run ``pip install azure-storage-blob`` separately (on both your client and the server) to access Azure Blob Storage.
+Finally, if you want to use DefaultAzureCredential, you must ``pip install azure-identity``;
+MLflow does not declare a dependency on these packages by default.
 
 Google Cloud Storage
 ^^^^^^^^^^^^^^^^^^^^

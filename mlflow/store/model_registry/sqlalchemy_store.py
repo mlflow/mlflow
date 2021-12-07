@@ -57,7 +57,7 @@ def now():
 
 class SqlAlchemyStore(AbstractStore):
     """
-    Note:: Experimental: This entity may change or be removed in a future release without warning.
+    This entity may change or be removed in a future release without warning.
     SQLAlchemy compliant backend store for tracking meta data for MLflow entities. MLflow
     supports the database dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
     As specified in the
@@ -662,7 +662,7 @@ class SqlAlchemyStore(AbstractStore):
                 conditions = [
                     SqlModelVersion.name == name,
                     SqlModelVersion.version != version,
-                    SqlModelVersion.current_stage == stage,
+                    SqlModelVersion.current_stage == get_canonical_stage(stage),
                 ]
                 model_versions = session.query(SqlModelVersion).filter(*conditions).all()
                 for mv in model_versions:

@@ -38,7 +38,7 @@ def is_tracking_uri_set():
     return False
 
 
-def set_tracking_uri(uri):
+def set_tracking_uri(uri: str) -> None:
     """
     Set the tracking server URI. This does not affect the
     currently active run (if one exists), but takes effect for successive runs.
@@ -75,7 +75,7 @@ def _resolve_tracking_uri(tracking_uri=None):
     return tracking_uri or get_tracking_uri()
 
 
-def get_tracking_uri():
+def get_tracking_uri() -> str:
     """
     Get the current tracking URI. This may not correspond to the tracking URI of
     the currently active run, since the tracking URI can be updated via ``set_tracking_uri``.
@@ -134,7 +134,7 @@ def _get_rest_store(store_uri, **_):
 
 
 def _get_databricks_rest_store(store_uri, **_):
-    return DatabricksRestStore(lambda: get_databricks_host_creds(store_uri))
+    return DatabricksRestStore(partial(get_databricks_host_creds, store_uri))
 
 
 _tracking_store_registry = TrackingStoreRegistry()

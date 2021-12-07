@@ -4,7 +4,7 @@ import _ from 'lodash';
 import PropTypes from 'prop-types';
 import { X_AXIS_STEP, X_AXIS_RELATIVE, MAX_LINE_SMOOTHNESS } from './MetricsPlotControls';
 import { CHART_TYPE_BAR } from './MetricsPlotPanel';
-import Plot from 'react-plotly.js';
+import { LazyPlot } from './LazyPlot';
 
 const MAX_RUN_NAME_DISPLAY_LENGTH = 24;
 
@@ -76,7 +76,9 @@ export class MetricsPlotView extends React.Component {
     const deselectedCurvesSet = new Set(deselectedCurves);
     const data = metrics.map((metric) => {
       const { metricKey, runDisplayName, history, runUuid } = metric;
-      const historyValues = history.map((entry) => entry.value);
+      const historyValues = history.map((entry) =>
+        typeof entry.value === 'number' ? entry.value : Number(entry.value),
+      );
       // For metrics with exactly one non-NaN item, we set `isSingleHistory` to `true` in order
       // to display the item as a point. For metrics with zero non-NaN items (i.e., empty metrics),
       // we also set `isSingleHistory` to `true` in order to populate the plot legend with a
@@ -166,7 +168,7 @@ export class MetricsPlotView extends React.Component {
         : this.getPlotPropsForLineChart();
     return (
       <div className='metrics-plot-view-container'>
-        <Plot
+        <LazyPlot
           {...plotProps}
           useResizeHandler
           onRelayout={onLayoutChange}

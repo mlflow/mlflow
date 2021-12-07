@@ -4,22 +4,38 @@ import numpy as np
 import os
 import pandas as pd
 from collections import namedtuple, OrderedDict
+from packaging.version import Version
 
 import pytest
 import random
 import sklearn.datasets as datasets
 import sklearn.neighbors as knn
 
+from mlflow.exceptions import MlflowException
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
 from mlflow.models import ModelSignature, infer_signature
-from mlflow.protos.databricks_pb2 import ErrorCode, MALFORMED_REQUEST, BAD_REQUEST
+from mlflow.protos.databricks_pb2 import ErrorCode, BAD_REQUEST
 from mlflow.pyfunc import PythonModel
+from mlflow.pyfunc.scoring_server import get_cmd
 from mlflow.types import Schema, ColSpec, DataType
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import NumpyEncoder
 
 from tests.helper_functions import pyfunc_serve_and_score_model, random_int, random_str
+
+import keras
+
+# pylint: disable=no-name-in-module,reimported
+if Version(keras.__version__) >= Version("2.6.0"):
+    from tensorflow.keras.models import Model
+    from tensorflow.keras.layers import Dense, Input, Concatenate
+    from tensorflow.keras.optimizers import SGD
+else:
+    from keras.models import Model
+    from keras.layers import Dense, Input, Concatenate
+    from keras.optimizers import SGD
+
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
@@ -34,6 +50,11 @@ def pandas_df_with_all_types():
             "float": np.array([math.pi, 2 * math.pi, 3 * math.pi], np.float32),
             "double": [math.pi, 2 * math.pi, 3 * math.pi],
             "binary": [bytearray([1, 2, 3]), bytearray([4, 5, 6]), bytearray([7, 8, 9])],
+            "datetime": [
+                np.datetime64("2021-01-01 00:00:00"),
+                np.datetime64("2021-02-02 00:00:00"),
+                np.datetime64("2021-03-03 12:00:00"),
+            ],
         }
     )
     pdf["string"] = pd.Series(["a", "b", "c"], dtype=DataType.string.to_pandas())
@@ -48,6 +69,23 @@ def sklearn_model():
     knn_model = knn.KNeighborsClassifier()
     knn_model.fit(X, y)
     return ModelWithData(model=knn_model, inference_data=X)
+
+
+@pytest.fixture(scope="session")
+def keras_model():
+    iris = datasets.load_iris()
+    data = pd.DataFrame(
+        data=np.c_[iris["data"], iris["target"]], columns=iris["feature_names"] + ["target"]
+    )
+    y = data["target"]
+    X = data.drop("target", axis=1).values
+    input_a = Input(shape=(2,), name="a")
+    input_b = Input(shape=(2,), name="b")
+    output = Dense(1)(Dense(3, input_dim=4)(Concatenate()([input_a, input_b])))
+    model = Model(inputs=[input_a, input_b], outputs=output)
+    model.compile(loss="mean_squared_error", optimizer=SGD())
+    model.fit([X[:, :2], X[:, -2:]], y)
+    return ModelWithData(model=model, inference_data=X)
 
 
 @pytest.fixture
@@ -69,7 +107,19 @@ def test_scoring_server_responds_to_invalid_json_input_with_stacktrace_and_error
     )
     response_json = json.loads(response.content)
     assert "error_code" in response_json
-    assert response_json["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
+    assert response_json["error_code"] == ErrorCode.Name(BAD_REQUEST)
+    assert "message" in response_json
+    assert "stack_trace" in response_json
+
+    incorrect_json_content = json.dumps("not a dict or a list")
+    response = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=incorrect_json_content,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+    )
+    response_json = json.loads(response.content)
+    assert "error_code" in response_json
+    assert response_json["error_code"] == ErrorCode.Name(BAD_REQUEST)
     assert "message" in response_json
     assert "stack_trace" in response_json
 
@@ -88,7 +138,7 @@ def test_scoring_server_responds_to_malformed_json_input_with_stacktrace_and_err
     )
     response_json = json.loads(response.content)
     assert "error_code" in response_json
-    assert response_json["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
+    assert response_json["error_code"] == ErrorCode.Name(BAD_REQUEST)
     assert "message" in response_json
     assert "stack_trace" in response_json
 
@@ -109,7 +159,7 @@ def test_scoring_server_responds_to_invalid_pandas_input_format_with_stacktrace_
     )
     response_json = json.loads(response.content)
     assert "error_code" in response_json
-    assert response_json["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
+    assert response_json["error_code"] == ErrorCode.Name(BAD_REQUEST)
     assert "message" in response_json
     assert "stack_trace" in response_json
 
@@ -148,7 +198,7 @@ def test_scoring_server_responds_to_invalid_csv_input_with_stacktrace_and_error_
     )
     response_json = json.loads(response.content)
     assert "error_code" in response_json
-    assert response_json["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
+    assert response_json["error_code"] == ErrorCode.Name(BAD_REQUEST)
     assert "message" in response_json
     assert "stack_trace" in response_json
 
@@ -163,7 +213,29 @@ def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_re
     response_records_content_type = pyfunc_serve_and_score_model(
         model_uri=os.path.abspath(model_path),
         data=pandas_record_content,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+    )
+    assert response_records_content_type.status_code == 200
+
+    response_records_content_type = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=pandas_record_content,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED,
+    )
+    assert response_records_content_type.status_code == 200
+
+    # Testing the charset parameter
+    response_records_content_type = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=pandas_record_content,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON + "; charset=UTF-8",
+    )
+    assert response_records_content_type.status_code == 200
+
+    response_records_content_type = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=pandas_record_content,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED + "; charset=UTF-8",
     )
     assert response_records_content_type.status_code == 200
 
@@ -219,11 +291,66 @@ def test_scoring_server_responds_to_invalid_content_type_request_with_unsupporte
 
 
 @pytest.mark.large
+def test_scoring_server_successfully_evaluates_correct_tf_serving_sklearn(
+    sklearn_model, model_path
+):
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
+
+    inp_dict = {"instances": sklearn_model.inference_data.tolist()}
+    response_records_content_type = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=json.dumps(inp_dict),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+    )
+    assert response_records_content_type.status_code == 200
+
+
+@pytest.mark.large
+def test_scoring_server_successfully_evaluates_correct_tf_serving_keras_instances(
+    keras_model, model_path
+):
+    mlflow.keras.save_model(keras_model.model, model_path)
+
+    inp_dict = {
+        "instances": [
+            {"a": a.tolist(), "b": b.tolist()}
+            for (a, b) in zip(keras_model.inference_data[:, :2], keras_model.inference_data[:, -2:])
+        ]
+    }
+    response_records_content_type = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=json.dumps(inp_dict),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+    )
+    assert response_records_content_type.status_code == 200
+
+
+@pytest.mark.large
+def test_scoring_server_successfully_evaluates_correct_tf_serving_keras_inputs(
+    keras_model, model_path
+):
+    mlflow.keras.save_model(keras_model.model, model_path)
+
+    inp_dict = {
+        "inputs": {
+            "a": keras_model.inference_data[:, :2].tolist(),
+            "b": keras_model.inference_data[:, -2:].tolist(),
+        }
+    }
+    response_records_content_type = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=json.dumps(inp_dict),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+    )
+    assert response_records_content_type.status_code == 200
+
+
+@pytest.mark.large
 def test_parse_json_input_records_oriented():
-    size = 20
+    size = 2
     data = {
         "col_m": [random_int(0, 1000) for _ in range(size)],
-        "col_z": [random_str(4) for _ in range(size)],
+        "col_z": [random_str() for _ in range(size)],
         "col_a": [random_int() for _ in range(size)],
     }
     p1 = pd.DataFrame.from_dict(data)
@@ -238,7 +365,7 @@ def test_parse_json_input_split_oriented():
     size = 200
     data = {
         "col_m": [random_int(0, 1000) for _ in range(size)],
-        "col_z": [random_str(4) for _ in range(size)],
+        "col_z": [random_str() for _ in range(size)],
         "col_a": [random_int() for _ in range(size)],
     }
     p1 = pd.DataFrame.from_dict(data)
@@ -252,7 +379,7 @@ def test_parse_json_input_split_oriented_to_numpy_array():
     data = OrderedDict(
         [
             ("col_m", [random_int(0, 1000) for _ in range(size)]),
-            ("col_z", [random_str(4) for _ in range(size)]),
+            ("col_z", [random_str() for _ in range(size)]),
             ("col_a", [random_int() for _ in range(size)]),
         ]
     )
@@ -307,7 +434,7 @@ def test_parse_with_schema(pandas_df_with_all_types):
     df = pyfunc_scoring_server.parse_json_input(json_str, orient="split", schema=schema)
     json_str = json.dumps(df.to_dict(orient="records"), cls=NumpyEncoder)
     df = pyfunc_scoring_server.parse_json_input(json_str, orient="records", schema=schema)
-    assert schema == infer_signature(df[schema.column_names()]).inputs
+    assert schema == infer_signature(df[schema.input_names()]).inputs
 
     # The current behavior with pandas json parse with type hints is weird. In some cases, the
     # types are forced ignoting overflow and loss of precision:
@@ -346,6 +473,49 @@ def test_parse_with_schema(pandas_df_with_all_types):
     assert all(df["bad_boolean"] == [True, False, True])
 
 
+def test_infer_and_parse_json_input():
+    size = 20
+    # input is correctly recognized as list, and parsed as pd df with orient 'records'
+    data = {
+        "col_m": [random_int(0, 1000) for _ in range(size)],
+        "col_z": [random_str() for _ in range(size)],
+        "col_a": [random_int() for _ in range(size)],
+    }
+    p1 = pd.DataFrame.from_dict(data)
+    p2 = pyfunc_scoring_server.infer_and_parse_json_input(p1.to_json(orient="records"))
+    assert all(p1 == p2)
+
+    # input is correctly recognized as a dict, and parsed as pd df with orient 'split'
+    data = {
+        "col_m": [random_int(0, 1000) for _ in range(size)],
+        "col_z": [random_str() for _ in range(size)],
+        "col_a": [random_int() for _ in range(size)],
+    }
+    p1 = pd.DataFrame.from_dict(data)
+    p2 = pyfunc_scoring_server.infer_and_parse_json_input(p1.to_json(orient="split"))
+    assert all(p1 == p2)
+
+    # input is correctly recognized as tf serving input
+    arr = [
+        [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
+        [[3, 2, 1], [6, 5, 4], [9, 8, 7]],
+    ]
+    tfserving_input = {"instances": arr}
+    result = pyfunc_scoring_server.infer_and_parse_json_input(json.dumps(tfserving_input))
+    assert result.shape == (2, 3, 3)
+    assert (result == np.array(arr)).all()
+
+    # input is unrecognized JSON input
+    match = "Failed to parse input from JSON. Ensure that input is a valid JSON list or dictionary."
+    with pytest.raises(MlflowException, match=match):
+        pyfunc_scoring_server.infer_and_parse_json_input(json.dumps('"just a string"'))
+
+    # input is not json str
+    match = "Failed to parse input from JSON. Ensure that input is a valid JSON formatted string."
+    with pytest.raises(MlflowException, match=match):
+        pyfunc_scoring_server.infer_and_parse_json_input("(not a json string)")
+
+
 @pytest.mark.large
 def test_serving_model_with_schema(pandas_df_with_all_types):
     class TestModel(PythonModel):
@@ -366,7 +536,10 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
             extra_args=["--no-conda"],
         )
         response_json = json.loads(response.content)
-        assert response_json == [[k, str(v)] for k, v in pandas_df_with_all_types.dtypes.items()]
+
+        # np.objects are not converted to pandas Strings at the moment
+        expected_types = {**pandas_df_with_all_types.dtypes, "string": np.dtype(object)}
+        assert response_json == [[k, str(v)] for k, v in expected_types.items()]
         response = pyfunc_serve_and_score_model(
             model_uri="runs:/{}/model".format(run.info.run_id),
             data=json.dumps(pandas_df_with_all_types.to_dict(orient="records"), cls=NumpyEncoder),
@@ -374,7 +547,7 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
             extra_args=["--no-conda"],
         )
         response_json = json.loads(response.content)
-        assert response_json == [[k, str(v)] for k, v in pandas_df_with_all_types.dtypes.items()]
+        assert response_json == [[k, str(v)] for k, v in expected_types.items()]
 
 
 @pytest.mark.large
@@ -398,3 +571,45 @@ def test_get_jsonnable_obj():
     assert json.dumps(py_ary, cls=NumpyEncoder) == json.dumps(np_ary, cls=NumpyEncoder)
     np_ary = _get_jsonable_obj(np.array(py_ary, dtype=type(str)))
     assert json.dumps(py_ary, cls=NumpyEncoder) == json.dumps(np_ary, cls=NumpyEncoder)
+
+
+@pytest.mark.large
+def test_parse_json_input_including_path():
+    class TestModel(PythonModel):
+        def predict(self, context, model_input):
+            return 1
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model("model", python_model=TestModel())
+
+    pandas_split_content = pd.DataFrame(
+        {
+            "url": ["http://foo.com", "https://bar.com"],
+            "bad_protocol": ["aaa://bbb", "address:/path"],
+        }
+    ).to_json(orient="split")
+
+    response_records_content_type = pyfunc_serve_and_score_model(
+        model_uri="runs:/{}/model".format(run.info.run_id),
+        data=pandas_split_content,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+    )
+    assert response_records_content_type.status_code == 200
+
+
+@pytest.mark.parametrize(
+    "args, expected",
+    [
+        ({"port": 5000, "host": "0.0.0.0", "nworkers": 4}, "--timeout=60 -b 0.0.0.0:5000 -w 4"),
+        ({"host": "0.0.0.0", "nworkers": 4}, "--timeout=60 -b 0.0.0.0 -w 4"),
+        ({"port": 5000, "nworkers": 4}, "--timeout=60 -w 4"),
+        ({"nworkers": 4}, "--timeout=60 -w 4"),
+        ({}, "--timeout=60"),
+    ],
+)
+def test_get_cmd(args: dict, expected: str):
+    cmd, _ = get_cmd(model_uri="foo", **args)
+
+    assert cmd == (
+        f"gunicorn {expected} ${{GUNICORN_CMD_ARGS}} -- mlflow.pyfunc.scoring_server.wsgi:app"
+    )

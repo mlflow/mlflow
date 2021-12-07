@@ -7,11 +7,29 @@ on:
     # Run this action daily at 7:00 UTC
     - cron: "0 7 * * *"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -exo pipefail {0}
+
+env:
+  MLFLOW_CONDA_HOME: /usr/share/miniconda
+
 jobs:
   examples:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - name: Increase available disk space
+      run: |
+        # Increase available disk space by removing unnecessary tool chains:
+        # https://github.com/actions/virtual-environments/issues/709#issuecomment-612569242
+        rm -rf "$AGENT_TOOLSDIRECTORY"
+        df -h
+
     - name: Check diff
       id: check-diff
       run: |
@@ -19,34 +37,71 @@ jobs:
           git fetch origin master:master
         fi
 
-        REGEXP="tests/examples\|examples\|Dockerfile\|\.dockerignore\$"
+        REGEXP="tests/examples\|examples"
         CHANGED_FILES=$(git diff --name-only master..HEAD | grep "$REGEXP") || true;
-        EXAMPLES_CHANGED=$([[ "$CHANGED_FILES" == *"examples"* ]] && echo "true" || echo "false")
-        DOCKER_CHANGED=$([[ ("$CHANGED_FILES" == *"Dockerfile"*) || ("$CHANGED_FILES" == *".dockerignore"*) ]] && echo "true" || echo "false")
+        EXAMPLES_CHANGED=$([[ ! -z "$CHANGED_FILES" ]] && echo "true" || echo "false")
 
-        echo "CHANGED_FILES:"
-        echo "$CHANGED_FILES"
+        echo -e "CHANGED_FILES:\nCHANGED_FILES"
         echo "EXAMPLES_CHANGED: $EXAMPLES_CHANGED"
-        echo "DOCKER_CHANGED: $DOCKER_CHANGED"
-
         echo "::set-output name=examples_changed::$EXAMPLES_CHANGED"
-        echo "::set-output name=docker_changed::$DOCKER_CHANGED"
 
-    - name: Run example tests
+    - uses: ./.github/actions/setup-python
+      with:
+        python-version: 3.6
+
+    - name: Install dependencies
       if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}
       env:
         INSTALL_SMALL_PYTHON_DEPS: true
         INSTALL_LARGE_PYTHON_DEPS: true
       run: |
         source ./dev/install-common-deps.sh
-        source activate test-environment
-        pytest --verbose tests/examples --durations=0 --large
+
+    - name: Run example tests
+      if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}
+      env:
+        SPARK_LOCAL_IP: 127.0.0.1
+      run: |
+        pytest tests/examples --durations=30 --large
 
     - name: Remove conda environments
       run: |
+        conda remove --all --yes --name test-environment
         ./dev/remove-conda-envs.sh
+
+    - name: Show disk usage
+      run: |
+        df -h
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Increase available disk space
+      run: |
+        rm -rf "$AGENT_TOOLSDIRECTORY"
+        df -h
+
+    - name: Check diff
+      id: check-diff
+      run: |
+        if [ ! "$(git branch --show-current)" == "master" ]; then
+          git fetch origin master:master
+        fi
+
+        REGEXP="Dockerfile\|\.dockerignore"
+        CHANGED_FILES=$(git diff --name-only master..HEAD | grep "$REGEXP") || true;
+        DOCKER_CHANGED=$([[ ! -z "$CHANGED_FILES" ]] && echo "true" || echo "false")
+
+        echo -e "CHANGED_FILES:\nCHANGED_FILES"
+        echo "DOCKER_CHANGED: $DOCKER_CHANGED"
+        echo "::set-output name=docker_changed::$DOCKER_CHANGED"
 
     - name: Run docker tests
       if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.docker_changed == 'true' }}
       run: |
         docker build -t mlflow_test_build . && docker images | grep mlflow_test_build
+
+    - name: Show disk usage
+      run: |
+        df -h

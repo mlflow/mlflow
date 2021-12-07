@@ -4,7 +4,6 @@ import os
 
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import cli_args
@@ -32,7 +31,10 @@ def commands():
 @cli_args.WORKERS
 @cli_args.NO_CONDA
 @cli_args.INSTALL_MLFLOW
-def serve(model_uri, port, host, workers, no_conda=False, install_mlflow=False):
+@cli_args.ENABLE_MLSERVER
+def serve(
+    model_uri, port, host, workers, no_conda=False, install_mlflow=False, enable_mlserver=False
+):
     """
     Serve a model saved with MLflow by launching a webserver on the specified host and port.
     The command supports models with the ``python_function`` or ``crate`` (R Function) flavor.
@@ -54,7 +56,7 @@ def serve(model_uri, port, host, workers, no_conda=False, install_mlflow=False):
     """
     return _get_flavor_backend(
         model_uri, no_conda=no_conda, workers=workers, install_mlflow=install_mlflow
-    ).serve(model_uri=model_uri, port=port, host=host)
+    ).serve(model_uri=model_uri, port=port, host=host, enable_mlserver=enable_mlserver)
 
 
 @commands.command("predict")
@@ -113,11 +115,9 @@ def predict(
 @cli_args.INSTALL_MLFLOW
 def prepare_env(model_uri, no_conda, install_mlflow):
     """
-    **EXPERIMENTAL**: Performs any preparation necessary to predict or serve the model, for example
+    Performs any preparation necessary to predict or serve the model, for example
     downloading dependencies or initializing a conda environment. After preparation,
     calling predict or serve should be fast.
-
-    This method is experimental and may be removed in a future release without warning.
     """
     return _get_flavor_backend(
         model_uri, no_conda=no_conda, install_mlflow=install_mlflow
@@ -128,9 +128,10 @@ def prepare_env(model_uri, no_conda, install_mlflow):
 @cli_args.MODEL_URI
 @click.option("--name", "-n", default="mlflow-pyfunc-servable", help="Name to use for built image")
 @cli_args.INSTALL_MLFLOW
-def build_docker(model_uri, name, install_mlflow):
+@cli_args.ENABLE_MLSERVER
+def build_docker(model_uri, name, install_mlflow, enable_mlserver):
     """
-    **EXPERIMENTAL**: Builds a Docker image whose default entrypoint serves the specified MLflow
+    Builds a Docker image whose default entrypoint serves the specified MLflow
     model at port 8080 within the container, using the 'python_function' flavor.
 
     For example, the following command builds a docker image named 'my-image-name' that serves the
@@ -157,18 +158,20 @@ def build_docker(model_uri, name, install_mlflow):
 
     See https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html for more information on the
     'python_function' flavor.
-
-    This command is experimental (may be changed or removed in a future release without warning)
-    and does not guarantee that the arguments nor format of the Docker container will remain the
-    same.
     """
     mlflow_home = os.environ.get("MLFLOW_HOME", None)
     _get_flavor_backend(model_uri, docker_build=True).build_image(
-        model_uri, name, mlflow_home=mlflow_home, install_mlflow=install_mlflow
+        model_uri,
+        name,
+        mlflow_home=mlflow_home,
+        install_mlflow=install_mlflow,
+        enable_mlserver=enable_mlserver,
     )
 
 
 def _get_flavor_backend(model_uri, **kwargs):
+    from mlflow.models.flavor_backend_registry import get_flavor_backend
+
     with TempDir() as tmp:
         if ModelsArtifactRepository.is_models_uri(model_uri):
             underlying_model_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)

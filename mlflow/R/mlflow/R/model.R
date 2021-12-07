@@ -31,7 +31,7 @@ mlflow_log_model <- function(model, artifact_path, ...) {
   temp_path <- fs::path_temp(artifact_path)
   model_spec <- mlflow_save_model(model, path = temp_path, model_spec = list(
     utc_time_created = mlflow_timestamp(),
-    run_id = mlflow_get_active_run_id(),
+    run_id = mlflow_get_active_run_id_or_start_run(),
     artifact_path = artifact_path,
     flavors = list()
   ), ...)
@@ -106,7 +106,7 @@ mlflow_load_model <- function(model_uri, flavor = NULL, client = mlflow_client()
     flavor <- available_flavors[[1]]
   }
 
-  flavor <- mlflow_flavor(flavor, spec[[flavor]])
+  flavor <- mlflow_flavor(flavor, spec$flavors[[flavor]])
   mlflow_load_flavor(flavor, model_path)
 }
 

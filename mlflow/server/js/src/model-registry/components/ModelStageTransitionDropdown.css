@@ -1,3 +1,4 @@
 .stage-transition-dropdown .ant-tag {
     cursor: pointer;
+    border-radius: 4px;
 }

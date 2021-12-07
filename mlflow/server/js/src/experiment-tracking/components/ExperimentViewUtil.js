@@ -3,9 +3,18 @@ import React from 'react';
 import Utils from '../../common/utils/Utils';
 import { Link } from 'react-router-dom';
 import Routes from '../routes';
-import { DEFAULT_EXPANDED_VALUE } from './ExperimentView';
-import { CollapsibleTagsCell } from './CollapsibleTagsCell';
+import { getModelVersionPageRoute } from '../../model-registry/routes';
+import { CollapsibleTagsCell } from '../../common/components/CollapsibleTagsCell';
 import _ from 'lodash';
+import ExpandableList from '../../common/components/ExpandableList';
+import registryIcon from '../../common/static/registryIcon.svg';
+import { TrimmedText } from '../../common/components/TrimmedText';
+import {
+  ATTRIBUTE_COLUMN_LABELS,
+  ATTRIBUTE_COLUMN_SORT_KEY,
+  DEFAULT_EXPANDED_VALUE,
+  COLUMN_TYPES,
+} from '../constants';
 
 export default class ExperimentViewUtil {
   /** Returns checkbox cell for a row. */
@@ -14,7 +23,7 @@ export default class ExperimentViewUtil {
     return (
       <CellComponent key='meta-check' className='run-table-container'>
         <div>
-          <input type='checkbox' checked={selected} onClick={checkboxHandler} />
+          <input type='checkbox' checked={selected} onChange={checkboxHandler} />
         </div>
       </CellComponent>
     );
@@ -24,9 +33,6 @@ export default class ExperimentViewUtil {
     sortIconStyle: {
       verticalAlign: 'middle',
       fontSize: 20,
-    },
-    headerCellText: {
-      verticalAlign: 'middle',
     },
     sortIconContainer: {
       marginLeft: 2,
@@ -67,7 +73,8 @@ export default class ExperimentViewUtil {
     const user = Utils.getUser(runInfo, tags);
     const queryParams = window.location && window.location.search ? window.location.search : '';
     const sourceType = Utils.renderSource(tags, queryParams);
-    const { status, start_time: startTime } = runInfo;
+    const { status, start_time: startTime, end_time: endTime } = runInfo;
+    const duration = Utils.getDuration(startTime, endTime);
     const runName = Utils.getRunName(tags);
     const childLeftMargin = isParent ? {} : { paddingLeft: 16 };
     const columnProps = [
@@ -78,7 +85,7 @@ export default class ExperimentViewUtil {
         children: ExperimentViewUtil.getRunStatusIcon(status),
       },
       {
-        key: ExperimentViewUtil.AttributeColumnLabels.DATE,
+        key: ATTRIBUTE_COLUMN_LABELS.DATE,
         className: 'run-table-container',
         style: { whiteSpace: 'inherit' },
         children: (
@@ -90,7 +97,17 @@ export default class ExperimentViewUtil {
         ),
       },
       {
-        key: ExperimentViewUtil.AttributeColumnLabels.USER,
+        key: ATTRIBUTE_COLUMN_LABELS.DURATION,
+        className: 'run-table-container',
+        title: duration,
+        children: (
+          <div className='truncate-text single-line' style={ExperimentViewUtil.styles.runInfoCell}>
+            {duration}
+          </div>
+        ),
+      },
+      {
+        key: ATTRIBUTE_COLUMN_LABELS.USER,
         className: 'run-table-container',
         title: user,
         children: (
@@ -100,7 +117,7 @@ export default class ExperimentViewUtil {
         ),
       },
       {
-        key: ExperimentViewUtil.AttributeColumnLabels.RUN_NAME,
+        key: ATTRIBUTE_COLUMN_LABELS.RUN_NAME,
         className: 'run-table-container',
         title: runName,
         children: (
@@ -110,18 +127,18 @@ export default class ExperimentViewUtil {
         ),
       },
       {
-        key: ExperimentViewUtil.AttributeColumnLabels.SOURCE,
+        key: ATTRIBUTE_COLUMN_LABELS.SOURCE,
         className: 'run-table-container',
         title: sourceType,
         children: (
           <div className='truncate-text single-line' style={ExperimentViewUtil.styles.runInfoCell}>
-            {Utils.renderSourceTypeIcon(Utils.getSourceType(tags))}
+            {Utils.renderSourceTypeIcon(tags)}
             {sourceType}
           </div>
         ),
       },
       {
-        key: ExperimentViewUtil.AttributeColumnLabels.VERSION,
+        key: ATTRIBUTE_COLUMN_LABELS.VERSION,
         className: 'run-table-container',
         children: (
           <div className='truncate-text single-line' style={ExperimentViewUtil.styles.runInfoCell}>
@@ -143,6 +160,119 @@ export default class ExperimentViewUtil {
     return columnProps
       .filter((column) => !excludedKeysSet.has(column.key))
       .map((props) => <CellComponent {...props} />);
+  }
+
+  /**
+   * Format a string for insertion into a CSV file.
+   */
+  static csvEscape(str) {
+    if (str === undefined) {
+      return '';
+    }
+    if (/[,"\r\n]/.test(str)) {
+      return '"' + str.replace(/"/g, '""') + '"';
+    }
+    return str;
+  }
+
+  /**
+   * Convert a table to a CSV string.
+   *
+   * @param columns Names of columns
+   * @param data Array of rows, each of which are an array of field values
+   */
+  static tableToCsv(columns, data) {
+    let csv = '';
+    let i;
+
+    for (i = 0; i < columns.length; i++) {
+      csv += ExperimentViewUtil.csvEscape(columns[i]);
+      if (i < columns.length - 1) {
+        csv += ',';
+      }
+    }
+    csv += '\n';
+
+    for (i = 0; i < data.length; i++) {
+      for (let j = 0; j < data[i].length; j++) {
+        csv += ExperimentViewUtil.csvEscape(data[i][j]);
+        if (j < data[i].length - 1) {
+          csv += ',';
+        }
+      }
+      csv += '\n';
+    }
+
+    return csv;
+  }
+
+  /**
+   * Convert an array of run infos to a CSV string, extracting the params and metrics in the
+   * provided lists.
+   */
+  static runInfosToCsv(
+    runInfos,
+    paramKeyList,
+    metricKeyList,
+    tagKeyList,
+    paramsList,
+    metricsList,
+    tagsList,
+  ) {
+    const columns = [
+      'Start Time',
+      'Duration',
+      'Run ID',
+      'Name',
+      'Source Type',
+      'Source Name',
+      'User',
+      'Status',
+      ...paramKeyList,
+      ...metricKeyList,
+      ...tagKeyList,
+    ];
+
+    const data = runInfos.map((runInfo, index) => {
+      const row = [
+        Utils.formatTimestamp(runInfo.start_time),
+        Utils.getDuration(runInfo.start_time, runInfo.end_time) || '',
+        runInfo.run_uuid,
+        Utils.getRunName(tagsList[index]), // add run name to csv export row
+        Utils.getSourceType(tagsList[index]),
+        Utils.getSourceName(tagsList[index]),
+        Utils.getUser(runInfo, tagsList[index]),
+        runInfo.status,
+      ];
+      const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[index]);
+      const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[index]);
+      const tagsMap = tagsList[index];
+
+      paramKeyList.forEach((paramKey) => {
+        if (paramsMap[paramKey]) {
+          row.push(paramsMap[paramKey].getValue());
+        } else {
+          row.push('');
+        }
+      });
+      metricKeyList.forEach((metricKey) => {
+        if (metricsMap[metricKey]) {
+          row.push(metricsMap[metricKey].getValue());
+        } else {
+          row.push('');
+        }
+      });
+      tagKeyList.forEach((tagKey) => {
+        if (tagsMap[tagKey]) {
+          row.push(tagsMap[tagKey].getValue());
+        } else {
+          row.push('');
+        }
+      });
+      return row;
+    });
+
+    return ExperimentViewUtil.tableToCsv(columns, data);
   }
 
   /**
@@ -174,14 +304,6 @@ export default class ExperimentViewUtil {
     );
   }
 
-  static AttributeColumnLabels = {
-    DATE: 'Start Time',
-    USER: 'User',
-    RUN_NAME: 'Run Name',
-    SOURCE: 'Source',
-    VERSION: 'Version',
-  };
-
   /**
    * Returns header-row table cells for columns containing run metadata.
    */
@@ -194,7 +316,7 @@ export default class ExperimentViewUtil {
         canonicalSortKey,
       );
       const isSortable = canonicalSortKey !== null;
-      const cellClassName = classNames('bottom-row', 'run-table-container', {
+      const cellClassName = classNames('run-table-container', {
         sortable: isSortable,
       });
       return (
@@ -203,7 +325,7 @@ export default class ExperimentViewUtil {
           className={cellClassName}
           onClick={() => (isSortable ? onSortBy(canonicalSortKey, !curOrderByAsc) : null)}
         >
-          <span style={ExperimentViewUtil.styles.headerCellText}>{text}</span>
+          <span>{text}</span>
           {isSortable && (
             <span style={ExperimentViewUtil.styles.sortIconContainer}>{sortIcon}</span>
           )}
@@ -218,32 +340,37 @@ export default class ExperimentViewUtil {
       },
       {
         key: 'start_time',
-        displayName: this.AttributeColumnLabels.DATE,
-        canonicalSortKey: 'attributes.start_time',
+        displayName: ATTRIBUTE_COLUMN_LABELS.DATE,
+        canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.DATE,
       },
       {
         key: 'user_id',
-        displayName: this.AttributeColumnLabels.USER,
-        canonicalSortKey: 'tags.`mlflow.user`',
+        displayName: ATTRIBUTE_COLUMN_LABELS.USER,
+        canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.USER,
       },
       {
         key: 'run_name',
-        displayName: this.AttributeColumnLabels.RUN_NAME,
-        canonicalSortKey: 'tags.`mlflow.runName`',
+        displayName: ATTRIBUTE_COLUMN_LABELS.RUN_NAME,
+        canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.RUN_NAME,
       },
       {
         key: 'source',
-        displayName: this.AttributeColumnLabels.SOURCE,
-        canonicalSortKey: 'tags.`mlflow.source.name`',
+        displayName: ATTRIBUTE_COLUMN_LABELS.SOURCE,
+        canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.SOURCE,
       },
       {
         key: 'source_version',
-        displayName: this.AttributeColumnLabels.VERSION,
-        canonicalSortKey: 'tags.`mlflow.source.git.commit`',
+        displayName: ATTRIBUTE_COLUMN_LABELS.VERSION,
+        canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.VERSION,
       },
       {
         key: 'tags',
         displayName: 'Tags',
+        canonicalSortKey: null,
+      },
+      {
+        key: 'linked-models',
+        displayName: 'Linked Models',
         canonicalSortKey: null,
       },
     ]
@@ -317,12 +444,53 @@ export default class ExperimentViewUtil {
     }
   }
 
+  static renderLinkedModelCell(modelVersion) {
+    const { name, version } = modelVersion;
+    return (
+      <div className='version-link'>
+        <img src={registryIcon} alt='MLflow Model Registry Icon' />
+        <span className='model-link-text'>
+          <a
+            href={Utils.getIframeCorrectedRoute(getModelVersionPageRoute(name, version))}
+            className='model-version-link'
+            title={`${name}, v${version}`}
+            style={{ verticalAlign: 'middle' }}
+            target='_blank'
+          >
+            <TrimmedText text={name} maxSize={10} className={'model-name'} />
+            <span>/{version}&nbsp;</span>
+          </a>
+        </span>
+      </div>
+    );
+  }
+
+  static getLinkedModelCell(associatedModelVersions, handleCellToggle) {
+    const className = 'run-table-container';
+    if (associatedModelVersions && associatedModelVersions.length > 0) {
+      return (
+        <div className={className} key='linked=models'>
+          <ExpandableList
+            children={associatedModelVersions.map((version) => this.renderLinkedModelCell(version))}
+            showLines={1}
+            onToggle={handleCellToggle}
+          />
+        </div>
+      );
+    } else {
+      return null;
+    }
+  }
+
   static computeMetricRanges(metricsByRun) {
     const ret = {};
     metricsByRun.forEach((metrics) => {
       metrics.forEach((metric) => {
         if (!ret.hasOwnProperty(metric.key)) {
-          ret[metric.key] = { min: Math.min(metric.value, metric.value * 0.7), max: metric.value };
+          ret[metric.key] = {
+            min: Math.min(metric.value, metric.value * 0.7),
+            max: metric.value,
+          };
         } else {
           if (metric.value < ret[metric.key].min) {
             ret[metric.key].min = Math.min(metric.value, metric.value * 0.7);
@@ -384,7 +552,7 @@ export default class ExperimentViewUtil {
     }
   }
 
-  static getRowRenderMetadata({ runInfos, tagsList, runsExpanded }) {
+  static getNestedRowRenderMetadata({ runInfos, tagsList, runsExpanded }) {
     const runIdToIdx = {};
     runInfos.forEach((r, idx) => {
       runIdToIdx[r.run_uuid] = idx;
@@ -453,6 +621,19 @@ export default class ExperimentViewUtil {
     return mergedRows.slice(0);
   }
 
+  static getRowRenderMetadata({ runInfos, tagsList, runsExpanded, nestChildren }) {
+    if (nestChildren) {
+      return this.getNestedRowRenderMetadata({ runInfos, tagsList, runsExpanded });
+    } else {
+      return [...Array(runInfos.length).keys()].map((idx) => ({
+        idx,
+        isParent: true,
+        hasExpander: false,
+        runId: runInfos[idx].run_uuid,
+      }));
+    }
+  }
+
   static getRows({ runInfos, tagsList, runsExpanded, getRow }) {
     const mergedRows = ExperimentViewUtil.getRowRenderMetadata({
       runInfos,
@@ -471,6 +652,182 @@ export default class ExperimentViewUtil {
         </tr>
       );
     });
+  }
+
+  static disableLoadMoreButton({ numRunsFromLatestSearch, nextPageToken }) {
+    if (numRunsFromLatestSearch === null) {
+      // numRunsFromLatestSearch is null by default, so we should not disable the button
+      return false;
+    }
+    return nextPageToken === null;
+  }
+
+  /**
+   * Obtain the categorized columns (params, metrics & tags) for which the values
+   * in them have only a single value (or are undefined). For attribute columns,
+   * obtain the columns for which every value is undefined.
+   */
+  static getCategorizedUncheckedKeysDiffView({
+    categorizedUncheckedKeys,
+    paramKeyList,
+    metricKeyList,
+    runInfos,
+    paramsList,
+    metricsList,
+    tagsList,
+  }) {
+    const attributeColumnsToTags = {
+      // Leave the User and Source columns out of consideration because they normally have values.
+      [ATTRIBUTE_COLUMN_LABELS.RUN_NAME]: Utils.runNameTag,
+      [ATTRIBUTE_COLUMN_LABELS.VERSION]: Utils.gitCommitTag,
+      [ATTRIBUTE_COLUMN_LABELS.MODELS]: Utils.loggedModelsTag,
+    };
+    const attributeKeyList = Object.keys(attributeColumnsToTags);
+    const tagKeyList = Utils.getVisibleTagKeyList(tagsList);
+    let attributeColumnsToUncheck = _.difference(
+      attributeKeyList,
+      categorizedUncheckedKeys[COLUMN_TYPES.ATTRIBUTES],
+    );
+    let paramColumnsToUncheck = _.difference(
+      paramKeyList,
+      categorizedUncheckedKeys[COLUMN_TYPES.PARAMS],
+    );
+    let metricColumnsToUncheck = _.difference(
+      metricKeyList,
+      categorizedUncheckedKeys[COLUMN_TYPES.METRICS],
+    );
+    let tagColumnsToUncheck = _.difference(tagKeyList, categorizedUncheckedKeys[COLUMN_TYPES.TAGS]);
+
+    const dropDiffColumns = (columns, prevRow, currRow) => {
+      // What each argument represents:
+      // | a   | b   | c   | d   | e   | <- columns
+      // | --- | --- | --- | --- | --- |
+      // | -   | 1   | -   | 1   | 1   | <- prevRow
+      // | -   | -   | 1   | 1   | 2   | <- currRow
+      // | ?   | ?   | ?   | ?   | ?   |
+      //
+      // a, d: may be a diff column, we need to check the next row
+      // b, c, e: is a diff column, we don't need to check the next row
+
+      return columns.filter((col) => {
+        const prevValue = prevRow[col];
+        const currValue = currRow[col];
+        if (!prevValue && !currValue) {
+          // Case a
+          return true;
+        } else if (!prevValue || !currValue) {
+          // Case b & c
+          return false;
+        } else if (prevValue.getValue() === currValue.getValue()) {
+          // Case d
+          return true;
+        } else {
+          // Case e
+          return false;
+        }
+      });
+    };
+
+    for (const [index] of runInfos.entries()) {
+      // Drop non-empty attribute columns
+      attributeColumnsToUncheck = attributeColumnsToUncheck.filter(
+        (col) => !(attributeColumnsToTags[col] in tagsList[index]),
+      );
+
+      if (index === 0) {
+        continue;
+      }
+
+      // The following operations need to be skipped in the first iteration.
+
+      paramColumnsToUncheck = dropDiffColumns(
+        paramColumnsToUncheck,
+        ExperimentViewUtil.toParamsMap(paramsList[index - 1]),
+        ExperimentViewUtil.toParamsMap(paramsList[index]),
+      );
+
+      metricColumnsToUncheck = dropDiffColumns(
+        metricColumnsToUncheck,
+        ExperimentViewUtil.toMetricsMap(metricsList[index - 1]),
+        ExperimentViewUtil.toMetricsMap(metricsList[index]),
+      );
+
+      tagColumnsToUncheck = dropDiffColumns(
+        tagColumnsToUncheck,
+        tagsList[index - 1],
+        tagsList[index],
+      );
+
+      // Short-circuit loop if there are no more columns to take a look at
+      if (
+        attributeColumnsToUncheck.length === 0 &&
+        paramColumnsToUncheck.length === 0 &&
+        metricColumnsToUncheck.length === 0 &&
+        tagColumnsToUncheck.length === 0
+      ) {
+        break;
+      }
+    }
+
+    return {
+      [COLUMN_TYPES.ATTRIBUTES]: _.concat(
+        categorizedUncheckedKeys[COLUMN_TYPES.ATTRIBUTES],
+        attributeColumnsToUncheck,
+      ),
+      [COLUMN_TYPES.PARAMS]: _.concat(
+        categorizedUncheckedKeys[COLUMN_TYPES.PARAMS],
+        paramColumnsToUncheck,
+      ),
+      [COLUMN_TYPES.METRICS]: _.concat(
+        categorizedUncheckedKeys[COLUMN_TYPES.METRICS],
+        metricColumnsToUncheck,
+      ),
+      [COLUMN_TYPES.TAGS]: _.concat(
+        categorizedUncheckedKeys[COLUMN_TYPES.TAGS],
+        tagColumnsToUncheck,
+      ),
+    };
+  }
+
+  /**
+   * Get the categorized unchecked keys that were in place before hitting the diff switch
+   * with state changes in between also reflected
+   * @param preSwitchCategorizedUncheckedKeys the keys that were unchecked before diff-view
+   *  switch was turned on
+   * @param postSwitchCategorizedUncheckedKeys the keys that were unchecked by turning the
+   *  diff-view switch on
+   * @param currCategorizedUncheckedKeys currently unchecked keys (possibly includes keys
+   * that were checked or unchecked while being in the diff view)
+   */
+  static getRestoredCategorizedUncheckedKeys({
+    preSwitchCategorizedUncheckedKeys,
+    postSwitchCategorizedUncheckedKeys,
+    currCategorizedUncheckedKeys,
+  }) {
+    const restoredUncheckedKeys = (column_type) => {
+      // keys that the user checked while being in diff view
+      const userCheckedKeys = _.difference(
+        postSwitchCategorizedUncheckedKeys[column_type],
+        currCategorizedUncheckedKeys[column_type],
+      );
+      // keys that the user unchecked while being in diff view
+      const userUncheckedKeys = _.difference(
+        currCategorizedUncheckedKeys[column_type],
+        postSwitchCategorizedUncheckedKeys[column_type],
+      );
+      return _.uniq(
+        _.without(
+          _.concat(preSwitchCategorizedUncheckedKeys[column_type], userUncheckedKeys),
+          ...userCheckedKeys,
+        ),
+      );
+    };
+    return {
+      [COLUMN_TYPES.ATTRIBUTES]: restoredUncheckedKeys(COLUMN_TYPES.ATTRIBUTES),
+      [COLUMN_TYPES.PARAMS]: restoredUncheckedKeys(COLUMN_TYPES.PARAMS),
+      [COLUMN_TYPES.METRICS]: restoredUncheckedKeys(COLUMN_TYPES.METRICS),
+      [COLUMN_TYPES.TAGS]: restoredUncheckedKeys(COLUMN_TYPES.TAGS),
+    };
   }
 }
 

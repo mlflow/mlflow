@@ -1,5 +1,5 @@
 import React from 'react';
-import { shallow } from 'enzyme';
+import { shallow, mount } from 'enzyme';
 import { RegisterModelForm, CREATE_NEW_MODEL_OPTION_VALUE } from './RegisterModelForm';
 import { mockRegisteredModelDetailed } from '../test-utils';
 
@@ -9,7 +9,10 @@ describe('RegisterModelForm', () => {
   let minimalProps;
 
   beforeEach(() => {
-    minimalProps = {};
+    minimalProps = {
+      modelByName: {},
+      onSearchRegisteredModels: jest.fn(),
+    };
   });
 
   test('should render with minimal props without exploding', () => {
@@ -25,7 +28,7 @@ describe('RegisterModelForm', () => {
       ...minimalProps,
       modelByName,
     };
-    wrapper = shallow(<RegisterModelForm {...props} />).dive();
+    wrapper = shallow(<RegisterModelForm {...props} />);
     expect(wrapper.find('.create-new-model-option').length).toBe(1);
     expect(wrapper.find('[value="Model A"]').length).toBe(1);
   });
@@ -38,9 +41,24 @@ describe('RegisterModelForm', () => {
       ...minimalProps,
       modelByName,
     };
-    wrapper = shallow(<RegisterModelForm {...props} />).dive();
+    wrapper = shallow(<RegisterModelForm {...props} />);
     instance = wrapper.instance();
     instance.setState({ selectedModel: CREATE_NEW_MODEL_OPTION_VALUE });
     expect(wrapper.find('[label="Model Name"]').length).toBe(1);
+  });
+
+  test('should search registered model when user types model name', () => {
+    const modelByName = {
+      'Model A': mockRegisteredModelDetailed('Model A', []),
+    };
+    const onSearchRegisteredModels = jest.fn(() => Promise.resolve({}));
+    const props = {
+      ...minimalProps,
+      modelByName,
+      onSearchRegisteredModels,
+    };
+    wrapper = mount(<RegisterModelForm {...props} />);
+    wrapper.find('input#selectedModel').simulate('change', { target: { value: 'Model B' } });
+    expect(onSearchRegisteredModels.mock.calls.length).toBe(1);
   });
 });

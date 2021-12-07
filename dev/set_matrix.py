@@ -29,10 +29,11 @@ python dev/set_matrix.py --ref-versions-yaml $REF_VERSIONS_YAML --changed-files 
 # How to run doctests:
 
 ```
-pytest dev/set_matrix.py --doctest-modules --verbose
+pytest dev/set_matrix.py --doctest-modules
 ```
 """
 
+import sys
 import argparse
 from packaging.version import Version
 import json
@@ -41,10 +42,11 @@ import os
 import re
 import shutil
 import urllib.request
+import functools
 
 import yaml
 
-VERSIONS_YAML_PATH = "ml-package-versions.yml"
+VERSIONS_YAML_PATH = "mlflow/ml-package-versions.yml"
 DEV_VERSION = "dev"
 
 
@@ -77,6 +79,7 @@ def read_yaml(location, if_error=None):
         raise
 
 
+@functools.lru_cache()
 def get_released_versions(package_name):
     """
     Fetches the released versions & datetimes of the specified Python package.
@@ -99,7 +102,7 @@ def get_released_versions(package_name):
         #
         # > pip install 'xgboost==0.7'
         # ERROR: Could not find a version that satisfies the requirement xgboost==0.7
-        if len(dist_files) > 0
+        if len(dist_files) > 0 and (not dist_files[0].get("yanked", False))
     }
     return versions
 
@@ -138,7 +141,7 @@ def select_latest_micro_versions(versions):
     return res
 
 
-def filter_versions(versions, min_ver, max_ver, excludes=None):
+def filter_versions(versions, min_ver, max_ver, excludes=None, allow_unreleased_max_version=False):
     """
     Filter versions that satisfy the following conditions:
 
@@ -167,7 +170,7 @@ def filter_versions(versions, min_ver, max_ver, excludes=None):
 
     # Prevent specifying non-existent versions
     assert min_ver in versions
-    assert max_ver in versions
+    assert max_ver in versions or allow_unreleased_max_version
     assert all(v in versions for v in excludes)
 
     versions = {Version(v): t for v, t in versions.items() if v not in excludes}
@@ -195,7 +198,11 @@ def get_changed_flavors(changed_files, flavors):
     ['pytorch', 'xgboost']
     >>> get_changed_flavors(["mlflow/xgboost.py"], flavors)
     ['xgboost']
-    >>> get_changed_flavors(["tests/xgboost/test_xgboost_autolog.py"], flavors)
+    >>> get_changed_flavors(["tests/xgboost/test_xxx.py"], flavors)
+    ['xgboost']
+    >>> get_changed_flavors(["tests/xgboost_autolog/test_xxx.py"], flavors)
+    ['xgboost']
+    >>> get_changed_flavors(["tests/xgboost_autologging/test_xxx.py"], flavors)
     ['xgboost']
     >>> get_changed_flavors(["README.rst"], flavors)
     []
@@ -204,7 +211,10 @@ def get_changed_flavors(changed_files, flavors):
     """
     changed_flavors = []
     for f in changed_files:
-        match = re.search(r"^(mlflow|tests)/(.+?)(\.py|/)", f)
+        pattern = r"^(mlflow|tests)/(.+?)(_autolog(ging)?)?(\.py|/)"
+        #                           ~~~~~
+        #                           # This group captures a flavor name
+        match = re.search(pattern, f)
 
         if (match is not None) and (match.group(2) in flavors):
             changed_flavors.append(match.group(2))
@@ -249,7 +259,8 @@ def get_operator_and_version(ver_spec):
     if m is None:
         raise ValueError(
             "Invalid value for `ver_spec`: '{}'. Must match this regular expression: '{}'".format(
-                ver_spec, regexp,
+                ver_spec,
+                regexp,
             )
         )
 
@@ -300,14 +311,14 @@ def process_requirements(requirements, version=None):
             op_and_ver_pairs = map(get_operator_and_version, ver_spec.split(","))
             match_all = all(
                 comp_op(
-                    Version(version), Version(dev_numeric if req_ver == DEV_VERSION else req_ver),
+                    Version(version),
+                    Version(dev_numeric if req_ver == DEV_VERSION else req_ver),
                 )
                 for comp_op, req_ver in op_and_ver_pairs
             )
             if match_all:
                 return packages
-        else:
-            return []
+        return []
 
     raise TypeError("Invalid object type for `requirements`: '{}'".format(type(requirements)))
 
@@ -350,15 +361,29 @@ def divider(title, length=None):
     return "\n{} {} {}".format("=" * left, title, "=" * (rest - left))
 
 
-def parse_args():
+def split_by_comma(x):
+    stripped = x.strip()
+    return list(map(str.strip, stripped.split(","))) if stripped != "" else []
+
+
+def parse_args(args):
     parser = argparse.ArgumentParser(description="Set a test matrix for the cross version tests")
+    parser.add_argument(
+        "--versions-yaml",
+        required=False,
+        default="mlflow/ml-package-versions.yml",
+        help=(
+            "URL or local file path of the config yaml. Defaults to "
+            "'mlflow/ml-package-versions.yml' on the branch where this script is running."
+        ),
+    )
     parser.add_argument(
         "--ref-versions-yaml",
         required=False,
         default=None,
         help=(
-            "URL or local file path of the reference config which will be compared with the config "
-            "on the branch where this script is running in order to identify version YAML updates"
+            "URL or local file path of the reference config yaml which will be compared with the "
+            "config specified by `--versions-yaml` in order to identify the config updates."
         ),
     )
     parser.add_argument(
@@ -369,7 +394,34 @@ def parse_args():
         help=("A string that represents a list of changed files"),
     )
 
-    return parser.parse_args()
+    parser.add_argument(
+        "--flavors",
+        required=False,
+        type=split_by_comma,
+        help=(
+            "Comma-separated string specifying which flavors to test (e.g. 'sklearn, xgboost'). "
+            "If unspecified, all flavors are tested."
+        ),
+    )
+    parser.add_argument(
+        "--versions",
+        required=False,
+        type=split_by_comma,
+        help=(
+            "Comma-separated string specifying which versions to test (e.g. '1.2.3, 4.5.6'). "
+            "If unspecified, all versions are tested."
+        ),
+    )
+
+    parser.add_argument(
+        "--exclude-dev-versions",
+        action="store_true",
+        required=False,
+        default=False,
+        help="If True, exclude dev versions from the test matrix.",
+    )
+
+    return parser.parse_args(args)
 
 
 class Hashabledict(dict):
@@ -385,26 +437,40 @@ def expand_config(config):
         all_versions = get_released_versions(package_info["pip_release"])
 
         for key, cfg in cfgs.items():
-            print("Processing", flavor_key, key)
             # Released versions
+            min_ver = cfg["minimum"]
+            max_ver = cfg["maximum"]
             versions = filter_versions(
-                all_versions, cfg["minimum"], cfg["maximum"], cfg.get("unsupported"),
+                all_versions,
+                min_ver,
+                max_ver,
+                cfg.get("unsupported"),
+                allow_unreleased_max_version=cfg.get("allow_unreleased_max_version", False),
             )
             versions = select_latest_micro_versions(versions)
 
             # Explicitly include the minimum supported version
-            if cfg["minimum"] not in versions:
-                versions.append(cfg["minimum"])
+            if min_ver not in versions:
+                versions.append(min_ver)
 
+            pip_release = package_info["pip_release"]
             for ver in versions:
                 job_name = " / ".join([flavor_key, ver, key])
-                requirements = ["{}=={}".format(package_info["pip_release"], ver)]
+                requirements = ["{}=={}".format(pip_release, ver)]
                 requirements.extend(process_requirements(cfg.get("requirements"), ver))
                 install = make_pip_install_command(requirements)
                 run = remove_comments(cfg["run"])
 
                 matrix.append(
-                    Hashabledict(flavor=flavor, job_name=job_name, install=install, run=run,)
+                    Hashabledict(
+                        flavor=flavor,
+                        job_name=job_name,
+                        install=install,
+                        run=run,
+                        package=pip_release,
+                        version=ver,
+                        supported=Version(ver) <= Version(max_ver),
+                    )
                 )
 
             # Development version
@@ -417,51 +483,86 @@ def expand_config(config):
                 run = remove_comments(cfg["run"])
 
                 matrix.append(
-                    Hashabledict(flavor=flavor, job_name=job_name, install=install, run=run,)
+                    Hashabledict(
+                        flavor=flavor,
+                        job_name=job_name,
+                        install=install,
+                        run=run,
+                        package=pip_release,
+                        version=DEV_VERSION,
+                        supported=False,
+                    )
                 )
     return matrix
 
 
-def main():
-    args = parse_args()
+def process_ref_versions_yaml(ref_versions_yaml, matrix_base):
+    if ref_versions_yaml is None:
+        return set()
 
-    print(divider("Parameters"))
-    print(json.dumps(vars(args), indent=2))
-
-    print(divider("Logs"))
-    changed_files = [] if (args.changed_files is None) else args.changed_files
-    config = read_yaml(VERSIONS_YAML_PATH)
-    config_ref = (
-        {} if args.ref_versions_yaml is None else read_yaml(args.ref_versions_yaml, if_error={})
-    )
-
-    # Assuming that the top-level keys in `ml-package-versions.yml` have the format:
-    # <flavor name>(-<suffix>) (e.g. sklearn, tensorflow-1.x, keras-tf1.x)
-    flavors = set(x.split("-")[0] for x in config.keys())
-    changed_flavors = get_changed_flavors(changed_files, flavors)
-
-    matrix = set(expand_config(config))
+    config_ref = read_yaml(ref_versions_yaml, if_error={})
     matrix_ref = set(expand_config(config_ref))
+    return matrix_base.difference(matrix_ref)
 
-    diff_config = (
-        set()
-        if (args.changed_files is not None and args.ref_versions_yaml is None)
-        else matrix.difference(matrix_ref)
+
+def process_changed_files(changed_files, matrix_base):
+    if changed_files is None:
+        return set()
+
+    flavors = set(x["flavor"] for x in matrix_base)
+    changed_flavors = (
+        # If this file (`dev/set_matrix.py`) has been changed, re-run all tests
+        flavors
+        if (__file__ in changed_files)
+        else get_changed_flavors(changed_files, flavors)
     )
-    diff_flavor = set(filter(lambda x: x["flavor"] in changed_flavors, matrix))
+    return set(filter(lambda x: x["flavor"] in changed_flavors, matrix_base))
 
-    # If this file contains changes, re-run all the tests, otherwise re-run the affected tests.
-    include = matrix if (__file__ in changed_files) else diff_config.union(diff_flavor)
-    include = sorted(include, key=lambda x: x["job_name"])
-    job_names = [x["job_name"] for x in include]
 
-    matrix = {"job_name": job_names, "include": include}
+def generate_matrix(args):
+    args = parse_args(args)
+    config_base = read_yaml(args.versions_yaml)
+    matrix_base = set(expand_config(config_base))
+
+    # If both `--ref-versions-yaml` and `--changed-files` are unspecified, no further processing is
+    # required.
+    if args.ref_versions_yaml is None and args.changed_files is None:
+        matrix_final = matrix_base
+    else:
+        # Matrix entries for changes on `ml-package-versions.yml`
+        matrix_diff_config = process_ref_versions_yaml(args.ref_versions_yaml, matrix_base)
+        # Matrix entries for changes on python scripts under `mlflow` and `tests`
+        matrix_diff_flavors = process_changed_files(args.changed_files, matrix_base)
+        # Merge `matrix_diff_config` and `matrix_diff_flavors`
+        matrix_final = matrix_diff_config.union(matrix_diff_flavors)
+
+    # Apply the filtering arguments
+    if args.exclude_dev_versions:
+        matrix_final = filter(lambda x: x["version"] != DEV_VERSION, matrix_final)
+
+    if args.flavors:
+        matrix_final = filter(lambda x: x["flavor"] in args.flavors, matrix_final)
+
+    if args.versions:
+        matrix_final = filter(lambda x: x["version"] in args.versions, matrix_final)
+
+    return set(matrix_final)
+
+
+def main(args):
+    print(divider("Parameters"))
+    print(json.dumps(args, indent=2))
+    matrix = generate_matrix(args)
+    matrix = sorted(matrix, key=lambda x: x["job_name"])
+    job_names = [x["job_name"] for x in matrix]
+    matrix = {"job_name": job_names, "include": matrix}
+
     print(divider("Result"))
     print(json.dumps(matrix, indent=2))
 
     if "GITHUB_ACTIONS" in os.environ:
         # `::set-output` is a special syntax for GitHub Actions to set an action's output parameter.
-        # https://docs.github.com/en/free-pro-team@latest/actions/reference/workflow-commands-for-github-actions#setting-an-output-parameter # noqa
+        # https://docs.github.com/en/free-pro-team@latest/actions/reference/workflow-commands-for-github-actions#setting-an-output-parameter
         # Note that this actually doesn't print anything to the console.
         print("::set-output name=matrix::{}".format(json.dumps(matrix)))
 
@@ -471,4 +572,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])

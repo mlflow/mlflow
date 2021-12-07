@@ -4,7 +4,7 @@ import os
 import git
 import pytest
 
-from tests.projects.utils import TEST_PROJECT_DIR
+from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_BRANCH
 
 
 @pytest.fixture
@@ -15,6 +15,7 @@ def local_git_repo(tmpdir):
     dir_util.copy_tree(src=os.path.dirname(TEST_PROJECT_DIR), dst=local_git)
     repo.git.add(A=True)
     repo.index.commit("test")
+    repo.create_head(GIT_PROJECT_BRANCH)
     yield os.path.abspath(local_git)
 
 

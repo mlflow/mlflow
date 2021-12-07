@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import './AppErrorBoundary.css';
 import defaultErrorImg from '../../static/default-error.svg';
 import PropTypes from 'prop-types';
+import Utils from '../../utils/Utils';
 
 class AppErrorBoundary extends Component {
   constructor(props) {
@@ -13,13 +14,10 @@ class AppErrorBoundary extends Component {
     children: PropTypes.node,
   };
 
-  // eslint-disable-next-line no-unused-vars
-  componentDidCatch(error, info) {
+  componentDidCatch(error, errorInfo) {
     this.setState({ hasError: true });
-    console.error(error);
+    console.error(error, errorInfo);
   }
-
-  getSupportPageUrl = () => 'https://github.com/mlflow/mlflow/issues';
 
   render() {
     if (this.state.hasError) {
@@ -29,7 +27,7 @@ class AppErrorBoundary extends Component {
           <h1 className={'center'}>Something went wrong</h1>
           <h4 className={'center'}>
             If this error persists, please report an issue{' '}
-            <a href={this.getSupportPageUrl()} target='_blank'>
+            <a href={Utils.getSupportPageUrl()} target='_blank'>
               here
             </a>
             .

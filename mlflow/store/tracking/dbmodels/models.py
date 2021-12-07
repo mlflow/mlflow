@@ -299,7 +299,7 @@ class SqlMetric(Base):
     """
     Metric value: `Float`. Defined as *Non-null* in schema.
     """
-    timestamp = Column(BigInteger, default=lambda: int(time.time()))
+    timestamp = Column(BigInteger, default=lambda: int(time.time() * 1000))
     """
     Timestamp recorded for this metric entry: `BigInteger`. Part of *Primary Key* for
                                                ``metrics`` table.
@@ -308,7 +308,7 @@ class SqlMetric(Base):
     """
     Step recorded for this metric entry: `BigInteger`.
     """
-    is_nan = Column(Boolean, nullable=False, default=False)
+    is_nan = Column(Boolean(create_constraint=True), nullable=False, default=False)
     """
     True if the value is in fact NaN.
     """
@@ -356,7 +356,7 @@ class SqlLatestMetric(Base):
     """
     Metric value: `Float`. Defined as *Non-null* in schema.
     """
-    timestamp = Column(BigInteger, default=lambda: int(time.time()))
+    timestamp = Column(BigInteger, default=lambda: int(time.time() * 1000))
     """
     Timestamp recorded for this metric entry: `BigInteger`. Part of *Primary Key* for
                                                ``latest_metrics`` table.
@@ -365,7 +365,7 @@ class SqlLatestMetric(Base):
     """
     Step recorded for this metric entry: `BigInteger`.
     """
-    is_nan = Column(Boolean, nullable=False, default=False)
+    is_nan = Column(Boolean(create_constraint=True), nullable=False, default=False)
     """
     True if the value is in fact NaN.
     """
