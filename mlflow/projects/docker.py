@@ -15,6 +15,7 @@ from mlflow.projects.utils import MLFLOW_DOCKER_WORKDIR_PATH
 from mlflow.tracking.context.git_context import _get_git_commit
 from mlflow.utils import process, file_utils
 from mlflow.utils.mlflow_tags import MLFLOW_DOCKER_IMAGE_URI, MLFLOW_DOCKER_IMAGE_ID
+from mlflow.utils.file_utils import _handle_readonly_on_windows
 
 _logger = logging.getLogger(__name__)
 
@@ -114,7 +115,7 @@ def _create_docker_build_ctx(work_dir, dockerfile_contents):
             output_filename=result_path, source_dir=dst_path, archive_name=_PROJECT_TAR_ARCHIVE_NAME
         )
     finally:
-        shutil.rmtree(directory)
+        shutil.rmtree(directory, onerror=_handle_readonly_on_windows)
     return result_path
 
 
