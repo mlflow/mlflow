@@ -264,7 +264,6 @@ def test_model_cache(spark, model_path):
     # exactly 2 python processes launched, due to Spark and its mysterious ways, but we do
     # expect significant reuse.
     results = spark.sparkContext.parallelize(range(100), 30).map(get_model).collect()
-
     assert max(results) > 10
     # Running again should see no newly-loaded models.
     results2 = spark.sparkContext.parallelize(range(100), 30).map(get_model).collect()
