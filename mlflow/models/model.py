@@ -4,6 +4,7 @@ import logging
 
 import yaml
 import os
+import uuid
 
 from typing import Any, Dict, Optional
 
@@ -41,6 +42,7 @@ class Model(object):
         flavors=None,
         signature=None,  # ModelSignature
         saved_input_example_info: Dict[str, Any] = None,
+        model_uuid=None,
         **kwargs,
     ):
         # store model id instead of run_id and path to avoid confusion when model gets exported
@@ -52,6 +54,10 @@ class Model(object):
         self.flavors = flavors if flavors is not None else {}
         self.signature = signature
         self.saved_input_example_info = saved_input_example_info
+        if self.model_uuid is None:
+            self.model_uuid = uuid.uuid4()
+        else:
+            self.model_uuid = model_uuid
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):
@@ -98,6 +104,8 @@ class Model(object):
             res["signature"] = self.signature.to_dict()
         if self.saved_input_example_info is not None:
             res["saved_input_example_info"] = self.saved_input_example_info
+
+        res["model_uuid"] = self.model_uuid
         return res
 
     def to_yaml(self, stream=None):
