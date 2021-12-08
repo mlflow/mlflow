@@ -54,10 +54,7 @@ class Model(object):
         self.flavors = flavors if flavors is not None else {}
         self.signature = signature
         self.saved_input_example_info = saved_input_example_info
-        if model_uuid is None:
-            self.model_uuid = str(uuid.uuid4())
-        else:
-            self.model_uuid = model_uuid
+        self.model_uuid = uuid.uuid4().hex if model_uuid is None else model_uuid
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):
@@ -104,8 +101,6 @@ class Model(object):
             res["signature"] = self.signature.to_dict()
         if self.saved_input_example_info is not None:
             res["saved_input_example_info"] = self.saved_input_example_info
-
-        res["model_uuid"] = self.model_uuid
         return res
 
     def to_yaml(self, stream=None):

@@ -556,6 +556,15 @@ def test_column_schema_enforcement_no_col_names():
     assert pyfunc_model.predict(d).equals(pd.DataFrame(d))
 
 
+def test_model_uuid():
+    m = Model()
+    assert m.model_uuid and len(m.model_uuid) == 32
+    m_dict = m.to_dict()
+    assert m_dict['model_uuid'] == m.model_uuid
+    m2 = Model.from_dict(m_dict)
+    assert m2.model_uuid == m.model_uuid
+
+
 def test_tensor_schema_enforcement_no_col_names():
     m = Model()
     input_schema = Schema([TensorSpec(np.dtype(np.float32), (-1, 3))])
