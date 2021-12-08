@@ -352,7 +352,9 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
         # Ensure that we cannot rename deleted experiments.
         fs.delete_experiment(exp_id)
-        with pytest.raises(Exception) as e:
+        with pytest.raises(
+            Exception, match="Cannot rename experiment in non-active lifecycle stage"
+        ) as e:
             fs.rename_experiment(exp_id, exp_name)
         assert "non-active lifecycle" in str(e.value)
         self.assertEqual(fs.get_experiment(exp_id).name, new_name)
@@ -449,7 +451,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
         # delete it
         fs.delete_experiment(exp_id)
-        with pytest.raises(Exception):
+        with pytest.raises(Exception, match="Could not create run under non-active experiment"):
             fs.create_run(exp_id, "user", 0, [])
 
     def test_create_run_returns_expected_run_data(self):
@@ -795,7 +797,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         assert experiment.tags["multiline_tag"] == "value2\nvalue2\nvalue2"
         # test cannot set tags on deleted experiments
         fs.delete_experiment(exp_id)
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match="must be in the 'active'lifecycle_stage"):
             fs.set_experiment_tag(exp_id, ExperimentTag("should", "notset"))
 
     def test_set_tags(self):
@@ -831,16 +833,16 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         new_tags = fs.get_run(run_id).data.tags
         assert "tag0" not in new_tags.keys()
         # test that you cannot delete tags that don't exist.
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match="No tag with name"):
             fs.delete_tag(run_id, "fakeTag")
         # test that you cannot delete tags for nonexistent runs
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match=r"Run .+ not found"):
             fs.delete_tag("random_id", "tag0")
         fs = FileStore(self.test_root)
         fs.delete_run(run_id)
         # test that you cannot delete tags for deleted runs.
         assert fs.get_run(run_id).info.lifecycle_stage == LifecycleStage.DELETED
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match="must be in 'active' lifecycle_stage"):
             fs.delete_tag(run_id, "tag0")
 
     def test_unicode_tag(self):
@@ -871,11 +873,12 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs.delete_run(run_id)
 
         assert fs.get_run(run_id).info.lifecycle_stage == LifecycleStage.DELETED
-        with pytest.raises(MlflowException):
+        match = "must be in 'active' lifecycle_stage"
+        with pytest.raises(MlflowException, match=match):
             fs.set_tag(run_id, RunTag("a", "b"))
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match=match):
             fs.log_metric(run_id, Metric("a", 0.0, timestamp=0, step=0))
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match=match):
             fs.log_param(run_id, Param("a", "b"))
 
     def test_default_experiment_initialization(self):
@@ -895,7 +898,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         # delete metadata file.
         path = os.path.join(self.test_root, str(exp_0.experiment_id), "meta.yaml")
         os.remove(path)
-        with pytest.raises(MissingConfigException) as e:
+        with pytest.raises(MissingConfigException, match="does not exist") as e:
             fs.get_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
             assert e.message.contains("does not exist")
 
@@ -913,9 +916,8 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         bad_run_id = self.exp_data[exp_0.experiment_id]["runs"][0]
         path = os.path.join(self.test_root, str(exp_0.experiment_id), str(bad_run_id), "meta.yaml")
         os.remove(path)
-        with pytest.raises(MissingConfigException) as e:
+        with pytest.raises(MissingConfigException, match="does not exist"):
             fs.get_run(bad_run_id)
-            assert e.message.contains("does not exist")
 
         valid_runs = self._search(fs, exp_0.experiment_id)
         assert len(valid_runs) == len(all_runs) - 1
@@ -937,13 +939,11 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         path_new = os.path.join(self.test_root, str(target))
         os.rename(path_orig, path_new)
 
-        with pytest.raises(MlflowException) as e:
+        with pytest.raises(MlflowException, match="Could not find experiment with ID"):
             fs.get_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
-            assert e.message.contains("Could not find experiment with ID")
 
-        with pytest.raises(MlflowException) as e:
+        with pytest.raises(MlflowException, match="does not exist"):
             fs.get_experiment(target)
-            assert e.message.contains("does not exist")
         assert len(fs.list_experiments(ViewType.ALL)) == experiments - 1
 
     def test_bad_experiment_id_recorded_for_run(self):
@@ -961,9 +961,8 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         experiment_data["experiment_id"] = 1
         write_yaml(path, "meta.yaml", experiment_data, True)
 
-        with pytest.raises(MlflowException) as e:
+        with pytest.raises(MlflowException, match="metadata is in invalid state"):
             fs.get_run(bad_run_id)
-            assert e.message.contains("not found")
 
         valid_runs = self._search(fs, exp_0.experiment_id)
         assert len(valid_runs) == len(all_runs) - 1

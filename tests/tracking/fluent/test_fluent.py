@@ -525,7 +525,7 @@ def test_start_run_with_parent():
 
 def test_start_run_with_parent_non_nested():
     with mock.patch("mlflow.tracking.fluent._active_run_stack", [mock.Mock()]):
-        with pytest.raises(Exception):
+        with pytest.raises(Exception, match=r"Run with UUID .+ is already active"):
             start_run()
 
 
@@ -572,7 +572,9 @@ def test_start_run_existing_run_from_environment_with_set_environment(
     env_patch = mock.patch.dict("os.environ", {_RUN_ID_ENV_VAR: run_id})
 
     with env_patch, mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
-        with pytest.raises(MlflowException):
+        with pytest.raises(
+            MlflowException, match="active run ID does not match environment run ID"
+        ):
             set_experiment("test-run")
             start_run()
 
@@ -583,8 +585,9 @@ def test_start_run_existing_run_deleted(empty_active_run_stack):  # pylint: disa
 
     run_id = uuid.uuid4().hex
 
+    match = f"Cannot start run with ID {run_id} because it is in the deleted state"
     with mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match=match):
             start_run(run_id)
 
 
@@ -882,13 +885,12 @@ def test_delete_tag():
     """
     mlflow.set_tag("a", "b")
     run = MlflowClient().get_run(mlflow.active_run().info.run_id)
-    print(run.info.run_id)
     assert "a" in run.data.tags
     mlflow.delete_tag("a")
     run = MlflowClient().get_run(mlflow.active_run().info.run_id)
     assert "a" not in run.data.tags
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="No tag with name"):
         mlflow.delete_tag("a")
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="No tag with name"):
         mlflow.delete_tag("b")
     mlflow.end_run()

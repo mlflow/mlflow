@@ -71,6 +71,7 @@ CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + [
     "Flask",
     "gunicorn; platform_system != 'Windows'",
     "numpy",
+    "scipy",
     "pandas",
     "prometheus-flask-exporter",
     "querystring_parser",

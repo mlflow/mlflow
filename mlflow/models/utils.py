@@ -9,8 +9,9 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.types.utils import TensorsNotSupportedException
 from mlflow.utils.proto_json_utils import NumpyEncoder, _dataframe_from_json, parse_tf_serving_input
+from scipy.sparse import csr_matrix, csc_matrix
 
-ModelInputExample = Union[pd.DataFrame, np.ndarray, dict, list]
+ModelInputExample = Union[pd.DataFrame, np.ndarray, dict, list, csr_matrix, csc_matrix]
 
 
 class _Example(object):
@@ -50,31 +51,44 @@ class _Example(object):
           encoded strings.
         - numpy types: Numpy types are converted to the corresponding python types or their closest
           equivalent.
+        - csc/csr matric: similar to 2 dims numpy array, csc/csr matric are converted to
+          corresponding python types or their closest equivalent.
     """
 
     def __init__(self, input_example: ModelInputExample):
         def _is_scalar(x):
             return np.isscalar(x) or x is None
 
-        def _is_tensor(x):
+        def _is_ndarray(x):
             return isinstance(x, np.ndarray) or (
-                isinstance(x, dict) and all([isinstance(ary, np.ndarray) for ary in x.values()])
+                isinstance(x, dict) and all(isinstance(ary, np.ndarray) for ary in x.values())
             )
 
-        def _handle_tensor_nans(x: np.ndarray):
+        def _is_sparse_matrix(x):
+            return isinstance(x, (csc_matrix, csr_matrix))
+
+        def _handle_ndarray_nans(x: np.ndarray):
             if np.issubdtype(x.dtype, np.number):
                 return np.where(np.isnan(x), None, x)
             else:
                 return x
 
-        def _handle_tensor_input(input_tensor: Union[np.ndarray, dict]):
-            if isinstance(input_tensor, dict):
+        def _handle_ndarray_input(input_array: Union[np.ndarray, dict]):
+            if isinstance(input_array, dict):
                 result = {}
-                for name in input_tensor.keys():
-                    result[name] = _handle_tensor_nans(input_tensor[name]).tolist()
+                for name in input_array.keys():
+                    result[name] = _handle_ndarray_nans(input_array[name]).tolist()
                 return {"inputs": result}
             else:
-                return {"inputs": _handle_tensor_nans(input_tensor).tolist()}
+                return {"inputs": _handle_ndarray_nans(input_array).tolist()}
+
+        def _handle_sparse_matrix(x: Union[csr_matrix, csc_matrix]):
+            return {
+                "data": _handle_ndarray_nans(x.data).tolist(),
+                "indices": x.indices.tolist(),
+                "indptr": x.indptr.tolist(),
+                "shape": list(x.shape),
+            }
 
         def _handle_dataframe_nans(df: pd.DataFrame):
             return df.where(df.notnull(), None)
@@ -123,12 +137,22 @@ class _Example(object):
             return result
 
         example_filename = "input_example.json"
-        if _is_tensor(input_example):
-            self.data = _handle_tensor_input(input_example)
+        if _is_ndarray(input_example):
+            self.data = _handle_ndarray_input(input_example)
             self.info = {
                 "artifact_path": example_filename,
                 "type": "ndarray",
                 "format": "tf-serving",
+            }
+        elif _is_sparse_matrix(input_example):
+            self.data = _handle_sparse_matrix(input_example)
+            if isinstance(input_example, csc_matrix):
+                example_type = "sparse_matrix_csc"
+            else:
+                example_type = "sparse_matrix_csr"
+            self.info = {
+                "artifact_path": example_filename,
+                "type": example_type,
             }
         else:
             self.data = _handle_dataframe_input(input_example)
@@ -178,7 +202,7 @@ def _read_example(mlflow_model: Model, path: str):
     if mlflow_model.saved_input_example_info is None:
         return None
     example_type = mlflow_model.saved_input_example_info["type"]
-    if example_type not in ["dataframe", "ndarray"]:
+    if example_type not in ["dataframe", "ndarray", "sparse_matrix_csc", "sparse_matrix_csr"]:
         raise MlflowException(
             "This version of mlflow can not load example of type {}".format(example_type)
         )
@@ -186,6 +210,8 @@ def _read_example(mlflow_model: Model, path: str):
     path = os.path.join(path, mlflow_model.saved_input_example_info["artifact_path"])
     if example_type == "ndarray":
         return _read_tensor_input_from_json(path, schema=input_schema)
+    elif example_type in ["sparse_matrix_csc", "sparse_matrix_csr"]:
+        return _read_sparse_matrix_from_json(path, example_type)
     else:
         return _dataframe_from_json(path, schema=input_schema, precise_float=True)
 
@@ -194,3 +220,17 @@ def _read_tensor_input_from_json(path, schema=None):
     with open(path, "r") as handle:
         inp_dict = json.load(handle)
         return parse_tf_serving_input(inp_dict, schema)
+
+
+def _read_sparse_matrix_from_json(path, example_type):
+    with open(path, "r") as handle:
+        matrix_data = json.load(handle)
+        data = matrix_data["data"]
+        indices = matrix_data["indices"]
+        indptr = matrix_data["indptr"]
+        shape = tuple(matrix_data["shape"])
+
+        if example_type == "sparse_matrix_csc":
+            return csc_matrix((data, indices, indptr), shape=shape)
+        else:
+            return csr_matrix((data, indices, indptr), shape=shape)

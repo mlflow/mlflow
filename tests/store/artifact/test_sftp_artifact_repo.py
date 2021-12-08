@@ -18,7 +18,7 @@ def sftp_mock():
 def test_artifact_uri_factory():
     from paramiko.ssh_exception import SSHException
 
-    with pytest.raises(SSHException):
+    with pytest.raises(SSHException, match="No hostkey for host test_sftp found"):
         get_artifact_repository("sftp://user:pass@test_sftp:123/some/path")
 
 

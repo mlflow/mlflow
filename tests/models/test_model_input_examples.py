@@ -3,9 +3,14 @@ import math
 import numpy as np
 import pandas as pd
 import pytest
+from scipy.sparse import csr_matrix, csc_matrix
 
 from mlflow.models.signature import infer_signature
-from mlflow.models.utils import _Example, _read_tensor_input_from_json
+from mlflow.models.utils import (
+    _Example,
+    _read_tensor_input_from_json,
+    _read_sparse_matrix_from_json,
+)
 from mlflow.types.utils import TensorsNotSupportedException
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import _dataframe_from_json
@@ -65,6 +70,14 @@ def dict_of_ndarrays_with_nans():
         "1D": np.array([0.5, np.nan, 2.0]),
         "2D": np.array([[0.1, 0.2], [np.nan, 0.5]]),
         "3D": np.array([[[0.1, np.nan], [0.3, 0.4]], [[np.nan, 0.6], [0.7, np.nan]]]),
+    }
+
+
+@pytest.fixture
+def dict_of_sparse_matrix():
+    return {
+        "sparse_matrix_csc": csc_matrix(np.arange(0, 12, 0.5).reshape(3, 8)),
+        "sparse_matrix_csr": csr_matrix(np.arange(0, 12, 0.5).reshape(3, 8)),
     }
 
 
@@ -130,7 +143,7 @@ def test_input_examples(pandas_df_with_all_types, dict_of_ndarrays):
 
     # pass multidimensional array as a list
     example = np.array([[1, 2, 3]])
-    with pytest.raises(TensorsNotSupportedException):
+    with pytest.raises(TensorsNotSupportedException, match=r"Row '0' has shape \(1, 3\)"):
         _Example([example, example])
 
     # pass dict with scalars
@@ -141,6 +154,16 @@ def test_input_examples(pandas_df_with_all_types, dict_of_ndarrays):
         filename = x.info["artifact_path"]
         parsed_df = _dataframe_from_json(tmp.path(filename))
         assert example == parsed_df.to_dict(orient="records")[0]
+
+
+def test_sparse_matrix_input_examples(dict_of_sparse_matrix):
+    for example_type, input_example in dict_of_sparse_matrix.items():
+        with TempDir() as tmp:
+            example = _Example(input_example)
+            example.save(tmp.path())
+            filename = example.info["artifact_path"]
+            parsed_matrix = _read_sparse_matrix_from_json(tmp.path(filename), example_type)
+            assert np.array_equal(parsed_matrix.toarray(), input_example.toarray())
 
 
 def test_input_examples_with_nan(df_with_nan, dict_of_ndarrays_with_nans):

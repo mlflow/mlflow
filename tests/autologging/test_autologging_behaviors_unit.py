@@ -224,7 +224,7 @@ def test_silent_mode_restores_warning_and_event_logging_behavior_correctly_if_er
         time.sleep(np.random.random())
         patch_destination.fn()
 
-    with pytest.raises(Exception):
+    with pytest.raises(Exception, match="enablement error"):
         test_autolog(silent=True)
 
     with pytest.warns(None):
