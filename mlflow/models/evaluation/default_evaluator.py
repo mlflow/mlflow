@@ -125,7 +125,9 @@ class DefaultEvaluator(ModelEvaluator):
         artifact.load(artifact_file_local_path)
         artifacts[artifact_file_name] = artifact
 
-    def _log_model_explainality(self, artifacts, temp_dir, model, X, dataset_name, run_id, sample_ratio):
+    def _log_model_explainality(
+            self, artifacts, temp_dir, model, X, dataset_name, run_id, sample_ratio, algorithm
+    ):
         model_loader_module = model.metadata.flavors['python_function']["loader_module"]
         if model_loader_module == 'mlflow.sklearn':
             raw_model = model._model_impl
@@ -142,18 +144,22 @@ class DefaultEvaluator(ModelEvaluator):
             sample_rows = max(int(len(X) * sample_ratio), _MIN_SAMPLE_ROWS_FOR_SHAP)
 
         sampled_X = shap.sample(X, sample_rows)
-        if raw_model:
-            maskers = shap.maskers.Independent(sampled_X)
-            if shap.explainers.Linear.supports_model_with_masker(raw_model, maskers):
-                explainer = shap.explainers.Linear(raw_model, maskers)
-            elif shap.explainers.Tree.supports_model_with_masker(raw_model, maskers):
-                explainer = shap.explainers.Tree(raw_model, maskers)
-            elif shap.explainers.Additive.supports_model_with_masker(raw_model, maskers):
-                explainer = shap.explainers.Additive(raw_model, maskers)
+
+        if algorithm:
+            explainer = shap.Explainer(model.predict, X, algorithm=algorithm)
+        else:
+            if raw_model:
+                maskers = shap.maskers.Independent(sampled_X)
+                if shap.explainers.Linear.supports_model_with_masker(raw_model, maskers):
+                    explainer = shap.explainers.Linear(raw_model, maskers)
+                elif shap.explainers.Tree.supports_model_with_masker(raw_model, maskers):
+                    explainer = shap.explainers.Tree(raw_model, maskers)
+                elif shap.explainers.Additive.supports_model_with_masker(raw_model, maskers):
+                    explainer = shap.explainers.Additive(raw_model, maskers)
+                else:
+                    explainer = shap.explainers.Sampling(model.predict, X)
             else:
                 explainer = shap.explainers.Sampling(model.predict, X)
-        else:
-            explainer = shap.explainers.Sampling(model.predict, X)
 
         if isinstance(explainer, shap.explainers.Sampling):
             shap_values = explainer(X, sample_rows)
@@ -182,9 +188,8 @@ class DefaultEvaluator(ModelEvaluator):
     def _evaluate_classifier(self, temp_dir, model, X, y, dataset_name, run_id, evaluator_config):
         # Note: require labels to be number of 0, 1, 2, .. num_classes - 1
         label_list = sorted(list(set(y)))
-        assert label_list[0] >= 0, "Evaluation dataset labels must be positive integers."
-        max_label = label_list[-1]
-        num_classes = max_label + 1
+        assert label_list[0] == 0, "Label values must being at '0'."
+        num_classes = len(label_list)
 
         y_pred = model.predict(X)
 
@@ -251,7 +256,7 @@ class DefaultEvaluator(ModelEvaluator):
                 )
 
             def plot_confusion_matrix():
-                sk_metrics.ConfusionMatrixDisplay.from_predictions(y, y_pred, normalize='all')
+                sk_metrics.ConfusionMatrixDisplay.from_predictions(y, y_pred)
 
             self._log_image_artifact(
                 artifacts, temp_dir, plot_confusion_matrix, run_id, "confusion_matrix", dataset_name
