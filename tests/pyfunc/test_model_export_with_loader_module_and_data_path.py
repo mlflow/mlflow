@@ -556,9 +556,18 @@ def test_column_schema_enforcement_no_col_names():
     assert pyfunc_model.predict(d).equals(pd.DataFrame(d))
 
 
+def _is_valid_uuid(val):
+    import uuid
+    try:
+        uuid.UUID(str(val))
+        return True
+    except ValueError:
+        return False
+
+
 def test_model_uuid():
     m = Model()
-    assert m.model_uuid and len(m.model_uuid) == 32
+    assert m.model_uuid and _is_valid_uuid(m.model_uuid)
     m_dict = m.to_dict()
     assert m_dict['model_uuid'] == m.model_uuid
     m2 = Model.from_dict(m_dict)
