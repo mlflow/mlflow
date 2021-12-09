@@ -163,7 +163,7 @@ class DefaultEvaluator(ModelEvaluator):
             )
             shap_values = explainer(sampled_X)
         else:
-            maskers = shap.maskers.Independent(sampled_X)
+            maskers = shap.maskers.Independent(X)
             if raw_model and shap.explainers.Linear.supports_model_with_masker(raw_model, maskers):
                 explainer = shap.explainers.Linear(
                     raw_model, maskers, feature_names=feature_names
