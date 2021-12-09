@@ -264,6 +264,7 @@ def test_use_repl_context_if_available(tmpdir):
 
     command_context_mock = mock.MagicMock()
     command_context_mock.jobId().get.return_value = "job_id"
+    command_context_mock.tags().get("jobType").get.return_value = "NORMAL"
     with mock.patch(
         "mlflow.utils.databricks_utils._get_command_context", return_value=command_context_mock
     ) as mock_get_command_context:
@@ -287,7 +288,9 @@ def get_context():
         "mlflow.utils.databricks_utils._get_command_context", return_value=command_context_mock
     ) as mock_get_command_context:
         assert databricks_utils.get_job_id() == "job_id"
-        mock_get_command_context.assert_called_once()
+        assert databricks_utils.get_job_to_experiment_name_mapping() == "job:/job_id"
+        assert databricks_utils.get_job_type_info() == "NORMAL"
+        assert mock_get_command_context.call_count == 3
 
     with mock.patch(
         "dbruntime.databricks_repl_context.get_context",
