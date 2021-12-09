@@ -16,6 +16,7 @@ import shap.maskers
 import math
 import pandas as pd
 import time
+from functools import partial
 
 shap.initjs()
 
@@ -126,9 +127,15 @@ class DefaultEvaluator(ModelEvaluator):
         artifacts[artifact_file_name] = artifact
 
     def _log_model_explainality(
-            self, artifacts, temp_dir, model, X, dataset_name, run_id, sample_ratio, algorithm
+            self, artifacts, temp_dir, model, X, dataset_name, run_id, evaluator_config
     ):
+        sample_ratio = evaluator_config.get('explainality.sample_ratio', 1.0)
+        algorithm = evaluator_config.get('explainality.algorithm', None)
+
         model_loader_module = model.metadata.flavors['python_function']["loader_module"]
+
+        predict_fn = model.predict
+
         if model_loader_module == 'mlflow.sklearn':
             raw_model = model._model_impl
         elif model_loader_module == 'mlflow.lightgbm':
@@ -138,6 +145,13 @@ class DefaultEvaluator(ModelEvaluator):
         else:
             raw_model = None
 
+        try:
+            import xgboost
+            if raw_model is not None and isinstance(raw_model, xgboost.XGBModel):
+                predict_fn = partial(predict_fn, validate_features=False)
+        except ImportError:
+            pass
+
         if len(X) < _MIN_SAMPLE_ROWS_FOR_SHAP:
             sample_rows = len(X)
         else:
@@ -145,21 +159,34 @@ class DefaultEvaluator(ModelEvaluator):
 
         sampled_X = shap.sample(X, sample_rows)
 
+        feature_names = list(X.columns)
         if algorithm:
-            explainer = shap.Explainer(model.predict, X, algorithm=algorithm)
+            explainer = shap.Explainer(
+                predict_fn, sampled_X, feature_names=feature_names, algorithm=algorithm
+            )
         else:
             if raw_model:
                 maskers = shap.maskers.Independent(sampled_X)
                 if shap.explainers.Linear.supports_model_with_masker(raw_model, maskers):
-                    explainer = shap.explainers.Linear(raw_model, maskers)
+                    explainer = shap.explainers.Linear(
+                        raw_model, maskers, feature_names=feature_names
+                    )
                 elif shap.explainers.Tree.supports_model_with_masker(raw_model, maskers):
-                    explainer = shap.explainers.Tree(raw_model, maskers)
+                    explainer = shap.explainers.Tree(
+                        raw_model, maskers, feature_names=feature_names
+                    )
                 elif shap.explainers.Additive.supports_model_with_masker(raw_model, maskers):
-                    explainer = shap.explainers.Additive(raw_model, maskers)
+                    explainer = shap.explainers.Additive(
+                        raw_model, maskers, feature_names=feature_names
+                    )
                 else:
-                    explainer = shap.explainers.Sampling(model.predict, X)
-            else:
-                explainer = shap.explainers.Sampling(model.predict, X)
+                    # fallback to default sampling explainer
+                    pass
+
+            if not explainer:
+                explainer = shap.explainers.Sampling(
+                    predict_fn, X, feature_names=feature_names
+                )
 
         if isinstance(explainer, shap.explainers.Sampling):
             shap_values = explainer(X, sample_rows)
@@ -265,8 +292,9 @@ class DefaultEvaluator(ModelEvaluator):
         self._log_metrics(run_id, metrics, dataset_name)
 
         if evaluator_config.get('log_model_explainality', True):
-            sample_ratio = evaluator_config.get('sample_ratio_for_calc_model_explainality', 1.0)
-            self._log_model_explainality(artifacts, temp_dir, model, X, dataset_name, run_id, sample_ratio)
+            self._log_model_explainality(
+                artifacts, temp_dir, model, X, dataset_name, run_id, evaluator_config
+            )
 
         return EvaluationResult(metrics, artifacts)
 
@@ -278,7 +306,9 @@ class DefaultEvaluator(ModelEvaluator):
         metrics["mean_absolute_error"] = sk_metrics.mean_absolute_error(y, y_pred)
         metrics["mean_squared_error"] = sk_metrics.mean_squared_error(y, y_pred)
         metrics["root_mean_squared_error"] = math.sqrt(metrics["mean_squared_error"])
-        self._log_model_explainality(artifacts, temp_dir, model, X, dataset_name, run_id)
+        self._log_model_explainality(
+            artifacts, temp_dir, model, X, dataset_name, run_id, evaluator_config
+        )
         self._log_metrics(run_id, metrics, dataset_name)
         return EvaluationResult(metrics, artifacts)
 

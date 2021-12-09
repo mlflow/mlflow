@@ -586,7 +586,7 @@ class PyFuncModel(object):
         self._model_meta = model_meta
         self._model_impl = model_impl
 
-    def predict(self, data: PyFuncInput) -> PyFuncOutput:
+    def predict(self, data: PyFuncInput, **kwargs) -> PyFuncOutput:
         """
         Generate model predictions.
 
@@ -602,7 +602,7 @@ class PyFuncModel(object):
         input_schema = self.metadata.get_input_schema()
         if input_schema is not None:
             data = _enforce_schema(data, input_schema)
-        return self._model_impl.predict(data)
+        return self._model_impl.predict(data, **kwargs)
 
     @property
     def metadata(self):
