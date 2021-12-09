@@ -22,8 +22,6 @@ describe('unit tests', () => {
       { key: 'tag1', name: 'tag1', value: 'value1' },
       { key: 'tag2', name: 'tag2', value: 'value2' },
     ],
-    // eslint-disable-next-line no-unused-vars
-    form: { getFieldDecorator: jest.fn((opts) => (c) => c) },
     onSaveEdit: () => {},
     onDelete: () => {},
   };

@@ -170,7 +170,7 @@ def test_parse_pip_requirements_removes_temporary_requirements_file():
     assert _parse_pip_requirements(["a"]) == (["a"], [])
     assert all(not x.endswith(".tmp.requirements.txt") for x in os.listdir())
 
-    with pytest.raises(Exception):
+    with pytest.raises(FileNotFoundError, match="No such file or directory"):
         _parse_pip_requirements(["a", "-r does_not_exist.txt"])
     # Ensure the temporary requirements file has been removed even when parsing fails
     assert all(not x.endswith(".tmp.requirements.txt") for x in os.listdir())

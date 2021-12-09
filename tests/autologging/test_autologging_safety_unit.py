@@ -282,7 +282,7 @@ def test_safe_patch_propagates_exceptions_raised_from_original_function(
 
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
 
-    with pytest.raises(Exception) as exc:
+    with pytest.raises(Exception, match=str(exc_to_throw)) as exc:
         patch_destination.fn()
 
     assert exc.value == exc_to_throw
@@ -319,7 +319,7 @@ def test_safe_patch_propagates_exceptions_raised_outside_of_original_function_in
         raise exc_to_throw
 
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
-    with pytest.raises(Exception) as exc:
+    with pytest.raises(Exception, match=str(exc_to_throw)) as exc:
         patch_destination.fn()
 
     assert exc.value == exc_to_throw
@@ -644,7 +644,7 @@ def test_safe_patch_makes_expected_event_logging_calls_for_successful_patch_invo
     assert patch_success.exception is original_success.exception is None
 
 
-def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation_throws_and_original_succeeds(  # noqa
+def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation_throws_and_original_succeeds(  # pylint: disable=line-too-long
     patch_destination,
     test_autologging_integration,
     mock_event_logger,
@@ -684,7 +684,7 @@ def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation
         assert patch_error.exception == exc_to_raise
 
 
-def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation_throws_and_original_throws(  # noqa
+def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation_throws_and_original_throws(  # pylint: disable=line-too-long
     patch_destination,
     test_autologging_integration,
     mock_event_logger,
@@ -860,7 +860,7 @@ def test_picklable_exception_safe_function_exhibits_expected_behavior_in_test_mo
     def throwing_function():
         raise exc_to_throw
 
-    with pytest.raises(Exception) as exc:
+    with pytest.raises(Exception, match=str(exc_to_throw)) as exc:
         throwing_function()
 
     assert exc.value == exc_to_throw
@@ -913,7 +913,7 @@ def test_exception_safe_class_exhibits_expected_behavior_in_test_mode(baseclass,
         def function(self):
             raise exc_to_throw
 
-    with pytest.raises(Exception) as exc:
+    with pytest.raises(Exception, match=str(exc_to_throw)) as exc:
         ThrowingClass().function()
 
     assert exc.value == exc_to_throw
@@ -998,14 +998,14 @@ def test_with_managed_run_with_throwing_function_exhibits_expected_behavior():
 
     patch_function = with_managed_run("test_integration", patch_function)
 
-    with pytest.raises(Exception):
+    with pytest.raises(Exception, match="bad implementation"):
         patch_function(lambda: "foo")
 
     assert patch_function_active_run is not None
     status1 = client.get_run(patch_function_active_run.info.run_id).info.status
     assert RunStatus.from_string(status1) == RunStatus.FAILED
 
-    with mlflow.start_run() as active_run, pytest.raises(Exception):
+    with mlflow.start_run() as active_run, pytest.raises(Exception, match="bad implementation"):
         patch_function(lambda: "foo")
         assert patch_function_active_run == active_run
         # `with_managed_run` should not terminate a preexisting MLflow run,
@@ -1053,14 +1053,14 @@ def test_with_managed_run_with_throwing_class_exhibits_expected_behavior():
 
     TestPatch = with_managed_run("test_integration", TestPatch)
 
-    with pytest.raises(Exception):
+    with pytest.raises(Exception, match="bad implementation"):
         TestPatch.call(lambda: "foo")
 
     assert patch_function_active_run is not None
     status1 = client.get_run(patch_function_active_run.info.run_id).info.status
     assert RunStatus.from_string(status1) == RunStatus.FAILED
 
-    with mlflow.start_run() as active_run, pytest.raises(Exception):
+    with mlflow.start_run() as active_run, pytest.raises(Exception, match="bad implementation"):
         TestPatch.call(lambda: "foo")
         assert patch_function_active_run == active_run
         # `with_managed_run` should not terminate a preexisting MLflow run,
@@ -1108,7 +1108,7 @@ def test_with_managed_run_ends_run_on_keyboard_interrupt():
         "test_integration", lambda original, *args, **kwargs: original(*args, **kwargs)
     )
 
-    with pytest.raises(KeyboardInterrupt):
+    with pytest.raises(KeyboardInterrupt, match=""):
         patch_function_1(original)
 
     assert not mlflow.active_run()
@@ -1124,7 +1124,7 @@ def test_with_managed_run_ends_run_on_keyboard_interrupt():
 
     patch_function_2 = with_managed_run("test_integration", PatchFunction2)
 
-    with pytest.raises(KeyboardInterrupt):
+    with pytest.raises(KeyboardInterrupt, match=""):
 
         patch_function_2.call(original)
 
@@ -1418,8 +1418,8 @@ def test_session_manager_exits_session_if_error_in_patch(
 
     # If use safe_patch to patch, exception would not come from original fn and so would be logged
     patch_destination.fn = patch_fn
-    with pytest.raises(Exception):
-        patch_destination.fn()
+    with pytest.raises(Exception, match="Exception that should stop autologging session"):
+        patch_destination.fn(lambda: None)
 
     assert _AutologgingSessionManager.active_session() is None
 
@@ -1573,7 +1573,7 @@ def test_safe_patch_support_property_decorated_method():
         @property
         def predict(self):
             if not self._has_predict:
-                raise AttributeError()
+                raise AttributeError("does not have predict")
             return self._predict
 
     class ExtendedEstimator(BaseEstimator):
@@ -1624,7 +1624,7 @@ def test_safe_patch_support_property_decorated_method():
 
         bad_estimator = EstimatorCls(has_predict=False)
         assert not hasattr(bad_estimator, "predict")
-        with pytest.raises(AttributeError):
+        with pytest.raises(AttributeError, match="does not have predict"):
             bad_estimator.predict(X=1, a=2, b=3)
 
     autolog(disable=True)

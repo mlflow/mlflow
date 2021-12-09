@@ -229,7 +229,7 @@ def test_that_keras_module_arg_works(model_path):
         import_module_mock.side_effect = _import_module
         x = MyModel("x123")
         path0 = os.path.join(model_path, "0")
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match="Unable to infer keras module from the model"):
             mlflow.keras.save_model(x, path0)
         mlflow.keras.save_model(x, path0, keras_module=FakeKerasModule, save_format="h5")
         y = mlflow.keras.load_model(path0)
@@ -240,7 +240,9 @@ def test_that_keras_module_arg_works(model_path):
         assert x == z
         # Tests model log
         with mlflow.start_run() as active_run:
-            with pytest.raises(MlflowException):
+            with pytest.raises(
+                MlflowException, match="Unable to infer keras module from the model"
+            ):
                 mlflow.keras.log_model(x, "model0")
             mlflow.keras.log_model(x, "model0", keras_module=FakeKerasModule, save_format="h5")
             a = mlflow.keras.load_model("runs:/{}/model0".format(active_run.info.run_id))
@@ -371,7 +373,7 @@ def test_custom_model_save_respects_user_custom_objects(custom_model, custom_lay
     mlflow.keras.save_model(custom_model, model_path, custom_objects=incorrect_custom_objects)
     model_loaded = mlflow.keras.load_model(model_path, custom_objects=correct_custom_objects)
     assert model_loaded is not None
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match=r".+"):
         model_loaded = mlflow.keras.load_model(model_path)
 
 

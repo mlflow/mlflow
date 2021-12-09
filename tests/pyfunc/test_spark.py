@@ -176,7 +176,7 @@ def test_spark_udf_autofills_no_arguments(spark):
         udf = mlflow.pyfunc.spark_udf(
             spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
         )
-        with pytest.raises(pyspark.sql.utils.PythonException):
+        with pytest.raises(pyspark.sql.utils.PythonException, match=r".+"):
             res = good_data.withColumn("res", udf()).select("res").toPandas()
 
 
@@ -199,7 +199,7 @@ def test_spark_udf_autofills_column_names_with_schema(spark):
                 columns=["a", "b", "c", "d"], data={"a": [1], "b": [2], "c": [3], "d": [4]}
             )
         )
-        with pytest.raises(pyspark.sql.utils.PythonException):
+        with pytest.raises(pyspark.sql.utils.PythonException, match=r".+"):
             res = data.withColumn("res1", udf("a", "b")).select("res1").toPandas()
 
         res = data.withColumn("res2", udf("a", "b", "c")).select("res2").toPandas()
@@ -263,10 +263,8 @@ def test_model_cache(spark, model_path):
     # Note that we can't necessarily expect an even split, or even that there were only
     # exactly 2 python processes launched, due to Spark and its mysterious ways, but we do
     # expect significant reuse.
-    results = spark.sparkContext.parallelize(range(0, 100), 30).map(get_model).collect()
-
-    # TODO(tomas): Looks like spark does not reuse python workers with python==3.x
-    assert sys.version[0] == "3" or max(results) > 10
+    results = spark.sparkContext.parallelize(range(100), 30).map(get_model).collect()
+    assert max(results) > 10
     # Running again should see no newly-loaded models.
-    results2 = spark.sparkContext.parallelize(range(0, 100), 30).map(get_model).collect()
-    assert sys.version[0] == "3" or min(results2) > 0
+    results2 = spark.sparkContext.parallelize(range(100), 30).map(get_model).collect()
+    assert min(results2) > 0

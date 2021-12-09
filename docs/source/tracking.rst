@@ -817,9 +817,11 @@ MLflow expects Azure Storage access credentials in the
 or having your credentials configured such that the `DefaultAzureCredential()
 <https://docs.microsoft.com/en-us/python/api/overview/azure/identity-readme?view=azure-python>`_. class can pick them up.
 The order of precedence is:
+
 #. ``AZURE_STORAGE_CONNECTION_STRING``
 #. ``AZURE_STORAGE_ACCESS_KEY``
 #. ``DefaultAzureCredential()``
+
 You must set one of these options on both your client application and your MLflow tracking server.
 Also, you must run ``pip install azure-storage-blob`` separately (on both your client and the server) to access Azure Blob Storage.
 Finally, if you want to use DefaultAzureCredential, you must ``pip install azure-identity``;

@@ -15,9 +15,17 @@
     "defaultMessage": "Run ID:",
     "description": "Row title for the run id on the experiment compare runs page"
   },
+  "/2SlQ2": {
+    "defaultMessage": "Share",
+    "description": "String for the share button to share experiment view"
+  },
   "/2m1wK": {
     "defaultMessage": "Oops!",
     "description": "Error modal title to rendering errors"
+  },
+  "/3BTaS": {
+    "defaultMessage": "Experiment view URL copied to clipboard",
+    "description": "Content of the message after clicking the share experiment button"
   },
   "/738wy": {
     "defaultMessage": "Filter",
@@ -34,10 +42,6 @@
   "/g45Xz": {
     "defaultMessage": "Share and manage machine learning models.",
     "description": "Default text for model registry onboarding on the model list page"
-  },
-  "/lDgzX": {
-    "defaultMessage": "Page {currentPage}",
-    "description": "Text for page number for pagination in MLflow"
   },
   "0ElvS9": {
     "defaultMessage": "Y-axis:",
@@ -98,6 +102,10 @@
   "2NfDVN": {
     "defaultMessage": "Load the model",
     "description": "Heading text for stating how to load the model from the experiment run"
+  },
+  "2YEXRM": {
+    "defaultMessage": "Edit",
+    "description": "Text for the edit button next to the description section title on the experiment view page"
   },
   "2f2qeb": {
     "defaultMessage": "Type",
@@ -251,13 +259,13 @@
     "defaultMessage": "Delete Model Version",
     "description": "Title text for model version deletion modal in model versions view page"
   },
+  "9Ce4Gd": {
+    "defaultMessage": "Started during",
+    "description": "Label for the start time select dropdown for experiment runs view"
+  },
   "9CqEWy": {
     "defaultMessage": "Load more",
     "description": "Load more button text to load more experiment runs"
-  },
-  "9HTUnN": {
-    "defaultMessage": "Notes",
-    "description": "Header for displaying notes for the experiment table"
   },
   "9W3kev": {
     "defaultMessage": "Register",
@@ -315,6 +323,10 @@
     "defaultMessage": "Stage Transition",
     "description": "Title text for model version stage transitions in confirm modal"
   },
+  "DzGXnD": {
+    "defaultMessage": "Copy",
+    "description": "Copy tooltip to copy experiment name from experiment runs table header"
+  },
   "E7mv3b": {
     "defaultMessage": "Save",
     "description": "Text for saving changes on rows in editable form table in MLflow"
@@ -355,6 +367,10 @@
     "defaultMessage": "On",
     "description": "Toggle on option to toggle show points for metric experiment run"
   },
+  "FZubuU": {
+    "defaultMessage": "Input an experiment name",
+    "description": "Input placeholder to enter experiment name for create experiment"
+  },
   "FpjDSq": {
     "defaultMessage": "Compare",
     "description": "Text for compare button to compare versions under details tab\n                       on the model view page"
@@ -382,10 +398,6 @@
   "GKiPV1": {
     "defaultMessage": "Start Time:",
     "description": "Text for start time row header in the main table in the model comparison\n                page"
-  },
-  "GMpg25": {
-    "defaultMessage": "Notes",
-    "description": "Label for the notes editable content for the experiment run"
   },
   "GX9Yb8": {
     "defaultMessage": "Status",
@@ -458,10 +470,6 @@
   "JChRnq": {
     "defaultMessage": "Last 24 hours",
     "description": "Option for the start select dropdown to filter runs from the last 24 hours"
-  },
-  "JJ4tif": {
-    "defaultMessage": "All",
-    "description": "Option for the start select dropdown to render all runs"
   },
   "K+s7ez": {
     "defaultMessage": "Last Modified",
@@ -583,6 +591,10 @@
     "defaultMessage": "Off",
     "description": "Toggle off option to toggle log scale graph for metric experiment run"
   },
+  "ThrXMh": {
+    "defaultMessage": "Inputs",
+    "description": "Table section name for schema inputs in the model comparison page"
+  },
   "TlFUsN": {
     "defaultMessage": "Tags",
     "description": "Title text for the tags section on the model versions view page"
@@ -598,6 +610,10 @@
   "U82iv6": {
     "defaultMessage": "Registered Models",
     "description": "Text for registered model link in the title for model comparison page"
+  },
+  "UEDu0c": {
+    "defaultMessage": "MLflow UI automatically fetches metric histories for active runs and updates the metrics plot with a {interval} second interval.",
+    "description": "Helpful tooltip message to explain the automatic metrics plot update"
   },
   "UGAKJp": {
     "defaultMessage": "X-axis:",
@@ -627,10 +643,6 @@
     "defaultMessage": "Z-axis:",
     "description": "Label text for z-axis in contour plot comparison in MLflow"
   },
-  "WYmHgQ": {
-    "defaultMessage": "outputs",
-    "description": "Table section name for schema outputs in the model comparison page"
-  },
   "Wd8Tga": {
     "defaultMessage": "No schema. See <link>MLflow docs</link> for how to include input and output schema with your model.",
     "description": "Text for schema table when no schema exists in the model version\n                     page"
@@ -642,6 +654,10 @@
   "WqtISN": {
     "defaultMessage": "Job Output",
     "description": "Label for displaying the output logs for the experiment run job"
+  },
+  "WvHAEg": {
+    "defaultMessage": "Input an artifact location (optional)",
+    "description": "Input placeholder to enter artifact location for create experiment"
   },
   "X3F7x3": {
     "defaultMessage": "No Artifacts Recorded",
@@ -683,9 +699,13 @@
     "defaultMessage": "Create Model",
     "description": "Create button to register a new model"
   },
-  "a49zYs": {
-    "defaultMessage": "Start time",
-    "description": "Label for the start time select dropdown for experiment runs view"
+  "a/TbnY": {
+    "defaultMessage": "All time",
+    "description": "Option for the start select dropdown to render all runs"
+  },
+  "a3rEfZ": {
+    "defaultMessage": "Description",
+    "description": "Label for the notes editable content for the experiment run"
   },
   "a8rS4O": {
     "defaultMessage": "Delete",
@@ -751,6 +771,10 @@
     "defaultMessage": "No runs yet. <link>Learn more</link> about how to create ML model training {newLine} runs in this experiment.",
     "description": "Empty state text for experiment runs page"
   },
+  "bqn2bk": {
+    "defaultMessage": "Outputs",
+    "description": "Table section name for schema outputs in the model comparison page"
+  },
   "cBDYla": {
     "defaultMessage": "Actions",
     "description": "Column title for actions column in editable form table in MLflow"
@@ -762,6 +786,14 @@
   "cK6riy": {
     "defaultMessage": "Schema",
     "description": "Table title text for schema table in the model comparison page"
+  },
+  "d/cZ34": {
+    "defaultMessage": "Edit",
+    "description": "Text for the edit button next to the description section title on the run view"
+  },
+  "dA5sT3": {
+    "defaultMessage": "Share experiment view",
+    "description": "Label for the share experiment view button"
   },
   "dq8MJd": {
     "defaultMessage": "Contour Plot",
@@ -794,6 +826,10 @@
   "erqoIC": {
     "defaultMessage": "Run Name:",
     "description": "Text for run name row header in the main table in the model comparison\n                page"
+  },
+  "eyGoqW": {
+    "defaultMessage": "Experiment Name",
+    "description": "Label for create experiment modal to enter a valid experiment name"
   },
   "f+VJMF": {
     "defaultMessage": "Duration",
@@ -830,10 +866,6 @@
   "gVxisd": {
     "defaultMessage": "Tag \"{value}\" already exists.",
     "description": "Validation message for tags that already exist in tags table in MLflow"
-  },
-  "hIbYYy": {
-    "defaultMessage": "{numEntries} / page",
-    "description": "Text for number of entries in pagination in MLflow"
   },
   "iZm6YQ": {
     "defaultMessage": "<link>Learn more</link>",
@@ -887,6 +919,10 @@
     "defaultMessage": "Create Model",
     "description": "Title text for creating model in the model registry"
   },
+  "meoYKZ": {
+    "defaultMessage": "Artifact Location",
+    "description": "Label for create experiment modal to enter a artifact location"
+  },
   "mpHsCg": {
     "defaultMessage": "Size:",
     "description": "Label to display the size of the artifact of the experiment"
@@ -894,6 +930,10 @@
   "nC54Nf": {
     "defaultMessage": "Tags",
     "description": "Column title for model tags in the registered model page"
+  },
+  "nEoTsR": {
+    "defaultMessage": "Completed Runs",
+    "description": "Label for the progress bar to show the number of completed runs"
   },
   "nQoUED": {
     "defaultMessage": "Step",
@@ -930,6 +970,10 @@
   "oHW+ks": {
     "defaultMessage": "Description",
     "description": "Title text for the description section under details tab on the model\n                   view page"
+  },
+  "okQ1oB": {
+    "defaultMessage": "Please input a new name for the new experiment.",
+    "description": "Error message for name requirement in create experiment for MLflow"
   },
   "p1H1KR": {
     "defaultMessage": "Last 30 days",
@@ -971,10 +1015,6 @@
     "defaultMessage": "Download CSV",
     "description": "String for the download csv button to download experiments offline in a CSV format"
   },
-  "rRgbJl": {
-    "defaultMessage": "Search runs using a simplified version of the SQL <b>WHERE</b> clause",
-    "description": "Tooltip string to explain how to search runs from the experiments table"
-  },
   "raa3Ij": {
     "defaultMessage": "Registered Models",
     "description": "Text for link back to model page under the header on the model view page"
@@ -986,6 +1026,10 @@
   "sTp/V3": {
     "defaultMessage": "Parallel Coordinates Plot",
     "description": "Tab pane title for parallel coordinate plots on the compare runs page"
+  },
+  "sXjD3p": {
+    "defaultMessage": "Search runs using a simplified version of the SQL {whereBold} clause",
+    "description": "Tooltip string to explain how to search runs from the experiments table"
   },
   "sXqvoN": {
     "defaultMessage": "Ignore column ordering",
@@ -1043,13 +1087,13 @@
     "defaultMessage": "Register",
     "description": "Register button text to register the model"
   },
+  "wDwAdX": {
+    "defaultMessage": "Description",
+    "description": "Header for displaying notes for the experiment table"
+  },
   "wbRVln": {
     "defaultMessage": "Metrics",
     "description": "Title for metrics page"
-  },
-  "x0jbgQ": {
-    "defaultMessage": "inputs",
-    "description": "Table section name for schema inputs in the model comparison page"
   },
   "xRw7H2": {
     "defaultMessage": "Created by",

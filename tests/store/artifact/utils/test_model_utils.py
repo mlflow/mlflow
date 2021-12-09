@@ -47,5 +47,5 @@ def test_parse_models_uri_with_stage(uri, expected_name, expected_stage):
     ],
 )
 def test_parse_models_uri_invalid_input(uri):
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="Not a proper models"):
         _parse_model_uri(uri)

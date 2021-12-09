@@ -90,11 +90,11 @@ class TestDatabricksArtifactRepository(object):
             assert repo.run_id == MOCK_RUN_ID
             assert repo.run_relative_artifact_repo_root_path == ""
 
-            with pytest.raises(MlflowException):
+            with pytest.raises(MlflowException, match="DBFS URI must be of the form dbfs"):
                 DatabricksArtifactRepository("s3://test")
-            with pytest.raises(MlflowException):
+            with pytest.raises(MlflowException, match="Artifact URI incorrect"):
                 DatabricksArtifactRepository("dbfs:/databricks/mlflow/EXP/RUN/artifact")
-            with pytest.raises(MlflowException):
+            with pytest.raises(MlflowException, match="DBFS URI must be of the form dbfs"):
                 DatabricksArtifactRepository(
                     "dbfs://scope:key@notdatabricks/databricks/mlflow-tracking/experiment/1/run/2"
                 )
@@ -152,7 +152,7 @@ class TestDatabricksArtifactRepository(object):
             ("dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts", ""),
             ("dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts/arty", "arty"),
             (
-                "dbfs://prof@databricks/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts/arty",  # noqa
+                "dbfs://prof@databricks/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts/arty",  # pylint: disable=line-too-long
                 "arty",
             ),
             (
@@ -270,7 +270,7 @@ class TestDatabricksArtifactRepository(object):
             )
             write_credential_infos_mock.return_value = [mock_credential_info]
             mock_create_blob_client.side_effect = MlflowException("MOCK ERROR")
-            with pytest.raises(MlflowException):
+            with pytest.raises(MlflowException, match=r".+"):
                 databricks_artifact_repo.log_artifact(test_file.strpath)
             write_credential_infos_mock.assert_called_with(run_id=MOCK_RUN_ID, paths=ANY)
 
@@ -336,7 +336,7 @@ class TestDatabricksArtifactRepository(object):
             )
             write_credential_infos_mock.return_value = [mock_credential_info]
             request_mock.side_effect = MlflowException("MOCK ERROR")
-            with pytest.raises(MlflowException):
+            with pytest.raises(MlflowException, match="MOCK ERROR"):
                 databricks_artifact_repo.log_artifact(test_file.strpath)
             write_credential_infos_mock.assert_called_with(run_id=MOCK_RUN_ID, paths=ANY)
 
@@ -402,7 +402,7 @@ class TestDatabricksArtifactRepository(object):
             )
             write_credential_infos_mock.return_value = [mock_credential_info]
             request_mock.side_effect = MlflowException("MOCK ERROR")
-            with pytest.raises(MlflowException):
+            with pytest.raises(MlflowException, match="MOCK ERROR"):
                 databricks_artifact_repo.log_artifact(test_file.strpath)
             write_credential_infos_mock.assert_called_with(run_id=MOCK_RUN_ID, paths=ANY)
 
@@ -868,7 +868,7 @@ class TestDatabricksArtifactRepository(object):
             read_credential_infos_mock.return_value = [mock_credential_info]
             get_list_mock.return_value = []
             request_mock.return_value = MlflowException("MOCK ERROR")
-            with pytest.raises(MlflowException):
+            with pytest.raises(MlflowException, match=r".+"):
                 databricks_artifact_repo.download_artifacts(test_file.strpath)
             read_credential_infos_mock.assert_called_with(
                 run_id=MOCK_RUN_ID, paths=[test_file.strpath]
@@ -1008,7 +1008,12 @@ class TestDatabricksArtifactRepository(object):
                 MlflowException("MOCK ERROR 2"),
             ]
 
-            with pytest.raises(MlflowException) as exc:
+            match = (
+                r"The following failures occurred while downloading one or more artifacts.+"
+                r"MOCK ERROR 1.+"
+                r"MOCK ERROR 2"
+            )
+            with pytest.raises(MlflowException, match=match) as exc:
                 databricks_artifact_repo.download_artifacts("test_path")
 
             err_msg = str(exc.value)
@@ -1043,8 +1048,12 @@ class TestDatabricksArtifactRepository(object):
                 MlflowException("MOCK ERROR 1"),
                 MlflowException("MOCK ERROR 2"),
             ]
-
-            with pytest.raises(MlflowException) as exc:
+            match = (
+                r"The following failures occurred while uploading one or more artifacts.+"
+                r"MOCK ERROR 1.+"
+                r"MOCK ERROR 2"
+            )
+            with pytest.raises(MlflowException, match=match) as exc:
                 databricks_artifact_repo.log_artifacts(str(tmpdir), "test_artifacts")
 
             err_msg = str(exc.value)

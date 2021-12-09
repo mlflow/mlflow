@@ -813,14 +813,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         self.assertTrue(experiment.tags["multiline tag"] == "value2\nvalue2\nvalue2")
         # test cannot set tags that are too long
         longTag = entities.ExperimentTag("longTagKey", "a" * 5001)
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match="exceeded length limit of 5000"):
             self.store.set_experiment_tag(exp_id, longTag)
         # test can set tags that are somewhat long
         longTag = entities.ExperimentTag("longTagKey", "a" * 4999)
         self.store.set_experiment_tag(exp_id, longTag)
         # test cannot set tags on deleted experiments
         self.store.delete_experiment(exp_id)
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match="must be in the 'active' state"):
             self.store.set_experiment_tag(exp_id, entities.ExperimentTag("should", "notset"))
 
     def test_set_tag(self):
@@ -835,7 +835,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         # Overwriting tags is allowed
         self.store.set_tag(run.info.run_id, new_tag)
         # test setting tags that are too long fails.
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match="exceeded length limit of 5000"):
             self.store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * 5001))
         # test can set tags that are somewhat long
         self.store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * 4999))
@@ -866,14 +866,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         self.assertTrue(k0 not in run.data.tags)
         self.assertTrue(k0 in run2.data.tags)
         # test that you cannot delete tags that don't exist.
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match="No tag with name"):
             self.store.delete_tag(run.info.run_id, "fakeTag")
         # test that you cannot delete tags for nonexistent runs
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match="Run with id=randomRunId not found"):
             self.store.delete_tag("randomRunId", k0)
         # test that you cannot delete tags for deleted runs.
         self.store.delete_run(run.info.run_id)
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match="must be in the 'active' state"):
             self.store.delete_tag(run.info.run_id, k1)
 
     def test_get_metric_history(self):

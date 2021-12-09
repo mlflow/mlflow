@@ -41,9 +41,12 @@ jobs:
       run: |
         source ./dev/install-common-deps.sh
         pip install -r requirements/lint-requirements.txt
-    - name: Run tests
+    - name: Test custom pylint-plugins
+      run : |
+        pytest tests/pylint_plugins
+    - name: Run lint checks
       run: |
-        ./lint.sh
+        ./dev/lint.sh
   r:
     runs-on: ubuntu-latest
     steps:
@@ -298,7 +301,7 @@ jobs:
         sudo unzip $HOME/protoc.zip -d /usr
     - name: Run tests
       run: |
-        ./test-generate-protos.sh
+        ./dev/test-generate-protos.sh
 
   flavors:
     runs-on: ubuntu-latest

@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from packaging.version import Version
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
+from requests.exceptions import HTTPError
 
 from mlflow import __version__
 from mlflow.protos import databricks_pb2
@@ -184,6 +185,17 @@ def verify_rest_response(response, endpoint):
         raise MlflowException("%s. Response body: '%s'" % (base_msg, response.text))
 
     return response
+
+
+def augmented_raise_for_status(response):
+    """Wrap the standard `requests.response.raise_for_status()` method and return reason"""
+    try:
+        response.raise_for_status()
+    except HTTPError as e:
+        if response.text:
+            raise HTTPError(f"{e}. Response text: {response.text}")
+        else:
+            raise e
 
 
 def _get_path(path_prefix, endpoint_path):

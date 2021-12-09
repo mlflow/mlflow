@@ -4,7 +4,6 @@
  */
 // Import default locale statically to avoid slowing page load for existing users
 import defaultMessages from './default/en.json';
-import { generateENXA } from '@formatjs/cli/src/pseudo_locale';
 
 const messagesContext = require.context('./lang', true, /\.json$/, 'lazy');
 const messagePaths = messagesContext.keys();
@@ -17,6 +16,7 @@ export async function loadMessages(locale) {
   }
   if (locale === 'dev') {
     const pseudoMessages = {};
+    const { generateENXA } = await import('@formatjs/cli/src/pseudo_locale');
     Object.entries(defaultMessages).forEach(
       ([key, value]) => (pseudoMessages[key] = generateENXA(value)),
     );

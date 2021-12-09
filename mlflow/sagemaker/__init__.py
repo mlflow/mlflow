@@ -22,7 +22,7 @@ from mlflow.utils import get_unique_resource_id
 from mlflow.utils.annotations import experimental
 from mlflow.utils.file_utils import TempDir
 from mlflow.models.container import SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS
-from mlflow.models.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME
+from mlflow.models.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME, SERVING_ENVIRONMENT
 from mlflow.deployments import BaseDeploymentClient
 
 
@@ -43,6 +43,7 @@ DEFAULT_SAGEMAKER_INSTANCE_TYPE = "ml.m4.xlarge"
 DEFAULT_SAGEMAKER_INSTANCE_COUNT = 1
 
 DEFAULT_REGION_NAME = "us-west-2"
+SAGEMAKER_SERVING_ENVIRONMENT = "SageMaker"
 
 _logger = logging.getLogger(__name__)
 
@@ -1238,7 +1239,10 @@ def _get_deployment_config(flavor_name):
     """
     :return: The deployment configuration as a dictionary
     """
-    deployment_config = {DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME: flavor_name}
+    deployment_config = {
+        DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME: flavor_name,
+        SERVING_ENVIRONMENT: SAGEMAKER_SERVING_ENVIRONMENT,
+    }
     return deployment_config
 
 
@@ -1605,8 +1609,8 @@ def _update_sagemaker_endpoint(
             failure_reason = endpoint_info.get(
                 "FailureReason",
                 (
-                    "An unknown SageMaker failure occurred. \
-                    Please see the SageMaker console logs for"  # noqa
+                    "An unknown SageMaker failure occurred."
+                    " Please see the SageMaker console logs for"
                     " more information."
                 ),
             )
@@ -1782,11 +1786,12 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                        - ``sagemaker``: This will set the default region to `us-west-2` and
                          the default assumed role ARN to `None`.
 
-                       - ``sagemaker:/region_name``: This will set the default region to `region_name`
-                         and the default assumed role ARN to `None`.
+                       - ``sagemaker:/region_name``: This will set the default region to
+                         `region_name` and the default assumed role ARN to `None`.
 
                        - ``sagemaker:/region_name/assumed_role_arn``: This will set the default
-                         region to `region_name` and the default assumed role ARN to `assumed_role_arn`.
+                         region to `region_name` and the default assumed role ARN to
+                         `assumed_role_arn`.
 
                        When an `assumed_role_arn` is provided without a `region_name`,
                        an MlflowException will be raised.
@@ -1822,7 +1827,8 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 message=(
                     "It looks like the target_uri contains an IAM role ARN without a region name.\n"
                     "A region name must be provided when the target_uri contains a role ARN.\n"
-                    "In this case, the target_uri must follow the format: sagemaker:/region_name/assumed_role_arn.\n"
+                    "In this case, the target_uri must follow the format: "
+                    "sagemaker:/region_name/assumed_role_arn.\n"
                     f"The provided target_uri is: {self.target_uri}\n"
                 ),
                 error_code=INVALID_PARAMETER_VALUE,
@@ -1830,6 +1836,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
 
     def _default_config(self):
         return dict(
+            assume_role_arn=self.assumed_role_arn,
             execution_role_arn=None,
             bucket=None,
             image_url=None,
@@ -1969,6 +1976,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             model_uri=model_uri,
             flavor=flavor,
             execution_role_arn=config["execution_role_arn"],
+            assume_role_arn=config["assume_role_arn"],
             bucket=config["bucket"],
             image_url=config["image_url"],
             region_name=config["region_name"],

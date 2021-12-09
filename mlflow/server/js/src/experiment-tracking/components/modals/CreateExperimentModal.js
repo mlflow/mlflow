@@ -55,7 +55,7 @@ export class CreateExperimentModalImpl extends Component {
         handleSubmit={this.handleCreateExperiment}
         onClose={this.props.onClose}
       >
-        <CreateExperimentForm visible={isOpen} validator={this.debouncedExperimentNameValidator} />
+        <CreateExperimentForm validator={this.debouncedExperimentNameValidator} />
       </GenericInputModal>
     );
   }

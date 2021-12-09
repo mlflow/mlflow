@@ -1,7 +1,6 @@
 import os
 
 import pytest
-import posixpath  # pylint: disable=unused-import
 from unittest import mock
 
 from databricks_cli.configure.provider import DatabricksConfig
@@ -132,8 +131,8 @@ def test_docker_project_tracking_uri_propagation(
 
 
 def test_docker_uri_mode_validation(docker_example_base_image):  # pylint: disable=unused-argument
-    with pytest.raises(ExecutionException):
-        mlflow.projects.run(TEST_DOCKER_PROJECT_DIR, backend="databricks")
+    with pytest.raises(ExecutionException, match="When running on Databricks"):
+        mlflow.projects.run(TEST_DOCKER_PROJECT_DIR, backend="databricks", backend_config={})
 
 
 @mock.patch("mlflow.projects.docker._get_git_commit")
@@ -162,7 +161,7 @@ def test_docker_invalid_project_backend_local():
     work_dir = "./examples/docker"
     project = _project_spec.load_project(work_dir)
     project.name = None
-    with pytest.raises(ExecutionException):
+    with pytest.raises(ExecutionException, match="Project name in MLProject must be specified"):
         mlflow.projects.docker.validate_docker_env(project)
 
 
@@ -253,7 +252,7 @@ def test_docker_user_specified_env_vars(volumes, environment, expected, os_envir
 
     if "should_crash" in expected:
         expected.remove("should_crash")
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match="This project expects"):
             with mock.patch.dict("os.environ", os_environ):
                 _get_docker_command(image, active_run, None, volumes, environment)
     else:

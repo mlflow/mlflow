@@ -10,6 +10,11 @@ describe('AppErrorBoundary', () => {
   beforeEach(() => {
     minimalProps = { children: 'testChild' };
     wrapper = shallow(<AppErrorBoundary {...minimalProps} />);
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
   test('should render with minimal props without exploding', () => {

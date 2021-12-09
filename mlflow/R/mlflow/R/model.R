@@ -31,7 +31,7 @@ mlflow_log_model <- function(model, artifact_path, ...) {
   temp_path <- fs::path_temp(artifact_path)
   model_spec <- mlflow_save_model(model, path = temp_path, model_spec = list(
     utc_time_created = mlflow_timestamp(),
-    run_id = mlflow_get_active_run_id(),
+    run_id = mlflow_get_active_run_id_or_start_run(),
     artifact_path = artifact_path,
     flavors = list()
   ), ...)

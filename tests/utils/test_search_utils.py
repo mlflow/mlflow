@@ -1,6 +1,7 @@
 import base64
 import json
 import pytest
+import re
 
 from mlflow.entities import RunInfo, RunData, Run, LifecycleStage, RunStatus, Metric, Param, RunTag
 from mlflow.exceptions import MlflowException
@@ -139,9 +140,8 @@ def test_correct_quote_trimming(filter_string, parsed_filter):
     ],
 )
 def test_error_filter(filter_string, error_message):
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(MlflowException, match=re.escape(error_message)):
         SearchUtils.parse_search_filter(filter_string)
-    assert error_message in e.value.message
 
 
 @pytest.mark.parametrize(
@@ -157,9 +157,8 @@ def test_error_filter(filter_string, error_message):
     ],
 )
 def test_error_comparison_clauses(filter_string, error_message):
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(MlflowException, match=error_message):
         SearchUtils.parse_search_filter(filter_string)
-    assert error_message in e.value.message
 
 
 @pytest.mark.parametrize(
@@ -178,9 +177,8 @@ def test_error_comparison_clauses(filter_string, error_message):
     ],
 )
 def test_bad_quotes(filter_string, error_message):
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(MlflowException, match=re.escape(error_message)):
         SearchUtils.parse_search_filter(filter_string)
-    assert error_message in e.value.message
 
 
 @pytest.mark.parametrize(
@@ -196,9 +194,8 @@ def test_bad_quotes(filter_string, error_message):
     ],
 )
 def test_invalid_clauses(filter_string, error_message):
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(MlflowException, match=re.escape(error_message)):
         SearchUtils.parse_search_filter(filter_string)
-    assert error_message in e.value.message
 
 
 @pytest.mark.parametrize(
@@ -229,9 +226,8 @@ def test_bad_comparators(entity_type, bad_comparators, key, entity_value):
         bad_filter = "{entity_type}.{key} {comparator} {value}".format(
             entity_type=entity_type, key=key, comparator=bad_comparator, value=entity_value
         )
-        with pytest.raises(MlflowException) as e:
+        with pytest.raises(MlflowException, match="Invalid comparator"):
             SearchUtils.filter([run], bad_filter)
-        assert "Invalid comparator" in str(e.value.message)
 
 
 @pytest.mark.parametrize(
@@ -452,9 +448,8 @@ def test_order_by_metric_with_nans_infs_nones():
     ],
 )
 def test_invalid_order_by_search_runs(order_by, error_message):
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(MlflowException, match=error_message):
         SearchUtils.parse_order_by_for_search_runs(order_by)
-    assert error_message in e.value.message
 
 
 @pytest.mark.parametrize(
@@ -488,9 +483,8 @@ def test_space_order_by_search_runs(order_by, ascending_expected):
     ],
 )
 def test_invalid_order_by_search_registered_models(order_by, error_message):
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(MlflowException, match=re.escape(error_message)):
         SearchUtils.parse_order_by_for_search_registered_models(order_by)
-    assert error_message in e.value.message
 
 
 @pytest.mark.parametrize(
@@ -581,6 +575,5 @@ def test_pagination(page_token, max_results, matching_runs, expected_next_page_t
     ],
 )
 def test_invalid_page_tokens(page_token, error_message):
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(MlflowException, match=error_message):
         SearchUtils.paginate([], page_token, 1)
-    assert error_message in e.value.message
