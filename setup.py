@@ -65,6 +65,7 @@ Server & UI. It also adds project backends such as Docker and Kubernetes among
 other capabilities.
 """
 CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + [
+    f"mlflow-skinny=={version}",
     "alembic<=1.4.1",
     # Required
     "docker>=4.0.0",
