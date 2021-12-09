@@ -558,6 +558,7 @@ def test_column_schema_enforcement_no_col_names():
 
 def _is_valid_uuid(val):
     import uuid
+
     try:
         uuid.UUID(str(val))
         return True
@@ -570,7 +571,7 @@ def test_model_uuid():
     assert m.model_uuid is not None
     assert _is_valid_uuid(m.model_uuid)
     m_dict = m.to_dict()
-    assert m_dict['model_uuid'] == m.model_uuid
+    assert m_dict["model_uuid"] == m.model_uuid
     m2 = Model.from_dict(m_dict)
     assert m2.model_uuid == m.model_uuid
 

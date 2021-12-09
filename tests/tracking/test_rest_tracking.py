@@ -386,7 +386,12 @@ def test_log_model(mlflow_client, backend_store_uri):
                 tag = run.data.tags["mlflow.log-model.history"]
                 models = json.loads(tag)
                 model.utc_time_created = models[i]["utc_time_created"]
-                assert models[i] == model.to_dict()
+
+                history_model_meta = models[i].copy()
+                history_model_meta.pop("model_uuid")
+                model_meta = model.to_dict().copy()
+                model_meta.pop(("model_uuid"))
+                assert history_model_meta == model_meta
                 assert len(models) == i + 1
                 for j in range(0, i + 1):
                     assert models[j]["artifact_path"] == model_paths[j]
