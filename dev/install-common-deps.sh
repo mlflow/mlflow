@@ -23,6 +23,7 @@ pip --version
 if [[ "$MLFLOW_SKINNY" == "true" ]]; then
   pip install . --upgrade
 else
+  MLFLOW_SKINNY="true" pip install .
   pip install .[extras] --upgrade
 fi
 export MLFLOW_HOME=$(pwd)
