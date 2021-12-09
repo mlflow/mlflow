@@ -567,7 +567,8 @@ def _is_valid_uuid(val):
 
 def test_model_uuid():
     m = Model()
-    assert m.model_uuid and _is_valid_uuid(m.model_uuid)
+    assert m.model_uuid is not None
+    assert _is_valid_uuid(m.model_uuid)
     m_dict = m.to_dict()
     assert m_dict['model_uuid'] == m.model_uuid
     m2 = Model.from_dict(m_dict)
