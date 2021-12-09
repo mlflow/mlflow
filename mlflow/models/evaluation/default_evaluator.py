@@ -76,7 +76,7 @@ class CsvEvaluationArtifact(EvaluationArtifact):
         return self._content
 
 
-_MIN_SAMPLE_ROWS_FOR_SHAP = 2000
+_DEFAULT_SAMPLE_ROWS_FOR_SHAP = 2000
 
 
 class DefaultEvaluator(ModelEvaluator):
@@ -127,9 +127,9 @@ class DefaultEvaluator(ModelEvaluator):
         artifacts[artifact_file_name] = artifact
 
     def _log_model_explainality(
-            self, artifacts, temp_dir, model, X, dataset_name, run_id, evaluator_config
+            self, artifacts, temp_dir, model, X, dataset_name, feature_names, run_id, evaluator_config
     ):
-        sample_ratio = evaluator_config.get('explainality.sample_ratio', 1.0)
+        sample_rows = evaluator_config.get('explainality.nsamples', _DEFAULT_SAMPLE_ROWS_FOR_SHAP)
         algorithm = evaluator_config.get('explainality.algorithm', None)
 
         model_loader_module = model.metadata.flavors['python_function']["loader_module"]
@@ -139,59 +139,54 @@ class DefaultEvaluator(ModelEvaluator):
         if model_loader_module == 'mlflow.sklearn':
             raw_model = model._model_impl
         elif model_loader_module == 'mlflow.lightgbm':
-            raw_model = model.lgb_model
+            raw_model = model._model_impl.lgb_model
         elif model_loader_module == 'mlflow.xgboost':
-            raw_model = model.xgb_model
+            raw_model = model._model_impl.xgb_model
         else:
             raw_model = None
 
-        try:
-            import xgboost
-            if raw_model is not None and isinstance(raw_model, xgboost.XGBModel):
-                predict_fn = partial(predict_fn, validate_features=False)
-        except ImportError:
-            pass
-
-        if len(X) < _MIN_SAMPLE_ROWS_FOR_SHAP:
-            sample_rows = len(X)
-        else:
-            sample_rows = max(int(len(X) * sample_ratio), _MIN_SAMPLE_ROWS_FOR_SHAP)
+        if raw_model:
+            predict_fn = raw_model.predict
+            try:
+                import xgboost
+                if isinstance(raw_model, xgboost.XGBModel):
+                    # Because shap evaluation will pass evaluation data in ndarray format
+                    # (without feature names), if set validate_features=True it will raise error.
+                    predict_fn = partial(predict_fn, validate_features=False)
+            except ImportError:
+                pass
 
         sampled_X = shap.sample(X, sample_rows)
-
-        feature_names = list(X.columns)
         if algorithm:
             explainer = shap.Explainer(
                 predict_fn, sampled_X, feature_names=feature_names, algorithm=algorithm
             )
+            shap_values = explainer(sampled_X)
         else:
-            if raw_model:
-                maskers = shap.maskers.Independent(sampled_X)
-                if shap.explainers.Linear.supports_model_with_masker(raw_model, maskers):
-                    explainer = shap.explainers.Linear(
-                        raw_model, maskers, feature_names=feature_names
-                    )
-                elif shap.explainers.Tree.supports_model_with_masker(raw_model, maskers):
-                    explainer = shap.explainers.Tree(
-                        raw_model, maskers, feature_names=feature_names
-                    )
-                elif shap.explainers.Additive.supports_model_with_masker(raw_model, maskers):
-                    explainer = shap.explainers.Additive(
-                        raw_model, maskers, feature_names=feature_names
-                    )
-                else:
-                    # fallback to default sampling explainer
-                    pass
-
-            if not explainer:
+            maskers = shap.maskers.Independent(sampled_X)
+            if raw_model and shap.explainers.Linear.supports_model_with_masker(raw_model, maskers):
+                explainer = shap.explainers.Linear(
+                    raw_model, maskers, feature_names=feature_names
+                )
+                shap_values = explainer(X)
+            elif raw_model and shap.explainers.Tree.supports_model_with_masker(raw_model, maskers):
+                explainer = shap.explainers.Tree(
+                    raw_model, maskers, feature_names=feature_names
+                )
+                shap_values = explainer(X)
+            elif raw_model and shap.explainers.Additive.supports_model_with_masker(
+                    raw_model, maskers
+            ):
+                explainer = shap.explainers.Additive(
+                    raw_model, maskers, feature_names=feature_names
+                )
+                shap_values = explainer(X)
+            else:
+                # fallback to default sampling explainer
                 explainer = shap.explainers.Sampling(
                     predict_fn, X, feature_names=feature_names
                 )
-
-        if isinstance(explainer, shap.explainers.Sampling):
-            shap_values = explainer(X, sample_rows)
-        else:
-            shap_values = explainer(sampled_X)
+                shap_values = explainer(X, sample_rows)
 
         def plot_summary():
             shap.plots.beeswarm(shap_values, show=False)
@@ -212,7 +207,7 @@ class DefaultEvaluator(ModelEvaluator):
             dataset_name,
         )
 
-    def _evaluate_classifier(self, temp_dir, model, X, y, dataset_name, run_id, evaluator_config):
+    def _evaluate_classifier(self, temp_dir, model, X, y, dataset_name, feature_names, run_id, evaluator_config):
         # Note: require labels to be number of 0, 1, 2, .. num_classes - 1
         label_list = sorted(list(set(y)))
         assert label_list[0] == 0, "Label values must being at '0'."
@@ -293,12 +288,12 @@ class DefaultEvaluator(ModelEvaluator):
 
         if evaluator_config.get('log_model_explainality', True):
             self._log_model_explainality(
-                artifacts, temp_dir, model, X, dataset_name, run_id, evaluator_config
+                artifacts, temp_dir, model, X, dataset_name, feature_names, run_id, evaluator_config
             )
 
         return EvaluationResult(metrics, artifacts)
 
-    def _evaluate_regressor(self, temp_dir, model, X, y, dataset_name, run_id, evaluator_config):
+    def _evaluate_regressor(self, temp_dir, model, X, y, dataset_name, feature_names, run_id, evaluator_config):
         metrics = EvaluationMetrics()
         artifacts = {}
         y_pred = model.predict(X)
@@ -307,7 +302,7 @@ class DefaultEvaluator(ModelEvaluator):
         metrics["mean_squared_error"] = sk_metrics.mean_squared_error(y, y_pred)
         metrics["root_mean_squared_error"] = math.sqrt(metrics["mean_squared_error"])
         self._log_model_explainality(
-            artifacts, temp_dir, model, X, dataset_name, run_id, evaluator_config
+            artifacts, temp_dir, model, X, dataset_name, feature_names, run_id, evaluator_config
         )
         self._log_metrics(run_id, metrics, dataset_name)
         return EvaluationResult(metrics, artifacts)
@@ -325,11 +320,11 @@ class DefaultEvaluator(ModelEvaluator):
             X, y = dataset._extract_features_and_labels()
             if model_type == "classifier":
                 return self._evaluate_classifier(
-                    temp_dir, model, X, y, dataset.name, run_id, evaluator_config
+                    temp_dir, model, X, y, dataset.name, dataset.feature_names, run_id, evaluator_config
                 )
             elif model_type == "regressor":
                 return self._evaluate_regressor(
-                    temp_dir, model, X, y, dataset.name, run_id, evaluator_config
+                    temp_dir, model, X, y, dataset.name, dataset.feature_names, run_id, evaluator_config
                 )
             else:
                 raise ValueError(f"Unsupported model type {model_type}")

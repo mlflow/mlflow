@@ -321,6 +321,14 @@ class EvaluationDataset:
             )
 
     @property
+    def feature_names(self):
+        import numpy as np
+        if isinstance(self.data, np.ndarray):
+            return [f'f{i}' for i in range(self.data.shape[1])]
+        else:
+            return [c for c in self.data.columns if c != self.labels]
+
+    @property
     def name(self):
         """
         Dataset name, which is specified dataset name or the dataset hash if user don't specify
