@@ -68,7 +68,6 @@ def get_default_pip_requirements():
             _get_pinned_requirement,
             [
                 "torch",
-                "torchvision",
                 # We include CloudPickle in the default environment because
                 # it's required by the default pickle module used by `save_model()`
                 # and `log_model()`: `mlflow.pytorch.pickle_module`.
