@@ -102,7 +102,6 @@ def get_default_conda_env():
                    'channels': ['conda-forge'],
                    'dependencies': ['python=3.7.5',
                                     {'pip': ['torch==1.5.1',
-                                             'torchvision==0.6.1',
                                              'mlflow',
                                              'cloudpickle==1.6.0']}]}
     """
