@@ -1,13 +1,15 @@
 # pylint: disable=redefined-outer-name
 import os
-import mock
+import posixpath
 import pytest
+from unittest import mock
 
 from google.cloud.storage import client as gcs_client
+from google.auth.exceptions import DefaultCredentialsError
 
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
-from google.auth.exceptions import DefaultCredentialsError
+from tests.helper_functions import mock_method_chain
 
 
 @pytest.fixture
@@ -72,7 +74,8 @@ def test_list_artifacts(gcs_mock):
     assert artifacts[1].file_size is None
 
 
-def test_list_artifacts_with_subdir(gcs_mock):
+@pytest.mark.parametrize("dir_name", ["model", "model/"])
+def test_list_artifacts_with_subdir(gcs_mock, dir_name):
     artifact_root_path = "/experiment_id/run_id/"
     repo = GCSArtifactRepository("gs://test_bucket" + artifact_root_path, gcs_mock)
 
@@ -83,13 +86,12 @@ def test_list_artifacts_with_subdir(gcs_mock):
     #     |- variables
 
     # list artifacts at sub directory level
-    dir_name = "model"
     obj_mock = mock.Mock()
-    file_path = dir_name + "/" + "model.pb"
+    file_path = posixpath.join(dir_name, "model.pb")
     obj_mock.configure_mock(name=artifact_root_path + file_path, size=1)
 
     subdir_mock = mock.Mock()
-    subdir_name = dir_name + "/" + "variables"
+    subdir_name = posixpath.join(dir_name, "variables")
     subdir_mock.configure_mock(prefixes=(artifact_root_path + subdir_name + "/",))
 
     mock_results = mock.MagicMock()
@@ -99,6 +101,9 @@ def test_list_artifacts_with_subdir(gcs_mock):
     gcs_mock.Client.return_value.bucket.return_value.list_blobs.return_value = mock_results
 
     artifacts = repo.list_artifacts(path=dir_name)
+    gcs_mock.Client().bucket().list_blobs.assert_called_with(
+        prefix=posixpath.join(artifact_root_path[1:], "model/"), delimiter="/"
+    )
     assert len(artifacts) == 2
     assert artifacts[0].path == file_path
     assert artifacts[0].is_dir is False
@@ -119,8 +124,15 @@ def test_log_artifact(gcs_mock, tmpdir):
 
     # This will call isfile on the code path being used,
     # thus testing that it's being called with an actually file path
-    gcs_mock.Client.return_value.bucket.return_value.blob.return_value.upload_from_filename.side_effect = (  # noqa
-        os.path.isfile
+    mock_method_chain(
+        gcs_mock,
+        [
+            "Client",
+            "bucket",
+            "blob",
+            "upload_from_filename",
+        ],
+        side_effect=os.path.isfile,
     )
     repo.log_artifact(fpath)
 
@@ -137,8 +149,15 @@ def test_log_artifacts(gcs_mock, tmpdir):
     subd.join("b.txt").write("B")
     subd.join("c.txt").write("C")
 
-    gcs_mock.Client.return_value.bucket.return_value.blob.return_value.upload_from_filename.side_effect = (  # noqa
-        os.path.isfile
+    mock_method_chain(
+        gcs_mock,
+        [
+            "Client",
+            "bucket",
+            "blob",
+            "upload_from_filename",
+        ],
+        side_effect=os.path.isfile,
     )
     repo.log_artifacts(subd.strpath)
 
@@ -161,8 +180,15 @@ def test_download_artifacts_calls_expected_gcs_client_methods(gcs_mock, tmpdir):
         f = tmpdir.join(fname)
         f.write("hello world!")
 
-    gcs_mock.Client.return_value.bucket.return_value.blob.return_value.download_to_filename.side_effect = (  # noqa
-        mkfile
+    mock_method_chain(
+        gcs_mock,
+        [
+            "Client",
+            "bucket",
+            "blob",
+            "download_to_filename",
+        ],
+        side_effect=mkfile,
     )
 
     repo.download_artifacts("test.txt")
@@ -226,10 +252,24 @@ def test_download_artifacts_downloads_expected_content(gcs_mock, tmpdir):
         f = tmpdir.join(fname)
         f.write("hello world!")
 
-    gcs_mock.Client.return_value.bucket.return_value.list_blobs.side_effect = get_mock_listing
-
-    gcs_mock.Client.return_value.bucket.return_value.blob.return_value.download_to_filename.side_effect = (  # noqa
-        mkfile
+    mock_method_chain(
+        gcs_mock,
+        [
+            "Client",
+            "bucket",
+            "list_blobs",
+        ],
+        side_effect=get_mock_listing,
+    )
+    mock_method_chain(
+        gcs_mock,
+        [
+            "Client",
+            "bucket",
+            "blob",
+            "download_to_filename",
+        ],
+        side_effect=mkfile,
     )
 
     # Ensure that the root directory can be downloaded successfully

@@ -5,12 +5,13 @@ import numpy as np
 import pandas as pd
 import pytest
 import pyspark
-from py4j.protocol import Py4JJavaError
 from pyspark.sql.types import ArrayType, DoubleType, LongType, StringType, FloatType, IntegerType
+from pyspark.sql.utils import AnalysisException
 
 import mlflow
 import mlflow.pyfunc
 import mlflow.sklearn
+from mlflow.exceptions import MlflowException
 from mlflow.models import ModelSignature
 from mlflow.pyfunc import spark_udf, PythonModel, PyFuncModel
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
@@ -54,11 +55,6 @@ def configure_environment():
 
 
 def get_spark_session(conf):
-    # setting this env variable is needed when using Spark with Arrow >= 0.15.0
-    # because of a change in Arrow IPC format
-    # https://spark.apache.org/docs/latest/sql-pyspark-pandas-with-arrow.html# \
-    # compatibiliy-setting-for-pyarrow--0150-and-spark-23x-24x
-    os.environ["ARROW_PRE_0_15_IPC_FORMAT"] = "1"
     conf.set(key="spark_session.python.worker.reuse", value=True)
     return (
         pyspark.sql.SparkSession.builder.config(conf=conf)
@@ -81,7 +77,9 @@ def model_path(tmpdir):
 @pytest.mark.large
 def test_spark_udf(spark, model_path):
     mlflow.pyfunc.save_model(
-        path=model_path, loader_module=__name__, code_path=[os.path.dirname(tests.__file__)],
+        path=model_path,
+        loader_module=__name__,
+        code_path=[os.path.dirname(tests.__file__)],
     )
     reloaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_path)
 
@@ -121,6 +119,67 @@ def test_spark_udf(spark, model_path):
                 assert expected == actual
 
 
+def test_spark_udf_autofills_no_arguments(spark):
+    class TestModel(PythonModel):
+        def predict(self, context, model_input):
+            return [model_input.columns] * len(model_input)
+
+    signature = ModelSignature(
+        inputs=Schema([ColSpec("long", "a"), ColSpec("long", "b"), ColSpec("long", "c")]),
+        outputs=Schema([ColSpec("integer")]),
+    )
+
+    good_data = spark.createDataFrame(
+        pd.DataFrame(columns=["a", "b", "c", "d"], data={"a": [1], "b": [2], "c": [3], "d": [4]})
+    )
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
+        udf = mlflow.pyfunc.spark_udf(
+            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
+        )
+        res = good_data.withColumn("res", udf()).select("res").toPandas()
+        assert res["res"][0] == ["a", "b", "c"]
+
+        with pytest.raises(
+            pyspark.sql.utils.PythonException,
+            match=r"Model input is missing columns. Expected 3 input columns",
+        ):
+            res = good_data.withColumn("res", udf("b", "c")).select("res").toPandas()
+
+        # this dataframe won't work because it's missing column a
+        bad_data = spark.createDataFrame(
+            pd.DataFrame(
+                columns=["x", "b", "c", "d"], data={"x": [1], "b": [2], "c": [3], "d": [4]}
+            )
+        )
+        with pytest.raises(AnalysisException, match=r"cannot resolve 'a' given input columns"):
+            bad_data.withColumn("res", udf())
+
+    nameless_signature = ModelSignature(
+        inputs=Schema([ColSpec("long"), ColSpec("long"), ColSpec("long")]),
+        outputs=Schema([ColSpec("integer")]),
+    )
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=nameless_signature)
+        udf = mlflow.pyfunc.spark_udf(
+            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
+        )
+        with pytest.raises(
+            MlflowException,
+            match=r"Cannot apply udf because no column names specified",
+        ):
+            good_data.withColumn("res", udf())
+
+    with mlflow.start_run() as run:
+        # model without signature
+        mlflow.pyfunc.log_model("model", python_model=TestModel())
+        udf = mlflow.pyfunc.spark_udf(
+            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
+        )
+        with pytest.raises(pyspark.sql.utils.PythonException, match=r".+"):
+            res = good_data.withColumn("res", udf()).select("res").toPandas()
+
+
 def test_spark_udf_autofills_column_names_with_schema(spark):
     class TestModel(PythonModel):
         def predict(self, context, model_input):
@@ -140,7 +199,7 @@ def test_spark_udf_autofills_column_names_with_schema(spark):
                 columns=["a", "b", "c", "d"], data={"a": [1], "b": [2], "c": [3], "d": [4]}
             )
         )
-        with pytest.raises(Py4JJavaError):
+        with pytest.raises(pyspark.sql.utils.PythonException, match=r".+"):
             res = data.withColumn("res1", udf("a", "b")).select("res1").toPandas()
 
         res = data.withColumn("res2", udf("a", "b", "c")).select("res2").toPandas()
@@ -149,10 +208,35 @@ def test_spark_udf_autofills_column_names_with_schema(spark):
         assert res["res4"][0] == ["a", "b", "c"]
 
 
+def test_spark_udf_with_datetime_columns(spark):
+    class TestModel(PythonModel):
+        def predict(self, context, model_input):
+            return [model_input.columns] * len(model_input)
+
+    signature = ModelSignature(
+        inputs=Schema([ColSpec("datetime", "timestamp"), ColSpec("datetime", "date")]),
+        outputs=Schema([ColSpec("integer")]),
+    )
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
+        udf = mlflow.pyfunc.spark_udf(
+            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
+        )
+        data = spark.range(10).selectExpr(
+            "current_timestamp() as timestamp", "current_date() as date"
+        )
+
+        res = data.withColumn("res", udf("timestamp", "date")).select("res")
+        res = res.toPandas()
+        assert res["res"][0] == ["timestamp", "date"]
+
+
 @pytest.mark.large
 def test_model_cache(spark, model_path):
     mlflow.pyfunc.save_model(
-        path=model_path, loader_module=__name__, code_path=[os.path.dirname(tests.__file__)],
+        path=model_path,
+        loader_module=__name__,
+        code_path=[os.path.dirname(tests.__file__)],
     )
 
     archive_path = SparkModelCache.add_local_model(spark, model_path)
@@ -179,10 +263,8 @@ def test_model_cache(spark, model_path):
     # Note that we can't necessarily expect an even split, or even that there were only
     # exactly 2 python processes launched, due to Spark and its mysterious ways, but we do
     # expect significant reuse.
-    results = spark.sparkContext.parallelize(range(0, 100), 30).map(get_model).collect()
-
-    # TODO(tomas): Looks like spark does not reuse python workers with python==3.x
-    assert sys.version[0] == "3" or max(results) > 10
+    results = spark.sparkContext.parallelize(range(100), 30).map(get_model).collect()
+    assert max(results) > 10
     # Running again should see no newly-loaded models.
-    results2 = spark.sparkContext.parallelize(range(0, 100), 30).map(get_model).collect()
-    assert sys.version[0] == "3" or min(results2) > 0
+    results2 = spark.sparkContext.parallelize(range(100), 30).map(get_model).collect()
+    assert min(results2) > 0

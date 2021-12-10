@@ -1,6 +1,6 @@
 from subprocess import Popen
 
-import mock
+from unittest import mock
 import os
 from threading import Thread
 

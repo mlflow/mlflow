@@ -2,10 +2,19 @@ import base64
 import json
 import operator
 import re
+import ast
 import shlex
 
 import sqlparse
-from sqlparse.sql import Identifier, Token, Comparison, Statement
+from sqlparse.sql import (
+    Identifier,
+    Token,
+    Comparison,
+    Statement,
+    Parenthesis,
+    TokenList,
+    IdentifierList,
+)
 from sqlparse.tokens import Token as TokenType
 
 from mlflow.entities import RunInfo
@@ -13,8 +22,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 import math
-
-from mlflow.store.model_registry.dbmodels.models import SqlRegisteredModel
 
 
 class SearchUtils(object):
@@ -27,10 +34,13 @@ class SearchUtils(object):
     VALID_PARAM_COMPARATORS = set(["!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR])
     VALID_TAG_COMPARATORS = set(["!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR])
     VALID_STRING_ATTRIBUTE_COMPARATORS = set(["!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR])
+    VALID_NUMERIC_ATTRIBUTE_COMPARATORS = VALID_METRIC_COMPARATORS
+    NUMERIC_ATTRIBUTES = set(["start_time"])
     CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS = set([LIKE_OPERATOR, ILIKE_OPERATOR])
     VALID_REGISTERED_MODEL_SEARCH_COMPARATORS = CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS.union(
         {"="}
     )
+    VALID_MODEL_VERSIONS_SEARCH_COMPARATORS = set(["=", "IN"])
     VALID_SEARCH_ATTRIBUTE_KEYS = set(RunInfo.get_searchable_attributes())
     VALID_ORDER_BY_ATTRIBUTE_KEYS = set(RunInfo.get_orderable_attributes())
     _METRIC_IDENTIFIER = "metric"
@@ -50,11 +60,12 @@ class SearchUtils(object):
         + list(_ALTERNATE_ATTRIBUTE_IDENTIFIERS)
     )
     STRING_VALUE_TYPES = set([TokenType.Literal.String.Single])
+    DELIMITER_VALUE_TYPES = set([TokenType.Punctuation])
     NUMERIC_VALUE_TYPES = set([TokenType.Literal.Number.Integer, TokenType.Literal.Number.Float])
     # Registered Models Constants
     ORDER_BY_KEY_TIMESTAMP = "timestamp"
     ORDER_BY_KEY_LAST_UPDATED_TIMESTAMP = "last_updated_timestamp"
-    ORDER_BY_KEY_MODEL_NAME = SqlRegisteredModel.name.key
+    ORDER_BY_KEY_MODEL_NAME = "name"
     VALID_ORDER_BY_KEYS_REGISTERED_MODELS = set(
         [ORDER_BY_KEY_TIMESTAMP, ORDER_BY_KEY_LAST_UPDATED_TIMESTAMP, ORDER_BY_KEY_MODEL_NAME]
     )
@@ -159,7 +170,7 @@ class SearchUtils(object):
         return {"type": identifier, "key": key}
 
     @classmethod
-    def _get_value(cls, identifier_type, token):
+    def _get_value(cls, identifier_type, key, token):
         if identifier_type == cls._METRIC_IDENTIFIER:
             if token.ttype not in cls.NUMERIC_VALUE_TYPES:
                 raise MlflowException(
@@ -177,7 +188,15 @@ class SearchUtils(object):
                 error_code=INVALID_PARAMETER_VALUE,
             )
         elif identifier_type == cls._ATTRIBUTE_IDENTIFIER:
-            if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
+            if key in cls.NUMERIC_ATTRIBUTES:
+                if token.ttype not in cls.NUMERIC_VALUE_TYPES:
+                    raise MlflowException(
+                        "Expected numeric value type for numeric attribute: {}. "
+                        "Found {}".format(key, token.value),
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                return token.value
+            elif token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             else:
                 raise MlflowException(
@@ -225,11 +244,11 @@ class SearchUtils(object):
         cls._validate_comparison(stripped_comparison)
         comp = cls._get_identifier(stripped_comparison[0].value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = stripped_comparison[1].value
-        comp["value"] = cls._get_value(comp.get("type"), stripped_comparison[2])
+        comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), stripped_comparison[2])
         return comp
 
     @classmethod
-    def _invalid_statement_token(cls, token):
+    def _invalid_statement_token_search_runs(cls, token):
         if isinstance(token, Comparison):
             return False
         elif token.is_whitespace:
@@ -240,9 +259,28 @@ class SearchUtils(object):
             return True
 
     @classmethod
+    def _invalid_statement_token_search_model_registry(cls, token):
+        if isinstance(token, Comparison):
+            return False
+        elif isinstance(token, Identifier):
+            return False
+        elif isinstance(token, Parenthesis):
+            return False
+        elif token.is_whitespace:
+            return False
+        elif token.match(ttype=TokenType.Keyword, values=["AND", "IN"]):
+            return False
+        elif token.match(ttype=TokenType.Operator.Comparison, values=["IN"]):
+            # `IN` is a comparison token in sqlparse >= 0.4.0:
+            # https://github.com/andialbrecht/sqlparse/pull/567
+            return False
+        else:
+            return True
+
+    @classmethod
     def _process_statement(cls, statement):
         # check validity
-        invalids = list(filter(cls._invalid_statement_token, statement.tokens))
+        invalids = list(filter(cls._invalid_statement_token_search_runs, statement.tokens))
         if len(invalids) > 0:
             invalid_clauses = ", ".join("'%s'" % token for token in invalids)
             raise MlflowException(
@@ -310,9 +348,20 @@ class SearchUtils(object):
         return False
 
     @classmethod
-    def is_attribute(cls, key_type, comparator):
-        if key_type == cls._ATTRIBUTE_IDENTIFIER:
+    def is_string_attribute(cls, key_type, key_name, comparator):
+        if key_type == cls._ATTRIBUTE_IDENTIFIER and key_name not in cls.NUMERIC_ATTRIBUTES:
             if comparator not in cls.VALID_STRING_ATTRIBUTE_COMPARATORS:
+                raise MlflowException(
+                    "Invalid comparator '{}' not one of "
+                    "'{}".format(comparator, cls.VALID_STRING_ATTRIBUTE_COMPARATORS)
+                )
+            return True
+        return False
+
+    @classmethod
+    def is_numeric_attribute(cls, key_type, key_name, comparator):
+        if key_type == cls._ATTRIBUTE_IDENTIFIER and key_name in cls.NUMERIC_ATTRIBUTES:
+            if comparator not in cls.VALID_NUMERIC_ATTRIBUTE_COMPARATORS:
                 raise MlflowException(
                     "Invalid comparator '{}' not one of "
                     "'{}".format(comparator, cls.VALID_STRING_ATTRIBUTE_COMPARATORS)
@@ -334,8 +383,11 @@ class SearchUtils(object):
             lhs = run.data.params.get(key, None)
         elif cls.is_tag(key_type, comparator):
             lhs = run.data.tags.get(key, None)
-        elif cls.is_attribute(key_type, comparator):
+        elif cls.is_string_attribute(key_type, key, comparator):
             lhs = getattr(run.info, key)
+        elif cls.is_numeric_attribute(key_type, key, comparator):
+            lhs = getattr(run.info, key)
+            value = int(value)
         else:
             raise MlflowException(
                 "Invalid search expression type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE
@@ -463,12 +515,18 @@ class SearchUtils(object):
             )
 
         # Return a key such that None values are always at the end.
-        is_null_or_nan = sort_value is None or (
-            isinstance(sort_value, float) and math.isnan(sort_value)
-        )
-        if ascending:
-            return (is_null_or_nan, sort_value)
-        return (not is_null_or_nan, sort_value)
+        is_none = sort_value is None
+        is_nan = isinstance(sort_value, float) and math.isnan(sort_value)
+        fill_value = (1 if ascending else -1) * math.inf
+
+        if is_none:
+            sort_value = fill_value
+        elif is_nan:
+            sort_value = -fill_value
+
+        is_none_or_nan = is_none or is_nan
+
+        return (is_none_or_nan, sort_value) if ascending else (not is_none_or_nan, sort_value)
 
     @classmethod
     def sort(cls, runs, order_by_list):
@@ -561,6 +619,46 @@ class SearchUtils(object):
     VALID_SEARCH_KEYS_FOR_REGISTERED_MODELS = set(["name"])
 
     @classmethod
+    def _check_valid_identifier_list(cls, value_token):
+        if len(value_token._groupable_tokens) == 0:
+            raise MlflowException(
+                "While parsing a list in the query,"
+                " expected a non-empty list of string values, but got empty list",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        elif not isinstance(value_token._groupable_tokens[0], IdentifierList):
+            raise MlflowException(
+                "While parsing a list in the query,"
+                " expected a non-empty list of string values, but got ill-formed list.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        elif not all(
+            map(
+                lambda token: token.ttype
+                in cls.STRING_VALUE_TYPES.union(cls.DELIMITER_VALUE_TYPES),
+                value_token._groupable_tokens[0].tokens,
+            )
+        ):
+            raise MlflowException(
+                "While parsing a list in the query, expected string value "
+                "or punctuation, but got different type in list: {value_token}".format(
+                    value_token=value_token
+                ),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+    @classmethod
+    def _parse_list_from_sql_token(cls, token):
+        try:
+            return ast.literal_eval(token.value)
+        except SyntaxError:
+            raise MlflowException(
+                "While parsing a list in the query,"
+                " expected a non-empty list of string values, but got ill-formed list.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+    @classmethod
     def _get_comparison_for_model_registry(cls, comparison, valid_search_keys):
         stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
         cls._validate_comparison(stripped_comparison)
@@ -572,18 +670,88 @@ class SearchUtils(object):
                 error_code=INVALID_PARAMETER_VALUE,
             )
         value_token = stripped_comparison[2]
-        if value_token.ttype not in cls.STRING_VALUE_TYPES:
+        if (
+            not isinstance(value_token, Parenthesis)
+            and value_token.ttype not in cls.STRING_VALUE_TYPES
+        ):
             raise MlflowException(
                 "Expected a quoted string value for attributes. "
-                "Got value {value}".format(value=value_token.value),
+                "Got value {value} with type {type}".format(
+                    value=value_token.value, type=type(value_token)
+                ),
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        elif isinstance(value_token, Parenthesis):
+            cls._check_valid_identifier_list(value_token)
+            value = cls._parse_list_from_sql_token(value_token)
+        else:
+            value = cls._strip_quotes(value_token.value, expect_quoted_value=True)
+
         comp = {
             "key": key,
             "comparator": stripped_comparison[1].value,
-            "value": cls._strip_quotes(value_token.value, expect_quoted_value=True),
+            "value": value,
         }
         return comp
+
+    @classmethod
+    def _is_list_component_token(cls, token):
+        return (
+            isinstance(token, Identifier)
+            or token.match(ttype=TokenType.Keyword, values=["IN"])
+            or isinstance(token, Parenthesis)
+        )
+
+    @classmethod
+    def _process_statement_tokens(cls, statement_tokens, filter_string):
+        """
+        This function processes the tokens in a statement to ensure that the correct parsing
+        behavior occurs. In typical cases, the statement tokens will contain just the comparison -
+        in this case, no additional processing occurs. In the case when a filter string contains the
+        IN operator, this function parses those tokens into a Comparison object, which will be
+        parsed by _get_comparison_for_model_registry.
+        :param statement_tokens: List of tokens from a statement
+        :param filter_string: Filter string from which the parsed statement tokens originate. Used
+        for informative logging
+        :return: List of tokens
+        """
+        expected = "Expected search filter with single comparison operator. e.g. name='myModelName'"
+        token_list = []
+        if len(statement_tokens) == 0:
+            raise MlflowException(
+                "Invalid filter '%s'. Could not be parsed. %s" % (filter_string, expected),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        elif len(statement_tokens) == 1:
+            if isinstance(statement_tokens[0], Comparison):
+                token_list = statement_tokens
+            else:
+                raise MlflowException(
+                    "Invalid filter '%s'. Could not be parsed. %s" % (filter_string, expected),
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        elif len(statement_tokens) > 1:
+            comparison_subtokens = []
+            for token in statement_tokens:
+                if isinstance(token, Comparison):
+                    raise MlflowException(
+                        "Search filter '%s' contains multiple expressions. "
+                        "%s " % (filter_string, expected),
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                elif cls._is_list_component_token(token):
+                    comparison_subtokens.append(token)
+                elif not token.is_whitespace:
+                    break
+            # if we have fewer than 3, that means we have an incomplete statement.
+            if len(comparison_subtokens) == 3:
+                token_list = [Comparison(TokenList(comparison_subtokens))]
+            else:
+                raise MlflowException(
+                    "Invalid filter '%s'. Could not be parsed. %s" % (filter_string, expected),
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        return token_list
 
     @classmethod
     def _parse_filter_for_model_registry(cls, filter_string, valid_search_keys):
@@ -609,16 +777,19 @@ class SearchUtils(object):
                 error_code=INVALID_PARAMETER_VALUE,
             )
         statement = parsed[0]
-        invalids = list(filter(cls._invalid_statement_token, statement.tokens))
+        invalids = list(
+            filter(cls._invalid_statement_token_search_model_registry, statement.tokens)
+        )
         if len(invalids) > 0:
             invalid_clauses = ", ".join("'%s'" % token for token in invalids)
             raise MlflowException(
                 "Invalid clause(s) in filter string: %s. " "%s" % (invalid_clauses, expected),
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        token_list = cls._process_statement_tokens(statement.tokens, filter_string)
         return [
             cls._get_comparison_for_model_registry(si, valid_search_keys)
-            for si in statement.tokens
+            for si in token_list
             if isinstance(si, Comparison)
         ]
 

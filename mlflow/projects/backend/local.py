@@ -7,12 +7,7 @@ import sys
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.projects.docker import (
-    validate_docker_env,
-    validate_docker_installation,
-    build_docker_image,
-    get_docker_tracking_cmd_and_envs,
-)
+
 from mlflow.projects.submitted_run import LocalSubmittedRun
 from mlflow.projects.backend.abstract_backend import AbstractBackend
 from mlflow.projects.utils import (
@@ -65,6 +60,12 @@ class LocalBackend(AbstractBackend):
         # If a docker_env attribute is defined in MLproject then it takes precedence over conda yaml
         # environments, so the project will be executed inside a docker container.
         if project.docker_env:
+            from mlflow.projects.docker import (
+                validate_docker_env,
+                validate_docker_installation,
+                build_docker_image,
+            )
+
             tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "docker")
             validate_docker_env(project)
             validate_docker_installation()
@@ -104,13 +105,14 @@ class LocalBackend(AbstractBackend):
             parameters=params,
             experiment_id=experiment_id,
             use_conda=use_conda,
+            docker_args=docker_args,
             storage_dir=storage_dir,
             run_id=active_run.info.run_id,
         )
 
 
 def _invoke_mlflow_run_subprocess(
-    work_dir, entry_point, parameters, experiment_id, use_conda, storage_dir, run_id
+    work_dir, entry_point, parameters, experiment_id, use_conda, docker_args, storage_dir, run_id
 ):
     """
     Run an MLflow project asynchronously by invoking ``mlflow run`` in a subprocess, returning
@@ -120,6 +122,7 @@ def _invoke_mlflow_run_subprocess(
     mlflow_run_arr = _build_mlflow_run_cmd(
         uri=work_dir,
         entry_point=entry_point,
+        docker_args=docker_args,
         storage_dir=storage_dir,
         use_conda=use_conda,
         run_id=run_id,
@@ -131,12 +134,18 @@ def _invoke_mlflow_run_subprocess(
     return LocalSubmittedRun(run_id, mlflow_run_subprocess)
 
 
-def _build_mlflow_run_cmd(uri, entry_point, storage_dir, use_conda, run_id, parameters):
+def _build_mlflow_run_cmd(
+    uri, entry_point, docker_args, storage_dir, use_conda, run_id, parameters
+):
     """
     Build and return an array containing an ``mlflow run`` command that can be invoked to locally
     run the project at the specified URI.
     """
     mlflow_run_arr = ["mlflow", "run", uri, "-e", entry_point, "--run-id", run_id]
+    if docker_args is not None:
+        for key, value in docker_args.items():
+            args = key if isinstance(value, bool) else "%s=%s" % (key, value)
+            mlflow_run_arr.extend(["--docker-args", args])
     if storage_dir is not None:
         mlflow_run_arr.extend(["--storage-dir", storage_dir])
     if not use_conda:
@@ -191,6 +200,8 @@ def _run_entry_point(command, work_dir, experiment_id, run_id):
 
 
 def _get_docker_command(image, active_run, docker_args=None, volumes=None, user_env_vars=None):
+    from mlflow.projects.docker import get_docker_tracking_cmd_and_envs
+
     docker_path = "docker"
     cmd = [docker_path, "run", "--rm"]
 
@@ -273,6 +284,7 @@ def _get_s3_artifact_cmd_and_envs(artifact_repo):
         "AWS_SECRET_ACCESS_KEY": os.environ.get("AWS_SECRET_ACCESS_KEY"),
         "AWS_ACCESS_KEY_ID": os.environ.get("AWS_ACCESS_KEY_ID"),
         "MLFLOW_S3_ENDPOINT_URL": os.environ.get("MLFLOW_S3_ENDPOINT_URL"),
+        "MLFLOW_S3_IGNORE_TLS": os.environ.get("MLFLOW_S3_IGNORE_TLS"),
     }
     envs = dict((k, v) for k, v in envs.items() if v is not None)
     return volumes, envs
@@ -312,7 +324,7 @@ def _get_hdfs_artifact_cmd_and_envs(artifact_repo):
 
     if "MLFLOW_KERBEROS_TICKET_CACHE" in envs:
         ticket_cache = envs["MLFLOW_KERBEROS_TICKET_CACHE"]
-        cmds = ["-v", "{}:{}".format(ticket_cache, ticket_cache)]
+        cmds = ["-v", f"{ticket_cache}:{ticket_cache}"]
     return cmds, envs
 
 

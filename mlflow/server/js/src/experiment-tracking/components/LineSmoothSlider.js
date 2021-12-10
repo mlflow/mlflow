@@ -46,6 +46,7 @@ export class LineSmoothSlider extends React.Component {
             step={1}
             value={inputValue}
             onChange={this.onChange}
+            data-test-id='InputNumber'
           />
         </Col>
       </Row>

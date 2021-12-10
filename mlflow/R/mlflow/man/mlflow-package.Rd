@@ -6,10 +6,7 @@
 \alias{mlflow-package}
 \title{mlflow: Interface to 'MLflow'}
 \description{
-R interface to 'MLflow', open source platform for the complete machine
-  learning life cycle, see <https://mlflow.org/>. This package supports installing
-  'MLflow', tracking experiments, creating and running projects, and saving and
-  serving models.
+R interface to 'MLflow', open source platform for the complete machine learning life cycle, see <https://mlflow.org/>. This package supports installing 'MLflow', tracking experiments, creating and running projects, and saving and serving models.
 }
 \seealso{
 Useful links:
@@ -24,7 +21,7 @@ Useful links:
 
 Authors:
 \itemize{
-  \item Javier Luraschi \email{javier@rstudio.com}
+  \item Javier Luraschi \email{jluraschi@gmail.com}
   \item Kevin Kuo \email{kevin.kuo@rstudio.com} (\href{https://orcid.org/0000-0001-7803-7901}{ORCID})
 }
 

@@ -13,6 +13,8 @@ Below, you can find a number of tutorials and examples for various MLflow use ca
 
   - `Packaging Training Code in a Docker Environment <https://github.com/mlflow/mlflow/tree/master/examples/docker>`_
 
+  - `Python Package Anti-Tampering <https://github.com/mlflow/mlflow/tree/master/examples/supply_chain_security>`_
+
   - :ref:`conda-example`
 * `Write & Use MLflow Plugins <https://mlflow.org/docs/latest/plugins.html#writing-your-own-mlflow-plugins>`_
 * Instrument ML training code with MLflow
@@ -31,9 +33,17 @@ Below, you can find a number of tutorials and examples for various MLflow use ca
 
   - `LightGBM <https://github.com/mlflow/mlflow/tree/master/examples/lightgbm>`_
 
+  - `Statsmodels <https://github.com/mlflow/mlflow/tree/master/examples/statsmodels>`_
+
   - `Glmnet (R) <https://github.com/mlflow/mlflow/tree/master/examples/r_wine>`_
 
   - `SpaCy <https://github.com/mlflow/mlflow/tree/master/examples/spacy>`_
+
+  - `Fastai <https://github.com/mlflow/mlflow/tree/master/examples/fastai>`_
+
+  - `SHAP <https://github.com/mlflow/mlflow/tree/master/examples/shap>`_
+
+  - `Prophet <https://github.com/mlflow/mlflow/tree/master/examples/prophet>`_
 
   - scikit-learn
 
@@ -49,3 +59,6 @@ Below, you can find a number of tutorials and examples for various MLflow use ca
 
     + `TensorFlow 2.X <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow/tf2>`_
 
+  - RAPIDS
+
+    + `Random Forest Classifier <https://github.com/mlflow/mlflow/tree/master/examples/rapids>`_

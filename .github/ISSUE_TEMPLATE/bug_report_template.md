@@ -43,12 +43,12 @@ Components
 - [ ] `area/model-registry`: Model Registry service, APIs, and the fluent client calls for Model Registry
 - [ ] `area/models`: MLmodel format, model serialization/deserialization, flavors
 - [ ] `area/projects`: MLproject format, project running backends
-- [ ] `area/scoring`: Local serving, model deployment tools, spark UDFs
-- [ ] `area/server-infra`: MLflow server, JavaScript dev server
+- [ ] `area/scoring`: MLflow Model server, model deployment tools, Spark UDFs
+- [ ] `area/server-infra`: MLflow Tracking server backend
 - [ ] `area/tracking`: Tracking Service, tracking client APIs, autologging
 
 Interface 
-- [ ] `area/uiux`: Front-end, user experience, JavaScript, plotting
+- [ ] `area/uiux`: Front-end, user experience, plotting, JavaScript, JavaScript dev server
 - [ ] `area/docker`: Docker use across MLflow's components, such as MLflow Projects and MLflow Models
 - [ ] `area/sqlalchemy`: Use of SQLAlchemy in the Tracking Service or Model Registry
 - [ ] `area/windows`: Windows support

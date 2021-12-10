@@ -299,7 +299,7 @@ float
 path
     A path on the local file system. MLflow converts any relative ``path`` parameters to absolute 
     paths. MLflow also downloads any paths passed as distributed storage URIs 
-    (``s3://``, ``dbfs://``, gs://, etc.) to local files. Use this type for programs that can only read local
+    (``s3://``, ``dbfs://``, ``gs://``, etc.) to local files. Use this type for programs that can only read local
     files.
 
 uri
@@ -368,108 +368,9 @@ Run an MLflow Project on Databricks
 
 You can run MLflow Projects remotely on Databricks. To use this feature, you must have an enterprise
 Databricks account (Community Edition is not supported) and you must have set up the
-`Databricks CLI <https://github.com/databricks/databricks-cli>`_. Find more detailed instructions
-in the Databricks docs
-(`Azure Databricks <https://docs.databricks.com/applications/mlflow/index.html>`_,
-`Databricks on AWS <https://docs.databricks.com/applications/mlflow/index.html>`_). A brief overview
-of how to use the feature is as follows:
-
-1. Create a JSON file containing the
-`new cluster specification <https://docs.databricks.com/dev-tools/api/latest/jobs.html#jobsclusterspecnewcluster>`_
-or `cluster specification <https://docs.databricks.com/dev-tools/api/latest/jobs.html#clusterspec>`_
-for your run. Note that running projects against an existing cluster is not supported. If you do not need to specify libraries installed on the Spark worker nodes, you can use the
-simpler "new cluster specification" format. For example:
-
-  .. code-block:: json
-
-    {
-      "spark_version": "6.4.x-scala2.11",
-      "node_type_id": "i3.xlarge",
-      "aws_attributes": {"availability": "ON_DEMAND"},
-      "num_workers": 4
-    }
-
-If you do need to install libraries on the worker, use the "cluster specification" format. For example:
-
-  .. code-block:: json
-
-    {
-      "new_cluster": {
-        "spark_version": "6.4.x-scala2.11",
-        "node_type_id": "i3.xlarge",
-        "aws_attributes": {"availability": "ON_DEMAND"},
-        "num_workers": 4
-      },
-      "libraries": [
-        {
-          "pypi": {
-            "package": "tensorflow"
-          }
-        },
-        {
-          "whl": "dbfs:/path_to_my_lib.whl"
-        }
-      ]
-    }
-
-If you need those same libraries available on the driver, you will also need to specify them in the
-Conda environment YAML file. You can reference wheels on DBFS using the ``pip`` section of the environment
-file. For example:
-
-  .. code-block:: yaml
-  
-    dependencies:
-      - tensorflow
-      - pip:
-        - /dbfs/path_to_ml_lib.whl
-
-The path to the wheel is different in the Conda environment YAML file than the JSON specification used
-to install libraries on the Spark workers. This is because Conda does not support DBFS; you must instead
-use the `DBFS FUSE mount <https://docs.databricks.com/data/databricks-file-system.html#local-file-apis>`_
-to read the file as if it were a local file.
-
-2. Run your project using the following command:
-
-  .. code-block:: bash
-
-    mlflow run <project_uri> -b databricks --backend-config <json-new-cluster-spec>
-
-  where ``<project_uri>`` is a Git repository URI or a folder.
-
-.. important::
-
-  - Databricks execution for MLflow projects with Docker environments is *not* currently supported.
-
-  - You must use a *new cluster* specification when running an MLflow Project on Databricks. Running
-    Projects against existing clusters is not currently supported.
-
-Databricks Execution Tips
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-When running an MLflow Project on Databricks, the following tips may be helpful.
-
-Using SparkR on Databricks
-##########################
-
-In order to use SparkR in an MLflow Project run on Databricks, your project code must first install
-and import SparkR as follows:
-
-.. code-block:: R
-
-  if (file.exists("/databricks/spark/R/pkg")) {
-    install.packages("/databricks/spark/R/pkg", repos = NULL)
-  } else {
-    install.packages("SparkR")
-  }
-
-  library(SparkR)
-
-Your project code can then proceed to initialize a SparkR session and use SparkR as normal:
-
-.. code-block:: R
-
-  sparkR.session()
-  ...
+`Databricks CLI <https://github.com/databricks/databricks-cli>`_. Find detailed instructions
+in the Databricks docs (`Azure Databricks <https://docs.microsoft.com/en-us/azure/databricks/applications/mlflow/projects#run-an-mlflow-project>`_,
+`Databricks on AWS <https://docs.databricks.com/applications/mlflow/projects.html>`_).
 
 .. _kubernetes_execution:
 
@@ -605,11 +506,11 @@ execution. Replaced fields are indicated using bracketed text.
           image: "{replaced with URI of Docker image created during Project execution}"
           command: ["{replaced with MLflow Project entry point command}"]
           env: ["{appended with MLFLOW_TRACKING_URI, MLFLOW_RUN_ID and MLFLOW_EXPERIMENT_ID}"]
-        resources:
-          limits:
-            memory: 512Mi
-          requests:
-            memory: 256Mi
+          resources:
+            limits:
+              memory: 512Mi
+            requests:
+              memory: 256Mi
         restartPolicy: Never
 
 The ``container.name``, ``container.image``, and ``container.command`` fields are only replaced for
@@ -634,7 +535,7 @@ steps. Each call to :py:func:`mlflow.projects.run` returns a run object, that yo
 :py:mod:`mlflow.tracking` to determine when the run has ended and get its output artifacts. These artifacts
 can then be passed into another step that takes ``path`` or ``uri`` parameters. You can coordinate
 all of the workflow in a single Python program that looks at the results of each step and decides
-what to submit next using custom code. Some example uses cases for multi-step workflows include:
+what to submit next using custom code. Some example use cases for multi-step workflows include:
 
 Modularizing Your Data Science Code
   Different users can publish reusable steps for data featurization, training, validation, and so on, that other users or team can run in their workflows. Because MLflow supports Git versioning, another team can lock their workflow to a specific version of a project, or upgrade to a new one on their own schedule.

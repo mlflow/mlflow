@@ -38,7 +38,7 @@ def is_tracking_uri_set():
     return False
 
 
-def set_tracking_uri(uri):
+def set_tracking_uri(uri: str) -> None:
     """
     Set the tracking server URI. This does not affect the
     currently active run (if one exists), but takes effect for successive runs.
@@ -52,6 +52,20 @@ def set_tracking_uri(uri):
                   Databricks CLI
                   `profile <https://github.com/databricks/databricks-cli#installation>`_,
                   "databricks://<profileName>".
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        mlflow.set_tracking_uri("file:///tmp/my_tracking")
+        tracking_uri = mlflow.get_tracking_uri()
+        print("Current tracking uri: {}".format(tracking_uri))
+
+    .. code-block:: text
+        :caption: Output
+
+        Current tracking uri: file:///tmp/my_tracking
     """
     global _tracking_uri
     _tracking_uri = uri
@@ -61,12 +75,26 @@ def _resolve_tracking_uri(tracking_uri=None):
     return tracking_uri or get_tracking_uri()
 
 
-def get_tracking_uri():
+def get_tracking_uri() -> str:
     """
     Get the current tracking URI. This may not correspond to the tracking URI of
     the currently active run, since the tracking URI can be updated via ``set_tracking_uri``.
 
     :return: The tracking URI.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        # Get the current tracking uri
+        tracking_uri = mlflow.get_tracking_uri()
+        print("Current tracking uri: {}".format(tracking_uri))
+
+    .. code-block:: text
+        :caption: Output
+
+        Current tracking uri: file:///.../mlruns
     """
     global _tracking_uri
     if _tracking_uri is not None:
@@ -106,7 +134,7 @@ def _get_rest_store(store_uri, **_):
 
 
 def _get_databricks_rest_store(store_uri, **_):
-    return DatabricksRestStore(lambda: get_databricks_host_creds(store_uri))
+    return DatabricksRestStore(partial(get_databricks_host_creds, store_uri))
 
 
 _tracking_store_registry = TrackingStoreRegistry()

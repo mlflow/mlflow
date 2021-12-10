@@ -17,6 +17,7 @@ from mlflow.utils.string_utils import strip_prefix
 from mlflow.utils.uri import (
     get_databricks_profile_uri_from_artifact_uri,
     is_databricks_acled_artifacts_uri,
+    is_databricks_model_registry_artifacts_uri,
     is_valid_dbfs_uri,
     remove_databricks_profile_info_from_artifact_uri,
 )
@@ -46,9 +47,7 @@ class DbfsRestArtifactRepository(ArtifactRepository):
 
         # The dbfs:/ path ultimately used for artifact operations should not contain the
         # Databricks profile info, so strip it before setting ``artifact_uri``.
-        super(DbfsRestArtifactRepository, self).__init__(
-            remove_databricks_profile_info_from_artifact_uri(artifact_uri)
-        )
+        super().__init__(remove_databricks_profile_info_from_artifact_uri(artifact_uri))
 
         databricks_profile_uri = get_databricks_profile_uri_from_artifact_uri(artifact_uri)
         if databricks_profile_uri:
@@ -57,9 +56,9 @@ class DbfsRestArtifactRepository(ArtifactRepository):
         else:
             self.get_host_creds = _get_host_creds_from_default_store()
 
-    def _databricks_api_request(self, endpoint, **kwargs):
+    def _databricks_api_request(self, endpoint, method, **kwargs):
         host_creds = self.get_host_creds()
-        return http_request_safe(host_creds=host_creds, endpoint=endpoint, **kwargs)
+        return http_request_safe(host_creds=host_creds, endpoint=endpoint, method=method, **kwargs)
 
     def _dbfs_list_api(self, json):
         host_creds = self.get_host_creds()
@@ -214,7 +213,7 @@ def dbfs_artifact_repo_factory(artifact_uri):
     elif (
         mlflow.utils.databricks_utils.is_dbfs_fuse_available()
         and os.environ.get(USE_FUSE_ENV_VAR, "").lower() != "false"
-        and not artifact_uri.startswith("dbfs:/databricks/mlflow-registry")
+        and not is_databricks_model_registry_artifacts_uri(artifact_uri)
         and (db_profile_uri is None or db_profile_uri == "databricks")
     ):
         # If the DBFS FUSE mount is available, write artifacts directly to

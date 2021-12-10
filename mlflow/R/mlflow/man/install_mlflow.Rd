@@ -4,14 +4,14 @@
 \alias{install_mlflow}
 \title{Install MLflow}
 \usage{
-install_mlflow(python_version = "3.6")
+install_mlflow(python_version = "3.7")
 }
 \arguments{
 \item{python_version}{Optional Python version to use within conda environment created for
 installing the MLflow CLI. If unspecified, defaults to using Python 3.6}
 }
 \description{
-Installs auxiliary dependencies of MLflow (e.g. the MLflow CLI). As a
+Installs auxiliary dependencies of MLflow (e.g. the MLflow CLI). As a
 one-time setup step, you must run install_mlflow() to install these
 dependencies before calling other MLflow APIs.
 }

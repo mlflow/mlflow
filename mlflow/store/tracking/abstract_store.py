@@ -3,7 +3,6 @@ from abc import abstractmethod, ABCMeta
 from mlflow.entities import ViewType
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.utils import experimental
 
 
 class AbstractStore:
@@ -22,23 +21,30 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def list_experiments(self, view_type=ViewType.ACTIVE_ONLY):
+    def list_experiments(self, view_type=ViewType.ACTIVE_ONLY, max_results=None, page_token=None):
         """
-
         :param view_type: Qualify requested type of experiments.
-
-        :return: a list of Experiment objects stored in store for requested view.
+        :param max_results: If passed, specifies the maximum number of experiments desired. If not
+                            passed, all experiments will be returned. However, certain server
+                            backend may apply its own limit. Check returned ``PagedList`` token to
+                            see if additional experiments are available.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                            a ``list_experiments`` call.
+        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+                 :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
+                 for the next page can be obtained via the ``token`` attribute of the object.
         """
         pass
 
     @abstractmethod
-    def create_experiment(self, name, artifact_location):
+    def create_experiment(self, name, artifact_location, tags):
         """
         Create a new experiment.
         If an experiment with the given name already exists, throws exception.
 
         :param name: Desired name for an experiment
         :param artifact_location: Base location for artifacts in runs. May be None.
+        :param tags: Experiment tags to set upon experiment creation
 
         :return: experiment_id (string) for the newly created experiment if successful, else None.
         """
@@ -226,10 +232,12 @@ class AbstractStore:
         :param page_token: Token specifying the next page of results. It should be obtained from
             a ``search_runs`` call.
 
-        :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
-            expressions. The pagination token for the next page can be obtained via the ``token``
-            attribute of the object; however, some store implementations may not support pagination
-            and thus the returned token would not be meaningful in such cases.
+        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`Run <mlflow.entities.Run>` objects that satisfy the search expressions.
+            If the underlying tracking store supports pagination, the token for the next page may
+            be obtained via the ``token`` attribute of the returned object; however, some store
+            implementations may not support pagination and thus the returned token would not be
+            meaningful in such cases.
         """
         runs, token = self._search_runs(
             experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
@@ -272,10 +280,12 @@ class AbstractStore:
         :param page_token: Token specifying the next page of results. It should be obtained from
             a ``list_run_infos`` call.
 
-        :return: A list of :py:class:`mlflow.entities.RunInfo` objects that satisfy the
-            search expressions. The pagination token for the next page can be obtained via the
-            ``token`` attribute of the object; however, some store implementations may not support
-            pagination and thus the returned token would not be meaningful in such cases.
+        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`RunInfo <mlflow.entities.RunInfo>` objects that satisfy the search
+            expressions. If the underlying tracking store supports pagination, the token for the
+            next page may be obtained via the ``token`` attribute of the returned object; however,
+            some store implementations may not support pagination and thus the returned token would
+            not be meaningful in such cases.
         """
         search_result = self.search_runs(
             [experiment_id], None, run_view_type, max_results, order_by, page_token
@@ -296,7 +306,6 @@ class AbstractStore:
         """
         pass
 
-    @experimental
     @abstractmethod
     def record_logged_model(self, run_id, mlflow_model):
         """
@@ -308,8 +317,7 @@ class AbstractStore:
         :param run_id: String id for the run
         :param mlflow_model: Model object to be recorded.
 
-        NB: This API is experimental and may change in the future. The default implementation is a
-        no-op.
+        The default implementation is a no-op.
 
         :return: None.
         """

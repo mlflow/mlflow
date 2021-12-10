@@ -1,17 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 import os
 import posixpath
 import random
 import shutil
-import six
 import tempfile
 import time
 import unittest
 import uuid
 
-import mock
 import pytest
+from unittest import mock
 
 from mlflow.entities import (
     Metric,
@@ -85,7 +83,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                     "start_time": random_int(1, 10),
                     "end_time": random_int(20, 30),
                     "tags": [],
-                    "artifact_uri": "%s/%s" % (run_folder, FileStore.ARTIFACTS_FOLDER_NAME),
+                    "artifact_uri": os.path.join(run_folder, FileStore.ARTIFACTS_FOLDER_NAME),
                 }
                 write_yaml(run_folder, FileStore.META_DATA_FILE_NAME, run_info)
                 self.run_data[run_id] = run_info
@@ -96,7 +94,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 os.makedirs(params_folder)
                 params = {}
                 for _ in range(5):
-                    param_name = random_str(random_int(4, 12))
+                    param_name = random_str(random_int(10, 12))
                     param_value = random_str(random_int(10, 15))
                     param_file = os.path.join(params_folder, param_name)
                     with open(param_file, "w") as f:
@@ -108,7 +106,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 os.makedirs(metrics_folder)
                 metrics = {}
                 for _ in range(3):
-                    metric_name = random_str(random_int(6, 10))
+                    metric_name = random_str(random_int(10, 12))
                     timestamp = int(time.time())
                     metric_file = os.path.join(metrics_folder, metric_name)
                     values = []
@@ -131,7 +129,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         file_store = FileStore(self.test_root)
         try:
             file_store._check_root_dir()
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:
             self.fail("test_valid_root raised exception '%s'" % e.message)
 
         # Test removing root
@@ -147,6 +145,22 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             self.assertTrue(exp_id in self.experiments)
             self.assertEqual(exp.name, self.exp_data[exp_id]["name"])
             self.assertEqual(exp.artifact_location, self.exp_data[exp_id]["artifact_location"])
+
+    def test_list_experiments_paginated(self):
+        fs = FileStore(self.test_root)
+        for _ in range(10):
+            fs.create_experiment(random_str(12))
+        exps1 = fs.list_experiments(max_results=4, page_token=None)
+        self.assertEqual(len(exps1), 4)
+        self.assertIsNotNone(exps1.token)
+        exps2 = fs.list_experiments(max_results=4, page_token=None)
+        self.assertEqual(len(exps2), 4)
+        self.assertIsNotNone(exps2.token)
+        self.assertNotEqual(exps1, exps2)
+        exps3 = fs.list_experiments(max_results=500, page_token=exps2.token)
+        self.assertLessEqual(len(exps3), 500)
+        if len(exps3) < 500:
+            self.assertIsNone(exps3.token)
 
     def _verify_experiment(self, fs, exp_id):
         exp = fs.get_experiment(exp_id)
@@ -191,7 +205,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs = FileStore(self.test_root)
         fs.list_experiments = mock.Mock(return_value=[])
         fs._create_experiment_with_id = mock.Mock()
-        fs.create_experiment(random_str(1))
+        fs.create_experiment(random_str())
         fs._create_experiment_with_id.assert_called_once()
         experiment_id = fs._create_experiment_with_id.call_args[0][1]
         self.assertEqual(experiment_id, FileStore.DEFAULT_EXPERIMENT_ID)
@@ -265,6 +279,19 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                     exp.artifact_location, expected_artifact_uri_format.format(e=exp_id)
                 )
 
+    def test_create_experiment_with_tags_works_correctly(self):
+        fs = FileStore(self.test_root)
+
+        created_id = fs.create_experiment(
+            "heresAnExperiment",
+            "heresAnArtifact",
+            [ExperimentTag("key1", "val1"), ExperimentTag("key2", "val2")],
+        )
+        experiment = fs.get_experiment(created_id)
+        assert len(experiment.tags) == 2
+        assert experiment.tags["key1"] == "val1"
+        assert experiment.tags["key2"] == "val2"
+
     def test_create_duplicate_experiments(self):
         fs = FileStore(self.test_root)
         for exp_id in self.experiments:
@@ -325,7 +352,9 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
         # Ensure that we cannot rename deleted experiments.
         fs.delete_experiment(exp_id)
-        with pytest.raises(Exception) as e:
+        with pytest.raises(
+            Exception, match="Cannot rename experiment in non-active lifecycle stage"
+        ) as e:
             fs.rename_experiment(exp_id, exp_name)
         assert "non-active lifecycle" in str(e.value)
         self.assertEqual(fs.get_experiment(exp_id).name, new_name)
@@ -422,7 +451,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
         # delete it
         fs.delete_experiment(exp_id)
-        with pytest.raises(Exception):
+        with pytest.raises(Exception, match="Could not create run under non-active experiment"):
             fs.create_run(exp_id, "user", 0, [])
 
     def test_create_run_returns_expected_run_data(self):
@@ -589,50 +618,44 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs.set_tag(r2, RunTag("p_b", "ABC"))
 
         # test search returns both runs
-        six.assertCountEqual(
-            self, [r1, r2], self._search(fs, experiment_id, filter_str="tags.generic_tag = 'p_val'")
+        self.assertCountEqual(
+            [r1, r2], self._search(fs, experiment_id, filter_str="tags.generic_tag = 'p_val'")
         )
         # test search returns appropriate run (same key different values per run)
-        six.assertCountEqual(
-            self, [r1], self._search(fs, experiment_id, filter_str="tags.generic_2 = 'some value'")
+        self.assertCountEqual(
+            [r1], self._search(fs, experiment_id, filter_str="tags.generic_2 = 'some value'")
         )
-        six.assertCountEqual(
-            self, [r2], self._search(fs, experiment_id, filter_str="tags.generic_2='another value'")
+        self.assertCountEqual(
+            [r2], self._search(fs, experiment_id, filter_str="tags.generic_2='another value'")
         )
-        six.assertCountEqual(
-            self, [], self._search(fs, experiment_id, filter_str="tags.generic_tag = 'wrong_val'")
+        self.assertCountEqual(
+            [], self._search(fs, experiment_id, filter_str="tags.generic_tag = 'wrong_val'")
         )
-        six.assertCountEqual(
-            self, [], self._search(fs, experiment_id, filter_str="tags.generic_tag != 'p_val'")
+        self.assertCountEqual(
+            [], self._search(fs, experiment_id, filter_str="tags.generic_tag != 'p_val'")
         )
-        six.assertCountEqual(
-            self,
+        self.assertCountEqual(
             [r1, r2],
             self._search(fs, experiment_id, filter_str="tags.generic_tag != 'wrong_val'"),
         )
-        six.assertCountEqual(
-            self,
+        self.assertCountEqual(
             [r1, r2],
             self._search(fs, experiment_id, filter_str="tags.generic_2 != 'wrong_val'"),
         )
-        six.assertCountEqual(
-            self, [r1], self._search(fs, experiment_id, filter_str="tags.p_a = 'abc'")
-        )
-        six.assertCountEqual(
-            self, [r2], self._search(fs, experiment_id, filter_str="tags.p_b = 'ABC'")
-        )
+        self.assertCountEqual([r1], self._search(fs, experiment_id, filter_str="tags.p_a = 'abc'"))
+        self.assertCountEqual([r2], self._search(fs, experiment_id, filter_str="tags.p_b = 'ABC'"))
 
-        six.assertCountEqual(
-            self, [r2], self._search(fs, experiment_id, filter_str="tags.generic_2 LIKE '%other%'")
+        self.assertCountEqual(
+            [r2], self._search(fs, experiment_id, filter_str="tags.generic_2 LIKE '%other%'")
         )
-        six.assertCountEqual(
-            self, [], self._search(fs, experiment_id, filter_str="tags.generic_2 LIKE 'other%'")
+        self.assertCountEqual(
+            [], self._search(fs, experiment_id, filter_str="tags.generic_2 LIKE 'other%'")
         )
-        six.assertCountEqual(
-            self, [], self._search(fs, experiment_id, filter_str="tags.generic_2 LIKE '%other'")
+        self.assertCountEqual(
+            [], self._search(fs, experiment_id, filter_str="tags.generic_2 LIKE '%other'")
         )
-        six.assertCountEqual(
-            self, [r2], self._search(fs, experiment_id, filter_str="tags.generic_2 ILIKE '%OTHER%'")
+        self.assertCountEqual(
+            [r2], self._search(fs, experiment_id, filter_str="tags.generic_2 ILIKE '%OTHER%'")
         )
 
     def test_search_with_max_results(self):
@@ -709,9 +732,11 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs.log_param(run_id, Param(param_name, "value1"))
         # Duplicate calls to `log_param` with the same key and value should succeed
         fs.log_param(run_id, Param(param_name, "value1"))
-        with pytest.raises(MlflowException) as exc:
+        with self.assertRaisesRegex(
+            MlflowException, "Changing param values is not allowed. Param with key="
+        ) as e:
             fs.log_param(run_id, Param(param_name, "value2"))
-        assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert e.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         run = fs.get_run(run_id)
         assert run.data.params[param_name] == "value1"
 
@@ -772,7 +797,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         assert experiment.tags["multiline_tag"] == "value2\nvalue2\nvalue2"
         # test cannot set tags on deleted experiments
         fs.delete_experiment(exp_id)
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match="must be in the 'active'lifecycle_stage"):
             fs.set_experiment_tag(exp_id, ExperimentTag("should", "notset"))
 
     def test_set_tags(self):
@@ -808,22 +833,22 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         new_tags = fs.get_run(run_id).data.tags
         assert "tag0" not in new_tags.keys()
         # test that you cannot delete tags that don't exist.
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match="No tag with name"):
             fs.delete_tag(run_id, "fakeTag")
         # test that you cannot delete tags for nonexistent runs
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match=r"Run .+ not found"):
             fs.delete_tag("random_id", "tag0")
         fs = FileStore(self.test_root)
         fs.delete_run(run_id)
         # test that you cannot delete tags for deleted runs.
         assert fs.get_run(run_id).info.lifecycle_stage == LifecycleStage.DELETED
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match="must be in 'active' lifecycle_stage"):
             fs.delete_tag(run_id, "tag0")
 
     def test_unicode_tag(self):
         fs = FileStore(self.test_root)
         run_id = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
-        value = u"𝐼 𝓈𝑜𝓁𝑒𝓂𝓃𝓁𝓎 𝓈𝓌𝑒𝒶𝓇 𝓉𝒽𝒶𝓉 𝐼 𝒶𝓂 𝓊𝓅 𝓉𝑜 𝓃𝑜 𝑔𝑜𝑜𝒹"
+        value = "𝐼 𝓈𝑜𝓁𝑒𝓂𝓃𝓁𝓎 𝓈𝓌𝑒𝒶𝓇 𝓉𝒽𝒶𝓉 𝐼 𝒶𝓂 𝓊𝓅 𝓉𝑜 𝓃𝑜 𝑔𝑜𝑜𝒹"
         fs.set_tag(run_id, RunTag("message", value))
         tags = fs.get_run(run_id).data.tags
         assert tags["message"] == value
@@ -848,11 +873,12 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs.delete_run(run_id)
 
         assert fs.get_run(run_id).info.lifecycle_stage == LifecycleStage.DELETED
-        with pytest.raises(MlflowException):
+        match = "must be in 'active' lifecycle_stage"
+        with pytest.raises(MlflowException, match=match):
             fs.set_tag(run_id, RunTag("a", "b"))
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match=match):
             fs.log_metric(run_id, Metric("a", 0.0, timestamp=0, step=0))
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match=match):
             fs.log_param(run_id, Param("a", "b"))
 
     def test_default_experiment_initialization(self):
@@ -872,7 +898,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         # delete metadata file.
         path = os.path.join(self.test_root, str(exp_0.experiment_id), "meta.yaml")
         os.remove(path)
-        with pytest.raises(MissingConfigException) as e:
+        with pytest.raises(MissingConfigException, match="does not exist") as e:
             fs.get_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
             assert e.message.contains("does not exist")
 
@@ -890,9 +916,8 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         bad_run_id = self.exp_data[exp_0.experiment_id]["runs"][0]
         path = os.path.join(self.test_root, str(exp_0.experiment_id), str(bad_run_id), "meta.yaml")
         os.remove(path)
-        with pytest.raises(MissingConfigException) as e:
+        with pytest.raises(MissingConfigException, match="does not exist"):
             fs.get_run(bad_run_id)
-            assert e.message.contains("does not exist")
 
         valid_runs = self._search(fs, exp_0.experiment_id)
         assert len(valid_runs) == len(all_runs) - 1
@@ -914,13 +939,11 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         path_new = os.path.join(self.test_root, str(target))
         os.rename(path_orig, path_new)
 
-        with pytest.raises(MlflowException) as e:
+        with pytest.raises(MlflowException, match="Could not find experiment with ID"):
             fs.get_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
-            assert e.message.contains("Could not find experiment with ID")
 
-        with pytest.raises(MlflowException) as e:
+        with pytest.raises(MlflowException, match="does not exist"):
             fs.get_experiment(target)
-            assert e.message.contains("does not exist")
         assert len(fs.list_experiments(ViewType.ALL)) == experiments - 1
 
     def test_bad_experiment_id_recorded_for_run(self):
@@ -938,9 +961,8 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         experiment_data["experiment_id"] = 1
         write_yaml(path, "meta.yaml", experiment_data, True)
 
-        with pytest.raises(MlflowException) as e:
+        with pytest.raises(MlflowException, match="metadata is in invalid state"):
             fs.get_run(bad_run_id)
-            assert e.message.contains("not found")
 
         valid_runs = self._search(fs, exp_0.experiment_id)
         assert len(valid_runs) == len(all_runs) - 1
@@ -1062,4 +1084,16 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs = FileStore(self.test_root)
         run = self._create_run(fs)
         fs.log_batch(run.info.run_id, metrics=[], params=[], tags=[])
+        self._verify_logged(fs, run.info.run_id, metrics=[], params=[], tags=[])
+
+    def test_log_batch_with_duplicate_params_errors_no_partial_write(self):
+        fs = FileStore(self.test_root)
+        run = self._create_run(fs)
+        with self.assertRaisesRegex(
+            MlflowException, "Duplicate parameter keys have been submitted"
+        ) as e:
+            fs.log_batch(
+                run.info.run_id, metrics=[], params=[Param("a", "1"), Param("a", "2")], tags=[]
+            )
+        assert e.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         self._verify_logged(fs, run.info.run_id, metrics=[], params=[], tags=[])

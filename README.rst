@@ -16,7 +16,7 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
   Docker, Apache Spark, Azure ML and AWS SageMaker.
 * `MLflow Model Registry <https://mlflow.org/docs/latest/model-registry.html>`_: A centralized model store, set of APIs, and UI, to collaboratively manage the full lifecycle of MLflow Models.
 
-|docs| |labeling| |examples| |pypi| |conda-forge| |cran| |maven| |license| |downloads|
+|docs| |labeling| |examples| |cross-version-tests| |pypi| |conda-forge| |cran| |maven| |license| |downloads| |slack|
 
 .. |docs| image:: https://img.shields.io/badge/docs-latest-success.svg
     :target: https://mlflow.org/docs/latest/index.html
@@ -26,6 +26,9 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
     :alt: Labeling Action Status
 .. |examples| image:: https://github.com/mlflow/mlflow/workflows/Examples/badge.svg?event=schedule
     :target: https://github.com/mlflow/mlflow/actions?query=workflow%3AExamples+event%3Aschedule
+    :alt: Examples Action Status
+.. |cross-version-tests| image:: https://github.com/mlflow/mlflow/workflows/Cross%20version%20tests/badge.svg?event=schedule
+    :target: https://github.com/mlflow/mlflow/actions?query=workflow%3ACross%2Bversion%2Btests+event%3Aschedule
     :alt: Examples Action Status
 .. |pypi| image:: https://img.shields.io/pypi/v/mlflow.svg
     :target: https://pypi.org/project/mlflow/
@@ -45,6 +48,11 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
 .. |downloads| image:: https://pepy.tech/badge/mlflow
     :target: https://pepy.tech/project/mlflow
     :alt: Total Downloads
+.. |slack| image:: https://img.shields.io/badge/slack-@mlflow--users-CF0E5B.svg?logo=slack&logoColor=white&labelColor=3F0E40
+    :target: `Slack`_
+    :alt: Slack
+
+.. _Slack: https://join.slack.com/t/mlflow-users/shared_invite/zt-g6qwro5u-odM7pRnZxNX_w56mcsHp8g
 
 Installing
 ----------
@@ -54,9 +62,19 @@ MLflow requires ``conda`` to be on the ``PATH`` for the projects feature.
 
 Nightly snapshots of MLflow master are also available `here <https://mlflow-snapshots.s3-us-west-2.amazonaws.com/>`_.
 
+Install a lower dependency subset of MLflow from PyPI via ``pip install mlflow-skinny``
+Extra dependencies can be added per desired scenario.
+For example, ``pip install mlflow-skinny pandas numpy`` allows for mlflow.pyfunc.log_model support.
+
 Documentation
 -------------
 Official documentation for MLflow can be found at https://mlflow.org/docs/latest/index.html.
+
+Roadmap
+-------
+The current MLflow Roadmap is available at https://github.com/mlflow/mlflow/milestone/3. We are
+seeking contributions to all of our roadmap items with the ``help wanted`` label. Please see the
+`Contributing`_ section for more information.
 
 Community
 ---------
@@ -66,7 +84,7 @@ or `Stack Overflow <https://stackoverflow.com/questions/tagged/mlflow>`_.
 To report a bug, file a documentation issue, or submit a feature request, please open a GitHub issue.
 
 For release announcements and other discussions, please subscribe to our mailing list (mlflow-users@googlegroups.com)
-or join us on `Slack <https://mlflow-users.slack.com/join/shared_invite/zt-ezta6o05-DbAt0gOUiBt1AuGUCO5S0w#/>`_.
+or join us on `Slack`_.
 
 Running a Sample App With the Tracking API
 ------------------------------------------
@@ -120,5 +138,6 @@ MLflow artifacts and then load them again for serving. There is an example train
 
 Contributing
 ------------
-We happily welcome contributions to MLflow. Please see our `contribution guide <CONTRIBUTING.rst>`_
-for details.
+We happily welcome contributions to MLflow. We are also seeking contributions to items on the
+`MLflow Roadmap <https://github.com/mlflow/mlflow/milestone/3>`_. Please see our
+`contribution guide <CONTRIBUTING.rst>`_ to learn more about contributing to MLflow.

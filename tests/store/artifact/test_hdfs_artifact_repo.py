@@ -1,10 +1,10 @@
 import os
 import sys
 from tempfile import NamedTemporaryFile
+from unittest import mock
 
-import mock
 import pytest
-from mock import call, mock_open
+from unittest.mock import call, mock_open
 from pyarrow import HadoopFileSystem
 
 from mlflow.entities import FileInfo
@@ -199,7 +199,7 @@ def test_parse_extra_conf():
     }
     assert _parse_extra_conf(None) is None
 
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError, match="not enough values to unpack "):
         _parse_extra_conf("missing_equals_sign")
 
 

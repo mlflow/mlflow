@@ -17,7 +17,7 @@ export class HomePageImpl extends Component {
     listExperimentsRequestId: getUUID(),
   };
 
-  componentWillMount() {
+  componentDidMount() {
     if (process.env.HIDE_EXPERIMENT_LIST !== 'true') {
       this.props.dispatchListExperimentsApi(this.state.listExperimentsRequestId);
     }

@@ -57,7 +57,7 @@ def now():
 
 class SqlAlchemyStore(AbstractStore):
     """
-    Note:: Experimental: This entity may change or be removed in a future release without warning.
+    This entity may change or be removed in a future release without warning.
     SQLAlchemy compliant backend store for tracking meta data for MLflow entities. MLflow
     supports the database dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
     As specified in the
@@ -85,10 +85,10 @@ class SqlAlchemyStore(AbstractStore):
         :param default_artifact_root: Path/URI to location suitable for large data (such as a blob
                                       store object, DBFS path, or shared NFS file system).
         """
-        super(SqlAlchemyStore, self).__init__()
+        super().__init__()
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
-        self.engine = mlflow.store.db.utils.create_sqlalchemy_engine(db_uri)
+        self.engine = mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(db_uri)
         Base.metadata.create_all(self.engine)
         # Verify that all model registry tables exist.
         SqlAlchemyStore._verify_registry_tables_exist(self.engine)
@@ -151,13 +151,14 @@ class SqlAlchemyStore(AbstractStore):
             # single object
             session.add(objs)
 
-    def create_registered_model(self, name, tags=None):
+    def create_registered_model(self, name, tags=None, description=None):
         """
         Create a new registered model in backend store.
 
         :param name: Name of the new model. This is expected to be unique in the backend store.
         :param tags: A list of :py:class:`mlflow.entities.model_registry.RegisteredModelTag`
                      instances associated with this registered model.
+        :param description: Description of the version.
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
                  created in the backend.
         """
@@ -168,7 +169,10 @@ class SqlAlchemyStore(AbstractStore):
             try:
                 creation_time = now()
                 registered_model = SqlRegisteredModel(
-                    name=name, creation_time=creation_time, last_updated_time=creation_time
+                    name=name,
+                    creation_time=creation_time,
+                    last_updated_time=creation_time,
+                    description=description,
                 )
                 tags_dict = {}
                 for tag in tags or []:
@@ -379,6 +383,7 @@ class SqlAlchemyStore(AbstractStore):
         of order_bys. Registered models are naturally ordered first by name ascending.
         """
         clauses = []
+        observed_order_by_clauses = set()
         if order_by_list:
             for order_by_clause in order_by_list:
                 (
@@ -396,12 +401,18 @@ class SqlAlchemyStore(AbstractStore):
                         + "'{}'".format(SearchUtils.RECOMMENDED_ORDER_BY_KEYS_REGISTERED_MODELS),
                         error_code=INVALID_PARAMETER_VALUE,
                     )
+                if field.key in observed_order_by_clauses:
+                    raise MlflowException(
+                        "`order_by` contains duplicate fields: {}".format(order_by_list)
+                    )
+                observed_order_by_clauses.add(field.key)
                 if ascending:
                     clauses.append(field.asc())
                 else:
                     clauses.append(field.desc())
 
-        clauses.append(SqlRegisteredModel.name.asc())
+        if SqlRegisteredModel.name.key not in observed_order_by_clauses:
+            clauses.append(SqlRegisteredModel.name.asc())
         return clauses
 
     def get_registered_model(self, name):
@@ -487,7 +498,9 @@ class SqlAlchemyStore(AbstractStore):
 
     # CRUD API for ModelVersion objects
 
-    def create_model_version(self, name, source, run_id, tags=None, run_link=None):
+    def create_model_version(
+        self, name, source, run_id=None, tags=None, run_link=None, description=None
+    ):
         """
         Create a new model version from given source and run ID.
 
@@ -497,6 +510,7 @@ class SqlAlchemyStore(AbstractStore):
         :param tags: A list of :py:class:`mlflow.entities.model_registry.ModelVersionTag`
                      instances associated with this model version.
         :param run_link: Link to the run from an MLflow tracking server that generated this model.
+        :param description: Description of the version.
         :return: A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
                  created in the backend.
         """
@@ -525,6 +539,7 @@ class SqlAlchemyStore(AbstractStore):
                         source=source,
                         run_id=run_id,
                         run_link=run_link,
+                        description=description,
                     )
                     tags_dict = {}
                     for tag in tags or []:
@@ -647,7 +662,7 @@ class SqlAlchemyStore(AbstractStore):
                 conditions = [
                     SqlModelVersion.name == name,
                     SqlModelVersion.version != version,
-                    SqlModelVersion.current_stage == stage,
+                    SqlModelVersion.current_stage == get_canonical_stage(stage),
                 ]
                 model_versions = session.query(SqlModelVersion).filter(*conditions).all()
                 for mv in model_versions:
@@ -729,10 +744,11 @@ class SqlAlchemyStore(AbstractStore):
             conditions = []
         elif len(parsed_filter) == 1:
             filter_dict = parsed_filter[0]
-            if filter_dict["comparator"] != "=":
+            if filter_dict["comparator"] not in SearchUtils.VALID_MODEL_VERSIONS_SEARCH_COMPARATORS:
                 raise MlflowException(
-                    "Model Registry search filter only supports equality(=) "
-                    "comparator. Input filter string: %s" % filter_string,
+                    "Model Registry search filter only supports the equality(=) "
+                    "comparator and the IN operator "
+                    "for the run_id parameter. Input filter string: %s" % filter_string,
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             if filter_dict["key"] == "name":
@@ -740,7 +756,10 @@ class SqlAlchemyStore(AbstractStore):
             elif filter_dict["key"] == "source_path":
                 conditions = [SqlModelVersion.source == filter_dict["value"]]
             elif filter_dict["key"] == "run_id":
-                conditions = [SqlModelVersion.run_id == filter_dict["value"]]
+                if filter_dict["comparator"] == "IN":
+                    conditions = [SqlModelVersion.run_id.in_(filter_dict["value"])]
+                else:
+                    conditions = [SqlModelVersion.run_id == filter_dict["value"]]
             else:
                 raise MlflowException(
                     "Invalid filter string: %s" % filter_string, error_code=INVALID_PARAMETER_VALUE
@@ -749,7 +768,8 @@ class SqlAlchemyStore(AbstractStore):
             raise MlflowException(
                 "Model Registry expects filter to be one of "
                 "\"name = '<model_name>'\" or "
-                "\"source_path = '<source_path>'\" or \"run_id = '<run_id>'."
+                "\"source_path = '<source_path>'\" "
+                'or "run_id = \'<run_id>\' or "run_id IN (<run_ids>)".'
                 "Input filter string: %s. " % filter_string,
                 error_code=INVALID_PARAMETER_VALUE,
             )

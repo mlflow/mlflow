@@ -32,7 +32,7 @@ def upgrade():
     # outside of the batch operation context.
     try:
         op.drop_constraint(constraint_name="status", table_name="runs", type_="check")
-    except Exception as e:  # pylint: disable=broad-except
+    except Exception as e:
         _logger.warning(
             "Failed to drop check constraint. Dropping check constraints may not be supported"
             " by your SQL database. Exception content: %s",

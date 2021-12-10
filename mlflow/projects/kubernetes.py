@@ -13,7 +13,7 @@ from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.entities import RunStatus
 
 from shlex import split
-from six.moves import shlex_quote as quote
+from shlex import quote
 
 _logger = logging.getLogger(__name__)
 
@@ -101,26 +101,26 @@ class KubernetesSubmittedRun(SubmittedRun):
     POLL_STATUS_INTERVAL = 5
 
     def __init__(self, mlflow_run_id, job_name, job_namespace):
-        super(KubernetesSubmittedRun, self).__init__()
+        super().__init__()
         self._mlflow_run_id = mlflow_run_id
         self._job_name = job_name
         self._job_namespace = job_namespace
         self._status = RunStatus.SCHEDULED
         self._status_lock = RLock()
+        self._kube_api = kubernetes.client.BatchV1Api()
 
     @property
     def run_id(self):
         return self._mlflow_run_id
 
     def wait(self):
-        kube_api = kubernetes.client.BatchV1Api()
-        while not RunStatus.is_terminated(self._update_status(kube_api)):
+        while not RunStatus.is_terminated(self._update_status()):
             time.sleep(self.POLL_STATUS_INTERVAL)
 
         return self._status == RunStatus.FINISHED
 
-    def _update_status(self, kube_api=kubernetes.client.BatchV1Api()):
-        api_response = kube_api.read_namespaced_job_status(
+    def _update_status(self):
+        api_response = self._kube_api.read_namespaced_job_status(
             name=self._job_name, namespace=self._job_namespace, pretty=True
         )
         status = api_response.status
@@ -151,8 +151,7 @@ class KubernetesSubmittedRun(SubmittedRun):
         with self._status_lock:
             if not RunStatus.is_terminated(self._status):
                 _logger.info("Cancelling job.")
-                kube_api = kubernetes.client.BatchV1Api()
-                kube_api.delete_namespaced_job(
+                self._kube_api.delete_namespaced_job(
                     name=self._job_name,
                     namespace=self._job_namespace,
                     body=kubernetes.client.V1DeleteOptions(),

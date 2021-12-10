@@ -1,7 +1,7 @@
 import React from 'react';
-import { shallow } from 'enzyme';
-import { ErrorModalImpl } from './ErrorModal';
-import ReactModal from 'react-modal';
+import { mountWithIntl } from '../../../common/utils/TestUtils';
+import { ErrorModalWithIntl } from './ErrorModal';
+import { Modal } from 'antd';
 
 describe('ErrorModalImpl', () => {
   let wrapper;
@@ -13,12 +13,11 @@ describe('ErrorModalImpl', () => {
       onClose: jest.fn(),
       text: 'Error popup content',
     };
-    wrapper = shallow(<ErrorModalImpl {...minimalProps} />);
+    wrapper = mountWithIntl(<ErrorModalWithIntl {...minimalProps} />);
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<ErrorModalImpl {...minimalProps} />);
     expect(wrapper.length).toBe(1);
-    expect(wrapper.find(ReactModal).length).toBe(1);
+    expect(wrapper.find(Modal).length).toBe(1);
   });
 });

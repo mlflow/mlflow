@@ -1,5 +1,6 @@
 # Mlflow
 mlruns/
+mlartifacts/
 outputs/
 
 # Mac
@@ -96,3 +97,6 @@ example/tutorial/R/*.nb.html
 
 # travis_wait command logs
 travis_wait*.log
+
+# Pytorch logs
+lightning_logs

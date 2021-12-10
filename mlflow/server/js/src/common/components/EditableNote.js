@@ -1,14 +1,14 @@
 import React, { Component } from 'react';
-import { Alert, Button, Icon, Tooltip } from 'antd';
+import { LoadingOutlined } from '@ant-design/icons';
+import { Alert, Button, Tooltip } from 'antd';
 import { Prompt } from 'react-router';
 import ReactMde, { SvgIcon } from 'react-mde';
 import { getConverter, sanitizeConvertedHtml } from '../utils/MarkdownUtils';
 import PropTypes from 'prop-types';
+import './EditableNote.css';
+import { FormattedMessage, injectIntl } from 'react-intl';
 
-const PROMPT_MESSAGE =
-  'Are you sure you want to navigate away? Your pending text changes will be lost.';
-
-export class EditableNote extends Component {
+export class EditableNoteImpl extends Component {
   static propTypes = {
     defaultMarkdown: PropTypes.string,
     defaultSelectedTab: PropTypes.string,
@@ -16,13 +16,34 @@ export class EditableNote extends Component {
     onSubmit: PropTypes.func,
     onCancel: PropTypes.func,
     showEditor: PropTypes.bool,
+    saveText: PropTypes.object,
+    // React-MDE props
+    toolbarCommands: PropTypes.array,
+    maxEditorHeight: PropTypes.number,
+    minEditorHeight: PropTypes.number,
+    childProps: PropTypes.object,
+    intl: PropTypes.any,
   };
 
   static defaultProps = {
     defaultMarkdown: '',
     defaultSelectedTab: 'write',
     showEditor: false,
+    saveText: (
+      <FormattedMessage
+        defaultMessage='Save'
+        description='Default text for save button on editable notes in MLflow'
+      />
+    ),
     confirmLoading: false,
+    toolbarCommands: [
+      ['header', 'bold', 'italic', 'strikethrough'],
+      ['link', 'quote', 'code', 'image'],
+      ['unordered-list', 'ordered-list', 'checked-list'],
+    ],
+    maxEditorHeight: 500,
+    minEditorHeight: 200,
+    childProps: {},
   };
 
   state = {
@@ -53,7 +74,14 @@ export class EditableNote extends Component {
         .catch((e) => {
           this.setState({
             confirmLoading: false,
-            error: e && e.getMessageField ? e.getMessageField() : 'Failed to submit',
+            error:
+              e && e.getMessageField
+                ? e.getMessageField()
+                : this.props.intl.formatMessage({
+                    defaultMessage: 'Failed to submit',
+                    description:
+                      'Message text for failing to save changes in editable note in MLflow',
+                  }),
           });
         });
     }
@@ -84,13 +112,22 @@ export class EditableNote extends Component {
           <Button
             htmlType='button'
             type='primary'
+            className='editable-note-save-button'
             onClick={this.handleSubmitClick}
             disabled={!this.contentHasChanged() || confirmLoading}
           >
-            {confirmLoading && <Icon type='loading' />} Save
+            {confirmLoading && <LoadingOutlined />} {this.props.saveText}
           </Button>
-          <Button htmlType='button' onClick={this.handleCancelClick} disabled={confirmLoading}>
-            Cancel
+          <Button
+            htmlType='button'
+            className='editable-note-cancel-button'
+            onClick={this.handleCancelClick}
+            disabled={confirmLoading}
+          >
+            <FormattedMessage
+              defaultMessage='Cancel'
+              description='Text for the cancel button in an editable note in MLflow'
+            />
           </Button>
         </div>
       </div>
@@ -113,6 +150,11 @@ export class EditableNote extends Component {
             <div className='note-view-text-area'>
               <ReactMde
                 value={markdown}
+                minEditorHeight={this.props.minEditorHeight}
+                maxEditorHeight={this.props.maxEditorHeight}
+                minPreviewHeight={50}
+                childProps={this.props.childProps}
+                toolbarCommands={this.props.toolbarCommands}
                 onChange={this.handleMdeValueChange}
                 selectedTab={selectedTab}
                 onTabChange={this.handleTabChange}
@@ -123,13 +165,25 @@ export class EditableNote extends Component {
             {error && (
               <Alert
                 type='error'
-                message='There was an error submitting your note.'
+                message={this.props.intl.formatMessage({
+                  defaultMessage: 'There was an error submitting your note.',
+                  description: 'Error message text when saving an editable note in MLflow',
+                })}
                 description={error}
                 closable
               />
             )}
             {this.renderActions()}
-            <Prompt when={this.contentHasChanged()} message={PROMPT_MESSAGE} />
+            <Prompt
+              when={this.contentHasChanged()}
+              message={this.props.intl.formatMessage({
+                defaultMessage:
+                  'Are you sure you want to navigate away? Your pending text changes will be lost.',
+                description:
+                  'Prompt text for navigating away before saving changes in editable note in' +
+                  ' MLflow',
+              })}
+            />
           </React.Fragment>
         ) : (
           <HTMLNoteContent content={htmlContent} />
@@ -165,9 +219,16 @@ function HTMLNoteContent(props) {
       </div>
     </div>
   ) : (
-    <div>None</div>
+    <div>
+      <FormattedMessage
+        defaultMessage='None'
+        description='Default text for no content in an editable note in MLflow'
+      />
+    </div>
   );
 }
 
 TooltipIcon.propTypes = { name: PropTypes.string };
 HTMLNoteContent.propTypes = { content: PropTypes.string };
+
+export const EditableNote = injectIntl(EditableNoteImpl);

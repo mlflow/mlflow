@@ -7,7 +7,7 @@ export default class LocalStorageUtils {
    * data persisted in local storage is used, to prevent old (invalid) cached data from being loaded
    * and breaking the application.
    */
-  static version = '1.0';
+  static version = '1.1';
 
   /**
    * Return a LocalStorageStore corresponding to the specified component and ID, where the ID
@@ -15,7 +15,11 @@ export default class LocalStorageUtils {
    * (e.g. cached data for multiple experiments).
    */
   static getStoreForComponent(componentName, id) {
-    return new LocalStorageStore([componentName, id].join('-'));
+    return new LocalStorageStore([componentName, id].join('-'), 'localStorage');
+  }
+
+  static getSessionScopedStoreForComponent(componentName, id) {
+    return new LocalStorageStore([componentName, id].join('-'), 'sessionStorage');
   }
 }
 
@@ -24,8 +28,13 @@ export default class LocalStorageUtils {
  * "scope".
  */
 class LocalStorageStore {
-  constructor(scope) {
+  constructor(scope, type) {
     this.scope = scope;
+    if (type === 'localStorage') {
+      this.storageObj = window.localStorage;
+    } else {
+      this.storageObj = window.sessionStorage;
+    }
   }
   static reactComponentStateKey = 'ReactComponentState';
 
@@ -58,11 +67,11 @@ class LocalStorageStore {
 
   /** Save the specified key-value pair in local storage. */
   setItem(key, value) {
-    window.localStorage.setItem(this.withScopePrefix(key), value);
+    this.storageObj.setItem(this.withScopePrefix(key), value);
   }
 
   /** Fetch the value corresponding to the passed-in key from local storage. */
   getItem(key) {
-    return window.localStorage.getItem(this.withScopePrefix(key));
+    return this.storageObj.getItem(this.withScopePrefix(key));
   }
 }

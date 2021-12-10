@@ -23,17 +23,9 @@ from mlflow.projects.utils import (
     PROJECT_STORAGE_DIR,
     PROJECT_DOCKER_ARGS,
 )
-from mlflow.projects.docker import (
-    build_docker_image,
-    validate_docker_env,
-    validate_docker_installation,
-)
 from mlflow.projects.backend import loader
 from mlflow.tracking.fluent import _get_experiment_id
-from mlflow.utils.mlflow_tags import (
-    MLFLOW_PROJECT_ENV,
-    MLFLOW_PROJECT_BACKEND,
-)
+from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_PROJECT_BACKEND
 import mlflow.utils.uri
 
 _logger = logging.getLogger(__name__)
@@ -136,6 +128,11 @@ def _run(
         )
 
     elif backend_name == "kubernetes":
+        from mlflow.projects.docker import (
+            build_docker_image,
+            validate_docker_env,
+            validate_docker_installation,
+        )
         from mlflow.projects import kubernetes as kb
 
         tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "docker")
@@ -244,6 +241,29 @@ def run(
                    creating a new run.
     :return: :py:class:`mlflow.projects.SubmittedRun` exposing information (e.g. run ID)
              about the launched run.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        project_uri = "https://github.com/mlflow/mlflow-example"
+        params = {"alpha": 0.5, "l1_ratio": 0.01}
+
+        # Run MLflow project and create a reproducible conda environment
+        # on a local host
+        mlflow.run(project_uri, parameters=params)
+
+    .. code-block:: text
+        :caption: Output
+
+        ...
+        ...
+        Elasticnet model (alpha=0.500000, l1_ratio=0.010000):
+        RMSE: 0.788347345611717
+        MAE: 0.6155576449938276
+        R2: 0.19729662005412607
+        ... mlflow.projects: === Run (ID '6a5109febe5e4a549461e149590d0a7c') succeeded ===
     """
     backend_config_dict = backend_config if backend_config is not None else {}
     if (

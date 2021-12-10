@@ -11,8 +11,9 @@ import {
   parseMlModelFile,
 } from '../actions';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
-import CompareModelVersionsView from './CompareModelVersionsView';
+import { CompareModelVersionsView } from './CompareModelVersionsView';
 import _ from 'lodash';
+import { PageContainer } from '../../common/components/PageContainer';
 
 // TODO: Write integration tests for this component
 class CompareModelVersionsPage extends Component {
@@ -41,10 +42,6 @@ class CompareModelVersionsPage extends Component {
     ],
   };
 
-  componentWillMount() {
-    this.props.getRegisteredModelApi(this.props.modelName, this.registeredModelRequestId);
-  }
-
   removeRunRequestId() {
     this.setState((prevState) => ({
       requestIds: _.without(prevState.requestIds, this.runRequestId),
@@ -52,6 +49,7 @@ class CompareModelVersionsPage extends Component {
   }
 
   componentDidMount() {
+    this.props.getRegisteredModelApi(this.props.modelName, this.registeredModelRequestId);
     for (const modelVersion in this.props.versionsToRuns) {
       if ({}.hasOwnProperty.call(this.props.versionsToRuns, modelVersion)) {
         const runID = this.props.versionsToRuns[modelVersion];
@@ -91,14 +89,14 @@ class CompareModelVersionsPage extends Component {
 
   render() {
     return (
-      <div className='App-content'>
+      <PageContainer>
         <RequestStateWrapper requestIds={this.state.requestIds}>
           <CompareModelVersionsView
             modelName={this.props.modelName}
             versionsToRuns={this.props.versionsToRuns}
           />
         </RequestStateWrapper>
-      </div>
+      </PageContainer>
     );
   }
 }
@@ -106,7 +104,7 @@ class CompareModelVersionsPage extends Component {
 const mapStateToProps = (state, ownProps) => {
   const { location } = ownProps;
   const searchValues = qs.parse(location.search);
-  const modelName = JSON.parse(searchValues['?name']);
+  const modelName = decodeURIComponent(JSON.parse(searchValues['?name']));
   const versionsToRuns = JSON.parse(searchValues['runs']);
   return { modelName, versionsToRuns };
 };

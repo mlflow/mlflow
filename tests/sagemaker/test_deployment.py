@@ -1,8 +1,8 @@
 import os
 import pytest
 import time
-import mock
 from collections import namedtuple
+from unittest import mock
 
 import boto3
 import botocore
@@ -56,10 +56,7 @@ def get_sagemaker_backend(region_name):
 
 
 def mock_sagemaker_aws_services(fn):
-    # Import `wraps` from `six` instead of `functools` to properly set the
-    # wrapped function's `__wrapped__` attribute to the required value
-    # in Python 2
-    from six import wraps
+    from functools import wraps
     from moto import mock_s3, mock_ecr, mock_sts, mock_iam
 
     @mock_ecr
@@ -89,15 +86,63 @@ def mock_sagemaker_aws_services(fn):
         iam_client = boto3.client("iam", region_name="us-west-2")
         iam_client.create_role(RoleName="moto", AssumeRolePolicyDocument=role_policy)
 
+        # Create IAM role to be asssumed (could be in another AWS account)
+        iam_client.create_role(RoleName="assumed_role", AssumeRolePolicyDocument=role_policy)
         return fn(*args, **kwargs)
 
     return mock_wrapper
 
 
+@mock_sagemaker_aws_services
+def test_assume_role_and_get_credentials():
+    assumed_role_credentials = mfs._assume_role_and_get_credentials(
+        assume_role_arn="arn:aws:iam::123456789012:role/assumed_role"
+    )
+    assert "aws_access_key_id" in assumed_role_credentials.keys()
+    assert "aws_secret_access_key" in assumed_role_credentials.keys()
+    assert "aws_session_token" in assumed_role_credentials.keys()
+    assert len(assumed_role_credentials["aws_session_token"]) == 356
+    assert assumed_role_credentials["aws_session_token"].startswith("FQoGZXIvYXdzE")
+    assert len(assumed_role_credentials["aws_access_key_id"]) == 20
+    assert assumed_role_credentials["aws_access_key_id"].startswith("ASIA")
+    assert len(assumed_role_credentials["aws_secret_access_key"]) == 40
+
+
+@pytest.mark.large
+@mock_sagemaker_aws_services
+def test_deployment_with_non_existent_assume_role_arn_raises_exception(pretrained_model):
+
+    match = (
+        r"An error occurred \(NoSuchEntity\) when calling the GetRole "
+        r"operation: Role non-existent-role-arn not found"
+    )
+    with pytest.raises(botocore.exceptions.ClientError, match=match):
+        mfs.deploy(
+            app_name="bad_assume_role_arn",
+            model_uri=pretrained_model.model_uri,
+            assume_role_arn="arn:aws:iam::123456789012:role/non-existent-role-arn",
+        )
+
+
+@pytest.mark.large
+@mock_sagemaker_aws_services
+def test_deployment_with_assume_role_arn(pretrained_model, sagemaker_client):
+    app_name = "deploy_with_assume_role_arn"
+    mfs.deploy(
+        app_name=app_name,
+        model_uri=pretrained_model.model_uri,
+        assume_role_arn="arn:aws:iam::123456789012:role/assumed_role",
+    )
+    assert app_name in [
+        endpoint["EndpointName"] for endpoint in sagemaker_client.list_endpoints()["Endpoints"]
+    ]
+
+
 @pytest.mark.large
 def test_deployment_with_unsupported_flavor_raises_exception(pretrained_model):
     unsupported_flavor = "this is not a valid flavor"
-    with pytest.raises(MlflowException) as exc:
+    match = "The specified flavor: `this is not a valid flavor` is not supported for deployment"
+    with pytest.raises(MlflowException, match=match) as exc:
         mfs.deploy(
             app_name="bad_flavor", model_uri=pretrained_model.model_uri, flavor=unsupported_flavor
         )
@@ -108,7 +153,8 @@ def test_deployment_with_unsupported_flavor_raises_exception(pretrained_model):
 @pytest.mark.large
 def test_deployment_with_missing_flavor_raises_exception(pretrained_model):
     missing_flavor = "mleap"
-    with pytest.raises(MlflowException) as exc:
+    match = "The specified model does not contain the specified deployment flavor"
+    with pytest.raises(MlflowException, match=match) as exc:
         mfs.deploy(
             app_name="missing-flavor", model_uri=pretrained_model.model_uri, flavor=missing_flavor
         )
@@ -124,7 +170,8 @@ def test_deployment_of_model_with_no_supported_flavors_raises_exception(pretrain
     del model_config.flavors[mlflow.pyfunc.FLAVOR_NAME]
     model_config.save(path=model_config_path)
 
-    with pytest.raises(MlflowException) as exc:
+    match = "The specified model does not contain any of the supported flavors for deployment"
+    with pytest.raises(MlflowException, match=match) as exc:
         mfs.deploy(app_name="missing-flavor", model_uri=logged_model_path, flavor=None)
 
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
@@ -156,7 +203,7 @@ def test_get_preferred_deployment_flavor_obtains_valid_flavor_from_model(pretrai
 def test_attempting_to_deploy_in_asynchronous_mode_without_archiving_throws_exception(
     pretrained_model,
 ):
-    with pytest.raises(MlflowException) as exc:
+    with pytest.raises(MlflowException, match="Resources must be archived") as exc:
         mfs.deploy(
             app_name="test-app",
             model_uri=pretrained_model.model_uri,
@@ -165,13 +212,12 @@ def test_attempting_to_deploy_in_asynchronous_mode_without_archiving_throws_exce
             synchronous=False,
         )
 
-    assert "Resources must be archived" in exc.value.message
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
 @pytest.mark.large
 @mock_sagemaker_aws_services
-def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names_from_local(
+def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names_and_env_from_local(
     pretrained_model, sagemaker_client
 ):
     app_name = "test-app"
@@ -200,11 +246,18 @@ def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names_from_loca
     assert app_name in [
         endpoint["EndpointName"] for endpoint in sagemaker_client.list_endpoints()["Endpoints"]
     ]
+    model_environment = sagemaker_client.describe_model(ModelName=model_name)["PrimaryContainer"][
+        "Environment"
+    ]
+    assert model_environment == {
+        "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
+        "SERVING_ENVIRONMENT": "SageMaker",
+    }
 
 
 @pytest.mark.large
 @mock_sagemaker_aws_services
-def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_from_local(
+def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_env_from_local(
     pretrained_model, sagemaker_client
 ):
     app_name = "test-app"
@@ -243,11 +296,18 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_from_
     assert app_name in [
         endpoint["EndpointName"] for endpoint in sagemaker_client.list_endpoints()["Endpoints"]
     ]
+    model_environment = sagemaker_client.describe_model(ModelName=model_name)["PrimaryContainer"][
+        "Environment"
+    ]
+    assert model_environment == {
+        "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
+        "SERVING_ENVIRONMENT": "SageMaker",
+    }
 
 
 @pytest.mark.large
 @mock_sagemaker_aws_services
-def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names_from_s3(
+def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names_and_env_from_s3(
     pretrained_model, sagemaker_client
 ):
     local_model_path = _download_artifact_from_uri(pretrained_model.model_uri)
@@ -283,11 +343,18 @@ def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names_from_s3(
     assert app_name in [
         endpoint["EndpointName"] for endpoint in sagemaker_client.list_endpoints()["Endpoints"]
     ]
+    model_environment = sagemaker_client.describe_model(ModelName=model_name)["PrimaryContainer"][
+        "Environment"
+    ]
+    assert model_environment == {
+        "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
+        "SERVING_ENVIRONMENT": "SageMaker",
+    }
 
 
 @pytest.mark.large
 @mock_sagemaker_aws_services
-def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_from_s3(
+def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_env_from_s3(
     pretrained_model, sagemaker_client
 ):
     local_model_path = _download_artifact_from_uri(pretrained_model.model_uri)
@@ -328,6 +395,13 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_from_
     assert app_name in [
         endpoint["EndpointName"] for endpoint in sagemaker_client.list_endpoints()["Endpoints"]
     ]
+    model_environment = sagemaker_client.describe_model(ModelName=model_name)["PrimaryContainer"][
+        "Environment"
+    ]
+    assert model_environment == {
+        "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
+        "SERVING_ENVIRONMENT": "SageMaker",
+    }
 
 
 @pytest.mark.large
@@ -340,12 +414,13 @@ def test_deploying_application_with_preexisting_name_in_create_mode_throws_excep
         app_name=app_name, model_uri=pretrained_model.model_uri, mode=mfs.DEPLOYMENT_MODE_CREATE
     )
 
-    with pytest.raises(MlflowException) as exc:
+    with pytest.raises(
+        MlflowException, match="an application with the same name already exists"
+    ) as exc:
         mfs.deploy(
             app_name=app_name, model_uri=pretrained_model.model_uri, mode=mfs.DEPLOYMENT_MODE_CREATE
         )
 
-    assert "an application with the same name already exists" in exc.value.message
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
@@ -464,14 +539,13 @@ def test_deploy_in_create_mode_throws_exception_after_endpoint_creation_fails(
 
     with mock.patch(
         "botocore.client.BaseClient._make_api_call", new=fail_endpoint_creations
-    ), pytest.raises(MlflowException) as exc:
+    ), pytest.raises(MlflowException, match="deployment operation failed") as exc:
         mfs.deploy(
             app_name="test-app",
             model_uri=pretrained_model.model_uri,
             mode=mfs.DEPLOYMENT_MODE_CREATE,
         )
 
-    assert "deployment operation failed" in exc.value.message
     assert exc.value.error_code == ErrorCode.Name(INTERNAL_ERROR)
 
 
@@ -601,14 +675,12 @@ def test_deploy_in_replace_mode_throws_exception_after_endpoint_update_fails(
 
     with mock.patch(
         "botocore.client.BaseClient._make_api_call", new=fail_endpoint_updates
-    ), pytest.raises(MlflowException) as exc:
+    ), pytest.raises(MlflowException, match="deployment operation failed") as exc:
         mfs.deploy(
             app_name="test-app",
             model_uri=pretrained_model.model_uri,
             mode=mfs.DEPLOYMENT_MODE_REPLACE,
         )
-
-    assert "deployment operation failed" in exc.value.message
     assert exc.value.error_code == ErrorCode.Name(INTERNAL_ERROR)
 
 

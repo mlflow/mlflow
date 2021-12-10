@@ -6,7 +6,7 @@ output:
     fig_height: 5
 ---
 
-[![CRAN_Status_Badge](https://www.r-pkg.org/badges/version/mlflow)](https://cran.r-project.org/package=mlflow) [![codecov](https://codecov.io/gh/mlflow/mlflow/branch/master/graph/badge.svg)](https://codecov.io/gh/mlflow/mlflow) 
+[![CRAN_Status_Badge](https://www.r-pkg.org/badges/version/mlflow)](https://cran.r-project.org/package=mlflow)
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(fig.path = "tools/readme/", dev = "png")
@@ -29,7 +29,7 @@ devtools::install_github("mlflow/mlflow", subdir = "mlflow/R/mlflow")
 mlflow::install_mlflow()
 ```
 
-Notice also that [Anaconda](https://www.anaconda.com/download/) or [Miniconda](https://conda.io/miniconda.html) need to be manually installed.
+Notice also that [Anaconda](https://www.anaconda.com/products/individual) or [Miniconda](https://docs.conda.io/en/latest/miniconda.html) need to be manually installed.
 
 ### Development
 

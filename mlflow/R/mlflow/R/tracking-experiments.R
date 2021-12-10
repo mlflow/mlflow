@@ -5,17 +5,24 @@
 #' @param name The name of the experiment to create.
 #' @param artifact_location Location where all artifacts for this experiment are stored. If
 #'   not provided, the remote server will select an appropriate default.
+#' @param tags Experiment tags to set on the experiment upon experiment creation.
 #' @template roxlate-client
 #' @export
-mlflow_create_experiment <- function(name, artifact_location = NULL, client = NULL) {
+mlflow_create_experiment <- function(name, artifact_location = NULL, client = NULL, tags = NULL) {
   client <- resolve_client(client)
   name <- forge::cast_string(name)
+
+  tags <- if (!is.null(tags)) tags %>%
+    purrr::imap(~ list(key = .y, value = .x)) %>%
+    unname()
+
   response <- mlflow_rest(
     "experiments", "create",
     client = client, verb = "POST",
     data = list(
       name = name,
-      artifact_location = artifact_location
+      artifact_location = artifact_location,
+      tags = tags
     )
   )
   response$experiment_id
@@ -39,11 +46,11 @@ mlflow_list_experiments <- function(view_type = c("ACTIVE_ONLY", "DELETED_ONLY",
 
   # Return `NULL` if no experiments
   if (!length(response)) return(NULL)
-
-  response$experiments %>%
-    purrr::transpose() %>%
-    purrr::map(unlist) %>%
-    tibble::as_tibble()
+  purrr::map(response$experiments, function(x) {
+    x$tags <- parse_run_data(x$tags)
+    tibble::as_tibble(x)
+  }) %>%
+    do.call(rbind, .)
 }
 
 #' Set Experiment Tag
@@ -98,6 +105,7 @@ mlflow_get_experiment <- function(experiment_id = NULL, name = NULL, client = NU
       client = client, query = list(experiment_id = experiment_id)
     )
   }
+  response$experiment$tags <- parse_run_data(response$experiment$tags)
   response$experiment %>%
     new_mlflow_experiment()
 }
@@ -153,7 +161,7 @@ mlflow_restore_experiment <- function(experiment_id, client = NULL) {
 #'
 #' @template roxlate-client
 #' @param experiment_id ID of the associated experiment. This field is required.
-#' @param new_name The experiment’s name will be changed to this. The new name must be unique.
+#' @param new_name The experiment's name will be changed to this. The new name must be unique.
 #' @export
 mlflow_rename_experiment <- function(new_name, experiment_id = NULL, client = NULL) {
   experiment_id <- resolve_experiment_id(experiment_id)

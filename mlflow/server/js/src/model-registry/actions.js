@@ -1,8 +1,7 @@
 import { Services } from './services';
 import { getUUID, wrapDeferred } from '../common/utils/ActionUtils';
 import { getArtifactContent } from '../common/utils/ArtifactUtils';
-import { REGISTERED_MODELS_PER_PAGE } from './constants';
-import YAML from 'yamljs';
+import yaml from 'js-yaml';
 
 export const CREATE_REGISTERED_MODEL = 'CREATE_REGISTERED_MODEL';
 export const createRegisteredModelApi = (name, id = getUUID()) => ({
@@ -19,12 +18,18 @@ export const listRegisteredModelsApi = (id = getUUID()) => ({
 });
 
 export const SEARCH_REGISTERED_MODELS = 'SEARCH_REGISTERED_MODELS';
-export const searchRegisteredModelsApi = (filter, orderBy, pageToken, id = getUUID()) => {
+export const searchRegisteredModelsApi = (
+  filter,
+  maxResults,
+  orderBy,
+  pageToken,
+  id = getUUID(),
+) => {
   return {
     type: SEARCH_REGISTERED_MODELS,
     payload: wrapDeferred(Services.searchRegisteredModels, {
       filter,
-      max_results: REGISTERED_MODELS_PER_PAGE,
+      max_results: maxResults,
       order_by: orderBy,
       ...(pageToken ? { page_token: pageToken } : null),
     }),
@@ -97,11 +102,31 @@ export const getModelVersionArtifactApi = (modelName, version, id = getUUID()) =
 // pass `null` to the `parseMlModelFile` API when we failed to fetch the
 // file from DBFS. This will ensure requestId is registered in redux `apis` state
 export const PARSE_MLMODEL_FILE = 'PARSE_MLMODEL_FILE';
-export const parseMlModelFile = (modelName, version, mlModelFile, id = getUUID()) => ({
-  type: PARSE_MLMODEL_FILE,
-  payload: mlModelFile ? Promise.resolve(YAML.parse(mlModelFile)) : Promise.reject(),
-  meta: { id, modelName, version },
-});
+export const parseMlModelFile = (modelName, version, mlModelFile, id = getUUID()) => {
+  if (mlModelFile) {
+    try {
+      const parsedMlModelFile = yaml.safeLoad(mlModelFile);
+      return {
+        type: PARSE_MLMODEL_FILE,
+        payload: Promise.resolve(parsedMlModelFile),
+        meta: { id, modelName, version },
+      };
+    } catch (error) {
+      console.error(error);
+      return {
+        type: PARSE_MLMODEL_FILE,
+        payload: Promise.reject(),
+        meta: { id, modelName, version },
+      };
+    }
+  } else {
+    return {
+      type: PARSE_MLMODEL_FILE,
+      payload: Promise.reject(),
+      meta: { id, modelName, version },
+    };
+  }
+};
 
 export const GET_MODEL_VERSION_ACTIVITIES = 'GET_MODEL_VERSION_ACTIVITIES';
 export const getModelVersionActivitiesApi = (modelName, version, id = getUUID()) => ({
@@ -113,11 +138,25 @@ export const getModelVersionActivitiesApi = (modelName, version, id = getUUID())
   meta: { id, modelName, version },
 });
 
+export const resolveFilterValue = (value, includeWildCard = false) => {
+  const wrapper = includeWildCard ? '%' : '';
+  return value.includes("'") ? `"${wrapper}${value}${wrapper}"` : `'${wrapper}${value}${wrapper}'`;
+};
+
 export const SEARCH_MODEL_VERSIONS = 'SEARCH_MODEL_VERSIONS';
 export const searchModelVersionsApi = (filterObj, id = getUUID()) => {
   const filter = Object.keys(filterObj)
-    .map((key) => `${key}='${filterObj[key]}'`)
+    .map((key) => {
+      if (Array.isArray(filterObj[key]) && filterObj[key].length > 1) {
+        return `${key} IN (${filterObj[key].map((elem) => resolveFilterValue(elem)).join()})`;
+      } else if (Array.isArray(filterObj[key]) && filterObj[key].length === 1) {
+        return `${key}=${resolveFilterValue(filterObj[key][0])}`;
+      } else {
+        return `${key}=${resolveFilterValue(filterObj[key])}`;
+      }
+    })
     .join('&');
+
   return {
     type: SEARCH_MODEL_VERSIONS,
     payload: wrapDeferred(Services.searchModelVersions, { filter }),

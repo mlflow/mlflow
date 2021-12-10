@@ -1,8 +1,8 @@
 import json
 import uuid
 
-import mock
 import pytest
+from unittest import mock
 
 import os
 import mlflow
@@ -287,7 +287,7 @@ def test_update_registered_model(mock_get_request_message, mock_model_registry_s
     mock_model_registry_store.update_registered_model.return_value = rm2
     resp = _update_registered_model()
     _, args = mock_model_registry_store.update_registered_model.call_args
-    assert args == {"name": name, "description": u"Test model"}
+    assert args == {"name": name, "description": "Test model"}
     assert json.loads(resp.get_data()) == {"registered_model": jsonify(rm2)}
 
 

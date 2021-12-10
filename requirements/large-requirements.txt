@@ -1,0 +1,4 @@
+## Large test reqs
+matplotlib
+plotly
+tf2onnx

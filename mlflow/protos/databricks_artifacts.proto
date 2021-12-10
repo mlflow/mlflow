@@ -23,7 +23,7 @@ service DatabricksMlflowArtifactsService {
   rpc getCredentialsForRead (GetCredentialsForRead) returns (GetCredentialsForRead.Response) {
     option (rpc) = {
       endpoints: [{
-        method: "GET",
+        method: "POST",
         path: "/mlflow/artifacts/credentials-for-read"
         since { major: 2, minor: 0 },
       }],
@@ -35,7 +35,7 @@ service DatabricksMlflowArtifactsService {
   rpc getCredentialsForWrite (GetCredentialsForWrite) returns (GetCredentialsForWrite.Response) {
     option (rpc) = {
       endpoints: [{
-        method: "GET",
+        method: "POST",
         path: "/mlflow/artifacts/credentials-for-write"
         since { major: 2, minor: 0 },
       }],
@@ -55,6 +55,9 @@ enum ArtifactCredentialType {
   // https://docs.aws.amazon.com/AmazonS3/latest/dev/ShareObjectPreSignedURL.html
   AWS_PRESIGNED_URL = 2;
 
+  // The credential is a GCP Signed URL. For more information, see
+  // https://cloud.google.com/storage/docs/access-control/signed-urls
+  GCP_SIGNED_URL = 3;
 }
 
 message ArtifactCredentialInfo {
@@ -97,14 +100,23 @@ message GetCredentialsForRead {
   // The ID of the MLflow Run for which to fetch artifact read credentials
   optional string run_id = 1 [(validate_required) = true];
 
-  // The artifact path, relative to the Run's artifact root location, for which to
-  // fetch artifact read credentials
-  optional string path = 2 [(validate_required) = true];
+  // The artifact paths, relative to the Run's artifact root location, for which to
+  // fetch artifact read credentials. Must not be empty.
+  repeated string path = 2;
+
+  // Token specifying the page of credentials to fetch for large requests that require pagination
+  optional string page_token = 3;
 
   message Response {
 
-    // Credentials for reading from the specified artifact location
-    optional ArtifactCredentialInfo credentials = 1;
+    // Credentials for reading from the specified artifact locations
+    repeated ArtifactCredentialInfo credential_infos = 2;
+
+    // Token used to fetch the next page of credentials for large requests that require pagination
+    optional string next_page_token = 3;
+
+    // Older versions of the MLflow client use this field to retrieve credentials via point fetches.
+    reserved 1;
 
   }
 }
@@ -116,14 +128,23 @@ message GetCredentialsForWrite {
   // The ID of the MLflow Run for which to fetch artifact write credentials
   optional string run_id = 1 [(validate_required) = true];
 
-  // The artifact path, relative to the Run's artifact root location, for which to
-  // fetch artifact write credentials
-  optional string path = 2 [(validate_required) = true];
+  // The artifact paths, relative to the Run's artifact root location, for which to
+  // fetch artifact write credentials. Must not be empty.
+  repeated string path = 2;
+
+  // Token specifying the page of credentials to fetch for large requests that require pagination
+  optional string page_token = 3;
 
   message Response {
 
-    // Credentials for writing to the specified artifacts location
-    optional ArtifactCredentialInfo credentials = 1;
+    // Credentials for writing to the specified artifact locations
+    repeated ArtifactCredentialInfo credential_infos = 2;
+
+    // Token used to fetch the next page of credentials for large requests that require pagination
+    optional string next_page_token = 3;
+
+    // Older versions of the MLflow client use this field to retrieve credentials via point fetches.
+    reserved 1;
 
   }
 }

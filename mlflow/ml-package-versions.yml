@@ -1,0 +1,343 @@
+sklearn:
+  package_info:
+    pip_release: "scikit-learn"
+    install_dev: |
+      if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "scikit_learn-*.whl") ]; then
+        pip wheel --no-deps --wheel-dir $CACHE_DIR git+https://github.com/scikit-learn/scikit-learn.git
+      fi
+      pip install $CACHE_DIR/scikit_learn-*.whl
+
+  models:
+    minimum: "0.20.3"
+    maximum: "1.0.1"
+    run: |
+      pytest tests/sklearn/test_sklearn_model_export.py --large
+
+  autologging:
+    minimum: "0.20.3"
+    maximum: "1.0.1"
+    requirements: ["matplotlib"]
+    run: |
+      pytest tests/sklearn/test_sklearn_autolog.py --large
+
+pytorch:
+  package_info:
+    pip_release: "torch"
+    install_dev: |
+      pip install --upgrade --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
+
+  models:
+    minimum: "1.4.0"
+    maximum: "1.10.0"
+    requirements: ["torchvision", "scikit-learn", "transformers"]
+    run: |
+      pytest tests/pytorch/test_pytorch_model_export.py --large
+
+pytorch-lightning:
+  package_info:
+    pip_release: "pytorch-lightning"
+    install_dev: |
+      pip install git+https://github.com/PytorchLightning/pytorch-lightning.git
+
+  autologging:
+    minimum: "1.0.5"
+    maximum: "1.5.3"
+    requirements: ["torchvision", "scikit-learn"]
+    run: |
+      pytest tests/pytorch/test_pytorch_autolog.py --large
+
+tensorflow:
+  package_info:
+    pip_release: "tensorflow"
+    install_dev: |
+      pip install tf-nightly
+
+  models:
+    minimum: "2.0.0"
+    maximum: "2.7.0"
+    requirements:
+      "< 2.2": ["h5py<3.0", "scikit-learn"]
+      # Requirements to run tests for keras
+      "== dev": ["scikit-learn", "pyspark", "pyarrow"]
+    run: |
+      pytest tests/tensorflow/test_tensorflow2_model_export.py --large
+
+      # Run tests for keras against keras-nightly that's installed with tf-nightly:
+      # https://github.com/tensorflow/tensorflow/blob/v2.6.0/tensorflow/tools/pip_package/setup.py#L110-L122
+      if [ "$PACKAGE_VERSION" == "dev" ]; then
+        pytest tests/keras/test_keras_model_export.py --large
+      fi
+
+  autologging:
+    minimum: "2.0.0"
+    maximum: "2.7.0"
+    requirements:
+      "< 2.2": ["h5py<3.0"]
+      "== dev": ["scikit-learn"]
+    run: |
+      pytest tests/tensorflow/test_tensorflow2_autolog.py --large
+
+      if [ "$PACKAGE_VERSION" == "dev" ]; then
+        pytest tests/keras/test_keras_autolog.py --large
+      fi
+
+keras:
+  package_info:
+    pip_release: "keras"
+
+  models:
+    minimum: "2.3.0"
+    maximum: "2.7.0"
+    requirements:
+      "<= 2.3.1": ["tensorflow==2.2.1", "scikit-learn", "pyspark", "pyarrow", "transformers<=4.11.3"]
+      "> 2.3.1, < 2.6.0": ["tensorflow<2.5.0", "scikit-learn", "pyspark", "pyarrow", "transformers"]
+      ">= 2.6.0": ["tensorflow", "scikit-learn", "pyspark", "pyarrow", "transformers"]
+    run: |
+      pytest tests/keras/test_keras_model_export.py --large
+
+  autologging:
+    minimum: "2.3.0"
+    maximum: "2.7.0"
+    requirements:
+      # keras 2.3.1 is incompatible with tensorflow > 2.2.1 and causes the issue reported here:
+      # https://github.com/tensorflow/tensorflow/issues/38589
+      "<= 2.3.1": ["tensorflow==2.2.1"]
+      "> 2.3.1, < 2.6.0": ["tensorflow<2.5.0"]
+      ">= 2.6.0": ["tensorflow"]
+    run: |
+      pytest tests/keras/test_keras_autolog.py --large
+
+xgboost:
+  package_info:
+    pip_release: "xgboost"
+    install_dev: |
+      pip install git+https://github.com/dmlc/xgboost.git#subdirectory=python-package
+
+  models:
+    minimum: "0.90"
+    maximum: "1.5.1"
+    requirements: ["scikit-learn"]
+    run: |
+      pytest tests/xgboost/test_xgboost_model_export.py --large
+
+  autologging:
+    minimum: "0.90"
+    maximum: "1.5.1"
+    requirements: ["scikit-learn", "matplotlib"]
+    run: |
+      pytest tests/xgboost/test_xgboost_autolog.py --large
+
+lightgbm:
+  package_info:
+    pip_release: "lightgbm"
+    install_dev: |
+      pip install git+https://github.com/microsoft/LightGBM.git#subdirectory=python-package
+
+  models:
+    minimum: "2.3.1"
+    maximum: "3.3.1"
+    requirements: ["scikit-learn"]
+    run: |
+      pytest tests/lightgbm/test_lightgbm_model_export.py --large
+
+  autologging:
+    minimum: "2.3.1"
+    maximum: "3.3.1"
+    requirements: ["scikit-learn", "matplotlib"]
+    run: |
+      pytest tests/lightgbm/test_lightgbm_autolog.py --large
+
+catboost:
+  package_info:
+    pip_release: "catboost"
+    install_dev: |
+      # The cross-version-tests workflow runs this command with the environment variable `CACHE_DIR`
+      if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "catboost-*.whl") ]; then
+        pip wheel --no-deps --wheel-dir $CACHE_DIR \
+          git+https://github.com/catboost/catboost.git#subdirectory=catboost/python-package
+      fi
+      pip install $CACHE_DIR/catboost-*.whl
+
+  models:
+    minimum: "0.23.1"
+    maximum: "1.0.3"
+    requirements: ["scikit-learn"]
+    run: |
+      pytest tests/catboost/test_catboost_model_export.py --large
+
+gluon:
+  package_info:
+    pip_release: "mxnet"
+    install_dev: |
+      pip install --pre mxnet -f https://dist.mxnet.io/python/cpu
+
+  models:
+    minimum: "1.5.1"
+    maximum: "1.8.0.post0"
+    unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
+    run: |
+      # Install libopenblas-dev for mxnet 1.8.0.post0
+      sudo apt-get install libopenblas-dev
+      pytest tests/gluon/test_gluon_model_export.py --large
+
+  autologging:
+    minimum: "1.5.1"
+    maximum: "1.8.0.post0"
+    unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
+    run: |
+      pytest tests/gluon/test_gluon_autolog.py --large
+
+fastai:
+  package_info:
+    pip_release: "fastai"
+
+  models:
+    minimum: "2.4.1"
+    maximum: "2.5.3"
+    requirements: [torch, torchvision]
+    run: |
+      pytest tests/fastai/test_fastai_model_export.py --large
+
+  autologging:
+    minimum: "2.4.1"
+    maximum: "2.5.3"
+    requirements: [torch, torchvision]
+    run: |
+      pytest tests/fastai/test_fastai_autolog.py --large
+
+onnx:
+  package_info:
+    pip_release: "onnx"
+    install_dev: |
+      # This workflow describes how to build a wheel for Linux:
+      # https://github.com/onnx/onnx/blob/51a7d932356cbb1205341660a4a52f8c121d8f4b/.github/workflows/release_linux_x86_64.yml
+
+      auth_header="$(git config --local --get http.https://github.com/.extraheader)"
+      tmp_dir=$(mktemp -d)
+      git clone https://github.com/onnx/onnx.git $tmp_dir
+      cd $tmp_dir
+      git submodule sync --recursive
+      git -c "http.extraheader=$auth_header" -c protocol.version=2 submodule update --init --force --recursive --depth=1
+
+      # Build wheel
+      docker run --rm -v $(pwd):/github/workspace --workdir /github/workspace --entrypoint bash \
+        quay.io/pypa/manylinux2010_x86_64 .github/workflows/manylinux/entrypoint.sh 3.6 manylinux2010_x86_64 pull_request
+
+      # Install wheel
+      pip install dist/*manylinux2010_x86_64.whl
+
+  models:
+    minimum: "1.5.0"
+    maximum: "1.10.2"
+    requirements: ["onnxruntime", "torch", "scikit-learn"]
+    run: |
+      pytest tests/onnx/test_onnx_model_export.py --large
+
+spacy:
+  package_info:
+    pip_release: "spacy"
+    install_dev: |
+      pip install git+https://github.com/explosion/spaCy.git
+
+  models:
+    minimum: "2.2.4"
+    maximum: "3.2.0"
+    requirements: ["scikit-learn"]
+    run: |
+      pytest tests/spacy/test_spacy_model_export.py --large
+
+statsmodels:
+  package_info:
+    pip_release: "statsmodels"
+    install_dev: |
+      pip install git+https://github.com/statsmodels/statsmodels.git
+
+  models:
+    minimum: "0.11.1"
+    maximum: "0.13.1"
+    run: |
+      pytest tests/statsmodels/test_statsmodels_model_export.py --large
+
+  autologging:
+    minimum: "0.11.1"
+    maximum: "0.13.1"
+    run: |
+      pytest tests/statsmodels/test_statsmodels_autolog.py --large
+
+spark:
+  package_info:
+    pip_release: "pyspark"
+    install_dev: |
+      # The cross-version-tests workflow runs this command with the environment variable `CACHE_DIR`
+      if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "pyspark-*.whl") ]; then
+        # Build wheel from source
+        temp_dir=$(mktemp -d)
+        git clone --depth 1 https://github.com/apache/spark.git $temp_dir
+        git --git-dir=$temp_dir/.git rev-parse HEAD
+        cd $temp_dir
+        ./build/mvn -DskipTests --no-transfer-progress clean package
+        cd python
+        python setup.py bdist_wheel --dist-dir $CACHE_DIR
+      fi
+      pip install $CACHE_DIR/pyspark-*.whl
+
+  models:
+    minimum: "3.0.0"
+    maximum: "3.2.0"
+    # NB: Allow unreleased maximum versions for the pyspark package to support models and
+    # autologging use cases in environments where newer versions of pyspark are available
+    # prior to their release on PyPI (e.g. Databricks)
+    allow_unreleased_max_version: True
+    requirements: ["boto3", "scikit-learn", "pyarrow"]
+    run: |
+      SAGEMAKER_OUT=$(mktemp)
+      if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
+        echo "Sagemaker container build succeeded.";
+      else
+        echo "Sagemaker container build failed, output:";
+        cat $SAGEMAKER_OUT;
+        exit 1
+      fi
+      pytest tests/spark --large --ignore tests/spark/autologging
+
+  autologging:
+    minimum: "3.0.0"
+    maximum: "3.2.0"
+    # NB: Allow unreleased maximum versions for the pyspark package to support models and
+    # autologging use cases in environments where newer versions of pyspark are available
+    # prior to their release on PyPI (e.g. Databricks)
+    allow_unreleased_max_version: True
+    requirements: ["scikit-learn"]
+    run: |
+      find tests/spark/autologging/ml -name 'test*.py' | xargs -L 1 pytest --large
+
+      # TODO: Fix spark datasource autologging and test it against non-preview versions of pyspark
+      if [ "$(pip show pyspark | grep Version | cut -d' ' -f2)" = "3.0.0" ]; then
+        YELLOW='\033[33;1;4m'
+        NO_COLOR='\033[0m'
+        echo -e "${YELLOW}WARNING: Spark datasource autologging currently only works for Spark 3.0.0-preview.${NO_COLOR}"
+        pip uninstall -y pyspark
+        ./dev/setup-spark-datasource-autologging.sh
+        find tests/spark/autologging/datasource -name 'test*.py' | xargs -L 1 pytest --large
+      fi
+
+mleap:
+  package_info:
+    pip_release: "mleap"
+
+  models:
+    minimum: "0.15.0"
+    maximum: "0.18.1"
+    requirements:
+      "<= 0.17.0": ["pyspark==2.4.5"]
+      "> 0.17.0": ["pyspark==3.0.2"]
+    run: |
+      SAGEMAKER_OUT=$(mktemp)
+      if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
+        echo "Sagemaker container build succeeded.";
+      else
+        echo "Sagemaker container build failed, output:";
+        cat $SAGEMAKER_OUT;
+        exit 1
+      fi
+      pytest tests/mleap/test_mleap_model_export.py --large

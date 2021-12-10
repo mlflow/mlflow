@@ -1,4 +1,4 @@
-import mock
+from unittest import mock
 
 from mlflow.entities import SourceType
 from mlflow.utils.mlflow_tags import (
@@ -9,6 +9,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_WEBAPP_URL,
 )
 from mlflow.tracking.context.databricks_notebook_context import DatabricksNotebookRunContext
+from tests.helper_functions import multi_context
 
 
 def test_databricks_notebook_run_context_in_context():
@@ -21,7 +22,11 @@ def test_databricks_notebook_run_context_tags():
     patch_notebook_path = mock.patch("mlflow.utils.databricks_utils.get_notebook_path")
     patch_webapp_url = mock.patch("mlflow.utils.databricks_utils.get_webapp_url")
 
-    with patch_notebook_id as notebook_id_mock, patch_notebook_path as notebook_path_mock, patch_webapp_url as webapp_url_mock:  # noqa
+    with multi_context(patch_notebook_id, patch_notebook_path, patch_webapp_url) as (
+        notebook_id_mock,
+        notebook_path_mock,
+        webapp_url_mock,
+    ):
         assert DatabricksNotebookRunContext().tags() == {
             MLFLOW_SOURCE_NAME: notebook_path_mock.return_value,
             MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.NOTEBOOK),

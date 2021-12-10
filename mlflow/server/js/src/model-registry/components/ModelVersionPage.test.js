@@ -24,7 +24,7 @@ describe('ModelVersionPage', () => {
     minimalProps = {
       match: {
         params: {
-          modelName: 'Model A',
+          modelName: encodeURIComponent('Model A'),
           version: '1',
         },
       },
@@ -86,6 +86,7 @@ describe('ModelVersionPage', () => {
     };
     Utils.isBrowserTabVisible = jest.fn(() => true);
     instance.loadData = jest.fn(() => Promise.reject(mockError));
+    expect(instance.props.modelName).toEqual('Model A');
     return instance.pollData().then(() => {
       expect(minimalProps.history.push).toHaveBeenCalledWith(getModelPageRoute('Model A'));
     });

@@ -7,10 +7,12 @@ import shutil
 import sys
 import tarfile
 import tempfile
+import stat
 
-from six.moves.urllib.request import pathname2url
-from six.moves.urllib.parse import unquote
-from six.moves import urllib
+import urllib.parse
+import urllib.request
+from urllib.parse import unquote
+from urllib.request import pathname2url
 
 import yaml
 
@@ -21,6 +23,7 @@ except ImportError:
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MissingConfigException
+from mlflow.utils.rest_utils import cloud_storage_http_request, augmented_raise_for_status
 
 ENCODING = "utf-8"
 
@@ -94,7 +97,7 @@ def find(root, name, full_path=False):
     return list_all(root, lambda x: x == path_name, full_path)
 
 
-def mkdir(root, name=None):  # noqa
+def mkdir(root, name=None):
     """
     Make directory with name "root/name", or just "root" if name is None.
 
@@ -122,7 +125,7 @@ def make_containing_dirs(path):
         os.makedirs(dir_name)
 
 
-def write_yaml(root, file_name, data, overwrite=False):
+def write_yaml(root, file_name, data, overwrite=False, sort_keys=True):
     """
     Write dictionary data in yaml format.
 
@@ -143,7 +146,12 @@ def write_yaml(root, file_name, data, overwrite=False):
     try:
         with codecs.open(yaml_file_name, mode="w", encoding=ENCODING) as yaml_file:
             yaml.dump(
-                data, yaml_file, default_flow_style=False, allow_unicode=True, Dumper=YamlSafeDumper
+                data,
+                yaml_file,
+                default_flow_style=False,
+                allow_unicode=True,
+                sort_keys=sort_keys,
+                Dumper=YamlSafeDumper,
             )
     except Exception as e:
         raise e
@@ -349,6 +357,29 @@ def _copy_file_or_tree(src, dst, dst_dir=None):
     return dst_subpath
 
 
+def _get_local_project_dir_size(project_path):
+    """
+    Internal function for reporting the size of a local project directory before copying to
+    destination for cli logging reporting to stdout.
+    :param project_path: local path of the project directory
+    :return: directory file sizes in KB, rounded to single decimal point for legibility
+    """
+
+    total_size = 0
+    for root, _, files in os.walk(project_path):
+        for f in files:
+            path = os.path.join(root, f)
+            total_size += os.path.getsize(path)
+    return round(total_size / 1024.0, 1)
+
+
+def _get_local_file_size(file):
+    """
+    Get the size of a local file in KB
+    """
+    return round(os.path.getsize(file) / 1024.0, 1)
+
+
 def get_parent_dir(path):
     return os.path.abspath(os.path.join(path, os.pardir))
 
@@ -412,3 +443,43 @@ def yield_file_in_chunks(file, chunk_size=100000000):
                 yield chunk
             else:
                 break
+
+
+def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000):
+    """
+    Downloads a file specified using the `http_uri` to a local `download_path`. This function
+    uses a `chunk_size` to ensure an OOM error is not raised a large file is downloaded.
+
+    Note : This function is meant to download files using presigned urls from various cloud
+            providers.
+    """
+    with cloud_storage_http_request("get", http_uri, stream=True) as response:
+        augmented_raise_for_status(response)
+        with open(download_path, "wb") as output_file:
+            for chunk in response.iter_content(chunk_size=chunk_size):
+                if not chunk:
+                    break
+                output_file.write(chunk)
+
+
+def _handle_readonly_on_windows(func, path, exc_info):
+    """
+    This function should not be called directly but should be passed to `onerror` of
+    `shutil.rmtree` in order to reattempt the removal of a read-only file after making
+    it writable on Windows.
+
+    References:
+    - https://bugs.python.org/issue19643
+    - https://bugs.python.org/issue43657
+    """
+    exc_type, exc_value = exc_info[:2]
+    should_reattempt = (
+        os.name == "nt"
+        and func in (os.unlink, os.rmdir)
+        and issubclass(exc_type, PermissionError)
+        and exc_value.winerror == 5
+    )
+    if not should_reattempt:
+        raise exc_value
+    os.chmod(path, stat.S_IWRITE)
+    func(path)

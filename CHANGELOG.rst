@@ -1,5 +1,431 @@
 Changelog
 =========
+1.22.0 (2021-11-29)
+------------------------
+MLflow 1.22.0 includes several major features and improvements:
+
+Features:
+
+- [UI] Add a share button to the Experiment page (#4936, @marijncv)
+- [UI] Improve readability of column sorting dropdown on Experiment page (#5022, @WeichenXu123; #5018, @NieuweNils, @coder-freestyle)
+- [Tracking] Mark all autologging integrations as stable by removing ``@experimental`` decorators (#5028, @liangz1)
+- [Tracking] Add optional ``experiment_id`` parameter to ``mlflow.set_experiment()`` (#5012, @dbczumar)
+- [Tracking] Add support for XGBoost scikit-learn models to ``mlflow.xgboost.autolog()`` (#5078, @jwyyy)
+- [Tracking] Improve statsmodels autologging performance by removing unnecessary metrics (#4942, @WeichenXu123)
+- [Tracking] Update R client to tag nested runs with parent run ID (#4197, @yitao-li)
+- [Models] Support saving and loading all XGBoost model types (#4954, @jwyyy)
+- [Scoring] Support specifying AWS account and role when deploying models to SageMaker (#4923, @andresionek91)
+- [Scoring] Support serving MLflow models with MLServer (#4963, @adriangonz)
+
+Bug fixes and documentation updates:
+
+- [UI] Fix bug causing Metric Plot page to crash when metric values are too large (#4947, @ianshan0915)
+- [UI] Fix bug causing parallel coordinate curves to vanish (#5087, @harupy)
+- [UI] Remove ``Creator`` field from Model Version page if user information is absent (#5089, @jinzhang21)
+- [UI] Fix model loading instructions for non-pyfunc models in Artifact Viewer (#5006, @harupy)
+- [Models] Fix a bug that added ``mlflow`` to ``conda.yaml`` even if a hashed version was already present (#5058, @maitre-matt)
+- [Docs] Add Python documentation for metric, parameter, and tag key / value length limits (#4991, @westford14)
+- [Examples] Update Python version used in Prophet example to fix installation errors (#5101, @BenWilson2)
+- [Examples] Fix Kubernetes ``resources`` specification in MLflow Projects + Kubernetes example (#4948, @jianyuan)
+
+Small bug fixes and doc updates (#5119, #5107, #5105, #5103, #5085, #5088, #5051, #5081, #5039, #5073, #5072, #5066, #5064, #5063, #5060, #4718, #5053, #5052, #5041, #5043, #5047, #5036, #5037, #5029, #5031, #5032, #5030, #5007, #5019, #5014, #5008, #4998, #4985, #4984, #4970, #4966, #4980, #4967, #4978, #4979, #4968, #4976, #4975, #4934, #4956, #4938, #4950, #4946, #4939, #4913, #4940, #4935, @harupy; #5095, #5070, #5002, #4958, #4945, @BenWilson2; #5099, @chaosddp; #5005, @you-n-g; #5042, #4952, @shrinath-suresh; #4962, #4995, @WeichenXu123; #5010, @lichenran1234; #5000, @wentinghu; #5111, @alexott; #5102, #5024, #5011, #4959, @dbczumar; #5075, #5044, #5026, #4997, #4964, #4989, @liangz1; #4999, @stevenchen-db)
+
+1.21.0 (2021-10-23)
+-------------------
+MLflow 1.21.0 includes several major features and improvements:
+
+Features:
+
+- [UI] Add a diff-only toggle to the runs table for filtering out columns with constant values (#4862, @marijncv)
+- [UI] Add a duration column to the runs table (#4840, @marijncv)
+- [UI] Display the default column sorting order in the runs table (#4847, @marijncv)
+- [UI] Add `start_time` and `duration` information to exported runs CSV (#4851, @marijncv)
+- [UI] Add lifecycle stage information to the run page (#4848, @marijncv)
+- [UI] Collapse run page sections by default for space efficiency, limit artifact previews to 50MB (#4917, @dbczumar)
+- [Tracking] Introduce autologging capabilities for PaddlePaddle model training (#4751, @jinminhao)
+- [Tracking] Add an optional tags field to the CreateExperiment API (#4788, @dbczumar; #4795, @apurva-koti)
+- [Tracking] Add support for deleting artifacts from SFTP stores via the `mlflow gc` CLI (#4670, @afaul)
+- [Tracking] Support AzureDefaultCredential for authenticating with Azure artifact storage backends (#4002, @marijncv)
+- [Models] Upgrade the fastai model flavor to support fastai V2 (`>=2.4.1`) (#4715, @jinzhang21)
+- [Models] Introduce an `mlflow.prophet` model flavor for Prophet time series models (#4773, @BenWilson2)
+- [Models] Introduce a CLI for publishing MLflow Models to the SageMaker Model Registry (#4669, @jinnig)
+- [Models] Print a warning when inferred model dependencies are not available on PyPI (#4891, @dbczumar)
+- [Models, Projects] Add `MLFLOW_CONDA_CREATE_ENV_CMD` for customizing Conda environment creation (#4746, @giacomov)
+
+Bug fixes and documentation updates:
+
+- [UI] Fix an issue where column selections made in the runs table were persisted across experiments (#4926, @sunishsheth2009)
+- [UI] Fix an issue where the text `null` was displayed in the runs table column ordering dropdown (#4924, @harupy)
+- [UI] Fix a bug causing the metric plot view to display NaN values upon click (#4858, @arpitjasa-db)
+- [Tracking] Fix a model load failure for paths containing spaces or special characters on UNIX systems (#4890, @BenWilson2)
+- [Tracking] Correct a migration issue that impacted usage of MLflow Tracking with SQL Server (#4880, @marijncv)
+- [Tracking] Spark datasource autologging tags now respect the maximum allowable size for MLflow Tracking (#4809, @dbczumar)
+- [Model Registry] Add previously-missing certificate sources for Model Registry REST API requests (#4731, @ericgosno91)
+- [Model Registry] Throw an exception when users supply invalid Model Registry URIs for Databricks (#4877, @yunpark93)
+- [Scoring] Fix a schema enforcement error that incorrectly cast date-like strings to datetime objects (#4902, @wentinghu)
+- [Docs] Expand the documentation for the MLflow Skinny Client (#4113, @eedeleon)
+
+Small bug fixes and doc updates (#4928, #4919, #4927, #4922, #4914, #4899, #4893, #4894, #4884, #4864, #4823, #4841, #4817, #4796, #4797, #4767, #4768, #4757, @harupy; #4863, #4838, @marijncv; #4834, @ksaur; #4772, @louisguitton; #4801, @twsl; #4929, #4887, #4856, #4843, #4789, #4780, @WeichenXu123; #4769, @Ark-kun; #4898, #4756, @apurva-koti; #4784, @lakshikaparihar; #4855, @ianshan0915; #4790, @eedeleon; #4931, #4857, #4846, 4777, #4748, @dbczumar)
+
+1.20.2 (2021-09-03)
+-------------------
+MLflow 1.20.2 is a patch release containing the following features and bug fixes:
+
+Features:
+
+- Enabled auto dependency inference in spark flavor in autologging (#4759, @harupy)
+
+Bug fixes and documentation updates:
+
+- Increased MLflow client HTTP request timeout from 10s to 120s (#4764, @jinzhang21)
+- Fixed autologging compatibility bugs with TensorFlow and Keras version `2.6.0` (#4766, @dbczumar)
+
+Small bug fixes and doc updates (#4770, @WeichenXu123)
+
+1.20.1 (2021-08-26)
+-------------------
+MLflow 1.20.1 is a patch release containing the following bug fixes:
+
+- Avoid calling `importlib_metadata.packages_distributions` upon `mlflow.utils.requirements_utils` import (#4741, @dbczumar)
+- Avoid depending on `importlib_metadata==4.7.0` (#4740, @dbczumar)
+
+1.20.0 (2021-08-25)
+-------------------
+MLflow 1.20.0 includes several major features and improvements:
+
+Features:
+
+- Autologging for scikit-learn now records post training metrics when scikit-learn evaluation APIs, such as `sklearn.metrics.mean_squared_error`, are called (#4491, #4628 #4638, @WeichenXu123)
+- Autologging for PySpark ML now records post training metrics when model evaluation APIs, such as `Evaluator.evaluate()`, are called (#4686, @WeichenXu123)
+- Add `pip_requirements` and `extra_pip_requirements` to `mlflow.*.log_model` and `mlflow.*.save_model` for directly specifying the pip requirements of the model to log / save (#4519, #4577, #4602, @harupy)
+- Added `stdMetrics` entries to the training metrics recorded during PySpark CrossValidator autologging (#4672, @WeichenXu123)
+- MLflow UI updates:
+  1. Improved scalability of the parallel coordinates plot for run performance comparison,
+  2. Added support for filtering runs based on their start time on the experiment page,
+  3. Added a dropdown for runs table column sorting on the experiment page,
+  4. Upgraded the AG Grid plugin, which is used for runs table loading on the experiment page, to version 25.0.0,
+  5. Fixed a bug on the experiment page that caused the metrics section of the runs table to collapse when selecting columns from other table sections (#4712, @dbczumar)
+- Added support for distributed execution to autologging for PyTorch Lightning (#4717, @dbczumar)
+- Expanded R support for Model Registry functionality (#4527, @bramrodenburg)
+- Added model scoring server support for defining custom prediction response wrappers (#4611, @Ark-kun)
+- `mlflow.*.log_model` and `mlflow.*.save_model` now automatically infer the pip requirements of the model to log / save based on the current software environment (#4518, @harupy)
+- Introduced support for running Sagemaker Batch Transform jobs with MLflow Models (#4410, #4589, @YQ-Wang)
+
+Bug fixes and documentation updates:
+
+- Deprecate `requirements_file` argument for `mlflow.*.save_model` and `mlflow.*.log_model` (#4620, @harupy)
+- set nextPageToken to null (#4729, @harupy)
+- Fix a bug in MLflow UI where the pagination token for run search is not refreshed when switching experiments (#4709, @harupy)
+- Fix a bug in the model scoring server that rejected requests specifying a valid ``Content-Type`` header with the charset parameter (#4609, @Ark-kun)
+- Fixed a bug that caused SQLAlchemy backends to exhaust DB connections. (#4663, @arpitjasa-db)
+- Improve docker build procedures to raise exceptions if docker builds fail (#4610, @Ark-kun)
+- Disable autologging for scikit-learn cross_val_* APIs, which are incompatible with autologging (#4590, @WeichenXu123)
+- Deprecate MLflow Models support for fast.ai V1 (#4728, @dbczumar)
+- Deprecate the old Azure ML deployment APIs `mlflow.azureml.cli.build_image` and `mlflow.azureml.build_image` (#4646, @trangevi)
+- Deprecate MLflow Models support for TensorFlow < 2.0 and Keras < 2.3 (#4716, @harupy)
+
+Small bug fixes and doc updates (#4730, #4722, #4725, #4723, #4703, #4710, #4679, #4694, #4707, #4708, #4706, #4705, #4625, #4701, #4700, #4662, #4699, #4682, #4691, #4684, #4683, #4675, #4666, #4648, #4653, #4651, #4641, #4649, #4627, #4637, #4632, #4634, #4621, #4619, #4622, #4460, #4608, #4605, #4599, #4600, #4581, #4583, #4565, #4575, #4564, #4580, #4572, #4570, #4574, #4576, #4568, #4559, #4537, #4542, @harupy; #4698, #4573, @Ark-kun; #4674, @kvmakes; #4555, @vagoston; #4644, @zhengjxu; #4690, #4588, @apurva-koti; #4545, #4631, #4734, @WeichenXu123; #4633, #4292, @shrinath-suresh; #4711, @jinzhang21; #4688, @murilommen; #4635, @ryan-duve; #4724, #4719, #4640, #4639, #4629, #4612, #4613, #4586, @dbczumar)
+
+1.19.0 (2021-07-14)
+-------------------
+MLflow 1.19.0 includes several major features and improvements:
+
+Features:
+
+- Add support for plotting per-class feature importance computed on linear boosters in XGBoost autologging (#4523, @dbczumar)
+- Add ``mlflow_create_registered_model`` and ``mlflow_delete_registered_model`` for R to create/delete registered models.
+- Add support for setting tags while resuming a run (#4497, @dbczumar)
+- MLflow UI updates (#4490, @sunishsheth2009)
+
+  - Add framework for internationalization support.
+  - Move metric columns before parameter and tag columns in the runs table.
+  - Change the display format of run start time to elapsed time (e.g. 3 minutes ago) from timestamp (e.g. 2021-07-14 14:02:10) in the runs table.
+
+Bug fixes and documentation updates:
+
+- Fix a bug causing MLflow UI to crash when sorting a column containing both `NaN` and empty values (#3409, @harupy)
+
+Small bug fixes and doc updates (#4541, #4534, #4533, #4517, #4508, #4513, #4512, #4509, #4503, #4486, #4493, #4469, @harupy; #4458, @KasirajanA; #4501, @jimmyxu-db; #4521, #4515, @jerrylian-db; #4359, @shrinath-suresh; #4544, @WeichenXu123; #4549, @smurching; #4554, @derkomai; #4506, @tomasatdatabricks; #4551, #4516, #4494, @dbczumar; #4511, @keypointt)
+
+1.18.0 (2021-06-18)
+-------------------
+MLflow 1.18.0 includes several major features and improvements:
+
+Features:
+
+- Autologging performance improvements for XGBoost, LightGBM, and scikit-learn (#4416, #4473, @dbczumar)
+- Add new PaddlePaddle flavor to MLflow Models (#4406, #4439, @jinminhao)
+- Introduce paginated ListExperiments API (#3881, @wamartin-aml)
+- Include Runtime version for MLflow Models logged on Databricks (#4421, @stevenchen-db)
+- MLflow Models now log dependencies in pip requirements.txt format, in addition to existing conda format  (#4409, #4422, @stevenchen-db)
+- Add support for limiting the number child runs created by autologging for scikit-learn hyperparameter search models (#4382, @mohamad-arabi)
+- Improve artifact upload / download performance on Databricks (#4260, @dbczumar)
+- Migrate all model dependencies from conda to "pip" section (#4393, @WeichenXu123)
+
+Bug fixes and documentation updates:
+
+- Fix an MLflow UI bug that caused git source URIs to be rendered improperly (#4403, @takabayashi)
+- Fix a bug that prevented reloading of MLflow Models based on the TensorFlow SavedModel format (#4223) (#4319, @saschaschramm)
+- Fix a bug in the behavior of ``KubernetesSubmittedRun.get_status()`` for Kubernetes MLflow Project runs (#3962) (#4159, @jcasse)
+- Fix a bug in TLS verification for MLflow artifact operations on S3 (#4047, @PeterSulcs)
+- Fix a bug causing the MLflow server to crash after deletion of the default experiment (#4352, @asaf400)
+- Fix a bug causing ``mlflow models serve`` to crash on Windows 10 (#4377, @simonvanbernem)
+- Fix a crash in runs search when ordering by metric values against the MSSQL backend store (#2551) (#4238, @naor2013)
+- Fix an autologging incompatibility issue with TensorFlow 2.5 (#4371, @dbczumar)
+- Fix a bug in the ``disable_for_unsupported_versions`` autologging argument that caused library versions to be incorrectly compared (#4303, @WeichenXu123)
+
+Small bug fixes and doc updates (#4405, @mohamad-arabi; #4455, #4461, #4459, #4464, #4453, #4444, #4449, #4301, #4424, #4418, #4417, #3759, #4398, #4389, #4386, #4385, #4384, #4380, #4373, #4378, #4372, #4369, #4348, #4364, #4363, #4349, #4350, #4174, #4285, #4341, @harupy; #4446, @kHarshit; #4471, @AveshCSingh; #4435, #4440, #4368, #4360, @WeichenXu123; #4431, @apurva-koti; #4428, @stevenchen-db; #4467, #4402, #4261, @dbczumar)
+
+1.17.0 (2021-05-07)
+-------------------
+MLflow 1.17.0 includes several major features and improvements:
+
+Features:
+
+- Add support for hyperparameter-tuning models to ``mlflow.pyspark.ml.autolog()`` (#4270, @WeichenXu123)
+
+Bug fixes and documentation updates:
+
+- Fix PyTorch Lightning callback definition for compatibility with PyTorch Lightning 1.3.0  (#4333, @dbczumar)
+- Fix a bug in scikit-learn autologging that omitted artifacts for unsupervised models (#4325, @dbczumar)
+- Support logging ``datetime.date`` objects as part of model input examples (#4313, @vperiyasamy)
+- Implement HTTP request retries in the MLflow Java client for 500-level responses (#4311, @dbczumar)
+- Include a community code of conduct (#4310, @dennyglee)
+
+Small bug fixes and doc updates (#4276, #4263, @WeichenXu123; #4289, #4302, #3599, #4287, #4284, #4265, #4266, #4275, #4268, @harupy; #4335, #4297, @dbczumar; #4324, #4320, @tleyden)
+
+1.16.0 (2021-04-22)
+-------------------
+MLflow 1.16.0 includes several major features and improvements:
+
+Features:
+
+- Add ``mlflow.pyspark.ml.autolog()`` API for autologging of ``pyspark.ml`` estimators (#4228, @WeichenXu123)
+- Add ``mlflow.catboost.log_model``, ``mlflow.catboost.save_model``, ``mlflow.catboost.load_model`` APIs for CatBoost model persistence (#2417, @harupy)
+- Enable ``mlflow.pyfunc.spark_udf`` to use column names from model signature by default (#4236, @Loquats)
+- Add ``datetime`` data type for model signatures (#4241, @vperiyasamy)
+- Add ``mlflow.sklearn.eval_and_log_metrics`` API that computes and logs metrics for the given scikit-learn model and labeled dataset. (#4218, @alkispoly-db)
+
+Bug fixes and documentation updates:
+
+- Fix a database migration error for PostgreSQL (#4211, @dolfinus)
+- Fix autologging silent mode bugs (#4231, @dbczumar)
+
+Small bug fixes and doc updates (#4255, #4252, #4254, #4253, #4242, #4247, #4243, #4237, #4233, @harupy; #4225, @dmatrix; #4206, @mlflow-automation; #4207, @shrinath-suresh; #4264, @WeichenXu123; #3884, #3866, #3885, @ankan94; #4274, #4216, @dbczumar)
+
+1.15.0 (2021-03-26)
+-------------------
+MLflow 1.15.0 includes several features, bug fixes and improvements. Notably, it includes a number of improvements to MLflow autologging:
+
+Features:
+
+- Add ``silent=False`` option to all autologging APIs, to allow suppressing MLflow warnings and logging statements during autologging setup and training (#4173, @dbczumar)
+- Add ``disable_for_unsupported_versions=False`` option to all autologging APIs, to disable autologging for versions of ML frameworks that have not been explicitly tested against the current version of the MLflow client (#4119, @WeichenXu123)
+
+Bug fixes:
+
+- Autologged runs are now terminated when execution is interrupted via SIGINT (#4200, @dbczumar)
+- The R ``mlflow_get_experiment`` API now returns the same tag structure as ``mlflow_list_experiments`` and ``mlflow_get_run`` (#4017, @lorenzwalthert)
+- Fix bug where ``mlflow.tensorflow.autolog`` would previously mutate the user-specified callbacks list when fitting ``tf.keras`` models (#4195, @dbczumar)
+- Fix bug where SQL-backed MLflow tracking server initialization failed when using the MLflow skinny client (#4161, @eedeleon)
+- Model version creation (e.g. via ``mlflow.register_model``) now fails if the model version status is not READY (#4114, @ankit-db)
+
+Small bug fixes and doc updates (#4191, #4149, #4162, #4157, #4155, #4144, #4141, #4138, #4136, #4133, #3964, #4130, #4118, @harupy; #4152, @mlflow-automation; #4139, @WeichenXu123; #4193, @smurching; #4029, @architkulkarni; #4134, @xhochy; #4116, @wenleix; #4160, @wentinghu; #4203, #4184, #4167, @dbczumar)
+
+1.14.1 (2021-03-01)
+-------------------
+MLflow 1.14.1 is a patch release containing the following bug fix:
+
+- Fix issues in handling flexible numpy datatypes in TensorSpec (#4147, @arjundc-db)
+
+1.14.0 (2021-02-18)
+-------------------
+MLflow 1.14.0 includes several major features and improvements:
+
+- MLflow's model inference APIs (``mlflow.pyfunc.predict``), built-in model serving tools (``mlflow models serve``), and model signatures now support tensor inputs. In particular, MLflow now provides built-in support for scoring PyTorch, TensorFlow, Keras, ONNX, and Gluon models with tensor inputs. For more information, see https://mlflow.org/docs/latest/models.html#deploy-mlflow-models (#3808, #3894, #4084, #4068 @wentinghu; #4041 @tomasatdatabricks, #4099, @arjundc-db)
+- Add new ``mlflow.shap.log_explainer``, ``mlflow.shap.load_explainer`` APIs for logging and loading ``shap.Explainer`` instances (#3989, @vivekchettiar)
+- The MLflow Python client is now available with a reduced dependency set via the ``mlflow-skinny`` PyPI package (#4049, @eedeleon)
+- Add new ``RequestHeaderProvider`` plugin interface for passing custom request headers with REST API requests made by the MLflow Python client (#4042, @jimmyxu-db)
+- ``mlflow.keras.log_model`` now saves models in the TensorFlow SavedModel format by default instead of the older Keras H5 format (#4043, @harupy)
+- ``mlflow_log_model`` now supports logging MLeap models in R (#3819, @yitao-li)
+- Add ``mlflow.pytorch.log_state_dict``, ``mlflow.pytorch.load_state_dict`` for logging and loading PyTorch state dicts (#3705, @shrinath-suresh)
+- ``mlflow gc`` can now garbage-collect artifacts stored in S3 (#3958, @sklingel)
+
+Bug fixes and documentation updates:
+
+- Enable autologging for TensorFlow estimators that extend ``tensorflow.compat.v1.estimator.Estimator`` (#4097, @mohamad-arabi)
+- Fix for universal autolog configs overriding integration-specific configs (#4093, @dbczumar)
+- Allow ``mlflow.models.infer_signature`` to handle dataframes containing ``pandas.api.extensions.ExtensionDtype`` (#4069, @caleboverman)
+- Fix bug where ``mlflow_restore_run`` doesn't propagate the ``client`` parameter to ``mlflow_get_run`` (#4003, @yitao-li)
+- Fix bug where scoring on served model fails when request data contains a string that looks like URL and pandas version is later than 1.1.0 (#3921, @Secbone)
+- Fix bug causing ``mlflow_list_experiments`` to fail listing experiments with tags (#3942, @lorenzwalthert)
+- Fix bug where metrics plots are computed from incorrect target values in scikit-learn autologging (#3993, @mtrencseni)
+- Remove redundant / verbose Python event logging message in autologging (#3978, @dbczumar)
+- Fix bug where ``mlflow_load_model`` doesn't load metadata associated to MLflow model flavor in R (#3872, @yitao-li)
+- Fix ``mlflow.spark.log_model``, ``mlflow.spark.load_model`` APIs on passthrough-enabled environments against ACL'd artifact locations (#3443, @smurching)
+
+Small bug fixes and doc updates (#4102, #4101, #4096, #4091, #4067, #4059, #4016, #4054, #4052, #4051, #4038, #3992, #3990, #3981, #3949, #3948, #3937, #3834, #3906, #3774, #3916, #3907, #3938, #3929, #3900, #3902, #3899, #3901, #3891, #3889, @harupy; #4014, #4001, @dmatrix; #4028, #3957, @dbczumar; #3816, @lorenzwalthert; #3939, @pauldj54; #3740, @jkthompson; #4070, #3946, @jimmyxu-db; #3836, @t-henri; #3982, @neo-anderson; #3972, #3687, #3922, @eedeleon; #4044, @WeichenXu123; #4063, @yitao-li; #3976, @whiteh; #4110, @tomasatdatabricks; #4050, @apurva-koti; #4100, #4084, @wentinghu; #3947, @vperiyasamy; #4021, @trangevi; #3773, @ankan94; #4090, @jinzhang21; #3918, @danielfrg)
+
+1.13.1 (2020-12-30)
+-----------------
+MLflow 1.13.1 is a patch release containing bug fixes and small changes:
+
+- Fix bug causing Spark autologging to ignore configuration options specified by ``mlflow.autolog()`` (#3917, @dbczumar)
+- Fix bugs causing metrics to be dropped during TensorFlow autologging (#3913, #3914, @dbczumar)
+- Fix incorrect value of optimizer name parameter in autologging PyTorch Lightning (#3901, @harupy)
+- Fix model registry database ``allow_null_for_run_id`` migration failure affecting MySQL databases (#3836, @t-henri)
+- Fix failure in ``transition_model_version_stage`` when uncanonical stage name is passed (#3929, @harupy)
+- Fix an undefined variable error causing AzureML model deployment to fail (#3922, @eedeleon)
+- Reclassify scikit-learn as a pip dependency in MLflow Model conda environments (#3896, @harupy)
+- Fix experiment view crash and artifact view inconsistency caused by artifact URIs with redundant slashes (#3928, @dbczumar)
+
+1.13 (2020-12-22)
+-----------------
+MLflow 1.13 includes several major features and improvements:
+
+Features:
+
+New fluent APIs for logging in-memory objects as artifacts:
+
+- Add ``mlflow.log_text`` which logs text as an artifact (#3678, @harupy)
+- Add ``mlflow.log_dict`` which logs a dictionary as an artifact (#3685, @harupy)
+- Add ``mlflow.log_figure`` which logs a figure object as an artifact (#3707, @harupy)
+- Add ``mlflow.log_image`` which logs an image object as an artifact (#3728, @harupy)
+
+UI updates / fixes (#3867, @smurching):
+
+- Add model version link in compact experiment table view
+- Add logged/registered model links in experiment runs page view
+- Enhance artifact viewer for MLflow models
+- Model registry UI settings are now persisted across browser sessions
+- Add model version ``description`` field to model version table
+
+Autologging enhancements:
+
+- Improve robustness of autologging integrations to exceptions (#3682, #3815, dbczumar; #3860, @mohamad-arabi; #3854, #3855, #3861, @harupy)
+- Add ``disable`` configuration option for autologging (#3682, #3815, dbczumar; #3838, @mohamad-arabi; #3854, #3855, #3861, @harupy)
+- Add ``exclusive`` configuration option for autologging (#3851, @apurva-koti; #3869, @dbczumar)
+- Add ``log_models`` configuration option for autologging (#3663, @mohamad-arabi)
+- Set tags on autologged runs for easy identification (and add tags to start_run) (#3847, @dbczumar)
+
+More features and improvements:
+
+- Allow Keras models to be saved with ``SavedModel`` format (#3552, @skylarbpayne)
+- Add support for ``statsmodels`` flavor (#3304, @olbapjose)
+- Add support for nested-run in mlflow R client (#3765, @yitao-li)
+- Deploying a model using ``mlflow.azureml.deploy`` now integrates better with the AzureML tracking/registry. (#3419, @trangevi)
+- Update schema enforcement to handle integers with missing values (#3798, @tomasatdatabricks)
+
+Bug fixes and documentation updates:
+
+- When running an MLflow Project on Databricks, the version of MLflow installed on the Databricks cluster will now match the version used to run the Project (#3880, @FlorisHoogenboom)
+- Fix bug where metrics are not logged for single-epoch ``tf.keras`` training sessions (#3853, @dbczumar)
+- Reject boolean types when logging MLflow metrics (#3822, @HCoban)
+- Fix alignment of Keras / ``tf.Keras`` metric history entries when ``initial_epoch`` is different from zero. (#3575, @garciparedes)
+- Fix bugs in autologging integrations for newer versions of TensorFlow and Keras (#3735, @dbczumar)
+- Drop global ``filterwwarnings`` module at import time (#3621, @jogo)
+- Fix bug that caused preexisting Python loggers to be disabled when using MLflow with the SQLAlchemyStore (#3653, @arthury1n)
+- Fix ``h5py`` library incompatibility for exported Keras models (#3667, @tomasatdatabricks)
+
+Small changes, bug fixes and doc updates (#3887, #3882, #3845, #3833, #3830, #3828, #3826, #3825, #3800, #3809, #3807, #3786, #3794, #3731, #3776, #3760, #3771, #3754, #3750, #3749, #3747, #3736, #3701, #3699, #3698, #3658, #3675, @harupy; #3723, @mohamad-arabi; #3650, #3655, @shrinath-suresh; #3850, #3753, #3725, @dmatrix; ##3867, #3670, #3664, @smurching; #3681, @sueann; #3619, @andrewnitu; #3837, @javierluraschi; #3721, @szczeles; #3653, @arthury1n; #3883, #3874, #3870, #3877, #3878, #3815, #3859, #3844, #3703, @dbczumar; #3768, @wentinghu; #3784, @HCoban; #3643, #3649, @arjundc-db; #3864, @AveshCSingh, #3756, @yitao-li)
+
+1.12.1 (2020-11-19)
+-------------------
+MLflow 1.12.1 is a patch release containing bug fixes and small changes:
+
+- Fix ``run_link`` for cross-workspace model versions (#3681, @sueann)
+- Remove hard dependency on matplotlib for sklearn autologging (#3703, @dbczumar)
+- Do not disable existing loggers when initializing alembic (#3653, @arthury1n)
+
+1.12.0 (2020-11-10)
+-------------------
+MLflow 1.12.0 includes several major features and improvements, in particular a number of improvements to autologging and MLflow's Pytorch integrations:
+
+Features:
+~~~~~~~~~
+
+Autologging:
+
+- Add universal ``mlflow.autolog`` which enables autologging for all supported integrations (#3561, #3590, @andrewnitu)
+- Add ``mlflow.pytorch.autolog`` API for automatic logging of metrics, params, and models from Pytorch Lightning training (#3601, @shrinath-suresh, #3636, @karthik-77). This API is also enabled by ``mlflow.autolog``.
+- Scikit-learn, XGBoost, and LightGBM autologging now support logging model signatures and input examples (#3386, #3403, #3449, @andrewnitu)
+- ``mlflow.sklearn.autolog`` now supports logging metrics (e.g. accuracy) and plots (e.g. confusion matrix heat map) (#3423, #3327, @willzhan-db, @harupy)
+
+PyTorch:
+
+- ``mlflow.pytorch.log_model``, ``mlflow.pytorch.load_model`` now support logging/loading TorchScript models (#3557, @shrinath-suresh) 
+- ``mlflow.pytorch.log_model`` supports passing ``requirements_file`` & ``extra_files`` arguments to log additional artifacts along with a model (#3436, @shrinath-suresh)
+
+
+More features and improvements:
+
+- Add ``mlflow.shap.log_explanation`` for logging model explanations generated by SHAP (#3513, @harupy)
+- ``log_model`` and ``create_model_version`` now supports an ``await_creation_for`` argument (#3376, @andychow-db)
+- Put preview paths before non-preview paths for backwards compatibility (#3648, @sueann)
+- Clean up model registry endpoint and client method definitions (#3610, @sueann)
+- MLflow deployments plugin now supports 'predict' CLI command (#3597, @shrinath-suresh)
+- Support H2O for R (#3416, @yitao-li)
+- Add ``MLFLOW_S3_IGNORE_TLS`` environment variable to enable skipping TLS verification of S3 endpoint (#3345, @dolfinus)
+
+Bug fixes and documentation updates:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Ensure that results are synced across distributed processes if ddp enabled (no-op else) (#3651, @SeanNaren)
+- Remove optimizer step override to ensure that all accelerator cases are covered by base module (#3635, @SeanNaren)
+- Fix ``AttributeError`` in keras autologgging (#3611, @sephib)
+- Scikit-learn autologging: Exclude feature extraction / selection estimator (#3600, @dbczumar)
+- Scikit-learn autologging: Fix behavior when a child and its parent are both patched (#3582, @dbczumar)
+- Fix a bug where ``lightgbm.Dataset(None)`` fails after running ``mlflow.lightgbm.autolog`` (#3594, @harupy)
+- Fix a bug where ``xgboost.DMatrix(None)`` fails after running ``mlflow.xgboost.autolog`` (#3584, @harupy)
+- Pass ``docker_args`` in non-synchronous mlflow project runs (#3563, @alfozan)
+- Fix a bug of ``FTPArtifactRepository.log_artifacts`` with ``artifact_path`` keyword argument (issue #3388) (#3391, @kzm4269)
+- Exclude preprocessing & imputation steps from scikit-learn autologging (#3491, @dbczumar)
+- Fix duplicate stderr logging during artifact logging and project execution in the R client (#3145, @yitao-li)
+- Don't call ``atexit.register(_flush_queue)`` in ``__main__`` scope of ``mlflow/tensorflow.py`` (#3410, @harupy)
+- Fix for restarting terminated run not setting status correctly (#3329, @apurva-koti)
+- Fix model version run_link URL for some Databricks regions (#3417, @sueann)
+- Skip JSON validation when endpoint is not MLflow REST API (#3405, @harupy)
+- Document ``mlflow-torchserve`` plugin (#3634, @karthik-77)
+- Add ``mlflow-elasticsearchstore`` to the doc (#3462, @AxelVivien25)
+- Add code snippets for fluent and MlflowClient APIs (#3385, #3437, #3489 #3573, @dmatrix)
+- Document ``mlflow-yarn`` backend (#3373, @fhoering)
+- Fix a breakage in loading Tensorflow and Keras models (#3667, @tomasatdatabricks)
+
+Small bug fixes and doc updates (#3607, #3616, #3534, #3598, #3542, #3568, #3349, #3554, #3544, #3541, #3533, #3535, #3516, #3512, #3497, #3522, #3521, #3492, #3502, #3434, #3422, #3394, #3387, #3294, #3324, #3654, @harupy; #3451, @jgc128; #3638, #3632, #3608, #3452, #3399, @shrinath-suresh; #3495, #3459, #3662, #3668, #3670 @smurching; #3488, @edgan8; #3639, @karthik-77; #3589, #3444, #3276, @lorenzwalthert; #3538, #3506, #3509, #3507, #3510, #3508, @rahulporuri; #3504, @sbrugman; #3486, #3466, @apurva-koti; #3477, @juntai-zheng; #3617, #3609, #3605, #3603, #3560, @dbczumar; #3411, @danielvdende; #3377, @willzhan-db; #3420, #3404, @andrewnitu; #3591, @mateiz; #3465, @abawchen; #3543, @emptalk; #3302, @bramrodenburg; #3468, @ghisvail; #3496, @extrospective; #3549, #3501, #3435, @yitao-li; #3243, @OlivierBondu; #3439, @andrewnitu; #3651, #3635 @SeanNaren, #3470, @ankit-db)
+
+1.11.0 (2020-08-31)
+-------------------
+MLflow 1.11.0 includes several major features and improvements:
+
+Features:
+
+- New ``mlflow.sklearn.autolog()`` API for automatic logging of metrics, params, and models from scikit-learn model training (#3287, @harupy; #3323, #3358 @dbczumar)
+- Registered model & model version creation APIs now support specifying an initial ``description`` (#3271, @sueann)
+- The R ``mlflow_log_model`` and ``mlflow_load_model`` APIs now support XGBoost models (#3085, @lorenzwalthert)
+- New ``mlflow.list_run_infos`` fluent API for listing run metadata (#3183, @trangevi)
+- Added section for visualizing and comparing model schemas to model version and model-version-comparison UIs (#3209, @zhidongqu-db)
+- Enhanced support for using the model registry across Databricks workspaces: support for registering models to a Databricks workspace from outside the workspace (#3119, @sueann), tracking run-lineage of these models (#3128, #3164, @ankitmathur-db; #3187, @harupy), and calling ``mlflow.<flavor>.load_model`` against remote Databricks model registries (#3330, @sueann)
+- UI support for setting/deleting registered model and model version tags (#3187, @harupy)
+- UI support for archiving existing staging/production versions of a model when transitioning a new model version to staging/production (#3134, @harupy)
+
+Bug fixes and documentation updates:
+
+- Fixed parsing of MLflow project parameter values containing'=' (#3347, @dbczumar)
+- Fixed a bug preventing listing of WASBS artifacts on the latest version of Azure Blob Storage (12.4.0) (#3348, @dbczumar)
+- Fixed a bug where artifact locations become malformed when using an SFTP file store in Windows (#3168, @harupy)
+- Fixed bug where ``list_artifacts`` returned incorrect results on GCS, preventing e.g. loading SparkML models from GCS (#3242, @santosh1994)
+- Writing and reading artifacts via ``MlflowClient`` to a DBFS location in a Databricks tracking server specified through the ``tracking_uri`` parameter during the initialization of ``MlflowClient`` now works properly (#3220, @sueann)
+- Fixed bug where ``FTPArtifactRepository`` returned artifact locations as absolute paths, rather than paths relative to the artifact repository root (#3210, @shaneing), and bug where calling `log_artifacts` against an FTP artifact location copied the logged directory itself into the FTP location, rather than the contents of the directory.
+- Fixed bug where Databricks project execution failed due to passing of GET request params as part of the request body rather than as query parameters (#2947, @cdemonchy-pro)
+- Fix bug where artifact viewer did not correctly render PDFs in MLflow 1.10 (#3172, @ankitmathur-db)
+- Fixed parsing of ``order_by`` arguments to MLflow search APIs when ordering by fields whose names contain spaces (#3118, @jdlesage)
+- Fixed bug where MLflow model schema enforcement raised exceptions when validating string columns using pandas >= 1.0 (#3130, @harupy)
+- Fixed bug where ``mlflow.spark.log_model`` did not save model signature and input examples (#3151, @harupy)
+- Fixed bug in runs UI where tags table did not reflect deletion of tags. (#3135, @ParseDark)
+- Added example illustrating the use of RAPIDS with MLFlow (#3028, @drobison00)
+
+Small bug fixes and doc updates (#3326, #3344, #3314, #3289, #3225, #3288, #3279, #3265, #3263, #3260, #3255, #3267, #3266, #3264, #3256, #3253, #3231, #3245, #3191, #3238, #3192, #3188, #3189, #3180, #3178, #3166, #3181, #3142, #3165, #2960, #3129, #3244, #3359 @harupy; #3236, #3141, @AveshCSingh; #3295, #3163, @arjundc-db; #3241, #3200, @zhidongqu-db; #3338, #3275, @sueann; #3020, @magnus-m; #3322, #3219, @dmatrix; #3341, #3179, #3355, #3360, #3363 @smurching; #3124, @jdlesage; #3232, #3146, @ankitmathur-db; #3140, @andreakress; #3174, #3133, @mlflow-automation; #3062, @cafeal; #3193, @tomasatdatabricks; 3115, @fhoering; #3328, @apurva-koti; #3046, @OlivierBondu; #3194, #3158, @dmatrix; #3250, @shivp950; #3259, @simonhessner; #3357 @dbczumar)
+
 1.10.0 (2020-07-20)
 -------------------
 MLflow 1.10.0 includes several major features and improvements, in particular the release of

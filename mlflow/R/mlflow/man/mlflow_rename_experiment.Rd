@@ -7,7 +7,7 @@
 mlflow_rename_experiment(new_name, experiment_id = NULL, client = NULL)
 }
 \arguments{
-\item{new_name}{The experiment’s name will be changed to this. The new name must be unique.}
+\item{new_name}{The experiment's name will be changed to this. The new name must be unique.}
 
 \item{experiment_id}{ID of the associated experiment. This field is required.}
 

@@ -1,8 +1,8 @@
 import logging
 import os
 import re
+from shlex import quote
 import subprocess
-from six.moves import shlex_quote
 
 from mlflow.models import FlavorBackend
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -29,7 +29,7 @@ class RFuncBackend(FlavorBackend):
             "output_path = {2}, content_type = {3}, json_format = {4})"
         )
         command = str_cmd.format(
-            shlex_quote(model_path),
+            quote(model_path),
             _str_optional(input_path),
             _str_optional(output_path),
             _str_optional(content_type),
@@ -37,13 +37,20 @@ class RFuncBackend(FlavorBackend):
         )
         _execute(command)
 
-    def serve(self, model_uri, port, host):
+    def serve(self, model_uri, port, host, enable_mlserver):
         """
         Generate R model locally.
+
+        NOTE: The `enable_mlserver` parameter is there to comply with the
+        FlavorBackend interface but is not supported by MLServer yet.
+        https://github.com/SeldonIO/MLServer/issues/183
         """
+        if enable_mlserver:
+            raise Exception("The MLServer inference server is not yet supported in the R backend.")
+
         model_path = _download_artifact_from_uri(model_uri)
         command = "mlflow::mlflow_rfunc_serve('{0}', port = {1}, host = '{2}')".format(
-            shlex_quote(model_path), port, host
+            quote(model_path), port, host
         )
         _execute(command)
 
@@ -79,4 +86,4 @@ def _execute(command):
 
 
 def _str_optional(s):
-    return "NULL" if s is None else "'{}'".format(shlex_quote(str(s)))
+    return "NULL" if s is None else "'{}'".format(quote(str(s)))

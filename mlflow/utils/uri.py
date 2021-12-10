@@ -1,15 +1,21 @@
+import sys
 import posixpath
-from six.moves import urllib
+import urllib.parse
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import DATABASE_ENGINES
+from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, DEFAULT_ARTIFACTS_URI
 from mlflow.utils.validation import _validate_db_type_string
+from mlflow.utils.logging_utils import eprint
 
 _INVALID_DB_URI_MSG = (
     "Please refer to https://mlflow.org/docs/latest/tracking.html#storage for "
     "format specifications."
 )
+
+_DBFS_FUSE_PREFIX = "/dbfs/"
+_DBFS_HDFS_URI_PREFIX = "dbfs:/"
 
 
 def is_local_uri(uri):
@@ -40,7 +46,7 @@ def construct_db_uri_from_profile(profile):
 # Both scope and key_prefix should not contain special chars for URIs, like '/'
 # and ':'.
 def validate_db_scope_prefix_info(scope, prefix):
-    for c in ["/", ":"]:
+    for c in ["/", ":", " "]:
         if c in scope:
             raise MlflowException(
                 "Unsupported Databricks profile name: %s." % scope
@@ -51,6 +57,11 @@ def validate_db_scope_prefix_info(scope, prefix):
                 "Unsupported Databricks profile key prefix: %s." % prefix
                 + " Key prefixes cannot contain '%s'." % c
             )
+    if prefix is not None and prefix.strip() == "":
+        raise MlflowException(
+            "Unsupported Databricks profile key prefix: '%s'." % prefix
+            + " Key prefixes cannot be empty."
+        )
 
 
 def get_db_info_from_uri(uri):
@@ -60,6 +71,12 @@ def get_db_info_from_uri(uri):
     """
     parsed_uri = urllib.parse.urlparse(uri)
     if parsed_uri.scheme == "databricks":
+        # netloc should not be an empty string unless URI is formatted incorrectly.
+        if parsed_uri.netloc == "":
+            raise MlflowException(
+                "URI is formatted incorrectly: no netloc in URI '%s'." % uri
+                + " This may be the case if there is only one slash in the URI."
+            )
         profile_tokens = parsed_uri.netloc.split(":")
         parsed_scope = profile_tokens[0]
         if len(profile_tokens) == 1:
@@ -232,10 +249,16 @@ def is_databricks_acled_artifacts_uri(artifact_uri):
     return artifact_uri_path.startswith(_ACLED_ARTIFACT_URI)
 
 
+def is_databricks_model_registry_artifacts_uri(artifact_uri):
+    _MODEL_REGISTRY_ARTIFACT_URI = "databricks/mlflow-registry/"
+    artifact_uri_path = extract_and_normalize_path(artifact_uri)
+    return artifact_uri_path.startswith(_MODEL_REGISTRY_ARTIFACT_URI)
+
+
 def construct_run_url(hostname, experiment_id, run_id, workspace_id=None):
     if not hostname or not experiment_id or not run_id:
         raise MlflowException(
-            "Hostname, experiment ID, and run ID are all required to construct" "a run URL"
+            "Hostname, experiment ID, and run ID are all required to construct a run URL"
         )
     prefix = hostname
     if workspace_id and workspace_id != "0":
@@ -254,3 +277,42 @@ def is_valid_dbfs_uri(uri):
     except MlflowException:
         db_profile_uri = None
     return not parsed.netloc or db_profile_uri is not None
+
+
+def dbfs_hdfs_uri_to_fuse_path(dbfs_uri):
+    """
+    Converts the provided DBFS URI into a DBFS FUSE path
+    :param dbfs_uri: A DBFS URI like "dbfs:/my-directory". Can also be a scheme-less URI like
+                     "/my-directory" if running in an environment where the default HDFS filesystem
+                     is "dbfs:/" (e.g. Databricks)
+    :return A DBFS FUSE-style path, e.g. "/dbfs/my-directory"
+    """
+    if not is_valid_dbfs_uri(dbfs_uri) and dbfs_uri == posixpath.abspath(dbfs_uri):
+        # Convert posixpaths (e.g. "/tmp/mlflow") to DBFS URIs by adding "dbfs:/" as a prefix
+        dbfs_uri = "dbfs:" + dbfs_uri
+    if not dbfs_uri.startswith(_DBFS_HDFS_URI_PREFIX):
+        raise MlflowException(
+            "Path '%s' did not start with expected DBFS URI prefix '%s'"
+            % (dbfs_uri, _DBFS_HDFS_URI_PREFIX),
+        )
+
+    return _DBFS_FUSE_PREFIX + dbfs_uri[len(_DBFS_HDFS_URI_PREFIX) :]
+
+
+def resolve_default_artifact_root(
+    serve_artifacts, default_artifact_root, backend_store_uri, resolve_to_local=False
+):
+    if serve_artifacts and not default_artifact_root:
+        default_artifact_root = DEFAULT_ARTIFACTS_URI
+    elif not serve_artifacts and not default_artifact_root:
+        if is_local_uri(backend_store_uri):
+            default_artifact_root = backend_store_uri
+        elif resolve_to_local:
+            default_artifact_root = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+        else:
+            eprint(
+                "Option 'default-artifact-root' is required, when backend store is not "
+                "local file based."
+            )
+            sys.exit(1)
+    return default_artifact_root

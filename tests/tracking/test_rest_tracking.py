@@ -3,15 +3,15 @@ Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures we can use the tracking API to communicate with it.
 """
 import json
-import mock
 import os
 import sys
 import posixpath
 import pytest
-from six.moves import urllib
 import shutil
 import time
 import tempfile
+from unittest import mock
+import urllib.parse
 
 import mlflow.experiments
 from mlflow.exceptions import MlflowException
@@ -118,11 +118,14 @@ def cli_env(tracking_server_uri):
 
 def test_create_get_list_experiment(mlflow_client):
     experiment_id = mlflow_client.create_experiment(
-        "My Experiment", artifact_location="my_location"
+        "My Experiment", artifact_location="my_location", tags={"key1": "val1", "key2": "val2"}
     )
     exp = mlflow_client.get_experiment(experiment_id)
     assert exp.name == "My Experiment"
     assert exp.artifact_location == "my_location"
+    assert len(exp.tags) == 2
+    assert exp.tags["key1"] == "val1"
+    assert exp.tags["key2"] == "val2"
 
     experiments = mlflow_client.list_experiments()
     assert set([e.name for e in experiments]) == {"My Experiment", "Default"}
@@ -138,6 +141,19 @@ def test_create_get_list_experiment(mlflow_client):
         "My Experiment",
         "Default",
     }
+    active_exps_paginated = mlflow_client.list_experiments(max_results=1)
+    assert set([e.name for e in active_exps_paginated]) == {"Default"}
+    assert active_exps_paginated.token is None
+
+    all_exps_paginated = mlflow_client.list_experiments(max_results=1, view_type=ViewType.ALL)
+    first_page_names = set([e.name for e in all_exps_paginated])
+    all_exps_second_page = mlflow_client.list_experiments(
+        max_results=1, view_type=ViewType.ALL, page_token=all_exps_paginated.token
+    )
+    second_page_names = set([e.name for e in all_exps_second_page])
+    assert len(first_page_names) == 1
+    assert len(second_page_names) == 1
+    assert first_page_names.union(second_page_names) == {"Default", "My Experiment"}
 
 
 def test_delete_restore_experiment(mlflow_client):
@@ -319,12 +335,12 @@ def test_delete_tag(mlflow_client, backend_store_uri):
     mlflow_client.delete_tag(run_id, "taggity")
     run = mlflow_client.get_run(run_id)
     assert "taggity" not in run.data.tags
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match=r"Run .+ not found"):
         mlflow_client.delete_tag("fake_run_id", "taggity")
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="No tag with name: fakeTag"):
         mlflow_client.delete_tag(run_id, "fakeTag")
     mlflow_client.delete_run(run_id)
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match=f"The run {run_id} must be in"):
         mlflow_client.delete_tag(run_id, "taggity")
 
 
@@ -351,6 +367,7 @@ def test_log_batch(mlflow_client, backend_store_uri):
     assert metric.step == 3
 
 
+@pytest.mark.allow_infer_pip_requirements_fallback
 def test_log_model(mlflow_client, backend_store_uri):
     experiment_id = mlflow_client.create_experiment("Log models")
     with TempDir(chdr=True):

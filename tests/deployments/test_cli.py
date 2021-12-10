@@ -1,15 +1,18 @@
+import os
+import pytest
+
 from click.testing import CliRunner
 from mlflow.deployments import cli
-
+from mlflow.exceptions import MlflowException
 
 f_model_uri = "fake_model_uri"
 f_name = "fake_deployment_name"
 f_flavor = "fake_flavor"
 f_target = "faketarget"
+runner = CliRunner()
 
 
 def test_create():
-    runner = CliRunner()
     res = runner.invoke(
         cli.create_deployment,
         ["--flavor", f_flavor, "--model-uri", f_model_uri, "--target", f_target, "--name", f_name],
@@ -22,7 +25,6 @@ def test_create():
 
 
 def test_update():
-    runner = CliRunner()
     res = runner.invoke(
         cli.update_deployment,
         ["--flavor", f_flavor, "--model-uri", f_model_uri, "--target", f_target, "--name", f_name],
@@ -31,13 +33,11 @@ def test_update():
 
 
 def test_delete():
-    runner = CliRunner()
     res = runner.invoke(cli.delete_deployment, ["--name", f_name, "--target", f_target])
     assert "Deployment {} is deleted".format(f_name) in res.stdout
 
 
 def test_update_no_flavor():
-    runner = CliRunner()
     res = runner.invoke(
         cli.update_deployment, ["--name", f_name, "--target", f_target, "-m", f_model_uri]
     )
@@ -45,13 +45,11 @@ def test_update_no_flavor():
 
 
 def test_list():
-    runner = CliRunner()
     res = runner.invoke(cli.list_deployment, ["--target", f_target])
     assert "['{}']".format(f_name) in res.stdout
 
 
 def test_custom_args():
-    runner = CliRunner()
     res = runner.invoke(
         cli.create_deployment,
         [
@@ -69,23 +67,63 @@ def test_custom_args():
 
 
 def test_get():
-    runner = CliRunner()
     res = runner.invoke(cli.get_deployment, ["--name", f_name, "--target", f_target])
     assert "key1: val1" in res.stdout
     assert "key2: val2" in res.stdout
 
 
+@pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ,
+    reason="Skinny Client does not support predict due to the pandas dependency",
+)
+def test_predict(tmpdir):
+    temp_input_file_path = tmpdir.join("input.json").strpath
+    with open(temp_input_file_path, "w") as temp_input_file:
+        temp_input_file.write('{"data": [5000]}')
+    res = runner.invoke(
+        cli.predict, ["--target", f_target, "--name", f_name, "--input-path", temp_input_file_path]
+    )
+    assert "1" in res.stdout
+
+
 def test_target_help():
-    runner = CliRunner()
     res = runner.invoke(cli.target_help, ["--target", f_target])
     assert "Target help is called" in res.stdout
 
 
 def test_run_local():
-    runner = CliRunner()
     res = runner.invoke(
         cli.run_local, ["-f", f_flavor, "-m", f_model_uri, "-t", f_target, "--name", f_name]
     )
     assert "Deployed locally at the key {}".format(f_name) in res.stdout
     assert "using the model from {}.".format(f_model_uri) in res.stdout
     assert "It's flavor is {} and config is {}".format(f_flavor, str({})) in res.stdout
+
+
+@pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ,
+    reason="Skinny Client does not support explain due to the pandas dependency",
+)
+def test_explain(tmpdir):
+    temp_input_file_path = tmpdir.join("input.json").strpath
+    with open(temp_input_file_path, "w") as temp_input_file:
+        temp_input_file.write('{"data": [5000]}')
+    res = runner.invoke(
+        cli.explain, ["--target", f_target, "--name", f_name, "--input-path", temp_input_file_path]
+    )
+    assert "1" in res.stdout
+
+
+def test_explain_with_no_target_implementation(tmpdir):
+    from unittest import mock
+
+    file_path = tmpdir.join("input.json").strpath
+    with open(file_path, "w") as temp_input_file:
+        temp_input_file.write('{"data": [5000]}')
+    mock_error = MlflowException("MOCK ERROR")
+    with mock.patch.object(CliRunner, "invoke", return_value=mock_error) as mock_explain:
+        res = runner.invoke(
+            cli.explain, ["--target", f_target, "--name", f_name, "--input-path", file_path]
+        )
+        assert type(res) == MlflowException
+        mock_explain.assert_called_once()

@@ -1,5 +1,4 @@
 import os
-import json
 import logging
 import subprocess
 
@@ -35,16 +34,27 @@ def _get_java_dbutils():
     return dbutils.notebook.entry_point.getDbutils()
 
 
+def _get_command_context():
+    return _get_java_dbutils().notebook().getContext()
+
+
 def _get_extra_context(context_key):
-    return _get_java_dbutils().notebook().getContext().extraContext().get(context_key).get()
+    return _get_command_context().extraContext().get(context_key).get()
 
 
 def _get_context_tag(context_tag_key):
-    tag_opt = _get_java_dbutils().notebook().getContext().tags().get(context_tag_key)
+    tag_opt = _get_command_context().tags().get(context_tag_key)
     if tag_opt.isDefined():
         return tag_opt.get()
     else:
         return None
+
+
+def acl_path_of_acl_root():
+    try:
+        return _get_command_context().aclPathOfAclRoot().get()
+    except Exception:
+        return _get_extra_context("aclPathOfAclRoot")
 
 
 def _get_property_from_spark_context(key):
@@ -54,7 +64,7 @@ def _get_property_from_spark_context(key):
         task_context = TaskContext.get()
         if task_context:
             return task_context.getLocalProperty(key)
-    except Exception:  # pylint: disable=broad-except
+    except Exception:
         return None
 
 
@@ -66,15 +76,25 @@ def is_in_databricks_notebook():
     if _get_property_from_spark_context("spark.databricks.notebook.id") is not None:
         return True
     try:
-        return _get_extra_context("aclPathOfAclRoot").startswith("/workspace")
-    except Exception:  # pylint: disable=broad-except
+        return acl_path_of_acl_root().startswith("/workspace")
+    except Exception:
         return False
 
 
 def is_in_databricks_job():
     try:
-        return _get_context_tag("jobId") is not None and _get_context_tag("idInJob") is not None
-    except Exception:  # pylint: disable=broad-except
+        return get_job_id() is not None and get_job_run_id() is not None
+    except Exception:
+        return False
+
+
+def is_in_databricks_runtime():
+    try:
+        # pylint: disable=unused-import,import-error,no-name-in-module,unused-variable
+        import pyspark.databricks
+
+        return True
+    except ModuleNotFoundError:
         return False
 
 
@@ -87,7 +107,7 @@ def is_dbfs_fuse_available():
                 )
                 == 0
             )
-        except Exception:  # pylint: disable=broad-except
+        except Exception:
             return False
 
 
@@ -98,7 +118,7 @@ def is_in_cluster():
             spark_session is not None
             and spark_session.conf.get("spark.databricks.clusterUsageTags.clusterId") is not None
         )
-    except Exception:  # pylint: disable=broad-except
+    except Exception:
         return False
 
 
@@ -107,7 +127,7 @@ def get_notebook_id():
     notebook_id = _get_property_from_spark_context("spark.databricks.notebook.id")
     if notebook_id is not None:
         return notebook_id
-    acl_path = _get_extra_context("aclPathOfAclRoot")
+    acl_path = acl_path_of_acl_root()
     if acl_path.startswith("/workspace"):
         return acl_path.split("/")[-1]
     return None
@@ -118,7 +138,20 @@ def get_notebook_path():
     path = _get_property_from_spark_context("spark.databricks.notebook.path")
     if path is not None:
         return path
-    return _get_extra_context("notebook_path")
+    try:
+        return _get_command_context().notebookPath().get()
+    except Exception:
+        return _get_extra_context("notebook_path")
+
+
+def get_databricks_runtime():
+    if is_in_databricks_runtime():
+        spark_session = _get_active_spark_session()
+        if spark_session is not None:
+            return spark_session.conf.get(
+                "spark.databricks.clusterUsageTags.sparkVersion", default=None
+            )
+    return None
 
 
 def get_cluster_id():
@@ -128,37 +161,104 @@ def get_cluster_id():
     return spark_session.conf.get("spark.databricks.clusterUsageTags.clusterId")
 
 
+def get_job_group_id():
+    try:
+        dbutils = _get_dbutils()
+        job_group_id = dbutils.entry_point.getJobGroupId()
+        if job_group_id is not None:
+            return job_group_id
+    except Exception:
+        return None
+
+
+def get_repl_id():
+    """
+    :return: The ID of the current Databricks Python REPL
+    """
+    # Attempt to fetch the REPL ID from the Python REPL's entrypoint object. This REPL ID
+    # is guaranteed to be set upon REPL startup in DBR / MLR 9.0
+    try:
+        dbutils = _get_dbutils()
+        repl_id = dbutils.entry_point.getReplId()
+        if repl_id is not None:
+            return repl_id
+    except Exception:
+        pass
+
+    # If the REPL ID entrypoint property is unavailable due to an older runtime version (< 9.0),
+    # attempt to fetch the REPL ID from the Spark Context. This property may not be available
+    # until several seconds after REPL startup
+    try:
+        from pyspark import SparkContext
+
+        repl_id = SparkContext.getOrCreate().getLocalProperty("spark.databricks.replId")
+        if repl_id is not None:
+            return repl_id
+    except Exception:
+        pass
+
+
 def get_job_id():
-    """Should only be called if is_in_databricks_job is true"""
-    return _get_context_tag("jobId")
+    try:
+        return _get_command_context().jobId().get()
+    except Exception:
+        return _get_context_tag("jobId")
 
 
 def get_job_run_id():
-    """Should only be called if is_in_databricks_job is true"""
-    return _get_context_tag("idInJob")
+    try:
+        return _get_command_context().idInJob().get()
+    except Exception:
+        return _get_context_tag("idInJob")
 
 
 def get_job_type():
     """Should only be called if is_in_databricks_job is true"""
-    return _get_context_tag("jobTaskType")
+    try:
+        return _get_command_context().jobTaskType().get()
+    except Exception:
+        return _get_context_tag("jobTaskType")
+
+
+def get_command_run_id():
+    try:
+        return _get_command_context().commandRunId().get()
+    except Exception:
+        # Older runtimes may not have the commandRunId available
+        return None
 
 
 def get_webapp_url():
-    """Should only be called if is_in_databricks_notebook is true"""
+    """Should only be called if is_in_databricks_notebook or is_in_databricks_jobs is true"""
     url = _get_property_from_spark_context("spark.databricks.api.url")
     if url is not None:
         return url
-    return _get_extra_context("api_url")
+    try:
+        return _get_command_context().apiUrl().get()
+    except Exception:
+        return _get_extra_context("api_url")
+
+
+def get_workspace_id():
+    try:
+        return _get_command_context().workspaceId().get()
+    except Exception:
+        return _get_context_tag("orgId")
+
+
+def get_browser_hostname():
+    try:
+        return _get_command_context().browserHostName().get()
+    except Exception:
+        return _get_context_tag("browserHostName")
 
 
 def get_workspace_info_from_dbutils():
     dbutils = _get_dbutils()
     if dbutils:
-        context = json.loads(
-            dbutils.notebook.entry_point.getDbutils().notebook().getContext().toJson()
-        )
-        workspace_host = context["extraContext"]["api_url"]
-        workspace_id = context["tags"]["orgId"]
+        browser_hostname = get_browser_hostname()
+        workspace_host = "https://" + browser_hostname if browser_hostname else get_webapp_url()
+        workspace_id = get_workspace_id()
         return workspace_host, workspace_id
     return None, None
 
