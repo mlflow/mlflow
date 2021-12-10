@@ -14,9 +14,9 @@ _logger = logging.getLogger(__name__)
 
 def _get_context_metadata(name):
     try:
-        from dbruntime.set_context import context
+        from dbruntime.set_context import get_context
 
-        return getattr(context, name)
+        return getattr(get_context(), name)
     except Exception:
         return None
 
@@ -49,37 +49,37 @@ def _return_true(_):
     return True
 
 
-def _get_message_metadata(name):
-    try:
-        import IPython
+# def _get_message_metadata(name):
+#     try:
+#         import IPython
 
-        ip_shell = IPython.get_ipython()
-        return ip_shell.parent_header["metadata"][name]
-    except Exception:
-        return None
+#         ip_shell = IPython.get_ipython()
+#         return ip_shell.parent_header["metadata"][name]
+#     except Exception:
+#         return None
 
 
-def _use_message_metadata_if_available(name):
-    """
-    Creates a decorator to insert a short circuit that returns specified Jupyter message metadata
-    if it's available.
+# def _use_message_metadata_if_available(name):
+#     """
+#     Creates a decorator to insert a short circuit that returns specified Jupyter message metadata
+#     if it's available.
 
-    :param name: Metadata name.
-    :return: Decorator to insert the short circuit.
-    """
+#     :param name: Metadata name.
+#     :return: Decorator to insert the short circuit.
+#     """
 
-    def decorator(f):
-        @functools.wraps(f)
-        def wrapper(*args, **kwargs):
-            metadata = _get_message_metadata(name)
-            if metadata:
-                return metadata
+#     def decorator(f):
+#         @functools.wraps(f)
+#         def wrapper(*args, **kwargs):
+#             metadata = _get_message_metadata(name)
+#             if metadata:
+#                 return metadata
 
-            return f(*args, **kwargs)
+#             return f(*args, **kwargs)
 
-        return wrapper
+#         return wrapper
 
-    return decorator
+#     return decorator
 
 
 def _get_dbutils():
@@ -303,7 +303,7 @@ def get_job_type():
         return _get_context_tag("jobTaskType")
 
 
-@_use_message_metadata_if_available("commandRunId")
+@_use_context_metadata_if_available("commandRunId")
 def get_command_run_id():
     try:
         return _get_command_context().commandRunId().get()
