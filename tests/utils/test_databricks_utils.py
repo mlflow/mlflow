@@ -256,10 +256,10 @@ def test_get_repl_id():
         assert databricks_utils.get_repl_id() == "testReplId2"
 
 
-def test_use_context_metadata_if_available():
+def test_use_context_attribute_if_available():
 
     with mock.patch(
-        "mlflow.utils.databricks_utils._get_context_metadata",
+        "mlflow.utils.databricks_utils._get_context_attribute",
         return_value="job_id",
     ) as mock_context_metadata, mock.patch(
         "mlflow.utils.databricks_utils._get_dbutils"
@@ -269,7 +269,7 @@ def test_use_context_metadata_if_available():
         mock_dbutils.assert_not_called()
 
     with mock.patch(
-        "mlflow.utils.databricks_utils._get_context_metadata",
+        "mlflow.utils.databricks_utils._get_context_attribute",
         return_value="notebook_id",
     ) as mock_context_metadata, mock.patch(
         "mlflow.utils.databricks_utils._get_property_from_spark_context"
@@ -282,7 +282,7 @@ def test_use_context_metadata_if_available():
         mock_spark_context.assert_not_called()
 
     with mock.patch(
-        "mlflow.utils.databricks_utils._get_context_metadata",
+        "mlflow.utils.databricks_utils._get_context_attribute",
         return_value="cluster_id",
     ) as mock_context_metadata, mock.patch(
         "mlflow.utils._spark_utils._get_active_spark_session"
@@ -293,15 +293,3 @@ def test_use_context_metadata_if_available():
         assert databricks_utils.is_in_cluster()
         mock_context_metadata.assert_called_once_with("clusterId")
         mock_spark_session.assert_not_called()
-
-
-def test_use_message_metadata_if_available():
-    with mock.patch(
-        "mlflow.utils.databricks_utils._get_message_metadata",
-        return_value="command_run_id",
-    ) as mock_message_metadata, mock.patch(
-        "mlflow.utils.databricks_utils._get_dbutils"
-    ) as mock_dbutils:
-        assert databricks_utils.get_command_run_id() == "command_run_id"
-        mock_message_metadata.assert_called_once_with("commandRunId")
-        mock_dbutils.assert_not_called()

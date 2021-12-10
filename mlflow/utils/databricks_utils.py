@@ -12,7 +12,7 @@ from mlflow.utils.uri import get_db_info_from_uri
 _logger = logging.getLogger(__name__)
 
 
-def _get_context_metadata(name):
+def _get_context_attribute(name):
     try:
         from dbruntime.set_context import get_context
 
@@ -21,13 +21,13 @@ def _get_context_metadata(name):
         return None
 
 
-def _use_context_metadata_if_available(name, *, if_available=lambda x: x):
+def _use_context_attribute_if_available(name, *, if_available=lambda x: x):
     """
     Creates a decorator to insert a short circuit that returns `if_available(name)`
-    if the specified metadata is available.
+    if the specified context attribute is available.
 
-    :param name: Metadata name.
-    :param if_available: Function to evaluate when the specified metadata is available.
+    :param name: Context attribute name.
+    :param if_available: Function to evaluate when the specified context attribute is available.
                          Defaults to `lambda x: x`.
     :return: Decorator to insert the short circuit.
     """
@@ -35,7 +35,7 @@ def _use_context_metadata_if_available(name, *, if_available=lambda x: x):
     def decorator(f):
         @functools.wraps(f)
         def wrapper(*args, **kwargs):
-            metadata = _get_context_metadata(name)
+            metadata = _get_context_attribute(name)
             if metadata:
                 return if_available(metadata)
             return f(*args, **kwargs)
@@ -47,39 +47,6 @@ def _use_context_metadata_if_available(name, *, if_available=lambda x: x):
 
 def _return_true(_):
     return True
-
-
-# def _get_message_metadata(name):
-#     try:
-#         import IPython
-
-#         ip_shell = IPython.get_ipython()
-#         return ip_shell.parent_header["metadata"][name]
-#     except Exception:
-#         return None
-
-
-# def _use_message_metadata_if_available(name):
-#     """
-#     Creates a decorator to insert a short circuit that returns specified Jupyter message metadata
-#     if it's available.
-
-#     :param name: Metadata name.
-#     :return: Decorator to insert the short circuit.
-#     """
-
-#     def decorator(f):
-#         @functools.wraps(f)
-#         def wrapper(*args, **kwargs):
-#             metadata = _get_message_metadata(name)
-#             if metadata:
-#                 return metadata
-
-#             return f(*args, **kwargs)
-
-#         return wrapper
-
-#     return decorator
 
 
 def _get_dbutils():
@@ -121,7 +88,7 @@ def _get_context_tag(context_tag_key):
         return None
 
 
-@_use_context_metadata_if_available("aclPathOfAclRoot")
+@_use_context_attribute_if_available("aclPathOfAclRoot")
 def acl_path_of_acl_root():
     try:
         return _get_command_context().aclPathOfAclRoot().get()
@@ -144,7 +111,7 @@ def is_databricks_default_tracking_uri(tracking_uri):
     return tracking_uri.lower().strip() == "databricks"
 
 
-@_use_context_metadata_if_available("notebookId", if_available=_return_true)
+@_use_context_attribute_if_available("notebookId", if_available=_return_true)
 def is_in_databricks_notebook():
     if _get_property_from_spark_context("spark.databricks.notebook.id") is not None:
         return True
@@ -184,7 +151,7 @@ def is_dbfs_fuse_available():
             return False
 
 
-@_use_context_metadata_if_available("clusterId", if_available=_return_true)
+@_use_context_attribute_if_available("clusterId", if_available=_return_true)
 def is_in_cluster():
     try:
         spark_session = _get_active_spark_session()
@@ -196,7 +163,7 @@ def is_in_cluster():
         return False
 
 
-@_use_context_metadata_if_available("notebookId")
+@_use_context_attribute_if_available("notebookId")
 def get_notebook_id():
     """Should only be called if is_in_databricks_notebook is true"""
     notebook_id = _get_property_from_spark_context("spark.databricks.notebook.id")
@@ -208,7 +175,7 @@ def get_notebook_id():
     return None
 
 
-@_use_context_metadata_if_available("notebookPath")
+@_use_context_attribute_if_available("notebookPath")
 def get_notebook_path():
     """Should only be called if is_in_databricks_notebook is true"""
     path = _get_property_from_spark_context("spark.databricks.notebook.path")
@@ -220,7 +187,7 @@ def get_notebook_path():
         return _get_extra_context("notebook_path")
 
 
-@_use_context_metadata_if_available("runtimeVersion")
+@_use_context_attribute_if_available("runtimeVersion")
 def get_databricks_runtime():
     if is_in_databricks_runtime():
         spark_session = _get_active_spark_session()
@@ -231,7 +198,7 @@ def get_databricks_runtime():
     return None
 
 
-@_use_context_metadata_if_available("clusterId")
+@_use_context_attribute_if_available("clusterId")
 def get_cluster_id():
     spark_session = _get_active_spark_session()
     if spark_session is None:
@@ -239,7 +206,7 @@ def get_cluster_id():
     return spark_session.conf.get("spark.databricks.clusterUsageTags.clusterId")
 
 
-@_use_context_metadata_if_available("jobGroupId")
+@_use_context_attribute_if_available("jobGroupId")
 def get_job_group_id():
     try:
         dbutils = _get_dbutils()
@@ -250,7 +217,7 @@ def get_job_group_id():
         return None
 
 
-@_use_context_metadata_if_available("replId")
+@_use_context_attribute_if_available("replId")
 def get_repl_id():
     """
     :return: The ID of the current Databricks Python REPL
@@ -278,7 +245,7 @@ def get_repl_id():
         pass
 
 
-@_use_context_metadata_if_available("jobId")
+@_use_context_attribute_if_available("jobId")
 def get_job_id():
     try:
         return _get_command_context().jobId().get()
@@ -286,7 +253,7 @@ def get_job_id():
         return _get_context_tag("jobId")
 
 
-@_use_context_metadata_if_available("idInJob")
+@_use_context_attribute_if_available("idInJob")
 def get_job_run_id():
     try:
         return _get_command_context().idInJob().get()
@@ -294,7 +261,7 @@ def get_job_run_id():
         return _get_context_tag("idInJob")
 
 
-@_use_context_metadata_if_available("jobTaskType")
+@_use_context_attribute_if_available("jobTaskType")
 def get_job_type():
     """Should only be called if is_in_databricks_job is true"""
     try:
@@ -303,7 +270,7 @@ def get_job_type():
         return _get_context_tag("jobTaskType")
 
 
-@_use_context_metadata_if_available("commandRunId")
+@_use_context_attribute_if_available("commandRunId")
 def get_command_run_id():
     try:
         return _get_command_context().commandRunId().get()
@@ -312,7 +279,7 @@ def get_command_run_id():
         return None
 
 
-@_use_context_metadata_if_available("apiUrl")
+@_use_context_attribute_if_available("apiUrl")
 def get_webapp_url():
     """Should only be called if is_in_databricks_notebook or is_in_databricks_jobs is true"""
     url = _get_property_from_spark_context("spark.databricks.api.url")
@@ -324,7 +291,7 @@ def get_webapp_url():
         return _get_extra_context("api_url")
 
 
-@_use_context_metadata_if_available("workspaceId")
+@_use_context_attribute_if_available("workspaceId")
 def get_workspace_id():
     try:
         return _get_command_context().workspaceId().get()
@@ -332,7 +299,7 @@ def get_workspace_id():
         return _get_context_tag("orgId")
 
 
-@_use_context_metadata_if_available("browserHostName")
+@_use_context_attribute_if_available("browserHostName")
 def get_browser_hostname():
     try:
         return _get_command_context().browserHostName().get()
