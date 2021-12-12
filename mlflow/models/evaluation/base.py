@@ -10,6 +10,7 @@ from mlflow.entities import RunTag
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.class_utils import _get_class_from_string
+from mlflow.utils.annotations import experimental
 import logging
 import struct
 
@@ -469,6 +470,7 @@ def _start_run_or_reuse_active_run(run_id):
         yield active_run.info.run_id
 
 
+@experimental
 def evaluate(
     model: Union[str, "mlflow.pyfunc.PyFuncModel"],
     model_type: str,

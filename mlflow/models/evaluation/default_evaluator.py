@@ -18,8 +18,6 @@ import pandas as pd
 import time
 from functools import partial
 
-shap.initjs()
-
 """
 [P0] Accuracy: Calculates how often predictions equal labels.
 [P0] BinaryCrossentropy: Computes the crossentropy metric between the labels and predictions.
@@ -83,7 +81,14 @@ class DefaultEvaluator(ModelEvaluator):
     def can_evaluate(self, model_type, evaluator_config=None, **kwargs):
         return model_type in ["classifier", "regressor"]
 
-    def _log_metrics(self, run_id, metrics, dataset_name):
+    @staticmethod
+    def _gen_log_key(key, dataset_name, model):
+        if hasattr(model.metadata, 'model_uuid'):
+            return f'{key}_on_data_{dataset_name}_model_{model.metadata.model_uuid}'
+        else:
+            return f'{key}_on_data_{dataset_name}'
+
+    def _log_metrics(self, run_id, metrics, dataset_name, model):
         """
         Helper method to log metrics into specified run.
         """
@@ -92,7 +97,8 @@ class DefaultEvaluator(ModelEvaluator):
         client.log_batch(
             run_id,
             metrics=[
-                Metric(key=f"{key}_on_{dataset_name}", value=value, timestamp=timestamp, step=0)
+                Metric(key=DefaultEvaluator._gen_log_key(key, dataset_name, model),
+                       value=value, timestamp=timestamp, step=0)
                 for key, value in metrics.items()
             ],
         )
@@ -126,11 +132,11 @@ class DefaultEvaluator(ModelEvaluator):
         artifact.load(artifact_file_local_path)
         artifacts[artifact_file_name] = artifact
 
-    def _log_model_explainality(
+    def _log_model_explainability(
             self, artifacts, temp_dir, model, X, dataset_name, feature_names, run_id, evaluator_config
     ):
-        sample_rows = evaluator_config.get('explainality.nsamples', _DEFAULT_SAMPLE_ROWS_FOR_SHAP)
-        algorithm = evaluator_config.get('explainality.algorithm', None)
+        sample_rows = evaluator_config.get('explainability_nsamples', _DEFAULT_SAMPLE_ROWS_FOR_SHAP)
+        algorithm = evaluator_config.get('explainality_algorithm', None)
 
         model_loader_module = model.metadata.flavors['python_function']["loader_module"]
 
@@ -284,10 +290,10 @@ class DefaultEvaluator(ModelEvaluator):
                 artifacts, temp_dir, plot_confusion_matrix, run_id, "confusion_matrix", dataset_name
             )
 
-        self._log_metrics(run_id, metrics, dataset_name)
+        self._log_metrics(run_id, metrics, dataset_name, model)
 
-        if evaluator_config.get('log_model_explainality', True):
-            self._log_model_explainality(
+        if evaluator_config.get('log_model_explainability', True):
+            self._log_model_explainability(
                 artifacts, temp_dir, model, X, dataset_name, feature_names, run_id, evaluator_config
             )
 
@@ -301,10 +307,16 @@ class DefaultEvaluator(ModelEvaluator):
         metrics["mean_absolute_error"] = sk_metrics.mean_absolute_error(y, y_pred)
         metrics["mean_squared_error"] = sk_metrics.mean_squared_error(y, y_pred)
         metrics["root_mean_squared_error"] = math.sqrt(metrics["mean_squared_error"])
-        self._log_model_explainality(
+        metrics['sum_on_label'] = sum(y)
+        metrics['mean_on_label'] = metrics['sum_on_label'] / metrics["example_count"]
+        metrics['r2_score'] = sk_metrics.r2_score(y, y_pred)
+        metrics['max_error'] = sk_metrics.max_error(y, y_pred)
+        metrics['mean_absolute_percentage_error'] = \
+            sk_metrics.mean_absolute_percentage_error(y, y_pred)
+        self._log_model_explainability(
             artifacts, temp_dir, model, X, dataset_name, feature_names, run_id, evaluator_config
         )
-        self._log_metrics(run_id, metrics, dataset_name)
+        self._log_metrics(run_id, metrics, dataset_name, model)
         return EvaluationResult(metrics, artifacts)
 
     def evaluate(
@@ -316,6 +328,7 @@ class DefaultEvaluator(ModelEvaluator):
         evaluator_config,
         **kwargs,
     ):
+        shap.initjs()
         with TempDir() as temp_dir:
             X, y = dataset._extract_features_and_labels()
             if model_type == "classifier":
