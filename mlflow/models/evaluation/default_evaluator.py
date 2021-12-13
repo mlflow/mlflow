@@ -213,6 +213,13 @@ class DefaultEvaluator(ModelEvaluator):
             artifacts, temp_dir, plot_summary, run_id, "shap_summary", dataset_name, model,
         )
 
+        def plot_summary_in_js():
+            shap.summary_plot(shap_values, show=False)
+
+        self._log_image_artifact(
+            artifacts, temp_dir, plot_summary_in_js, run_id, "shap_summary_in_js", dataset_name, model,
+        )
+
         def plot_feature_importance():
             shap.plots.bar(shap_values, show=False)
 
