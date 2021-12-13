@@ -285,9 +285,10 @@ class DefaultEvaluator(ModelEvaluator):
                         fpr=fpr, tpr=tpr, roc_auc=roc_auc, estimator_name="example estimator"
                     ).plot()
 
-                self._log_image_artifact(
-                    artifacts, temp_dir, plot_roc_curve, run_id, "roc_curve", dataset_name
-                )
+                if hasattr(sk_metrics, 'RocCurveDisplay'):
+                    self._log_image_artifact(
+                        artifacts, temp_dir, plot_roc_curve, run_id, "roc_curve", dataset_name
+                    )
 
                 def plot_lift_curve():
                     scikitplot.metrics.plot_lift_curve(y, y_probs)
@@ -297,11 +298,12 @@ class DefaultEvaluator(ModelEvaluator):
                 )
 
             def plot_confusion_matrix():
-                sk_metrics.ConfusionMatrixDisplay.from_predictions(y, y_pred)
+                sk_metrics.ConfusionMatrixDisplay(confusion_matrix=confusion_matrix).plot()
 
-            self._log_image_artifact(
-                artifacts, temp_dir, plot_confusion_matrix, run_id, "confusion_matrix", dataset_name
-            )
+            if hasattr(sk_metrics, 'ConfusionMatrixDisplay'):
+                self._log_image_artifact(
+                    artifacts, temp_dir, plot_confusion_matrix, run_id, "confusion_matrix", dataset_name
+                )
 
         self._log_metrics(run_id, metrics, dataset_name, model)
 
