@@ -225,7 +225,7 @@ class DefaultEvaluator(ModelEvaluator):
         )
 
     def _evaluate_classifier(self, temp_dir, model, X, y, dataset_name, feature_names, run_id, evaluator_config):
-        import scikitplot
+        from mlflow.models.evaluation.lift_curve import plot_lift_curve
 
         # Note: require labels to be number of 0, 1, 2, .. num_classes - 1
         label_list = sorted(list(set(y)))
@@ -290,11 +290,10 @@ class DefaultEvaluator(ModelEvaluator):
                         artifacts, temp_dir, plot_roc_curve, run_id, "roc_curve", dataset_name
                     )
 
-                def plot_lift_curve():
-                    scikitplot.metrics.plot_lift_curve(y, y_probs)
-
                 self._log_image_artifact(
-                    artifacts, temp_dir, plot_lift_curve, run_id, "lift_curve", dataset_name
+                    artifacts, temp_dir,
+                    lambda: plot_lift_curve(y, y_probs),
+                    run_id, "lift_curve", dataset_name
                 )
 
             def plot_confusion_matrix():
