@@ -522,6 +522,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
           defaultColDef={defaultColDef}
           columnDefs={this.state.columnDefs}
           rowData={this.getRowData()}
+          domLayout='autoHeight'
           modules={[Grid, ClientSideRowModelModule]}
           rowSelection='multiple'
           onGridReady={this.handleGridReady}
