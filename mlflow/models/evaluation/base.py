@@ -511,27 +511,40 @@ def evaluate(
     from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
     from mlflow.pyfunc import PyFuncModel
 
-    if not evaluators:
-        evaluators = list(_model_evaluation_registry._registry.keys())
-
-    if isinstance(evaluators, str):
-        evaluators = [evaluators]
+    if evaluators is None:
+        evaluator_name_list = list(_model_evaluation_registry._registry.keys())
+        if evaluator_config is not None:
+            raise ValueError(
+                'If `evaluators` argument is None, `evaluator_config` argument must be None too.'
+            )
+        evaluator_name_to_conf_map = {}
+    elif isinstance(evaluators, str):
         if not (evaluator_config is None or isinstance(evaluator_config, dict)):
             raise ValueError(
-                "If `evaluators` argument is a str, evaluator_config must be None or a dict."
+                "If `evaluators` argument is the name of an evaluator, evaluator_config must be "
+                "None or a dict containing config items for the evaluator."
             )
-        evaluator_config = {evaluators[0]: evaluator_config}
+        evaluator_name_list = [evaluators]
+        evaluator_name_to_conf_map = {evaluators[0]: evaluator_config}
     elif isinstance(evaluators, list):
-        evaluators = set(evaluators)
-        if not (
-            isinstance(evaluator_config, dict)
-            and all(k in evaluators and isinstance(v, dict) for k, v in evaluator_config.items())
-        ):
-            raise ValueError(
-                "If `evaluators` argument is a evaluator name list, evaluator_config"
-                "must be a dict contains mapping from evaluator name to individual "
-                "evaluator config dict."
-            )
+        if evaluator_config is not None:
+            if not (
+                    isinstance(evaluator_config, dict)
+                    and all(k in evaluators and isinstance(v, dict)
+                            for k, v in evaluator_config.items())
+            ):
+                raise ValueError(
+                    "If `evaluators` argument is a evaluator name list, evaluator_config "
+                    "must be a dict contains mapping from evaluator name to individual "
+                    "evaluator config dict."
+                )
+        evaluator_name_list = list(set(evaluators))
+        evaluator_name_to_conf_map = evaluator_config or {}
+    else:
+        raise ValueError(
+            '`evaluators` argument must be None, a evaluator name string, or a list of '
+            'evalautor names.'
+        )
 
     if isinstance(model, str):
         model = mlflow.pyfunc.load_model(model)
@@ -548,8 +561,8 @@ def evaluate(
         dataset._log_dataset_tag(client, actual_run_id)
 
         eval_results = []
-        for evaluator_name in evaluators:
-            config = evaluator_config.get(evaluator_name) or {}
+        for evaluator_name in evaluator_name_list:
+            config = evaluator_name_to_conf_map.get(evaluator_name) or {}
             try:
                 evaluator = _model_evaluation_registry.get_evaluator(evaluator_name)
             except MlflowException:
