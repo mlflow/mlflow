@@ -76,15 +76,18 @@ def test_lgb_autolog_logs_default_params(bst_params, train_set):
         "num_boost_round": 100,
         "feature_name": "auto",
         "categorical_feature": "auto",
-        "verbose_eval": (
+        "keep_training_booster": False,
+    }
+    if Version(lgb.__version__) <= Version("3.3.1"):
+        # The parameter `verbose_eval` in `lightgbm.train` is removed in this PR:
+        # https://github.com/microsoft/LightGBM/pull/4878
+        expected_params["verbose_eval"] = (
             # The default value of `verbose_eval` in `lightgbm.train` has been changed to 'warn'
             # in this PR: https://github.com/microsoft/LightGBM/pull/4577
             "warn"
             if Version(lgb.__version__) > Version("3.2.1")
             else True
-        ),
-        "keep_training_booster": False,
-    }
+        )
     expected_params.update(bst_params)
 
     for key, val in expected_params.items():
@@ -114,8 +117,11 @@ def test_lgb_autolog_logs_specified_params(bst_params, train_set):
     expected_params = {
         "num_boost_round": 10,
         "early_stopping_rounds": 5,
-        "verbose_eval": False,
     }
+    if Version(lgb.__version__) <= Version("3.3.1"):
+        # The parameter `verbose_eval` in `lightgbm.train` is removed in this PR:
+        # https://github.com/microsoft/LightGBM/pull/4878
+        expected_params["verbose_eval"] = False
     lgb.train(bst_params, train_set, valid_sets=[train_set], **expected_params)
     run = get_latest_run()
     params = run.data.params
