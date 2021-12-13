@@ -162,7 +162,7 @@ class EvaluationDataset:
     NUM_SAMPLE_ROWS_FOR_HASH = 5
     SPARK_DATAFRAME_LIMIT = 10000
 
-    def __init__(self, data, labels, name=None, path=None):
+    def __init__(self, data, labels, name=None, path=None, feature_names=None):
         """
         :param data: One of the following:
          - A numpy array or list of evaluation features, excluding labels.
@@ -179,6 +179,8 @@ class EvaluationDataset:
 
         :param path: (Optional) the path to a serialized DataFrame (must not contain ").
           (e.g. a delta table, parquet file)
+
+        :param feature_names: (Optional) A list of the feature names.
         """
         import numpy as np
         import pandas as pd
@@ -219,6 +221,24 @@ class EvaluationDataset:
         self.labels = labels
         self.path = path
         self._hash = None
+
+        if isinstance(self.data, np.ndarray):
+            num_features = self.data.shape[1]
+            if feature_names is not None:
+                feature_names = list(feature_names)
+                if num_features != len(feature_names):
+                    raise ValueError('feature name list must be the same length with feature data.')
+                self._feature_names = feature_names
+            else:
+                self._feature_names = [f'f{i}' for i in range(num_features)]
+        else:
+            pd_column_names = [c for c in self.data.columns if c != self.labels]
+            if feature_names is not None:
+                feature_names = list(feature_names)
+                if pd_column_names != list(feature_names):
+                    raise ValueError('feature names must match feature column names in the pandas '
+                                     'dataframe')
+            self._feature_names = pd_column_names
 
     @property
     def data(self):
@@ -323,11 +343,7 @@ class EvaluationDataset:
 
     @property
     def feature_names(self):
-        import numpy as np
-        if isinstance(self.data, np.ndarray):
-            return [f'f{i}' for i in range(self.data.shape[1])]
-        else:
-            return [c for c in self.data.columns if c != self.labels]
+        return self._feature_names
 
     @property
     def name(self):
@@ -470,46 +486,11 @@ def _start_run_or_reuse_active_run(run_id):
         yield active_run.info.run_id
 
 
-@experimental
-def evaluate(
-    model: Union[str, "mlflow.pyfunc.PyFuncModel"],
-    model_type: str,
-    dataset: "mlflow.models.evaluation.EvaluationDataset",
-    run_id=None,
-    evaluators=None,
-    evaluator_config=None,
-) -> "mlflow.models.evaluation.EvaluationResult":
-    """
-    Evaluate a PyFunc model on the specified dataset using one or more specified evaluators, and
-    log resulting metrics & artifacts to MLflow Tracking.
-
-    :param model: A pyfunc model instance, or a URI referring to such a model.
-
-    :param model_type: A string describing the model type. The default evaluator
-                       supports "regressor" and "classifier" as model types.
-    :param dataset: An instance of :py:class:`mlflow.models.evaluation.EvaluationDataset`
-                    containing features labels (optional) for model evaluation.
-    :param run_id: The ID of the MLflow Run to which to log results. If
-                   unspecified, behavior depends on the specified `evaluator`.
-                   When `run_id` is unspecified, the default evaluator logs
-                   results to the current active run, creating a new active run if
-                   one does not exist.
-    :param evaluators: The name of the evaluator to use for model evaluations, or
-                       a list of evaluator names. If unspecified, all evaluators
-                       capable of evaluating the specified model on the specified
-                       dataset are used. The default evaluator can be referred to
-                       by the name 'default'. If this argument is unspecified, then
-                       fetch all evaluators from the registry.
-    :param evaluator_config: A dictionary of additional configurations to supply
-                             to the evaluator. If multiple evaluators are
-                             specified, each configuration should be supplied as
-                             a nested dictionary whose key is the evaluator name.
-    :return: An :py:class:`mlflow.models.evaluation.EvaluationDataset` instance containing
-             evaluation results.
-    """
-    # import _model_evaluation_registry and PyFuncModel inside function to avoid circuit importing
+def _normalize_evaluators_and_evaluator_config_args(
+        evaluators,
+        evaluator_config,
+):
     from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
-    from mlflow.pyfunc import PyFuncModel
 
     if evaluators is None:
         evaluator_name_list = list(_model_evaluation_registry._registry.keys())
@@ -546,6 +527,59 @@ def evaluate(
             'evalautor names.'
         )
 
+    return evaluator_name_list, evaluator_name_to_conf_map
+
+
+@experimental
+def evaluate(
+    model: Union[str, "mlflow.pyfunc.PyFuncModel"],
+    model_type: str,
+    dataset: "mlflow.models.evaluation.EvaluationDataset",
+    run_id=None,
+    evaluators=None,
+    evaluator_config=None,
+) -> "mlflow.models.evaluation.EvaluationResult":
+    """
+    Evaluate a PyFunc model on the specified dataset using one or more specified evaluators, and
+    log resulting metrics & artifacts to MLflow Tracking.
+
+    :param model: A pyfunc model instance, or a URI referring to such a model.
+
+    :param model_type: A string describing the model type. The default evaluator
+                       supports "regressor" and "classifier" as model types.
+    :param dataset: An instance of :py:class:`mlflow.models.evaluation.EvaluationDataset`
+                    containing features labels (optional) for model evaluation.
+    :param run_id: The ID of the MLflow Run to which to log results. If
+                   unspecified, behavior depends on the specified `evaluator`.
+                   When `run_id` is unspecified, the default evaluator logs
+                   results to the current active run, creating a new active run if
+                   one does not exist.
+    :param evaluators: The name of the evaluator to use for model evaluations, or
+                       a list of evaluator names. If unspecified, all evaluators
+                       capable of evaluating the specified model on the specified
+                       dataset are used. The default evaluator can be referred to
+                       by the name 'default'. If this argument is unspecified, then
+                       fetch all evaluators from the registry.
+    :param evaluator_config: A dictionary of additional configurations to supply
+                             to the evaluator. If multiple evaluators are
+                             specified, each configuration should be supplied as
+                             a nested dictionary whose key is the evaluator name.
+    :return: An :py:class:`mlflow.models.evaluation.EvaluationDataset` instance containing
+             evaluation results.
+
+    The default evaluator support 'regressor' and 'classifer' type model, the config item for
+    default evaluator includes:
+     - log_model_explainability: A boolean value representing whether to log model explainability.
+       Default value is True.
+     - explainality_algorithm: A string to specify the shap explainer algorithm. If not set, it will
+       choose the best fit explainer according to the model.
+     - explainability_nsamples: The sample rows for calculating model explainability.
+       Default value is 2000.
+    """
+    # import _model_evaluation_registry and PyFuncModel inside function to avoid circuit importing
+    from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
+    from mlflow.pyfunc import PyFuncModel
+
     if isinstance(model, str):
         model = mlflow.pyfunc.load_model(model)
     elif isinstance(model, PyFuncModel):
@@ -555,6 +589,9 @@ def evaluate(
             "The model argument must be a string URI referring to an MLflow model or "
             "an instance of `mlflow.pyfunc.PyFuncModel`."
         )
+
+    evaluator_name_list, evaluator_name_to_conf_map = \
+        _normalize_evaluators_and_evaluator_config_args(evaluators, evaluator_config)
 
     with _start_run_or_reuse_active_run(run_id) as actual_run_id:
         client = mlflow.tracking.MlflowClient()

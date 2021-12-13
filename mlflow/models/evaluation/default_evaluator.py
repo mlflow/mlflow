@@ -9,14 +9,11 @@ from mlflow.entities.metric import Metric
 from mlflow.utils.file_utils import TempDir
 from mlflow.tracking.artifact_utils import get_artifact_uri
 from sklearn import metrics as sk_metrics
-import matplotlib.pyplot as pyplot
-import scikitplot
-import shap
-import shap.maskers
 import math
 import pandas as pd
 import time
 from functools import partial
+import logging
 
 """
 [P0] Accuracy: Calculates how often predictions equal labels.
@@ -54,6 +51,9 @@ Global explainability
 """
 
 from PIL.Image import Image, open as open_image
+
+
+_logger = logging.getLogger(__name__)
 
 
 class ImageEvaluationArtifact(EvaluationArtifact):
@@ -106,6 +106,7 @@ class DefaultEvaluator(ModelEvaluator):
     def _log_image_artifact(
         self, artifacts, temp_dir, do_plot, run_id, artifact_name, dataset_name
     ):
+        import matplotlib.pyplot as pyplot
         client = mlflow.tracking.MlflowClient()
         pyplot.clf()
         do_plot()
@@ -135,6 +136,9 @@ class DefaultEvaluator(ModelEvaluator):
     def _log_model_explainability(
             self, artifacts, temp_dir, model, X, dataset_name, feature_names, run_id, evaluator_config
     ):
+        import shap
+        import shap.maskers
+
         sample_rows = evaluator_config.get('explainability_nsamples', _DEFAULT_SAMPLE_ROWS_FOR_SHAP)
         algorithm = evaluator_config.get('explainality_algorithm', None)
 
@@ -142,14 +146,19 @@ class DefaultEvaluator(ModelEvaluator):
 
         predict_fn = model.predict
 
-        if model_loader_module == 'mlflow.sklearn':
-            raw_model = model._model_impl
-        elif model_loader_module == 'mlflow.lightgbm':
-            raw_model = model._model_impl.lgb_model
-        elif model_loader_module == 'mlflow.xgboost':
-            raw_model = model._model_impl.xgb_model
-        else:
+        try:
+            if model_loader_module == 'mlflow.sklearn':
+                raw_model = model._model_impl
+            elif model_loader_module == 'mlflow.lightgbm':
+                raw_model = model._model_impl.lgb_model
+            elif model_loader_module == 'mlflow.xgboost':
+                raw_model = model._model_impl.xgb_model
+            else:
+                raw_model = None
+        except Exception as e:
             raw_model = None
+            _logger.warning(f'Raw model resolution fails unexpectedly on PyFuncModel {model!r}, '
+                            f'error message is {e}')
 
         if raw_model:
             predict_fn = raw_model.predict
@@ -169,30 +178,32 @@ class DefaultEvaluator(ModelEvaluator):
             )
             shap_values = explainer(sampled_X)
         else:
-            maskers = shap.maskers.Independent(X)
+            maskers = shap.maskers.Independent(sampled_X)
             if raw_model and shap.explainers.Linear.supports_model_with_masker(raw_model, maskers):
                 explainer = shap.explainers.Linear(
                     raw_model, maskers, feature_names=feature_names
                 )
-                shap_values = explainer(X)
+                shap_values = explainer(sampled_X)
             elif raw_model and shap.explainers.Tree.supports_model_with_masker(raw_model, maskers):
                 explainer = shap.explainers.Tree(
                     raw_model, maskers, feature_names=feature_names
                 )
-                shap_values = explainer(X)
+                shap_values = explainer(sampled_X)
             elif raw_model and shap.explainers.Additive.supports_model_with_masker(
                     raw_model, maskers
             ):
                 explainer = shap.explainers.Additive(
                     raw_model, maskers, feature_names=feature_names
                 )
-                shap_values = explainer(X)
+                shap_values = explainer(sampled_X)
             else:
                 # fallback to default sampling explainer
                 explainer = shap.explainers.Sampling(
                     predict_fn, X, feature_names=feature_names
                 )
                 shap_values = explainer(X, sample_rows)
+
+        _logger.info(f'Shap explainer {explainer.__class__.__name__} is used.')
 
         def plot_summary():
             shap.plots.beeswarm(shap_values, show=False)
@@ -214,6 +225,8 @@ class DefaultEvaluator(ModelEvaluator):
         )
 
     def _evaluate_classifier(self, temp_dir, model, X, y, dataset_name, feature_names, run_id, evaluator_config):
+        import scikitplot
+
         # Note: require labels to be number of 0, 1, 2, .. num_classes - 1
         label_list = sorted(list(set(y)))
         assert label_list[0] == 0, "Label values must being at '0'."
@@ -328,6 +341,8 @@ class DefaultEvaluator(ModelEvaluator):
         evaluator_config,
         **kwargs,
     ):
+        import shap
+
         shap.initjs()
         with TempDir() as temp_dir:
             X, y = dataset._extract_features_and_labels()
