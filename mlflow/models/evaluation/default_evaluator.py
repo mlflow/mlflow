@@ -11,6 +11,7 @@ from mlflow.tracking.artifact_utils import get_artifact_uri
 from sklearn import metrics as sk_metrics
 import math
 import pandas as pd
+import numpy as np
 import time
 from functools import partial
 import logging
@@ -104,25 +105,25 @@ class DefaultEvaluator(ModelEvaluator):
         )
 
     def _log_image_artifact(
-        self, artifacts, temp_dir, do_plot, run_id, artifact_name, dataset_name
+        self, artifacts, temp_dir, do_plot, run_id, artifact_name, dataset_name, model
     ):
         import matplotlib.pyplot as pyplot
         client = mlflow.tracking.MlflowClient()
         pyplot.clf()
         do_plot()
-        artifact_file_name = f"{artifact_name}_on_{dataset_name}.png"
+        artifact_file_name = DefaultEvaluator._gen_log_key(artifact_name, dataset_name, model) + '.png'
         artifact_file_local_path = temp_dir.path(artifact_file_name)
         pyplot.savefig(artifact_file_local_path)
         client.log_artifact(run_id, artifact_file_local_path)
         artifact = ImageEvaluationArtifact(uri=get_artifact_uri(run_id, artifact_file_name))
         artifact.load(artifact_file_local_path)
-        artifacts[artifact_file_name] = artifact
+        artifacts[artifact_name] = artifact
 
     def _log_pandas_df_artifact(
-        self, artifacts, temp_dir, pandas_df, run_id, artifact_name, dataset_name
+        self, artifacts, temp_dir, pandas_df, run_id, artifact_name, dataset_name, model
     ):
         client = mlflow.tracking.MlflowClient()
-        artifact_file_name = f"{artifact_name}_on_{dataset_name}.csv"
+        artifact_file_name = DefaultEvaluator._gen_log_key(artifact_name, dataset_name, model) + '.csv'
         artifact_file_local_path = temp_dir.path(artifact_file_name)
         pandas_df.to_csv(artifact_file_local_path, index=False)
         client.log_artifact(run_id, artifact_file_local_path)
@@ -131,7 +132,7 @@ class DefaultEvaluator(ModelEvaluator):
             content=pandas_df,
         )
         artifact.load(artifact_file_local_path)
-        artifacts[artifact_file_name] = artifact
+        artifacts[artifact_name] = artifact
 
     def _log_model_explainability(
             self, artifacts, temp_dir, model, X, dataset_name, feature_names, run_id, evaluator_config
@@ -209,7 +210,7 @@ class DefaultEvaluator(ModelEvaluator):
             shap.plots.beeswarm(shap_values, show=False)
 
         self._log_image_artifact(
-            artifacts, temp_dir, plot_summary, run_id, "shap_summary", dataset_name
+            artifacts, temp_dir, plot_summary, run_id, "shap_summary", dataset_name, model,
         )
 
         def plot_feature_importance():
@@ -222,6 +223,7 @@ class DefaultEvaluator(ModelEvaluator):
             run_id,
             "shap_feature_importance",
             dataset_name,
+            model,
         )
 
     def _evaluate_classifier(self, temp_dir, model, X, y, dataset_name, feature_names, run_id, evaluator_config):
@@ -266,34 +268,55 @@ class DefaultEvaluator(ModelEvaluator):
             # TODO:
             #  compute hinge loss, this requires calling decision_function of the model
             #  e.g., see https://scikit-learn.org/stable/modules/generated/sklearn.svm.LinearSVC.html#sklearn.svm.LinearSVC.decision_function
-
             if y_probs is not None:
-                metrics["roc_auc"] = sk_metrics.roc_auc_score(y, y_prob)
                 fpr, tpr, thresholds = sk_metrics.roc_curve(y, y_prob)
                 roc_curve_pandas_df = pd.DataFrame(
                     {"fpr": fpr, "tpr": tpr, "thresholds": thresholds}
                 )
                 self._log_pandas_df_artifact(
-                    artifacts, temp_dir, roc_curve_pandas_df, run_id, "roc_curve", dataset_name
+                    artifacts, temp_dir, roc_curve_pandas_df, run_id, "roc_curve", dataset_name, model,
                 )
 
                 roc_auc = sk_metrics.auc(fpr, tpr)
-                metrics["precision_recall_auc"] = roc_auc
+                metrics["roc_auc"] = roc_auc
 
                 def plot_roc_curve():
                     sk_metrics.RocCurveDisplay(
-                        fpr=fpr, tpr=tpr, roc_auc=roc_auc, estimator_name="example estimator"
+                        fpr=fpr, tpr=tpr, roc_auc=roc_auc,
                     ).plot()
 
                 if hasattr(sk_metrics, 'RocCurveDisplay'):
                     self._log_image_artifact(
-                        artifacts, temp_dir, plot_roc_curve, run_id, "roc_curve", dataset_name
+                        artifacts, temp_dir, plot_roc_curve, run_id, "roc_curve", dataset_name, model,
+                    )
+
+                precision, recall, thresholds = sk_metrics.precision_recall_curve(y, y_prob)
+                thresholds = np.append(thresholds, [1.0], axis=0)
+                pr_curve_pandas_df = pd.DataFrame(
+                    {"precision": precision, "recall": recall, "thresholds": thresholds}
+                )
+                self._log_pandas_df_artifact(
+                    artifacts, temp_dir, pr_curve_pandas_df, run_id, "precision_recall_curve",
+                    dataset_name, model,
+                )
+
+                pr_auc = sk_metrics.auc(recall, precision)
+                metrics["precision_recall_auc"] = pr_auc
+
+                def plot_pr_curve():
+                    sk_metrics.PrecisionRecallDisplay(
+                        precision, recall,
+                    ).plot()
+
+                if hasattr(sk_metrics, 'PrecisionRecallDisplay'):
+                    self._log_image_artifact(
+                        artifacts, temp_dir, plot_pr_curve, run_id, "precision_recall_curve", dataset_name, model,
                     )
 
                 self._log_image_artifact(
                     artifacts, temp_dir,
                     lambda: plot_lift_curve(y, y_probs),
-                    run_id, "lift_curve", dataset_name
+                    run_id, "lift_curve", dataset_name, model,
                 )
 
             def plot_confusion_matrix():
@@ -301,7 +324,7 @@ class DefaultEvaluator(ModelEvaluator):
 
             if hasattr(sk_metrics, 'ConfusionMatrixDisplay'):
                 self._log_image_artifact(
-                    artifacts, temp_dir, plot_confusion_matrix, run_id, "confusion_matrix", dataset_name
+                    artifacts, temp_dir, plot_confusion_matrix, run_id, "confusion_matrix", dataset_name, model,
                 )
 
         self._log_metrics(run_id, metrics, dataset_name, model)
