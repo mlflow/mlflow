@@ -44,6 +44,7 @@ def test_model_save_load():
         saved_input_example_info={"x": 1, "y": 2},
     )
     n.utc_time_created = m.utc_time_created
+    n.model_uuid = m.model_uuid
     assert m == n
     n.signature = None
     assert m != n
