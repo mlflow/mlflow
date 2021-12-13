@@ -328,9 +328,11 @@ span.error-message {
     flex: 1 1 auto;
     flex-direction: column;
     display: flex;
-    min-height: 800px;
-    overflow-x: scroll;
     border-radius: 4px;
+}
+
+.compact-view-table-container {
+    min-height: 800px;
 }
 
 .ExperimentView-runs {
@@ -396,7 +398,6 @@ span.error-message {
 
 .ExperimentView .multi-column-view {
     width: 100%;
-    height: 700px;
     margin-bottom: 50px;
 }
 

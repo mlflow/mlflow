@@ -421,7 +421,7 @@ export class ExperimentRunsTableCompactView extends React.Component {
     return (
       <div
         id='autosizer-container'
-        className='runs-table-flex-container'
+        className='runs-table-flex-container compact-view-table-container'
         data-test-id='compact-runs-table-view'
       >
         <AutoSizer>
