@@ -4,6 +4,7 @@ import logging
 
 import yaml
 import os
+import uuid
 
 from typing import Any, Dict, Optional
 
@@ -41,6 +42,7 @@ class Model(object):
         flavors=None,
         signature=None,  # ModelSignature
         saved_input_example_info: Dict[str, Any] = None,
+        model_uuid=None,
         **kwargs,
     ):
         # store model id instead of run_id and path to avoid confusion when model gets exported
@@ -52,6 +54,7 @@ class Model(object):
         self.flavors = flavors if flavors is not None else {}
         self.signature = signature
         self.saved_input_example_info = saved_input_example_info
+        self.model_uuid = uuid.uuid4().hex if model_uuid is None else model_uuid
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):
