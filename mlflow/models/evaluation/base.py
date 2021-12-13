@@ -481,7 +481,7 @@ def _start_run_or_reuse_active_run(run_id):
     else:
         if run_id and active_run.info.run_id != run_id:
             raise ValueError(
-                "An active run exists, you cannot specify another run_id when " "evaluating."
+                "An active run exists, you cannot specify another run_id when evaluating."
             )
         yield active_run.info.run_id
 

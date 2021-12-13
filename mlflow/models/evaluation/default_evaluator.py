@@ -139,6 +139,7 @@ class DefaultEvaluator(ModelEvaluator):
     ):
         import shap
         import shap.maskers
+        import matplotlib.pyplot as pyplot
 
         sample_rows = evaluator_config.get('explainability_nsamples', _DEFAULT_SAMPLE_ROWS_FOR_SHAP)
         algorithm = evaluator_config.get('explainality_algorithm', None)
@@ -206,7 +207,14 @@ class DefaultEvaluator(ModelEvaluator):
 
         _logger.info(f'Shap explainer {explainer.__class__.__name__} is used.')
 
+        # TODO: seems infer pip req fail when log_explainer.
+        mlflow.shap.log_explainer(
+            explainer,
+            artifact_path=DefaultEvaluator._gen_log_key('explainer', dataset_name, model)
+        )
+
         def plot_summary():
+            pyplot.subplots_adjust(left=0.4)
             shap.plots.beeswarm(shap_values, show=False)
 
         self._log_image_artifact(
@@ -214,6 +222,7 @@ class DefaultEvaluator(ModelEvaluator):
         )
 
         def plot_summary_in_js():
+            pyplot.subplots_adjust(left=0.4)
             shap.summary_plot(shap_values, show=False)
 
         self._log_image_artifact(
@@ -221,6 +230,7 @@ class DefaultEvaluator(ModelEvaluator):
         )
 
         def plot_feature_importance():
+            pyplot.subplots_adjust(left=0.4)
             shap.plots.bar(shap_values, show=False)
 
         self._log_image_artifact(
