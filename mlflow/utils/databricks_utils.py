@@ -14,7 +14,7 @@ _logger = logging.getLogger(__name__)
 
 def _get_context_attribute(name):
     try:
-        from dbruntime.set_context import get_context
+        from dbruntime.databricks_metadata_context import get_context
 
         return getattr(get_context(), name)
     except Exception:
