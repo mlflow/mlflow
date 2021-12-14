@@ -60,12 +60,6 @@ Suggests:
     stringi (< 1.4.4),
     testthat (>= 2.0.0),
     xgboost
-# https://mlflow.github.io/drat was created by following the instructions below:
-# https://cran.r-project.org/web/packages/drat/vignettes/DratStepByStep.html
-# This repository provides an archive for mleap that was removed from the CRAN repository
-# because the mleap maintainers did not fix submission check errors in time.
-# See https://cran.r-project.org/package=mleap to confirm.
-# `R CMD check` would fail and prevent us from releasing a new version without this field.
 Additional_repositories: https://mlflow.github.io/drat
 Encoding: UTF-8
 RoxygenNote: 7.1.2
