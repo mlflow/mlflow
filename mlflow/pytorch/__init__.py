@@ -635,7 +635,7 @@ def _load_model(path, **kwargs):
             return torch.load(model_path, **kwargs)
         except Exception:
             # If fails, assume the model as a scripted model
-            return torch.jit.load(model_path)
+            return torch.jit.load(model_path, **kwargs)
 
 
 def load_model(model_uri, dst_path=None, **kwargs):
