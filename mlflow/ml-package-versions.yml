@@ -3,7 +3,7 @@ sklearn:
     pip_release: "scikit-learn"
     install_dev: |
       if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "scikit_learn-*.whl") ]; then
-        pip wheel --no-deps --wheel-dir $CACHE_DIR git+https://github.com/scikit-learn/scikit-learn.git
+        pip wheel --verbose --no-deps --wheel-dir $CACHE_DIR git+https://github.com/scikit-learn/scikit-learn.git
       fi
       pip install $CACHE_DIR/scikit_learn-*.whl
 
@@ -111,7 +111,7 @@ xgboost:
   package_info:
     pip_release: "xgboost"
     install_dev: |
-      pip install git+https://github.com/dmlc/xgboost.git#subdirectory=python-package
+      pip install --verbose git+https://github.com/dmlc/xgboost.git#subdirectory=python-package
 
   models:
     minimum: "0.90"
@@ -131,7 +131,7 @@ lightgbm:
   package_info:
     pip_release: "lightgbm"
     install_dev: |
-      pip install git+https://github.com/microsoft/LightGBM.git#subdirectory=python-package
+      pip install --verbose git+https://github.com/microsoft/LightGBM.git#subdirectory=python-package
 
   models:
     minimum: "2.3.1"
@@ -237,7 +237,7 @@ spacy:
   package_info:
     pip_release: "spacy"
     install_dev: |
-      pip install git+https://github.com/explosion/spaCy.git
+      pip install --verbose git+https://github.com/explosion/spaCy.git
 
   models:
     minimum: "2.2.4"
@@ -250,7 +250,7 @@ statsmodels:
   package_info:
     pip_release: "statsmodels"
     install_dev: |
-      pip install git+https://github.com/statsmodels/statsmodels.git
+      pip install --verbose git+https://github.com/statsmodels/statsmodels.git
 
   models:
     minimum: "0.11.1"
