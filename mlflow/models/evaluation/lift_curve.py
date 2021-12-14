@@ -3,8 +3,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def cumulative_gain_curve(y_true, y_score, pos_label=None):
-    """This function generates the points necessary to plot the Cumulative Gain
+def _cumulative_gain_curve(y_true, y_score, pos_label=None):
+    """
+    This method is copied from scikit-plot package.
+
+    This function generates the points necessary to plot the Cumulative Gain
 
     Note: This implementation is restricted to the binary classification task.
 
@@ -65,7 +68,10 @@ def cumulative_gain_curve(y_true, y_score, pos_label=None):
 def plot_lift_curve(y_true, y_probas, title='Lift Curve',
                     ax=None, figsize=None, title_fontsize="large",
                     text_fontsize="medium"):
-    """Generates the Lift Curve from labels and scores/probabilities
+    """
+    This method is copied from scikit-plot package.
+
+    Generates the Lift Curve from labels and scores/probabilities
 
     The lift curve is used to determine the effectiveness of a
     binary classifier. A detailed explanation can be found at
@@ -122,10 +128,10 @@ def plot_lift_curve(y_true, y_probas, title='Lift Curve',
                          '{} category/ies'.format(len(classes)))
 
     # Compute Cumulative Gain Curves
-    percentages, gains1 = cumulative_gain_curve(y_true, y_probas[:, 0],
-                                                classes[0])
-    percentages, gains2 = cumulative_gain_curve(y_true, y_probas[:, 1],
-                                                classes[1])
+    percentages, gains1 = _cumulative_gain_curve(y_true, y_probas[:, 0],
+                                                 classes[0])
+    percentages, gains2 = _cumulative_gain_curve(y_true, y_probas[:, 1],
+                                                 classes[1])
 
     percentages = percentages[1:]
     gains1 = gains1[1:]

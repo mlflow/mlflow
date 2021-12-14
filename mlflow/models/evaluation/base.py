@@ -530,6 +530,48 @@ def _normalize_evaluators_and_evaluator_config_args(
     return evaluator_name_list, evaluator_name_to_conf_map
 
 
+def _evaluate(
+        model, model_type, dataset, actual_run_id, evaluator_name_list, evaluator_name_to_conf_map
+):
+    """
+    This method is the patch point for databricks instrumentation.
+    The public API "evaluate" will verify argument first, and then pass normalized arguments
+    to the _evaluate method.
+    """
+    # import _model_evaluation_registry and PyFuncModel inside function to avoid circuit importing
+    from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
+
+    client = mlflow.tracking.MlflowClient()
+    dataset._log_dataset_tag(client, actual_run_id)
+
+    eval_results = []
+    for evaluator_name in evaluator_name_list:
+        config = evaluator_name_to_conf_map.get(evaluator_name) or {}
+        try:
+            evaluator = _model_evaluation_registry.get_evaluator(evaluator_name)
+        except MlflowException:
+            _logger.warning(f"Evaluator '{evaluator_name}' is not registered.")
+            continue
+
+        if evaluator.can_evaluate(model_type, config):
+            _logger.info(f"Evaluating the model with the {evaluator_name} evaluator.")
+            result = evaluator.evaluate(model, model_type, dataset, actual_run_id, config)
+            eval_results.append(result)
+
+    if len(eval_results) == 0:
+        raise ValueError(
+            "The model could not be evaluated by any of the registered evaluators, please "
+            "check the model type and other configs are set correctly."
+        )
+
+    merged_eval_result = EvaluationResult(EvaluationMetrics(), dict())
+    for eval_result in eval_results:
+        merged_eval_result.metrics.update(eval_result.metrics)
+        merged_eval_result.artifacts.update(eval_result.artifacts)
+
+    return merged_eval_result
+
+
 @experimental
 def evaluate(
     model: Union[str, "mlflow.pyfunc.PyFuncModel"],
@@ -576,8 +618,6 @@ def evaluate(
      - explainability_nsamples: The sample rows for calculating model explainability.
        Default value is 2000.
     """
-    # import _model_evaluation_registry and PyFuncModel inside function to avoid circuit importing
-    from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
     from mlflow.pyfunc import PyFuncModel
 
     if isinstance(model, str):
@@ -594,26 +634,7 @@ def evaluate(
         _normalize_evaluators_and_evaluator_config_args(evaluators, evaluator_config)
 
     with _start_run_or_reuse_active_run(run_id) as actual_run_id:
-        client = mlflow.tracking.MlflowClient()
-        dataset._log_dataset_tag(client, actual_run_id)
-
-        eval_results = []
-        for evaluator_name in evaluator_name_list:
-            config = evaluator_name_to_conf_map.get(evaluator_name) or {}
-            try:
-                evaluator = _model_evaluation_registry.get_evaluator(evaluator_name)
-            except MlflowException:
-                _logger.warning(f"Evaluator '{evaluator_name}' is not registered.")
-                continue
-
-            if evaluator.can_evaluate(model_type, config):
-                _logger.info(f"Evaluating the model with the {evaluator_name} evaluator.")
-                result = evaluator.evaluate(model, model_type, dataset, actual_run_id, config)
-                eval_results.append(result)
-
-        merged_eval_result = EvaluationResult(EvaluationMetrics(), dict())
-        for eval_result in eval_results:
-            merged_eval_result.metrics.update(eval_result.metrics)
-            merged_eval_result.artifacts.update(eval_result.artifacts)
-
-        return merged_eval_result
+        return _evaluate(
+            model, model_type, dataset, actual_run_id,
+            evaluator_name_list, evaluator_name_to_conf_map
+        )
