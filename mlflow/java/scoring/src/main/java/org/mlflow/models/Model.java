@@ -42,7 +42,7 @@ public class Model {
   private Map<String, Object> input_example;
 
   @JsonProperty("model_uuid")
-  private String runId;
+  private String modelUuid;
 
   private String rootPath;
 
