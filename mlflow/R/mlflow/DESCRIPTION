@@ -55,12 +55,12 @@ Suggests:
     h2o,
     keras,
     lintr,
+    mleap,
     sparklyr,
     stringi (< 1.4.4),
     testthat (>= 2.0.0),
     xgboost
-Enhances:
-    mleap
+Additional_repositories: https://harupy.github.io/drat
 Encoding: UTF-8
 RoxygenNote: 7.1.2
 Collate:
