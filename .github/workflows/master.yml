@@ -106,6 +106,7 @@ jobs:
       run: |
         install.packages("devtools")
         remotes::install_deps('mlflow/R/mlflow', dependencies = TRUE, upgrade = FALSE)
+        devtools::install_url("https://cran.r-project.org/src/contrib/Archive/mleap/mleap_1.0.0.tar.gz")
       shell: Rscript {0}
     - name: Create test environment
       run: |
