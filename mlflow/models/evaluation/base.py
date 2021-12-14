@@ -388,7 +388,7 @@ class EvaluationDataset:
             metadata["path"] = self.path
         return metadata
 
-    def _log_dataset_tag(self, client, run_id):
+    def _log_dataset_tag(self, client, run_id, model_uuid):
         """
         Log dataset metadata as a tag "mlflow.datasets", if the tag already exists, it will
         append current dataset metadata into existing tag content.
@@ -399,10 +399,14 @@ class EvaluationDataset:
         dataset_metadata_list = json.loads(existing_dataset_metadata_str)
 
         for metadata in dataset_metadata_list:
-            if metadata["hash"] == self.hash and metadata["name"] == self._user_specified_name:
+            if metadata["hash"] == self.hash and \
+                    metadata["name"] == self.name and \
+                    metadata["model"] == model_uuid:
                 break
         else:
-            dataset_metadata_list.append(self._metadata)
+            new_metadata = self._metadata
+            new_metadata["model"] = model_uuid
+            dataset_metadata_list.append(new_metadata)
 
         dataset_metadata_str = json.dumps(dataset_metadata_list, separators=(",", ":"))
         client.log_batch(
@@ -542,7 +546,8 @@ def _evaluate(
     from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
 
     client = mlflow.tracking.MlflowClient()
-    dataset._log_dataset_tag(client, actual_run_id)
+    model_uuid = model.metadata.model_uuid
+    dataset._log_dataset_tag(client, actual_run_id, model_uuid)
 
     eval_results = []
     for evaluator_name in evaluator_name_list:

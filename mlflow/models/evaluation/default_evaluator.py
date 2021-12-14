@@ -8,6 +8,8 @@ from mlflow.models.evaluation.base import (
 from mlflow.entities.metric import Metric
 from mlflow.utils.file_utils import TempDir
 from mlflow.tracking.artifact_utils import get_artifact_uri
+from mlflow.utils.string_utils import truncate_str_from_middle
+
 from sklearn import metrics as sk_metrics
 import math
 import pandas as pd
@@ -83,13 +85,10 @@ class DefaultEvaluator(ModelEvaluator):
         return model_type in ["classifier", "regressor"]
 
     @staticmethod
-    def _gen_log_key(key, dataset_name, model):
-        if hasattr(model.metadata, 'model_uuid'):
-            return f'{key}_on_data_{dataset_name}_model_{model.metadata.model_uuid}'
-        else:
-            return f'{key}_on_data_{dataset_name}'
+    def _gen_log_key(key, dataset_name):
+        return f'{key}_on_data_{dataset_name}'
 
-    def _log_metrics(self, run_id, metrics, dataset_name, model):
+    def _log_metrics(self, run_id, metrics, dataset_name):
         """
         Helper method to log metrics into specified run.
         """
@@ -98,20 +97,20 @@ class DefaultEvaluator(ModelEvaluator):
         client.log_batch(
             run_id,
             metrics=[
-                Metric(key=DefaultEvaluator._gen_log_key(key, dataset_name, model),
+                Metric(key=DefaultEvaluator._gen_log_key(key, dataset_name),
                        value=value, timestamp=timestamp, step=0)
                 for key, value in metrics.items()
             ],
         )
 
     def _log_image_artifact(
-        self, artifacts, temp_dir, do_plot, run_id, artifact_name, dataset_name, model
+        self, artifacts, temp_dir, do_plot, run_id, artifact_name, dataset_name,
     ):
         import matplotlib.pyplot as pyplot
         client = mlflow.tracking.MlflowClient()
         pyplot.clf()
         do_plot()
-        artifact_file_name = DefaultEvaluator._gen_log_key(artifact_name, dataset_name, model) + '.png'
+        artifact_file_name = DefaultEvaluator._gen_log_key(artifact_name, dataset_name) + '.png'
         artifact_file_local_path = temp_dir.path(artifact_file_name)
         pyplot.savefig(artifact_file_local_path)
         client.log_artifact(run_id, artifact_file_local_path)
@@ -123,7 +122,7 @@ class DefaultEvaluator(ModelEvaluator):
         self, artifacts, temp_dir, pandas_df, run_id, artifact_name, dataset_name, model
     ):
         client = mlflow.tracking.MlflowClient()
-        artifact_file_name = DefaultEvaluator._gen_log_key(artifact_name, dataset_name, model) + '.csv'
+        artifact_file_name = DefaultEvaluator._gen_log_key(artifact_name, dataset_name) + '.csv'
         artifact_file_local_path = temp_dir.path(artifact_file_name)
         pandas_df.to_csv(artifact_file_local_path, index=False)
         client.log_artifact(run_id, artifact_file_local_path)
@@ -173,35 +172,41 @@ class DefaultEvaluator(ModelEvaluator):
             except ImportError:
                 pass
 
+        # TODO: alias truncated name if duplicated
+        truncated_feature_names = [truncate_str_from_middle(f, 20) for f in feature_names]
+        truncated_feature_name_map = {f: f2 for f, f2 in zip(feature_names, truncated_feature_names)}
+        if isinstance(X, pd.DataFrame):
+            X = X.rename(columns=truncated_feature_name_map)
+
         sampled_X = shap.sample(X, sample_rows)
         if algorithm:
             explainer = shap.Explainer(
-                predict_fn, sampled_X, feature_names=feature_names, algorithm=algorithm
+                predict_fn, sampled_X, feature_names=truncated_feature_names, algorithm=algorithm
             )
             shap_values = explainer(sampled_X)
         else:
             maskers = shap.maskers.Independent(sampled_X)
             if raw_model and shap.explainers.Linear.supports_model_with_masker(raw_model, maskers):
                 explainer = shap.explainers.Linear(
-                    raw_model, maskers, feature_names=feature_names
+                    raw_model, maskers, feature_names=truncated_feature_names
                 )
                 shap_values = explainer(sampled_X)
             elif raw_model and shap.explainers.Tree.supports_model_with_masker(raw_model, maskers):
                 explainer = shap.explainers.Tree(
-                    raw_model, maskers, feature_names=feature_names
+                    raw_model, maskers, feature_names=truncated_feature_names
                 )
                 shap_values = explainer(sampled_X)
             elif raw_model and shap.explainers.Additive.supports_model_with_masker(
                     raw_model, maskers
             ):
                 explainer = shap.explainers.Additive(
-                    raw_model, maskers, feature_names=feature_names
+                    raw_model, maskers, feature_names=truncated_feature_names
                 )
                 shap_values = explainer(sampled_X)
             else:
                 # fallback to default sampling explainer
                 explainer = shap.explainers.Sampling(
-                    predict_fn, X, feature_names=feature_names
+                    predict_fn, X, feature_names=truncated_feature_names
                 )
                 shap_values = explainer(X, sample_rows)
 
@@ -210,7 +215,7 @@ class DefaultEvaluator(ModelEvaluator):
         # TODO: seems infer pip req fail when log_explainer.
         mlflow.shap.log_explainer(
             explainer,
-            artifact_path=DefaultEvaluator._gen_log_key('explainer', dataset_name, model)
+            artifact_path=DefaultEvaluator._gen_log_key('explainer', dataset_name)
         )
 
         def plot_summary():
@@ -218,7 +223,7 @@ class DefaultEvaluator(ModelEvaluator):
             shap.plots.beeswarm(shap_values, show=False)
 
         self._log_image_artifact(
-            artifacts, temp_dir, plot_summary, run_id, "shap_summary", dataset_name, model,
+            artifacts, temp_dir, plot_summary, run_id, "shap_summary", dataset_name,
         )
 
         def plot_summary_in_js():
@@ -226,7 +231,7 @@ class DefaultEvaluator(ModelEvaluator):
             shap.summary_plot(shap_values, show=False)
 
         self._log_image_artifact(
-            artifacts, temp_dir, plot_summary_in_js, run_id, "shap_summary_in_js", dataset_name, model,
+            artifacts, temp_dir, plot_summary_in_js, run_id, "shap_summary_in_js", dataset_name,
         )
 
         def plot_feature_importance():
@@ -240,7 +245,6 @@ class DefaultEvaluator(ModelEvaluator):
             run_id,
             "shap_feature_importance",
             dataset_name,
-            model,
         )
 
     def _evaluate_classifier(self, temp_dir, model, X, y, dataset_name, feature_names, run_id, evaluator_config):
@@ -251,6 +255,7 @@ class DefaultEvaluator(ModelEvaluator):
         assert label_list[0] == 0, "Label values must being at '0'."
         num_classes = len(label_list)
 
+        # TODO: for xgb disable feature names check
         y_pred = model.predict(X)
 
         is_binomial = num_classes <= 2
@@ -266,6 +271,7 @@ class DefaultEvaluator(ModelEvaluator):
 
         if is_binomial:
             if hasattr(model, "predict_proba"):
+                # TODO: for xgb disable feature names check
                 y_probs = model.predict_proba(X)
                 y_prob = y_probs[:, 1]
             else:
@@ -304,7 +310,7 @@ class DefaultEvaluator(ModelEvaluator):
 
                 if hasattr(sk_metrics, 'RocCurveDisplay'):
                     self._log_image_artifact(
-                        artifacts, temp_dir, plot_roc_curve, run_id, "roc_curve", dataset_name, model,
+                        artifacts, temp_dir, plot_roc_curve, run_id, "roc_curve", dataset_name,
                     )
 
                 precision, recall, thresholds = sk_metrics.precision_recall_curve(y, y_prob)
@@ -327,13 +333,13 @@ class DefaultEvaluator(ModelEvaluator):
 
                 if hasattr(sk_metrics, 'PrecisionRecallDisplay'):
                     self._log_image_artifact(
-                        artifacts, temp_dir, plot_pr_curve, run_id, "precision_recall_curve", dataset_name, model,
+                        artifacts, temp_dir, plot_pr_curve, run_id, "precision_recall_curve", dataset_name,
                     )
 
                 self._log_image_artifact(
                     artifacts, temp_dir,
                     lambda: plot_lift_curve(y, y_probs),
-                    run_id, "lift_curve", dataset_name, model,
+                    run_id, "lift_curve", dataset_name,
                 )
 
             def plot_confusion_matrix():
@@ -341,10 +347,10 @@ class DefaultEvaluator(ModelEvaluator):
 
             if hasattr(sk_metrics, 'ConfusionMatrixDisplay'):
                 self._log_image_artifact(
-                    artifacts, temp_dir, plot_confusion_matrix, run_id, "confusion_matrix", dataset_name, model,
+                    artifacts, temp_dir, plot_confusion_matrix, run_id, "confusion_matrix", dataset_name,
                 )
 
-        self._log_metrics(run_id, metrics, dataset_name, model)
+        self._log_metrics(run_id, metrics, dataset_name)
 
         if evaluator_config.get('log_model_explainability', True):
             self._log_model_explainability(
@@ -370,7 +376,7 @@ class DefaultEvaluator(ModelEvaluator):
         self._log_model_explainability(
             artifacts, temp_dir, model, X, dataset_name, feature_names, run_id, evaluator_config
         )
-        self._log_metrics(run_id, metrics, dataset_name, model)
+        self._log_metrics(run_id, metrics, dataset_name)
         return EvaluationResult(metrics, artifacts)
 
     def evaluate(
