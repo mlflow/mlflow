@@ -41,8 +41,8 @@ public class Model {
   @JsonProperty("input_example")
   private Map<String, Object> input_example;
 
-  @JsonProperty("model_uuid")
-  private String modelUuid;
+  // @JsonProperty("model_uuid")
+  // private String modelUuid;
 
   private String rootPath;
 
