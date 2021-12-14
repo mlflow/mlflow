@@ -60,7 +60,7 @@ Suggests:
     stringi (< 1.4.4),
     testthat (>= 2.0.0),
     xgboost
-Additional_repositories: https://harupy.github.io/drat
+Additional_repositories: https://mlflow.github.io/drat
 Encoding: UTF-8
 RoxygenNote: 7.1.2
 Collate:
