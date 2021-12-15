@@ -54,7 +54,7 @@ class Model(object):
         self.flavors = flavors if flavors is not None else {}
         self.signature = signature
         self.saved_input_example_info = saved_input_example_info
-        self.model_uuid = uuid.uuid4().hex if model_uuid is None else model_uuid
+        self.model_uuid = model_uuid
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):
@@ -186,7 +186,8 @@ class Model(object):
         with TempDir() as tmp:
             local_path = tmp.path("model")
             run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
-            mlflow_model = cls(artifact_path=artifact_path, run_id=run_id)
+            model_uuid = uuid.uuid4().hex
+            mlflow_model = cls(artifact_path=artifact_path, run_id=run_id, model_uuid=model_uuid)
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             mlflow.tracking.fluent.log_artifacts(local_path, artifact_path)
             try:
