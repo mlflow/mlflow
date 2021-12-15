@@ -182,8 +182,6 @@ def save_model(
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
-
-
     """
     if mlflow_model is None:
         mlflow_model = Model()
