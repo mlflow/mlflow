@@ -228,6 +228,7 @@ class DefaultEvaluator(ModelEvaluator):
         # TODO: The explainer saver is buggy, if `get_underlying_model_flavor` return "unknown",
         #   then fallback to shap explainer saver, and shap explainer will call `model.save`
         #   for sklearn model, there is no `.save` method, so error will happen.
+
         """
         mlflow.shap.log_explainer(
             explainer,

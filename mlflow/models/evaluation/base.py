@@ -566,7 +566,7 @@ def _evaluate(
     if len(eval_results) == 0:
         raise ValueError(
             "The model could not be evaluated by any of the registered evaluators, please "
-            "check the model type and other configs are set correctly."
+            "verify that the model type and other configs are set correctly."
         )
 
     merged_eval_result = EvaluationResult(EvaluationMetrics(), dict())
