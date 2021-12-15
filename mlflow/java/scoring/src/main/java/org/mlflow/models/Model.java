@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import org.mlflow.Flavor;
 import org.mlflow.utils.FileUtils;
 import org.mlflow.utils.SerializationUtils;
@@ -64,6 +65,11 @@ public class Model {
   public static Model fromConfigPath(String configPath) throws IOException {
     File configFile = new File(configPath);
     Model model = SerializationUtils.parseYamlFromFile(configFile, Model.class);
+    // Set the model uuid if it's absent.
+    if (!model.getModelUuid().isPresent()) {
+      String uuid = UUID.randomUUID().toString().replace("-", "");
+      model.setModelUuid(uuid);
+    }
     // Set the root path to the directory containing the configuration file.
     // This will be used to create an absolute path to the serialized model
     model.setRootPath(configFile.getParentFile().getAbsolutePath());
@@ -111,5 +117,9 @@ public class Model {
 
   private void setRootPath(String rootPath) {
     this.rootPath = rootPath;
+  }
+
+  private void setModelUuid(String modelUuid) {
+    this.modelUuid = modelUuid;
   }
 }
