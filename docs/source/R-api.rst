@@ -1719,14 +1719,6 @@ model types.
    mlflow_save_model(model, path, model_spec = list(), ...)
    list(list("mlflow_save_model"), list("H2OModel"))(model, path, model_spec = list(), conda_env = NULL, ...)
    list(list("mlflow_save_model"), list("keras.engine.training.Model"))(model, path, model_spec = list(), conda_env = NULL, ...)
-   list(list("mlflow_save_model"), list("ml_pipeline_model"))(
-     model,
-     path,
-     model_spec = list(),
-     conda_env = NULL,
-     sample_input = NULL,
-     ...
-   )
    list(list("mlflow_save_model"), list("xgb.Booster"))(model, path, model_spec = list(), conda_env = NULL, ...)
 
 .. _arguments-40:
@@ -1734,27 +1726,15 @@ model types.
 Arguments
 ---------
 
-+-------------------------------+--------------------------------------+
-| Argument                      | Description                          |
-+===============================+======================================+
-| ``model``                     | The model that will perform a        |
-|                               | prediction.                          |
-+-------------------------------+--------------------------------------+
-| ``path``                      | Destination path where this MLflow   |
-|                               | compatible model will be saved.      |
-+-------------------------------+--------------------------------------+
-| ``model_spec``                | MLflow model config this model       |
-|                               | flavor is being added to.            |
-+-------------------------------+--------------------------------------+
-| ``...``                       | Optional additional arguments.       |
-+-------------------------------+--------------------------------------+
-| ``conda_env``                 | Path to Conda dependencies file.     |
-+-------------------------------+--------------------------------------+
-| ``sample_input``              | Sample Spark DataFrame input that    |
-|                               | the model can evaluate. This is      |
-|                               | required by MLeap for data schema    |
-|                               | inference.                           |
-+-------------------------------+--------------------------------------+
+============== ==================================================================
+Argument       Description
+============== ==================================================================
+``model``      The model that will perform a prediction.
+``path``       Destination path where this MLflow compatible model will be saved.
+``model_spec`` MLflow model config this model flavor is being added to.
+``...``        Optional additional arguments.
+``conda_env``  Path to Conda dependencies file.
+============== ==================================================================
 
 ``mlflow_search_runs``
 ======================
