@@ -164,3 +164,24 @@ def test_model_log_with_input_example_succeeds():
         # date column will get deserialized into string
         input_example["d"] = input_example["d"].apply(lambda x: x.isoformat())
         assert x.equals(input_example)
+
+
+def test_model_can_be_loaded_without_model_uuid(tmpdir):
+    ml_model_file = tmpdir.join("MLmodel")
+    ml_model_file.write(
+        """
+artifact_path: model
+flavors:
+  python_function:
+    env: conda.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    python_version: 3.7.9
+  sklearn:
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 0.24.1
+"""
+    )
+    model = Model.load(ml_model_file)
+    assert model.model_uuid is not None

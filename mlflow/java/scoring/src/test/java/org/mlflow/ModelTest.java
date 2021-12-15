@@ -25,6 +25,18 @@ public class ModelTest {
   }
 
   @Test
+  public void testModelIsLoadedCorrectlyWhenModelUuidDoesNotExist() {
+    String configPath = getClass().getResource("sample_model_root/MLmodel.no.model_uuid").getFile();
+    try {
+      Model model = Model.fromConfigPath(configPath);
+      Assert.assertFalse(model.getModelUuid().isPresent());
+    } catch (IOException e) {
+      e.printStackTrace();
+      Assert.fail("Encountered an exception while reading the model from a configuration path!");
+    }
+  }
+
+  @Test
   public void testModelIsLoadedFromYamlUsingRootPathCorrectly() {
     String rootPath = getClass().getResource("sample_model_root").getFile();
     try {
