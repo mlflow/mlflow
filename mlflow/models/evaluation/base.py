@@ -614,10 +614,9 @@ def evaluate(
     :return: An :py:class:`mlflow.models.evaluation.EvaluationDataset` instance containing
              evaluation results.
 
-    The default evaluator support 'regressor' and 'classifer' type model, the config item for
-    default evaluator includes:
-     - log_model_explainability: A boolean value representing whether to log model explainability.
-       Default value is True.
+    The default evaluator supports the 'regressor' and 'classifer' `model_type`s. The available
+    `evaluator_config` options for the default evaluator include:
+     - log_model_explainability: The number of rows to use for calculating model explainability.
      - explainality_algorithm: A string to specify the shap explainer algorithm. If not set, it will
        choose the best fit explainer according to the model.
      - explainability_nsamples: The sample rows for calculating model explainability.

@@ -135,8 +135,11 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _log_model_explainability(
             self, artifacts, temp_dir, model, X, dataset_name, feature_names, run_id, evaluator_config,
-            is_binomial_classifier,
+            is_multinomial_classifier,
     ):
+        if not evaluator_config.get('log_model_explainability', True):
+            return
+
         import shap
         import shap.maskers
         import matplotlib.pyplot as pyplot
@@ -193,13 +196,13 @@ class DefaultEvaluator(ModelEvaluator):
                 shap_values = explainer(sampled_X)
         else:
             maskers = shap.maskers.Independent(sampled_X)
-            if raw_model and is_binomial_classifier and \
+            if raw_model and not is_multinomial_classifier and \
                     shap.explainers.Linear.supports_model_with_masker(raw_model, maskers):
                 explainer = shap.explainers.Linear(
                     raw_model, maskers, feature_names=truncated_feature_names
                 )
                 shap_values = explainer(sampled_X)
-            elif raw_model and is_binomial_classifier and \
+            elif raw_model and not is_multinomial_classifier and \
                     shap.explainers.Tree.supports_model_with_masker(raw_model, maskers):
                 explainer = shap.explainers.Tree(
                     raw_model, maskers, feature_names=truncated_feature_names
@@ -222,11 +225,15 @@ class DefaultEvaluator(ModelEvaluator):
         _logger.info(f'Shap explainer {explainer.__class__.__name__} is used.')
 
         # TODO: seems infer pip req fail when log_explainer.
-
-        #mlflow.shap.log_explainer(
-        #    explainer,
-        #    artifact_path=DefaultEvaluator._gen_log_key('explainer', dataset_name)
-        #)
+        # TODO: The explainer saver is buggy, if `get_underlying_model_flavor` return "unknown",
+        #   then fallback to shap explainer saver, and shap explainer will call `model.save`
+        #   for sklearn model, there is no `.save` method, so error will happen.
+        """
+        mlflow.shap.log_explainer(
+            explainer,
+            artifact_path=DefaultEvaluator._gen_log_key('explainer', dataset_name)
+        )
+        """
 
         def plot_beeswarm():
             pyplot.subplots_adjust(bottom=0.2, left=0.4)
@@ -361,11 +368,10 @@ class DefaultEvaluator(ModelEvaluator):
 
         self._log_metrics(run_id, metrics, dataset_name)
 
-        if evaluator_config.get('log_model_explainability', True):
-            self._log_model_explainability(
-                artifacts, temp_dir, model, X, dataset_name, feature_names, run_id, evaluator_config,
-                is_binomial_classifier=(num_classes <= 2)
-            )
+        self._log_model_explainability(
+            artifacts, temp_dir, model, X, dataset_name, feature_names, run_id, evaluator_config,
+            is_multinomial_classifier=(num_classes > 2)
+        )
 
         return EvaluationResult(metrics, artifacts)
 
@@ -384,11 +390,10 @@ class DefaultEvaluator(ModelEvaluator):
         metrics['mean_absolute_percentage_error'] = \
             sk_metrics.mean_absolute_percentage_error(y, y_pred)
 
-        if evaluator_config.get('log_model_explainability', True):
-            self._log_model_explainability(
-                artifacts, temp_dir, model, X, dataset_name, feature_names, run_id, evaluator_config,
-                is_binomial_classifier=False,
-            )
+        self._log_model_explainability(
+            artifacts, temp_dir, model, X, dataset_name, feature_names, run_id, evaluator_config,
+            is_multinomial_classifier=False,
+        )
         self._log_metrics(run_id, metrics, dataset_name)
         return EvaluationResult(metrics, artifacts)
 
