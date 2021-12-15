@@ -85,6 +85,11 @@ public class Model {
     return Optional.ofNullable(this.runId);
   }
 
+    /** @return The MLflow model's uuid */
+  public Optional<String> getModelUuid() {
+    return Optional.ofNullable(this.modelUuid);
+  }
+
   /** @return The path to the root directory of the MLflow model */
   public Optional<String> getRootPath() {
     return Optional.ofNullable(this.rootPath);
