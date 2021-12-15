@@ -134,14 +134,15 @@ class DefaultEvaluator(ModelEvaluator):
         artifacts[artifact_name] = artifact
 
     def _log_model_explainability(
-            self, artifacts, temp_dir, model, X, dataset_name, feature_names, run_id, evaluator_config
+            self, artifacts, temp_dir, model, X, dataset_name, feature_names, run_id, evaluator_config,
+            is_binomial_classifier,
     ):
         import shap
         import shap.maskers
         import matplotlib.pyplot as pyplot
 
         sample_rows = evaluator_config.get('explainability_nsamples', _DEFAULT_SAMPLE_ROWS_FOR_SHAP)
-        algorithm = evaluator_config.get('explainality_algorithm', None)
+        algorithm = evaluator_config.get('explainability_algorithm', None)
 
         model_loader_module = model.metadata.flavors['python_function']["loader_module"]
 
@@ -176,22 +177,30 @@ class DefaultEvaluator(ModelEvaluator):
         truncated_feature_names = [truncate_str_from_middle(f, 20) for f in feature_names]
         truncated_feature_name_map = {f: f2 for f, f2 in zip(feature_names, truncated_feature_names)}
         if isinstance(X, pd.DataFrame):
-            X = X.rename(columns=truncated_feature_name_map)
+            X = X.rename(columns=truncated_feature_name_map, copy=False)
 
         sampled_X = shap.sample(X, sample_rows)
         if algorithm:
-            explainer = shap.Explainer(
-                predict_fn, sampled_X, feature_names=truncated_feature_names, algorithm=algorithm
-            )
-            shap_values = explainer(sampled_X)
+            if algorithm == 'sampling':
+                explainer = shap.explainers.Sampling(
+                    predict_fn, X, feature_names=truncated_feature_names
+                )
+                shap_values = explainer(X, sample_rows)
+            else:
+                explainer = shap.Explainer(
+                    predict_fn, sampled_X, feature_names=truncated_feature_names, algorithm=algorithm
+                )
+                shap_values = explainer(sampled_X)
         else:
             maskers = shap.maskers.Independent(sampled_X)
-            if raw_model and shap.explainers.Linear.supports_model_with_masker(raw_model, maskers):
+            if raw_model and is_binomial_classifier and \
+                    shap.explainers.Linear.supports_model_with_masker(raw_model, maskers):
                 explainer = shap.explainers.Linear(
                     raw_model, maskers, feature_names=truncated_feature_names
                 )
                 shap_values = explainer(sampled_X)
-            elif raw_model and shap.explainers.Tree.supports_model_with_masker(raw_model, maskers):
+            elif raw_model and is_binomial_classifier and \
+                    shap.explainers.Tree.supports_model_with_masker(raw_model, maskers):
                 explainer = shap.explainers.Tree(
                     raw_model, maskers, feature_names=truncated_feature_names
                 )
@@ -204,38 +213,39 @@ class DefaultEvaluator(ModelEvaluator):
                 )
                 shap_values = explainer(sampled_X)
             else:
-                # fallback to default sampling explainer
-                explainer = shap.explainers.Sampling(
-                    predict_fn, X, feature_names=truncated_feature_names
+                # fallback to default explainer
+                explainer = shap.Explainer(
+                    predict_fn, sampled_X, feature_names=truncated_feature_names
                 )
-                shap_values = explainer(X, sample_rows)
+                shap_values = explainer(sampled_X)
 
         _logger.info(f'Shap explainer {explainer.__class__.__name__} is used.')
 
         # TODO: seems infer pip req fail when log_explainer.
-        mlflow.shap.log_explainer(
-            explainer,
-            artifact_path=DefaultEvaluator._gen_log_key('explainer', dataset_name)
+
+        #mlflow.shap.log_explainer(
+        #    explainer,
+        #    artifact_path=DefaultEvaluator._gen_log_key('explainer', dataset_name)
+        #)
+
+        def plot_beeswarm():
+            pyplot.subplots_adjust(bottom=0.2, left=0.4)
+            shap.plots.beeswarm(shap_values, show=False)
+
+        self._log_image_artifact(
+            artifacts, temp_dir, plot_beeswarm, run_id, "shap_beeswarm", dataset_name,
         )
 
         def plot_summary():
-            pyplot.subplots_adjust(left=0.4)
-            shap.plots.beeswarm(shap_values, show=False)
+            pyplot.subplots_adjust(bottom=0.2, left=0.4)
+            shap.summary_plot(shap_values, show=False)
 
         self._log_image_artifact(
             artifacts, temp_dir, plot_summary, run_id, "shap_summary", dataset_name,
         )
 
-        def plot_summary_in_js():
-            pyplot.subplots_adjust(left=0.4)
-            shap.summary_plot(shap_values, show=False)
-
-        self._log_image_artifact(
-            artifacts, temp_dir, plot_summary_in_js, run_id, "shap_summary_in_js", dataset_name,
-        )
-
         def plot_feature_importance():
-            pyplot.subplots_adjust(left=0.4)
+            pyplot.subplots_adjust(bottom=0.2, left=0.4)
             shap.plots.bar(shap_values, show=False)
 
         self._log_image_artifact(
@@ -255,7 +265,6 @@ class DefaultEvaluator(ModelEvaluator):
         assert label_list[0] == 0, "Label values must being at '0'."
         num_classes = len(label_list)
 
-        # TODO: for xgb disable feature names check
         y_pred = model.predict(X)
 
         is_binomial = num_classes <= 2
@@ -354,7 +363,8 @@ class DefaultEvaluator(ModelEvaluator):
 
         if evaluator_config.get('log_model_explainability', True):
             self._log_model_explainability(
-                artifacts, temp_dir, model, X, dataset_name, feature_names, run_id, evaluator_config
+                artifacts, temp_dir, model, X, dataset_name, feature_names, run_id, evaluator_config,
+                is_binomial_classifier=(num_classes <= 2)
             )
 
         return EvaluationResult(metrics, artifacts)
@@ -373,9 +383,12 @@ class DefaultEvaluator(ModelEvaluator):
         metrics['max_error'] = sk_metrics.max_error(y, y_pred)
         metrics['mean_absolute_percentage_error'] = \
             sk_metrics.mean_absolute_percentage_error(y, y_pred)
-        self._log_model_explainability(
-            artifacts, temp_dir, model, X, dataset_name, feature_names, run_id, evaluator_config
-        )
+
+        if evaluator_config.get('log_model_explainability', True):
+            self._log_model_explainability(
+                artifacts, temp_dir, model, X, dataset_name, feature_names, run_id, evaluator_config,
+                is_binomial_classifier=False,
+            )
         self._log_metrics(run_id, metrics, dataset_name)
         return EvaluationResult(metrics, artifacts)
 
