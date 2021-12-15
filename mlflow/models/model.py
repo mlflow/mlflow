@@ -6,7 +6,7 @@ import yaml
 import os
 import uuid
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union, Callable
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -42,6 +42,7 @@ class Model(object):
         flavors=None,
         signature=None,  # ModelSignature
         saved_input_example_info: Dict[str, Any] = None,
+        model_uuid: Union[str, Callable, None] = lambda: uuid.uuid4().hex,
         **kwargs,
     ):
         # store model id instead of run_id and path to avoid confusion when model gets exported
@@ -53,7 +54,10 @@ class Model(object):
         self.flavors = flavors if flavors is not None else {}
         self.signature = signature
         self.saved_input_example_info = saved_input_example_info
-        self.model_uuid = uuid.uuid4().hex
+        if callable(model_uuid):
+            self.model_uuid = model_uuid()
+        else:
+            self.model_uuid = model_uuid
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):
@@ -132,15 +136,14 @@ class Model(object):
 
         from .signature import ModelSignature
 
+        model_dict = model_dict.copy()
         if "signature" in model_dict and isinstance(model_dict["signature"], dict):
-            model_dict = model_dict.copy()
             model_dict["signature"] = ModelSignature.from_dict(model_dict["signature"])
 
-        model_dict = model_dict.copy()
-        model_uuid = model_dict.pop('model_uuid', None)
-        model = cls(**model_dict)
-        model.model_uuid = model_uuid  # restore the saved model_uuid
-        return model
+        if "model_uuid" not in model_dict:
+            model_dict["model_uuid"] = None
+
+        return cls(**model_dict)
 
     @classmethod
     def log(

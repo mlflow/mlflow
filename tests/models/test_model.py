@@ -180,12 +180,15 @@ def test_model_uuid():
     m = Model()
     assert m.model_uuid is not None
     assert _is_valid_uuid(m.model_uuid)
+
+    m2 = Model()
+    assert m.model_uuid != m2.model_uuid
+
     m_dict = m.to_dict()
-    print(m_dict)
     assert m_dict["model_uuid"] == m.model_uuid
-    m2 = Model.from_dict(m_dict)
-    assert m2.model_uuid == m.model_uuid
+    m3 = Model.from_dict(m_dict)
+    assert m3.model_uuid == m.model_uuid
 
     m_dict.pop("model_uuid")
-    m3 = Model.from_dict(m_dict)
-    assert m3.model_uuid is None
+    m4 = Model.from_dict(m_dict)
+    assert m4.model_uuid is None
