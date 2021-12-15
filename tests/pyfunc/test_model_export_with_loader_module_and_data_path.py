@@ -85,16 +85,6 @@ def model_path(tmpdir):
     return os.path.join(str(tmpdir), "model")
 
 
-def _is_valid_uuid(val):
-    import uuid
-
-    try:
-        uuid.UUID(str(val))
-        return True
-    except ValueError:
-        return False
-
-
 @pytest.mark.large
 def test_model_save_load(sklearn_knn_model, iris_data, tmpdir, model_path):
     sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
@@ -112,16 +102,12 @@ def test_model_save_load(sklearn_knn_model, iris_data, tmpdir, model_path):
 
     reloaded_model_config = Model.load(os.path.join(model_path, "MLmodel"))
     assert model_config.__dict__ == reloaded_model_config.__dict__
-    assert model_config.model_uuid is not None and _is_valid_uuid(model_config)
     assert mlflow.pyfunc.FLAVOR_NAME in reloaded_model_config.flavors
     assert mlflow.pyfunc.PY_VERSION in reloaded_model_config.flavors[mlflow.pyfunc.FLAVOR_NAME]
     reloaded_model = mlflow.pyfunc.load_pyfunc(model_path)
     np.testing.assert_array_equal(
         sklearn_knn_model.predict(iris_data[0]), reloaded_model.predict(iris_data[0])
     )
-
-    reloaded_model_config2 = Model.load(os.path.join(model_path, "MLmodel"))
-    assert reloaded_model_config.model_uuid == reloaded_model_config2.model_uuid
 
 
 @pytest.mark.large

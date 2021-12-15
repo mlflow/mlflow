@@ -42,7 +42,6 @@ class Model(object):
         flavors=None,
         signature=None,  # ModelSignature
         saved_input_example_info: Dict[str, Any] = None,
-        model_uuid=None,
         **kwargs,
     ):
         # store model id instead of run_id and path to avoid confusion when model gets exported
@@ -54,7 +53,7 @@ class Model(object):
         self.flavors = flavors if flavors is not None else {}
         self.signature = signature
         self.saved_input_example_info = saved_input_example_info
-        self.model_uuid = model_uuid
+        self.model_uuid = uuid.uuid4().hex
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):
@@ -137,7 +136,11 @@ class Model(object):
             model_dict = model_dict.copy()
             model_dict["signature"] = ModelSignature.from_dict(model_dict["signature"])
 
-        return cls(**model_dict)
+        model_dict = model_dict.copy()
+        model_uuid = model_dict.pop('model_uuid', None)
+        model = cls(**model_dict)
+        model.model_uuid = model_uuid  # restore the saved model_uuid
+        return model
 
     @classmethod
     def log(
@@ -186,8 +189,7 @@ class Model(object):
         with TempDir() as tmp:
             local_path = tmp.path("model")
             run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
-            model_uuid = uuid.uuid4().hex
-            mlflow_model = cls(artifact_path=artifact_path, run_id=run_id, model_uuid=model_uuid)
+            mlflow_model = cls(artifact_path=artifact_path, run_id=run_id)
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             mlflow.tracking.fluent.log_artifacts(local_path, artifact_path)
             try:
