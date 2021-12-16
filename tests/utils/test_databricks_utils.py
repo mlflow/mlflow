@@ -270,7 +270,7 @@ def test_use_context_attribute_if_available():
 
     with mock.patch(
         "mlflow.utils.databricks_utils._get_context_attribute",
-        return_value="notebook_id",
+        side_effect={"notebookId": "notebook_id", "isInNotebook": True}.get,
     ) as mock_context_metadata, mock.patch(
         "mlflow.utils.databricks_utils._get_property_from_spark_context"
     ) as mock_spark_context:
@@ -278,12 +278,12 @@ def test_use_context_attribute_if_available():
         mock_context_metadata.assert_called_once_with("notebookId")
         mock_context_metadata.reset_mock()
         assert databricks_utils.is_in_databricks_notebook()
-        mock_context_metadata.assert_called_once_with("notebookId")
+        mock_context_metadata.assert_called_once_with("isInNotebook")
         mock_spark_context.assert_not_called()
 
     with mock.patch(
         "mlflow.utils.databricks_utils._get_context_attribute",
-        return_value="cluster_id",
+        side_effect={"clusterId": "cluster_id", "isInCluster": True}.get,
     ) as mock_context_metadata, mock.patch(
         "mlflow.utils._spark_utils._get_active_spark_session"
     ) as mock_spark_session:
@@ -291,5 +291,5 @@ def test_use_context_attribute_if_available():
         mock_context_metadata.assert_called_once_with("clusterId")
         mock_context_metadata.reset_mock()
         assert databricks_utils.is_in_cluster()
-        mock_context_metadata.assert_called_once_with("clusterId")
+        mock_context_metadata.assert_called_once_with("isInCluster")
         mock_spark_session.assert_not_called()

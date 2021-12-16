@@ -13,40 +13,31 @@ _logger = logging.getLogger(__name__)
 
 
 def _get_context_attribute(name):
-    try:
-        from dbruntime.databricks_repl_context import get_context
+    from dbruntime.databricks_repl_context import get_context
 
-        return getattr(get_context(), name)
-    except Exception:
-        return None
+    return getattr(get_context(), name)
 
 
-def _use_context_attribute_if_available(name, *, if_available=lambda x: x):
+def _use_context_attribute_if_available(name):
     """
-    Creates a decorator to insert a short circuit that returns `if_available(name)`
-    if the specified context attribute is available.
+    Creates a decorator to insert a short circuit that returns the specified context attribute if
+    it's available.
 
-    :param name: Context attribute name.
-    :param if_available: Function to evaluate when the specified context attribute is available.
-                         Defaults to `lambda x: x`.
+    :param name: Context attribute name (e.g. "api_url").
     :return: Decorator to insert the short circuit.
     """
 
     def decorator(f):
         @functools.wraps(f)
         def wrapper(*args, **kwargs):
-            metadata = _get_context_attribute(name)
-            if metadata:
-                return if_available(metadata)
-            return f(*args, **kwargs)
+            try:
+                return _get_context_attribute(name)
+            except Exception:
+                return f(*args, **kwargs)
 
         return wrapper
 
     return decorator
-
-
-def _return_true(_):
-    return True
 
 
 def _get_dbutils():
@@ -111,7 +102,7 @@ def is_databricks_default_tracking_uri(tracking_uri):
     return tracking_uri.lower().strip() == "databricks"
 
 
-@_use_context_attribute_if_available("notebookId", if_available=_return_true)
+@_use_context_attribute_if_available("isInNotebook")
 def is_in_databricks_notebook():
     if _get_property_from_spark_context("spark.databricks.notebook.id") is not None:
         return True
@@ -121,6 +112,7 @@ def is_in_databricks_notebook():
         return False
 
 
+@_use_context_attribute_if_available("isInJob")
 def is_in_databricks_job():
     try:
         return get_job_id() is not None and get_job_run_id() is not None
@@ -151,7 +143,7 @@ def is_dbfs_fuse_available():
             return False
 
 
-@_use_context_attribute_if_available("clusterId", if_available=_return_true)
+@_use_context_attribute_if_available("isInCluster")
 def is_in_cluster():
     try:
         spark_session = _get_active_spark_session()
