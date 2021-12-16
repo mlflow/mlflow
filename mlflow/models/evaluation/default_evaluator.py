@@ -137,8 +137,43 @@ class DefaultEvaluator(ModelEvaluator):
         artifact.load(artifact_file_local_path)
         artifacts[artifact_name] = artifact
 
+    def _extract_raw_model_and_predict_fn(self, model):
+        model_loader_module = model.metadata.flavors['python_function']["loader_module"]
+        predict_fn = model.predict
+        predict_proba_fn = None
+
+        try:
+            if model_loader_module == 'mlflow.sklearn':
+                raw_model = model._model_impl
+            elif model_loader_module == 'mlflow.lightgbm':
+                raw_model = model._model_impl.lgb_model
+            elif model_loader_module == 'mlflow.xgboost':
+                raw_model = model._model_impl.xgb_model
+            else:
+                raw_model = None
+        except Exception as e:
+            raw_model = None
+            _logger.warning(f'Raw model resolution fails unexpectedly on PyFuncModel {model!r}, '
+                            f'error message is {e}')
+
+        if raw_model:
+            predict_fn = raw_model.predict
+            predict_proba_fn = getattr(raw_model, 'predict_proba', None)
+
+            try:
+                import xgboost
+                if isinstance(raw_model, xgboost.XGBModel):
+                    # Because shap evaluation will pass evaluation data in ndarray format
+                    # (without feature names), if set validate_features=True it will raise error.
+                    predict_fn = partial(predict_fn, validate_features=False)
+                    predict_proba_fn = partial(predict_proba_fn, validate_features=False)
+            except ImportError:
+                pass
+
+        return raw_model, predict_fn, predict_proba_fn
+
     def _log_model_explainability(
-            self, artifacts, temp_dir, model, X, dataset_name, feature_names, run_id, evaluator_config,
+            self, artifacts, temp_dir, predict_fn, raw_model, X, dataset_name, feature_names, run_id, evaluator_config,
             is_multinomial_classifier,
     ):
         if not evaluator_config.get('log_model_explainability', True):
@@ -160,35 +195,6 @@ class DefaultEvaluator(ModelEvaluator):
 
         sample_rows = evaluator_config.get('explainability_nsamples', _DEFAULT_SAMPLE_ROWS_FOR_SHAP)
         algorithm = evaluator_config.get('explainability_algorithm', None)
-
-        model_loader_module = model.metadata.flavors['python_function']["loader_module"]
-
-        predict_fn = model.predict
-
-        try:
-            if model_loader_module == 'mlflow.sklearn':
-                raw_model = model._model_impl
-            elif model_loader_module == 'mlflow.lightgbm':
-                raw_model = model._model_impl.lgb_model
-            elif model_loader_module == 'mlflow.xgboost':
-                raw_model = model._model_impl.xgb_model
-            else:
-                raw_model = None
-        except Exception as e:
-            raw_model = None
-            _logger.warning(f'Raw model resolution fails unexpectedly on PyFuncModel {model!r}, '
-                            f'error message is {e}')
-
-        if raw_model:
-            predict_fn = raw_model.predict
-            try:
-                import xgboost
-                if isinstance(raw_model, xgboost.XGBModel):
-                    # Because shap evaluation will pass evaluation data in ndarray format
-                    # (without feature names), if set validate_features=True it will raise error.
-                    predict_fn = partial(predict_fn, validate_features=False)
-            except ImportError:
-                pass
 
         truncated_feature_names = [truncate_str_from_middle(f, 20) for f in feature_names]
         for i, truncated_name in enumerate(truncated_feature_names):
@@ -284,12 +290,12 @@ class DefaultEvaluator(ModelEvaluator):
         metrics["accuracy"] = sk_metrics.accuracy_score(y, y_pred)
         metrics["example_count"] = len(X)
 
-        # TODO: sum/mean on what data ?
-        #  [P0] Sum: Computes the (weighted) sum of the given values.
-        #  [P0] Mean: Computes the (weighted) mean of the given values.
+        raw_model, predict_fn, predict_proba_fn = self._extract_raw_model_and_predict_fn(
+            model
+        )
 
         if is_binomial:
-            if model.support_predict_proba():
+            if predict_proba_fn is not None:
                 # TODO: for xgb disable feature names check
                 y_probs = model.predict_proba(X)
                 y_prob = y_probs[:, 1]
@@ -372,7 +378,7 @@ class DefaultEvaluator(ModelEvaluator):
         self._log_metrics(run_id, metrics, dataset_name)
 
         self._log_model_explainability(
-            artifacts, temp_dir, model, X, dataset_name, feature_names, run_id, evaluator_config,
+            artifacts, temp_dir, predict_fn, raw_model, X, dataset_name, feature_names, run_id, evaluator_config,
             is_multinomial_classifier=(num_classes > 2)
         )
 
@@ -393,8 +399,12 @@ class DefaultEvaluator(ModelEvaluator):
         metrics['mean_absolute_percentage_error'] = \
             sk_metrics.mean_absolute_percentage_error(y, y_pred)
 
+        raw_model, predict_fn, _ = self._extract_raw_model_and_predict_fn(
+            model
+        )
+
         self._log_model_explainability(
-            artifacts, temp_dir, model, X, dataset_name, feature_names, run_id, evaluator_config,
+            artifacts, temp_dir, predict_fn, raw_model, X, dataset_name, feature_names, run_id, evaluator_config,
             is_multinomial_classifier=False,
         )
         self._log_metrics(run_id, metrics, dataset_name)
