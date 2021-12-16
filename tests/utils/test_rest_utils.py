@@ -13,6 +13,7 @@ from mlflow.utils.rest_utils import (
     _DEFAULT_HEADERS,
     call_endpoint,
     call_endpoints,
+    _can_parse_as_json_object,
 )
 from mlflow.protos.service_pb2 import GetRun
 from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, ErrorCode
@@ -312,3 +313,12 @@ def test_numpy_encoder_fail():
     with pytest.raises(TypeError, match="not JSON serializable"):
         ne = NumpyEncoder()
         ne.default(test_number)
+
+
+def test_can_parse_as_json_object():
+    assert _can_parse_as_json_object("{}")
+    assert _can_parse_as_json_object('{"a": "b"}')
+    assert _can_parse_as_json_object('{"a": {"b": "c"}}')
+    assert not _can_parse_as_json_object("[0, 1, 2]")
+    assert not _can_parse_as_json_object('"abc"')
+    assert not _can_parse_as_json_object("123")
