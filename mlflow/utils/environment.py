@@ -192,9 +192,15 @@ def infer_pip_requirements(model_uri, flavor, fallback=None):
     """
     try:
         return _infer_requirements(model_uri, flavor)
-    except Exception:
+    except Exception as e:
         if fallback is not None:
-            _logger.exception(_INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE, model_uri, flavor)
+            if _logger.level <= logging.DEBUG:
+                _logger.debug(_INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE,
+                              model_uri, flavor, exc_info=True)
+            else:
+                _logger.debug(_INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE +
+                              ', set log level to be DEBUG to get more information.'
+                              , model_uri, flavor)
             return fallback
         raise
 
