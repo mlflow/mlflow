@@ -604,6 +604,9 @@ class PyFuncModel(object):
             data = _enforce_schema(data, input_schema)
         return self._model_impl.predict(data)
 
+    def support_predict_proba(self):
+        return False
+
     @property
     def metadata(self):
         """Model metadata."""

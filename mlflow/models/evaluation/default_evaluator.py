@@ -233,12 +233,11 @@ class DefaultEvaluator(ModelEvaluator):
         #   then fallback to shap explainer saver, and shap explainer will call `model.save`
         #   for sklearn model, there is no `.save` method, so error will happen.
 
-        """
         mlflow.shap.log_explainer(
             explainer,
             artifact_path=DefaultEvaluator._gen_log_key('explainer', dataset_name)
         )
-        """
+
 
         def plot_beeswarm():
             pyplot.subplots_adjust(bottom=0.2, left=0.4)
@@ -291,7 +290,7 @@ class DefaultEvaluator(ModelEvaluator):
         #  [P0] Mean: Computes the (weighted) mean of the given values.
 
         if is_binomial:
-            if hasattr(model, "predict_proba"):
+            if model.support_predict_proba():
                 # TODO: for xgb disable feature names check
                 y_probs = model.predict_proba(X)
                 y_prob = y_probs[:, 1]

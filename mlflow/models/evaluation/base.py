@@ -499,8 +499,6 @@ def _normalize_evaluators_and_evaluator_config_args(
     if evaluators is None:
         evaluator_name_list = list(_model_evaluation_registry._registry.keys())
         if evaluator_config is not None:
-            if evaluator_name_list == ['default']:
-                
             raise ValueError(
                 'If `evaluators` argument is None, `evaluator_config` argument must be None too.'
             )
