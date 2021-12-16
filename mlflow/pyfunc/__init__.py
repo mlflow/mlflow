@@ -604,6 +604,21 @@ class PyFuncModel(object):
             data = _enforce_schema(data, input_schema)
         return self._model_impl.predict(data)
 
+    def support_predict_proba(self):
+        hasattr(self._model_impl, 'predict_proba')
+
+    def predict(self, data: PyFuncInput) -> np.ndarray:
+        """
+        Generate model prediction probabilities on each class.
+        Only available in classifier model.
+
+        :param data: Model input as one of pandas.DataFrame, numpy.ndarray, or
+                     Dict[str, numpy.ndarray]
+        :return: model prediction probabilities as numpy.ndarray, shape is
+                 (num_examples, num_classes)
+        """
+        return self._model_impl.predict_proba(data)
+
     @property
     def metadata(self):
         """Model metadata."""
