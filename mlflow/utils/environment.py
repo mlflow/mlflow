@@ -199,8 +199,8 @@ def infer_pip_requirements(model_uri, flavor, fallback=None):
                               model_uri, flavor, exc_info=True)
             else:
                 _logger.debug(_INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE +
-                              ', set log level to be DEBUG to get more information.'
-                              , model_uri, flavor)
+                              ', set log level to be DEBUG to get more information.',
+                              model_uri, flavor)
             return fallback
         raise
 
