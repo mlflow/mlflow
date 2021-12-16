@@ -195,8 +195,7 @@ def infer_pip_requirements(model_uri, flavor, fallback=None):
         return _infer_requirements(model_uri, flavor)
     except Exception:
         if fallback is not None:
-            _logger.warning(_INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE,
-                            model_uri, flavor, fallback)
+            _logger.warning(_INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE, model_uri, flavor, fallback)
             _logger.debug("", exc_info=True)
             return fallback
         raise
