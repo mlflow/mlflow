@@ -120,6 +120,7 @@ class DefaultEvaluator(ModelEvaluator):
         artifact = ImageEvaluationArtifact(uri=get_artifact_uri(run_id, artifact_file_name))
         artifact.load(artifact_file_local_path)
         artifacts[artifact_name] = artifact
+        pyplot.close(pyplot.gcf())
 
     def _log_pandas_df_artifact(
         self, artifacts, temp_dir, pandas_df, run_id, artifact_name, dataset_name, model
@@ -212,25 +213,11 @@ class DefaultEvaluator(ModelEvaluator):
                 )
                 shap_values = explainer(sampled_X)
         else:
-            maskers = shap.maskers.Independent(sampled_X)
-            if raw_model and not is_multinomial_classifier and \
-                    shap.explainers.Linear.supports_model_with_masker(raw_model, maskers):
-                explainer = shap.explainers.Linear(
-                    raw_model, maskers, feature_names=truncated_feature_names
-                )
-                shap_values = explainer(sampled_X)
-            elif raw_model and not is_multinomial_classifier and \
-                    shap.explainers.Tree.supports_model_with_masker(raw_model, maskers):
-                explainer = shap.explainers.Tree(
-                    raw_model, maskers, feature_names=truncated_feature_names
-                )
-                shap_values = explainer(sampled_X)
-            elif raw_model and shap.explainers.Additive.supports_model_with_masker(
-                    raw_model, maskers
-            ):
-                explainer = shap.explainers.Additive(
-                    raw_model, maskers, feature_names=truncated_feature_names
-                )
+            if raw_model and not is_multinomial_classifier:
+                # For mulitnomial classifier, shap.Explainer may choose Tree/Linear explainer for
+                # raw model, this case shap plot doesn't support it well, so exclude the
+                # multinomial_classifier case here.
+                explainer = shap.Explainer(raw_model, sampled_X, feature_names=truncated_feature_names)
                 shap_values = explainer(sampled_X)
             else:
                 # fallback to default explainer
@@ -246,11 +233,10 @@ class DefaultEvaluator(ModelEvaluator):
         #   then fallback to shap explainer saver, and shap explainer will call `model.save`
         #   for sklearn model, there is no `.save` method, so error will happen.
 
-        mlflow.shap.log_explainer(
-            explainer,
-            artifact_path=DefaultEvaluator._gen_log_key('explainer', dataset_name)
-        )
-
+        # mlflow.shap.log_explainer(
+        #    explainer,
+        #    artifact_path=DefaultEvaluator._gen_log_key('explainer', dataset_name)
+        # )
 
         def plot_beeswarm():
             pyplot.subplots_adjust(bottom=0.2, left=0.4)
