@@ -176,8 +176,12 @@ class DefaultEvaluator(ModelEvaluator):
             except ImportError:
                 pass
 
-        # TODO: alias truncated name if duplicated
         truncated_feature_names = [truncate_str_from_middle(f, 20) for f in feature_names]
+        for i, truncated_name in enumerate(truncated_feature_names):
+            if truncated_name != feature_names[i]:
+                # For truncated name, attach "(f_{feature_index})" at the end
+                truncated_feature_names[i] = f'{truncated_name}(f_{i})'
+
         truncated_feature_name_map = {f: f2 for f, f2 in zip(feature_names, truncated_feature_names)}
         if isinstance(X, pd.DataFrame):
             X = X.rename(columns=truncated_feature_name_map, copy=False)

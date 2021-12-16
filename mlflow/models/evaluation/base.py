@@ -230,7 +230,7 @@ class EvaluationDataset:
                     raise ValueError('feature name list must be the same length with feature data.')
                 self._feature_names = feature_names
             else:
-                self._feature_names = [f'f{i}' for i in range(num_features)]
+                self._feature_names = [f'f_{i}' for i in range(num_features)]
         else:
             pd_column_names = [c for c in self.data.columns if c != self.labels]
             if feature_names is not None:
@@ -499,6 +499,8 @@ def _normalize_evaluators_and_evaluator_config_args(
     if evaluators is None:
         evaluator_name_list = list(_model_evaluation_registry._registry.keys())
         if evaluator_config is not None:
+            if evaluator_name_list == ['default']:
+                
             raise ValueError(
                 'If `evaluators` argument is None, `evaluator_config` argument must be None too.'
             )
