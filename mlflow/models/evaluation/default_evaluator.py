@@ -80,6 +80,9 @@ class CsvEvaluationArtifact(EvaluationArtifact):
 _DEFAULT_SAMPLE_ROWS_FOR_SHAP = 2000
 
 
+_shap_initialized = False
+
+
 class DefaultEvaluator(ModelEvaluator):
     def can_evaluate(self, model_type, evaluator_config=None, **kwargs):
         return model_type in ["classifier", "regressor"]
@@ -140,8 +143,18 @@ class DefaultEvaluator(ModelEvaluator):
         if not evaluator_config.get('log_model_explainability', True):
             return
 
-        import shap
-        import shap.maskers
+        try:
+            global _shap_initialized
+            import shap
+            import shap.maskers
+
+            if not _shap_initialized:
+                shap.initjs()
+                _shap_initialized = True
+        except ImportError:
+            _logger.warning('Shap package is not installed. Skip log model explainability.')
+            return
+
         import matplotlib.pyplot as pyplot
 
         sample_rows = evaluator_config.get('explainability_nsamples', _DEFAULT_SAMPLE_ROWS_FOR_SHAP)
@@ -410,9 +423,6 @@ class DefaultEvaluator(ModelEvaluator):
         evaluator_config,
         **kwargs,
     ):
-        import shap
-
-        shap.initjs()
         with TempDir() as temp_dir:
             X, y = dataset._extract_features_and_labels()
             if model_type == "classifier":
