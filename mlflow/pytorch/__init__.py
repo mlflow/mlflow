@@ -635,6 +635,7 @@ def _load_model(path, **kwargs):
             return torch.load(model_path, **kwargs)
         except Exception:
             # If fails, assume the model as a scripted model
+            kwargs.pop("pickle_module", None)  # `torch.jit.load` does not accept `pickle_module`.
             return torch.jit.load(model_path, **kwargs)
 
 
