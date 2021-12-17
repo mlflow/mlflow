@@ -83,6 +83,16 @@ _DEFAULT_SAMPLE_ROWS_FOR_SHAP = 2000
 _shap_initialized = False
 
 
+def _infer_model_type_by_labels(labels):
+    distinct_labels = set(labels)
+    for v in distinct_labels:
+        if v < 0 or not float(v).is_integer():
+            return "regressor"
+    if len(distinct_labels) > 1000 and len(distinct_labels) / len(labels) > 0.7:
+        return "regressor"
+    return "classifier"
+
+
 class DefaultEvaluator(ModelEvaluator):
     def can_evaluate(self, model_type, evaluator_config=None, **kwargs):
         return model_type in ["classifier", "regressor"]
@@ -234,15 +244,16 @@ class DefaultEvaluator(ModelEvaluator):
 
         _logger.info(f'Shap explainer {explainer.__class__.__name__} is used.')
 
-        # TODO: seems infer pip req fail when log_explainer.
-        # TODO: The explainer saver is buggy, if `get_underlying_model_flavor` return "unknown",
-        #   then fallback to shap explainer saver, and shap explainer will call `model.save`
-        #   for sklearn model, there is no `.save` method, so error will happen.
-
-        # mlflow.shap.log_explainer(
-        #    explainer,
-        #    artifact_path=DefaultEvaluator._gen_log_key('explainer', dataset_name)
-        # )
+        try:
+            mlflow.shap.log_explainer(
+               explainer,
+               artifact_path=DefaultEvaluator._gen_log_key('explainer', dataset_name)
+            )
+        except Exception as e:
+            # TODO: The explainer saver is buggy, if `get_underlying_model_flavor` return "unknown",
+            #   then fallback to shap explainer saver, and shap explainer will call `model.save`
+            #   for sklearn model, there is no `.save` method, so error will happen.
+            _logger.warning(f'Log explainer failed. Reason: {str(e)}')
 
         def plot_beeswarm():
             pyplot.subplots_adjust(bottom=0.2, left=0.4)
@@ -421,6 +432,15 @@ class DefaultEvaluator(ModelEvaluator):
     ):
         with TempDir() as temp_dir:
             X, y = dataset._extract_features_and_labels()
+            infered_model_type = _infer_model_type_by_labels(y)
+
+            if model_type != infered_model_type:
+                _logger.warning(
+                    f"According to the evaluation dataset label values, the model type looks like "
+                    f"{infered_model_type}, but you specified model type {model_type}. Please "
+                    f"check you set model type or evaluation dataset correctly."
+                )
+
             if model_type == "classifier":
                 return self._evaluate_classifier(
                     temp_dir, model, X, y, dataset.name, dataset.feature_names, run_id, evaluator_config

@@ -449,14 +449,7 @@ def save_explainer(
         if serialize_model_using_mlflow and serializable_by_mlflow:
             explainer.save(explainer_output_file_handle, model_saver=False)
         else:
-            try:
-                explainer.save(explainer_output_file_handle)
-            except Exception:
-                # Some model may not support explainer model_saver,
-                # in this case, fallback to save explainer without saving model.
-                explainer_output_file_handle.seek(0)
-                explainer_output_file_handle.truncate(0)
-                explainer.save(explainer_output_file_handle, model_saver=False)
+            explainer.save(explainer_output_file_handle)
 
     pyfunc.add_to_model(
         mlflow_model,

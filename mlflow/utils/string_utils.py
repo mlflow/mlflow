@@ -15,7 +15,7 @@ def is_string_type(item):
 
 
 def truncate_str_from_middle(s, max_length):
-    assert max_length > 3
+    assert max_length > 5
     if len(s) <= max_length:
         return s
     else:

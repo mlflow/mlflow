@@ -496,13 +496,39 @@ def _normalize_evaluators_and_evaluator_config_args(
 ):
     from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
 
+    def check_nesting_config_dict(_evaluator_name_list, _evaluator_name_to_conf_map):
+        return isinstance(_evaluator_name_to_conf_map, dict) and \
+               all(k in _evaluator_name_list and isinstance(v, dict)
+                   for k, v in _evaluator_name_to_conf_map.items())
+
     if evaluators is None:
         evaluator_name_list = list(_model_evaluation_registry._registry.keys())
+        if len(evaluator_name_list) > 1:
+            print(f'Hint: Multiple registered evaluators are found {evaluator_name_list} and '
+                  'they will all be used in evaluation. If you want to evaluate with one '
+                  'evaluator, specify the `evaluator` argument and (optional) specify the '
+                  '`evaluator_config` argument.')
         if evaluator_config is not None:
-            raise ValueError(
-                'If `evaluators` argument is None, `evaluator_config` argument must be None too.'
+            conf_dict_value_error = ValueError(
+                "If `evaluators` argument is None, all registered evaluators will be used, "
+                "if only default evaluator available, the `evaluator_config` argument can be "
+                "config dict for default evaluator, otherwise the `evaluator_config` argument "
+                "must be a dict contains mapping from evaluator name to individual "
+                "evaluator config dict."
             )
-        evaluator_name_to_conf_map = {}
+            if evaluator_name_list == ['default']:
+                if not isinstance(evaluator_config, dict):
+                    raise conf_dict_value_error
+                elif 'default' not in evaluator_config:
+                    evaluator_name_to_conf_map = {'default': evaluator_config}
+                else:
+                    evaluator_name_to_conf_map = evaluator_config
+            else:
+                if not check_nesting_config_dict(evaluator_name_list, evaluator_config):
+                    raise conf_dict_value_error
+                evaluator_name_to_conf_map = evaluator_config
+        else:
+            evaluator_name_to_conf_map = {}
     elif isinstance(evaluators, str):
         if not (evaluator_config is None or isinstance(evaluator_config, dict)):
             raise ValueError(
@@ -510,14 +536,10 @@ def _normalize_evaluators_and_evaluator_config_args(
                 "None or a dict containing config items for the evaluator."
             )
         evaluator_name_list = [evaluators]
-        evaluator_name_to_conf_map = {evaluators[0]: evaluator_config}
+        evaluator_name_to_conf_map = {evaluators: evaluator_config}
     elif isinstance(evaluators, list):
         if evaluator_config is not None:
-            if not (
-                    isinstance(evaluator_config, dict)
-                    and all(k in evaluators and isinstance(v, dict)
-                            for k, v in evaluator_config.items())
-            ):
+            if not check_nesting_config_dict(evaluators, evaluator_config):
                 raise ValueError(
                     "If `evaluators` argument is a evaluator name list, evaluator_config "
                     "must be a dict contains mapping from evaluator name to individual "
