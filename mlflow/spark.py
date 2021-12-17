@@ -19,13 +19,13 @@ Spark MLlib (native) format
     MLeap-compatible arguments.
 """
 import os
-import yaml
 import logging
 import posixpath
 import re
 import shutil
 import traceback
 import uuid
+import yaml
 
 import mlflow
 from mlflow import pyfunc, mleap
