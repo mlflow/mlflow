@@ -13,6 +13,7 @@ from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.utils.annotations import experimental
 import logging
 import struct
+import sys
 
 
 _logger = logging.getLogger(__name__)
@@ -186,9 +187,15 @@ class EvaluationDataset:
         import pandas as pd
 
         try:
-            from pyspark.sql import DataFrame as SparkDataFrame
-
-            supported_dataframe_types = (pd.DataFrame, SparkDataFrame)
+            # add checking `'pyspark' in sys.modules` to avoid importing pyspark when user
+            # run code not related to pyspark.
+            if 'pyspark' in sys.modules:
+                from pyspark.sql import DataFrame as SparkDataFrame
+                supported_dataframe_types = (pd.DataFrame, SparkDataFrame)
+                self._spark_df_type = SparkDataFrame
+            else:
+                supported_dataframe_types = (pd.DataFrame,)
+                self._spark_df_type = None
         except ImportError:
             supported_dataframe_types = (pd.DataFrame,)
 
@@ -250,14 +257,7 @@ class EvaluationDataset:
         if self._data is not None:
             return self._data
 
-        try:
-            from pyspark.sql import DataFrame as SparkDataFrame
-
-            spark_df_type = SparkDataFrame
-        except ImportError:
-            spark_df_type = None
-
-        if spark_df_type and isinstance(self._original_data, spark_df_type):
+        if self._spark_df_type and isinstance(self._original_data, self._spark_df_type):
             self._data = self._original_data.limit(
                 EvaluationDataset.SPARK_DATAFRAME_LIMIT
             ).toPandas()
