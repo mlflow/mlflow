@@ -504,17 +504,17 @@ def _normalize_evaluators_and_evaluator_config_args(
     if evaluators is None:
         evaluator_name_list = list(_model_evaluation_registry._registry.keys())
         if len(evaluator_name_list) > 1:
-            print(f'Hint: Multiple registered evaluators are found {evaluator_name_list} and '
-                  'they will all be used in evaluation. If you want to evaluate with one '
-                  'evaluator, specify the `evaluator` argument and (optional) specify the '
-                  '`evaluator_config` argument.')
+            print(f'Multiple registered evaluators are found {evaluator_name_list} and '
+                  'they will all be used in evaluation if they support the specified model type. '
+                  'If you want to evaluate with one evaluator, specify the `evaluator` argument '
+                  'and (optional) specify the `evaluator_config` argument.')
         if evaluator_config is not None:
             conf_dict_value_error = ValueError(
-                "If `evaluators` argument is None, all registered evaluators will be used, "
-                "if only default evaluator available, the `evaluator_config` argument can be "
-                "config dict for default evaluator, otherwise the `evaluator_config` argument "
-                "must be a dict contains mapping from evaluator name to individual "
-                "evaluator config dict."
+                "If `evaluators` argument is None, all available evaluators will be used. "
+                "If only the default evaluator is available, the `evaluator_config` argument is "
+                "interpreted as the config dictionary for the default evaluator. Otherwise, the "
+                "`evaluator_config` argument must be a dictionary mapping each evaluator's name "
+                "to its own evaluator config dictionary."
             )
             if evaluator_name_list == ['default']:
                 if not isinstance(evaluator_config, dict):
@@ -550,7 +550,7 @@ def _normalize_evaluators_and_evaluator_config_args(
     else:
         raise ValueError(
             '`evaluators` argument must be None, a evaluator name string, or a list of '
-            'evalautor names.'
+            'evaluator names.'
         )
 
     return evaluator_name_list, evaluator_name_to_conf_map
@@ -560,7 +560,6 @@ def _evaluate(
         model, model_type, dataset, actual_run_id, evaluator_name_list, evaluator_name_to_conf_map
 ):
     """
-    This method is the patch point for databricks instrumentation.
     The public API "evaluate" will verify argument first, and then pass normalized arguments
     to the _evaluate method.
     """
@@ -641,8 +640,8 @@ def evaluate(
      - log_model_explainability: The number of rows to use for calculating model explainability.
      - explainality_algorithm: A string to specify the shap explainer algorithm. If not set, it will
        choose the best fit explainer according to the model.
-     - explainability_nsamples: The sample rows for calculating model explainability.
-       Default value is 2000.
+     - explainability_nsamples: The number of sample rows to use for calculating model
+       explainability. Default value is 2000.
     """
     from mlflow.pyfunc import PyFuncModel
 
