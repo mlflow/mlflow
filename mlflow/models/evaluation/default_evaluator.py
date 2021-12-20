@@ -14,6 +14,7 @@ from sklearn import metrics as sk_metrics
 import math
 import pandas as pd
 import numpy as np
+import json
 import time
 from functools import partial
 import logging
@@ -286,6 +287,70 @@ class DefaultEvaluator(ModelEvaluator):
             "shap_feature_importance",
         )
 
+    def _evaluate_per_class(self, positive_class, y, y_pred, y_proba):
+        """
+        if positive_class is an interger, generate metrics and artifacts on this class vs. rest,
+         and the y/y_pred/y_proba must be sum up to a binary "is class" and "is not class"
+        if positive_class is None, generate metrics and artifacts on binary y/y_pred/y_proba
+        """
+
+        def _gen_metric_name(name):
+            if positive_class is not None:
+                return f"class_{positive_class}_{name}"
+            else:
+                return name
+
+        confusion_matrix = sk_metrics.confusion_matrix(y, y_pred)
+        tn, fp, fn, tp = confusion_matrix.ravel()
+        self.metrics[_gen_metric_name("true_negatives")] = tn
+        self.metrics[_gen_metric_name("false_positives")] = fp
+        self.metrics[_gen_metric_name("false_negatives")] = fn
+        self.metrics[_gen_metric_name("true_positives")] = tp
+        self.metrics[_gen_metric_name("recall")] = sk_metrics.recall_score(y, y_pred)
+        self.metrics[_gen_metric_name("precision")] = sk_metrics.precision_score(y, y_pred)
+        self.metrics[_gen_metric_name("f1_score")] = sk_metrics.f1_score(y, y_pred)
+
+        if y_proba is not None:
+            fpr, tpr, thresholds = sk_metrics.roc_curve(y, y_proba)
+            roc_curve_pandas_df = pd.DataFrame(
+                {"fpr": fpr, "tpr": tpr, "thresholds": thresholds}
+            )
+            self._log_pandas_df_artifact(
+                roc_curve_pandas_df, _gen_metric_name("roc_curve"),
+            )
+
+            roc_auc = sk_metrics.auc(fpr, tpr)
+            self.metrics[_gen_metric_name("roc_auc")] = roc_auc
+
+            def plot_roc_curve():
+                sk_metrics.RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc).plot()
+
+            if hasattr(sk_metrics, 'RocCurveDisplay'):
+                self._log_image_artifact(plot_roc_curve, _gen_metric_name("roc_curve"))
+
+            precision, recall, thresholds = \
+                sk_metrics.precision_recall_curve(y, y_proba)
+            thresholds = np.append(thresholds, [1.0], axis=0)
+            pr_curve_pandas_df = pd.DataFrame(
+                {"precision": precision, "recall": recall, "thresholds": thresholds}
+            )
+            self._log_pandas_df_artifact(
+                pr_curve_pandas_df,
+                _gen_metric_name("precision_recall_curve"),
+            )
+
+            pr_auc = sk_metrics.auc(recall, precision)
+            self.metrics[_gen_metric_name("precision_recall_auc")] = pr_auc
+
+            def plot_pr_curve():
+                sk_metrics.PrecisionRecallDisplay(precision, recall).plot()
+
+            if hasattr(sk_metrics, 'PrecisionRecallDisplay'):
+                self._log_image_artifact(
+                    plot_pr_curve,
+                    _gen_metric_name("precision_recall_curve"),
+                )
+
     def _evaluate_classifier(self):
         from mlflow.models.evaluation.lift_curve import plot_lift_curve
         raw_model, predict_fn, predict_proba_fn = _extract_raw_model_and_predict_fn(self.model)
@@ -304,83 +369,45 @@ class DefaultEvaluator(ModelEvaluator):
         self.metrics["accuracy"] = sk_metrics.accuracy_score(self.y, self.y_pred)
         self.metrics["example_count"] = len(self.X)
 
-        if self.is_binomial:
-            if predict_proba_fn is not None:
-                self.y_probs = predict_proba_fn(self.X)
+        if predict_proba_fn is not None:
+            self.y_probs = predict_proba_fn(self.X)
+            if self.is_binomial:
                 self.y_prob = self.y_probs[:, 1]
             else:
-                self.y_probs = None
                 self.y_prob = None
+        else:
+            self.y_probs = None
+            self.y_prob = None
 
-            confusion_matrix = sk_metrics.confusion_matrix(self.y, self.y_pred)
-            tn, fp, fn, tp = confusion_matrix.ravel()
-            self.metrics["true_negatives"] = tn
-            self.metrics["false_positives"] = fp
-            self.metrics["false_negatives"] = fn
-            self.metrics["true_positives"] = tp
-            self.metrics["recall"] = sk_metrics.recall_score(self.y, self.y_pred)
-            self.metrics["precision"] = sk_metrics.precision_score(self.y, self.y_pred)
-            self.metrics["f1_score"] = sk_metrics.f1_score(self.y, self.y_pred)
-
-            # TODO:
-            #  compute hinge loss, this requires calling decision_function of the model
-            #  e.g., see https://scikit-learn.org/stable/modules/generated/sklearn.svm.LinearSVC.html#sklearn.svm.LinearSVC.decision_function
-            if self.y_probs is not None:
-                fpr, tpr, thresholds = sk_metrics.roc_curve(self.y, self.y_prob)
-                roc_curve_pandas_df = pd.DataFrame(
-                    {"fpr": fpr, "tpr": tpr, "thresholds": thresholds}
-                )
-                self._log_pandas_df_artifact(
-                    roc_curve_pandas_df, "roc_curve",
-                )
-
-                roc_auc = sk_metrics.auc(fpr, tpr)
-                self.metrics["roc_auc"] = roc_auc
-
-                def plot_roc_curve():
-                    sk_metrics.RocCurveDisplay(
-                        fpr=fpr, tpr=tpr, roc_auc=roc_auc,
-                    ).plot()
-
-                if hasattr(sk_metrics, 'RocCurveDisplay'):
-                    self._log_image_artifact(
-                        plot_roc_curve, "roc_curve",
-                    )
-
-                precision, recall, thresholds = \
-                    sk_metrics.precision_recall_curve(self.y, self.y_prob)
-                thresholds = np.append(thresholds, [1.0], axis=0)
-                pr_curve_pandas_df = pd.DataFrame(
-                    {"precision": precision, "recall": recall, "thresholds": thresholds}
-                )
-                self._log_pandas_df_artifact(
-                    pr_curve_pandas_df, "precision_recall_curve",
-                )
-
-                pr_auc = sk_metrics.auc(recall, precision)
-                self.metrics["precision_recall_auc"] = pr_auc
-
-                def plot_pr_curve():
-                    sk_metrics.PrecisionRecallDisplay(
-                        precision, recall,
-                    ).plot()
-
-                if hasattr(sk_metrics, 'PrecisionRecallDisplay'):
-                    self._log_image_artifact(
-                        plot_pr_curve, "precision_recall_curve",
-                    )
-
+        if predict_proba_fn is not None:
+            if self.is_binomial:
+                self._evaluate_per_class(None, self.y, self.y_pred, self.y_prob)
                 self._log_image_artifact(
                     lambda: plot_lift_curve(self.y, self.y_probs), "lift_curve",
                 )
+            else:
+                self.metrics['f1_score_micro'] = \
+                    sk_metrics.f1_score(self.y, self.y_pred, average='micro')
+                self.metrics['f1_score_macro'] = \
+                    sk_metrics.f1_score(self.y, self.y_pred, average='macro')
+                for postive_class in range(self.num_classes):
+                    y_per_class = np.where(self.y == postive_class, 1, 0)
+                    y_pred_per_class = np.where(self.y_pred == postive_class, 1, 0)
+                    pos_class_prob = self.y_probs[:, postive_class]
+                    self._evaluate_per_class(
+                        postive_class, y_per_class, y_pred_per_class, pos_class_prob
+                    )
 
-            def plot_confusion_matrix():
-                sk_metrics.ConfusionMatrixDisplay(confusion_matrix=confusion_matrix).plot()
+        # TODO: Shall we also log confusion_matrix data as a json artifact ?
+        confusion_matrix = sk_metrics.confusion_matrix(self.y, self.y_pred)
 
-            if hasattr(sk_metrics, 'ConfusionMatrixDisplay'):
-                self._log_image_artifact(
-                    plot_confusion_matrix, "confusion_matrix",
-                )
+        def plot_confusion_matrix():
+            sk_metrics.ConfusionMatrixDisplay(confusion_matrix=confusion_matrix).plot()
+
+        if hasattr(sk_metrics, 'ConfusionMatrixDisplay'):
+            self._log_image_artifact(
+                plot_confusion_matrix, "confusion_matrix",
+            )
 
         self._log_metrics()
         self._log_model_explainability()
