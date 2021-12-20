@@ -9,7 +9,7 @@ devtools::install_deps(".", dependencies = TRUE)
 package_path <- devtools::build(".", path = ".")
 # Run the submission check against the built package.
 devtools::check_built(
-    pkg = normalizePath(package_path),
+    path = normalizePath(package_path),
     remote = should_enable_cran_incoming_checks(),
     error_on = "note",
     args = c("--no-tests", "--as-cran"),
