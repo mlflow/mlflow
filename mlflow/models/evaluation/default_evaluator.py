@@ -93,100 +93,99 @@ def _infer_model_type_by_labels(labels):
     return "classifier"
 
 
+def _extract_raw_model_and_predict_fn(model):
+    model_loader_module = model.metadata.flavors['python_function']["loader_module"]
+    predict_fn = model.predict
+    predict_proba_fn = None
+
+    try:
+        if model_loader_module == 'mlflow.sklearn':
+            raw_model = model._model_impl
+        elif model_loader_module == 'mlflow.lightgbm':
+            raw_model = model._model_impl.lgb_model
+        elif model_loader_module == 'mlflow.xgboost':
+            raw_model = model._model_impl.xgb_model
+        else:
+            raw_model = None
+    except Exception as e:
+        raw_model = None
+        _logger.warning(f'Raw model resolution fails unexpectedly on PyFuncModel {model!r}, '
+                        f'error message is {e}')
+
+    if raw_model:
+        predict_fn = raw_model.predict
+        predict_proba_fn = getattr(raw_model, 'predict_proba', None)
+
+        try:
+            import xgboost
+            if isinstance(raw_model, xgboost.XGBModel):
+                # Because shap evaluation will pass evaluation data in ndarray format
+                # (without feature names), if set validate_features=True it will raise error.
+                predict_fn = partial(predict_fn, validate_features=False)
+                predict_proba_fn = partial(predict_proba_fn, validate_features=False)
+        except ImportError:
+            pass
+
+    return raw_model, predict_fn, predict_proba_fn
+
+
+def _gen_log_key(key, dataset_name):
+    return f'{key}_on_data_{dataset_name}'
+
+
 class DefaultEvaluator(ModelEvaluator):
     def can_evaluate(self, model_type, evaluator_config=None, **kwargs):
         return model_type in ["classifier", "regressor"]
 
-    @staticmethod
-    def _gen_log_key(key, dataset_name):
-        return f'{key}_on_data_{dataset_name}'
-
-    def _log_metrics(self, run_id, metrics, dataset_name):
+    def _log_metrics(self):
         """
         Helper method to log metrics into specified run.
         """
-        client = mlflow.tracking.MlflowClient()
         timestamp = int(time.time() * 1000)
-        client.log_batch(
-            run_id,
+        self.client.log_batch(
+            self.run_id,
             metrics=[
-                Metric(key=DefaultEvaluator._gen_log_key(key, dataset_name),
+                Metric(key=_gen_log_key(key, self.dataset_name),
                        value=value, timestamp=timestamp, step=0)
-                for key, value in metrics.items()
+                for key, value in self.metrics.items()
             ],
         )
 
     def _log_image_artifact(
-        self, artifacts, temp_dir, do_plot, run_id, artifact_name, dataset_name,
+        self, do_plot, artifact_name,
     ):
         import matplotlib.pyplot as pyplot
-        client = mlflow.tracking.MlflowClient()
-        pyplot.clf()
-        do_plot()
-        artifact_file_name = DefaultEvaluator._gen_log_key(artifact_name, dataset_name) + '.png'
-        artifact_file_local_path = temp_dir.path(artifact_file_name)
-        pyplot.savefig(artifact_file_local_path)
-        client.log_artifact(run_id, artifact_file_local_path)
-        artifact = ImageEvaluationArtifact(uri=get_artifact_uri(run_id, artifact_file_name))
+        artifact_file_name = _gen_log_key(artifact_name, self.dataset_name) + '.png'
+        artifact_file_local_path = self.temp_dir.path(artifact_file_name)
+
+        try:
+            pyplot.clf()
+            do_plot()
+            pyplot.savefig(artifact_file_local_path)
+        finally:
+            pyplot.close(pyplot.gcf())
+
+        mlflow.log_artifact(artifact_file_local_path)
+        artifact = ImageEvaluationArtifact(uri=mlflow.get_artifact_uri(artifact_file_name))
         artifact.load(artifact_file_local_path)
-        artifacts[artifact_name] = artifact
-        pyplot.close(pyplot.gcf())
+        self.artifacts[artifact_name] = artifact
 
     def _log_pandas_df_artifact(
-        self, artifacts, temp_dir, pandas_df, run_id, artifact_name, dataset_name, model
+        self, pandas_df, artifact_name
     ):
-        client = mlflow.tracking.MlflowClient()
-        artifact_file_name = DefaultEvaluator._gen_log_key(artifact_name, dataset_name) + '.csv'
-        artifact_file_local_path = temp_dir.path(artifact_file_name)
+        artifact_file_name = _gen_log_key(artifact_name, self.dataset_name) + '.csv'
+        artifact_file_local_path = self.temp_dir.path(artifact_file_name)
         pandas_df.to_csv(artifact_file_local_path, index=False)
-        client.log_artifact(run_id, artifact_file_local_path)
+        mlflow.log_artifact(artifact_file_local_path)
         artifact = CsvEvaluationArtifact(
-            uri=get_artifact_uri(run_id, artifact_file_name),
+            uri=mlflow.get_artifact_uri(artifact_file_name),
             content=pandas_df,
         )
         artifact.load(artifact_file_local_path)
-        artifacts[artifact_name] = artifact
+        self.artifacts[artifact_name] = artifact
 
-    def _extract_raw_model_and_predict_fn(self, model):
-        model_loader_module = model.metadata.flavors['python_function']["loader_module"]
-        predict_fn = model.predict
-        predict_proba_fn = None
-
-        try:
-            if model_loader_module == 'mlflow.sklearn':
-                raw_model = model._model_impl
-            elif model_loader_module == 'mlflow.lightgbm':
-                raw_model = model._model_impl.lgb_model
-            elif model_loader_module == 'mlflow.xgboost':
-                raw_model = model._model_impl.xgb_model
-            else:
-                raw_model = None
-        except Exception as e:
-            raw_model = None
-            _logger.warning(f'Raw model resolution fails unexpectedly on PyFuncModel {model!r}, '
-                            f'error message is {e}')
-
-        if raw_model:
-            predict_fn = raw_model.predict
-            predict_proba_fn = getattr(raw_model, 'predict_proba', None)
-
-            try:
-                import xgboost
-                if isinstance(raw_model, xgboost.XGBModel):
-                    # Because shap evaluation will pass evaluation data in ndarray format
-                    # (without feature names), if set validate_features=True it will raise error.
-                    predict_fn = partial(predict_fn, validate_features=False)
-                    predict_proba_fn = partial(predict_proba_fn, validate_features=False)
-            except ImportError:
-                pass
-
-        return raw_model, predict_fn, predict_proba_fn
-
-    def _log_model_explainability(
-            self, artifacts, temp_dir, predict_fn, raw_model, X, dataset_name, feature_names, run_id, evaluator_config,
-            is_multinomial_classifier,
-    ):
-        if not evaluator_config.get('log_model_explainability', True):
+    def _log_model_explainability(self):
+        if not self.evaluator_config.get('log_model_explainability', True):
             return
 
         try:
@@ -203,42 +202,49 @@ class DefaultEvaluator(ModelEvaluator):
 
         import matplotlib.pyplot as pyplot
 
-        sample_rows = evaluator_config.get('explainability_nsamples', _DEFAULT_SAMPLE_ROWS_FOR_SHAP)
-        algorithm = evaluator_config.get('explainability_algorithm', None)
+        is_multinomial_classifier = self.model_type == 'classifier' and self.num_classes > 2
 
-        truncated_feature_names = [truncate_str_from_middle(f, 20) for f in feature_names]
+        sample_rows = self.evaluator_config.get('explainability_nsamples', _DEFAULT_SAMPLE_ROWS_FOR_SHAP)
+        algorithm = self.evaluator_config.get('explainability_algorithm', None)
+
+        truncated_feature_names = [truncate_str_from_middle(f, 20) for f in self.feature_names]
         for i, truncated_name in enumerate(truncated_feature_names):
-            if truncated_name != feature_names[i]:
+            if truncated_name != self.feature_names[i]:
                 # For truncated name, attach "(f_{feature_index})" at the end
                 truncated_feature_names[i] = f'{truncated_name}(f_{i})'
 
-        truncated_feature_name_map = {f: f2 for f, f2 in zip(feature_names, truncated_feature_names)}
-        if isinstance(X, pd.DataFrame):
-            X = X.rename(columns=truncated_feature_name_map, copy=False)
+        truncated_feature_name_map = {f: f2 for f, f2 in zip(self.feature_names, truncated_feature_names)}
 
-        sampled_X = shap.sample(X, sample_rows)
+        if isinstance(self.X, pd.DataFrame):
+            # For some shap explainer, the plot will use the DataFrame column names instead of
+            # using feature_names argument value. So rename the dataframe column names.
+            renamed_X = self.X.rename(columns=truncated_feature_name_map, copy=False)
+        else:
+            renamed_X = self.X
+
+        sampled_X = shap.sample(renamed_X, sample_rows)
         if algorithm:
             if algorithm == 'sampling':
                 explainer = shap.explainers.Sampling(
-                    predict_fn, X, feature_names=truncated_feature_names
+                    self.predict_fn, renamed_X, feature_names=truncated_feature_names
                 )
-                shap_values = explainer(X, sample_rows)
+                shap_values = explainer(renamed_X, sample_rows)
             else:
                 explainer = shap.Explainer(
-                    predict_fn, sampled_X, feature_names=truncated_feature_names, algorithm=algorithm
+                    self.predict_fn, sampled_X, feature_names=truncated_feature_names, algorithm=algorithm
                 )
                 shap_values = explainer(sampled_X)
         else:
-            if raw_model and not is_multinomial_classifier:
+            if self.raw_model and not is_multinomial_classifier:
                 # For mulitnomial classifier, shap.Explainer may choose Tree/Linear explainer for
                 # raw model, this case shap plot doesn't support it well, so exclude the
                 # multinomial_classifier case here.
-                explainer = shap.Explainer(raw_model, sampled_X, feature_names=truncated_feature_names)
+                explainer = shap.Explainer(self.raw_model, sampled_X, feature_names=truncated_feature_names)
                 shap_values = explainer(sampled_X)
             else:
                 # fallback to default explainer
                 explainer = shap.Explainer(
-                    predict_fn, sampled_X, feature_names=truncated_feature_names
+                    self.predict_fn, sampled_X, feature_names=truncated_feature_names
                 )
                 shap_values = explainer(sampled_X)
 
@@ -247,7 +253,7 @@ class DefaultEvaluator(ModelEvaluator):
         try:
             mlflow.shap.log_explainer(
                explainer,
-               artifact_path=DefaultEvaluator._gen_log_key('explainer', dataset_name)
+               artifact_path=_gen_log_key('explainer', self.dataset_name)
             )
         except Exception as e:
             # TODO: The explainer saver is buggy, if `get_underlying_model_flavor` return "unknown",
@@ -260,7 +266,7 @@ class DefaultEvaluator(ModelEvaluator):
             shap.plots.beeswarm(shap_values, show=False)
 
         self._log_image_artifact(
-            artifacts, temp_dir, plot_beeswarm, run_id, "shap_beeswarm", dataset_name,
+            plot_beeswarm, "shap_beeswarm",
         )
 
         def plot_summary():
@@ -268,7 +274,7 @@ class DefaultEvaluator(ModelEvaluator):
             shap.summary_plot(shap_values, show=False)
 
         self._log_image_artifact(
-            artifacts, temp_dir, plot_summary, run_id, "shap_summary", dataset_name,
+            plot_summary, "shap_summary",
         )
 
         def plot_feature_importance():
@@ -276,68 +282,60 @@ class DefaultEvaluator(ModelEvaluator):
             shap.plots.bar(shap_values, show=False)
 
         self._log_image_artifact(
-            artifacts,
-            temp_dir,
             plot_feature_importance,
-            run_id,
             "shap_feature_importance",
-            dataset_name,
         )
 
-    def _evaluate_classifier(self, temp_dir, model, X, y, dataset_name, feature_names, run_id, evaluator_config):
+    def _evaluate_classifier(self):
         from mlflow.models.evaluation.lift_curve import plot_lift_curve
+        raw_model, predict_fn, predict_proba_fn = _extract_raw_model_and_predict_fn(self.model)
+        self.raw_model = raw_model
+        self.predict_fn = predict_fn
+        self.predict_proba_fn = predict_proba_fn
 
         # Note: require labels to be number of 0, 1, 2, .. num_classes - 1
-        label_list = sorted(list(set(y)))
+        label_list = sorted(list(set(self.y)))
         assert label_list[0] == 0, "Label values must being at '0'."
-        num_classes = len(label_list)
+        self.num_classes = len(label_list)
 
-        y_pred = model.predict(X)
+        self.y_pred = predict_fn(self.X)
+        self.is_binomial = self.num_classes <= 2
 
-        is_binomial = num_classes <= 2
+        self.metrics["accuracy"] = sk_metrics.accuracy_score(self.y, self.y_pred)
+        self.metrics["example_count"] = len(self.X)
 
-        metrics = EvaluationMetrics()
-        artifacts = {}
-        metrics["accuracy"] = sk_metrics.accuracy_score(y, y_pred)
-        metrics["example_count"] = len(X)
-
-        raw_model, predict_fn, predict_proba_fn = self._extract_raw_model_and_predict_fn(
-            model
-        )
-
-        if is_binomial:
+        if self.is_binomial:
             if predict_proba_fn is not None:
-                # TODO: for xgb disable feature names check
-                y_probs = model.predict_proba(X)
-                y_prob = y_probs[:, 1]
+                self.y_probs = predict_proba_fn(self.X)
+                self.y_prob = self.y_probs[:, 1]
             else:
-                y_probs = None
-                y_prob = None
+                self.y_probs = None
+                self.y_prob = None
 
-            confusion_matrix = sk_metrics.confusion_matrix(y, y_pred)
+            confusion_matrix = sk_metrics.confusion_matrix(self.y, self.y_pred)
             tn, fp, fn, tp = confusion_matrix.ravel()
-            metrics["true_negatives"] = tn
-            metrics["false_positives"] = fp
-            metrics["false_negatives"] = fn
-            metrics["true_positives"] = tp
-            metrics["recall"] = sk_metrics.recall_score(y, y_pred)
-            metrics["precision"] = sk_metrics.precision_score(y, y_pred)
-            metrics["f1_score"] = sk_metrics.f1_score(y, y_pred)
+            self.metrics["true_negatives"] = tn
+            self.metrics["false_positives"] = fp
+            self.metrics["false_negatives"] = fn
+            self.metrics["true_positives"] = tp
+            self.metrics["recall"] = sk_metrics.recall_score(self.y, self.y_pred)
+            self.metrics["precision"] = sk_metrics.precision_score(self.y, self.y_pred)
+            self.metrics["f1_score"] = sk_metrics.f1_score(self.y, self.y_pred)
 
             # TODO:
             #  compute hinge loss, this requires calling decision_function of the model
             #  e.g., see https://scikit-learn.org/stable/modules/generated/sklearn.svm.LinearSVC.html#sklearn.svm.LinearSVC.decision_function
-            if y_probs is not None:
-                fpr, tpr, thresholds = sk_metrics.roc_curve(y, y_prob)
+            if self.y_probs is not None:
+                fpr, tpr, thresholds = sk_metrics.roc_curve(self.y, self.y_prob)
                 roc_curve_pandas_df = pd.DataFrame(
                     {"fpr": fpr, "tpr": tpr, "thresholds": thresholds}
                 )
                 self._log_pandas_df_artifact(
-                    artifacts, temp_dir, roc_curve_pandas_df, run_id, "roc_curve", dataset_name, model,
+                    roc_curve_pandas_df, "roc_curve",
                 )
 
                 roc_auc = sk_metrics.auc(fpr, tpr)
-                metrics["roc_auc"] = roc_auc
+                self.metrics["roc_auc"] = roc_auc
 
                 def plot_roc_curve():
                     sk_metrics.RocCurveDisplay(
@@ -346,21 +344,21 @@ class DefaultEvaluator(ModelEvaluator):
 
                 if hasattr(sk_metrics, 'RocCurveDisplay'):
                     self._log_image_artifact(
-                        artifacts, temp_dir, plot_roc_curve, run_id, "roc_curve", dataset_name,
+                        plot_roc_curve, "roc_curve",
                     )
 
-                precision, recall, thresholds = sk_metrics.precision_recall_curve(y, y_prob)
+                precision, recall, thresholds = \
+                    sk_metrics.precision_recall_curve(self.y, self.y_prob)
                 thresholds = np.append(thresholds, [1.0], axis=0)
                 pr_curve_pandas_df = pd.DataFrame(
                     {"precision": precision, "recall": recall, "thresholds": thresholds}
                 )
                 self._log_pandas_df_artifact(
-                    artifacts, temp_dir, pr_curve_pandas_df, run_id, "precision_recall_curve",
-                    dataset_name, model,
+                    pr_curve_pandas_df, "precision_recall_curve",
                 )
 
                 pr_auc = sk_metrics.auc(recall, precision)
-                metrics["precision_recall_auc"] = pr_auc
+                self.metrics["precision_recall_auc"] = pr_auc
 
                 def plot_pr_curve():
                     sk_metrics.PrecisionRecallDisplay(
@@ -369,13 +367,11 @@ class DefaultEvaluator(ModelEvaluator):
 
                 if hasattr(sk_metrics, 'PrecisionRecallDisplay'):
                     self._log_image_artifact(
-                        artifacts, temp_dir, plot_pr_curve, run_id, "precision_recall_curve", dataset_name,
+                        plot_pr_curve, "precision_recall_curve",
                     )
 
                 self._log_image_artifact(
-                    artifacts, temp_dir,
-                    lambda: plot_lift_curve(y, y_probs),
-                    run_id, "lift_curve", dataset_name,
+                    lambda: plot_lift_curve(self.y, self.y_probs), "lift_curve",
                 )
 
             def plot_confusion_matrix():
@@ -383,43 +379,33 @@ class DefaultEvaluator(ModelEvaluator):
 
             if hasattr(sk_metrics, 'ConfusionMatrixDisplay'):
                 self._log_image_artifact(
-                    artifacts, temp_dir, plot_confusion_matrix, run_id, "confusion_matrix", dataset_name,
+                    plot_confusion_matrix, "confusion_matrix",
                 )
 
-        self._log_metrics(run_id, metrics, dataset_name)
+        self._log_metrics()
+        self._log_model_explainability()
+        return EvaluationResult(self.metrics, self.artifacts)
 
-        self._log_model_explainability(
-            artifacts, temp_dir, predict_fn, raw_model, X, dataset_name, feature_names, run_id, evaluator_config,
-            is_multinomial_classifier=(num_classes > 2)
-        )
+    def _evaluate_regressor(self):
+        self.y_pred = self.model.predict(self.X)
+        self.metrics["example_count"] = len(self.X)
+        self.metrics["mean_absolute_error"] = sk_metrics.mean_absolute_error(self.y, self.y_pred)
+        self.metrics["mean_squared_error"] = sk_metrics.mean_squared_error(self.y, self.y_pred)
+        self.metrics["root_mean_squared_error"] = math.sqrt(self.metrics["mean_squared_error"])
+        self.metrics['sum_on_label'] = sum(self.y)
+        self.metrics['mean_on_label'] = self.metrics['sum_on_label'] / self.metrics["example_count"]
+        self.metrics['r2_score'] = sk_metrics.r2_score(self.y, self.y_pred)
+        self.metrics['max_error'] = sk_metrics.max_error(self.y, self.y_pred)
+        self.metrics['mean_absolute_percentage_error'] = \
+            sk_metrics.mean_absolute_percentage_error(self.y, self.y_pred)
 
-        return EvaluationResult(metrics, artifacts)
+        raw_model, predict_fn, _ = _extract_raw_model_and_predict_fn(self.model)
+        self.raw_model = raw_model
+        self.predict_fn = predict_fn
 
-    def _evaluate_regressor(self, temp_dir, model, X, y, dataset_name, feature_names, run_id, evaluator_config):
-        metrics = EvaluationMetrics()
-        artifacts = {}
-        y_pred = model.predict(X)
-        metrics["example_count"] = len(X)
-        metrics["mean_absolute_error"] = sk_metrics.mean_absolute_error(y, y_pred)
-        metrics["mean_squared_error"] = sk_metrics.mean_squared_error(y, y_pred)
-        metrics["root_mean_squared_error"] = math.sqrt(metrics["mean_squared_error"])
-        metrics['sum_on_label'] = sum(y)
-        metrics['mean_on_label'] = metrics['sum_on_label'] / metrics["example_count"]
-        metrics['r2_score'] = sk_metrics.r2_score(y, y_pred)
-        metrics['max_error'] = sk_metrics.max_error(y, y_pred)
-        metrics['mean_absolute_percentage_error'] = \
-            sk_metrics.mean_absolute_percentage_error(y, y_pred)
-
-        raw_model, predict_fn, _ = self._extract_raw_model_and_predict_fn(
-            model
-        )
-
-        self._log_model_explainability(
-            artifacts, temp_dir, predict_fn, raw_model, X, dataset_name, feature_names, run_id, evaluator_config,
-            is_multinomial_classifier=False,
-        )
-        self._log_metrics(run_id, metrics, dataset_name)
-        return EvaluationResult(metrics, artifacts)
+        self._log_metrics()
+        self._log_model_explainability()
+        return EvaluationResult(self.metrics, self.artifacts)
 
     def evaluate(
         self,
@@ -431,7 +417,23 @@ class DefaultEvaluator(ModelEvaluator):
         **kwargs,
     ):
         with TempDir() as temp_dir:
+            self.client = mlflow.tracking.MlflowClient()
+
+            self.temp_dir = temp_dir
+            self.model = model
+            self.model_type = model_type
+            self.dataset = dataset
+            self.run_id = run_id
+            self.evaluator_config = evaluator_config
+            self.dataset_name = dataset.name
+            self.feature_names = dataset.feature_names
+
             X, y = dataset._extract_features_and_labels()
+            self.X = X
+            self.y = y
+            self.metrics = EvaluationMetrics()
+            self.artifacts = {}
+
             infered_model_type = _infer_model_type_by_labels(y)
 
             if model_type != infered_model_type:
@@ -442,12 +444,8 @@ class DefaultEvaluator(ModelEvaluator):
                 )
 
             if model_type == "classifier":
-                return self._evaluate_classifier(
-                    temp_dir, model, X, y, dataset.name, dataset.feature_names, run_id, evaluator_config
-                )
+                return self._evaluate_classifier()
             elif model_type == "regressor":
-                return self._evaluate_regressor(
-                    temp_dir, model, X, y, dataset.name, dataset.feature_names, run_id, evaluator_config
-                )
+                return self._evaluate_regressor()
             else:
                 raise ValueError(f"Unsupported model type {model_type}")
