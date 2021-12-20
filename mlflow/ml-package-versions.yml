@@ -220,8 +220,9 @@ onnx:
       git -c "http.extraheader=$auth_header" -c protocol.version=2 submodule update --init --force --recursive --depth=1
 
       # Build wheel
+      python_version=$(python -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
       docker run --rm -v $(pwd):/github/workspace --workdir /github/workspace --entrypoint bash \
-        quay.io/pypa/manylinux2010_x86_64 .github/workflows/manylinux/entrypoint.sh 3.7 manylinux2010_x86_64 pull_request
+        quay.io/pypa/manylinux2010_x86_64 .github/workflows/manylinux/entrypoint.sh $python_version manylinux2010_x86_64 pull_request
 
       # Install wheel
       pip install dist/*manylinux2010_x86_64.whl
