@@ -380,6 +380,8 @@ class DefaultEvaluator(ModelEvaluator):
             self.y_prob = None
 
         if predict_proba_fn is not None:
+            self.metrics['log_loss'] = sk_metrics.log_loss(self.y, self.y_probs)
+
             if self.is_binomial:
                 self._evaluate_per_class(None, self.y, self.y_pred, self.y_prob)
                 self._log_image_artifact(
