@@ -137,6 +137,10 @@ jobs:
         Rscript -e 'covr::codecov()' || :
       env:
         COVR_RUNNING: true
+    - name: Test package build
+      working-directory: mlflow/R/mlflow
+      run: |
+        ./build-package.sh
     - name: Show 00check.log on failure
       if: ${{ failure() }}
       run: |
