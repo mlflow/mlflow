@@ -256,40 +256,40 @@ def test_get_repl_id():
         assert databricks_utils.get_repl_id() == "testReplId2"
 
 
-def test_use_context_attribute_if_available():
+def test_use_repl_context_if_available(tmpdir):
+    # Create a fake databricks_repl_context module
+    tmpdir.mkdir("dbruntime").join("databricks_repl_context.py").write(
+        """
+def get_context():
+    pass
+"""
+    )
+    sys.path.append(tmpdir.strpath)
 
     with mock.patch(
-        "mlflow.utils.databricks_utils._get_context_attribute",
-        return_value="job_id",
-    ) as mock_context_metadata, mock.patch(
-        "mlflow.utils.databricks_utils._get_dbutils"
-    ) as mock_dbutils:
+        "dbruntime.databricks_repl_context.get_context",
+        return_value=mock.MagicMock(jobId="job_id"),
+    ) as mock_get_context, mock.patch("mlflow.utils.databricks_utils._get_dbutils") as mock_dbutils:
         assert databricks_utils.get_job_id() == "job_id"
-        mock_context_metadata.assert_called_once_with("jobId")
+        mock_get_context.assert_called_once()
         mock_dbutils.assert_not_called()
 
     with mock.patch(
-        "mlflow.utils.databricks_utils._get_context_attribute",
-        side_effect={"notebookId": "notebook_id", "isInNotebook": True}.get,
-    ) as mock_context_metadata, mock.patch(
+        "dbruntime.databricks_repl_context.get_context",
+        return_value=mock.MagicMock(notebookId="notebook_id"),
+    ) as mock_get_context, mock.patch(
         "mlflow.utils.databricks_utils._get_property_from_spark_context"
     ) as mock_spark_context:
         assert databricks_utils.get_notebook_id() == "notebook_id"
-        mock_context_metadata.assert_called_once_with("notebookId")
-        mock_context_metadata.reset_mock()
-        assert databricks_utils.is_in_databricks_notebook()
-        mock_context_metadata.assert_called_once_with("isInNotebook")
+        mock_get_context.assert_called_once()
         mock_spark_context.assert_not_called()
 
     with mock.patch(
-        "mlflow.utils.databricks_utils._get_context_attribute",
-        side_effect={"clusterId": "cluster_id", "isInCluster": True}.get,
-    ) as mock_context_metadata, mock.patch(
+        "dbruntime.databricks_repl_context.get_context",
+        return_value=mock.MagicMock(isInCluster=True),
+    ) as mock_get_context, mock.patch(
         "mlflow.utils._spark_utils._get_active_spark_session"
     ) as mock_spark_session:
-        assert databricks_utils.get_cluster_id() == "cluster_id"
-        mock_context_metadata.assert_called_once_with("clusterId")
-        mock_context_metadata.reset_mock()
         assert databricks_utils.is_in_cluster()
-        mock_context_metadata.assert_called_once_with("isInCluster")
+        mock_get_context.assert_called_once()
         mock_spark_session.assert_not_called()
