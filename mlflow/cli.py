@@ -123,7 +123,7 @@ def cli():
 )
 @click.option(
     "--run-name",
-    metavar="MLFLOW_RUN_NAME",
+    metavar="RUN_NAME",
     help="If specified, the name of the run will be stored (as a `mlflow.runName` tag).",
 )
 def run(
