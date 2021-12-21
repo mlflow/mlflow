@@ -33,6 +33,7 @@ from pyspark.sql import SparkSession
 
 from mlflow.tracking.artifact_utils import get_artifact_uri
 import json
+import uuid
 
 
 def get_iris():
@@ -42,6 +43,11 @@ def get_iris():
 
 def get_diabetes_dataset():
     data = sklearn.datasets.load_diabetes()
+    return data.data[:, :2], data.target
+
+
+def get_breast_cancer_dataset():
+    data = sklearn.datasets.load_breast_cancer()
     return data.data[:, :2], data.target
 
 
@@ -71,6 +77,27 @@ def spark_session():
 
 
 @pytest.fixture(scope="module")
+def iris_dataset():
+    X, y = get_iris()
+    eval_X, eval_y = X[0::3], y[0::3]
+    return EvaluationDataset(data=eval_X, labels=eval_y, name="iris_dataset")
+
+
+@pytest.fixture(scope="module")
+def diabetes_dataset():
+    X, y = get_diabetes_dataset()
+    eval_X, eval_y = X[0::3], y[0::3]
+    return EvaluationDataset(data=eval_X, labels=eval_y, name="diabetes_dataset")
+
+
+@pytest.fixture(scope="module")
+def breast_cancer_dataset():
+    X, y = get_breast_cancer_dataset()
+    eval_X, eval_y = X[0::3], y[0::3]
+    return EvaluationDataset(data=eval_X, labels=eval_y, name="breast_cancer_dataset")
+
+
+@pytest.fixture(scope="module")
 def regressor_model_uri():
     X, y = get_diabetes_dataset()
     reg = sklearn.linear_model.LinearRegression()
@@ -97,10 +124,16 @@ def classifier_model_uri():
 
 
 @pytest.fixture(scope="module")
-def iris_dataset():
-    X, y = get_iris()
-    eval_X, eval_y = X[0::3], y[0::3]
-    return EvaluationDataset(data=eval_X, labels=eval_y, name="iris_dataset")
+def binary_classifier_model_uri():
+    X, y = get_breast_cancer_dataset()
+    clf = sklearn.linear_model.LogisticRegression()
+    clf.fit(X, y)
+
+    with mlflow.start_run() as run:
+        mlflow.sklearn.log_model(clf, "bin_clf_model")
+        binary_classifier_model_uri = get_artifact_uri(run.info.run_id, "bin_clf_model")
+
+    return binary_classifier_model_uri
 
 
 @pytest.fixture(scope="module")
@@ -264,29 +297,35 @@ def test_spark_df_dataset(spark_session):
 
 
 def test_log_dataset_tag(iris_dataset, iris_pandas_df_dataset):
+    model_uuid = uuid.uuid4().hex
     with mlflow.start_run() as run:
         client = mlflow.tracking.MlflowClient()
-        iris_dataset._log_dataset_tag(client, run.info.run_id)
+        iris_dataset._log_dataset_tag(client, run.info.run_id, model_uuid=model_uuid)
         _, _, tags, _ = get_run_data(run.info.run_id)
-        assert json.loads(tags["mlflow.datasets"]) == [iris_dataset._metadata]
+
+        logged_meta1 = {**iris_dataset._metadata, 'model': model_uuid}
+        logged_meta2 = {**iris_pandas_df_dataset._metadata, 'model': model_uuid}
+
+        assert json.loads(tags["mlflow.datasets"]) == \
+            [logged_meta1]
 
         raw_tag = get_raw_tag(run.info.run_id, "mlflow.datasets")
         assert " " not in raw_tag  # assert the tag string remove all whitespace chars.
 
         # Test appending dataset tag
-        iris_pandas_df_dataset._log_dataset_tag(client, run.info.run_id)
+        iris_pandas_df_dataset._log_dataset_tag(client, run.info.run_id, model_uuid=model_uuid)
         _, _, tags, _ = get_run_data(run.info.run_id)
         assert json.loads(tags["mlflow.datasets"]) == [
-            iris_dataset._metadata,
-            iris_pandas_df_dataset._metadata,
+            logged_meta1,
+            logged_meta2,
         ]
 
         # Test log repetitive dataset
-        iris_dataset._log_dataset_tag(client, run.info.run_id)
+        iris_dataset._log_dataset_tag(client, run.info.run_id, model_uuid=model_uuid)
         _, _, tags, _ = get_run_data(run.info.run_id)
         assert json.loads(tags["mlflow.datasets"]) == [
-            iris_dataset._metadata,
-            iris_pandas_df_dataset._metadata,
+            logged_meta1,
+            logged_meta2,
         ]
 
 
@@ -337,14 +376,18 @@ def test_evaluator_interface(classifier_model_uri, iris_dataset):
             FakeEvauator1, "evaluate", return_value=evaluator1_return_value
         ) as mock_evaluate:
             with mlflow.start_run():
-                evaluate(
-                    classifier_model_uri,
-                    "classifier",
-                    iris_dataset,
-                    run_id=None,
-                    evaluators="test_evaluator1",
-                    evaluator_config=evaluator1_config,
-                )
+                with pytest.raises(
+                    ValueError,
+                    match='The model could not be evaluated by any of the registered evaluators',
+                ):
+                    evaluate(
+                        classifier_model_uri,
+                        "classifier",
+                        iris_dataset,
+                        run_id=None,
+                        evaluators="test_evaluator1",
+                        evaluator_config=evaluator1_config,
+                    )
                 mock_can_evaluate.assert_called_once_with("classifier", evaluator1_config)
                 mock_evaluate.assert_not_called()
         with mock.patch.object(
@@ -462,3 +505,7 @@ def test_start_run_or_reuse_active_run():
         with pytest.raises(ValueError, match="An active run exists"):
             with _start_run_or_reuse_active_run(run_id=previous_run_id):
                 pass
+
+
+
+

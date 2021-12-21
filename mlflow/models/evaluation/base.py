@@ -408,9 +408,7 @@ class EvaluationDataset:
                     metadata["model"] == model_uuid:
                 break
         else:
-            new_metadata = self._metadata
-            new_metadata["model"] = model_uuid
-            dataset_metadata_list.append(new_metadata)
+            dataset_metadata_list.append({**self._metadata, "model": model_uuid})
 
         dataset_metadata_str = json.dumps(dataset_metadata_list, separators=(",", ":"))
         client.log_batch(
