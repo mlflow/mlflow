@@ -19,3 +19,7 @@ Reference_Manual_mlflow.md
 ^logs/
 ^depends\.Rds
 ^R-version
+^\.utils\.R$
+^\.build-package\.R$
+^build-package\.sh$
+^Dockerfile\.build$
