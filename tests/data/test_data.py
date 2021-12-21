@@ -50,7 +50,7 @@ def test_download_uri():
     # Verify exceptions are thrown when downloading from unsupported/invalid URIs
     invalid_prefixes = ["file://", "/tmp"]
     for prefix in invalid_prefixes:
-        with temp_directory() as dst_dir, pytest.raises(DownloadException):
+        with temp_directory() as dst_dir, pytest.raises(DownloadException, match="`uri` must be"):
             download_uri(
                 uri=os.path.join(prefix, "some/path"), output_path=os.path.join(dst_dir, "tmp-file")
             )

@@ -22,36 +22,39 @@ def test_artifact_uri_factory():
     assert isinstance(repo, MlflowArtifactsRepository)
 
 
-def test_mlflow_artifact_uri_formats_resolved():
-    base_url = "/api/2.0/mlflow-artifacts/artifacts"
-    base_path = "/my/artifact/path"
-    conditions = [
-        (
-            f"mlflow-artifacts://myhostname:4242{base_path}/hostport",
-            f"http://myhostname:4242{base_url}{base_path}/hostport",
-        ),
-        (
-            f"mlflow-artifacts://myhostname{base_path}/host",
-            f"http://myhostname{base_url}{base_path}/host",
-        ),
-        (
-            f"mlflow-artifacts:{base_path}/nohost",
-            f"http://localhost:5000{base_url}{base_path}/nohost",
-        ),
-        (
-            f"mlflow-artifacts://{base_path}/redundant",
-            f"http://localhost:5000{base_url}{base_path}/redundant",
-        ),
-        (
-            "mlflow-artifacts:/",
-            f"http://localhost:5000{base_url}",
-        ),
-    ]
+base_url = "/api/2.0/mlflow-artifacts/artifacts"
+base_path = "/my/artifact/path"
+conditions = [
+    (
+        f"mlflow-artifacts://myhostname:4242{base_path}/hostport",
+        f"http://myhostname:4242{base_url}{base_path}/hostport",
+    ),
+    (
+        f"mlflow-artifacts://myhostname{base_path}/host",
+        f"http://myhostname{base_url}{base_path}/host",
+    ),
+    (
+        f"mlflow-artifacts:{base_path}/nohost",
+        f"http://localhost:5000{base_url}{base_path}/nohost",
+    ),
+    (
+        f"mlflow-artifacts://{base_path}/redundant",
+        f"http://localhost:5000{base_url}{base_path}/redundant",
+    ),
+    ("mlflow-artifacts:/", f"http://localhost:5000{base_url}"),
+]
+
+
+@pytest.mark.parametrize("tracking_uri", ["http://localhost:5000", "http://localhost:5000/"])
+@pytest.mark.parametrize("artifact_uri, resolved_uri", conditions)
+def test_mlflow_artifact_uri_formats_resolved(artifact_uri, resolved_uri, tracking_uri):
+
+    assert MlflowArtifactsRepository.resolve_uri(artifact_uri, tracking_uri) == resolved_uri
+
+
+def test_mlflow_artifact_uri_raises_with_invalid_tracking_uri():
     failing_conditions = [f"mlflow-artifacts://5000/{base_path}", "mlflow-artifacts://5000/"]
 
-    for submit, resolved in conditions:
-        artifact_repo = MlflowArtifactsRepository(submit)
-        assert artifact_repo.resolve_uri(submit) == resolved
     for failing_condition in failing_conditions:
         with pytest.raises(
             MlflowException,

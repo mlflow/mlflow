@@ -54,6 +54,8 @@ services:
       --port 5500
       --artifacts-destination s3://bucket
       --gunicorn-opts "--log-level debug"
+      --serve-artifacts
+      --artifacts-only
 
   postgres:
     image: postgres

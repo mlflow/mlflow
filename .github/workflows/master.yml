@@ -41,7 +41,10 @@ jobs:
       run: |
         source ./dev/install-common-deps.sh
         pip install -r requirements/lint-requirements.txt
-    - name: Run tests
+    - name: Test custom pylint-plugins
+      run : |
+        pytest tests/pylint_plugins
+    - name: Run lint checks
       run: |
         ./dev/lint.sh
   r:
@@ -134,6 +137,10 @@ jobs:
         Rscript -e 'covr::codecov()' || :
       env:
         COVR_RUNNING: true
+    - name: Test package build
+      working-directory: mlflow/R/mlflow
+      run: |
+        ./build-package.sh
     - name: Show 00check.log on failure
       if: ${{ failure() }}
       run: |

@@ -240,7 +240,7 @@ def test_get_installed_version(tmpdir):
     not_found_package = tmpdir.join("not_found.py")
     not_found_package.write("__version__ = '1.2.3'")
     sys.path.insert(0, tmpdir.strpath)
-    with pytest.raises(importlib_metadata.PackageNotFoundError):
+    with pytest.raises(importlib_metadata.PackageNotFoundError, match=r".+"):
         importlib_metadata.version("not_found")
     assert _get_installed_version("not_found") == "1.2.3"
 
@@ -252,7 +252,7 @@ def test_get_pinned_requirement(tmpdir):
     not_found_package = tmpdir.join("not_found.py")
     not_found_package.write("__version__ = '1.2.3'")
     sys.path.insert(0, tmpdir.strpath)
-    with pytest.raises(importlib_metadata.PackageNotFoundError):
+    with pytest.raises(importlib_metadata.PackageNotFoundError, match=r".+"):
         importlib_metadata.version("not_found")
     assert _get_pinned_requirement("not_found") == "not_found==1.2.3"
 

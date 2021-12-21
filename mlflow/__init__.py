@@ -27,6 +27,8 @@ implement mutual exclusion manually.
 
 For a lower level API, see the :py:mod:`mlflow.tracking` module.
 """
+import sys
+
 from mlflow.version import VERSION as __version__  # pylint: disable=unused-import
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
 import mlflow.tracking._model_registry.fluent
@@ -42,6 +44,7 @@ warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
 
 import mlflow.projects as projects
 import mlflow.tracking as tracking
+import mlflow.models
 
 # model flavors
 _model_flavors_supported = []
@@ -97,25 +100,24 @@ except ImportError as e:
 
 _configure_mlflow_loggers(root_module_name=__name__)
 
-# TODO: Uncomment this block when deprecating Python 3.6 support
-# _major = 3
-# _minor = 6
-# _deprecated_version = (_major, _minor)
-# _min_supported_version = (_major, _minor + 1)
+_major = 3
+_minor = 6
+_deprecated_version = (_major, _minor)
+_min_supported_version = (_major, _minor + 1)
 
-# if sys.version_info[:2] == _deprecated_version:
-#     warnings.warn(
-#         "MLflow support for Python {dep_ver} is deprecated and will be dropped in "
-#         "an upcoming release. At that point, existing Python {dep_ver} workflows "
-#         "that use MLflow will continue to work without modification, but Python {dep_ver} "
-#         "users will no longer get access to the latest MLflow features and bugfixes. "
-#         "We recommend that you upgrade to Python {min_ver} or newer.".format(
-#             dep_ver=".".join(map(str, _deprecated_version)),
-#             min_ver=".".join(map(str, _min_supported_version)),
-#         ),
-#         FutureWarning,
-#         stacklevel=2,
-#     )
+if sys.version_info[:2] == _deprecated_version:
+    warnings.warn(
+        "MLflow support for Python {dep_ver} is deprecated and will be dropped in "
+        "an upcoming release. At that point, existing Python {dep_ver} workflows "
+        "that use MLflow will continue to work without modification, but Python {dep_ver} "
+        "users will no longer get access to the latest MLflow features and bugfixes. "
+        "We recommend that you upgrade to Python {min_ver} or newer.".format(
+            dep_ver=".".join(map(str, _deprecated_version)),
+            min_ver=".".join(map(str, _min_supported_version)),
+        ),
+        FutureWarning,
+        stacklevel=2,
+    )
 
 ActiveRun = mlflow.tracking.fluent.ActiveRun
 log_param = mlflow.tracking.fluent.log_param
@@ -151,7 +153,7 @@ delete_experiment = mlflow.tracking.fluent.delete_experiment
 delete_run = mlflow.tracking.fluent.delete_run
 register_model = mlflow.tracking._model_registry.fluent.register_model
 autolog = mlflow.tracking.fluent.autolog
-
+evaluate = mlflow.models.evaluate
 
 run = projects.run
 
@@ -191,4 +193,5 @@ __all__ = [
     "set_registry_uri",
     "list_run_infos",
     "autolog",
+    "evaluate",
 ] + _model_flavors_supported

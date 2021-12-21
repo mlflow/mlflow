@@ -97,9 +97,8 @@ def test_sqlalchemy_store_detects_schema_mismatch(
     tmpdir, db_url
 ):  # pylint: disable=unused-argument
     def _assert_invalid_schema(engine):
-        with pytest.raises(MlflowException) as ex:
+        with pytest.raises(MlflowException, match="Detected out-of-date database schema."):
             _verify_schema(engine)
-            assert ex.message.contains("Detected out-of-date database schema.")
 
     # Initialize an empty database & verify that we detect a schema mismatch
     engine = sqlalchemy.create_engine(db_url)

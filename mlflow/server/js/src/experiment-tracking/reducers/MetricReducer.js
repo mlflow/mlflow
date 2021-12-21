@@ -55,7 +55,7 @@ export const latestMetricsByRunUuid = (state = {}, action) => {
     }
     case fulfilled(GET_METRIC_HISTORY_API): {
       const newState = { ...state };
-      const { runUuid, key } = action.meta.runUuid;
+      const { runUuid, key } = action.meta;
       const { metrics } = action.payload;
       if (metrics && metrics.length > 0) {
         const lastMetric = Metric.fromJs(metrics[metrics.length - 1]);

@@ -33,7 +33,7 @@ def test_extract_db_type_from_uri():
         assert legit_db == get_uri_scheme(uri.format(with_driver))
 
     for unsupported_db in ["a", "aa", "sql"]:
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match="Invalid database engine"):
             extract_db_type_from_uri(unsupported_db)
 
 
@@ -56,6 +56,15 @@ def test_get_db_info_from_uri(server_uri, result):
 
 @pytest.mark.parametrize(
     "server_uri",
+    ["databricks:/profile:prefix", "databricks:/", "databricks://"],
+)
+def test_get_db_info_from_uri_errors_no_netloc(server_uri):
+    with pytest.raises(MlflowException, match="URI is formatted incorrectly"):
+        get_db_info_from_uri(server_uri)
+
+
+@pytest.mark.parametrize(
+    "server_uri",
     [
         "databricks://profile:prefix:extra",
         "databricks://profile:prefix:extra  ",
@@ -64,13 +73,10 @@ def test_get_db_info_from_uri(server_uri, result):
         "databricks://profile ",
         "databricks://profile:",
         "databricks://profile: ",
-        "databricks:/profile:prefix",
-        "databricks:/",
-        "databricks://",
     ],
 )
-def test_get_db_info_from_uri_errors(server_uri):
-    with pytest.raises(MlflowException):
+def test_get_db_info_from_uri_errors_invalid_profile(server_uri):
+    with pytest.raises(MlflowException, match="Unsupported Databricks profile"):
         get_db_info_from_uri(server_uri)
 
 
@@ -120,7 +126,9 @@ def test_construct_run_url(hostname, experiment_id, run_id, workspace_id, result
     ],
 )
 def test_construct_run_url_errors(hostname, experiment_id, run_id, workspace_id):
-    with pytest.raises(MlflowException):
+    with pytest.raises(
+        MlflowException, match="Hostname, experiment ID, and run ID are all required"
+    ):
         construct_run_url(hostname, experiment_id, run_id, workspace_id)
 
 
@@ -417,7 +425,7 @@ def test_get_databricks_profile_uri_from_artifact_uri(uri, result):
     ],
 )
 def test_get_databricks_profile_uri_from_artifact_uri_error_cases(uri):
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="Unsupported Databricks profile"):
         get_databricks_profile_uri_from_artifact_uri(uri)
 
 
@@ -519,7 +527,7 @@ def test_add_databricks_profile_info_to_artifact_uri(artifact_uri, profile_uri, 
     ],
 )
 def test_add_databricks_profile_info_to_artifact_uri_errors(artifact_uri, profile_uri):
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="Unsupported Databricks profile"):
         add_databricks_profile_info_to_artifact_uri(artifact_uri, profile_uri)
 
 
@@ -564,5 +572,5 @@ def test_dbfs_hdfs_uri_to_fuse_path(uri, result):
     ["some/relative/local/path", "s3:/some/s3/path", "C:/cool/windows/path"],
 )
 def test_dbfs_hdfs_uri_to_fuse_path_raises(path):
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="did not start with expected DBFS URI prefix"):
         dbfs_hdfs_uri_to_fuse_path(path)

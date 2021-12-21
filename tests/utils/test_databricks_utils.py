@@ -5,6 +5,7 @@ import pytest
 from mlflow.utils import databricks_utils
 from databricks_cli.configure.provider import DatabricksConfig
 
+from mlflow.exceptions import MlflowException
 from mlflow.utils.databricks_utils import (
     get_workspace_info_from_dbutils,
     get_workspace_info_from_databricks_secrets,
@@ -80,14 +81,14 @@ def test_databricks_registry_profile(ProfileConfigProvider):
 @mock.patch("databricks_cli.configure.provider.get_config")
 def test_databricks_empty_uri(get_config):
     get_config.return_value = None
-    with pytest.raises(Exception):
+    with pytest.raises(MlflowException, match="Got malformed Databricks CLI profile"):
         databricks_utils.get_databricks_host_creds("")
 
 
 @mock.patch("databricks_cli.configure.provider.get_config")
 def test_databricks_single_slash_in_uri_scheme_throws(get_config):
     get_config.return_value = None
-    with pytest.raises(Exception):
+    with pytest.raises(MlflowException, match="URI is formatted incorrectly"):
         databricks_utils.get_databricks_host_creds("databricks:/profile:path")
 
 
@@ -196,7 +197,7 @@ def test_databricks_params_throws_errors(ProfileConfigProvider):
         None, "user", "pass", insecure=True
     )
     ProfileConfigProvider.return_value = mock_provider
-    with pytest.raises(Exception):
+    with pytest.raises(Exception, match="You haven't configured the CLI yet"):
         databricks_utils.get_databricks_host_creds()
 
     # No authentication
@@ -205,7 +206,7 @@ def test_databricks_params_throws_errors(ProfileConfigProvider):
         "host", None, None, insecure=True
     )
     ProfileConfigProvider.return_value = mock_provider
-    with pytest.raises(Exception):
+    with pytest.raises(Exception, match="You haven't configured the CLI yet"):
         databricks_utils.get_databricks_host_creds()
 
 

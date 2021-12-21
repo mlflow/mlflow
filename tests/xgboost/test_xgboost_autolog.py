@@ -393,7 +393,7 @@ def test_xgb_autolog_does_not_throw_if_importance_values_not_supported(dtrain):
     #   importance values on a model with a linear booster.
     model = xgb.train(bst_params, dtrain)
 
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError, match="Feature importance is not defined"):
         model.get_score(importance_type="weight")
 
 

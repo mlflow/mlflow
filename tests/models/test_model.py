@@ -44,6 +44,7 @@ def test_model_save_load():
         saved_input_example_info={"x": 1, "y": 2},
     )
     n.utc_time_created = m.utc_time_created
+    n.model_uuid = m.model_uuid
     assert m == n
     n.signature = None
     assert m != n
@@ -163,3 +164,31 @@ def test_model_log_with_input_example_succeeds():
         # date column will get deserialized into string
         input_example["d"] = input_example["d"].apply(lambda x: x.isoformat())
         assert x.equals(input_example)
+
+
+def _is_valid_uuid(val):
+    import uuid
+
+    try:
+        uuid.UUID(str(val))
+        return True
+    except ValueError:
+        return False
+
+
+def test_model_uuid():
+    m = Model()
+    assert m.model_uuid is not None
+    assert _is_valid_uuid(m.model_uuid)
+
+    m2 = Model()
+    assert m.model_uuid != m2.model_uuid
+
+    m_dict = m.to_dict()
+    assert m_dict["model_uuid"] == m.model_uuid
+    m3 = Model.from_dict(m_dict)
+    assert m3.model_uuid == m.model_uuid
+
+    m_dict.pop("model_uuid")
+    m4 = Model.from_dict(m_dict)
+    assert m4.model_uuid is None

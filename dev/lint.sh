@@ -10,8 +10,10 @@ echo -e "\n========== black ==========\n"
 black --check .
 
 if [ $? -ne 0 ]; then
-  echo 'Run this command to apply Black formatting:'
-  echo '$ pip install $(cat requirements/lint-requirements.txt | grep "black==") && black .'
+  echo '
+To apply black foramtting, do one of the following:
+- Run `pip install $(cat requirements/lint-requirements.txt | grep "^black==") && black .`
+- Comment `autoformat` on the PR'
 fi
 
 echo -e "\n========== pylint ==========\n"
