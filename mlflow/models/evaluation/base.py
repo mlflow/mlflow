@@ -186,6 +186,10 @@ class EvaluationDataset:
         import numpy as np
         import pandas as pd
 
+        # TODO:
+        #  for pandas.DataFrame input, check column type and raise error if unsupported column
+        #   found
+        #  For spark DataFrame input, support feature column with `pyspark.ml.Vector` column type.
         try:
             # add checking `'pyspark' in sys.modules` to avoid importing pyspark when user
             # run code not related to pyspark.
@@ -504,10 +508,11 @@ def _normalize_evaluators_and_evaluator_config_args(
     if evaluators is None:
         evaluator_name_list = list(_model_evaluation_registry._registry.keys())
         if len(evaluator_name_list) > 1:
-            print(f'Multiple registered evaluators are found {evaluator_name_list} and '
-                  'they will all be used in evaluation if they support the specified model type. '
-                  'If you want to evaluate with one evaluator, specify the `evaluator` argument '
-                  'and (optional) specify the `evaluator_config` argument.')
+            _logger.warning(
+                f'Multiple registered evaluators are found {evaluator_name_list} and '
+                'they will all be used in evaluation if they support the specified model type. '
+                'If you want to evaluate with one evaluator, specify the `evaluator` argument '
+                'and (optional) specify the `evaluator_config` argument.')
         if evaluator_config is not None:
             conf_dict_value_error = ValueError(
                 "If `evaluators` argument is None, all available evaluators will be used. "
@@ -637,9 +642,11 @@ def evaluate(
 
     The default evaluator supports the 'regressor' and 'classifer' `model_type`s. The available
     `evaluator_config` options for the default evaluator include:
-     - log_model_explainability: The number of rows to use for calculating model explainability.
-     - explainality_algorithm: A string to specify the shap explainer algorithm. If not set, it will
-       choose the best fit explainer according to the model.
+     - log_model_explainability: A boolean value to specify whether log model explainability,
+       default value is True.
+     - explainality_algorithm: A string to specify the shap explainer algorithm. If not set,
+       it will run `shap.Explainer` with "auto" algorithm, which choose the best fit explainer
+        according to the model.
      - explainability_nsamples: The number of sample rows to use for calculating model
        explainability. Default value is 2000.
     """
