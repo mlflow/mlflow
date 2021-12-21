@@ -59,8 +59,6 @@ Suggests:
     stringi (< 1.4.4),
     testthat (>= 2.0.0),
     xgboost
-Enhances:
-    mleap
 Encoding: UTF-8
 RoxygenNote: 7.1.2
 Collate:
@@ -77,7 +75,6 @@ Collate:
     'model-utils.R'
     'model-h2o.R'
     'model-keras.R'
-    'model-mleap.R'
     'model-registry.R'
     'model-serve.R'
     'model-swagger.R'

@@ -68,7 +68,6 @@ def get_default_pip_requirements():
             _get_pinned_requirement,
             [
                 "torch",
-                "torchvision",
                 # We include CloudPickle in the default environment because
                 # it's required by the default pickle module used by `save_model()`
                 # and `log_model()`: `mlflow.pytorch.pickle_module`.
@@ -103,7 +102,6 @@ def get_default_conda_env():
                    'channels': ['conda-forge'],
                    'dependencies': ['python=3.7.5',
                                     {'pip': ['torch==1.5.1',
-                                             'torchvision==0.6.1',
                                              'mlflow',
                                              'cloudpickle==1.6.0']}]}
     """
@@ -635,7 +633,8 @@ def _load_model(path, **kwargs):
             return torch.load(model_path, **kwargs)
         except Exception:
             # If fails, assume the model as a scripted model
-            return torch.jit.load(model_path)
+            kwargs.pop("pickle_module", None)  # `torch.jit.load` does not accept `pickle_module`.
+            return torch.jit.load(model_path, **kwargs)
 
 
 def load_model(model_uri, dst_path=None, **kwargs):

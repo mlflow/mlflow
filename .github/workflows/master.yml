@@ -106,9 +106,6 @@ jobs:
       run: |
         install.packages("devtools")
         remotes::install_deps('mlflow/R/mlflow', dependencies = TRUE, upgrade = FALSE)
-        # Install `mleap` from archive since it's unavailable on the CRAN repository:
-        # https://cran.r-project.org/package=mleap
-        devtools::install_url("https://cran.r-project.org/src/contrib/Archive/mleap/mleap_1.0.0.tar.gz")
       shell: Rscript {0}
     - name: Create test environment
       run: |
@@ -140,6 +137,10 @@ jobs:
         Rscript -e 'covr::codecov()' || :
       env:
         COVR_RUNNING: true
+    - name: Test package build
+      working-directory: mlflow/R/mlflow
+      run: |
+        ./build-package.sh
     - name: Show 00check.log on failure
       if: ${{ failure() }}
       run: |
