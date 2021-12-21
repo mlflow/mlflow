@@ -8,6 +8,7 @@ import atexit
 import time
 import logging
 import inspect
+from copy import deepcopy
 from packaging.version import Version
 from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
@@ -278,15 +279,15 @@ def start_run(
 
         exp_id_for_run = experiment_id if experiment_id is not None else _get_experiment_id()
 
-        user_specified_tags = tags or {}
+        user_specified_tags = deepcopy(tags) or {}
         if parent_run_id is not None:
             user_specified_tags[MLFLOW_PARENT_RUN_ID] = parent_run_id
         if run_name is not None:
             user_specified_tags[MLFLOW_RUN_NAME] = run_name
 
-        tags = context_registry.resolve_tags(user_specified_tags)
+        run_tags = context_registry.resolve_tags(user_specified_tags)
 
-        active_run_obj = client.create_run(experiment_id=exp_id_for_run, tags=tags)
+        active_run_obj = client.create_run(experiment_id=exp_id_for_run, tags=run_tags)
 
     _active_run_stack.append(ActiveRun(active_run_obj))
     return _active_run_stack[-1]
