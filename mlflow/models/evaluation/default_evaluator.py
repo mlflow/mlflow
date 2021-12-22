@@ -193,9 +193,12 @@ class DefaultEvaluator(ModelEvaluator):
             global _shap_initialized
             import shap
             import shap.maskers
+            from IPython.core.display import display, HTML
 
             if not _shap_initialized:
-                shap.initjs()
+                # Call `shap.getjs` instead of call `shap.initjs` to prevent
+                # display a logo picture in IPython notebook.
+                display(HTML(shap.getjs()))
                 _shap_initialized = True
         except ImportError:
             _logger.warning('Shap package is not installed. Skip log model explainability.')

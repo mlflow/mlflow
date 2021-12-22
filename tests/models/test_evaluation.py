@@ -1,4 +1,5 @@
 import mlflow
+from collections import namedtuple
 
 from mlflow.models.evaluation import (
     evaluate,
@@ -38,17 +39,20 @@ import uuid
 
 def get_iris():
     iris = sklearn.datasets.load_iris()
-    return iris.data[:, :2], iris.target
+    return iris.data, iris.target
 
 
 def get_diabetes_dataset():
     data = sklearn.datasets.load_diabetes()
-    return data.data[:, :2], data.target
+    return data.data, data.target
 
 
 def get_breast_cancer_dataset():
     data = sklearn.datasets.load_breast_cancer()
-    return data.data[:, :2], data.target
+    return data.data, data.target
+
+
+RunData = namedtuple('RunData', ['params', 'metrics', 'tags', 'artifacts'])
 
 
 def get_run_data(run_id):
@@ -56,7 +60,7 @@ def get_run_data(run_id):
     data = client.get_run(run_id).data
     tags = {k: v for k, v in data.tags.items()}
     artifacts = [f.path for f in client.list_artifacts(run_id)]
-    return data.params, data.metrics, tags, artifacts
+    return RunData(params=data.params, metrics=data.metrics, tags=tags, artifacts=artifacts)
 
 
 def get_raw_tag(run_id, tag_name):
@@ -505,7 +509,4 @@ def test_start_run_or_reuse_active_run():
         with pytest.raises(ValueError, match="An active run exists"):
             with _start_run_or_reuse_active_run(run_id=previous_run_id):
                 pass
-
-
-
 
