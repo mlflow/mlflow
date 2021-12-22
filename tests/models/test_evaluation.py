@@ -31,6 +31,8 @@ from sklearn.metrics import (
 )
 
 from pyspark.sql import SparkSession
+from pyspark.ml.linalg import Vectors
+from pyspark.ml.regression import LinearRegression as SparkLinearRegression
 
 from mlflow.tracking.artifact_utils import get_artifact_uri
 import json
@@ -45,6 +47,15 @@ def get_iris():
 def get_diabetes_dataset():
     data = sklearn.datasets.load_diabetes()
     return data.data, data.target
+
+
+def get_diabetes_spark_dataset():
+    data = sklearn.datasets.load_diabetes()
+    spark = SparkSession.builder.master("local[*]").getOrCreate()
+    rows = [(Vectors.dense(features), float(label))
+            for features, label in zip(data.data, data.target)]
+
+    return spark.createDataFrame(rows, ['features', 'label'])
 
 
 def get_breast_cancer_dataset():
@@ -95,6 +106,12 @@ def diabetes_dataset():
 
 
 @pytest.fixture(scope="module")
+def diabetes_spark_dataset():
+    spark_df = get_diabetes_spark_dataset().sample(fraction=0.3, seed=1)
+    return EvaluationDataset(data=spark_df, labels='label', name="diabetes_spark_dataset")
+
+
+@pytest.fixture(scope="module")
 def breast_cancer_dataset():
     X, y = get_breast_cancer_dataset()
     eval_X, eval_y = X[0::3], y[0::3]
@@ -112,6 +129,19 @@ def regressor_model_uri():
         regressor_model_uri = get_artifact_uri(run.info.run_id, "reg_model")
 
     return regressor_model_uri
+
+
+@pytest.fixture(scope="module")
+def spark_regressor_model_uri():
+    spark_df = get_diabetes_spark_dataset()
+    reg = SparkLinearRegression()
+    spark_reg_model = reg.fit(spark_df)
+
+    with mlflow.start_run() as run:
+        mlflow.spark.log_model(spark_reg_model, "spark_reg_model")
+        spark_regressor_model_uri = get_artifact_uri(run.info.run_id, "spark_reg_model")
+
+    return spark_regressor_model_uri
 
 
 @pytest.fixture(scope="module")

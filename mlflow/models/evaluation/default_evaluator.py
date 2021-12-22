@@ -7,7 +7,6 @@ from mlflow.models.evaluation.base import (
 )
 from mlflow.entities.metric import Metric
 from mlflow.utils.file_utils import TempDir
-from mlflow.tracking.artifact_utils import get_artifact_uri
 from mlflow.utils.string_utils import truncate_str_from_middle
 
 from sklearn import metrics as sk_metrics

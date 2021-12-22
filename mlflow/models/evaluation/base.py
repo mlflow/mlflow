@@ -195,8 +195,10 @@ class EvaluationDataset:
             # run code not related to pyspark.
             if 'pyspark' in sys.modules:
                 from pyspark.sql import DataFrame as SparkDataFrame
+                from pyspark.ml.linalg import VectorUDT as SparkVectorUDT
                 supported_dataframe_types = (pd.DataFrame, SparkDataFrame)
                 self._spark_df_type = SparkDataFrame
+                self._spark_vector_type = SparkVectorUDT
             else:
                 supported_dataframe_types = (pd.DataFrame,)
                 self._spark_df_type = None
@@ -375,7 +377,26 @@ class EvaluationDataset:
                 column_names = ",".join(self.data.columns)
                 meta_str = f"columns={column_names}\nlabels={self.labels}"
                 md5_gen.update(meta_str.encode("UTF-8"))
-                EvaluationDataset._gen_md5_for_arraylike_obj(md5_gen, self.data)
+
+                data_for_hash = self.data
+
+                if self._spark_df_type and isinstance(self._original_data, self._spark_df_type):
+                    # For spark dataframe, the Vector type column we need expand it
+                    # into multiple columns, otherwise pandas hash function cannot compute hash
+                    # over it.
+                    transform_func = {}
+                    for field in self._original_data.schema:
+                        if isinstance(field.dataType, self._spark_vector_type):
+                            transform_func[field.name] = lambda x: pd.Series(x.toArray())
+                        else:
+                            transform_func[field.name] = lambda x: x
+
+                    data_for_hash = self.data.transform(transform_func)
+
+                # TODO:
+                #  For array/list type column values in pandas DataFrame, pandas hash function
+                #  also cannot support it, expand them if we need support them.
+                EvaluationDataset._gen_md5_for_arraylike_obj(md5_gen, data_for_hash)
             self._hash = md5_gen.hexdigest()
         return self._hash
 
