@@ -68,21 +68,24 @@ FLAVOR_NAME = "lightgbm"
 _logger = logging.getLogger(__name__)
 
 
-def get_default_pip_requirements():
+def get_default_pip_requirements(include_cloudpickle=False):
     """
     :return: A list of default pip requirements for MLflow Models produced by this flavor.
              Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
              that, at minimum, contains these requirements.
     """
-    return [_get_pinned_requirement("lightgbm"), _get_pinned_requirement("cloudpickle")]
+    pip_deps = [_get_pinned_requirement("lightgbm")]
+    if include_cloudpickle:
+        pip_deps.append(_get_pinned_requirement("cloudpickle"))
+    return pip_deps
 
 
-def get_default_conda_env():
+def get_default_conda_env(include_cloudpickle=False):
     """
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
-    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
+    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements(include_cloudpickle))
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
@@ -133,10 +136,7 @@ def save_model(
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise MlflowException("Path '{}' already exists".format(path))
-    if isinstance(lgb_model, lgb.Booster):
-        model_data_subpath = "model.lgb"
-    else:
-        model_data_subpath = "model.pkl"
+    model_data_subpath = "model.lgb" if isinstance(lgb_model, lgb.Booster) else "model.pkl"
     model_data_path = os.path.join(path, model_data_subpath)
     os.makedirs(path)
     if mlflow_model is None:
@@ -146,8 +146,8 @@ def save_model(
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
 
-    # Save a LightGBM model
-    _save_model(lgb_model, model_data_path)
+    # Save a LightGBM model and retrieve its model type
+    is_sklearn_model = _save_model(lgb_model, model_data_path)
 
     lgb_model_class = _get_fully_qualified_class_name(lgb_model)
     pyfunc.add_to_model(
@@ -166,7 +166,7 @@ def save_model(
 
     if conda_env is None:
         if pip_requirements is None:
-            default_reqs = get_default_pip_requirements()
+            default_reqs = get_default_pip_requirements(include_cloudpickle=is_sklearn_model)
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
@@ -197,17 +197,24 @@ def save_model(
 
 
 def _save_model(lgb_model, model_path):
-    # LightGBM Boosters are saved using the built-in method `save_model()`,
-    # whereas LightGBM scikit-learn models are serialized using Cloudpickle.
+    """
+    LightGBM Boosters are saved using the built-in method `save_model()`,
+    whereas LightGBM scikit-learn models are serialized using Cloudpickle.
+
+    :return: A boolean value indicating whether the save model is a scikit-learn
+             model. The returned value will be passed to `get_default_pip_requirements`.
+    """
     import lightgbm as lgb
 
     if isinstance(lgb_model, lgb.Booster):
         lgb_model.save_model(model_path)
+        return False
     else:
         import cloudpickle
 
         with open(model_path, "wb") as out:
             cloudpickle.dump(lgb_model, out)
+        return True
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
@@ -329,7 +336,8 @@ def load_model(model_uri, dst_path=None):
                      This directory must already exist. If unspecified, a local output
                      path will be created.
 
-    :return: A LightGBM model (an instance of `lightgbm.Booster`_).
+    :return: A LightGBM model (an instance of `lightgbm.Booster`_) or a LightGBM scikit-learn
+             model, depending on the saved model class specification.
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     return _load_model(path=local_model_path)
