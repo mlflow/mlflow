@@ -147,7 +147,7 @@ def spark_regressor_model_uri():
 @pytest.fixture(scope="module")
 def classifier_model_uri():
     X, y = get_iris()
-    clf = sklearn.linear_model.LogisticRegression()
+    clf = sklearn.linear_model.LogisticRegression(max_iter=2)
     clf.fit(X, y)
 
     with mlflow.start_run() as run:

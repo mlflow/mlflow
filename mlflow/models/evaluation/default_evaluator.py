@@ -126,7 +126,7 @@ def _extract_raw_model_and_predict_fn(model):
         except ImportError:
             pass
 
-    return raw_model, predict_fn, predict_proba_fn
+    return model_loader_module, raw_model, predict_fn, predict_proba_fn
 
 
 def _gen_log_key(key, dataset_name):
@@ -186,6 +186,17 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _log_model_explainability(self):
         if not self.evaluator_config.get('log_model_explainability', True):
+            return
+
+        if self.model_loader_module == 'mlflow.spark':
+            # TODO: Shap explainer need to manipulate on each feature values,
+            #  but spark model input dataframe contains Vector type feature column
+            #  which shap explainer does not support.
+            #  To support this, we need expand the Vector type feature column into
+            #  multiple scaler feature columns and pass it to shap explainer.
+            _logger.warning(
+                'Log model explainability currently does not support spark model.'
+            )
             return
 
         try:
@@ -269,7 +280,7 @@ class DefaultEvaluator(ModelEvaluator):
             shap.plots.beeswarm(shap_values, show=False)
 
         self._log_image_artifact(
-            plot_beeswarm, "shap_beeswarm",
+            plot_beeswarm, "shap_beeswarm_plot",
         )
 
         def plot_summary():
@@ -277,7 +288,7 @@ class DefaultEvaluator(ModelEvaluator):
             shap.summary_plot(shap_values, show=False)
 
         self._log_image_artifact(
-            plot_summary, "shap_summary",
+            plot_summary, "shap_summary_plot",
         )
 
         def plot_feature_importance():
@@ -286,7 +297,7 @@ class DefaultEvaluator(ModelEvaluator):
 
         self._log_image_artifact(
             plot_feature_importance,
-            "shap_feature_importance",
+            "shap_feature_importance_plot",
         )
 
     def _evaluate_per_class(self, positive_class, y, y_pred, y_proba):
@@ -318,7 +329,7 @@ class DefaultEvaluator(ModelEvaluator):
                 {"fpr": fpr, "tpr": tpr, "thresholds": thresholds}
             )
             self._log_pandas_df_artifact(
-                roc_curve_pandas_df, _gen_metric_name("roc_curve"),
+                roc_curve_pandas_df, _gen_metric_name("roc_curve_data"),
             )
 
             roc_auc = sk_metrics.auc(fpr, tpr)
@@ -328,7 +339,7 @@ class DefaultEvaluator(ModelEvaluator):
                 sk_metrics.RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc).plot()
 
             if hasattr(sk_metrics, 'RocCurveDisplay'):
-                self._log_image_artifact(plot_roc_curve, _gen_metric_name("roc_curve"))
+                self._log_image_artifact(plot_roc_curve, _gen_metric_name("roc_curve_plot"))
 
             precision, recall, thresholds = \
                 sk_metrics.precision_recall_curve(y, y_proba)
@@ -338,7 +349,7 @@ class DefaultEvaluator(ModelEvaluator):
             )
             self._log_pandas_df_artifact(
                 pr_curve_pandas_df,
-                _gen_metric_name("precision_recall_curve"),
+                _gen_metric_name("precision_recall_curve_data"),
             )
 
             pr_auc = sk_metrics.auc(recall, precision)
@@ -350,29 +361,25 @@ class DefaultEvaluator(ModelEvaluator):
             if hasattr(sk_metrics, 'PrecisionRecallDisplay'):
                 self._log_image_artifact(
                     plot_pr_curve,
-                    _gen_metric_name("precision_recall_curve"),
+                    _gen_metric_name("precision_recall_curve_plot"),
                 )
 
     def _evaluate_classifier(self):
         from mlflow.models.evaluation.lift_curve import plot_lift_curve
-        raw_model, predict_fn, predict_proba_fn = _extract_raw_model_and_predict_fn(self.model)
-        self.raw_model = raw_model
-        self.predict_fn = predict_fn
-        self.predict_proba_fn = predict_proba_fn
 
         # Note: require labels to be number of 0, 1, 2, .. num_classes - 1
         label_list = sorted(list(set(self.y)))
         assert label_list[0] == 0, "Label values must being at '0'."
         self.num_classes = len(label_list)
 
-        self.y_pred = predict_fn(self.X)
+        self.y_pred = self.predict_fn(self.X)
         self.is_binomial = self.num_classes <= 2
 
         self.metrics["accuracy"] = sk_metrics.accuracy_score(self.y, self.y_pred)
         self.metrics["example_count"] = len(self.X)
 
-        if predict_proba_fn is not None:
-            self.y_probs = predict_proba_fn(self.X)
+        if self.predict_proba_fn is not None:
+            self.y_probs = self.predict_proba_fn(self.X)
             if self.is_binomial:
                 self.y_prob = self.y_probs[:, 1]
             else:
@@ -381,13 +388,13 @@ class DefaultEvaluator(ModelEvaluator):
             self.y_probs = None
             self.y_prob = None
 
-        if predict_proba_fn is not None:
+        if self.predict_proba_fn is not None:
             self.metrics['log_loss'] = sk_metrics.log_loss(self.y, self.y_probs)
 
             if self.is_binomial:
                 self._evaluate_per_class(None, self.y, self.y_pred, self.y_prob)
                 self._log_image_artifact(
-                    lambda: plot_lift_curve(self.y, self.y_probs), "lift_curve",
+                    lambda: plot_lift_curve(self.y, self.y_probs), "lift_curve_plot",
                 )
             else:
                 self.metrics['f1_score_micro'] = \
@@ -430,10 +437,6 @@ class DefaultEvaluator(ModelEvaluator):
         self.metrics['mean_absolute_percentage_error'] = \
             sk_metrics.mean_absolute_percentage_error(self.y, self.y_pred)
 
-        raw_model, predict_fn, _ = _extract_raw_model_and_predict_fn(self.model)
-        self.raw_model = raw_model
-        self.predict_fn = predict_fn
-
         self._log_metrics()
         self._log_model_explainability()
         return EvaluationResult(self.metrics, self.artifacts)
@@ -458,6 +461,13 @@ class DefaultEvaluator(ModelEvaluator):
             self.evaluator_config = evaluator_config
             self.dataset_name = dataset.name
             self.feature_names = dataset.feature_names
+
+            model_loader_module, raw_model, predict_fn, predict_proba_fn = \
+                _extract_raw_model_and_predict_fn(model)
+            self.model_loader_module = model_loader_module
+            self.raw_model = raw_model
+            self.predict_fn = predict_fn
+            self.predict_proba_fn = predict_proba_fn
 
             X, y = dataset._extract_features_and_labels()
             self.X = X
