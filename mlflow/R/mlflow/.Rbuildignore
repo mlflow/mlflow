@@ -21,5 +21,6 @@ Reference_Manual_mlflow.md
 ^R-version
 ^\.utils\.R$
 ^\.build-package\.R$
+^\.build-doc\.R$
 ^build-package\.sh$
 ^Dockerfile\.build$

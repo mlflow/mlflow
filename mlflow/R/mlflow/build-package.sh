@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -ex
 
-docker build -f Dockerfile.build -t r-build-package .
-docker run --rm --workdir /app -v $(pwd):/app r-build-package Rscript -e 'source(".build-package.R", echo = TRUE)'
+image_name="mlflow-r-dev"
+docker build -f Dockerfile.dev -t $image_name .
+docker run --rm -v $(pwd):/mlflow $image_name Rscript -e 'source(".build-package.R", echo = TRUE)'
