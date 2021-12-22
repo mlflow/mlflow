@@ -94,18 +94,18 @@ class TrackingServiceClient(object):
         :return: :py:class:`mlflow.entities.Run` that was created.
         """
 
-        tags = tags if tags else {}
+        run_tags = tags if tags else {}
 
         # Extract user from tags
         # This logic is temporary; the user_id attribute of runs is deprecated and will be removed
         # in a later release.
-        user_id = tags.get(MLFLOW_USER, "unknown")
+        user_id = run_tags.get(MLFLOW_USER, "unknown")
 
         return self.store.create_run(
             experiment_id=experiment_id,
             user_id=user_id,
             start_time=start_time or int(time.time() * 1000),
-            tags=[RunTag(key, value) for (key, value) in tags.items()],
+            tags=[RunTag(key, value) for (key, value) in run_tags.items()],
         )
 
     def list_run_infos(
