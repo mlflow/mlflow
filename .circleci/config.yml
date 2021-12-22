@@ -9,8 +9,8 @@ jobs:
       - checkout
       - run:
           name: Build documentation
+          working_directory: docs
           command: |
-            cd docs
             ./build-rdoc.sh
 
       - run:
