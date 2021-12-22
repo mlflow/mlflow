@@ -285,9 +285,9 @@ def start_run(
         if run_name is not None:
             user_specified_tags[MLFLOW_RUN_NAME] = run_name
 
-        run_tags = context_registry.resolve_tags(user_specified_tags)
+        resolved_tags = context_registry.resolve_tags(user_specified_tags)
 
-        active_run_obj = client.create_run(experiment_id=exp_id_for_run, tags=run_tags)
+        active_run_obj = client.create_run(experiment_id=exp_id_for_run, tags=resolved_tags)
 
     _active_run_stack.append(ActiveRun(active_run_obj))
     return _active_run_stack[-1]
