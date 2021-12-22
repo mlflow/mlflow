@@ -255,3 +255,42 @@ def test_get_repl_id():
 
     with mock.patch("builtins.__import__", side_effect=mock_import):
         assert databricks_utils.get_repl_id() == "testReplId2"
+
+
+def test_use_repl_context_if_available(tmpdir):
+    # Create a fake databricks_repl_context module
+    tmpdir.mkdir("dbruntime").join("databricks_repl_context.py").write(
+        """
+def get_context():
+    pass
+"""
+    )
+    sys.path.append(tmpdir.strpath)
+
+    with mock.patch(
+        "dbruntime.databricks_repl_context.get_context",
+        return_value=mock.MagicMock(jobId="job_id"),
+    ) as mock_get_context, mock.patch("mlflow.utils.databricks_utils._get_dbutils") as mock_dbutils:
+        assert databricks_utils.get_job_id() == "job_id"
+        mock_get_context.assert_called_once()
+        mock_dbutils.assert_not_called()
+
+    with mock.patch(
+        "dbruntime.databricks_repl_context.get_context",
+        return_value=mock.MagicMock(notebookId="notebook_id"),
+    ) as mock_get_context, mock.patch(
+        "mlflow.utils.databricks_utils._get_property_from_spark_context"
+    ) as mock_spark_context:
+        assert databricks_utils.get_notebook_id() == "notebook_id"
+        mock_get_context.assert_called_once()
+        mock_spark_context.assert_not_called()
+
+    with mock.patch(
+        "dbruntime.databricks_repl_context.get_context",
+        return_value=mock.MagicMock(isInCluster=True),
+    ) as mock_get_context, mock.patch(
+        "mlflow.utils._spark_utils._get_active_spark_session"
+    ) as mock_spark_session:
+        assert databricks_utils.is_in_cluster()
+        mock_get_context.assert_called_once()
+        mock_spark_session.assert_not_called()
