@@ -1,5 +1,0 @@
-FROM rocker/r-ver:4.1.2
-
-RUN apt-get update -y
-RUN apt-get install pandoc -y
-RUN Rscript -e 'install.packages("devtools", dependencies = TRUE)'
