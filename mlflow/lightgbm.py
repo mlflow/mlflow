@@ -146,8 +146,8 @@ def save_model(
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
 
-    # Save a LightGBM model and retrieve its model type
-    is_sklearn_model = _save_model(lgb_model, model_data_path)
+    # Save a LightGBM model
+    _save_model(lgb_model, model_data_path)
 
     lgb_model_class = _get_fully_qualified_class_name(lgb_model)
     pyfunc.add_to_model(
@@ -166,7 +166,9 @@ def save_model(
 
     if conda_env is None:
         if pip_requirements is None:
-            default_reqs = get_default_pip_requirements(include_cloudpickle=is_sklearn_model)
+            default_reqs = get_default_pip_requirements(
+                include_cloudpickle=not isinstance(lgb_model, lgb.Booster)
+            )
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
@@ -200,21 +202,16 @@ def _save_model(lgb_model, model_path):
     """
     LightGBM Boosters are saved using the built-in method `save_model()`,
     whereas LightGBM scikit-learn models are serialized using Cloudpickle.
-
-    :return: A boolean value indicating whether the save model is a scikit-learn
-             model. The returned value will be passed to `get_default_pip_requirements`.
     """
     import lightgbm as lgb
 
     if isinstance(lgb_model, lgb.Booster):
         lgb_model.save_model(model_path)
-        return False
     else:
         import cloudpickle
 
         with open(model_path, "wb") as out:
             cloudpickle.dump(lgb_model, out)
-        return True
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
