@@ -33,5 +33,6 @@ class DatabricksNotebookRunContext(RunContextProvider):
             tags[MLFLOW_DATABRICKS_WEBAPP_URL] = webapp_url
         if workspace_url is not None:
             tags[MLFLOW_DATABRICKS_WORKSPACE_URL] = workspace_url
+        if workspace_id is not None:
             tags[MLFLOW_DATABRICKS_WORKSPACE_ID] = workspace_id
         return tags
