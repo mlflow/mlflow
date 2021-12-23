@@ -19,42 +19,8 @@ from functools import partial
 import logging
 from packaging.version import Version
 
-"""
-[P0] Accuracy: Calculates how often predictions equal labels.
-[P0] BinaryCrossentropy: Computes the crossentropy metric between the labels and predictions.
-[P0] Hinge: Computes the hinge metric between y_true and y_pred.
-[P0] Sum: Computes the (weighted) sum of the given values.
-[P0] Mean: Computes the (weighted) mean of the given values.
-[P0] ExampleCount: Computes the total number of evaluation examples.
-[P0] MeanAbsoluteError: Computes the mean absolute error between the labels and predictions.
-[P0] MeanSquaredError: Computes the mean squared error between y_true and y_pred.
-[P0] RootMeanSquaredError: Computes root mean squared error metric between y_true and y_pred.
 
-[P0] TrueNegatives: Calculates the number of true negatives.
-[P0] TruePositives: Calculates the number of true positives.
-[P0] FalseNegatives: Calculates the number of false negatives.
-[P0] FalsePositives: Calculates the number of false positives.
-https://scikit-learn.org/stable/modules/generated/sklearn.metrics.confusion_matrix.html#sklearn.metrics.confusion_matrix
-
-[P0] Precision: Computes the precision of the predictions with respect to the labels.
-[P0] Recall: Computes the recall of the predictions with respect to the labels.
-[P0] AUC: Approximates the AUC (Area under the curve) of the ROC or PR curves.
-[P0] F1 Score: 2*precision*recall / (precision+recall)
-
-[P0] BinaryClassConfusionMatrix
-
-Plots
-[P0] Confusion matrix
-[P0] Interactive ROC curve with metrics (TP/TN/FP/FN/Acc/F1/AUC), binary classification
-[P0] Lift chart
-
-Global explainability
-[P0] Model built-in feature importance (supported models)
-[P0] SHAP explainers
-     [P0] Summary plot
-"""
-
-from PIL.Image import Image, open as open_image
+from PIL.Image import open as open_image
 
 
 _logger = logging.getLogger(__name__)
@@ -193,7 +159,8 @@ class DefaultEvaluator(ModelEvaluator):
             #  To support this, we need expand the Vector type feature column into
             #  multiple scaler feature columns and pass it to shap explainer.
             _logger.warning(
-                'Log model explainability currently does not support spark model.'
+                'Logging model explainability insights is not currently supported for PySpark'
+                ' models.'
             )
             return
 
@@ -202,7 +169,8 @@ class DefaultEvaluator(ModelEvaluator):
             import matplotlib.pyplot as pyplot
         except ImportError:
             _logger.warning(
-                'Shap or matplotlib package is not installed, Skip log model explainability.'
+                'SHAP or matplotlib package is not installed, so model explainability insights '
+                'will not be logged.'
             )
 
         if Version(shap.__version__) < Version('0.40'):
@@ -295,11 +263,12 @@ class DefaultEvaluator(ModelEvaluator):
             "shap_feature_importance_plot",
         )
 
-    def _evaluate_per_class(self, positive_class, y, y_pred, y_proba):
+    def _log_per_class_evaluations(self, positive_class, y, y_pred, y_proba):
         """
-        if positive_class is an interger, generate metrics and artifacts on this class vs. rest,
-         and the y/y_pred/y_proba must be sum up to a binary "is class" and "is not class"
-        if positive_class is None, generate metrics and artifacts on binary y/y_pred/y_proba
+        if positive_class is an integer, generate metrics and artifacts on this class vs. rest.
+        The y/y_pred/y_proba must sum up to a binary "is class" and "is not class".
+
+        If positive_class is None, generate metrics and artifacts on binary y/y_pred/y_proba.
         """
 
         def _gen_metric_name(name):
@@ -362,13 +331,19 @@ class DefaultEvaluator(ModelEvaluator):
     def _evaluate_classifier(self):
         from mlflow.models.evaluation.lift_curve import plot_lift_curve
 
-        # Note: require labels to be number of 0, 1, 2, .. num_classes - 1
         label_list = sorted(list(set(self.y)))
-        assert label_list[0] == 0, "Label values must being at '0'."
         self.num_classes = len(label_list)
 
         self.y_pred = self.predict_fn(self.X)
         self.is_binomial = self.num_classes <= 2
+
+        if self.is_binomial:
+            for label in label_list:
+                if int(label) not in [-1, 0, 1]:
+                    raise ValueError(
+                        'Binomial classification require evaluation dataset label values to be '
+                        '-1, 0, or 1.'
+                    )
 
         self.metrics["accuracy"] = sk_metrics.accuracy_score(self.y, self.y_pred)
         self.metrics["example_count"] = len(self.X)
@@ -387,7 +362,10 @@ class DefaultEvaluator(ModelEvaluator):
             self.metrics['log_loss'] = sk_metrics.log_loss(self.y, self.y_probs)
 
             if self.is_binomial:
-                self._evaluate_per_class(None, self.y, self.y_pred, self.y_prob)
+                self._log_per_class_evaluations(
+                    positive_class=None,
+                    y=self.y, y_pred=self.y_pred, y_proba=self.y_prob
+                )
                 self._log_image_artifact(
                     lambda: plot_lift_curve(self.y, self.y_probs), "lift_curve_plot",
                 )
@@ -400,7 +378,7 @@ class DefaultEvaluator(ModelEvaluator):
                     y_per_class = np.where(self.y == postive_class, 1, 0)
                     y_pred_per_class = np.where(self.y_pred == postive_class, 1, 0)
                     pos_class_prob = self.y_probs[:, postive_class]
-                    self._evaluate_per_class(
+                    self._log_per_class_evaluations(
                         postive_class, y_per_class, y_pred_per_class, pos_class_prob
                     )
 
@@ -476,7 +454,7 @@ class DefaultEvaluator(ModelEvaluator):
                 _logger.warning(
                     f"According to the evaluation dataset label values, the model type looks like "
                     f"{infered_model_type}, but you specified model type {model_type}. Please "
-                    f"check you set model type or evaluation dataset correctly."
+                    f"verify that you set the `model_type` and `dataset` arguments correctly."
                 )
 
             if model_type == "classifier":

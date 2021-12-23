@@ -531,7 +531,7 @@ def _normalize_evaluators_and_evaluator_config_args(
                 f'Multiple registered evaluators are found {evaluator_name_list} and '
                 'they will all be used in evaluation if they support the specified model type. '
                 'If you want to evaluate with one evaluator, specify the `evaluator` argument '
-                'and (optional) specify the `evaluator_config` argument.')
+                'and optionally specify the `evaluator_config` argument.')
         if evaluator_config is not None:
             conf_dict_value_error = ValueError(
                 "If `evaluators` argument is None, all available evaluators will be used. "
@@ -565,7 +565,7 @@ def _normalize_evaluators_and_evaluator_config_args(
         if evaluator_config is not None:
             if not check_nesting_config_dict(evaluators, evaluator_config):
                 raise ValueError(
-                    "If `evaluators` argument is a evaluator name list, evaluator_config "
+                    "If `evaluators` argument is an evaluator name list, evaluator_config "
                     "must be a dict contains mapping from evaluator name to individual "
                     "evaluator config dict."
                 )
@@ -573,7 +573,7 @@ def _normalize_evaluators_and_evaluator_config_args(
         evaluator_name_to_conf_map = evaluator_config or {}
     else:
         raise ValueError(
-            '`evaluators` argument must be None, a evaluator name string, or a list of '
+            '`evaluators` argument must be None, an evaluator name string, or a list of '
             'evaluator names.'
         )
 
@@ -661,13 +661,25 @@ def evaluate(
 
     The default evaluator supports the 'regressor' and 'classifer' `model_type`s. The available
     `evaluator_config` options for the default evaluator include:
-     - log_model_explainability: A boolean value to specify whether log model explainability,
-       default value is True.
-     - explainality_algorithm: A string to specify the shap explainer algorithm. If not set,
-       it will run `shap.Explainer` with "auto" algorithm, which choose the best fit explainer
-        according to the model.
-     - explainability_nsamples: The number of sample rows to use for calculating model
-       explainability. Default value is 2000.
+     - log_model_explainability: A boolean value specifying whether or not to log model
+       explainability insights, default value is True.
+     - explainability_algorithm: A string to specify the SHAP Explainer algorithm for model
+       explainability. If not set, `shap.Explainer` is used with the "auto" algorithm, which
+       chooses the best Explainer based on the model.
+     - explainability_nsamples: The number of sample rows to use for computing model
+       explainability insights. Default value is 2000.
+
+    Limitations of evaluation dataset:
+     - If the input dataset is pandas dataframe, the feature columns in pandas dataframe must be
+       scalar value columns, or object type columns with values of "pyspark.ml.Vector" type.
+       Other object types (nd.array/list/etc.) are not supported yet.
+
+    Limitations of default evaluator logging model explainability insights:
+     - The `shap.Explainer` "auto" algorithm will choose Linear explainer for linear model,
+       and choose Tree explainer for tree model. But the shap Linear/Tree explainer does not
+       support multi-class classifier, in this case, default evaluator will fallback to use
+       shap Exact or Permutation explainer.
+     - Logging model explainability insights is not currently supported for PySpark models.
     """
     from mlflow.pyfunc import PyFuncModel
 
