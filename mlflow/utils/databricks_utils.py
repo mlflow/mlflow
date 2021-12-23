@@ -31,7 +31,8 @@ def _use_repl_context_if_available(name):
                 if context is not None and hasattr(context, name):
                     return getattr(context, name)
             except Exception:
-                return f(*args, **kwargs)
+                pass
+            return f(*args, **kwargs)
 
         return wrapper
 
