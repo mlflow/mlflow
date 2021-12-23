@@ -50,7 +50,7 @@ _DEFAULT_SAMPLE_ROWS_FOR_SHAP = 2000
 def _infer_model_type_by_labels(labels):
     distinct_labels = set(labels)
     for v in distinct_labels:
-        if v < 0 or not float(v).is_integer():
+        if not float(v).is_integer():
             return "regressor"
     if len(distinct_labels) > 1000 and len(distinct_labels) / len(labels) > 0.7:
         return "regressor"

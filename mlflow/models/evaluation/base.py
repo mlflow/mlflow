@@ -14,6 +14,7 @@ from mlflow.utils.annotations import experimental
 import logging
 import struct
 import sys
+from collections import OrderedDict
 
 
 _logger = logging.getLogger(__name__)
@@ -569,7 +570,8 @@ def _normalize_evaluators_and_evaluator_config_args(
                     "must be a dict contains mapping from evaluator name to individual "
                     "evaluator config dict."
                 )
-        evaluator_name_list = list(set(evaluators))
+        # Use `OrderedDict.fromkeys` to deduplicate elements but keep elements order.
+        evaluator_name_list = list(OrderedDict.fromkeys(evaluators))
         evaluator_name_to_conf_map = evaluator_config or {}
     else:
         raise ValueError(

@@ -9,6 +9,8 @@ from mlflow.models.evaluation import (
     EvaluationArtifact,
     EvaluationMetrics,
 )
+from mlflow.models.evaluation.base import \
+    _normalize_evaluators_and_evaluator_config_args as _normalize_config
 import hashlib
 from mlflow.models.evaluation.base import _start_run_or_reuse_active_run
 import sklearn
@@ -22,6 +24,7 @@ from unittest import mock
 from mlflow.utils.file_utils import TempDir
 from mlflow_test_plugin.dummy_evaluator import Array2DEvaluationArtifact
 from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
+from mlflow.models.evaluation.base import _logger as _base_logger
 
 from sklearn.metrics import (
     accuracy_score,
@@ -540,3 +543,42 @@ def test_start_run_or_reuse_active_run():
             with _start_run_or_reuse_active_run(run_id=previous_run_id):
                 pass
 
+
+def test_normalize_evaluators_and_evaluator_config_args():
+    from mlflow.models.evaluation.default_evaluator import DefaultEvaluator
+    with mock.patch.object(
+        _model_evaluation_registry,
+        "_registry",
+        {"default": DefaultEvaluator},
+    ):
+        assert _normalize_config(None, None) == (['default'], {})
+        assert _normalize_config(None, {'a': 3}) == (['default'], {'default': {'a': 3}})
+        assert _normalize_config(None, {'default': {'a': 3}}) == (['default'], {'default': {'a': 3}})
+
+    assert _normalize_config(None, None) == (['default', 'dummy_evaluator'], {})
+    with pytest.raises(
+            ValueError,
+            match='`evaluator_config` argument must be a dictionary mapping each evaluator'
+    ):
+        assert _normalize_config(None, {'a': 3}) == (['default', 'dummy_evaluator'], {})
+
+    assert _normalize_config(None, {'default': {'a': 3}}) == (
+        ['default', 'dummy_evaluator'], {'default': {'a': 3}}
+    )
+
+    with mock.patch.object(_base_logger, 'warning') as patched_warning_fn:
+        _normalize_config(None, None)
+        patched_warning_fn.assert_called_once()
+        assert 'Multiple registered evaluators are found' in patched_warning_fn.call_args[0][0]
+
+    assert _normalize_config('dummy_evaluator', {'a': 3}) == \
+        (['dummy_evaluator'], {'dummy_evaluator': {'a': 3}})
+
+    assert _normalize_config(['default', 'dummy_evaluator'], {'dummy_evaluator': {'a': 3}}) == \
+        (['default', 'dummy_evaluator'], {'dummy_evaluator': {'a': 3}})
+
+    with pytest.raises(
+            ValueError,
+            match='evaluator_config must be a dict contains mapping from evaluator name to'
+    ):
+        _normalize_config(['default', 'dummy_evaluator'], {'abc': {'a': 3}})
