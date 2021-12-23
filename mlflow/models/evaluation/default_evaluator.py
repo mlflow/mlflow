@@ -17,6 +17,7 @@ import json
 import time
 from functools import partial
 import logging
+from packaging.version import Version
 
 """
 [P0] Accuracy: Calculates how often predictions equal labels.
@@ -78,9 +79,6 @@ class CsvEvaluationArtifact(EvaluationArtifact):
 
 
 _DEFAULT_SAMPLE_ROWS_FOR_SHAP = 2000
-
-
-_shap_initialized = False
 
 
 def _infer_model_type_by_labels(labels):
@@ -200,21 +198,18 @@ class DefaultEvaluator(ModelEvaluator):
             return
 
         try:
-            global _shap_initialized
             import shap
-            import shap.maskers
-            from IPython.core.display import display, HTML
-
-            if not _shap_initialized:
-                # Call `shap.getjs` instead of call `shap.initjs` to prevent
-                # display a logo picture in IPython notebook.
-                display(HTML(shap.getjs()))
-                _shap_initialized = True
+            import matplotlib.pyplot as pyplot
         except ImportError:
-            _logger.warning('Shap package is not installed. Skip log model explainability.')
-            return
+            _logger.warning(
+                'Shap or matplotlib package is not installed, Skip log model explainability.'
+            )
 
-        import matplotlib.pyplot as pyplot
+        if Version(shap.__version__) < Version('0.40'):
+            _logger.warning(
+                'Shap package version is lower than 0.40, Skip log model explainability.'
+            )
+            return
 
         is_multinomial_classifier = self.model_type == 'classifier' and self.num_classes > 2
 
