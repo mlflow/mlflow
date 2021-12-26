@@ -1198,6 +1198,7 @@ def _autolog(
         _is_supported_version,
         _get_X_y_and_sample_weight,
         _gen_xgboost_sklearn_estimators_to_patch,
+        _gen_lightgbm_sklearn_estimators_to_patch,
         _log_estimator_content,
         _all_estimators,
         _get_estimator_info_tags,
@@ -1243,6 +1244,31 @@ def _autolog(
                 _logger,
             )
             mlflow.xgboost.log_model(
+                self,
+                artifact_path="model",
+                signature=signature,
+                input_example=input_example,
+            )
+        return fit_output
+
+    def fit_mlflow_lightgbm(original, self, *args, **kwargs):
+        """
+        Autologging function for LightGBM scikit-learn models
+        """
+        # parameter, metric, and non-model artifact logging
+        # are done in `train()` in `mlflow.lightgbm.autolog()`
+        fit_output = original(self, *args, **kwargs)
+        # log models after training
+        X = _get_X_y_and_sample_weight(self.fit, args, kwargs)[0]
+        if log_models:
+            input_example, signature = resolve_input_example_and_signature(
+                lambda: X[:INPUT_EXAMPLE_SAMPLE_ROWS],
+                lambda input_example: infer_signature(input_example, self.predict(input_example)),
+                log_input_examples,
+                log_model_signatures,
+                _logger,
+            )
+            mlflow.lightgbm.log_model(
                 self,
                 artifact_path="model",
                 signature=signature,
@@ -1610,6 +1636,9 @@ def _autolog(
     if flavor_name == mlflow.xgboost.FLAVOR_NAME:
         estimators_to_patch = _gen_xgboost_sklearn_estimators_to_patch()
         patched_fit_impl = fit_mlflow_xgboost
+    elif flavor_name == mlflow.lightgbm.FLAVOR_NAME:
+        estimators_to_patch = _gen_lightgbm_sklearn_estimators_to_patch()
+        patched_fit_impl = fit_mlflow_lightgbm
     else:
         estimators_to_patch = _gen_estimators_to_patch()
         patched_fit_impl = fit_mlflow

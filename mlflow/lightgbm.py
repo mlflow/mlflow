@@ -435,7 +435,7 @@ def autolog(
 
         original(self, *args, **kwargs)
 
-    def train(original, *args, **kwargs):
+    def train(_log_models, original, *args, **kwargs):
         def record_eval_results(eval_results, metrics_logger):
             """
             Create a callback function that records evaluation results.
@@ -534,8 +534,8 @@ def autolog(
             # If early_stopping_rounds is present, logging metrics at the best iteration
             # as extra metrics with the max step + 1.
             early_stopping_index = all_arg_names.index("early_stopping_rounds")
-            early_stopping = (
-                num_pos_args >= early_stopping_index + 1 or "early_stopping_rounds" in kwargs
+            early_stopping = num_pos_args >= early_stopping_index + 1 or kwargs.get(
+                "early_stopping_rounds"
             )
             if early_stopping:
                 extra_step = len(eval_results)
@@ -598,7 +598,7 @@ def autolog(
             return model_signature
 
         # Whether to automatically log the trained model based on boolean flag.
-        if log_models:
+        if _log_models:
             # Will only resolve `input_example` and `signature` if `log_models` is `True`.
             input_example, signature = resolve_input_example_and_signature(
                 get_input_example,
@@ -621,5 +621,31 @@ def autolog(
 
         return model
 
-    safe_patch(FLAVOR_NAME, lightgbm, "train", train, manage_run=True)
     safe_patch(FLAVOR_NAME, lightgbm.Dataset, "__init__", __init__)
+    safe_patch(
+        FLAVOR_NAME, lightgbm, "train", functools.partial(train, log_models), manage_run=True
+    )
+    # The `train()` method logs LightGBM models as Booster objects. When using LightGBM
+    # scikit-learn models, we want to save / log models as their model classes. So we turn
+    # off the log_models functionality in the `train()` method patched to `lightgbm.sklearn`.
+    # Instead the model logging is handled in `fit_mlflow_sklearn()` in `mlflow.sklearn._autolog()`,
+    # where models are logged as LightGBM scikit-learn models after the `fit()` method returns.
+    safe_patch(
+        FLAVOR_NAME, lightgbm.sklearn, "train", functools.partial(train, False), manage_run=True
+    )
+
+    # enable LightGBM scikit-learn estimators autologging
+    import mlflow.sklearn
+
+    mlflow.sklearn._autolog(
+        flavor_name=FLAVOR_NAME,
+        log_input_examples=log_input_examples,
+        log_model_signatures=log_model_signatures,
+        log_models=log_models,
+        disable=disable,
+        exclusive=exclusive,
+        disable_for_unsupported_versions=disable_for_unsupported_versions,
+        silent=silent,
+        max_tuning_runs=None,
+        log_post_training_metrics=True,
+    )

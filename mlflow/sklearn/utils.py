@@ -47,6 +47,19 @@ def _gen_xgboost_sklearn_estimators_to_patch():
     return sklearn_estimators
 
 
+def _gen_lightgbm_sklearn_estimators_to_patch():
+    import lightgbm as lgb
+
+    all_classes = inspect.getmembers(lgb.sklearn, inspect.isclass)
+    base_class = lgb.sklearn._LGBMModelBase
+    sklearn_estimators = []
+    for _, class_object in all_classes:
+        if issubclass(class_object, base_class) and class_object != base_class:
+            sklearn_estimators.append(class_object)
+
+    return sklearn_estimators
+
+
 def _get_estimator_info_tags(estimator):
     """
     :return: A dictionary of MLflow run tag keys and values
