@@ -33,3 +33,4 @@ tracking server.
   to manage project dependencies
 * `fastai` modifies a [fastai classification example](https://github.com/fastai/fastai/blob/master/nbs/examples/mnist_blocks.py) and highlights MLflow's `mlflow.fastai.autolog()` 
    API to track parameters, metrics, and artifacts while training a simple MNIST model. 
+* `heart_attack_predictor` demostrates how to log already saved sklearn model in mlflow 
