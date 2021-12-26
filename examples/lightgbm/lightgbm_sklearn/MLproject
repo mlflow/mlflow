@@ -1,0 +1,5 @@
+name: lightgbm-sklearn-example
+conda_env: conda.yaml
+entry_points:
+    main:
+        command: python train.py

@@ -102,8 +102,8 @@ def save_model(
     """
     Save a LightGBM model to a path on the local file system.
 
-    :param lgb_model: LightGBM model (an instance of `lightgbm.Booster`_) to be saved.
-                      Note that models that implement the `scikit-learn API`_  are not supported.
+    :param lgb_model: LightGBM model (an instance of `lightgbm.Booster`_) or
+                      models that implement the `scikit-learn API`_  to be saved.
     :param path: Local path where the model is to be saved.
     :param conda_env: {{ conda_env }}
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
@@ -230,8 +230,8 @@ def log_model(
     """
     Log a LightGBM model as an MLflow artifact for the current run.
 
-    :param lgb_model: LightGBM model (an instance of `lightgbm.Booster`_) to be saved.
-                      Note that models that implement the `scikit-learn API`_  are not supported.
+    :param lgb_model: LightGBM model (an instance of `lightgbm.Booster`_) or
+                      models that implement the `scikit-learn API`_  to be saved.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: {{ conda_env }}
     :param registered_model_name: If given, create a model version under
@@ -378,7 +378,7 @@ def autolog(
         - an example of valid input.
         - inferred signature of the inputs and outputs of the model.
 
-    Note that the `scikit-learn API`_ is not supported.
+    Note that the `scikit-learn API`_ is now supported.
 
     :param log_input_examples: If ``True``, input examples from training datasets are collected and
                                logged along with LightGBM model artifacts during training. If

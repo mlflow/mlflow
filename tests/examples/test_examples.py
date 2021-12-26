@@ -82,9 +82,10 @@ def report_free_disk_space(capsys):
         ("hyperparam", ["-e", "gpyopt", "-P", "epochs=1"]),
         ("hyperparam", ["-e", "hyperopt", "-P", "epochs=1"]),
         (
-            "lightgbm",
+            os.path.join("lightgbm", "lightgbm_native"),
             ["-P", "learning_rate=0.1", "-P", "colsample_bytree=0.8", "-P", "subsample=0.9"],
         ),
+        (os.path.join("lightgbm", "lightgbm_sklearn"), []),
         ("statsmodels", ["-P", "inverse_method=qr"]),
         ("pytorch", ["-P", "epochs=2"]),
         ("sklearn_logistic_regression", []),
@@ -140,7 +141,7 @@ def test_mlflow_run_example(directory, params, tmpdir):
         ("gluon", ["python", "train.py"]),
         ("keras", ["python", "train.py"]),
         (
-            "lightgbm",
+            os.path.join("lightgbm", "lightgbm_native"),
             [
                 "python",
                 "train.py",
@@ -152,6 +153,7 @@ def test_mlflow_run_example(directory, params, tmpdir):
                 "0.9",
             ],
         ),
+        (os.path.join("lightgbm", "lightgbm_sklearn"), ["python", "train.py"]),
         ("statsmodels", ["python", "train.py", "--inverse-method", "qr"]),
         ("quickstart", ["python", "mlflow_tracking.py"]),
         ("remote_store", ["python", "remote_server.py"]),
