@@ -156,7 +156,7 @@ def test_lgb_autolog_sklearn():
 
     X, y = datasets.load_iris(return_X_y=True)
     params = {"n_estimators": 10, "reg_lambda": 1}
-    model = lgb.LGBMRegressor(**params)
+    model = lgb.LGBMClassifier(**params)
 
     with mlflow.start_run() as run:
         model.fit(X, y)

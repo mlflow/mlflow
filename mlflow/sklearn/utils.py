@@ -7,7 +7,6 @@ import numpy as np
 import time
 import warnings
 
-import mlflow.lightgbm
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
@@ -49,6 +48,7 @@ def _gen_xgboost_sklearn_estimators_to_patch():
 
 
 def _gen_lightgbm_sklearn_estimators_to_patch():
+    import mlflow.lightgbm
     import lightgbm as lgb
 
     all_classes = inspect.getmembers(lgb.sklearn, inspect.isclass)
@@ -121,8 +121,6 @@ def _get_X_y_and_sample_weight(fit_func, fit_args, fit_kwargs):
         return None
 
     fit_arg_names = _get_arg_names(fit_func)
-    print(fit_func.__module__)
-    print(">>>", fit_func, fit_arg_names)
     # In most cases, X_var_name and y_var_name become "X" and "y", respectively.
     # However, certain sklearn models use different variable names for X and y.
     # E.g., see: https://scikit-learn.org/stable/modules/generated/sklearn.multioutput.MultiOutputClassifier.html#sklearn.multioutput.MultiOutputClassifier.fit
