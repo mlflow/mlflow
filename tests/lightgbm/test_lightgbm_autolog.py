@@ -102,10 +102,13 @@ def test_lgb_autolog_logs_default_params(bst_params, train_set):
         "fobj",
         "feval",
         "init_model",
-        "evals_result",
         "learning_rates",
         "callbacks",
     ]
+    if Version(lgb.__version__) <= Version("3.3.1"):
+        # The parameter `evals_result` in `lightgbm.train` is removed in this PR:
+        # https://github.com/microsoft/LightGBM/pull/4882
+        unlogged_params.append("evals_result")
 
     for param in unlogged_params:
         assert param not in params
@@ -140,10 +143,13 @@ def test_lgb_autolog_logs_specified_params(bst_params, train_set):
         "fobj",
         "feval",
         "init_model",
-        "evals_result",
         "learning_rates",
         "callbacks",
     ]
+    if Version(lgb.__version__) <= Version("3.3.1"):
+        # The parameter `evals_result` in `lightgbm.train` is removed in this PR:
+        # https://github.com/microsoft/LightGBM/pull/4882
+        unlogged_params.append("evals_result")
 
     for param in unlogged_params:
         assert param not in params
@@ -153,14 +159,24 @@ def test_lgb_autolog_logs_specified_params(bst_params, train_set):
 def test_lgb_autolog_logs_metrics_with_validation_data(bst_params, train_set):
     mlflow.lightgbm.autolog()
     evals_result = {}
-    lgb.train(
-        bst_params,
-        train_set,
-        num_boost_round=10,
-        valid_sets=[train_set],
-        valid_names=["train"],
-        evals_result=evals_result,
-    )
+    if Version(lgb.__version__) <= Version("3.3.1"):
+        lgb.train(
+            bst_params,
+            train_set,
+            num_boost_round=10,
+            valid_sets=[train_set],
+            valid_names=["train"],
+            evals_result=evals_result,
+        )
+    else:
+        lgb.train(
+            bst_params,
+            train_set,
+            num_boost_round=10,
+            valid_sets=[train_set],
+            valid_names=["train"],
+            callbacks=[lgb.record_evaluation(evals_result)],
+        )
     run = get_latest_run()
     data = run.data
     client = mlflow.tracking.MlflowClient()
@@ -179,14 +195,24 @@ def test_lgb_autolog_logs_metrics_with_multi_validation_data(bst_params, train_s
     # To avoid that, create a new Dataset object.
     valid_sets = [train_set, lgb.Dataset(train_set.data)]
     valid_names = ["train", "valid"]
-    lgb.train(
-        bst_params,
-        train_set,
-        num_boost_round=10,
-        valid_sets=valid_sets,
-        valid_names=valid_names,
-        evals_result=evals_result,
-    )
+    if Version(lgb.__version__) <= Version("3.3.1"):
+        lgb.train(
+            bst_params,
+            train_set,
+            num_boost_round=10,
+            valid_sets=valid_sets,
+            valid_names=valid_names,
+            evals_result=evals_result,
+        )
+    else:
+        lgb.train(
+            bst_params,
+            train_set,
+            num_boost_round=10,
+            valid_sets=valid_sets,
+            valid_names=valid_names,
+            callbacks=[lgb.record_evaluation(evals_result)],
+        )
     run = get_latest_run()
     data = run.data
     client = mlflow.tracking.MlflowClient()
@@ -206,14 +232,24 @@ def test_lgb_autolog_logs_metrics_with_multi_metrics(bst_params, train_set):
     params.update(bst_params)
     valid_sets = [train_set]
     valid_names = ["train"]
-    lgb.train(
-        params,
-        train_set,
-        num_boost_round=10,
-        valid_sets=valid_sets,
-        valid_names=valid_names,
-        evals_result=evals_result,
-    )
+    if Version(lgb.__version__) <= Version("3.3.1"):
+        lgb.train(
+            params,
+            train_set,
+            num_boost_round=10,
+            valid_sets=valid_sets,
+            valid_names=valid_names,
+            evals_result=evals_result,
+        )
+    else:
+        lgb.train(
+            params,
+            train_set,
+            num_boost_round=10,
+            valid_sets=valid_sets,
+            valid_names=valid_names,
+            callbacks=[lgb.record_evaluation(evals_result)],
+        )
     run = get_latest_run()
     data = run.data
     client = mlflow.tracking.MlflowClient()
@@ -233,14 +269,24 @@ def test_lgb_autolog_logs_metrics_with_multi_validation_data_and_metrics(bst_par
     params.update(bst_params)
     valid_sets = [train_set, lgb.Dataset(train_set.data)]
     valid_names = ["train", "valid"]
-    lgb.train(
-        params,
-        train_set,
-        num_boost_round=10,
-        valid_sets=valid_sets,
-        valid_names=valid_names,
-        evals_result=evals_result,
-    )
+    if Version(lgb.__version__) <= Version("3.3.1"):
+        lgb.train(
+            params,
+            train_set,
+            num_boost_round=10,
+            valid_sets=valid_sets,
+            valid_names=valid_names,
+            evals_result=evals_result,
+        )
+    else:
+        lgb.train(
+            params,
+            train_set,
+            num_boost_round=10,
+            valid_sets=valid_sets,
+            valid_names=valid_names,
+            callbacks=[lgb.record_evaluation(evals_result)],
+        )
     run = get_latest_run()
     data = run.data
     client = mlflow.tracking.MlflowClient()
@@ -279,14 +325,24 @@ def test_lgb_autolog_batch_metrics_logger_logs_expected_metrics(bst_params, trai
         params.update(bst_params)
         valid_sets = [train_set, lgb.Dataset(train_set.data)]
         valid_names = ["train", "valid"]
-        lgb.train(
-            params,
-            train_set,
-            num_boost_round=10,
-            valid_sets=valid_sets,
-            valid_names=valid_names,
-            evals_result=evals_result,
-        )
+        if Version(lgb.__version__) <= Version("3.3.1"):
+            lgb.train(
+                params,
+                train_set,
+                num_boost_round=10,
+                valid_sets=valid_sets,
+                valid_names=valid_names,
+                evals_result=evals_result,
+            )
+        else:
+            lgb.train(
+                params,
+                train_set,
+                num_boost_round=10,
+                valid_sets=valid_sets,
+                valid_names=valid_names,
+                callbacks=[lgb.record_evaluation(evals_result)],
+            )
 
     run = get_latest_run()
     original_metrics = run.data.metrics
@@ -307,15 +363,26 @@ def test_lgb_autolog_logs_metrics_with_early_stopping(bst_params, train_set):
     params.update(bst_params)
     valid_sets = [train_set, lgb.Dataset(train_set.data)]
     valid_names = ["train", "valid"]
-    model = lgb.train(
-        params,
-        train_set,
-        num_boost_round=10,
-        early_stopping_rounds=5,
-        valid_sets=valid_sets,
-        valid_names=valid_names,
-        evals_result=evals_result,
-    )
+    if Version(lgb.__version__) <= Version("3.3.1"):
+        model = lgb.train(
+            params,
+            train_set,
+            num_boost_round=10,
+            early_stopping_rounds=5,
+            valid_sets=valid_sets,
+            valid_names=valid_names,
+            evals_result=evals_result,
+        )
+    else:
+        model = lgb.train(
+            params,
+            train_set,
+            num_boost_round=10,
+            early_stopping_rounds=5,
+            valid_sets=valid_sets,
+            valid_names=valid_names,
+            callbacks=[lgb.record_evaluation(evals_result)],
+        )
     run = get_latest_run()
     data = run.data
     client = mlflow.tracking.MlflowClient()

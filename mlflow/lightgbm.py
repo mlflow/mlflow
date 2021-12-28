@@ -25,6 +25,7 @@ import shutil
 import logging
 import functools
 from copy import deepcopy
+from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
@@ -447,10 +448,13 @@ def autolog(
             "fobj",
             "feval",
             "init_model",
-            "evals_result",
             "learning_rates",
             "callbacks",
         ]
+        if Version(lightgbm.__version__) <= Version("3.3.1"):
+            # The parameter `evals_result` in `lightgbm.train` is removed in this PR:
+            # https://github.com/microsoft/LightGBM/pull/4882
+            unlogged_params.append("evals_result")
 
         params_to_log_for_fn = get_mlflow_run_params_for_fn_args(
             original, args, kwargs, unlogged_params
