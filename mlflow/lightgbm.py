@@ -500,7 +500,10 @@ def autolog(
                 early_stopping = False
                 if "callbacks" in kwargs and kwargs["callbacks"] is not None:
                     for cb in kwargs["callbacks"]:
-                        if cb.__qualname__ == "early_stopping.<locals>._callback":
+                        if (
+                            hasattr(cb, "__qualname__")
+                            and cb.__qualname__ == "early_stopping.<locals>._callback"
+                        ):
                             early_stopping = True
                             break
             if early_stopping:
