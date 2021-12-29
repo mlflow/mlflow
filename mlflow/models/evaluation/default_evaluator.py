@@ -99,6 +99,67 @@ def _gen_log_key(key, dataset_name):
     return f'{key}_on_data_{dataset_name}'
 
 
+def _get_regressor_metrics(y, y_pred):
+    return {
+        'example_count': len(y),
+        'mean_absolute_error': sk_metrics.mean_absolute_error(y, y_pred),
+        'mean_squared_error': sk_metrics.mean_squared_error(y, y_pred),
+        'root_mean_squared_error': math.sqrt(sk_metrics.mean_squared_error(y, y_pred)),
+        'sum_on_label': sum(y),
+        'mean_on_label': sum(y) / len(y),
+        'r2_score': sk_metrics.r2_score(y, y_pred),
+        'max_error': sk_metrics.max_error(y, y_pred),
+        'mean_absolute_percentage_error': sk_metrics.mean_absolute_percentage_error(y, y_pred)
+    }
+
+
+def _get_binary_sum_up_label_pred_prob(postive_class, y, y_pred, y_probs):
+    y_is_positive = np.where(y == postive_class, 1, 0)
+    y_pred_is_positive = np.where(y_pred == postive_class, 1, 0)
+
+    if y_probs is not None:
+        prob_of_positive = y_probs[:, postive_class]
+    else:
+        prob_of_positive = None
+
+    return y_is_positive, y_pred_is_positive, prob_of_positive
+
+
+def _get_classifier_per_class_metrics(y, y_pred):
+    """
+    For binary classifier, y/y_pred is for the positive class.
+    For multiclass classifier, y/y_pred sum up to a binary "is class" and "is not class".
+    """
+    metrics = {}
+    confusion_matrix = sk_metrics.confusion_matrix(y, y_pred)
+    tn, fp, fn, tp = confusion_matrix.ravel()
+    metrics["true_negatives"] = tn
+    metrics["false_positives"] = fp
+    metrics["false_negatives"] = fn
+    metrics["true_positives"] = tp
+    metrics["recall"] = sk_metrics.recall_score(y, y_pred)
+    metrics["precision"] = sk_metrics.precision_score(y, y_pred)
+    metrics["f1_score"] = sk_metrics.f1_score(y, y_pred)
+    return metrics
+
+
+def _get_classifier_global_metrics(is_binomial, y, y_pred, y_probs):
+    metrics = {}
+    metrics["accuracy"] = sk_metrics.accuracy_score(y, y_pred)
+    metrics["example_count"] = len(X)
+
+    if not is_binomial:
+        metrics['f1_score_micro'] = \
+            sk_metrics.f1_score(y, y_pred, average='micro')
+        metrics['f1_score_macro'] = \
+            sk_metrics.f1_score(y, y_pred, average='macro')
+
+    if y_probs is not None:
+        metrics['log_loss'] = sk_metrics.log_loss(y, y_probs)
+
+    return metrics
+
+
 class DefaultEvaluator(ModelEvaluator):
     def can_evaluate(self, model_type, evaluator_config=None, **kwargs):
         return model_type in ["classifier", "regressor"]
@@ -189,7 +250,7 @@ class DefaultEvaluator(ModelEvaluator):
         truncated_feature_names = [truncate_str_from_middle(f, 20) for f in self.feature_names]
         for i, truncated_name in enumerate(truncated_feature_names):
             if truncated_name != self.feature_names[i]:
-                # For truncated name, attach "(f_{feature_index})" at the end
+                # For duplicated truncated name, attach "(f_{feature_index})" at the end
                 truncated_feature_names[i] = f'{truncated_name}(f_{i})'
 
         truncated_feature_name_map = {f: f2 for f, f2 in zip(self.feature_names, truncated_feature_names)}
@@ -265,25 +326,8 @@ class DefaultEvaluator(ModelEvaluator):
             "shap_feature_importance_plot",
         )
 
-    def _get_per_class_metrics(self, y, y_pred):
-        """
-        For binary classifier, y/y_pred is for the positive class.
-        For multiclass classifier, y/y_pred sum up to a binary "is class" and "is not class".
-        """
-        metrics = {}
-        confusion_matrix = sk_metrics.confusion_matrix(y, y_pred)
-        tn, fp, fn, tp = confusion_matrix.ravel()
-        metrics["true_negatives"] = tn
-        metrics["false_positives"] = fp
-        metrics["false_negatives"] = fn
-        metrics["true_positives"] = tp
-        metrics["recall"] = sk_metrics.recall_score(y, y_pred)
-        metrics["precision"] = sk_metrics.precision_score(y, y_pred)
-        metrics["f1_score"] = sk_metrics.f1_score(y, y_pred)
-        return metrics
-
     def _log_binary_classifier(self):
-        self.metrics.update(self._get_per_class_metrics(self.y, self.y_pred))
+        self.metrics.update(_get_classifier_per_class_metrics(self.y, self.y_pred))
 
         if self.y_prob is not None:
             fpr, tpr, thresholds = sk_metrics.roc_curve(self.y, self.y_prob)
@@ -330,7 +374,6 @@ class DefaultEvaluator(ModelEvaluator):
             self._log_image_artifact(plot_precision_recall_curve, "precision_recall_curve_plot")
 
     def _log_multiclass_classifier(self):
-
         per_class_metrics_list = []
         per_class_roc_curve_data_list = []
         per_class_precision_recall_curve_data_list = []
@@ -354,16 +397,15 @@ class DefaultEvaluator(ModelEvaluator):
                                 f"increase the threshold.")
 
         for postive_class in self.label_list:
-            y_is_positive = np.where(self.y == postive_class, 1, 0)
-            y_pred_is_positive = np.where(self.y_pred == postive_class, 1, 0)
-
-            if self.y_probs is not None:
-                prob_of_positive = self.y_probs[:, postive_class]
+            y_is_positive, y_pred_is_positive, prob_of_positive = \
+                _get_binary_sum_up_label_pred_prob(self.y, self.y_pred, self.y_probs)
 
             per_class_metrics = {'positive_class': postive_class}
             per_class_metrics_list.append(per_class_metrics)
 
-            per_class_metrics.update(self._get_per_class_metrics(y_is_positive, y_pred_is_positive))
+            per_class_metrics.update(
+                _get_classifier_per_class_metrics(y_is_positive, y_pred_is_positive)
+            )
 
             if self.y_probs is not None:
                 fpr, tpr, thresholds = sk_metrics.roc_curve(y_is_positive, prob_of_positive)
@@ -446,9 +488,6 @@ class DefaultEvaluator(ModelEvaluator):
                         '-1, 0, or 1.'
                     )
 
-        self.metrics["accuracy"] = sk_metrics.accuracy_score(self.y, self.y_pred)
-        self.metrics["example_count"] = len(self.X)
-
         if self.predict_proba_fn is not None:
             self.y_probs = self.predict_proba_fn(self.X)
             if self.is_binomial:
@@ -459,22 +498,19 @@ class DefaultEvaluator(ModelEvaluator):
             self.y_probs = None
             self.y_prob = None
 
+        self.metrics.update(
+            _get_classifier_global_metrics(self.is_binomial, self.y, self.y_pred, self.y_probs)
+        )
+
         if self.is_binomial:
             self._log_binary_classifier()
         else:
             self._log_multiclass_classifier()
 
-        if self.predict_proba_fn is not None:
-            self.metrics['log_loss'] = sk_metrics.log_loss(self.y, self.y_probs)
-            if self.is_binomial:
-                self._log_image_artifact(
-                    lambda: plot_lift_curve(self.y, self.y_probs), "lift_curve_plot",
-                )
-            else:
-                self.metrics['f1_score_micro'] = \
-                    sk_metrics.f1_score(self.y, self.y_pred, average='micro')
-                self.metrics['f1_score_macro'] = \
-                    sk_metrics.f1_score(self.y, self.y_pred, average='macro')
+        if self.is_binomial and self.y_probs is not None:
+            self._log_image_artifact(
+                lambda: plot_lift_curve(self.y, self.y_probs), "lift_curve_plot",
+            )
 
         # TODO: Shall we also log confusion_matrix data as a json artifact ?
         confusion_matrix = sk_metrics.confusion_matrix(self.y, self.y_pred)
@@ -493,16 +529,7 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _evaluate_regressor(self):
         self.y_pred = self.model.predict(self.X)
-        self.metrics["example_count"] = len(self.X)
-        self.metrics["mean_absolute_error"] = sk_metrics.mean_absolute_error(self.y, self.y_pred)
-        self.metrics["mean_squared_error"] = sk_metrics.mean_squared_error(self.y, self.y_pred)
-        self.metrics["root_mean_squared_error"] = math.sqrt(self.metrics["mean_squared_error"])
-        self.metrics['sum_on_label'] = sum(self.y)
-        self.metrics['mean_on_label'] = self.metrics['sum_on_label'] / self.metrics["example_count"]
-        self.metrics['r2_score'] = sk_metrics.r2_score(self.y, self.y_pred)
-        self.metrics['max_error'] = sk_metrics.max_error(self.y, self.y_pred)
-        self.metrics['mean_absolute_percentage_error'] = \
-            sk_metrics.mean_absolute_percentage_error(self.y, self.y_pred)
+        self.metrics.update(_get_regressor_metrics(self.y, self.y_pred))
 
         self._log_metrics()
         self._log_model_explainability()

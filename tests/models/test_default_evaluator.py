@@ -1,7 +1,10 @@
 import numpy as np
 import json
+import math
+import sklearn.metrics
 
 from mlflow.models.evaluation import evaluate, EvaluationDataset
+from mlflow.models.evaluation.default_evaluator import _get_regressor_metrics
 import mlflow
 from sklearn.datasets import load_boston
 from sklearn.linear_model import LinearRegression
@@ -26,17 +29,12 @@ def test_regressor_evaluation(regressor_model_uri, diabetes_dataset):
     params, metrics, tags, artifacts = \
         get_run_data(run.info.run_id)
 
-    expected_metrics = {
-        'example_count': 148.0,
-        'mean_absolute_error': 42.927,
-        'mean_squared_error': 2747.513,
-        'root_mean_squared_error': 52.416,
-        'sum_on_label': 23099.0,
-        'mean_on_label': 156.074,
-        'r2_score': 0.565,
-        'max_error': 151.354,
-        'mean_absolute_percentage_error': 0.413
-    }
+    model = mlflow.pyfunc.load_model(regressor_model_uri)
+
+    y = diabetes_dataset.labels
+    y_pred = model.predict(diabetes_dataset.data)
+
+    expected_metrics = _get_regressor_metrics(y, y_pred)
     for metric_key in expected_metrics:
         assert np.isclose(
             expected_metrics[metric_key],
@@ -48,8 +46,6 @@ def test_regressor_evaluation(regressor_model_uri, diabetes_dataset):
             result.metrics[metric_key],
             rtol=1e-3
         )
-
-    model = mlflow.pyfunc.load_model(regressor_model_uri)
 
     assert json.loads(tags['mlflow.datasets']) == \
         [{**diabetes_dataset._metadata, 'model': model.metadata.model_uuid}]
