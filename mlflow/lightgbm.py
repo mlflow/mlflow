@@ -487,25 +487,9 @@ def autolog(
             # training model
             model = original(*args, **kwargs)
 
-            # If early_stopping_rounds is present, logging metrics at the best iteration
+            # If early stopping is activated, logging metrics at the best iteration
             # as extra metrics with the max step + 1.
-            if Version(lightgbm.__version__) <= Version("3.3.1"):
-                # The parameter `early_stopping_rounds` in `lightgbm.train` is removed in this PR:
-                # https://github.com/microsoft/LightGBM/pull/4908
-                early_stopping_index = all_arg_names.index("early_stopping_rounds")
-                early_stopping = (
-                    num_pos_args >= early_stopping_index + 1 or "early_stopping_rounds" in kwargs
-                )
-            else:
-                early_stopping = False
-                if "callbacks" in kwargs and kwargs["callbacks"] is not None:
-                    for cb in kwargs["callbacks"]:
-                        if (
-                            hasattr(cb, "__qualname__")
-                            and cb.__qualname__ == "early_stopping.<locals>._callback"
-                        ):
-                            early_stopping = True
-                            break
+            early_stopping = model.best_iteration > 0
             if early_stopping:
                 extra_step = len(eval_results)
                 autologging_client.log_metrics(
