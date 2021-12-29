@@ -119,12 +119,14 @@ def test_lgb_autolog_logs_specified_params(bst_params, train_set):
     mlflow.lightgbm.autolog()
     expected_params = {
         "num_boost_round": 10,
-        "early_stopping_rounds": 5,
     }
     if Version(lgb.__version__) <= Version("3.3.1"):
         # The parameter `verbose_eval` in `lightgbm.train` is removed in this PR:
         # https://github.com/microsoft/LightGBM/pull/4878
+        # The parameter `early_stopping_rounds` in `lightgbm.train` is removed in this PR:
+        # https://github.com/microsoft/LightGBM/pull/4908
         expected_params["verbose_eval"] = False
+        expected_params["early_stopping_rounds"] = 5
     lgb.train(bst_params, train_set, valid_sets=[train_set], **expected_params)
     run = get_latest_run()
     params = run.data.params
@@ -378,10 +380,12 @@ def test_lgb_autolog_logs_metrics_with_early_stopping(bst_params, train_set):
             params,
             train_set,
             num_boost_round=10,
-            early_stopping_rounds=5,
             valid_sets=valid_sets,
             valid_names=valid_names,
-            callbacks=[lgb.record_evaluation(evals_result)],
+            callbacks=[
+                lgb.record_evaluation(evals_result),
+                lgb.early_stopping(5),
+            ],
         )
     run = get_latest_run()
     data = run.data
