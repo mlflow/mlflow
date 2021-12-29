@@ -679,6 +679,9 @@ def evaluate(
        chooses the best Explainer based on the model.
      - explainability_nsamples: The number of sample rows to use for computing model
        explainability insights. Default value is 2000.
+     - max_num_classes_threshold_logging_roc_pr_curve_for_multiclass_classifier:
+       For multiclass classifier, specify the max number of classes which allow logging per-class
+       ROC curve and Precision-Recall curve.
 
     Limitations of evaluation dataset:
      - If the input dataset is pandas dataframe, the feature columns in pandas dataframe must be

@@ -339,6 +339,19 @@ class DefaultEvaluator(ModelEvaluator):
         PerClassPrecisionRecallCurveData = namedtuple(
             'PerClassPrecisionRecallCurveData', ['postive_class', 'precision', 'recall', 'thresholds']
         )
+        log_roc_pr_curve = False
+        if self.y_probs is not None:
+            max_num_classes_for_logging_curve = \
+                self.evaluator_config.get(
+                    'max_num_classes_threshold_logging_roc_pr_curve_for_multiclass_classifier', 10
+                )
+            if self.num_classes <= max_num_classes_for_logging_curve:
+                log_roc_pr_curve = True
+            else:
+                _logger.warning(f'The classifier num_classes > {max_num_classes_for_logging_curve}, skip logging '
+                                f'ROC curve and Precision-Recall curve. You can add evaluator config '
+                                f"'max_num_classes_threshold_logging_roc_pr_curve_for_multiclass_classifier' to "
+                                f"increase the threshold.")
 
         for postive_class in self.label_list:
             y_is_positive = np.where(self.y == postive_class, 1, 0)
@@ -354,25 +367,27 @@ class DefaultEvaluator(ModelEvaluator):
 
             if self.y_probs is not None:
                 fpr, tpr, thresholds = sk_metrics.roc_curve(y_is_positive, prob_of_positive)
-                per_class_roc_curve_data_list.append(
-                    PerClassRocCurveData(postive_class, fpr, tpr, thresholds)
-                )
+                if log_roc_pr_curve:
+                    per_class_roc_curve_data_list.append(
+                        PerClassRocCurveData(postive_class, fpr, tpr, thresholds)
+                    )
                 roc_auc = sk_metrics.auc(fpr, tpr)
                 per_class_metrics["roc_auc"] = roc_auc
 
                 precision, recall, thresholds = \
                     sk_metrics.precision_recall_curve(y_is_positive, prob_of_positive)
                 thresholds = np.append(thresholds, [1.0], axis=0)
-                per_class_precision_recall_curve_data_list.append(
-                    PerClassPrecisionRecallCurveData(postive_class, precision, recall, thresholds)
-                )
+                if log_roc_pr_curve:
+                    per_class_precision_recall_curve_data_list.append(
+                        PerClassPrecisionRecallCurveData(postive_class, precision, recall, thresholds)
+                    )
                 pr_auc = sk_metrics.auc(recall, precision)
                 per_class_metrics["precision_recall_auc"] = pr_auc
 
         per_class_metrics_pandas_df = pd.DataFrame(per_class_metrics_list)
         self._log_pandas_df_artifact(per_class_metrics_pandas_df, "per_class_metrics_data")
 
-        if self.y_probs is not None:
+        if self.y_probs is not None and log_roc_pr_curve:
             per_class_roc_curve_pandas_df = pd.concat(
                 [pd.DataFrame(item._asdict()) for item in per_class_roc_curve_data_list],
                 ignore_index=True
@@ -410,12 +425,8 @@ class DefaultEvaluator(ModelEvaluator):
                     line_kwargs={"drawstyle": "steps-post"}
                 )
 
-            if self.num_classes <= 10:
-                self._log_image_artifact(plot_roc_curve, "roc_curve_plot")
-                self._log_image_artifact(plot_precision_recall_curve, "precision_recall_curve_plot")
-            else:
-                _logger.warning('The classifier num_classes > 10, skip logging plots for ROC curve and '
-                                'Precision-Recall curve.')
+            self._log_image_artifact(plot_roc_curve, "roc_curve_plot")
+            self._log_image_artifact(plot_precision_recall_curve, "precision_recall_curve_plot")
 
     def _evaluate_classifier(self):
         from mlflow.models.evaluation.lift_curve import plot_lift_curve
