@@ -37,18 +37,19 @@ def _cumulative_gain_curve(y_true, y_score, pos_label=None):
 
     # ensure binary classification if pos_label is not specified
     classes = np.unique(y_true)
-    if (pos_label is None and
-        not (np.array_equal(classes, [0, 1]) or
-             np.array_equal(classes, [-1, 1]) or
-             np.array_equal(classes, [0]) or
-             np.array_equal(classes, [-1]) or
-             np.array_equal(classes, [1]))):
+    if pos_label is None and not (
+        np.array_equal(classes, [0, 1])
+        or np.array_equal(classes, [-1, 1])
+        or np.array_equal(classes, [0])
+        or np.array_equal(classes, [-1])
+        or np.array_equal(classes, [1])
+    ):
         raise ValueError("Data is not binary and pos_label is not specified")
     elif pos_label is None:
-        pos_label = 1.
+        pos_label = 1.0
 
     # make y_true a boolean vector
-    y_true = (y_true == pos_label)
+    y_true = y_true == pos_label
 
     sorted_indices = np.argsort(y_score)[::-1]
     y_true = y_true[sorted_indices]
@@ -65,9 +66,15 @@ def _cumulative_gain_curve(y_true, y_score, pos_label=None):
     return percentages, gains
 
 
-def plot_lift_curve(y_true, y_probas, title='Lift Curve',
-                    ax=None, figsize=None, title_fontsize="large",
-                    text_fontsize="medium"):
+def plot_lift_curve(
+    y_true,
+    y_probas,
+    title="Lift Curve",
+    ax=None,
+    figsize=None,
+    title_fontsize="large",
+    text_fontsize="medium",
+):
     """
     This method is copied from scikit-plot package.
 
@@ -124,14 +131,13 @@ def plot_lift_curve(y_true, y_probas, title='Lift Curve',
 
     classes = np.unique(y_true)
     if len(classes) != 2:
-        raise ValueError('Cannot calculate Lift Curve for data with '
-                         '{} category/ies'.format(len(classes)))
+        raise ValueError(
+            "Cannot calculate Lift Curve for data with " "{} category/ies".format(len(classes))
+        )
 
     # Compute Cumulative Gain Curves
-    percentages, gains1 = _cumulative_gain_curve(y_true, y_probas[:, 0],
-                                                 classes[0])
-    percentages, gains2 = _cumulative_gain_curve(y_true, y_probas[:, 1],
-                                                 classes[1])
+    percentages, gains1 = _cumulative_gain_curve(y_true, y_probas[:, 0], classes[0])
+    percentages, gains2 = _cumulative_gain_curve(y_true, y_probas[:, 1], classes[1])
 
     percentages = percentages[1:]
     gains1 = gains1[1:]
@@ -145,15 +151,15 @@ def plot_lift_curve(y_true, y_probas, title='Lift Curve',
 
     ax.set_title(title, fontsize=title_fontsize)
 
-    ax.plot(percentages, gains1, lw=3, label='Class {}'.format(classes[0]))
-    ax.plot(percentages, gains2, lw=3, label='Class {}'.format(classes[1]))
+    ax.plot(percentages, gains1, lw=3, label="Class {}".format(classes[0]))
+    ax.plot(percentages, gains2, lw=3, label="Class {}".format(classes[1]))
 
-    ax.plot([0, 1], [1, 1], 'k--', lw=2, label='Baseline')
+    ax.plot([0, 1], [1, 1], "k--", lw=2, label="Baseline")
 
-    ax.set_xlabel('Percentage of sample', fontsize=text_fontsize)
-    ax.set_ylabel('Lift', fontsize=text_fontsize)
+    ax.set_xlabel("Percentage of sample", fontsize=text_fontsize)
+    ax.set_ylabel("Lift", fontsize=text_fontsize)
     ax.tick_params(labelsize=text_fontsize)
-    ax.grid('on')
-    ax.legend(loc='lower right', fontsize=text_fontsize)
+    ax.grid("on")
+    ax.legend(loc="lower right", fontsize=text_fontsize)
 
     return ax

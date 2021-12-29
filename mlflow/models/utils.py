@@ -238,6 +238,7 @@ def _read_sparse_matrix_from_json(path, example_type):
 
 def plot_lines(data_series, xlabel, ylabel, legend_loc=None, line_kwargs={}):
     import matplotlib.pyplot as plt
+
     fig, ax = plt.subplots()
 
     for label, (data_x, data_y) in data_series.items():

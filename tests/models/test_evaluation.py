@@ -9,8 +9,9 @@ from mlflow.models.evaluation import (
     EvaluationArtifact,
     EvaluationMetrics,
 )
-from mlflow.models.evaluation.base import \
-    _normalize_evaluators_and_evaluator_config_args as _normalize_config
+from mlflow.models.evaluation.base import (
+    _normalize_evaluators_and_evaluator_config_args as _normalize_config,
+)
 import hashlib
 from mlflow.models.evaluation.base import _start_run_or_reuse_active_run
 import sklearn
@@ -55,10 +56,11 @@ def get_diabetes_dataset():
 def get_diabetes_spark_dataset():
     data = sklearn.datasets.load_diabetes()
     spark = SparkSession.builder.master("local[*]").getOrCreate()
-    rows = [(Vectors.dense(features), float(label))
-            for features, label in zip(data.data, data.target)]
+    rows = [
+        (Vectors.dense(features), float(label)) for features, label in zip(data.data, data.target)
+    ]
 
-    return spark.createDataFrame(rows, ['features', 'label'])
+    return spark.createDataFrame(rows, ["features", "label"])
 
 
 def get_breast_cancer_dataset():
@@ -66,7 +68,7 @@ def get_breast_cancer_dataset():
     return data.data, data.target
 
 
-RunData = namedtuple('RunData', ['params', 'metrics', 'tags', 'artifacts'])
+RunData = namedtuple("RunData", ["params", "metrics", "tags", "artifacts"])
 
 
 def get_run_data(run_id):
@@ -111,7 +113,7 @@ def diabetes_dataset():
 @pytest.fixture(scope="module")
 def diabetes_spark_dataset():
     spark_df = get_diabetes_spark_dataset().sample(fraction=0.3, seed=1)
-    return EvaluationDataset(data=spark_df, labels='label', name="diabetes_spark_dataset")
+    return EvaluationDataset(data=spark_df, labels="label", name="diabetes_spark_dataset")
 
 
 @pytest.fixture(scope="module")
@@ -122,55 +124,68 @@ def breast_cancer_dataset():
 
 
 @pytest.fixture(scope="module")
-def regressor_model_uri():
+def linear_regressor_model_uri():
     X, y = get_diabetes_dataset()
     reg = sklearn.linear_model.LinearRegression()
     reg.fit(X, y)
 
     with mlflow.start_run() as run:
         mlflow.sklearn.log_model(reg, "reg_model")
-        regressor_model_uri = get_artifact_uri(run.info.run_id, "reg_model")
+        linear_regressor_model_uri = get_artifact_uri(run.info.run_id, "reg_model")
 
-    return regressor_model_uri
+    return linear_regressor_model_uri
 
 
 @pytest.fixture(scope="module")
-def spark_regressor_model_uri():
+def spark_linear_regressor_model_uri():
     spark_df = get_diabetes_spark_dataset()
     reg = SparkLinearRegression()
     spark_reg_model = reg.fit(spark_df)
 
     with mlflow.start_run() as run:
         mlflow.spark.log_model(spark_reg_model, "spark_reg_model")
-        spark_regressor_model_uri = get_artifact_uri(run.info.run_id, "spark_reg_model")
+        spark_linear_regressor_model_uri = get_artifact_uri(run.info.run_id, "spark_reg_model")
 
-    return spark_regressor_model_uri
+    return spark_linear_regressor_model_uri
 
 
 @pytest.fixture(scope="module")
-def classifier_model_uri():
+def multiclass_logistic_regressor_model_uri():
     X, y = get_iris()
     clf = sklearn.linear_model.LogisticRegression(max_iter=2)
     clf.fit(X, y)
 
     with mlflow.start_run() as run:
         mlflow.sklearn.log_model(clf, "clf_model")
-        classifier_model_uri = get_artifact_uri(run.info.run_id, "clf_model")
+        multiclass_logistic_regressor_model_uri = get_artifact_uri(run.info.run_id, "clf_model")
 
-    return classifier_model_uri
+    return multiclass_logistic_regressor_model_uri
 
 
 @pytest.fixture(scope="module")
-def binary_classifier_model_uri():
+def binary_logistic_regressor_model_uri():
     X, y = get_breast_cancer_dataset()
     clf = sklearn.linear_model.LogisticRegression()
     clf.fit(X, y)
 
     with mlflow.start_run() as run:
         mlflow.sklearn.log_model(clf, "bin_clf_model")
-        binary_classifier_model_uri = get_artifact_uri(run.info.run_id, "bin_clf_model")
+        binary_logistic_regressor_model_uri = get_artifact_uri(run.info.run_id, "bin_clf_model")
 
-    return binary_classifier_model_uri
+    return binary_logistic_regressor_model_uri
+
+
+@pytest.fixture(scope="module")
+def svm_model_uri():
+    X, y = get_breast_cancer_dataset()
+    clf = sklearn.svm.LinearSVC()
+    clf.fit(X, y)
+
+    with mlflow.start_run() as run:
+        mlflow.sklearn.log_model(clf, "svm_model")
+        svm_model_uri = get_artifact_uri(run.info.run_id, "svm_model")
+
+    return svm_model_uri
 
 
 @pytest.fixture(scope="module")
@@ -182,9 +197,9 @@ def iris_pandas_df_dataset():
     return EvaluationDataset(data=data, labels=labels, name="iris_pandas_df_dataset")
 
 
-def test_classifier_evaluate(classifier_model_uri, iris_dataset):
+def test_classifier_evaluate(multiclass_logistic_regressor_model_uri, iris_dataset):
     y_true = iris_dataset.labels
-    classifier_model = mlflow.pyfunc.load_model(classifier_model_uri)
+    classifier_model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
     y_pred = classifier_model.predict(iris_dataset.data)
     expected_accuracy_score = accuracy_score(y_true, y_pred)
     expected_metrics = {
@@ -252,10 +267,10 @@ def test_classifier_evaluate(classifier_model_uri, iris_dataset):
         )
 
 
-def test_regressor_evaluate(regressor_model_uri, iris_dataset):
-    y_true = iris_dataset.labels
-    regressor_model = mlflow.pyfunc.load_model(regressor_model_uri)
-    y_pred = regressor_model.predict(iris_dataset.data)
+def test_regressor_evaluate(linear_regressor_model_uri, diabetes_dataset):
+    y_true = diabetes_dataset.labels
+    regressor_model = mlflow.pyfunc.load_model(linear_regressor_model_uri)
+    y_pred = regressor_model.predict(diabetes_dataset.data)
     expected_mae = mean_absolute_error(y_true, y_pred)
     expected_mse = mean_squared_error(y_true, y_pred)
     expected_metrics = {
@@ -263,16 +278,16 @@ def test_regressor_evaluate(regressor_model_uri, iris_dataset):
         "mean_squared_error": expected_mse,
     }
     expected_saved_metrics = {
-        "mean_absolute_error_on_iris_dataset": expected_mae,
-        "mean_squared_error_on_iris_dataset": expected_mse,
+        "mean_absolute_error_on_diabetes_dataset": expected_mae,
+        "mean_squared_error_on_diabetes_dataset": expected_mse,
     }
 
-    for model in [regressor_model, regressor_model_uri]:
+    for model in [regressor_model, linear_regressor_model_uri]:
         with mlflow.start_run() as run:
             eval_result = evaluate(
                 model,
                 "regressor",
-                iris_dataset,
+                diabetes_dataset,
                 run_id=None,
                 evaluators="dummy_evaluator",
             )
@@ -306,9 +321,10 @@ def test_gen_md5_for_arraylike_obj():
     assert get_md5(list3) == get_md5(list4)
 
 
-def test_dataset_hash(iris_dataset, iris_pandas_df_dataset):
-    assert iris_dataset.hash == "c7417e63a9ce038a32f37ecd7fb829f6"
+def test_dataset_hash(iris_dataset, iris_pandas_df_dataset, diabetes_spark_dataset):
+    assert iris_dataset.hash == "827a8427365cafbd9110b1b009d5a80d"
     assert iris_pandas_df_dataset.hash == "d06cfb6352dba29afe514d9be87021aa"
+    assert diabetes_spark_dataset.hash == "a30ebc9899e22ee6e60665f98d4b08b3"
 
 
 def test_datasset_extract_features_label(iris_dataset, iris_pandas_df_dataset):
@@ -340,11 +356,10 @@ def test_log_dataset_tag(iris_dataset, iris_pandas_df_dataset):
         iris_dataset._log_dataset_tag(client, run.info.run_id, model_uuid=model_uuid)
         _, _, tags, _ = get_run_data(run.info.run_id)
 
-        logged_meta1 = {**iris_dataset._metadata, 'model': model_uuid}
-        logged_meta2 = {**iris_pandas_df_dataset._metadata, 'model': model_uuid}
+        logged_meta1 = {**iris_dataset._metadata, "model": model_uuid}
+        logged_meta2 = {**iris_pandas_df_dataset._metadata, "model": model_uuid}
 
-        assert json.loads(tags["mlflow.datasets"]) == \
-            [logged_meta1]
+        assert json.loads(tags["mlflow.datasets"]) == [logged_meta1]
 
         raw_tag = get_raw_tag(run.info.run_id, "mlflow.datasets")
         assert " " not in raw_tag  # assert the tag string remove all whitespace chars.
@@ -398,7 +413,7 @@ class FakeArtifact2(EvaluationArtifact):
         raise RuntimeError()
 
 
-def test_evaluator_interface(classifier_model_uri, iris_dataset):
+def test_evaluator_interface(multiclass_logistic_regressor_model_uri, iris_dataset):
     with mock.patch.object(
         _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvauator1}
     ):
@@ -415,10 +430,10 @@ def test_evaluator_interface(classifier_model_uri, iris_dataset):
             with mlflow.start_run():
                 with pytest.raises(
                     ValueError,
-                    match='The model could not be evaluated by any of the registered evaluators',
+                    match="The model could not be evaluated by any of the registered evaluators",
                 ):
                     evaluate(
-                        classifier_model_uri,
+                        multiclass_logistic_regressor_model_uri,
                         "classifier",
                         iris_dataset,
                         run_id=None,
@@ -432,7 +447,7 @@ def test_evaluator_interface(classifier_model_uri, iris_dataset):
         ) as mock_can_evaluate, mock.patch.object(
             FakeEvauator1, "evaluate", return_value=evaluator1_return_value
         ) as mock_evaluate:
-            classifier_model = mlflow.pyfunc.load_model(classifier_model_uri)
+            classifier_model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
             with mlflow.start_run() as run:
                 eval1_result = evaluate(
                     classifier_model,
@@ -451,7 +466,7 @@ def test_evaluator_interface(classifier_model_uri, iris_dataset):
                 )
 
 
-def test_evaluate_with_multi_evaluators(classifier_model_uri, iris_dataset):
+def test_evaluate_with_multi_evaluators(multiclass_logistic_regressor_model_uri, iris_dataset):
     with mock.patch.object(
         _model_evaluation_registry,
         "_registry",
@@ -479,7 +494,7 @@ def test_evaluate_with_multi_evaluators(classifier_model_uri, iris_dataset):
             ) as mock_can_evaluate2, mock.patch.object(
                 FakeEvauator2, "evaluate", return_value=evaluator2_return_value
             ) as mock_evaluate2:
-                classifier_model = mlflow.pyfunc.load_model(classifier_model_uri)
+                classifier_model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
                 with mlflow.start_run() as run:
                     eval_result = evaluate(
                         classifier_model,
@@ -546,39 +561,46 @@ def test_start_run_or_reuse_active_run():
 
 def test_normalize_evaluators_and_evaluator_config_args():
     from mlflow.models.evaluation.default_evaluator import DefaultEvaluator
+
     with mock.patch.object(
         _model_evaluation_registry,
         "_registry",
         {"default": DefaultEvaluator},
     ):
-        assert _normalize_config(None, None) == (['default'], {})
-        assert _normalize_config(None, {'a': 3}) == (['default'], {'default': {'a': 3}})
-        assert _normalize_config(None, {'default': {'a': 3}}) == (['default'], {'default': {'a': 3}})
+        assert _normalize_config(None, None) == (["default"], {})
+        assert _normalize_config(None, {"a": 3}) == (["default"], {"default": {"a": 3}})
+        assert _normalize_config(None, {"default": {"a": 3}}) == (
+            ["default"],
+            {"default": {"a": 3}},
+        )
 
-    assert _normalize_config(None, None) == (['default', 'dummy_evaluator'], {})
+    assert _normalize_config(None, None) == (["default", "dummy_evaluator"], {})
     with pytest.raises(
-            ValueError,
-            match='`evaluator_config` argument must be a dictionary mapping each evaluator'
+        ValueError, match="`evaluator_config` argument must be a dictionary mapping each evaluator"
     ):
-        assert _normalize_config(None, {'a': 3}) == (['default', 'dummy_evaluator'], {})
+        assert _normalize_config(None, {"a": 3}) == (["default", "dummy_evaluator"], {})
 
-    assert _normalize_config(None, {'default': {'a': 3}}) == (
-        ['default', 'dummy_evaluator'], {'default': {'a': 3}}
+    assert _normalize_config(None, {"default": {"a": 3}}) == (
+        ["default", "dummy_evaluator"],
+        {"default": {"a": 3}},
     )
 
-    with mock.patch.object(_base_logger, 'warning') as patched_warning_fn:
+    with mock.patch.object(_base_logger, "warning") as patched_warning_fn:
         _normalize_config(None, None)
         patched_warning_fn.assert_called_once()
-        assert 'Multiple registered evaluators are found' in patched_warning_fn.call_args[0][0]
+        assert "Multiple registered evaluators are found" in patched_warning_fn.call_args[0][0]
 
-    assert _normalize_config('dummy_evaluator', {'a': 3}) == \
-        (['dummy_evaluator'], {'dummy_evaluator': {'a': 3}})
+    assert _normalize_config("dummy_evaluator", {"a": 3}) == (
+        ["dummy_evaluator"],
+        {"dummy_evaluator": {"a": 3}},
+    )
 
-    assert _normalize_config(['default', 'dummy_evaluator'], {'dummy_evaluator': {'a': 3}}) == \
-        (['default', 'dummy_evaluator'], {'dummy_evaluator': {'a': 3}})
+    assert _normalize_config(["default", "dummy_evaluator"], {"dummy_evaluator": {"a": 3}}) == (
+        ["default", "dummy_evaluator"],
+        {"dummy_evaluator": {"a": 3}},
+    )
 
     with pytest.raises(
-            ValueError,
-            match='evaluator_config must be a dict contains mapping from evaluator name to'
+        ValueError, match="evaluator_config must be a dict contains mapping from evaluator name to"
     ):
-        _normalize_config(['default', 'dummy_evaluator'], {'abc': {'a': 3}})
+        _normalize_config(["default", "dummy_evaluator"], {"abc": {"a": 3}})

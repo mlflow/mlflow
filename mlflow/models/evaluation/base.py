@@ -200,9 +200,10 @@ class EvaluationDataset:
         try:
             # add checking `'pyspark' in sys.modules` to avoid importing pyspark when user
             # run code not related to pyspark.
-            if 'pyspark' in sys.modules:
+            if "pyspark" in sys.modules:
                 from pyspark.sql import DataFrame as SparkDataFrame
                 from pyspark.ml.linalg import VectorUDT as SparkVectorUDT
+
                 supported_dataframe_types = (pd.DataFrame, SparkDataFrame)
                 self._spark_df_type = SparkDataFrame
                 self._spark_vector_type = SparkVectorUDT
@@ -247,11 +248,11 @@ class EvaluationDataset:
             if feature_names is not None:
                 feature_names = list(feature_names)
                 if num_features != len(feature_names):
-                    raise ValueError('feature name list must be the same length with feature data.')
+                    raise ValueError("feature name list must be the same length with feature data.")
                 self._feature_names = feature_names
             else:
                 self._feature_names = [
-                    f'feature_{str(i).zfill(math.ceil((math.log10(num_features))))}'
+                    f"feature_{str(i).zfill(math.ceil((math.log10(num_features))))}"
                     for i in range(num_features)
                 ]
         else:
@@ -259,8 +260,9 @@ class EvaluationDataset:
             if feature_names is not None:
                 feature_names = list(feature_names)
                 if pd_column_names != list(feature_names):
-                    raise ValueError('feature names must match feature column names in the pandas '
-                                     'dataframe')
+                    raise ValueError(
+                        "feature names must match feature column names in the pandas " "dataframe"
+                    )
             self._feature_names = pd_column_names
 
     @property
@@ -434,9 +436,11 @@ class EvaluationDataset:
         dataset_metadata_list = json.loads(existing_dataset_metadata_str)
 
         for metadata in dataset_metadata_list:
-            if metadata["hash"] == self.hash and \
-                    metadata["name"] == self.name and \
-                    metadata["model"] == model_uuid:
+            if (
+                metadata["hash"] == self.hash
+                and metadata["name"] == self.name
+                and metadata["model"] == model_uuid
+            ):
                 break
         else:
             dataset_metadata_list.append({**self._metadata, "model": model_uuid})
@@ -524,24 +528,26 @@ def _start_run_or_reuse_active_run(run_id):
 
 
 def _normalize_evaluators_and_evaluator_config_args(
-        evaluators,
-        evaluator_config,
+    evaluators,
+    evaluator_config,
 ):
     from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
 
     def check_nesting_config_dict(_evaluator_name_list, _evaluator_name_to_conf_map):
-        return isinstance(_evaluator_name_to_conf_map, dict) and \
-               all(k in _evaluator_name_list and isinstance(v, dict)
-                   for k, v in _evaluator_name_to_conf_map.items())
+        return isinstance(_evaluator_name_to_conf_map, dict) and all(
+            k in _evaluator_name_list and isinstance(v, dict)
+            for k, v in _evaluator_name_to_conf_map.items()
+        )
 
     if evaluators is None:
         evaluator_name_list = list(_model_evaluation_registry._registry.keys())
         if len(evaluator_name_list) > 1:
             _logger.warning(
-                f'Multiple registered evaluators are found {evaluator_name_list} and '
-                'they will all be used in evaluation if they support the specified model type. '
-                'If you want to evaluate with one evaluator, specify the `evaluator` argument '
-                'and optionally specify the `evaluator_config` argument.')
+                f"Multiple registered evaluators are found {evaluator_name_list} and "
+                "they will all be used in evaluation if they support the specified model type. "
+                "If you want to evaluate with one evaluator, specify the `evaluator` argument "
+                "and optionally specify the `evaluator_config` argument."
+            )
         if evaluator_config is not None:
             conf_dict_value_error = ValueError(
                 "If `evaluators` argument is None, all available evaluators will be used. "
@@ -550,11 +556,11 @@ def _normalize_evaluators_and_evaluator_config_args(
                 "`evaluator_config` argument must be a dictionary mapping each evaluator's name "
                 "to its own evaluator config dictionary."
             )
-            if evaluator_name_list == ['default']:
+            if evaluator_name_list == ["default"]:
                 if not isinstance(evaluator_config, dict):
                     raise conf_dict_value_error
-                elif 'default' not in evaluator_config:
-                    evaluator_name_to_conf_map = {'default': evaluator_config}
+                elif "default" not in evaluator_config:
+                    evaluator_name_to_conf_map = {"default": evaluator_config}
                 else:
                     evaluator_name_to_conf_map = evaluator_config
             else:
@@ -584,15 +590,15 @@ def _normalize_evaluators_and_evaluator_config_args(
         evaluator_name_to_conf_map = evaluator_config or {}
     else:
         raise ValueError(
-            '`evaluators` argument must be None, an evaluator name string, or a list of '
-            'evaluator names.'
+            "`evaluators` argument must be None, an evaluator name string, or a list of "
+            "evaluator names."
         )
 
     return evaluator_name_list, evaluator_name_to_conf_map
 
 
 def _evaluate(
-        model, model_type, dataset, actual_run_id, evaluator_name_list, evaluator_name_to_conf_map
+    model, model_type, dataset, actual_run_id, evaluator_name_list, evaluator_name_to_conf_map
 ):
     """
     The public API "evaluate" will verify argument first, and then pass normalized arguments
@@ -708,11 +714,17 @@ def evaluate(
             "an instance of `mlflow.pyfunc.PyFuncModel`."
         )
 
-    evaluator_name_list, evaluator_name_to_conf_map = \
-        _normalize_evaluators_and_evaluator_config_args(evaluators, evaluator_config)
+    (
+        evaluator_name_list,
+        evaluator_name_to_conf_map,
+    ) = _normalize_evaluators_and_evaluator_config_args(evaluators, evaluator_config)
 
     with _start_run_or_reuse_active_run(run_id) as actual_run_id:
         return _evaluate(
-            model, model_type, dataset, actual_run_id,
-            evaluator_name_list, evaluator_name_to_conf_map
+            model,
+            model_type,
+            dataset,
+            actual_run_id,
+            evaluator_name_list,
+            evaluator_name_to_conf_map,
         )

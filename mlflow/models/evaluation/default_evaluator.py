@@ -60,30 +60,33 @@ def _infer_model_type_by_labels(labels):
 
 
 def _extract_raw_model_and_predict_fn(model):
-    model_loader_module = model.metadata.flavors['python_function']["loader_module"]
+    model_loader_module = model.metadata.flavors["python_function"]["loader_module"]
     predict_fn = model.predict
     predict_proba_fn = None
 
     try:
-        if model_loader_module == 'mlflow.sklearn':
+        if model_loader_module == "mlflow.sklearn":
             raw_model = model._model_impl
-        elif model_loader_module == 'mlflow.lightgbm':
+        elif model_loader_module == "mlflow.lightgbm":
             raw_model = model._model_impl.lgb_model
-        elif model_loader_module == 'mlflow.xgboost':
+        elif model_loader_module == "mlflow.xgboost":
             raw_model = model._model_impl.xgb_model
         else:
             raw_model = None
     except Exception as e:
         raw_model = None
-        _logger.warning(f'Raw model resolution fails unexpectedly on PyFuncModel {model!r}, '
-                        f'error message is {e}')
+        _logger.warning(
+            f"Raw model resolution fails unexpectedly on PyFuncModel {model!r}, "
+            f"error message is {e}"
+        )
 
     if raw_model:
         predict_fn = raw_model.predict
-        predict_proba_fn = getattr(raw_model, 'predict_proba', None)
+        predict_proba_fn = getattr(raw_model, "predict_proba", None)
 
         try:
             import xgboost
+
             if isinstance(raw_model, xgboost.XGBModel):
                 # Because shap evaluation will pass evaluation data in ndarray format
                 # (without feature names), if set validate_features=True it will raise error.
@@ -96,20 +99,20 @@ def _extract_raw_model_and_predict_fn(model):
 
 
 def _gen_log_key(key, dataset_name):
-    return f'{key}_on_data_{dataset_name}'
+    return f"{key}_on_data_{dataset_name}"
 
 
 def _get_regressor_metrics(y, y_pred):
     return {
-        'example_count': len(y),
-        'mean_absolute_error': sk_metrics.mean_absolute_error(y, y_pred),
-        'mean_squared_error': sk_metrics.mean_squared_error(y, y_pred),
-        'root_mean_squared_error': math.sqrt(sk_metrics.mean_squared_error(y, y_pred)),
-        'sum_on_label': sum(y),
-        'mean_on_label': sum(y) / len(y),
-        'r2_score': sk_metrics.r2_score(y, y_pred),
-        'max_error': sk_metrics.max_error(y, y_pred),
-        'mean_absolute_percentage_error': sk_metrics.mean_absolute_percentage_error(y, y_pred)
+        "example_count": len(y),
+        "mean_absolute_error": sk_metrics.mean_absolute_error(y, y_pred),
+        "mean_squared_error": sk_metrics.mean_squared_error(y, y_pred),
+        "root_mean_squared_error": math.sqrt(sk_metrics.mean_squared_error(y, y_pred)),
+        "sum_on_label": sum(y),
+        "mean_on_label": sum(y) / len(y),
+        "r2_score": sk_metrics.r2_score(y, y_pred),
+        "max_error": sk_metrics.max_error(y, y_pred),
+        "mean_absolute_percentage_error": sk_metrics.mean_absolute_percentage_error(y, y_pred),
     }
 
 
@@ -146,16 +149,14 @@ def _get_classifier_per_class_metrics(y, y_pred):
 def _get_classifier_global_metrics(is_binomial, y, y_pred, y_probs):
     metrics = {}
     metrics["accuracy"] = sk_metrics.accuracy_score(y, y_pred)
-    metrics["example_count"] = len(X)
+    metrics["example_count"] = len(y)
 
     if not is_binomial:
-        metrics['f1_score_micro'] = \
-            sk_metrics.f1_score(y, y_pred, average='micro')
-        metrics['f1_score_macro'] = \
-            sk_metrics.f1_score(y, y_pred, average='macro')
+        metrics["f1_score_micro"] = sk_metrics.f1_score(y, y_pred, average="micro")
+        metrics["f1_score_macro"] = sk_metrics.f1_score(y, y_pred, average="macro")
 
     if y_probs is not None:
-        metrics['log_loss'] = sk_metrics.log_loss(y, y_probs)
+        metrics["log_loss"] = sk_metrics.log_loss(y, y_probs)
 
     return metrics
 
@@ -172,17 +173,24 @@ class DefaultEvaluator(ModelEvaluator):
         self.client.log_batch(
             self.run_id,
             metrics=[
-                Metric(key=_gen_log_key(key, self.dataset_name),
-                       value=value, timestamp=timestamp, step=0)
+                Metric(
+                    key=_gen_log_key(key, self.dataset_name),
+                    value=value,
+                    timestamp=timestamp,
+                    step=0,
+                )
                 for key, value in self.metrics.items()
             ],
         )
 
     def _log_image_artifact(
-        self, do_plot, artifact_name,
+        self,
+        do_plot,
+        artifact_name,
     ):
         import matplotlib.pyplot as pyplot
-        artifact_file_name = _gen_log_key(artifact_name, self.dataset_name) + '.png'
+
+        artifact_file_name = _gen_log_key(artifact_name, self.dataset_name) + ".png"
         artifact_file_local_path = self.temp_dir.path(artifact_file_name)
 
         try:
@@ -197,10 +205,8 @@ class DefaultEvaluator(ModelEvaluator):
         artifact.load(artifact_file_local_path)
         self.artifacts[artifact_name] = artifact
 
-    def _log_pandas_df_artifact(
-        self, pandas_df, artifact_name
-    ):
-        artifact_file_name = _gen_log_key(artifact_name, self.dataset_name) + '.csv'
+    def _log_pandas_df_artifact(self, pandas_df, artifact_name):
+        artifact_file_name = _gen_log_key(artifact_name, self.dataset_name) + ".csv"
         artifact_file_local_path = self.temp_dir.path(artifact_file_name)
         pandas_df.to_csv(artifact_file_local_path, index=False)
         mlflow.log_artifact(artifact_file_local_path)
@@ -212,18 +218,18 @@ class DefaultEvaluator(ModelEvaluator):
         self.artifacts[artifact_name] = artifact
 
     def _log_model_explainability(self):
-        if not self.evaluator_config.get('log_model_explainability', True):
+        if not self.evaluator_config.get("log_model_explainability", True):
             return
 
-        if self.model_loader_module == 'mlflow.spark':
+        if self.model_loader_module == "mlflow.spark":
             # TODO: Shap explainer need to manipulate on each feature values,
             #  but spark model input dataframe contains Vector type feature column
             #  which shap explainer does not support.
             #  To support this, we need expand the Vector type feature column into
             #  multiple scaler feature columns and pass it to shap explainer.
             _logger.warning(
-                'Logging model explainability insights is not currently supported for PySpark'
-                ' models.'
+                "Logging model explainability insights is not currently supported for PySpark"
+                " models."
             )
             return
 
@@ -232,28 +238,32 @@ class DefaultEvaluator(ModelEvaluator):
             import matplotlib.pyplot as pyplot
         except ImportError:
             _logger.warning(
-                'SHAP or matplotlib package is not installed, so model explainability insights '
-                'will not be logged.'
+                "SHAP or matplotlib package is not installed, so model explainability insights "
+                "will not be logged."
             )
 
-        if Version(shap.__version__) < Version('0.40'):
+        if Version(shap.__version__) < Version("0.40"):
             _logger.warning(
-                'Shap package version is lower than 0.40, Skip log model explainability.'
+                "Shap package version is lower than 0.40, Skip log model explainability."
             )
             return
 
-        is_multinomial_classifier = self.model_type == 'classifier' and self.num_classes > 2
+        is_multinomial_classifier = self.model_type == "classifier" and self.num_classes > 2
 
-        sample_rows = self.evaluator_config.get('explainability_nsamples', _DEFAULT_SAMPLE_ROWS_FOR_SHAP)
-        algorithm = self.evaluator_config.get('explainability_algorithm', None)
+        sample_rows = self.evaluator_config.get(
+            "explainability_nsamples", _DEFAULT_SAMPLE_ROWS_FOR_SHAP
+        )
+        algorithm = self.evaluator_config.get("explainability_algorithm", None)
 
         truncated_feature_names = [truncate_str_from_middle(f, 20) for f in self.feature_names]
         for i, truncated_name in enumerate(truncated_feature_names):
             if truncated_name != self.feature_names[i]:
                 # For duplicated truncated name, attach "(f_{feature_index})" at the end
-                truncated_feature_names[i] = f'{truncated_name}(f_{i})'
+                truncated_feature_names[i] = f"{truncated_name}(f_{i})"
 
-        truncated_feature_name_map = {f: f2 for f, f2 in zip(self.feature_names, truncated_feature_names)}
+        truncated_feature_name_map = {
+            f: f2 for f, f2 in zip(self.feature_names, truncated_feature_names)
+        }
 
         if isinstance(self.X, pd.DataFrame):
             # For some shap explainer, the plot will use the DataFrame column names instead of
@@ -264,14 +274,17 @@ class DefaultEvaluator(ModelEvaluator):
 
         sampled_X = shap.sample(renamed_X, sample_rows)
         if algorithm:
-            if algorithm == 'sampling':
+            if algorithm == "sampling":
                 explainer = shap.explainers.Sampling(
                     self.predict_fn, renamed_X, feature_names=truncated_feature_names
                 )
                 shap_values = explainer(renamed_X, sample_rows)
             else:
                 explainer = shap.Explainer(
-                    self.predict_fn, sampled_X, feature_names=truncated_feature_names, algorithm=algorithm
+                    self.predict_fn,
+                    sampled_X,
+                    feature_names=truncated_feature_names,
+                    algorithm=algorithm,
                 )
                 shap_values = explainer(sampled_X)
         else:
@@ -279,7 +292,9 @@ class DefaultEvaluator(ModelEvaluator):
                 # For mulitnomial classifier, shap.Explainer may choose Tree/Linear explainer for
                 # raw model, this case shap plot doesn't support it well, so exclude the
                 # multinomial_classifier case here.
-                explainer = shap.Explainer(self.raw_model, sampled_X, feature_names=truncated_feature_names)
+                explainer = shap.Explainer(
+                    self.raw_model, sampled_X, feature_names=truncated_feature_names
+                )
                 shap_values = explainer(sampled_X)
             else:
                 # fallback to default explainer
@@ -288,25 +303,25 @@ class DefaultEvaluator(ModelEvaluator):
                 )
                 shap_values = explainer(sampled_X)
 
-        _logger.info(f'Shap explainer {explainer.__class__.__name__} is used.')
+        _logger.info(f"Shap explainer {explainer.__class__.__name__} is used.")
 
         try:
             mlflow.shap.log_explainer(
-               explainer,
-               artifact_path=_gen_log_key('explainer', self.dataset_name)
+                explainer, artifact_path=_gen_log_key("explainer", self.dataset_name)
             )
         except Exception as e:
             # TODO: The explainer saver is buggy, if `get_underlying_model_flavor` return "unknown",
             #   then fallback to shap explainer saver, and shap explainer will call `model.save`
             #   for sklearn model, there is no `.save` method, so error will happen.
-            _logger.warning(f'Log explainer failed. Reason: {str(e)}')
+            _logger.warning(f"Log explainer failed. Reason: {str(e)}")
 
         def plot_beeswarm():
             pyplot.subplots_adjust(bottom=0.2, left=0.4)
             shap.plots.beeswarm(shap_values, show=False)
 
         self._log_image_artifact(
-            plot_beeswarm, "shap_beeswarm_plot",
+            plot_beeswarm,
+            "shap_beeswarm_plot",
         )
 
         def plot_summary():
@@ -314,7 +329,8 @@ class DefaultEvaluator(ModelEvaluator):
             shap.summary_plot(shap_values, show=False)
 
         self._log_image_artifact(
-            plot_summary, "shap_summary_plot",
+            plot_summary,
+            "shap_summary_plot",
         )
 
         def plot_feature_importance():
@@ -331,11 +347,10 @@ class DefaultEvaluator(ModelEvaluator):
 
         if self.y_prob is not None:
             fpr, tpr, thresholds = sk_metrics.roc_curve(self.y, self.y_prob)
-            roc_curve_pandas_df = pd.DataFrame(
-                {"fpr": fpr, "tpr": tpr, "thresholds": thresholds}
-            )
+            roc_curve_pandas_df = pd.DataFrame({"fpr": fpr, "tpr": tpr, "thresholds": thresholds})
             self._log_pandas_df_artifact(
-                roc_curve_pandas_df, "roc_curve_data",
+                roc_curve_pandas_df,
+                "roc_curve_data",
             )
 
             roc_auc = sk_metrics.auc(fpr, tpr)
@@ -345,15 +360,15 @@ class DefaultEvaluator(ModelEvaluator):
                 # Do not use sklearn.metrics roc plot API because
                 # older sklearn verison < 0.24 does not support.
                 plot_lines(
-                    {'roc': (fpr, tpr)},
-                    xlabel='False Positive Rate', ylabel='True Positive Rate',
-                    line_kwargs={"drawstyle": "steps-post"}
+                    {"roc": (fpr, tpr)},
+                    xlabel="False Positive Rate",
+                    ylabel="True Positive Rate",
+                    line_kwargs={"drawstyle": "steps-post"},
                 )
 
             self._log_image_artifact(plot_roc_curve, "roc_curve_plot")
 
-            precision, recall, thresholds = \
-                sk_metrics.precision_recall_curve(self.y, self.y_prob)
+            precision, recall, thresholds = sk_metrics.precision_recall_curve(self.y, self.y_prob)
             thresholds = np.append(thresholds, [1.0], axis=0)
             pr_curve_pandas_df = pd.DataFrame(
                 {"precision": precision, "recall": recall, "thresholds": thresholds}
@@ -367,8 +382,10 @@ class DefaultEvaluator(ModelEvaluator):
                 # Do not use sklearn.metrics precision-recall plot API because
                 # older sklearn verison < 0.24 does not support.
                 plot_lines(
-                    {'pr_curve': (recall, precision)}, xlabel='recall', ylabel='precision',
-                    line_kwargs={"drawstyle": "steps-post"}
+                    {"pr_curve": (recall, precision)},
+                    xlabel="recall",
+                    ylabel="precision",
+                    line_kwargs={"drawstyle": "steps-post"},
                 )
 
             self._log_image_artifact(plot_precision_recall_curve, "precision_recall_curve_plot")
@@ -378,29 +395,36 @@ class DefaultEvaluator(ModelEvaluator):
         per_class_roc_curve_data_list = []
         per_class_precision_recall_curve_data_list = []
 
-        PerClassRocCurveData = namedtuple('PerClassRocCurveData', ['postive_class', 'fpr', 'tpr', 'thresholds'])
+        PerClassRocCurveData = namedtuple(
+            "PerClassRocCurveData", ["postive_class", "fpr", "tpr", "thresholds"]
+        )
         PerClassPrecisionRecallCurveData = namedtuple(
-            'PerClassPrecisionRecallCurveData', ['postive_class', 'precision', 'recall', 'thresholds']
+            "PerClassPrecisionRecallCurveData",
+            ["postive_class", "precision", "recall", "thresholds"],
         )
         log_roc_pr_curve = False
         if self.y_probs is not None:
-            max_num_classes_for_logging_curve = \
-                self.evaluator_config.get(
-                    'max_num_classes_threshold_logging_roc_pr_curve_for_multiclass_classifier', 10
-                )
+            max_num_classes_for_logging_curve = self.evaluator_config.get(
+                "max_num_classes_threshold_logging_roc_pr_curve_for_multiclass_classifier", 10
+            )
             if self.num_classes <= max_num_classes_for_logging_curve:
                 log_roc_pr_curve = True
             else:
-                _logger.warning(f'The classifier num_classes > {max_num_classes_for_logging_curve}, skip logging '
-                                f'ROC curve and Precision-Recall curve. You can add evaluator config '
-                                f"'max_num_classes_threshold_logging_roc_pr_curve_for_multiclass_classifier' to "
-                                f"increase the threshold.")
+                _logger.warning(
+                    f"The classifier num_classes > {max_num_classes_for_logging_curve}, skip logging "
+                    f"ROC curve and Precision-Recall curve. You can add evaluator config "
+                    f"'max_num_classes_threshold_logging_roc_pr_curve_for_multiclass_classifier' to "
+                    f"increase the threshold."
+                )
 
         for postive_class in self.label_list:
-            y_is_positive, y_pred_is_positive, prob_of_positive = \
-                _get_binary_sum_up_label_pred_prob(self.y, self.y_pred, self.y_probs)
+            (
+                y_is_positive,
+                y_pred_is_positive,
+                prob_of_positive,
+            ) = _get_binary_sum_up_label_pred_prob(postive_class, self.y, self.y_pred, self.y_probs)
 
-            per_class_metrics = {'positive_class': postive_class}
+            per_class_metrics = {"positive_class": postive_class}
             per_class_metrics_list.append(per_class_metrics)
 
             per_class_metrics.update(
@@ -416,12 +440,15 @@ class DefaultEvaluator(ModelEvaluator):
                 roc_auc = sk_metrics.auc(fpr, tpr)
                 per_class_metrics["roc_auc"] = roc_auc
 
-                precision, recall, thresholds = \
-                    sk_metrics.precision_recall_curve(y_is_positive, prob_of_positive)
+                precision, recall, thresholds = sk_metrics.precision_recall_curve(
+                    y_is_positive, prob_of_positive
+                )
                 thresholds = np.append(thresholds, [1.0], axis=0)
                 if log_roc_pr_curve:
                     per_class_precision_recall_curve_data_list.append(
-                        PerClassPrecisionRecallCurveData(postive_class, precision, recall, thresholds)
+                        PerClassPrecisionRecallCurveData(
+                            postive_class, precision, recall, thresholds
+                        )
                     )
                 pr_auc = sk_metrics.auc(recall, precision)
                 per_class_metrics["precision_recall_auc"] = pr_auc
@@ -432,39 +459,45 @@ class DefaultEvaluator(ModelEvaluator):
         if self.y_probs is not None and log_roc_pr_curve:
             per_class_roc_curve_pandas_df = pd.concat(
                 [pd.DataFrame(item._asdict()) for item in per_class_roc_curve_data_list],
-                ignore_index=True
+                ignore_index=True,
             )
             self._log_pandas_df_artifact(per_class_roc_curve_pandas_df, "per_class_roc_curve_data")
 
             per_class_precision_recall_curve_pandas_df = pd.concat(
-                [pd.DataFrame(item._asdict()) for item in per_class_precision_recall_curve_data_list],
-                ignore_index=True
+                [
+                    pd.DataFrame(item._asdict())
+                    for item in per_class_precision_recall_curve_data_list
+                ],
+                ignore_index=True,
             )
             self._log_pandas_df_artifact(
-                per_class_precision_recall_curve_pandas_df,
-                "per_class_precision_recall_curve_data"
+                per_class_precision_recall_curve_pandas_df, "per_class_precision_recall_curve_data"
             )
 
             def plot_roc_curve():
                 data_series = {
-                    f'Positive Class = {postive_class}': (fpr, tpr)
+                    f"Positive Class = {postive_class}": (fpr, tpr)
                     for postive_class, fpr, tpr, _ in per_class_roc_curve_data_list
                 }
                 plot_lines(
-                    data_series, xlabel='False Positive Rate', ylabel='True Positive Rate',
-                    legend_loc='lower right',
-                    line_kwargs={"drawstyle": "steps-post"}
+                    data_series,
+                    xlabel="False Positive Rate",
+                    ylabel="True Positive Rate",
+                    legend_loc="lower right",
+                    line_kwargs={"drawstyle": "steps-post"},
                 )
 
             def plot_precision_recall_curve():
                 data_series = {
-                    f'Positive Class = {postive_class}': (recall, precision)
+                    f"Positive Class = {postive_class}": (recall, precision)
                     for postive_class, precision, recall, _ in per_class_precision_recall_curve_data_list
                 }
                 plot_lines(
-                    data_series, xlabel='recall', ylabel='precision',
-                    legend_loc='lower left',
-                    line_kwargs={"drawstyle": "steps-post"}
+                    data_series,
+                    xlabel="recall",
+                    ylabel="precision",
+                    legend_loc="lower left",
+                    line_kwargs={"drawstyle": "steps-post"},
                 )
 
             self._log_image_artifact(plot_roc_curve, "roc_curve_plot")
@@ -484,8 +517,8 @@ class DefaultEvaluator(ModelEvaluator):
             for label in label_list:
                 if int(label) not in [-1, 0, 1]:
                     raise ValueError(
-                        'Binomial classification require evaluation dataset label values to be '
-                        '-1, 0, or 1.'
+                        "Binomial classification require evaluation dataset label values to be "
+                        "-1, 0, or 1."
                     )
 
         if self.predict_proba_fn is not None:
@@ -509,7 +542,8 @@ class DefaultEvaluator(ModelEvaluator):
 
         if self.is_binomial and self.y_probs is not None:
             self._log_image_artifact(
-                lambda: plot_lift_curve(self.y, self.y_probs), "lift_curve_plot",
+                lambda: plot_lift_curve(self.y, self.y_probs),
+                "lift_curve_plot",
             )
 
         # TODO: Shall we also log confusion_matrix data as a json artifact ?
@@ -518,9 +552,10 @@ class DefaultEvaluator(ModelEvaluator):
         def plot_confusion_matrix():
             sk_metrics.ConfusionMatrixDisplay(confusion_matrix=confusion_matrix).plot()
 
-        if hasattr(sk_metrics, 'ConfusionMatrixDisplay'):
+        if hasattr(sk_metrics, "ConfusionMatrixDisplay"):
             self._log_image_artifact(
-                plot_confusion_matrix, "confusion_matrix",
+                plot_confusion_matrix,
+                "confusion_matrix",
             )
 
         self._log_metrics()
@@ -556,8 +591,12 @@ class DefaultEvaluator(ModelEvaluator):
             self.dataset_name = dataset.name
             self.feature_names = dataset.feature_names
 
-            model_loader_module, raw_model, predict_fn, predict_proba_fn = \
-                _extract_raw_model_and_predict_fn(model)
+            (
+                model_loader_module,
+                raw_model,
+                predict_fn,
+                predict_proba_fn,
+            ) = _extract_raw_model_and_predict_fn(model)
             self.model_loader_module = model_loader_module
             self.raw_model = raw_model
             self.predict_fn = predict_fn
