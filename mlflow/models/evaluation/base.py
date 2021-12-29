@@ -172,6 +172,8 @@ class EvaluationDataset:
          - A Pandas DataFrame, or a spark DataFrame,
            containing evaluation features and labels. All columns will be regarded as feature
            columns except the "labels" column.
+         Note: If the mlflow model to be evaluated is a pyspark ML model, then the input data must
+           be a spark DataFrame contains a feature column of "Vector" type, and a label column.
 
         :param labels: One of the following:
          - A numpy array or list of evaluation labels, if `data` is also a numpy array or list.
@@ -183,7 +185,10 @@ class EvaluationDataset:
         :param path: (Optional) the path to a serialized DataFrame (must not contain ").
           (e.g. a delta table, parquet file)
 
-        :param feature_names: (Optional) A list of the feature names.
+        :param feature_names: (Optional) A list of the feature names attached to the numpy array
+          input data. The argument is only useful in the case the input data is numpy array.
+          For pandas DataFrame input case, the pandas column name will be used as feature name.
+          The feature names will be shown in model explainability plots.
         """
         import numpy as np
         import pandas as pd
@@ -677,8 +682,9 @@ def evaluate(
 
     Limitations of evaluation dataset:
      - If the input dataset is pandas dataframe, the feature columns in pandas dataframe must be
-       scalar value columns, or object type columns with values of "pyspark.ml.Vector" type.
-       Other object types (nd.array/list/etc.) are not supported yet.
+       scalar value columns, other object types (nd.array/list/etc.) are not supported yet.
+     - If the mlflow model to be evaluated is a pyspark ML model, then the input data must
+       be a spark DataFrame contains a feature column of "Vector" type, and a label column.
 
     Limitations of default evaluator logging model explainability insights:
      - The `shap.Explainer` "auto" algorithm will choose Linear explainer for linear model,
