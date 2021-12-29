@@ -14,6 +14,7 @@ from mlflow.utils.annotations import experimental
 import logging
 import struct
 import sys
+import math
 from collections import OrderedDict
 
 
@@ -244,7 +245,10 @@ class EvaluationDataset:
                     raise ValueError('feature name list must be the same length with feature data.')
                 self._feature_names = feature_names
             else:
-                self._feature_names = [f'f_{i}' for i in range(num_features)]
+                self._feature_names = [
+                    f'f_{str(i).zfill(math.ceil((math.log10(num_features))))}'
+                    for i in range(num_features)
+                ]
         else:
             pd_column_names = [c for c in self.data.columns if c != self.labels]
             if feature_names is not None:
