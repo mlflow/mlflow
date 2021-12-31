@@ -255,6 +255,8 @@ class EvaluationDataset:
                     f"feature_{str(i).zfill(math.ceil((math.log10(num_features))))}"
                     for i in range(num_features)
                 ]
+            if isinstance(self.labels, list):
+                self.labels = np.array(self.labels)
         else:
             pd_column_names = [c for c in self.data.columns if c != self.labels]
             if feature_names is not None:
@@ -694,6 +696,11 @@ def evaluate(
        scalar value columns, other object types (nd.array/list/etc.) are not supported yet.
      - If the mlflow model to be evaluated is a pyspark ML model, then the input data must
        be a spark DataFrame contains a feature column of "Vector" type, and a label column.
+     - For classifier, evaluation dataset labels must contains all distinct values, the dataset
+       labels data will be used to infer the number of classes. For binary classifier, the
+       negative label value must be 0 or -1, and the positive label value must be 1.
+       For multiclass classifier, if logging explainability insights enabled, the label values
+       must be number type.
 
     Limitations of default evaluator logging model explainability insights:
      - The `shap.Explainer` "auto" algorithm will choose Linear explainer for linear model,

@@ -13,6 +13,7 @@ from mlflow.models.utils import plot_lines
 from sklearn import metrics as sk_metrics
 import math
 from collections import namedtuple
+import numbers
 import pandas as pd
 import numpy as np
 import json
@@ -52,6 +53,8 @@ _DEFAULT_SAMPLE_ROWS_FOR_SHAP = 2000
 def _infer_model_type_by_labels(labels):
     distinct_labels = set(labels)
     for v in distinct_labels:
+        if isinstance(v, str):
+            return "classifier"
         if not float(v).is_integer():
             return "regressor"
     if len(distinct_labels) > 1000 and len(distinct_labels) / len(labels) > 0.7:
@@ -116,12 +119,12 @@ def _get_regressor_metrics(y, y_pred):
     }
 
 
-def _get_binary_sum_up_label_pred_prob(postive_class, y, y_pred, y_probs):
-    y_is_positive = np.where(y == postive_class, 1, 0)
-    y_pred_is_positive = np.where(y_pred == postive_class, 1, 0)
+def _get_binary_sum_up_label_pred_prob(positive_class_index, positive_class, y, y_pred, y_probs):
+    y_is_positive = np.where(y == positive_class, 1, 0)
+    y_pred_is_positive = np.where(y_pred == positive_class, 1, 0)
 
     if y_probs is not None:
-        prob_of_positive = y_probs[:, postive_class]
+        prob_of_positive = y_probs[:, positive_class_index]
     else:
         prob_of_positive = None
 
@@ -146,19 +149,24 @@ def _get_classifier_per_class_metrics(y, y_pred):
     return metrics
 
 
-def _get_classifier_global_metrics(is_binomial, y, y_pred, y_probs):
+def _get_classifier_global_metrics(is_binomial, y, y_pred, y_probs, labels):
     metrics = {}
     metrics["accuracy"] = sk_metrics.accuracy_score(y, y_pred)
     metrics["example_count"] = len(y)
 
     if not is_binomial:
-        metrics["f1_score_micro"] = sk_metrics.f1_score(y, y_pred, average="micro")
-        metrics["f1_score_macro"] = sk_metrics.f1_score(y, y_pred, average="macro")
+        metrics["f1_score_micro"] = sk_metrics.f1_score(y, y_pred, average="micro", labels=labels)
+        metrics["f1_score_macro"] = sk_metrics.f1_score(y, y_pred, average="macro", labels=labels)
 
     if y_probs is not None:
-        metrics["log_loss"] = sk_metrics.log_loss(y, y_probs)
+        metrics["log_loss"] = sk_metrics.log_loss(y, y_probs, labels=labels)
 
     return metrics
+
+
+def _gen_precision_recall_curve(positive_class, y, y_prob):
+    precision, recall, thresholds = sk_metrics.precision_recall_curve(y, y_prob)
+    thresholds = np.append(thresholds, [1.0], axis=0)
 
 
 class DefaultEvaluator(ModelEvaluator):
@@ -228,8 +236,15 @@ class DefaultEvaluator(ModelEvaluator):
             #  To support this, we need expand the Vector type feature column into
             #  multiple scaler feature columns and pass it to shap explainer.
             _logger.warning(
-                "Logging model explainability insights is not currently supported for PySpark"
-                " models."
+                "Logging model explainability insights is not currently supported for PySpark "
+                "models."
+            )
+            return
+
+        if not all([isinstance(label, numbers.Number) for label in self.label_list]):
+            _logger.warning(
+                "Skip logging model explainability insights because it requires all label "
+                "values to be Number type."
             )
             return
 
@@ -278,7 +293,6 @@ class DefaultEvaluator(ModelEvaluator):
                 explainer = shap.explainers.Sampling(
                     self.predict_fn, renamed_X, feature_names=truncated_feature_names
                 )
-                shap_values = explainer(renamed_X, sample_rows)
             else:
                 explainer = shap.Explainer(
                     self.predict_fn,
@@ -286,7 +300,6 @@ class DefaultEvaluator(ModelEvaluator):
                     feature_names=truncated_feature_names,
                     algorithm=algorithm,
                 )
-                shap_values = explainer(sampled_X)
         else:
             if self.raw_model and not is_multinomial_classifier:
                 # For mulitnomial classifier, shap.Explainer may choose Tree/Linear explainer for
@@ -295,15 +308,18 @@ class DefaultEvaluator(ModelEvaluator):
                 explainer = shap.Explainer(
                     self.raw_model, sampled_X, feature_names=truncated_feature_names
                 )
-                shap_values = explainer(sampled_X)
             else:
                 # fallback to default explainer
                 explainer = shap.Explainer(
                     self.predict_fn, sampled_X, feature_names=truncated_feature_names
                 )
-                shap_values = explainer(sampled_X)
 
         _logger.info(f"Shap explainer {explainer.__class__.__name__} is used.")
+
+        if algorithm == "sampling":
+            shap_values = explainer(renamed_X, sample_rows)
+        else:
+            shap_values = explainer(sampled_X)
 
         try:
             mlflow.shap.log_explainer(
@@ -417,14 +433,16 @@ class DefaultEvaluator(ModelEvaluator):
                     f"increase the threshold."
                 )
 
-        for postive_class in self.label_list:
+        for positive_class_index, positive_class in enumerate(self.label_list):
             (
                 y_is_positive,
                 y_pred_is_positive,
                 prob_of_positive,
-            ) = _get_binary_sum_up_label_pred_prob(postive_class, self.y, self.y_pred, self.y_probs)
+            ) = _get_binary_sum_up_label_pred_prob(
+                positive_class_index, positive_class, self.y, self.y_pred, self.y_probs
+            )
 
-            per_class_metrics = {"positive_class": postive_class}
+            per_class_metrics = {"positive_class": positive_class}
             per_class_metrics_list.append(per_class_metrics)
 
             per_class_metrics.update(
@@ -435,7 +453,7 @@ class DefaultEvaluator(ModelEvaluator):
                 fpr, tpr, thresholds = sk_metrics.roc_curve(y_is_positive, prob_of_positive)
                 if log_roc_pr_curve:
                     per_class_roc_curve_data_list.append(
-                        PerClassRocCurveData(postive_class, fpr, tpr, thresholds)
+                        PerClassRocCurveData(positive_class, fpr, tpr, thresholds)
                     )
                 roc_auc = sk_metrics.auc(fpr, tpr)
                 per_class_metrics["roc_auc"] = roc_auc
@@ -447,7 +465,7 @@ class DefaultEvaluator(ModelEvaluator):
                 if log_roc_pr_curve:
                     per_class_precision_recall_curve_data_list.append(
                         PerClassPrecisionRecallCurveData(
-                            postive_class, precision, recall, thresholds
+                            positive_class, precision, recall, thresholds
                         )
                     )
                 pr_auc = sk_metrics.auc(recall, precision)
@@ -506,20 +524,28 @@ class DefaultEvaluator(ModelEvaluator):
     def _evaluate_classifier(self):
         from mlflow.models.evaluation.lift_curve import plot_lift_curve
 
-        label_list = sorted(list(set(self.y)))
-        self.label_list = label_list
-        self.num_classes = len(label_list)
+        self.label_list = np.unique(self.y)
+        self.num_classes = len(self.label_list)
 
         self.y_pred = self.predict_fn(self.X)
         self.is_binomial = self.num_classes <= 2
 
         if self.is_binomial:
-            for label in label_list:
-                if int(label) not in [-1, 0, 1]:
-                    raise ValueError(
-                        "Binomial classification require evaluation dataset label values to be "
-                        "-1, 0, or 1."
-                    )
+            if list(self.label_list) not in [[0, 1], [-1, 1]]:
+                raise ValueError(
+                    'Binary classifier evaluation dataset positive class label must be 1, '
+                    'negative class label must be 0 or -1, and dataset must contains both '
+                    'positive and negative examples.'
+                )
+            _logger.info(
+                'The evaluation dataset is inferred as binary dataset, positive label is '
+                f'{self.label_list[1]}, negative label is {self.label_list[0]}.'
+            )
+        else:
+            _logger.info(
+                'The evaluation dataset is inferred as multiclass dataset, number of classes '
+                f'is inferred as {self.num_classes}'
+            )
 
         if self.predict_proba_fn is not None:
             self.y_probs = self.predict_proba_fn(self.X)
@@ -532,7 +558,9 @@ class DefaultEvaluator(ModelEvaluator):
             self.y_prob = None
 
         self.metrics.update(
-            _get_classifier_global_metrics(self.is_binomial, self.y, self.y_pred, self.y_probs)
+            _get_classifier_global_metrics(
+                self.is_binomial, self.y, self.y_pred, self.y_probs, self.label_list
+            )
         )
 
         if self.is_binomial:
@@ -547,10 +575,13 @@ class DefaultEvaluator(ModelEvaluator):
             )
 
         # TODO: Shall we also log confusion_matrix data as a json artifact ?
-        confusion_matrix = sk_metrics.confusion_matrix(self.y, self.y_pred)
+        confusion_matrix = sk_metrics.confusion_matrix(self.y, self.y_pred, labels=self.label_list)
 
         def plot_confusion_matrix():
-            sk_metrics.ConfusionMatrixDisplay(confusion_matrix=confusion_matrix).plot()
+            sk_metrics.ConfusionMatrixDisplay(
+                confusion_matrix=confusion_matrix,
+                display_labels=self.label_list,
+            ).plot()
 
         if hasattr(sk_metrics, "ConfusionMatrixDisplay"):
             self._log_image_artifact(
