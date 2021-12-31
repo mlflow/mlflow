@@ -538,10 +538,7 @@ def autolog(
 
             # If early stopping is activated, logging metrics at the best iteration
             # as extra metrics with the max step + 1.
-            early_stopping_index = all_arg_names.index("early_stopping_rounds")
-            early_stopping = num_pos_args >= early_stopping_index + 1 or kwargs.get(
-                "early_stopping_rounds"
-            )
+            early_stopping = model.best_iteration > 0
             if early_stopping:
                 extra_step = len(eval_results)
                 autologging_client.log_metrics(
@@ -633,8 +630,9 @@ def autolog(
     # The `train()` method logs LightGBM models as Booster objects. When using LightGBM
     # scikit-learn models, we want to save / log models as their model classes. So we turn
     # off the log_models functionality in the `train()` method patched to `lightgbm.sklearn`.
-    # Instead the model logging is handled in `fit_mlflow_sklearn()` in `mlflow.sklearn._autolog()`,
-    # where models are logged as LightGBM scikit-learn models after the `fit()` method returns.
+    # Instead the model logging is handled in `fit_mlflow_xgboost_and_lightgbm()`
+    # in `mlflow.sklearn._autolog()`, where models are logged as LightGBM scikit-learn models
+    # after the `fit()` method returns.
     safe_patch(
         FLAVOR_NAME, lightgbm.sklearn, "train", functools.partial(train, False), manage_run=True
     )
