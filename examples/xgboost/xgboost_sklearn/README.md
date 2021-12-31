@@ -5,8 +5,9 @@ This example trains an [`XGBoost.XGBRegressor`](https://xgboost.readthedocs.io/e
 Like the other XGBoost example, we enable autologging for XGBoost scikit-learn models via `mlflow.xgboost.autolog()`. Saving / loading models also supports XGBoost scikit-learn models.
 
 You can run this example using the following command:
+
 ```
-python train_sklearn.py
+python train.py
 ```
 
 

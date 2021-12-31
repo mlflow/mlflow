@@ -25,6 +25,7 @@ import shutil
 import logging
 import functools
 from copy import deepcopy
+from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
@@ -372,7 +373,8 @@ def autolog(
 
     - parameters specified in `lightgbm.train`_.
     - metrics on each iteration (if ``valid_sets`` specified).
-    - metrics at the best iteration (if ``early_stopping_rounds`` specified).
+    - metrics at the best iteration (if ``early_stopping_rounds`` specified or ``early_stopping``
+        callback is set).
     - feature importance (both "split" and "gain") as JSON files and plots.
     - trained model, including:
         - an example of valid input.
@@ -496,10 +498,13 @@ def autolog(
             "fobj",
             "feval",
             "init_model",
-            "evals_result",
             "learning_rates",
             "callbacks",
         ]
+        if Version(lightgbm.__version__) <= Version("3.3.1"):
+            # The parameter `evals_result` in `lightgbm.train` is removed in this PR:
+            # https://github.com/microsoft/LightGBM/pull/4882
+            unlogged_params.append("evals_result")
 
         params_to_log_for_fn = get_mlflow_run_params_for_fn_args(
             original, args, kwargs, unlogged_params
@@ -531,7 +536,7 @@ def autolog(
             # training model
             model = original(*args, **kwargs)
 
-            # If early_stopping_rounds is present, logging metrics at the best iteration
+            # If early stopping is activated, logging metrics at the best iteration
             # as extra metrics with the max step + 1.
             early_stopping_index = all_arg_names.index("early_stopping_rounds")
             early_stopping = num_pos_args >= early_stopping_index + 1 or kwargs.get(
