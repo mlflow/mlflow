@@ -241,7 +241,7 @@ def plot_lines(data_series, xlabel, ylabel, legend_loc=None, line_kwargs={}):
 
     fig, ax = plt.subplots()
 
-    for label, (data_x, data_y) in data_series.items():
+    for label, data_x, data_y in data_series:
         ax.plot(data_x, data_y, label=label, **line_kwargs)
 
     if legend_loc:

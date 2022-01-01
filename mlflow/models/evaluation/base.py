@@ -255,8 +255,6 @@ class EvaluationDataset:
                     f"feature_{str(i).zfill(math.ceil((math.log10(num_features))))}"
                     for i in range(num_features)
                 ]
-            if isinstance(self.labels, list):
-                self.labels = np.array(self.labels)
         else:
             pd_column_names = [c for c in self.data.columns if c != self.labels]
             if feature_names is not None:
@@ -698,7 +696,7 @@ def evaluate(
        be a spark DataFrame contains a feature column of "Vector" type, and a label column.
      - For classifier, evaluation dataset labels must contains all distinct values, the dataset
        labels data will be used to infer the number of classes. For binary classifier, the
-       negative label value must be 0 or -1, and the positive label value must be 1.
+       negative label value must be 0 or -1 or False, and the positive label value must be 1 or True.
        For multiclass classifier, if logging explainability insights enabled, the label values
        must be number type.
 

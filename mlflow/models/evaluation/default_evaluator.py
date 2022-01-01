@@ -53,7 +53,7 @@ _DEFAULT_SAMPLE_ROWS_FOR_SHAP = 2000
 def _infer_model_type_by_labels(labels):
     distinct_labels = set(labels)
     for v in distinct_labels:
-        if isinstance(v, str):
+        if not isinstance(v, numbers.Number):
             return "classifier"
         if not float(v).is_integer():
             return "regressor"
@@ -120,15 +120,18 @@ def _get_regressor_metrics(y, y_pred):
 
 
 def _get_binary_sum_up_label_pred_prob(positive_class_index, positive_class, y, y_pred, y_probs):
-    y_is_positive = np.where(y == positive_class, 1, 0)
-    y_pred_is_positive = np.where(y_pred == positive_class, 1, 0)
+    y = np.array(y)
+    y_bin = np.where(y == positive_class, 1, 0)
+    y_pred_bin = None
+    y_prob_bin = None
+    if y_pred is not None:
+        y_pred = np.array(y_pred)
+        y_pred_bin = np.where(y_pred == positive_class, 1, 0)
 
     if y_probs is not None:
-        prob_of_positive = y_probs[:, positive_class_index]
-    else:
-        prob_of_positive = None
+        y_prob_bin = y_probs[:, positive_class_index]
 
-    return y_is_positive, y_pred_is_positive, prob_of_positive
+    return y_bin, y_pred_bin, y_prob_bin
 
 
 def _get_classifier_per_class_metrics(y, y_pred):
@@ -164,9 +167,102 @@ def _get_classifier_global_metrics(is_binomial, y, y_pred, y_probs, labels):
     return metrics
 
 
-def _gen_precision_recall_curve(positive_class, y, y_prob):
-    precision, recall, thresholds = sk_metrics.precision_recall_curve(y, y_prob)
-    thresholds = np.append(thresholds, [1.0], axis=0)
+def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels):
+    per_class_metrics_list = []
+    for positive_class_index, positive_class in enumerate(labels):
+        (
+            y_bin,
+            y_pred_bin,
+            _,
+        ) = _get_binary_sum_up_label_pred_prob(
+            positive_class_index, positive_class, y, y_pred, None
+        )
+
+        per_class_metrics = {"positive_class": positive_class}
+        per_class_metrics.update(_get_classifier_per_class_metrics(y_bin, y_pred_bin))
+        per_class_metrics_list.append(per_class_metrics)
+
+    return pd.DataFrame(per_class_metrics_list)
+
+
+_Curve = namedtuple('_Curve', ['plot_fn', 'plot_fn_args', 'curve_dataframe', 'auc'])
+
+
+def _gen_classifier_curve(
+        is_binomial, y, y_probs, labels, curve_type,
+):
+    if curve_type == 'roc':
+        def gen_x_y_thresholds_fn(_y, _y_prob):
+            fpr, tpr, _thresholds = sk_metrics.roc_curve(_y, _y_prob)
+            return fpr, tpr, _thresholds
+
+        xlabel = "fpr"
+        ylabel = "tpr"
+        legend_loc = "lower right"
+    elif curve_type == 'pr':
+        def gen_x_y_thresholds_fn(_y, _y_prob):
+            precision, recall, _thresholds = sk_metrics.precision_recall_curve(_y, _y_prob)
+            _thresholds = np.append(_thresholds, [1.0], axis=0)
+            return recall, precision, _thresholds
+
+        xlabel = "recall"
+        ylabel = "precision"
+        legend_loc = "lower left"
+    else:
+        assert False, 'illegal curve type'
+
+    if is_binomial:
+        y_prob = y_probs[:, 1]
+        x_data, y_data, thresholds = gen_x_y_thresholds_fn(y, y_prob)
+        curve_dataframe = pd.DataFrame({
+            xlabel: x_data,
+            ylabel: y_data,
+            'thresholds': thresholds,
+        })
+        data_series = [('positive class', x_data, y_data)]
+        legend_loc = None
+        auc = sk_metrics.auc(x_data, y_data)
+    else:
+        curve_list = []
+        for positive_class_index, positive_class in enumerate(labels):
+            y_bin, _, y_prob_bin = _get_binary_sum_up_label_pred_prob(
+                positive_class_index, positive_class, y, None, y_probs
+            )
+
+            x_data, y_data, thresholds = gen_x_y_thresholds_fn(y_bin, y_prob_bin)
+            curve_list.append((positive_class, x_data, y_data, thresholds))
+
+        curve_dataframe = pd.concat(
+            [
+                pd.DataFrame({
+                    'positive_class': positive_class,
+                    xlabel: x_data,
+                    ylabel: y_data,
+                    'thresholds': thresholds,
+                })
+                for positive_class, x_data, y_data, thresholds in curve_list
+            ],
+            ignore_index=True,
+        )
+        data_series = [
+            (f"Positive Class = {positive_class}", x_data, y_data)
+            for positive_class, x_data, y_data, _ in curve_list
+        ]
+        auc = [
+            sk_metrics.auc(x_data, y_data) for _, x_data, y_data, _ in curve_list
+        ]
+    return _Curve(
+        plot_fn=plot_lines,
+        plot_fn_args={
+            'data_series': data_series,
+            'xlabel': xlabel,
+            'ylabel': ylabel,
+            'legend_loc': legend_loc,
+            'line_kwargs': {"drawstyle": "steps-post"},
+        },
+        curve_dataframe=curve_dataframe,
+        auc=auc
+    )
 
 
 class DefaultEvaluator(ModelEvaluator):
@@ -361,63 +457,33 @@ class DefaultEvaluator(ModelEvaluator):
     def _log_binary_classifier(self):
         self.metrics.update(_get_classifier_per_class_metrics(self.y, self.y_pred))
 
-        if self.y_prob is not None:
-            fpr, tpr, thresholds = sk_metrics.roc_curve(self.y, self.y_prob)
-            roc_curve_pandas_df = pd.DataFrame({"fpr": fpr, "tpr": tpr, "thresholds": thresholds})
-            self._log_pandas_df_artifact(
-                roc_curve_pandas_df,
-                "roc_curve_data",
+        if self.y_probs is not None:
+            roc_curve = _gen_classifier_curve(
+                is_binomial=True, y=self.y, y_probs=self.y_probs, labels=self.label_list,
+                curve_type='roc'
             )
-
-            roc_auc = sk_metrics.auc(fpr, tpr)
-            self.metrics["roc_auc"] = roc_auc
-
-            def plot_roc_curve():
-                # Do not use sklearn.metrics roc plot API because
-                # older sklearn verison < 0.24 does not support.
-                plot_lines(
-                    {"roc": (fpr, tpr)},
-                    xlabel="False Positive Rate",
-                    ylabel="True Positive Rate",
-                    line_kwargs={"drawstyle": "steps-post"},
-                )
-
-            self._log_image_artifact(plot_roc_curve, "roc_curve_plot")
-
-            precision, recall, thresholds = sk_metrics.precision_recall_curve(self.y, self.y_prob)
-            thresholds = np.append(thresholds, [1.0], axis=0)
-            pr_curve_pandas_df = pd.DataFrame(
-                {"precision": precision, "recall": recall, "thresholds": thresholds}
+            self._log_image_artifact(
+                lambda: roc_curve.plot_fn(**roc_curve.plot_fn_args),
+                "roc_curve_plot"
             )
-            self._log_pandas_df_artifact(pr_curve_pandas_df, "precision_recall_curve_data")
+            self._log_pandas_df_artifact(roc_curve.curve_dataframe, "roc_curve_data")
+            self.metrics["roc_auc"] = roc_curve.auc
 
-            pr_auc = sk_metrics.auc(recall, precision)
-            self.metrics["precision_recall_auc"] = pr_auc
-
-            def plot_precision_recall_curve():
-                # Do not use sklearn.metrics precision-recall plot API because
-                # older sklearn verison < 0.24 does not support.
-                plot_lines(
-                    {"pr_curve": (recall, precision)},
-                    xlabel="recall",
-                    ylabel="precision",
-                    line_kwargs={"drawstyle": "steps-post"},
-                )
-
-            self._log_image_artifact(plot_precision_recall_curve, "precision_recall_curve_plot")
+            pr_curve = _gen_classifier_curve(
+                is_binomial=True, y=self.y, y_probs=self.y_probs, labels=self.label_list,
+                curve_type='pr'
+            )
+            self._log_image_artifact(
+                lambda: pr_curve.plot_fn(**pr_curve.plot_fn_args),
+                "precision_recall_curve_plot"
+            )
+            self._log_pandas_df_artifact(pr_curve.curve_dataframe, "precision_recall_curve_data")
+            self.metrics["precision_recall_auc"] = pr_curve.auc
 
     def _log_multiclass_classifier(self):
-        per_class_metrics_list = []
-        per_class_roc_curve_data_list = []
-        per_class_precision_recall_curve_data_list = []
+        per_class_metrics_collection_df = \
+            _get_classifier_per_class_metrics_collection_df(self.y, self.y_pred, self.label_list)
 
-        PerClassRocCurveData = namedtuple(
-            "PerClassRocCurveData", ["postive_class", "fpr", "tpr", "thresholds"]
-        )
-        PerClassPrecisionRecallCurveData = namedtuple(
-            "PerClassPrecisionRecallCurveData",
-            ["postive_class", "precision", "recall", "thresholds"],
-        )
         log_roc_pr_curve = False
         if self.y_probs is not None:
             max_num_classes_for_logging_curve = self.evaluator_config.get(
@@ -433,93 +499,30 @@ class DefaultEvaluator(ModelEvaluator):
                     f"increase the threshold."
                 )
 
-        for positive_class_index, positive_class in enumerate(self.label_list):
-            (
-                y_is_positive,
-                y_pred_is_positive,
-                prob_of_positive,
-            ) = _get_binary_sum_up_label_pred_prob(
-                positive_class_index, positive_class, self.y, self.y_pred, self.y_probs
+        if log_roc_pr_curve:
+            roc_curve = _gen_classifier_curve(
+                is_binomial=False, y=self.y, y_probs=self.y_probs, labels=self.label_list,
+                curve_type='roc'
             )
-
-            per_class_metrics = {"positive_class": positive_class}
-            per_class_metrics_list.append(per_class_metrics)
-
-            per_class_metrics.update(
-                _get_classifier_per_class_metrics(y_is_positive, y_pred_is_positive)
+            self._log_image_artifact(
+                lambda: roc_curve.plot_fn(**roc_curve.plot_fn_args),
+                "roc_curve_plot"
             )
+            self._log_pandas_df_artifact(roc_curve.curve_dataframe, "roc_curve_data")
+            per_class_metrics_collection_df["roc_auc"] = roc_curve.auc
 
-            if self.y_probs is not None:
-                fpr, tpr, thresholds = sk_metrics.roc_curve(y_is_positive, prob_of_positive)
-                if log_roc_pr_curve:
-                    per_class_roc_curve_data_list.append(
-                        PerClassRocCurveData(positive_class, fpr, tpr, thresholds)
-                    )
-                roc_auc = sk_metrics.auc(fpr, tpr)
-                per_class_metrics["roc_auc"] = roc_auc
-
-                precision, recall, thresholds = sk_metrics.precision_recall_curve(
-                    y_is_positive, prob_of_positive
-                )
-                thresholds = np.append(thresholds, [1.0], axis=0)
-                if log_roc_pr_curve:
-                    per_class_precision_recall_curve_data_list.append(
-                        PerClassPrecisionRecallCurveData(
-                            positive_class, precision, recall, thresholds
-                        )
-                    )
-                pr_auc = sk_metrics.auc(recall, precision)
-                per_class_metrics["precision_recall_auc"] = pr_auc
-
-        per_class_metrics_pandas_df = pd.DataFrame(per_class_metrics_list)
-        self._log_pandas_df_artifact(per_class_metrics_pandas_df, "per_class_metrics_data")
-
-        if self.y_probs is not None and log_roc_pr_curve:
-            per_class_roc_curve_pandas_df = pd.concat(
-                [pd.DataFrame(item._asdict()) for item in per_class_roc_curve_data_list],
-                ignore_index=True,
+            pr_curve = _gen_classifier_curve(
+                is_binomial=False, y=self.y, y_probs=self.y_probs, labels=self.label_list,
+                curve_type='pr'
             )
-            self._log_pandas_df_artifact(per_class_roc_curve_pandas_df, "per_class_roc_curve_data")
-
-            per_class_precision_recall_curve_pandas_df = pd.concat(
-                [
-                    pd.DataFrame(item._asdict())
-                    for item in per_class_precision_recall_curve_data_list
-                ],
-                ignore_index=True,
+            self._log_image_artifact(
+                lambda: pr_curve.plot_fn(**pr_curve.plot_fn_args),
+                "precision_recall_curve_plot"
             )
-            self._log_pandas_df_artifact(
-                per_class_precision_recall_curve_pandas_df, "per_class_precision_recall_curve_data"
-            )
+            self._log_pandas_df_artifact(pr_curve.curve_dataframe, "precision_recall_curve_data")
+            per_class_metrics_collection_df["precision_recall_auc"] = pr_curve.auc
 
-            def plot_roc_curve():
-                data_series = {
-                    f"Positive Class = {postive_class}": (fpr, tpr)
-                    for postive_class, fpr, tpr, _ in per_class_roc_curve_data_list
-                }
-                plot_lines(
-                    data_series,
-                    xlabel="False Positive Rate",
-                    ylabel="True Positive Rate",
-                    legend_loc="lower right",
-                    line_kwargs={"drawstyle": "steps-post"},
-                )
-
-            def plot_precision_recall_curve():
-                data_series = {
-                    f"Positive Class = {postive_class}": (recall, precision)
-                    for postive_class, precision, recall, _ in per_class_precision_recall_curve_data_list
-                }
-                plot_lines(
-                    data_series,
-                    xlabel="recall",
-                    ylabel="precision",
-                    legend_loc="lower left",
-                    line_kwargs={"drawstyle": "steps-post"},
-                )
-
-            self._log_image_artifact(plot_roc_curve, "roc_curve_plot")
-            self._log_image_artifact(plot_precision_recall_curve, "precision_recall_curve_plot")
+        self._log_pandas_df_artifact(per_class_metrics_collection_df, "per_class_metrics")
 
     def _evaluate_classifier(self):
         from mlflow.models.evaluation.lift_curve import plot_lift_curve
@@ -533,9 +536,9 @@ class DefaultEvaluator(ModelEvaluator):
         if self.is_binomial:
             if list(self.label_list) not in [[0, 1], [-1, 1]]:
                 raise ValueError(
-                    'Binary classifier evaluation dataset positive class label must be 1, '
-                    'negative class label must be 0 or -1, and dataset must contains both '
-                    'positive and negative examples.'
+                    'Binary classifier evaluation dataset positive class label must be 1 or True, '
+                    'negative class label must be 0 or -1 or False, and dataset must contains '
+                    'both positive and negative examples.'
                 )
             _logger.info(
                 'The evaluation dataset is inferred as binary dataset, positive label is '
@@ -575,13 +578,16 @@ class DefaultEvaluator(ModelEvaluator):
             )
 
         # TODO: Shall we also log confusion_matrix data as a json artifact ?
-        confusion_matrix = sk_metrics.confusion_matrix(self.y, self.y_pred, labels=self.label_list)
+        # normalize the confusion matrix, keep consistent with sklearn autologging.
+        confusion_matrix = sk_metrics.confusion_matrix(
+            self.y, self.y_pred, labels=self.label_list, normalize="true"
+        )
 
         def plot_confusion_matrix():
             sk_metrics.ConfusionMatrixDisplay(
                 confusion_matrix=confusion_matrix,
                 display_labels=self.label_list,
-            ).plot()
+            ).plot(cmap="Blues")
 
         if hasattr(sk_metrics, "ConfusionMatrixDisplay"):
             self._log_image_artifact(
