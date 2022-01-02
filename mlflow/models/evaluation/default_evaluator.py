@@ -2,13 +2,13 @@ import mlflow
 from mlflow.models.evaluation.base import (
     ModelEvaluator,
     EvaluationMetrics,
-    EvaluationArtifact,
     EvaluationResult,
 )
 from mlflow.entities.metric import Metric
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.string_utils import truncate_str_from_middle
 from mlflow.models.utils import plot_lines
+from mlflow.models.evaluation.artifacts import ImageEvaluationArtifact, CsvEvaluationArtifact
 
 from sklearn import metrics as sk_metrics
 import math
@@ -16,36 +16,12 @@ from collections import namedtuple
 import numbers
 import pandas as pd
 import numpy as np
-import json
 import time
 from functools import partial
 import logging
 from packaging.version import Version
 
-
-from PIL.Image import open as open_image
-
-
 _logger = logging.getLogger(__name__)
-
-
-class ImageEvaluationArtifact(EvaluationArtifact):
-    def save(self, output_artifact_path):
-        self._content.save(output_artifact_path)
-
-    def _load_content_from_file(self, local_artifact_path):
-        self._content = open_image(local_artifact_path)
-        return self._content
-
-
-class CsvEvaluationArtifact(EvaluationArtifact):
-    def save(self, output_artifact_path):
-        self._content.to_csv(output_artifact_path, index=False)
-
-    def _load_content_from_file(self, local_artifact_path):
-        self._content = pd.read_csv(local_artifact_path)
-        return self._content
-
 
 _DEFAULT_SAMPLE_ROWS_FOR_SHAP = 2000
 
@@ -70,10 +46,6 @@ def _extract_raw_model_and_predict_fn(model):
     try:
         if model_loader_module == "mlflow.sklearn":
             raw_model = model._model_impl
-        elif model_loader_module == "mlflow.lightgbm":
-            raw_model = model._model_impl.lgb_model
-        elif model_loader_module == "mlflow.xgboost":
-            raw_model = model._model_impl.xgb_model
         else:
             raw_model = None
     except Exception as e:
@@ -94,7 +66,8 @@ def _extract_raw_model_and_predict_fn(model):
                 # Because shap evaluation will pass evaluation data in ndarray format
                 # (without feature names), if set validate_features=True it will raise error.
                 predict_fn = partial(predict_fn, validate_features=False)
-                predict_proba_fn = partial(predict_proba_fn, validate_features=False)
+                if predict_proba_fn is not None:
+                    predict_proba_fn = partial(predict_proba_fn, validate_features=False)
         except ImportError:
             pass
 
@@ -129,6 +102,7 @@ def _get_binary_sum_up_label_pred_prob(positive_class_index, positive_class, y, 
         y_pred_bin = np.where(y_pred == positive_class, 1, 0)
 
     if y_probs is not None:
+        y_probs = np.array(y_probs)
         y_prob_bin = y_probs[:, positive_class_index]
 
     return y_bin, y_pred_bin, y_prob_bin
@@ -185,7 +159,7 @@ def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels):
     return pd.DataFrame(per_class_metrics_list)
 
 
-_Curve = namedtuple('_Curve', ['plot_fn', 'plot_fn_args', 'curve_dataframe', 'auc'])
+_Curve = namedtuple('_Curve', ['plot_fn', 'plot_fn_args', 'auc'])
 
 
 def _gen_classifier_curve(
@@ -196,8 +170,8 @@ def _gen_classifier_curve(
             fpr, tpr, _thresholds = sk_metrics.roc_curve(_y, _y_prob)
             return fpr, tpr, _thresholds
 
-        xlabel = "fpr"
-        ylabel = "tpr"
+        xlabel = "False Positive Rate"
+        ylabel = "True Positive Rate"
         legend_loc = "lower right"
     elif curve_type == 'pr':
         def gen_x_y_thresholds_fn(_y, _y_prob):
@@ -212,13 +186,7 @@ def _gen_classifier_curve(
         assert False, 'illegal curve type'
 
     if is_binomial:
-        y_prob = y_probs[:, 1]
-        x_data, y_data, thresholds = gen_x_y_thresholds_fn(y, y_prob)
-        curve_dataframe = pd.DataFrame({
-            xlabel: x_data,
-            ylabel: y_data,
-            'thresholds': thresholds,
-        })
+        x_data, y_data, thresholds = gen_x_y_thresholds_fn(y, y_probs)
         data_series = [('positive class', x_data, y_data)]
         legend_loc = None
         auc = sk_metrics.auc(x_data, y_data)
@@ -232,18 +200,6 @@ def _gen_classifier_curve(
             x_data, y_data, thresholds = gen_x_y_thresholds_fn(y_bin, y_prob_bin)
             curve_list.append((positive_class, x_data, y_data, thresholds))
 
-        curve_dataframe = pd.concat(
-            [
-                pd.DataFrame({
-                    'positive_class': positive_class,
-                    xlabel: x_data,
-                    ylabel: y_data,
-                    'thresholds': thresholds,
-                })
-                for positive_class, x_data, y_data, thresholds in curve_list
-            ],
-            ignore_index=True,
-        )
         data_series = [
             (f"Positive Class = {positive_class}", x_data, y_data)
             for positive_class, x_data, y_data, _ in curve_list
@@ -260,7 +216,6 @@ def _gen_classifier_curve(
             'legend_loc': legend_loc,
             'line_kwargs': {"drawstyle": "steps-post"},
         },
-        curve_dataframe=curve_dataframe,
         auc=auc
     )
 
@@ -337,7 +292,8 @@ class DefaultEvaluator(ModelEvaluator):
             )
             return
 
-        if not all([isinstance(label, numbers.Number) for label in self.label_list]):
+        if self.model_type == 'classifier' and \
+                not all([isinstance(label, numbers.Number) for label in self.label_list]):
             _logger.warning(
                 "Skip logging model explainability insights because it requires all label "
                 "values to be Number type."
@@ -459,25 +415,23 @@ class DefaultEvaluator(ModelEvaluator):
 
         if self.y_probs is not None:
             roc_curve = _gen_classifier_curve(
-                is_binomial=True, y=self.y, y_probs=self.y_probs, labels=self.label_list,
+                is_binomial=True, y=self.y, y_probs=self.y_prob, labels=self.label_list,
                 curve_type='roc'
             )
             self._log_image_artifact(
                 lambda: roc_curve.plot_fn(**roc_curve.plot_fn_args),
                 "roc_curve_plot"
             )
-            self._log_pandas_df_artifact(roc_curve.curve_dataframe, "roc_curve_data")
             self.metrics["roc_auc"] = roc_curve.auc
 
             pr_curve = _gen_classifier_curve(
-                is_binomial=True, y=self.y, y_probs=self.y_probs, labels=self.label_list,
+                is_binomial=True, y=self.y, y_probs=self.y_prob, labels=self.label_list,
                 curve_type='pr'
             )
             self._log_image_artifact(
                 lambda: pr_curve.plot_fn(**pr_curve.plot_fn_args),
                 "precision_recall_curve_plot"
             )
-            self._log_pandas_df_artifact(pr_curve.curve_dataframe, "precision_recall_curve_data")
             self.metrics["precision_recall_auc"] = pr_curve.auc
 
     def _log_multiclass_classifier(self):
@@ -508,7 +462,6 @@ class DefaultEvaluator(ModelEvaluator):
                 lambda: roc_curve.plot_fn(**roc_curve.plot_fn_args),
                 "roc_curve_plot"
             )
-            self._log_pandas_df_artifact(roc_curve.curve_dataframe, "roc_curve_data")
             per_class_metrics_collection_df["roc_auc"] = roc_curve.auc
 
             pr_curve = _gen_classifier_curve(
@@ -519,7 +472,6 @@ class DefaultEvaluator(ModelEvaluator):
                 lambda: pr_curve.plot_fn(**pr_curve.plot_fn_args),
                 "precision_recall_curve_plot"
             )
-            self._log_pandas_df_artifact(pr_curve.curve_dataframe, "precision_recall_curve_data")
             per_class_metrics_collection_df["precision_recall_auc"] = pr_curve.auc
 
         self._log_pandas_df_artifact(per_class_metrics_collection_df, "per_class_metrics")
@@ -577,7 +529,6 @@ class DefaultEvaluator(ModelEvaluator):
                 "lift_curve_plot",
             )
 
-        # TODO: Shall we also log confusion_matrix data as a json artifact ?
         # normalize the confusion matrix, keep consistent with sklearn autologging.
         confusion_matrix = sk_metrics.confusion_matrix(
             self.y, self.y_pred, labels=self.label_list, normalize="true"
