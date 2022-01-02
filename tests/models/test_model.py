@@ -104,6 +104,9 @@ def test_model_log():
         assert x.to_dict(orient="records")[0] == input_example
         assert not hasattr(loaded_model, "databricks_runtime")
 
+        loaded_example = loaded_model.load_input_example(local_path)
+        assert loaded_example.to_dict(orient="records")[0] == input_example
+
 
 def test_model_log_with_databricks_runtime():
     dbr = "8.3.x-snapshot-gpu-ml-scala2.12"
@@ -164,6 +167,9 @@ def test_model_log_with_input_example_succeeds():
         # date column will get deserialized into string
         input_example["d"] = input_example["d"].apply(lambda x: x.isoformat())
         assert x.equals(input_example)
+
+        loaded_example = loaded_model.load_input_example(local_path)
+        assert loaded_example.equals(input_example)
 
 
 def _is_valid_uuid(val):
