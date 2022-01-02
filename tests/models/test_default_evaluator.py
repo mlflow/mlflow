@@ -274,17 +274,21 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset):
 
 
 def test_infer_model_type_by_labels():
-    assert _infer_model_type_by_labels(['a', 'b']) == 'classifier'
-    assert _infer_model_type_by_labels([1, 2.5]) == 'regressor'
-    assert _infer_model_type_by_labels(list(range(2000))) == 'regressor'
-    assert _infer_model_type_by_labels([1, 2, 3]) == 'classifier'
+    assert _infer_model_type_by_labels(["a", "b"]) == "classifier"
+    assert _infer_model_type_by_labels([1, 2.5]) == "regressor"
+    assert _infer_model_type_by_labels(list(range(2000))) == "regressor"
+    assert _infer_model_type_by_labels([1, 2, 3]) == "classifier"
 
 
 def test_extract_raw_model_and_predict_fn(binary_logistic_regressor_model_uri):
     model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
-    model_loader_module, raw_model, predict_fn, predict_proba_fn = \
-        _extract_raw_model_and_predict_fn(model)
-    assert model_loader_module == 'mlflow.sklearn'
+    (
+        model_loader_module,
+        raw_model,
+        predict_fn,
+        predict_proba_fn,
+    ) = _extract_raw_model_and_predict_fn(model)
+    assert model_loader_module == "mlflow.sklearn"
     assert isinstance(raw_model, LogisticRegression)
     assert predict_fn == raw_model.predict
     assert predict_proba_fn == raw_model.predict_proba
@@ -296,11 +300,15 @@ def test_get_regressor_metrics():
 
     metrics = _get_regressor_metrics(y, y_pred)
     expected_metrics = {
-        'example_count': 3, 'mean_absolute_error': 0.3333333333333333,
-        'mean_squared_error': 0.13999999999999999,
-        'root_mean_squared_error': 0.3741657386773941, 'sum_on_label': -0.2999999999999998,
-        'mean_on_label': -0.09999999999999994, 'r2_score': 0.976457399103139, 'max_error': 0.5,
-        'mean_absolute_percentage_error': 0.18470418470418468
+        "example_count": 3,
+        "mean_absolute_error": 0.3333333333333333,
+        "mean_squared_error": 0.13999999999999999,
+        "root_mean_squared_error": 0.3741657386773941,
+        "sum_on_label": -0.2999999999999998,
+        "mean_on_label": -0.09999999999999994,
+        "r2_score": 0.976457399103139,
+        "max_error": 0.5,
+        "mean_absolute_percentage_error": 0.18470418470418468,
     }
     assert_dict_equal(metrics, expected_metrics, rtol=1e-3)
 
@@ -312,8 +320,9 @@ def test_get_binary_sum_up_label_pred_prob():
 
     results = []
     for idx, label in enumerate([0, 1, 2]):
-        y_bin, y_pred_bin, y_prob_bin = \
-            _get_binary_sum_up_label_pred_prob(idx, label, y, y_pred, y_probs)
+        y_bin, y_pred_bin, y_prob_bin = _get_binary_sum_up_label_pred_prob(
+            idx, label, y, y_pred, y_probs
+        )
         results.append((list(y_bin), list(y_pred_bin), list(y_prob_bin)))
 
     print(results)
@@ -329,8 +338,13 @@ def test_get_classifier_per_class_metrics():
     y_pred = [0, 1, 1, 0, 1, 1, 0, 1, 1, 0]
 
     expected_metrics = {
-        'true_negatives': 3, 'false_positives': 2, 'false_negatives': 1, 'true_positives': 4,
-        'recall': 0.8, 'precision': 0.6666666666666666, 'f1_score': 0.7272727272727272
+        "true_negatives": 3,
+        "false_positives": 2,
+        "false_negatives": 1,
+        "true_positives": 4,
+        "recall": 0.8,
+        "precision": 0.6666666666666666,
+        "f1_score": 0.7272727272727272,
     }
     metrics = _get_classifier_per_class_metrics(y, y_pred)
     assert_dict_equal(metrics, expected_metrics, rtol=1e-3)
@@ -339,14 +353,23 @@ def test_get_classifier_per_class_metrics():
 def test_multiclass_get_classifier_global_metrics():
     y = [0, 1, 2, 1, 2]
     y_pred = [0, 2, 1, 1, 0]
-    y_probs = [[0.7, 0.1, 0.2], [0.2, 0.3, 0.5], [0.25, 0.4, 0.35], [0.3, 0.4, 0.3], [0.8, 0.1, 0.1]]
+    y_probs = [
+        [0.7, 0.1, 0.2],
+        [0.2, 0.3, 0.5],
+        [0.25, 0.4, 0.35],
+        [0.3, 0.4, 0.3],
+        [0.8, 0.1, 0.1],
+    ]
 
     metrics = _get_classifier_global_metrics(
         is_binomial=False, y=y, y_pred=y_pred, y_probs=y_probs, labels=[0, 1, 2]
     )
     expected_metrics = {
-        'accuracy': 0.4, 'example_count': 5, 'f1_score_micro': 0.4,
-        'f1_score_macro': 0.38888888888888884, 'log_loss': 1.1658691395263094
+        "accuracy": 0.4,
+        "example_count": 5,
+        "f1_score_micro": 0.4,
+        "f1_score_macro": 0.38888888888888884,
+        "log_loss": 1.1658691395263094,
     }
     assert_dict_equal(metrics, expected_metrics, 1e-3)
 
@@ -359,9 +382,7 @@ def test_binary_get_classifier_global_metrics():
     metrics = _get_classifier_global_metrics(
         is_binomial=True, y=y, y_pred=y_pred, y_probs=y_probs, labels=[0, 1]
     )
-    expected_metrics = {
-        'accuracy': 0.7, 'example_count': 10, 'log_loss': 0.6665822319387167
-    }
+    expected_metrics = {"accuracy": 0.7, "example_count": 10, "log_loss": 0.6665822319387167}
     assert_dict_equal(metrics, expected_metrics, 1e-3)
 
 
@@ -369,17 +390,24 @@ def test_gen_binary_precision_recall_curve():
     y = [0, 1, 0, 1, 0, 1, 0, 1, 1, 0]
     y_prob = [0.1, 0.9, 0.8, 0.2, 0.7, 0.8, 0.3, 0.6, 0.65, 0.4]
 
-    results = _gen_classifier_curve(is_binomial=True, y=y, y_probs=y_prob, labels=[0, 1], curve_type='pr')
+    results = _gen_classifier_curve(
+        is_binomial=True, y=y, y_probs=y_prob, labels=[0, 1], curve_type="pr"
+    )
     assert results.plot_fn is plot_lines
-    assert np.allclose(results.plot_fn_args['data_series'][0][1], np.array(
-        [1., 0.8, 0.8, 0.8, 0.6, 0.4, 0.4, 0.2, 0.]), rtol=1e-3)
-    assert np.allclose(results.plot_fn_args['data_series'][0][2], np.array(
-        [0.55555556, 0.5, 0.57142857, 0.66666667, 0.6,
-         0.5, 0.66666667, 1., 1.]), rtol=1e-3)
-    assert results.plot_fn_args['xlabel'] == 'recall'
-    assert results.plot_fn_args['ylabel'] == 'precision'
-    assert results.plot_fn_args['legend_loc'] is None
-    assert results.plot_fn_args['line_kwargs'] == {'drawstyle': 'steps-post'}
+    assert np.allclose(
+        results.plot_fn_args["data_series"][0][1],
+        np.array([1.0, 0.8, 0.8, 0.8, 0.6, 0.4, 0.4, 0.2, 0.0]),
+        rtol=1e-3,
+    )
+    assert np.allclose(
+        results.plot_fn_args["data_series"][0][2],
+        np.array([0.55555556, 0.5, 0.57142857, 0.66666667, 0.6, 0.5, 0.66666667, 1.0, 1.0]),
+        rtol=1e-3,
+    )
+    assert results.plot_fn_args["xlabel"] == "recall"
+    assert results.plot_fn_args["ylabel"] == "precision"
+    assert results.plot_fn_args["legend_loc"] is None
+    assert results.plot_fn_args["line_kwargs"] == {"drawstyle": "steps-post"}
     assert np.isclose(results.auc, 0.7088888888888889, rtol=1e-3)
 
 
@@ -387,44 +415,55 @@ def test_gen_binary_roc_curve():
     y = [0, 1, 0, 1, 0, 1, 0, 1, 1, 0]
     y_prob = [0.1, 0.9, 0.8, 0.2, 0.7, 0.8, 0.3, 0.6, 0.65, 0.4]
 
-    results = _gen_classifier_curve(is_binomial=True, y=y, y_probs=y_prob, labels=[0, 1], curve_type='roc')
+    results = _gen_classifier_curve(
+        is_binomial=True, y=y, y_probs=y_prob, labels=[0, 1], curve_type="roc"
+    )
     assert results.plot_fn is plot_lines
-    assert np.allclose(results.plot_fn_args['data_series'][0][1], np.array(
-        [0., 0., 0.2, 0.4, 0.4, 0.8, 0.8, 1.]), rtol=1e-3)
-    assert np.allclose(results.plot_fn_args['data_series'][0][2], np.array(
-        [0., 0.2, 0.4, 0.4, 0.8, 0.8, 1., 1.]), rtol=1e-3)
-    assert results.plot_fn_args['xlabel'] == 'False Positive Rate'
-    assert results.plot_fn_args['ylabel'] == 'True Positive Rate'
-    assert results.plot_fn_args['legend_loc'] is None
-    assert results.plot_fn_args['line_kwargs'] == {'drawstyle': 'steps-post'}
+    assert np.allclose(
+        results.plot_fn_args["data_series"][0][1],
+        np.array([0.0, 0.0, 0.2, 0.4, 0.4, 0.8, 0.8, 1.0]),
+        rtol=1e-3,
+    )
+    assert np.allclose(
+        results.plot_fn_args["data_series"][0][2],
+        np.array([0.0, 0.2, 0.4, 0.4, 0.8, 0.8, 1.0, 1.0]),
+        rtol=1e-3,
+    )
+    assert results.plot_fn_args["xlabel"] == "False Positive Rate"
+    assert results.plot_fn_args["ylabel"] == "True Positive Rate"
+    assert results.plot_fn_args["legend_loc"] is None
+    assert results.plot_fn_args["line_kwargs"] == {"drawstyle": "steps-post"}
     assert np.isclose(results.auc, 0.66, rtol=1e-3)
 
 
 def test_gen_multiclass_precision_recall_curve():
     y = [0, 1, 2, 1, 2]
-    y_probs = [[0.7, 0.1, 0.2], [0.2, 0.3, 0.5], [0.25, 0.4, 0.35], [0.3, 0.4, 0.3], [0.8, 0.1, 0.1]]
+    y_probs = [
+        [0.7, 0.1, 0.2],
+        [0.2, 0.3, 0.5],
+        [0.25, 0.4, 0.35],
+        [0.3, 0.4, 0.3],
+        [0.8, 0.1, 0.1],
+    ]
 
-    results = _gen_classifier_curve(is_binomial=False, y=y, y_probs=y_probs, labels=[0, 1, 2], curve_type='pr')
-    expected_x_data_list = [
-        [1., 0., 0.],
-        [1., 0.5, 0.],
-        [1., 0.5, 0.5, 0.5, 0., 0.]
-    ]
+    results = _gen_classifier_curve(
+        is_binomial=False, y=y, y_probs=y_probs, labels=[0, 1, 2], curve_type="pr"
+    )
+    expected_x_data_list = [[1.0, 0.0, 0.0], [1.0, 0.5, 0.0], [1.0, 0.5, 0.5, 0.5, 0.0, 0.0]]
     expected_y_data_list = [
-        [0.5, 0., 1.],
-        [0.66666667, 0.5, 1.],
-        [0.4, 0.25, 0.33333333, 0.5, 0.,
-         1.]
+        [0.5, 0.0, 1.0],
+        [0.66666667, 0.5, 1.0],
+        [0.4, 0.25, 0.33333333, 0.5, 0.0, 1.0],
     ]
-    for index, (name, x_data, y_data) in enumerate(results.plot_fn_args['data_series']):
-        assert name == f'Positive Class = {index}'
+    for index, (name, x_data, y_data) in enumerate(results.plot_fn_args["data_series"]):
+        assert name == f"Positive Class = {index}"
         assert np.allclose(x_data, expected_x_data_list[index], rtol=1e-3)
         assert np.allclose(y_data, expected_y_data_list[index], rtol=1e-3)
 
-    assert results.plot_fn_args['xlabel'] == 'recall'
-    assert results.plot_fn_args['ylabel'] == 'precision'
-    assert results.plot_fn_args['legend_loc'] == 'lower left'
-    assert results.plot_fn_args['line_kwargs'] == {'drawstyle': 'steps-post'}
+    assert results.plot_fn_args["xlabel"] == "recall"
+    assert results.plot_fn_args["ylabel"] == "precision"
+    assert results.plot_fn_args["legend_loc"] == "lower left"
+    assert results.plot_fn_args["line_kwargs"] == {"drawstyle": "steps-post"}
 
     expected_auc = [0.25, 0.6666666666666666, 0.2875]
     assert np.allclose(results.auc, expected_auc, rtol=1e-3)
@@ -432,30 +471,34 @@ def test_gen_multiclass_precision_recall_curve():
 
 def test_gen_multiclass_roc_curve():
     y = [0, 1, 2, 1, 2]
-    y_probs = [[0.7, 0.1, 0.2], [0.2, 0.3, 0.5], [0.25, 0.4, 0.35], [0.3, 0.4, 0.3], [0.8, 0.1, 0.1]]
+    y_probs = [
+        [0.7, 0.1, 0.2],
+        [0.2, 0.3, 0.5],
+        [0.25, 0.4, 0.35],
+        [0.3, 0.4, 0.3],
+        [0.8, 0.1, 0.1],
+    ]
 
-    results = _gen_classifier_curve(is_binomial=False, y=y, y_probs=y_probs, labels=[0, 1, 2], curve_type='roc')
+    results = _gen_classifier_curve(
+        is_binomial=False, y=y, y_probs=y_probs, labels=[0, 1, 2], curve_type="roc"
+    )
     print(results)
 
     expected_x_data_list = [
-        [0., 0.25, 0.25, 1.],
-        [0., 0.33333333, 0.33333333, 1.],
-        [0., 0.33333333, 0.33333333, 1., 1.]
+        [0.0, 0.25, 0.25, 1.0],
+        [0.0, 0.33333333, 0.33333333, 1.0],
+        [0.0, 0.33333333, 0.33333333, 1.0, 1.0],
     ]
-    expected_y_data_list = [
-        [0., 0., 1., 1.],
-        [0., 0.5, 1., 1.],
-        [0., 0., 0.5, 0.5, 1.]
-    ]
-    for index, (name, x_data, y_data) in enumerate(results.plot_fn_args['data_series']):
-        assert name == f'Positive Class = {index}'
+    expected_y_data_list = [[0.0, 0.0, 1.0, 1.0], [0.0, 0.5, 1.0, 1.0], [0.0, 0.0, 0.5, 0.5, 1.0]]
+    for index, (name, x_data, y_data) in enumerate(results.plot_fn_args["data_series"]):
+        assert name == f"Positive Class = {index}"
         assert np.allclose(x_data, expected_x_data_list[index], rtol=1e-3)
         assert np.allclose(y_data, expected_y_data_list[index], rtol=1e-3)
 
-    assert results.plot_fn_args['xlabel'] == 'False Positive Rate'
-    assert results.plot_fn_args['ylabel'] == 'True Positive Rate'
-    assert results.plot_fn_args['legend_loc'] == 'lower right'
-    assert results.plot_fn_args['line_kwargs'] == {'drawstyle': 'steps-post'}
+    assert results.plot_fn_args["xlabel"] == "False Positive Rate"
+    assert results.plot_fn_args["ylabel"] == "True Positive Rate"
+    assert results.plot_fn_args["legend_loc"] == "lower right"
+    assert results.plot_fn_args["line_kwargs"] == {"drawstyle": "steps-post"}
 
     expected_auc = [0.75, 0.7500000000000001, 0.33333333333333337]
     assert np.allclose(results.auc, expected_auc, rtol=1e-3)

@@ -144,11 +144,7 @@ def _get_classifier_global_metrics(is_binomial, y, y_pred, y_probs, labels):
 def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels):
     per_class_metrics_list = []
     for positive_class_index, positive_class in enumerate(labels):
-        (
-            y_bin,
-            y_pred_bin,
-            _,
-        ) = _get_binary_sum_up_label_pred_prob(
+        (y_bin, y_pred_bin, _,) = _get_binary_sum_up_label_pred_prob(
             positive_class_index, positive_class, y, y_pred, None
         )
 
@@ -159,13 +155,18 @@ def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels):
     return pd.DataFrame(per_class_metrics_list)
 
 
-_Curve = namedtuple('_Curve', ['plot_fn', 'plot_fn_args', 'auc'])
+_Curve = namedtuple("_Curve", ["plot_fn", "plot_fn_args", "auc"])
 
 
 def _gen_classifier_curve(
-        is_binomial, y, y_probs, labels, curve_type,
+    is_binomial,
+    y,
+    y_probs,
+    labels,
+    curve_type,
 ):
-    if curve_type == 'roc':
+    if curve_type == "roc":
+
         def gen_x_y_thresholds_fn(_y, _y_prob):
             fpr, tpr, _thresholds = sk_metrics.roc_curve(_y, _y_prob)
             return fpr, tpr, _thresholds
@@ -173,7 +174,8 @@ def _gen_classifier_curve(
         xlabel = "False Positive Rate"
         ylabel = "True Positive Rate"
         legend_loc = "lower right"
-    elif curve_type == 'pr':
+    elif curve_type == "pr":
+
         def gen_x_y_thresholds_fn(_y, _y_prob):
             precision, recall, _thresholds = sk_metrics.precision_recall_curve(_y, _y_prob)
             _thresholds = np.append(_thresholds, [1.0], axis=0)
@@ -183,11 +185,11 @@ def _gen_classifier_curve(
         ylabel = "precision"
         legend_loc = "lower left"
     else:
-        assert False, 'illegal curve type'
+        assert False, "illegal curve type"
 
     if is_binomial:
         x_data, y_data, thresholds = gen_x_y_thresholds_fn(y, y_probs)
-        data_series = [('positive class', x_data, y_data)]
+        data_series = [("positive class", x_data, y_data)]
         legend_loc = None
         auc = sk_metrics.auc(x_data, y_data)
     else:
@@ -204,19 +206,17 @@ def _gen_classifier_curve(
             (f"Positive Class = {positive_class}", x_data, y_data)
             for positive_class, x_data, y_data, _ in curve_list
         ]
-        auc = [
-            sk_metrics.auc(x_data, y_data) for _, x_data, y_data, _ in curve_list
-        ]
+        auc = [sk_metrics.auc(x_data, y_data) for _, x_data, y_data, _ in curve_list]
     return _Curve(
         plot_fn=plot_lines,
         plot_fn_args={
-            'data_series': data_series,
-            'xlabel': xlabel,
-            'ylabel': ylabel,
-            'legend_loc': legend_loc,
-            'line_kwargs': {"drawstyle": "steps-post"},
+            "data_series": data_series,
+            "xlabel": xlabel,
+            "ylabel": ylabel,
+            "legend_loc": legend_loc,
+            "line_kwargs": {"drawstyle": "steps-post"},
         },
-        auc=auc
+        auc=auc,
     )
 
 
@@ -292,8 +292,9 @@ class DefaultEvaluator(ModelEvaluator):
             )
             return
 
-        if self.model_type == 'classifier' and \
-                not all([isinstance(label, numbers.Number) for label in self.label_list]):
+        if self.model_type == "classifier" and not all(
+            [isinstance(label, numbers.Number) for label in self.label_list]
+        ):
             _logger.warning(
                 "Skip logging model explainability insights because it requires all label "
                 "values to be Number type."
@@ -415,28 +416,33 @@ class DefaultEvaluator(ModelEvaluator):
 
         if self.y_probs is not None:
             roc_curve = _gen_classifier_curve(
-                is_binomial=True, y=self.y, y_probs=self.y_prob, labels=self.label_list,
-                curve_type='roc'
+                is_binomial=True,
+                y=self.y,
+                y_probs=self.y_prob,
+                labels=self.label_list,
+                curve_type="roc",
             )
             self._log_image_artifact(
-                lambda: roc_curve.plot_fn(**roc_curve.plot_fn_args),
-                "roc_curve_plot"
+                lambda: roc_curve.plot_fn(**roc_curve.plot_fn_args), "roc_curve_plot"
             )
             self.metrics["roc_auc"] = roc_curve.auc
 
             pr_curve = _gen_classifier_curve(
-                is_binomial=True, y=self.y, y_probs=self.y_prob, labels=self.label_list,
-                curve_type='pr'
+                is_binomial=True,
+                y=self.y,
+                y_probs=self.y_prob,
+                labels=self.label_list,
+                curve_type="pr",
             )
             self._log_image_artifact(
-                lambda: pr_curve.plot_fn(**pr_curve.plot_fn_args),
-                "precision_recall_curve_plot"
+                lambda: pr_curve.plot_fn(**pr_curve.plot_fn_args), "precision_recall_curve_plot"
             )
             self.metrics["precision_recall_auc"] = pr_curve.auc
 
     def _log_multiclass_classifier(self):
-        per_class_metrics_collection_df = \
-            _get_classifier_per_class_metrics_collection_df(self.y, self.y_pred, self.label_list)
+        per_class_metrics_collection_df = _get_classifier_per_class_metrics_collection_df(
+            self.y, self.y_pred, self.label_list
+        )
 
         log_roc_pr_curve = False
         if self.y_probs is not None:
@@ -455,22 +461,26 @@ class DefaultEvaluator(ModelEvaluator):
 
         if log_roc_pr_curve:
             roc_curve = _gen_classifier_curve(
-                is_binomial=False, y=self.y, y_probs=self.y_probs, labels=self.label_list,
-                curve_type='roc'
+                is_binomial=False,
+                y=self.y,
+                y_probs=self.y_probs,
+                labels=self.label_list,
+                curve_type="roc",
             )
             self._log_image_artifact(
-                lambda: roc_curve.plot_fn(**roc_curve.plot_fn_args),
-                "roc_curve_plot"
+                lambda: roc_curve.plot_fn(**roc_curve.plot_fn_args), "roc_curve_plot"
             )
             per_class_metrics_collection_df["roc_auc"] = roc_curve.auc
 
             pr_curve = _gen_classifier_curve(
-                is_binomial=False, y=self.y, y_probs=self.y_probs, labels=self.label_list,
-                curve_type='pr'
+                is_binomial=False,
+                y=self.y,
+                y_probs=self.y_probs,
+                labels=self.label_list,
+                curve_type="pr",
             )
             self._log_image_artifact(
-                lambda: pr_curve.plot_fn(**pr_curve.plot_fn_args),
-                "precision_recall_curve_plot"
+                lambda: pr_curve.plot_fn(**pr_curve.plot_fn_args), "precision_recall_curve_plot"
             )
             per_class_metrics_collection_df["precision_recall_auc"] = pr_curve.auc
 
@@ -488,18 +498,18 @@ class DefaultEvaluator(ModelEvaluator):
         if self.is_binomial:
             if list(self.label_list) not in [[0, 1], [-1, 1]]:
                 raise ValueError(
-                    'Binary classifier evaluation dataset positive class label must be 1 or True, '
-                    'negative class label must be 0 or -1 or False, and dataset must contains '
-                    'both positive and negative examples.'
+                    "Binary classifier evaluation dataset positive class label must be 1 or True, "
+                    "negative class label must be 0 or -1 or False, and dataset must contains "
+                    "both positive and negative examples."
                 )
             _logger.info(
-                'The evaluation dataset is inferred as binary dataset, positive label is '
-                f'{self.label_list[1]}, negative label is {self.label_list[0]}.'
+                "The evaluation dataset is inferred as binary dataset, positive label is "
+                f"{self.label_list[1]}, negative label is {self.label_list[0]}."
             )
         else:
             _logger.info(
-                'The evaluation dataset is inferred as multiclass dataset, number of classes '
-                f'is inferred as {self.num_classes}'
+                "The evaluation dataset is inferred as multiclass dataset, number of classes "
+                f"is inferred as {self.num_classes}"
             )
 
         if self.predict_proba_fn is not None:
