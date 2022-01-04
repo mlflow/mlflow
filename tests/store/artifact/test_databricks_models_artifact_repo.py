@@ -179,7 +179,7 @@ class TestDatabricksModelArtifactRepository(object):
         list_artifact_dir_bad_response_mock = mock.MagicMock()
         status_code = 404
         list_artifact_dir_bad_response_mock.status_code = status_code
-        list_artifact_dir_bad_response_mock.text = "{}"
+        list_artifact_dir_bad_response_mock.text = "An error occurred"
         list_artifact_dir_bad_response_mock.raise_for_status.side_effect = _raise_for_status
         with mock.patch(
             DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._call_endpoint"
@@ -187,7 +187,7 @@ class TestDatabricksModelArtifactRepository(object):
             call_endpoint_mock.return_value = list_artifact_dir_bad_response_mock
             with pytest.raises(
                 MlflowException,
-                match=r"API request to list files under path `` failed with status code 404. *",
+                match=r"API request to list files under path `` failed with status code 404. Response body: An error occurred",
             ):
                 databricks_model_artifact_repo.list_artifacts("")
             call_endpoint_mock.assert_called_once_with(ANY, REGISTRY_LIST_ARTIFACTS_ENDPOINT)
