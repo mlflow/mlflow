@@ -71,8 +71,9 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
             json_body = self._make_json_body(path, page_token)
             response = self._call_endpoint(json_body, REGISTRY_LIST_ARTIFACTS_ENDPOINT)
             try:
+                response.raise_for_status()
                 json_response = json.loads(response.text)
-            except ValueError:
+            except Exception:
                 raise MlflowException(
                     "API request to list files under path `%s` failed with status code %s. "
                     "Response body: %s" % (path, response.status_code, response.text)
