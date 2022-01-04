@@ -597,6 +597,11 @@ def _normalize_evaluators_and_evaluator_config_args(
     return evaluator_name_list, evaluator_name_to_conf_map
 
 
+# This variable holds the last running evaluator name. This can be used to
+# check which evaluator fail when `evaluate` API fail.
+_last_evaluator = None
+
+
 def _evaluate(
     model, model_type, dataset, actual_run_id, evaluator_name_list, evaluator_name_to_conf_map
 ):
@@ -613,6 +618,8 @@ def _evaluate(
 
     eval_results = []
     for evaluator_name in evaluator_name_list:
+        global _last_evaluator
+
         config = evaluator_name_to_conf_map.get(evaluator_name) or {}
         try:
             evaluator = _model_evaluation_registry.get_evaluator(evaluator_name)
@@ -620,6 +627,7 @@ def _evaluate(
             _logger.warning(f"Evaluator '{evaluator_name}' is not registered.")
             continue
 
+        _last_evaluator = evaluator_name
         if evaluator.can_evaluate(model_type, config):
             _logger.info(f"Evaluating the model with the {evaluator_name} evaluator.")
             result = evaluator.evaluate(model, model_type, dataset, actual_run_id, config)
