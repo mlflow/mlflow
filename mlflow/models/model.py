@@ -71,17 +71,18 @@ class Model(object):
     def load_input_example(self, path: str):
         """
         Load the input example saved along a model. Returns None if there is no example metadata
-        (i.e. the model was saved without example). Raises IO Exception if there is model metadata
-        but the example file is missing.
+        (i.e. the model was saved without example). Raises FileNotFoundError if there is model
+        metadata but the example file is missing.
 
         :param path: Path to the model directory.
 
         :return: Input example (NumPy ndarray, SciPy csc_matrix, SciPy csr_matrix,
                  pandas DataFrame, dict) or None if the model has no example.
         """
-        from mlflow.models.utils import (
-            _read_example,
-        )  # Just-in-time import to avoid loading NumPy/pandas/DataFrame when not needed
+
+        # Just-in-time import to only load example-parsing libraries (e.g. numpy, pandas, etc.) if
+        # example is requested.
+        from mlflow.models.utils import _read_example
 
         return _read_example(self, path)
 

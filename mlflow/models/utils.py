@@ -192,8 +192,8 @@ def _save_example(mlflow_model: Model, input_example: ModelInputExample, path: s
 def _read_example(mlflow_model: Model, path: str):
     """
     Read example from a model directory. Returns None if there is no example metadata (i.e. the
-    model was saved without example). Raises IO Exception if there is model metadata but the example
-    file is missing.
+    model was saved without example). Raises FileNotFoundError if there is model metadata but the
+    example file is missing.
 
     :param mlflow_model: Model metadata.
     :param path: Path to the model directory.

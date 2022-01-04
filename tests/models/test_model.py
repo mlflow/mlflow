@@ -1,4 +1,5 @@
 import os
+import pytest
 from datetime import date
 
 import mlflow
@@ -9,11 +10,12 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.models import Model
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import _save_example
-from mlflow.types.schema import Schema, ColSpec
+from mlflow.types.schema import Schema, ColSpec, TensorSpec
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import _dataframe_from_json
 
 from unittest import mock
+from scipy.sparse import csc_matrix
 
 
 def test_model_save_load():
@@ -105,6 +107,7 @@ def test_model_log():
         assert not hasattr(loaded_model, "databricks_runtime")
 
         loaded_example = loaded_model.load_input_example(local_path)
+        assert isinstance(loaded_example, pd.DataFrame)
         assert loaded_example.to_dict(orient="records")[0] == input_example
 
 
@@ -169,7 +172,76 @@ def test_model_log_with_input_example_succeeds():
         assert x.equals(input_example)
 
         loaded_example = loaded_model.load_input_example(local_path)
+        assert isinstance(loaded_example, pd.DataFrame)
         assert loaded_example.equals(input_example)
+
+
+def test_model_load_input_example_numpy():
+    with TempDir(chdr=True) as tmp:
+        input_example = np.array([[3, 4, 5]], dtype=np.int32)
+        sig = ModelSignature(
+            inputs=Schema([TensorSpec(type=input_example.dtype, shape=input_example.shape)]),
+            outputs=Schema([ColSpec(name=None, type="double")]),
+        )
+
+        local_path, _ = _log_model_with_signature_and_example(tmp, sig, input_example)
+        loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
+        loaded_example = loaded_model.load_input_example(local_path)
+
+        assert isinstance(loaded_example, np.ndarray)
+        assert np.array_equal(input_example, loaded_example)
+
+
+def test_model_load_input_example_scipy():
+    with TempDir(chdr=True) as tmp:
+        input_example = csc_matrix(np.arange(0, 12, 0.5).reshape(3, 8))
+        sig = ModelSignature(
+            inputs=Schema([TensorSpec(type=input_example.data.dtype, shape=input_example.shape)]),
+            outputs=Schema([ColSpec(name=None, type="double")]),
+        )
+
+        local_path, _ = _log_model_with_signature_and_example(tmp, sig, input_example)
+        loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
+        loaded_example = loaded_model.load_input_example(local_path)
+
+        assert isinstance(loaded_example, csc_matrix)
+        assert np.array_equal(input_example.data, loaded_example.data)
+
+
+def test_model_load_input_example_failures():
+    with TempDir(chdr=True) as tmp:
+        input_example = np.array([[3, 4, 5]], dtype=np.int32)
+        sig = ModelSignature(
+            inputs=Schema([TensorSpec(type=input_example.dtype, shape=input_example.shape)]),
+            outputs=Schema([ColSpec(name=None, type="double")]),
+        )
+
+        local_path, _ = _log_model_with_signature_and_example(tmp, sig, input_example)
+        loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
+        loaded_example = loaded_model.load_input_example(local_path)
+        assert loaded_example is not None
+
+        with pytest.raises(FileNotFoundError, match="No such file or directory"):
+            loaded_model.load_input_example(os.path.join(local_path, "folder_which_does_not_exist"))
+
+        path = os.path.join(local_path, loaded_model.saved_input_example_info["artifact_path"])
+        os.remove(path)
+        with pytest.raises(FileNotFoundError, match="No such file or directory"):
+            loaded_model.load_input_example(local_path)
+
+
+def test_model_load_input_example_no_signature():
+    with TempDir(chdr=True) as tmp:
+        input_example = np.array([[3, 4, 5]], dtype=np.int32)
+        sig = ModelSignature(
+            inputs=Schema([TensorSpec(type=input_example.dtype, shape=input_example.shape)]),
+            outputs=Schema([ColSpec(name=None, type="double")]),
+        )
+
+        local_path, _ = _log_model_with_signature_and_example(tmp, sig, input_example=None)
+        loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
+        loaded_example = loaded_model.load_input_example(local_path)
+        assert loaded_example is None
 
 
 def _is_valid_uuid(val):
