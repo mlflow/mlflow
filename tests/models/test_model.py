@@ -230,7 +230,7 @@ def test_model_load_input_example_failures():
             loaded_model.load_input_example(local_path)
 
 
-def test_model_load_input_example_none():
+def test_model_load_input_example_no_signature():
     with TempDir(chdr=True) as tmp:
         input_example = np.array([[3, 4, 5]], dtype=np.int32)
         sig = ModelSignature(
