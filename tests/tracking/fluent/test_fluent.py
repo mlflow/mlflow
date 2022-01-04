@@ -382,6 +382,10 @@ def test_start_run_defaults_databricks_notebook(
     webapp_url_patch = mock.patch(
         "mlflow.utils.databricks_utils.get_webapp_url", return_value=mock_webapp_url
     )
+    workspace_info_patch = mock.patch(
+        "mlflow.utils.databricks_utils.get_workspace_info_from_dbutils",
+        return_value=("https://databricks.com", "123456"),
+    )
 
     expected_tags = {
         mlflow_tags.MLFLOW_USER: mock_user,
@@ -391,6 +395,8 @@ def test_start_run_defaults_databricks_notebook(
         mlflow_tags.MLFLOW_DATABRICKS_NOTEBOOK_ID: mock_notebook_id,
         mlflow_tags.MLFLOW_DATABRICKS_NOTEBOOK_PATH: mock_notebook_path,
         mlflow_tags.MLFLOW_DATABRICKS_WEBAPP_URL: mock_webapp_url,
+        mlflow_tags.MLFLOW_DATABRICKS_WORKSPACE_URL: "https://databricks.com",
+        mlflow_tags.MLFLOW_DATABRICKS_WORKSPACE_ID: "123456",
     }
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
@@ -403,6 +409,7 @@ def test_start_run_defaults_databricks_notebook(
         notebook_id_patch,
         notebook_path_patch,
         webapp_url_patch,
+        workspace_info_patch,
         create_run_patch,
     ):
         active_run = start_run()

@@ -50,6 +50,18 @@ def lgb_model():
     return ModelWithData(model=model, inference_dataframe=X)
 
 
+@pytest.fixture(scope="session")
+def lgb_sklearn_model():
+    iris = datasets.load_iris()
+    X = pd.DataFrame(
+        iris.data[:, :2], columns=iris.feature_names[:2]  # we only take the first two features.
+    )
+    y = iris.target
+    model = lgb.LGBMClassifier(n_estimators=10)
+    model.fit(X, y)
+    return ModelWithData(model=model, inference_dataframe=X)
+
+
 @pytest.fixture
 def model_path(tmpdir):
     return os.path.join(str(tmpdir), "model")
@@ -68,7 +80,7 @@ def test_model_save_load(lgb_model, model_path):
 
     mlflow.lightgbm.save_model(lgb_model=model, path=model_path)
     reloaded_model = mlflow.lightgbm.load_model(model_uri=model_path)
-    reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+    reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
 
     np.testing.assert_array_almost_equal(
         model.predict(lgb_model.inference_dataframe),
@@ -78,6 +90,24 @@ def test_model_save_load(lgb_model, model_path):
     np.testing.assert_array_almost_equal(
         reloaded_model.predict(lgb_model.inference_dataframe),
         reloaded_pyfunc.predict(lgb_model.inference_dataframe),
+    )
+
+
+@pytest.mark.large
+def test_sklearn_model_save_load(lgb_sklearn_model, model_path):
+    model = lgb_sklearn_model.model
+    mlflow.lightgbm.save_model(lgb_model=model, path=model_path)
+    reloaded_model = mlflow.lightgbm.load_model(model_uri=model_path)
+    reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+
+    np.testing.assert_array_almost_equal(
+        model.predict(lgb_sklearn_model.inference_dataframe),
+        reloaded_model.predict(lgb_sklearn_model.inference_dataframe),
+    )
+
+    np.testing.assert_array_almost_equal(
+        reloaded_model.predict(lgb_sklearn_model.inference_dataframe),
+        reloaded_pyfunc.predict(lgb_sklearn_model.inference_dataframe),
     )
 
 
@@ -398,3 +428,49 @@ def test_pyfunc_serve_and_score_sklearn(model):
     )
     scores = pd.read_json(resp.content, orient="records").values.squeeze()
     np.testing.assert_array_equal(scores, model.predict(X.head(3)))
+
+
+@pytest.mark.large
+def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(lgb_model, model_path):
+    """
+    This test verifies that LightGBM models saved in older versions of MLflow are loaded
+    successfully by ``mlflow.pyfunc.load_model``. These older models specify a pyfunc ``data``
+    field referring directly to a LightGBM model file. Newer models also have the
+    ``model_class`` in LightGBM flavor.
+    """
+    model = lgb_model.model
+    mlflow.lightgbm.save_model(lgb_model=model, path=model_path)
+
+    model_conf_path = os.path.join(model_path, "MLmodel")
+    model_conf = Model.load(model_conf_path)
+    pyfunc_conf = model_conf.flavors.get(pyfunc.FLAVOR_NAME)
+    lgb_conf = model_conf.flavors.get(mlflow.lightgbm.FLAVOR_NAME)
+    assert lgb_conf is not None
+    assert "model_class" in lgb_conf
+    assert "data" in lgb_conf
+    assert pyfunc_conf is not None
+    assert "model_class" not in pyfunc_conf
+    assert pyfunc.DATA in pyfunc_conf
+
+    # test old MLmodel conf
+    model_conf.flavors["lightgbm"] = {"lgb_version": lgb.__version__, "data": "model.lgb"}
+    model_conf.save(model_conf_path)
+    model_conf = Model.load(model_conf_path)
+    lgb_conf = model_conf.flavors.get(mlflow.lightgbm.FLAVOR_NAME)
+    assert "data" in lgb_conf
+    assert lgb_conf["data"] == "model.lgb"
+
+    reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+    assert isinstance(reloaded_pyfunc._model_impl.lgb_model, lgb.Booster)
+    reloaded_lgb = mlflow.lightgbm.load_model(model_uri=model_path)
+    assert isinstance(reloaded_lgb, lgb.Booster)
+
+    np.testing.assert_array_almost_equal(
+        lgb_model.model.predict(lgb_model.inference_dataframe),
+        reloaded_pyfunc.predict(lgb_model.inference_dataframe),
+    )
+
+    np.testing.assert_array_almost_equal(
+        reloaded_lgb.predict(lgb_model.inference_dataframe),
+        reloaded_pyfunc.predict(lgb_model.inference_dataframe),
+    )
