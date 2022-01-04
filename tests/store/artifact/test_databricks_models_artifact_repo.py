@@ -187,7 +187,8 @@ class TestDatabricksModelArtifactRepository(object):
             call_endpoint_mock.return_value = list_artifact_dir_bad_response_mock
             with pytest.raises(
                 MlflowException,
-                match=r"API request to list files under path `` failed with status code 404. Response body: An error occurred",
+                match=r"API request to list files under path `` failed with status code 404. "
+                "Response body: An error occurred",
             ):
                 databricks_model_artifact_repo.list_artifacts("")
             call_endpoint_mock.assert_called_once_with(ANY, REGISTRY_LIST_ARTIFACTS_ENDPOINT)
