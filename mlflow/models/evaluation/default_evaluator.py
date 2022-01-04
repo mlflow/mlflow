@@ -220,6 +220,17 @@ def _gen_classifier_curve(
     )
 
 
+_matplotlib_initialized = False
+
+def _init_matplotlib():
+    global _matplotlib_initialized
+    if not _matplotlib_initialized:
+        import matplotlib.pyplot as pyplot
+        pyplot.rcParams['figure.dpi'] = 144
+        pyplot.rcParams['figure.figsize'] = [6.0, 4.0]
+        _matplotlib_initialized = True
+
+
 class DefaultEvaluator(ModelEvaluator):
     def can_evaluate(self, model_type, evaluator_config=None, **kwargs):
         return model_type in ["classifier", "regressor"]
@@ -578,6 +589,7 @@ class DefaultEvaluator(ModelEvaluator):
         **kwargs,
     ):
         with TempDir() as temp_dir:
+            _init_matplotlib()
             self.client = mlflow.tracking.MlflowClient()
 
             self.temp_dir = temp_dir

@@ -597,9 +597,15 @@ def _normalize_evaluators_and_evaluator_config_args(
     return evaluator_name_list, evaluator_name_to_conf_map
 
 
-# This variable holds the last running evaluator name. This can be used to
-# check which evaluator fail when `evaluate` API fail.
-_last_evaluator = None
+_last_failed_evaluator = None
+
+
+def _get_last_failed_evaluator():
+    """
+    Return the evaluator name of the last failed evaluator when calling `evalaute`.
+    This can be used to check which evaluator fail when `evaluate` API fail.
+    """
+    return _last_failed_evaluator
 
 
 def _evaluate(
@@ -612,14 +618,15 @@ def _evaluate(
     # import _model_evaluation_registry and PyFuncModel inside function to avoid circuit importing
     from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
 
+    global _last_failed_evaluator
+    _last_failed_evaluator = None
+
     client = mlflow.tracking.MlflowClient()
     model_uuid = model.metadata.model_uuid
     dataset._log_dataset_tag(client, actual_run_id, model_uuid)
 
     eval_results = []
     for evaluator_name in evaluator_name_list:
-        global _last_evaluator
-
         config = evaluator_name_to_conf_map.get(evaluator_name) or {}
         try:
             evaluator = _model_evaluation_registry.get_evaluator(evaluator_name)
@@ -627,11 +634,13 @@ def _evaluate(
             _logger.warning(f"Evaluator '{evaluator_name}' is not registered.")
             continue
 
-        _last_evaluator = evaluator_name
+        _last_failed_evaluator = evaluator_name
         if evaluator.can_evaluate(model_type, config):
             _logger.info(f"Evaluating the model with the {evaluator_name} evaluator.")
             result = evaluator.evaluate(model, model_type, dataset, actual_run_id, config)
             eval_results.append(result)
+
+    _last_failed_evaluator = None
 
     if len(eval_results) == 0:
         raise ValueError(
