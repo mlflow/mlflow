@@ -68,6 +68,24 @@ class Model(object):
     def get_output_schema(self):
         return self.signature.outputs if self.signature is not None else None
 
+    def load_input_example(self, path: str):
+        """
+        Load the input example saved along a model. Returns None if there is no example metadata
+        (i.e. the model was saved without example). Raises FileNotFoundError if there is model
+        metadata but the example file is missing.
+
+        :param path: Path to the model directory.
+
+        :return: Input example (NumPy ndarray, SciPy csc_matrix, SciPy csr_matrix,
+                 pandas DataFrame, dict) or None if the model has no example.
+        """
+
+        # Just-in-time import to only load example-parsing libraries (e.g. numpy, pandas, etc.) if
+        # example is requested.
+        from mlflow.models.utils import _read_example
+
+        return _read_example(self, path)
+
     def add_flavor(self, name, **params):
         """Add an entry for how to serve the model in a given format."""
         self.flavors[name] = params
