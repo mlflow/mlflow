@@ -314,7 +314,7 @@ class DefaultEvaluator(ModelEvaluator):
             return
 
         if self.model_type == "classifier" and not all(
-            [isinstance(label, numbers.Number) for label in self.label_list]
+            [isinstance(label, (numbers.Number, np.bool_)) for label in self.label_list]
         ):
             _logger.warning(
                 "Skip logging model explainability insights because it requires all label "
@@ -355,14 +355,13 @@ class DefaultEvaluator(ModelEvaluator):
             f: f2 for f, f2 in zip(self.feature_names, truncated_feature_names)
         }
 
-        if isinstance(self.X, pd.DataFrame):
+        sampled_X = shap.sample(self.X, sample_rows)
+
+        if isinstance(sampled_X, pd.DataFrame):
             # For some shap explainer, the plot will use the DataFrame column names instead of
             # using feature_names argument value. So rename the dataframe column names.
-            renamed_X = self.X.rename(columns=truncated_feature_name_map, copy=False)
-        else:
-            renamed_X = self.X
+            sampled_X = sampled_X.rename(columns=truncated_feature_name_map, copy=False)
 
-        sampled_X = shap.sample(renamed_X, sample_rows)
         if algorithm:
             supported_algos = ['exact', 'permutation', 'partition']
             if algorithm not in supported_algos:
@@ -392,10 +391,7 @@ class DefaultEvaluator(ModelEvaluator):
 
         _logger.info(f"Shap explainer {explainer.__class__.__name__} is used.")
 
-        if algorithm == "sampling":
-            shap_values = explainer(renamed_X, sample_rows)
-        else:
-            shap_values = explainer(sampled_X)
+        shap_values = explainer(sampled_X)
 
         try:
             mlflow.shap.log_explainer(
