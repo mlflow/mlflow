@@ -84,7 +84,6 @@ jobs:
         os_name=$(lsb_release -ds | sed 's/\s/-/g')
         echo "::set-output name=os-name::$os_name"
     - name: Cache R packages
-      if: runner.os != 'Windows'
       uses: actions/cache@v2
       with:
         path: ${{ env.R_LIBS_USER }}
