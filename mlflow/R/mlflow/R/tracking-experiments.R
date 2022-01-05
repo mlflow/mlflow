@@ -2,7 +2,7 @@
 #'
 #' Creates an MLflow experiment and returns its id.
 #'
-#' @param name The experiment name to create, which must be unique, a string, and is case sensitive
+#' @param name The name of the experiment to create.
 #' @param artifact_location Location where all artifacts for this experiment are stored. If
 #'   not provided, the remote server will select an appropriate default.
 #' @param tags Experiment tags to set on the experiment upon experiment creation.
