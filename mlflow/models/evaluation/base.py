@@ -697,8 +697,9 @@ def evaluate(
      - **log_model_explainability**: A boolean value specifying whether or not to log model
        explainability insights, default value is True.
      - **explainability_algorithm**: A string to specify the SHAP Explainer algorithm for model
-       explainability. If not set, `shap.Explainer` is used with the "auto" algorithm, which
-       chooses the best Explainer based on the model.
+       explainability. Supported algorithm includes: 'exact', 'permutation', 'partition'.
+       If not set, `shap.Explainer` is used with the "auto" algorithm, which chooses the best
+       Explainer based on the model.
      - **explainability_nsamples**: The number of sample rows to use for computing model
        explainability insights. Default value is 2000.
      - **max_num_classes_threshold_logging_roc_pr_curve_for_multiclass_classifier**:

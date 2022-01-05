@@ -364,17 +364,18 @@ class DefaultEvaluator(ModelEvaluator):
 
         sampled_X = shap.sample(renamed_X, sample_rows)
         if algorithm:
-            if algorithm == "sampling":
-                explainer = shap.explainers.Sampling(
-                    self.predict_fn, renamed_X, feature_names=truncated_feature_names
+            supported_algos = ['exact', 'permutation', 'partition']
+            if algorithm not in supported_algos:
+                raise ValueError(
+                    f"Specified explainer algorithm {algorithm} is unsupported. Currently only "
+                    f"support {','.join(supported_algos)} algorithms."
                 )
-            else:
-                explainer = shap.Explainer(
-                    self.predict_fn,
-                    sampled_X,
-                    feature_names=truncated_feature_names,
-                    algorithm=algorithm,
-                )
+            explainer = shap.Explainer(
+                self.predict_fn,
+                sampled_X,
+                feature_names=truncated_feature_names,
+                algorithm=algorithm,
+            )
         else:
             if self.raw_model and not is_multinomial_classifier:
                 # For mulitnomial classifier, shap.Explainer may choose Tree/Linear explainer for
