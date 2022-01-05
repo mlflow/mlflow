@@ -469,7 +469,8 @@ class MlflowClient(object):
     ) -> str:
         """Create an experiment.
 
-        :param name: The experiment name to create, which must be unique, a string, and is case sensitive
+        :param name: The experiment name to create, which must be unique, a string,
+                     and is case sensitive
         :param artifact_location: The location to store run artifacts.
                                   If not provided, the server picks an appropriate default.
         :param tags: A dictionary of key-value pairs that are converted into
