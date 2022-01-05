@@ -330,6 +330,7 @@ class DefaultEvaluator(ModelEvaluator):
                 "SHAP or matplotlib package is not installed, so model explainability insights "
                 "will not be logged."
             )
+            return
 
         if Version(shap.__version__) < Version("0.40"):
             _logger.warning(
