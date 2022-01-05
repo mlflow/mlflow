@@ -25,7 +25,7 @@ from unittest import mock
 from mlflow.utils.file_utils import TempDir
 from mlflow_test_plugin.dummy_evaluator import Array2DEvaluationArtifact
 from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
-from mlflow.models.evaluation.base import _logger as _base_logger
+from mlflow.models.evaluation.base import _logger as _base_logger, _gen_md5_for_arraylike_obj
 
 from sklearn.metrics import (
     accuracy_score,
@@ -59,8 +59,7 @@ def get_diabetes_spark_dataset():
     rows = [
         (Vectors.dense(features), float(label)) for features, label in zip(data.data, data.target)
     ]
-
-    return spark.createDataFrame(rows, ["features", "label"])
+    return spark.createDataFrame(spark.sparkContext.parallelize(rows, 1), ["features", "label"])
 
 
 def get_breast_cancer_dataset():
@@ -192,15 +191,23 @@ def svm_model_uri():
 def iris_pandas_df_dataset():
     X, y = get_iris()
     eval_X, eval_y = X[0::3], y[0::3]
-    data = pd.DataFrame({"f1": eval_X[:, 0], "f2": eval_X[:, 1], "y": eval_y})
+    data = pd.DataFrame(
+        {
+            "f1": eval_X[:, 0],
+            "f2": eval_X[:, 1],
+            "f2": eval_X[:, 2],
+            "f3": eval_X[:, 3],
+            "y": eval_y,
+        }
+    )
     labels = "y"
     return EvaluationDataset(data=data, labels=labels, name="iris_pandas_df_dataset")
 
 
 def test_classifier_evaluate(multiclass_logistic_regressor_model_uri, iris_dataset):
-    y_true = iris_dataset.labels
+    y_true = iris_dataset.labels_data
     classifier_model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
-    y_pred = classifier_model.predict(iris_dataset.data)
+    y_pred = classifier_model.predict(iris_dataset.features_data)
     expected_accuracy_score = accuracy_score(y_true, y_pred)
     expected_metrics = {
         "accuracy_score": expected_accuracy_score,
@@ -268,9 +275,9 @@ def test_classifier_evaluate(multiclass_logistic_regressor_model_uri, iris_datas
 
 
 def test_regressor_evaluate(linear_regressor_model_uri, diabetes_dataset):
-    y_true = diabetes_dataset.labels
+    y_true = diabetes_dataset.labels_data
     regressor_model = mlflow.pyfunc.load_model(linear_regressor_model_uri)
-    y_pred = regressor_model.predict(diabetes_dataset.data)
+    y_pred = regressor_model.predict(diabetes_dataset.features_data)
     expected_mae = mean_absolute_error(y_true, y_pred)
     expected_mse = mean_squared_error(y_true, y_pred)
     expected_metrics = {
@@ -307,7 +314,7 @@ def test_dataset_name():
 def test_gen_md5_for_arraylike_obj():
     def get_md5(data):
         md5_gen = hashlib.md5()
-        EvaluationDataset._gen_md5_for_arraylike_obj(md5_gen, data)
+        _gen_md5_for_arraylike_obj(md5_gen, data, None)
         return md5_gen.hexdigest()
 
     list0 = list(range(20))
@@ -322,31 +329,29 @@ def test_gen_md5_for_arraylike_obj():
 
 
 def test_dataset_hash(iris_dataset, iris_pandas_df_dataset, diabetes_spark_dataset):
-    assert iris_dataset.hash == "827a8427365cafbd9110b1b009d5a80d"
-    assert iris_pandas_df_dataset.hash == "d06cfb6352dba29afe514d9be87021aa"
-    assert diabetes_spark_dataset.hash == "a30ebc9899e22ee6e60665f98d4b08b3"
+    assert iris_dataset.hash == "d4975e40e1443d94f4f8e72c4c7d46d2"
+    assert iris_pandas_df_dataset.hash == "a0487290fb15889bb13ea75f892eb539"
+    assert diabetes_spark_dataset.hash == "e646b03e976240bd0c79c6bcc1ae0bda"
 
 
-def test_datasset_extract_features_label(iris_dataset, iris_pandas_df_dataset):
-    X1, y1 = iris_dataset._extract_features_and_labels()
-    assert np.array_equal(X1, iris_dataset.data)
-    assert np.array_equal(y1, iris_dataset.labels)
+def test_datasset_extract_features_label():
+    data = pd.DataFrame({"f1": [1, 2], "f2": [3, 4], "label": [0, 1]})
+    eval_dataset = EvaluationDataset(data=data, labels="label")
 
-    X2, y2 = iris_pandas_df_dataset._extract_features_and_labels()
-    assert list(X2.columns) == ["f1", "f2"]
-    assert np.array_equal(X2["f1"], X1[:, 0])
-    assert np.array_equal(X2["f2"], X1[:, 1])
-    assert np.array_equal(y2, y1)
+    assert list(eval_dataset.features_data.columns) == ["f1", "f2"]
+    assert np.array_equal(eval_dataset.features_data.f1.to_numpy(), [1, 2])
+    assert np.array_equal(eval_dataset.features_data.f2.to_numpy(), [3, 4])
+    assert np.array_equal(eval_dataset.labels_data, [0, 1])
 
 
 def test_spark_df_dataset(spark_session):
     spark_df = spark_session.createDataFrame([(1.0, 2.0, 3.0)] * 10, ["f1", "f2", "y"])
     with mock.patch.object(EvaluationDataset, "SPARK_DATAFRAME_LIMIT", 5):
         dataset = EvaluationDataset(spark_df, "y")
-        assert list(dataset.data.columns) == ["f1", "f2", "y"]
-        assert list(dataset.data["f1"]) == [1.0] * 5
-        assert list(dataset.data["f2"]) == [2.0] * 5
-        assert list(dataset.data["y"]) == [3.0] * 5
+        assert list(dataset.features_data.columns) == ["f1", "f2"]
+        assert list(dataset.features_data["f1"]) == [1.0] * 5
+        assert list(dataset.features_data["f2"]) == [2.0] * 5
+        assert list(dataset.labels_data) == [3.0] * 5
 
 
 def test_log_dataset_tag(iris_dataset, iris_pandas_df_dataset):

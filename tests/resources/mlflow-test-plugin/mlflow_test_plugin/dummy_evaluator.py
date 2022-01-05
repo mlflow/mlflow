@@ -44,7 +44,8 @@ class DummyEvaluator(ModelEvaluator):
         self, model, model_type, dataset, run_id, evaluator_config=None, **kwargs
     ) -> EvaluationResult:
         client = mlflow.tracking.MlflowClient()
-        X, y = dataset._extract_features_and_labels()
+        X = dataset.features_data
+        y = dataset.labels_data
         y_pred = model.predict(X)
         if model_type == "classifier":
             accuracy_score = sk_metrics.accuracy_score(y, y_pred)

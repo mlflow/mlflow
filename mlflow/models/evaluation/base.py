@@ -155,6 +155,72 @@ class EvaluationResult:
 _cached_mlflow_client = None
 
 
+def _convert_uint64_ndarray_to_bytes(array):
+    assert len(array.shape) == 1
+    # see struct pack format string https://docs.python.org/3/library/struct.html#format-strings
+    return struct.pack(f">{array.size}Q", *array)
+
+
+def _hash_ndarray_as_bytes(nd_array):
+    from pandas.util import hash_array
+    import numpy as np
+
+    return _convert_uint64_ndarray_to_bytes(
+        hash_array(nd_array.flatten(order="C"))
+    ) + _convert_uint64_ndarray_to_bytes(np.array(nd_array.shape, dtype="uint64"))
+
+
+def _array_like_obj_to_bytes(data, spark_vector_type):
+    """
+    Helper method to convert pandas dataframe/numpy array/list into bytes for
+    MD5 calculation purpose.
+    """
+    from pandas.util import hash_pandas_object
+    import numpy as np
+    import pandas as pd
+
+    if isinstance(data, pd.DataFrame):
+
+        def _hash_array_like_element_as_bytes(v):
+            if spark_vector_type is not None:
+                if isinstance(v, spark_vector_type):
+                    return _hash_ndarray_as_bytes(v.toArray())
+            if isinstance(v, np.ndarray):
+                return _hash_ndarray_as_bytes(v)
+            if isinstance(v, list):
+                return _hash_ndarray_as_bytes(np.array(v))
+            return v
+
+        data = data.applymap(_hash_array_like_element_as_bytes)
+        return _convert_uint64_ndarray_to_bytes(hash_pandas_object(data))
+    elif isinstance(data, np.ndarray):
+        return _hash_ndarray_as_bytes(data)
+    elif isinstance(data, list):
+        return _hash_ndarray_as_bytes(np.array(data))
+    else:
+        raise ValueError("Unsupported data type.")
+
+
+def _gen_md5_for_arraylike_obj(md5_gen, data, spark_vector_type):
+    """
+    Helper method to generate MD5 hash array-like object, the MD5 will calculate over:
+     - array length
+     - first NUM_SAMPLE_ROWS_FOR_HASH rows content
+     - last NUM_SAMPLE_ROWS_FOR_HASH rows content
+    """
+    import numpy as np
+
+    len_bytes = _convert_uint64_ndarray_to_bytes(np.array([len(data)], dtype="uint64"))
+    md5_gen.update(len_bytes)
+    if len(data) < EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH * 2:
+        md5_gen.update(_array_like_obj_to_bytes(data, spark_vector_type))
+    else:
+        head_rows = data[: EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH]
+        tail_rows = data[-EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH :]
+        md5_gen.update(_array_like_obj_to_bytes(head_rows, spark_vector_type))
+        md5_gen.update(_array_like_obj_to_bytes(tail_rows, spark_vector_type))
+
+
 class EvaluationDataset:
     """
     An input dataset for model evaluation. This is intended for use with the
@@ -193,30 +259,31 @@ class EvaluationDataset:
         import numpy as np
         import pandas as pd
 
-        # TODO:
-        #  for pandas.DataFrame input, check column type and raise error if unsupported column
-        #   found
-        #  For spark DataFrame input, support feature column with `pyspark.ml.Vector` column type.
+        if name is not None and '"' in name:
+            raise ValueError(f'Dataset name cannot include a double quote (") but got {name}')
+        if path is not None and '"' in path:
+            raise ValueError(f'Dataset path cannot include a double quote (") but got {path}')
+
+        self._user_specified_name = name
+        self._path = path
+        self._hash = None
+
         try:
             # add checking `'pyspark' in sys.modules` to avoid importing pyspark when user
             # run code not related to pyspark.
             if "pyspark" in sys.modules:
                 from pyspark.sql import DataFrame as SparkDataFrame
-                from pyspark.ml.linalg import VectorUDT as SparkVectorUDT
+                from pyspark.ml.linalg import Vector as SparkMLVector
 
                 supported_dataframe_types = (pd.DataFrame, SparkDataFrame)
-                self._spark_df_type = SparkDataFrame
-                self._spark_vector_type = SparkVectorUDT
+                spark_df_type = SparkDataFrame
+                spark_vector_type = SparkMLVector
             else:
                 supported_dataframe_types = (pd.DataFrame,)
-                self._spark_df_type = None
+                spark_df_type = None
+                spark_vector_type = None
         except ImportError:
             supported_dataframe_types = (pd.DataFrame,)
-
-        if name is not None and '"' in name:
-            raise ValueError(f'Dataset name cannot include a double quote (") but got {name}')
-        if path is not None and '"' in path:
-            raise ValueError(f'Dataset path cannot include a double quote (") but got {path}')
 
         if isinstance(data, (np.ndarray, list)):
             if not isinstance(labels, (np.ndarray, list)):
@@ -224,27 +291,15 @@ class EvaluationDataset:
                     "If data is a numpy array or list of evaluation features, "
                     "labels must be a numpy array or list of evaluation labels"
                 )
-        elif isinstance(data, supported_dataframe_types):
-            if not isinstance(labels, str):
-                raise ValueError(
-                    "If data is a Pandas DataFrame or Spark DataFrame, labels must be the "
-                    "string name of a column from `data` that contains evaluation labels"
-                )
-        else:
-            raise ValueError(
-                "The data argument must be a numpy array, a list or a Pandas DataFrame, or "
-                "spark DataFrame if pyspark package installed."
-            )
-
-        self._user_specified_name = name
-        self._original_data = data
-        self._data = None
-        self.labels = labels
-        self.path = path
-        self._hash = None
-
-        if isinstance(self.data, np.ndarray):
-            num_features = self.data.shape[1]
+            self._features_data = data
+            self._labels_data = labels if isinstance(labels, np.ndarray) else np.array(labels)
+            if isinstance(data, list):
+                num_features = len(data[0])
+            else:
+                if len(data.shape) > 1:
+                    num_features = data.shape[1]
+                else:
+                    num_features = len(data[0])
             if feature_names is not None:
                 feature_names = list(feature_names)
                 if num_features != len(feature_names):
@@ -255,113 +310,61 @@ class EvaluationDataset:
                     f"feature_{str(i).zfill(math.ceil((math.log10(num_features))))}"
                     for i in range(num_features)
                 ]
-        else:
-            pd_column_names = [c for c in self.data.columns if c != self.labels]
+        elif isinstance(data, supported_dataframe_types):
+            if not isinstance(labels, str):
+                raise ValueError(
+                    "If data is a Pandas DataFrame or Spark DataFrame, labels must be the "
+                    "string name of a column from `data` that contains evaluation labels"
+                )
+            if isinstance(data, spark_df_type):
+                _logger.warning(
+                    f"Specified Spark DataFrame is too large for model evaluation. Only "
+                    f"the first {EvaluationDataset.SPARK_DATAFRAME_LIMIT} rows will be used."
+                    "If you want evaluate on the whole spark dataframe, please manually call "
+                    "`spark_dataframe.toPandas()`."
+                )
+                data = data.limit(EvaluationDataset.SPARK_DATAFRAME_LIMIT).toPandas()
+
+            self._features_data = data.drop(labels, axis=1, inplace=False)
+            self._labels_data = data[labels].to_numpy()
             if feature_names is not None:
-                feature_names = list(feature_names)
-                if pd_column_names != list(feature_names):
-                    raise ValueError(
-                        "feature names must match feature column names in the pandas " "dataframe"
-                    )
-            self._feature_names = pd_column_names
-
-    @property
-    def data(self):
-        """
-        Return original data if data is numpy array or pandas dataframe,
-        For spark dataframe, will only return the first SPARK_DATAFRAME_LIMIT rows as pandas
-        dataframe and emit warning.
-        """
-        if self._data is not None:
-            return self._data
-
-        if self._spark_df_type and isinstance(self._original_data, self._spark_df_type):
-            self._data = self._original_data.limit(
-                EvaluationDataset.SPARK_DATAFRAME_LIMIT
-            ).toPandas()
-            _logger.warning(
-                f"Specified Spark DataFrame is too large for model evaluation. Only "
-                f"the first {EvaluationDataset.SPARK_DATAFRAME_LIMIT} rows will be used."
-            )
-        else:
-            self._data = self._original_data
-
-        return self._data
-
-    def _extract_features_and_labels(self):
-        """
-        Extract features data and labels data.
-        For spark dataframe, will only extract the first SPARK_DATAFRAME_LIMIT rows data
-        and emit warning.
-        """
-        import numpy as np
-
-        if isinstance(self.data, np.ndarray):
-            return self.data, self.labels
-        else:
-            return (
-                self.data.drop(self.labels, axis=1, inplace=False),
-                self.data[self.labels].to_numpy(),
-            )
-
-    @staticmethod
-    def _convert_uint64_ndarray_to_bytes(array):
-        assert len(array.shape) == 1
-        # see struct pack format string https://docs.python.org/3/library/struct.html#format-strings
-        return struct.pack(f">{array.size}Q", *array)
-
-    @staticmethod
-    def _array_like_obj_to_bytes(data):
-        """
-        Helper method to convert pandas dataframe/numpy array/list into bytes for
-        MD5 calculation purpose.
-        """
-        from pandas.util import hash_pandas_object, hash_array
-        import numpy as np
-        import pandas as pd
-
-        if isinstance(data, pd.DataFrame):
-            return EvaluationDataset._convert_uint64_ndarray_to_bytes(hash_pandas_object(data))
-        elif isinstance(data, np.ndarray):
-            return EvaluationDataset._convert_uint64_ndarray_to_bytes(
-                hash_array(data.flatten(order="C"))
-            )
-        elif isinstance(data, list):
-            return EvaluationDataset._convert_uint64_ndarray_to_bytes(hash_array(np.array(data)))
-        else:
-            raise ValueError("Unsupported data type.")
-
-    @staticmethod
-    def _gen_md5_for_arraylike_obj(md5_gen, data):
-        """
-        Helper method to generate MD5 hash array-like object, the MD5 will calculate over:
-         - array length
-         - first NUM_SAMPLE_ROWS_FOR_HASH rows content
-         - last NUM_SAMPLE_ROWS_FOR_HASH rows content
-        """
-        import numpy as np
-
-        len_bytes = EvaluationDataset._convert_uint64_ndarray_to_bytes(
-            np.array([len(data)], dtype="uint64")
-        )
-        md5_gen.update(len_bytes)
-        if len(data) < EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH * 2:
-            md5_gen.update(EvaluationDataset._array_like_obj_to_bytes(data))
-        else:
-            md5_gen.update(
-                EvaluationDataset._array_like_obj_to_bytes(
-                    data[: EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH]
+                raise ValueError(
+                    "If `data` argument is pandas/spark dataframe, you cannot specify the "
+                    "`feature_names` argument, instead, the column names of the input "
+                    "dataframe will be used as the feature names."
                 )
+            self._feature_names = list(self._features_data.columns)
+        else:
+            raise ValueError(
+                "The data argument must be a numpy array, a list or a Pandas DataFrame, or "
+                "spark DataFrame if pyspark package installed."
             )
-            md5_gen.update(
-                EvaluationDataset._array_like_obj_to_bytes(
-                    data[-EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH :]
-                )
-            )
+
+        # generate dataset hash
+        md5_gen = hashlib.md5()
+        _gen_md5_for_arraylike_obj(md5_gen, self._features_data, spark_vector_type)
+        _gen_md5_for_arraylike_obj(md5_gen, self._labels_data, spark_vector_type)
+        md5_gen.update(",".join(self._feature_names).encode("UTF-8"))
+
+        self._hash = md5_gen.hexdigest()
 
     @property
     def feature_names(self):
         return self._feature_names
+
+    @property
+    def features_data(self):
+        """
+        return features data as a numpy array or a pandas DataFrame.
+        """
+        return self._features_data
+
+    @property
+    def labels_data(self):
+        """
+        return labels data as a numpy array
+        """
+        return self._labels_data
 
     @property
     def name(self):
@@ -372,44 +375,17 @@ class EvaluationDataset:
         return self._user_specified_name if self._user_specified_name is not None else self.hash
 
     @property
+    def path(self):
+        """
+        Dataset path
+        """
+        return self._path
+
+    @property
     def hash(self):
         """
-        Compute a hash from the specified dataset by selecting the first 5 records, last 5 records,
-        dataset size and feeding them through a cheap, low-collision hash function
+        Dataset hash, includes hash on first 20 rows and last 20 rows.
         """
-        import numpy as np
-        import pandas as pd
-
-        if self._hash is None:
-            md5_gen = hashlib.md5()
-            if isinstance(self.data, np.ndarray):
-                EvaluationDataset._gen_md5_for_arraylike_obj(md5_gen, self.data)
-                EvaluationDataset._gen_md5_for_arraylike_obj(md5_gen, self.labels)
-            elif isinstance(self.data, pd.DataFrame):
-                column_names = ",".join(self.data.columns)
-                meta_str = f"columns={column_names}\nlabels={self.labels}"
-                md5_gen.update(meta_str.encode("UTF-8"))
-
-                data_for_hash = self.data
-
-                if self._spark_df_type and isinstance(self._original_data, self._spark_df_type):
-                    # For spark dataframe, the Vector type column we need expand it
-                    # into multiple columns, otherwise pandas hash function cannot compute hash
-                    # over it.
-                    transform_func = {}
-                    for field in self._original_data.schema:
-                        if isinstance(field.dataType, self._spark_vector_type):
-                            transform_func[field.name] = lambda x: pd.Series(x.toArray())
-                        else:
-                            transform_func[field.name] = lambda x: x
-
-                    data_for_hash = self.data.transform(transform_func)
-
-                # TODO:
-                #  For array/list type column values in pandas DataFrame, pandas hash function
-                #  also cannot support it, expand them if we need support them.
-                EvaluationDataset._gen_md5_for_arraylike_obj(md5_gen, data_for_hash)
-            self._hash = md5_gen.hexdigest()
         return self._hash
 
     @property

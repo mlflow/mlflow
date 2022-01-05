@@ -50,8 +50,8 @@ def test_regressor_evaluation(linear_regressor_model_uri, diabetes_dataset):
 
     model = mlflow.pyfunc.load_model(linear_regressor_model_uri)
 
-    y = diabetes_dataset.labels
-    y_pred = model.predict(diabetes_dataset.data)
+    y = diabetes_dataset.labels_data
+    y_pred = model.predict(diabetes_dataset.features_data)
 
     expected_metrics = _get_regressor_metrics(y, y_pred)
     for metric_key in expected_metrics:
@@ -92,9 +92,9 @@ def test_multi_classifier_evaluation(multiclass_logistic_regressor_model_uri, ir
     model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
 
     _, _, predict_fn, predict_proba_fn = _extract_raw_model_and_predict_fn(model)
-    y = iris_dataset.labels
-    y_pred = predict_fn(iris_dataset.data)
-    y_probs = predict_proba_fn(iris_dataset.data)
+    y = iris_dataset.labels_data
+    y_pred = predict_fn(iris_dataset.features_data)
+    y_probs = predict_proba_fn(iris_dataset.features_data)
 
     expected_metrics = _get_classifier_global_metrics(False, y, y_pred, y_probs, labels=None)
 
@@ -143,9 +143,9 @@ def test_bin_classifier_evaluation(binary_logistic_regressor_model_uri, breast_c
     model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
 
     _, _, predict_fn, predict_proba_fn = _extract_raw_model_and_predict_fn(model)
-    y = breast_cancer_dataset.labels
-    y_pred = predict_fn(breast_cancer_dataset.data)
-    y_probs = predict_proba_fn(breast_cancer_dataset.data)
+    y = breast_cancer_dataset.labels_data
+    y_pred = predict_fn(breast_cancer_dataset.features_data)
+    y_probs = predict_proba_fn(breast_cancer_dataset.features_data)
 
     expected_metrics = _get_classifier_global_metrics(True, y, y_pred, y_probs, labels=None)
 
@@ -195,7 +195,8 @@ def test_spark_regressor_model_evaluation(spark_linear_regressor_model_uri, diab
 
     model = mlflow.pyfunc.load_model(spark_linear_regressor_model_uri)
 
-    X, y = diabetes_spark_dataset._extract_features_and_labels()
+    X = diabetes_spark_dataset.features_data
+    y = diabetes_spark_dataset.labels_data
     y_pred = model.predict(X)
 
     expected_metrics = _get_regressor_metrics(y, y_pred)
@@ -232,8 +233,8 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset):
     model = mlflow.pyfunc.load_model(svm_model_uri)
 
     _, _, predict_fn, _ = _extract_raw_model_and_predict_fn(model)
-    y = breast_cancer_dataset.labels
-    y_pred = predict_fn(breast_cancer_dataset.data)
+    y = breast_cancer_dataset.labels_data
+    y_pred = predict_fn(breast_cancer_dataset.features_data)
 
     expected_metrics = _get_classifier_global_metrics(True, y, y_pred, None, labels=None)
 

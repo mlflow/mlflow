@@ -608,6 +608,7 @@ class DefaultEvaluator(ModelEvaluator):
         **kwargs,
     ):
         import matplotlib
+
         with TempDir() as temp_dir, matplotlib.rc_context(_matplotlib_config):
             self.client = mlflow.tracking.MlflowClient()
 
@@ -631,13 +632,12 @@ class DefaultEvaluator(ModelEvaluator):
             self.predict_fn = predict_fn
             self.predict_proba_fn = predict_proba_fn
 
-            X, y = dataset._extract_features_and_labels()
-            self.X = X
-            self.y = y
+            self.X = dataset.features_data
+            self.y = dataset.labels_data
             self.metrics = EvaluationMetrics()
             self.artifacts = {}
 
-            infered_model_type = _infer_model_type_by_labels(y)
+            infered_model_type = _infer_model_type_by_labels(self.y)
 
             if model_type != infered_model_type:
                 _logger.warning(
