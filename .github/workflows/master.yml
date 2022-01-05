@@ -84,20 +84,12 @@ jobs:
         os_name=$(lsb_release -ds | sed 's/\s/-/g')
         echo "::set-output name=os-name::$os_name"
     - name: Cache R packages
-      if: runner.os != 'Windows'
       uses: actions/cache@v2
       with:
         path: ${{ env.R_LIBS_USER }}
         # We cache R dependencies based on a tuple of the current OS, the R version, and the list of
         # R dependencies
         key: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('.github/R-version') }}-1-${{ hashFiles('.github/depends.Rds') }}
-        restore-keys: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('.github/R-version') }}-1-
-    # Cache spark archive downloaded in `mlflow/R/mlflow/.create-test-env.R`
-    - name: Cache spark archive
-      uses: actions/cache@v2
-      with:
-        path: ~/spark/spark-2.4.5-bin-hadoop2.7
-        key: ${{ hashFiles('mlflow/R/mlflow/.spark-version') }}
     - name: Install system dependencies
       run: |
         sudo apt-get install -y libcurl4-openssl-dev
