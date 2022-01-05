@@ -222,15 +222,18 @@ def _gen_classifier_curve(
 
 _matplotlib_initialized = False
 
+
 def _init_matplotlib():
     global _matplotlib_initialized
     if not _matplotlib_initialized:
         import matplotlib.pyplot as pyplot
-        pyplot.rcParams['figure.dpi'] = 144
-        pyplot.rcParams['figure.figsize'] = [6.0, 4.0]
+
+        pyplot.rcParams["figure.dpi"] = 144
+        pyplot.rcParams["figure.figsize"] = [6.0, 4.0]
         _matplotlib_initialized = True
 
 
+# pylint: disable=attribute-defined-outside-init
 class DefaultEvaluator(ModelEvaluator):
     def can_evaluate(self, model_type, evaluator_config=None, **kwargs):
         return model_type in ["classifier", "regressor"]
@@ -433,9 +436,11 @@ class DefaultEvaluator(ModelEvaluator):
                 labels=self.label_list,
                 curve_type="roc",
             )
-            self._log_image_artifact(
-                lambda: roc_curve.plot_fn(**roc_curve.plot_fn_args), "roc_curve_plot"
-            )
+
+            def plot_roc_curve():
+                roc_curve.plot_fn(**roc_curve.plot_fn_args)
+
+            self._log_image_artifact(plot_roc_curve, "roc_curve_plot")
             self.metrics["roc_auc"] = roc_curve.auc
 
             pr_curve = _gen_classifier_curve(
@@ -445,9 +450,11 @@ class DefaultEvaluator(ModelEvaluator):
                 labels=self.label_list,
                 curve_type="pr",
             )
-            self._log_image_artifact(
-                lambda: pr_curve.plot_fn(**pr_curve.plot_fn_args), "precision_recall_curve_plot"
-            )
+
+            def plot_pr_curve():
+                pr_curve.plot_fn(**pr_curve.plot_fn_args)
+
+            self._log_image_artifact(plot_pr_curve, "precision_recall_curve_plot")
             self.metrics["precision_recall_auc"] = pr_curve.auc
 
     def _log_multiclass_classifier(self):
@@ -464,10 +471,10 @@ class DefaultEvaluator(ModelEvaluator):
                 log_roc_pr_curve = True
             else:
                 _logger.warning(
-                    f"The classifier num_classes > {max_num_classes_for_logging_curve}, skip logging "
-                    f"ROC curve and Precision-Recall curve. You can add evaluator config "
-                    f"'max_num_classes_threshold_logging_roc_pr_curve_for_multiclass_classifier' to "
-                    f"increase the threshold."
+                    f"The classifier num_classes > {max_num_classes_for_logging_curve}, skip "
+                    f"logging ROC curve and Precision-Recall curve. You can add evaluator config "
+                    f"'max_num_classes_threshold_logging_roc_pr_curve_for_multiclass_classifier' "
+                    f"to increase the threshold."
                 )
 
         if log_roc_pr_curve:
@@ -478,9 +485,11 @@ class DefaultEvaluator(ModelEvaluator):
                 labels=self.label_list,
                 curve_type="roc",
             )
-            self._log_image_artifact(
-                lambda: roc_curve.plot_fn(**roc_curve.plot_fn_args), "roc_curve_plot"
-            )
+
+            def plot_roc_curve():
+                roc_curve.plot_fn(**roc_curve.plot_fn_args)
+
+            self._log_image_artifact(plot_roc_curve, "roc_curve_plot")
             per_class_metrics_collection_df["roc_auc"] = roc_curve.auc
 
             pr_curve = _gen_classifier_curve(
@@ -490,9 +499,11 @@ class DefaultEvaluator(ModelEvaluator):
                 labels=self.label_list,
                 curve_type="pr",
             )
-            self._log_image_artifact(
-                lambda: pr_curve.plot_fn(**pr_curve.plot_fn_args), "precision_recall_curve_plot"
-            )
+
+            def plot_pr_curve():
+                pr_curve.plot_fn(**pr_curve.plot_fn_args)
+
+            self._log_image_artifact(plot_pr_curve, "precision_recall_curve_plot")
             per_class_metrics_collection_df["precision_recall_auc"] = pr_curve.auc
 
         self._log_pandas_df_artifact(per_class_metrics_collection_df, "per_class_metrics")

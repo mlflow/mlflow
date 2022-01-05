@@ -9,6 +9,7 @@ class ImageEvaluationArtifact(EvaluationArtifact):
 
     def _load_content_from_file(self, local_artifact_path):
         from PIL.Image import open as open_image
+
         self._content = open_image(local_artifact_path)
         return self._content
 

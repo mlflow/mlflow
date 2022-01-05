@@ -713,7 +713,8 @@ def evaluate(
        be a spark DataFrame contains a feature column of "Vector" type, and a label column.
      - For classifier, evaluation dataset labels must contains all distinct values, the dataset
        labels data will be used to infer the number of classes. For binary classifier, the
-       negative label value must be 0 or -1 or False, and the positive label value must be 1 or True.
+       negative label value must be 0 or -1 or False, and the positive label value must be
+       1 or True.
        For multiclass classifier, if logging explainability insights enabled, the label values
        must be number type.
 

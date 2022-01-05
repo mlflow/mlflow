@@ -147,7 +147,7 @@ def plot_lift_curve(
     gains2 = gains2 / percentages
 
     if ax is None:
-        fig, ax = plt.subplots(1, 1, figsize=figsize)
+        _, ax = plt.subplots(1, 1, figsize=figsize)
 
     ax.set_title(title, fontsize=title_fontsize)
 

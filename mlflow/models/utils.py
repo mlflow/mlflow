@@ -236,10 +236,13 @@ def _read_sparse_matrix_from_json(path, example_type):
             return csr_matrix((data, indices, indptr), shape=shape)
 
 
-def plot_lines(data_series, xlabel, ylabel, legend_loc=None, line_kwargs={}):
+def plot_lines(data_series, xlabel, ylabel, legend_loc=None, line_kwargs=None):
     import matplotlib.pyplot as plt
 
     fig, ax = plt.subplots()
+
+    if line_kwargs is None:
+        line_kwargs = {}
 
     for label, data_x, data_y in data_series:
         ax.plot(data_x, data_y, label=label, **line_kwargs)

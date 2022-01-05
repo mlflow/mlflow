@@ -1,15 +1,10 @@
 import numpy as np
 import json
-import math
-import sklearn.metrics
 
 
-from mlflow.models.evaluation import evaluate, EvaluationDataset
+from mlflow.models.evaluation import evaluate
 from mlflow.models.evaluation.default_evaluator import (
-    _get_regressor_metrics,
     _get_classifier_global_metrics,
-    _get_classifier_per_class_metrics,
-    _extract_raw_model_and_predict_fn,
     _infer_model_type_by_labels,
     _extract_raw_model_and_predict_fn,
     _get_regressor_metrics,
@@ -20,6 +15,7 @@ from mlflow.models.evaluation.default_evaluator import (
 import mlflow
 from sklearn.linear_model import LogisticRegression
 
+# pylint: disable=unused-import
 from tests.models.test_evaluation import (
     get_run_data,
     linear_regressor_model_uri,
@@ -31,7 +27,6 @@ from tests.models.test_evaluation import (
     spark_linear_regressor_model_uri,
     diabetes_spark_dataset,
     svm_model_uri,
-    breast_cancer_dataset,
 )
 from mlflow.models.utils import plot_lines
 
@@ -52,7 +47,7 @@ def test_regressor_evaluation(linear_regressor_model_uri, diabetes_dataset):
         )
         print(f"regressor evaluation run: {run.info.run_id}")
 
-    params, metrics, tags, artifacts = get_run_data(run.info.run_id)
+    _, metrics, tags, artifacts = get_run_data(run.info.run_id)
 
     model = mlflow.pyfunc.load_model(linear_regressor_model_uri)
 
@@ -94,11 +89,11 @@ def test_multi_classifier_evaluation(multiclass_logistic_regressor_model_uri, ir
         )
         print(f"multi-classifier evaluation run: {run.info.run_id}")
 
-    params, metrics, tags, artifacts = get_run_data(run.info.run_id)
+    _, metrics, tags, artifacts = get_run_data(run.info.run_id)
 
     model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
 
-    _, raw_model, predict_fn, predict_proba_fn = _extract_raw_model_and_predict_fn(model)
+    _, _, predict_fn, predict_proba_fn = _extract_raw_model_and_predict_fn(model)
     y = iris_dataset.labels
     y_pred = predict_fn(iris_dataset.data)
     y_probs = predict_proba_fn(iris_dataset.data)
@@ -146,11 +141,11 @@ def test_bin_classifier_evaluation(binary_logistic_regressor_model_uri, breast_c
         )
         print(f"bin-classifier evaluation run: {run.info.run_id}")
 
-    params, metrics, tags, artifacts = get_run_data(run.info.run_id)
+    _, metrics, tags, artifacts = get_run_data(run.info.run_id)
 
     model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
 
-    _, raw_model, predict_fn, predict_proba_fn = _extract_raw_model_and_predict_fn(model)
+    _, _, predict_fn, predict_proba_fn = _extract_raw_model_and_predict_fn(model)
     y = breast_cancer_dataset.labels
     y_pred = predict_fn(breast_cancer_dataset.data)
     y_probs = predict_proba_fn(breast_cancer_dataset.data)
@@ -200,7 +195,7 @@ def test_spark_regressor_model_evaluation(spark_linear_regressor_model_uri, diab
         )
         print(f"spark model evaluation run: {run.info.run_id}")
 
-    params, metrics, tags, artifacts = get_run_data(run.info.run_id)
+    _, metrics, tags, artifacts = get_run_data(run.info.run_id)
 
     model = mlflow.pyfunc.load_model(spark_linear_regressor_model_uri)
 
@@ -237,11 +232,11 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset):
         )
         print(f"svm evaluation run: {run.info.run_id}")
 
-    params, metrics, tags, artifacts = get_run_data(run.info.run_id)
+    _, metrics, tags, artifacts = get_run_data(run.info.run_id)
 
     model = mlflow.pyfunc.load_model(svm_model_uri)
 
-    _, raw_model, predict_fn, predict_proba_fn = _extract_raw_model_and_predict_fn(model)
+    _, _, predict_fn, predict_proba_fn = _extract_raw_model_and_predict_fn(model)
     y = breast_cancer_dataset.labels
     y_pred = predict_fn(breast_cancer_dataset.data)
 
