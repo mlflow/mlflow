@@ -123,7 +123,7 @@ def breast_cancer_dataset():
     return EvaluationDataset(data=eval_X, labels=eval_y, name="breast_cancer_dataset")
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def linear_regressor_model_uri():
     X, y = get_diabetes_dataset()
     reg = sklearn.linear_model.LinearRegression()
@@ -136,7 +136,7 @@ def linear_regressor_model_uri():
     return linear_regressor_model_uri
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def spark_linear_regressor_model_uri():
     spark_df = get_diabetes_spark_dataset()
     reg = SparkLinearRegression()
@@ -149,7 +149,7 @@ def spark_linear_regressor_model_uri():
     return spark_linear_regressor_model_uri
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def multiclass_logistic_regressor_model_uri():
     X, y = get_iris()
     clf = sklearn.linear_model.LogisticRegression(max_iter=2)
@@ -162,7 +162,7 @@ def multiclass_logistic_regressor_model_uri():
     return multiclass_logistic_regressor_model_uri
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def binary_logistic_regressor_model_uri():
     X, y = get_breast_cancer_dataset()
     clf = sklearn.linear_model.LogisticRegression()
@@ -175,7 +175,7 @@ def binary_logistic_regressor_model_uri():
     return binary_logistic_regressor_model_uri
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def svm_model_uri():
     X, y = get_breast_cancer_dataset()
     clf = sklearn.svm.LinearSVC()
@@ -188,7 +188,7 @@ def svm_model_uri():
     return svm_model_uri
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def iris_pandas_df_dataset():
     X, y = get_iris()
     eval_X, eval_y = X[0::3], y[0::3]
