@@ -234,17 +234,10 @@ def _gen_classifier_curve(
     )
 
 
-_matplotlib_initialized = False
-
-
-def _init_matplotlib():
-    global _matplotlib_initialized
-    if not _matplotlib_initialized:
-        import matplotlib.pyplot as pyplot
-
-        pyplot.rcParams["figure.dpi"] = 144
-        pyplot.rcParams["figure.figsize"] = [6.0, 4.0]
-        _matplotlib_initialized = True
+_matplotlib_config = {
+    "figure.dpi": 144,
+    "figure.figsize": [6.0, 4.0],
+}
 
 
 # pylint: disable=attribute-defined-outside-init
@@ -613,8 +606,8 @@ class DefaultEvaluator(ModelEvaluator):
         evaluator_config,
         **kwargs,
     ):
-        with TempDir() as temp_dir:
-            _init_matplotlib()
+        import matplotlib
+        with TempDir() as temp_dir, matplotlib.rc_context(_matplotlib_config):
             self.client = mlflow.tracking.MlflowClient()
 
             self.temp_dir = temp_dir

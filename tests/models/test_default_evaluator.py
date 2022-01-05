@@ -45,7 +45,6 @@ def test_regressor_evaluation(linear_regressor_model_uri, diabetes_dataset):
             dataset=diabetes_dataset,
             evaluators="default",
         )
-        print(f"regressor evaluation run: {run.info.run_id}")
 
     _, metrics, tags, artifacts = get_run_data(run.info.run_id)
 
@@ -87,13 +86,12 @@ def test_multi_classifier_evaluation(multiclass_logistic_regressor_model_uri, ir
             dataset=iris_dataset,
             evaluators="default",
         )
-        print(f"multi-classifier evaluation run: {run.info.run_id}")
 
     _, metrics, tags, artifacts = get_run_data(run.info.run_id)
 
     model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
 
-    _, _, predict_fn, _ = _extract_raw_model_and_predict_fn(model)
+    _, _, predict_fn, predict_proba_fn = _extract_raw_model_and_predict_fn(model)
     y = iris_dataset.labels
     y_pred = predict_fn(iris_dataset.data)
     y_probs = predict_proba_fn(iris_dataset.data)
@@ -139,7 +137,6 @@ def test_bin_classifier_evaluation(binary_logistic_regressor_model_uri, breast_c
             dataset=breast_cancer_dataset,
             evaluators="default",
         )
-        print(f"bin-classifier evaluation run: {run.info.run_id}")
 
     _, metrics, tags, artifacts = get_run_data(run.info.run_id)
 
@@ -193,7 +190,6 @@ def test_spark_regressor_model_evaluation(spark_linear_regressor_model_uri, diab
             evaluators="default",
             evaluator_config={"log_model_explainability": True},
         )
-        print(f"spark model evaluation run: {run.info.run_id}")
 
     _, metrics, tags, artifacts = get_run_data(run.info.run_id)
 
@@ -230,13 +226,12 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset):
             dataset=breast_cancer_dataset,
             evaluators="default",
         )
-        print(f"svm evaluation run: {run.info.run_id}")
 
     _, metrics, tags, artifacts = get_run_data(run.info.run_id)
 
     model = mlflow.pyfunc.load_model(svm_model_uri)
 
-    _, _, predict_fn, predict_proba_fn = _extract_raw_model_and_predict_fn(model)
+    _, _, predict_fn, _ = _extract_raw_model_and_predict_fn(model)
     y = breast_cancer_dataset.labels
     y_pred = predict_fn(breast_cancer_dataset.data)
 

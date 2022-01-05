@@ -705,8 +705,8 @@ def evaluate(
 
     For binary classifier, the default evaluator will additionally log:
 
-     - **metrics**: true_negatives, false_positives, false_negatives, true_positives, recall, precision,
-       f1_score, accuracy, example_count, log_loss, roc_auc, precision_recall_auc.
+     - **metrics**: true_negatives, false_positives, false_negatives, true_positives, recall,
+       precision, f1_score, accuracy, example_count, log_loss, roc_auc, precision_recall_auc.
      - **artifacts**: lift curve plot, precision-recall plot, ROC plot.
 
     For multiclass classifier, the default evaluator will additionally log:
@@ -714,7 +714,7 @@ def evaluate(
      - **metrics**: accuracy, example_count, f1_score_micro, f1_score_macro, log_loss
      - **artifacts**: A CSV file for "per_class_metrics" (per-class metrics includes true_negatives/
        false_positives/false_negatives/true_positives/recall/precision/roc_auc,
-       precision_recall_auc), precision-recall merged curves plot and ROC merged curves plot.
+       precision_recall_auc), precision-recall merged curves plot, ROC merged curves plot.
 
     The available `evaluator_config` options for the default evaluator include:
 
