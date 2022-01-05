@@ -91,7 +91,6 @@ jobs:
         # We cache R dependencies based on a tuple of the current OS, the R version, and the list of
         # R dependencies
         key: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('.github/R-version') }}-1-${{ hashFiles('.github/depends.Rds') }}
-        restore-keys: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('.github/R-version') }}-1-
     # Cache spark archive downloaded in `mlflow/R/mlflow/.create-test-env.R`
     - name: Cache spark archive
       uses: actions/cache@v2
