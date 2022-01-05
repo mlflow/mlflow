@@ -93,7 +93,7 @@ def test_multi_classifier_evaluation(multiclass_logistic_regressor_model_uri, ir
 
     model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
 
-    _, _, predict_fn, predict_proba_fn = _extract_raw_model_and_predict_fn(model)
+    _, _, predict_fn, _ = _extract_raw_model_and_predict_fn(model)
     y = iris_dataset.labels
     y_pred = predict_fn(iris_dataset.data)
     y_probs = predict_proba_fn(iris_dataset.data)

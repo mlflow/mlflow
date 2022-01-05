@@ -110,6 +110,7 @@ def _get_binary_sum_up_label_pred_prob(positive_class_index, positive_class, y, 
 
 def _get_classifier_per_class_metrics(y, y_pred):
     """
+    get classifier metrics which computing over a specific class.
     For binary classifier, y/y_pred is for the positive class.
     For multiclass classifier, y/y_pred sum up to a binary "is class" and "is not class".
     """
@@ -127,6 +128,9 @@ def _get_classifier_per_class_metrics(y, y_pred):
 
 
 def _get_classifier_global_metrics(is_binomial, y, y_pred, y_probs, labels):
+    """
+    get classifier metrics which computing over all classes examples.
+    """
     metrics = {}
     metrics["accuracy"] = sk_metrics.accuracy_score(y, y_pred)
     metrics["example_count"] = len(y)
@@ -165,6 +169,16 @@ def _gen_classifier_curve(
     labels,
     curve_type,
 ):
+    """
+    Generate precision-recall curve or ROC curve for classifier.
+    :param is_binomial: True if it is binary classifier otherwise False
+    :param y: True label values
+    :param y_probs: if binary classifer, the predicted probability for positive class.
+                    if multiclass classiifer, the predicted probabilities for all classes.
+    :param labels: The set of labels.
+    :param curve_type: "pr" or "roc"
+    :return: An instance of "_Curve" which includes attributes "plot_fn", "plot_fn_args", "auc".
+    """
     if curve_type == "roc":
 
         def gen_x_y_thresholds_fn(_y, _y_prob):
