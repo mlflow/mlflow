@@ -105,7 +105,7 @@ jobs:
         cd mlflow/R/mlflow
         R CMD build .
         cd tests
-        Rscript 'source("../.create-test-env.R", echo=TRUE)'
+        Rscript -e 'source("../.create-test-env.R", echo=TRUE)'
     - name: Run tests
       env:
         # Hack to get around this issue:
