@@ -245,7 +245,7 @@ def _gen_classifier_curve(
             "data_series": data_series,
             "xlabel": xlabel,
             "ylabel": ylabel,
-            "line_kwargs": {"drawstyle": "steps-post"},
+            "line_kwargs": {"drawstyle": "steps-post", "linewidth": 1},
         },
         auc=auc,
     )
