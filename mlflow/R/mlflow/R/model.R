@@ -59,7 +59,7 @@ mlflow_timestamp <- function() {
     c(digits.secs = 2),
     format(
       as.POSIXlt(Sys.time(), tz = "GMT"),
-      "%y-%m-%d %H:%M:%OS6"
+      "%Y-%m-%d %H:%M:%OS6"
     )
   )
 }
