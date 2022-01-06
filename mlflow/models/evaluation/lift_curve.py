@@ -160,6 +160,6 @@ def plot_lift_curve(
     ax.set_ylabel("Lift", fontsize=text_fontsize)
     ax.tick_params(labelsize=text_fontsize)
     ax.grid("on")
-    ax.legend(loc="lower right", fontsize=text_fontsize)
+    ax.legend(loc="best", fontsize=text_fontsize)
 
     return ax

@@ -8,7 +8,7 @@ from mlflow.entities.metric import Metric
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.string_utils import truncate_str_from_middle
 from mlflow.models.utils import plot_lines
-from mlflow.models.evaluation.artifacts import BinaryFileEvaluationArtifact, CsvEvaluationArtifact
+from mlflow.models.evaluation.artifacts import ImageEvaluationArtifact, CsvEvaluationArtifact
 
 from sklearn import metrics as sk_metrics
 import math
@@ -270,18 +270,18 @@ class DefaultEvaluator(ModelEvaluator):
     ):
         import matplotlib.pyplot as pyplot
 
-        artifact_file_name = _gen_log_key(artifact_name, self.dataset_name) + ".svg"
+        artifact_file_name = _gen_log_key(artifact_name, self.dataset_name) + ".png"
         artifact_file_local_path = self.temp_dir.path(artifact_file_name)
 
         try:
             pyplot.clf()
             do_plot()
-            pyplot.savefig(artifact_file_local_path, format='svg')
+            pyplot.savefig(artifact_file_local_path)
         finally:
             pyplot.close(pyplot.gcf())
 
         mlflow.log_artifact(artifact_file_local_path)
-        artifact = BinaryFileEvaluationArtifact(uri=mlflow.get_artifact_uri(artifact_file_name))
+        artifact = ImageEvaluationArtifact(uri=mlflow.get_artifact_uri(artifact_file_name))
         artifact.load(artifact_file_local_path)
         self.artifacts[artifact_name] = artifact
 
