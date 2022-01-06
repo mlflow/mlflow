@@ -376,7 +376,7 @@ def log_model(
         with mlflow.start_run() as run:
             mlflow.keras.log_model(keras_model, "models")
     """
-    Model.log(
+    return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.keras,
         keras_model=keras_model,

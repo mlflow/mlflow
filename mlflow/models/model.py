@@ -22,8 +22,8 @@ _LOG_MODEL_METADATA_WARNING_TEMPLATE = (
     "Logging model metadata to the tracking server has failed, possibly due older "
     "server version. The model artifacts have been logged successfully under %s. "
     "In addition to exporting model artifacts, MLflow clients 1.7.0 and above "
-    "attempt to record model metadata to the  tracking store. If logging to a "
-    "mlflow server via REST, consider  upgrading the server version to MLflow "
+    "attempt to record model metadata to the tracking store. If logging to a "
+    "mlflow server via REST, consider upgrading the server version to MLflow "
     "1.7.0 or above."
 )
 
@@ -223,3 +223,4 @@ class Model(object):
                     registered_model_name,
                     await_registration_for=await_registration_for,
                 )
+        return mlflow_model
