@@ -1,4 +1,3 @@
-from collections import namedtuple
 import json
 import os
 from typing import Union
@@ -235,35 +234,3 @@ def _read_sparse_matrix_from_json(path, example_type):
             return csc_matrix((data, indices, indptr), shape=shape)
         else:
             return csr_matrix((data, indices, indptr), shape=shape)
-
-
-ModelInfo = namedtuple(
-    "ModelInfo",
-    [
-        "run_id",
-        "artifact_path",
-        "model_uri",
-        "utc_time_created",
-        "flavors",
-        "model_uuid",
-        "saved_input_example_info",
-        "signature",
-        "input_schema",
-        "output_schema",
-    ],
-)
-
-
-def _create_model_info(mlflow_model: Model) -> ModelInfo:
-    return ModelInfo(
-        run_id=mlflow_model.run_id,
-        artifact_path=mlflow_model.artifact_path,
-        model_uri="runs:/{}/{}".format(mlflow_model.run_id, mlflow_model.artifact_path),
-        utc_time_created=mlflow_model.utc_time_created,
-        flavors=mlflow_model.flavors,
-        model_uuid=mlflow_model.model_uuid,
-        saved_input_example_info=mlflow_model.saved_input_example_info,
-        signature=mlflow_model.signature,
-        input_schema=mlflow_model.get_input_schema(),
-        output_schema=mlflow_model.get_output_schema(),
-    )

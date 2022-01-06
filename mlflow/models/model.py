@@ -1,3 +1,4 @@
+from collections import namedtuple
 from datetime import datetime
 import json
 import logging
@@ -10,7 +11,6 @@ from typing import Any, Dict, Optional, Union, Callable
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.models.utils import _create_model_info
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.databricks_utils import get_databricks_runtime
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -26,6 +26,23 @@ _LOG_MODEL_METADATA_WARNING_TEMPLATE = (
     "attempt to record model metadata to the tracking store. If logging to a "
     "mlflow server via REST, consider upgrading the server version to MLflow "
     "1.7.0 or above."
+)
+
+
+ModelInfo = namedtuple(
+    "ModelInfo",
+    [
+        "run_id",
+        "artifact_path",
+        "model_uri",
+        "utc_time_created",
+        "flavors",
+        "model_uuid",
+        "saved_input_example_info",
+        "signature",
+        "input_schema",
+        "output_schema",
+    ],
 )
 
 
@@ -109,6 +126,21 @@ class Model(object):
     def saved_input_example_info(self, value: Dict[str, Any]):
         # pylint: disable=attribute-defined-outside-init
         self._saved_input_example_info = value
+
+    def get_model_info(self) -> ModelInfo:
+        """Create a ModelInfo instance that contains the model metadata."""
+        return ModelInfo(
+            run_id=self.run_id,
+            artifact_path=self.artifact_path,
+            model_uri="runs:/{}/{}".format(self.run_id, self.artifact_path),
+            utc_time_created=self.utc_time_created,
+            flavors=self.flavors,
+            model_uuid=self.model_uuid,
+            saved_input_example_info=self.saved_input_example_info,
+            signature=self.signature,
+            input_schema=self.get_input_schema(),
+            output_schema=self.get_output_schema(),
+        )
 
     def to_dict(self):
         """Serialize the model to a dictionary."""
@@ -224,4 +256,4 @@ class Model(object):
                     registered_model_name,
                     await_registration_for=await_registration_for,
                 )
-        return _create_model_info(mlflow_model)
+        return mlflow_model.get_model_info()
