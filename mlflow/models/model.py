@@ -10,6 +10,7 @@ from typing import Any, Dict, Optional, Union, Callable
 
 import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.models.utils import _create_model_info
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.databricks_utils import get_databricks_runtime
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -223,4 +224,4 @@ class Model(object):
                     registered_model_name,
                     await_registration_for=await_registration_for,
                 )
-        return mlflow_model
+        return _create_model_info(mlflow_model)
