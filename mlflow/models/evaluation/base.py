@@ -294,22 +294,23 @@ class EvaluationDataset:
                     "If data is a numpy array or list of evaluation features, "
                     "labels must be a numpy array or list of evaluation labels"
                 )
-            self._features_data = data
-            self._labels_data = labels if isinstance(labels, np.ndarray) else np.array(labels)
             if isinstance(data, list):
                 data = np.array(data)
 
             if len(data.shape) != 2:
                 raise ValueError(
-                    'If the `data` argument is a numpy array, it must be a 2 dimension array '
-                    'and second dimension represent the number of features. If the `data` '
-                    'argument is a list, each of its element must be a feature array of '
-                    'numpy array or list and all element must has the same length.'
+                    "If the `data` argument is a numpy array, it must be a 2 dimension array "
+                    "and second dimension represent the number of features. If the `data` "
+                    "argument is a list, each of its element must be a feature array of "
+                    "numpy array or list and all element must has the same length."
                 )
+
+            self._features_data = data
+            self._labels_data = labels if isinstance(labels, np.ndarray) else np.array(labels)
 
             if len(self._features_data) != len(self._labels_data):
                 raise ValueError(
-                    'The input features example rows must be the same length with labels array.'
+                    "The input features example rows must be the same length with labels array."
                 )
 
             num_features = data.shape[1]
@@ -354,7 +355,6 @@ class EvaluationDataset:
                 "The data argument must be a numpy array, a list or a Pandas DataFrame, or "
                 "spark DataFrame if pyspark package installed."
             )
-
 
         # generate dataset hash
         md5_gen = hashlib.md5()
