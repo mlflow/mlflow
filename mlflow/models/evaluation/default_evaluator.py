@@ -349,7 +349,7 @@ class DefaultEvaluator(ModelEvaluator):
         for i, truncated_name in enumerate(truncated_feature_names):
             if truncated_name != self.feature_names[i]:
                 # For duplicated truncated name, attach "(f_{feature_index})" at the end
-                truncated_feature_names[i] = f"{truncated_name}(f_{i})"
+                truncated_feature_names[i] = f"{truncated_name}(f_{i + 1})"
 
         truncated_feature_name_map = {
             f: f2 for f, f2 in zip(self.feature_names, truncated_feature_names)

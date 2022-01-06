@@ -314,7 +314,7 @@ def test_dataset_name():
 def test_gen_md5_for_arraylike_obj():
     def get_md5(data):
         md5_gen = hashlib.md5()
-        _gen_md5_for_arraylike_obj(md5_gen, data, None)
+        _gen_md5_for_arraylike_obj(md5_gen, data)
         return md5_gen.hexdigest()
 
     list0 = list(range(20))
@@ -334,7 +334,7 @@ def test_dataset_hash(iris_dataset, iris_pandas_df_dataset, diabetes_spark_datas
     assert diabetes_spark_dataset.hash == "e646b03e976240bd0c79c6bcc1ae0bda"
 
 
-def test_datasset_extract_features_label():
+def test_datasset_with_pandas_dataframe():
     data = pd.DataFrame({"f1": [1, 2], "f2": [3, 4], "label": [0, 1]})
     eval_dataset = EvaluationDataset(data=data, labels="label")
 
@@ -342,6 +342,41 @@ def test_datasset_extract_features_label():
     assert np.array_equal(eval_dataset.features_data.f1.to_numpy(), [1, 2])
     assert np.array_equal(eval_dataset.features_data.f2.to_numpy(), [3, 4])
     assert np.array_equal(eval_dataset.labels_data, [0, 1])
+
+
+def test_datasset_with_array_data():
+    features = [[1, 2], [3, 4]]
+    labels = [0, 1]
+
+    for input_data in [features, np.array(features)]:
+        eval_dataset1 = EvaluationDataset(data=input_data, labels=labels)
+        assert np.array_equal(eval_dataset1.features_data, features)
+        assert np.array_equal(eval_dataset1.labels_data, labels)
+        assert list(eval_dataset1.feature_names) == ['feature_1', 'feature_2']
+
+    with pytest.raises(ValueError, match='all element must has the same length'):
+        EvaluationDataset(data=[[1, 2], [3, 4, 5]], labels=labels)
+
+
+def test_autogen_feature_names():
+    labels = [0]
+    eval_dataset2 = EvaluationDataset(data=[list(range(9))], labels=labels)
+    assert eval_dataset2.feature_names == [f'feature_{i + 1}' for i in range(9)]
+
+    eval_dataset2 = EvaluationDataset(data=[list(range(10))], labels=labels)
+    assert eval_dataset2.feature_names == [f'feature_{i + 1:02d}' for i in range(10)]
+
+    eval_dataset2 = EvaluationDataset(data=[list(range(99))], labels=labels)
+    assert eval_dataset2.feature_names == [f'feature_{i + 1:02d}' for i in range(99)]
+
+    eval_dataset2 = EvaluationDataset(data=[list(range(100))], labels=labels)
+    assert eval_dataset2.feature_names == [f'feature_{i + 1:03d}' for i in range(100)]
+
+    with pytest.raises(
+            ValueError,
+            match='features example rows must be the same length with labels array'
+    ):
+        EvaluationDataset(data=[[1, 2], [3, 4]], labels=[1, 2, 3])
 
 
 def test_spark_df_dataset(spark_session):
