@@ -839,7 +839,8 @@ def spark_udf(spark, model_uri, result_type="double"):
         if pdf is None:
             args = list(args)
             if input_schema is None:
-                names = [str(i) for i in range(len(args))]
+                # names = [str(i) for i in range(len(args))]
+                names = [s.name for s in args]  # assuming `args` is an iterator of `pandas.Series`
             else:
                 names = input_schema.input_names()
                 if len(args) > len(names):
