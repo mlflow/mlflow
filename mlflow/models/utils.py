@@ -252,4 +252,4 @@ def plot_lines(data_series, xlabel, ylabel, legend_loc=None, line_kwargs=None):
 
     ax.set(xlabel=xlabel, ylabel=ylabel)
 
-    return fig
+    return fig, ax

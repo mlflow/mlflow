@@ -329,9 +329,9 @@ def test_gen_md5_for_arraylike_obj():
 
 
 def test_dataset_hash(iris_dataset, iris_pandas_df_dataset, diabetes_spark_dataset):
-    assert iris_dataset.hash == "d4975e40e1443d94f4f8e72c4c7d46d2"
+    assert iris_dataset.hash == "99329a790dc483e7382c0d1d27aac3f3"
     assert iris_pandas_df_dataset.hash == "799d4f50e2e353127f94a0e5300add06"
-    assert diabetes_spark_dataset.hash == "99329a790dc483e7382c0d1d27aac3f3"
+    assert diabetes_spark_dataset.hash == "e646b03e976240bd0c79c6bcc1ae0bda"
 
 
 def test_datasset_with_pandas_dataframe():

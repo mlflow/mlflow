@@ -155,7 +155,7 @@ class EvaluationResult:
 _cached_mlflow_client = None
 
 
-def _convert_uint64_ndarray_to_bytes(array):
+def _hash_uint64_ndarray_as_bytes(array):
     assert len(array.shape) == 1
     # see struct pack format string https://docs.python.org/3/library/struct.html#format-strings
     return struct.pack(f">{array.size}Q", *array)
@@ -165,12 +165,12 @@ def _hash_ndarray_as_bytes(nd_array):
     from pandas.util import hash_array
     import numpy as np
 
-    return _convert_uint64_ndarray_to_bytes(
+    return _hash_uint64_ndarray_as_bytes(
         hash_array(nd_array.flatten(order="C"))
-    ) + _convert_uint64_ndarray_to_bytes(np.array(nd_array.shape, dtype="uint64"))
+    ) + _hash_uint64_ndarray_as_bytes(np.array(nd_array.shape, dtype="uint64"))
 
 
-def _array_like_obj_to_bytes(data):
+def _hash_array_like_obj_as_bytes(data):
     """
     Helper method to convert pandas dataframe/numpy array/list into bytes for
     MD5 calculation purpose.
@@ -198,7 +198,7 @@ def _array_like_obj_to_bytes(data):
             return v
 
         data = data.applymap(_hash_array_like_element_as_bytes)
-        return _convert_uint64_ndarray_to_bytes(hash_pandas_object(data))
+        return _hash_uint64_ndarray_as_bytes(hash_pandas_object(data))
     elif isinstance(data, np.ndarray):
         return _hash_ndarray_as_bytes(data)
     elif isinstance(data, list):
@@ -216,15 +216,15 @@ def _gen_md5_for_arraylike_obj(md5_gen, data):
     """
     import numpy as np
 
-    len_bytes = _convert_uint64_ndarray_to_bytes(np.array([len(data)], dtype="uint64"))
+    len_bytes = _hash_uint64_ndarray_as_bytes(np.array([len(data)], dtype="uint64"))
     md5_gen.update(len_bytes)
     if len(data) < EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH * 2:
-        md5_gen.update(_array_like_obj_to_bytes(data))
+        md5_gen.update(_hash_array_like_obj_as_bytes(data))
     else:
         head_rows = data[: EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH]
         tail_rows = data[-EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH :]
-        md5_gen.update(_array_like_obj_to_bytes(head_rows))
-        md5_gen.update(_array_like_obj_to_bytes(tail_rows))
+        md5_gen.update(_hash_array_like_obj_as_bytes(head_rows))
+        md5_gen.update(_hash_array_like_obj_as_bytes(tail_rows))
 
 
 class EvaluationDataset:

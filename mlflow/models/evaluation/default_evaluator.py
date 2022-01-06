@@ -181,30 +181,27 @@ def _gen_classifier_curve(
     """
     if curve_type == "roc":
 
-        def gen_x_y_thresholds_fn(_y, _y_prob):
-            fpr, tpr, _thresholds = sk_metrics.roc_curve(_y, _y_prob)
-            return fpr, tpr, _thresholds
+        def gen_line_x_y_label_fn(_y, _y_prob):
+            fpr, tpr, _ = sk_metrics.roc_curve(_y, _y_prob)
+            auc = sk_metrics.auc(fpr, tpr)
+            return fpr, tpr, f"AUC={auc:.3f}"
 
         xlabel = "False Positive Rate"
         ylabel = "True Positive Rate"
-        legend_loc = "lower right"
     elif curve_type == "pr":
-
-        def gen_x_y_thresholds_fn(_y, _y_prob):
+        def gen_line_x_y_label_fn(_y, _y_prob):
             precision, recall, _thresholds = sk_metrics.precision_recall_curve(_y, _y_prob)
-            _thresholds = np.append(_thresholds, [1.0], axis=0)
-            return recall, precision, _thresholds
+            ap = np.mean(precision)
+            return recall, precision, f"AP={ap:.3f}"
 
         xlabel = "recall"
         ylabel = "precision"
-        legend_loc = "lower left"
     else:
         assert False, "illegal curve type"
 
     if is_binomial:
-        x_data, y_data, thresholds = gen_x_y_thresholds_fn(y, y_probs)
-        data_series = [("positive class", x_data, y_data)]
-        legend_loc = None
+        x_data, y_data, line_label = gen_line_x_y_label_fn(y, y_probs)
+        data_series = [(line_label, x_data, y_data)]
         auc = sk_metrics.auc(x_data, y_data)
     else:
         curve_list = []
@@ -213,21 +210,41 @@ def _gen_classifier_curve(
                 positive_class_index, positive_class, y, None, y_probs
             )
 
-            x_data, y_data, thresholds = gen_x_y_thresholds_fn(y_bin, y_prob_bin)
-            curve_list.append((positive_class, x_data, y_data, thresholds))
+            x_data, y_data, line_label = gen_line_x_y_label_fn(y_bin, y_prob_bin)
+            curve_list.append((positive_class, x_data, y_data, line_label))
 
         data_series = [
-            (f"Positive Class = {positive_class}", x_data, y_data)
-            for positive_class, x_data, y_data, _ in curve_list
+            (f"label={positive_class},{line_label}", x_data, y_data)
+            for positive_class, x_data, y_data, line_label in curve_list
         ]
         auc = [sk_metrics.auc(x_data, y_data) for _, x_data, y_data, _ in curve_list]
+
+    def _do_plot(**kwargs):
+        import matplotlib.pyplot as pyplot
+        _, ax = plot_lines(**kwargs)
+        dash_line_args = {
+            'color': 'gray',
+            'alpha': 0.3,
+            'drawstyle': 'default',
+            'linestyle': 'dashed',
+        }
+        if curve_type == 'pr':
+            ax.plot([0, 1], [1, 0], **dash_line_args)
+        elif curve_type == 'roc':
+            ax.plot([0, 1], [0, 1], **dash_line_args)
+
+        if is_binomial:
+            ax.legend(loc="best")
+        else:
+            ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+            pyplot.subplots_adjust(right=0.6, bottom=0.25)
+
     return _Curve(
-        plot_fn=plot_lines,
+        plot_fn=_do_plot,
         plot_fn_args={
             "data_series": data_series,
             "xlabel": xlabel,
             "ylabel": ylabel,
-            "legend_loc": legend_loc,
             "line_kwargs": {"drawstyle": "steps-post"},
         },
         auc=auc,
@@ -235,7 +252,7 @@ def _gen_classifier_curve(
 
 
 _matplotlib_config = {
-    "figure.dpi": 144,
+    "figure.dpi": 288,
     "figure.figsize": [6.0, 4.0],
 }
 
