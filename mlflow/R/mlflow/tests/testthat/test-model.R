@@ -17,7 +17,7 @@ test_that("mlflow model creation time format", {
   ))
   
   expect_true(dir.exists(testthat_model_name))
-  expect_match(model_spec$utc_time_created, "^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{6}")
+  expect_match(model_spec$utc_time_created, "^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]{6}")
 })
 
 test_that("mlflow can save model function", {
