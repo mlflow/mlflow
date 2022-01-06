@@ -105,7 +105,7 @@ jobs:
         cd mlflow/R/mlflow
         R CMD build .
         cd tests
-        Rscript ../.create-test-env.R
+        Rscript -e 'source("../.create-test-env.R", echo=TRUE)'
     - name: Run tests
       env:
         # Hack to get around this issue:
@@ -120,7 +120,7 @@ jobs:
         cd mlflow/R/mlflow/tests
         # `devtools::check_built` requires `pandoc` to analyze README.md
         sudo apt-get install pandoc -y
-        Rscript ../.run-tests.R
+        Rscript -e 'source("../.run-tests.R", echo=TRUE)'
     - name: Calculate code coverage
       if: ${{ success() }}
       run: |

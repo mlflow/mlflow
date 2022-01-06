@@ -46,7 +46,6 @@ Imports:
     swagger,
     tibble (>= 2.0.0),
     withr,
-    xml2,
     yaml,
     zeallot
 Suggests:
