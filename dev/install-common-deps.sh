@@ -27,19 +27,19 @@ else
 fi
 export MLFLOW_HOME=$(pwd)
 
-requirements=""
+req_files=""
 # Install Python test dependencies only if we're running Python tests
 if [[ "$INSTALL_SMALL_PYTHON_DEPS" == "true" ]]; then
   # When downloading large packages from PyPI, the connection is sometimes aborted by the
   # remote host. See https://github.com/pypa/pip/issues/8510.
   # As a workaround, we retry installation of large packages.
-  requirements+=" -r requirements/small-requirements.txt"
+  req_files+=" -r requirements/small-requirements.txt"
 fi
 if [[ "$INSTALL_SKINNY_PYTHON_DEPS" == "true" ]]; then
-  requirements+=" -r requirements/skinny-requirements.txt"
+  req_files+=" -r requirements/skinny-requirements.txt"
 fi
 if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
-  requirements+=" -r requirements/large-requirements.txt"
+  req_files+=" -r requirements/large-requirements.txt"
 
   # Install prophet's dependencies beforehand, otherwise pip would fail to build a wheel for prophet
   if [[ -z "$(pip cache list prophet --format abspath)" ]]; then
@@ -50,11 +50,11 @@ if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
     rm -rf $tmp_dir
   fi
 
-  requirements+=" -r requirements/extra-ml-requirements.txt"
+  req_files+=" -r requirements/extra-ml-requirements.txt"
 fi
 
-if [[ ! -z $requirements ]]; then
-  retry-with-backoff pip install $requirements
+if [[ ! -z $req_files ]]; then
+  retry-with-backoff pip install $req_files
 fi
 
 # Install `mlflow-test-plugin` without dependencies
