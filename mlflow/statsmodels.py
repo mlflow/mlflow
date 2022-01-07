@@ -12,9 +12,9 @@ statsmodels (native) format
     https://www.statsmodels.org/stable/_modules/statsmodels/base/model.html#Results
 
 """
+import logging
 import os
 import yaml
-import logging
 
 import mlflow
 from mlflow import pyfunc
