@@ -267,7 +267,7 @@ jobs:
     - name: Set up Node
       uses: actions/setup-node@v1
       with:
-        node-version: 10.x
+        node-version: 14.x
     - name: Install dependencies
       run: |
         npm i
@@ -419,7 +419,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v1
         with:
-          node-version: 10.x
+          node-version: 14.x
       - name: Install JS dependencies
         working-directory: mlflow/server/js
         shell: pwsh
