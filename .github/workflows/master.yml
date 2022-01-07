@@ -55,12 +55,6 @@ jobs:
         # deleting other version(s) of JDK because they are not needed and they might interfere with JNI linker configuration in the 'setup-r' step
         sudo apt-get -y remove --purge default-jdk adoptopenjdk-11-hotspot || :
     - uses: actions/checkout@master
-    - uses: actions/setup-java@v2
-      with:
-        # GitHub Actions' Ubuntu 20.04 image uses Java 11 (which is incompatible with Spark 2.4.x) by default:
-        # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md#java
-        java-version: 8
-        distribution: 'adopt'
     - name: Re-configure dynamic linker run-time bindings for adoptopenjdk-8-hotspot-amd64
       run: |
         sudo mkdir -p /etc/ld.so.conf.d
@@ -195,12 +189,6 @@ jobs:
     - uses: ./.github/actions/setup-python
       with:
         python-version: 3.6
-    - uses: actions/setup-java@v2
-      with:
-        # GitHub Actions' Ubuntu 20.04 image uses Java 11 (which is incompatible with Spark 2.4.x) by default:
-        # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md#java
-        java-version: 8
-        distribution: 'adopt'
     - uses: ./.github/actions/cache-pip
     - name: Install dependencies
       env:
@@ -242,11 +230,6 @@ jobs:
     - uses: ./.github/actions/setup-python
       with:
         python-version: 3.6
-    - name: Set up Java
-      uses: actions/setup-java@v2
-      with:
-        java-version: 8
-        distribution: 'adopt'
     - name: Install dependencies
       run: |
         source ./dev/install-common-deps.sh
@@ -312,10 +295,6 @@ jobs:
       - uses: ./.github/actions/setup-python
         with:
           python-version: 3.6
-      - uses: actions/setup-java@v2
-        with:
-          java-version: 8
-          distribution: 'adopt'
       - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         env:
@@ -340,10 +319,6 @@ jobs:
       - uses: ./.github/actions/setup-python
         with:
           python-version: 3.6
-      - uses: actions/setup-java@v2
-        with:
-          java-version: 8
-          distribution: 'adopt'
       - name: Install dependencies
         env:
           INSTALL_SMALL_PYTHON_DEPS: true
@@ -385,10 +360,6 @@ jobs:
       - uses: ./.github/actions/setup-python
         with:
           python-version: 3.6
-      - uses: actions/setup-java@v2
-        with:
-          java-version: 8
-          distribution: 'adopt'
       - name: Install dependencies
         env:
           INSTALL_LARGE_PYTHON_DEPS: true
