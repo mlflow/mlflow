@@ -17,7 +17,7 @@ def _improper_model_uri_msg(uri):
     return (
         "Not a proper models:/ URI: %s. " % uri
         + "Models URIs must be of the form 'models:/<model_name>/suffix' "
-        + "where suffix is a model version, stage, or string '%s'." % _MODELS_URI_SUFFIX_LATEST
+        + "where suffix is a model version, stage, or the string '%s'." % _MODELS_URI_SUFFIX_LATEST
     )
 
 
@@ -58,12 +58,15 @@ def _parse_model_uri(uri):
         raise MlflowException(_improper_model_uri_msg(uri))
 
     if parts[1].isdigit():
+        # The suffix is a specific version, e.g. "models:/AdsModel1/123"
         return parts[0], int(parts[1]), None
     elif parts[1] == _MODELS_URI_SUFFIX_LATEST:
+        # The suffix is exactly the 'latest' string, e.g. "models:/AdsModel1/latest"
         return parts[0], None, None
     elif parts[1] not in ALL_STAGES:
         raise MlflowException(_improper_model_uri_msg(uri))
     else:
+        # The suffix is a specific stage, e.g. "models:/AdsModel1/Production"
         return parts[0], None, parts[1]
 
 
