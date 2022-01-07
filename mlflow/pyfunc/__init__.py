@@ -250,6 +250,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
 )
+from scipy.sparse import csc_matrix, csr_matrix
 
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
@@ -259,7 +260,7 @@ ENV = "env"
 PY_VERSION = "python_version"
 
 _logger = logging.getLogger(__name__)
-PyFuncInput = Union[pandas.DataFrame, np.ndarray, List[Any], Dict[str, Any]]
+PyFuncInput = Union[pandas.DataFrame, np.ndarray, csc_matrix, csr_matrix, List[Any], Dict[str, Any]]
 PyFuncOutput = Union[pandas.DataFrame, pandas.Series, np.ndarray, list]
 
 
@@ -326,18 +327,9 @@ def _enforce_mlflow_datatype(name, values: pandas.Series, t: DataType):
         values = values.infer_objects()
 
     if t == DataType.string and values.dtype == np.object:
-        #  NB: strings are by default parsed and inferred as objects, but it is
-        # recommended to use StringDtype extension type if available. See
-        #
-        # `https://pandas.pydata.org/pandas-docs/stable/user_guide/text.html`
-        #
-        # for more detail.
-        try:
-            return values.astype(t.to_pandas(), errors="raise")
-        except ValueError:
-            raise MlflowException(
-                "Failed to convert column {0} from type {1} to {2}.".format(name, values.dtype, t)
-            )
+        # NB: the object can contain any type and we currently cannot cast to pandas Strings
+        # due to how None is cast
+        return values
 
     # NB: Comparison of pandas and numpy data type fails when numpy data type is on the left hand
     # side of the comparison operator. It works, however, if pandas type is on the left hand side.
@@ -412,12 +404,17 @@ def _enforce_mlflow_datatype(name, values: pandas.Series, t: DataType):
         )
 
 
-def _enforce_tensor_spec(values: np.ndarray, tensor_spec: TensorSpec):
+def _enforce_tensor_spec(
+    values: Union[np.ndarray, csc_matrix, csr_matrix], tensor_spec: TensorSpec
+):
     """
     Enforce the input tensor shape and type matches the provided tensor spec.
     """
     expected_shape = tensor_spec.shape
     actual_shape = values.shape
+
+    actual_type = values.dtype if isinstance(values, np.ndarray) else values.data.dtype
+
     if len(expected_shape) != len(actual_shape):
         raise MlflowException(
             "Shape of input {0} does not match expected shape {1}.".format(
@@ -433,7 +430,7 @@ def _enforce_tensor_spec(values: np.ndarray, tensor_spec: TensorSpec):
                     actual_shape, expected_shape
                 )
             )
-    if clean_tensor_type(values.dtype) != tensor_spec.type:
+    if clean_tensor_type(actual_type) != tensor_spec.type:
         raise MlflowException(
             "dtype of input {0} does not match expected dtype {1}".format(
                 values.dtype, tensor_spec.type
@@ -485,7 +482,7 @@ def _enforce_tensor_schema(pfInput: PyFuncInput, input_schema: Schema):
     else:
         if isinstance(pfInput, pandas.DataFrame):
             new_pfInput = _enforce_tensor_spec(pfInput.to_numpy(), input_schema.inputs[0])
-        elif isinstance(pfInput, np.ndarray):
+        elif isinstance(pfInput, (np.ndarray, csc_matrix, csr_matrix)):
             new_pfInput = _enforce_tensor_spec(pfInput, input_schema.inputs[0])
         else:
             raise MlflowException(
@@ -909,7 +906,8 @@ def spark_udf(spark, model_uri, result_type="double"):
                         message="Cannot apply udf because no column names specified. The udf "
                         "expects {} columns with types: {}. Input column names could not be "
                         "inferred from the model signature (column names not found).".format(
-                            len(input_schema.inputs), input_schema.inputs,
+                            len(input_schema.inputs),
+                            input_schema.inputs,
                         ),
                         error_code=INVALID_PARAMETER_VALUE,
                     )
@@ -939,7 +937,7 @@ def save_model(
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
-    **kwargs
+    **kwargs,
 ):
     """
     save_model(path, loader_module=None, data_path=None, code_path=None, conda_env=None,\
@@ -1272,13 +1270,17 @@ def _save_model_with_loader_module_and_data_path(
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
-                path, FLAVOR_NAME, fallback=default_reqs,
+                path,
+                FLAVOR_NAME,
+                fallback=default_reqs,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
             default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
-            default_reqs, pip_requirements, extra_pip_requirements,
+            default_reqs,
+            pip_requirements,
+            extra_pip_requirements,
         )
     else:
         conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)

@@ -15,7 +15,7 @@ from mlflow.exceptions import MlflowException
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
 from mlflow.models import ModelSignature, infer_signature
-from mlflow.protos.databricks_pb2 import ErrorCode, MALFORMED_REQUEST, BAD_REQUEST
+from mlflow.protos.databricks_pb2 import ErrorCode, BAD_REQUEST
 from mlflow.pyfunc import PythonModel
 from mlflow.pyfunc.scoring_server import get_cmd
 from mlflow.types import Schema, ColSpec, DataType
@@ -107,7 +107,7 @@ def test_scoring_server_responds_to_invalid_json_input_with_stacktrace_and_error
     )
     response_json = json.loads(response.content)
     assert "error_code" in response_json
-    assert response_json["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
+    assert response_json["error_code"] == ErrorCode.Name(BAD_REQUEST)
     assert "message" in response_json
     assert "stack_trace" in response_json
 
@@ -119,7 +119,7 @@ def test_scoring_server_responds_to_invalid_json_input_with_stacktrace_and_error
     )
     response_json = json.loads(response.content)
     assert "error_code" in response_json
-    assert response_json["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
+    assert response_json["error_code"] == ErrorCode.Name(BAD_REQUEST)
     assert "message" in response_json
     assert "stack_trace" in response_json
 
@@ -138,7 +138,7 @@ def test_scoring_server_responds_to_malformed_json_input_with_stacktrace_and_err
     )
     response_json = json.loads(response.content)
     assert "error_code" in response_json
-    assert response_json["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
+    assert response_json["error_code"] == ErrorCode.Name(BAD_REQUEST)
     assert "message" in response_json
     assert "stack_trace" in response_json
 
@@ -159,7 +159,7 @@ def test_scoring_server_responds_to_invalid_pandas_input_format_with_stacktrace_
     )
     response_json = json.loads(response.content)
     assert "error_code" in response_json
-    assert response_json["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
+    assert response_json["error_code"] == ErrorCode.Name(BAD_REQUEST)
     assert "message" in response_json
     assert "stack_trace" in response_json
 
@@ -198,7 +198,7 @@ def test_scoring_server_responds_to_invalid_csv_input_with_stacktrace_and_error_
     )
     response_json = json.loads(response.content)
     assert "error_code" in response_json
-    assert response_json["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
+    assert response_json["error_code"] == ErrorCode.Name(BAD_REQUEST)
     assert "message" in response_json
     assert "stack_trace" in response_json
 
@@ -506,20 +506,14 @@ def test_infer_and_parse_json_input():
     assert (result == np.array(arr)).all()
 
     # input is unrecognized JSON input
-    with pytest.raises(MlflowException) as ex:
+    match = "Failed to parse input from JSON. Ensure that input is a valid JSON list or dictionary."
+    with pytest.raises(MlflowException, match=match):
         pyfunc_scoring_server.infer_and_parse_json_input(json.dumps('"just a string"'))
-    assert (
-        "Failed to parse input from JSON. Ensure that input is a valid JSON"
-        " list or dictionary." in str(ex)
-    )
 
     # input is not json str
-    with pytest.raises(MlflowException) as ex:
+    match = "Failed to parse input from JSON. Ensure that input is a valid JSON formatted string."
+    with pytest.raises(MlflowException, match=match):
         pyfunc_scoring_server.infer_and_parse_json_input("(not a json string)")
-    assert (
-        "Failed to parse input from JSON. Ensure that input is a valid JSON"
-        " formatted string." in str(ex)
-    )
 
 
 @pytest.mark.large
@@ -542,7 +536,10 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
             extra_args=["--no-conda"],
         )
         response_json = json.loads(response.content)
-        assert response_json == [[k, str(v)] for k, v in pandas_df_with_all_types.dtypes.items()]
+
+        # np.objects are not converted to pandas Strings at the moment
+        expected_types = {**pandas_df_with_all_types.dtypes, "string": np.dtype(object)}
+        assert response_json == [[k, str(v)] for k, v in expected_types.items()]
         response = pyfunc_serve_and_score_model(
             model_uri="runs:/{}/model".format(run.info.run_id),
             data=json.dumps(pandas_df_with_all_types.to_dict(orient="records"), cls=NumpyEncoder),
@@ -550,7 +547,7 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
             extra_args=["--no-conda"],
         )
         response_json = json.loads(response.content)
-        assert response_json == [[k, str(v)] for k, v in pandas_df_with_all_types.dtypes.items()]
+        assert response_json == [[k, str(v)] for k, v in expected_types.items()]
 
 
 @pytest.mark.large
@@ -603,7 +600,7 @@ def test_parse_json_input_including_path():
 @pytest.mark.parametrize(
     "args, expected",
     [
-        ({"port": 5000, "host": "0.0.0.0", "nworkers": 4}, "--timeout=60 -b 0.0.0.0:5000 -w 4",),
+        ({"port": 5000, "host": "0.0.0.0", "nworkers": 4}, "--timeout=60 -b 0.0.0.0:5000 -w 4"),
         ({"host": "0.0.0.0", "nworkers": 4}, "--timeout=60 -b 0.0.0.0 -w 4"),
         ({"port": 5000, "nworkers": 4}, "--timeout=60 -w 4"),
         ({"nworkers": 4}, "--timeout=60 -w 4"),

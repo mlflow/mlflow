@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from packaging.version import Version
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
+from requests.exceptions import HTTPError
 
 from mlflow import __version__
 from mlflow.protos import databricks_pb2
@@ -83,7 +84,7 @@ def http_request(
     backoff_factor=2,
     retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
     timeout=120,
-    **kwargs
+    **kwargs,
 ):
     """
     Makes an HTTP request with the specified method to the specified hostname/endpoint. Transient
@@ -140,16 +141,15 @@ def http_request(
             headers=headers,
             verify=verify,
             timeout=timeout,
-            **kwargs
+            **kwargs,
         )
     except Exception as e:
         raise MlflowException("API request to %s failed with exception %s" % (url, e))
 
 
-def _can_parse_as_json(string):
+def _can_parse_as_json_object(string):
     try:
-        json.loads(string)
-        return True
+        return isinstance(json.loads(string), dict)
     except Exception:
         return False
 
@@ -165,7 +165,7 @@ def http_request_safe(host_creds, endpoint, method, **kwargs):
 def verify_rest_response(response, endpoint):
     """Verify the return code and format, raise exception if the request was not successful."""
     if response.status_code != 200:
-        if _can_parse_as_json(response.text):
+        if _can_parse_as_json_object(response.text):
             raise RestException(json.loads(response.text))
         else:
             base_msg = "API request to endpoint %s failed with error code " "%s != 200" % (
@@ -176,7 +176,7 @@ def verify_rest_response(response, endpoint):
 
     # Skip validation for endpoints (e.g. DBFS file-download API) which may return a non-JSON
     # response
-    if endpoint.startswith(_REST_API_PATH_PREFIX) and not _can_parse_as_json(response.text):
+    if endpoint.startswith(_REST_API_PATH_PREFIX) and not _can_parse_as_json_object(response.text):
         base_msg = (
             "API request to endpoint was successful but the response body was not "
             "in a valid JSON format"
@@ -186,12 +186,23 @@ def verify_rest_response(response, endpoint):
     return response
 
 
+def augmented_raise_for_status(response):
+    """Wrap the standard `requests.response.raise_for_status()` method and return reason"""
+    try:
+        response.raise_for_status()
+    except HTTPError as e:
+        if response.text:
+            raise HTTPError(f"{e}. Response text: {response.text}")
+        else:
+            raise e
+
+
 def _get_path(path_prefix, endpoint_path):
     return "{}{}".format(path_prefix, endpoint_path)
 
 
 def extract_api_info_for_service(service, path_prefix):
-    """ Return a dictionary mapping each API method to a tuple (path, HTTP method)"""
+    """Return a dictionary mapping each API method to a tuple (path, HTTP method)"""
     service_methods = service.DESCRIPTOR.methods
     res = {}
     for service_method in service_methods:
@@ -203,7 +214,7 @@ def extract_api_info_for_service(service, path_prefix):
 
 
 def extract_all_api_info_for_service(service, path_prefix):
-    """ Return a dictionary mapping each API method to a list of tuples [(path, HTTP method)]"""
+    """Return a dictionary mapping each API method to a list of tuples [(path, HTTP method)]"""
     service_methods = service.DESCRIPTOR.methods
     res = {}
     for service_method in service_methods:
@@ -251,7 +262,7 @@ def cloud_storage_http_request(
     backoff_factor=2,
     retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
     timeout=None,
-    **kwargs
+    **kwargs,
 ):
     """
     Performs an HTTP PUT/GET request using Python's `requests` module with automatic retry.

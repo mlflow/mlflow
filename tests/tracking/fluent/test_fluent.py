@@ -47,6 +47,7 @@ from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
 
 from tests.tracking.integration_test_utils import _init_server
+from tests.helper_functions import multi_context
 
 
 class HelperEnv:
@@ -334,7 +335,15 @@ def test_start_run_defaults(empty_active_run_stack):  # pylint: disable=unused-a
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with experiment_id_patch, databricks_notebook_patch, user_patch, source_name_patch, source_type_patch, source_version_patch, create_run_patch:  # noqa
+    with multi_context(
+        experiment_id_patch,
+        databricks_notebook_patch,
+        user_patch,
+        source_name_patch,
+        source_type_patch,
+        source_version_patch,
+        create_run_patch,
+    ):
         active_run = start_run()
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id, tags=expected_tags
@@ -373,6 +382,10 @@ def test_start_run_defaults_databricks_notebook(
     webapp_url_patch = mock.patch(
         "mlflow.utils.databricks_utils.get_webapp_url", return_value=mock_webapp_url
     )
+    workspace_info_patch = mock.patch(
+        "mlflow.utils.databricks_utils.get_workspace_info_from_dbutils",
+        return_value=("https://databricks.com", "123456"),
+    )
 
     expected_tags = {
         mlflow_tags.MLFLOW_USER: mock_user,
@@ -382,11 +395,23 @@ def test_start_run_defaults_databricks_notebook(
         mlflow_tags.MLFLOW_DATABRICKS_NOTEBOOK_ID: mock_notebook_id,
         mlflow_tags.MLFLOW_DATABRICKS_NOTEBOOK_PATH: mock_notebook_path,
         mlflow_tags.MLFLOW_DATABRICKS_WEBAPP_URL: mock_webapp_url,
+        mlflow_tags.MLFLOW_DATABRICKS_WORKSPACE_URL: "https://databricks.com",
+        mlflow_tags.MLFLOW_DATABRICKS_WORKSPACE_ID: "123456",
     }
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with experiment_id_patch, databricks_notebook_patch, user_patch, source_version_patch, notebook_id_patch, notebook_path_patch, webapp_url_patch, create_run_patch:  # noqa
+    with multi_context(
+        experiment_id_patch,
+        databricks_notebook_patch,
+        user_patch,
+        source_version_patch,
+        notebook_id_patch,
+        notebook_path_patch,
+        webapp_url_patch,
+        workspace_info_patch,
+        create_run_patch,
+    ):
         active_run = start_run()
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id, tags=expected_tags
@@ -435,7 +460,15 @@ def test_start_run_creates_new_run_with_user_specified_tags():
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with experiment_id_patch, databricks_notebook_patch, user_patch, source_name_patch, source_type_patch, source_version_patch, create_run_patch:  # noqa
+    with multi_context(
+        experiment_id_patch,
+        databricks_notebook_patch,
+        user_patch,
+        source_name_patch,
+        source_type_patch,
+        source_version_patch,
+        create_run_patch,
+    ):
         active_run = start_run(tags=user_specified_tags)
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id, tags=expected_tags
@@ -483,7 +516,13 @@ def test_start_run_with_parent():
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with databricks_notebook_patch, active_run_stack_patch, create_run_patch, user_patch, source_name_patch:  # noqa
+    with multi_context(
+        databricks_notebook_patch,
+        active_run_stack_patch,
+        create_run_patch,
+        user_patch,
+        source_name_patch,
+    ):
         active_run = start_run(experiment_id=mock_experiment_id, nested=True)
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id, tags=expected_tags
@@ -493,7 +532,7 @@ def test_start_run_with_parent():
 
 def test_start_run_with_parent_non_nested():
     with mock.patch("mlflow.tracking.fluent._active_run_stack", [mock.Mock()]):
-        with pytest.raises(Exception):
+        with pytest.raises(Exception, match=r"Run with UUID .+ is already active"):
             start_run()
 
 
@@ -540,7 +579,9 @@ def test_start_run_existing_run_from_environment_with_set_environment(
     env_patch = mock.patch.dict("os.environ", {_RUN_ID_ENV_VAR: run_id})
 
     with env_patch, mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
-        with pytest.raises(MlflowException):
+        with pytest.raises(
+            MlflowException, match="active run ID does not match environment run ID"
+        ):
             set_experiment("test-run")
             start_run()
 
@@ -551,8 +592,9 @@ def test_start_run_existing_run_deleted(empty_active_run_stack):  # pylint: disa
 
     run_id = uuid.uuid4().hex
 
+    match = f"Cannot start run with ID {run_id} because it is in the deleted state"
     with mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match=match):
             start_run(run_id)
 
 
@@ -828,7 +870,7 @@ def test_paginate_gt_maxresults_multipage():
 
 
 def test_paginate_gt_maxresults_onepage():
-    """"
+    """
     Number of runs that fit search criteria is greater than max_results. Only one page expected.
     Expected to only get max_results number of results back.
     """
@@ -850,13 +892,12 @@ def test_delete_tag():
     """
     mlflow.set_tag("a", "b")
     run = MlflowClient().get_run(mlflow.active_run().info.run_id)
-    print(run.info.run_id)
     assert "a" in run.data.tags
     mlflow.delete_tag("a")
     run = MlflowClient().get_run(mlflow.active_run().info.run_id)
     assert "a" not in run.data.tags
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="No tag with name"):
         mlflow.delete_tag("a")
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="No tag with name"):
         mlflow.delete_tag("b")
     mlflow.end_run()

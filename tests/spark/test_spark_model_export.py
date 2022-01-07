@@ -259,17 +259,18 @@ def test_estimator_model_export(spark_model_estimator, model_path, spark_custom_
 
 @pytest.mark.large
 def test_transformer_model_export(spark_model_transformer, model_path, spark_custom_env):
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(MlflowException, match="Cannot serialize this model"):
         sparkm.save_model(
             spark_model_transformer.model, path=model_path, conda_env=spark_custom_env
         )
-    assert "Cannot serialize this model" in e.value.message
 
 
 @pytest.mark.large
 def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
     sparkm.save_model(
-        spark_model_iris.model, path=model_path, conda_env=spark_custom_env,
+        spark_model_iris.model,
+        path=model_path,
+        conda_env=spark_custom_env,
     )
     scoring_response = score_model_in_sagemaker_docker_container(
         model_uri=model_path,
@@ -320,7 +321,9 @@ def test_sparkml_model_log(tmpdir, spark_model_iris, should_start_run, use_dfs_t
             mlflow.start_run()
         artifact_path = "model"
         sparkm.log_model(
-            artifact_path=artifact_path, spark_model=spark_model_iris.model, dfs_tmpdir=dfs_tmpdir,
+            artifact_path=artifact_path,
+            spark_model=spark_model_iris.model,
+            dfs_tmpdir=dfs_tmpdir,
         )
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
@@ -374,9 +377,8 @@ def test_sparkml_estimator_model_log(
 @pytest.mark.large
 def test_sparkml_model_log_invalid_args(spark_model_transformer, model_path):
     # pylint: disable=unused-argument
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(MlflowException, match="Cannot serialize this model"):
         sparkm.log_model(spark_model=spark_model_transformer.model, artifact_path="model0")
-    assert "Cannot serialize this model" in e.value.message
 
 
 @pytest.mark.large
@@ -644,20 +646,9 @@ def test_spark_module_model_save_with_mleap_and_unsupported_transformer_raises_e
     unsupported_pipeline = Pipeline(stages=[CustomTransformer()])
     unsupported_model = unsupported_pipeline.fit(spark_model_iris.spark_df)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="CustomTransformer"):
         sparkm.save_model(
             spark_model=unsupported_model, path=model_path, sample_input=spark_model_iris.spark_df
-        )
-
-
-@pytest.mark.large
-def test_mleap_module_model_save_with_invalid_sample_input_type_raises_exception(
-    spark_model_iris, model_path
-):
-    with pytest.raises(Exception):
-        invalid_input = pd.DataFrame()
-        sparkm.save_model(
-            spark_model=spark_model_iris.model, path=model_path, sample_input=invalid_input
         )
 
 

@@ -7,6 +7,7 @@ import shutil
 import sys
 import tarfile
 import tempfile
+import stat
 
 import urllib.parse
 import urllib.request
@@ -22,7 +23,7 @@ except ImportError:
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MissingConfigException
-from mlflow.utils.rest_utils import cloud_storage_http_request
+from mlflow.utils.rest_utils import cloud_storage_http_request, augmented_raise_for_status
 
 ENCODING = "utf-8"
 
@@ -96,7 +97,7 @@ def find(root, name, full_path=False):
     return list_all(root, lambda x: x == path_name, full_path)
 
 
-def mkdir(root, name=None):  # noqa
+def mkdir(root, name=None):
     """
     Make directory with name "root/name", or just "root" if name is None.
 
@@ -453,9 +454,32 @@ def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000):
             providers.
     """
     with cloud_storage_http_request("get", http_uri, stream=True) as response:
-        response.raise_for_status()
+        augmented_raise_for_status(response)
         with open(download_path, "wb") as output_file:
             for chunk in response.iter_content(chunk_size=chunk_size):
                 if not chunk:
                     break
                 output_file.write(chunk)
+
+
+def _handle_readonly_on_windows(func, path, exc_info):
+    """
+    This function should not be called directly but should be passed to `onerror` of
+    `shutil.rmtree` in order to reattempt the removal of a read-only file after making
+    it writable on Windows.
+
+    References:
+    - https://bugs.python.org/issue19643
+    - https://bugs.python.org/issue43657
+    """
+    exc_type, exc_value = exc_info[:2]
+    should_reattempt = (
+        os.name == "nt"
+        and func in (os.unlink, os.rmdir)
+        and issubclass(exc_type, PermissionError)
+        and exc_value.winerror == 5
+    )
+    if not should_reattempt:
+        raise exc_value
+    os.chmod(path, stat.S_IWRITE)
+    func(path)

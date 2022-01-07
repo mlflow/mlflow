@@ -149,7 +149,8 @@ def test_statsmodels_autolog_failed_metrics_warning():
 def test_statsmodels_autolog_works_after_exception():
     mlflow.statsmodels.autolog()
     # We first fit a model known to raise an exception
-    pytest.raises(Exception, failing_logit_model)
+    with pytest.raises(Exception, match=r".+"):
+        failing_logit_model()
     # and then fit another one that should go well
     model_with_results = ols_model()
 
@@ -163,9 +164,7 @@ def test_statsmodels_autolog_works_after_exception():
 
 
 @pytest.mark.large
-@pytest.mark.parametrize(
-    "log_models", [True, False],
-)
+@pytest.mark.parametrize("log_models", [True, False])
 def test_statsmodels_autolog_respects_log_models_flag(log_models):
     mlflow.statsmodels.autolog(log_models=log_models)
     ols_model()

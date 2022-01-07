@@ -240,7 +240,7 @@ def test_get_installed_version(tmpdir):
     not_found_package = tmpdir.join("not_found.py")
     not_found_package.write("__version__ = '1.2.3'")
     sys.path.insert(0, tmpdir.strpath)
-    with pytest.raises(importlib_metadata.PackageNotFoundError):
+    with pytest.raises(importlib_metadata.PackageNotFoundError, match=r".+"):
         importlib_metadata.version("not_found")
     assert _get_installed_version("not_found") == "1.2.3"
 
@@ -252,7 +252,7 @@ def test_get_pinned_requirement(tmpdir):
     not_found_package = tmpdir.join("not_found.py")
     not_found_package.write("__version__ = '1.2.3'")
     sys.path.insert(0, tmpdir.strpath)
-    with pytest.raises(importlib_metadata.PackageNotFoundError):
+    with pytest.raises(importlib_metadata.PackageNotFoundError, match=r".+"):
         importlib_metadata.version("not_found")
     assert _get_pinned_requirement("not_found") == "not_found==1.2.3"
 
@@ -285,7 +285,8 @@ def test_infer_requirements_excludes_mlflow():
 
 def test_infer_requirements_prints_warning_for_unrecognized_packages():
     with mock.patch(
-        "mlflow.utils.requirements_utils._capture_imported_modules", return_value=["sklearn"],
+        "mlflow.utils.requirements_utils._capture_imported_modules",
+        return_value=["sklearn"],
     ), mock.patch(
         "mlflow.utils.requirements_utils._PYPI_PACKAGE_INDEX",
         _PyPIPackageIndex(date="2022-01-01", package_names=set()),
@@ -304,7 +305,8 @@ def test_infer_requirements_prints_warning_for_unrecognized_packages():
 
 def test_infer_requirements_does_not_print_warning_for_recognized_packages():
     with mock.patch(
-        "mlflow.utils.requirements_utils._capture_imported_modules", return_value=["sklearn"],
+        "mlflow.utils.requirements_utils._capture_imported_modules",
+        return_value=["sklearn"],
     ), mock.patch(
         "mlflow.utils.requirements_utils._PYPI_PACKAGE_INDEX",
         _PyPIPackageIndex(date="2022-01-01", package_names=set(["scikit-learn"])),

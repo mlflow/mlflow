@@ -11,13 +11,13 @@ RUN apt-get update && \
     cmake protobuf-compiler &&  \
     conda install python=3.6 && \
     # install required python packages
-    pip install -r requirements/test-requirements.txt --no-cache-dir && \
+    pip install -r requirements/dev-requirements.txt --no-cache-dir && \
     # install mlflow in editable form
     pip install --no-cache-dir -e . && \
     # mkdir required to support install openjdk-11-jre-headless
     mkdir -p /usr/share/man/man1 && apt-get install -y openjdk-11-jre-headless && \
     # install npm for node.js support
-    curl -sL https://deb.nodesource.com/setup_10.x | bash - && \
+    curl -sL https://deb.nodesource.com/setup_14.x | bash - && \
     apt-get update && apt-get install -y nodejs && \
     cd mlflow/server/js && \
     npm install && \

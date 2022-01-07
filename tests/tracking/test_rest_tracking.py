@@ -335,12 +335,12 @@ def test_delete_tag(mlflow_client, backend_store_uri):
     mlflow_client.delete_tag(run_id, "taggity")
     run = mlflow_client.get_run(run_id)
     assert "taggity" not in run.data.tags
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match=r"Run .+ not found"):
         mlflow_client.delete_tag("fake_run_id", "taggity")
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="No tag with name: fakeTag"):
         mlflow_client.delete_tag(run_id, "fakeTag")
     mlflow_client.delete_run(run_id)
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match=f"The run {run_id} must be in"):
         mlflow_client.delete_tag(run_id, "taggity")
 
 
@@ -386,7 +386,13 @@ def test_log_model(mlflow_client, backend_store_uri):
                 tag = run.data.tags["mlflow.log-model.history"]
                 models = json.loads(tag)
                 model.utc_time_created = models[i]["utc_time_created"]
-                assert models[i] == model.to_dict()
+
+                history_model_meta = models[i].copy()
+                original_model_uuid = history_model_meta.pop("model_uuid")
+                model_meta = model.to_dict().copy()
+                new_model_uuid = model_meta.pop(("model_uuid"))
+                assert history_model_meta == model_meta
+                assert original_model_uuid != new_model_uuid
                 assert len(models) == i + 1
                 for j in range(0, i + 1):
                     assert models[j]["artifact_path"] == model_paths[j]

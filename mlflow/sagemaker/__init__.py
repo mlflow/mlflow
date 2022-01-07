@@ -22,7 +22,7 @@ from mlflow.utils import get_unique_resource_id
 from mlflow.utils.annotations import experimental
 from mlflow.utils.file_utils import TempDir
 from mlflow.models.container import SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS
-from mlflow.models.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME
+from mlflow.models.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME, SERVING_ENVIRONMENT
 
 
 DEFAULT_IMAGE_NAME = "mlflow-pyfunc"
@@ -40,6 +40,8 @@ DEFAULT_BUCKET_NAME_PREFIX = "mlflow-sagemaker"
 
 DEFAULT_SAGEMAKER_INSTANCE_TYPE = "ml.m4.xlarge"
 DEFAULT_SAGEMAKER_INSTANCE_COUNT = 1
+
+SAGEMAKER_SERVING_ENVIRONMENT = "SageMaker"
 
 _logger = logging.getLogger(__name__)
 
@@ -364,7 +366,7 @@ def deploy(
         prefix=model_name,
         region_name=region_name,
         s3_client=s3_client,
-        **assume_role_credentials
+        **assume_role_credentials,
     )
 
     if endpoint_exists:
@@ -714,7 +716,7 @@ def deploy_transform_job(
         prefix=model_name,
         region_name=region_name,
         s3_client=s3_client,
-        **assume_role_credentials
+        **assume_role_credentials,
     )
 
     deployment_operation = _create_sagemaker_transform_job(
@@ -990,7 +992,7 @@ def push_model_to_sagemaker(
         prefix=model_name,
         region_name=region_name,
         s3_client=s3_client,
-        **assume_role_credentials
+        **assume_role_credentials,
     )
 
     model_response = _create_sagemaker_model(
@@ -1208,7 +1210,10 @@ def _get_deployment_config(flavor_name):
     """
     :return: The deployment configuration as a dictionary
     """
-    deployment_config = {DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME: flavor_name}
+    deployment_config = {
+        DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME: flavor_name,
+        SERVING_ENVIRONMENT: SAGEMAKER_SERVING_ENVIRONMENT,
+    }
     return deployment_config
 
 
@@ -1427,7 +1432,9 @@ def _create_sagemaker_endpoint(
     )
 
     endpoint_response = sage_client.create_endpoint(
-        EndpointName=endpoint_name, EndpointConfigName=config_name, Tags=[],
+        EndpointName=endpoint_name,
+        EndpointConfigName=config_name,
+        Tags=[],
     )
     _logger.info("Created endpoint with arn: %s", endpoint_response["EndpointArn"])
 
@@ -1573,8 +1580,8 @@ def _update_sagemaker_endpoint(
             failure_reason = endpoint_info.get(
                 "FailureReason",
                 (
-                    "An unknown SageMaker failure occurred. \
-                    Please see the SageMaker console logs for"  # noqa
+                    "An unknown SageMaker failure occurred."
+                    " Please see the SageMaker console logs for"
                     " more information."
                 ),
             )
@@ -1714,7 +1721,9 @@ def _find_transform_job(job_name, sage_client):
 
         if "NextToken" in transform_jobs_page:
             transform_jobs_page = sage_client.list_transform_jobs(
-                MaxResults=100, NextToken=transform_jobs_page["NextToken"], NameContains=job_name,
+                MaxResults=100,
+                NextToken=transform_jobs_page["NextToken"],
+                NameContains=job_name,
             )
         else:
             return None

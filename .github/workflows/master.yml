@@ -41,9 +41,12 @@ jobs:
       run: |
         source ./dev/install-common-deps.sh
         pip install -r requirements/lint-requirements.txt
-    - name: Run tests
+    - name: Test custom pylint-plugins
+      run : |
+        pytest tests/pylint_plugins
+    - name: Run lint checks
       run: |
-        ./lint.sh
+        ./dev/lint.sh
   r:
     runs-on: ubuntu-latest
     steps:
@@ -81,28 +84,21 @@ jobs:
         os_name=$(lsb_release -ds | sed 's/\s/-/g')
         echo "::set-output name=os-name::$os_name"
     - name: Cache R packages
-      if: runner.os != 'Windows'
       uses: actions/cache@v2
       with:
         path: ${{ env.R_LIBS_USER }}
         # We cache R dependencies based on a tuple of the current OS, the R version, and the list of
         # R dependencies
         key: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('.github/R-version') }}-1-${{ hashFiles('.github/depends.Rds') }}
-        restore-keys: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('.github/R-version') }}-1-
-    # Cache spark archive downloaded in `mlflow/R/mlflow/.create-test-env.R`
-    - name: Cache spark archive
-      uses: actions/cache@v2
-      with:
-        path: ~/spark/spark-2.4.5-bin-hadoop2.7
-        key: ${{ hashFiles('mlflow/R/mlflow/.spark-version') }}
     - name: Install system dependencies
       run: |
         sudo apt-get install -y libcurl4-openssl-dev
         sudo R CMD javareconf
     - name: Install dependencies
+      working-directory: mlflow/R/mlflow
       run: |
         install.packages("devtools")
-        remotes::install_deps('mlflow/R/mlflow', dependencies = TRUE, upgrade = FALSE)
+        remotes::install_deps('.', dependencies = TRUE, upgrade = FALSE)
       shell: Rscript {0}
     - name: Create test environment
       run: |
@@ -110,7 +106,7 @@ jobs:
         cd mlflow/R/mlflow
         R CMD build .
         cd tests
-        Rscript ../.create-test-env.R
+        Rscript -e 'source("../.create-test-env.R", echo=TRUE)'
     - name: Run tests
       env:
         # Hack to get around this issue:
@@ -125,7 +121,7 @@ jobs:
         cd mlflow/R/mlflow/tests
         # `devtools::check_built` requires `pandoc` to analyze README.md
         sudo apt-get install pandoc -y
-        Rscript ../.run-tests.R
+        Rscript -e 'source("../.run-tests.R", echo=TRUE)'
     - name: Calculate code coverage
       if: ${{ success() }}
       run: |
@@ -134,6 +130,10 @@ jobs:
         Rscript -e 'covr::codecov()' || :
       env:
         COVR_RUNNING: true
+    - name: Test package build
+      working-directory: mlflow/R/mlflow
+      run: |
+        ./build-package.sh
     - name: Show 00check.log on failure
       if: ${{ failure() }}
       run: |
@@ -267,7 +267,7 @@ jobs:
     - name: Set up Node
       uses: actions/setup-node@v1
       with:
-        node-version: 10.x
+        node-version: 14.x
     - name: Install dependencies
       run: |
         npm i
@@ -298,7 +298,7 @@ jobs:
         sudo unzip $HOME/protoc.zip -d /usr
     - name: Run tests
       run: |
-        ./test-generate-protos.sh
+        ./dev/test-generate-protos.sh
 
   flavors:
     runs-on: ubuntu-latest
@@ -419,7 +419,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v1
         with:
-          node-version: 10.x
+          node-version: 14.x
       - name: Install JS dependencies
         working-directory: mlflow/server/js
         shell: pwsh

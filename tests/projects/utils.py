@@ -21,7 +21,7 @@ SSH_PROJECT_URI = "git@github.com:mlflow/mlflow-example.git"
 
 
 def load_project():
-    """ Loads an example project for use in tests, returning an in-memory `Project` object. """
+    """Loads an example project for use in tests, returning an in-memory `Project` object."""
     return _project_spec.load_project(TEST_PROJECT_DIR)
 
 

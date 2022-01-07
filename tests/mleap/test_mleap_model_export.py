@@ -4,6 +4,7 @@ from unittest import mock
 from packaging.version import Version
 
 import numpy as np
+import pandas as pd
 import pyspark
 from pyspark.ml.pipeline import Pipeline
 from pyspark.ml.wrapper import JavaModel
@@ -124,7 +125,10 @@ def test_mleap_module_model_save_with_unsupported_transformer_raises_serializati
     unsupported_pipeline = Pipeline(stages=[CustomTransformer()])
     unsupported_model = unsupported_pipeline.fit(spark_model_iris.spark_df)
 
-    with pytest.raises(mlflow.mleap.MLeapSerializationException):
+    with pytest.raises(
+        mlflow.mleap.MLeapSerializationException,
+        match="MLeap encountered an error while serializing the model",
+    ):
         mlflow.mleap.save_model(
             spark_model=unsupported_model, path=model_path, sample_input=spark_model_iris.spark_df
         )
@@ -174,3 +178,14 @@ def test_spark_module_model_save_with_relative_path_and_valid_sample_input_produ
         assert os.path.exists(config_path)
         config = Model.load(config_path)
         assert mlflow.mleap.FLAVOR_NAME in config.flavors
+
+
+@pytest.mark.large
+def test_mleap_module_model_save_with_invalid_sample_input_type_raises_exception(
+    spark_model_iris, model_path
+):
+    with pytest.raises(Exception, match="must be a PySpark dataframe"):
+        invalid_input = pd.DataFrame()
+        mlflow.spark.save_model(
+            spark_model=spark_model_iris.model, path=model_path, sample_input=invalid_input
+        )

@@ -66,9 +66,7 @@ def _mlflow_conda_env(
         return env
 
 
-def _mlflow_additional_pip_env(
-    pip_deps, path=None,
-):
+def _mlflow_additional_pip_env(pip_deps, path=None):
     requirements = "\n".join(pip_deps)
     if path is not None:
         with open(path, "w") as out:
@@ -177,7 +175,8 @@ def _parse_pip_requirements(pip_requirements):
 
 
 _INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE = (
-    "Encountered an unexpected error while inferring pip requirements (model URI: %s, flavor: %s)"
+    "Encountered an unexpected error while inferring pip requirements (model URI: %s, flavor: %s),"
+    " fall back to return %s. Set logging level to DEBUG to see the full traceback."
 )
 
 
@@ -196,7 +195,8 @@ def infer_pip_requirements(model_uri, flavor, fallback=None):
         return _infer_requirements(model_uri, flavor)
     except Exception:
         if fallback is not None:
-            _logger.exception(_INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE, model_uri, flavor)
+            _logger.warning(_INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE, model_uri, flavor, fallback)
+            _logger.debug("", exc_info=True)
             return fallback
         raise
 
@@ -219,6 +219,15 @@ def _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
         )
 
 
+# PIP requirement parser inspired from https://github.com/pypa/pip/blob/b392833a0f1cff1bbee1ac6dbe0270cccdd0c11f/src/pip/_internal/req/req_file.py#L400
+def _get_pip_requirement_specifier(requirement_string):
+    tokens = requirement_string.split(" ")
+    for idx, token in enumerate(tokens):
+        if token.startswith("-"):
+            return " ".join(tokens[:idx])
+    return requirement_string
+
+
 def _is_mlflow_requirement(requirement_string):
     """
     Returns True if `requirement_string` represents a requirement for mlflow (e.g. 'mlflow==1.2.3').
@@ -229,6 +238,17 @@ def _is_mlflow_requirement(requirement_string):
         return Requirement(requirement_string).name.lower() == "mlflow"
     except InvalidRequirement:
         # A local file path or URL falls into this branch.
+
+        # `Requirement` throws an `InvalidRequirement` exception if `requirement_string` contains
+        # per-requirement options (ex: package hashes)
+        # GitHub issue: https://github.com/pypa/packaging/issues/488
+        # Per-requirement-option spec: https://pip.pypa.io/en/stable/reference/requirements-file-format/#per-requirement-options
+        requirement_specifier = _get_pip_requirement_specifier(requirement_string)
+        try:
+            # Try again with the per-requirement options removed
+            return Requirement(requirement_specifier).name.lower() == "mlflow"
+        except InvalidRequirement:
+            return False
 
         # TODO: Return True if `requirement_string` represents a project directory for MLflow
         # (e.g. '/path/to/mlflow') or git repository URL (e.g. 'https://github.com/mlflow/mlflow').

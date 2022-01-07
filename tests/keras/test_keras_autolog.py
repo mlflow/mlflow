@@ -145,7 +145,12 @@ def test_keras_autolog_model_can_load_from_artifact(keras_random_data_run, rando
 
 
 def get_keras_random_data_run_with_callback(
-    random_train_data, random_one_hot_labels, callback, restore_weights, patience, initial_epoch,
+    random_train_data,
+    random_one_hot_labels,
+    callback,
+    restore_weights,
+    patience,
+    initial_epoch,
 ):
     # pylint: disable=unused-argument
     mlflow.keras.autolog()
@@ -172,7 +177,11 @@ def get_keras_random_data_run_with_callback(
         callback = CustomCallback()
 
     history = model.fit(
-        data, labels, epochs=initial_epoch + 10, callbacks=[callback], initial_epoch=initial_epoch,
+        data,
+        labels,
+        epochs=initial_epoch + 10,
+        callbacks=[callback],
+        initial_epoch=initial_epoch,
     )
 
     client = mlflow.tracking.MlflowClient()
@@ -181,7 +190,12 @@ def get_keras_random_data_run_with_callback(
 
 @pytest.fixture
 def keras_random_data_run_with_callback(
-    random_train_data, random_one_hot_labels, callback, restore_weights, patience, initial_epoch,
+    random_train_data,
+    random_one_hot_labels,
+    callback,
+    restore_weights,
+    patience,
+    initial_epoch,
 ):
     return get_keras_random_data_run_with_callback(
         random_train_data,

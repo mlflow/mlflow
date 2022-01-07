@@ -1,7 +1,7 @@
 Type: Package
 Package: mlflow
 Title: Interface to 'MLflow'
-Version: 1.21.1
+Version: 1.22.1
 Authors@R: 
     c(person(given = "Matei",
              family = "Zaharia",
@@ -46,7 +46,6 @@ Imports:
     swagger,
     tibble (>= 2.0.0),
     withr,
-    xml2,
     yaml,
     zeallot
 Suggests:
@@ -55,7 +54,6 @@ Suggests:
     h2o,
     keras,
     lintr,
-    mleap,
     sparklyr,
     stringi (< 1.4.4),
     testthat (>= 2.0.0),
@@ -76,7 +74,6 @@ Collate:
     'model-utils.R'
     'model-h2o.R'
     'model-keras.R'
-    'model-mleap.R'
     'model-registry.R'
     'model-serve.R'
     'model-swagger.R'

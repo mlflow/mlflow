@@ -4,8 +4,9 @@ import logging
 
 import yaml
 import os
+import uuid
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union, Callable
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -41,7 +42,8 @@ class Model(object):
         flavors=None,
         signature=None,  # ModelSignature
         saved_input_example_info: Dict[str, Any] = None,
-        **kwargs
+        model_uuid: Union[str, Callable, None] = lambda: uuid.uuid4().hex,
+        **kwargs,
     ):
         # store model id instead of run_id and path to avoid confusion when model gets exported
         if run_id:
@@ -52,6 +54,7 @@ class Model(object):
         self.flavors = flavors if flavors is not None else {}
         self.signature = signature
         self.saved_input_example_info = saved_input_example_info
+        self.model_uuid = model_uuid() if callable(model_uuid) else model_uuid
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):
@@ -64,6 +67,24 @@ class Model(object):
 
     def get_output_schema(self):
         return self.signature.outputs if self.signature is not None else None
+
+    def load_input_example(self, path: str):
+        """
+        Load the input example saved along a model. Returns None if there is no example metadata
+        (i.e. the model was saved without example). Raises FileNotFoundError if there is model
+        metadata but the example file is missing.
+
+        :param path: Path to the model directory.
+
+        :return: Input example (NumPy ndarray, SciPy csc_matrix, SciPy csr_matrix,
+                 pandas DataFrame, dict) or None if the model has no example.
+        """
+
+        # Just-in-time import to only load example-parsing libraries (e.g. numpy, pandas, etc.) if
+        # example is requested.
+        from mlflow.models.utils import _read_example
+
+        return _read_example(self, path)
 
     def add_flavor(self, name, **params):
         """Add an entry for how to serve the model in a given format."""
@@ -130,9 +151,12 @@ class Model(object):
 
         from .signature import ModelSignature
 
+        model_dict = model_dict.copy()
         if "signature" in model_dict and isinstance(model_dict["signature"], dict):
-            model_dict = model_dict.copy()
             model_dict["signature"] = ModelSignature.from_dict(model_dict["signature"])
+
+        if "model_uuid" not in model_dict:
+            model_dict["model_uuid"] = None
 
         return cls(**model_dict)
 
@@ -143,7 +167,7 @@ class Model(object):
         flavor,
         registered_model_name=None,
         await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-        **kwargs
+        **kwargs,
     ):
         """
         Log model using supplied flavor module. If no run is active, this method will create a new

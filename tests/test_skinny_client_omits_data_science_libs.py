@@ -13,7 +13,7 @@ def test_fails_import_flask():
 
     assert mlflow is not None
 
-    with pytest.raises(ImportError):
+    with pytest.raises(ImportError, match="flask"):
         import flask
 
         assert flask is not None
@@ -24,7 +24,7 @@ def test_fails_import_pandas():
 
     assert mlflow is not None
 
-    with pytest.raises(ImportError):
+    with pytest.raises(ImportError, match="pandas"):
         import pandas
 
         assert pandas is not None
@@ -35,7 +35,7 @@ def test_fails_import_numpy():
 
     assert mlflow is not None
 
-    with pytest.raises(ImportError):
+    with pytest.raises(ImportError, match="numpy"):
         import numpy
 
         assert numpy is not None

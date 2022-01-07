@@ -60,12 +60,22 @@ def test_default_az_cred_if_no_env_vars(mock_default_azure_credential, mock_clie
     assert mock_default_azure_credential.call_count == 1
 
 
-def test_parse_wasbs_uri():
+def test_parse_global_wasbs_uri():
     parse = AzureBlobArtifactRepository.parse_wasbs_uri
-    assert parse("wasbs://cont@acct.blob.core.windows.net/path") == ("cont", "acct", "path")
-    assert parse("wasbs://cont@acct.blob.core.windows.net") == ("cont", "acct", "")
-    assert parse("wasbs://cont@acct.blob.core.windows.net/") == ("cont", "acct", "")
-    assert parse("wasbs://cont@acct.blob.core.windows.net/a/b") == ("cont", "acct", "a/b")
+    global_api_suffix = "blob.core.windows.net"
+
+    global_wasb_with_short_path = "wasbs://cont@acct.blob.core.windows.net/path"
+    assert parse(global_wasb_with_short_path) == ("cont", "acct", "path", global_api_suffix)
+
+    global_wasb_without_path = "wasbs://cont@acct.blob.core.windows.net"
+    assert parse(global_wasb_without_path) == ("cont", "acct", "", global_api_suffix)
+
+    global_wasb_without_path2 = "wasbs://cont@acct.blob.core.windows.net/"
+    assert parse(global_wasb_without_path2) == ("cont", "acct", "", global_api_suffix)
+
+    global_wasb_with_multi_path = "wasbs://cont@acct.blob.core.windows.net/a/b"
+    assert parse(global_wasb_with_multi_path) == ("cont", "acct", "a/b", global_api_suffix)
+
     with pytest.raises(Exception, match="WASBS URI must be of the form"):
         parse("wasbs://cont@acct.blob.core.evil.net/path")
     with pytest.raises(Exception, match="WASBS URI must be of the form"):
@@ -78,6 +88,36 @@ def test_parse_wasbs_uri():
         parse("wasbs://cont@acctxblob.core.windows.net/path")
     with pytest.raises(Exception, match="Not a WASBS URI"):
         parse("wasb://cont@acct.blob.core.windows.net/path")
+
+
+def test_parse_cn_wasbs_uri():
+    parse = AzureBlobArtifactRepository.parse_wasbs_uri
+    cn_api_suffix = "blob.core.chinacloudapi.cn"
+
+    cn_wasb_with_short_path = "wasbs://cont@acct.blob.core.chinacloudapi.cn/path"
+    assert parse(cn_wasb_with_short_path) == ("cont", "acct", "path", cn_api_suffix)
+
+    cn_wasb_without_path = "wasbs://cont@acct.blob.core.chinacloudapi.cn"
+    assert parse(cn_wasb_without_path) == ("cont", "acct", "", cn_api_suffix)
+
+    cn_wasb_without_path2 = "wasbs://cont@acct.blob.core.chinacloudapi.cn/"
+    assert parse(cn_wasb_without_path2) == ("cont", "acct", "", cn_api_suffix)
+
+    cn_wasb_with_multi_path = "wasbs://cont@acct.blob.core.chinacloudapi.cn/a/b"
+    assert parse(cn_wasb_with_multi_path) == ("cont", "acct", "a/b", cn_api_suffix)
+
+    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+        parse("wasbs://cont@acct.blob.core.evil.cn/path")
+    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+        parse("wasbs://cont@acct/path")
+    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+        parse("wasbs://acct.blob.core.chinacloudapi.cn/path")
+    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+        parse("wasbs://@acct.blob.core.chinacloudapi.cn/path")
+    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+        parse("wasbs://cont@acctxblob.core.chinacloudapi.cn/path")
+    with pytest.raises(Exception, match="Not a WASBS URI"):
+        parse("wasb://cont@acct.blob.core.chinacloudapi.cn/path")
 
 
 def test_list_artifacts_empty(mock_client):
@@ -318,7 +358,7 @@ def test_download_artifact_throws_value_error_when_listed_blobs_do_not_contain_a
 
     mock_client.get_container_client().walk_blobs.side_effect = get_mock_listing
 
-    with pytest.raises(MlflowException) as exc:
+    with pytest.raises(
+        MlflowException, match="Azure blob does not begin with the specified artifact path"
+    ):
         repo.download_artifacts("")
-
-    assert "Azure blob does not begin with the specified artifact path" in str(exc)

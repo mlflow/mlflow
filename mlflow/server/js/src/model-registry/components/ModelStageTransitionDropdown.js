@@ -1,5 +1,6 @@
 import React from 'react';
-import { Dropdown, Menu, Icon, Modal } from 'antd';
+import { DownOutlined } from '@ant-design/icons';
+import { Dropdown, Menu, Modal } from 'antd';
 import PropTypes from 'prop-types';
 import { Stages, StageTagComponents, ActivityTypes } from '../constants';
 import { DirectTransitionForm } from './DirectTransitionForm';
@@ -85,7 +86,10 @@ export class ModelStageTransitionDropdown extends React.Component {
     const { confirmModalVisible, confirmingActivity, handleConfirm } = this.state;
     if (confirmingActivity) {
       const formComponent = (
-        <DirectTransitionForm ref={this.transitionFormRef} toStage={confirmingActivity.to_stage} />
+        <DirectTransitionForm
+          innerRef={this.transitionFormRef}
+          toStage={confirmingActivity.to_stage}
+        />
       );
       return (
         <Modal
@@ -132,7 +136,7 @@ export class ModelStageTransitionDropdown extends React.Component {
         >
           <span>
             {StageTagComponents[currentStage]}
-            <Icon type='down' style={{ cursor: 'pointer', marginLeft: -4 }} />
+            <DownOutlined style={{ cursor: 'pointer', marginLeft: -4 }} />
           </span>
         </Dropdown>
         {this.renderConfirmModal()}

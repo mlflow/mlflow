@@ -37,7 +37,7 @@ export class ParallelCoordinatesPlotControls extends React.Component {
         </div>
         <TreeSelect
           className='metrics-select'
-          searchPlaceholder={
+          placeholder={
             <FormattedMessage
               defaultMessage='Please select parameters'
               description='Placeholder text for parameters in parallel coordinates plot in MLflow'
@@ -58,7 +58,7 @@ export class ParallelCoordinatesPlotControls extends React.Component {
         </div>
         <TreeSelect
           className='metrics-select'
-          searchPlaceholder={
+          placeholder={
             <FormattedMessage
               defaultMessage='Please select metrics'
               description='Placeholder text for metrics in parallel coordinates plot in MLflow'

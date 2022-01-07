@@ -27,6 +27,8 @@ implement mutual exclusion manually.
 
 For a lower level API, see the :py:mod:`mlflow.tracking` module.
 """
+import sys
+
 from mlflow.version import VERSION as __version__  # pylint: disable=unused-import
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
 import mlflow.tracking._model_registry.fluent
@@ -37,34 +39,35 @@ import mlflow.tracking.fluent
 # See: https://github.com/numpy/numpy/pull/432/commits/170ed4e33d6196d7
 import warnings
 
-warnings.filterwarnings("ignore", message="numpy.dtype size changed")  # noqa: E402
-warnings.filterwarnings("ignore", message="numpy.ufunc size changed")  # noqa: E402
+warnings.filterwarnings("ignore", message="numpy.dtype size changed")
+warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
 
-import mlflow.projects as projects  # noqa: E402
-import mlflow.tracking as tracking  # noqa: E402
+import mlflow.projects as projects
+import mlflow.tracking as tracking
+import mlflow.models
 
 # model flavors
 _model_flavors_supported = []
 try:
     # pylint: disable=unused-import
-    import mlflow.catboost as catboost  # noqa: E402
-    import mlflow.fastai as fastai  # noqa: E402
-    import mlflow.gluon as gluon  # noqa: E402
-    import mlflow.h2o as h2o  # noqa: E402
-    import mlflow.keras as keras  # noqa: E402
-    import mlflow.lightgbm as lightgbm  # noqa: E402
-    import mlflow.mleap as mleap  # noqa: E402
-    import mlflow.onnx as onnx  # noqa: E402
-    import mlflow.pyfunc as pyfunc  # noqa: E402
-    import mlflow.pytorch as pytorch  # noqa: E402
-    import mlflow.sklearn as sklearn  # noqa: E402
-    import mlflow.spacy as spacy  # noqa: E402
-    import mlflow.spark as spark  # noqa: E402
-    import mlflow.statsmodels as statsmodels  # noqa: E402
-    import mlflow.tensorflow as tensorflow  # noqa: E402
-    import mlflow.xgboost as xgboost  # noqa: E402
-    import mlflow.shap as shap  # noqa: E402
-    import mlflow.pyspark as pyspark  # noqa: E402
+    import mlflow.catboost as catboost
+    import mlflow.fastai as fastai
+    import mlflow.gluon as gluon
+    import mlflow.h2o as h2o
+    import mlflow.keras as keras
+    import mlflow.lightgbm as lightgbm
+    import mlflow.mleap as mleap
+    import mlflow.onnx as onnx
+    import mlflow.pyfunc as pyfunc
+    import mlflow.pytorch as pytorch
+    import mlflow.sklearn as sklearn
+    import mlflow.spacy as spacy
+    import mlflow.spark as spark
+    import mlflow.statsmodels as statsmodels
+    import mlflow.tensorflow as tensorflow
+    import mlflow.xgboost as xgboost
+    import mlflow.shap as shap
+    import mlflow.pyspark as pyspark
     import mlflow.paddle as paddle
     import mlflow.prophet as prophet
 
@@ -97,25 +100,24 @@ except ImportError as e:
 
 _configure_mlflow_loggers(root_module_name=__name__)
 
-# TODO: Uncomment this block when deprecating Python 3.6 support
-# _major = 3
-# _minor = 6
-# _deprecated_version = (_major, _minor)
-# _min_supported_version = (_major, _minor + 1)
+_major = 3
+_minor = 6
+_deprecated_version = (_major, _minor)
+_min_supported_version = (_major, _minor + 1)
 
-# if sys.version_info[:2] == _deprecated_version:
-#     warnings.warn(
-#         "MLflow support for Python {dep_ver} is deprecated and will be dropped in "
-#         "an upcoming release. At that point, existing Python {dep_ver} workflows "
-#         "that use MLflow will continue to work without modification, but Python {dep_ver} "
-#         "users will no longer get access to the latest MLflow features and bugfixes. "
-#         "We recommend that you upgrade to Python {min_ver} or newer.".format(
-#             dep_ver=".".join(map(str, _deprecated_version)),
-#             min_ver=".".join(map(str, _min_supported_version)),
-#         ),
-#         FutureWarning,
-#         stacklevel=2,
-#     )
+if sys.version_info[:2] == _deprecated_version:
+    warnings.warn(
+        "MLflow support for Python {dep_ver} is deprecated and will be dropped in "
+        "an upcoming release. At that point, existing Python {dep_ver} workflows "
+        "that use MLflow will continue to work without modification, but Python {dep_ver} "
+        "users will no longer get access to the latest MLflow features and bugfixes. "
+        "We recommend that you upgrade to Python {min_ver} or newer.".format(
+            dep_ver=".".join(map(str, _deprecated_version)),
+            min_ver=".".join(map(str, _min_supported_version)),
+        ),
+        FutureWarning,
+        stacklevel=2,
+    )
 
 ActiveRun = mlflow.tracking.fluent.ActiveRun
 log_param = mlflow.tracking.fluent.log_param
@@ -151,7 +153,7 @@ delete_experiment = mlflow.tracking.fluent.delete_experiment
 delete_run = mlflow.tracking.fluent.delete_run
 register_model = mlflow.tracking._model_registry.fluent.register_model
 autolog = mlflow.tracking.fluent.autolog
-
+evaluate = mlflow.models.evaluate
 
 run = projects.run
 
@@ -191,4 +193,5 @@ __all__ = [
     "set_registry_uri",
     "list_run_infos",
     "autolog",
+    "evaluate",
 ] + _model_flavors_supported

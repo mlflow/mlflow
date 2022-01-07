@@ -50,6 +50,9 @@ function rewiredOverrides(config, env) {
       USE_ABSOLUTE_AJAX_URLS: process.env.USE_ABSOLUTE_AJAX_URLS
         ? JSON.stringify('true')
         : JSON.stringify('false'),
+      SHOULD_REDIRECT_IFRAME: process.env.SHOULD_REDIRECT_IFRAME
+        ? JSON.stringify('true')
+        : JSON.stringify('false'),
     },
   });
   return config;

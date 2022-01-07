@@ -97,7 +97,8 @@ def _test_model_save_load(statsmodels_model, model_path, *predict_args):
 
     if hasattr(statsmodels_model.model, "predict"):
         np.testing.assert_array_almost_equal(
-            statsmodels_model.model.predict(*predict_args), reloaded_model.predict(*predict_args),
+            statsmodels_model.model.predict(*predict_args),
+            reloaded_model.predict(*predict_args),
         )
 
         np.testing.assert_array_almost_equal(

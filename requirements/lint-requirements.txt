@@ -1,3 +1,3 @@
 pylint==2.11.1
 rstcheck==3.2
-black==19.10b0
+black==21.10b0

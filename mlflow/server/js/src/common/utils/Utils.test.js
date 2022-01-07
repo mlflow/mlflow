@@ -462,6 +462,7 @@ test('getSearchParamsFromUrl', () => {
   const url1 = '?p=&q=&r=';
   const url2 = '?';
   const url3 = '?searchInput=some-Input';
+  const url4 = '?boolVal1=true&boolVal2=false';
   expect(Utils.getSearchParamsFromUrl(url0)).toEqual({
     searchInput: '',
   });
@@ -469,6 +470,10 @@ test('getSearchParamsFromUrl', () => {
   expect(Utils.getSearchParamsFromUrl(url2)).toEqual({});
   expect(Utils.getSearchParamsFromUrl(url3)).toEqual({
     searchInput: 'some-Input',
+  });
+  expect(Utils.getSearchParamsFromUrl(url4)).toEqual({
+    boolVal1: true,
+    boolVal2: false,
   });
 });
 
