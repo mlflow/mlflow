@@ -4,8 +4,18 @@ source(".utils.R")
 package_path <- devtools::build(".", path = ".")
 # Run the submission check against the built package.
 devtools::check_built(
-    path = normalizePath(package_path),
+    path = package_path,
+    cran = TRUE,
     remote = should_enable_cran_incoming_checks(),
     error_on = "note",
-    args = c("--no-tests", "--as-cran"),
+    check_dir = getwd(),
+    args = "--no-tests",
+)
+# This runs checks that are disabled when `cran` is TRUE (e.g. unused import check).
+devtools::check_built(
+    path = package_path,
+    cran = FALSE,
+    error_on = "note",
+    check_dir = getwd(),
+    args = "--no-tests",
 )
