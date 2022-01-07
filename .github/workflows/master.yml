@@ -57,9 +57,7 @@ jobs:
     - uses: actions/checkout@master
     - uses: actions/setup-java@v2
       with:
-        # GitHub Actions' Ubuntu 20.04 image uses Java 11 (which is incompatible with Spark 2.4.x) by default:
-        # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md#java
-        java-version: 8
+        java-version: 11
         distribution: 'adopt'
     - name: Re-configure dynamic linker run-time bindings for adoptopenjdk-8-hotspot-amd64
       run: |
@@ -197,9 +195,7 @@ jobs:
         python-version: 3.6
     - uses: actions/setup-java@v2
       with:
-        # GitHub Actions' Ubuntu 20.04 image uses Java 11 (which is incompatible with Spark 2.4.x) by default:
-        # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md#java
-        java-version: 8
+        java-version: 11
         distribution: 'adopt'
     - uses: ./.github/actions/cache-pip
     - name: Install dependencies
@@ -245,7 +241,7 @@ jobs:
     - name: Set up Java
       uses: actions/setup-java@v2
       with:
-        java-version: 8
+        java-version: 11
         distribution: 'adopt'
     - name: Install dependencies
       run: |
@@ -314,7 +310,7 @@ jobs:
           python-version: 3.6
       - uses: actions/setup-java@v2
         with:
-          java-version: 8
+          java-version: 11
           distribution: 'adopt'
       - uses: ./.github/actions/cache-pip
       - name: Install dependencies
@@ -342,7 +338,7 @@ jobs:
           python-version: 3.6
       - uses: actions/setup-java@v2
         with:
-          java-version: 8
+          java-version: 11
           distribution: 'adopt'
       - name: Install dependencies
         env:
@@ -387,7 +383,7 @@ jobs:
           python-version: 3.6
       - uses: actions/setup-java@v2
         with:
-          java-version: 8
+          java-version: 11
           distribution: 'adopt'
       - name: Install dependencies
         env:
