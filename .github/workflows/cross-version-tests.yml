@@ -103,6 +103,13 @@ jobs:
         with:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
+      - uses: actions/setup-java@v2
+        if: ${{ matrix.package == 'mleap' }}
+        with:
+          # GitHub Actions' Ubuntu 20.04 image uses Java 11 (which is incompatible with Spark 2.4.x) by default:
+          # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md#java
+          java-version: 8
+          distribution: "adopt"
       - name: Get python version
         id: get-python-version
         run: |
