@@ -9,7 +9,6 @@ import pyspark
 from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.pipeline import Pipeline
-from pyspark.ml.wrapper import JavaModel
 import pytest
 from sklearn import datasets
 import shutil
@@ -633,23 +632,6 @@ def test_pyspark_version_is_logged_without_dev_suffix(spark_model_iris):
         with mock.patch("importlib_metadata.version", return_value=unaffected_version):
             pip_deps = _get_pip_deps(sparkm.get_default_conda_env())
             assert any(x == f"pyspark=={unaffected_version}" for x in pip_deps)
-
-
-@pytest.mark.large
-def test_spark_module_model_save_with_mleap_and_unsupported_transformer_raises_exception(
-    spark_model_iris, model_path
-):
-    class CustomTransformer(JavaModel):
-        def _transform(self, dataset):
-            return dataset
-
-    unsupported_pipeline = Pipeline(stages=[CustomTransformer()])
-    unsupported_model = unsupported_pipeline.fit(spark_model_iris.spark_df)
-
-    with pytest.raises(ValueError, match="CustomTransformer"):
-        sparkm.save_model(
-            spark_model=unsupported_model, path=model_path, sample_input=spark_model_iris.spark_df
-        )
 
 
 def test_shutil_copytree_without_file_permissions(tmpdir):
