@@ -65,8 +65,14 @@ def spark_context():
     if Version(pyspark.__version__) < Version("3.1"):
         # A workaround for this issue:
         # https://stackoverflow.com/questions/62109276/errorjava-lang-unsupportedoperationexception-for-pyspark-pandas-udf-documenta
-        conf_path = os.path.join(os.path.dirname(pyspark.__file__), "conf/spark-defaults.conf")
-        with open(conf_path, "w") as f:
+        spark_home = (
+            os.environ.get("SPARK_HOME")
+            if "SPARK_HOME" in os.environ
+            else os.path.dirname(pyspark.__file__)
+        )
+        conf_dir = os.path.join(spark_home, "conf")
+        os.makedirs(conf_dir, exist_ok=True)
+        with open(os.path.join(conf_dir, "spark-defaults.conf"), "w") as f:
             conf = """
 spark.driver.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
 spark.executor.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
