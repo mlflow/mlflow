@@ -9,7 +9,7 @@ package_path <- devtools::build(".", path = ".")
 # The system clock check during `R CMD check` relies on two external web APIs and fails
 # when they are unavailable. By setting `_R_CHECK_SYSTEM_CLOCK_` to FALSE, we can skip it:
 # https://github.com/wch/r-source/blob/59a1965239143ca6242b9cc948d8834e1194e84a/src/library/tools/R/check.R#L511
-Sys.setenv(_R_CHECK_SYSTEM_CLOCK_ = "FALSE")
+Sys.setenv("_R_CHECK_SYSTEM_CLOCK_" = "FALSE")
 
 # Run the check with `cran = TRUE`
 devtools::check_built(
