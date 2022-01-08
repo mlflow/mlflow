@@ -77,10 +77,10 @@ jobs:
         # We cache R dependencies based on a tuple of the current OS, the R version, and the list of
         # R dependencies
         key: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('mlflow/R/mlflow/R-version') }}-1-${{ hashFiles('mlflow/R/mlflow/depends.Rds') }}
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update -y
-        sudo apt-get install -y libcurl4-openssl-dev pandoc
+    # - name: Install system dependencies
+    #   run: |
+    #     sudo apt-get update -y
+    #     sudo apt-get install -y libcurl4-openssl-dev pandoc
     - name: Install dependencies
       run: |
         Rscript -e 'source(".install-deps.R", echo=TRUE)'
