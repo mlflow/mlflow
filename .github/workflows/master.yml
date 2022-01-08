@@ -85,16 +85,8 @@ jobs:
       run: |
         Rscript -e 'source(".install-deps.R", echo=TRUE)'
     - name: Build package
-      env:
-        # Hack to get around this issue:
-        # https://stat.ethz.ch/pipermail/r-package-devel/2020q3/005930.html
-        #
-        # The system clock check during `R CMD check` relies on two external web APIs and fails
-        # when they are unavailable. By setting `_R_CHECK_SYSTEM_CLOCK_` to FALSE, we can skip it:
-        # https://github.com/wch/r-source/blob/59a1965239143ca6242b9cc948d8834e1194e84a/src/library/tools/R/check.R#L511
-        _R_CHECK_SYSTEM_CLOCK_: FALSE
       run: |
-        Rscript -e 'source(".build-package.R", echo=TRUE)'
+        ./build-package.sh
     - name: Create test environment
       run: |
         Rscript -e 'source(".create-test-env.R", echo=TRUE)'
@@ -104,9 +96,6 @@ jobs:
       run: |
         cd tests
         Rscript -e 'source("../.run-tests.R", echo=TRUE)'
-    - name: Test package build
-      run: |
-        ./build-package.sh
 
   # python-skinny tests cover a subset of mlflow functionality
   # that is meant to be supported with a smaller dependency footprint.
