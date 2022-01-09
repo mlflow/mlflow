@@ -730,7 +730,7 @@ def _load_pyfunc(path, **kwargs):
     return _PyTorchWrapper(_load_model(path, **kwargs))
 
 
-class _PyTorchWrapper(object):
+class _PyTorchWrapper:
     """
     Wrapper class that creates a predict function such that
     predict(data: pd.DataFrame) -> model's output as pd.DataFrame (pandas DataFrame)

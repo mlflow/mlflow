@@ -9,7 +9,7 @@ from mlflow.entities import RunStatus
 _logger = logging.getLogger(__name__)
 
 
-class SubmittedRun(object):
+class SubmittedRun:
     """
     Wrapper around an MLflow project run (e.g. a subprocess running an entry point
     command or a Databricks job run) and exposing methods for waiting on and cancelling the run.

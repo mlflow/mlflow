@@ -57,7 +57,7 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-class PythonModel(object):
+class PythonModel:
     """
     Represents a generic Python model that evaluates inputs and produces API-compatible outputs.
     By subclassing :class:`~PythonModel`, users can create customized MLflow models with the
@@ -94,7 +94,7 @@ class PythonModel(object):
         """
 
 
-class PythonModelContext(object):
+class PythonModelContext:
     """
     A collection of artifacts that a :class:`~PythonModel` can use when performing inference.
     :class:`~PythonModelContext` objects are created *implicitly* by the
@@ -281,7 +281,7 @@ def _load_pyfunc(model_path):
     return _PythonModelPyfuncWrapper(python_model=python_model, context=context)
 
 
-class _PythonModelPyfuncWrapper(object):
+class _PythonModelPyfuncWrapper:
     """
     Wrapper class that creates a predict function such that
     predict(model_input: pd.DataFrame) -> model's output as pd.DataFrame (pandas DataFrame)

@@ -30,7 +30,7 @@ def databricks_model_artifact_repo():
     return DatabricksModelsArtifactRepository(MOCK_MODEL_ROOT_URI_WITH_PROFILE)
 
 
-class TestDatabricksModelArtifactRepository(object):
+class TestDatabricksModelArtifactRepository:
     def test_init_with_version_uri_containing_profile(self):
         repo = DatabricksModelsArtifactRepository(MOCK_MODEL_ROOT_URI_WITH_PROFILE)
         assert repo.artifact_uri == MOCK_MODEL_ROOT_URI_WITH_PROFILE

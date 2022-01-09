@@ -32,7 +32,7 @@ def decode_and_resize_image(raw_bytes, size):
     return np.asarray(Image.open(BytesIO(raw_bytes)).resize(size), dtype=np.float32)
 
 
-class KerasImageClassifierPyfunc(object):
+class KerasImageClassifierPyfunc:
     """
     Image classification model with embedded pre-processing.
 

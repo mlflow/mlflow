@@ -107,7 +107,7 @@ def load_project(directory):
     )
 
 
-class Project(object):
+class Project:
     """A project specification loaded from an MLproject file in the passed-in directory."""
 
     def __init__(self, conda_env_path, entry_points, docker_env, name):
@@ -136,7 +136,7 @@ class Project(object):
         )
 
 
-class EntryPoint(object):
+class EntryPoint:
     """An entry point in an MLproject specification."""
 
     def __init__(self, name, parameters, command):
@@ -199,7 +199,7 @@ class EntryPoint(object):
         return {str(key): quote(str(value)) for key, value in param_dict.items()}
 
 
-class Parameter(object):
+class Parameter:
     """A parameter in an MLproject entry point."""
 
     def __init__(self, name, yaml_obj):

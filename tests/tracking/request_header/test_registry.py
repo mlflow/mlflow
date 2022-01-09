@@ -71,7 +71,7 @@ def test_registry_instance_defaults():
 
 
 def test_registry_instance_loads_entrypoints():
-    class MockRequestHeaderProvider(object):
+    class MockRequestHeaderProvider:
         pass
 
     mock_entrypoint = mock.Mock()

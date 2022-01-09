@@ -1,7 +1,7 @@
 from abc import ABCMeta, abstractmethod
 
 
-class RequestHeaderProvider(object):
+class RequestHeaderProvider:
     """
     Abstract base class for specifying custom request headers to add to outgoing requests
     (e.g. request headers specifying the environment from which mlflow is running).
