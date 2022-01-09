@@ -52,7 +52,7 @@ def test_artifact_uri_factory(mock_client):
     del os.environ["AZURE_STORAGE_ACCESS_KEY"]
 
 
-@mock.patch("azure.identity.DefaultAzureCredential")
+@mock.patch("azure.identity.ChainedTokenCredential")
 def test_default_az_cred_if_no_env_vars(mock_default_azure_credential, mock_client):
     # pylint: disable=unused-argument
     # We pass in the mock_client here to clear Azure environment variables, but we don't use it
