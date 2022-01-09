@@ -40,7 +40,7 @@ def assert_dict_equal(d1, d2, rtol):
 def test_regressor_evaluation(linear_regressor_model_uri, diabetes_dataset):
     with mlflow.start_run() as run:
         result = evaluate(
-            linear_regressor_model_uri,
+            model=linear_regressor_model_uri,
             model_type="regressor",
             dataset=diabetes_dataset,
             evaluators="default",
@@ -81,7 +81,7 @@ def test_regressor_evaluation(linear_regressor_model_uri, diabetes_dataset):
 def test_multi_classifier_evaluation(multiclass_logistic_regressor_model_uri, iris_dataset):
     with mlflow.start_run() as run:
         result = evaluate(
-            multiclass_logistic_regressor_model_uri,
+            model=multiclass_logistic_regressor_model_uri,
             model_type="classifier",
             dataset=iris_dataset,
             evaluators="default",
@@ -132,7 +132,7 @@ def test_multi_classifier_evaluation(multiclass_logistic_regressor_model_uri, ir
 def test_bin_classifier_evaluation(binary_logistic_regressor_model_uri, breast_cancer_dataset):
     with mlflow.start_run() as run:
         result = evaluate(
-            binary_logistic_regressor_model_uri,
+            model=binary_logistic_regressor_model_uri,
             model_type="classifier",
             dataset=breast_cancer_dataset,
             evaluators="default",
@@ -184,7 +184,7 @@ def test_bin_classifier_evaluation(binary_logistic_regressor_model_uri, breast_c
 def test_spark_regressor_model_evaluation(spark_linear_regressor_model_uri, diabetes_spark_dataset):
     with mlflow.start_run() as run:
         result = evaluate(
-            spark_linear_regressor_model_uri,
+            model=spark_linear_regressor_model_uri,
             model_type="regressor",
             dataset=diabetes_spark_dataset,
             evaluators="default",
@@ -222,7 +222,7 @@ def test_spark_regressor_model_evaluation(spark_linear_regressor_model_uri, diab
 def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset):
     with mlflow.start_run() as run:
         result = evaluate(
-            svm_model_uri,
+            model=svm_model_uri,
             model_type="classifier",
             dataset=breast_cancer_dataset,
             evaluators="default",
@@ -384,7 +384,6 @@ def test_gen_binary_precision_recall_curve():
     results = _gen_classifier_curve(
         is_binomial=True, y=y, y_probs=y_prob, labels=[0, 1], curve_type="pr"
     )
-    assert results.plot_fn is plot_lines
     assert np.allclose(
         results.plot_fn_args["data_series"][0][1],
         np.array([1.0, 0.8, 0.8, 0.8, 0.6, 0.4, 0.4, 0.2, 0.0]),
@@ -397,8 +396,7 @@ def test_gen_binary_precision_recall_curve():
     )
     assert results.plot_fn_args["xlabel"] == "recall"
     assert results.plot_fn_args["ylabel"] == "precision"
-    assert results.plot_fn_args["legend_loc"] is None
-    assert results.plot_fn_args["line_kwargs"] == {"drawstyle": "steps-post"}
+    assert results.plot_fn_args["line_kwargs"] == {"drawstyle": "steps-post", "linewidth": 1}
     assert np.isclose(results.auc, 0.7088888888888889, rtol=1e-3)
 
 
@@ -409,7 +407,6 @@ def test_gen_binary_roc_curve():
     results = _gen_classifier_curve(
         is_binomial=True, y=y, y_probs=y_prob, labels=[0, 1], curve_type="roc"
     )
-    assert results.plot_fn is plot_lines
     assert np.allclose(
         results.plot_fn_args["data_series"][0][1],
         np.array([0.0, 0.0, 0.2, 0.4, 0.4, 0.8, 0.8, 1.0]),
@@ -422,8 +419,7 @@ def test_gen_binary_roc_curve():
     )
     assert results.plot_fn_args["xlabel"] == "False Positive Rate"
     assert results.plot_fn_args["ylabel"] == "True Positive Rate"
-    assert results.plot_fn_args["legend_loc"] is None
-    assert results.plot_fn_args["line_kwargs"] == {"drawstyle": "steps-post"}
+    assert results.plot_fn_args["line_kwargs"] == {"drawstyle": "steps-post", "linewidth": 1}
     assert np.isclose(results.auc, 0.66, rtol=1e-3)
 
 
@@ -446,15 +442,15 @@ def test_gen_multiclass_precision_recall_curve():
         [0.66666667, 0.5, 1.0],
         [0.4, 0.25, 0.33333333, 0.5, 0.0, 1.0],
     ]
+    line_labels = ["label=0,AP=0.500", "label=1,AP=0.722", "label=2,AP=0.414"]
     for index, (name, x_data, y_data) in enumerate(results.plot_fn_args["data_series"]):
-        assert name == f"Positive Class = {index}"
+        assert name == line_labels[index]
         assert np.allclose(x_data, expected_x_data_list[index], rtol=1e-3)
         assert np.allclose(y_data, expected_y_data_list[index], rtol=1e-3)
 
     assert results.plot_fn_args["xlabel"] == "recall"
     assert results.plot_fn_args["ylabel"] == "precision"
-    assert results.plot_fn_args["legend_loc"] == "lower left"
-    assert results.plot_fn_args["line_kwargs"] == {"drawstyle": "steps-post"}
+    assert results.plot_fn_args["line_kwargs"] == {"drawstyle": "steps-post", "linewidth": 1}
 
     expected_auc = [0.25, 0.6666666666666666, 0.2875]
     assert np.allclose(results.auc, expected_auc, rtol=1e-3)
@@ -481,15 +477,15 @@ def test_gen_multiclass_roc_curve():
         [0.0, 0.33333333, 0.33333333, 1.0, 1.0],
     ]
     expected_y_data_list = [[0.0, 0.0, 1.0, 1.0], [0.0, 0.5, 1.0, 1.0], [0.0, 0.0, 0.5, 0.5, 1.0]]
+    line_labels = ["label=0,AUC=0.750", "label=1,AUC=0.750", "label=2,AUC=0.333"]
     for index, (name, x_data, y_data) in enumerate(results.plot_fn_args["data_series"]):
-        assert name == f"Positive Class = {index}"
+        assert name == line_labels[index]
         assert np.allclose(x_data, expected_x_data_list[index], rtol=1e-3)
         assert np.allclose(y_data, expected_y_data_list[index], rtol=1e-3)
 
     assert results.plot_fn_args["xlabel"] == "False Positive Rate"
     assert results.plot_fn_args["ylabel"] == "True Positive Rate"
-    assert results.plot_fn_args["legend_loc"] == "lower right"
-    assert results.plot_fn_args["line_kwargs"] == {"drawstyle": "steps-post"}
+    assert results.plot_fn_args["line_kwargs"] == {"drawstyle": "steps-post", "linewidth": 1}
 
-    expected_auc = [0.75, 0.7500000000000001, 0.33333333333333337]
+    expected_auc = [0.75, 0.75, 0.3333]
     assert np.allclose(results.auc, expected_auc, rtol=1e-3)

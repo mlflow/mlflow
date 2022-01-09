@@ -220,9 +220,9 @@ def test_classifier_evaluate(multiclass_logistic_regressor_model_uri, iris_datas
 
     with mlflow.start_run() as run:
         eval_result = evaluate(
-            classifier_model,
-            "classifier",
-            iris_dataset,
+            model=classifier_model,
+            model_type="classifier",
+            dataset=iris_dataset,
             run_id=None,
             evaluators="dummy_evaluator",
         )
@@ -292,9 +292,9 @@ def test_regressor_evaluate(linear_regressor_model_uri, diabetes_dataset):
     for model in [regressor_model, linear_regressor_model_uri]:
         with mlflow.start_run() as run:
             eval_result = evaluate(
-                model,
-                "regressor",
-                diabetes_dataset,
+                model=model,
+                model_type="regressor",
+                dataset=diabetes_dataset,
                 run_id=None,
                 evaluators="dummy_evaluator",
             )
@@ -472,9 +472,9 @@ def test_evaluator_interface(multiclass_logistic_regressor_model_uri, iris_datas
                     match="The model could not be evaluated by any of the registered evaluators",
                 ):
                     evaluate(
-                        multiclass_logistic_regressor_model_uri,
-                        "classifier",
-                        iris_dataset,
+                        model=multiclass_logistic_regressor_model_uri,
+                        model_type="classifier",
+                        dataset=iris_dataset,
                         run_id=None,
                         evaluators="test_evaluator1",
                         evaluator_config=evaluator1_config,
@@ -489,9 +489,9 @@ def test_evaluator_interface(multiclass_logistic_regressor_model_uri, iris_datas
             classifier_model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
             with mlflow.start_run() as run:
                 eval1_result = evaluate(
-                    classifier_model,
-                    "classifier",
-                    iris_dataset,
+                    model=classifier_model,
+                    model_type="classifier",
+                    dataset=iris_dataset,
                     run_id=None,
                     evaluators="test_evaluator1",
                     evaluator_config=evaluator1_config,
@@ -536,9 +536,9 @@ def test_evaluate_with_multi_evaluators(multiclass_logistic_regressor_model_uri,
                 classifier_model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
                 with mlflow.start_run() as run:
                     eval_result = evaluate(
-                        classifier_model,
-                        "classifier",
-                        iris_dataset,
+                        model=classifier_model,
+                        model_type="classifier",
+                        dataset=iris_dataset,
                         run_id=None,
                         evaluators=evaluators,
                         evaluator_config={

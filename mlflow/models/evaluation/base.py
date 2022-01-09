@@ -601,7 +601,7 @@ def _get_last_failed_evaluator():
 
 
 def _evaluate(
-    model, model_type, dataset, actual_run_id, evaluator_name_list, evaluator_name_to_conf_map
+    *, model, model_type, dataset, actual_run_id, evaluator_name_list, evaluator_name_to_conf_map
 ):
     """
     The public API "evaluate" will verify argument first, and then pass normalized arguments
@@ -650,6 +650,7 @@ def _evaluate(
 
 @experimental
 def evaluate(
+    *,
     model: Union[str, "mlflow.pyfunc.PyFuncModel"],
     model_type: str,
     dataset: "mlflow.models.evaluation.EvaluationDataset",
@@ -767,10 +768,10 @@ def evaluate(
 
     with _start_run_or_reuse_active_run(run_id) as actual_run_id:
         return _evaluate(
-            model,
-            model_type,
-            dataset,
-            actual_run_id,
-            evaluator_name_list,
-            evaluator_name_to_conf_map,
+            model=model,
+            model_type=model_type,
+            dataset=dataset,
+            actual_run_id=actual_run_id,
+            evaluator_name_list=evaluator_name_list,
+            evaluator_name_to_conf_map=evaluator_name_to_conf_map,
         )

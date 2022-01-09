@@ -189,6 +189,7 @@ def _gen_classifier_curve(
         xlabel = "False Positive Rate"
         ylabel = "True Positive Rate"
     elif curve_type == "pr":
+
         def gen_line_x_y_label_fn(_y, _y_prob):
             precision, recall, _thresholds = sk_metrics.precision_recall_curve(_y, _y_prob)
             ap = np.mean(precision)
@@ -221,22 +222,23 @@ def _gen_classifier_curve(
 
     def _do_plot(**kwargs):
         import matplotlib.pyplot as pyplot
+
         _, ax = plot_lines(**kwargs)
         dash_line_args = {
-            'color': 'gray',
-            'alpha': 0.3,
-            'drawstyle': 'default',
-            'linestyle': 'dashed',
+            "color": "gray",
+            "alpha": 0.3,
+            "drawstyle": "default",
+            "linestyle": "dashed",
         }
-        if curve_type == 'pr':
+        if curve_type == "pr":
             ax.plot([0, 1], [1, 0], **dash_line_args)
-        elif curve_type == 'roc':
+        elif curve_type == "roc":
             ax.plot([0, 1], [0, 1], **dash_line_args)
 
         if is_binomial:
             ax.legend(loc="best")
         else:
-            ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+            ax.legend(loc="center left", bbox_to_anchor=(1, 0.5))
             pyplot.subplots_adjust(right=0.6, bottom=0.25)
 
     return _Curve(
