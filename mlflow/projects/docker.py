@@ -107,11 +107,14 @@ def _get_paths_to_ignore(work_dir):
         return patterns
     with open(path) as f:
         for line in f:
+            clean_line = line.strip()
             # Ignore comments
-            if line.strip().startswith("#"):
+            if clean_line.startswith("#"):
                 continue
-            # Parse the line
-            patterns += [line.strip().replace("/", "")] # Trailing slashes are not part of directory names
+            # Trailing slashes are not part of directory names
+            if clean_line[-1] == "/":
+                clean_line = clean_line[:-1]
+            patterns += [clean_line]
     return patterns
 
 
