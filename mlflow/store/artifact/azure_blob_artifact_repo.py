@@ -17,7 +17,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
     following the same URI scheme as Hadoop on Azure blob storage. It requires either that:
     - Azure storage connection string is in the env var ``AZURE_STORAGE_CONNECTION_STRING``
     - Azure storage access key is in the env var ``AZURE_STORAGE_ACCESS_KEY``
-    - DefaultAzureCredential is configured
+    - ChainedTokenCredential is configured
     """
 
     def __init__(self, artifact_uri, client=None):
@@ -44,10 +44,10 @@ class AzureBlobArtifactRepository(ArtifactRepository):
             )
         else:
             try:
-                from azure.identity import DefaultAzureCredential
+                from azure.identity import ChainedTokenCredential, AzureCliCredential, EnvironmentCredential
             except ImportError as exc:
                 raise ImportError(
-                    "Using DefaultAzureCredential requires the azure-identity package. "
+                    "Using ChainedTokenCredential requires the azure-identity package. "
                     "Please install it via: pip install azure-identity"
                 ) from exc
 
@@ -55,7 +55,10 @@ class AzureBlobArtifactRepository(ArtifactRepository):
                 account=account, api_uri_suffix=api_uri_suffix
             )
             self.client = BlobServiceClient(
-                account_url=account_url, credential=DefaultAzureCredential()
+                account_url=account_url, credential=ChainedTokenCredential(
+                    EnvironmentCredential(),
+                    AzureCliCredential()
+                )
             )
 
     @staticmethod
