@@ -11,7 +11,7 @@ from mlflow.protos.databricks_pb2 import (
 )
 
 
-class TestMlflowException(object):
+class TestMlflowException:
     def test_error_code_constructor(self):
         assert (
             MlflowException("test", error_code=INVALID_PARAMETER_VALUE).error_code

@@ -475,7 +475,7 @@ def test_parse_kubernetes_config_invalid_template_job_file():
 @pytest.mark.parametrize("synchronous", [True, False])
 @mock.patch("databricks_cli.configure.provider.get_config")
 def test_credential_propagation(get_config, synchronous):
-    class DummyProcess(object):
+    class DummyProcess:
         def wait(self):
             return 0
 

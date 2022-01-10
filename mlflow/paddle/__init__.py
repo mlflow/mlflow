@@ -419,7 +419,7 @@ def _load_pyfunc(path):
     return _PaddleWrapper(load_model(path))
 
 
-class _PaddleWrapper(object):
+class _PaddleWrapper:
     """
     Wrapper class that creates a predict function such that
     predict(data: pd.DataFrame) -> model's output as pd.DataFrame (pandas DataFrame)
