@@ -261,6 +261,7 @@ _matplotlib_config = {
 
 # pylint: disable=attribute-defined-outside-init
 class DefaultEvaluator(ModelEvaluator):
+    # pylint: disable=unused-argument
     def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
         return model_type in ["classifier", "regressor"]
 
