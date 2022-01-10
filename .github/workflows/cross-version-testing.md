@@ -112,6 +112,51 @@ the previous section:
 | 1.0.1         | ✅     | The latest micro version of `1.0`                  |
 | 1.1.dev       | ✅     | The version installed by `install_dev`             |
 
+## Why do we run tests against development versions?
+
+In cross-version testing, we daily run tests against not only publicly available versions but also
+development versions installed from GitHub or nightly wheels. This section explains why.
+
+### Without dev version test
+
+First, let's take a look at what would happen **without** dev version test.
+
+```
+  |
+  ├─ XGBoost merges a change on the master branch that breaks MLflow's XGBoost integration.
+  |
+  ├─ MLflow 1.20.0 release date
+  |
+  ├─ XGBoost 1.5.0 release date
+  ├─ ❌ We notice the change here and might need to make a patch release if it's critical.
+  |
+  v
+time
+```
+
+- We can't notice the change until XGBoost 1.5.0 is released.
+- MLflow 1.20.0 doesn't work with XGBoost 1.5.0.
+
+### With dev version test
+
+Then, let's take a look at what would happen **with** dev version test.
+
+```
+  |
+  ├─ XGBoost merges a change on the master branch that breaks MLflow's XGBoost integration.
+  ├─ ✅ Tests for the XGBoost integration fail -> We can notice the change and apply a fix for it.
+  |
+  ├─ MLflow 1.20.0 release date
+  |
+  ├─ XGBoost 1.5.0 release date
+  |
+  v
+time
+```
+
+- We can notice the change **before XGBoost 1.5.0 is released** and apply a fix for it **before releasing MLflow 1.20.0**.
+- MLflow 1.20.0 works with XGBoost 1.5.0.
+
 ## When do we run cross version tests?
 
 1. Daily at 7:00 UTC using a cron scheduler.
