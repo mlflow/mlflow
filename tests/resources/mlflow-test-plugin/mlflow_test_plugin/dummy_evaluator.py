@@ -23,7 +23,8 @@ class Array2DEvaluationArtifact(EvaluationArtifact):
 
 
 class DummyEvaluator(ModelEvaluator):
-    def can_evaluate(self, model_type, evaluator_config=None, **kwargs):
+    # pylint: disable=unused-argument
+    def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
         return model_type in ["classifier", "regressor"]
 
     def _log_metrics(self, run_id, metrics, dataset_name):
@@ -40,11 +41,13 @@ class DummyEvaluator(ModelEvaluator):
             ],
         )
 
+    # pylint: disable=unused-argument
     def evaluate(
-        self, model, model_type, dataset, run_id, evaluator_config=None, **kwargs
+        self, *, model, model_type, dataset, run_id, evaluator_config, **kwargs
     ) -> EvaluationResult:
         client = mlflow.tracking.MlflowClient()
-        X, y = dataset._extract_features_and_labels()
+        X = dataset.features_data
+        y = dataset.labels_data
         y_pred = model.predict(X)
         if model_type == "classifier":
             accuracy_score = sk_metrics.accuracy_score(y, y_pred)
