@@ -74,6 +74,11 @@ def log_model(
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
 
+    :return: A `ModelInfo` namedtuple instance that contains the metadata of the logged model,
+             including: `run_id`, `artifact_path`, `model_uri`, `utc_time_created`, `flavors`,
+             `model_uuid`, `saved_input_example_info`, `signature`, `input_schema`, and
+             `output_schema`.
+
 
 
     .. code-block:: python

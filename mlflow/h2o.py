@@ -210,8 +210,12 @@ def log_model(
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param kwargs: kwargs to pass to ``h2o.save_model`` method.
+    :return: A `ModelInfo` namedtuple instance that contains the metadata of the logged model,
+             including: `run_id`, `artifact_path`, `model_uri`, `utc_time_created`, `flavors`,
+             `model_uuid`, `saved_input_example_info`, `signature`, `input_schema`, and
+             `output_schema`.
     """
-    Model.log(
+    return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.h2o,
         registered_model_name=registered_model_name,

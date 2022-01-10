@@ -127,7 +127,7 @@ class Model:
         # pylint: disable=attribute-defined-outside-init
         self._saved_input_example_info = value
 
-    def get_model_info(self) -> ModelInfo:
+    def get_model_info(self):
         """Create a ModelInfo instance that contains the model metadata."""
         return ModelInfo(
             run_id=self.run_id,
@@ -236,6 +236,11 @@ class Model:
                             waits for five minutes. Specify 0 or None to skip waiting.
 
         :param kwargs: Extra args passed to the model flavor.
+
+        :return: A `ModelInfo` namedtuple instance that contains the metadata of the logged model,
+                 including: `run_id`, `artifact_path`, `model_uri`, `utc_time_created`, `flavors`,
+                 `model_uuid`, `saved_input_example_info`, `signature`, `input_schema`, and
+                 `output_schema`.
         """
         with TempDir() as tmp:
             local_path = tmp.path("model")
