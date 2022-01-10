@@ -46,7 +46,7 @@ ModelInfo = namedtuple(
 )
 
 
-class Model(object):
+class Model:
     """
     An MLflow Model that can support multiple model flavors. Provides APIs for implementing
     new Model flavors.

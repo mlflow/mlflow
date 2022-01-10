@@ -1,7 +1,10 @@
 import pytest
+from unittest import mock
 
 from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.utils.models import _parse_model_uri
+from mlflow.store.artifact.utils.models import _parse_model_uri, get_model_name_and_version
+from mlflow.tracking import MlflowClient
+from mlflow.entities.model_registry import ModelVersion
 
 
 @pytest.mark.parametrize(
@@ -36,12 +39,29 @@ def test_parse_models_uri_with_stage(uri, expected_name, expected_stage):
 
 
 @pytest.mark.parametrize(
+    "uri, expected_name",
+    [
+        ("models:/AdsModel1/latest", "AdsModel1"),
+        ("models:/Ads Model 1/latest", "Ads Model 1"),
+        ("models://scope:key@databricks/Ads Model 1/latest", "Ads Model 1"),
+    ],
+)
+def test_parse_models_uri_with_latest(uri, expected_name):
+    (name, version, stage) = _parse_model_uri(uri)
+    assert name == expected_name
+    assert version is None
+    assert stage is None
+
+
+@pytest.mark.parametrize(
     "uri",
     [
         "notmodels:/NameOfModel/12345",  # wrong scheme with version
         "notmodels:/NameOfModel/StageName",  # wrong scheme with stage
         "models:/",  # no model name
         "models:/Name/Stage/0",  # too many specifiers
+        "models:/Name/production",  # should be 'Production'
+        "models:/Name/LATEST",  # not lower case 'latest'
         "models:Name/Stage",  # missing slash
         "models://Name/Stage",  # hostnames are ignored, path too short
     ],
@@ -49,3 +69,53 @@ def test_parse_models_uri_with_stage(uri, expected_name, expected_stage):
 def test_parse_models_uri_invalid_input(uri):
     with pytest.raises(MlflowException, match="Not a proper models"):
         _parse_model_uri(uri)
+
+
+def test_get_model_name_and_version_with_version():
+    with mock.patch.object(
+        MlflowClient, "get_latest_versions", return_value=[]
+    ) as mlflow_client_mock:
+        assert get_model_name_and_version(MlflowClient(), "models:/AdsModel1/123") == (
+            "AdsModel1",
+            "123",
+        )
+        mlflow_client_mock.assert_not_called()
+
+
+def test_get_model_name_and_version_with_stage():
+    with mock.patch.object(
+        MlflowClient,
+        "get_latest_versions",
+        return_value=[
+            ModelVersion(
+                name="mv1", version="10", creation_timestamp=123, current_stage="Production"
+            ),
+            ModelVersion(
+                name="mv2", version="15", creation_timestamp=124, current_stage="Production"
+            ),
+        ],
+    ) as mlflow_client_mock:
+        assert get_model_name_and_version(MlflowClient(), "models:/AdsModel1/Production") == (
+            "AdsModel1",
+            "15",
+        )
+        mlflow_client_mock.assert_called_once_with("AdsModel1", ["Production"])
+
+
+def test_get_model_name_and_version_with_latest():
+    with mock.patch.object(
+        MlflowClient,
+        "get_latest_versions",
+        return_value=[
+            ModelVersion(
+                name="mv1", version="10", creation_timestamp=123, current_stage="Production"
+            ),
+            ModelVersion(name="mv3", version="20", creation_timestamp=125, current_stage="None"),
+            ModelVersion(name="mv2", version="15", creation_timestamp=124, current_stage="Staging"),
+        ],
+    ) as mlflow_client_mock:
+        assert get_model_name_and_version(MlflowClient(), "models:/AdsModel1/latest") == (
+            "AdsModel1",
+            "20",
+        )
+        mlflow_client_mock.assert_called_once_with("AdsModel1", None)

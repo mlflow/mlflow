@@ -5,6 +5,7 @@ import sqlalchemy
 
 from mlflow.entities.model_registry.model_version_stages import (
     get_canonical_stage,
+    ALL_STAGES,
     DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS,
     STAGE_DELETED_INTERNAL,
     STAGE_ARCHIVED,
@@ -432,7 +433,7 @@ class SqlAlchemyStore(AbstractStore):
 
         :param name: Registered model name.
         :param stages: List of desired stages. If input list is None, return latest versions for
-                       for 'Staging' and 'Production' stages.
+                       each stage.
         :return: List of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
         """
         with self.ManagedSessionMaker() as session:
@@ -440,9 +441,7 @@ class SqlAlchemyStore(AbstractStore):
             # Convert to RegisteredModel entity first and then extract latest_versions
             latest_versions = sql_registered_model.to_mlflow_entity().latest_versions
             if stages is None or len(stages) == 0:
-                expected_stages = set(
-                    [get_canonical_stage(stage) for stage in DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS]
-                )
+                expected_stages = set([get_canonical_stage(stage) for stage in ALL_STAGES])
             else:
                 expected_stages = set([get_canonical_stage(stage) for stage in stages])
             return [mv for mv in latest_versions if mv.current_stage in expected_stages]

@@ -9,12 +9,12 @@ import pyspark
 from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.pipeline import Pipeline
-from pyspark.ml.wrapper import JavaModel
 import pytest
 from sklearn import datasets
 import shutil
 from collections import namedtuple
 import yaml
+from packaging.version import Version
 
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
@@ -62,6 +62,22 @@ SparkModelWithData = namedtuple(
 # other tests.
 @pytest.fixture(scope="session", autouse=True)
 def spark_context():
+    if Version(pyspark.__version__) < Version("3.1"):
+        # A workaround for this issue:
+        # https://stackoverflow.com/questions/62109276/errorjava-lang-unsupportedoperationexception-for-pyspark-pandas-udf-documenta
+        spark_home = (
+            os.environ.get("SPARK_HOME")
+            if "SPARK_HOME" in os.environ
+            else os.path.dirname(pyspark.__file__)
+        )
+        conf_dir = os.path.join(spark_home, "conf")
+        os.makedirs(conf_dir, exist_ok=True)
+        with open(os.path.join(conf_dir, "spark-defaults.conf"), "w") as f:
+            conf = """
+spark.driver.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
+spark.executor.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
+"""
+            f.write(conf)
     conf = pyspark.SparkConf()
     max_tries = 3
     for num_tries in range(max_tries):
@@ -633,23 +649,6 @@ def test_pyspark_version_is_logged_without_dev_suffix(spark_model_iris):
         with mock.patch("importlib_metadata.version", return_value=unaffected_version):
             pip_deps = _get_pip_deps(sparkm.get_default_conda_env())
             assert any(x == f"pyspark=={unaffected_version}" for x in pip_deps)
-
-
-@pytest.mark.large
-def test_spark_module_model_save_with_mleap_and_unsupported_transformer_raises_exception(
-    spark_model_iris, model_path
-):
-    class CustomTransformer(JavaModel):
-        def _transform(self, dataset):
-            return dataset
-
-    unsupported_pipeline = Pipeline(stages=[CustomTransformer()])
-    unsupported_model = unsupported_pipeline.fit(spark_model_iris.spark_df)
-
-    with pytest.raises(ValueError, match="CustomTransformer"):
-        sparkm.save_model(
-            spark_model=unsupported_model, path=model_path, sample_input=spark_model_iris.spark_df
-        )
 
 
 def test_shutil_copytree_without_file_permissions(tmpdir):

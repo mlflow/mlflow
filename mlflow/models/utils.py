@@ -14,7 +14,7 @@ from scipy.sparse import csr_matrix, csc_matrix
 ModelInputExample = Union[pd.DataFrame, np.ndarray, dict, list, csr_matrix, csc_matrix]
 
 
-class _Example(object):
+class _Example:
     """
     Represents an input example for MLflow model.
 
@@ -234,3 +234,22 @@ def _read_sparse_matrix_from_json(path, example_type):
             return csc_matrix((data, indices, indptr), shape=shape)
         else:
             return csr_matrix((data, indices, indptr), shape=shape)
+
+
+def plot_lines(data_series, xlabel, ylabel, legend_loc=None, line_kwargs=None):
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots()
+
+    if line_kwargs is None:
+        line_kwargs = {}
+
+    for label, data_x, data_y in data_series:
+        ax.plot(data_x, data_y, label=label, **line_kwargs)
+
+    if legend_loc:
+        ax.legend(loc=legend_loc)
+
+    ax.set(xlabel=xlabel, ylabel=ylabel)
+
+    return fig, ax

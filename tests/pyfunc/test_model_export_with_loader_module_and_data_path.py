@@ -26,7 +26,7 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 from tests.helper_functions import _assert_pip_requirements
 
 
-class TestModel(object):
+class TestModel:
     @staticmethod
     def predict(pdf):
         return pdf

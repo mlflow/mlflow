@@ -23,7 +23,6 @@ import logging
 import posixpath
 import re
 import shutil
-import traceback
 import uuid
 import yaml
 
@@ -69,10 +68,6 @@ DFS_TMP = "/tmp/mlflow"
 _SPARK_MODEL_PATH_SUB = "sparkml"
 
 _logger = logging.getLogger(__name__)
-
-
-def _format_exception(ex):
-    return "".join(traceback.format_exception(type(ex), ex, ex.__traceback__))
 
 
 def get_default_pip_requirements():
@@ -713,7 +708,7 @@ def _load_pyfunc(path):
     return _PyFuncModelWrapper(spark, _load_model(model_uri=path))
 
 
-class _PyFuncModelWrapper(object):
+class _PyFuncModelWrapper:
     """
     Wrapper around Spark MLlib PipelineModel providing interface for scoring pandas DataFrame.
     """

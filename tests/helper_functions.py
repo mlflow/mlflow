@@ -304,7 +304,7 @@ def mock_s3_bucket():
         yield bucket_name
 
 
-class safe_edit_yaml(object):
+class safe_edit_yaml:
     def __init__(self, root, file_name, edit_func):
         self._root = root
         self._file_name = file_name

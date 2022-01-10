@@ -24,8 +24,10 @@ runs:
           python_version="3.6.13"
         elif [[ "$python_version" == "3.7" ]]; then
           python_version="3.7.12"
+        elif [[ "$python_version" == "3.8" ]]; then
+          python_version="3.8.12"
         else
-          echo "Invalid python version: '$python_version'. Must be one of ['3.6', '3.7']"
+          echo "Invalid python version: '$python_version'. Must be one of ['3.6', '3.7', '3.8']"
           exit 1
         fi
         echo "::set-output name=version::$python_version"

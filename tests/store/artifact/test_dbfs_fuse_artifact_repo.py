@@ -58,7 +58,7 @@ def test_dir(files_dir):
     return files_dir
 
 
-class TestDbfsFuseArtifactRepository(object):
+class TestDbfsFuseArtifactRepository:
     @pytest.mark.parametrize("artifact_path", [None, "output", ""])
     def test_log_artifact(self, dbfs_fuse_artifact_repo, test_file, artifact_path, artifact_dir):
         dbfs_fuse_artifact_repo.log_artifact(test_file.strpath, artifact_path)

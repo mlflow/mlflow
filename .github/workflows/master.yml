@@ -11,8 +11,8 @@ on:
       - branch-[0-9]+.[0-9]+
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_number || github.ref }}
+  cancel-in-progress: true
 
 # Use `bash --noprofile --norc -exo pipefail` by default for all `run` steps in this workflow:
 # https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#defaultsrun
@@ -49,34 +49,21 @@ jobs:
         ./dev/lint.sh
   r:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mlflow/R/mlflow
     steps:
-    - name: Uninstall default-jdk and adoptopenjdk-11-hotspot if present
-      run: |
-        # deleting other version(s) of JDK because they are not needed and they might interfere with JNI linker configuration in the 'setup-r' step
-        sudo apt-get -y remove --purge default-jdk adoptopenjdk-11-hotspot || :
-    - uses: actions/checkout@master
+    - uses: actions/checkout@v2
     - uses: actions/setup-java@v2
       with:
-        # GitHub Actions' Ubuntu 20.04 image uses Java 11 (which is incompatible with Spark 2.4.x) by default:
-        # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md#java
-        java-version: 8
+        java-version: 11
         distribution: 'adopt'
-    - name: Re-configure dynamic linker run-time bindings for adoptopenjdk-8-hotspot-amd64
-      run: |
-        sudo mkdir -p /etc/ld.so.conf.d
-        sudo bash -c "cat > /etc/ld.so.conf.d/jre.conf <<< '/usr/lib/jvm/adoptopenjdk-8-hotspot-amd64/jre/lib/amd64/server'"
-        sudo ldconfig -v
     - uses: r-lib/actions/setup-r@v1
     # This step dumps the current set of R dependencies and R version into files to be used
     # as a cache key when caching/restoring R dependencies.
-    - name: Query dependencies
+    - name: Dump dependencies
       run: |
-        print(R.version)
-        install.packages('remotes')
-        saveRDS(remotes::dev_package_deps("mlflow/R/mlflow", dependencies = TRUE), ".github/depends.Rds", version = 2)
-        writeLines(sprintf("R-%i.%i", getRversion()$major, getRversion()$minor), ".github/R-version")
-      shell: Rscript {0}
-
+        Rscript -e 'source(".dump-r-dependencies.R", echo = TRUE)'
     - name: Get OS name
       id: os-name
       run: |
@@ -89,62 +76,22 @@ jobs:
         path: ${{ env.R_LIBS_USER }}
         # We cache R dependencies based on a tuple of the current OS, the R version, and the list of
         # R dependencies
-        key: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('.github/R-version') }}-1-${{ hashFiles('.github/depends.Rds') }}
-    - name: Install system dependencies
-      run: |
-        sudo apt-get install -y libcurl4-openssl-dev
-        sudo R CMD javareconf
+        key: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('mlflow/R/mlflow/R-version') }}-1-${{ hashFiles('mlflow/R/mlflow/depends.Rds') }}
     - name: Install dependencies
-      working-directory: mlflow/R/mlflow
       run: |
-        install.packages("devtools")
-        remotes::install_deps('.', dependencies = TRUE, upgrade = FALSE)
-      shell: Rscript {0}
-    - name: Create test environment
-      run: |
-        source ./dev/install-common-deps.sh
-        cd mlflow/R/mlflow
-        R CMD build .
-        cd tests
-        Rscript -e 'source("../.create-test-env.R", echo=TRUE)'
-    - name: Run tests
-      env:
-        # Hack to get around this issue:
-        # https://stat.ethz.ch/pipermail/r-package-devel/2020q3/005930.html
-        #
-        # The system clock check during `R CMD check` relies on two external web APIs and fails
-        # when they are unavailable. By setting `_R_CHECK_SYSTEM_CLOCK_` to FALSE, we can skip it:
-        # https://github.com/wch/r-source/blob/59a1965239143ca6242b9cc948d8834e1194e84a/src/library/tools/R/check.R#L511
-        _R_CHECK_SYSTEM_CLOCK_: FALSE
-      run: |
-        export LINTR_COMMENT_BOT=false
-        cd mlflow/R/mlflow/tests
-        # `devtools::check_built` requires `pandoc` to analyze README.md
-        sudo apt-get install pandoc -y
-        Rscript -e 'source("../.run-tests.R", echo=TRUE)'
-    - name: Calculate code coverage
-      if: ${{ success() }}
-      run: |
-        export MLFLOW_HOME=$(pwd)
-        cd mlflow/R/mlflow/tests
-        Rscript -e 'covr::codecov()' || :
-      env:
-        COVR_RUNNING: true
-    - name: Test package build
-      working-directory: mlflow/R/mlflow
+        Rscript -e 'source(".install-deps.R", echo=TRUE)'
+    - name: Build package
       run: |
         ./build-package.sh
-    - name: Show 00check.log on failure
-      if: ${{ failure() }}
+    - name: Create test environment
       run: |
-        LOG_FILE="${HOME}/build/mlflow/mlflow/mlflow/R/mlflow/mlflow.Rcheck/00check.log"
-        [ -r "${LOG_FILE}" ] && cat "${LOG_FILE}"
-        cp "${LOG_FILE}" /tmp
-    - uses: actions/upload-artifact@v1
-      if: failure()
-      with:
-        name: 00check.log
-        path: /tmp/00check.log
+        Rscript -e 'source(".create-test-env.R", echo=TRUE)'
+    - name: Run tests
+      env:
+        LINTR_COMMENT_BOT: false
+      run: |
+        cd tests
+        Rscript -e 'source("../.run-tests.R", echo=TRUE)'
 
   # python-skinny tests cover a subset of mlflow functionality
   # that is meant to be supported with a smaller dependency footprint.
@@ -197,9 +144,7 @@ jobs:
         python-version: 3.6
     - uses: actions/setup-java@v2
       with:
-        # GitHub Actions' Ubuntu 20.04 image uses Java 11 (which is incompatible with Spark 2.4.x) by default:
-        # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md#java
-        java-version: 8
+        java-version: 11
         distribution: 'adopt'
     - uses: ./.github/actions/cache-pip
     - name: Install dependencies
@@ -245,7 +190,7 @@ jobs:
     - name: Set up Java
       uses: actions/setup-java@v2
       with:
-        java-version: 8
+        java-version: 11
         distribution: 'adopt'
     - name: Install dependencies
       run: |
@@ -267,7 +212,7 @@ jobs:
     - name: Set up Node
       uses: actions/setup-node@v1
       with:
-        node-version: 10.x
+        node-version: 14.x
     - name: Install dependencies
       run: |
         npm i
@@ -314,7 +259,7 @@ jobs:
           python-version: 3.6
       - uses: actions/setup-java@v2
         with:
-          java-version: 8
+          java-version: 11
           distribution: 'adopt'
       - uses: ./.github/actions/cache-pip
       - name: Install dependencies
@@ -342,7 +287,7 @@ jobs:
           python-version: 3.6
       - uses: actions/setup-java@v2
         with:
-          java-version: 8
+          java-version: 11
           distribution: 'adopt'
       - name: Install dependencies
         env:
@@ -387,7 +332,7 @@ jobs:
           python-version: 3.6
       - uses: actions/setup-java@v2
         with:
-          java-version: 8
+          java-version: 11
           distribution: 'adopt'
       - name: Install dependencies
         env:
@@ -419,7 +364,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v1
         with:
-          node-version: 10.x
+          node-version: 14.x
       - name: Install JS dependencies
         working-directory: mlflow/server/js
         shell: pwsh

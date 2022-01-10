@@ -58,7 +58,7 @@ def test_model_save_load():
     assert m.to_yaml() == o.to_yaml()
 
 
-class TestFlavor(object):
+class TestFlavor:
     @classmethod
     def save_model(cls, path, mlflow_model, signature=None, input_example=None):
         mlflow_model.flavors["flavor1"] = {"a": 1, "b": 2}
