@@ -87,9 +87,10 @@ public class ModelRegistryMlflowClientTest {
 
         client.sendPatch("model-versions/update", mapper.makeUpdateModelVersion(modelName,
                 "1"));
-        // default stages (does not include "None")
+        // get the latest version of all stages
         List<ModelVersion> modelVersion = client.getLatestVersions(modelName);
-        Assert.assertEquals(modelVersion.size(), 0);
+        Assert.assertEquals(modelVersion.size(), 1);
+        validateDetailedModelVersion(modelVersion.get(0), modelName, "None", "1");
         client.sendPost("model-versions/transition-stage",
                 mapper.makeTransitionModelVersionStage(modelName, "1", "Staging"));
         modelVersion = client.getLatestVersions(modelName);

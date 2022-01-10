@@ -19,6 +19,7 @@ class ModelsArtifactRepository(ArtifactRepository):
     Handles artifacts associated with a model version in the model registry via URIs of the form:
       - `models:/<model_name>/<model_version>`
       - `models:/<model_name>/<stage>`  (refers to the latest model version in the given stage)
+      - `models:/<model_name>/latest` (refers to the latest of all model versions)
     It is a light wrapper that resolves the artifact path to an absolute URI then instantiates
     and uses the artifact repository for that URI.
     """
