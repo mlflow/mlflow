@@ -23,7 +23,7 @@ class Array2DEvaluationArtifact(EvaluationArtifact):
 
 
 class DummyEvaluator(ModelEvaluator):
-    def can_evaluate(self, model_type, evaluator_config=None, **kwargs):
+    def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
         return model_type in ["classifier", "regressor"]
 
     def _log_metrics(self, run_id, metrics, dataset_name):
@@ -41,7 +41,7 @@ class DummyEvaluator(ModelEvaluator):
         )
 
     def evaluate(
-        self, model, model_type, dataset, run_id, evaluator_config=None, **kwargs
+        self, *, model, model_type, dataset, run_id, evaluator_config, **kwargs
     ) -> EvaluationResult:
         client = mlflow.tracking.MlflowClient()
         X = dataset.features_data

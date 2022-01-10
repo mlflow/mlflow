@@ -261,7 +261,7 @@ _matplotlib_config = {
 
 # pylint: disable=attribute-defined-outside-init
 class DefaultEvaluator(ModelEvaluator):
-    def can_evaluate(self, model_type, evaluator_config=None, **kwargs):
+    def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
         return model_type in ["classifier", "regressor"]
 
     def _log_metrics(self):
@@ -616,6 +616,7 @@ class DefaultEvaluator(ModelEvaluator):
 
     def evaluate(
         self,
+        *,
         model: "mlflow.pyfunc.PyFuncModel",
         model_type,
         dataset,

@@ -449,7 +449,7 @@ class EvaluationDataset:
 
 class ModelEvaluator(metaclass=ABCMeta):
     @abstractmethod
-    def can_evaluate(self, *, model_type, evaluator_config=None, **kwargs) -> bool:
+    def can_evaluate(self, *, model_type, evaluator_config, **kwargs) -> bool:
         """
         :param model_type: A string describing the model type (e.g., "regressor",
                            "classifier", …).
