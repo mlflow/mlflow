@@ -65,7 +65,7 @@ Server & UI. It also adds project backends such as Docker and Kubernetes among
 other capabilities.
 """
 CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + [
-    "alembic<1.7.0",
+    "alembic",
     # Required
     "docker>=4.0.0",
     "Flask",
