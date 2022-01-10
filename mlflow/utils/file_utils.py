@@ -181,7 +181,7 @@ def read_yaml(root, file_name):
         raise e
 
 
-class TempDir(object):
+class TempDir:
     def __init__(self, chdr=False, remove_on_exit=True):
         self._dir = None
         self._path = None

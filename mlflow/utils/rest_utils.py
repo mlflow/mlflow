@@ -291,7 +291,7 @@ def cloud_storage_http_request(
         raise MlflowException("API request failed with exception %s" % e)
 
 
-class MlflowHostCreds(object):
+class MlflowHostCreds:
     """
     Provides a hostname and optional authentication for talking to an MLflow tracking server.
     :param host: Hostname (e.g., http://localhost:5000) to MLflow server. Required.

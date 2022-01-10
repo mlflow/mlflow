@@ -31,7 +31,7 @@ def score_model_as_udf(model_uri, pandas_df, result_type="double"):
     return [x["prediction"] for x in new_df.collect()]
 
 
-class ConstantPyfuncWrapper(object):
+class ConstantPyfuncWrapper:
     @staticmethod
     def predict(model_input):
         m, _ = model_input.shape

@@ -73,7 +73,7 @@ def test_dir(tmpdir):
     return tmpdir
 
 
-class TestDatabricksArtifactRepository(object):
+class TestDatabricksArtifactRepository:
     def test_init_validation_and_cleaning(self):
         with mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_run_artifact_root"

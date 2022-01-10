@@ -29,7 +29,7 @@ from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri
 from collections import OrderedDict
 
 
-class TrackingServiceClient(object):
+class TrackingServiceClient:
     """
     Client of an MLflow Tracking Server that creates and manages experiments and runs.
     """

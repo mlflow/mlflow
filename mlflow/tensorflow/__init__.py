@@ -455,7 +455,7 @@ def _load_pyfunc(path):
     return _TF2Wrapper(model=loaded_model, infer=loaded_model.signatures[tf_signature_def_key])
 
 
-class _TF2Wrapper(object):
+class _TF2Wrapper:
     """
     Wrapper class that exposes a TensorFlow model for inference via a ``predict`` function such that
     ``predict(data: pandas.DataFrame) -> pandas.DataFrame``. For TensorFlow versions >= 2.0.0.

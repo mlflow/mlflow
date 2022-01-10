@@ -19,7 +19,7 @@ _logger = logging.getLogger(__name__)
 AWAIT_MODEL_VERSION_CREATE_SLEEP_DURATION_SECONDS = 3
 
 
-class ModelRegistryClient(object):
+class ModelRegistryClient:
     """
     Client of an MLflow Model Registry Server that creates and manages registered
     models and model versions.

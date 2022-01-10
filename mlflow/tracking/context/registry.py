@@ -13,7 +13,7 @@ from mlflow.tracking.context.databricks_command_context import DatabricksCommand
 _logger = logging.getLogger(__name__)
 
 
-class RunContextProviderRegistry(object):
+class RunContextProviderRegistry:
     """Registry for run context provider implementations
 
     This class allows the registration of a run context provider which can be used to infer meta

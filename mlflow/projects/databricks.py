@@ -69,7 +69,7 @@ def before_run_validations(tracking_uri, backend_config):
         )
 
 
-class DatabricksJobRunner(object):
+class DatabricksJobRunner:
     """
     Helper class for running an MLflow project as a Databricks Job.
     :param databricks_profile: Optional Databricks CLI profile to use to fetch hostname &

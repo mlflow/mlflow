@@ -74,7 +74,7 @@ def test_registry_instance_defaults():
 
 
 def test_registry_instance_loads_entrypoints():
-    class MockRunContext(object):
+    class MockRunContext:
         pass
 
     mock_entrypoint = mock.Mock()
