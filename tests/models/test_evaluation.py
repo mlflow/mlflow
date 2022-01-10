@@ -479,7 +479,9 @@ def test_evaluator_interface(multiclass_logistic_regressor_model_uri, iris_datas
                         evaluators="test_evaluator1",
                         evaluator_config=evaluator1_config,
                     )
-                mock_can_evaluate.assert_called_once_with("classifier", evaluator1_config)
+                mock_can_evaluate.assert_called_once_with(
+                    model_type="classifier", evaluator_config=evaluator1_config
+                )
                 mock_evaluate.assert_not_called()
         with mock.patch.object(
             FakeEvauator1, "can_evaluate", return_value=True
@@ -499,9 +501,15 @@ def test_evaluator_interface(multiclass_logistic_regressor_model_uri, iris_datas
                 assert eval1_result.metrics == evaluator1_return_value.metrics
                 assert eval1_result.artifacts == evaluator1_return_value.artifacts
 
-                mock_can_evaluate.assert_called_once_with("classifier", evaluator1_config)
+                mock_can_evaluate.assert_called_once_with(
+                    model_type="classifier", evaluator_config=evaluator1_config
+                )
                 mock_evaluate.assert_called_once_with(
-                    classifier_model, "classifier", iris_dataset, run.info.run_id, evaluator1_config
+                    model=classifier_model,
+                    model_type="classifier",
+                    dataset=iris_dataset,
+                    run_id=run.info.run_id,
+                    evaluator_config=evaluator1_config,
                 )
 
 
@@ -554,21 +562,26 @@ def test_evaluate_with_multi_evaluators(multiclass_logistic_regressor_model_uri,
                         **evaluator1_return_value.artifacts,
                         **evaluator2_return_value.artifacts,
                     }
-                    mock_can_evaluate1.assert_called_once_with("classifier", evaluator1_config)
-                    mock_evaluate1.assert_called_once_with(
-                        classifier_model,
-                        "classifier",
-                        iris_dataset,
-                        run.info.run_id,
-                        evaluator1_config,
+                    mock_can_evaluate1.assert_called_once_with(
+                        model_type="classifier", evaluator_config=evaluator1_config
                     )
-                    mock_can_evaluate2.assert_called_once_with("classifier", evaluator2_config)
+                    mock_evaluate1.assert_called_once_with(
+                        model=classifier_model,
+                        model_type="classifier",
+                        dataset=iris_dataset,
+                        run_id=run.info.run_id,
+                        evaluator_config=evaluator1_config,
+                    )
+                    mock_can_evaluate2.assert_called_once_with(
+                        model_type="classifier",
+                        evaluator_config=evaluator2_config,
+                    )
                     mock_evaluate2.assert_called_once_with(
-                        classifier_model,
-                        "classifier",
-                        iris_dataset,
-                        run.info.run_id,
-                        evaluator2_config,
+                        model=classifier_model,
+                        model_type="classifier",
+                        dataset=iris_dataset,
+                        run_id=run.info.run_id,
+                        evaluator_config=evaluator2_config,
                     )
 
 

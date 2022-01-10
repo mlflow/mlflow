@@ -16,6 +16,7 @@ import struct
 import sys
 import math
 from collections import OrderedDict
+from abc import ABCMeta, abstractmethod
 
 
 _logger = logging.getLogger(__name__)
@@ -29,7 +30,7 @@ class EvaluationMetrics(dict):
     pass
 
 
-class EvaluationArtifact:
+class EvaluationArtifact(metaclass=ABCMeta):
     """
     A model evaluation artifact containing an artifact uri and content.
     """
@@ -38,12 +39,13 @@ class EvaluationArtifact:
         self._uri = uri
         self._content = content
 
+    @abstractmethod
     def _load_content_from_file(self, local_artifact_path):
         """
         Abstract interface to load the content from local artifact file path,
         and return the loaded content.
         """
-        raise NotImplementedError()
+        pass
 
     def load(self, local_artifact_path=None):
         """
@@ -61,9 +63,10 @@ class EvaluationArtifact:
                 self._content = self._load_content_from_file(local_artifact_file)
         return self._content
 
+    @abstractmethod
     def save(self, output_artifact_path):
         """Save artifact content into specified path."""
-        raise NotImplementedError()
+        pass
 
     @property
     def content(self):
@@ -444,8 +447,9 @@ class EvaluationDataset:
         )
 
 
-class ModelEvaluator:
-    def can_evaluate(self, model_type, evaluator_config=None, **kwargs) -> bool:
+class ModelEvaluator(metaclass=ABCMeta):
+    @abstractmethod
+    def can_evaluate(self, *, model_type, evaluator_config=None, **kwargs) -> bool:
         """
         :param model_type: A string describing the model type (e.g., "regressor",
                            "classifier", …).
@@ -459,15 +463,8 @@ class ModelEvaluator:
         """
         raise NotImplementedError()
 
-    def evaluate(
-        self,
-        model,
-        model_type,
-        dataset,
-        run_id,
-        evaluator_config,
-        **kwargs,
-    ):
+    @abstractmethod
+    def evaluate(self, *, model, model_type, dataset, run_id, evaluator_config, **kwargs):
         """
         The abstract API to log metrics and artifacts, and return evaluation results.
 
@@ -627,9 +624,15 @@ def _evaluate(
             continue
 
         _last_failed_evaluator = evaluator_name
-        if evaluator.can_evaluate(model_type, config):
+        if evaluator.can_evaluate(model_type=model_type, evaluator_config=config):
             _logger.info(f"Evaluating the model with the {evaluator_name} evaluator.")
-            result = evaluator.evaluate(model, model_type, dataset, actual_run_id, config)
+            result = evaluator.evaluate(
+                model=model,
+                model_type=model_type,
+                dataset=dataset,
+                run_id=actual_run_id,
+                evaluator_config=config,
+            )
             eval_results.append(result)
 
     _last_failed_evaluator = None
