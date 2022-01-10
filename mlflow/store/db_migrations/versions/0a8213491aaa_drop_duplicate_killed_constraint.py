@@ -31,7 +31,8 @@ def upgrade():
     # operation is expected to fail under certain circumstances, we execute `drop_constraint()`
     # outside of the batch operation context.
     try:
-        op.drop_constraint(constraint_name="status", table_name="runs", type_="check")
+        # op.drop_constraint(constraint_name="status", table_name="runs", type_="check")
+        pass
     except Exception as e:
         _logger.warning(
             "Failed to drop check constraint. Dropping check constraints may not be supported"
