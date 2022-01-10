@@ -68,7 +68,7 @@ class DataType(Enum):
         return getattr(pyspark.sql.types, self._spark_type)()
 
 
-class ColSpec(object):
+class ColSpec:
     """
     Specification of name and type of a single column in a dataset.
     """
@@ -119,7 +119,7 @@ class ColSpec(object):
             return "{name}: {type}".format(name=repr(self.name), type=repr(self.type))
 
 
-class TensorInfo(object):
+class TensorInfo:
     """
     Representation of the shape and type of a Tensor.
     """
@@ -181,7 +181,7 @@ class TensorInfo(object):
         return "Tensor({type}, {shape})".format(type=repr(self.dtype.name), shape=repr(self.shape))
 
 
-class TensorSpec(object):
+class TensorSpec:
     """
     Specification used to represent a dataset stored as a Tensor.
     """
@@ -249,7 +249,7 @@ class TensorSpec(object):
             return "{name}: {info}".format(name=repr(self.name), info=repr(self._tensorInfo))
 
 
-class Schema(object):
+class Schema:
     """
     Specification of a dataset.
 

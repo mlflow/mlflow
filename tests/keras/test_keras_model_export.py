@@ -191,7 +191,7 @@ def keras_custom_env(tmpdir):
 
 @pytest.mark.allow_infer_pip_requirements_fallback
 def test_that_keras_module_arg_works(model_path):
-    class MyModel(object):
+    class MyModel:
         def __init__(self, x):
             self._x = x
 
@@ -203,7 +203,7 @@ def test_that_keras_module_arg_works(model_path):
             with h5py.File(path, "w") as f:
                 f.create_dataset(name="x", data=self._x)
 
-    class FakeKerasModule(object):
+    class FakeKerasModule:
         __name__ = "some.test.keras.module"
         __version__ = "42.42.42"
 

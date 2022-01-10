@@ -563,7 +563,7 @@ def _enforce_schema(pfInput: PyFuncInput, input_schema: Schema):
     )
 
 
-class PyFuncModel(object):
+class PyFuncModel:
     """
     MLflow 'python function' model.
 

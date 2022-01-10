@@ -14,7 +14,7 @@ from scipy.sparse import csr_matrix, csc_matrix
 ModelInputExample = Union[pd.DataFrame, np.ndarray, dict, list, csr_matrix, csc_matrix]
 
 
-class _Example(object):
+class _Example:
     """
     Represents an input example for MLflow model.
 

@@ -24,7 +24,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 import math
 
 
-class SearchUtils(object):
+class SearchUtils:
     LIKE_OPERATOR = "LIKE"
     ILIKE_OPERATOR = "ILIKE"
     ASC_OPERATOR = "asc"

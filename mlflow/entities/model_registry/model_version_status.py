@@ -1,7 +1,7 @@
 from mlflow.protos.model_registry_pb2 import ModelVersionStatus as ProtoModelVersionStatus
 
 
-class ModelVersionStatus(object):
+class ModelVersionStatus:
     """Enum for status of an :py:class:`mlflow.entities.model_registry.ModelVersion`."""
 
     PENDING_REGISTRATION = ProtoModelVersionStatus.Value("PENDING_REGISTRATION")

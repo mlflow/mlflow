@@ -47,7 +47,7 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 
-class MlflowClient(object):
+class MlflowClient:
     """
     Client of an MLflow Tracking Server that creates and manages experiments and runs, and of an
     MLflow Registry Server that creates and manages registered models and model versions. It's a
