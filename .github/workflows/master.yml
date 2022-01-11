@@ -162,7 +162,6 @@ jobs:
     # Separate build and run to make it easier to explore logs
     - name: Run database initialization tests - build
       run: |
-        # Build wheel and copy it under tests/db
         python setup.py bdist_wheel
         cp -r dist tests/db
         cd tests/db
@@ -176,8 +175,6 @@ jobs:
         docker-compose run mlflow-mysql python run_checks.py --schema-output schemas/mysql.sql
         docker-compose run mlflow-mssql ./init-mssql-db.sh
         docker-compose run mlflow-mssql python run_checks.py --schema-output schemas/mssql.sql
-
-        # Clean up
         docker-compose down --rmi all --volumes --remove-orphans
     - name: Run anaconda compatibility tests
       run: |
