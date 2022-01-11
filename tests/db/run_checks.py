@@ -24,7 +24,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def mlflow_log():
+def run_logging_operations():
     with mlflow.start_run() as run:
         print("Tracking URI:", mlflow.get_tracking_uri())
         mlflow.log_param("p", "param")
@@ -61,7 +61,7 @@ def main():
     with open(args.schema_output, "w") as f:
         f.write(schema)
 
-    mlflow_log()
+    run_logging_operations()
 
 
 if __name__ == "__main__":
