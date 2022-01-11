@@ -166,6 +166,7 @@ jobs:
         python setup.py bdist_wheel
         cp -r dist tests/db
         cd tests/db
+        docker-compose pull
         docker-compose build
     - name: Run database initialization tests - run
       working-directory: tests/db
