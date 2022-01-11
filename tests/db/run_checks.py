@@ -35,6 +35,12 @@ def run_logging_operations():
         )
         print(mlflow.get_run(run.info.run_id))
 
+    # Ensure the following migration scripts are applied correctly:
+    # - cfd24bdc0731_update_run_status_constraint_with_killed.py
+    # - versions/0a8213491aaa_drop_duplicate_killed_constraint.py
+    client = mlflow.tracking.MlflowClient()
+    client.set_terminated(run_id=run.info.run_id, status="KILLED")
+
 
 def get_db_schema():
     engine = sqlalchemy.create_engine(mlflow.get_tracking_uri())
