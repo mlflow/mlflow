@@ -111,6 +111,45 @@ def test_model_log():
         assert loaded_example.to_dict(orient="records")[0] == input_example
 
 
+def test_model_info():
+    with TempDir(chdr=True) as tmp:
+        sig = ModelSignature(
+            inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
+            outputs=Schema([ColSpec(name=None, type="double")]),
+        )
+        input_example = {"x": 1, "y": 2}
+
+        experiment_id = mlflow.create_experiment("test")
+        with mlflow.start_run(experiment_id=experiment_id) as run:
+            model_info = Model.log(
+                "some/path", TestFlavor, signature=sig, input_example=input_example
+            )
+        local_path = _download_artifact_from_uri(
+            "runs:/{}/some/path".format(run.info.run_id), output_path=tmp.path("")
+        )
+
+        assert model_info.run_id == run.info.run_id
+        assert model_info.artifact_path == "some/path"
+        assert model_info.model_uri == "runs:/{}/some/path".format(run.info.run_id)
+
+        loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
+        assert model_info.utc_time_created == loaded_model.utc_time_created
+        assert model_info.model_uuid == loaded_model.model_uuid
+
+        assert model_info.flavors == {
+            "flavor1": {"a": 1, "b": 2},
+            "flavor2": {"x": 1, "y": 2},
+        }
+
+        path = os.path.join(local_path, model_info.saved_input_example_info["artifact_path"])
+        x = _dataframe_from_json(path)
+        assert x.to_dict(orient="records")[0] == input_example
+
+        assert model_info.signature == sig
+        assert model_info.input_schema == sig.inputs
+        assert model_info.output_schema == sig.outputs
+
+
 def test_model_log_with_databricks_runtime():
     dbr = "8.3.x-snapshot-gpu-ml-scala2.12"
     with TempDir(chdr=True) as tmp, mock.patch(
