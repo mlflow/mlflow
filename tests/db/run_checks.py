@@ -54,7 +54,7 @@ def main():
     run_logging_operations()
     schema = get_db_schema()
     title = "Schema"
-    print("=" * 10, title, "=", 10)
+    print("=" * 10, title, "=" * 10)
     print(schema)
     print("=" * (20 + 2 + len(title)))
     args = parse_args()

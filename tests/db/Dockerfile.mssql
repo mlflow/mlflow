@@ -19,8 +19,3 @@ RUN apt-get update && ACCEPT_EULA=Y apt-get install -y mssql-tools unixodbc-dev
 RUN pip install dist/*.whl
 RUN pip install pyodbc
 RUN pip list
-
-COPY init-mssql-db.sh .
-COPY init-mssql-db.sql .
-
-RUN chmod +x init-mssql-db.sh
