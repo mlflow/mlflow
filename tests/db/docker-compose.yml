@@ -13,6 +13,8 @@ services:
       - postgres
     build:
       context: .
+    volumes:
+      - .:/tmp/mlflow
     environment:
       MLFLOW_TRACKING_URI: postgresql://mlflowuser:mlflowpassword@postgres:5432/mlflowdb
 
@@ -30,6 +32,8 @@ services:
       - mysql
     build:
       context: .
+    volumes:
+      - .:/tmp/mlflow
     environment:
       MLFLOW_TRACKING_URI: mysql://mlflowuser:mlflowpassword@mysql:3306/mlflowdb
 
@@ -46,5 +50,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.mssql
+    volumes:
+      - .:/tmp/mlflow
     environment:
       MLFLOW_TRACKING_URI: mssql+pyodbc://mlflowuser:Mlfl*wpassword1@mssql/mlflowdb?driver=ODBC+Driver+17+for+SQL+Server
