@@ -168,10 +168,10 @@ jobs:
         # Run tests
         cd tests/db
         docker-compose build
-        docker-compose run mlflow-postgres python log.py
-        docker-compose run mlflow-mysql python log.py
+        docker-compose run mlflow-postgres python run_checks.py --output schemas/postgres.sql
+        docker-compose run mlflow-mysql python run_checks.py --output schemas/mysql.sql
         docker-compose run mlflow-mssql ./init-mssql-db.sh
-        docker-compose run mlflow-mssql python log.py
+        docker-compose run mlflow-mssql python run_checks.py --output schemas/mssql.sql
 
         # Clean up
         docker-compose down --rmi all --volumes
