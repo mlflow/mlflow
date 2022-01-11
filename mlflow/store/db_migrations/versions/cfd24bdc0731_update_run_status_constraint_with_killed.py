@@ -5,8 +5,6 @@ Revises: 89d4b8295536
 Create Date: 2019-10-11 15:55:10.853449
 
 """
-import logging
-
 import alembic
 from alembic import op
 from mlflow.entities import RunStatus, ViewType
@@ -14,8 +12,6 @@ from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.tracking.dbmodels.models import SqlRun, SourceTypes
 from sqlalchemy import CheckConstraint, Enum
 from packaging.version import Version
-
-_logger = logging.getLogger(__name__)
 
 # revision identifiers, used by Alembic.
 revision = "cfd24bdc0731"
@@ -61,16 +57,13 @@ def upgrade():
             existing_type = Enum(
                 *old_run_statuses, create_constraint=True, native_enum=False, name="status"
             )
-            try:
-                batch_op.alter_column(
-                    "status",
-                    type_=new_type,
-                    # In alembic >= 1.7.0, `existing_type` is required to drop the existing CHECK
-                    # constraint on the status column.
-                    existing_type=existing_type,
-                )
-            except Exception:
-                _logger.exception("Encountered unexpected error while aletering status column")
+            batch_op.alter_column(
+                "status",
+                type_=new_type,
+                # In alembic >= 1.7.0, `existing_type` is required to drop the existing CHECK
+                # constraint on the status column.
+                existing_type=existing_type,
+            )
 
 
 def downgrade():
