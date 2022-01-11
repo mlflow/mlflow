@@ -20,7 +20,7 @@ class MockModel(mlflow.pyfunc.PythonModel):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--output", required=True, help="Output path of DB schema")
+    parser.add_argument("--schema-output", required=True, help="Output path of DB schema")
     return parser.parse_args()
 
 
@@ -57,8 +57,8 @@ def main():
     print("=" * 10, title, "=", 10)
     print(schema)
     print("=" * (20 + 2 + len(title)))
-    os.makedirs(os.path.dirname(args.output), exist_ok=True)
-    with open(args.output, "w") as f:
+    os.makedirs(os.path.dirname(args.schema_output), exist_ok=True)
+    with open(args.schema_output, "w") as f:
         f.write(schema)
 
     mlflow_log()
