@@ -26,6 +26,7 @@ services:
       MYSQL_DATABASE: mlflowdb
       MYSQL_USER: mlflowuser
       MYSQL_PASSWORD: mlflowpassword
+    command: mysqld --default-authentication-plugin=mysql_native_password
 
   mlflow-mysql:
     depends_on:

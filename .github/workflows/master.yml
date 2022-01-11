@@ -163,7 +163,7 @@ jobs:
     - name: Run database initialization tests - build
       working-directory: tests/db
       run: |
-        ./rebuild_wheel.sh
+        ./build_wheel.sh
         docker-compose pull
         docker-compose build
     - name: Run database initialization tests - run
@@ -174,7 +174,7 @@ jobs:
         docker-compose run mlflow-mysql python run_checks.py --schema-output schemas/mysql.sql
         docker-compose run mlflow-mssql ./init-mssql-db.sh
         docker-compose run mlflow-mssql python run_checks.py --schema-output schemas/mssql.sql
-        docker-compose down --rmi all --volumes --remove-orphans
+        docker-compose down --volumes --remove-orphans --rmi all
     - name: Run anaconda compatibility tests
       run: |
         ./dev/test-anaconda-compatibility.sh "anaconda3:2020.11"
