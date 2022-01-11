@@ -149,10 +149,13 @@ def test_model_log(pd_model, model_path, tmpdir):
         conda_env = os.path.join(tmpdir, "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["paddle"])
 
-        mlflow.paddle.log_model(pd_model=model, artifact_path=artifact_path, conda_env=conda_env)
+        model_info = mlflow.paddle.log_model(
+            pd_model=model, artifact_path=artifact_path, conda_env=conda_env
+        )
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
         )
+        assert model_info.model_uri == model_uri
 
         reloaded_pd_model = mlflow.paddle.load_model(model_uri=model_uri)
         np.testing.assert_array_almost_equal(

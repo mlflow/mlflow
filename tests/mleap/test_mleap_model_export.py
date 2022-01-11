@@ -139,7 +139,7 @@ def test_mleap_model_log(spark_model_iris):
     artifact_path = "model"
     register_model_patch = mock.patch("mlflow.register_model")
     with mlflow.start_run(), register_model_patch:
-        mlflow.spark.log_model(
+        model_info = mlflow.spark.log_model(
             spark_model=spark_model_iris.model,
             sample_input=spark_model_iris.spark_df,
             artifact_path=artifact_path,
@@ -148,6 +148,7 @@ def test_mleap_model_log(spark_model_iris):
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
         )
+        assert model_info.model_uri == model_uri
         mlflow.register_model.assert_called_once_with(
             model_uri, "Model1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
         )
