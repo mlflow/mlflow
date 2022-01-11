@@ -7,8 +7,6 @@ from sqlalchemy.schema import MetaData, CreateTable
 import mlflow
 from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
 
-assert _TRACKING_URI_ENV_VAR in os.environ
-
 
 class MockModel(mlflow.pyfunc.PythonModel):
     def load_context(self, context):
@@ -51,6 +49,8 @@ def get_db_schema():
 
 
 def main():
+    assert _TRACKING_URI_ENV_VAR in os.environ
+
     args = parse_args()
     schema = get_db_schema()
     title = "Schema"
