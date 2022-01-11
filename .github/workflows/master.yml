@@ -165,7 +165,7 @@ jobs:
       run: |
         ./build_wheel.sh
         docker-compose pull
-        docker image ls
+        docker image ls | grep -E '(REPOSITORY|postgres|mysql|mssql)'
         docker-compose build
     - name: Run database initialization tests - run
       working-directory: tests/db
