@@ -161,10 +161,9 @@ jobs:
         ./dev/run-large-python-tests.sh
     # Separate build and run to make it easier to explore logs
     - name: Run database initialization tests - build
+      working-directory: tests/db
       run: |
-        python setup.py bdist_wheel
-        cp -r dist tests/db
-        cd tests/db
+        ./rebuild_wheel.sh
         docker-compose pull
         docker-compose build
     - name: Run database initialization tests - run
