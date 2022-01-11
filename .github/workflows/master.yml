@@ -168,6 +168,7 @@ jobs:
         # Run tests
         cd tests/db
         docker-compose build
+        docker-compose run mlflow-sqlite python run_checks.py --schema-output schemas/sqlite.sql
         docker-compose run mlflow-postgres python run_checks.py --schema-output schemas/postgres.sql
         docker-compose run mlflow-mysql python run_checks.py --schema-output schemas/mysql.sql
         docker-compose run mlflow-mssql ./init-mssql-db.sh
