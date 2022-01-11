@@ -165,6 +165,7 @@ jobs:
       run: |
         ./build_wheel.sh
         docker-compose pull
+        docker-compose images
         docker-compose build
     - name: Run database initialization tests - run
       working-directory: tests/db
