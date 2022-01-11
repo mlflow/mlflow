@@ -51,17 +51,16 @@ def get_db_schema():
 def main():
     assert _TRACKING_URI_ENV_VAR in os.environ
 
-    args = parse_args()
+    run_logging_operations()
     schema = get_db_schema()
     title = "Schema"
     print("=" * 10, title, "=", 10)
     print(schema)
     print("=" * (20 + 2 + len(title)))
+    args = parse_args()
     os.makedirs(os.path.dirname(args.schema_output), exist_ok=True)
     with open(args.schema_output, "w") as f:
         f.write(schema)
-
-    run_logging_operations()
 
 
 if __name__ == "__main__":
