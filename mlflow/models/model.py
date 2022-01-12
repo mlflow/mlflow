@@ -173,7 +173,7 @@ class Model:
             model_uuid=self.model_uuid,
             run_id=self.run_id,
             saved_input_example_info=self.saved_input_example_info,
-            signature_dict=self.signature.to_dict(),
+            signature_dict=self.signature.to_dict() if self.signature else None,
             utc_time_created=self.utc_time_created,
         )
 
