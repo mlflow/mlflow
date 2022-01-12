@@ -57,7 +57,7 @@ services:
       - .:/tmp/mlflow
     environment:
       MLFLOW_TRACKING_URI: mssql+pyodbc://mlflowuser:Mlfl*wpassword1@mssql/mlflowdb?driver=ODBC+Driver+17+for+SQL+Server
-    command: ./init-mssql-db.sh && python run_checks.py --schema-output schemas/mssql.sql
+    command: bash -ex -c "./init-mssql-db.sh && python run_checks.py --schema-output schemas/mssql.sql"
 
   mlflow-sqlite:
     depends_on:
