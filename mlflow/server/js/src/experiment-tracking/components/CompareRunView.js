@@ -131,6 +131,23 @@ export class CompareRunView extends Component {
                     description='Row title for the start time of runs on the experiment compare runs page'
                   />
                 </th>
+                <tr>
+                  <th scope='row' className='data-value'>
+                    <FormattedMessage
+                      defaultMessage='Experiment Id:'
+                      // eslint-disable-next-line max-len
+                      description='Row title for the experiment id of runs on the experiment compare runs page'
+                    />
+                  </th>
+                  {this.props.runInfos.map((run) => {
+                    const eachExperimentId = run.getExperimentId();
+                    return (
+                      <td className='meta-info' key={run.run_uuid}>
+                        {eachExperimentId}
+                      </td>
+                    );
+                  })}
+                </tr>
                 {this.props.runInfos.map((run) => {
                   const startTime = run.getStartTime()
                     ? Utils.formatTimestamp(run.getStartTime())

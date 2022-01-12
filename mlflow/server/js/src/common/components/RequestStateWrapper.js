@@ -41,7 +41,6 @@ export class RequestStateWrapper extends Component {
   }
 
   static getDerivedStateFromProps(nextProps) {
-    console.log(nextProps.requests);
     const shouldRender = nextProps.requests.length
       ? nextProps.requests.every((r) => r && r.active === false)
       : false;
