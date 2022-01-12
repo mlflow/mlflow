@@ -236,31 +236,7 @@ class _EvaluationDataset:
         self, data, *, targets=None, label_col=None, name=None, path=None, feature_names=None
     ):
         """
-        :param data: One of the following:
-         - A numpy array or list of evaluation features, excluding labels.
-         - A Pandas DataFrame, or a spark DataFrame,
-           containing evaluation features and labels. All columns will be regarded as feature
-           columns except the "labels" column.
-         Note: If the mlflow model to be evaluated is a pyspark ML model, then the input data must
-           be a spark DataFrame contains a feature column of "Vector" type, and a label column.
-
-        :param targets: (Optional) A numpy array or list of evaluation labels, if `data` is also a
-          numpy array or list.
-
-        :param label_col: (Optional) The string name of a column from `data` that contains
-          evaluation labels, if `data` is a DataFrame.
-
-        :param name: (Optional) The name of the dataset (must not contain ").
-
-        :param path: (Optional) the path to a serialized DataFrame (must not contain ").
-          (e.g. a delta table, parquet file)
-
-        :param feature_names: (Optional) If `data` argument is a feature data numpy array or list,
-          `feature_names` argument is a list of the feature names for each feature. If None, then
-          the `feature_names` will be generated using the format "feature_{feature_index}".
-          if `data` argument is a pandas dataframe or a spark dataframe, `feature_names` argument
-          is a list of the column names of the feature columns in the dataframe. If None, then
-          all columns except the label column will be regarded as feature columns.
+        The values of the constructor arguments comes from the `evaluate` call.
         """
         import numpy as np
         import pandas as pd
@@ -691,14 +667,35 @@ def evaluate(
 
     :param model: A pyfunc model instance, or a URI referring to such a model.
 
+    :param data: One of the following:
+     - A numpy array or list of evaluation features, excluding labels.
+     - A Pandas DataFrame, or a spark DataFrame,
+       containing evaluation features and labels. All columns will be regarded as feature
+       columns except the "labels" column.
+     Note: If the mlflow model to be evaluated is a pyspark ML model, then the input data must
+       be a spark DataFrame contains a feature column of "Vector" type, and a label column.
+
     :param model_type: A string describing the model type. The default evaluator
                        supports "regressor" and "classifier" as model types.
-    :param data:
-    :param run_id: The ID of the MLflow Run to which to log results. If
-                   unspecified, behavior depends on the specified `evaluator`.
-                   When `run_id` is unspecified, the default evaluator logs
-                   results to the current active run, creating a new active run if
-                   one does not exist.
+
+    :param targets: (Optional) A numpy array or list of evaluation labels, if `data` is also a
+      numpy array or list.
+
+    :param label_col: (Optional) The string name of a column from `data` that contains
+      evaluation labels, if `data` is a DataFrame.
+
+    :param dataset_name: (Optional) The name of the dataset, must not contain double quotes (“).
+.
+    :param dataset_path: (Optional) the path to a serialized DataFrame
+      (e.g. a delta table, parquet file), must not contain double quotes (“).
+
+    :param feature_names: (Optional) If `data` argument is a feature data numpy array or list,
+      `feature_names` argument is a list of the feature names for each feature. If None, then
+      the `feature_names` will be generated using the format "feature_{feature_index}".
+      if `data` argument is a pandas dataframe or a spark dataframe, `feature_names` argument
+      is a list of the column names of the feature columns in the dataframe. If None, then
+      all columns except the label column will be regarded as feature columns.
+
     :param evaluators: The name of the evaluator to use for model evaluations, or
                        a list of evaluator names. If unspecified, all evaluators
                        capable of evaluating the specified model on the specified
