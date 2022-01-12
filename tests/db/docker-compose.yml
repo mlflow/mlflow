@@ -17,6 +17,7 @@ services:
       - .:/tmp/mlflow
     environment:
       MLFLOW_TRACKING_URI: postgresql://mlflowuser:mlflowpassword@postgres:5432/mlflowdb
+    command: python run_checks.py --schema-output schemas/postgres.sql
 
   mysql:
     image: mysql
@@ -37,6 +38,7 @@ services:
       - .:/tmp/mlflow
     environment:
       MLFLOW_TRACKING_URI: mysql://mlflowuser:mlflowpassword@mysql:3306/mlflowdb
+    command: python run_checks.py --schema-output schemas/mysql.sql
 
   mssql:
     image: mcr.microsoft.com/mssql/server
@@ -55,6 +57,7 @@ services:
       - .:/tmp/mlflow
     environment:
       MLFLOW_TRACKING_URI: mssql+pyodbc://mlflowuser:Mlfl*wpassword1@mssql/mlflowdb?driver=ODBC+Driver+17+for+SQL+Server
+    command: ./init-mssql-db.sh && python run_checks.py --schema-output schemas/mssql.sql
 
   mlflow-sqlite:
     depends_on:
@@ -65,3 +68,4 @@ services:
       - .:/tmp/mlflow
     environment:
       MLFLOW_TRACKING_URI: sqlite:////tmp/mlflow/mlflowdb
+    command: python run_checks.py --schema-output schemas/sqlite.sql

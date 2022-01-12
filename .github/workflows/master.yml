@@ -170,11 +170,10 @@ jobs:
     - name: Run database initialization tests - run
       working-directory: tests/db
       run: |
-        docker-compose run mlflow-sqlite python run_checks.py --schema-output schemas/sqlite.sql
-        docker-compose run mlflow-postgres python run_checks.py --schema-output schemas/postgres.sql
-        docker-compose run mlflow-mysql python run_checks.py --schema-output schemas/mysql.sql
-        docker-compose run mlflow-mssql ./init-mssql-db.sh
-        docker-compose run mlflow-mssql python run_checks.py --schema-output schemas/mssql.sql
+        docker-compose run mlflow-sqlite
+        docker-compose run mlflow-postgres
+        docker-compose run mlflow-mysql
+        docker-compose run mlflow-mssql
         docker-compose down --volumes --remove-orphans --rmi all
     - name: Run anaconda compatibility tests
       run: |
