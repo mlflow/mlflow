@@ -170,6 +170,8 @@ def log_model(
                             waits for five minutes. Specify 0 or None to skip waiting.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+             metadata of the logged model.
 
     .. code-block:: python
         :caption: Example
@@ -259,6 +261,7 @@ def log_model(
                 registered_model_name,
                 await_registration_for,
             )
+        return mlflow_model.get_model_info()
 
 
 def _tmp_path(dfs_tmp):

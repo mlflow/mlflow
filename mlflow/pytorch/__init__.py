@@ -209,6 +209,8 @@ def log_model(
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param kwargs: kwargs to pass to ``torch.save`` method.
+    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+             metadata of the logged model.
 
     .. code-block:: python
         :caption: Example
@@ -283,7 +285,7 @@ def log_model(
         PyTorch logged models
     """
     pickle_module = pickle_module or mlflow_pytorch_pickle_module
-    Model.log(
+    return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.pytorch,
         pytorch_model=pytorch_model,
