@@ -31,8 +31,8 @@ def upgrade():
     # operation is expected to fail under certain circumstances, we execute `drop_constraint()`
     # outside of the batch operation context.
     try:
-        # op.drop_constraint(constraint_name="status", table_name="runs", type_="check")
-        pass
+        if op.get_bind().engine.name == "mysql":
+            op.drop_constraint(constraint_name="status", table_name="runs", type_="check")
     except Exception as e:
         _logger.warning(
             "Failed to drop check constraint. Dropping check constraints may not be supported"

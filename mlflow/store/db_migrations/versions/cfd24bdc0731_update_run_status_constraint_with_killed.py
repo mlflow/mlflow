@@ -7,11 +7,12 @@ Create Date: 2019-10-11 15:55:10.853449
 """
 import alembic
 from alembic import op
+from packaging.version import Version
+from sqlalchemy import CheckConstraint, Enum
+
 from mlflow.entities import RunStatus, ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.tracking.dbmodels.models import SqlRun, SourceTypes
-from sqlalchemy import CheckConstraint, Enum
-from packaging.version import Version
 
 # revision identifiers, used by Alembic.
 revision = "cfd24bdc0731"
@@ -43,27 +44,30 @@ check_constraint_table_args = [
 
 
 def upgrade():
-    new_type = Enum(*new_run_statuses, create_constraint=True, native_enum=False)
-    if Version(alembic.__version__) < Version("1.7.0"):
-        with op.batch_alter_table("runs", table_args=check_constraint_table_args) as batch_op:
-            # Transform the "status" column to an `Enum` and define a new check constraint. Specify
-            # `native_enum=False` to create a check constraint rather than a
-            # database-backend-dependent enum (see https://docs.sqlalchemy.org/en/13/core/
-            # type_basics.html#sqlalchemy.types.Enum.params.native_enum)
-            batch_op.alter_column("status", type_=new_type)
-    else:
-        # In alembic >= 1.7.0, `table_args` can be removed since CHECK constraints are preserved.
-        with op.batch_alter_table("runs") as batch_op:
-            existing_type = Enum(
-                *old_run_statuses, create_constraint=True, native_enum=False, name="status"
-            )
-            batch_op.alter_column(
-                "status",
-                type_=new_type,
-                # In alembic >= 1.7.0, `existing_type` is required to drop the existing CHECK
-                # constraint on the status column.
-                existing_type=existing_type,
-            )
+    # In alembic >= 1.7.0, `table_args` is unnecessary since CHECK constraints are preserved
+    # during migrations.
+    table_args = (
+        [] if Version(alembic.__version__) >= Version("1.7.0") else check_constraint_table_args
+    )
+    with op.batch_alter_table("runs", table_args=table_args) as batch_op:
+        # Transform the "status" column to an `Enum` and define a new check constraint. Specify
+        # `native_enum=False` to create a check constraint rather than a
+        # database-backend-dependent enum (see https://docs.sqlalchemy.org/en/13/core/
+        # type_basics.html#sqlalchemy.types.Enum.params.native_enum)
+        batch_op.alter_column(
+            "status",
+            type_=Enum(
+                *new_run_statuses,
+                create_constraint=True,
+                native_enum=False,
+            ),
+            existing_type=Enum(
+                *old_run_statuses,
+                create_constraint=True,
+                native_enum=False,
+                name="status",
+            ),
+        )
 
 
 def downgrade():
