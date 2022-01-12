@@ -963,7 +963,7 @@ def test_repr_can_be_called_withtout_run_id_or_artifact_path():
         flavors={"python_function": {"loader_module": "someFlavour"}},
     )
 
-    class TestModel(object):
+    class TestModel:
         def predict(self, model_input):
             return model_input
 

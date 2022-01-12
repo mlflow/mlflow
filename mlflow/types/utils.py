@@ -212,7 +212,7 @@ def _infer_pandas_column(col: pd.Series) -> DataType:
     if len(col.values.shape) > 1:
         raise MlflowException("Expected 1d array, got array with shape {}".format(col.shape))
 
-    class IsInstanceOrNone(object):
+    class IsInstanceOrNone:
         def __init__(self, *args):
             self.classes = args
             self.seen_instances = 0

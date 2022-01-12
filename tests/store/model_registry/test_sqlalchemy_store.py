@@ -333,6 +333,26 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             self._extract_latest_by_stage(rmd4.latest_versions),
             {"None": 1, "Production": 3, "Staging": 4},
         )
+        self.assertEqual(
+            self._extract_latest_by_stage(self.store.get_latest_versions(name=name, stages=None)),
+            {"None": 1, "Production": 3, "Staging": 4},
+        )
+        self.assertEqual(
+            self._extract_latest_by_stage(self.store.get_latest_versions(name=name, stages=[])),
+            {"None": 1, "Production": 3, "Staging": 4},
+        )
+        self.assertEqual(
+            self._extract_latest_by_stage(
+                self.store.get_latest_versions(name=name, stages=["Production"])
+            ),
+            {"Production": 3},
+        )
+        self.assertEqual(
+            self._extract_latest_by_stage(
+                self.store.get_latest_versions(name=name, stages=["None", "Production"])
+            ),
+            {"None": 1, "Production": 3},
+        )
 
         # delete latest Production, and should point to previous one
         self.store.delete_model_version(name=mv3.name, version=mv3.version)
@@ -340,6 +360,16 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(
             self._extract_latest_by_stage(rmd5.latest_versions),
             {"None": 1, "Production": 2, "Staging": 4},
+        )
+        self.assertEqual(
+            self._extract_latest_by_stage(self.store.get_latest_versions(name=name, stages=None)),
+            {"None": 1, "Production": 2, "Staging": 4},
+        )
+        self.assertEqual(
+            self._extract_latest_by_stage(
+                self.store.get_latest_versions(name=name, stages=["Production"])
+            ),
+            {"Production": 2},
         )
 
     def test_set_registered_model_tag(self):
