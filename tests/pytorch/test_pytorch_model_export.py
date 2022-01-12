@@ -217,10 +217,11 @@ def test_signature_and_examples_are_saved_correctly(sequential_model, data):
 def test_log_model(sequential_model, data, sequential_predicted):
     try:
         artifact_path = "pytorch"
-        mlflow.pytorch.log_model(sequential_model, artifact_path=artifact_path)
+        model_info = mlflow.pytorch.log_model(sequential_model, artifact_path=artifact_path)
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
         )
+        assert model_info.model_uri == model_uri
 
         sequential_model_loaded = mlflow.pytorch.load_model(model_uri=model_uri)
         test_predictions = _predict(sequential_model_loaded, data)

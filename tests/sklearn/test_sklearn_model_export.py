@@ -159,7 +159,7 @@ def test_model_log(sklearn_logreg_model, model_path):
                 conda_env = os.path.join(tmp.path(), "conda_env.yaml")
                 _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn"])
 
-                mlflow.sklearn.log_model(
+                model_info = mlflow.sklearn.log_model(
                     sk_model=sklearn_logreg_model.model,
                     artifact_path=artifact_path,
                     conda_env=conda_env,
@@ -167,6 +167,7 @@ def test_model_log(sklearn_logreg_model, model_path):
                 model_uri = "runs:/{run_id}/{artifact_path}".format(
                     run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
                 )
+                assert model_info.model_uri == model_uri
 
                 reloaded_logsklearn_knn_model = mlflow.sklearn.load_model(model_uri=model_uri)
                 np.testing.assert_array_equal(
