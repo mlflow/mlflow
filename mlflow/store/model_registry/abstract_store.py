@@ -215,7 +215,7 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def get_model_version_download_uri(self, name, version):
+    def get_model_version_download_uri(self, name, version, use_signed_url=False):
         """
         Get the download location in Model Registry for this model version.
         NOTE: For first version of Model Registry, since the models are not copied over to another

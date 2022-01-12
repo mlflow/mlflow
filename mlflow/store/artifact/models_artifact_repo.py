@@ -41,7 +41,7 @@ class ModelsArtifactRepository(ArtifactRepository):
         return urllib.parse.urlparse(uri).scheme == "models"
 
     @staticmethod
-    def get_underlying_uri(uri):
+    def get_underlying_uri(uri, use_signed_url = False):
         # Note: to support a registry URI that is different from the tracking URI here,
         # we'll need to add setting of registry URIs via environment variables.
         from mlflow.tracking import MlflowClient
@@ -51,8 +51,11 @@ class ModelsArtifactRepository(ArtifactRepository):
         )
         client = MlflowClient(registry_uri=databricks_profile_uri)
         (name, version) = get_model_name_and_version(client, uri)
-        download_uri = client.get_model_version_download_uri(name, version)
-        return add_databricks_profile_info_to_artifact_uri(download_uri, databricks_profile_uri)
+        download_uri = client.get_model_version_download_uri(name, version, use_signed_url)
+
+        if use_signed_url:
+            return download_uri
+        return add_databricks_profile_info_to_artifact_uri(download_uri, databricks_profile_uri, use_signed_url)
 
     def log_artifact(self, local_file, artifact_path=None):
         """

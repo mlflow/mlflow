@@ -119,7 +119,7 @@ def remove_databricks_profile_info_from_artifact_uri(artifact_uri):
     return urllib.parse.urlunparse(parsed._replace(netloc=""))
 
 
-def add_databricks_profile_info_to_artifact_uri(artifact_uri, databricks_profile_uri):
+def add_databricks_profile_info_to_artifact_uri(artifact_uri, databricks_profile_uri, use_signed_url=False):
     """
     Throws an exception if ``databricks_profile_uri`` is not valid.
     """

@@ -2,6 +2,10 @@ import time
 
 import logging
 import sqlalchemy
+from google.cloud import storage
+import urllib.parse
+import json
+from datetime import datetime,timedelta
 
 from mlflow.entities.model_registry.model_version_stages import (
     get_canonical_stage,
@@ -715,7 +719,7 @@ class SqlAlchemyStore(AbstractStore):
             sql_model_version = self._get_sql_model_version(session, name, version, eager=True)
             return sql_model_version.to_mlflow_entity()
 
-    def get_model_version_download_uri(self, name, version):
+    def get_model_version_download_uri(self, name, version, use_signed_url=False):
         """
         Get the download location in Model Registry for this model version.
         NOTE: For first version of Model Registry, since the models are not copied over to another
@@ -727,7 +731,33 @@ class SqlAlchemyStore(AbstractStore):
         """
         with self.ManagedSessionMaker() as session:
             sql_model_version = self._get_sql_model_version(session, name, version)
-            return sql_model_version.source
+            source = sql_model_version.source
+            if use_signed_url and urllib.parse.urlparse(source).scheme == 'gs':
+                return self.get_signed_uri(source)
+            else:
+                return source
+
+    def get_signed_uri(self, GCSpath):
+        parsed = urllib.parse.urlparse(GCSpath)
+
+        path = parsed.path[1:]
+        bucket = parsed.netloc
+        project = "data-platform-246911"
+        storage_client = storage.Client(project=project)
+        bucket = storage_client.get_bucket(bucket)
+        blob_list = storage_client.list_blobs(bucket, prefix=path)
+        sign_uris = []
+
+        for blob in blob_list:
+            filename = blob.name[len(path):]
+            sign_uri = {}
+            sign_uri["name"] = filename
+            sign_uri["uri"] = blob.generate_signed_url(
+                expiration=datetime.now() + timedelta(hours=1)
+            )
+            sign_uris.append(sign_uri)
+
+        return json.dumps(sign_uris)
 
     def search_model_versions(self, filter_string):
         """

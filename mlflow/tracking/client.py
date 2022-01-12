@@ -2546,7 +2546,7 @@ class MlflowClient(object):
         """
         return self._get_registry_client().get_model_version(name, version)
 
-    def get_model_version_download_uri(self, name: str, version: str) -> str:
+    def get_model_version_download_uri(self, name: str, version: str, use_signed_url=False) -> str:
         """
         Get the download location in Model Registry for this model version.
 
@@ -2586,7 +2586,7 @@ class MlflowClient(object):
 
             Download URI: runs:/44e04097ac364cd895f2039eaccca9ac/models/sklearn-model
         """
-        return self._get_registry_client().get_model_version_download_uri(name, version)
+        return self._get_registry_client().get_model_version_download_uri(name, version, use_signed_url)
 
     def search_model_versions(self, filter_string: str) -> PagedList[ModelVersion]:
         """

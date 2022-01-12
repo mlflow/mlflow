@@ -279,7 +279,7 @@ class ModelRegistryClient(object):
         """
         self.store.delete_model_version(name, version)
 
-    def get_model_version_download_uri(self, name, version):
+    def get_model_version_download_uri(self, name, version, use_signed_url=False):
         """
         Get the download location in Model Registry for this model version.
 
@@ -287,7 +287,7 @@ class ModelRegistryClient(object):
         :param version: Version number of the model version.
         :return: A single URI location that allows reads for downloading.
         """
-        return self.store.get_model_version_download_uri(name, version)
+        return self.store.get_model_version_download_uri(name, version, use_signed_url)
 
     def search_model_versions(self, filter_string):
         """

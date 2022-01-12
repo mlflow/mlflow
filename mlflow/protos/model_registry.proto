@@ -663,6 +663,9 @@ message GetModelVersionDownloadUri {
   // Model version number
   optional string version = 2 [(validate_required) = true];
 
+  // Model version number
+  optional bool use_signed_url = 3;
+
   message Response {
     // URI corresponding to where artifacts for this model version are stored.
     optional string artifact_uri = 1;

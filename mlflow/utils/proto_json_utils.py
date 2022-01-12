@@ -140,6 +140,11 @@ def _stringify_all_experiment_ids(x):
             elif k == "info" and isinstance(v, dict) and "experiment_id" in v and "run_uuid" in v:
                 # shortcut for run info
                 v["experiment_id"] = str(v["experiment_id"])
+            elif k == "use_signed_url":
+                if v == "True":
+                    x[k] = True
+                elif v == "False":
+                    x[k] = False
             elif k not in ("params", "tags", "metrics"):  # skip run data
                 _stringify_all_experiment_ids(v)
     elif isinstance(x, list):

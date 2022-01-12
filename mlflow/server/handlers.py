@@ -814,7 +814,8 @@ def get_model_version_artifact_handler():
     request_dict = parser.parse(query_string, normalized=True)
     name = request_dict.get("name")
     version = request_dict.get("version")
-    artifact_uri = _get_model_registry_store().get_model_version_download_uri(name, version)
+    use_signed_url = request_dict.get("use_signed_url")
+    artifact_uri = _get_model_registry_store().get_model_version_download_uri(name, version, use_signed_url)
     return _send_artifact(get_artifact_repository(artifact_uri), request_dict["path"])
 
 
@@ -873,7 +874,7 @@ def _delete_model_version():
 def _get_model_version_download_uri():
     request_message = _get_request_message(GetModelVersionDownloadUri())
     download_uri = _get_model_registry_store().get_model_version_download_uri(
-        name=request_message.name, version=request_message.version
+        name=request_message.name, version=request_message.version, use_signed_url=request_message.use_signed_url
     )
     response_message = GetModelVersionDownloadUri.Response(artifact_uri=download_uri)
     return _wrap_response(response_message)

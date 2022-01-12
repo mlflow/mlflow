@@ -111,3 +111,10 @@ SERVE_ARTIFACTS = click.option(
     "overridden via the '--artifacts-destination' argument. "
     "Default: False",
 )
+
+USE_SIGNED_URL = click.option(
+    "--use-signed-url",
+    is_flag=True,
+    default=False,
+    help="use signed url to download model from GCS",
+)

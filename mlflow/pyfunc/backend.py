@@ -64,7 +64,7 @@ class PyFuncBackend(FlavorBackend):
         else:
             scoring_server._predict(local_uri, input_path, output_path, content_type, json_format)
 
-    def serve(self, model_uri, port, host, enable_mlserver):  # pylint: disable=W0221
+    def serve(self, model_uri, port, host, enable_mlserver, use_signed_url=False):  # pylint: disable=W0221
         """
         Serve pyfunc model locally.
         """
