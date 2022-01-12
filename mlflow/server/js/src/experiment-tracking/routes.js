@@ -6,6 +6,10 @@ class Routes {
   static getExperimentPageRoute(experimentId) {
     return `/experiments/${experimentId}`;
   }
+  static getExperimentsPageRoute(experimentIds) {
+    const ids = experimentIds.join(',');
+    return `/experiments/${ids}`;
+  }
 
   static experimentPageRoute = '/experiments/:experimentId';
 
@@ -82,6 +86,12 @@ class Routes {
 
   static getCompareRunPageRoute(runUuids, experimentId) {
     return `/compare-runs?runs=${JSON.stringify(runUuids)}&experiment=${experimentId}`;
+  }
+
+  static getCompareRunPageRouteWithMultipleExperiments(runUuids, experimentIds) {
+    return `/compare-runs?runs=${JSON.stringify(runUuids)}&experiments=[${experimentIds.join(
+      ',',
+    )}]`;
   }
 
   static compareRunPageRoute = '/compare-runs';

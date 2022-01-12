@@ -42,9 +42,7 @@ export const isNewRun = (lastRunsRefreshTime, run) => {
 
 export class ExperimentPage extends Component {
   static propTypes = {
-    experimentId: PropTypes.string.isRequired,
-    experiment: PropTypes.instanceOf(Experiment),
-    getExperimentApi: PropTypes.func.isRequired,
+    experimentIds: PropTypes.arrayOf(PropTypes.string).isRequired,
     searchRunsApi: PropTypes.func.isRequired,
     searchModelVersionsApi: PropTypes.func.isRequired,
     loadMoreRunsApi: PropTypes.func.isRequired,
@@ -67,18 +65,18 @@ export class ExperimentPage extends Component {
    * ExperimentView component (e.g. component state such as table sort settings), for the
    * specified experiment.
    */
-  static getLocalStore(experimentId) {
-    return LocalStorageUtils.getStoreForComponent('ExperimentPage', experimentId);
+  static getLocalStore(experimentIds) {
+    return LocalStorageUtils.getStoreForComponent('ExperimentPage', experimentIds);
   }
 
   constructor(props) {
     super(props);
-    const store = ExperimentPage.getLocalStore(this.props.experimentId);
+    const store = ExperimentPage.getLocalStore(this.props.experimentIds);
     this.state = {
       lastRunsRefreshTime: Date.now(),
       numberOfNewRuns: 0,
       // Last experiment, if any, displayed by this instance of ExperimentPage
-      lastExperimentId: undefined,
+      lastExperimentIds: undefined,
       ...PAGINATION_DEFAULT_STATE,
       getExperimentRequestId: null,
       searchRunsRequestId: null,
@@ -92,7 +90,8 @@ export class ExperimentPage extends Component {
 
   componentDidMount() {
     this.loadData();
-    this.detectNewRunsTimer = setInterval(() => this.detectNewRuns(), DETECT_NEW_RUNS_INTERVAL);
+    // this.detectNewRunsTimer = setInterval(() => this.detectNewRuns(), DETECT_NEW_RUNS_INTERVAL);
+    this.detectNewRunsTimer = null;
   }
 
   componentDidUpdate(prevProps, prevState) {
@@ -101,12 +100,13 @@ export class ExperimentPage extends Component {
 
   /** Snapshots desired attributes of the component's current state in local storage. */
   snapshotComponentState() {
-    const store = ExperimentPage.getLocalStore(this.props.experimentId);
+    const store = ExperimentPage.getLocalStore(this.props.experimentIds);
     store.saveComponentState(new ExperimentPagePersistedState(this.state.persistedState));
   }
 
   static getDerivedStateFromProps(props, state) {
-    const experimentChanged = props.experimentId !== state.lastExperimentId;
+    const experimentChanged =
+      props.experimentIds.length !== (state.lastExperimentIds && state.lastExperimentIds.length);
     const urlStateChanged =
       props.location.search !== state.urlState && props.history.action === 'POP';
 
@@ -119,14 +119,14 @@ export class ExperimentPage extends Component {
     const returnValue = {
       searchRunsRequestId: getUUID(),
       lastRunsRefreshTime: Date.now(),
-      lastExperimentId: props.experimentId,
+      lastExperimentIds: props.experimentIds,
       ...PAGINATION_DEFAULT_STATE,
     };
 
     if (experimentChanged) {
       returnValue.getExperimentRequestId = getUUID();
       returnValue.persistedState =
-        state.lastExperimentId === undefined
+        state.lastExperimentIds === undefined
           ? state.persistedState
           : new ExperimentPagePersistedState({
               ...store.loadComponentState(),
@@ -156,17 +156,11 @@ export class ExperimentPage extends Component {
   loadMoreRunsRequestId = getUUID();
 
   loadData() {
-    this.props
-      .getExperimentApi(this.props.experimentId, this.state.getExperimentRequestId)
-      .catch((e) => {
-        console.error(e);
-      });
-
     this.handleGettingRuns(this.props.searchRunsApi, this.state.searchRunsRequestId);
   }
 
   maybeReloadData(prevProps, prevState) {
-    if (this.props.experimentId !== prevProps.experimentId) {
+    if (this.props.experimentIds.length !== prevProps.experimentIds.length) {
       this.loadData();
     } else if (this.filtersDidUpdate(prevState)) {
       // Reload data if filter state change requires it
@@ -257,10 +251,19 @@ export class ExperimentPage extends Component {
       }
     }
     const shouldFetchParents = this.shouldNestChildrenAndFetchParents();
+    console.log({
+      filter,
+      runViewType: viewType,
+      experimentIds: this.props.experimentIds,
+      orderBy,
+      pageToken: nextPageToken,
+      shouldFetchParents,
+      id: requestId,
+    });
     return getRunsAction({
       filter,
       runViewType: viewType,
-      experimentIds: [this.props.experimentId],
+      experimentIds: this.props.experimentIds,
       orderBy,
       pageToken: nextPageToken,
       shouldFetchParents,
@@ -399,7 +402,7 @@ export class ExperimentPage extends Component {
     };
 
     const { persistedState } = this.state;
-    const { experimentId, history } = this.props;
+    const { experimentIds, history } = this.props;
     persistedState.categorizedUncheckedKeys = getCategorizedUncheckedKeysForUrl(
       persistedState.categorizedUncheckedKeys,
     );
@@ -410,7 +413,9 @@ export class ExperimentPage extends Component {
       persistedState.postSwitchCategorizedUncheckedKeys,
     );
 
-    const newUrl = `/experiments/${experimentId}/s?${Utils.getSearchUrlFromState(persistedState)}`;
+    const newUrl = `/experiments/${experimentIds.join(',')}/s?${Utils.getSearchUrlFromState(
+      persistedState,
+    )}`;
     if (newUrl !== history.location.pathname + history.location.search) {
       history.push(newUrl);
     }
@@ -420,7 +425,7 @@ export class ExperimentPage extends Component {
     if (Utils.isBrowserTabVisible()) {
       const lastRunsRefreshTime = this.state.lastRunsRefreshTime || 0;
       const latestRuns = await this.props.searchForNewRuns({
-        experimentIds: [this.props.experimentId],
+        experimentIds: this.props.experimentIds,
         maxResults: MAX_DETECT_NEW_RUNS_RESULTS,
       });
       let numberOfNewRuns = 0;
@@ -459,27 +464,20 @@ export class ExperimentPage extends Component {
   }
 
   renderExperimentView = (isLoading, shouldRenderError, requests) => {
+    console.log(isLoading, shouldRenderError, requests);
     let searchRunsError;
-    const getExperimentRequest = Utils.getRequestWithId(
-      requests,
-      this.state.getExperimentRequestId,
-    );
+    // const getExperimentRequest = Utils.getRequestWithId(
+    //   requests,
+    //   this.state.getExperimentRequestId,
+    // );
 
     if (shouldRenderError) {
       const searchRunsRequest = Utils.getRequestWithId(requests, this.state.searchRunsRequestId);
-      if (
-        getExperimentRequest.error &&
-        getExperimentRequest.error.getErrorCode() === ErrorCodes.PERMISSION_DENIED
-      ) {
-        return <PermissionDeniedView errorMessage={getExperimentRequest.error.getMessageField()} />;
-      } else if (searchRunsRequest.error) {
+      if (searchRunsRequest.error) {
         searchRunsError = searchRunsRequest.error.getMessageField();
       } else {
         return undefined;
       }
-    }
-    if (!getExperimentRequest || getExperimentRequest.active) {
-      return <Spinner />;
     }
 
     const {
@@ -497,8 +495,7 @@ export class ExperimentPage extends Component {
     } = this.state.persistedState;
 
     const experimentViewProps = {
-      experimentId: this.props.experimentId,
-      experiment: this.props.experiment,
+      experimentIds: this.props.experimentIds,
       searchRunsRequestId: this.state.searchRunsRequestId,
       onSearch: this.onSearch,
       onClear: this.onClear,
@@ -541,13 +538,15 @@ export class ExperimentPage extends Component {
   }
 
   getRequestIds() {
-    return [this.state.getExperimentRequestId, this.state.searchRunsRequestId];
+    // return [this.state.getExperimentRequestId, this.state.searchRunsRequestId];
+    return [this.state.searchRunsRequestId];
   }
 }
 
 const mapStateToProps = (state, ownProps) => {
   const experiment = getExperiment(ownProps.experimentId, state);
-  return { experiment };
+  // return { experiment };
+  return {};
 };
 
 const mapDispatchToProps = {

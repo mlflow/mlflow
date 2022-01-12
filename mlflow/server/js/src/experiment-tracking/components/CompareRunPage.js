@@ -10,7 +10,8 @@ import { PageContainer } from '../../common/components/PageContainer';
 
 class CompareRunPage extends Component {
   static propTypes = {
-    experimentId: PropTypes.string.isRequired,
+    experimentId: PropTypes.string,
+    experimentIds: PropTypes.string,
     runUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
     dispatch: PropTypes.func.isRequired,
   };
@@ -21,9 +22,12 @@ class CompareRunPage extends Component {
   }
 
   componentDidMount() {
-    const experimentRequestId = getUUID();
-    this.props.dispatch(getExperimentApi(this.props.experimentId, experimentRequestId));
-    this.requestIds.push(experimentRequestId);
+    this.requestIds = [];
+    if (this.props.experimentId) {
+      const experimentRequestId = getUUID();
+      this.props.dispatch(getExperimentApi(this.props.experimentId, experimentRequestId));
+      this.requestIds.push(experimentRequestId);
+    }
     this.props.runUuids.forEach((runUuid) => {
       const requestId = getUUID();
       this.requestIds.push(requestId);
@@ -35,7 +39,11 @@ class CompareRunPage extends Component {
     return (
       <PageContainer>
         <RequestStateWrapper requestIds={this.requestIds}>
-          <CompareRunView runUuids={this.props.runUuids} experimentId={this.props.experimentId} />
+          <CompareRunView
+            runUuids={this.props.runUuids}
+            experimentId={this.props.experimentId}
+            experimentIds={this.props.experimentIds}
+          />
         </RequestStateWrapper>
       </PageContainer>
     );
@@ -46,8 +54,9 @@ const mapStateToProps = (state, ownProps) => {
   const { location } = ownProps;
   const searchValues = qs.parse(location.search);
   const runUuids = JSON.parse(searchValues['?runs']);
-  const experimentId = searchValues['experiment'];
-  return { experimentId, runUuids };
+  const experimentId = searchValues['experiment'] || null;
+  const experimentIds = JSON.parse(searchValues['experiments']) || null;
+  return { experimentId, experimentIds, runUuids };
 };
 
 export default connect(mapStateToProps)(CompareRunPage);

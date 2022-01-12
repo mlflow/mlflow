@@ -88,7 +88,7 @@ export class ExperimentView extends Component {
     this.onHandleStartTimeDropdown = this.onHandleStartTimeDropdown.bind(this);
     this.handleDiffSwitchChange = this.handleDiffSwitchChange.bind(this);
 
-    const store = ExperimentView.getLocalStore(this.props.experiment.experiment_id);
+    const store = ExperimentView.getLocalStore(this.props.experimentIds.join(','));
     const persistedState = new ExperimentViewPersistedState({
       ...store.loadComponentState(),
     });
@@ -113,7 +113,7 @@ export class ExperimentView extends Component {
     updateUrlWithViewState: PropTypes.func.isRequired,
     runInfos: PropTypes.arrayOf(PropTypes.instanceOf(RunInfo)).isRequired,
     modelVersionsByRunUuid: PropTypes.object.isRequired,
-    experimentId: PropTypes.string.isRequired,
+    experimentIds: PropTypes.arrayOf(PropTypes.string).isRequired,
     experiment: PropTypes.instanceOf(Experiment).isRequired,
     history: PropTypes.any,
     // List of all parameter keys available in the runs we're viewing
@@ -202,7 +202,7 @@ export class ExperimentView extends Component {
 
   /** Snapshots desired attributes of the component's current state in local storage. */
   snapshotComponentState() {
-    const store = ExperimentView.getLocalStore(this.props.experiment.experiment_id);
+    const store = ExperimentView.getLocalStore(this.props.experimentIds.join(','));
     store.saveComponentState(new ExperimentViewPersistedState(this.state.persistedState));
   }
 
@@ -221,12 +221,7 @@ export class ExperimentView extends Component {
   }
 
   componentDidMount() {
-    let pageTitle = 'MLflow Experiment';
-    if (this.props.experiment.name) {
-      const experimentNameParts = this.props.experiment.name.split('/');
-      const experimentSuffix = experimentNameParts[experimentNameParts.length - 1];
-      pageTitle = `${experimentSuffix} - MLflow Experiment`;
-    }
+    const pageTitle = 'MLflow Experiment';
     Utils.updatePageTitle(pageTitle);
   }
 
@@ -320,7 +315,7 @@ export class ExperimentView extends Component {
   }
 
   handleSubmitEditNote(note) {
-    const { experiment_id } = this.props.experiment;
+    const experiment_id = this.props.experimentIds[0];
     this.props
       .setExperimentTagApi(experiment_id, NOTE_CONTENT_TAG, note, getUUID())
       .then(() => this.setState({ showNotesEditor: false }));
@@ -462,7 +457,9 @@ export class ExperimentView extends Component {
       nestChildren,
       numberOfNewRuns,
     } = this.props;
-    const { experiment_id, name } = experiment;
+    const name = 'experiment';
+    // const { experiment_id, name } = experiment;
+    const { experiment_id } = this.props.experimentIds[0];
     const { persistedState } = this.state;
     const { unbaggedParams, unbaggedMetrics } = persistedState;
     const filteredParamKeys = this.getFilteredKeys(paramKeyList, COLUMN_TYPES.PARAMS);
@@ -954,7 +951,7 @@ export class ExperimentView extends Component {
             </div>
             {showMultiColumns && !this.props.forceCompactTableView ? (
               <ExperimentRunsTableMultiColumnView2
-                experimentId={experiment.experiment_id}
+                experimentIds={this.props.experimentIds}
                 modelVersionsByRunUuid={this.props.modelVersionsByRunUuid}
                 onSelectionChange={this.handleMultiColumnViewSelectionChange}
                 runInfos={this.props.runInfos}
@@ -1204,7 +1201,10 @@ export class ExperimentView extends Component {
   onCompare = () => {
     const runsSelectedList = Object.keys(this.state.runsSelected);
     this.props.history.push(
-      Routes.getCompareRunPageRoute(runsSelectedList, this.props.experiment.getExperimentId()),
+      Routes.getCompareRunPageRouteWithMultipleExperiments(
+        runsSelectedList,
+        this.props.experimentIds,
+      ),
     );
   };
 
@@ -1234,7 +1234,7 @@ export const mapStateToProps = (state, ownProps) => {
   // The runUuids we should serve.
   const { runInfosByUuid } = state.entities;
   const runUuids = Object.values(runInfosByUuid)
-    .filter((r) => r.experiment_id === ownProps.experimentId.toString())
+    .filter((r) => ownProps.experimentIds.indexOf(r.experiment_id) >= 0)
     .map((r) => r.run_uuid);
 
   const { modelVersionsByRunUuid } = state.entities;

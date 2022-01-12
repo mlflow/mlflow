@@ -20,8 +20,9 @@ const { TabPane } = Tabs;
 
 export class CompareRunView extends Component {
   static propTypes = {
-    experiment: PropTypes.instanceOf(Experiment).isRequired,
-    experimentId: PropTypes.string.isRequired,
+    experiment: PropTypes.instanceOf(Experiment),
+    experimentId: PropTypes.string,
+    experimentIds: PropTypes.arrayOf(PropTypes.string),
     runInfos: PropTypes.arrayOf(PropTypes.instanceOf(RunInfo)).isRequired,
     runUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
     metricLists: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.object)).isRequired,
@@ -50,8 +51,8 @@ export class CompareRunView extends Component {
   }
 
   render() {
-    const { experiment } = this.props;
-    const experimentId = experiment.getExperimentId();
+    const { experiment, experimentIds } = this.props;
+    const experimentId = experiment ? experiment.getExperimentId() : null;
     const { runInfos, runNames } = this.props;
     const title = (
       <FormattedMessage
@@ -63,13 +64,25 @@ export class CompareRunView extends Component {
       />
     );
     /* eslint-disable-next-line prefer-const */
-    let breadcrumbs = [
-      <Link to={Routes.getExperimentPageRoute(experimentId)}>{experiment.getName()}</Link>,
-      title,
-    ];
+    // let breadcrumbs = [
+    //   <Link to={Routes.getExperimentPageRoute(experimentId)}>{experiment.getName()}</Link>,
+    //   title,
+    // ];
+    const breadcrumbs = [];
     return (
       <div className='CompareRunView'>
-        <PageHeader title={title} breadcrumbs={breadcrumbs} />
+        {experimentId ? (
+          <PageHeader title={title} breadcrumbs={breadcrumbs} />
+        ) : (
+          <h1 className='breadcrumb-header'>
+            <Link
+              to={Routes.getExperimentsPageRoute(experimentIds)}
+              className='truncate-text single-line breadcrumb-title'
+            >
+              {'< Go back to the list of experiments'}
+            </Link>
+          </h1>
+        )}
         <div className='responsive-table-container'>
           <table className='compare-table table'>
             <thead>

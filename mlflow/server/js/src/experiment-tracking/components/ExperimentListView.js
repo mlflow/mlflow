@@ -7,7 +7,7 @@ import './ExperimentListView.css';
 import { getExperiments } from '../reducers/Reducers';
 import { Experiment } from '../sdk/MlflowMessages';
 import Routes from '../routes';
-import { Link } from 'react-router-dom';
+import { Link, withRouter } from 'react-router-dom';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';
 import { DeleteExperimentModal } from './modals/DeleteExperimentModal';
 import { RenameExperimentModal } from './modals/RenameExperimentModal';
@@ -17,9 +17,10 @@ import Utils from '../../common/utils/Utils';
 export class ExperimentListView extends Component {
   static propTypes = {
     onClickListExperiments: PropTypes.func.isRequired,
-    // If activeExperimentId is undefined, then the active experiment is the first one.
-    activeExperimentId: PropTypes.string,
+    // If activeExperimentIds is undefined, then the active experiment is the first one.
+    activeExperimentIds: PropTypes.arrayOf(PropTypes.string),
     experiments: PropTypes.arrayOf(Experiment).isRequired,
+    history: PropTypes.object.isRequired,
   };
 
   state = {
@@ -71,6 +72,16 @@ export class ExperimentListView extends Component {
     this.updateSelectedExperiment(data.experimentid, data.experimentname);
   };
 
+  handleMultiSelect = (experiment_id, checked) => {
+    let nextExperimentIds = this.props.activeExperimentIds;
+    if (checked) {
+      nextExperimentIds.push(experiment_id);
+    } else {
+      nextExperimentIds = nextExperimentIds.filter((e) => e !== experiment_id);
+    }
+    this.props.history.push(Routes.getExperimentsPageRoute(nextExperimentIds));
+  };
+
   handleRenameExperiment = (ev) => {
     this.setState({
       showRenameExperimentModal: true,
@@ -100,6 +111,16 @@ export class ExperimentListView extends Component {
     });
     // reset
     this.updateSelectedExperiment('0', '');
+  };
+
+  handleMultiSelect = (experiment_id, checked) => {
+    let nextExperimentIds = this.props.activeExperimentIds;
+    if (checked) {
+      nextExperimentIds.push(experiment_id);
+    } else {
+      nextExperimentIds = nextExperimentIds.filter((e) => e !== experiment_id);
+    }
+    this.props.history.push(Routes.getExperimentsPageRoute(nextExperimentIds));
   };
 
   render() {
@@ -163,19 +184,22 @@ export class ExperimentListView extends Component {
               )
               .map((exp, idx) => {
                 const { name, experiment_id } = exp;
-                const active =
-                  this.props.activeExperimentId !== undefined
-                    ? experiment_id === this.props.activeExperimentId
-                    : idx === 0;
+                const active = this.props.activeExperimentIds.includes(experiment_id);
                 const className = `experiment-list-item ${
                   active ? 'active-experiment-list-item' : ''
                 }`;
                 return (
                   <div key={experiment_id} title={name} className={`header-container ${className}`}>
+                    <input
+                      type='checkbox'
+                      name={experiment_id}
+                      style={{ width: '10%', marginTop: '10px' }}
+                      checked={active}
+                      onChange={(e) => this.handleMultiSelect(experiment_id, e.target.checked)}
+                    />
                     <Link
-                      style={{ textDecoration: 'none', color: 'unset', width: '80%' }}
+                      style={{ textDecoration: 'none', color: 'unset', width: '70%' }}
                       to={Routes.getExperimentPageRoute(experiment_id)}
-                      onClick={active ? (ev) => ev.preventDefault() : (ev) => ev}
                     >
                       <div style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</div>
                     </Link>
@@ -210,4 +234,4 @@ const mapStateToProps = (state) => {
   return { experiments };
 };
 
-export default connect(mapStateToProps)(ExperimentListView);
+export default withRouter(connect(mapStateToProps)(ExperimentListView));

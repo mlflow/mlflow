@@ -34,13 +34,19 @@ class HomeView extends Component {
   render() {
     const headerHeight = process.env.HIDE_HEADER === 'true' ? 0 : 60;
     const containerHeight = 'calc(100% - ' + headerHeight + 'px)';
+
+    const experimentIds = this.props.experimentId ? this.props.experimentId.split(',') : [];
+    let experimentPage;
+    if (this.props.experimentId.length === 0) {
+      experimentPage = <NoExperimentView />;
+    } else {
+      experimentPage = <ExperimentPage experimentIds={experimentIds} />;
+    }
     if (process.env.HIDE_EXPERIMENT_LIST === 'true') {
       return (
         <div style={{ height: containerHeight }}>
           {this.props.experimentId !== undefined ? (
-            <PageContainer>
-              <ExperimentPage experimentId={this.props.experimentId} />
-            </PageContainer>
+            <PageContainer>{experimentPage}</PageContainer>
           ) : (
             <NoExperimentView />
           )}
@@ -52,7 +58,7 @@ class HomeView extends Component {
         <div>
           {this.state.listExperimentsExpanded ? (
             <ExperimentListView
-              activeExperimentId={this.props.experimentId}
+              activeExperimentIds={experimentIds}
               onClickListExperiments={this.onClickListExperiments}
             />
           ) : (
@@ -65,11 +71,12 @@ class HomeView extends Component {
           )}
         </div>
         <PageContainer>
-          {this.props.experimentId !== undefined ? (
+          {/* {this.props.experimentId !== undefined ? (
             <ExperimentPage experimentId={this.props.experimentId} />
           ) : (
             <NoExperimentView />
-          )}
+          )} */}
+          {experimentPage}
         </PageContainer>
       </div>
     );
