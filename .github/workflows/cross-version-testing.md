@@ -114,8 +114,9 @@ the previous section:
 
 ## Why do we run tests against development versions?
 
-In cross-version testing, we daily run tests against not only publicly available versions but also
-development versions installed from GitHub or nightly wheels. This section explains why.
+In cross-version testing, we run daily tests against both publicly available and pre-release
+development versions for all dependent libraries that are used by MLflow.
+This section explains why.
 
 ### Without dev version test
 
@@ -134,7 +135,7 @@ First, let's take a look at what would happen **without** dev version test.
 time
 ```
 
-- We can't notice the change until XGBoost 1.5.0 is released.
+- We didn't notice the change until after XGBoost 1.5.0 was released.
 - MLflow 1.20.0 doesn't work with XGBoost 1.5.0.
 
 ### With dev version test
