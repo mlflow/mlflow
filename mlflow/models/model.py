@@ -29,21 +29,34 @@ _LOG_MODEL_METADATA_WARNING_TEMPLATE = (
 )
 
 
-ModelInfo = namedtuple(
-    "ModelInfo",
-    [
-        "run_id",
-        "artifact_path",
-        "model_uri",
-        "utc_time_created",
-        "flavors",
-        "model_uuid",
-        "saved_input_example_info",
-        "signature",
-        "input_schema",
-        "output_schema",
-    ],
-)
+class ModelInfo(
+    namedtuple(
+        "ModelInfo",
+        [
+            "run_id",
+            "artifact_path",
+            "model_uri",
+            "utc_time_created",
+            "flavors",
+            "model_uuid",
+            "saved_input_example_info",
+            "signature",
+            "input_schema",
+            "output_schema",
+        ],
+    )
+):
+    """
+    ModelInfo
+
+    .. py:attribute:: run_id
+
+        Description of the ``run_id``.
+
+    .. py:attribute:: artifact_path
+
+        Description of the ``artifact_path``.
+    """
 
 
 class Model:
