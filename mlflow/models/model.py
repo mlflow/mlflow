@@ -47,7 +47,7 @@ class ModelInfo(
     )
 ):
     """
-    ModelInfo
+    I am ModelInfo
 
     .. py:attribute:: run_id
 
@@ -141,7 +141,10 @@ class Model:
         self._saved_input_example_info = value
 
     def get_model_info(self):
-        """Create a ModelInfo instance that contains the model metadata."""
+        """
+        Create a :py:class:`ModelInfo <mlflow.models.ModelInfo>` instance that contains the model
+        metadata.
+        """
         return ModelInfo(
             run_id=self.run_id,
             artifact_path=self.artifact_path,
