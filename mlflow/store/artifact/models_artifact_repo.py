@@ -53,9 +53,7 @@ class ModelsArtifactRepository(ArtifactRepository):
         (name, version) = get_model_name_and_version(client, uri)
         download_uri = client.get_model_version_download_uri(name, version, use_signed_url)
 
-        if use_signed_url:
-            return download_uri
-        return add_databricks_profile_info_to_artifact_uri(download_uri, databricks_profile_uri, use_signed_url)
+        return add_databricks_profile_info_to_artifact_uri(download_uri, databricks_profile_uri)
 
     def log_artifact(self, local_file, artifact_path=None):
         """
