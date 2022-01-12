@@ -670,10 +670,9 @@ def evaluate(
     :param data: One of the following:
      - A numpy array or list of evaluation features, excluding labels.
      - A Pandas DataFrame, or a spark DataFrame,
-       containing evaluation features and labels. All columns will be regarded as feature
-       columns except the "labels" column.
-     Note: If the mlflow model to be evaluated is a pyspark ML model, then the input data must
-       be a spark DataFrame contains a feature column of "Vector" type, and a label column.
+       containing evaluation features and labels. If `feature_names` argument not specified,
+       all columns will be regarded as feature columns, otherwise column names which match
+       `feature_names` will be regarded as feature columns.
 
     :param model_type: A string describing the model type. The default evaluator
                        supports "regressor" and "classifier" as model types.
