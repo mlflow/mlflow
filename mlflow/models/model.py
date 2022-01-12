@@ -1,4 +1,3 @@
-from collections import namedtuple
 from datetime import datetime
 import json
 import logging
@@ -7,13 +6,14 @@ import yaml
 import os
 import uuid
 
-from typing import Any, Dict, Optional, Union, Callable
+from typing import Any, Dict, Optional, Union, Callable, NamedTuple
 
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.databricks_utils import get_databricks_runtime
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.models.signature import ModelSignature
 
 _logger = logging.getLogger(__name__)
 
@@ -29,20 +29,28 @@ _LOG_MODEL_METADATA_WARNING_TEMPLATE = (
 )
 
 
-ModelInfo = namedtuple(
-    "ModelInfo",
-    [
-        "run_id",
-        "artifact_path",
-        "model_uri",
-        "utc_time_created",
-        "flavors",
-        "model_uuid",
-        "saved_input_example_info",
-        "signature",
-        "input_schema",
-        "output_schema",
-    ],
+class ModelInfo(NamedTuple):
+    run_id: str
+    artifact_path: str
+    model_uri: str
+    utc_time_created: str
+    flavors: Dict[str, Any]
+    model_uuid: str
+    saved_input_example_info: Dict[str, Any]
+    signature: ModelSignature
+
+
+ModelInfo.__doc__ = "The metadata of a logged MLflow Model."
+ModelInfo.run_id.__doc__ = "The ``run_id`` associated with the logged model."
+ModelInfo.artifact_path.__doc__ = "Run relative path identifying the logged model."
+ModelInfo.model_uri.__doc__ = "The ``model_uri`` of the logged model."
+ModelInfo.utc_time_created.__doc__ = "The UTC time that the logged model is created."
+ModelInfo.flavors.__doc__ = "Flavor module to save the model with."
+ModelInfo.model_uuid.__doc__ = "The ``model_uuid`` of the logged model."
+ModelInfo.saved_input_example_info.__doc__ = ""
+ModelInfo.signature.__doc__ = (
+    "A :py:class:`ModelSignature <mlflow.models.ModelSignature>` that "
+    "describes the model input and output :py:class:`Schema <mlflow.types.Schema>`."
 )
 
 
@@ -128,7 +136,10 @@ class Model:
         self._saved_input_example_info = value
 
     def get_model_info(self):
-        """Create a ModelInfo instance that contains the model metadata."""
+        """
+        Create a :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+        model metadata.
+        """
         return ModelInfo(
             run_id=self.run_id,
             artifact_path=self.artifact_path,
@@ -138,8 +149,6 @@ class Model:
             model_uuid=self.model_uuid,
             saved_input_example_info=self.saved_input_example_info,
             signature=self.signature,
-            input_schema=self.get_input_schema(),
-            output_schema=self.get_output_schema(),
         )
 
     def to_dict(self):
@@ -181,9 +190,6 @@ class Model:
     @classmethod
     def from_dict(cls, model_dict):
         """Load a model from its YAML representation."""
-
-        from .signature import ModelSignature
-
         model_dict = model_dict.copy()
         if "signature" in model_dict and isinstance(model_dict["signature"], dict):
             model_dict["signature"] = ModelSignature.from_dict(model_dict["signature"])
@@ -237,10 +243,8 @@ class Model:
 
         :param kwargs: Extra args passed to the model flavor.
 
-        :return: A `ModelInfo` namedtuple instance that contains the metadata of the logged model,
-                 including: `run_id`, `artifact_path`, `model_uri`, `utc_time_created`, `flavors`,
-                 `model_uuid`, `saved_input_example_info`, `signature`, `input_schema`, and
-                 `output_schema`.
+        :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+                 metadata of the logged model.
         """
         with TempDir() as tmp:
             local_path = tmp.path("model")

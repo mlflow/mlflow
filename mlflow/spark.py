@@ -170,10 +170,8 @@ def log_model(
                             waits for five minutes. Specify 0 or None to skip waiting.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :return: A `ModelInfo` namedtuple instance that contains the metadata of the logged model,
-             including: `run_id`, `artifact_path`, `model_uri`, `utc_time_created`, `flavors`,
-             `model_uuid`, `saved_input_example_info`, `signature`, `input_schema`, and
-             `output_schema`.
+    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+             metadata of the logged model.
 
     .. code-block:: python
         :caption: Example

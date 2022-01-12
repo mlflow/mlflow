@@ -146,8 +146,6 @@ def test_model_info():
         assert x.to_dict(orient="records")[0] == input_example
 
         assert model_info.signature == sig
-        assert model_info.input_schema == sig.inputs
-        assert model_info.output_schema == sig.outputs
 
 
 def test_model_log_with_databricks_runtime():
