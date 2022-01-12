@@ -3,7 +3,7 @@ from collections import namedtuple
 
 from mlflow.models.evaluation import (
     evaluate,
-    EvaluationDataset,
+    _EvaluationDataset,
     EvaluationResult,
     ModelEvaluator,
     EvaluationArtifact,
@@ -99,27 +99,41 @@ def spark_session():
 def iris_dataset():
     X, y = get_iris()
     eval_X, eval_y = X[0::3], y[0::3]
-    return EvaluationDataset(data=eval_X, labels=eval_y, name="iris_dataset")
+    constructor_args = {
+        'data': eval_X, 'targets': eval_y, 'name': "iris_dataset"
+    }
+    ds = _EvaluationDataset(**constructor_args)
+    ds._constructor_args = constructor_args
+    return ds
 
 
 @pytest.fixture(scope="module")
 def diabetes_dataset():
     X, y = get_diabetes_dataset()
     eval_X, eval_y = X[0::3], y[0::3]
-    return EvaluationDataset(data=eval_X, labels=eval_y, name="diabetes_dataset")
+    constructor_args = {'data': eval_X, 'targets': eval_y, 'name': "diabetes_dataset"}
+    ds = _EvaluationDataset(**constructor_args)
+    ds._constructor_args = constructor_args
+    return ds
 
 
 @pytest.fixture(scope="module")
 def diabetes_spark_dataset():
     spark_df = get_diabetes_spark_dataset().sample(fraction=0.3, seed=1)
-    return EvaluationDataset(data=spark_df, labels="label", name="diabetes_spark_dataset")
+    constructor_args = {'data': spark_df, 'label_col': "label", 'name': "diabetes_spark_dataset"}
+    ds = _EvaluationDataset(**constructor_args)
+    ds._constructor_args = constructor_args
+    return ds
 
 
 @pytest.fixture(scope="module")
 def breast_cancer_dataset():
     X, y = get_breast_cancer_dataset()
     eval_X, eval_y = X[0::3], y[0::3]
-    return EvaluationDataset(data=eval_X, labels=eval_y, name="breast_cancer_dataset")
+    constructor_args = {'data': eval_X, 'targets': eval_y, 'name': "breast_cancer_dataset"}
+    ds = _EvaluationDataset(**constructor_args)
+    ds._constructor_args = constructor_args
+    return ds
 
 
 @pytest.fixture
@@ -200,8 +214,7 @@ def iris_pandas_df_dataset():
             "y": eval_y,
         }
     )
-    labels = "y"
-    return EvaluationDataset(data=data, labels=labels, name="iris_pandas_df_dataset")
+    return _EvaluationDataset(data=data, label_col="y", name="iris_pandas_df_dataset")
 
 
 def test_classifier_evaluate(multiclass_logistic_regressor_model_uri, iris_dataset):
@@ -220,10 +233,11 @@ def test_classifier_evaluate(multiclass_logistic_regressor_model_uri, iris_datas
 
     with mlflow.start_run() as run:
         eval_result = evaluate(
-            model=classifier_model,
+            classifier_model,
+            iris_dataset._constructor_args['data'],
             model_type="classifier",
-            dataset=iris_dataset,
-            run_id=None,
+            targets=iris_dataset._constructor_args['targets'],
+            dataset_name=iris_dataset.name,
             evaluators="dummy_evaluator",
         )
 
@@ -292,10 +306,11 @@ def test_regressor_evaluate(linear_regressor_model_uri, diabetes_dataset):
     for model in [regressor_model, linear_regressor_model_uri]:
         with mlflow.start_run() as run:
             eval_result = evaluate(
-                model=model,
+                model,
+                diabetes_dataset._constructor_args['data'],
                 model_type="regressor",
-                dataset=diabetes_dataset,
-                run_id=None,
+                targets=diabetes_dataset._constructor_args['targets'],
+                dataset_name=diabetes_dataset.name,
                 evaluators="dummy_evaluator",
             )
         _, saved_metrics, _, _ = get_run_data(run.info.run_id)
@@ -305,10 +320,20 @@ def test_regressor_evaluate(linear_regressor_model_uri, diabetes_dataset):
 
 def test_dataset_name():
     X, y = get_iris()
-    d1 = EvaluationDataset(data=X, labels=y, name="a1")
+    d1 = _EvaluationDataset(data=X, targets=y, name="a1")
     assert d1.name == "a1"
-    d2 = EvaluationDataset(data=X, labels=y)
+    d2 = _EvaluationDataset(data=X, targets=y)
     assert d2.name == d2.hash
+
+
+def test_dataset_metadata():
+    X, y = get_iris()
+    d1 = _EvaluationDataset(data=X, targets=y, name="a1", path="/path/to/a1")
+    assert d1._metadata == {
+        'hash': '6bdf4e119bf1a37e7907dfd9f0e68733',
+        'name': 'a1',
+        'path': '/path/to/a1'
+    }
 
 
 def test_gen_md5_for_arraylike_obj():
@@ -334,54 +359,63 @@ def test_dataset_hash(iris_dataset, iris_pandas_df_dataset, diabetes_spark_datas
     assert diabetes_spark_dataset.hash == "e646b03e976240bd0c79c6bcc1ae0bda"
 
 
-def test_datasset_with_pandas_dataframe():
-    data = pd.DataFrame({"f1": [1, 2], "f2": [3, 4], "label": [0, 1]})
-    eval_dataset = EvaluationDataset(data=data, labels="label")
+def test_dataset_with_pandas_dataframe():
+    data = pd.DataFrame({"f1": [1, 2], "f2": [3, 4], "f3": [5, 6], "label": [0, 1]})
+    eval_dataset = _EvaluationDataset(data=data, label_col="label")
 
-    assert list(eval_dataset.features_data.columns) == ["f1", "f2"]
+    assert list(eval_dataset.features_data.columns) == ["f1", "f2", "f3"]
     assert np.array_equal(eval_dataset.features_data.f1.to_numpy(), [1, 2])
     assert np.array_equal(eval_dataset.features_data.f2.to_numpy(), [3, 4])
+    assert np.array_equal(eval_dataset.features_data.f3.to_numpy(), [5, 6])
     assert np.array_equal(eval_dataset.labels_data, [0, 1])
 
+    eval_dataset2 = _EvaluationDataset(data=data, label_col="label", feature_names=["f3", "f2"])
+    assert list(eval_dataset2.features_data.columns) == ["f3", "f2"]
+    assert np.array_equal(eval_dataset2.features_data.f2.to_numpy(), [3, 4])
+    assert np.array_equal(eval_dataset2.features_data.f3.to_numpy(), [5, 6])
 
-def test_datasset_with_array_data():
+
+def test_dataset_with_array_data():
     features = [[1, 2], [3, 4]]
     labels = [0, 1]
 
     for input_data in [features, np.array(features)]:
-        eval_dataset1 = EvaluationDataset(data=input_data, labels=labels)
+        eval_dataset1 = _EvaluationDataset(data=input_data, targets=labels)
         assert np.array_equal(eval_dataset1.features_data, features)
         assert np.array_equal(eval_dataset1.labels_data, labels)
         assert list(eval_dataset1.feature_names) == ["feature_1", "feature_2"]
 
+    assert _EvaluationDataset(data=input_data, targets=labels, feature_names=['a', 'b']) \
+        .feature_names == ['a', 'b']
+
     with pytest.raises(ValueError, match="all element must has the same length"):
-        EvaluationDataset(data=[[1, 2], [3, 4, 5]], labels=labels)
+        _EvaluationDataset(data=[[1, 2], [3, 4, 5]], targets=labels)
 
 
-def test_autogen_feature_names():
+def test_dataset_autogen_feature_names():
     labels = [0]
-    eval_dataset2 = EvaluationDataset(data=[list(range(9))], labels=labels)
+    eval_dataset2 = _EvaluationDataset(data=[list(range(9))], targets=labels)
     assert eval_dataset2.feature_names == [f"feature_{i + 1}" for i in range(9)]
 
-    eval_dataset2 = EvaluationDataset(data=[list(range(10))], labels=labels)
+    eval_dataset2 = _EvaluationDataset(data=[list(range(10))], targets=labels)
     assert eval_dataset2.feature_names == [f"feature_{i + 1:02d}" for i in range(10)]
 
-    eval_dataset2 = EvaluationDataset(data=[list(range(99))], labels=labels)
+    eval_dataset2 = _EvaluationDataset(data=[list(range(99))], targets=labels)
     assert eval_dataset2.feature_names == [f"feature_{i + 1:02d}" for i in range(99)]
 
-    eval_dataset2 = EvaluationDataset(data=[list(range(100))], labels=labels)
+    eval_dataset2 = _EvaluationDataset(data=[list(range(100))], targets=labels)
     assert eval_dataset2.feature_names == [f"feature_{i + 1:03d}" for i in range(100)]
 
     with pytest.raises(
         ValueError, match="features example rows must be the same length with labels array"
     ):
-        EvaluationDataset(data=[[1, 2], [3, 4]], labels=[1, 2, 3])
+        _EvaluationDataset(data=[[1, 2], [3, 4]], targets=[1, 2, 3])
 
 
-def test_spark_df_dataset(spark_session):
+def test_dataset_from_spark_df(spark_session):
     spark_df = spark_session.createDataFrame([(1.0, 2.0, 3.0)] * 10, ["f1", "f2", "y"])
-    with mock.patch.object(EvaluationDataset, "SPARK_DATAFRAME_LIMIT", 5):
-        dataset = EvaluationDataset(spark_df, "y")
+    with mock.patch.object(_EvaluationDataset, "SPARK_DATAFRAME_LIMIT", 5):
+        dataset = _EvaluationDataset(spark_df, label_col="y")
         assert list(dataset.features_data.columns) == ["f1", "f2"]
         assert list(dataset.features_data["f1"]) == [1.0] * 5
         assert list(dataset.features_data["f2"]) == [2.0] * 5
@@ -472,10 +506,11 @@ def test_evaluator_interface(multiclass_logistic_regressor_model_uri, iris_datas
                     match="The model could not be evaluated by any of the registered evaluators",
                 ):
                     evaluate(
-                        model=multiclass_logistic_regressor_model_uri,
+                        multiclass_logistic_regressor_model_uri,
+                        data=iris_dataset._constructor_args['data'],
                         model_type="classifier",
-                        dataset=iris_dataset,
-                        run_id=None,
+                        targets=iris_dataset._constructor_args['targets'],
+                        dataset_name=iris_dataset.name,
                         evaluators="test_evaluator1",
                         evaluator_config=evaluator1_config,
                     )
@@ -491,10 +526,11 @@ def test_evaluator_interface(multiclass_logistic_regressor_model_uri, iris_datas
             classifier_model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
             with mlflow.start_run() as run:
                 eval1_result = evaluate(
-                    model=classifier_model,
+                    classifier_model,
+                    iris_dataset._constructor_args['data'],
                     model_type="classifier",
-                    dataset=iris_dataset,
-                    run_id=None,
+                    targets=iris_dataset._constructor_args['targets'],
+                    dataset_name=iris_dataset.name,
                     evaluators="test_evaluator1",
                     evaluator_config=evaluator1_config,
                 )
@@ -544,10 +580,11 @@ def test_evaluate_with_multi_evaluators(multiclass_logistic_regressor_model_uri,
                 classifier_model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
                 with mlflow.start_run() as run:
                     eval_result = evaluate(
-                        model=classifier_model,
+                        classifier_model,
+                        iris_dataset._constructor_args['data'],
                         model_type="classifier",
-                        dataset=iris_dataset,
-                        run_id=None,
+                        targets=iris_dataset._constructor_args['targets'],
+                        dataset_name=iris_dataset.name,
                         evaluators=evaluators,
                         evaluator_config={
                             "test_evaluator1": evaluator1_config,
@@ -586,29 +623,17 @@ def test_evaluate_with_multi_evaluators(multiclass_logistic_regressor_model_uri,
 
 
 def test_start_run_or_reuse_active_run():
-    with _start_run_or_reuse_active_run(run_id=None) as run_id:
-        assert mlflow.active_run().info.run_id == run_id
-
-    with mlflow.start_run() as run:
-        pass
-    previous_run_id = run.info.run_id
-
-    with _start_run_or_reuse_active_run(run_id=previous_run_id) as run_id:
-        assert previous_run_id == run_id
+    with _start_run_or_reuse_active_run() as run_id:
         assert mlflow.active_run().info.run_id == run_id
 
     with mlflow.start_run() as run:
         active_run_id = run.info.run_id
 
-        with _start_run_or_reuse_active_run(run_id=None) as run_id:
+        with _start_run_or_reuse_active_run() as run_id:
             assert run_id == active_run_id
 
-        with _start_run_or_reuse_active_run(run_id=active_run_id) as run_id:
+        with _start_run_or_reuse_active_run() as run_id:
             assert run_id == active_run_id
-
-        with pytest.raises(ValueError, match="An active run exists"):
-            with _start_run_or_reuse_active_run(run_id=previous_run_id):
-                pass
 
 
 def test_normalize_evaluators_and_evaluator_config_args():

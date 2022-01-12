@@ -24,14 +24,14 @@ For details, see `MLflow Models <../models.html>`_.
 from .model import Model
 from .flavor_backend import FlavorBackend
 from ..utils.environment import infer_pip_requirements
-from .evaluation import evaluate, EvaluationDataset
+from .evaluation import evaluate, _EvaluationDataset
 
 __all__ = [
     "Model",
     "FlavorBackend",
     "infer_pip_requirements",
     "evaluate",
-    "EvaluationDataset",
+    "_EvaluationDataset",
 ]
 
 
