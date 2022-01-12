@@ -13,7 +13,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.databricks_utils import get_databricks_runtime
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.models.signature import ModelSignature
 
 _logger = logging.getLogger(__name__)
 
@@ -30,28 +29,53 @@ _LOG_MODEL_METADATA_WARNING_TEMPLATE = (
 
 
 class ModelInfo(NamedTuple):
-    run_id: str
+    """
+    The metadata of a logged MLflow Model.
+    """
+
+    from .signature import ModelSignature
+
+    #: Run relative path identifying the logged model.
     artifact_path: str
-    model_uri: str
-    utc_time_created: str
+
+    #: A dictionary mapping the flavor name to how to serve the model as that flavor. For example:
+    #:
+    #: .. code-block:: python
+    #:
+    #:     {
+    #:         "python_function": {
+    #:             "model_path": "model.pkl",
+    #:             "loader_module": "mlflow.sklearn",
+    #:             "python_version": "3.8.10",
+    #:             "env": "conda.yaml",
+    #:         },
+    #:         "sklearn": {
+    #:             "pickled_model": "model.pkl",
+    #:             "sklearn_version": "0.24.1",
+    #:             "serialization_format": "cloudpickle",
+    #:         },
+    #:     }
     flavors: Dict[str, Any]
+
+    #: The ``model_uri`` of the logged model in the format ``'runs:/<run_id>/<artifact_path>'``.
+    model_uri: str
+
+    #: The ``model_uuid`` of the logged model, e.g., ``'39ca11813cfc46b09ab83972740b80ca'``.
     model_uuid: str
-    saved_input_example_info: Dict[str, Any]
-    signature: ModelSignature
 
+    #: The ``run_id`` associated with the logged model, e.g., ``'8ede7df408dd42ed9fc39019ef7df309'``
+    run_id: str
 
-ModelInfo.__doc__ = "The metadata of a logged MLflow Model."
-ModelInfo.run_id.__doc__ = "The ``run_id`` associated with the logged model."
-ModelInfo.artifact_path.__doc__ = "Run relative path identifying the logged model."
-ModelInfo.model_uri.__doc__ = "The ``model_uri`` of the logged model."
-ModelInfo.utc_time_created.__doc__ = "The UTC time that the logged model is created."
-ModelInfo.flavors.__doc__ = "Flavor module to save the model with."
-ModelInfo.model_uuid.__doc__ = "The ``model_uuid`` of the logged model."
-ModelInfo.saved_input_example_info.__doc__ = ""
-ModelInfo.signature.__doc__ = (
-    "A :py:class:`ModelSignature <mlflow.models.ModelSignature>` that "
-    "describes the model input and output :py:class:`Schema <mlflow.types.Schema>`."
-)
+    #: A dictionary that contains the metadata of the saved input example, e.g.,
+    #: ``{"artifact_path": "input_example.json", "type": "dataframe", "pandas_orient": "split"}``.
+    saved_input_example_info: Optional[Dict[str, Any]]
+
+    #: A :py:class:`ModelSignature <mlflow.models.ModelSignature>` that
+    #: describes the model input and output :py:class:`Schema <mlflow.types.Schema>`.
+    signature: Optional[ModelSignature]
+
+    #: The UTC time that the logged model is created, e.g., ``'2022-01-12 05:17:31.634689'``.
+    utc_time_created: str
 
 
 class Model:
@@ -128,6 +152,10 @@ class Model:
 
     @property
     def saved_input_example_info(self) -> Optional[Dict[str, Any]]:
+        """
+        A dictionary that contains the metadata of the saved input example, e.g.,
+        ``{"artifact_path": "input_example.json", "type": "dataframe", "pandas_orient": "split"}``.
+        """
         return self._saved_input_example_info
 
     @saved_input_example_info.setter
@@ -141,14 +169,14 @@ class Model:
         model metadata.
         """
         return ModelInfo(
-            run_id=self.run_id,
             artifact_path=self.artifact_path,
-            model_uri="runs:/{}/{}".format(self.run_id, self.artifact_path),
-            utc_time_created=self.utc_time_created,
             flavors=self.flavors,
+            model_uri="runs:/{}/{}".format(self.run_id, self.artifact_path),
             model_uuid=self.model_uuid,
+            run_id=self.run_id,
             saved_input_example_info=self.saved_input_example_info,
             signature=self.signature,
+            utc_time_created=self.utc_time_created,
         )
 
     def to_dict(self):
@@ -190,6 +218,9 @@ class Model:
     @classmethod
     def from_dict(cls, model_dict):
         """Load a model from its YAML representation."""
+
+        from .signature import ModelSignature
+
         model_dict = model_dict.copy()
         if "signature" in model_dict and isinstance(model_dict["signature"], dict):
             model_dict["signature"] = ModelSignature.from_dict(model_dict["signature"])
