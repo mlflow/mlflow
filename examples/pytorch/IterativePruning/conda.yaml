@@ -11,3 +11,8 @@ dependencies:
   - ax-platform
   - prettytable
   - torch>=1.9.0
+  # torch <= 1.10.1 doesn't work with setuptools >= 59.6.0.
+  # See the following PRs for details:
+  # https://github.com/pytorch/pytorch/pull/69904
+  # https://github.com/pytorch/pytorch/pull/69947
+  - setuptools<59.6.0
