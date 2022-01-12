@@ -3,13 +3,12 @@ from collections import namedtuple
 
 from mlflow.models.evaluation import (
     evaluate,
-    _EvaluationDataset,
     EvaluationResult,
     ModelEvaluator,
     EvaluationArtifact,
-    EvaluationMetrics,
 )
 from mlflow.models.evaluation.base import (
+    _EvaluationDataset,
     _normalize_evaluators_and_evaluator_config_args as _normalize_config,
 )
 import hashlib
@@ -491,7 +490,7 @@ def test_evaluator_interface(multiclass_logistic_regressor_model_uri, iris_datas
     ):
         evaluator1_config = {"eval1_confg_a": 3, "eval1_confg_b": 4}
         evaluator1_return_value = EvaluationResult(
-            metrics=EvaluationMetrics({"m1": 5, "m2": 6}),
+            metrics={"m1": 5, "m2": 6},
             artifacts={"a1": FakeArtifact1(uri="uri1"), "a2": FakeArtifact2(uri="uri2")},
         )
         with mock.patch.object(
@@ -557,10 +556,10 @@ def test_evaluate_with_multi_evaluators(multiclass_logistic_regressor_model_uri,
         evaluator1_config = {"eval1_confg": 3}
         evaluator2_config = {"eval2_confg": 4}
         evaluator1_return_value = EvaluationResult(
-            metrics=EvaluationMetrics({"m1": 5}), artifacts={"a1": FakeArtifact1(uri="uri1")}
+            metrics={"m1": 5}, artifacts={"a1": FakeArtifact1(uri="uri1")}
         )
         evaluator2_return_value = EvaluationResult(
-            metrics=EvaluationMetrics({"m2": 6}), artifacts={"a2": FakeArtifact2(uri="uri2")}
+            metrics={"m2": 6}, artifacts={"a2": FakeArtifact2(uri="uri2")}
         )
 
         # evaluators = None is the case evaluators unspecified, it should fetch all registered

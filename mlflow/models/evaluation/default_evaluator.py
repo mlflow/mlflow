@@ -1,7 +1,6 @@
 import mlflow
 from mlflow.models.evaluation.base import (
     ModelEvaluator,
-    EvaluationMetrics,
     EvaluationResult,
 )
 from mlflow.entities.metric import Metric
@@ -652,7 +651,7 @@ class DefaultEvaluator(ModelEvaluator):
 
             self.X = dataset.features_data
             self.y = dataset.labels_data
-            self.metrics = EvaluationMetrics()
+            self.metrics = dict()
             self.artifacts = {}
 
             infered_model_type = _infer_model_type_by_labels(self.y)

@@ -1,4 +1,4 @@
-from typing import Dict, Union
+from typing import Dict, Union, Any
 import mlflow
 import hashlib
 import json
@@ -20,14 +20,6 @@ from abc import ABCMeta, abstractmethod
 
 
 _logger = logging.getLogger(__name__)
-
-
-class EvaluationMetrics(dict):
-    """
-    A dictionary of model evaluation metrics.
-    """
-
-    pass
 
 
 class EvaluationArtifact(metaclass=ABCMeta):
@@ -99,7 +91,7 @@ class EvaluationResult:
     def load(cls, path):
         """Load the evaluation results from the specified local filesystem path"""
         with open(os.path.join(path, "metrics.json"), "r") as fp:
-            metrics = EvaluationMetrics(json.load(fp))
+            metrics = json.load(fp)
 
         with open(os.path.join(path, "artifacts_metadata.json"), "r") as fp:
             artifacts_metadata = json.load(fp)
@@ -140,7 +132,7 @@ class EvaluationResult:
             artifact.save(os.path.join(artifacts_dir, artifact_name))
 
     @property
-    def metrics(self) -> "mlflow.models.evaluation.EvaluationMetrics":
+    def metrics(self) -> Dict[str, Any]:
         """
         A dictionary mapping scalar metric names to scalar metric values
         """
@@ -671,7 +663,7 @@ def _evaluate(
             "verify that the model type and other configs are set correctly."
         )
 
-    merged_eval_result = EvaluationResult(EvaluationMetrics(), dict())
+    merged_eval_result = EvaluationResult(dict(), dict())
     for eval_result in eval_results:
         merged_eval_result.metrics.update(eval_result.metrics)
         merged_eval_result.artifacts.update(eval_result.artifacts)
