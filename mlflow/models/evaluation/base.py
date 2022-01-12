@@ -225,7 +225,7 @@ def _gen_md5_for_arraylike_obj(md5_gen, data):
         md5_gen.update(_hash_array_like_obj_as_bytes(data))
     else:
         head_rows = data[: _EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH]
-        tail_rows = data[-_EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH:]
+        tail_rows = data[-_EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH :]
         md5_gen.update(_hash_array_like_obj_as_bytes(head_rows))
         md5_gen.update(_hash_array_like_obj_as_bytes(tail_rows))
 
@@ -240,7 +240,9 @@ class _EvaluationDataset:
     NUM_SAMPLE_ROWS_FOR_HASH = 5
     SPARK_DATAFRAME_LIMIT = 10000
 
-    def __init__(self, data, *, targets=None, label_col=None, name=None, path=None, feature_names=None):
+    def __init__(
+        self, data, *, targets=None, label_col=None, name=None, path=None, feature_names=None
+    ):
         """
         :param data: One of the following:
          - A numpy array or list of evaluation features, excluding labels.
@@ -295,8 +297,9 @@ class _EvaluationDataset:
             supported_dataframe_types = (pd.DataFrame,)
 
         if feature_names is not None and len(set(feature_names)) < len(list(feature_names)):
-            raise ValueError('`feature_names` argument must be a list containing unique feature '
-                             'names.')
+            raise ValueError(
+                "`feature_names` argument must be a list containing unique feature " "names."
+            )
 
         if isinstance(data, (np.ndarray, list)):
             if not isinstance(targets, (np.ndarray, list)):
@@ -467,11 +470,13 @@ class _EvaluationDataset:
         else:
             is_features_data_equal = self._features_data.equals(other._features_data)
 
-        return is_features_data_equal and \
-            np.array_equal(self._labels_data, other._labels_data) and \
-            self.name == other.name and \
-            self.path == other.path and \
-            self._feature_names == other._feature_names
+        return (
+            is_features_data_equal
+            and np.array_equal(self._labels_data, other._labels_data)
+            and self.name == other.name
+            and self.path == other.path
+            and self._feature_names == other._feature_names
+        )
 
 
 class ModelEvaluator(metaclass=ABCMeta):
@@ -684,7 +689,7 @@ def evaluate(
     label_col=None,
     dataset_name=None,
     dataset_path=None,
-    feature_names: list=None,
+    feature_names: list = None,
     evaluators=None,
     evaluator_config=None,
 ) -> "mlflow.models.evaluation.EvaluationResult":
@@ -806,8 +811,12 @@ def evaluate(
     ) = _normalize_evaluators_and_evaluator_config_args(evaluators, evaluator_config)
 
     dataset = _EvaluationDataset(
-        data, targets=targets, label_col=label_col, name=dataset_name,
-        path=dataset_path, feature_names=feature_names
+        data,
+        targets=targets,
+        label_col=label_col,
+        name=dataset_name,
+        path=dataset_path,
+        feature_names=feature_names,
     )
 
     with _start_run_or_reuse_active_run() as run_id:

@@ -99,9 +99,7 @@ def spark_session():
 def iris_dataset():
     X, y = get_iris()
     eval_X, eval_y = X[0::3], y[0::3]
-    constructor_args = {
-        'data': eval_X, 'targets': eval_y, 'name': "iris_dataset"
-    }
+    constructor_args = {"data": eval_X, "targets": eval_y, "name": "iris_dataset"}
     ds = _EvaluationDataset(**constructor_args)
     ds._constructor_args = constructor_args
     return ds
@@ -111,7 +109,7 @@ def iris_dataset():
 def diabetes_dataset():
     X, y = get_diabetes_dataset()
     eval_X, eval_y = X[0::3], y[0::3]
-    constructor_args = {'data': eval_X, 'targets': eval_y, 'name': "diabetes_dataset"}
+    constructor_args = {"data": eval_X, "targets": eval_y, "name": "diabetes_dataset"}
     ds = _EvaluationDataset(**constructor_args)
     ds._constructor_args = constructor_args
     return ds
@@ -120,7 +118,7 @@ def diabetes_dataset():
 @pytest.fixture(scope="module")
 def diabetes_spark_dataset():
     spark_df = get_diabetes_spark_dataset().sample(fraction=0.3, seed=1)
-    constructor_args = {'data': spark_df, 'label_col': "label", 'name': "diabetes_spark_dataset"}
+    constructor_args = {"data": spark_df, "label_col": "label", "name": "diabetes_spark_dataset"}
     ds = _EvaluationDataset(**constructor_args)
     ds._constructor_args = constructor_args
     return ds
@@ -130,7 +128,7 @@ def diabetes_spark_dataset():
 def breast_cancer_dataset():
     X, y = get_breast_cancer_dataset()
     eval_X, eval_y = X[0::3], y[0::3]
-    constructor_args = {'data': eval_X, 'targets': eval_y, 'name': "breast_cancer_dataset"}
+    constructor_args = {"data": eval_X, "targets": eval_y, "name": "breast_cancer_dataset"}
     ds = _EvaluationDataset(**constructor_args)
     ds._constructor_args = constructor_args
     return ds
@@ -234,9 +232,9 @@ def test_classifier_evaluate(multiclass_logistic_regressor_model_uri, iris_datas
     with mlflow.start_run() as run:
         eval_result = evaluate(
             classifier_model,
-            iris_dataset._constructor_args['data'],
+            iris_dataset._constructor_args["data"],
             model_type="classifier",
-            targets=iris_dataset._constructor_args['targets'],
+            targets=iris_dataset._constructor_args["targets"],
             dataset_name=iris_dataset.name,
             evaluators="dummy_evaluator",
         )
@@ -307,9 +305,9 @@ def test_regressor_evaluate(linear_regressor_model_uri, diabetes_dataset):
         with mlflow.start_run() as run:
             eval_result = evaluate(
                 model,
-                diabetes_dataset._constructor_args['data'],
+                diabetes_dataset._constructor_args["data"],
                 model_type="regressor",
-                targets=diabetes_dataset._constructor_args['targets'],
+                targets=diabetes_dataset._constructor_args["targets"],
                 dataset_name=diabetes_dataset.name,
                 evaluators="dummy_evaluator",
             )
@@ -330,9 +328,9 @@ def test_dataset_metadata():
     X, y = get_iris()
     d1 = _EvaluationDataset(data=X, targets=y, name="a1", path="/path/to/a1")
     assert d1._metadata == {
-        'hash': '6bdf4e119bf1a37e7907dfd9f0e68733',
-        'name': 'a1',
-        'path': '/path/to/a1'
+        "hash": "6bdf4e119bf1a37e7907dfd9f0e68733",
+        "name": "a1",
+        "path": "/path/to/a1",
     }
 
 
@@ -385,8 +383,9 @@ def test_dataset_with_array_data():
         assert np.array_equal(eval_dataset1.labels_data, labels)
         assert list(eval_dataset1.feature_names) == ["feature_1", "feature_2"]
 
-    assert _EvaluationDataset(data=input_data, targets=labels, feature_names=['a', 'b']) \
-        .feature_names == ['a', 'b']
+    assert _EvaluationDataset(
+        data=input_data, targets=labels, feature_names=["a", "b"]
+    ).feature_names == ["a", "b"]
 
     with pytest.raises(ValueError, match="all element must has the same length"):
         _EvaluationDataset(data=[[1, 2], [3, 4, 5]], targets=labels)
@@ -507,9 +506,9 @@ def test_evaluator_interface(multiclass_logistic_regressor_model_uri, iris_datas
                 ):
                     evaluate(
                         multiclass_logistic_regressor_model_uri,
-                        data=iris_dataset._constructor_args['data'],
+                        data=iris_dataset._constructor_args["data"],
                         model_type="classifier",
-                        targets=iris_dataset._constructor_args['targets'],
+                        targets=iris_dataset._constructor_args["targets"],
                         dataset_name=iris_dataset.name,
                         evaluators="test_evaluator1",
                         evaluator_config=evaluator1_config,
@@ -527,9 +526,9 @@ def test_evaluator_interface(multiclass_logistic_regressor_model_uri, iris_datas
             with mlflow.start_run() as run:
                 eval1_result = evaluate(
                     classifier_model,
-                    iris_dataset._constructor_args['data'],
+                    iris_dataset._constructor_args["data"],
                     model_type="classifier",
-                    targets=iris_dataset._constructor_args['targets'],
+                    targets=iris_dataset._constructor_args["targets"],
                     dataset_name=iris_dataset.name,
                     evaluators="test_evaluator1",
                     evaluator_config=evaluator1_config,
@@ -581,9 +580,9 @@ def test_evaluate_with_multi_evaluators(multiclass_logistic_regressor_model_uri,
                 with mlflow.start_run() as run:
                     eval_result = evaluate(
                         classifier_model,
-                        iris_dataset._constructor_args['data'],
+                        iris_dataset._constructor_args["data"],
                         model_type="classifier",
-                        targets=iris_dataset._constructor_args['targets'],
+                        targets=iris_dataset._constructor_args["targets"],
                         dataset_name=iris_dataset.name,
                         evaluators=evaluators,
                         evaluator_config={

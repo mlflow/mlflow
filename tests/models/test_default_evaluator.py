@@ -40,9 +40,11 @@ def assert_dict_equal(d1, d2, rtol):
 def test_regressor_evaluation(linear_regressor_model_uri, diabetes_dataset):
     with mlflow.start_run() as run:
         result = evaluate(
-            model=linear_regressor_model_uri,
+            linear_regressor_model_uri,
+            diabetes_dataset._constructor_args["data"],
             model_type="regressor",
-            dataset=diabetes_dataset,
+            targets=diabetes_dataset._constructor_args["targets"],
+            dataset_name=diabetes_dataset.name,
             evaluators="default",
         )
 
@@ -81,9 +83,11 @@ def test_regressor_evaluation(linear_regressor_model_uri, diabetes_dataset):
 def test_multi_classifier_evaluation(multiclass_logistic_regressor_model_uri, iris_dataset):
     with mlflow.start_run() as run:
         result = evaluate(
-            model=multiclass_logistic_regressor_model_uri,
+            multiclass_logistic_regressor_model_uri,
+            iris_dataset._constructor_args["data"],
             model_type="classifier",
-            dataset=iris_dataset,
+            targets=iris_dataset._constructor_args["targets"],
+            dataset_name=iris_dataset.name,
             evaluators="default",
         )
 
@@ -132,9 +136,11 @@ def test_multi_classifier_evaluation(multiclass_logistic_regressor_model_uri, ir
 def test_bin_classifier_evaluation(binary_logistic_regressor_model_uri, breast_cancer_dataset):
     with mlflow.start_run() as run:
         result = evaluate(
-            model=binary_logistic_regressor_model_uri,
+            binary_logistic_regressor_model_uri,
+            breast_cancer_dataset._constructor_args["data"],
             model_type="classifier",
-            dataset=breast_cancer_dataset,
+            targets=breast_cancer_dataset._constructor_args["targets"],
+            dataset_name=breast_cancer_dataset.name,
             evaluators="default",
         )
 
@@ -184,9 +190,11 @@ def test_bin_classifier_evaluation(binary_logistic_regressor_model_uri, breast_c
 def test_spark_regressor_model_evaluation(spark_linear_regressor_model_uri, diabetes_spark_dataset):
     with mlflow.start_run() as run:
         result = evaluate(
-            model=spark_linear_regressor_model_uri,
+            spark_linear_regressor_model_uri,
+            diabetes_spark_dataset._constructor_args["data"],
             model_type="regressor",
-            dataset=diabetes_spark_dataset,
+            label_col=diabetes_spark_dataset._constructor_args["label_col"],
+            dataset_name=diabetes_spark_dataset.name,
             evaluators="default",
             evaluator_config={"log_model_explainability": True},
         )
@@ -222,9 +230,11 @@ def test_spark_regressor_model_evaluation(spark_linear_regressor_model_uri, diab
 def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset):
     with mlflow.start_run() as run:
         result = evaluate(
-            model=svm_model_uri,
+            svm_model_uri,
+            breast_cancer_dataset._constructor_args["data"],
             model_type="classifier",
-            dataset=breast_cancer_dataset,
+            targets=breast_cancer_dataset._constructor_args["targets"],
+            dataset_name=breast_cancer_dataset.name,
             evaluators="default",
         )
 
