@@ -145,7 +145,7 @@ def test_model_info():
         x = _dataframe_from_json(path)
         assert x.to_dict(orient="records")[0] == input_example
 
-        assert model_info.signature == sig
+        assert model_info.signature_dict == sig.to_dict()
 
 
 def test_model_log_with_databricks_runtime():

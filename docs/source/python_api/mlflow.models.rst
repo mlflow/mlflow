@@ -8,5 +8,3 @@ mlflow.models
 
 .. autoclass:: mlflow.models.model.ModelInfo
     :members:
-    :undoc-members:
-    :exclude-members: ModelSignature
