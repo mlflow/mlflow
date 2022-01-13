@@ -725,9 +725,10 @@ class _PyFuncModelWrapper:
         :return: List with model predictions.
         """
         spark_df = self.spark.createDataFrame(pandas_df)
+        prediction_col = self.spark_model.getPredictionCol()
         return [
             x.prediction
-            for x in self.spark_model.transform(spark_df).select("prediction").collect()
+            for x in self.spark_model.transform(spark_df).select(prediction_col).collect()
         ]
 
 
