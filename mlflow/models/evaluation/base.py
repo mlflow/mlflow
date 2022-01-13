@@ -728,10 +728,11 @@ def evaluate(
        false_positives/false_negatives/true_positives/recall/precision/roc_auc,
        precision_recall_auc), precision-recall merged curves plot, ROC merged curves plot.
 
-    The logged mlflow metric keys are constructed using the format: "{metric_name}_on_{dataset_name}".
+    The logged mlflow metric keys are constructed using the format: `{metric_name}_on_{dataset_name}`.
+    Any preexisting metrics with the same name are overwritten.
 
-    The metrics/artifacts listed above will be logged into the current active mlflow run,
-    if no active run exists, a new mlflow run will be created for logging these metrics/artifacts.
+    The metrics/artifacts listed above are logged to the active MLflow run.
+    If no active run exists, a new MLflow run is created for logging these metrics and artifacts.
 
     Additionally, information about the specified dataset - hash, name (if specified), path
     (if specified), and the UUID of the model that evaluated it - is logged to the
