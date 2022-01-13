@@ -174,6 +174,15 @@ jobs:
         docker-compose run mlflow-postgres
         docker-compose run mlflow-mysql
         docker-compose run mlflow-mssql
+
+        diff=$(git diff --color)
+        if [ ! -z "$diff"]
+        then
+          echo "$diff"
+          echo "Table schemas changed (see diff above)."
+          echo "Please run 'cd tests/db && ./update_schemas.sh and ensure new schemas are correct."
+        fi
+
         docker-compose down --volumes --remove-orphans --rmi all
     - name: Run anaconda compatibility tests
       run: |
