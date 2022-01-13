@@ -665,12 +665,12 @@ def evaluate(
                  regarded as feature columns, otherwise column names which match `feature_names`
                  are regarded as feature columns.
 
-    :param model_type: A string describing the model type. The default evaluator
-                       supports "regressor" and "classifier" as model types.
-
     :param targets: If `data` is also a numpy array or list, A numpy array or list of evaluation
                     labels. If `data` is a DataFrame, the string name of a column from `data`
                     that contains evaluation labels.
+
+    :param model_type: A string describing the model type. The default evaluator
+                       supports "regressor" and "classifier" as model types.
 
     :param dataset_name: (Optional) The name of the dataset, must not contain double quotes (“).
                          the name is logged to the `mlflow.datasets` tag. If not specified, the
