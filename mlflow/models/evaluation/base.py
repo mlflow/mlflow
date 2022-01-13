@@ -139,7 +139,7 @@ class EvaluationResult:
         return self._metrics
 
     @property
-    def artifacts(self) -> Dict[str, "mlflow.models.evaluation.EvaluationArtifact"]:
+    def artifacts(self) -> Dict[str, "mlflow.models.EvaluationArtifact"]:
         """
         A dictionary mapping standardized artifact names (e.g. "roc_data") to
         artifact content and location information
@@ -225,7 +225,7 @@ def _gen_md5_for_arraylike_obj(md5_gen, data):
 class _EvaluationDataset:
     """
     An input dataset for model evaluation. This is intended for use with the
-    :py:func:`mlflow.models.evaluation.evaluate()`
+    :py:func:`mlflow.models.evaluate()`
     API.
     """
 
@@ -426,7 +426,6 @@ class _EvaluationDataset:
 
     def __eq__(self, other):
         import numpy as np
-        import pandas as pd
 
         if not isinstance(other, _EvaluationDataset):
             return False
@@ -466,14 +465,14 @@ class ModelEvaluator(metaclass=ABCMeta):
 
         :param model: A pyfunc model instance.
         :param model_type: A string describing the model type (e.g., "regressor", "classifier", …).
-        :param dataset: An instance of :py:class:`mlflow.models.evaluation.EvaluationDataset`
+        :param dataset: An instance of `mlflow.models.evaluation.base._EvaluationDataset`
                         containing features and labels (optional) for model evaluation.
         :param run_id: The ID of the MLflow Run to which to log results.
         :param evaluator_config: A dictionary of additional configurations for
                                  the evaluator.
         :param kwargs: For forwards compatibility, a placeholder for additional arguments that
                        may be added to the evaluation interface in the future.
-        :return: An :py:class:`mlflow.models.evaluation.EvaluationResult` instance containing
+        :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
                  evaluation results.
         """
         raise NotImplementedError()
@@ -653,7 +652,7 @@ def evaluate(
     feature_names: list = None,
     evaluators=None,
     evaluator_config=None,
-) -> "mlflow.models.evaluation.EvaluationResult":
+):
     """
     Evaluate a PyFunc model on the specified dataset using one or more specified evaluators, and
     log resulting metrics & artifacts to MLflow Tracking.
@@ -700,7 +699,7 @@ def evaluate(
                              If multiple evaluators are specified, each configuration should be
                              supplied as a nested dictionary whose key is the evaluator name.
 
-    :return: An :py:class:`mlflow.models.evaluation.EvaluationDataset` instance containing
+    :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
              evaluation results.
 
     The default evaluator supports the 'regressor' and 'classifer' model types.
@@ -726,8 +725,8 @@ def evaluate(
        false_positives/false_negatives/true_positives/recall/precision/roc_auc,
        precision_recall_auc), precision-recall merged curves plot, ROC merged curves plot.
 
-    The logged mlflow metric keys are constructed using the format: `{metric_name}_on_{dataset_name}`.
-    Any preexisting metrics with the same name are overwritten.
+    The logged mlflow metric keys are constructed using the format:
+    `{metric_name}_on_{dataset_name}`. Any preexisting metrics with the same name are overwritten.
 
     The metrics/artifacts listed above are logged to the active MLflow run.
     If no active run exists, a new MLflow run is created for logging these metrics and artifacts.
@@ -756,9 +755,6 @@ def evaluate(
      - For binary classifier, the
        negative label value must be 0 or -1 or False, and the positive label value must be
        1 or True.
-     - If logging explainability insights enabled, the label values
-       must be number type, and all feature values must be number type and each feature column
-       must only contain scaler values.
 
     Limitations of metrics/artifacts computation:
      - For classifier, some metrics and plot computation require model provides
@@ -772,6 +768,8 @@ def evaluate(
        support multi-class classifier, in this case, default evaluator will fallback to use
        shap Exact or Permutation explainer.
      - Logging model explainability insights is not currently supported for PySpark models.
+     - The evaluation dataset label values must be number type, and all feature values must be
+       number type and each feature column must only contain scalar values.
     """
     from mlflow.pyfunc import PyFuncModel
 

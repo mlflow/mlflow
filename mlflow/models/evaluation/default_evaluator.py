@@ -325,7 +325,7 @@ class DefaultEvaluator(ModelEvaluator):
             #  but spark model input dataframe contains Vector type feature column
             #  which shap explainer does not support.
             #  To support this, we need expand the Vector type feature column into
-            #  multiple scaler feature columns and pass it to shap explainer.
+            #  multiple scalar feature columns and pass it to shap explainer.
             _logger.warning(
                 "Logging model explainability insights is not currently supported for PySpark "
                 "models."
@@ -345,7 +345,7 @@ class DefaultEvaluator(ModelEvaluator):
             if not np.issubdtype(feature_dtype, np.number):
                 _logger.warning(
                     "Skip logging model explainability insights because it requires all feature "
-                    "values to be number type, and each feature column must only contain scaler "
+                    "values to be number type, and each feature column must only contain scalar "
                     "values."
                 )
                 return
