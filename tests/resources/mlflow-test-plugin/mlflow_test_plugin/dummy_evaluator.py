@@ -51,7 +51,7 @@ class DummyEvaluator(ModelEvaluator):
         if model_type == "classifier":
             accuracy_score = sk_metrics.accuracy_score(y, y_pred)
 
-            metrics = {'accuracy_score': accuracy_score}
+            metrics = {"accuracy_score": accuracy_score}
             self._log_metrics(run_id, metrics, dataset.name)
             confusion_matrix = sk_metrics.confusion_matrix(y, y_pred)
             confusion_matrix_artifact_name = f"confusion_matrix_on_{dataset.name}.csv"
@@ -69,8 +69,8 @@ class DummyEvaluator(ModelEvaluator):
             mean_absolute_error = sk_metrics.mean_absolute_error(y, y_pred)
             mean_squared_error = sk_metrics.mean_squared_error(y, y_pred)
             metrics = {
-                'mean_absolute_error': mean_absolute_error,
-                'mean_squared_error': mean_squared_error,
+                "mean_absolute_error": mean_absolute_error,
+                "mean_squared_error": mean_squared_error,
             }
             self._log_metrics(run_id, metrics, dataset.name)
             artifacts = {}

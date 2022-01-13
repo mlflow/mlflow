@@ -232,9 +232,7 @@ class _EvaluationDataset:
     NUM_SAMPLE_ROWS_FOR_HASH = 5
     SPARK_DATAFRAME_LIMIT = 10000
 
-    def __init__(
-        self, data, *, targets, name=None, path=None, feature_names=None
-    ):
+    def __init__(self, data, *, targets, name=None, path=None, feature_names=None):
         """
         The values of the constructor arguments comes from the `evaluate` call.
         """
