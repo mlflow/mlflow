@@ -179,8 +179,8 @@ jobs:
         if [ ! -z "$diff"]
         then
           echo "$diff"
-          echo "Table schemas changed (see diff above)."
-          echo "Please run 'cd tests/db && ./update_schemas.sh and ensure new schemas are correct."
+          echo 'Table schemas changed (see diff above).'
+          echo 'Please run `cd tests/db && ./update_schemas.sh` and ensure new schemas are correct.'
         fi
 
         docker-compose down --volumes --remove-orphans --rmi all
