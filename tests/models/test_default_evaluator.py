@@ -193,7 +193,7 @@ def test_spark_regressor_model_evaluation(spark_linear_regressor_model_uri, diab
             spark_linear_regressor_model_uri,
             diabetes_spark_dataset._constructor_args["data"],
             model_type="regressor",
-            label_col=diabetes_spark_dataset._constructor_args["label_col"],
+            targets=diabetes_spark_dataset._constructor_args["targets"],
             dataset_name=diabetes_spark_dataset.name,
             evaluators="default",
             evaluator_config={"log_model_explainability": True},

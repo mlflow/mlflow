@@ -648,8 +648,8 @@ def evaluate(
     model: Union[str, "mlflow.pyfunc.PyFuncModel"],
     data,
     *,
-    model_type: str,
     targets,
+    model_type: str,
     dataset_name=None,
     dataset_path=None,
     feature_names: list = None,
@@ -753,14 +753,14 @@ def evaluate(
        ROC curve and Precision-Recall curve.
 
     Limitations of evaluation dataset:
-     - If the input dataset is pandas dataframe, the feature columns in pandas dataframe must be
-       scalar value columns, other object types (nd.array/list/etc.) are not supported yet.
      - For classifier, evaluation dataset labels must contains all distinct values, the dataset
-       labels data will be used to infer the number of classes. For binary classifier, the
+       labels data will be used to infer the number of classes.
+     - For binary classifier, the
        negative label value must be 0 or -1 or False, and the positive label value must be
        1 or True.
-       For multiclass classifier, if logging explainability insights enabled, the label values
-       must be number type.
+     - If logging explainability insights enabled, the label values
+       must be number type, and all feature values must be number type and each feature column
+       must only contain scaler values.
 
     Limitations of metrics/artifacts computation:
      - For classifier, some metrics and plot computation require model provides

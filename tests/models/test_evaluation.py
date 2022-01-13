@@ -117,7 +117,7 @@ def diabetes_dataset():
 @pytest.fixture(scope="module")
 def diabetes_spark_dataset():
     spark_df = get_diabetes_spark_dataset().sample(fraction=0.3, seed=1)
-    constructor_args = {"data": spark_df, "label_col": "label", "name": "diabetes_spark_dataset"}
+    constructor_args = {"data": spark_df, "targets": "label", "name": "diabetes_spark_dataset"}
     ds = _EvaluationDataset(**constructor_args)
     ds._constructor_args = constructor_args
     return ds
@@ -211,7 +211,7 @@ def iris_pandas_df_dataset():
             "y": eval_y,
         }
     )
-    return _EvaluationDataset(data=data, label_col="y", name="iris_pandas_df_dataset")
+    return _EvaluationDataset(data=data, targets="y", name="iris_pandas_df_dataset")
 
 
 def test_classifier_evaluate(multiclass_logistic_regressor_model_uri, iris_dataset):
@@ -358,7 +358,7 @@ def test_dataset_hash(iris_dataset, iris_pandas_df_dataset, diabetes_spark_datas
 
 def test_dataset_with_pandas_dataframe():
     data = pd.DataFrame({"f1": [1, 2], "f2": [3, 4], "f3": [5, 6], "label": [0, 1]})
-    eval_dataset = _EvaluationDataset(data=data, label_col="label")
+    eval_dataset = _EvaluationDataset(data=data, targets="label")
 
     assert list(eval_dataset.features_data.columns) == ["f1", "f2", "f3"]
     assert np.array_equal(eval_dataset.features_data.f1.to_numpy(), [1, 2])
@@ -366,7 +366,7 @@ def test_dataset_with_pandas_dataframe():
     assert np.array_equal(eval_dataset.features_data.f3.to_numpy(), [5, 6])
     assert np.array_equal(eval_dataset.labels_data, [0, 1])
 
-    eval_dataset2 = _EvaluationDataset(data=data, label_col="label", feature_names=["f3", "f2"])
+    eval_dataset2 = _EvaluationDataset(data=data, targets="label", feature_names=["f3", "f2"])
     assert list(eval_dataset2.features_data.columns) == ["f3", "f2"]
     assert np.array_equal(eval_dataset2.features_data.f2.to_numpy(), [3, 4])
     assert np.array_equal(eval_dataset2.features_data.f3.to_numpy(), [5, 6])
@@ -413,7 +413,7 @@ def test_dataset_autogen_feature_names():
 def test_dataset_from_spark_df(spark_session):
     spark_df = spark_session.createDataFrame([(1.0, 2.0, 3.0)] * 10, ["f1", "f2", "y"])
     with mock.patch.object(_EvaluationDataset, "SPARK_DATAFRAME_LIMIT", 5):
-        dataset = _EvaluationDataset(spark_df, label_col="y")
+        dataset = _EvaluationDataset(spark_df, targets="y")
         assert list(dataset.features_data.columns) == ["f1", "f2"]
         assert list(dataset.features_data["f1"]) == [1.0] * 5
         assert list(dataset.features_data["f2"]) == [2.0] * 5

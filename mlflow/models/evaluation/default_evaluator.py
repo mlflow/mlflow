@@ -332,14 +332,23 @@ class DefaultEvaluator(ModelEvaluator):
             )
             return
 
-        if self.model_type == "classifier" and not all(
-            [isinstance(label, (numbers.Number, np.bool_)) for label in self.label_list]
-        ):
+        if not (np.issubdtype(self.y.dtype, np.number) or self.y.dtype == np.bool_):
+            # Note: python bool type inherits number type but np.bool_ does not inherit np.number.
             _logger.warning(
                 "Skip logging model explainability insights because it requires all label "
-                "values to be Number type."
+                "values to be number type or bool type."
             )
             return
+
+        feature_dtypes = list(self.X.dtypes) if isinstance(self.X, pd.DataFrame) else [self.X.dtype]
+        for feature_dtype in feature_dtypes:
+            if not np.issubdtype(feature_dtype, np.number):
+                _logger.warning(
+                    "Skip logging model explainability insights because it requires all feature "
+                    "values to be number type, and each feature column must only contain scaler "
+                    "values."
+                )
+                return
 
         try:
             import shap
