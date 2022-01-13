@@ -4,7 +4,7 @@ from mlflow.models.evaluation.base import (
     EvaluationArtifact,
     evaluate,
     list_evaluators,
-    get_last_failed_evaluator,
+    _get_last_failed_evaluator,
 )
 
 __all__ = [
@@ -13,5 +13,4 @@ __all__ = [
     "EvaluationArtifact",
     "evaluate",
     "list_evaluators",
-    "get_last_failed_evaluator",
 ]

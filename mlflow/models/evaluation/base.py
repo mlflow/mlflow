@@ -233,7 +233,7 @@ class _EvaluationDataset:
     SPARK_DATAFRAME_LIMIT = 10000
 
     def __init__(
-        self, data, *, targets=None, label_col=None, name=None, path=None, feature_names=None
+        self, data, *, targets, name=None, path=None, feature_names=None
     ):
         """
         The values of the constructor arguments comes from the `evaluate` call.
@@ -266,7 +266,7 @@ class _EvaluationDataset:
 
         if feature_names is not None and len(set(feature_names)) < len(list(feature_names)):
             raise ValueError(
-                "`feature_names` argument must be a list containing unique feature " "names."
+                "`feature_names` argument must be a list containing unique feature names."
             )
 
         if isinstance(data, (np.ndarray, list)):
@@ -307,28 +307,28 @@ class _EvaluationDataset:
                     for i in range(num_features)
                 ]
         elif isinstance(data, supported_dataframe_types):
-            if not isinstance(label_col, str):
+            if not isinstance(targets, str):
                 raise ValueError(
-                    "If data is a Pandas DataFrame or Spark DataFrame, `label_col` argument must "
+                    "If data is a Pandas DataFrame or Spark DataFrame, `targets` argument must "
                     "be the name of the column which contains evaluation labels in the `data` "
                     "dataframe."
                 )
             if isinstance(data, spark_df_type):
                 _logger.warning(
-                    f"Specified Spark DataFrame is too large for model evaluation. Only "
+                    "Specified Spark DataFrame is too large for model evaluation. Only "
                     f"the first {_EvaluationDataset.SPARK_DATAFRAME_LIMIT} rows will be used."
                     "If you want evaluate on the whole spark dataframe, please manually call "
                     "`spark_dataframe.toPandas()`."
                 )
                 data = data.limit(_EvaluationDataset.SPARK_DATAFRAME_LIMIT).toPandas()
 
-            self._labels_data = data[label_col].to_numpy()
+            self._labels_data = data[targets].to_numpy()
 
             if feature_names is not None:
                 self._features_data = data[list(feature_names)]
                 self._feature_names = feature_names
             else:
-                self._features_data = data.drop(label_col, axis=1, inplace=False)
+                self._features_data = data.drop(targets, axis=1, inplace=False)
                 self._feature_names = list(self._features_data.columns)
         else:
             raise ValueError(
@@ -451,13 +451,11 @@ class ModelEvaluator(metaclass=ABCMeta):
     @abstractmethod
     def can_evaluate(self, *, model_type, evaluator_config, **kwargs) -> bool:
         """
-        :param model_type: A string describing the model type (e.g., "regressor",
-                           "classifier", …).
+        :param model_type: A string describing the model type (e.g., "regressor", "classifier", …).
         :param evaluator_config: A dictionary of additional configurations for
                                  the evaluator.
-        :param kwargs: For forwards compatibility, a placeholder for additional
-                         arguments that may be added to the evaluation interface
-                         in the future.
+        :param kwargs: For forwards compatibility, a placeholder for additional arguments
+                       that may be added to the evaluation interface in the future.
         :return: True if the evaluator can evaluate the specified model on the
                  specified dataset. False otherwise.
         """
@@ -469,16 +467,14 @@ class ModelEvaluator(metaclass=ABCMeta):
         The abstract API to log metrics and artifacts, and return evaluation results.
 
         :param model: A pyfunc model instance.
-        :param model_type: A string describing the model type (e.g., "regressor",
-                   "classifier", …).
+        :param model_type: A string describing the model type (e.g., "regressor", "classifier", …).
         :param dataset: An instance of :py:class:`mlflow.models.evaluation.EvaluationDataset`
                         containing features and labels (optional) for model evaluation.
         :param run_id: The ID of the MLflow Run to which to log results.
         :param evaluator_config: A dictionary of additional configurations for
                                  the evaluator.
-        :param kwargs: For forwards compatibility, a placeholder for additional
-                         arguments that may be added to the evaluation interface
-                         in the future.
+        :param kwargs: For forwards compatibility, a placeholder for additional arguments that
+                       may be added to the evaluation interface in the future.
         :return: An :py:class:`mlflow.models.evaluation.EvaluationResult` instance containing
                  evaluation results.
         """
@@ -585,7 +581,7 @@ def _normalize_evaluators_and_evaluator_config_args(
 _last_failed_evaluator = None
 
 
-def get_last_failed_evaluator():
+def _get_last_failed_evaluator():
     """
     Return the evaluator name of the last failed evaluator when calling `evalaute`.
     This can be used to check which evaluator fail when `evaluate` API fail.
@@ -653,8 +649,7 @@ def evaluate(
     data,
     *,
     model_type: str,
-    targets=None,
-    label_col=None,
+    targets,
     dataset_name=None,
     dataset_path=None,
     feature_names: list = None,
@@ -667,45 +662,46 @@ def evaluate(
 
     :param model: A pyfunc model instance, or a URI referring to such a model.
 
-    :param data: One of the following:
-     - A numpy array or list of evaluation features, excluding labels.
-     - A Pandas DataFrame, or a spark DataFrame,
-       containing evaluation features and labels. If `feature_names` argument not specified,
-       all columns will be regarded as feature columns, otherwise column names which match
-       `feature_names` will be regarded as feature columns.
+    :param data: One of the following: A numpy array or list of evaluation features, excluding
+                 labels. Or a Pandas DataFrame, or a spark DataFrame, containing evaluation
+                 features and labels. If `feature_names` argument not specified, all columns are
+                 regarded as feature columns, otherwise column names which match `feature_names`
+                 are regarded as feature columns.
 
     :param model_type: A string describing the model type. The default evaluator
                        supports "regressor" and "classifier" as model types.
 
-    :param targets: (Optional) A numpy array or list of evaluation labels, if `data` is also a
-      numpy array or list.
-
-    :param label_col: (Optional) The string name of a column from `data` that contains
-      evaluation labels, if `data` is a DataFrame.
+    :param targets: If `data` is also a numpy array or list, A numpy array or list of evaluation
+                    labels. If `data` is a DataFrame, the string name of a column from `data`
+                    that contains evaluation labels.
 
     :param dataset_name: (Optional) The name of the dataset, must not contain double quotes (“).
-.
-    :param dataset_path: (Optional) the path to a serialized DataFrame
-      (e.g. a delta table, parquet file), must not contain double quotes (“).
+                         the name is logged to the `mlflow.datasets` tag. If not specified, the
+                         dataset hash is used as the dataset name.
 
-    :param feature_names: (Optional) If `data` argument is a feature data numpy array or list,
-      `feature_names` argument is a list of the feature names for each feature. If None, then
-      the `feature_names` will be generated using the format "feature_{feature_index}".
-      if `data` argument is a pandas dataframe or a spark dataframe, `feature_names` argument
-      is a list of the column names of the feature columns in the dataframe. If None, then
-      all columns except the label column will be regarded as feature columns.
+    :param dataset_path: (Optional) The path to a serialized DataFrame (e.g. a delta table,
+                         parquet file), must not contain double quotes (“). If specified,
+                         the path is logged to the `mlflow.datasets` tag.
 
-    :param evaluators: The name of the evaluator to use for model evaluations, or
-                       a list of evaluator names. If unspecified, all evaluators
-                       capable of evaluating the specified model on the specified
-                       dataset are used. The default evaluator can be referred to
-                       by the name 'default'. If this argument is unspecified, then
-                       fetch all evaluators from the registry. To get all available
-                       evaluators, call :py:func:`mlflow.models.evaluation.list_evaluators`
-    :param evaluator_config: A dictionary of additional configurations to supply
-                             to the evaluator. If multiple evaluators are
-                             specified, each configuration should be supplied as
-                             a nested dictionary whose key is the evaluator name.
+    :param feature_names: (Optional) If the `data` argument is a feature data numpy array or list,
+                          `feature_names` is a list of the feature names for each feature, if
+                          `None`, then the `feature_names` are generated using the format
+                          `feature_{feature_index}`. If the `data` argument is a Pandas DataFrame
+                          or a Spark DataFrame, `feature_names` is a list of the names of the
+                          feature columns in the DataFrame. If `None`, then all columns except
+                          the label column are regarded as feature columns.
+
+    :param evaluators: The name of the evaluator to use for model evaluations, or a list of
+                       evaluator names. If unspecified, all evaluators capable of evaluating the
+                       specified model on the specified dataset are used. The default evaluator
+                       can be referred to by the name 'default'. If this argument is unspecified,
+                       then fetch all evaluators from the registry. To get all available
+                       evaluators, call :py:func:`mlflow.models.list_evaluators`
+
+    :param evaluator_config: A dictionary of additional configurations to supply to the evaluator.
+                             If multiple evaluators are specified, each configuration should be
+                             supplied as a nested dictionary whose key is the evaluator name.
+
     :return: An :py:class:`mlflow.models.evaluation.EvaluationDataset` instance containing
              evaluation results.
 
@@ -737,9 +733,9 @@ def evaluate(
     The metrics/artifacts listed above will be logged into the current active mlflow run,
     if no active run exists, a new mlflow run will be created for logging these metrics/artifacts.
 
-    Besides the metrics and artifacts, the value of the tag `mlflow.datasets` will be logged
-    or appended. The content of the tag value includes the dataset metadata (name/path/hash) and
-    the model uuid.
+    Additionally, information about the specified dataset - hash, name (if specified), path
+    (if specified), and the UUID of the model that evaluated it - is logged to the
+    `mlflow.datasets` tag.
 
     The available `evaluator_config` options for the default evaluator include:
 
@@ -758,9 +754,6 @@ def evaluate(
     Limitations of evaluation dataset:
      - If the input dataset is pandas dataframe, the feature columns in pandas dataframe must be
        scalar value columns, other object types (nd.array/list/etc.) are not supported yet.
-     - If the mlflow model to be evaluated is a pyspark ML model, then the input data must
-       be a spark DataFrame or pandas DataFrame contains a feature column with values of type
-       "pyspark.ml.linalg.Vector", and a label column.
      - For classifier, evaluation dataset labels must contains all distinct values, the dataset
        labels data will be used to infer the number of classes. For binary classifier, the
        negative label value must be 0 or -1 or False, and the positive label value must be
@@ -801,7 +794,6 @@ def evaluate(
     dataset = _EvaluationDataset(
         data,
         targets=targets,
-        label_col=label_col,
         name=dataset_name,
         path=dataset_path,
         feature_names=feature_names,
