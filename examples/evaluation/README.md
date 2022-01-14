@@ -16,9 +16,9 @@ specified dataset using builtin default evaluator, and log resulting metrics & a
 pip install scikit-learn xgboost shap matplotlib
 ```
 
-#### How to run this code
+#### How to run the examples
 
-Run from the current git directory with Python.
+Run in this directory with Python.
 
 ```
 python evaluate_on_binary_classifier.py
