@@ -2,6 +2,7 @@
 
 set -ex
 
+mkdir -p schemas
 ./build_wheel.sh
 docker-compose down --volumes --remove-orphans
 docker-compose pull
