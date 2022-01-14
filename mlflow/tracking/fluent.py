@@ -35,7 +35,7 @@ from mlflow.utils.databricks_utils import (
     is_in_databricks_job,
     is_in_databricks_notebook,
     get_notebook_id,
-    get_job_to_experiment_name_mapping,
+    get_experiment_name_from_job_id,
     get_job_type_info,
 )
 from mlflow.utils.import_hooks import register_post_import_hook
@@ -1352,8 +1352,7 @@ def _create_job_experiment() -> str:
     tags[EXPERIMENT_SOURCE_TYPE] = SourceType.to_string(SourceType.JOB)
     tags[EXPERIMENT_SOURCE_ID] = get_job_id()
 
-    print("tags from fluent py", tags)
-    experiment_id = create_experiment(get_job_to_experiment_name_mapping(), None, tags)
+    experiment_id = create_experiment(get_experiment_name_from_job_id(), None, tags)
     _logger.info(
         "Job experiment with experiment_id '%s' created",
         experiment_id,

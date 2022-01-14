@@ -259,7 +259,7 @@ def test_get_experiment_by_id_with_is_in_databricks_job():
     ) as job_type_info_mock, mock.patch(
         "mlflow.tracking.fluent.get_job_id"
     ) as job_id_mock, mock.patch(
-        "mlflow.tracking.fluent.get_job_to_experiment_name_mapping"
+        "mlflow.tracking.fluent.get_experiment_name_from_job_id"
     ) as job_to_experiment_name_mapping_mock, mock.patch.object(
         MlflowClient, "create_experiment", return_value=exp_id
     ):

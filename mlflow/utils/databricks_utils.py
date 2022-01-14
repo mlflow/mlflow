@@ -266,10 +266,10 @@ def get_job_type_info():
     try:
         return _get_context_tag("jobType")
     except Exception:
-        None
+        return None
 
 
-def get_job_to_experiment_name_mapping():
+def get_experiment_name_from_job_id():
     try:
         return "job:/" + get_job_id()
     except Exception:
