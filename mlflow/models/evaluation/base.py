@@ -1,4 +1,4 @@
-from typing import Dict, Union
+from typing import Dict, Union, Any
 import mlflow
 import hashlib
 import json
@@ -22,14 +22,6 @@ from abc import ABCMeta, abstractmethod
 _logger = logging.getLogger(__name__)
 
 
-class EvaluationMetrics(dict):
-    """
-    A dictionary of model evaluation metrics.
-    """
-
-    pass
-
-
 class EvaluationArtifact(metaclass=ABCMeta):
     """
     A model evaluation artifact containing an artifact uri and content.
@@ -47,7 +39,7 @@ class EvaluationArtifact(metaclass=ABCMeta):
         """
         pass
 
-    def load(self, local_artifact_path=None):
+    def _load(self, local_artifact_path=None):
         """
         If `local_artifact_path` is None, download artifact from the artifact uri,
         otherwise load artifact content from specified path.
@@ -64,7 +56,7 @@ class EvaluationArtifact(metaclass=ABCMeta):
         return self._content
 
     @abstractmethod
-    def save(self, output_artifact_path):
+    def _save(self, output_artifact_path):
         """Save artifact content into specified path."""
         pass
 
@@ -74,7 +66,7 @@ class EvaluationArtifact(metaclass=ABCMeta):
         The content of the artifact (representation varies)
         """
         if self._content is None:
-            self.load()
+            self._load()
         return self._content
 
     @property
@@ -87,8 +79,8 @@ class EvaluationArtifact(metaclass=ABCMeta):
 
 class EvaluationResult:
     """
-    Represent an return value of `mlflow.evaluate()` API. Contains metrics dict and
-    artifact dict.
+    Represents the model evaluation outputs of a `mlflow.evaluate()` API call, containing
+    both scalar metrics and output artifacts such as performance plots.
     """
 
     def __init__(self, metrics, artifacts):
@@ -99,7 +91,7 @@ class EvaluationResult:
     def load(cls, path):
         """Load the evaluation results from the specified local filesystem path"""
         with open(os.path.join(path, "metrics.json"), "r") as fp:
-            metrics = EvaluationMetrics(json.load(fp))
+            metrics = json.load(fp)
 
         with open(os.path.join(path, "artifacts_metadata.json"), "r") as fp:
             artifacts_metadata = json.load(fp)
@@ -112,7 +104,7 @@ class EvaluationResult:
             uri = meta["uri"]
             ArtifactCls = _get_class_from_string(meta["class_name"])
             artifact = ArtifactCls(uri=uri)
-            artifact.load(os.path.join(artifacts_dir, artifact_name))
+            artifact._load(os.path.join(artifacts_dir, artifact_name))
             artifacts[artifact_name] = artifact
 
         return EvaluationResult(metrics=metrics, artifacts=artifacts)
@@ -137,17 +129,17 @@ class EvaluationResult:
         os.mkdir(artifacts_dir)
 
         for artifact_name, artifact in self.artifacts.items():
-            artifact.save(os.path.join(artifacts_dir, artifact_name))
+            artifact._save(os.path.join(artifacts_dir, artifact_name))
 
     @property
-    def metrics(self) -> "mlflow.models.evaluation.EvaluationMetrics":
+    def metrics(self) -> Dict[str, Any]:
         """
         A dictionary mapping scalar metric names to scalar metric values
         """
         return self._metrics
 
     @property
-    def artifacts(self) -> Dict[str, "mlflow.models.evaluation.EvaluationArtifact"]:
+    def artifacts(self) -> Dict[str, "mlflow.models.EvaluationArtifact"]:
         """
         A dictionary mapping standardized artifact names (e.g. "roc_data") to
         artifact content and location information
@@ -233,37 +225,16 @@ def _gen_md5_for_arraylike_obj(md5_gen, data):
 class EvaluationDataset:
     """
     An input dataset for model evaluation. This is intended for use with the
-    :py:func:`mlflow.models.evaluation.evaluate()`
+    :py:func:`mlflow.models.evaluate()`
     API.
     """
 
     NUM_SAMPLE_ROWS_FOR_HASH = 5
     SPARK_DATAFRAME_LIMIT = 10000
 
-    def __init__(self, data, labels, name=None, path=None, feature_names=None):
+    def __init__(self, data, *, targets, name=None, path=None, feature_names=None):
         """
-        :param data: One of the following:
-         - A numpy array or list of evaluation features, excluding labels.
-         - A Pandas DataFrame, or a spark DataFrame,
-           containing evaluation features and labels. All columns will be regarded as feature
-           columns except the "labels" column.
-         Note: If the mlflow model to be evaluated is a pyspark ML model, then the input data must
-           be a spark DataFrame contains a feature column of "Vector" type, and a label column.
-
-        :param labels: One of the following:
-         - A numpy array or list of evaluation labels, if `data` is also a numpy array or list.
-         - The string name of a column from `data` that contains evaluation labels, if `data`
-           is a DataFrame.
-
-        :param name: (Optional) The name of the dataset (must not contain ").
-
-        :param path: (Optional) the path to a serialized DataFrame (must not contain ").
-          (e.g. a delta table, parquet file)
-
-        :param feature_names: (Optional) A list of the feature names attached to the numpy array
-          input data. The argument is only useful in the case the input data is numpy array.
-          For pandas DataFrame input case, the pandas column name will be used as feature name.
-          The feature names will be shown in model explainability plots.
+        The values of the constructor arguments comes from the `evaluate` call.
         """
         import numpy as np
         import pandas as pd
@@ -291,11 +262,16 @@ class EvaluationDataset:
         except ImportError:
             supported_dataframe_types = (pd.DataFrame,)
 
+        if feature_names is not None and len(set(feature_names)) < len(list(feature_names)):
+            raise ValueError(
+                "`feature_names` argument must be a list containing unique feature names."
+            )
+
         if isinstance(data, (np.ndarray, list)):
-            if not isinstance(labels, (np.ndarray, list)):
+            if not isinstance(targets, (np.ndarray, list)):
                 raise ValueError(
                     "If data is a numpy array or list of evaluation features, "
-                    "labels must be a numpy array or list of evaluation labels"
+                    "`targets` argument must be a numpy array or list of evaluation labels."
                 )
             if isinstance(data, list):
                 data = np.array(data)
@@ -309,7 +285,7 @@ class EvaluationDataset:
                 )
 
             self._features_data = data
-            self._labels_data = labels if isinstance(labels, np.ndarray) else np.array(labels)
+            self._labels_data = targets if isinstance(targets, np.ndarray) else np.array(targets)
 
             if len(self._features_data) != len(self._labels_data):
                 raise ValueError(
@@ -329,30 +305,29 @@ class EvaluationDataset:
                     for i in range(num_features)
                 ]
         elif isinstance(data, supported_dataframe_types):
-            if not isinstance(labels, str):
+            if not isinstance(targets, str):
                 raise ValueError(
-                    "If data is a Pandas DataFrame or Spark DataFrame, labels must be the "
-                    "string name of a column from `data` that contains evaluation labels"
+                    "If data is a Pandas DataFrame or Spark DataFrame, `targets` argument must "
+                    "be the name of the column which contains evaluation labels in the `data` "
+                    "dataframe."
                 )
             if isinstance(data, spark_df_type):
                 _logger.warning(
-                    f"Specified Spark DataFrame is too large for model evaluation. Only "
+                    "Specified Spark DataFrame is too large for model evaluation. Only "
                     f"the first {EvaluationDataset.SPARK_DATAFRAME_LIMIT} rows will be used."
                     "If you want evaluate on the whole spark dataframe, please manually call "
                     "`spark_dataframe.toPandas()`."
                 )
                 data = data.limit(EvaluationDataset.SPARK_DATAFRAME_LIMIT).toPandas()
 
-            self._features_data = data.drop(labels, axis=1, inplace=False)
-            self._labels_data = data[labels].to_numpy()
+            self._labels_data = data[targets].to_numpy()
 
             if feature_names is not None:
-                raise ValueError(
-                    "If `data` argument is pandas/spark dataframe, you cannot specify the "
-                    "`feature_names` argument, instead, the column names of the input "
-                    "dataframe will be used as the feature names."
-                )
-            self._feature_names = list(self._features_data.columns)
+                self._features_data = data[list(feature_names)]
+                self._feature_names = feature_names
+            else:
+                self._features_data = data.drop(targets, axis=1, inplace=False)
+                self._feature_names = list(self._features_data.columns)
         else:
             raise ValueError(
                 "The data argument must be a numpy array, a list or a Pandas DataFrame, or "
@@ -446,18 +421,38 @@ class EvaluationDataset:
             tags=[RunTag("mlflow.datasets", dataset_metadata_str)],
         )
 
+    def __hash__(self):
+        return hash(self.hash)
+
+    def __eq__(self, other):
+        import numpy as np
+
+        if not isinstance(other, EvaluationDataset):
+            return False
+
+        if isinstance(self._features_data, np.ndarray):
+            is_features_data_equal = np.array_equal(self._features_data, other._features_data)
+        else:
+            is_features_data_equal = self._features_data.equals(other._features_data)
+
+        return (
+            is_features_data_equal
+            and np.array_equal(self._labels_data, other._labels_data)
+            and self.name == other.name
+            and self.path == other.path
+            and self._feature_names == other._feature_names
+        )
+
 
 class ModelEvaluator(metaclass=ABCMeta):
     @abstractmethod
     def can_evaluate(self, *, model_type, evaluator_config, **kwargs) -> bool:
         """
-        :param model_type: A string describing the model type (e.g., "regressor",
-                           "classifier", …).
+        :param model_type: A string describing the model type (e.g., "regressor", "classifier", …).
         :param evaluator_config: A dictionary of additional configurations for
                                  the evaluator.
-        :param kwargs: For forwards compatibility, a placeholder for additional
-                         arguments that may be added to the evaluation interface
-                         in the future.
+        :param kwargs: For forwards compatibility, a placeholder for additional arguments
+                       that may be added to the evaluation interface in the future.
         :return: True if the evaluator can evaluate the specified model on the
                  specified dataset. False otherwise.
         """
@@ -469,17 +464,15 @@ class ModelEvaluator(metaclass=ABCMeta):
         The abstract API to log metrics and artifacts, and return evaluation results.
 
         :param model: A pyfunc model instance.
-        :param model_type: A string describing the model type (e.g., "regressor",
-                   "classifier", …).
-        :param dataset: An instance of :py:class:`mlflow.models.evaluation.EvaluationDataset`
+        :param model_type: A string describing the model type (e.g., "regressor", "classifier", …).
+        :param dataset: An instance of `mlflow.models.evaluation.base._EvaluationDataset`
                         containing features and labels (optional) for model evaluation.
         :param run_id: The ID of the MLflow Run to which to log results.
         :param evaluator_config: A dictionary of additional configurations for
                                  the evaluator.
-        :param kwargs: For forwards compatibility, a placeholder for additional
-                         arguments that may be added to the evaluation interface
-                         in the future.
-        :return: An :py:class:`mlflow.models.evaluation.EvaluationResult` instance containing
+        :param kwargs: For forwards compatibility, a placeholder for additional arguments that
+                       may be added to the evaluation interface in the future.
+        :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
                  evaluation results.
         """
         raise NotImplementedError()
@@ -496,7 +489,7 @@ def list_evaluators():
 
 
 @contextmanager
-def _start_run_or_reuse_active_run(run_id):
+def _start_run_or_reuse_active_run():
     """
     A manager context return:
      - If there's an active run, return the active run id.
@@ -506,13 +499,9 @@ def _start_run_or_reuse_active_run(run_id):
     active_run = mlflow.active_run()
     if not active_run:
         # Note `mlflow.start_run` throws if `run_id` is not found.
-        with mlflow.start_run(run_id=run_id) as run:
+        with mlflow.start_run() as run:
             yield run.info.run_id
     else:
-        if run_id and active_run.info.run_id != run_id:
-            raise ValueError(
-                "An active run exists, you cannot specify another run_id when evaluating."
-            )
         yield active_run.info.run_id
 
 
@@ -598,7 +587,7 @@ def _get_last_failed_evaluator():
 
 
 def _evaluate(
-    *, model, model_type, dataset, actual_run_id, evaluator_name_list, evaluator_name_to_conf_map
+    *, model, model_type, dataset, run_id, evaluator_name_list, evaluator_name_to_conf_map
 ):
     """
     The public API "evaluate" will verify argument first, and then pass normalized arguments
@@ -612,7 +601,7 @@ def _evaluate(
 
     client = mlflow.tracking.MlflowClient()
     model_uuid = model.metadata.model_uuid
-    dataset._log_dataset_tag(client, actual_run_id, model_uuid)
+    dataset._log_dataset_tag(client, run_id, model_uuid)
 
     eval_results = []
     for evaluator_name in evaluator_name_list:
@@ -630,7 +619,7 @@ def _evaluate(
                 model=model,
                 model_type=model_type,
                 dataset=dataset,
-                run_id=actual_run_id,
+                run_id=run_id,
                 evaluator_config=config,
             )
             eval_results.append(result)
@@ -643,7 +632,7 @@ def _evaluate(
             "verify that the model type and other configs are set correctly."
         )
 
-    merged_eval_result = EvaluationResult(EvaluationMetrics(), dict())
+    merged_eval_result = EvaluationResult(dict(), dict())
     for eval_result in eval_results:
         merged_eval_result.metrics.update(eval_result.metrics)
         merged_eval_result.artifacts.update(eval_result.artifacts)
@@ -653,104 +642,134 @@ def _evaluate(
 
 @experimental
 def evaluate(
-    *,
     model: Union[str, "mlflow.pyfunc.PyFuncModel"],
+    data,
+    *,
+    targets,
     model_type: str,
-    dataset: "mlflow.models.evaluation.EvaluationDataset",
-    run_id=None,
+    dataset_name=None,
+    dataset_path=None,
+    feature_names: list = None,
     evaluators=None,
     evaluator_config=None,
-) -> "mlflow.models.evaluation.EvaluationResult":
+):
     """
     Evaluate a PyFunc model on the specified dataset using one or more specified evaluators, and
     log resulting metrics & artifacts to MLflow Tracking.
 
     :param model: A pyfunc model instance, or a URI referring to such a model.
 
+    :param data: One of the following:
+
+                  - A numpy array or list of evaluation features, excluding labels.
+
+                  - A Pandas DataFrame or Spark DataFrame, containing evaluation features and
+                    labels. If `feature_names` argument not specified, all columns are regarded
+                    as feature columns. Otherwise, only column names present in `feature_names`
+                    are regarded as feature columns.
+
+    :param targets: If `data` is a numpy array or list, a numpy array or list of evaluation
+                    labels. If `data` is a DataFrame, the string name of a column from `data`
+                    that contains evaluation labels.
+
     :param model_type: A string describing the model type. The default evaluator
                        supports "regressor" and "classifier" as model types.
-    :param dataset: An instance of :py:class:`mlflow.models.evaluation.EvaluationDataset`
-                    containing features labels (optional) for model evaluation.
-    :param run_id: The ID of the MLflow Run to which to log results. If
-                   unspecified, behavior depends on the specified `evaluator`.
-                   When `run_id` is unspecified, the default evaluator logs
-                   results to the current active run, creating a new active run if
-                   one does not exist.
-    :param evaluators: The name of the evaluator to use for model evaluations, or
-                       a list of evaluator names. If unspecified, all evaluators
-                       capable of evaluating the specified model on the specified
-                       dataset are used. The default evaluator can be referred to
-                       by the name 'default'. If this argument is unspecified, then
-                       fetch all evaluators from the registry.
-    :param evaluator_config: A dictionary of additional configurations to supply
-                             to the evaluator. If multiple evaluators are
-                             specified, each configuration should be supplied as
-                             a nested dictionary whose key is the evaluator name.
-    :return: An :py:class:`mlflow.models.evaluation.EvaluationDataset` instance containing
+
+    :param dataset_name: (Optional) The name of the dataset, must not contain double quotes (“).
+                         The name is logged to the `mlflow.datasets` tag for lineage tracking
+                         purposes. If not specified, the dataset hash is used as the dataset name.
+
+    :param dataset_path: (Optional) The path where the data is stored. Must not contain double
+                         quotes (“). If specified, the path is logged to the `mlflow.datasets`
+                         tag for lineage tracking purposes.
+
+    :param feature_names: (Optional) If the `data` argument is a feature data numpy array or list,
+                          `feature_names` is a list of the feature names for each feature. If
+                          `None`, then the `feature_names` are generated using the format
+                          `feature_{feature_index}`. If the `data` argument is a Pandas DataFrame
+                          or a Spark DataFrame, `feature_names` is a list of the names of the
+                          feature columns in the DataFrame. If `None`, then all columns except
+                          the label column are regarded as feature columns.
+
+    :param evaluators: The name of the evaluator to use for model evaluation, or a list of
+                       evaluator names. If unspecified, all evaluators capable of evaluating the
+                       specified model on the specified dataset are used. The default evaluator
+                       can be referred to by the name 'default'. To see all available evaluators,
+                       call :py:func:`mlflow.models.list_evaluators`.
+
+    :param evaluator_config: A dictionary of additional configurations to supply to the evaluator.
+                             If multiple evaluators are specified, each configuration should be
+                             supplied as a nested dictionary whose key is the evaluator name.
+
+    :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
              evaluation results.
 
-    The default evaluator supports the 'regressor' and 'classifer' model types.
+    Default Evaluator behavior:
+     - The default evaluator supports the 'regressor' and 'classifer' model types.
+     - For both the 'regressor' and 'classifer' types, the default evaluator will generate model
+       summary plots and feature importance plots generated by shap explainer.
+     - For regressor model, the default evaluator will additionally log:
+        - **metrics**: example_count, mean_absolute_error, mean_squared_error,
+          root_mean_squared_error, sum_on_label, mean_on_label, r2_score, max_error,
+          mean_absolute_percentage_error.
 
-    For both the 'regressor' and 'classifer' types, the default evaluator will generate model
-    summary plots and feature importance plots generated by shap explainer.
+     - For binary classifier, the default evaluator will additionally log:
+        - **metrics**: true_negatives, false_positives, false_negatives, true_positives, recall,
+          precision, f1_score, accuracy, example_count, log_loss, roc_auc, precision_recall_auc.
+        - **artifacts**: lift curve plot, precision-recall plot, ROC plot.
 
-    For regressor model, the default evaluator will additionally log:
+     - For multiclass classifier, the default evaluator will additionally log:
+        - **metrics**: accuracy, example_count, f1_score_micro, f1_score_macro, log_loss
+        - **artifacts**: A CSV file for "per_class_metrics" (per-class metrics includes
+          true_negatives/false_positives/false_negatives/true_positives/recall/precision/roc_auc,
+          precision_recall_auc), precision-recall merged curves plot, ROC merged curves plot.
 
-     - **metrics**: example_count, mean_absolute_error, mean_squared_error, root_mean_squared_error,
-       sum_on_label, mean_on_label, r2_score, max_error, mean_absolute_percentage_error.
+     - The logged Mlflow metric keys are constructed using the format:
+       `{metric_name}_on_{dataset_name}`. Any preexisting metrics with the same name are
+       overwritten.
 
-    For binary classifier, the default evaluator will additionally log:
+     - The metrics/artifacts listed above are logged to the active MLflow run.
+       If no active run exists, a new MLflow run is created for logging these metrics and
+       artifacts.
 
-     - **metrics**: true_negatives, false_positives, false_negatives, true_positives, recall,
-       precision, f1_score, accuracy, example_count, log_loss, roc_auc, precision_recall_auc.
-     - **artifacts**: lift curve plot, precision-recall plot, ROC plot.
+     - Additionally, information about the specified dataset - hash, name (if specified), path
+       (if specified), and the UUID of the model that evaluated it - is logged to the
+       `mlflow.datasets` tag.
 
-    For multiclass classifier, the default evaluator will additionally log:
+     - The available `evaluator_config` options for the default evaluator include:
+        - **log_model_explainability**: A boolean value specifying whether or not to log model
+          explainability insights, default value is True.
+        - **explainability_algorithm**: A string to specify the SHAP Explainer algorithm for model
+          explainability. Supported algorithm includes: 'exact', 'permutation', 'partition'.
+          If not set, `shap.Explainer` is used with the "auto" algorithm, which chooses the best
+          Explainer based on the model.
+        - **explainability_nsamples**: The number of sample rows to use for computing model
+          explainability insights. Default value is 2000.
+        - **max_classes_for_multiclass_roc_pr**:
+          For multiclass classification tasks, the maximum number of classes for which to log
+          the per-class ROC curve and Precision-Recall curve. If the number of classes is
+          larger than the configured maximum, these curves are not logged.
 
-     - **metrics**: accuracy, example_count, f1_score_micro, f1_score_macro, log_loss
-     - **artifacts**: A CSV file for "per_class_metrics" (per-class metrics includes true_negatives/
-       false_positives/false_negatives/true_positives/recall/precision/roc_auc,
-       precision_recall_auc), precision-recall merged curves plot, ROC merged curves plot.
+     - Limitations of evaluation dataset:
+        - For classification tasks, dataset labels are used to infer the total number of classes.
+        - For binary classification tasks, the negative label value must be 0 or -1 or False, and
+          the positive label value must be 1 or True.
 
-    The available `evaluator_config` options for the default evaluator include:
+     - Limitations of metrics/artifacts computation:
+        - For classification tasks, some metric and artifact computations require the model to
+          output class probabilities. Currently, for scikit-learn models, the default evaluator
+          calls the "predict_proba" method on the underlying model to obtain probabilities. For
+          other model types, the default evaluator does not compute metrics/artifacts that require
+          probability outputs.
 
-     - **log_model_explainability**: A boolean value specifying whether or not to log model
-       explainability insights, default value is True.
-     - **explainability_algorithm**: A string to specify the SHAP Explainer algorithm for model
-       explainability. Supported algorithm includes: 'exact', 'permutation', 'partition'.
-       If not set, `shap.Explainer` is used with the "auto" algorithm, which chooses the best
-       Explainer based on the model.
-     - **explainability_nsamples**: The number of sample rows to use for computing model
-       explainability insights. Default value is 2000.
-     - **max_num_classes_threshold_logging_roc_pr_curve_for_multiclass_classifier**:
-       For multiclass classifier, specify the max number of classes which allow logging per-class
-       ROC curve and Precision-Recall curve.
-
-    Limitations of evaluation dataset:
-     - If the input dataset is pandas dataframe, the feature columns in pandas dataframe must be
-       scalar value columns, other object types (nd.array/list/etc.) are not supported yet.
-     - If the mlflow model to be evaluated is a pyspark ML model, then the input data must
-       be a spark DataFrame or pandas DataFrame contains a feature column with values of type
-       "pyspark.ml.linalg.Vector", and a label column.
-     - For classifier, evaluation dataset labels must contains all distinct values, the dataset
-       labels data will be used to infer the number of classes. For binary classifier, the
-       negative label value must be 0 or -1 or False, and the positive label value must be
-       1 or True.
-       For multiclass classifier, if logging explainability insights enabled, the label values
-       must be number type.
-
-    Limitations of metrics/artifacts computation:
-     - For classifier, some metrics and plot computation require model provides
-       "predict probability" function. Currently, for sklearn model, we will extract "predict_proba"
-       method from the raw model to achieve this, for other model, it will skip logging
-       metrics/artifacts which require probability prediction.
-
-    Limitations of default evaluator logging model explainability insights:
-     - The `shap.Explainer` "auto" algorithm will choose Linear explainer for linear model,
-       and choose Tree explainer for tree model. But the shap Linear/Tree explainer does not
-       support multi-class classifier, in this case, default evaluator will fallback to use
-       shap Exact or Permutation explainer.
-     - Logging model explainability insights is not currently supported for PySpark models.
+     - Limitations of default evaluator logging model explainability insights:
+        - The `shap.Explainer` "auto" algorithm will use the Linear explainer for linear models
+          and the Tree explainer for tree models. Because SHAP's Linear and Tree explainers
+          do not support multi-class classification, the default evaluator will fall back to using
+          the Exact or Permutation explainers for multi-class classification tasks.
+        - Logging model explainability insights is not currently supported for PySpark models.
+        - The evaluation dataset label values must be numeric or boolean, all feature values
+          must be numeric, and each feature column must only contain scalar values.
     """
     from mlflow.pyfunc import PyFuncModel
 
@@ -769,12 +788,20 @@ def evaluate(
         evaluator_name_to_conf_map,
     ) = _normalize_evaluators_and_evaluator_config_args(evaluators, evaluator_config)
 
-    with _start_run_or_reuse_active_run(run_id) as actual_run_id:
+    dataset = EvaluationDataset(
+        data,
+        targets=targets,
+        name=dataset_name,
+        path=dataset_path,
+        feature_names=feature_names,
+    )
+
+    with _start_run_or_reuse_active_run() as run_id:
         return _evaluate(
             model=model,
             model_type=model_type,
             dataset=dataset,
-            actual_run_id=actual_run_id,
+            run_id=run_id,
             evaluator_name_list=evaluator_name_list,
             evaluator_name_to_conf_map=evaluator_name_to_conf_map,
         )
