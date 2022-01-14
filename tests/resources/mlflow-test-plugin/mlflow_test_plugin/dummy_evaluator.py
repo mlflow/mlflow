@@ -13,7 +13,7 @@ import io
 
 
 class Array2DEvaluationArtifact(EvaluationArtifact):
-    def save(self, output_artifact_path):
+    def _save(self, output_artifact_path):
         pd.DataFrame(self._content).to_csv(output_artifact_path, index=False)
 
     def _load_content_from_file(self, local_artifact_path):
@@ -60,7 +60,7 @@ class DummyEvaluator(ModelEvaluator):
                 content=confusion_matrix,
             )
             confusion_matrix_csv_buff = io.StringIO()
-            confusion_matrix_artifact.save(confusion_matrix_csv_buff)
+            confusion_matrix_artifact._save(confusion_matrix_csv_buff)
             client.log_text(
                 run_id, confusion_matrix_csv_buff.getvalue(), confusion_matrix_artifact_name
             )

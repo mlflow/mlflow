@@ -8,7 +8,7 @@ from mlflow.models.evaluation import (
     EvaluationArtifact,
 )
 from mlflow.models.evaluation.base import (
-    _EvaluationDataset,
+    EvaluationDataset,
     _normalize_evaluators_and_evaluator_config_args as _normalize_config,
 )
 import hashlib
@@ -99,7 +99,7 @@ def iris_dataset():
     X, y = get_iris()
     eval_X, eval_y = X[0::3], y[0::3]
     constructor_args = {"data": eval_X, "targets": eval_y, "name": "iris_dataset"}
-    ds = _EvaluationDataset(**constructor_args)
+    ds = EvaluationDataset(**constructor_args)
     ds._constructor_args = constructor_args
     return ds
 
@@ -109,7 +109,7 @@ def diabetes_dataset():
     X, y = get_diabetes_dataset()
     eval_X, eval_y = X[0::3], y[0::3]
     constructor_args = {"data": eval_X, "targets": eval_y, "name": "diabetes_dataset"}
-    ds = _EvaluationDataset(**constructor_args)
+    ds = EvaluationDataset(**constructor_args)
     ds._constructor_args = constructor_args
     return ds
 
@@ -118,7 +118,7 @@ def diabetes_dataset():
 def diabetes_spark_dataset():
     spark_df = get_diabetes_spark_dataset().sample(fraction=0.3, seed=1)
     constructor_args = {"data": spark_df, "targets": "label", "name": "diabetes_spark_dataset"}
-    ds = _EvaluationDataset(**constructor_args)
+    ds = EvaluationDataset(**constructor_args)
     ds._constructor_args = constructor_args
     return ds
 
@@ -128,7 +128,7 @@ def breast_cancer_dataset():
     X, y = get_breast_cancer_dataset()
     eval_X, eval_y = X[0::3], y[0::3]
     constructor_args = {"data": eval_X, "targets": eval_y, "name": "breast_cancer_dataset"}
-    ds = _EvaluationDataset(**constructor_args)
+    ds = EvaluationDataset(**constructor_args)
     ds._constructor_args = constructor_args
     return ds
 
@@ -211,7 +211,7 @@ def iris_pandas_df_dataset():
             "y": eval_y,
         }
     )
-    return _EvaluationDataset(data=data, targets="y", name="iris_pandas_df_dataset")
+    return EvaluationDataset(data=data, targets="y", name="iris_pandas_df_dataset")
 
 
 def test_classifier_evaluate(multiclass_logistic_regressor_model_uri, iris_dataset):
@@ -249,7 +249,7 @@ def test_classifier_evaluate(multiclass_logistic_regressor_model_uri, iris_datas
     confusion_matrix_artifact = eval_result.artifacts[artifact_name]
     assert np.array_equal(confusion_matrix_artifact.content, expected_artifact)
     assert confusion_matrix_artifact.uri == get_artifact_uri(run.info.run_id, artifact_name)
-    assert np.array_equal(confusion_matrix_artifact.load(saved_artifact_path), expected_artifact)
+    assert np.array_equal(confusion_matrix_artifact._load(saved_artifact_path), expected_artifact)
 
     with TempDir() as temp_dir:
         temp_dir_path = temp_dir.path()
@@ -278,7 +278,7 @@ def test_classifier_evaluate(multiclass_logistic_regressor_model_uri, iris_datas
         )
 
         new_confusion_matrix_artifact = Array2DEvaluationArtifact(uri=confusion_matrix_artifact.uri)
-        new_confusion_matrix_artifact.load()
+        new_confusion_matrix_artifact._load()
         assert np.array_equal(
             confusion_matrix_artifact.content,
             new_confusion_matrix_artifact.content,
@@ -317,15 +317,15 @@ def test_regressor_evaluate(linear_regressor_model_uri, diabetes_dataset):
 
 def test_dataset_name():
     X, y = get_iris()
-    d1 = _EvaluationDataset(data=X, targets=y, name="a1")
+    d1 = EvaluationDataset(data=X, targets=y, name="a1")
     assert d1.name == "a1"
-    d2 = _EvaluationDataset(data=X, targets=y)
+    d2 = EvaluationDataset(data=X, targets=y)
     assert d2.name == d2.hash
 
 
 def test_dataset_metadata():
     X, y = get_iris()
-    d1 = _EvaluationDataset(data=X, targets=y, name="a1", path="/path/to/a1")
+    d1 = EvaluationDataset(data=X, targets=y, name="a1", path="/path/to/a1")
     assert d1._metadata == {
         "hash": "6bdf4e119bf1a37e7907dfd9f0e68733",
         "name": "a1",
@@ -358,7 +358,7 @@ def test_dataset_hash(iris_dataset, iris_pandas_df_dataset, diabetes_spark_datas
 
 def test_dataset_with_pandas_dataframe():
     data = pd.DataFrame({"f1": [1, 2], "f2": [3, 4], "f3": [5, 6], "label": [0, 1]})
-    eval_dataset = _EvaluationDataset(data=data, targets="label")
+    eval_dataset = EvaluationDataset(data=data, targets="label")
 
     assert list(eval_dataset.features_data.columns) == ["f1", "f2", "f3"]
     assert np.array_equal(eval_dataset.features_data.f1.to_numpy(), [1, 2])
@@ -366,7 +366,7 @@ def test_dataset_with_pandas_dataframe():
     assert np.array_equal(eval_dataset.features_data.f3.to_numpy(), [5, 6])
     assert np.array_equal(eval_dataset.labels_data, [0, 1])
 
-    eval_dataset2 = _EvaluationDataset(data=data, targets="label", feature_names=["f3", "f2"])
+    eval_dataset2 = EvaluationDataset(data=data, targets="label", feature_names=["f3", "f2"])
     assert list(eval_dataset2.features_data.columns) == ["f3", "f2"]
     assert np.array_equal(eval_dataset2.features_data.f2.to_numpy(), [3, 4])
     assert np.array_equal(eval_dataset2.features_data.f3.to_numpy(), [5, 6])
@@ -377,43 +377,43 @@ def test_dataset_with_array_data():
     labels = [0, 1]
 
     for input_data in [features, np.array(features)]:
-        eval_dataset1 = _EvaluationDataset(data=input_data, targets=labels)
+        eval_dataset1 = EvaluationDataset(data=input_data, targets=labels)
         assert np.array_equal(eval_dataset1.features_data, features)
         assert np.array_equal(eval_dataset1.labels_data, labels)
         assert list(eval_dataset1.feature_names) == ["feature_1", "feature_2"]
 
-    assert _EvaluationDataset(
+    assert EvaluationDataset(
         data=input_data, targets=labels, feature_names=["a", "b"]
     ).feature_names == ["a", "b"]
 
     with pytest.raises(ValueError, match="all element must has the same length"):
-        _EvaluationDataset(data=[[1, 2], [3, 4, 5]], targets=labels)
+        EvaluationDataset(data=[[1, 2], [3, 4, 5]], targets=labels)
 
 
 def test_dataset_autogen_feature_names():
     labels = [0]
-    eval_dataset2 = _EvaluationDataset(data=[list(range(9))], targets=labels)
+    eval_dataset2 = EvaluationDataset(data=[list(range(9))], targets=labels)
     assert eval_dataset2.feature_names == [f"feature_{i + 1}" for i in range(9)]
 
-    eval_dataset2 = _EvaluationDataset(data=[list(range(10))], targets=labels)
+    eval_dataset2 = EvaluationDataset(data=[list(range(10))], targets=labels)
     assert eval_dataset2.feature_names == [f"feature_{i + 1:02d}" for i in range(10)]
 
-    eval_dataset2 = _EvaluationDataset(data=[list(range(99))], targets=labels)
+    eval_dataset2 = EvaluationDataset(data=[list(range(99))], targets=labels)
     assert eval_dataset2.feature_names == [f"feature_{i + 1:02d}" for i in range(99)]
 
-    eval_dataset2 = _EvaluationDataset(data=[list(range(100))], targets=labels)
+    eval_dataset2 = EvaluationDataset(data=[list(range(100))], targets=labels)
     assert eval_dataset2.feature_names == [f"feature_{i + 1:03d}" for i in range(100)]
 
     with pytest.raises(
         ValueError, match="features example rows must be the same length with labels array"
     ):
-        _EvaluationDataset(data=[[1, 2], [3, 4]], targets=[1, 2, 3])
+        EvaluationDataset(data=[[1, 2], [3, 4]], targets=[1, 2, 3])
 
 
 def test_dataset_from_spark_df(spark_session):
     spark_df = spark_session.createDataFrame([(1.0, 2.0, 3.0)] * 10, ["f1", "f2", "y"])
-    with mock.patch.object(_EvaluationDataset, "SPARK_DATAFRAME_LIMIT", 5):
-        dataset = _EvaluationDataset(spark_df, targets="y")
+    with mock.patch.object(EvaluationDataset, "SPARK_DATAFRAME_LIMIT", 5):
+        dataset = EvaluationDataset(spark_df, targets="y")
         assert list(dataset.features_data.columns) == ["f1", "f2"]
         assert list(dataset.features_data["f1"]) == [1.0] * 5
         assert list(dataset.features_data["f2"]) == [2.0] * 5
@@ -469,7 +469,7 @@ class FakeEvauator2(ModelEvaluator):
 
 
 class FakeArtifact1(EvaluationArtifact):
-    def save(self, output_artifact_path):
+    def _save(self, output_artifact_path):
         raise RuntimeError()
 
     def _load_content_from_file(self, local_artifact_path):
@@ -477,7 +477,7 @@ class FakeArtifact1(EvaluationArtifact):
 
 
 class FakeArtifact2(EvaluationArtifact):
-    def save(self, output_artifact_path):
+    def _save(self, output_artifact_path):
         raise RuntimeError()
 
     def _load_content_from_file(self, local_artifact_path):

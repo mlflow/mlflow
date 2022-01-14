@@ -1,5 +1,6 @@
 from mlflow.models.evaluation.base import (
     ModelEvaluator,
+    EvaluationDataset,
     EvaluationResult,
     EvaluationArtifact,
     evaluate,
@@ -8,6 +9,7 @@ from mlflow.models.evaluation.base import (
 
 __all__ = [
     "ModelEvaluator",
+    "EvaluationDataset",
     "EvaluationResult",
     "EvaluationArtifact",
     "evaluate",

@@ -301,7 +301,7 @@ class DefaultEvaluator(ModelEvaluator):
 
         mlflow.log_artifact(artifact_file_local_path)
         artifact = ImageEvaluationArtifact(uri=mlflow.get_artifact_uri(artifact_file_name))
-        artifact.load(artifact_file_local_path)
+        artifact._load(artifact_file_local_path)
         self.artifacts[artifact_name] = artifact
 
     def _log_pandas_df_artifact(self, pandas_df, artifact_name):
@@ -313,7 +313,7 @@ class DefaultEvaluator(ModelEvaluator):
             uri=mlflow.get_artifact_uri(artifact_file_name),
             content=pandas_df,
         )
-        artifact.load(artifact_file_local_path)
+        artifact._load(artifact_file_local_path)
         self.artifacts[artifact_name] = artifact
 
     def _log_model_explainability(self):
@@ -336,7 +336,7 @@ class DefaultEvaluator(ModelEvaluator):
             # Note: python bool type inherits number type but np.bool_ does not inherit np.number.
             _logger.warning(
                 "Skip logging model explainability insights because it requires all label "
-                "values to be number type or bool type."
+                "values to be numeric or boolean."
             )
             return
 
@@ -345,7 +345,7 @@ class DefaultEvaluator(ModelEvaluator):
             if not np.issubdtype(feature_dtype, np.number):
                 _logger.warning(
                     "Skip logging model explainability insights because it requires all feature "
-                    "values to be number type, and each feature column must only contain scalar "
+                    "values to be numeric, and each feature column must only contain scalar "
                     "values."
                 )
                 return
