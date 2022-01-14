@@ -260,6 +260,7 @@ def get_job_type():
     except Exception:
         return _get_context_tag("jobTaskType")
 
+
 @_use_repl_context_if_available("jobType")
 def get_job_type_info():
     try:
@@ -267,9 +268,10 @@ def get_job_type_info():
     except Exception:
         None
 
+
 def get_job_to_experiment_name_mapping():
     try:
-        return 'job:/' + get_job_id()
+        return "job:/" + get_job_id()
     except Exception:
         return None
 

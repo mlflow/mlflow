@@ -36,7 +36,7 @@ from mlflow.utils.databricks_utils import (
     is_in_databricks_notebook,
     get_notebook_id,
     get_job_to_experiment_name_mapping,
-    get_job_type_info
+    get_job_type_info,
 )
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
@@ -44,7 +44,7 @@ from mlflow.utils.mlflow_tags import (
     EXPERIMENT_SOURCE_TYPE,
     MLFLOW_PARENT_RUN_ID,
     MLFLOW_RUN_NAME,
-    MLFLOW_DATABRICKS_JOB_TYPE_INFO
+    MLFLOW_DATABRICKS_JOB_TYPE_INFO,
 )
 from mlflow.utils.validation import _validate_run_id
 from mlflow.entities import SourceType
@@ -1342,8 +1342,9 @@ def _get_experiment_id():
         _active_experiment_id
         or _get_experiment_id_from_env()
         or (is_in_databricks_notebook() and get_notebook_id())
-        or (is_in_databricks_job() and get_job_type_info() == 'NORMAL' and _create_job_experiment())
+        or (is_in_databricks_job() and get_job_type_info() == "NORMAL" and _create_job_experiment())
     ) or deprecated_default_exp_id
+
 
 def _create_job_experiment() -> str:
     tags = {}
@@ -1359,6 +1360,7 @@ def _create_job_experiment() -> str:
     )
 
     return experiment_id
+
 
 @autologging_integration("mlflow")
 def autolog(

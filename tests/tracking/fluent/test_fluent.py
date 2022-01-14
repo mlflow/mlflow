@@ -48,7 +48,7 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import (
     EXPERIMENT_SOURCE_ID,
     EXPERIMENT_SOURCE_TYPE,
-    MLFLOW_DATABRICKS_JOB_TYPE_INFO
+    MLFLOW_DATABRICKS_JOB_TYPE_INFO,
 )
 
 from tests.tracking.integration_test_utils import _init_server
@@ -251,7 +251,7 @@ def test_get_experiment_by_id_with_is_in_databricks_job():
     exp_id = 768
     job_id = 123
     exp_name = "job:/" + str(job_id)
-    job_type_info = 'NORMAL'
+    job_type_info = "NORMAL"
     with mock.patch(
         "mlflow.tracking.fluent.is_in_databricks_job"
     ) as job_detection_mock, mock.patch(
