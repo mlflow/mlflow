@@ -737,6 +737,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         ) as e:
             fs.log_param(run_id, Param(param_name, "value2"))
         assert e.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert e.exception.is_user_initiated
         run = fs.get_run(run_id)
         assert run.data.params[param_name] == "value1"
 

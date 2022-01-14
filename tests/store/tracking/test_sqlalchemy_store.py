@@ -758,6 +758,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         with self.assertRaises(MlflowException) as e:
             self.store.log_param(run.info.run_id, param2)
         self.assertIn("Changing param values is not allowed. Param with key=", e.exception.message)
+        assert e.exception.is_user_initiated
 
     def test_log_empty_str(self):
         run = self._run_factory()
@@ -1610,6 +1611,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             )
         self.assertIn("Changing param values is not allowed. Param with key=", e.exception.message)
         assert e.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert e.exception.is_user_initiated
         self._verify_logged(self.store, run.info.run_id, metrics=[], params=[param], tags=[])
 
     def test_log_batch_param_overwrite_disallowed_single_req(self):
@@ -1626,6 +1628,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             )
         self.assertIn("Changing param values is not allowed. Param with key=", e.exception.message)
         assert e.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert e.exception.is_user_initiated
         self._verify_logged(self.store, run.info.run_id, metrics=[], params=[param0], tags=[])
 
     def test_log_batch_accepts_empty_payload(self):

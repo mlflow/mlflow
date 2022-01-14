@@ -36,7 +36,7 @@ class MlflowException(Exception):
     instead.
     """
 
-    def __init__(self, message, error_code=INTERNAL_ERROR, **kwargs):
+    def __init__(self, message, error_code=INTERNAL_ERROR, is_user_initiated=False, **kwargs):
         """
         :param message: The message describing the error that occured. This will be included in the
                         exception's serialized JSON representation.
@@ -51,6 +51,7 @@ class MlflowException(Exception):
         except (ValueError, TypeError):
             self.error_code = ErrorCode.Name(INTERNAL_ERROR)
         self.message = message
+        self.is_user_initiated = is_user_initiated
         self.json_kwargs = kwargs
         super().__init__(message)
 

@@ -687,6 +687,7 @@ class SqlAlchemyStore(AbstractStore):
                         " logged with value='{}' for run ID='{}'. Attempted logging new value"
                         " '{}'.".format(param.key, old_value, run_id, param.value),
                         INVALID_PARAMETER_VALUE,
+                        is_user_initiated=True,
                     )
                 else:
                     raise

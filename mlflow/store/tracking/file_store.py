@@ -826,6 +826,7 @@ class FileStore(AbstractStore):
                 " logged with value='{}' for run ID='{}'. Attempted logging new value"
                 " '{}'.".format(param_key, current_value, run_id, new_value),
                 databricks_pb2.INVALID_PARAMETER_VALUE,
+                is_user_initiated=True,
             )
 
     def set_experiment_tag(self, experiment_id, tag):

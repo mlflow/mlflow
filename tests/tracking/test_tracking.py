@@ -489,6 +489,7 @@ def test_log_params_duplicate_keys_raises():
         ) as e:
             mlflow.log_param("a", "3")
         assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert e.value.is_user_initiated
     finished_run = tracking.MlflowClient().get_run(run_id)
     assert finished_run.data.params == params
 
