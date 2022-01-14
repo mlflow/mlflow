@@ -1,4 +1,3 @@
-from mlflow.models.evaluation import evaluate, EvaluationDataset
 import mlflow
 from sklearn.linear_model import LogisticRegression
 from sklearn.datasets import make_classification
@@ -10,17 +9,15 @@ X, y = make_classification(n_samples=10000, n_classes=10, n_informative=5, rando
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
 
-eval_dataset = EvaluationDataset(
-    data=X_test, labels=y_test, name='multiclass-classification-dataset',
-)
-
 with mlflow.start_run() as run:
     model = LogisticRegression(solver='liblinear').fit(X_train, y_train)
     model_uri = mlflow.get_artifact_uri('model')
-    result = evaluate(
-        model=model_uri,
+    result = mlflow.evaluate(
+        model_uri,
+        X_test,
+        targets=y_test,
         model_type='classifier',
-        dataset=eval_dataset,
+        dataset_name='multiclass-classification-dataset',
         evaluators='default',
         evaluator_config={
             'log_model_explainability': True,
