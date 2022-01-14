@@ -10,7 +10,6 @@ import urllib.parse
 import urllib.request
 import requests
 import json
-import pydash as _
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -108,7 +107,7 @@ def _download_artifact_from_uri(artifact_uri, output_path=None, use_signed_url=F
 
 def download_from_signed_url(signed_uri_list, local_path):
     for signed_uri in signed_uri_list:
-        name = _.get(signed_uri, "name")
+        name = signed_uri["name"]
         if not name:
             name = artifact_path
         file_path = f'{local_path}/{name}'
@@ -117,7 +116,7 @@ def download_from_signed_url(signed_uri_list, local_path):
         if not os.path.exists(directory):
             os.makedirs(directory)
 
-        urllib.request.urlretrieve(_.get(signed_uri, "uri"), file_path)
+        urllib.request.urlretrieve(signed_uri["uri"], file_path)
     return local_path
 
 def _upload_artifacts_to_databricks(
