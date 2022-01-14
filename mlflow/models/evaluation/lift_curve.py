@@ -6,6 +6,7 @@ import numpy as np
 def _cumulative_gain_curve(y_true, y_score, pos_label=None):
     """
     This method is copied from scikit-plot package.
+    See https://github.com/reiinakano/scikit-plot/blob/2dd3e6a76df77edcbd724c4db25575f70abb57cb/scikitplot/helpers.py#L157
 
     This function generates the points necessary to plot the Cumulative Gain
 
@@ -77,6 +78,7 @@ def plot_lift_curve(
 ):
     """
     This method is copied from scikit-plot package.
+    See https://github.com/reiinakano/scikit-plot/blob/2dd3e6a76df77edcbd724c4db25575f70abb57cb/scikitplot/metrics.py#L1133
 
     Generates the Lift Curve from labels and scores/probabilities
 
