@@ -1,8 +1,10 @@
+from random import random
 import mlflow
 import shap
 import numpy as np
 import pandas as pd
 import sklearn
+from sklearn.datasets import fetch_california_housing
 import pytest
 
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
@@ -15,7 +17,9 @@ from tests.helper_functions import pyfunc_serve_and_score_model, _assert_pip_req
 
 @pytest.fixture(scope="module")
 def shap_model():
-    X, y = shap.datasets.boston()
+    X, y = fetch_california_housing(return_X_y=True, as_frame=True)
+    X = X.sample(frac=0.01, random_state=42)
+    y = y[X.index]
     model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
     model.fit(X, y)
     return shap.Explainer(model.predict, X, algorithm="permutation")
@@ -123,7 +127,7 @@ def test_sklearn_log_explainer_pyfunc():
 def test_log_explanation_doesnt_create_autologged_run():
     try:
         mlflow.sklearn.autolog(disable=False, exclusive=False)
-        dataset = sklearn.datasets.load_boston()
+        dataset = sklearn.datasets.fetch_california_housing()
         X = pd.DataFrame(dataset.data[:50, :8], columns=dataset.feature_names[:8])
         y = dataset.target[:50]
         model = sklearn.linear_model.LinearRegression()

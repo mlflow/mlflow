@@ -1,18 +1,17 @@
 import os
 
 import numpy as np
-from sklearn.datasets import load_boston
+from sklearn.datasets import fetch_california_housing
 from sklearn.linear_model import LinearRegression
 import shap
 
 import mlflow
-from utils import to_pandas_Xy
 
 
 # prepare training data
-X, y = to_pandas_Xy(load_boston())
-X = X.iloc[:50, :8]
-y = y.iloc[:50]
+X, y = fetch_california_housing(return_X_y=True, as_frame=True)
+X = X.sample(frac=0.01, random_state=42)
+y = y[X.index]
 
 # train a model
 model = LinearRegression()

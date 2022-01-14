@@ -5,7 +5,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import shap
-from sklearn.datasets import load_boston, load_iris
+from sklearn.datasets import fetch_california_housing, load_iris
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 import pandas as pd
 import pytest
@@ -38,17 +38,16 @@ def get_iris():
     )
 
 
-def get_boston():
-    data = load_boston()
-    return (
-        pd.DataFrame(data.data[:100, :4], columns=data.feature_names[:4]),
-        pd.Series(data.target[:100], name="target"),
-    )
+def get_california_housing():
+    X, y = fetch_california_housing(return_X_y=True, as_frame=True)
+    X = X.sample(frac=0.01, random_state=42)
+    y = y[X.index]
+    return X, y
 
 
 @pytest.fixture(scope="module")
 def regressor():
-    X, y = get_boston()
+    X, y = get_california_housing()
     model = RandomForestRegressor()
     model.fit(X, y)
 
@@ -243,7 +242,7 @@ def test_log_explanation_with_small_features():
     num_rows = 50
     assert num_rows < mlflow.shap._MAXIMUM_BACKGROUND_DATA_SIZE
 
-    X, y = get_boston()
+    X, y = get_california_housing()
     X, y = X.iloc[:num_rows], y[:num_rows]
     model = RandomForestRegressor()
     model.fit(X, y)
