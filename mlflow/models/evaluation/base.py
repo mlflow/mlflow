@@ -745,14 +745,15 @@ def evaluate(
           Explainer based on the model.
         - **explainability_nsamples**: The number of sample rows to use for computing model
           explainability insights. Default value is 2000.
-        - **max_num_classes_threshold_logging_roc_pr_curve_for_multiclass_classifier**:
-          For multiclass classifier, specify the max number of classes which allow logging
-          per-class ROC curve and Precision-Recall curve.
+        - **max_classes_for_multiclass_roc_pr**:
+          For multiclass classification tasks, the maximum number of classes for which to log
+          the per-class ROC curve and Precision-Recall curve. If the number of classes is
+          larger than the configured maximum, these curves are not logged.
 
      - Limitations of evaluation dataset:
         - For classification tasks, dataset labels are used to infer the total number of classes.
         - For binary classification tasks, the negative label value must be 0 or -1 or False, and
-        - the positive label value must be 1 or True.
+          the positive label value must be 1 or True.
 
      - Limitations of metrics/artifacts computation:
         - For classification tasks, some metric and artifact computations require the model to

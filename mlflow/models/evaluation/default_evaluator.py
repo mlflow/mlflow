@@ -497,17 +497,16 @@ class DefaultEvaluator(ModelEvaluator):
 
         log_roc_pr_curve = False
         if self.y_probs is not None:
-            max_num_classes_for_logging_curve = self.evaluator_config.get(
-                "max_num_classes_threshold_logging_roc_pr_curve_for_multiclass_classifier", 10
+            max_classes_for_multiclass_roc_pr = self.evaluator_config.get(
+                "max_classes_for_multiclass_roc_pr", 10
             )
-            if self.num_classes <= max_num_classes_for_logging_curve:
+            if self.num_classes <= max_classes_for_multiclass_roc_pr:
                 log_roc_pr_curve = True
             else:
                 _logger.warning(
-                    f"The classifier num_classes > {max_num_classes_for_logging_curve}, skip "
+                    f"The classifier num_classes > {max_classes_for_multiclass_roc_pr}, skip "
                     f"logging ROC curve and Precision-Recall curve. You can add evaluator config "
-                    f"'max_num_classes_threshold_logging_roc_pr_curve_for_multiclass_classifier' "
-                    f"to increase the threshold."
+                    f"'max_classes_for_multiclass_roc_pr' to increase the threshold."
                 )
 
         if log_roc_pr_curve:
