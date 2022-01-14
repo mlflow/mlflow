@@ -75,8 +75,8 @@ def is_schema_changed(new, old):
 
         cols_new = table_new.group("columns_and_constraints").splitlines()
         cols_old = table_old.group("columns_and_constraints").splitlines()
-        # Compare as a set to ignore the ordering of columns and constraints
-        if set(cols_new) != set(cols_old):
+        # Check whether the new and old schemas have the same columns and constraints
+        if sorted(cols_new) != sorted(cols_old):
             return False
 
     return True
