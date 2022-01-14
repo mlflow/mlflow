@@ -56,7 +56,11 @@ class MlflowException(Exception):
         super().__init__(message)
 
     def serialize_as_json(self):
-        exception_dict = {"error_code": self.error_code, "message": self.message}
+        exception_dict = {
+            "error_code": self.error_code,
+            "message": self.message,
+            "is_user_initiated": self.is_user_initiated
+        }
         exception_dict.update(self.json_kwargs)
         return json.dumps(exception_dict)
 
