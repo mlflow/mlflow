@@ -1,4 +1,5 @@
 import os
+import re
 import argparse
 
 import sqlalchemy
@@ -24,7 +25,6 @@ def parse_args():
 
 def run_logging_operations():
     with mlflow.start_run() as run:
-        print("Tracking URI:", mlflow.get_tracking_uri())
         mlflow.log_param("p", "param")
         mlflow.log_metric("m", 1.0)
         mlflow.set_tag("t", "tag")
@@ -33,7 +33,6 @@ def run_logging_operations():
             python_model=MockModel(),
             registered_model_name="mock",
         )
-        print(mlflow.get_run(run.info.run_id))
 
     # Ensure the following migration scripts work correctly:
     # - cfd24bdc0731_update_run_status_constraint_with_killed.py
@@ -54,19 +53,56 @@ def get_db_schema():
     return "\n".join(lines)
 
 
+def get_create_tables(schema):
+    pattern = r"""
+CREATE TABLE (?P<table_name>\S+?) \(
+(?P<columns_and_constraints>\S+?)
+\)
+""".strip()
+    return list(re.finditer(pattern, schema, flags=re.DOTALL))
+
+
+def is_schema_changed(new, old):
+    tables_new = get_create_tables(new)
+    tables_old = get_create_tables(old)
+
+    if len(tables_new) != len(tables_old):
+        return False
+
+    for table_new, table_old in zip(tables_new, tables_old):
+        if table_new.group("table_name") != table_old.group("table_name"):
+            return False
+
+        cols_new = table_new.group("columns_and_constraints").splitlines()
+        cols_old = table_old.group("columns_and_constraints").splitlines()
+        # Compare as a set to ignore the ordering of columns and constraints
+        if set(cols_new) != set(cols_old):
+            False
+
+    return True
+
+
+def write_file(s, path):
+    with open(path, "w") as f:
+        f.write(s)
+
+
 def main():
     assert _TRACKING_URI_ENV_VAR in os.environ
+    print("Tracking URI:", os.environ.get(_TRACKING_URI_ENV_VAR))
 
     args = parse_args()
     run_logging_operations()
     schema = get_db_schema()
-    title = "Schema"
-    print("=" * 10, title, "=" * 10)
-    print(schema)
-    print("=" * (20 + 2 + len(title)))
-    os.makedirs(os.path.dirname(args.schema_output), exist_ok=True)
-    with open(args.schema_output, "w") as f:
-        f.write(schema)
+    schema_output = args.schema_output
+    os.makedirs(os.path.dirname(schema_output), exist_ok=True)
+    if os.path.exists(schema_output):
+        with open(schema_output) as f:
+            existing_schema = f.read()
+        if not is_schema_changed(schema, existing_schema):
+            write_file(schema, schema_output)
+    else:
+        write_file(schema, schema_output)
 
 
 if __name__ == "__main__":
