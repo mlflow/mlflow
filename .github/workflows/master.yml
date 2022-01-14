@@ -181,6 +181,7 @@ jobs:
           echo "$diff"
           echo 'Table schemas changed (see diff above).'
           echo 'Please run `cd tests/db && ./update_schemas.sh` and ensure new schemas are correct.'
+          exit 1
         fi
 
         docker-compose down --volumes --remove-orphans --rmi all
