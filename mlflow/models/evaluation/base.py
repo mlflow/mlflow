@@ -676,8 +676,8 @@ def evaluate(
                        supports "regressor" and "classifier" as model types.
 
     :param dataset_name: (Optional) The name of the dataset, must not contain double quotes (“).
-                         the name is logged to the `mlflow.datasets` tag. If not specified, the
-                         dataset hash is used as the dataset name.
+                         The name is logged to the `mlflow.datasets` tag for lineage tracking
+                         purposes. If not specified, the dataset hash is used as the dataset name.
 
     :param dataset_path: (Optional) The path where the data is stored. Must not contain double
                          quotes (“). If specified, the path is logged to the `mlflow.datasets`
