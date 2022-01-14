@@ -1,14 +1,14 @@
 import mlflow
-from sklearn.datasets import load_boston
+from sklearn.datasets import fetch_california_housing
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 
 mlflow.sklearn.autolog()
 
-boston_data = load_boston()
+california_housing_data = fetch_california_housing()
 
 X_train, X_test, y_train, y_test = train_test_split(
-    boston_data.data, boston_data.target, test_size=0.33, random_state=42
+    california_housing_data.data, california_housing_data.target, test_size=0.33, random_state=42
 )
 
 with mlflow.start_run() as run:
@@ -20,9 +20,9 @@ with mlflow.start_run() as run:
         X_test,
         targets=y_test,
         model_type="regressor",
-        dataset_name="boston",
+        dataset_name="california_housing",
         evaluators="default",
-        feature_names=boston_data.feature_names,
+        feature_names=california_housing_data.feature_names,
         evaluator_config={"explainability_nsamples": 1000},
     )
 
