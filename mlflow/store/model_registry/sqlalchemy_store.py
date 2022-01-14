@@ -742,8 +742,7 @@ class SqlAlchemyStore(AbstractStore):
 
         path = parsed.path[1:]
         bucket = parsed.netloc
-        project = "data-platform-246911"
-        storage_client = storage.Client(project=project)
+        storage_client = storage.Client()
         bucket = storage_client.get_bucket(bucket)
         blob_list = storage_client.list_blobs(bucket, prefix=path)
         sign_uris = []
