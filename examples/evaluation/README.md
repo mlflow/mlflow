@@ -1,6 +1,6 @@
 ### MLflow evaluation Examples
 
-The three simple examples illustrates how you can use the `mlflow.evaluate` API to evaluate a PyFunc model on the
+The examples in this directory illustrate how you can use the `mlflow.evaluate` API to evaluate a PyFunc model on the
 specified dataset using builtin default evaluator, and log resulting metrics & artifacts to MLflow Tracking.
 
 - Example `evaluate_on_binary_classifier.py` evaluates an xgboost `XGBClassifier` model on dataset loaded by
