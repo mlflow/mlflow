@@ -13,7 +13,7 @@ specified dataset using builtin default evaluator, and log resulting metrics & a
 #### Prerequisites
 
 ```
-pip install scikit-learn xgboost shap matplotlib
+pip install scikit-learn xgboost shap>=0.40 matplotlib
 ```
 
 #### How to run the examples
