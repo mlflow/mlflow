@@ -68,4 +68,4 @@ services:
       - .:/tmp/mlflow
     environment:
       MLFLOW_TRACKING_URI: sqlite:////tmp/mlflow/mlflowdb
-    command: python run_checks.py --schema-output schemas/sqlite.sql
+    command: bash -ex -c "rm -rf mlflowdb && python run_checks.py --schema-output schemas/sqlite.sql"
