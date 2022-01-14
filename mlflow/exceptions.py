@@ -43,6 +43,7 @@ class MlflowException(Exception):
         :param error_code: An appropriate error code for the error that occured; it will be included
                            in the exception's serialized JSON representation. This should be one of
                            the codes listed in the `mlflow.protos.databricks_pb2` proto.
+        :param is_user_initiated: A boolean value represents whether the error is user initiated.
         :param kwargs: Additional key-value pairs to include in the serialized JSON representation
                        of the MlflowException.
         """
@@ -59,7 +60,7 @@ class MlflowException(Exception):
         exception_dict = {
             "error_code": self.error_code,
             "message": self.message,
-            "is_user_initiated": self.is_user_initiated
+            "is_user_initiated": self.is_user_initiated,
         }
         exception_dict.update(self.json_kwargs)
         return json.dumps(exception_dict)

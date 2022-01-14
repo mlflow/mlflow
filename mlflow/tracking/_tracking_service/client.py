@@ -243,7 +243,9 @@ class TrackingServiceClient:
         except MlflowException as e:
             if e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE):
                 msg = f"{e.message}{PARAM_VALIDATION_MSG}'"
-                raise MlflowException(msg, INVALID_PARAMETER_VALUE)
+                raise MlflowException(
+                    msg, INVALID_PARAMETER_VALUE, is_user_initiated=e.is_user_initiated
+                )
             else:
                 raise e
 
