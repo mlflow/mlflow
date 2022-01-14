@@ -13,20 +13,18 @@ X_train, X_test, y_train, y_test = train_test_split(
 
 with mlflow.start_run() as run:
     model = LinearRegression().fit(X_train, y_train)
-    model_uri = mlflow.get_artifact_uri('model')
+    model_uri = mlflow.get_artifact_uri("model")
 
     result = mlflow.evaluate(
         model_uri,
         X_test,
         targets=y_test,
-        model_type='regressor',
-        dataset_name='boston',
-        evaluators='default',
+        model_type="regressor",
+        dataset_name="boston",
+        evaluators="default",
         feature_names=boston_data.feature_names,
-        evaluator_config={
-            'explainability_nsamples': 1000
-        }
+        evaluator_config={"explainability_nsamples": 1000},
     )
 
-print(f'metrics:\n{result.metrics}')
-print(f'artifacts:\n{result.artifacts}')
+print(f"metrics:\n{result.metrics}")
+print(f"artifacts:\n{result.artifacts}")
