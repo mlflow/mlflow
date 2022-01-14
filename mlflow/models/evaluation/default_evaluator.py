@@ -1,7 +1,6 @@
 import mlflow
 from mlflow.models.evaluation.base import (
     ModelEvaluator,
-    EvaluationMetrics,
     EvaluationResult,
 )
 from mlflow.entities.metric import Metric
@@ -302,7 +301,7 @@ class DefaultEvaluator(ModelEvaluator):
 
         mlflow.log_artifact(artifact_file_local_path)
         artifact = ImageEvaluationArtifact(uri=mlflow.get_artifact_uri(artifact_file_name))
-        artifact.load(artifact_file_local_path)
+        artifact._load(artifact_file_local_path)
         self.artifacts[artifact_name] = artifact
 
     def _log_pandas_df_artifact(self, pandas_df, artifact_name):
@@ -314,7 +313,7 @@ class DefaultEvaluator(ModelEvaluator):
             uri=mlflow.get_artifact_uri(artifact_file_name),
             content=pandas_df,
         )
-        artifact.load(artifact_file_local_path)
+        artifact._load(artifact_file_local_path)
         self.artifacts[artifact_name] = artifact
 
     def _log_model_explainability(self):
@@ -326,21 +325,30 @@ class DefaultEvaluator(ModelEvaluator):
             #  but spark model input dataframe contains Vector type feature column
             #  which shap explainer does not support.
             #  To support this, we need expand the Vector type feature column into
-            #  multiple scaler feature columns and pass it to shap explainer.
+            #  multiple scalar feature columns and pass it to shap explainer.
             _logger.warning(
                 "Logging model explainability insights is not currently supported for PySpark "
                 "models."
             )
             return
 
-        if self.model_type == "classifier" and not all(
-            [isinstance(label, (numbers.Number, np.bool_)) for label in self.label_list]
-        ):
+        if not (np.issubdtype(self.y.dtype, np.number) or self.y.dtype == np.bool_):
+            # Note: python bool type inherits number type but np.bool_ does not inherit np.number.
             _logger.warning(
                 "Skip logging model explainability insights because it requires all label "
-                "values to be Number type."
+                "values to be numeric or boolean."
             )
             return
+
+        feature_dtypes = list(self.X.dtypes) if isinstance(self.X, pd.DataFrame) else [self.X.dtype]
+        for feature_dtype in feature_dtypes:
+            if not np.issubdtype(feature_dtype, np.number):
+                _logger.warning(
+                    "Skip logging model explainability insights because it requires all feature "
+                    "values to be numeric, and each feature column must only contain scalar "
+                    "values."
+                )
+                return
 
         try:
             import shap
@@ -489,17 +497,16 @@ class DefaultEvaluator(ModelEvaluator):
 
         log_roc_pr_curve = False
         if self.y_probs is not None:
-            max_num_classes_for_logging_curve = self.evaluator_config.get(
-                "max_num_classes_threshold_logging_roc_pr_curve_for_multiclass_classifier", 10
+            max_classes_for_multiclass_roc_pr = self.evaluator_config.get(
+                "max_classes_for_multiclass_roc_pr", 10
             )
-            if self.num_classes <= max_num_classes_for_logging_curve:
+            if self.num_classes <= max_classes_for_multiclass_roc_pr:
                 log_roc_pr_curve = True
             else:
                 _logger.warning(
-                    f"The classifier num_classes > {max_num_classes_for_logging_curve}, skip "
+                    f"The classifier num_classes > {max_classes_for_multiclass_roc_pr}, skip "
                     f"logging ROC curve and Precision-Recall curve. You can add evaluator config "
-                    f"'max_num_classes_threshold_logging_roc_pr_curve_for_multiclass_classifier' "
-                    f"to increase the threshold."
+                    f"'max_classes_for_multiclass_roc_pr' to increase the threshold."
                 )
 
         if log_roc_pr_curve:
@@ -652,7 +659,7 @@ class DefaultEvaluator(ModelEvaluator):
 
             self.X = dataset.features_data
             self.y = dataset.labels_data
-            self.metrics = EvaluationMetrics()
+            self.metrics = dict()
             self.artifacts = {}
 
             infered_model_type = _infer_model_type_by_labels(self.y)
