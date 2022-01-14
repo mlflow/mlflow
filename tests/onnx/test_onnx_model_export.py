@@ -368,10 +368,11 @@ def test_model_log(onnx_model):
             if should_start_run:
                 mlflow.start_run()
             artifact_path = "onnx_model"
-            mlflow.onnx.log_model(onnx_model=onnx_model, artifact_path=artifact_path)
+            model_info = mlflow.onnx.log_model(onnx_model=onnx_model, artifact_path=artifact_path)
             model_uri = "runs:/{run_id}/{artifact_path}".format(
                 run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
             )
+            assert model_info.model_uri == model_uri
 
             # Load model
             onnx.checker.check_model = mock.Mock()

@@ -74,6 +74,8 @@ def log_model(
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
 
+    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+             metadata of the logged model.
 
 
     .. code-block:: python

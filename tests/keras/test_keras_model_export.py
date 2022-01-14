@@ -401,10 +401,11 @@ def test_model_log(model, data, predicted):
             if should_start_run:
                 mlflow.start_run()
             artifact_path = "keras_model"
-            mlflow.keras.log_model(model, artifact_path=artifact_path)
+            model_info = mlflow.keras.log_model(model, artifact_path=artifact_path)
             model_uri = "runs:/{run_id}/{artifact_path}".format(
                 run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
             )
+            assert model_info.model_uri == model_uri
 
             # Load model
             model_loaded = mlflow.keras.load_model(model_uri=model_uri)

@@ -1,7 +1,6 @@
 import mlflow
 from mlflow.models.evaluation import (
     ModelEvaluator,
-    EvaluationMetrics,
     EvaluationArtifact,
     EvaluationResult,
 )
@@ -14,7 +13,7 @@ import io
 
 
 class Array2DEvaluationArtifact(EvaluationArtifact):
-    def save(self, output_artifact_path):
+    def _save(self, output_artifact_path):
         pd.DataFrame(self._content).to_csv(output_artifact_path, index=False)
 
     def _load_content_from_file(self, local_artifact_path):
@@ -52,7 +51,7 @@ class DummyEvaluator(ModelEvaluator):
         if model_type == "classifier":
             accuracy_score = sk_metrics.accuracy_score(y, y_pred)
 
-            metrics = EvaluationMetrics(accuracy_score=accuracy_score)
+            metrics = {"accuracy_score": accuracy_score}
             self._log_metrics(run_id, metrics, dataset.name)
             confusion_matrix = sk_metrics.confusion_matrix(y, y_pred)
             confusion_matrix_artifact_name = f"confusion_matrix_on_{dataset.name}.csv"
@@ -61,7 +60,7 @@ class DummyEvaluator(ModelEvaluator):
                 content=confusion_matrix,
             )
             confusion_matrix_csv_buff = io.StringIO()
-            confusion_matrix_artifact.save(confusion_matrix_csv_buff)
+            confusion_matrix_artifact._save(confusion_matrix_csv_buff)
             client.log_text(
                 run_id, confusion_matrix_csv_buff.getvalue(), confusion_matrix_artifact_name
             )
@@ -69,9 +68,10 @@ class DummyEvaluator(ModelEvaluator):
         elif model_type == "regressor":
             mean_absolute_error = sk_metrics.mean_absolute_error(y, y_pred)
             mean_squared_error = sk_metrics.mean_squared_error(y, y_pred)
-            metrics = EvaluationMetrics(
-                mean_absolute_error=mean_absolute_error, mean_squared_error=mean_squared_error
-            )
+            metrics = {
+                "mean_absolute_error": mean_absolute_error,
+                "mean_squared_error": mean_squared_error,
+            }
             self._log_metrics(run_id, metrics, dataset.name)
             artifacts = {}
         else:

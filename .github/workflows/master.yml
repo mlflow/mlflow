@@ -159,22 +159,22 @@ jobs:
         SPARK_LOCAL_IP: 127.0.0.1
       run: |
         ./dev/run-large-python-tests.sh
-    - name: Run database initialization tests
+    # Separate build and run to make it easier to explore logs
+    - name: Run database initialization tests - build
+      working-directory: tests/db
       run: |
-        # Build wheel and copy it under tests/db
-        python setup.py bdist_wheel
-        cp -r dist tests/db
-
-        # Run tests
-        cd tests/db
+        ./build_wheel.sh
+        docker-compose pull
+        docker image ls | grep -E '(REPOSITORY|postgres|mysql|mssql)'
         docker-compose build
-        docker-compose run mlflow-postgres python log.py
-        docker-compose run mlflow-mysql python log.py
-        docker-compose run mlflow-mssql ./init-mssql-db.sh
-        docker-compose run mlflow-mssql python log.py
-
-        # Clean up
-        docker-compose down --rmi all --volumes
+    - name: Run database initialization tests - run
+      working-directory: tests/db
+      run: |
+        docker-compose run mlflow-sqlite
+        docker-compose run mlflow-postgres
+        docker-compose run mlflow-mysql
+        docker-compose run mlflow-mssql
+        docker-compose down --volumes --remove-orphans --rmi all
     - name: Run anaconda compatibility tests
       run: |
         ./dev/test-anaconda-compatibility.sh "anaconda3:2020.11"

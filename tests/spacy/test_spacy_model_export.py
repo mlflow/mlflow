@@ -155,10 +155,13 @@ def test_model_log(spacy_model_with_data, tracking_uri_mock):  # pylint: disable
                 artifact_path = "model"
                 if should_start_run:
                     mlflow.start_run()
-                mlflow.spacy.log_model(spacy_model=spacy_model, artifact_path=artifact_path)
+                model_info = mlflow.spacy.log_model(
+                    spacy_model=spacy_model, artifact_path=artifact_path
+                )
                 model_uri = "runs:/{run_id}/{artifact_path}".format(
                     run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
                 )
+                assert model_info.model_uri == model_uri
 
                 # Load model
                 spacy_model_loaded = mlflow.spacy.load_model(model_uri=model_uri)
