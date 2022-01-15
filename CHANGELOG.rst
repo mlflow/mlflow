@@ -7,6 +7,7 @@ MLflow 1.23.0 includes several major features and improvements:
 Features:
 
 - [Models] Introduce an ``mlflow.evaluate()`` API for evaluating MLflow Models, providing performance and explainability insights (#5069, #5092, #5256, @WeichenXu123)
+- [Models] ``log_model()`` APIs now return information about the logged MLflow Model, including artifact location, flavors, and schema (#5230, @liangz1)
 - [Models] Introduce an ``mlflow.models.Model.load_input_example()`` Python API for loading MLflow Model input examples (#5212, @maitre-matt)
 - [Models] Add a UUID field to the MLflow Model specification. MLflow Models now have a unique identifier (#5149, #5167, @WeichenXu123)
 - [Models] Support passing SciPy CSC and CSR matrices as MLflow Model input examples (#5016, @WeichenXu123)
@@ -25,7 +26,7 @@ Bug fixes and documentation updates:
 - [Tracking] Fix a bug where ``mlflow.start_run()`` modified user-supplied tags dictionary (#5191, @matheusMoreno)
 - [UI] Fix a bug causing redundant scroll bars to be displayed on the Experiment Page (#5159, @sunishsheth2009)
 
-Small bug fixes and doc updates (#5264, #5244, #5249, #5255, #5248, #5243, #5240, #5239, #5232, #5234, #5235, #5082, #5220, #5219, #5226, #5217, #5194, #5188, #5132, #5182, #5183, #5180, #5177, #5165, #5164, #5162, #5015, #5136, #5065, #5125, #5106, #5127, #5120, @harupy; #5045, @BenWilson2; #5156, @pbezglasny; #5202, @jwyyy; #3863, @JoshuaAnickat; #5205, @abhiramr; #4604, @OSobky; #4256, @einsmein; #5140, @AveshCSingh; #5186, #5176, @WeichenXu123; #5260, #5230, #5229, #5206, #5174, #5160, @liangz1)
+Small bug fixes and doc updates (#5264, #5244, #5249, #5255, #5248, #5243, #5240, #5239, #5232, #5234, #5235, #5082, #5220, #5219, #5226, #5217, #5194, #5188, #5132, #5182, #5183, #5180, #5177, #5165, #5164, #5162, #5015, #5136, #5065, #5125, #5106, #5127, #5120, @harupy; #5045, @BenWilson2; #5156, @pbezglasny; #5202, @jwyyy; #3863, @JoshuaAnickat; #5205, @abhiramr; #4604, @OSobky; #4256, @einsmein; #5140, @AveshCSingh; #5186, #5176, @WeichenXu123; #5260, #5229, #5206, #5174, #5160, @liangz1)
 
 1.22.0 (2021-11-29)
 ------------------------
