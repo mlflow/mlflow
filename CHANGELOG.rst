@@ -7,7 +7,7 @@ MLflow 1.23.0 includes several major features and improvements:
 Features:
 
 - [Models] Introduce an ``mlflow.evaluate()`` API for evaluating MLflow Models, providing performance and explainability insights (#5069, #5092, #5256, @WeichenXu123)
-- [Models] Add an ``mlflow.models.Model.load_input_example()`` Python API for loading MLflow Model input examples (#5212, @maitre-matt)
+- [Models] Introduce an ``mlflow.models.Model.load_input_example()`` Python API for loading MLflow Model input examples (#5212, @maitre-matt)
 - [Models] Add a UUID field to the MLflow Model specification. MLflow Models now have a unique identifier (#5149, #5167, @WeichenXu123)
 - [Models] Support passing SciPy CSC and CSR matrices as MLflow Model input examples (#5016, @WeichenXu123)
 - [Model Registry] Support specifying ``latest`` in model URI to get the latest version of a model regardless of the stage (#5027, @lichenran1234)
@@ -18,9 +18,9 @@ Features:
 Bug fixes and documentation updates:
 
 - [Models] Fix a bug in MLflow Model schema enforcement where strings were incorrectly cast to Pandas objects (#5134, @stevenchen-db)
-- [Models] Fix a bug where keyword arguments passed to ``mlflow.pytorch.load_model()`` were not used for scripted models (#5163, @schmidt-jake)
-- [Model Registry][R] Fix bug in R client ``mlflow_create_model_version`` API that caused ``source`` to be set incorrectly (#5185, @bramrodenburg)
-- [Projects] Fix parsing behavior for project URIs containing quotes (#5117, @dinaldoap)
+- [Models] Fix a bug where keyword arguments passed to ``mlflow.pytorch.load_model()`` were not applied for scripted models (#5163, @schmidt-jake)
+- [Model Registry][R] Fix bug in R client ``mlflow_create_model_version()`` API that caused model ``source`` to be set incorrectly (#5185, @bramrodenburg)
+- [Projects] Fix parsing behavior for Project URIs containing quotes (#5117, @dinaldoap)
 - [Scoring] Use the correct 400-level error code for malformed MLflow Model Server requests (#5003, @abatomunkuev)
 - [Tracking] Fix a bug where ``mlflow.start_run()`` modified user-supplied tags dictionary (#5191, @matheusMoreno)
 - [UI] Fix a bug causing redundant scroll bars to be displayed on the Experiment Page (#5159, @sunishsheth2009)
