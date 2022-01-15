@@ -659,7 +659,8 @@ def evaluate(
 ):
     """
     Evaluate a PyFunc model on the specified dataset using one or more specified ``evaluators``, and
-    log resulting metrics & artifacts to MLflow Tracking.
+    log resulting metrics & artifacts to MLflow Tracking. For additional overview information, see
+    :ref:`the Model Evaluation documentation <model-evaluation>`.
 
     Default Evaluator behavior:
 

@@ -441,6 +441,8 @@ flavors to benefit from all these tools:
   :local:
   :depth: 1
 
+.. _pyfunc-model-flavor:
+
 Python Function (``python_function``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The ``python_function`` model flavor serves as a default model interface for MLflow Python models.
@@ -775,6 +777,53 @@ You can also use the :py:func:`mlflow.prophet.load_model()`
 method to load MLflow Models with the ``prophet`` model flavor in native prophet format.
 
 For more information, see :py:mod:`mlflow.prophet`.
+
+.. _model-evaluation:
+
+Model Evaluation
+----------------
+After building and training your MLflow Model, you can use the :py:func:`mlflow.evaluate()` API to
+evaluate its performance on one or more datasets of your choosing. :py:func:`mlflow.evaluate()`
+currently supports evaluation of MLflow Models with the
+:ref:`python_function (pyfunc) model flavor <pyfunc-model-flavor>` for classification and regression
+tasks, computing a variety of task-specific performance metrics, model performance plots, and
+model explanations. Evaluation results are logged to :ref:`MLflow Tracking <tracking>`.
+
+The following example uses :py:func:`mlflow.evaluate()` to 
+
+.. code-block:: py
+
+    import xgboost
+    import shap
+    import mlflow
+    from sklearn.model_selection import train_test_split
+
+    # train XGBoost model
+    X, y = shap.datasets.adult()
+
+    num_examples = len(X)
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
+
+    model = xgboost.XGBClassifier().fit(X_train, y_train)
+
+    eval_data = X_test
+    eval_data["label"] = y_test
+
+    with mlflow.start_run() as run:
+        model_info = mlflow.sklearn.log_model(model, "model")
+        result = mlflow.evaluate(
+            model_info.model_uri,
+            eval_data,
+            targets="label",
+            model_type="classifier",
+            dataset_name="adult",
+            evaluators=["default"],
+        )
+
+    print(f"metrics:\n{result.metrics}")
+    print(f"artifacts:\n{result.artifacts}")
+
 
 Model Customization
 -------------------
