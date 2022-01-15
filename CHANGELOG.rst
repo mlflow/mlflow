@@ -1,34 +1,31 @@
 Changelog
 =========
-1.22.1.dev0 (2022-01-14)
+1.23.0 (2022-01-17)
 ------------------------
-MLflow 1.22.1.dev0 includes several major features and improvements:
+MLflow 1.23.0 includes several major features and improvements:
 
 Features:
 
-- Support specifying 'latest' in model URI to get the latest version of a model regardless of the stage (#5027, @lichenran1234)
-- Evaluation Default evaluator (#5092, @WeichenXu123)
-- Add a Python API to load model input examples (#5212, @maitre-matt)
-- Autologging functionality for scikit-learn integration with LightGBM (Part 1) (#5130, @jwyyy)
-- Log model uuid (#5149, @WeichenXu123)
-- Implement model evaluation API (part 1) (#5069, @WeichenXu123)
-- Make example input and PyFuncInput support csc csr matrix (#5016, @WeichenXu123)
-- Automatically update metric plots for in-progress runs #2099 (#5017, @cedkoffeto)
-- Add server option for serving only artifacts and proxied serving mode (#5045, @BenWilson2)
+- [Models] Introduce an ``mlflow.evaluate()`` API for evaluating MLflow Models, providing performance and explainability insights (#5069, #5092, #5256, @WeichenXu123)
+- [Models] Add an ``mlflow.models.Model.load_input_example()`` Python API for loading MLflow Model input examples (#5212, @maitre-matt)
+- [Models] Add a UUID field to the MLflow Model specification. MLflow Models now have a unique identifier (#5149, #5167, @WeichenXu123)
+- [Models] Supporting passing SciPy CSC and CSR matrices as MLflow Model input examples (#5016, @WeichenXu123)
+- [Model Registry] Support specifying `latest` in model URI to get the latest version of a model regardless of the stage (#5027, @lichenran1234)
+- [Tracking] Add support for LightGBM scikit-learn models to ``mlflow.lightgbm.autolog()`` (#5130, #5200, #5271 @jwyyy)
+- [Tracking] Improve S3 artifact download speed by caching boto clients (#4695, @Samreay)
+- [UI] Automatically update metric plots for in-progress runs (#5017, @cedkoffeto, @harupy)
 
 Bug fixes and documentation updates:
 
-- Do not modify tags dict on start_run() (#5191, @matheusMoreno)
-- Fixed incorrect parameter assignment in create-model-version in the R model registry API. (#5185, @bramrodenburg)
-- Bugfix: properly pass kwargs to `torch.jit.load` from `mlfow.pytorch.load_model` (#5163, @schmidt-jake)
-- Only generate model uuid when logging model (#5167, @WeichenXu123)
-- Fixing the horizonal and vertical extra scroll bar issue (#5159, @sunishsheth2009)
-- BUG: fixed model serve fail with HTTP 400 on Bad Request. (#5003, @abatomunkuev)
-- MLflow Schema enforcement should not cast object to pandas String (#5134, @stevenchen-db)
-- Caching boto client to improve artifact download speed (#4695, @Samreay)
-- Parse subdirectory with quotes (#5117, @dinaldoap)
+- [Models] Fix a bug in MLflow Model schema enforcement where strings were incorrectly cast to Pandas objects (#5134, @stevenchen-db)
+- [Models] Fix a bug where keyword arguments passed to ``mlflow.pytorch.load_model()`` were not used for scripted models (#5163, @schmidt-jake)
+- [Model Registry][R] Fix bug in R client ``mlflow_create_model_version`` API that caused ``source`` to be set incorrectly (#5185, @bramrodenburg)
+- [Projects] Fix parsing behavior for project URIs containing quotes (#5117, @dinaldoap)
+- [Scoring] Use the correct 400-level error code for malformed MLflow Model Server requests (#5003, @abatomunkuev)
+- [Tracking] Fix a bug where ``mlflow.start_run()`` modified user-supplied tags dictionary (#5191, @matheusMoreno)
+- [UI] Fix a bug causing redundant scroll bars to be displayed on the Experiment Page (#5159, @sunishsheth2009)
 
-Small bug fixes and doc updates (#5264, #5244, #5249, #5255, #5248, #5243, #5240, #5239, #5232, #5234, #5235, #5082, #5220, #5219, #5226, #5217, #5194, #5188, #5132, #5182, #5183, #5180, #5177, #5165, #5164, #5162, #5015, #5136, #5065, #5125, #5106, #5127, #5120, @harupy; #5156, @pbezglasny; #5202, @jwyyy; #3863, @JoshuaAnickat; #5205, @abhiramr; #4604, @OSobky; #4256, @einsmein; #5140, @AveshCSingh; #5186, #5176, @WeichenXu123; #5260, #5230, #5229, #5206, #5174, #5160, @liangz1)
+Small bug fixes and doc updates (#5264, #5244, #5249, #5255, #5248, #5243, #5240, #5239, #5232, #5234, #5235, #5082, #5220, #5219, #5226, #5217, #5194, #5188, #5132, #5182, #5183, #5180, #5177, #5165, #5164, #5162, #5015, #5136, #5065, #5125, #5106, #5127, #5120, @harupy; #5045, @BenWilson2; #5156, @pbezglasny; #5202, @jwyyy; #3863, @JoshuaAnickat; #5205, @abhiramr; #4604, @OSobky; #4256, @einsmein; #5140, @AveshCSingh; #5186, #5176, @WeichenXu123; #5260, #5230, #5229, #5206, #5174, #5160, @liangz1)
 
 1.22.0 (2021-11-29)
 ------------------------
