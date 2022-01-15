@@ -789,7 +789,12 @@ currently supports evaluation of MLflow Models with the
 tasks, computing a variety of task-specific performance metrics, model performance plots, and
 model explanations. Evaluation results are logged to :ref:`MLflow Tracking <tracking>`.
 
-The following example uses :py:func:`mlflow.evaluate()` to 
+The following `example from the MLflow GitHub Repository
+<https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_on_binary_classifier.py>`_
+uses :py:func:`mlflow.evaluate()` to evaluate the performance of a classifier
+on the `UCI Adult Data Set <https://archive.ics.uci.edu/ml/datasets/adult>`_, logging a
+comprehensive collection of MLflow Metrics and Artifacts that provide insight into model performance
+and behavior:
 
 .. code-block:: py
 
@@ -798,15 +803,15 @@ The following example uses :py:func:`mlflow.evaluate()` to
     import mlflow
     from sklearn.model_selection import train_test_split
 
-    # train XGBoost model
+    # load UCI Adult Data Set; segment it into training and test sets
     X, y = shap.datasets.adult()
-
     num_examples = len(X)
-
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
 
+    # train XGBoost model
     model = xgboost.XGBClassifier().fit(X_train, y_train)
 
+    # construct an evaluation dataset from the test set
     eval_data = X_test
     eval_data["label"] = y_test
 
@@ -821,9 +826,16 @@ The following example uses :py:func:`mlflow.evaluate()` to
             evaluators=["default"],
         )
 
-    print(f"metrics:\n{result.metrics}")
-    print(f"artifacts:\n{result.artifacts}")
+|eval_metrics_img| |eval_importance_img|
 
+.. |eval_metrics_img| image:: _static/images/model_evaluation_metrics.png
+   :width: 30%
+
+.. |eval_importance_img| image:: _static/images/model_evaluation_feature_importance.png
+   :width: 69%
+
+More information about model evaluation behaviors and outputs is available in the
+:py:func:`mlflow.evaluate()` API docs.
 
 Model Customization
 -------------------
