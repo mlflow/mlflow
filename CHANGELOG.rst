@@ -10,7 +10,7 @@ Features:
 - [Models] Add an ``mlflow.models.Model.load_input_example()`` Python API for loading MLflow Model input examples (#5212, @maitre-matt)
 - [Models] Add a UUID field to the MLflow Model specification. MLflow Models now have a unique identifier (#5149, #5167, @WeichenXu123)
 - [Models] Support passing SciPy CSC and CSR matrices as MLflow Model input examples (#5016, @WeichenXu123)
-- [Model Registry] Support specifying ``latest` in model URI to get the latest version of a model regardless of the stage (#5027, @lichenran1234)
+- [Model Registry] Support specifying ``latest`` in model URI to get the latest version of a model regardless of the stage (#5027, @lichenran1234)
 - [Tracking] Add support for LightGBM scikit-learn models to ``mlflow.lightgbm.autolog()`` (#5130, #5200, #5271 @jwyyy)
 - [Tracking] Improve S3 artifact download speed by caching boto clients (#4695, @Samreay)
 - [UI] Automatically update metric plots for in-progress runs (#5017, @cedkoffeto, @harupy)
