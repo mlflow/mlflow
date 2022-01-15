@@ -6,7 +6,7 @@ MLflow 1.23.0 includes several major features and improvements:
 
 Features:
 
-- [Models] Introduce an ``mlflow.evaluate()`` API for evaluating MLflow Models, providing performance and explainability insights (#5069, #5092, #5256, @WeichenXu123)
+- [Models] Introduce an ``mlflow.evaluate()`` API for evaluating MLflow Models, providing performance and explainability insights. For an overview, see https://mlflow.org/docs/latest/models.html#model-evaluation (#5069, #5092, #5256, @WeichenXu123)
 - [Models] ``log_model()`` APIs now return information about the logged MLflow Model, including artifact location, flavors, and schema (#5230, @liangz1)
 - [Models] Introduce an ``mlflow.models.Model.load_input_example()`` Python API for loading MLflow Model input examples (#5212, @maitre-matt)
 - [Models] Add a UUID field to the MLflow Model specification. MLflow Models now have a unique identifier (#5149, #5167, @WeichenXu123)
