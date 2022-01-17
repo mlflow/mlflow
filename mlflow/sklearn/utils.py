@@ -290,11 +290,14 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
 
     def plot_confusion_matrix(*args, **kwargs):
         import matplotlib
+
         num_classes = len(set(y_true))
-        with matplotlib.rc_context({
-            'font.size': min(10.0, 50.0 / num_classes),
-            'axes.labelsize': 10.0,
-        }):
+        with matplotlib.rc_context(
+            {
+                "font.size": min(10.0, 50.0 / num_classes),
+                "axes.labelsize": 10.0,
+            }
+        ):
             return sklearn.metrics.plot_confusion_matrix(*args, **kwargs)
 
     classifier_artifacts = [

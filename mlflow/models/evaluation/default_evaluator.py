@@ -600,10 +600,13 @@ class DefaultEvaluator(ModelEvaluator):
 
         def plot_confusion_matrix():
             import matplotlib
-            with matplotlib.rc_context({
-                'font.size': min(10, 50.0 / self.num_classes),
-                'axes.labelsize': 10,
-            }):
+
+            with matplotlib.rc_context(
+                {
+                    "font.size": min(10, 50.0 / self.num_classes),
+                    "axes.labelsize": 10,
+                }
+            ):
                 sk_metrics.ConfusionMatrixDisplay(
                     confusion_matrix=confusion_matrix,
                     display_labels=self.label_list,
