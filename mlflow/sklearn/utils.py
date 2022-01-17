@@ -293,7 +293,7 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
 
         with matplotlib.rc_context(
             {
-                "font.size": min(10.0, 50.0 / fitted_estimator.n_classes_),
+                "font.size": min(10.0, 50.0 / len(fitted_estimator.classes_)),
                 "axes.labelsize": 10.0,
             }
         ):
