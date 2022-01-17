@@ -298,10 +298,14 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
     def plot_confusion_matrix(*args, **kwargs):
         import matplotlib
 
-        class_labels = _get_class_labels_from_estimator(fitted_estimator) or set(y_true)
+        class_labels = _get_class_labels_from_estimator(fitted_estimator)
+        if class_labels is None:
+            class_labels = set(y_true)
 
         with matplotlib.rc_context(
             {
+                "figure.dpi": 288,
+                "figure.figsize": [6.0, 4.0],
                 "font.size": min(10.0, 50.0 / len(class_labels)),
                 "axes.labelsize": 10.0,
             }
