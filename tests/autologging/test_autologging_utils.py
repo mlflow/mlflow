@@ -575,7 +575,6 @@ def test_autologging_is_disabled_returns_expected_values():
 
 
 def test_autologging_disable_restores_behavior():
-    import pandas as pd
     from sklearn.datasets import fetch_california_housing
     from sklearn.linear_model import LinearRegression
 

@@ -32,7 +32,7 @@ ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
 
 
 def get_dataset():
-    X, y = fetch_california_housing(return_X_y=True)
+    X, y = fetch_california_housing(return_X_y=True, as_frame=True)
     X = X.sample(frac=0.01, random_state=42)
     y = y[X.index]
 
