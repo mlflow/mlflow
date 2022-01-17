@@ -1,6 +1,38 @@
 Changelog
 =========
 1.23.0 (2022-01-17)
+-------------------
+MLflow 1.23.0 includes several major features and improvements:
+
+Features:
+
+- Support specifying 'latest' in model URI to get the latest version of a model regardless of the stage (#5027, @lichenran1234)
+- Evaluation Default evaluator (#5092, @WeichenXu123)
+- Add a Python API to load model input examples (#5212, @maitre-matt)
+- Autologging functionality for scikit-learn integration with LightGBM (Part 1) (#5130, @jwyyy)
+- Log model uuid (#5149, @WeichenXu123)
+- Implement model evaluation API (part 1) (#5069, @WeichenXu123)
+- Make example input and PyFuncInput support csc csr matrix (#5016, @WeichenXu123)
+- Automatically update metric plots for in-progress runs #2099 (#5017, @cedkoffeto)
+- Add server option for serving only artifacts and proxied serving mode (#5045, @BenWilson2)
+
+Bug fixes and documentation updates:
+
+- Improve confusion matrix plot (#5273, @WeichenXu123)
+- Do not modify tags dict on start_run() (#5191, @matheusMoreno)
+- Fixed incorrect parameter assignment in create-model-version in the R model registry API. (#5185, @bramrodenburg)
+- Bugfix: properly pass kwargs to `torch.jit.load` from `mlfow.pytorch.load_model` (#5163, @schmidt-jake)
+- Only generate model uuid when logging model (#5167, @WeichenXu123)
+- Fixing the horizonal and vertical extra scroll bar issue (#5159, @sunishsheth2009)
+- BUG: fixed model serve fail with HTTP 400 on Bad Request. (#5003, @abatomunkuev)
+- MLflow Schema enforcement should not cast object to pandas String (#5134, @stevenchen-db)
+- Caching boto client to improve artifact download speed (#4695, @Samreay)
+- Parse subdirectory with quotes (#5117, @dinaldoap)
+- Autologging functionality for scikit-learn integration with LightGBM (Part 2) (#5200, @jwyyy)
+
+Small bug fixes and doc updates (#5280, #5275, #5264, #5244, #5249, #5255, #5248, #5243, #5240, #5239, #5232, #5234, #5235, #5082, #5220, #5219, #5226, #5217, #5194, #5188, #5132, #5182, #5183, #5180, #5177, #5165, #5164, #5162, #5015, #5136, #5065, #5125, #5106, #5127, #5120, @harupy; #5156, @pbezglasny; #5271, #5202, @jwyyy; #3863, @JoshuaAnickat; #5205, @abhiramr; #4604, @OSobky; #4256, @einsmein; #5140, @AveshCSingh; #5186, #5176, @WeichenXu123; #5272, @dbczumar; #5260, #5230, #5229, #5206, #5174, #5160, @liangz1)
+
+1.23.0 (2022-01-17)
 ------------------------
 MLflow 1.23.0 includes several major features and improvements:
 
