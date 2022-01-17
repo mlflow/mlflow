@@ -257,6 +257,13 @@ def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight):
     return _get_metrics_value_dict(classifier_metrics)
 
 
+def _get_class_labels_from_estimator(estimator):
+    """
+    Extracts class labels from `estimator` if `estimator.classes` is available.
+    """
+    return estimator.classes_ if hasattr(estimator, "classes_") else None
+
+
 def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight):
     """
     Draw and record various common artifacts for classifier
@@ -291,18 +298,11 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
     def plot_confusion_matrix(*args, **kwargs):
         import matplotlib
 
-        if hasattr(fitted_estimator, "classes_"):
-            classes = fitted_estimator.classes_
-        elif hasattr(fitted_estimator, "estimator") and hasattr(
-            fitted_estimator.estimator, "classes_"
-        ):
-            classes = fitted_estimator.estimator.classes_
-        else:
-            classes = set(y_true)
+        class_labels = _get_class_labels_from_estimator(fitted_estimator) or set(y_true)
 
         with matplotlib.rc_context(
             {
-                "font.size": min(10.0, 50.0 / len(classes)),
+                "font.size": min(10.0, 50.0 / len(class_labels)),
                 "axes.labelsize": 10.0,
             }
         ):
