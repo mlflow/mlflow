@@ -1,8 +1,9 @@
-# Updated version of:
+# Updated version of `ConfusionMatrixDisplay`:
 # https://github.com/scikit-learn/scikit-learn/blob/1.0.2/sklearn/metrics/_plot/confusion_matrix.py
 #
 # Changed lines are marked with `[CHANGED]`.
 
+# pylint: skip-file
 # fmt: off
 from itertools import product
 
