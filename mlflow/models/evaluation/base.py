@@ -663,7 +663,6 @@ def evaluate(
     :ref:`the Model Evaluation documentation <model-evaluation>`.
 
     Default Evaluator behavior:
-
      - The default evaluator, which can be invoked with ``evaluators="default"`` or
        ``evaluators=None``, supports the ``"regressor"`` and ``"classifer"`` model types.
        It generates a variety of model performance metrics, model performance plots, and
