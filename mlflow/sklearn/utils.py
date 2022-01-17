@@ -291,9 +291,18 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
     def plot_confusion_matrix(*args, **kwargs):
         import matplotlib
 
+        if hasattr(fitted_estimator, "classes_"):
+            classes = fitted_estimator.classes_
+        elif hasattr(fitted_estimator, "estimator") and hasattr(
+            fitted_estimator.estimator, "classes_"
+        ):
+            classes = fitted_estimator.estimator.classes_
+        else:
+            classes = set(y_true)
+
         with matplotlib.rc_context(
             {
-                "font.size": min(10.0, 50.0 / len(fitted_estimator.classes_)),
+                "font.size": min(10.0, 50.0 / len(classes)),
                 "axes.labelsize": 10.0,
             }
         ):
