@@ -19,9 +19,6 @@ examples/hyperparam/MLproject has 4 targets:
     Contains examples of how Keras callbacks can be used for MLflow integration.
   * random
     perform simple random search over the parameter space.
-  * gpyopt
-    use `GPyOpt <https://github.com/SheffieldML/GPyOpt>`_ to optimize hyperparameters of train.
-    GPyOpt can run multiple mlflow runs in parallel if run with ``batch-size`` > 1 and ``max_p`` > 1.
   * hyperopt
     use `Hyperopt <https://github.com/hyperopt/hyperopt>`_ to optimize hyperparameters.
 
@@ -55,13 +52,9 @@ Runs the Keras deep learning training with default parameters and log it in expe
 
 .. code-block:: bash
 
-    mlflow run -e gpyopt --experiment-id <hyperparam_experiment_id> examples/hyperparam
-
-.. code-block:: bash
-
     mlflow run -e hyperopt --experiment-id <hyperparam_experiment_id> examples/hyperparam
 
-Runs the hyperparameter tuning with either random search or GpyOpt or Hyperopt and log the
+Runs the hyperparameter tuning with either random search or Hyperopt and log the
 results under ``hyperparam_experiment_id``.
 
 You can compare these results by using ``mlflow ui``.

@@ -79,7 +79,6 @@ def report_free_disk_space(capsys):
         ("h2o", []),
         ("hyperparam", ["-e", "train", "-P", "epochs=1"]),
         ("hyperparam", ["-e", "random", "-P", "epochs=1"]),
-        ("hyperparam", ["-e", "gpyopt", "-P", "epochs=1"]),
         ("hyperparam", ["-e", "hyperopt", "-P", "epochs=1"]),
         (
             os.path.join("lightgbm", "lightgbm_native"),
