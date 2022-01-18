@@ -210,7 +210,7 @@ jobs:
         SPARK_LOCAL_IP: 127.0.0.1
       run: |
         cd mlflow/java
-        mvn clean package -q
+        mvn clean package
 
   js:
     runs-on: ubuntu-latest
