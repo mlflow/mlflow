@@ -74,18 +74,3 @@ def parse_gs_uri(uri):
 def is_uri(string):
     parsed_uri = urllib.parse.urlparse(string)
     return len(parsed_uri.scheme) > 0
-
-
-@deprecated(alternative="mlflow.tracking.MlflowClient.download_artifacts", since="1.9")
-def download_uri(uri, output_path):
-    if DBFS_REGEX.match(uri):
-        _fetch_dbfs(uri, output_path)
-    elif S3_REGEX.match(uri):
-        _fetch_s3(uri, output_path)
-    elif GS_REGEX.match(uri):
-        _fetch_gs(uri, output_path)
-    else:
-        raise DownloadException(
-            "`uri` must be a DBFS (%s), S3 (%s), or GCS (%s) URI, got "
-            "%s" % (DBFS_PREFIX, S3_PREFIX, GS_PREFIX, uri)
-        )
