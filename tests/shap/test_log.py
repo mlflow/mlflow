@@ -3,6 +3,7 @@ import shap
 import numpy as np
 import pandas as pd
 import sklearn
+from sklearn.datasets import load_diabetes
 import pytest
 
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
@@ -15,7 +16,7 @@ from tests.helper_functions import pyfunc_serve_and_score_model, _assert_pip_req
 
 @pytest.fixture(scope="module")
 def shap_model():
-    X, y = shap.datasets.boston()
+    X, y = load_diabetes(return_X_y=True, as_frame=True)
     model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
     model.fit(X, y)
     return shap.Explainer(model.predict, X, algorithm="permutation")
@@ -123,9 +124,9 @@ def test_sklearn_log_explainer_pyfunc():
 def test_log_explanation_doesnt_create_autologged_run():
     try:
         mlflow.sklearn.autolog(disable=False, exclusive=False)
-        dataset = sklearn.datasets.load_boston()
-        X = pd.DataFrame(dataset.data[:50, :8], columns=dataset.feature_names[:8])
-        y = dataset.target[:50]
+        X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
+        X = X.iloc[:50, :4]
+        y = y.iloc[:50]
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
 
