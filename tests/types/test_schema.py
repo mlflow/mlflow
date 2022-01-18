@@ -138,8 +138,6 @@ def test_get_schema_type(dict_of_ndarrays):
     schema = _infer_schema(dict_of_ndarrays)
     assert ["float64"] * 4 == schema.numpy_types()
     with pytest.raises(MlflowException, match="TensorSpec only supports numpy types"):
-        schema.input_types()
-    with pytest.raises(MlflowException, match="TensorSpec only supports numpy types"):
         schema.pandas_types()
     with pytest.raises(MlflowException, match="TensorSpec cannot be converted to spark dataframe"):
         schema.as_spark_schema()
