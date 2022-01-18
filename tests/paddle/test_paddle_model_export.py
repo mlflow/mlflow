@@ -9,7 +9,7 @@ import yaml
 import paddle
 from paddle.nn import Linear
 import paddle.nn.functional as F
-from sklearn.datasets import fetch_california_housing
+from sklearn.datasets import load_diabetes
 from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
 
@@ -32,11 +32,7 @@ ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
 
 
 def get_dataset():
-    X, y = fetch_california_housing(return_X_y=True, as_frame=True)
-    X = X.sample(frac=0.01, random_state=42)
-    y = y[X.index]
-    X = X.values
-    y = y.values
+    X, y = load_diabetes(return_X_y=True)
 
     min_max_scaler = preprocessing.MinMaxScaler()
     X_min_max = min_max_scaler.fit_transform(X)

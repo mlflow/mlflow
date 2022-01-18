@@ -1,12 +1,10 @@
 import mlflow
 import shap
 import sklearn
-from sklearn.datasets import fetch_california_housing
+from sklearn.datasets import load_diabetes
 
 # prepare training data
-X, y = fetch_california_housing(return_X_y=True, as_frame=True)
-X = X.sample(frac=0.01, random_state=42)
-y = y[X.index]
+X, y = load_diabetes(return_X_y=True, as_frame=True)
 
 # train a model
 model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)

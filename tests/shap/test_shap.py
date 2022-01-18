@@ -5,7 +5,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import shap
-from sklearn.datasets import fetch_california_housing, load_iris
+from sklearn.datasets import load_diabetes, load_iris
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 import pandas as pd
 import pytest
@@ -39,9 +39,7 @@ def get_iris():
 
 
 def get_california_housing():
-    X, y = fetch_california_housing(return_X_y=True, as_frame=True)
-    X = X.sample(frac=0.01, random_state=42)
-    y = y[X.index]
+    X, y = load_diabetes(return_X_y=True, as_frame=True)
     return X, y
 
 

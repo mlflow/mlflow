@@ -206,13 +206,13 @@ def log_explanation(predict_function, features, artifact_path=None):
 
         import numpy as np
         import pandas as pd
-        from sklearn.datasets import fetch_california_housing
+        from sklearn.datasets import load_diabetes
         from sklearn.linear_model import LinearRegression
 
         import mlflow
 
         # prepare training data
-        X, y = dataset = fetch_california_housing(return_X_y=True, as_frame=True)
+        X, y = dataset = load_diabetes(return_X_y=True, as_frame=True)
         X = pd.DataFrame(dataset.data[:50, :8], columns=dataset.feature_names[:8])
         y = dataset.target[:50]
 
