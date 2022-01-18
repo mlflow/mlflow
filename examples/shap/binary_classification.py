@@ -6,11 +6,10 @@ from sklearn.ensemble import RandomForestClassifier
 import shap
 
 import mlflow
-from utils import to_pandas_Xy
 
 
 # prepare training data
-X, y = to_pandas_Xy(load_breast_cancer())
+X, y = load_breast_cancer(return_X_y=True, as_frame=True)
 X = X.iloc[:50, :8]
 y = y.iloc[:50]
 
