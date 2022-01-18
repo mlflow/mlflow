@@ -348,18 +348,6 @@ class Schema:
         """Get types of the represented dataset."""
         return [x.type for x in self.inputs]
 
-    @deprecated(alternative="mlflow.types.Schema.input_types", since="1.14")
-    def column_types(self) -> List[DataType]:
-        """
-        .. deprecated:: 1.14
-          Please use :func:`mlflow.types.Schema.input_types()`
-          Get types of the represented dataset. Unsupported by TensorSpec.
-
-        """
-        if self.is_tensor_spec():
-            raise MlflowException("TensorSpec only supports numpy types, use numpy_types() instead")
-        return [x.type for x in self.columns]
-
     def numpy_types(self) -> List[np.dtype]:
         """Convenience shortcut to get the datatypes as numpy types."""
         if self.is_tensor_spec():
