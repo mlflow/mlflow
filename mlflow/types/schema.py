@@ -345,7 +345,7 @@ class Schema:
         """
         if self.is_tensor_spec():
             raise MlflowException("TensorSpec only supports numpy types, use numpy_types() instead")
-        return [x.type for x in self.columns]
+        return [x.type for x in self.input_types]
 
     def numpy_types(self) -> List[np.dtype]:
         """Convenience shortcut to get the datatypes as numpy types."""
