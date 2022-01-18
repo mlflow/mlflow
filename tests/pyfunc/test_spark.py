@@ -20,7 +20,7 @@ import tests
 from mlflow.types import Schema, ColSpec
 
 prediction = [int(1), int(2), "class1", float(0.1), 0.2]
-types = [np.int32, np.int, str, np.float32, np.double]
+types = [np.int32, int, str, np.float32, np.double]
 
 
 def score_model_as_udf(model_uri, pandas_df, result_type="double"):
@@ -91,7 +91,7 @@ def test_spark_udf(spark, model_path):
         "float": (FloatType(), np.number),
         "int": (IntegerType(), np.int32),
         "double": (DoubleType(), np.number),
-        "long": (LongType(), np.int),
+        "long": (LongType(), int),
         "string": (StringType(), None),
     }
 

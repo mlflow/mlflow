@@ -865,7 +865,7 @@ def spark_udf(spark, model_uri, result_type="double"):
                 [np.byte, np.ubyte, np.short, np.ushort, np.int32]
             ).astype(np.int32)
         elif type(elem_type) == LongType:
-            result = result.select_dtypes([np.byte, np.ubyte, np.short, np.ushort, np.int, np.long])
+            result = result.select_dtypes([np.byte, np.ubyte, np.short, np.ushort, int])
 
         elif type(elem_type) == FloatType:
             result = result.select_dtypes(include=(np.number,)).astype(np.float32)
