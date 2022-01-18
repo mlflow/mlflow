@@ -581,6 +581,8 @@ def test_autologging_disable_restores_behavior():
     mlflow.sklearn.autolog()
 
     X, y = load_diabetes(return_X_y=True, as_frame=True)
+    X = X.iloc[:50, :4]
+    y = y.iclo[:50]
 
     # train a model
     model = LinearRegression()

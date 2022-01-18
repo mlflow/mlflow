@@ -38,14 +38,14 @@ def get_iris():
     )
 
 
-def get_california_housing():
+def get_diabetes():
     X, y = load_diabetes(return_X_y=True, as_frame=True)
-    return X, y
+    return X.iloc[:100, :4], y.iloc[:100]
 
 
 @pytest.fixture(scope="module")
 def regressor():
-    X, y = get_california_housing()
+    X, y = get_diabetes()
     model = RandomForestRegressor()
     model.fit(X, y)
 
@@ -240,7 +240,7 @@ def test_log_explanation_with_small_features():
     num_rows = 50
     assert num_rows < mlflow.shap._MAXIMUM_BACKGROUND_DATA_SIZE
 
-    X, y = get_california_housing()
+    X, y = get_diabetes()
     X, y = X.iloc[:num_rows], y[:num_rows]
     model = RandomForestRegressor()
     model.fit(X, y)
