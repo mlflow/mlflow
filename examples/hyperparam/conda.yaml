@@ -14,7 +14,4 @@ dependencies:
     - matplotlib==2.2.2
     - keras==2.3.1
     - mlflow>=1.6
-    - Gpy==1.9.5
-    - GpyOpt==1.2.5
-    - pyDOE==0.3.8
     - hyperopt==0.1
