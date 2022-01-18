@@ -182,7 +182,7 @@ def test_schema_inference_on_pandas_series():
     assert schema == Schema([ColSpec(DataType.binary)])
 
     # test string
-    schema = _infer_schema(pd.Series(np.array(["a"], dtype=np.str)))
+    schema = _infer_schema(pd.Series(np.array(["a"], dtype=str)))
     assert schema == Schema([ColSpec(DataType.string)])
 
     # test boolean
