@@ -258,7 +258,7 @@ def _load_model(path):
 
 def _load_pyfunc(path):
     """
-    Load PyFunc implementation for Prophet. Called by ``pyfunc.load_pyfunc``.
+    Load PyFunc implementation for Prophet. Called by ``pyfunc.load_model``.
     :param path: Local filesystem path to the MLflow Model with the ``prophet`` flavor.
     """
     return _ProphetModelWrapper(_load_model(path))

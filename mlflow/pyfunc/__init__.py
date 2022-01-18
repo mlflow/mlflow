@@ -668,31 +668,6 @@ def load_model(model_uri: str, suppress_warnings: bool = True, dst_path: str = N
     return PyFuncModel(model_meta=model_meta, model_impl=model_impl)
 
 
-@deprecated("mlflow.pyfunc.load_model", 1.0)
-def load_pyfunc(model_uri, suppress_warnings=False):
-    """
-    Load a model stored in Python function format.
-
-    :param model_uri: The location, in URI format, of the MLflow model. For example:
-
-                      - ``/Users/me/path/to/local/model``
-                      - ``relative/path/to/local/model``
-                      - ``s3://my_bucket/path/to/model``
-                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-                      - ``models:/<model_name>/<model_version>``
-                      - ``models:/<model_name>/<stage>``
-
-                      For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
-                      artifact-locations>`_.
-
-    :param suppress_warnings: If ``True``, non-fatal warning messages associated with the model
-                              loading process will be suppressed. If ``False``, these warning
-                              messages will be emitted.
-    """
-    return load_model(model_uri, suppress_warnings)
-
-
 def _warn_potentially_incompatible_py_version_if_necessary(model_py_version=None):
     """
     Compares the version of Python that was used to save a given model with the version

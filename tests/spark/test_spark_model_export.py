@@ -204,7 +204,7 @@ def test_model_export(spark_model_iris, model_path, spark_custom_env):
     preds_df = reloaded_model.transform(spark_model_iris.spark_df)
     preds1 = [x.prediction for x in preds_df.select("prediction").collect()]
     assert spark_model_iris.predictions == preds1
-    m = pyfunc.load_pyfunc(model_path)
+    m = pyfunc.load_model(model_path)
     # 2. score and compare reloaded pyfunc
     preds2 = m.predict(spark_model_iris.pandas_df)
     assert spark_model_iris.predictions == preds2
@@ -268,7 +268,7 @@ def test_estimator_model_export(spark_model_estimator, model_path, spark_custom_
     preds = [x.prediction for x in preds_df.select("prediction").collect()]
     assert spark_model_estimator.predictions == preds
     # 2. score and compare reloaded pyfunc
-    m = pyfunc.load_pyfunc(model_path)
+    m = pyfunc.load_model(model_path)
     preds2 = m.predict(spark_model_estimator.spark_df.toPandas())
     assert spark_model_estimator.predictions == preds2
 

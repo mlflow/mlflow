@@ -300,7 +300,7 @@ def test_save_and_load_model(sequential_model, model_path, data, sequential_pred
     np.testing.assert_array_equal(_predict(sequential_model_loaded, data), sequential_predicted)
 
     # Loading pyfunc model
-    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     np.testing.assert_array_almost_equal(
         pyfunc_loaded.predict(data[0]).values[:, 0], sequential_predicted, decimal=4
     )
@@ -314,7 +314,7 @@ def test_pyfunc_model_works_with_np_input_type(
     mlflow.pytorch.save_model(sequential_model, model_path)
 
     # Loading pyfunc model
-    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
 
     # predict works with dataframes
     df_result = pyfunc_loaded.predict(data[0])
@@ -711,7 +711,7 @@ def test_load_pyfunc_loads_torch_model_using_pickle_module_specified_at_save_tim
         "torch.load"
     ) as torch_load_mock:
         import_mock.side_effect = track_module_imports
-        pyfunc.load_pyfunc(model_path)
+        pyfunc.load_model(model_path)
 
     torch_load_mock.assert_called_with(mock.ANY, pickle_module=custom_pickle_module)
     assert custom_pickle_module.__name__ in imported_modules
@@ -745,7 +745,7 @@ def test_load_model_loads_torch_model_using_pickle_module_specified_at_save_time
         "torch.load"
     ) as torch_load_mock:
         import_mock.side_effect = track_module_imports
-        pyfunc.load_pyfunc(model_uri=model_uri)
+        pyfunc.load_model(model_uri=model_uri)
 
     torch_load_mock.assert_called_with(mock.ANY, pickle_module=custom_pickle_module)
     assert custom_pickle_module.__name__ in imported_modules
@@ -775,7 +775,7 @@ def test_load_pyfunc_succeeds_when_data_is_model_file_instead_of_directory(
     )
     model_conf.save(model_conf_path)
 
-    loaded_pyfunc = pyfunc.load_pyfunc(model_path)
+    loaded_pyfunc = pyfunc.load_model(model_path)
 
     np.testing.assert_array_almost_equal(
         loaded_pyfunc.predict(data[0]),
@@ -817,7 +817,7 @@ def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
     )
     model_conf.save(model_conf_path)
 
-    loaded_pyfunc = pyfunc.load_pyfunc(model_path)
+    loaded_pyfunc = pyfunc.load_model(model_path)
 
     np.testing.assert_array_almost_equal(
         loaded_pyfunc.predict(data[0]),

@@ -421,7 +421,7 @@ def _load_model_from_local_file(path, serialization_format):
 
 def _load_pyfunc(path):
     """
-    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
+    Load PyFunc implementation. Called by ``pyfunc.load_model``.
 
     :param path: Local filesystem path to the MLflow Model with the ``sklearn`` flavor.
     """

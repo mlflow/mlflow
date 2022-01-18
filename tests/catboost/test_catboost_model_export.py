@@ -108,7 +108,7 @@ def test_model_save_load(cb_model, model_path):
         loaded_model.predict(inference_dataframe),
     )
 
-    loaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+    loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
     np.testing.assert_array_almost_equal(
         loaded_model.predict(inference_dataframe),
         loaded_pyfunc.predict(inference_dataframe),

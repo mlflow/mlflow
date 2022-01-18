@@ -270,7 +270,7 @@ def test_model_save_load_evaluate_pyfunc_format(onnx_model, model_path, data, pr
     mlflow.onnx.save_model(onnx_model, model_path)
 
     # Loading pyfunc model
-    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     assert np.allclose(pyfunc_loaded.predict(x).values.flatten(), predicted, rtol=1e-05, atol=1e-05)
 
     # pyfunc serve
@@ -307,7 +307,7 @@ def test_model_save_load_evaluate_pyfunc_format_multiple_inputs(
     mlflow.onnx.save_model(onnx_model_multiple_inputs_float64, model_path)
 
     # Loading pyfunc model
-    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     assert np.allclose(
         pyfunc_loaded.predict(data_multiple_inputs).values,
         predicted_multiple_inputs.values,
@@ -348,7 +348,7 @@ def test_pyfunc_representation_of_float32_model_casts_and_evalutes_float64_input
     mlflow.onnx.save_model(onnx_model_multiple_inputs_float32, model_path)
 
     # Loading pyfunc model
-    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     assert np.allclose(
         pyfunc_loaded.predict(data_multiple_inputs.astype("float64")).values,
         predicted_multiple_inputs.astype("float32").values,
@@ -422,7 +422,7 @@ def test_model_log_evaluate_pyfunc_format(onnx_model, data, predicted):
         )
 
         # Loading pyfunc model
-        pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_uri=model_uri)
+        pyfunc_loaded = mlflow.pyfunc.load_model(model_uri=model_uri)
         assert np.allclose(
             pyfunc_loaded.predict(x).values.flatten(), predicted, rtol=1e-05, atol=1e-05
         )
@@ -447,7 +447,7 @@ def test_model_save_evaluate_pyfunc_format_multi_tensor(
         path = "onnx_model"
         mlflow.onnx.save_model(onnx_model=multi_tensor_onnx_model, path=path)
         # Loading pyfunc model
-        pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_uri=path)
+        pyfunc_loaded = mlflow.pyfunc.load_model(model_uri=path)
         data, _ = data
         # get prediction
         feeds = {

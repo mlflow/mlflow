@@ -81,7 +81,7 @@ def test_spark_udf(spark, model_path):
         loader_module=__name__,
         code_path=[os.path.dirname(tests.__file__)],
     )
-    reloaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_path)
+    reloaded_pyfunc_model = mlflow.pyfunc.load_model(model_path)
 
     pandas_df = pd.DataFrame(data=np.ones((10, 10)), columns=[str(i) for i in range(10)])
     spark_df = spark.createDataFrame(pandas_df)

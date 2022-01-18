@@ -92,7 +92,7 @@ def test_model_save_load(sklearn_knn_model, model_path):
 
     mlflow.sklearn.save_model(sk_model=knn_model, path=model_path)
     reloaded_knn_model = mlflow.sklearn.load_model(model_uri=model_path)
-    reloaded_knn_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+    reloaded_knn_pyfunc = pyfunc.load_model(model_uri=model_path)
 
     np.testing.assert_array_equal(
         knn_model.predict(sklearn_knn_model.inference_data),
@@ -581,7 +581,7 @@ def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(
     assert pyfunc_conf is not None
     pyfunc_conf[pyfunc.DATA] = sklearn_conf["pickled_model"]
 
-    reloaded_knn_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+    reloaded_knn_pyfunc = pyfunc.load_model(model_uri=model_path)
 
     np.testing.assert_array_equal(
         sklearn_knn_model.model.predict(sklearn_knn_model.inference_data),

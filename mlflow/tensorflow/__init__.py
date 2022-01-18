@@ -437,7 +437,7 @@ def _get_and_parse_flavor_configuration(model_path):
 
 def _load_pyfunc(path):
     """
-    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``. This function loads an MLflow
+    Load PyFunc implementation. Called by ``pyfunc.load_model``. This function loads an MLflow
     model with the TensorFlow flavor into a new TensorFlow graph and exposes it behind the
     ``pyfunc.predict`` interface.
 

@@ -683,7 +683,7 @@ def load_model(model_uri, dfs_tmpdir=None):
 
 def _load_pyfunc(path):
     """
-    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
+    Load PyFunc implementation. Called by ``pyfunc.load_model``.
 
     :param path: Local filesystem path to the MLflow Model with the ``spark`` flavor.
     """

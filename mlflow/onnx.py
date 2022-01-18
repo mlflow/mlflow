@@ -280,7 +280,7 @@ class _OnnxModelWrapper:
 
 def _load_pyfunc(path):
     """
-    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
+    Load PyFunc implementation. Called by ``pyfunc.load_model``.
     """
     return _OnnxModelWrapper(path)
 

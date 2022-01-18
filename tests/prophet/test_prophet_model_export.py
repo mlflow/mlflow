@@ -151,7 +151,7 @@ def test_model_native_save_load(prophet_model, model_path):
 def test_model_pyfunc_save_load(prophet_model, model_path):
     model = prophet_model.model
     mlflow.prophet.save_model(pr_model=model, path=model_path)
-    loaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+    loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
 
     horizon_df = future_horizon_df(model, FORECAST_HORIZON)
 
