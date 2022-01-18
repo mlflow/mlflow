@@ -150,7 +150,7 @@ def test_schema_inference_on_dataframe(pandas_df_with_all_types):
         columns=["boolean_ext", "integer_ext", "string_ext"]
     )
     schema = _infer_schema(basic_types)
-    assert schema == Schema([ColSpec(x, x) for x in basic_types.columns])
+    assert schema == Schema([ColSpec(x, x) for x in basic_types.inputs])
 
     ext_types = pandas_df_with_all_types[["boolean_ext", "integer_ext", "string_ext"]].copy()
     expected_schema = Schema(
@@ -424,7 +424,7 @@ def test_spark_schema_inference(pandas_df_with_all_types):
         columns=["boolean_ext", "integer_ext", "string_ext"]
     )
     schema = _infer_schema(pandas_df_with_all_types)
-    assert schema == Schema([ColSpec(x, x) for x in pandas_df_with_all_types.columns])
+    assert schema == Schema([ColSpec(x, x) for x in pandas_df_with_all_types.inputs])
     spark_session = pyspark.sql.SparkSession(pyspark.SparkContext.getOrCreate())
 
     struct_fields = []
@@ -437,7 +437,7 @@ def test_spark_schema_inference(pandas_df_with_all_types):
     spark_schema = StructType(struct_fields)
     sparkdf = spark_session.createDataFrame(pandas_df_with_all_types, schema=spark_schema)
     schema = _infer_schema(sparkdf)
-    assert schema == Schema([ColSpec(x, x) for x in pandas_df_with_all_types.columns])
+    assert schema == Schema([ColSpec(x, x) for x in pandas_df_with_all_types.inputs])
 
 
 @pytest.mark.large

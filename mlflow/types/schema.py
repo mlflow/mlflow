@@ -295,19 +295,6 @@ class Schema:
         """Representation of a dataset that defines this schema."""
         return self._inputs
 
-    @property
-    @deprecated(alternative="mlflow.types.Schema.inputs", since="1.14")
-    def columns(self) -> List[ColSpec]:
-        """
-        .. deprecated:: 1.14
-          Please use :func:`mlflow.types.Schema.inputs`
-          The list of columns that defines this schema.
-
-        """
-        if self.is_tensor_spec():
-            raise MlflowException("Not supported by TensorSpec, use `inputs` instead")
-        return self._inputs
-
     def is_tensor_spec(self) -> bool:
         """Return true iff this schema is specified using TensorSpec"""
         return self.inputs and isinstance(self.inputs[0], TensorSpec)
