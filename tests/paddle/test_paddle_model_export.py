@@ -54,17 +54,17 @@ def get_dataset():
 @pytest.fixture
 def pd_model():
     class Regressor(paddle.nn.Layer):
-        def __init__(self):
+        def __init__(self, in_features):
             super(Regressor, self).__init__()
-            self.fc_ = Linear(in_features=13, out_features=1)
+            self.fc_ = Linear(in_features=in_features, out_features=1)
 
         @paddle.jit.to_static
         def forward(self, inputs):  # pylint: disable=arguments-differ
             return self.fc_(inputs)
 
-    model = Regressor()
-    model.train()
     training_data, test_data = get_dataset()
+    model = Regressor(training_data.shape[1] - 1)
+    model.train()
     opt = paddle.optimizer.SGD(learning_rate=0.01, parameters=model.parameters())
 
     EPOCH_NUM = 10
