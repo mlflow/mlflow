@@ -314,19 +314,19 @@ def _enforce_mlflow_datatype(name, values: pandas.Series, t: DataType):
 
     The following type conversions are allowed:
 
-    1. np.object -> string
+    1. object -> string
     2. int -> long (upcast)
     3. float -> double (upcast)
     4. int -> double (safe conversion)
     5. np.datetime64[x] -> datetime (any precision)
-    6. np.object -> datetime
+    6. object -> datetime
 
     Any other type mismatch will raise error.
     """
-    if values.dtype == np.object and t not in (DataType.binary, DataType.string):
+    if values.dtype == object and t not in (DataType.binary, DataType.string):
         values = values.infer_objects()
 
-    if t == DataType.string and values.dtype == np.object:
+    if t == DataType.string and values.dtype == object:
         # NB: the object can contain any type and we currently cannot cast to pandas Strings
         # due to how None is cast
         return values
@@ -350,8 +350,8 @@ def _enforce_mlflow_datatype(name, values: pandas.Series, t: DataType):
         # ignore precision when matching datetime columns.
         return values
 
-    if t == DataType.datetime and values.dtype == np.object:
-        # NB: Pyspark date columns get converted to np.object when converted to a pandas
+    if t == DataType.datetime and values.dtype == object:
+        # NB: Pyspark date columns get converted to object when converted to a pandas
         # DataFrame. To respect the original typing, we convert the column to datetime.
         try:
             return values.astype(np.datetime64, errors="raise")

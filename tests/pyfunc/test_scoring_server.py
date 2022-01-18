@@ -466,7 +466,7 @@ def test_parse_with_schema(pandas_df_with_all_types):
     assert df["bad_float"].dtype == np.float32
     assert all(df["bad_float"] == np.array([1.1, 9007199254740992, 3.3], dtype=np.float32))
     # However bad string is recognized as int64:
-    assert all(df["bad_string"] == np.array([1, 2, 3], dtype=np.object))
+    assert all(df["bad_string"] == np.array([1, 2, 3], dtype=object))
 
     # Boolean is forced - zero and empty string is false, everything else is true:
     assert df["bad_boolean"].dtype == bool
@@ -537,7 +537,7 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
         )
         response_json = json.loads(response.content)
 
-        # np.objects are not converted to pandas Strings at the moment
+        # objects are not converted to pandas Strings at the moment
         expected_types = {**pandas_df_with_all_types.dtypes, "string": np.dtype(object)}
         assert response_json == [[k, str(v)] for k, v in expected_types.items()]
         response = pyfunc_serve_and_score_model(
