@@ -95,7 +95,7 @@ if __name__ == "__main__":
     eps = 5e-3  # the smaller it is the longer is the path
 
     print("Computing regularization path using the elastic net.")
-    alphas_enet, coefs_enet, _ = enet_path(X, y, eps=eps, l1_ratio=l1_ratio, fit_intercept=False)
+    alphas_enet, coefs_enet, _ = enet_path(X, y, eps=eps, l1_ratio=l1_ratio)
 
     # Display results
     fig = plt.figure(1)

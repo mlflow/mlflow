@@ -47,7 +47,7 @@ jobs:
 
     - uses: ./.github/actions/setup-python
       with:
-        python-version: 3.6
+        python-version: "3.7"
 
     - name: Install dependencies
       if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}

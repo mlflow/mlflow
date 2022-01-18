@@ -2,13 +2,13 @@ name: tutorial
 channels:
   - conda-forge
 dependencies:
-  - python=3.6
+  - python=3.7
   - pip
   - pip:
     - mlflow
-    - numpy==1.14.3
-    - matplotlib==3.0.2
-    - pandas==0.22.0
+    - numpy
+    - matplotlib
+    - pandas
     - scipy
-    - scikit-learn==0.19.1
-    - cloudpickle==0.6.1
+    - scikit-learn
+    - cloudpickle

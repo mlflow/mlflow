@@ -32,7 +32,7 @@ jobs:
     - uses: actions/checkout@v2
     - uses: ./.github/actions/setup-python
       with:
-        python-version: 3.6
+        python-version: "3.7"
     - uses: ./.github/actions/cache-pip
     - name: Install dependencies
       env:
@@ -103,7 +103,7 @@ jobs:
     - uses: actions/checkout@v2
     - uses: ./.github/actions/setup-python
       with:
-        python-version: 3.6
+        python-version: "3.7"
     - name: Install dependencies
       env:
         INSTALL_SKINNY_PYTHON_DEPS: true
@@ -120,7 +120,7 @@ jobs:
     - uses: actions/checkout@v2
     - uses: ./.github/actions/setup-python
       with:
-        python-version: 3.6
+        python-version: "3.7"
     - name: Install dependencies
       env:
         INSTALL_SMALL_PYTHON_DEPS: true
@@ -141,7 +141,7 @@ jobs:
         rm -rf "$AGENT_TOOLSDIRECTORY"
     - uses: ./.github/actions/setup-python
       with:
-        python-version: 3.6
+        python-version: "3.7"
     - uses: actions/setup-java@v2
       with:
         java-version: 11
@@ -196,7 +196,7 @@ jobs:
     - uses: actions/checkout@v2
     - uses: ./.github/actions/setup-python
       with:
-        python-version: 3.6
+        python-version: "3.7"
     - name: Set up Java
       uses: actions/setup-java@v2
       with:
@@ -266,7 +266,7 @@ jobs:
           rm -rf "$AGENT_TOOLSDIRECTORY"
       - uses: ./.github/actions/setup-python
         with:
-          python-version: 3.6
+          python-version: "3.7"
       - uses: actions/setup-java@v2
         with:
           java-version: 11
@@ -294,7 +294,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: ./.github/actions/setup-python
         with:
-          python-version: 3.6
+          python-version: "3.7"
       - uses: actions/setup-java@v2
         with:
           java-version: 11
@@ -319,7 +319,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
         with:
-          python-version: '3.6'
+          python-version: "3.7"
       - name: Install mlflow
         run: |
           pip install -e .
@@ -339,7 +339,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: ./.github/actions/setup-python
         with:
-          python-version: 3.6
+          python-version: "3.7"
       - uses: actions/setup-java@v2
         with:
           java-version: 11
@@ -362,7 +362,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
         with:
-          python-version: 3.7
+          python-version: "3.7"
       - name: Install python dependencies
         run: |
           pip install -r requirements/small-requirements.txt
