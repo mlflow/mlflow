@@ -582,7 +582,7 @@ def test_autologging_disable_restores_behavior():
 
     X, y = load_diabetes(return_X_y=True, as_frame=True)
     X = X.iloc[:50, :4]
-    y = y.iclo[:50]
+    y = y.iloc[:50]
 
     # train a model
     model = LinearRegression()

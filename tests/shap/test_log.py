@@ -126,7 +126,7 @@ def test_log_explanation_doesnt_create_autologged_run():
         mlflow.sklearn.autolog(disable=False, exclusive=False)
         X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
         X = X.iloc[:50, :4]
-        y = y.iclo[:50]
+        y = y.iloc[:50]
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
 
