@@ -139,7 +139,7 @@ by running the following from your checkout of MLflow:
 
 .. code-block:: bash
 
-    conda create --name mlflow-dev-env python=3.6
+    conda create --name mlflow-dev-env python=3.7
     conda activate mlflow-dev-env
     pip install -e .[extras] # installs mlflow from current checkout with some useful extra utilities
 
