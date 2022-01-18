@@ -9,7 +9,7 @@ RUN apt-get update && \
     apt-get install -y default-libmysqlclient-dev build-essential curl \
     # cmake and protobuf-compiler required for onnx install
     cmake protobuf-compiler &&  \
-    conda install python=3.6 && \
+    conda install python=3.7 && \
     # install required python packages
     pip install -r requirements/dev-requirements.txt --no-cache-dir && \
     # install mlflow in editable form
