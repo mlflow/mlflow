@@ -1877,7 +1877,7 @@ def test_is_metrics_value_loggable():
     assert is_metric_value_loggable(np.int(3))
     assert is_metric_value_loggable(np.float32(3.5))
     assert not is_metric_value_loggable(True)
-    assert not is_metric_value_loggable(np.bool(True))
+    assert not is_metric_value_loggable(bool(True))
     assert not is_metric_value_loggable([1, 2])
     assert not is_metric_value_loggable(np.array([1, 2]))
 

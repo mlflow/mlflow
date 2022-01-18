@@ -186,7 +186,7 @@ def test_schema_inference_on_pandas_series():
     assert schema == Schema([ColSpec(DataType.string)])
 
     # test boolean
-    schema = _infer_schema(pd.Series(np.array([True], dtype=np.bool)))
+    schema = _infer_schema(pd.Series(np.array([True], dtype=bool)))
     assert schema == Schema([ColSpec(DataType.boolean)])
 
     # test ints
