@@ -4,7 +4,7 @@
 
 set -ex
 pushd ../mlflow/java/client/
-mvn clean javadoc:javadoc -q
+mvn clean javadoc:javadoc
 popd
 rm -rf build/html/java_api/
 mkdir -p build/html/java_api/
