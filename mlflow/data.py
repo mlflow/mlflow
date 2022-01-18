@@ -3,7 +3,6 @@ import re
 import urllib.parse
 
 from mlflow.utils import process
-from mlflow.utils.annotations import deprecated
 
 DBFS_PREFIX = "dbfs:/"
 S3_PREFIX = "s3://"
