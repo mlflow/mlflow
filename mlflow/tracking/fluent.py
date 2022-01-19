@@ -1354,7 +1354,7 @@ def _create_job_experiment() -> str:
     tags[MLFLOW_EXPERIMENT_SOURCE_ID] = job_id
 
     experiment_id = create_experiment(get_experiment_name_from_job_id(job_id), None, tags)
-    _logger.info(
+    _logger.debug(
         "Job experiment with experiment_id '%s' created",
         experiment_id,
     )
