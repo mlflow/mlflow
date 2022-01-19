@@ -250,7 +250,7 @@ def test_get_experiment_by_id():
 def test_get_experiment_by_id_with_is_in_databricks_job():
     exp_id = 768
     job_id = 123
-    exp_name = "job:/" + str(job_id)
+    exp_name = "jobs:/" + str(job_id)
     job_type_info = "NORMAL"
     with mock.patch(
         "mlflow.tracking.fluent.is_in_databricks_job"

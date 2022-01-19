@@ -270,7 +270,7 @@ def get_job_type_info():
 
 
 def get_experiment_name_from_job_id(job_id):
-    return "job:/" + job_id
+    return "jobs:/" + job_id
 
 
 @_use_repl_context_if_available("commandRunId")
