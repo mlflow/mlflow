@@ -60,8 +60,8 @@ def update_versions(yml_string, flavor, category, *, min_release, max_release):
     kwargs = dict(flavor=re.escape(flavor), category=category)
     min_pattern = r"({flavor}:.+?{category}:.+?minimum).+?\n".format(**kwargs)
     max_pattern = r"({flavor}:.+?{category}:.+?maximum).+?\n".format(**kwargs)
-    #               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    #                            \g<1>
+    #               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    #                              \g<1>
     repl_tmpl = r'\g<1>: "{version}"{spaces} # release date: {release_date}\n'
 
     # Compute the number of spaces required to align release_date comments
