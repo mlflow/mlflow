@@ -8,14 +8,14 @@ sklearn:
       pip install $CACHE_DIR/scikit_learn-*.whl
 
   models:
-    minimum: "0.22.2" # release date: 2020-02-28
-    maximum: "1.0.2"  # release date: 2021-12-25
+    minimum: "0.22.2"
+    maximum: "1.0.2"
     run: |
       pytest tests/sklearn/test_sklearn_model_export.py --large
 
   autologging:
-    minimum: "0.22.2" # release date: 2020-02-28
-    maximum: "1.0.2"  # release date: 2021-12-25
+    minimum: "0.22.2"
+    maximum: "1.0.2"
     requirements: ["matplotlib"]
     run: |
       pytest tests/sklearn/test_sklearn_autolog.py --large
@@ -27,8 +27,8 @@ pytorch:
       pip install --upgrade --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
 
   models:
-    minimum: "1.5.0"  # release date: 2020-04-21
-    maximum: "1.10.1" # release date: 2021-12-15
+    minimum: "1.5.0"
+    maximum: "1.10.1"
     requirements: ["torchvision", "scikit-learn", "transformers"]
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py --large
@@ -40,8 +40,8 @@ pytorch-lightning:
       pip install git+https://github.com/PytorchLightning/pytorch-lightning.git
 
   autologging:
-    minimum: "1.0.5" # release date: 2020-11-04
-    maximum: "1.5.8" # release date: 2022-01-05
+    minimum: "1.0.5"
+    maximum: "1.5.8"
     requirements: ["torchvision", "scikit-learn"]
     run: |
       pytest tests/pytorch/test_pytorch_autolog.py --large
@@ -53,8 +53,8 @@ tensorflow:
       pip install tf-nightly
 
   models:
-    minimum: "2.0.1" # release date: 2020-01-26
-    maximum: "2.7.0" # release date: 2021-11-04
+    minimum: "2.0.1"
+    maximum: "2.7.0"
     requirements:
       "< 2.2": ["h5py<3.0", "scikit-learn"]
       # Requirements to run tests for keras
@@ -69,8 +69,8 @@ tensorflow:
       fi
 
   autologging:
-    minimum: "2.0.1" # release date: 2020-01-26
-    maximum: "2.7.0" # release date: 2021-11-04
+    minimum: "2.0.1"
+    maximum: "2.7.0"
     requirements:
       "< 2.2": ["h5py<3.0"]
       "== dev": ["scikit-learn"]
@@ -86,8 +86,8 @@ keras:
     pip_release: "keras"
 
   models:
-    minimum: "2.4.0" # release date: 2020-06-17
-    maximum: "2.7.0" # release date: 2021-11-03
+    minimum: "2.4.0"
+    maximum: "2.7.0"
     requirements:
       "<= 2.3.1": ["tensorflow==2.2.1", "scikit-learn", "pyspark", "pyarrow", "transformers<=4.11.3"]
       "> 2.3.1, < 2.6.0": ["tensorflow<2.5.0", "scikit-learn", "pyspark", "pyarrow", "transformers"]
@@ -96,8 +96,8 @@ keras:
       pytest tests/keras/test_keras_model_export.py --large
 
   autologging:
-    minimum: "2.4.0" # release date: 2020-06-17
-    maximum: "2.7.0" # release date: 2021-11-03
+    minimum: "2.4.0"
+    maximum: "2.7.0"
     requirements:
       # keras 2.3.1 is incompatible with tensorflow > 2.2.1 and causes the issue reported here:
       # https://github.com/tensorflow/tensorflow/issues/38589
@@ -114,15 +114,15 @@ xgboost:
       pip install git+https://github.com/dmlc/xgboost.git#subdirectory=python-package
 
   models:
-    minimum: "1.0.0" # release date: 2020-02-20
-    maximum: "1.5.2" # release date: 2022-01-17
+    minimum: "1.0.0"
+    maximum: "1.5.2"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/xgboost/test_xgboost_model_export.py --large
 
   autologging:
-    minimum: "1.0.0" # release date: 2020-02-20
-    maximum: "1.5.2" # release date: 2022-01-17
+    minimum: "1.0.0"
+    maximum: "1.5.2"
     requirements: ["scikit-learn", "matplotlib"]
     run: |
       pytest tests/xgboost/test_xgboost_autolog.py --large
@@ -134,15 +134,15 @@ lightgbm:
       pip install git+https://github.com/microsoft/LightGBM.git#subdirectory=python-package
 
   models:
-    minimum: "3.0.0" # release date: 2020-09-01
-    maximum: "3.3.2" # release date: 2022-01-07
+    minimum: "3.0.0"
+    maximum: "3.3.2"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/lightgbm/test_lightgbm_model_export.py --large
 
   autologging:
-    minimum: "3.0.0" # release date: 2020-09-01
-    maximum: "3.3.2" # release date: 2022-01-07
+    minimum: "3.0.0"
+    maximum: "3.3.2"
     requirements: ["scikit-learn", "matplotlib"]
     run: |
       pytest tests/lightgbm/test_lightgbm_autolog.py --large
@@ -159,8 +159,8 @@ catboost:
       pip install $CACHE_DIR/catboost-*.whl
 
   models:
-    minimum: "0.23.1" # release date: 2020-05-15
-    maximum: "1.0.4"  # release date: 2022-01-14
+    minimum: "0.23.1"
+    maximum: "1.0.4"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/catboost/test_catboost_model_export.py --large
@@ -172,8 +172,8 @@ gluon:
       pip install --pre mxnet -f https://dist.mxnet.io/python/cpu
 
   models:
-    minimum: "1.6.0" # release date: 2020-02-21
-    maximum: "1.9.0" # release date: 2021-12-18
+    minimum: "1.6.0"
+    maximum: "1.9.0"
     unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
     run: |
       # Install libopenblas-dev for mxnet 1.8.0.post0
@@ -181,8 +181,8 @@ gluon:
       pytest tests/gluon/test_gluon_model_export.py --large
 
   autologging:
-    minimum: "1.6.0" # release date: 2020-02-21
-    maximum: "1.9.0" # release date: 2021-12-18
+    minimum: "1.6.0"
+    maximum: "1.9.0"
     unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
     run: |
       pytest tests/gluon/test_gluon_autolog.py --large
@@ -192,15 +192,15 @@ fastai:
     pip_release: "fastai"
 
   models:
-    minimum: "2.4.1" # release date: 2021-07-14
-    maximum: "2.5.3" # release date: 2021-10-23
+    minimum: "2.4.1"
+    maximum: "2.5.3"
     requirements: [torch, torchvision]
     run: |
       pytest tests/fastai/test_fastai_model_export.py --large
 
   autologging:
-    minimum: "2.4.1" # release date: 2021-07-14
-    maximum: "2.5.3" # release date: 2021-10-23
+    minimum: "2.4.1"
+    maximum: "2.5.3"
     requirements: [torch, torchvision]
     run: |
       pytest tests/fastai/test_fastai_autolog.py --large
@@ -228,8 +228,8 @@ onnx:
       pip install dist/*manylinux2010_x86_64.whl
 
   models:
-    minimum: "1.7.0"  # release date: 2020-05-08
-    maximum: "1.10.2" # release date: 2021-10-26
+    minimum: "1.7.0"
+    maximum: "1.10.2"
     requirements: ["onnxruntime", "torch", "scikit-learn"]
     run: |
       pytest tests/onnx/test_onnx_model_export.py --large
@@ -241,8 +241,8 @@ spacy:
       pip install git+https://github.com/explosion/spaCy.git
 
   models:
-    minimum: "2.2.4" # release date: 2020-03-12
-    maximum: "3.2.1" # release date: 2021-12-07
+    minimum: "2.2.4"
+    maximum: "3.2.1"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/spacy/test_spacy_model_export.py --large
@@ -254,14 +254,14 @@ statsmodels:
       pip install git+https://github.com/statsmodels/statsmodels.git
 
   models:
-    minimum: "0.11.1" # release date: 2020-02-21
-    maximum: "0.13.1" # release date: 2021-11-12
+    minimum: "0.11.1"
+    maximum: "0.13.1"
     run: |
       pytest tests/statsmodels/test_statsmodels_model_export.py --large
 
   autologging:
-    minimum: "0.11.1" # release date: 2020-02-21
-    maximum: "0.13.1" # release date: 2021-11-12
+    minimum: "0.11.1"
+    maximum: "0.13.1"
     run: |
       pytest tests/statsmodels/test_statsmodels_autolog.py --large
 
@@ -283,8 +283,8 @@ spark:
       pip install $CACHE_DIR/pyspark-*.whl
 
   models:
-    minimum: "3.0.0" # release date: 2020-06-16
-    maximum: "3.2.0" # release date: 2021-10-18
+    minimum: "3.0.0"
+    maximum: "3.2.0"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
     # autologging use cases in environments where newer versions of pyspark are available
     # prior to their release on PyPI (e.g. Databricks)
@@ -302,8 +302,8 @@ spark:
       pytest tests/spark --large --ignore tests/spark/autologging
 
   autologging:
-    minimum: "3.0.0" # release date: 2020-06-16
-    maximum: "3.2.0" # release date: 2021-10-18
+    minimum: "3.0.0"
+    maximum: "3.2.0"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
     # autologging use cases in environments where newer versions of pyspark are available
     # prior to their release on PyPI (e.g. Databricks)
@@ -327,8 +327,8 @@ mleap:
     pip_release: "mleap"
 
   models:
-    minimum: "0.16.0" # release date: 2020-05-22
-    maximum: "0.19.0" # release date: 2022-01-12
+    minimum: "0.16.0"
+    maximum: "0.19.0"
     requirements:
       "<= 0.17.0": ["pyspark==2.4.5"]
       "> 0.17.0": ["pyspark==3.0.2"]
