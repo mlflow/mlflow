@@ -8,6 +8,18 @@ teardown({
   mlflow_clear_test_dir(testthat_model_name)
 })
 
+test_that("mlflow model creation time format", {
+  mlflow_clear_test_dir(testthat_model_name)
+  model <- lm(Sepal.Width ~ Sepal.Length, iris)
+  fn <- crate(~ stats::predict(model, .x), model = model)
+  model_spec <- mlflow_save_model(fn, testthat_model_name, model_spec = list(
+    utc_time_created = mlflow_timestamp()
+  ))
+  
+  expect_true(dir.exists(testthat_model_name))
+  expect_match(model_spec$utc_time_created, "^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]{6}")
+})
+
 test_that("mlflow can save model function", {
   mlflow_clear_test_dir(testthat_model_name)
   model <- lm(Sepal.Width ~ Sepal.Length, iris)
