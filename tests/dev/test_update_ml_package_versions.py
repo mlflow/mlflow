@@ -3,6 +3,7 @@ import os
 import re
 from unittest import mock
 import tempfile
+from datetime import datetime
 
 from dev import update_ml_package_versions
 
@@ -22,7 +23,9 @@ class MockResponse:
 
     @classmethod
     def from_versions(cls, versions):
-        return cls({"releases": {v: [v + ".whl"] for v in versions}})
+        return cls(
+            {"releases": {v: [{"upload_time": datetime.utcnow().isoformat()}] for v in versions}}
+        )
 
 
 def run_test(src, src_expected, mock_responses):
@@ -48,27 +51,31 @@ sklearn:
   package_info:
     pip_release: sklearn
   autologging:
+    minimum: "0.0.0"
     maximum: "0.0.1"
 xgboost:
   package_info:
     pip_release: xgboost
   autologging:
+    minimum: "0.1.0"
     maximum: "0.1.1"
 """
     mock_responses = {
-        "sklearn": MockResponse.from_versions(["0.0.2"]),
-        "xgboost": MockResponse.from_versions(["0.1.2"]),
+        "sklearn": MockResponse.from_versions(["0.0.0", "0.0.1", "0.0.2"]),
+        "xgboost": MockResponse.from_versions(["0.1.0", "0.1.1", "0.1.2"]),
     }
     src_expected = """
 sklearn:
   package_info:
     pip_release: sklearn
   autologging:
+    minimum: "0.0.0"
     maximum: "0.0.2"
 xgboost:
   package_info:
     pip_release: xgboost
   autologging:
+    minimum: "0.1.0"
     maximum: "0.1.2"
 """
     run_test(src, src_expected, mock_responses)
@@ -80,20 +87,24 @@ sklearn:
   package_info:
     pip_release: sklearn
   models:
+    minimum: "0.0.0"
     maximum: "0.0.1"
   autologging:
+    minimum: "0.0.0"
     maximum: "0.0.1"
 """
     mock_responses = {
-        "sklearn": MockResponse.from_versions(["0.0.2"]),
+        "sklearn": MockResponse.from_versions(["0.0.0", "0.0.1", "0.0.2"]),
     }
     src_expected = """
 sklearn:
   package_info:
     pip_release: sklearn
   models:
+    minimum: "0.0.0"
     maximum: "0.0.2"
   autologging:
+    minimum: "0.0.0"
     maximum: "0.0.2"
 """
     run_test(src, src_expected, mock_responses)
@@ -105,15 +116,18 @@ sklearn:
   package_info:
     pip_release: sklearn
   autologging:
+    minimum: "0.0.0"
     maximum: "0.0.1"
 """
     mock_responses = {
         "sklearn": MockResponse.from_versions(
             [
+                "0.0.0",
+                "0.0.1",
                 # pre-release and dev-release should be filtered out
                 "0.0.3.rc1",  # pre-release
                 "0.0.3.dev1",  # dev-release
-                "0.0.2.post",  # post-release
+                "0.0.2.post0",  # post-release
                 "0.0.2",  # final release
             ]
         ),
@@ -123,7 +137,8 @@ sklearn:
   package_info:
     pip_release: sklearn
   autologging:
-    maximum: "0.0.2.post"
+    minimum: "0.0.0"
+    maximum: "0.0.2.post0"
 """
     run_test(src, src_expected, mock_responses)
 
@@ -135,15 +150,17 @@ sklearn:
     pip_release: sklearn
   autologging:
     unsupported: ["0.0.3"]
+    minimum: "0.0.0"
     maximum: "0.0.1"
 """
-    mock_responses = {"sklearn": MockResponse.from_versions(["0.0.2", "0.0.3"])}
+    mock_responses = {"sklearn": MockResponse.from_versions(["0.0.0", "0.0.1", "0.0.2", "0.0.3"])}
     src_expected = """
 sklearn:
   package_info:
     pip_release: sklearn
   autologging:
     unsupported: ["0.0.3"]
+    minimum: "0.0.0"
     maximum: "0.0.2"
 """
     run_test(src, src_expected, mock_responses)
@@ -156,15 +173,17 @@ sklearn:
     pip_release: sklearn
   autologging:
     pin_maximum: True
+    minimum: "0.0.0"
     maximum: "0.0.1"
 """
-    mock_responses = {"sklearn": MockResponse.from_versions(["0.0.2"])}
+    mock_responses = {"sklearn": MockResponse.from_versions(["0.0.0", "0.0.1", "0.0.2"])}
     src_expected = """
 sklearn:
   package_info:
     pip_release: sklearn
   autologging:
     pin_maximum: True
+    minimum: "0.0.0"
     maximum: "0.0.1"
 """
     run_test(src, src_expected, mock_responses)

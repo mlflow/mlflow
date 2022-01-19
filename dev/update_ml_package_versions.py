@@ -62,34 +62,19 @@ def update_versions(yml_string, flavor, category, *, min_release, max_release):
     max_pattern = r"({flavor}:.+?{category}:.+?maximum).+?\n".format(**kwargs)
     #               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     #                              \g<1>
-    repl_tmpl = r'\g<1>: "{version}"{spaces} # release date: {release_date}\n'
-
-    # Compute the number of spaces required to align release_date comments
-    min_ver_len = len(str(min_release.version))
-    max_ver_len = len(str(max_release.version))
-    max_len = max(min_ver_len, max_ver_len)
-    num_spaces_min = max_len - min_ver_len
-    num_spaces_max = max_len - max_ver_len
+    repl_tmpl = r'\g<1>: "{version}"\n'
 
     # Update the minimum version
     res = re.sub(
         min_pattern,
-        repl_tmpl.format(
-            version=min_release.version,
-            spaces=" " * num_spaces_min,
-            release_date=min_release.release_date.strftime("%Y-%m-%d"),
-        ),
+        repl_tmpl.format(version=min_release.version),
         yml_string,
         flags=re.DOTALL,
     )
     # Update the maximum version
     res = re.sub(
         max_pattern,
-        repl_tmpl.format(
-            version=max_release.version,
-            spaces=" " * num_spaces_max,
-            release_date=max_release.release_date.strftime("%Y-%m-%d"),
-        ),
+        repl_tmpl.format(version=max_release.version),
         res,
         flags=re.DOTALL,
     )
@@ -121,7 +106,7 @@ def main(args):
             print("Processing", (flavor, category))
 
             version_config = config.get(category)
-            if not version_config:
+            if not version_config or version_config.get("pin_maximum", False):
                 continue
 
             package_name = config["package_info"]["pip_release"]
