@@ -14,6 +14,8 @@ import re
 import sys
 import urllib.request
 import yaml
+from datetime import datetime
+import dataclasses
 
 
 def read_file(path):
@@ -26,67 +28,72 @@ def save_file(src, path):
         f.write(src)
 
 
-def get_package_versions(package_name):
+@dataclasses.dataclass
+class Release:
+    version: Version
+    release_date: datetime
+
+
+def iter_package_releases(package_name):
     url = "https://pypi.python.org/pypi/{}/json".format(package_name)
     with urllib.request.urlopen(url) as res:
         data = json.load(res)
 
-    def is_dev_or_pre_release(version_str):
-        v = Version(version_str)
-        return v.is_devrelease or v.is_prerelease
+    for version, dist_files in data["releases"].items():
+        ver = Version(version)
+        if len(dist_files) == 0 or ver.is_devrelease or ver.is_prerelease:
+            continue
 
-    return [
-        version
-        for version, dist_files in data["releases"].items()
-        if len(dist_files) > 0 and not is_dev_or_pre_release(version)
-    ]
-
-
-def get_latest_version(candidates):
-    return sorted(candidates, key=Version, reverse=True)[0]
+        upload_times = [f["upload_time"] for f in dist_files]
+        release_date = datetime.fromisoformat(min(upload_times))
+        yield Release(ver, release_date)
 
 
-def update_max_version(src, key, new_max_version, category):
-    """
-    Examples
-    ========
-    >>> src = '''
-    ... sklearn:
-    ...   ...
-    ...   models:
-    ...     minimum: "0.0.0"
-    ...     maximum: "0.0.0"
-    ... xgboost:
-    ...   ...
-    ...   autologging:
-    ...     minimum: "1.1.1"
-    ...     maximum: "1.1.1"
-    ... '''.strip()
-    >>> new_src = update_max_version(src, "sklearn", "0.1.0", "models")
-    >>> new_src = update_max_version(new_src, "xgboost", "1.2.1", "autologging")
-    >>> print(new_src)
-    sklearn:
-      ...
-      models:
-        minimum: "0.0.0"
-        maximum: "0.1.0"
-    xgboost:
-      ...
-      autologging:
-        minimum: "1.1.1"
-        maximum: "1.2.1"
-    """
-    pattern = r"({key}:.+?{category}:.+?maximum: )\".+?\"".format(
-        key=re.escape(key), category=category
-    )
-    # Matches the following pattern:
-    #
-    # <key>:
+def update_versions(yml_string, flavor, category, *, min_release, max_release):
+    # Construct regular expressions to capture this pattern:
+    # ======================================================
+    # {key}:
     #   ...
-    #   <category>:
+    #   {category}:
     #     ...
-    #     maximum: "1.2.3"
-    return re.sub(pattern, r'\g<1>"{}"'.format(new_max_version), src, flags=re.DOTALL)
+    #     {minimum | maximum}: "1.2.3"
+    kwargs = dict(flavor=re.escape(flavor), category=category)
+    min_pattern = r"({flavor}:.+?{category}:.+?minimum).+?\n".format(**kwargs)
+    max_pattern = r"({flavor}:.+?{category}:.+?maximum).+?\n".format(**kwargs)
+    #               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    #                            \g<1>
+    repl_tmpl = r'\g<1>: "{version}"{spaces} # release date: {release_date}\n'
+
+    # Compute the number of spaces required to align release_date comments
+    min_ver_len = len(str(min_release.version))
+    max_ver_len = len(str(max_release.version))
+    max_len = max(min_ver_len, max_ver_len)
+    num_spaces_min = max_len - min_ver_len
+    num_spaces_max = max_len - max_ver_len
+
+    # Update the minimum version
+    res = re.sub(
+        min_pattern,
+        repl_tmpl.format(
+            version=min_release.version,
+            spaces=" " * num_spaces_min,
+            release_date=min_release.release_date.strftime("%Y-%m-%d"),
+        ),
+        yml_string,
+        flags=re.DOTALL,
+    )
+    # Update the maximum version
+    res = re.sub(
+        max_pattern,
+        repl_tmpl.format(
+            version=max_release.version,
+            spaces=" " * num_spaces_max,
+            release_date=max_release.release_date.strftime("%Y-%m-%d"),
+        ),
+        res,
+        flags=re.DOTALL,
+    )
+    return res
 
 
 def parse_args(args):
@@ -109,23 +116,42 @@ def main(args):
     new_src = old_src
     config_dict = yaml.load(old_src, Loader=yaml.SafeLoader)
 
-    for flavor_key, config in config_dict.items():
+    for flavor, config in config_dict.items():
         for category in ["autologging", "models"]:
-            if (category not in config) or config[category].get("pin_maximum", False):
+            print("Processing", (flavor, category))
+
+            version_config = config.get(category)
+            if not version_config:
                 continue
-            print("Processing", flavor_key, category)
 
             package_name = config["package_info"]["pip_release"]
-            max_ver = config[category]["maximum"]
-            versions = get_package_versions(package_name)
-            unsupported = config[category].get("unsupported", [])
-            versions = set(versions).difference(unsupported)  # exlucde unsupported versions
-            latest_version = get_latest_version(versions)
-
-            if max_ver == latest_version:
-                continue
-
-            new_src = update_max_version(new_src, flavor_key, latest_version, category)
+            releases = iter_package_releases(package_name)
+            # Filter versions
+            utc_now = datetime.utcnow()
+            existing_min_ver = Version(version_config["minimum"])
+            unsupported = version_config.get("unsupported", [])
+            releases = [
+                r
+                for r in releases
+                if not (
+                    # Released more than two years ago?
+                    abs((r.release_date - utc_now).days) > 365 * 2
+                    # Older than the existing minimum version?
+                    or (r.version < existing_min_ver)
+                    # Marked as unsupported?
+                    or (str(r.version) in unsupported)
+                )
+            ]
+            sorted_releases = sorted(releases, key=lambda r: r.version)
+            min_release = sorted_releases[0]
+            max_release = sorted_releases[-1]
+            new_src = update_versions(
+                new_src,
+                flavor,
+                category,
+                min_release=min_release,
+                max_release=max_release,
+            )
 
     save_file(new_src, yml_path)
 
