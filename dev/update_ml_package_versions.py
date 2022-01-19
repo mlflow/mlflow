@@ -15,7 +15,7 @@ import sys
 import urllib.request
 import yaml
 from datetime import datetime
-import dataclasses
+from dataclasses import dataclass
 
 
 def read_file(path):
@@ -28,7 +28,7 @@ def save_file(src, path):
         f.write(src)
 
 
-@dataclasses.dataclass
+@dataclass
 class Release:
     version: Version
     release_date: datetime
