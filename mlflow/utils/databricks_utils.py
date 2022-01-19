@@ -269,11 +269,8 @@ def get_job_type_info():
         return None
 
 
-def get_experiment_name_from_job_id():
-    try:
-        return "job:/" + get_job_id()
-    except Exception:
-        return None
+def get_experiment_name_from_job_id(job_id):
+    return "job:/" + job_id
 
 
 @_use_repl_context_if_available("commandRunId")

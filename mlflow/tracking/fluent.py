@@ -40,8 +40,8 @@ from mlflow.utils.databricks_utils import (
 )
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
-    EXPERIMENT_SOURCE_ID,
-    EXPERIMENT_SOURCE_TYPE,
+    MLFLOW_EXPERIMENT_SOURCE_ID,
+    MLFLOW_EXPERIMENT_SOURCE_TYPE,
     MLFLOW_PARENT_RUN_ID,
     MLFLOW_RUN_NAME,
     MLFLOW_DATABRICKS_JOB_TYPE_INFO,
@@ -1347,12 +1347,13 @@ def _get_experiment_id():
 
 
 def _create_job_experiment() -> str:
+    job_id = get_job_id()
     tags = {}
     tags[MLFLOW_DATABRICKS_JOB_TYPE_INFO] = get_job_type_info()
-    tags[EXPERIMENT_SOURCE_TYPE] = SourceType.to_string(SourceType.JOB)
-    tags[EXPERIMENT_SOURCE_ID] = get_job_id()
+    tags[MLFLOW_EXPERIMENT_SOURCE_TYPE] = SourceType.to_string(SourceType.JOB)
+    tags[MLFLOW_EXPERIMENT_SOURCE_ID] = job_id
 
-    experiment_id = create_experiment(get_experiment_name_from_job_id(), None, tags)
+    experiment_id = create_experiment(get_experiment_name_from_job_id(job_id), None, tags)
     _logger.info(
         "Job experiment with experiment_id '%s' created",
         experiment_id,

@@ -5,9 +5,8 @@ See the System Tags section in the MLflow Tracking documentation for information
 meaning of these tags.
 """
 
-EXPERIMENT_SOURCE_ID = "mlflow.experiment.sourceId"
-EXPERIMENT_SOURCE_TYPE = "mlflow.experiment.sourceType"
-
+MLFLOW_EXPERIMENT_SOURCE_ID = "mlflow.experiment.sourceId"
+MLFLOW_EXPERIMENT_SOURCE_TYPE = "mlflow.experiment.sourceType"
 MLFLOW_RUN_NAME = "mlflow.runName"
 MLFLOW_RUN_NOTE = "mlflow.note.content"
 MLFLOW_PARENT_RUN_ID = "mlflow.parentRunId"

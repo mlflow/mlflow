@@ -46,8 +46,8 @@ from mlflow.tracking.fluent import (
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import (
-    EXPERIMENT_SOURCE_ID,
-    EXPERIMENT_SOURCE_TYPE,
+    MLFLOW_EXPERIMENT_SOURCE_ID,
+    MLFLOW_EXPERIMENT_SOURCE_TYPE,
     MLFLOW_DATABRICKS_JOB_TYPE_INFO,
 )
 
@@ -269,8 +269,8 @@ def test_get_experiment_by_id_with_is_in_databricks_job():
         job_to_experiment_name_mapping_mock.return_value = exp_name
         tags = {}
         tags[MLFLOW_DATABRICKS_JOB_TYPE_INFO] = job_type_info
-        tags[EXPERIMENT_SOURCE_TYPE] = SourceType.to_string(SourceType.JOB)
-        tags[EXPERIMENT_SOURCE_ID] = job_id
+        tags[MLFLOW_EXPERIMENT_SOURCE_TYPE] = SourceType.to_string(SourceType.JOB)
+        tags[MLFLOW_EXPERIMENT_SOURCE_ID] = job_id
 
         assert _get_experiment_id() == exp_id
         MlflowClient.create_experiment.assert_called_with(exp_name, None, tags)

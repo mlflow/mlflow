@@ -290,9 +290,9 @@ def get_context():
         "mlflow.utils.databricks_utils._get_command_context", return_value=command_context_mock
     ) as mock_get_command_context:
         assert databricks_utils.get_job_id() == "job_id"
-        assert databricks_utils.get_experiment_name_from_job_id() == "job:/job_id"
+        assert databricks_utils.get_experiment_name_from_job_id("job_id") == "job:/job_id"
         assert databricks_utils.get_job_type_info() == "NORMAL"
-        assert mock_get_command_context.call_count == 3
+        assert mock_get_command_context.call_count == 2
 
     with mock.patch(
         "dbruntime.databricks_repl_context.get_context",
