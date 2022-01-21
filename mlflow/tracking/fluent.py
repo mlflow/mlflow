@@ -1125,7 +1125,7 @@ def search_runs(
            metrics.m tags.s.release                            run_id
         0       1.55       1.1.0-RC  5cc7feaf532f496f885ad7750809c4d4
     """
-    if not experiment_ids:
+    if experiment_ids is None:
         experiment_ids = _get_experiment_id()
 
     # Using an internal function as the linter doesn't like assigning a lambda, and inlining the
