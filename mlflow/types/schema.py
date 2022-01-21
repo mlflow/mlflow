@@ -7,7 +7,6 @@ import string
 from typing import Dict, Any, List, Union, Optional
 
 from mlflow.exceptions import MlflowException
-from mlflow.utils.annotations import deprecated
 
 
 def _pandas_string_type():
@@ -295,19 +294,6 @@ class Schema:
         """Representation of a dataset that defines this schema."""
         return self._inputs
 
-    @property
-    @deprecated(alternative="mlflow.types.Schema.inputs", since="1.14")
-    def columns(self) -> List[ColSpec]:
-        """
-        .. deprecated:: 1.14
-          Please use :func:`mlflow.types.Schema.inputs`
-          The list of columns that defines this schema.
-
-        """
-        if self.is_tensor_spec():
-            raise MlflowException("Not supported by TensorSpec, use `inputs` instead")
-        return self._inputs
-
     def is_tensor_spec(self) -> bool:
         """Return true iff this schema is specified using TensorSpec"""
         return self.inputs and isinstance(self.inputs[0], TensorSpec)
@@ -316,33 +302,9 @@ class Schema:
         """Get list of data names or range of indices if the schema has no names."""
         return [x.name or i for i, x in enumerate(self.inputs)]
 
-    @deprecated(alternative="mlflow.types.Schema.input_names", since="1.14")
-    def column_names(self) -> List[Union[str, int]]:
-        """
-        .. deprecated:: 1.14
-          Please use :func:`mlflow.types.Schema.input_names()`
-          Get list of column names or range of indices if the schema has no column names.
-
-        """
-        if self.is_tensor_spec():
-            raise MlflowException("Not supported by TensorSpec, use input_names() instead")
-        return [x.name or i for i, x in enumerate(self.columns)]
-
     def has_input_names(self) -> bool:
         """Return true iff this schema declares names, false otherwise."""
         return self.inputs and self.inputs[0].name is not None
-
-    @deprecated(alternative="mlflow.types.Schema.has_input_names", since="1.14")
-    def has_column_names(self) -> bool:
-        """
-        .. deprecated:: 1.14
-          Please use :func:`mlflow.types.Schema.has_input_names()`
-          Return true iff this schema declares column names, false otherwise.
-
-        """
-        if self.is_tensor_spec():
-            raise MlflowException("Not supported by TensorSpec, use has_input_names() instead")
-        return self.columns and self.columns[0].name is not None
 
     def input_types(self) -> List[Union[DataType, np.dtype]]:
         """Get types of the represented dataset."""
