@@ -72,7 +72,7 @@ export class CompareRunView extends Component {
         <PageHeader title={title} breadcrumbs={breadcrumbs} />
         <div className='responsive-table-container'>
           <table className='compare-table table'>
-            <thead>
+            <thead style={{display: 'block'}}>
               <tr>
                 <th scope='row' className='row-header'>
                   <FormattedMessage
@@ -89,7 +89,7 @@ export class CompareRunView extends Component {
                 ))}
               </tr>
             </thead>
-            <tbody>
+            <tbody style={{display: 'block'}}>
               <tr>
                 <th scope='row' className='data-value'>
                   <FormattedMessage
@@ -144,7 +144,11 @@ export class CompareRunView extends Component {
                   </h2>
                 </th>
               </tr>
+            </tbody>
+            <tbody style={{display: 'block', overflow:'scroll', height:'500px'}}>
               {this.renderDataRows(this.props.paramLists, true)}
+            </tbody>
+            <tbody>
               <tr>
                 <th
                   scope='rowgroup'
@@ -160,6 +164,8 @@ export class CompareRunView extends Component {
                   </h2>
                 </th>
               </tr>
+            </tbody>
+            <tbody style={{display: 'block', overflow:'scroll', height:'300px'}}>
               {this.renderDataRows(
                 this.props.metricLists,
                 false,
@@ -237,6 +243,7 @@ export class CompareRunView extends Component {
     headerMap = (key, data) => key,
     formatter = (value) => value,
   ) {
+    debugger;
     const keys = CompareRunUtil.getKeys(list);
     const data = {};
     keys.forEach((k) => (data[k] = []));
