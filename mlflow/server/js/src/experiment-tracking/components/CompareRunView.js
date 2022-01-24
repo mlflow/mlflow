@@ -49,6 +49,34 @@ export class CompareRunView extends Component {
     Utils.updatePageTitle(pageTitle);
   }
 
+  adjustTableColumnWidth(numRuns) {
+    var tableElem = document.getElementById("compare-run-table-container");
+    if (tableElem == null) {
+      return;
+    }
+    var tableWidth = tableElem.offsetWidth;
+
+    var minColWidth = 200;
+    var colWidth = Math.round(tableWidth / (numRuns + 1));
+    if (colWidth < minColWidth) {
+      colWidth = minColWidth;
+    }
+
+    function setWidth(className, width) {
+      var cells = document.getElementsByClassName(className);
+      var widthValue = `${width}px`
+      for (let index = 0; index < cells.length; ++index) {
+        cells[index].style.width = widthValue;
+        cells[index].style.minWidth = widthValue;
+        cells[index].style.maxWidth = widthValue;
+      }
+    }
+    setWidth('head-value', colWidth);
+    setWidth('data-value', colWidth);
+    setWidth('compact-data-value', colWidth * numRuns)
+    setWidth('table-block', tableWidth)
+  }
+
   render() {
     const { experiment } = this.props;
     const experimentId = experiment.getExperimentId();
@@ -68,32 +96,26 @@ export class CompareRunView extends Component {
       title,
     ];
 
-    function adjustTableColumnWidth() {
-      var tableElem = document.getElementById("compare-run-table-container");
-      var tableWidth = tableElem.offsetWidth;
+    window.addEventListener('resize', e => this.adjustTableColumnWidth(runInfos.length), true);
+    setImmediate(e => this.adjustTableColumnWidth(runInfos.length)); // adjust width immediately before loading page.
 
-      var numRuns = runInfos.length;
-
-      var minColWidth = 200;
-      var colWidth = Math.round(tableWidth / (numRuns + 1));
-      if (colWidth < minColWidth) {
-        colWidth = minColWidth;
-      }
-
-      function setWidth(className, width) {
-        var cells = document.getElementsByClassName(className);
-        var widthValue = `${width}px`
-        for (let index = 0; index < cells.length; ++index) {
-          cells[index].style.width = widthValue;
-          cells[index].style.minWidth = widthValue;
-          cells[index].style.maxWidth = widthValue;
-        }
-      }
-      setWidth('head-value', colWidth);
-      setWidth('data-value', colWidth);
+    function metricsHeaderMap(key, data) {
+      return (
+        <Link
+          to={Routes.getMetricPageRoute(
+            runInfos
+              .map((info) => info.run_uuid)
+              .filter((uuid, idx) => data[idx] !== undefined),
+            key,
+            experimentId,
+          )}
+          title='Plot chart'
+        >
+          {key}
+          <i className='fas fa-chart-line' style={{ paddingLeft: '6px' }} />
+        </Link>
+      );
     }
-    window.addEventListener('resize', adjustTableColumnWidth, true);
-    setImmediate(adjustTableColumnWidth); // adjust width immediately before loading page.
 
     return (
       <div className='CompareRunView'>
@@ -101,7 +123,7 @@ export class CompareRunView extends Component {
         <span id='table-cell-hover-text' className='hover-text'></span>
         <div className='responsive-table-container' id='compare-run-table-container'>
           <table className='compare-table table'>
-            <thead style={{display: 'block'}}>
+            <thead className='table-block'>
               <tr>
                 <th scope='row' className='head-value'>
                   <FormattedMessage
@@ -118,7 +140,7 @@ export class CompareRunView extends Component {
                 ))}
               </tr>
             </thead>
-            <tbody style={{display: 'block'}}>
+            <tbody className='table-block'>
               <tr>
                 <th scope='row' className='head-value'>
                   <FormattedMessage
@@ -169,12 +191,20 @@ export class CompareRunView extends Component {
                       // eslint-disable-next-line max-len
                       description='Row group title for parameters of runs on the experiment compare runs page'
                     />
+
                   </h2>
+                  <span id='compact-params' onClick={e => {this.switchValueDisplay(true)}}>
+                    <i class="fas fa-list" style={{ paddingLeft: '6px' }}></i>
+                  </span>
+                  <span id='expand-params' onClick={e => {this.switchValueDisplay(false)}}>
+                    <i class="fas fa-table" style={{ paddingLeft: '6px' }}></i>
+                  </span>
                 </th>
               </tr>
             </tbody>
-            <tbody style={{display: 'block', overflow:'auto', height:'500px'}}>
-              {this.renderDataRows(this.props.paramLists, true)}
+            <tbody className='table-block' style={{height:'500px'}}>
+              {this.renderDataRows(this.props.paramLists, true, false, true)}
+              {this.renderDataRows(this.props.paramLists, true, true, false)}
             </tbody>
             <tbody>
               <tr>
@@ -190,30 +220,26 @@ export class CompareRunView extends Component {
                       description='Row group title for metrics of runs on the experiment compare runs page'
                     />
                   </h2>
+                  <span id='compact-params' onClick={e => {this.switchValueDisplay(true)}}>
+                    <i class="fas fa-list" style={{ paddingLeft: '6px' }}></i>
+                  </span>
+                  <span id='expand-params' onClick={e => {this.switchValueDisplay(false)}}>
+                    <i class="fas fa-table" style={{ paddingLeft: '6px' }}></i>
+                  </span>
                 </th>
               </tr>
             </tbody>
-            <tbody style={{display: 'block', overflow:'scroll', height:'300px'}}>
+            <tbody className='table-block' style={{height:'300px'}}>
               {this.renderDataRows(
                 this.props.metricLists,
-                false,
-                (key, data) => {
-                  return (
-                    <Link
-                      to={Routes.getMetricPageRoute(
-                        this.props.runInfos
-                          .map((info) => info.run_uuid)
-                          .filter((uuid, idx) => data[idx] !== undefined),
-                        key,
-                        experimentId,
-                      )}
-                      title='Plot chart'
-                    >
-                      {key}
-                      <i className='fas fa-chart-line' style={{ paddingLeft: '6px' }} />
-                    </Link>
-                  );
-                },
+                false, false, true,
+                metricsHeaderMap,
+                Utils.formatMetric,
+              )}
+              {this.renderDataRows(
+                this.props.metricLists,
+                false, true, false,
+                metricsHeaderMap,
                 Utils.formatMetric,
               )}
             </tbody>
@@ -278,13 +304,32 @@ export class CompareRunView extends Component {
     hoverTextElem.style.visibility = 'hidden';
   }
 
+  switchValueDisplay(compactMode) {
+    function setDisplay(className, visibility) {
+      var cells = document.getElementsByClassName(className);
+      for (let index = 0; index < cells.length; ++index) {
+        cells[index].style.visibility = visibility;
+      }
+    }
+
+    if (compactMode) {
+      setDisplay("compacted_row", "visible");
+      setDisplay("expanded_row", "collapse");
+    } else {
+      setDisplay("expanded_row", "visible");
+      setDisplay("compacted_row", "collapse");
+    }
+    this.adjustTableColumnWidth(this.props.runInfos.length)
+  }
+
   // eslint-disable-next-line no-unused-vars
   renderDataRows(
     list,
     highlightChanges = false,
+    compactValues = false,
+    visible = true,
     headerMap = (key, data) => key,
     formatter = (value) => value,
-    collapseValues = false,
   ) {
     const keys = CompareRunUtil.getKeys(list);
     const data = {};
@@ -299,22 +344,27 @@ export class CompareRunView extends Component {
     }
 
     return keys.map((k) => {
-      let row_class = undefined;
+      let row_class = compactValues ? 'compacted_row' : 'expanded_row';
       if (highlightChanges) {
         const all_equal = data[k].every((x) => x === data[k][0]);
         if (!all_equal) {
-          row_class = 'row-changed';
+          row_class += ' row-changed';
         }
       }
 
+      var style = visible ? {visibility: 'visibility'}: {visibility: 'collapse'}
       return (
-        <tr key={k} className={row_class}>
+        <tr key={k} className={row_class} style={style}>
           <th scope='row' className='head-value'>
             {headerMap(k, data[k])}
           </th>
           {
-            collapseValues ? (
-              <td>{getDistinctValueCount(data[k])} distinct values</td>
+            compactValues ? (
+              <td className='compact-data-value' colSpan={this.props.runInfos.length}>
+                <span className='truncate-text single-line'>
+                  {getDistinctValueCount(data[k])} distinct values
+                </span>
+              </td>
             ) : data[k].map((value, i) => (
               <td className='data-value' key={this.props.runInfos[i].run_uuid}
                 value={value === undefined ? '' : formatter(value)}>

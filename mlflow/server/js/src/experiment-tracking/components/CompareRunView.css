@@ -4,6 +4,11 @@
   left: 0;
 }
 
+.compare-table .table-block {
+  display: block;
+  overflow: auto;
+}
+
 .compare-table th.inter-title {
   padding: 20px 0 0;
   background: transparent;
