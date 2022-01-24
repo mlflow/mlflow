@@ -125,7 +125,7 @@ export class CompareRunView extends Component {
           <table className='compare-table table'>
             <thead className='table-block'>
               <tr>
-                <th scope='row' className='head-value'>
+                <th scope='row' className='head-value sticky_header'>
                   <FormattedMessage
                     defaultMessage='Run ID:'
                     description='Row title for the run id on the experiment compare runs page'
@@ -142,7 +142,7 @@ export class CompareRunView extends Component {
             </thead>
             <tbody className='table-block'>
               <tr>
-                <th scope='row' className='head-value'>
+                <th scope='row' className='head-value sticky_header'>
                   <FormattedMessage
                     defaultMessage='Run Name:'
                     description='Row title for the run name on the experiment compare runs page'
@@ -161,7 +161,7 @@ export class CompareRunView extends Component {
                 })}
               </tr>
               <tr>
-                <th scope='row' className='head-value'>
+                <th scope='row' className='head-value sticky_header'>
                   <FormattedMessage
                     defaultMessage='Start Time:'
                     // eslint-disable-next-line max-len
@@ -355,7 +355,7 @@ export class CompareRunView extends Component {
       var style = visible ? {visibility: 'visibility'}: {visibility: 'collapse'}
       return (
         <tr key={k} className={row_class} style={style}>
-          <th scope='row' className='head-value'>
+          <th scope='row' className='head-value sticky_header'>
             {headerMap(k, data[k])}
           </th>
           {
