@@ -67,12 +67,40 @@ export class CompareRunView extends Component {
       <Link to={Routes.getExperimentPageRoute(experimentId)}>{experiment.getName()}</Link>,
       title,
     ];
+
+    function adjustTableColumnWidth() {
+      var tableElem = document.getElementById("compare-run-table-container");
+      var tableWidth = tableElem.offsetWidth;
+
+      var numRuns = runInfos.length;
+
+      var minColWidth = 200;
+      var colWidth = Math.round(tableWidth / (numRuns + 1));
+      if (colWidth < minColWidth) {
+        colWidth = minColWidth;
+      }
+
+      function setWidth(className, width) {
+        var cells = document.getElementsByClassName(className);
+        var widthValue = `${width}px`
+        for (let index = 0; index < cells.length; ++index) {
+          cells[index].style.width = widthValue;
+          cells[index].style.minWidth = widthValue;
+          cells[index].style.maxWidth = widthValue;
+        }
+      }
+      setWidth('head-value', colWidth);
+      setWidth('data-value', colWidth);
+    }
+    window.addEventListener('resize', adjustTableColumnWidth, true);
+    setImmediate(adjustTableColumnWidth); // adjust width immediately before loading page.
+
     return (
       <div className='CompareRunView'>
         <PageHeader title={title} breadcrumbs={breadcrumbs} />
-        <span id='table-cell-hover-text' className='hover-text'>Test table-cell-hover-text 12345</span>
-        <div className='responsive-table-container'>
-          <table className='compare-table table' id='compare-run-table'>
+        <span id='table-cell-hover-text' className='hover-text'></span>
+        <div className='responsive-table-container' id='compare-run-table-container'>
+          <table className='compare-table table'>
             <thead style={{display: 'block'}}>
               <tr>
                 <th scope='row' className='head-value'>
@@ -250,16 +278,6 @@ export class CompareRunView extends Component {
     hoverTextElem.style.visibility = 'hidden';
   }
 
-  getTableColumnWidth(isHeaderColumn) {
-    var tableElem = document.getElementById("compare-run-table");
-    tableWidth = tableElem.style.width;
-
-    numRuns = this.props.runInfos.length
-    
-    if (isHeaderColumn) {
-    }
-  }
-
   // eslint-disable-next-line no-unused-vars
   renderDataRows(
     list,
@@ -267,7 +285,6 @@ export class CompareRunView extends Component {
     headerMap = (key, data) => key,
     formatter = (value) => value,
   ) {
-    debugger;
     const keys = CompareRunUtil.getKeys(list);
     const data = {};
     keys.forEach((k) => (data[k] = []));

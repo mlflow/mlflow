@@ -12,16 +12,10 @@
 
 .compare-table .head-value {
   overflow: hidden;
-  min-width: 120px;
-  width: 120px;
-  max-width: 120px;
   overflow-wrap: break-word;
 }
 .compare-table .data-value {
   overflow: hidden;
-  min-width: 120px;
-  width: 120px;
-  max-width: 120px;
   text-overflow: ellipsis;
 }
 
