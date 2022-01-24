@@ -141,7 +141,7 @@ export class CompareRunView extends Component {
         <span id='table-cell-hover-text' className='hover-text'></span>
         <div className='responsive-table-container' id='compare-run-table-container'>
           <table className='compare-table table'>
-            <thead className='table-block'>
+            <thead className='table-block no-scrollbar'>
               <tr>
                 <th scope='row' className='head-value sticky_header'>
                   <FormattedMessage
@@ -158,7 +158,7 @@ export class CompareRunView extends Component {
                 ))}
               </tr>
             </thead>
-            <tbody className='table-block'>
+            <tbody className='table-block no-scrollbar'>
               <tr>
                 <th scope='row' className='head-value sticky_header'>
                   <FormattedMessage
@@ -198,7 +198,7 @@ export class CompareRunView extends Component {
                 })}
               </tr>
             </tbody>
-            <tbody className='table-block'>
+            <tbody className='table-block no-scrollbar'>
               <tr>
                 <th
                   scope='rowgroup'
@@ -222,11 +222,11 @@ export class CompareRunView extends Component {
                 </th>
               </tr>
             </tbody>
-            <tbody className='table-block' style={{height:'500px'}}>
+            <tbody className='table-block no-scrollbar' style={{height:'500px'}}>
               {this.renderDataRows(this.props.paramLists, true, false, true)}
               {this.renderDataRows(this.props.paramLists, true, true, false)}
             </tbody>
-            <tbody className='table-block'>
+            <tbody className='table-block no-scrollbar'>
               <tr>
                 <th
                   scope='rowgroup'
@@ -249,7 +249,7 @@ export class CompareRunView extends Component {
                 </th>
               </tr>
             </tbody>
-            <tbody className='table-block' style={{height:'300px'}}>
+            <tbody className='table-block no-scrollbar' style={{height:'300px'}}>
               {this.renderDataRows(
                 this.props.metricLists,
                 false, false, true,
