@@ -287,7 +287,7 @@ def make_tarfile(output_filename, source_dir, archive_name, custom_filter=None):
         tar_info.mtime = 0
         return tar_info if custom_filter is None else custom_filter(tar_info)
 
-    unzipped_filename = tempfile.mktemp()
+    _, unzipped_filename = tempfile.mkstemp()
     try:
         with tarfile.open(unzipped_filename, "w") as tar:
             tar.add(source_dir, arcname=archive_name, filter=_filter_timestamps)
