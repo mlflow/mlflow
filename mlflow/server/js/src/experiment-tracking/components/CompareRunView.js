@@ -70,28 +70,27 @@ export class CompareRunView extends Component {
     return (
       <div className='CompareRunView'>
         <PageHeader title={title} breadcrumbs={breadcrumbs} />
+        <span id='table-cell-hover-text' className='tooltip-text'>Test table-cell-hover-text 12345</span>
         <div className='responsive-table-container'>
           <table className='compare-table table'>
-            <thead style={{display: 'block'}}>
+            <tbody style={{display: 'block'}}>
               <tr>
-                <th scope='row' className='row-header'>
+                <th scope='row' className='head-value'>
                   <FormattedMessage
                     defaultMessage='Run ID:'
                     description='Row title for the run id on the experiment compare runs page'
                   />
                 </th>
                 {this.props.runInfos.map((r) => (
-                  <th scope='column' className='data-value' key={r.run_uuid}>
+                  <th scope='row' className='data-value' key={r.run_uuid}>
                     <Link to={Routes.getRunPageRoute(r.getExperimentId(), r.getRunUuid())}>
                       {r.getRunUuid()}
                     </Link>
                   </th>
                 ))}
               </tr>
-            </thead>
-            <tbody style={{display: 'block'}}>
               <tr>
-                <th scope='row' className='data-value'>
+                <th scope='row' className='head-value'>
                   <FormattedMessage
                     defaultMessage='Run Name:'
                     description='Row title for the run name on the experiment compare runs page'
@@ -99,10 +98,9 @@ export class CompareRunView extends Component {
                 </th>
                 {runNames.map((runName, i) => {
                   return (
-                    <td className='meta-info' key={runInfos[i].run_uuid}>
+                    <td className='data-value' key={runInfos[i].run_uuid}>
                       <div
                         className='truncate-text single-line'
-                        style={styles.compareRunTableCellContents}
                       >
                         {runName}
                       </div>
@@ -111,7 +109,7 @@ export class CompareRunView extends Component {
                 })}
               </tr>
               <tr>
-                <th scope='row' className='data-value'>
+                <th scope='row' className='head-value'>
                   <FormattedMessage
                     defaultMessage='Start Time:'
                     // eslint-disable-next-line max-len
@@ -123,7 +121,7 @@ export class CompareRunView extends Component {
                     ? Utils.formatTimestamp(run.getStartTime())
                     : '(unknown)';
                   return (
-                    <td className='meta-info' key={run.run_uuid}>
+                    <td className='data-value' key={run.run_uuid}>
                       {startTime}
                     </td>
                   );
@@ -236,6 +234,20 @@ export class CompareRunView extends Component {
     );
   }
 
+  onMouseEnterHandler(e) {
+    var hoverTextElem = document.getElementById("table-cell-hover-text");
+    hoverTextElem.style.visibility = 'visible';
+    hoverTextElem.style.display = 'block';
+    hoverTextElem.style.left = `${e.clientX + window.scrollX}px`;
+    hoverTextElem.style.top = `${e.clientY + window.scrollY}px`;
+    hoverTextElem.innerHTML = e.target.innerHTML
+  }
+
+  onMouseLeaveHandler(e) {
+    var hoverTextElem = document.getElementById("table-cell-hover-text");
+    hoverTextElem.style.visibility = 'hidden';
+  }
+
   // eslint-disable-next-line no-unused-vars
   renderDataRows(
     list,
@@ -263,14 +275,15 @@ export class CompareRunView extends Component {
 
       return (
         <tr key={k} className={row_class}>
-          <th scope='row' className='rowHeader'>
+          <th scope='row' className='head-value'>
             {headerMap(k, data[k])}
           </th>
           {data[k].map((value, i) => (
-            <td className='data-value' key={this.props.runInfos[i].run_uuid}>
-              <span
-                className='truncate-text single-line'
-                style={styles.compareRunTableCellContents}
+            <td className='data-value' key={this.props.runInfos[i].run_uuid}
+              value={value === undefined ? '' : formatter(value)}>
+              <span className='truncate-text single-line'
+                    onMouseOver={this.onMouseEnterHandler}
+                    onMouseOut={this.onMouseLeaveHandler}
               >
                 {value === undefined ? '' : formatter(value)}
               </span>

@@ -1,5 +1,8 @@
 .compare-table th.row-header {
-  min-width: 120px;
+  overflow: hidden;
+  width: 200px;
+  max-width: 200px;
+  text-overflow: ellipsis;
 }
 
 .compare-table th.inter-title {
@@ -7,12 +10,36 @@
   background: transparent;
 }
 
-.compare-table td.data-value,
-.compare-table th.data-value {
+.compare-table .head-value {
   overflow: hidden;
+  min-width: 200px;
+  width: 200px;
+  max-width: 200px;
+  text-overflow: ellipsis;
+}
+.compare-table .data-value {
+  overflow: hidden;
+  min-width: 120px;
+  width: 120px;
   max-width: 120px;
   text-overflow: ellipsis;
 }
+
+.tooltip-text {
+  visibility: hidden;
+  min-width: 50px;
+  max-width: 300px;
+  background-color: yellow;
+  color: black;
+  text-align: center;
+  padding: 5px 0;
+  border-radius: 6px;
+  overflow: hidden;
+
+  position:absolute;
+  z-index: 1;
+}
+
 
 .responsive-table-container {
   width: 100%;
