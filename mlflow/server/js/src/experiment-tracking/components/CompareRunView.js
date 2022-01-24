@@ -173,7 +173,7 @@ export class CompareRunView extends Component {
                 </th>
               </tr>
             </tbody>
-            <tbody style={{display: 'block', overflow:'scroll', height:'500px'}}>
+            <tbody style={{display: 'block', overflow:'auto', height:'500px'}}>
               {this.renderDataRows(this.props.paramLists, true)}
             </tbody>
             <tbody>
@@ -284,6 +284,7 @@ export class CompareRunView extends Component {
     highlightChanges = false,
     headerMap = (key, data) => key,
     formatter = (value) => value,
+    collapseValues = false,
   ) {
     const keys = CompareRunUtil.getKeys(list);
     const data = {};
@@ -292,6 +293,10 @@ export class CompareRunView extends Component {
       keys.forEach((k) => data[k].push(undefined));
       records.forEach((r) => (data[r.key][i] = r.value));
     });
+
+    function getDistinctValueCount(valueMap) {
+      return new Set(valueMap.values()).size
+    }
 
     return keys.map((k) => {
       let row_class = undefined;
@@ -307,17 +312,22 @@ export class CompareRunView extends Component {
           <th scope='row' className='head-value'>
             {headerMap(k, data[k])}
           </th>
-          {data[k].map((value, i) => (
-            <td className='data-value' key={this.props.runInfos[i].run_uuid}
-              value={value === undefined ? '' : formatter(value)}>
-              <span className='truncate-text single-line'
-                    onMouseEnter={this.onMouseEnterTableCell}
-                    onMouseLeave={this.onMouseLeaveTableCell}
-              >
-                {value === undefined ? '' : formatter(value)}
-              </span>
-            </td>
-          ))}
+          {
+            collapseValues ? (
+              <td>{getDistinctValueCount(data[k])} distinct values</td>
+            ) : data[k].map((value, i) => (
+              <td className='data-value' key={this.props.runInfos[i].run_uuid}
+                value={value === undefined ? '' : formatter(value)}>
+                <span className='truncate-text single-line'
+                      onMouseEnter={this.onMouseEnterTableCell}
+                      onMouseLeave={this.onMouseLeaveTableCell}
+                >
+                  {value === undefined ? '' : formatter(value)}
+                </span>
+              </td>
+            ))
+          }
+
         </tr>
       );
     });

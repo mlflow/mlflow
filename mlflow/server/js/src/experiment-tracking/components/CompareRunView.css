@@ -1,8 +1,7 @@
-.compare-table th.row-header {
-  overflow: hidden;
-  width: 200px;
-  max-width: 200px;
-  text-overflow: ellipsis;
+.sticky_header {
+  position: sticky;
+  position: -webkit-sticky;
+  left: 0;
 }
 
 .compare-table th.inter-title {
@@ -14,6 +13,7 @@
   overflow: hidden;
   overflow-wrap: break-word;
 }
+
 .compare-table .data-value {
   overflow: hidden;
   text-overflow: ellipsis;
