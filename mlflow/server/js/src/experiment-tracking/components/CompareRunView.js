@@ -72,7 +72,7 @@ export class CompareRunView extends Component {
         <PageHeader title={title} breadcrumbs={breadcrumbs} />
         <span id='table-cell-hover-text' className='hover-text'>Test table-cell-hover-text 12345</span>
         <div className='responsive-table-container'>
-          <table className='compare-table table'>
+          <table className='compare-table table' id='compare-run-table'>
             <thead style={{display: 'block'}}>
               <tr>
                 <th scope='row' className='head-value'>
@@ -250,7 +250,14 @@ export class CompareRunView extends Component {
     hoverTextElem.style.visibility = 'hidden';
   }
 
-  getTableColumnWidth() {
+  getTableColumnWidth(isHeaderColumn) {
+    var tableElem = document.getElementById("compare-run-table");
+    tableWidth = tableElem.style.width;
+
+    numRuns = this.props.runInfos.length
+    
+    if (isHeaderColumn) {
+    }
   }
 
   // eslint-disable-next-line no-unused-vars
@@ -299,12 +306,6 @@ export class CompareRunView extends Component {
     });
   }
 }
-
-const styles = {
-  compareRunTableCellContents: {
-    maxWidth: '200px',
-  },
-};
 
 const mapStateToProps = (state, ownProps) => {
   const runInfos = [];
