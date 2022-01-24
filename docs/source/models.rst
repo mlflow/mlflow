@@ -805,7 +805,6 @@ and behavior:
 
     # load UCI Adult Data Set; segment it into training and test sets
     X, y = shap.datasets.adult()
-    num_examples = len(X)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
 
     # train XGBoost model
