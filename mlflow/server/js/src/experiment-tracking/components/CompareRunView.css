@@ -12,10 +12,10 @@
 
 .compare-table .head-value {
   overflow: hidden;
-  min-width: 200px;
-  width: 200px;
-  max-width: 200px;
-  text-overflow: ellipsis;
+  min-width: 120px;
+  width: 120px;
+  max-width: 120px;
+  overflow-wrap: break-word;
 }
 .compare-table .data-value {
   overflow: hidden;
@@ -25,7 +25,7 @@
   text-overflow: ellipsis;
 }
 
-.tooltip-text {
+.hover-text {
   visibility: hidden;
   min-width: 50px;
   max-width: 300px;
@@ -35,7 +35,7 @@
   padding: 5px 0;
   border-radius: 6px;
   overflow: hidden;
-
+  pointer-events: none;
   position:absolute;
   z-index: 1;
 }

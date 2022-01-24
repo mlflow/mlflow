@@ -70,10 +70,10 @@ export class CompareRunView extends Component {
     return (
       <div className='CompareRunView'>
         <PageHeader title={title} breadcrumbs={breadcrumbs} />
-        <span id='table-cell-hover-text' className='tooltip-text'>Test table-cell-hover-text 12345</span>
+        <span id='table-cell-hover-text' className='hover-text'>Test table-cell-hover-text 12345</span>
         <div className='responsive-table-container'>
           <table className='compare-table table'>
-            <tbody style={{display: 'block'}}>
+            <thead style={{display: 'block'}}>
               <tr>
                 <th scope='row' className='head-value'>
                   <FormattedMessage
@@ -89,6 +89,8 @@ export class CompareRunView extends Component {
                   </th>
                 ))}
               </tr>
+            </thead>
+            <tbody style={{display: 'block'}}>
               <tr>
                 <th scope='row' className='head-value'>
                   <FormattedMessage
@@ -234,7 +236,7 @@ export class CompareRunView extends Component {
     );
   }
 
-  onMouseEnterHandler(e) {
+  onMouseEnterTableCell(e) {
     var hoverTextElem = document.getElementById("table-cell-hover-text");
     hoverTextElem.style.visibility = 'visible';
     hoverTextElem.style.display = 'block';
@@ -243,9 +245,12 @@ export class CompareRunView extends Component {
     hoverTextElem.innerHTML = e.target.innerHTML
   }
 
-  onMouseLeaveHandler(e) {
+  onMouseLeaveTableCell(e) {
     var hoverTextElem = document.getElementById("table-cell-hover-text");
     hoverTextElem.style.visibility = 'hidden';
+  }
+
+  getTableColumnWidth() {
   }
 
   // eslint-disable-next-line no-unused-vars
@@ -282,8 +287,8 @@ export class CompareRunView extends Component {
             <td className='data-value' key={this.props.runInfos[i].run_uuid}
               value={value === undefined ? '' : formatter(value)}>
               <span className='truncate-text single-line'
-                    onMouseOver={this.onMouseEnterHandler}
-                    onMouseOut={this.onMouseLeaveHandler}
+                    onMouseEnter={this.onMouseEnterTableCell}
+                    onMouseLeave={this.onMouseLeaveTableCell}
               >
                 {value === undefined ? '' : formatter(value)}
               </span>
