@@ -97,7 +97,25 @@ export class CompareRunView extends Component {
     ];
 
     window.addEventListener('resize', e => this.adjustTableColumnWidth(runInfos.length), true);
-    setImmediate(e => this.adjustTableColumnWidth(runInfos.length)); // adjust width immediately before loading page.
+    setImmediate(() => this.adjustTableColumnWidth(runInfos.length)); // adjust width immediately before loading page.
+
+    function onTableBlockScrollHanlder(e) {
+      var blocks = document.getElementsByClassName('table-block');
+      for (let index = 0; index < blocks.length; ++index) {
+        const block = blocks[index]
+        if (block != e.target) {
+          block.scrollLeft = e.target.scrollLeft
+        }
+      }
+    }
+
+    setImmediate(() => {
+      var blocks = document.getElementsByClassName('table-block')
+      for (let index = 0; index < blocks.length; ++index) {
+        const block = blocks[index]
+        block.onscroll = onTableBlockScrollHanlder
+      }
+    })
 
     function metricsHeaderMap(key, data) {
       return (
@@ -179,6 +197,8 @@ export class CompareRunView extends Component {
                   );
                 })}
               </tr>
+            </tbody>
+            <tbody className='table-block'>
               <tr>
                 <th
                   scope='rowgroup'
@@ -206,11 +226,11 @@ export class CompareRunView extends Component {
               {this.renderDataRows(this.props.paramLists, true, false, true)}
               {this.renderDataRows(this.props.paramLists, true, true, false)}
             </tbody>
-            <tbody>
+            <tbody className='table-block'>
               <tr>
                 <th
                   scope='rowgroup'
-                  className='inter-title'
+                  className='inter-title sticky_header'
                   colSpan={this.props.runInfos.length + 1}
                 >
                   <h2>

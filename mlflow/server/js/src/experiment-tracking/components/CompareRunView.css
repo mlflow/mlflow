@@ -12,6 +12,7 @@
 .compare-table th.inter-title {
   padding: 20px 0 0;
   background: transparent;
+  position: static;
 }
 
 .compare-table .head-value {
