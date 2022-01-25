@@ -159,9 +159,13 @@ export class CompareRunView extends Component {
                 </th>
                 {this.props.runInfos.map((r) => (
                   <th scope='row' className='data-value' key={r.run_uuid}>
-                    <Link to={Routes.getRunPageRoute(r.getExperimentId(), r.getRunUuid())}>
-                      {r.getRunUuid()}
-                    </Link>
+                    <Tooltip title={r.getRunUuid()} color='blue'
+                      overlayStyle={{'max-width': '400px'}}
+                    >
+                      <Link to={Routes.getRunPageRoute(r.getExperimentId(), r.getRunUuid())}>
+                        {r.getRunUuid()}
+                      </Link>
+                    </Tooltip>
                   </th>
                 ))}
               </tr>
@@ -180,7 +184,11 @@ export class CompareRunView extends Component {
                       <div
                         className='truncate-text single-line'
                       >
-                        {runName}
+                        <Tooltip title={runName} color='blue'
+                          overlayStyle={{'max-width': '400px'}}
+                        >
+                          {runName}
+                        </Tooltip>
                       </div>
                     </td>
                   );
@@ -200,7 +208,11 @@ export class CompareRunView extends Component {
                     : '(unknown)';
                   return (
                     <td className='data-value' key={run.run_uuid}>
-                      {startTime}
+                      <Tooltip title={startTime} color='blue'
+                        overlayStyle={{'max-width': '400px'}}
+                      >
+                        {startTime}
+                      </Tooltip>
                     </td>
                   );
                 })}
