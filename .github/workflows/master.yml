@@ -380,9 +380,9 @@ jobs:
         working-directory: mlflow/server/js
         shell: pwsh
         run: |
-          npm i
+          yarn install
       - name: Run JS tests
         working-directory: mlflow/server/js
         shell: pwsh
         run: |
-          npm run test
+          yarn run test
