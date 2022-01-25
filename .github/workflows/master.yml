@@ -225,16 +225,16 @@ jobs:
         node-version: 16.x
     - name: Install dependencies
       run: |
-        npm i
+        yarn install
     - name: Run lint
       run: |
-        npm run lint
+        yarn run lint
     - name: Run extract-i18n lint
       run: |
-        npm run extract-i18n:base -- --lint
+        yarn run extract-i18n:base --lint
     - name: Run tests
       run: |
-        npm run test
+        yarn run test
 
   protos:
     runs-on: ubuntu-latest
