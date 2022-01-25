@@ -226,6 +226,7 @@ jobs:
     - name: Install dependencies
       run: |
         yarn install
+        git diff --exit-code
     - name: Run lint
       run: |
         yarn run lint
