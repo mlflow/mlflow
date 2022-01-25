@@ -15,7 +15,8 @@ import Utils from '../../common/utils/Utils';
 import { Tabs } from 'antd';
 import ParallelCoordinatesPlotPanel from './ParallelCoordinatesPlotPanel';
 import { PageHeader } from '../../shared/building_blocks/PageHeader';
-import { Tooltip } from 'antd';
+import { Tooltip, Switch, Divider } from 'antd';
+import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 
 const { TabPane } = Tabs;
 
@@ -64,8 +65,8 @@ export class CompareRunView extends Component {
     }
 
     function setWidth(className, width) {
-      var cells = document.getElementsByClassName(className);
-      var widthValue = `${width}px`
+      var cells = document.querySelectorAll(`.compare-table .${className}`);
+      var widthValue = `${width}px`;
       for (let index = 0; index < cells.length; ++index) {
         cells[index].style.width = widthValue;
         cells[index].style.minWidth = widthValue;
@@ -101,7 +102,7 @@ export class CompareRunView extends Component {
     setImmediate(() => this.adjustTableColumnWidth(runInfos.length)); // adjust width immediately before loading page.
 
     function onTableBlockScrollHanlder(e) {
-      var blocks = document.getElementsByClassName('table-block');
+      var blocks = document.querySelectorAll('.compare-table .table-block');
       for (let index = 0; index < blocks.length; ++index) {
         const block = blocks[index]
         if (block != e.target) {
@@ -110,8 +111,14 @@ export class CompareRunView extends Component {
       }
     }
 
+    function onCollapsibleSectionChanged(blockClass, hideBlock) {
+      var blockElem = document.querySelectorAll(`.compare-table .${blockClass}`)[0];
+      blockElem.style.visibility = hideBlock ? "collapse" : "visible";
+    }
+
+    // install table block scroll offset adjusting handler
     setImmediate(() => {
-      var blocks = document.getElementsByClassName('table-block')
+      var blocks = document.querySelectorAll('.compare-table .table-block');
       for (let index = 0; index < blocks.length; ++index) {
         const block = blocks[index]
         block.onscroll = onTableBlockScrollHanlder
@@ -206,26 +213,18 @@ export class CompareRunView extends Component {
                   className='inter-title'
                   colSpan={this.props.runInfos.length + 1}
                 >
-                  <h2>
-                    <FormattedMessage
-                      defaultMessage='Parameters'
-                      // eslint-disable-next-line max-len
-                      description='Row group title for parameters of runs on the experiment compare runs page'
+                  <CollapsibleSection title="Parameters"
+                    onChange={activeKeys => onCollapsibleSectionChanged('param-block', activeKeys.length==0)}
+                  >
+                    <Switch checkedChildren="Show diff only" unCheckedChildren="Show diff only"
+                      onChange={(isShowDiffOnly, e) => this.switchNonDiffRowsDisplay('param-block', isShowDiffOnly)}
                     />
-
-                  </h2>
-                  <span id='compact-params' onClick={e => {this.switchValueDisplay(true)}}>
-                    <i class="fas fa-list" style={{ paddingLeft: '6px' }}></i>
-                  </span>
-                  <span id='expand-params' onClick={e => {this.switchValueDisplay(false)}}>
-                    <i class="fas fa-table" style={{ paddingLeft: '6px' }}></i>
-                  </span>
+                  </CollapsibleSection>
                 </th>
               </tr>
             </tbody>
-            <tbody className='table-block no-scrollbar' style={{height:'500px'}}>
-              {this.renderDataRows(this.props.paramLists, true, false, true)}
-              {this.renderDataRows(this.props.paramLists, true, true, false)}
+            <tbody className='table-block param-block no-scrollbar' style={{'max-height': '500px'}}>
+              {this.renderDataRows(this.props.paramLists, true)}
             </tbody>
             <tbody className='table-block no-scrollbar'>
               <tr>
@@ -234,32 +233,20 @@ export class CompareRunView extends Component {
                   className='inter-title sticky_header'
                   colSpan={this.props.runInfos.length + 1}
                 >
-                  <h2>
-                    <FormattedMessage
-                      defaultMessage='Metrics'
-                      // eslint-disable-next-line max-len
-                      description='Row group title for metrics of runs on the experiment compare runs page'
+                  <CollapsibleSection title="Metrics"
+                    onChange={activeKeys => onCollapsibleSectionChanged('metric-block', activeKeys.length==0)}
+                  >
+                    <Switch checkedChildren="Show diff only" unCheckedChildren="Show diff only"
+                      onChange={(isShowDiffOnly, e) => this.switchNonDiffRowsDisplay('metric-block', isShowDiffOnly)}
                     />
-                  </h2>
-                  <span id='compact-params' onClick={e => {this.switchValueDisplay(true)}}>
-                    <i class="fas fa-list" style={{ paddingLeft: '6px' }}></i>
-                  </span>
-                  <span id='expand-params' onClick={e => {this.switchValueDisplay(false)}}>
-                    <i class="fas fa-table" style={{ paddingLeft: '6px' }}></i>
-                  </span>
+                  </CollapsibleSection>
                 </th>
               </tr>
             </tbody>
-            <tbody className='table-block no-scrollbar' style={{height:'300px'}}>
+            <tbody className='table-block metric-block no-scrollbar' style={{'max-height': '300px'}}>
               {this.renderDataRows(
                 this.props.metricLists,
-                false, false, true,
-                metricsHeaderMap,
-                Utils.formatMetric,
-              )}
-              {this.renderDataRows(
-                this.props.metricLists,
-                false, true, false,
+                false,
                 metricsHeaderMap,
                 Utils.formatMetric,
               )}
@@ -311,30 +298,19 @@ export class CompareRunView extends Component {
     );
   }
 
-  switchValueDisplay(compactMode) {
-    function setDisplay(className, visibility) {
-      var cells = document.getElementsByClassName(className);
-      for (let index = 0; index < cells.length; ++index) {
-        cells[index].style.visibility = visibility;
-      }
-    }
+  switchNonDiffRowsDisplay(blockClass, showDiffOnly) {
+    var nonDiffRowsVisibility = showDiffOnly ? "collapse" : "visible"
 
-    if (compactMode) {
-      setDisplay("compacted_row", "visible");
-      setDisplay("expanded_row", "collapse");
-    } else {
-      setDisplay("expanded_row", "visible");
-      setDisplay("compacted_row", "collapse");
+    var nonDiffRows = document.querySelectorAll(`.compare-table .${blockClass} .non-diff-row`);
+    for (let index = 0; index < nonDiffRows.length; ++index) {
+      nonDiffRows[index].style.visibility = nonDiffRowsVisibility;
     }
-    this.adjustTableColumnWidth(this.props.runInfos.length)
   }
 
   // eslint-disable-next-line no-unused-vars
   renderDataRows(
     list,
     highlightChanges = false,
-    compactValues = false,
-    visible = true,
     headerMap = (key, data) => key,
     formatter = (value) => value,
   ) {
@@ -346,33 +322,21 @@ export class CompareRunView extends Component {
       records.forEach((r) => (data[r.key][i] = r.value));
     });
 
-    function getDistinctValueCount(valueMap) {
-      return new Set(valueMap.values()).size
-    }
-
     return keys.map((k) => {
-      let row_class = compactValues ? 'compacted_row' : 'expanded_row';
-      if (highlightChanges) {
-        const all_equal = data[k].every((x) => x === data[k][0]);
-        if (!all_equal) {
-          row_class += ' row-changed';
-        }
+      const all_equal = data[k].every((x) => x === data[k][0]);
+
+      let row_class = all_equal ? 'non-diff-row': 'diff-row';
+      if (highlightChanges && !all_equal) {
+        row_class += ' row-changed';
       }
 
-      var style = visible ? {visibility: 'visibility'}: {visibility: 'collapse'}
       return (
-        <tr key={k} className={row_class} style={style}>
+        <tr key={k} className={row_class} style={{visibility: 'visible'}}>
           <th scope='row' className='head-value sticky_header'>
             {headerMap(k, data[k])}
           </th>
           {
-            compactValues ? (
-              <td className='compact-data-value' colSpan={this.props.runInfos.length}>
-                <span className='truncate-text single-line'>
-                  {getDistinctValueCount(data[k])} distinct values
-                </span>
-              </td>
-            ) : data[k].map((value, i) => {
+            data[k].map((value, i) => {
               var cellText = value === undefined ? '' : formatter(value)
               return (<td className='data-value' key={this.props.runInfos[i].run_uuid}>
                 <Tooltip title={cellText} color='blue'
