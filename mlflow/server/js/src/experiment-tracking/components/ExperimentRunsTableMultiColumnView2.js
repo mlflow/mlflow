@@ -475,8 +475,10 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
       prevProps.metricKeyList.length !== this.props.metricKeyList.length ||
       prevProps.paramKeyList.length !== this.props.paramKeyList.length ||
       prevProps.visibleTagKeyList.length !== this.props.visibleTagKeyList.length ||
-      prevProps.categorizedUncheckedKeys[COLUMN_TYPES.ATTRIBUTES] !==
-        this.props.categorizedUncheckedKeys[COLUMN_TYPES.ATTRIBUTES] ||
+      !_.isEqual(
+        prevProps.categorizedUncheckedKeys[COLUMN_TYPES.ATTRIBUTES],
+        this.props.categorizedUncheckedKeys[COLUMN_TYPES.ATTRIBUTES],
+      ) ||
       prevProps.orderByKey !== this.props.orderByKey ||
       prevProps.orderByAsc !== this.props.orderByAsc ||
       prevProps.onSortBy !== this.props.onSortBy
