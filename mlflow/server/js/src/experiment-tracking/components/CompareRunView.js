@@ -113,7 +113,7 @@ export class CompareRunView extends Component {
 
     function onCollapsibleSectionChanged(blockClass, hideBlock) {
       var blockElem = document.querySelectorAll(`.compare-table .${blockClass}`)[0];
-      blockElem.style.visibility = hideBlock ? "collapse" : "visible";
+      blockElem.style.display = hideBlock ? "none" : "block";
     }
 
     // install table block scroll offset adjusting handler
@@ -311,11 +311,9 @@ export class CompareRunView extends Component {
   }
 
   switchNonDiffRowsDisplay(blockClass, showDiffOnly) {
-    var nonDiffRowsVisibility = showDiffOnly ? "collapse" : "visible"
-
     var nonDiffRows = document.querySelectorAll(`.compare-table .${blockClass} .non-diff-row`);
     for (let index = 0; index < nonDiffRows.length; ++index) {
-      nonDiffRows[index].style.visibility = nonDiffRowsVisibility;
+      nonDiffRows[index].style.display = showDiffOnly ? "none" : "";
     }
   }
 
