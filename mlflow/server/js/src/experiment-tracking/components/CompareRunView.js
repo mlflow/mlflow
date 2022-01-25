@@ -15,6 +15,7 @@ import Utils from '../../common/utils/Utils';
 import { Tabs } from 'antd';
 import ParallelCoordinatesPlotPanel from './ParallelCoordinatesPlotPanel';
 import { PageHeader } from '../../shared/building_blocks/PageHeader';
+import { Tooltip } from 'antd';
 
 const { TabPane } = Tabs;
 
@@ -310,20 +311,6 @@ export class CompareRunView extends Component {
     );
   }
 
-  onMouseEnterTableCell(e) {
-    var hoverTextElem = document.getElementById("table-cell-hover-text");
-    hoverTextElem.style.visibility = 'visible';
-    hoverTextElem.style.display = 'block';
-    hoverTextElem.style.left = `${e.clientX + window.scrollX}px`;
-    hoverTextElem.style.top = `${e.clientY + window.scrollY}px`;
-    hoverTextElem.innerHTML = e.target.innerHTML
-  }
-
-  onMouseLeaveTableCell(e) {
-    var hoverTextElem = document.getElementById("table-cell-hover-text");
-    hoverTextElem.style.visibility = 'hidden';
-  }
-
   switchValueDisplay(compactMode) {
     function setDisplay(className, visibility) {
       var cells = document.getElementsByClassName(className);
@@ -385,17 +372,18 @@ export class CompareRunView extends Component {
                   {getDistinctValueCount(data[k])} distinct values
                 </span>
               </td>
-            ) : data[k].map((value, i) => (
-              <td className='data-value' key={this.props.runInfos[i].run_uuid}
-                value={value === undefined ? '' : formatter(value)}>
-                <span className='truncate-text single-line'
-                      onMouseEnter={this.onMouseEnterTableCell}
-                      onMouseLeave={this.onMouseLeaveTableCell}
+            ) : data[k].map((value, i) => {
+              var cellText = value === undefined ? '' : formatter(value)
+              return (<td className='data-value' key={this.props.runInfos[i].run_uuid}>
+                <Tooltip title={cellText} color='blue'
+                 overlayStyle={{'max-width': '400px'}}
                 >
-                  {value === undefined ? '' : formatter(value)}
-                </span>
-              </td>
-            ))
+                  <span className='truncate-text single-line'>
+                    {cellText}
+                  </span>
+                </Tooltip>
+              </td>)
+            })
           }
 
         </tr>

@@ -30,21 +30,6 @@
   text-overflow: ellipsis;
 }
 
-.hover-text {
-  visibility: hidden;
-  min-width: 50px;
-  max-width: 300px;
-  background-color: yellow;
-  color: black;
-  text-align: center;
-  padding: 5px 0;
-  border-radius: 6px;
-  overflow: hidden;
-  pointer-events: none;
-  position:absolute;
-  z-index: 1;
-}
-
 .responsive-table-container {
   width: 100%;
   overflow-x: auto;
