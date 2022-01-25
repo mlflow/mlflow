@@ -384,11 +384,14 @@ describe('Sort by dropdown', () => {
       .find("Select [data-test-id='sort-select-dropdown']")
       .first()
       .prop('onChange')('attributes.start_time');
-
-    expect(onSearchSpy).toBeCalledWith({
-      orderByAsc: false,
-      orderByKey: 'attributes.start_time',
-    });
+    expect(onSearchSpy).toBeCalledWith(
+      '',
+      LIFECYCLE_FILTER.ACTIVE,
+      'attributes.start_time',
+      DEFAULT_ORDER_BY_ASC,
+      MODEL_VERSION_FILTER.ALL_RUNS,
+      DEFAULT_START_TIME,
+    );
   });
 });
 
@@ -416,10 +419,14 @@ describe('Start time dropdown', () => {
       .find("Select [data-test-id='start-time-select-dropdown']")
       .first()
       .prop('onChange')('LAST_7_DAYS');
-
-    expect(onSearchSpy).toBeCalledWith({
-      startTime: 'LAST_7_DAYS',
-    });
+    expect(onSearchSpy).toBeCalledWith(
+      '',
+      LIFECYCLE_FILTER.ACTIVE,
+      DEFAULT_ORDER_BY_KEY,
+      DEFAULT_ORDER_BY_ASC,
+      MODEL_VERSION_FILTER.ALL_RUNS,
+      'LAST_7_DAYS',
+    );
   });
 });
 

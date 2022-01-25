@@ -91,8 +91,10 @@ class ShowArtifactLoggedModelView extends Component {
     return (
       `import mlflow\n` +
       `logged_model = '${modelPath}'\n\n` +
-      `# Load model as a Spark UDF.\n` +
-      `loaded_model = mlflow.pyfunc.spark_udf(spark, model_uri=logged_model)\n\n` +
+      // eslint-disable-next-line max-len
+      `# Load model as a Spark UDF. Override result_type if the model does not return double values.\n` +
+      // eslint-disable-next-line max-len
+      `loaded_model = mlflow.pyfunc.spark_udf(spark, model_uri=logged_model, result_type='double')\n\n` +
       `# Predict on a Spark DataFrame.\n` +
       `columns = list(df.columns)\n` +
       `df.withColumn('predictions', loaded_model(*columns)).collect()`
@@ -214,12 +216,14 @@ class ShowArtifactLoggedModelView extends Component {
                   <span className='code-comment'>
                     {'# '}
                     <FormattedMessage
-                      defaultMessage='Load model as a Spark UDF.'
+                    // eslint-disable-next-line max-len
+                    defaultMessage='Load model as a Spark UDF. Override result_type if the model does not return double values.'
                       description='Code comment which states how to load model using spark UDF'
                     />
                   </span>
                   {`\n`}
-                  loaded_model = mlflow.pyfunc.spark_udf(spark, model_uri=logged_model)
+                  loaded_model = mlflow.pyfunc.spark_udf(spark, model_uri=logged_model,
+                  result_type='double')
                 </div>
                 <br />
                 <div className='code'>
