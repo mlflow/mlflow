@@ -312,10 +312,7 @@ export class ExperimentPage extends Component {
         this.updateUrlWithViewState();
         this.snapshotComponentState();
         if (!this.detectNewRunsTimer) {
-          this.detectNewRunsTimer = setInterval(
-            () => this.pollNewRuns(),
-            POLL_INTERVAL,
-          );
+          this.detectNewRunsTimer = setInterval(() => this.pollNewRuns(), POLL_INTERVAL);
         }
       },
     );

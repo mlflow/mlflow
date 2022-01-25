@@ -216,8 +216,8 @@ class ShowArtifactLoggedModelView extends Component {
                   <span className='code-comment'>
                     {'# '}
                     <FormattedMessage
-                    // eslint-disable-next-line max-len
-                    defaultMessage='Load model as a Spark UDF. Override result_type if the model does not return double values.'
+                      // eslint-disable-next-line max-len
+                      defaultMessage='Load model as a Spark UDF. Override result_type if the model does not return double values.'
                       description='Code comment which states how to load model using spark UDF'
                     />
                   </span>
