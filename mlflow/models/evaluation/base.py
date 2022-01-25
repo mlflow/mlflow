@@ -668,8 +668,8 @@ def evaluate(
        It generates a variety of model performance metrics, model performance plots, and
        model explanations.
 
-     - For both the ``"regressor"`` and ``"classifier"`` model types, the default evaluator generates
-       model summary plots and feature importance plots using
+     - For both the ``"regressor"`` and ``"classifier"`` model types, the default evaluator
+       generates model summary plots and feature importance plots using
        `SHAP <https://shap.readthedocs.io/en/latest/index.html>`_.
 
      - For regressor models, the default evaluator additionally logs:
