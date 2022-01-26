@@ -182,10 +182,27 @@ def _load_model(model_file):
 
 
 class _OnnxModelWrapper:
-    def __init__(self, path):
+    def __init__(self, path, providers=None):
         import onnxruntime
 
-        self.rt = onnxruntime.InferenceSession(path)
+        if providers is None:
+            providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
+
+        # NOTE: Some distributions of onnxruntime require the specification of the providers argument on calling. E.g. onnxruntime-gpu.
+        #       The package import call does not differnetiate which architecture specific version has been installed, as all are imported with onnxruntime.
+        #       onnxruntime documentation says that from v1.9.0 some distributions require the providers list to be provided on calling an InferenceSession.
+        #       Therefore the try catch nested structure below attempts to create an inference session with just the model path as pre v1.9.0.
+        #       If that fails, it will use the providers list call. 
+        #       At the moment this is just CUDA and CPU, and probably should be expanded. It's been added to the class init call as an optional argument for further user customisation.
+        try:
+            self.rt = onnxruntime.InferenceSession(path)
+        except:
+            try:
+                self.rt = onnxruntime.InferenceSession(path, providers=providers)
+            except:
+                raise
+
+
         assert len(self.rt.get_inputs()) >= 1
         self.inputs = [(inp.name, inp.type) for inp in self.rt.get_inputs()]
         self.output_names = [outp.name for outp in self.rt.get_outputs()]
