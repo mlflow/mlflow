@@ -12,10 +12,9 @@ import { Link } from 'react-router-dom';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import CompareRunUtil from './CompareRunUtil';
 import Utils from '../../common/utils/Utils';
-import { Tabs } from 'antd';
+import { Tabs, Tooltip, Switch } from 'antd';
 import ParallelCoordinatesPlotPanel from './ParallelCoordinatesPlotPanel';
 import { PageHeader } from '../../shared/building_blocks/PageHeader';
-import { Tooltip, Switch, Divider } from 'antd';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 
 const { TabPane } = Tabs;
@@ -52,21 +51,21 @@ export class CompareRunView extends Component {
   }
 
   adjustTableColumnWidth(numRuns) {
-    var tableElem = document.getElementById("compare-run-table-container");
-    if (tableElem == null) {
+    const tableElem = document.getElementById('compare-run-table-container');
+    if (tableElem === null) {
       return;
     }
-    var tableWidth = tableElem.offsetWidth;
+    const tableWidth = tableElem.offsetWidth;
 
-    var minColWidth = 200;
-    var colWidth = Math.round(tableWidth / (numRuns + 1));
+    const minColWidth = 200;
+    let colWidth = Math.round(tableWidth / (numRuns + 1));
     if (colWidth < minColWidth) {
       colWidth = minColWidth;
     }
 
     function setWidth(className, width) {
-      var cells = document.querySelectorAll(`.compare-table .${className}`);
-      var widthValue = `${width}px`;
+      const cells = document.querySelectorAll(`.compare-table .${className}`);
+      const widthValue = `${width}px`;
       for (let index = 0; index < cells.length; ++index) {
         cells[index].style.width = widthValue;
         cells[index].style.minWidth = widthValue;
@@ -75,8 +74,8 @@ export class CompareRunView extends Component {
     }
     setWidth('head-value', colWidth);
     setWidth('data-value', colWidth);
-    setWidth('compact-data-value', colWidth * numRuns)
-    setWidth('table-block', tableWidth)
+    setWidth('compact-data-value', colWidth * numRuns);
+    setWidth('table-block', tableWidth);
   }
 
   render() {
@@ -98,32 +97,33 @@ export class CompareRunView extends Component {
       title,
     ];
 
-    window.addEventListener('resize', e => this.adjustTableColumnWidth(runInfos.length), true);
-    setImmediate(() => this.adjustTableColumnWidth(runInfos.length)); // adjust width immediately before loading page.
+    window.addEventListener('resize', (e) => this.adjustTableColumnWidth(runInfos.length), true);
+    // adjust width immediately before loading page.
+    setImmediate(() => this.adjustTableColumnWidth(runInfos.length));
 
     function onTableBlockScrollHanlder(e) {
-      var blocks = document.querySelectorAll('.compare-table .table-block');
+      const blocks = document.querySelectorAll('.compare-table .table-block');
       for (let index = 0; index < blocks.length; ++index) {
-        const block = blocks[index]
-        if (block != e.target) {
-          block.scrollLeft = e.target.scrollLeft
+        const block = blocks[index];
+        if (block !== e.target) {
+          block.scrollLeft = e.target.scrollLeft;
         }
       }
     }
 
     function onCollapsibleSectionChanged(blockClass, hideBlock) {
-      var blockElem = document.querySelectorAll(`.compare-table .${blockClass}`)[0];
-      blockElem.style.display = hideBlock ? "none" : "block";
+      const blockElem = document.querySelectorAll(`.compare-table .${blockClass}`)[0];
+      blockElem.style.display = hideBlock ? 'none' : 'block';
     }
 
     // install table block scroll offset adjusting handler
     setImmediate(() => {
-      var blocks = document.querySelectorAll('.compare-table .table-block');
+      const blocks = document.querySelectorAll('.compare-table .table-block');
       for (let index = 0; index < blocks.length; ++index) {
-        const block = blocks[index]
-        block.onscroll = onTableBlockScrollHanlder
+        const block = blocks[index];
+        block.onscroll = onTableBlockScrollHanlder;
       }
-    })
+    });
 
     return (
       <div className='CompareRunView'>
@@ -141,8 +141,10 @@ export class CompareRunView extends Component {
                 </th>
                 {this.props.runInfos.map((r) => (
                   <th scope='row' className='data-value' key={r.run_uuid}>
-                    <Tooltip title={r.getRunUuid()} color='blue'
-                      overlayStyle={{'max-width': '400px'}}
+                    <Tooltip
+                      title={r.getRunUuid()}
+                      color='blue'
+                      overlayStyle={{ 'max-width': '400px' }}
                     >
                       <Link to={Routes.getRunPageRoute(r.getExperimentId(), r.getRunUuid())}>
                         {r.getRunUuid()}
@@ -163,11 +165,11 @@ export class CompareRunView extends Component {
                 {runNames.map((runName, i) => {
                   return (
                     <td className='data-value' key={runInfos[i].run_uuid}>
-                      <div
-                        className='truncate-text single-line'
-                      >
-                        <Tooltip title={runName} color='blue'
-                          overlayStyle={{'max-width': '400px'}}
+                      <div className='truncate-text single-line'>
+                        <Tooltip
+                          title={runName}
+                          color='blue'
+                          overlayStyle={{ 'max-width': '400px' }}
                         >
                           {runName}
                         </Tooltip>
@@ -190,8 +192,10 @@ export class CompareRunView extends Component {
                     : '(unknown)';
                   return (
                     <td className='data-value' key={run.run_uuid}>
-                      <Tooltip title={startTime} color='blue'
-                        overlayStyle={{'max-width': '400px'}}
+                      <Tooltip
+                        title={startTime}
+                        color='blue'
+                        overlayStyle={{ 'max-width': '400px' }}
                       >
                         {startTime}
                       </Tooltip>
@@ -207,23 +211,33 @@ export class CompareRunView extends Component {
                   className='inter-title'
                   colSpan={this.props.runInfos.length + 1}
                 >
-                  <CollapsibleSection title={
+                  <CollapsibleSection
+                    title={
                       <FormattedMessage
                         defaultMessage='Parameters'
                         // eslint-disable-next-line max-len
                         description='Row group title for parameters of runs on the experiment compare runs page'
                       />
                     }
-                    onChange={activeKeys => onCollapsibleSectionChanged('param-block', activeKeys.length==0)}
+                    onChange={(activeKeys) =>
+                      onCollapsibleSectionChanged('param-block', activeKeys.length === 0)
+                    }
                   >
-                    <Switch checkedChildren="Show diff only" unCheckedChildren="Show diff only"
-                      onChange={(isShowDiffOnly, e) => this.switchNonDiffRowsDisplay('param-block', isShowDiffOnly)}
+                    <Switch
+                      checkedChildren='Show diff only'
+                      unCheckedChildren='Show diff only'
+                      onChange={(isShowDiffOnly, e) =>
+                        this.switchNonDiffRowsDisplay('param-block', isShowDiffOnly)
+                      }
                     />
                   </CollapsibleSection>
                 </th>
               </tr>
             </tbody>
-            <tbody className='table-block param-block no-scrollbar' style={{'max-height': '500px'}}>
+            <tbody
+              className='table-block param-block no-scrollbar'
+              style={{ 'max-height': '500px' }}
+            >
               {this.renderDataRows(this.props.paramLists, true)}
             </tbody>
             <tbody className='table-block no-scrollbar'>
@@ -233,23 +247,33 @@ export class CompareRunView extends Component {
                   className='inter-title sticky_header'
                   colSpan={this.props.runInfos.length + 1}
                 >
-                  <CollapsibleSection title={
+                  <CollapsibleSection
+                    title={
                       <FormattedMessage
                         defaultMessage='Metrics'
                         // eslint-disable-next-line max-len
                         description='Row group title for metrics of runs on the experiment compare runs page'
                       />
                     }
-                    onChange={activeKeys => onCollapsibleSectionChanged('metric-block', activeKeys.length==0)}
+                    onChange={(activeKeys) =>
+                      onCollapsibleSectionChanged('metric-block', activeKeys.length === 0)
+                    }
                   >
-                    <Switch checkedChildren="Show diff only" unCheckedChildren="Show diff only"
-                      onChange={(isShowDiffOnly, e) => this.switchNonDiffRowsDisplay('metric-block', isShowDiffOnly)}
+                    <Switch
+                      checkedChildren='Show diff only'
+                      unCheckedChildren='Show diff only'
+                      onChange={(isShowDiffOnly, e) =>
+                        this.switchNonDiffRowsDisplay('metric-block', isShowDiffOnly)
+                      }
                     />
                   </CollapsibleSection>
                 </th>
               </tr>
             </tbody>
-            <tbody className='table-block metric-block no-scrollbar' style={{'max-height': '300px'}}>
+            <tbody
+              className='table-block metric-block no-scrollbar'
+              style={{ 'max-height': '300px' }}
+            >
               {this.renderDataRows(
                 this.props.metricLists,
                 false,
@@ -321,9 +345,9 @@ export class CompareRunView extends Component {
   }
 
   switchNonDiffRowsDisplay(blockClass, showDiffOnly) {
-    var nonDiffRows = document.querySelectorAll(`.compare-table .${blockClass} .non-diff-row`);
+    const nonDiffRows = document.querySelectorAll(`.compare-table .${blockClass} .non-diff-row`);
     for (let index = 0; index < nonDiffRows.length; ++index) {
-      nonDiffRows[index].style.display = showDiffOnly ? "none" : "";
+      nonDiffRows[index].style.display = showDiffOnly ? 'none' : '';
     }
   }
 
@@ -345,7 +369,7 @@ export class CompareRunView extends Component {
     return keys.map((k) => {
       const all_equal = data[k].every((x) => x === data[k][0]);
 
-      let row_class = all_equal ? 'non-diff-row': 'diff-row';
+      let row_class = all_equal ? 'non-diff-row' : 'diff-row';
       if (highlightChanges && !all_equal) {
         row_class += ' row-changed';
       }
@@ -355,21 +379,16 @@ export class CompareRunView extends Component {
           <th scope='row' className='head-value sticky_header'>
             {headerMap(k, data[k])}
           </th>
-          {
-            data[k].map((value, i) => {
-              var cellText = value === undefined ? '' : formatter(value)
-              return (<td className='data-value' key={this.props.runInfos[i].run_uuid}>
-                <Tooltip title={cellText} color='blue'
-                 overlayStyle={{'max-width': '400px'}}
-                >
-                  <span className='truncate-text single-line'>
-                    {cellText}
-                  </span>
+          {data[k].map((value, i) => {
+            const cellText = value === undefined ? '' : formatter(value);
+            return (
+              <td className='data-value' key={this.props.runInfos[i].run_uuid}>
+                <Tooltip title={cellText} color='blue' overlayStyle={{ 'max-width': '400px' }}>
+                  <span className='truncate-text single-line'>{cellText}</span>
                 </Tooltip>
-              </td>)
-            })
-          }
-
+              </td>
+            );
+          })}
         </tr>
       );
     });
