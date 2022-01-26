@@ -44,6 +44,8 @@ def test_parse_models_uri_with_stage(uri, expected_name, expected_stage):
     "uri, expected_name",
     [
         ("models:/AdsModel1/latest", "AdsModel1"),
+        ("models:/AdsModel1/Latest", "AdsModel1"),  # case insensitive
+        ("models:/AdsModel1/LATEST", "AdsModel1"),  # case insensitive
         ("models:/Ads Model 1/latest", "Ads Model 1"),
         ("models://scope:key@databricks/Ads Model 1/latest", "Ads Model 1"),
     ],
@@ -119,3 +121,8 @@ def test_get_model_name_and_version_with_latest():
             "20",
         )
         mlflow_client_mock.assert_called_once_with("AdsModel1", None)
+        # Check that "latest" is case insensitive.
+        assert get_model_name_and_version(MlflowClient(), "models:/AdsModel1/lATest") == (
+            "AdsModel1",
+            "20",
+        )

@@ -59,8 +59,8 @@ def _parse_model_uri(uri):
     if parts[1].isdigit():
         # The suffix is a specific version, e.g. "models:/AdsModel1/123"
         return parts[0], int(parts[1]), None
-    elif parts[1] == _MODELS_URI_SUFFIX_LATEST:
-        # The suffix is exactly the 'latest' string, e.g. "models:/AdsModel1/latest"
+    elif parts[1].lower() == _MODELS_URI_SUFFIX_LATEST.lower():
+        # The suffix is the 'latest' string (case insensitive), e.g. "models:/AdsModel1/latest"
         return parts[0], None, None
     else:
         # The suffix is a specific stage (case insensitive), e.g. "models:/AdsModel1/Production"
