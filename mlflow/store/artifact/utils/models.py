@@ -3,7 +3,7 @@ import urllib.parse
 import mlflow.tracking
 from mlflow.exceptions import MlflowException
 from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri, is_databricks_uri
-from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
+from mlflow.entities.model_registry.model_version_stages import ALL_STAGES_IN_LOWER_CASE
 
 _MODELS_URI_SUFFIX_LATEST = "latest"
 
@@ -63,10 +63,11 @@ def _parse_model_uri(uri):
     elif parts[1] == _MODELS_URI_SUFFIX_LATEST:
         # The suffix is exactly the 'latest' string, e.g. "models:/AdsModel1/latest"
         return parts[0], None, None
-    elif parts[1] not in ALL_STAGES:
+    elif parts[1].lower() not in ALL_STAGES_IN_LOWER_CASE:
+        # Now the suffix should be a specific stage (case insensitive). If not, throw an exception.
         raise MlflowException(_improper_model_uri_msg(uri))
     else:
-        # The suffix is a specific stage, e.g. "models:/AdsModel1/Production"
+        # The suffix is a specific stage (case insensitive), e.g. "models:/AdsModel1/Production"
         return parts[0], None, parts[1]
 
 

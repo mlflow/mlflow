@@ -27,6 +27,8 @@ def test_parse_models_uri_with_version(uri, expected_name, expected_version):
     "uri, expected_name, expected_stage",
     [
         ("models:/AdsModel1/Production", "AdsModel1", "Production"),
+        ("models:/AdsModel1/production", "AdsModel1", "production"),  # case insensitive
+        ("models:/AdsModel1/pROduction", "AdsModel1", "pROduction"),  # case insensitive
         ("models:/Ads Model 1/None", "Ads Model 1", "None"),
         ("models://scope:key@databricks/Ads Model 1/None", "Ads Model 1", "None"),
     ],
@@ -60,7 +62,6 @@ def test_parse_models_uri_with_latest(uri, expected_name):
         "notmodels:/NameOfModel/StageName",  # wrong scheme with stage
         "models:/",  # no model name
         "models:/Name/Stage/0",  # too many specifiers
-        "models:/Name/production",  # should be 'Production'
         "models:/Name/LATEST",  # not lower case 'latest'
         "models:Name/Stage",  # missing slash
         "models://Name/Stage",  # hostnames are ignored, path too short

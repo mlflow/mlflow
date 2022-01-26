@@ -349,6 +349,18 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         )
         self.assertEqual(
             self._extract_latest_by_stage(
+                self.store.get_latest_versions(name=name, stages=["production"])
+            ),
+            {"Production": 3},
+        )  # The stages are case insensitive.
+        self.assertEqual(
+            self._extract_latest_by_stage(
+                self.store.get_latest_versions(name=name, stages=["pROduction"])
+            ),
+            {"Production": 3},
+        )  # The stages are case insensitive.
+        self.assertEqual(
+            self._extract_latest_by_stage(
                 self.store.get_latest_versions(name=name, stages=["None", "Production"])
             ),
             {"None": 1, "Production": 3},
