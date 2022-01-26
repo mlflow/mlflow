@@ -185,7 +185,7 @@ class _OnnxModelWrapper:
     def __init__(self, path):
         import onnxruntime
 
-        self.rt = onnxruntime.InferenceSession(path)
+        self.rt = onnxruntime.InferenceSession(path, providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
         assert len(self.rt.get_inputs()) >= 1
         self.inputs = [(inp.name, inp.type) for inp in self.rt.get_inputs()]
         self.output_names = [outp.name for outp in self.rt.get_outputs()]
