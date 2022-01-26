@@ -27,6 +27,8 @@ def test_parse_models_uri_with_version(uri, expected_name, expected_version):
     "uri, expected_name, expected_stage",
     [
         ("models:/AdsModel1/Production", "AdsModel1", "Production"),
+        ("models:/AdsModel1/production", "AdsModel1", "production"),  # case insensitive
+        ("models:/AdsModel1/pROduction", "AdsModel1", "pROduction"),  # case insensitive
         ("models:/Ads Model 1/None", "Ads Model 1", "None"),
         ("models://scope:key@databricks/Ads Model 1/None", "Ads Model 1", "None"),
     ],
@@ -42,6 +44,8 @@ def test_parse_models_uri_with_stage(uri, expected_name, expected_stage):
     "uri, expected_name",
     [
         ("models:/AdsModel1/latest", "AdsModel1"),
+        ("models:/AdsModel1/Latest", "AdsModel1"),  # case insensitive
+        ("models:/AdsModel1/LATEST", "AdsModel1"),  # case insensitive
         ("models:/Ads Model 1/latest", "Ads Model 1"),
         ("models://scope:key@databricks/Ads Model 1/latest", "Ads Model 1"),
     ],
@@ -60,8 +64,6 @@ def test_parse_models_uri_with_latest(uri, expected_name):
         "notmodels:/NameOfModel/StageName",  # wrong scheme with stage
         "models:/",  # no model name
         "models:/Name/Stage/0",  # too many specifiers
-        "models:/Name/production",  # should be 'Production'
-        "models:/Name/LATEST",  # not lower case 'latest'
         "models:Name/Stage",  # missing slash
         "models://Name/Stage",  # hostnames are ignored, path too short
     ],
@@ -119,3 +121,8 @@ def test_get_model_name_and_version_with_latest():
             "20",
         )
         mlflow_client_mock.assert_called_once_with("AdsModel1", None)
+        # Check that "latest" is case insensitive.
+        assert get_model_name_and_version(MlflowClient(), "models:/AdsModel1/lATest") == (
+            "AdsModel1",
+            "20",
+        )
