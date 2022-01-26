@@ -62,7 +62,6 @@ def test_parse_models_uri_with_latest(uri, expected_name):
         "notmodels:/NameOfModel/StageName",  # wrong scheme with stage
         "models:/",  # no model name
         "models:/Name/Stage/0",  # too many specifiers
-        "models:/Name/LATEST",  # not lower case 'latest'
         "models:Name/Stage",  # missing slash
         "models://Name/Stage",  # hostnames are ignored, path too short
     ],
