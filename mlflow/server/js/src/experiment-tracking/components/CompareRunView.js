@@ -125,24 +125,6 @@ export class CompareRunView extends Component {
       }
     })
 
-    function metricsHeaderMap(key, data) {
-      return (
-        <Link
-          to={Routes.getMetricPageRoute(
-            runInfos
-              .map((info) => info.run_uuid)
-              .filter((uuid, idx) => data[idx] !== undefined),
-            key,
-            experimentId,
-          )}
-          title='Plot chart'
-        >
-          {key}
-          <i className='fas fa-chart-line' style={{ paddingLeft: '6px' }} />
-        </Link>
-      );
-    }
-
     return (
       <div className='CompareRunView'>
         <PageHeader title={title} breadcrumbs={breadcrumbs} />
@@ -225,7 +207,13 @@ export class CompareRunView extends Component {
                   className='inter-title'
                   colSpan={this.props.runInfos.length + 1}
                 >
-                  <CollapsibleSection title="Parameters"
+                  <CollapsibleSection title={
+                      <FormattedMessage
+                        defaultMessage='Parameters'
+                        // eslint-disable-next-line max-len
+                        description='Row group title for parameters of runs on the experiment compare runs page'
+                      />
+                    }
                     onChange={activeKeys => onCollapsibleSectionChanged('param-block', activeKeys.length==0)}
                   >
                     <Switch checkedChildren="Show diff only" unCheckedChildren="Show diff only"
@@ -245,7 +233,13 @@ export class CompareRunView extends Component {
                   className='inter-title sticky_header'
                   colSpan={this.props.runInfos.length + 1}
                 >
-                  <CollapsibleSection title="Metrics"
+                  <CollapsibleSection title={
+                      <FormattedMessage
+                        defaultMessage='Metrics'
+                        // eslint-disable-next-line max-len
+                        description='Row group title for metrics of runs on the experiment compare runs page'
+                      />
+                    }
                     onChange={activeKeys => onCollapsibleSectionChanged('metric-block', activeKeys.length==0)}
                   >
                     <Switch checkedChildren="Show diff only" unCheckedChildren="Show diff only"
@@ -259,7 +253,23 @@ export class CompareRunView extends Component {
               {this.renderDataRows(
                 this.props.metricLists,
                 false,
-                metricsHeaderMap,
+                (key, data) => {
+                  return (
+                    <Link
+                      to={Routes.getMetricPageRoute(
+                        this.props.runInfos
+                          .map((info) => info.run_uuid)
+                          .filter((uuid, idx) => data[idx] !== undefined),
+                        key,
+                        experimentId,
+                      )}
+                      title='Plot chart'
+                    >
+                      {key}
+                      <i className='fas fa-chart-line' style={{ paddingLeft: '6px' }} />
+                    </Link>
+                  );
+                },
                 Utils.formatMetric,
               )}
             </tbody>
@@ -341,7 +351,7 @@ export class CompareRunView extends Component {
       }
 
       return (
-        <tr key={k} className={row_class} style={{visibility: 'visible'}}>
+        <tr key={k} className={row_class}>
           <th scope='row' className='head-value sticky_header'>
             {headerMap(k, data[k])}
           </th>
