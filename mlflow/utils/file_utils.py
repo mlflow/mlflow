@@ -298,7 +298,7 @@ def make_tarfile(output_filename, source_dir, archive_name, custom_filter=None):
         ) as gzipped_tar, open(unzipped_filename, "rb") as tar:
             gzipped_tar.write(tar.read())
     finally:
-        os.remove(unzipped_filename)
+        os.close(unzipped_filename)
 
 
 def _copy_project(src_path, dst_path=""):
