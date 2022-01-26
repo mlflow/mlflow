@@ -485,7 +485,7 @@ def test_param_search_estimator(  # pylint: disable=unused-argument
         assert math.isclose(avg_metric_value, run_data.metrics[avg_metric_name], rel_tol=1e-6)
         assert math.isclose(avg_metric_value, float(row.get(avg_metric_name)), rel_tol=1e-6)
 
-        if isinstance(estimator, CrossValidator) and Version(pyspark.__version__) > Version("3.2"):
+        if isinstance(estimator, CrossValidator) and Version(pyspark.__version__) >= Version("3.3"):
             std_metric_name = f"std_{metric_name}"
             std_metric_value = model.stdMetrics[row_index]
             assert math.isclose(std_metric_value, run_data.metrics[std_metric_name], rel_tol=1e-6)
