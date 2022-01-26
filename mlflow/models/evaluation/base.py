@@ -664,12 +664,12 @@ def evaluate(
 
     Default Evaluator behavior:
      - The default evaluator, which can be invoked with ``evaluators="default"`` or
-       ``evaluators=None``, supports the ``"regressor"`` and ``"classifer"`` model types.
+       ``evaluators=None``, supports the ``"regressor"`` and ``"classifier"`` model types.
        It generates a variety of model performance metrics, model performance plots, and
        model explanations.
 
-     - For both the ``"regressor"`` and ``"classifer"`` model types, the default evaluator generates
-       model summary plots and feature importance plots using
+     - For both the ``"regressor"`` and ``"classifier"`` model types, the default evaluator
+       generates model summary plots and feature importance plots using
        `SHAP <https://shap.readthedocs.io/en/latest/index.html>`_.
 
      - For regressor models, the default evaluator additionally logs:
