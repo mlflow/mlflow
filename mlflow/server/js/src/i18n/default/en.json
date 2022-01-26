@@ -887,6 +887,10 @@
     "defaultMessage": "You can also <link>register it to the model registry</link> to version control",
     "description": "Sub text to tell the users where one can go to register the model artifact"
   },
+  "k8hH4B": {
+    "defaultMessage": "Clear All",
+    "description": "String for the clear button to clear any selected parameters"
+  },
   "kFpx6j": {
     "defaultMessage": "With Model Versions",
     "description": "Linked model dropdown option to show experiment runs with model versions only"
