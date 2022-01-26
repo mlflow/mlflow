@@ -29,7 +29,7 @@ catboost
 # Required by mlflow.statsmodels
 statsmodels
 # Required by mlflow.h2o
-h2o
+h2o!=3.36.0.1
 # Required by mlflow.onnx
 onnx
 onnxruntime
