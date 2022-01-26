@@ -283,7 +283,7 @@ jobs:
           SPARK_LOCAL_IP: 127.0.0.1
         run: |
           # Install libopenblas-dev for mxnet 1.8.0.post0
-          sugo apt-get update -y
+          sudo apt-get update -y
           sudo apt-get install libopenblas-dev -y
           ./dev/run-python-flavor-tests.sh;
 
