@@ -29,8 +29,8 @@ export class ParallelCoordinatesPlotPanel extends React.Component {
 
   state = {
     // Default to select differing parameters. Sort alphabetically (to match
-    // highlighted params in param table), then cap at first 10
-    selectedParamKeys: this.props.diffParamKeys.sort().slice(0, 10),
+    // highlighted params in param table), then cap at first 3
+    selectedParamKeys: this.props.diffParamKeys.sort().slice(0, 3),
     // Default to select the first metric key.
     // Note that there will be no color scaling if no metric is selected.
     selectedMetricKeys: this.props.sharedMetricKeys.slice(0, 1),
@@ -38,6 +38,10 @@ export class ParallelCoordinatesPlotPanel extends React.Component {
 
   handleParamsSelectChange = (paramValues) => {
     this.setState({ selectedParamKeys: paramValues });
+  };
+
+  onClearParamsSelect = () => {
+    this.setState({ selectedParamKeys: [] });
   };
 
   handleMetricsSelectChange = (metricValues) => {
@@ -56,6 +60,7 @@ export class ParallelCoordinatesPlotPanel extends React.Component {
           selectedMetricKeys={selectedMetricKeys}
           handleMetricsSelectChange={this.handleMetricsSelectChange}
           handleParamsSelectChange={this.handleParamsSelectChange}
+          onClearParamsSelect={this.onClearParamsSelect}
         />
         {!_.isEmpty(selectedParamKeys) || !_.isEmpty(selectedMetricKeys) ? (
           <ParallelCoordinatesPlotView

@@ -70,6 +70,47 @@ export class CompareRunView extends Component {
     return (
       <div className='CompareRunView'>
         <PageHeader title={title} breadcrumbs={breadcrumbs} />
+        <Tabs>
+          <TabPane
+            tab={
+              <FormattedMessage
+                defaultMessage='Parallel Coordinates Plot'
+                description='Tab pane title for parallel coordinate plots on the compare runs page'
+              />
+            }
+            key='1'
+          >
+            <ParallelCoordinatesPlotPanel runUuids={this.props.runUuids} />
+          </TabPane>
+          <TabPane
+            tab={
+              <FormattedMessage
+                defaultMessage='Scatter Plot'
+                description='Tab pane title for scatterplots on the compare runs page'
+              />
+            }
+            key='2'
+          >
+            <CompareRunScatter
+              runUuids={this.props.runUuids}
+              runDisplayNames={this.props.runDisplayNames}
+            />
+          </TabPane>
+          <TabPane
+            tab={
+              <FormattedMessage
+                defaultMessage='Contour Plot'
+                description='Tab pane title for contour plots on the compare runs page'
+              />
+            }
+            key='3'
+          >
+            <CompareRunContour
+              runUuids={this.props.runUuids}
+              runDisplayNames={this.props.runDisplayNames}
+            />
+          </TabPane>
+        </Tabs>
         <div className='responsive-table-container'>
           <table className='compare-table table'>
             <thead>
@@ -185,47 +226,6 @@ export class CompareRunView extends Component {
             </tbody>
           </table>
         </div>
-        <Tabs>
-          <TabPane
-            tab={
-              <FormattedMessage
-                defaultMessage='Scatter Plot'
-                description='Tab pane title for scatterplots on the compare runs page'
-              />
-            }
-            key='1'
-          >
-            <CompareRunScatter
-              runUuids={this.props.runUuids}
-              runDisplayNames={this.props.runDisplayNames}
-            />
-          </TabPane>
-          <TabPane
-            tab={
-              <FormattedMessage
-                defaultMessage='Contour Plot'
-                description='Tab pane title for contour plots on the compare runs page'
-              />
-            }
-            key='2'
-          >
-            <CompareRunContour
-              runUuids={this.props.runUuids}
-              runDisplayNames={this.props.runDisplayNames}
-            />
-          </TabPane>
-          <TabPane
-            tab={
-              <FormattedMessage
-                defaultMessage='Parallel Coordinates Plot'
-                description='Tab pane title for parallel coordinate plots on the compare runs page'
-              />
-            }
-            key='3'
-          >
-            <ParallelCoordinatesPlotPanel runUuids={this.props.runUuids} />
-          </TabPane>
-        </Tabs>
       </div>
     );
   }
