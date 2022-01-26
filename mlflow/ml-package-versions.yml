@@ -177,7 +177,7 @@ gluon:
     unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
     run: |
       # Install libopenblas-dev for mxnet 1.8.0.post0
-      sugo apt-get update -y
+      sudo apt-get update -y
       sudo apt-get install libopenblas-dev -y
       pytest tests/gluon/test_gluon_model_export.py --large
 
