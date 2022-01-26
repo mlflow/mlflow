@@ -16,6 +16,7 @@ export class ParallelCoordinatesPlotControls extends React.Component {
     selectedMetricKeys: PropTypes.arrayOf(PropTypes.string).isRequired,
     handleParamsSelectChange: PropTypes.func.isRequired,
     handleMetricsSelectChange: PropTypes.func.isRequired,
+    onClearParamsSelect: PropTypes.func.isRequired,
   };
 
   static handleFilterChange = (text, option) =>
