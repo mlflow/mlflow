@@ -295,7 +295,7 @@ def test_model_save_load(build_model, save_format, model_path, data):
     )
     print(scoring_response.content)
     actual_scoring_response = pd.read_json(
-        scoring_response.content, orient="records", encoding="utf8"
+        scoring_response.content.decode("utf-8"), orient="records", encoding="utf8"
     ).values.astype(np.float32)
     np.testing.assert_allclose(actual_scoring_response, expected, rtol=1e-5)
 
