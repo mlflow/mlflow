@@ -1066,7 +1066,7 @@ def run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
     proc.wait()
 
 
-def target_help(_):
+def target_help():
     """
     Provide help information for the SageMaker deployment client.
 
@@ -1085,7 +1085,8 @@ def target_help(_):
     and assumed role ARN when executing the commands.
 
     The `create` and `update` commands require a deployment name and a model_uri. The model flavor
-    and deployment configuration can be optionally provided.
+    and deployment configuration can be optionally provided. These commands can also be executed
+    in synchronous or asynchronous mode.
 
     The `delete` command accepts configurations to archive a model instead of deleting, execute
     in asynchronous mode and timeout period.
@@ -1918,7 +1919,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                          These resources may include unused SageMaker models and endpoint
                          configurations that were associated with a prior version of the
                          application endpoint. If ``False``, these resources are deleted.
-                         In order to use ``archive=False``, ``deploy()`` must be executed
+                         In order to use ``archive=False``, ``create_deployment()`` must be executed
                          synchronously with ``synchronous=True``.
 
                        - instance_type: The type of SageMaker ML instance on which to deploy the
