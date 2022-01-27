@@ -48,10 +48,11 @@ export class CompareRunView extends Component {
       },
     );
     Utils.updatePageTitle(pageTitle);
-    this.adjustTableColumnWidth(this.props.runInfos.length)
+    this.adjustTableColumnWidth(this.props.runInfos.length);
     window.addEventListener(
       'resize',
-      e => this.adjustTableColumnWidth(this.props.runInfos.length), true
+      (e) => this.adjustTableColumnWidth(this.props.runInfos.length),
+      true,
     );
 
     function onTableBlockScrollHanlder(e) {
@@ -231,10 +232,7 @@ export class CompareRunView extends Component {
                 </th>
               </tr>
             </tbody>
-            <tbody
-              className='table-block param-block no-scrollbar'
-              style={{ maxHeight: '500px' }}
-            >
+            <tbody className='table-block param-block no-scrollbar' style={{ maxHeight: '500px' }}>
               {this.renderDataRows(this.props.paramLists, true)}
             </tbody>
             <tbody className='table-block no-scrollbar'>
@@ -267,10 +265,7 @@ export class CompareRunView extends Component {
                 </th>
               </tr>
             </tbody>
-            <tbody
-              className='table-block metric-block no-scrollbar'
-              style={{ maxHeight: '300px' }}
-            >
+            <tbody className='table-block metric-block no-scrollbar' style={{ maxHeight: '300px' }}>
               {this.renderDataRows(
                 this.props.metricLists,
                 false,

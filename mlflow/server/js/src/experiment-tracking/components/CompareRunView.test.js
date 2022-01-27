@@ -4,26 +4,22 @@ import Fixtures from '../utils/test-utils/Fixtures';
 import Utils from '../../common/utils/Utils';
 import { CompareRunView } from './CompareRunView';
 import { createIntl } from 'react-intl';
-import { BrowserRouter } from 'react-router-dom';
 
 const getCompareRunViewMock = () => {
   return shallow(
-    <BrowserRouter>
-      <CompareRunView
-        runInfos={[Fixtures.createRunInfo(), Fixtures.createRunInfo()]}
-        experiment={Fixtures.createExperiment()}
-        experimentId={'0'}
-        runUuids={['0']}
-        metricLists={[]}
-        paramLists={[]}
-        runNames={['run1']}
-        runDisplayNames={['run1DisplayName', 'run2DisplayName']}
-        intl={createIntl({ locale: 'en' })}
-      />
-    </BrowserRouter>,
+    <CompareRunView
+      runInfos={[Fixtures.createRunInfo(), Fixtures.createRunInfo()]}
+      experiment={Fixtures.createExperiment()}
+      experimentId={'0'}
+      runUuids={['0']}
+      metricLists={[]}
+      paramLists={[]}
+      runNames={['run1']}
+      runDisplayNames={['run1DisplayName', 'run2DisplayName']}
+      intl={createIntl({ locale: 'en' })}
+    />,
   );
 };
-
 
 test('Page title is set', () => {
   const mockUpdatePageTitle = jest.fn();
