@@ -76,7 +76,7 @@ jobs:
         path: ${{ env.R_LIBS_USER }}
         # We cache R dependencies based on a tuple of the current OS, the R version, and the list of
         # R dependencies
-        key: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('mlflow/R/mlflow/R-version') }}-1-${{ hashFiles('mlflow/R/mlflow/depends.Rds') }}
+        key: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('mlflow/R/mlflow/R-version') }}-0-${{ hashFiles('mlflow/R/mlflow/depends.Rds') }}
     - name: Install dependencies
       run: |
         Rscript -e 'source(".install-deps.R", echo=TRUE)'
