@@ -169,10 +169,14 @@ export class ExperimentPage extends Component {
   maybeReloadData(prevProps, prevState) {
     if (this.props.experimentId !== prevProps.experimentId) {
       this.loadData();
-    } else if (this.filtersDidUpdate(prevState)) {
+    } else if (this.filtersDidUpdate(prevState) || this.lastRunsRefreshTimeDidUpdate(prevState)) {
       // Reload data if filter state change requires it
       this.handleGettingRuns(this.props.searchRunsApi, this.state.searchRunsRequestId);
     }
+  }
+
+  lastRunsRefreshTimeDidUpdate(prevState) {
+    return this.state.lastRunsRefreshTime !== prevState.lastRunsRefreshTime;
   }
 
   filtersDidUpdate(prevState) {
@@ -311,10 +315,6 @@ export class ExperimentPage extends Component {
       () => {
         this.updateUrlWithViewState();
         this.snapshotComponentState();
-        this.handleGettingRuns(this.props.searchRunsApi, this.state.searchRunsRequestId);
-        if (!this.detectNewRunsTimer) {
-          this.detectNewRunsTimer = setInterval(() => this.pollNewRuns(), POLL_INTERVAL);
-        }
       },
     );
   };
