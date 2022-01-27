@@ -17,10 +17,18 @@ const completeRequest = {
 };
 
 const errorRequest = {
-  id: 'a',
+  id: 'errorId',
   active: false,
   error: new ErrorWrapper({
     responseText: `{"error_code": "${ErrorCodes.RESOURCE_DOES_NOT_EXIST}"}`,
+  }),
+};
+
+const non404ErrorRequest = {
+  id: 'errorId2',
+  active: false,
+  error: new ErrorWrapper({
+    responseText: `{"error_code": "${ErrorCodes.INTERNAL_ERROR}"}`,
   }),
 };
 
@@ -72,6 +80,35 @@ test('Throws exception if errorRenderFunc returns undefined and wrapper has bad 
     shallow(
       <RequestStateWrapper
         requests={[errorRequest]}
+        errorRenderFunc={() => {
+          return undefined;
+        }}
+      >
+        <div className='child'>I am the child</div>
+      </RequestStateWrapper>,
+    );
+    assert.fail();
+  } catch (e) {
+    expect(e.message).toContain(DEFAULT_ERROR_MESSAGE);
+  }
+});
+
+test('Renders child if request expectedly returns a 404', () => {
+  const wrapper = shallow(
+    <RequestStateWrapper requests={[errorRequest]} requestIdsWith404sToIgnore={[errorRequest.id]}>
+      <div className='child'>I am the child</div>
+    </RequestStateWrapper>,
+  );
+  expect(wrapper.find('div.child')).toHaveLength(1);
+  expect(wrapper.find('div.child').text()).toContain('I am the child');
+});
+
+test('Does not render child if request returns a non-404 error', () => {
+  try {
+    shallow(
+      <RequestStateWrapper
+        requests={[non404ErrorRequest]}
+        requestIdsWith404sToIgnore={[errorRequest.id]}
         errorRenderFunc={() => {
           return undefined;
         }}

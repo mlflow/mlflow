@@ -224,19 +224,20 @@ jobs:
     - name: Set up Node
       uses: actions/setup-node@v1
       with:
-        node-version: 14.x
+        node-version: "16"
     - name: Install dependencies
       run: |
-        npm i
+        yarn install
+        git diff --exit-code
     - name: Run lint
       run: |
-        npm run lint
+        yarn run lint
     - name: Run extract-i18n lint
       run: |
-        npm run extract-i18n:base -- --lint
+        yarn run extract-i18n:base --lint
     - name: Run tests
       run: |
-        npm run test
+        yarn run test
 
   protos:
     runs-on: ubuntu-latest
@@ -377,14 +378,14 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v1
         with:
-          node-version: 14.x
+          node-version: "16"
       - name: Install JS dependencies
         working-directory: mlflow/server/js
         shell: pwsh
         run: |
-          npm i
+          yarn install
       - name: Run JS tests
         working-directory: mlflow/server/js
         shell: pwsh
         run: |
-          npm run test
+          yarn run test
