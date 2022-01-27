@@ -222,7 +222,7 @@ jobs:
     - name: Set up Node
       uses: actions/setup-node@v1
       with:
-        node-version: 16.x
+        node-version: "16"
     - name: Install dependencies
       run: |
         yarn install
@@ -375,7 +375,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v1
         with:
-          node-version: 16.x
+          node-version: "16"
       - name: Install JS dependencies
         working-directory: mlflow/server/js
         shell: pwsh
