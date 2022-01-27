@@ -4,8 +4,6 @@ import Fixtures from '../utils/test-utils/Fixtures';
 import Utils from '../../common/utils/Utils';
 import { CompareRunView } from './CompareRunView';
 import { createIntl } from 'react-intl';
-
-import { mountWithIntl } from '../../common/utils/TestUtils';
 import { BrowserRouter } from 'react-router-dom';
 
 const getCompareRunViewMock = () => {
@@ -31,5 +29,5 @@ test('Page title is set', () => {
   const mockUpdatePageTitle = jest.fn();
   Utils.updatePageTitle = mockUpdatePageTitle;
   getCompareRunViewMock();
-  // expect(mockUpdatePageTitle.mock.calls[0][0]).toBe('Comparing 2 MLflow Runs');
+  expect(mockUpdatePageTitle.mock.calls[0][0]).toBe('Comparing 2 MLflow Runs');
 });
