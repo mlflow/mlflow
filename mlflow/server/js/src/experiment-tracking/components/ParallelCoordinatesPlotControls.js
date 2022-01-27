@@ -33,10 +33,10 @@ export class ParallelCoordinatesPlotControls extends React.Component {
     return (
       <div className='plot-controls'>
         <div>
-        <FormattedMessage
-          defaultMessage='Parameters:'
-          description='Label text for parameters in parallel coordinates plot in MLflow'
-        />
+          <FormattedMessage
+            defaultMessage='Parameters:'
+            description='Label text for parameters in parallel coordinates plot in MLflow'
+          />
         </div>
         <TreeSelect
           className='metrics-select'

@@ -118,13 +118,15 @@ export class CompareRunView extends Component {
             />
           </TabPane>
         </Tabs>
-        <h1>
-          <FormattedMessage
-            defaultMessage='Run details'
-            // eslint-disable-next-line max-len
-            description='Compare table title on the compare runs page'
-          />
-        </h1>
+        <div style={{ marginTop: 20 }}>
+          <h1>
+            <FormattedMessage
+              defaultMessage='Run details'
+              // eslint-disable-next-line max-len
+              description='Compare table title on the compare runs page'
+            />
+          </h1>
+        </div>
         <div className='responsive-table-container'>
           <table className='compare-table table'>
             <thead>
