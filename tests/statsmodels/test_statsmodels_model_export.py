@@ -4,6 +4,7 @@ import pandas as pd
 from unittest import mock
 import os
 import yaml
+from io import BytesIO
 
 import mlflow.statsmodels
 import mlflow.utils
@@ -408,5 +409,5 @@ def test_pyfunc_serve_and_score():
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    scores = pd.read_json(resp.content, orient="records").values.squeeze()
+    scores = pd.read_json(BytesIO(resp.content), orient="records").values.squeeze()
     np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe))
