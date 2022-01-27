@@ -9,17 +9,17 @@ import { BrowserRouter } from 'react-router-dom';
 const getCompareRunViewMock = () => {
   return shallow(
     <BrowserRouter>
-    <CompareRunView
-      runInfos={[Fixtures.createRunInfo(), Fixtures.createRunInfo()]}
-      experiment={Fixtures.createExperiment()}
-      experimentId={'0'}
-      runUuids={['0']}
-      metricLists={[]}
-      paramLists={[]}
-      runNames={['run1']}
-      runDisplayNames={['run1DisplayName', 'run2DisplayName']}
-      intl={createIntl({ locale: 'en' })}
-    />
+      <CompareRunView
+        runInfos={[Fixtures.createRunInfo(), Fixtures.createRunInfo()]}
+        experiment={Fixtures.createExperiment()}
+        experimentId={'0'}
+        runUuids={['0']}
+        metricLists={[]}
+        paramLists={[]}
+        runNames={['run1']}
+        runDisplayNames={['run1DisplayName', 'run2DisplayName']}
+        intl={createIntl({ locale: 'en' })}
+      />
     </BrowserRouter>,
   );
 };

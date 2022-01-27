@@ -48,6 +48,26 @@ export class CompareRunView extends Component {
       },
     );
     Utils.updatePageTitle(pageTitle);
+    this.adjustTableColumnWidth(this.props.runInfos.length)
+    window.addEventListener(
+      'resize',
+      e => this.adjustTableColumnWidth(this.props.runInfos.length), true
+    );
+
+    function onTableBlockScrollHanlder(e) {
+      const blocks = document.querySelectorAll('.compare-table .table-block');
+      for (let index = 0; index < blocks.length; ++index) {
+        const block = blocks[index];
+        if (block !== e.target) {
+          block.scrollLeft = e.target.scrollLeft;
+        }
+      }
+    }
+    const blocks = document.querySelectorAll('.compare-table .table-block');
+    for (let index = 0; index < blocks.length; ++index) {
+      const block = blocks[index];
+      block.onscroll = onTableBlockScrollHanlder;
+    }
   }
 
   adjustTableColumnWidth(numRuns) {
@@ -97,33 +117,10 @@ export class CompareRunView extends Component {
       title,
     ];
 
-    window.addEventListener('resize', (e) => this.adjustTableColumnWidth(runInfos.length), true);
-    // adjust width immediately before loading page.
-    setImmediate(() => this.adjustTableColumnWidth(runInfos.length));
-
-    function onTableBlockScrollHanlder(e) {
-      const blocks = document.querySelectorAll('.compare-table .table-block');
-      for (let index = 0; index < blocks.length; ++index) {
-        const block = blocks[index];
-        if (block !== e.target) {
-          block.scrollLeft = e.target.scrollLeft;
-        }
-      }
-    }
-
     function onCollapsibleSectionChanged(blockClass, hideBlock) {
       const blockElem = document.querySelectorAll(`.compare-table .${blockClass}`)[0];
       blockElem.style.display = hideBlock ? 'none' : 'block';
     }
-
-    // install table block scroll offset adjusting handler
-    setImmediate(() => {
-      const blocks = document.querySelectorAll('.compare-table .table-block');
-      for (let index = 0; index < blocks.length; ++index) {
-        const block = blocks[index];
-        block.onscroll = onTableBlockScrollHanlder;
-      }
-    });
 
     return (
       <div className='CompareRunView'>
@@ -236,7 +233,7 @@ export class CompareRunView extends Component {
             </tbody>
             <tbody
               className='table-block param-block no-scrollbar'
-              style={{ 'max-height': '500px' }}
+              style={{ maxHeight: '500px' }}
             >
               {this.renderDataRows(this.props.paramLists, true)}
             </tbody>
@@ -272,7 +269,7 @@ export class CompareRunView extends Component {
             </tbody>
             <tbody
               className='table-block metric-block no-scrollbar'
-              style={{ 'max-height': '300px' }}
+              style={{ maxHeight: '300px' }}
             >
               {this.renderDataRows(
                 this.props.metricLists,
