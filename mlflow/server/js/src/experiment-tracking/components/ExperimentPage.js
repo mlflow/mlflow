@@ -25,7 +25,7 @@ import {
   LIFECYCLE_FILTER,
   PAGINATION_DEFAULT_STATE,
   MAX_DETECT_NEW_RUNS_RESULTS,
-  DETECT_NEW_RUNS_INTERVAL,
+  POLL_INTERVAL,
   ATTRIBUTE_COLUMN_SORT_KEY,
   COLUMN_TYPES,
 } from '../constants';
@@ -87,12 +87,15 @@ export class ExperimentPage extends Component {
         ...store.loadComponentState(),
         ...Utils.getSearchParamsFromUrl(props.location.search),
       }).toJSON(),
+      pollingState: {
+        newRuns: true,
+      },
     };
   }
 
   componentDidMount() {
     this.loadData();
-    this.detectNewRunsTimer = setInterval(() => this.detectNewRuns(), DETECT_NEW_RUNS_INTERVAL);
+    this.pollTimer = setInterval(() => this.pollInfo(), POLL_INTERVAL);
   }
 
   componentDidUpdate(prevProps, prevState) {
@@ -145,10 +148,8 @@ export class ExperimentPage extends Component {
   }
 
   componentWillUnmount() {
-    clearInterval(this.detectNewRunsTimer);
-    this.detectNewRunsTimer = null;
-    // Snapshot component state on unmounts to ensure we've captured component state in cases where
-    // componentDidUpdate doesn't fire.
+    clearInterval(this.pollTimer);
+    this.pollTimer = null;
     this.snapshotComponentState();
   }
 
@@ -168,10 +169,14 @@ export class ExperimentPage extends Component {
   maybeReloadData(prevProps, prevState) {
     if (this.props.experimentId !== prevProps.experimentId) {
       this.loadData();
-    } else if (this.filtersDidUpdate(prevState)) {
+    } else if (this.filtersDidUpdate(prevState) || this.lastRunsRefreshTimeDidUpdate(prevState)) {
       // Reload data if filter state change requires it
       this.handleGettingRuns(this.props.searchRunsApi, this.state.searchRunsRequestId);
     }
+  }
+
+  lastRunsRefreshTimeDidUpdate(prevState) {
+    return this.state.lastRunsRefreshTime !== prevState.lastRunsRefreshTime;
   }
 
   filtersDidUpdate(prevState) {
@@ -294,7 +299,7 @@ export class ExperimentPage extends Component {
   onSearch = (searchValue) => {
     const { persistedState } = this.state;
     this.setState(
-      {
+      (prevState) => ({
         lastRunsRefreshTime: Date.now(),
         numberOfNewRuns: 0,
         persistedState: new ExperimentPagePersistedState({
@@ -302,16 +307,14 @@ export class ExperimentPage extends Component {
           ...searchValue,
         }).toJSON(),
         nextPageToken: null,
-      },
+        pollingState: {
+          ...prevState.pollingState,
+          newRuns: true,
+        },
+      }),
       () => {
         this.updateUrlWithViewState();
         this.snapshotComponentState();
-        if (!this.detectNewRunsTimer) {
-          this.detectNewRunsTimer = setInterval(
-            () => this.detectNewRuns(),
-            DETECT_NEW_RUNS_INTERVAL,
-          );
-        }
       },
     );
   };
@@ -416,33 +419,48 @@ export class ExperimentPage extends Component {
     }
   };
 
-  async detectNewRuns() {
+  /*
+  The component will call pollInfo for any info it needs to poll, and pollingState is responsible
+  for keeping track of which things to poll.
+  */
+  async pollInfo() {
     if (Utils.isBrowserTabVisible()) {
-      const lastRunsRefreshTime = this.state.lastRunsRefreshTime || 0;
-      const latestRuns = await this.props.searchForNewRuns({
-        experimentIds: [this.props.experimentId],
-        maxResults: MAX_DETECT_NEW_RUNS_RESULTS,
-      });
-      let numberOfNewRuns = 0;
-      if (latestRuns && latestRuns.runs) {
-        numberOfNewRuns = latestRuns.runs.filter((run) => isNewRun(lastRunsRefreshTime, run))
-          .length;
+      const promiseArray = [];
+      if (this.state.pollingState.newRuns) {
+        promiseArray.push(this.pollNewRuns());
+      }
+      await Promise.all(promiseArray);
+    }
+  }
 
+  async pollNewRuns() {
+    const lastRunsRefreshTime = this.state.lastRunsRefreshTime || 0;
+    const latestRuns = await this.props.searchForNewRuns({
+      experimentIds: [this.props.experimentId],
+      maxResults: MAX_DETECT_NEW_RUNS_RESULTS,
+    });
+    let numberOfNewRuns = 0;
+    if (latestRuns && latestRuns.runs) {
+      numberOfNewRuns = latestRuns.runs.filter((run) => isNewRun(lastRunsRefreshTime, run)).length;
+    }
+
+    this.setState((previousState) => {
+      if (previousState.numberOfNewRuns !== numberOfNewRuns) {
         if (numberOfNewRuns >= MAX_DETECT_NEW_RUNS_RESULTS) {
-          clearInterval(this.detectNewRunsTimer);
-          this.detectNewRunsTimer = null;
+          return {
+            pollingState: {
+              ...previousState.pollingState,
+              newRuns: false,
+            },
+            numberOfNewRuns: numberOfNewRuns,
+          };
         }
+        return { numberOfNewRuns };
       }
 
-      this.setState((previousState) => {
-        if (previousState.numberOfNewRuns !== numberOfNewRuns) {
-          return { numberOfNewRuns };
-        }
-
-        // Don't re-render the component if the state is exactly the same
-        return null;
-      });
-    }
+      // Don't re-render the component if the state is exactly the same
+      return null;
+    });
   }
 
   getOrderByExpr() {

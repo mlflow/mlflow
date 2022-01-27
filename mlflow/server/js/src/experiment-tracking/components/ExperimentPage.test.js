@@ -13,7 +13,7 @@ import { ErrorWrapper, getUUID } from '../../common/utils/ActionUtils';
 import { MAX_RUNS_IN_SEARCH_MODEL_VERSIONS_FILTER } from '../../model-registry/constants';
 import {
   ATTRIBUTE_COLUMN_SORT_KEY,
-  DETECT_NEW_RUNS_INTERVAL,
+  POLL_INTERVAL,
   MAX_DETECT_NEW_RUNS_RESULTS,
   PAGINATION_DEFAULT_STATE,
   DEFAULT_ORDER_BY_KEY,
@@ -329,7 +329,7 @@ test('should update next page token to null when load-more response has no token
 });
 
 test('should set state to default values on promise rejection when loading more', () => {
-  loadMoreRunsApi = jest.fn(() => Promise.reject());
+  loadMoreRunsApi = jest.fn(() => Promise.reject(new Error('loadMoreRuns rejected')));
   const wrapper = getExperimentPageMock();
   const instance = wrapper.instance();
   return Promise.resolve(instance.handleLoadMoreRuns()).then(() => {
@@ -342,7 +342,7 @@ test('should set state to default values on promise rejection when loading more'
 });
 
 test('should set state to default values on promise rejection onSearch', () => {
-  searchRunsApi = jest.fn(() => Promise.reject());
+  searchRunsApi = jest.fn(() => Promise.reject(new Error('searchRuns rejected')));
   const wrapper = getExperimentPageMock();
   const instance = wrapper.instance();
   return Promise.resolve(instance.onSearch({})).then(() => {
@@ -584,80 +584,94 @@ test('lifecycleFilterToRunViewType', () => {
   expect(lifecycleFilterToRunViewType('Deleted')).toBe('DELETED_ONLY');
 });
 
-describe('detectNewRuns', () => {
-  describe('refresh behaviour', () => {
-    test('Should refresh once after DETECT_NEW_RUNS_INTERVAL', () => {
-      getExperimentPageMock();
-      jest.advanceTimersByTime(DETECT_NEW_RUNS_INTERVAL - 1);
-      expect(searchForNewRuns).toHaveBeenCalledTimes(0);
-      jest.advanceTimersByTime(1);
-      expect(searchForNewRuns).toHaveBeenCalledTimes(1);
+describe('pollInfo', () => {
+  test('Should be called every POLL_INTERVAL', () => {
+    const instance = getExperimentPageMock().instance();
+    instance.pollInfo = jest.fn();
+
+    jest.advanceTimersByTime(POLL_INTERVAL - 1);
+    expect(instance.pollInfo).toHaveBeenCalledTimes(0);
+    jest.advanceTimersByTime(1);
+    expect(instance.pollInfo).toHaveBeenCalledTimes(1);
+    jest.advanceTimersByTime(POLL_INTERVAL);
+    expect(instance.pollInfo).toHaveBeenCalledTimes(2);
+  });
+
+  test('Should not be called after unmount', async () => {
+    const wrapper = getExperimentPageMock();
+    const instance = wrapper.instance();
+    instance.pollInfo = jest.fn();
+    await instance.pollInfo();
+
+    wrapper.unmount();
+    jest.advanceTimersByTime(POLL_INTERVAL);
+    expect(instance.pollInfo).toHaveBeenCalledTimes(1);
+    jest.advanceTimersByTime(POLL_INTERVAL);
+    expect(instance.pollInfo).toHaveBeenCalledTimes(1);
+    jest.advanceTimersByTime(POLL_INTERVAL * 100);
+    expect(instance.pollInfo).toHaveBeenCalledTimes(1);
+  });
+
+  test('pollNewRuns is called if newRuns is true', async () => {
+    const instance = getExperimentPageMock().instance();
+    instance.pollNewRuns = jest.fn();
+
+    expect(instance.state.pollingState.newRuns).toEqual(true);
+    await instance.pollInfo();
+    expect(instance.pollNewRuns).toHaveBeenCalledTimes(1);
+  });
+
+  test('pollNewRuns is not called if newRuns is false', () => {
+    const instance = getExperimentPageMock().instance();
+    instance.pollNewRuns = jest.fn();
+
+    instance.setState(
+      {
+        pollingState: {
+          newRuns: false,
+        },
+      },
+      async () => {
+        await instance.pollInfo();
+        expect(instance.pollNewRuns).toHaveBeenCalledTimes(0);
+      },
+    );
+  });
+});
+
+describe('pollNewRuns', () => {
+  describe('newRuns state', () => {
+    const maxNewRuns = [];
+    for (let i = 0; i < MAX_DETECT_NEW_RUNS_RESULTS; i++) {
+      maxNewRuns.push({ info: { start_time: Date.now() + 10000 } });
+    }
+
+    test('Should set pollingState.newRuns to false if there are already max new runs', async () => {
+      const mockSearchForNewRuns = jest.fn(() => Promise.resolve({ runs: maxNewRuns }));
+      const instance = getExperimentPageMock({
+        searchForNewRuns: mockSearchForNewRuns,
+      }).instance();
+
+      expect(mockSearchForNewRuns).toHaveBeenCalledTimes(0);
+      await instance.pollNewRuns();
+      expect(mockSearchForNewRuns).toHaveBeenCalledTimes(1);
+      expect(instance.state.pollingState.newRuns).toEqual(false);
+      jest.advanceTimersByTime(POLL_INTERVAL * 100);
+      expect(mockSearchForNewRuns).toHaveBeenCalledTimes(1);
     });
 
-    test('Should refresh every DETECT_NEW_RUNS_INTERVAL', () => {
-      getExperimentPageMock();
-      jest.advanceTimersByTime(DETECT_NEW_RUNS_INTERVAL - 1);
-      expect(searchForNewRuns).toHaveBeenCalledTimes(0);
-      jest.advanceTimersByTime(1);
-      expect(searchForNewRuns).toHaveBeenCalledTimes(1);
-      jest.advanceTimersByTime(DETECT_NEW_RUNS_INTERVAL);
-      expect(searchForNewRuns).toHaveBeenCalledTimes(2);
-    });
+    test('Should set pollingState.newRuns to true if a new search is triggered', async () => {
+      const mockSearchForNewRuns = jest.fn(() => Promise.resolve({ runs: maxNewRuns }));
+      const instance = getExperimentPageMock({
+        searchForNewRuns: mockSearchForNewRuns,
+      }).instance();
 
-    test('Should not keep refreshing after unmount', () => {
-      const mock = getExperimentPageMock();
+      await instance.pollNewRuns();
+      expect(mockSearchForNewRuns).toHaveBeenCalledTimes(1);
+      expect(instance.state.pollingState.newRuns).toEqual(false);
 
-      mock.unmount();
-
-      jest.advanceTimersByTime(DETECT_NEW_RUNS_INTERVAL);
-      expect(searchForNewRuns).toHaveBeenCalledTimes(0);
-      jest.advanceTimersByTime(DETECT_NEW_RUNS_INTERVAL);
-      expect(searchForNewRuns).toHaveBeenCalledTimes(0);
-      jest.advanceTimersByTime(DETECT_NEW_RUNS_INTERVAL * 100);
-      expect(searchForNewRuns).toHaveBeenCalledTimes(0);
-    });
-
-    describe('Interval clearing behaviour', () => {
-      const maxNewRuns = [];
-      for (let i = 0; i < MAX_DETECT_NEW_RUNS_RESULTS; i++) {
-        maxNewRuns.push({ info: { start_time: Date.now() + 10000 } });
-      }
-
-      test('Should stop polling if there are already max new runs', async () => {
-        const mockSearchForNewRuns = jest.fn(() => Promise.resolve({ runs: maxNewRuns }));
-
-        const instance = getExperimentPageMock({
-          searchForNewRuns: mockSearchForNewRuns,
-        }).instance();
-
-        expect(mockSearchForNewRuns).toHaveBeenCalledTimes(0);
-        await instance.detectNewRuns();
-        expect(mockSearchForNewRuns).toHaveBeenCalledTimes(1);
-        expect(instance.detectNewRunsTimer).toEqual(null);
-        jest.advanceTimersByTime(DETECT_NEW_RUNS_INTERVAL * 100);
-        expect(mockSearchForNewRuns).toHaveBeenCalledTimes(1);
-      });
-
-      test('Should resume polling if a new search is triggered', async () => {
-        const mockSearchForNewRuns = jest.fn(() => Promise.resolve({ runs: maxNewRuns }));
-
-        const instance = getExperimentPageMock({
-          searchForNewRuns: mockSearchForNewRuns,
-        }).instance();
-
-        await instance.detectNewRuns();
-        expect(mockSearchForNewRuns).toHaveBeenCalledTimes(1);
-        expect(instance.detectNewRunsTimer).toEqual(null);
-        jest.advanceTimersByTime(DETECT_NEW_RUNS_INTERVAL * 100);
-        expect(mockSearchForNewRuns).toHaveBeenCalledTimes(1);
-
-        await instance.onSearch({});
-
-        jest.advanceTimersByTime(DETECT_NEW_RUNS_INTERVAL);
-        expect(mockSearchForNewRuns).toHaveBeenCalledTimes(2);
-        jest.advanceTimersByTime(DETECT_NEW_RUNS_INTERVAL);
-        expect(mockSearchForNewRuns).toHaveBeenCalledTimes(3);
-      });
+      await instance.onSearch();
+      expect(instance.state.pollingState.newRuns).toEqual(true);
     });
   });
 
@@ -672,7 +686,7 @@ describe('detectNewRuns', () => {
         searchForNewRuns: () => Promise.resolve({ runs: [] }),
       }).instance();
 
-      await instance.detectNewRuns();
+      await instance.pollNewRuns();
       expect(instance.state.numberOfNewRuns).toEqual(0);
     });
 
@@ -703,14 +717,14 @@ describe('detectNewRuns', () => {
         searchForNewRuns: mockSearchForNewRuns,
       }).instance();
 
-      await instance.detectNewRuns();
+      await instance.pollNewRuns();
       expect(instance.state.numberOfNewRuns).toEqual(2);
     });
 
     test('Should not explode if no runs', async () => {
       const instance = getExperimentPageMock().instance();
 
-      await instance.detectNewRuns();
+      await instance.pollNewRuns();
       expect(instance.state.numberOfNewRuns).toEqual(0);
     });
   });

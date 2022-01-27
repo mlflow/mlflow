@@ -4,6 +4,10 @@ import { DEFAULT_LOCALE, loadMessages } from './loadMessages';
 const FALLBACK_LOCALES = {
   fr: 'fr-FR',
   pt: 'pt-PT',
+  ja: 'ja-JP',
+  kr: 'kr-KR',
+  it: 'it-IT',
+  de: 'de-DE',
 };
 
 const loadedMessages = {};
