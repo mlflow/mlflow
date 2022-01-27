@@ -1,7 +1,8 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
-import { Icon } from 'antd';
+import { Input } from 'antd';
+import { EditOutlined } from '@ant-design/icons';
 import './ExperimentListView.css';
 import { getExperiments } from '../reducers/Reducers';
 import { Experiment } from '../sdk/MlflowMessages';
@@ -143,7 +144,7 @@ export class ExperimentListView extends Component {
               className='collapser fa fa-chevron-left login-icon'
             />
           </div>
-          <input
+          <Input
             className='experiment-list-search-input'
             type='text'
             placeholder='Search Experiments'
@@ -180,7 +181,7 @@ export class ExperimentListView extends Component {
                     </Link>
                     {/* Edit/Rename Experiment Option */}
                     <IconButton
-                      icon={<Icon type='edit' />}
+                      icon={<EditOutlined />}
                       onClick={this.handleRenameExperiment}
                       data-experimentid={experiment_id}
                       data-experimentname={name}

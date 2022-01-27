@@ -1,4 +1,3 @@
-import { shallow, mount } from 'enzyme';
 import { CompareModelVersionsView, CompareModelVersionsViewImpl } from './CompareModelVersionsView';
 import React from 'react';
 import thunk from 'redux-thunk';
@@ -7,11 +6,14 @@ import configureStore from 'redux-mock-store';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { RunInfo } from '../../experiment-tracking/sdk/MlflowMessages';
+import { mountWithIntl } from '../../common/utils/TestUtils';
 
 describe('unconnected tests', () => {
   let wrapper;
   let minimumProps;
+  let minimalStore;
   let commonProps;
+  const mockStore = configureStore([thunk, promiseMiddleware()]);
 
   beforeEach(() => {
     minimumProps = {
@@ -29,6 +31,19 @@ describe('unconnected tests', () => {
       outputsListByName: [],
       outputsListByIndex: [],
     };
+
+    minimalStore = mockStore({
+      entities: {
+        runInfosByUuid: { '123': RunInfo.fromJs({ dummy_key: 'dummy_value' }) },
+        latestMetricsByRunUuid: {
+          '123': [{ key: 'test_metric', value: 0.0 }],
+        },
+        paramsByRunUuid: { '123': [{ key: 'test_param', value: '0.0' }] },
+        tagsByRunUuid: { '123': [{ key: 'test_tag', value: 'test.user' }] },
+        mlModelArtifactByModelVersion: {},
+      },
+      apis: {},
+    });
 
     commonProps = {
       ...minimumProps,
@@ -58,12 +73,24 @@ describe('unconnected tests', () => {
   });
 
   test('unconnected should render with minimal props without exploding', () => {
-    wrapper = shallow(<CompareModelVersionsViewImpl {...minimumProps} />);
+    wrapper = mountWithIntl(
+      <Provider store={minimalStore}>
+        <BrowserRouter>
+          <CompareModelVersionsView {...minimumProps} />
+        </BrowserRouter>
+      </Provider>,
+    );
     expect(wrapper.length).toBe(1);
   });
 
   test('check that the component renders correctly with common props', () => {
-    wrapper = shallow(<CompareModelVersionsViewImpl {...commonProps} />);
+    wrapper = mountWithIntl(
+      <Provider store={minimalStore}>
+        <BrowserRouter>
+          <CompareModelVersionsView {...commonProps} />
+        </BrowserRouter>
+      </Provider>,
+    );
 
     // Checking the breadcrumb renders correctly
     expect(
@@ -142,7 +169,7 @@ describe('connected tests', () => {
   });
 
   test('connected should render with minimal props and minimal store without exploding', () => {
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <CompareModelVersionsView {...minimumProps} />
@@ -153,7 +180,7 @@ describe('connected tests', () => {
   });
 
   test('connected should render with minimal props and common store correctly', () => {
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={commonStore}>
         <BrowserRouter>
           <CompareModelVersionsView {...minimumProps} />
@@ -177,7 +204,7 @@ describe('connected tests', () => {
       modelName: 'test',
       versionsToRuns: { 1: '123', 2: null, 3: 'cats' },
     };
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={commonStore}>
         <BrowserRouter>
           <CompareModelVersionsView {...testProps} />
@@ -197,7 +224,7 @@ describe('connected tests', () => {
   });
 
   test('inputsList and outputsList props contains correct columns', () => {
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={commonStore}>
         <BrowserRouter>
           <CompareModelVersionsView {...minimumProps} />

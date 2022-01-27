@@ -21,8 +21,7 @@ from sklearn.datasets import fetch_20newsgroups
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from transformers import BertModel, BertTokenizer, AdamW
-from torchtext.utils import download_from_url, extract_archive
-from torchtext.datasets.text_classification import URLS
+import torchtext.datasets as td
 
 
 def get_20newsgroups(num_samples):
@@ -32,9 +31,9 @@ def get_20newsgroups(num_samples):
 
 
 def get_ag_news(num_samples):
-    dataset_tar = download_from_url(URLS["AG_NEWS"], root=".data")
-    extracted_files = extract_archive(dataset_tar)
-    train_csv_path = list(filter(lambda x: x.endswith("train.csv"), extracted_files))[0]
+    # reading the input
+    td.AG_NEWS(root="data", split=("train", "test"))
+    train_csv_path = "data/AG_NEWS/train.csv"
     return (
         pd.read_csv(train_csv_path, usecols=[0, 2], names=["label", "description"])
         .assign(label=lambda df: df["label"] - 1)  # make labels zero-based
@@ -270,7 +269,11 @@ class BertNewsClassifier(pl.LightningModule):
         """
         parser = ArgumentParser(parents=[parent_parser], add_help=False)
         parser.add_argument(
-            "--lr", type=float, default=0.001, metavar="LR", help="learning rate (default: 0.001)",
+            "--lr",
+            type=float,
+            default=0.001,
+            metavar="LR",
+            help="learning rate (default: 0.001)",
         )
         return parser
 
@@ -356,7 +359,12 @@ class BertNewsClassifier(pl.LightningModule):
         self.optimizer = AdamW(self.parameters(), lr=self.args["lr"])
         self.scheduler = {
             "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
-                self.optimizer, mode="min", factor=0.2, patience=2, min_lr=1e-6, verbose=True,
+                self.optimizer,
+                mode="min",
+                factor=0.2,
+                patience=2,
+                min_lr=1e-6,
+                verbose=True,
             ),
             "monitor": "val_loss",
         }
@@ -401,12 +409,16 @@ if __name__ == "__main__":
     early_stopping = EarlyStopping(monitor="val_loss", mode="min", verbose=True)
 
     checkpoint_callback = ModelCheckpoint(
-        filepath=os.getcwd(), save_top_k=1, verbose=True, monitor="val_loss", mode="min", prefix="",
+        dirpath=os.getcwd(),
+        save_top_k=1,
+        verbose=True,
+        monitor="val_loss",
+        mode="min",
     )
     lr_logger = LearningRateMonitor()
 
     trainer = pl.Trainer.from_argparse_args(
-        args, callbacks=[lr_logger, early_stopping], checkpoint_callback=checkpoint_callback
+        args, callbacks=[lr_logger, early_stopping, checkpoint_callback], checkpoint_callback=True
     )
     trainer.fit(model, dm)
-    trainer.test()
+    trainer.test(datamodule=dm)

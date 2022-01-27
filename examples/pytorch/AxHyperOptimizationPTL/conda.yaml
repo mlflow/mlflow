@@ -1,14 +1,11 @@
 channels:
-- defaults
 - conda-forge
-- pytorch
 dependencies:
 - python=3.8.2
-- pytorch>=1.6.0
-- torchvision
 - pip
 - pip:
   - mlflow
-  - pytorch-lightning
+  - pytorch-lightning==1.5.1
   - ax-platform
-
+  - torchvision>=0.9.1
+  - torch>=1.9.0

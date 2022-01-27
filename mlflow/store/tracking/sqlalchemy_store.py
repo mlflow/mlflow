@@ -1,6 +1,7 @@
 import json
 import logging
 import uuid
+import threading
 
 import math
 import sqlalchemy
@@ -22,6 +23,7 @@ from mlflow.store.tracking.dbmodels.models import (
 from mlflow.store.db.base_sql_model import Base
 from mlflow.entities import RunStatus, SourceType, Experiment
 from mlflow.store.tracking.abstract_store import AbstractStore
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -43,6 +45,7 @@ from mlflow.utils.validation import (
     _validate_metric,
     _validate_experiment_tag,
     _validate_tag,
+    _validate_list_experiments_max_results,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS
 
@@ -82,6 +85,8 @@ class SqlAlchemyStore(AbstractStore):
 
     ARTIFACTS_FOLDER_NAME = "artifacts"
     DEFAULT_EXPERIMENT_ID = "0"
+    _db_uri_sql_alchemy_engine_map = {}
+    _db_uri_sql_alchemy_engine_map_lock = threading.Lock()
 
     def __init__(self, db_uri, default_artifact_root):
         """
@@ -99,7 +104,19 @@ class SqlAlchemyStore(AbstractStore):
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
         self.artifact_root_uri = default_artifact_root
-        self.engine = mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(db_uri)
+        # Quick check to see if the respective SQLAlchemy database engine has already been created.
+        if db_uri not in SqlAlchemyStore._db_uri_sql_alchemy_engine_map:
+            with SqlAlchemyStore._db_uri_sql_alchemy_engine_map_lock:
+                # Repeat check to prevent race conditions where one thread checks for an existing
+                # engine while another is creating the respective one, resulting in multiple
+                # engines being created. It isn't combined with the above check to prevent
+                # inefficiency from multiple threads waiting for the lock to check for engine
+                # existence if it has already been created.
+                if db_uri not in SqlAlchemyStore._db_uri_sql_alchemy_engine_map:
+                    SqlAlchemyStore._db_uri_sql_alchemy_engine_map[
+                        db_uri
+                    ] = mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(db_uri)
+        self.engine = SqlAlchemyStore._db_uri_sql_alchemy_engine_map[db_uri]
         # On a completely fresh MLflow installation against an empty database (verify database
         # emptiness by checking that 'experiments' etc aren't in the list of table names), run all
         # DB migrations
@@ -207,7 +224,7 @@ class SqlAlchemyStore(AbstractStore):
     def _get_artifact_location(self, experiment_id):
         return append_to_uri_path(self.artifact_root_uri, str(experiment_id))
 
-    def create_experiment(self, name, artifact_location=None):
+    def create_experiment(self, name, artifact_location=None, tags=None):
         if name is None or name == "":
             raise MlflowException("Invalid experiment name", INVALID_PARAMETER_VALUE)
 
@@ -217,6 +234,9 @@ class SqlAlchemyStore(AbstractStore):
                     name=name,
                     lifecycle_stage=LifecycleStage.ACTIVE,
                     artifact_location=artifact_location,
+                )
+                experiment.tags = (
+                    [SqlExperimentTag(key=tag.key, value=tag.value) for tag in tags] if tags else []
                 )
                 session.add(experiment)
                 if not artifact_location:
@@ -233,7 +253,13 @@ class SqlAlchemyStore(AbstractStore):
             return str(experiment.experiment_id)
 
     def _list_experiments(
-        self, session, ids=None, names=None, view_type=ViewType.ACTIVE_ONLY, eager=False
+        self,
+        ids=None,
+        names=None,
+        view_type=ViewType.ACTIVE_ONLY,
+        max_results=None,
+        page_token=None,
+        eager=False,
     ):
         """
         :param eager: If ``True``, eagerly loads each experiments's tags. If ``False``, these tags
@@ -248,15 +274,61 @@ class SqlAlchemyStore(AbstractStore):
         if names and len(names) > 0:
             conditions.append(SqlExperiment.name.in_(names))
 
-        query_options = self._get_eager_experiment_query_options() if eager else []
-        return session.query(SqlExperiment).options(*query_options).filter(*conditions).all()
+        max_results_for_query = None
+        if max_results is not None:
+            max_results_for_query = max_results + 1
 
-    def list_experiments(self, view_type=ViewType.ACTIVE_ONLY):
+            def compute_next_token(current_size):
+                next_token = None
+                if max_results_for_query == current_size:
+                    final_offset = offset + max_results
+                    next_token = SearchUtils.create_page_token(final_offset)
+
+                return next_token
+
         with self.ManagedSessionMaker() as session:
-            return [
-                exp.to_mlflow_entity()
-                for exp in self._list_experiments(session=session, view_type=view_type, eager=True)
-            ]
+            query_options = self._get_eager_experiment_query_options() if eager else []
+            if max_results is not None:
+                offset = SearchUtils.parse_start_offset_from_page_token(page_token)
+                queried_experiments = (
+                    session.query(SqlExperiment)
+                    .options(*query_options)
+                    .filter(*conditions)
+                    .offset(offset)
+                    .limit(max_results_for_query)
+                    .all()
+                )
+            else:
+                queried_experiments = (
+                    session.query(SqlExperiment).options(*query_options).filter(*conditions).all()
+                )
+
+            experiments = [exp.to_mlflow_entity() for exp in queried_experiments]
+        if max_results is not None:
+            return PagedList(experiments[:max_results], compute_next_token(len(experiments)))
+        else:
+            return PagedList(experiments, None)
+
+    def list_experiments(
+        self,
+        view_type=ViewType.ACTIVE_ONLY,
+        max_results=None,
+        page_token=None,
+    ):
+        """
+        :param view_type: Qualify requested type of experiments.
+        :param max_results: If passed, specifies the maximum number of experiments desired. If not
+                            passed, all experiments will be returned.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                            a ``list_experiments`` call.
+        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+                 :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
+                 for the next page can be obtained via the ``token`` attribute of the object.
+        """
+        _validate_list_experiments_max_results(max_results)
+        return self._list_experiments(
+            view_type=view_type, max_results=max_results, page_token=page_token, eager=True
+        )
 
     def _get_experiment(self, session, experiment_id, view_type, eager=False):
         """
@@ -367,10 +439,7 @@ class SqlAlchemyStore(AbstractStore):
                 lifecycle_stage=LifecycleStage.ACTIVE,
             )
 
-            tags_dict = {}
-            for tag in tags:
-                tags_dict[tag.key] = tag.value
-            run.tags = [SqlTag(key=key, value=value) for key, value in tags_dict.items()]
+            run.tags = [SqlTag(key=tag.key, value=tag.value) for tag in tags] if tags else []
             self._save_to_db(objs=run, session=session)
 
             return run.to_mlflow_entity()
@@ -721,7 +790,7 @@ class SqlAlchemyStore(AbstractStore):
                 .filter(
                     SqlRun.experiment_id.in_(experiment_ids),
                     SqlRun.lifecycle_stage.in_(stages),
-                    *_get_attributes_filtering_clauses(parsed_filters)
+                    *_get_attributes_filtering_clauses(parsed_filters),
                 )
                 .order_by(*parsed_orderby)
                 .offset(offset)
@@ -782,7 +851,9 @@ def _get_attributes_filtering_clauses(parsed):
         key_name = sql_statement.get("key")
         value = sql_statement.get("value")
         comparator = sql_statement.get("comparator").upper()
-        if SearchUtils.is_attribute(key_type, comparator):
+        if SearchUtils.is_string_attribute(
+            key_type, key_name, comparator
+        ) or SearchUtils.is_numeric_attribute(key_type, key_name, comparator):
             # key_name is guaranteed to be a valid searchable attribute of entities.RunInfo
             # by the call to parse_search_filter
             attribute = getattr(SqlRun, SqlRun.get_attribute_name(key_name))
@@ -808,7 +879,9 @@ def _to_sqlalchemy_filtering_statement(sql_statement, session):
         entity = SqlParam
     elif SearchUtils.is_tag(key_type, comparator):
         entity = SqlTag
-    elif SearchUtils.is_attribute(key_type, comparator):
+    elif SearchUtils.is_string_attribute(
+        key_type, key_name, comparator
+    ) or SearchUtils.is_numeric_attribute(key_type, key_name, comparator):
         return None
     else:
         raise MlflowException(
@@ -853,7 +926,9 @@ def _get_orderby_clauses(order_by_list, session):
         for order_by_clause in order_by_list:
             clause_id += 1
             (key_type, key, ascending) = SearchUtils.parse_order_by_for_search_runs(order_by_clause)
-            if SearchUtils.is_attribute(key_type, "="):
+            if SearchUtils.is_string_attribute(
+                key_type, key, "="
+            ) or SearchUtils.is_numeric_attribute(key_type, key, "="):
                 order_value = getattr(SqlRun, SqlRun.get_attribute_name(key))
             else:
                 if SearchUtils.is_metric(key_type, "="):  # any valid comparator

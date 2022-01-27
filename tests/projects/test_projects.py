@@ -1,3 +1,4 @@
+import json
 import os
 import git
 import shutil
@@ -15,7 +16,6 @@ from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.projects import _parse_kubernetes_config
 from mlflow.projects import _resolve_experiment_id
 from mlflow.store.tracking.file_store import FileStore
-from mlflow.utils import env
 from mlflow.utils.mlflow_tags import (
     MLFLOW_PARENT_RUN_ID,
     MLFLOW_USER,
@@ -79,28 +79,20 @@ def test_resolve_experiment_id_should_not_allow_both_name_and_id_in_use():
 
 
 def test_invalid_run_mode():
-    """ Verify that we raise an exception given an invalid run mode """
-    with pytest.raises(ExecutionException):
+    """Verify that we raise an exception given an invalid run mode"""
+    with pytest.raises(
+        ExecutionException, match="Got unsupported execution mode some unsupported mode"
+    ):
         mlflow.projects.run(uri=TEST_PROJECT_DIR, backend="some unsupported mode")
 
 
 @pytest.mark.large
 def test_use_conda():
-    """ Verify that we correctly handle the `use_conda` argument."""
+    """Verify that we correctly handle the `use_conda` argument."""
     # Verify we throw an exception when conda is unavailable
-    old_path = os.environ["PATH"]
-    env.unset_variable("PATH")
-    conda_exe_path = ""
-    if "CONDA_EXE" in os.environ:
-        conda_exe_path = os.environ["CONDA_EXE"]
-        env.unset_variable("CONDA_EXE")
-    try:
-        with pytest.raises(ExecutionException):
+    with mock.patch("mlflow.utils.process.exec_cmd", side_effect=EnvironmentError):
+        with pytest.raises(ExecutionException, match="Could not find Conda executable"):
             mlflow.projects.run(TEST_PROJECT_DIR, use_conda=True)
-    finally:
-        os.environ["PATH"] = old_path
-        if conda_exe_path:
-            os.environ["CONDA_EXE"] = conda_exe_path
 
 
 @pytest.mark.large
@@ -300,9 +292,76 @@ def test_run_async():
 )
 def test_conda_path(mock_env, expected_conda, expected_activate):
     """Verify that we correctly determine the path to conda executables"""
-    with mock.patch.dict("os.environ", mock_env):
+    with mock.patch.dict("os.environ", mock_env, clear=True):
         assert mlflow.utils.conda.get_conda_bin_executable("conda") == expected_conda
         assert mlflow.utils.conda.get_conda_bin_executable("activate") == expected_activate
+
+
+@pytest.mark.parametrize(
+    "mock_env, expected_conda_env_create_path",
+    [
+        ({"CONDA_EXE": "/abc/conda"}, "/abc/conda"),
+        (
+            {"CONDA_EXE": "/abc/conda", mlflow.utils.conda.MLFLOW_CONDA_CREATE_ENV_CMD: "mamba"},
+            "/abc/mamba",
+        ),
+        ({mlflow.utils.conda.MLFLOW_CONDA_HOME: "/some/dir/"}, "/some/dir/bin/conda"),
+        (
+            {
+                mlflow.utils.conda.MLFLOW_CONDA_HOME: "/some/dir/",
+                mlflow.utils.conda.MLFLOW_CONDA_CREATE_ENV_CMD: "mamba",
+            },
+            "/some/dir/bin/mamba",
+        ),
+    ],
+)
+def test_find_conda_executables(mock_env, expected_conda_env_create_path):
+    """
+    Verify that we correctly determine the path to executables to be used to
+    create environments (for example, it could be mamba instead of conda)
+    """
+    with mock.patch.dict("os.environ", mock_env, clear=True):
+        conda_env_create_path = mlflow.utils.conda._get_conda_executable_for_create_env()
+        assert conda_env_create_path == expected_conda_env_create_path
+
+
+def test_create_env_with_mamba():
+    """
+    Test that mamba is called when set, and that we fail when mamba is not available or is
+    not working. We mock the calls so we do not actually execute mamba (which is not
+    installed in the test environment anyway)
+    """
+
+    def exec_cmd_mock(cmd, *args, **kwargs):  # pylint: disable=unused-argument
+
+        if cmd[-1] == "--json":
+            # We are supposed to list environments in JSON format
+            return None, json.dumps({"envs": ["mlflow-mock-environment"]}), None
+        else:
+            # Here we are creating the environment, no need to return
+            # anything
+            return None
+
+    def exec_cmd_mock_raise(cmd, *args, **kwargs):  # pylint: disable=unused-argument
+
+        if os.path.basename(cmd[0]) == "mamba":
+            raise EnvironmentError()
+
+    conda_env_path = os.path.join(TEST_PROJECT_DIR, "conda.yaml")
+
+    with mock.patch.dict("os.environ", {mlflow.utils.conda.MLFLOW_CONDA_CREATE_ENV_CMD: "mamba"}):
+
+        # Simulate success
+        with mock.patch("mlflow.utils.process.exec_cmd", side_effect=exec_cmd_mock):
+            mlflow.utils.conda.get_or_create_conda_env(conda_env_path)
+
+        # Simulate a non-working or non-existent mamba
+        with mock.patch("mlflow.utils.process.exec_cmd", side_effect=exec_cmd_mock_raise):
+            with pytest.raises(
+                ExecutionException,
+                match="You have set the env variable MLFLOW_CONDA_CREATE_ENV_CMD",
+            ):
+                mlflow.utils.conda.get_or_create_conda_env(conda_env_path)
 
 
 def test_cancel_run():
@@ -344,21 +403,62 @@ def test_parse_kubernetes_config():
     assert kube_config["kube-job-template"] == yaml_obj
 
 
-def test_parse_kubernetes_config_without_context():
-    kubernetes_config = {
-        "repository-uri": "dockerhub_account/mlflow-kubernetes-example",
-        "kube-job-template-path": "kubernetes_job_template.yaml",
-    }
-    with pytest.raises(ExecutionException):
+@pytest.fixture
+def mock_kubernetes_job_template(tmpdir):
+    tmp_path = tmpdir.join("kubernetes_job_template.yaml")
+    tmp_path.write(
+        """
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{replaced with MLflow Project name}"
+  namespace: mlflow
+spec:
+  ttlSecondsAfterFinished: 100
+  backoffLimit: 0
+  template:
+    spec:
+      containers:
+      - name: "{replaced with MLflow Project name}"
+        image: "{replaced with URI of Docker image created during Project execution}"
+        command: ["{replaced with MLflow Project entry point command}"]
+        resources:
+          limits:
+            memory: 512Mi
+          requests:
+            memory: 256Mi
+      restartPolicy: Never
+""".lstrip()
+    )
+    return tmp_path.strpath
+
+
+class StartsWithMatcher:
+    def __init__(self, prefix):
+        self.prefix = prefix
+
+    def __eq__(self, other):
+        return isinstance(other, str) and other.startswith(self.prefix)
+
+
+def test_parse_kubernetes_config_without_context(mock_kubernetes_job_template):
+    with mock.patch("mlflow.projects._logger.debug") as mock_debug:
+        kubernetes_config = {
+            "repository-uri": "dockerhub_account/mlflow-kubernetes-example",
+            "kube-job-template-path": mock_kubernetes_job_template,
+        }
         _parse_kubernetes_config(kubernetes_config)
+        mock_debug.assert_called_once_with(
+            StartsWithMatcher("Could not find kube-context in backend_config")
+        )
 
 
-def test_parse_kubernetes_config_without_image_uri():
+def test_parse_kubernetes_config_without_image_uri(mock_kubernetes_job_template):
     kubernetes_config = {
         "kube-context": "docker-for-desktop",
-        "kube-job-template-path": "kubernetes_job_template.yaml",
+        "kube-job-template-path": mock_kubernetes_job_template,
     }
-    with pytest.raises(ExecutionException):
+    with pytest.raises(ExecutionException, match="Could not find 'repository-uri'"):
         _parse_kubernetes_config(kubernetes_config)
 
 
@@ -368,14 +468,14 @@ def test_parse_kubernetes_config_invalid_template_job_file():
         "repository-uri": "username/mlflow-kubernetes-example",
         "kube-job-template-path": "file_not_found.yaml",
     }
-    with pytest.raises(ExecutionException):
+    with pytest.raises(ExecutionException, match="Could not find 'kube-job-template-path'"):
         _parse_kubernetes_config(kubernetes_config)
 
 
 @pytest.mark.parametrize("synchronous", [True, False])
 @mock.patch("databricks_cli.configure.provider.get_config")
 def test_credential_propagation(get_config, synchronous):
-    class DummyProcess(object):
+    class DummyProcess:
         def wait(self):
             return 0
 
@@ -385,7 +485,7 @@ def test_credential_propagation(get_config, synchronous):
         def communicate(self, _):
             return "", ""
 
-    get_config.return_value = DatabricksConfig("host", None, None, "mytoken", insecure=False)
+    get_config.return_value = DatabricksConfig.from_token("host", "mytoken", insecure=False)
     with mock.patch("subprocess.Popen") as popen_mock, mock.patch(
         "mlflow.utils.uri.is_databricks_uri"
     ) as is_databricks_tracking_uri_mock:

@@ -16,8 +16,12 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location,
     _validate_experiment_name,
     _validate_metric,
+    _validate_param_keys_unique,
+    PARAM_VALIDATION_MSG,
 )
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, ExperimentTag
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
@@ -25,7 +29,7 @@ from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri
 from collections import OrderedDict
 
 
-class TrackingServiceClient(object):
+class TrackingServiceClient:
     """
     Client of an MLflow Tracking Server that creates and manages experiments and runs.
     """
@@ -37,7 +41,15 @@ class TrackingServiceClient(object):
         :param tracking_uri: Address of local or remote tracking server.
         """
         self.tracking_uri = tracking_uri
-        self.store = utils._get_store(self.tracking_uri)
+        # NB: Fetch the tracking store (`self.store`) upon client initialization to ensure that
+        # the tracking URI is valid and the store can be properly resolved. We define `store` as a
+        # property method to ensure that the client is serializable, even if the store is not
+        # self.store  # pylint: disable=pointless-statement
+        self.store
+
+    @property
+    def store(self):
+        return utils._get_store(self.tracking_uri)
 
     def get_run(self, run_id):
         """
@@ -104,17 +116,41 @@ class TrackingServiceClient(object):
         order_by=None,
         page_token=None,
     ):
-        """:return: List of :py:class:`mlflow.entities.RunInfo`"""
+        """
+        Return run information for runs which belong to the experiment_id.
+
+        :param experiment_id: The experiment id which to search
+        :param run_view_type: ACTIVE_ONLY, DELETED_ONLY, or ALL runs
+        :param max_results: Maximum number of results desired.
+        :param order_by: List of order_by clauses. Currently supported values are
+            are ``metric.key``, ``parameter.key``, ``tag.key``, ``attribute.key``.
+            For example, ``order_by=["tag.release ASC", "metric.click_rate DESC"]``.
+
+        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`RunInfo <mlflow.entities.RunInfo>` objects that satisfy the search
+            expressions. If the underlying tracking store supports pagination, the token for the
+            next page may be obtained via the ``token`` attribute of the returned object.
+        """
         return self.store.list_run_infos(
             experiment_id, run_view_type, max_results, order_by, page_token
         )
 
-    def list_experiments(self, view_type=None):
+    def list_experiments(self, view_type=ViewType.ACTIVE_ONLY, max_results=None, page_token=None):
         """
-        :return: List of :py:class:`mlflow.entities.Experiment`
+        :param view_type: Qualify requested type of experiments.
+        :param max_results: If passed, specifies the maximum number of experiments desired.
+                            If not passed, all experiments will be returned for the File and
+                            SQLAlchemy backends. For the REST backend, the server will determine
+                            an appropriate number of experiments to return.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                            a ``list_experiments`` call.
+        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+                 :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
+                 for the next page can be obtained via the ``token`` attribute of the object.
         """
-        final_view_type = ViewType.ACTIVE_ONLY if view_type is None else view_type
-        return self.store.list_experiments(view_type=final_view_type)
+        return self.store.list_experiments(
+            view_type=view_type, max_results=max_results, page_token=page_token
+        )
 
     def get_experiment(self, experiment_id):
         """
@@ -130,17 +166,24 @@ class TrackingServiceClient(object):
         """
         return self.store.get_experiment_by_name(name)
 
-    def create_experiment(self, name, artifact_location=None):
+    def create_experiment(self, name, artifact_location=None, tags=None):
         """Create an experiment.
 
         :param name: The experiment name. Must be unique.
         :param artifact_location: The location to store run artifacts.
                                   If not provided, the server picks an appropriate default.
+        :param tags: A dictionary of key-value pairs that are converted into
+                                  :py:class:`mlflow.entities.ExperimentTag` objects.
         :return: Integer ID of the created experiment.
         """
         _validate_experiment_name(name)
         _validate_experiment_artifact_location(artifact_location)
-        return self.store.create_experiment(name=name, artifact_location=artifact_location,)
+
+        return self.store.create_experiment(
+            name=name,
+            artifact_location=artifact_location,
+            tags=[ExperimentTag(key, value) for (key, value) in tags.items()] if tags else [],
+        )
 
     def delete_experiment(self, experiment_id):
         """
@@ -171,10 +214,15 @@ class TrackingServiceClient(object):
         Log a metric against the run ID.
 
         :param run_id: The run id to which the metric should be logged.
-        :param key: Metric name.
+        :param key: Metric name (string). This string may only contain alphanumerics,
+                    underscores (_), dashes (-), periods (.), spaces ( ), and slashes (/).
+                    All backend stores will support keys up to length 250, but some may
+                    support larger keys.
         :param value: Metric value (float). Note that some special values such
                       as +/- Infinity may be replaced by other values depending on the store. For
                       example, the SQLAlchemy store replaces +/- Inf with max / min float values.
+                      All backend stores will support values up to length 5000, but some
+                      may support larger values.
         :param timestamp: Time when this metric was calculated. Defaults to the current system time.
         :param step: Training step (iteration) at which was the metric calculated. Defaults to 0.
         """
@@ -190,7 +238,14 @@ class TrackingServiceClient(object):
         """
         _validate_param_name(key)
         param = Param(key, str(value))
-        self.store.log_param(run_id, param)
+        try:
+            self.store.log_param(run_id, param)
+        except MlflowException as e:
+            if e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE):
+                msg = f"{e.message}{PARAM_VALIDATION_MSG}'"
+                raise MlflowException(msg, INVALID_PARAMETER_VALUE)
+            else:
+                raise e
 
     def set_experiment_tag(self, experiment_id, key, value):
         """
@@ -209,8 +264,13 @@ class TrackingServiceClient(object):
         Set a tag on the run with the specified ID. Value is converted to a string.
 
         :param run_id: String ID of the run.
-        :param key: Name of the tag.
-        :param value: Tag value (converted to a string)
+        :param key: Tag name (string). This string may only contain alphanumerics, underscores
+                    (_), dashes (-), periods (.), spaces ( ), and slashes (/).
+                    All backend stores will support keys up to length 250, but some may
+                    support larger keys.
+        :param value: Tag value (string, but will be string-ified if not).
+                      All backend stores will support values up to length 5000, but some
+                      may support larger values.
         """
         _validate_tag_name(key)
         tag = RunTag(key, str(value))
@@ -239,6 +299,8 @@ class TrackingServiceClient(object):
         """
         if len(metrics) == 0 and len(params) == 0 and len(tags) == 0:
             return
+        if len(params) > 1:
+            _validate_param_keys_unique(params)
         for metric in metrics:
             _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
         for param in params:
@@ -375,9 +437,10 @@ class TrackingServiceClient(object):
         :param page_token: Token specifying the next page of results. It should be obtained from
             a ``search_runs`` call.
 
-        :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
-            expressions. If the underlying tracking store supports pagination, the token for
-            the next page may be obtained via the ``token`` attribute of the returned object.
+        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`Run <mlflow.entities.Run>` objects that satisfy the search expressions.
+            If the underlying tracking store supports pagination, the token for the next page may
+            be obtained via the ``token`` attribute of the returned object.
         """
         if isinstance(experiment_ids, int) or is_string_type(experiment_ids):
             experiment_ids = [experiment_ids]

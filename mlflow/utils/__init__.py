@@ -78,15 +78,23 @@ def _chunk_dict(d, chunk_size):
         yield {k: d[k] for k in islice(it, chunk_size)}
 
 
+def _truncate_and_ellipsize(value, max_length):
+    """
+    Truncates the string representation of the specified value to the specified
+    maximum length, if necessary. The end of the string is ellipsized if truncation occurs
+    """
+    value = str(value)
+    if len(value) > max_length:
+        return value[: (max_length - 3)] + "..."
+    else:
+        return value
+
+
 def _truncate_dict(d, max_key_length=None, max_value_length=None):
     """
     Truncates keys and/or values in a dictionary to the specified maximum length.
     Truncated items will be converted to strings and ellipsized.
     """
-
-    def _truncate_and_ellipsize(value, max_length):
-        return str(value)[: (max_length - 3)] + "..."
-
     key_is_none = max_key_length is None
     val_is_none = max_value_length is None
 
@@ -120,3 +128,47 @@ def _get_fully_qualified_class_name(obj):
     Obtains the fully qualified class name of the given object.
     """
     return obj.__class__.__module__ + "." + obj.__class__.__name__
+
+
+def _inspect_original_var_name(var, fallback_name):
+    """
+    Inspect variable name, will search above frames and fetch the same instance variable name
+    in the most outer frame.
+    If inspect failed, return fallback_name
+    """
+    import inspect
+
+    if var is None:
+        return fallback_name
+    try:
+        original_var_name = fallback_name
+
+        frame = inspect.currentframe().f_back
+        while frame is not None:
+            arg_info = inspect.getargvalues(frame)  # pylint: disable=deprecated-method
+
+            fixed_args = [arg_info.locals[arg_name] for arg_name in arg_info.args]
+            varlen_args = list(arg_info.locals[arg_info.varargs]) if arg_info.varargs else []
+            keyword_args = (
+                list(arg_info.locals[arg_info.keywords].values()) if arg_info.keywords else []
+            )
+
+            all_args = fixed_args + varlen_args + keyword_args
+
+            # check whether `var` is in arg list first. If yes, go to check parent frame.
+            if any(var is arg for arg in all_args):
+                # the var is passed in from caller, check parent frame.
+                frame = frame.f_back
+                continue
+
+            for var_name, var_val in frame.f_locals.items():
+                if var_val is var:
+                    original_var_name = var_name
+                    break
+
+            break
+
+        return original_var_name
+
+    except Exception:
+        return fallback_name

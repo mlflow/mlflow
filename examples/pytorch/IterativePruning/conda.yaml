@@ -1,15 +1,20 @@
 channels:
-- defaults
 - conda-forge
-- pytorch
 dependencies:
 - python=3.8.2
-- pytorch>=1.6.0
 - pip
 - pip:
   - mlflow
-  - torchvision
+  - torchvision>=0.9.1
   - cloudpickle==1.6.0
-  - pytorch_lightning>=1.0.5
+  - pytorch_lightning==1.5.1
   - ax-platform
   - prettytable
+  - torch>=1.9.0
+  # torch <= 1.10.1 doesn't work with setuptools >= 59.6.0.
+  # See the following PRs for details:
+  # https://github.com/pytorch/pytorch/pull/69904
+  # https://github.com/pytorch/pytorch/pull/69947
+  #
+  # TODO: Remove this requirement once torch > 1.10.1 is released.
+  - setuptools<59.6.0

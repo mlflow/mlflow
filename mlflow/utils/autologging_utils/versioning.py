@@ -1,13 +1,17 @@
 import importlib
+import re
 import yaml
 
 from packaging.version import Version, InvalidVersion
 from pkg_resources import resource_filename
 
+import mlflow
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
+
 
 # A map FLAVOR_NAME -> a tuple of (dependent_module_name, key_in_module_version_info_dict)
 FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY = {
-    "fastai": ("fastai", "fastai-1.x"),
+    "fastai": ("fastai", "fastai"),
     "gluon": ("mxnet", "gluon"),
     "keras": ("keras", "keras"),
     "lightgbm": ("lightgbm", "lightgbm"),
@@ -37,8 +41,12 @@ def _is_pre_or_dev_release(ver):
     return v.is_devrelease or v.is_prerelease
 
 
+def _strip_dev_version_suffix(version):
+    return re.sub(r"(\.?)dev.*", "", version)
+
+
 def _load_version_file_as_dict():
-    version_file_path = resource_filename(__name__, "../../ml-package-versions.yml")
+    version_file_path = resource_filename(mlflow.__name__, "ml-package-versions.yml")
     with open(version_file_path) as f:
         return yaml.load(f, Loader=yaml.SafeLoader)
 
@@ -60,6 +68,11 @@ def is_flavor_supported_for_associated_package_versions(flavor_name):
     """
     module_name, module_key = FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY[flavor_name]
     actual_version = importlib.import_module(module_name).__version__
+
+    # In Databricks, treat 'pyspark 3.x.y.dev0' as 'pyspark 3.x.y'
+    if module_name == "pyspark" and is_in_databricks_runtime():
+        actual_version = _strip_dev_version_suffix(actual_version)
+
     if _violates_pep_440(actual_version) or _is_pre_or_dev_release(actual_version):
         return False
     min_version, max_version, _ = get_min_max_version_and_pip_release(module_key)

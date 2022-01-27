@@ -173,7 +173,7 @@ For artifact logging, the MLflow client interacts with the remote Tracking Serve
     tracking server.
 
 The `FileStore <https://github.com/mlflow/mlflow/blob/master/mlflow/store/tracking/file_store.py#L115>`_,
-`RestoreStore <https://github.com/mlflow/mlflow/blob/master/mlflow/store/tracking/rest_store.py#L39>`_,
+`RestStore <https://github.com/mlflow/mlflow/blob/master/mlflow/store/tracking/rest_store.py#L39>`_,
 and `SQLAlchemyStore <https://github.com/mlflow/mlflow/blob/master/mlflow/store/tracking/sqlalchemy_store.py#L61>`_ are
 concrete implementations of the abstract class `AbstractStore <https://github.com/mlflow/mlflow/blob/master/mlflow/store/tracking/abstract_store.py>`_,
 and the `LocalArtifactRepository <https://github.com/mlflow/mlflow/blob/master/mlflow/store/artifact/local_artifact_repo.py#L15>`_ and
@@ -325,7 +325,7 @@ Here is an example plot of the :ref:`quick start tutorial <quickstart>` with the
 Automatic Logging
 =================
 
-Automatic logging allows you to log metrics, parameters, and models without the need for explicit log statements. 
+Automatic logging allows you to log metrics, parameters, and models without the need for explicit log statements.
 
 There are two ways to use autologging:
 
@@ -341,8 +341,8 @@ The following libraries support autologging:
 For flavors that automatically save models as an artifact, `additional files <https://mlflow.org/docs/latest/models.html#storage-format>`_ for dependency management are logged.
 
 
-Scikit-learn (experimental)
----------------------------
+Scikit-learn
+------------
 
 Call :py:func:`mlflow.sklearn.autolog` before your training code to enable automatic logging of sklearn metrics, params, and models.
 See example usage `here <https://github.com/mlflow/mlflow/tree/master/examples/sklearn_autolog>`_.
@@ -389,11 +389,8 @@ containing the following data:
 .. _GridSearchCV:
     https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html
 
-.. note::
-  This feature is experimental - the API and format of the logged data are subject to change.  
-
-TensorFlow and Keras (experimental)
------------------------------------
+TensorFlow and Keras
+--------------------
 Call :py:func:`mlflow.tensorflow.autolog` or :py:func:`mlflow.keras.autolog` before your training code to enable automatic logging of metrics and parameters. See example usages with `Keras <https://github.com/mlflow/mlflow/tree/master/examples/keras>`_ and
 `TensorFlow <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
 
@@ -432,10 +429,9 @@ If a run already exists when ``autolog()`` captures data, MLflow will log to tha
 
 .. note::
   - Parameters not explicitly passed by users (parameters that use default values) while using ``keras.Model.fit_generator()`` are not currently automatically logged.
-  - This feature is experimental - the API and format of the logged data are subject to change.
 
-Gluon (experimental)
---------------------
+Gluon
+-----
 Call :py:func:`mlflow.gluon.autolog` before your training code to enable automatic logging of metrics and parameters.
 See example usages with `Gluon <https://github.com/mlflow/mlflow/tree/master/examples/gluon>`_ .
 
@@ -447,11 +443,8 @@ Autologging captures the following information:
 | Gluon            | Training loss; validation loss; user-specified metrics | Number of layers; optimizer name; learning rate; epsilon | --            | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Gluon model); on training end                                   |
 +------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
 
-.. note::
-  This feature is experimental - the API and format of the logged data are subject to change.
-
-XGBoost (experimental)
-----------------------
+XGBoost
+-------
 Call :py:func:`mlflow.xgboost.autolog` before your training code to enable automatic logging of metrics and parameters.
 
 Autologging captures the following information:
@@ -465,15 +458,14 @@ Autologging captures the following information:
 If early stopping is activated, metrics at the best iteration will be logged as an extra step/iteration.
 
 .. note::
-  - This feature is experimental - the API and format of the logged data are subject to change.
   - The `scikit-learn API <https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn>`__ is not supported.
 
 .. _xgboost.train: https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.train
 .. _MLflow Model: https://mlflow.org/docs/latest/models.html
 
 
-LightGBM (experimental)
------------------------
+LightGBM
+--------
 Call :py:func:`mlflow.lightgbm.autolog` before your training code to enable automatic logging of metrics and parameters.
 
 Autologging captures the following information:
@@ -487,13 +479,12 @@ Autologging captures the following information:
 If early stopping is activated, metrics at the best iteration will be logged as an extra step/iteration.
 
 .. note::
-  - This feature is experimental - the API and format of the logged data are subject to change.
   - The `scikit-learn API <https://lightgbm.readthedocs.io/en/latest/Python-API.html#scikit-learn-api>`__ is not supported.
 
 .. _lightgbm.train: https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.train.html#lightgbm-train
 
-Statsmodels (experimental)
---------------------------
+Statsmodels
+-----------
 Call :py:func:`mlflow.statsmodels.autolog` before your training code to enable automatic logging of metrics and parameters.
 
 Autologging captures the following information:
@@ -505,13 +496,12 @@ Autologging captures the following information:
 +--------------+------------------------+------------------------------------------------+---------------+-----------------------------------------------------------------------------+
 
 .. note::
-  - This feature is experimental - the API and format of the logged data are subject to change.
   - Each model subclass that overrides `fit` expects and logs its own parameters.
 
 .. _statsmodels.base.model.Model.fit: https://www.statsmodels.org/dev/dev/generated/statsmodels.base.model.Model.html
 
-Spark (experimental)
---------------------
+Spark
+-----
 
 Initialize a SparkSession with the mlflow-spark JAR attached (e.g.
 ``SparkSession.builder.config("spark.jars.packages", "org.mlflow.mlflow-spark")``) and then
@@ -528,11 +518,10 @@ Autologging captures the following information:
 +------------------+---------+------------+----------------------------------------------------------------------------------------------+-----------+
 
 .. note::
-  - This feature is experimental - the API and format of the logged data are subject to change.
   - Moreover, Spark datasource autologging occurs asynchronously - as such, it's possible (though unlikely) to see race conditions when launching short-lived MLflow runs that result in datasource information not being logged.
 
-Fastai (experimental)
----------------------
+Fastai
+------
 
 Call :py:func:`mlflow.fastai.autolog` before your training code to enable automatic logging of metrics and parameters.
 See an example usage with `Fastai <https://github.com/mlflow/mlflow/tree/master/examples/fastai>`_.
@@ -551,11 +540,11 @@ Autologging captures the following information:
 |           |                        | `OneCycleScheduler`_ callbacks                           |               |                                                                                                                                                                       |
 +-----------+------------------------+----------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
-Pytorch (experimental)
---------------------------
+Pytorch
+-------
 
 Call :py:func:`mlflow.pytorch.autolog` before your Pytorch Lightning training code to enable automatic logging of metrics, parameters, and models. See example usages `here <https://github.com/chauhang/mlflow/tree/master/examples/pytorch/MNIST>`__. Note
-that currently, Pytorch autologging supports only models trained using Pytorch Lightning. 
+that currently, Pytorch autologging supports only models trained using Pytorch Lightning.
 
 Autologging is triggered on calls to ``pytorch_lightning.trainer.Trainer.fit`` and captures the following information:
 
@@ -586,7 +575,6 @@ If a run already exists when ``autolog()`` captures data, MLflow will log to tha
 .. note::
   - Parameters not explicitly passed by users (parameters that use default values) while using ``pytorch_lightning.trainer.Trainer.fit()`` are not currently automatically logged
   - In case of a multi-optimizer scenario (such as usage of autoencoder), only the parameters for the first optimizer are logged
-  - This feature is experimental - the API and format of the logged data are subject to change
 
 
 .. _organizing_runs_in_experiments:
@@ -596,7 +584,7 @@ Organizing Runs in Experiments
 
 MLflow allows you to group runs under experiments, which can be useful for comparing runs intended
 to tackle a particular task. You can create experiments using the :ref:`cli` (``mlflow experiments``) or
-the :py:func:`mlflow.create_experiment` Python API. You can pass the experiment name for a individual run
+the :py:func:`mlflow.create_experiment` Python API. You can pass the experiment name for an individual run
 using the CLI (for example, ``mlflow run ... --experiment-name [name]``) or the ``MLFLOW_EXPERIMENT_NAME``
 environment variable. Alternatively, you can use the experiment ID instead, via the
 ``--experiment-id`` CLI flag or the ``MLFLOW_EXPERIMENT_ID`` environment variable.
@@ -779,7 +767,7 @@ See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.
 Amazon S3 and S3-compatible storage
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To store artifacts in S3 (whether on Amazon S3 or on an S3-compatible alternative, such as 
+To store artifacts in S3 (whether on Amazon S3 or on an S3-compatible alternative, such as
 `MinIO <https://min.io/>`_), specify a URI of the form ``s3://<bucket>/<path>``. MLflow obtains
 credentials to access S3 from your machine's IAM role, a profile in ``~/.aws/credentials``, or
 the environment variables ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` depending on which of
@@ -825,11 +813,19 @@ Azure Blob Storage
 To store artifacts in Azure Blob Storage, specify a URI of the form
 ``wasbs://<container>@<storage-account>.blob.core.windows.net/<path>``.
 MLflow expects Azure Storage access credentials in the
-``AZURE_STORAGE_CONNECTION_STRING`` or ``AZURE_STORAGE_ACCESS_KEY`` environment variables (preferring
-a connection string if one is set), so you must set one of these variables on both your client
-application and your MLflow tracking server. Finally, you must run ``pip install azure-storage-blob``
-separately (on both your client and the server) to access Azure Blob Storage; MLflow does not declare
-a dependency on this package by default.
+``AZURE_STORAGE_CONNECTION_STRING``, ``AZURE_STORAGE_ACCESS_KEY`` environment variables
+or having your credentials configured such that the `DefaultAzureCredential()
+<https://docs.microsoft.com/en-us/python/api/overview/azure/identity-readme?view=azure-python>`_. class can pick them up.
+The order of precedence is:
+
+#. ``AZURE_STORAGE_CONNECTION_STRING``
+#. ``AZURE_STORAGE_ACCESS_KEY``
+#. ``DefaultAzureCredential()``
+
+You must set one of these options on both your client application and your MLflow tracking server.
+Also, you must run ``pip install azure-storage-blob`` separately (on both your client and the server) to access Azure Blob Storage.
+Finally, if you want to use DefaultAzureCredential, you must ``pip install azure-identity``;
+MLflow does not declare a dependency on these packages by default.
 
 Google Cloud Storage
 ^^^^^^^^^^^^^^^^^^^^

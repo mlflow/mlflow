@@ -7,7 +7,6 @@ import string
 from typing import Dict, Any, List, Union, Optional
 
 from mlflow.exceptions import MlflowException
-from mlflow.utils.annotations import deprecated
 
 
 def _pandas_string_type():
@@ -54,15 +53,12 @@ class DataType(Enum):
     def __repr__(self):
         return self.name
 
-    def __str(self):
-        return self.name
-
     def to_numpy(self) -> np.dtype:
-        """Get equivalent numpy data type. """
+        """Get equivalent numpy data type."""
         return self._numpy_type
 
     def to_pandas(self) -> np.dtype:
-        """Get equivalent pandas data type. """
+        """Get equivalent pandas data type."""
         return self._pandas_type
 
     def to_spark(self):
@@ -71,7 +67,7 @@ class DataType(Enum):
         return getattr(pyspark.sql.types, self._spark_type)()
 
 
-class ColSpec(object):
+class ColSpec:
     """
     Specification of name and type of a single column in a dataset.
     """
@@ -122,14 +118,12 @@ class ColSpec(object):
             return "{name}: {type}".format(name=repr(self.name), type=repr(self.type))
 
 
-class TensorInfo(object):
+class TensorInfo:
     """
     Representation of the shape and type of a Tensor.
     """
 
-    def __init__(
-        self, dtype: np.dtype, shape: Union[tuple, list],
-    ):
+    def __init__(self, dtype: np.dtype, shape: Union[tuple, list]):
         if not isinstance(dtype, np.dtype):
             raise TypeError(
                 "Expected `type` to be instance of `{0}`, received `{1}`".format(
@@ -186,7 +180,7 @@ class TensorInfo(object):
         return "Tensor({type}, {shape})".format(type=repr(self.dtype.name), shape=repr(self.shape))
 
 
-class TensorSpec(object):
+class TensorSpec:
     """
     Specification used to represent a dataset stored as a Tensor.
     """
@@ -254,7 +248,7 @@ class TensorSpec(object):
             return "{name}: {info}".format(name=repr(self.name), info=repr(self._tensorInfo))
 
 
-class Schema(object):
+class Schema:
     """
     Specification of a dataset.
 
@@ -300,19 +294,6 @@ class Schema(object):
         """Representation of a dataset that defines this schema."""
         return self._inputs
 
-    @property
-    @deprecated(alternative="mlflow.types.Schema.inputs", since="1.14")
-    def columns(self) -> List[ColSpec]:
-        """
-        .. deprecated:: 1.14
-          Please use :func:`mlflow.types.Schema.inputs`
-          The list of columns that defines this schema.
-
-        """
-        if self.is_tensor_spec():
-            raise MlflowException("Not supported by TensorSpec, use `inputs` instead")
-        return self._inputs
-
     def is_tensor_spec(self) -> bool:
         """Return true iff this schema is specified using TensorSpec"""
         return self.inputs and isinstance(self.inputs[0], TensorSpec)
@@ -321,58 +302,22 @@ class Schema(object):
         """Get list of data names or range of indices if the schema has no names."""
         return [x.name or i for i, x in enumerate(self.inputs)]
 
-    @deprecated(alternative="mlflow.types.Schema.input_names", since="1.14")
-    def column_names(self) -> List[Union[str, int]]:
-        """
-        .. deprecated:: 1.14
-          Please use :func:`mlflow.types.Schema.input_names()`
-          Get list of column names or range of indices if the schema has no column names.
-
-        """
-        if self.is_tensor_spec():
-            raise MlflowException("Not supported by TensorSpec, use input_names() instead")
-        return [x.name or i for i, x in enumerate(self.columns)]
-
     def has_input_names(self) -> bool:
-        """Return true iff this schema declares names, false otherwise. """
+        """Return true iff this schema declares names, false otherwise."""
         return self.inputs and self.inputs[0].name is not None
 
-    @deprecated(alternative="mlflow.types.Schema.has_input_names", since="1.14")
-    def has_column_names(self) -> bool:
-        """
-        .. deprecated:: 1.14
-          Please use :func:`mlflow.types.Schema.has_input_names()`
-          Return true iff this schema declares column names, false otherwise.
-
-        """
-        if self.is_tensor_spec():
-            raise MlflowException("Not supported by TensorSpec, use has_input_names() instead")
-        return self.columns and self.columns[0].name is not None
-
     def input_types(self) -> List[Union[DataType, np.dtype]]:
-        """ Get types of the represented dataset."""
+        """Get types of the represented dataset."""
         return [x.type for x in self.inputs]
 
-    @deprecated(alternative="mlflow.types.Schema.input_types", since="1.14")
-    def column_types(self) -> List[DataType]:
-        """
-        .. deprecated:: 1.14
-          Please use :func:`mlflow.types.Schema.input_types()`
-          Get types of the represented dataset. Unsupported by TensorSpec.
-
-        """
-        if self.is_tensor_spec():
-            raise MlflowException("TensorSpec only supports numpy types, use numpy_types() instead")
-        return [x.type for x in self.columns]
-
     def numpy_types(self) -> List[np.dtype]:
-        """ Convenience shortcut to get the datatypes as numpy types."""
+        """Convenience shortcut to get the datatypes as numpy types."""
         if self.is_tensor_spec():
             return [x.type for x in self.inputs]
         return [x.type.to_numpy() for x in self.inputs]
 
     def pandas_types(self) -> List[np.dtype]:
-        """ Convenience shortcut to get the datatypes as pandas types. Unsupported by TensorSpec."""
+        """Convenience shortcut to get the datatypes as pandas types. Unsupported by TensorSpec."""
         if self.is_tensor_spec():
             raise MlflowException("TensorSpec only supports numpy types, use numpy_types() instead")
         return [x.type.to_pandas() for x in self.inputs]
@@ -406,7 +351,7 @@ class Schema(object):
 
     @classmethod
     def from_json(cls, json_str: str):
-        """ Deserialize from a json string."""
+        """Deserialize from a json string."""
 
         def read_input(x: dict):
             return TensorSpec.from_json_dict(**x) if x["type"] == "tensor" else ColSpec(**x)

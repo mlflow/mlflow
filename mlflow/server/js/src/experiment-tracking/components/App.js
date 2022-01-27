@@ -20,9 +20,15 @@ import {
   compareModelVersionsPageRoute,
 } from '../../model-registry/routes';
 import { ModelVersionPage } from '../../model-registry/components/ModelVersionPage';
-import ModelListPage from '../../model-registry/components/ModelListPage';
+import { ModelListPage } from '../../model-registry/components/ModelListPage';
 import { ModelPage } from '../../model-registry/components/ModelPage';
-import CompareModelVersionsPage from '../../model-registry/components/CompareModelVersionsPage';
+import { CompareModelVersionsPage } from '../../model-registry/components/CompareModelVersionsPage';
+
+const isExperimentsActive = (match, location) => {
+  // eslint-disable-next-line prefer-const
+  let isActive = match && !location.pathname.includes('models');
+  return isActive;
+};
 
 const classNames = {
   activeNavLink: { borderBottom: '4px solid #43C9ED' },
@@ -46,7 +52,7 @@ class App extends Component {
                   strict
                   to={Routes.rootRoute}
                   activeStyle={classNames.activeNavLink}
-                  isActive={(match, location) => match && !location.pathname.includes('models')}
+                  isActive={isExperimentsActive}
                   className='header-nav-link'
                 >
                   <div className='experiments'>

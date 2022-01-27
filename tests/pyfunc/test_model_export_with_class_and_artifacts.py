@@ -34,8 +34,8 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 import tests
 from tests.helper_functions import pyfunc_serve_and_score_model
 from tests.helper_functions import (
-    score_model_in_sagemaker_docker_container,
     _compare_conda_env_requirements,
+    _assert_pip_requirements,
 )
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
@@ -111,12 +111,7 @@ def pyfunc_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
     _mlflow_conda_env(
         conda_env,
-        additional_pip_deps=[
-            "scikit-learn",
-            "pytest",
-            "cloudpickle",
-            "-e " + os.path.dirname(mlflow.__path__[0]),
-        ],
+        additional_pip_deps=["scikit-learn", "pytest", "cloudpickle"],
     )
     return conda_env
 
@@ -124,9 +119,7 @@ def pyfunc_custom_env(tmpdir):
 def _conda_env():
     # NB: We need mlflow as a dependency in the environment.
     return _mlflow_conda_env(
-        install_mlflow=False,
         additional_pip_deps=[
-            "-e " + os.path.dirname(mlflow.__path__[0]),
             "cloudpickle=={}".format(cloudpickle.__version__),
             "scikit-learn=={}".format(sklearn.__version__),
         ],
@@ -201,7 +194,7 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
 
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
-        mlflow.pyfunc.log_model(
+        model_info = mlflow.pyfunc.log_model(
             artifact_path=pyfunc_artifact_path,
             artifacts={"sk_model": sklearn_model_uri},
             python_model=main_scoped_model_class(test_predict),
@@ -209,6 +202,7 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
         pyfunc_model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path
         )
+        assert model_info.model_uri == pyfunc_model_uri
         pyfunc_model_path = _download_artifact_from_uri(
             "runs:/{run_id}/{artifact_path}".format(
                 run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path
@@ -225,7 +219,10 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
 
 
 @pytest.mark.large
-def test_signature_and_examples_are_saved_correctly(iris_data, main_scoped_model_class):
+def test_signature_and_examples_are_saved_correctly(iris_data, main_scoped_model_class, tmpdir):
+    sklearn_model_path = tmpdir.join("sklearn_model").strpath
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
+
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
 
@@ -240,7 +237,7 @@ def test_signature_and_examples_are_saved_correctly(iris_data, main_scoped_model
                 path = tmp.path("model")
                 mlflow.pyfunc.save_model(
                     path=path,
-                    artifacts={},
+                    artifacts={"sk_model": sklearn_model_path},
                     python_model=main_scoped_model_class(test_predict),
                     signature=signature,
                     input_example=example,
@@ -359,7 +356,7 @@ def test_add_to_model_adds_specified_kwargs_to_mlmodel_configuration():
         data="data",
         code="code",
         env=None,
-        **custom_kwargs
+        **custom_kwargs,
     )
 
     assert mlflow.pyfunc.FLAVOR_NAME in model_config.flavors
@@ -619,6 +616,87 @@ def test_save_model_persists_requirements_in_mlflow_model_directory(
 
 
 @pytest.mark.large
+def test_log_model_with_pip_requirements(main_scoped_model_class, tmpdir):
+    python_model = main_scoped_model_class(predict_fn=None)
+    # Path to a requirements file
+    req_file = tmpdir.join("requirements.txt")
+    req_file.write("a")
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model(
+            "model", python_model=python_model, pip_requirements=req_file.strpath
+        )
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"], strict=True)
+
+    # List of requirements
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model(
+            "model", python_model=python_model, pip_requirements=[f"-r {req_file.strpath}", "b"]
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"], strict=True
+        )
+
+    # Constraints file
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model(
+            "model", python_model=python_model, pip_requirements=[f"-c {req_file.strpath}", "b"]
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"),
+            ["mlflow", "b", "-c constraints.txt"],
+            ["a"],
+            strict=True,
+        )
+
+
+@pytest.mark.large
+def test_log_model_with_extra_pip_requirements(sklearn_knn_model, main_scoped_model_class, tmpdir):
+    sklearn_model_path = tmpdir.join("sklearn_model").strpath
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
+
+    python_model = main_scoped_model_class(predict_fn=None)
+    default_reqs = mlflow.pyfunc.get_default_pip_requirements()
+
+    # Path to a requirements file
+    req_file = tmpdir.join("requirements.txt")
+    req_file.write("a")
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model(
+            "model",
+            python_model=python_model,
+            artifacts={"sk_model": sklearn_model_path},
+            extra_pip_requirements=req_file.strpath,
+        )
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a"])
+
+    # List of requirements
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model(
+            "model",
+            artifacts={"sk_model": sklearn_model_path},
+            python_model=python_model,
+            extra_pip_requirements=[f"-r {req_file.strpath}", "b"],
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a", "b"]
+        )
+
+    # Constraints file
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model(
+            "model",
+            artifacts={"sk_model": sklearn_model_path},
+            python_model=python_model,
+            extra_pip_requirements=[f"-c {req_file.strpath}", "b"],
+        )
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"),
+            ["mlflow", *default_reqs, "b", "-c constraints.txt"],
+            ["a"],
+        )
+
+
+@pytest.mark.large
 def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
     sklearn_knn_model, main_scoped_model_class, pyfunc_custom_env
 ):
@@ -704,15 +782,7 @@ def test_save_model_without_specified_conda_env_uses_default_env_with_expected_d
         python_model=main_scoped_model_class(predict_fn=None),
         conda_env=_conda_env(),
     )
-
-    pyfunc_conf = _get_flavor_configuration(
-        model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
-    )
-    conda_env_path = os.path.join(pyfunc_model_path, pyfunc_conf[mlflow.pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
-
-    assert conda_env == _conda_env()
+    _assert_pip_requirements(pyfunc_model_path, mlflow.pyfunc.get_default_pip_requirements())
 
 
 @pytest.mark.large
@@ -735,20 +805,8 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
             },
             python_model=main_scoped_model_class(predict_fn=None),
         )
-        pyfunc_model_path = _download_artifact_from_uri(
-            "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path
-            )
-        )
-
-    pyfunc_conf = _get_flavor_configuration(
-        model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
-    )
-    conda_env_path = os.path.join(pyfunc_model_path, pyfunc_conf[mlflow.pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
-
-    assert conda_env == mlflow.pyfunc.model.get_default_conda_env()
+        model_uri = mlflow.get_artifact_uri(pyfunc_artifact_path)
+    _assert_pip_requirements(model_uri, mlflow.pyfunc.get_default_pip_requirements())
 
 
 @pytest.mark.large
@@ -806,87 +864,96 @@ def test_save_model_with_no_artifacts_does_not_produce_artifacts_dir(model_path)
 
 @pytest.mark.large
 def test_save_model_with_python_model_argument_of_invalid_type_raises_exeption(tmpdir):
-    with pytest.raises(MlflowException) as exc_info:
+    match = "python_model` must be a subclass of `PythonModel`"
+    with pytest.raises(MlflowException, match=match):
         mlflow.pyfunc.save_model(
             path=os.path.join(str(tmpdir), "model1"), python_model="not the right type"
         )
-    assert "python_model` must be a subclass of `PythonModel`" in str(exc_info)
 
-    with pytest.raises(MlflowException) as exc_info:
+    with pytest.raises(MlflowException, match=match):
         mlflow.pyfunc.save_model(
             path=os.path.join(str(tmpdir), "model2"), python_model="not the right type"
         )
-    assert "python_model` must be a subclass of `PythonModel`" in str(exc_info)
 
 
 @pytest.mark.large
 def test_save_model_with_unsupported_argument_combinations_throws_exception(model_path):
-    with pytest.raises(MlflowException) as exc_info:
+    with pytest.raises(
+        MlflowException, match="Either `loader_module` or `python_model` must be specified"
+    ) as exc_info:
         mlflow.pyfunc.save_model(
             path=model_path, artifacts={"artifact": "/path/to/artifact"}, python_model=None
         )
-    assert "Either `loader_module` or `python_model` must be specified" in str(exc_info)
 
     python_model = ModuleScopedSklearnModel(predict_fn=None)
     loader_module = __name__
-    with pytest.raises(MlflowException) as exc_info:
+    with pytest.raises(
+        MlflowException, match="The following sets of parameters cannot be specified together"
+    ) as exc_info:
         mlflow.pyfunc.save_model(
             path=model_path, python_model=python_model, loader_module=loader_module
         )
-    assert "The following sets of parameters cannot be specified together" in str(exc_info)
     assert str(python_model) in str(exc_info)
     assert str(loader_module) in str(exc_info)
 
-    with pytest.raises(MlflowException) as exc_info:
+    with pytest.raises(
+        MlflowException, match="The following sets of parameters cannot be specified together"
+    ) as exc_info:
         mlflow.pyfunc.save_model(
             path=model_path,
             python_model=python_model,
             data_path="/path/to/data",
             artifacts={"artifact": "/path/to/artifact"},
         )
-    assert "The following sets of parameters cannot be specified together" in str(exc_info)
 
-    with pytest.raises(MlflowException) as exc_info:
+    with pytest.raises(
+        MlflowException, match="Either `loader_module` or `python_model` must be specified"
+    ):
         mlflow.pyfunc.save_model(path=model_path, python_model=None, loader_module=None)
-    assert "Either `loader_module` or `python_model` must be specified" in str(exc_info)
 
 
 @pytest.mark.large
 def test_log_model_with_unsupported_argument_combinations_throws_exception():
-    with mlflow.start_run(), pytest.raises(MlflowException) as exc_info:
+    match = (
+        "Either `loader_module` or `python_model` must be specified. A `loader_module` "
+        "should be a python module. A `python_model` should be a subclass of "
+        "PythonModel"
+    )
+    with mlflow.start_run(), pytest.raises(MlflowException, match=match):
         mlflow.pyfunc.log_model(
             artifact_path="pyfunc_model",
             artifacts={"artifact": "/path/to/artifact"},
             python_model=None,
         )
-    assert (
-        "Either `loader_module` or `python_model` must be specified. A `loader_module` "
-        "should be a python module. A `python_model` should be a subclass of "
-        "PythonModel" in str(exc_info)
-    )
 
     python_model = ModuleScopedSklearnModel(predict_fn=None)
     loader_module = __name__
-    with mlflow.start_run(), pytest.raises(MlflowException) as exc_info:
+    with mlflow.start_run(), pytest.raises(
+        MlflowException,
+        match="The following sets of parameters cannot be specified together",
+    ) as exc_info:
         mlflow.pyfunc.log_model(
-            artifact_path="pyfunc_model", python_model=python_model, loader_module=loader_module
+            artifact_path="pyfunc_model",
+            python_model=python_model,
+            loader_module=loader_module,
         )
-    assert "The following sets of parameters cannot be specified together" in str(exc_info)
     assert str(python_model) in str(exc_info)
     assert str(loader_module) in str(exc_info)
 
-    with mlflow.start_run(), pytest.raises(MlflowException) as exc_info:
+    with mlflow.start_run(), pytest.raises(
+        MlflowException, match="The following sets of parameters cannot be specified together"
+    ) as exc_info:
         mlflow.pyfunc.log_model(
             artifact_path="pyfunc_model",
             python_model=python_model,
             data_path="/path/to/data",
             artifacts={"artifact1": "/path/to/artifact"},
         )
-    assert "The following sets of parameters cannot be specified together" in str(exc_info)
 
-    with mlflow.start_run(), pytest.raises(MlflowException) as exc_info:
+    with mlflow.start_run(), pytest.raises(
+        MlflowException, match="Either `loader_module` or `python_model` must be specified"
+    ):
         mlflow.pyfunc.log_model(artifact_path="pyfunc_model", python_model=None, loader_module=None)
-    assert "Either `loader_module` or `python_model` must be specified" in str(exc_info)
 
 
 @pytest.mark.large
@@ -897,7 +964,7 @@ def test_repr_can_be_called_withtout_run_id_or_artifact_path():
         flavors={"python_function": {"loader_module": "someFlavour"}},
     )
 
-    class TestModel(object):
+    class TestModel:
         def predict(self, model_input):
             return model_input
 
@@ -981,40 +1048,28 @@ def test_load_model_with_missing_cloudpickle_version_logs_warning(model_path):
     )
 
 
-# TODO(czumar) Re-mark this test as "large" instead of "release" after SageMaker docker container
-# build issues have been debugged
-# @pytest.mark.large
-@pytest.mark.release
-def test_sagemaker_docker_model_scoring_with_default_conda_env(
-    sklearn_logreg_model, main_scoped_model_class, iris_data, tmpdir
+@pytest.mark.large
+def test_save_and_load_model_with_special_chars(
+    sklearn_knn_model, main_scoped_model_class, iris_data, tmpdir
 ):
-    sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
-    mlflow.sklearn.save_model(sk_model=sklearn_logreg_model, path=sklearn_model_path)
+    sklearn_model_path = os.path.join(str(tmpdir), "sklearn_  model")
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
 
-    pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_model")
+    # Intentionally create a path that has non-url-compatible characters
+    pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_ :% model")
+
     mlflow.pyfunc.save_model(
         path=pyfunc_model_path,
         artifacts={"sk_model": sklearn_model_path},
-        python_model=main_scoped_model_class(test_predict),
         conda_env=_conda_env(),
+        python_model=main_scoped_model_class(test_predict),
     )
-    reloaded_pyfunc = mlflow.pyfunc.load_pyfunc(model_uri=pyfunc_model_path)
 
-    inference_df = pd.DataFrame(iris_data[0])
-    scoring_response = score_model_in_sagemaker_docker_container(
-        model_uri=pyfunc_model_path,
-        data=inference_df,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        flavor=mlflow.pyfunc.FLAVOR_NAME,
-    )
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
-
-    pandas.testing.assert_frame_equal(
-        deployed_model_preds,
-        pd.DataFrame(reloaded_pyfunc.predict(inference_df)),
-        check_dtype=False,
-        check_less_precise=6,
+    loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=pyfunc_model_path)
+    np.testing.assert_array_equal(
+        loaded_pyfunc_model.predict(iris_data[0]),
+        test_predict(sk_model=sklearn_knn_model, model_input=iris_data[0]),
     )

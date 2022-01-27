@@ -258,3 +258,31 @@ def predict(target, name, input_path, output_path):
             predictions_to_json(result, fp)
     else:
         predictions_to_json(result, sys.stdout)
+
+
+@commands.command("explain")
+@deployment_name
+@target_details
+@parse_input
+@parse_output
+def explain(target, name, input_path, output_path):
+    """
+    Generate explanations of model predictions on the specified input for
+    the deployed model for the given input(s). Explanation output formats vary
+    by deployment target, and can include details like feature importance for
+    understanding/debugging predictions. Run `mlflow deployments help` or
+    consult the documentation for your plugin for details on explanation format.
+    For information about the input data formats accepted by this function,
+    see the following documentation:
+    https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools
+    """
+    import pandas as pd
+
+    df = pd.read_json(input_path)
+    client = interface.get_deploy_client(target)
+    result = client.explain(name, df)
+    if output_path:
+        with open(output_path, "w") as fp:
+            predictions_to_json(result, fp)
+    else:
+        predictions_to_json(result, sys.stdout)

@@ -9,7 +9,7 @@ from mlflow.tracking.request_header.databricks_request_header_provider import (
 _logger = logging.getLogger(__name__)
 
 
-class RequestHeaderProviderRegistry(object):
+class RequestHeaderProviderRegistry:
     def __init__(self):
         self._registry = []
 

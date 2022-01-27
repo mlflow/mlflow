@@ -32,7 +32,7 @@ def decode_and_resize_image(raw_bytes, size):
     return np.asarray(Image.open(BytesIO(raw_bytes)).resize(size), dtype=np.float32)
 
 
-class KerasImageClassifierPyfunc(object):
+class KerasImageClassifierPyfunc:
     """
     Image classification model with embedded pre-processing.
 
@@ -163,14 +163,13 @@ def _load_pyfunc(path):
 conda_env_template = """
 name: flower_classifier
 channels:
-  - defaults
-  - anaconda
+  - conda-forge
 dependencies:
   - python=={python_version}
-  - keras=={keras_version}
-  - {tf_name}=={tf_version}
   - pip=={pip_version}  
-  - pillow=={pillow_version}
   - pip:
     - mlflow>=1.6
+    - pillow=={pillow_version}
+    - keras=={keras_version}
+    - {tf_name}=={tf_version}
 """

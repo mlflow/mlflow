@@ -1,5 +1,7 @@
 import os
 import json
+import functools
+import pickle
 import pytest
 import yaml
 import numpy as np
@@ -7,12 +9,14 @@ import pandas as pd
 from sklearn import datasets
 import lightgbm as lgb
 import matplotlib as mpl
+from packaging.version import Version
 
 import mlflow
 import mlflow.lightgbm
+from mlflow.lightgbm import _autolog_callback
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
-from mlflow.utils.autologging_utils import BatchMetricsLogger
+from mlflow.utils.autologging_utils import picklable_exception_safe_function, BatchMetricsLogger
 from unittest.mock import patch
 
 mpl.use("Agg")
@@ -72,9 +76,18 @@ def test_lgb_autolog_logs_default_params(bst_params, train_set):
         "num_boost_round": 100,
         "feature_name": "auto",
         "categorical_feature": "auto",
-        "verbose_eval": True,
         "keep_training_booster": False,
     }
+    if Version(lgb.__version__) <= Version("3.3.1"):
+        # The parameter `verbose_eval` in `lightgbm.train` is removed in this PR:
+        # https://github.com/microsoft/LightGBM/pull/4878
+        expected_params["verbose_eval"] = (
+            # The default value of `verbose_eval` in `lightgbm.train` has been changed to 'warn'
+            # in this PR: https://github.com/microsoft/LightGBM/pull/4577
+            "warn"
+            if Version(lgb.__version__) > Version("3.2.1")
+            else True
+        )
     expected_params.update(bst_params)
 
     for key, val in expected_params.items():
@@ -89,10 +102,13 @@ def test_lgb_autolog_logs_default_params(bst_params, train_set):
         "fobj",
         "feval",
         "init_model",
-        "evals_result",
         "learning_rates",
         "callbacks",
     ]
+    if Version(lgb.__version__) <= Version("3.3.1"):
+        # The parameter `evals_result` in `lightgbm.train` is removed in this PR:
+        # https://github.com/microsoft/LightGBM/pull/4882
+        unlogged_params.append("evals_result")
 
     for param in unlogged_params:
         assert param not in params
@@ -103,9 +119,14 @@ def test_lgb_autolog_logs_specified_params(bst_params, train_set):
     mlflow.lightgbm.autolog()
     expected_params = {
         "num_boost_round": 10,
-        "early_stopping_rounds": 5,
-        "verbose_eval": False,
     }
+    if Version(lgb.__version__) <= Version("3.3.1"):
+        # The parameter `verbose_eval` in `lightgbm.train` is removed in this PR:
+        # https://github.com/microsoft/LightGBM/pull/4878
+        # The parameter `early_stopping_rounds` in `lightgbm.train` is removed in this PR:
+        # https://github.com/microsoft/LightGBM/pull/4908
+        expected_params["verbose_eval"] = False
+        expected_params["early_stopping_rounds"] = 5
     lgb.train(bst_params, train_set, valid_sets=[train_set], **expected_params)
     run = get_latest_run()
     params = run.data.params
@@ -124,27 +145,69 @@ def test_lgb_autolog_logs_specified_params(bst_params, train_set):
         "fobj",
         "feval",
         "init_model",
-        "evals_result",
         "learning_rates",
         "callbacks",
     ]
+    if Version(lgb.__version__) <= Version("3.3.1"):
+        # The parameter `evals_result` in `lightgbm.train` is removed in this PR:
+        # https://github.com/microsoft/LightGBM/pull/4882
+        unlogged_params.append("evals_result")
 
     for param in unlogged_params:
         assert param not in params
 
 
 @pytest.mark.large
+def test_lgb_autolog_sklearn():
+
+    mlflow.lightgbm.autolog()
+
+    X, y = datasets.load_iris(return_X_y=True)
+    params = {"n_estimators": 10, "reg_lambda": 1}
+    model = lgb.LGBMClassifier(**params)
+
+    with mlflow.start_run() as run:
+        model.fit(X, y)
+        model_uri = mlflow.get_artifact_uri("model")
+
+    client = mlflow.tracking.MlflowClient()
+    run = client.get_run(run.info.run_id)
+    assert run.data.metrics.items() <= params.items()
+    artifacts = set(x.path for x in client.list_artifacts(run.info.run_id))
+    assert artifacts >= set(
+        [
+            "feature_importance_gain.png",
+            "feature_importance_gain.json",
+            "feature_importance_split.png",
+            "feature_importance_split.json",
+        ]
+    )
+    loaded_model = mlflow.lightgbm.load_model(model_uri)
+    np.testing.assert_allclose(loaded_model.predict(X), model.predict(X))
+
+
+@pytest.mark.large
 def test_lgb_autolog_logs_metrics_with_validation_data(bst_params, train_set):
     mlflow.lightgbm.autolog()
     evals_result = {}
-    lgb.train(
-        bst_params,
-        train_set,
-        num_boost_round=10,
-        valid_sets=[train_set],
-        valid_names=["train"],
-        evals_result=evals_result,
-    )
+    if Version(lgb.__version__) <= Version("3.3.1"):
+        lgb.train(
+            bst_params,
+            train_set,
+            num_boost_round=10,
+            valid_sets=[train_set],
+            valid_names=["train"],
+            evals_result=evals_result,
+        )
+    else:
+        lgb.train(
+            bst_params,
+            train_set,
+            num_boost_round=10,
+            valid_sets=[train_set],
+            valid_names=["train"],
+            callbacks=[lgb.record_evaluation(evals_result)],
+        )
     run = get_latest_run()
     data = run.data
     client = mlflow.tracking.MlflowClient()
@@ -163,14 +226,24 @@ def test_lgb_autolog_logs_metrics_with_multi_validation_data(bst_params, train_s
     # To avoid that, create a new Dataset object.
     valid_sets = [train_set, lgb.Dataset(train_set.data)]
     valid_names = ["train", "valid"]
-    lgb.train(
-        bst_params,
-        train_set,
-        num_boost_round=10,
-        valid_sets=valid_sets,
-        valid_names=valid_names,
-        evals_result=evals_result,
-    )
+    if Version(lgb.__version__) <= Version("3.3.1"):
+        lgb.train(
+            bst_params,
+            train_set,
+            num_boost_round=10,
+            valid_sets=valid_sets,
+            valid_names=valid_names,
+            evals_result=evals_result,
+        )
+    else:
+        lgb.train(
+            bst_params,
+            train_set,
+            num_boost_round=10,
+            valid_sets=valid_sets,
+            valid_names=valid_names,
+            callbacks=[lgb.record_evaluation(evals_result)],
+        )
     run = get_latest_run()
     data = run.data
     client = mlflow.tracking.MlflowClient()
@@ -190,14 +263,24 @@ def test_lgb_autolog_logs_metrics_with_multi_metrics(bst_params, train_set):
     params.update(bst_params)
     valid_sets = [train_set]
     valid_names = ["train"]
-    lgb.train(
-        params,
-        train_set,
-        num_boost_round=10,
-        valid_sets=valid_sets,
-        valid_names=valid_names,
-        evals_result=evals_result,
-    )
+    if Version(lgb.__version__) <= Version("3.3.1"):
+        lgb.train(
+            params,
+            train_set,
+            num_boost_round=10,
+            valid_sets=valid_sets,
+            valid_names=valid_names,
+            evals_result=evals_result,
+        )
+    else:
+        lgb.train(
+            params,
+            train_set,
+            num_boost_round=10,
+            valid_sets=valid_sets,
+            valid_names=valid_names,
+            callbacks=[lgb.record_evaluation(evals_result)],
+        )
     run = get_latest_run()
     data = run.data
     client = mlflow.tracking.MlflowClient()
@@ -217,14 +300,24 @@ def test_lgb_autolog_logs_metrics_with_multi_validation_data_and_metrics(bst_par
     params.update(bst_params)
     valid_sets = [train_set, lgb.Dataset(train_set.data)]
     valid_names = ["train", "valid"]
-    lgb.train(
-        params,
-        train_set,
-        num_boost_round=10,
-        valid_sets=valid_sets,
-        valid_names=valid_names,
-        evals_result=evals_result,
-    )
+    if Version(lgb.__version__) <= Version("3.3.1"):
+        lgb.train(
+            params,
+            train_set,
+            num_boost_round=10,
+            valid_sets=valid_sets,
+            valid_names=valid_names,
+            evals_result=evals_result,
+        )
+    else:
+        lgb.train(
+            params,
+            train_set,
+            num_boost_round=10,
+            valid_sets=valid_sets,
+            valid_names=valid_names,
+            callbacks=[lgb.record_evaluation(evals_result)],
+        )
     run = get_latest_run()
     data = run.data
     client = mlflow.tracking.MlflowClient()
@@ -263,14 +356,24 @@ def test_lgb_autolog_batch_metrics_logger_logs_expected_metrics(bst_params, trai
         params.update(bst_params)
         valid_sets = [train_set, lgb.Dataset(train_set.data)]
         valid_names = ["train", "valid"]
-        lgb.train(
-            params,
-            train_set,
-            num_boost_round=10,
-            valid_sets=valid_sets,
-            valid_names=valid_names,
-            evals_result=evals_result,
-        )
+        if Version(lgb.__version__) <= Version("3.3.1"):
+            lgb.train(
+                params,
+                train_set,
+                num_boost_round=10,
+                valid_sets=valid_sets,
+                valid_names=valid_names,
+                evals_result=evals_result,
+            )
+        else:
+            lgb.train(
+                params,
+                train_set,
+                num_boost_round=10,
+                valid_sets=valid_sets,
+                valid_names=valid_names,
+                callbacks=[lgb.record_evaluation(evals_result)],
+            )
 
     run = get_latest_run()
     original_metrics = run.data.metrics
@@ -291,15 +394,28 @@ def test_lgb_autolog_logs_metrics_with_early_stopping(bst_params, train_set):
     params.update(bst_params)
     valid_sets = [train_set, lgb.Dataset(train_set.data)]
     valid_names = ["train", "valid"]
-    model = lgb.train(
-        params,
-        train_set,
-        num_boost_round=10,
-        early_stopping_rounds=5,
-        valid_sets=valid_sets,
-        valid_names=valid_names,
-        evals_result=evals_result,
-    )
+    if Version(lgb.__version__) <= Version("3.3.1"):
+        model = lgb.train(
+            params,
+            train_set,
+            num_boost_round=10,
+            early_stopping_rounds=5,
+            valid_sets=valid_sets,
+            valid_names=valid_names,
+            evals_result=evals_result,
+        )
+    else:
+        model = lgb.train(
+            params,
+            train_set,
+            num_boost_round=10,
+            valid_sets=valid_sets,
+            valid_names=valid_names,
+            callbacks=[
+                lgb.record_evaluation(evals_result),
+                lgb.early_stopping(5),
+            ],
+        )
     run = get_latest_run()
     data = run.data
     client = mlflow.tracking.MlflowClient()
@@ -519,3 +635,10 @@ def test_lgb_autolog_does_not_break_dataset_instantiation_with_data_none():
     """
     mlflow.lightgbm.autolog()
     lgb.Dataset(None)
+
+
+def test_callback_func_is_pickable():
+    cb = picklable_exception_safe_function(
+        functools.partial(_autolog_callback, BatchMetricsLogger(run_id="1234"), eval_results={})
+    )
+    pickle.dumps(cb)

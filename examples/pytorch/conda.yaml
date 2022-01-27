@@ -1,11 +1,8 @@
 name: pytorch_example
 channels:
-  - defaults
-  - pytorch
-  - anaconda
   - conda-forge
 dependencies:
-  - python=3.6
+  - python=3.7
   - pip
   - pip:
     - torch==1.8.1

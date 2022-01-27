@@ -4,7 +4,6 @@ from mlflow import deployments
 from mlflow.deployments.plugin_manager import DeploymentPlugins
 from mlflow.exceptions import MlflowException
 
-
 f_model_uri = "fake_model_uri"
 f_deployment_id = "fake_deployment_name"
 f_flavor = "fake_flavor"
@@ -46,7 +45,9 @@ def test_get_success():
 
 
 def test_wrong_target_name():
-    with pytest.raises(MlflowException):
+    with pytest.raises(
+        MlflowException, match='No plugin found for managing model deployments to "wrong_target"'
+    ):
         deployments.get_deploy_client("wrong_target")
 
 
@@ -57,7 +58,7 @@ def test_plugin_doesnot_have_required_attrib():
     dummy_plugin = DummyPlugin()
     plugin_manager = DeploymentPlugins()
     plugin_manager.registry["dummy"] = dummy_plugin
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="Plugin registered for the target dummy"):
         plugin_manager["dummy"]  # pylint: disable=pointless-statement
 
 
@@ -65,7 +66,7 @@ def test_plugin_raising_error():
     client = deployments.get_deploy_client(f_target)
     # special case to raise error
     os.environ["raiseError"] = "True"
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError, match="Error requested"):
         client.list_deployments()
     os.environ["raiseError"] = "False"
 
@@ -74,3 +75,22 @@ def test_target_uri_parsing():
     deployments.get_deploy_client(f_target)
     deployments.get_deploy_client("{target}:/somesuffix".format(target=f_target))
     deployments.get_deploy_client("{target}://somesuffix".format(target=f_target))
+
+
+def test_explain_with_no_target_implementation():
+    from unittest import mock
+    from mlflow_test_plugin import fake_deployment_plugin
+
+    mock_error = MlflowException("MOCK ERROR")
+    target_client = deployments.get_deploy_client(f_target)
+    plugin = fake_deployment_plugin.PluginDeploymentClient
+    with mock.patch.object(plugin, "explain", return_value=mock_error) as mock_explain:
+        res = target_client.explain(f_target, "test")
+        assert type(res) == MlflowException
+        mock_explain.assert_called_once()
+
+
+def test_explain_with_target_implementation():
+    target_client = deployments.get_deploy_client(f_target)
+    res = target_client.explain(f_target, "test")
+    assert res == "1"

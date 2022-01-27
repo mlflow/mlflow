@@ -1,13 +1,20 @@
 import React from 'react';
-import { shallow, mount } from 'enzyme';
+import { shallow } from 'enzyme';
 import ShowArtifactLoggedModelView from './ShowArtifactLoggedModelView';
+import { mountWithIntl } from '../../../common/utils/TestUtils';
 
 describe('ShowArtifactLoggedModelView', () => {
   let wrapper;
   let instance;
   let minimalProps;
   let commonProps;
+  const minimumFlavors = `
+flavors:
+  python_function:
+    loader_module: mlflow.sklearn
+`;
   const validMlModelFile =
+    minimumFlavors +
     'signature:\n' +
     '  inputs: \'[{"name": "sepal length (cm)", "type": "double"}, {"name": "sepal width\n' +
     '    (cm)", "type": "double"}, {"name": "petal length (cm)", "type": "double"}, {"name":\n' +
@@ -17,14 +24,13 @@ describe('ShowArtifactLoggedModelView', () => {
   beforeEach(() => {
     minimalProps = { path: 'fakePath', runUuid: 'fakeUuid', artifactRootUri: 'fakeRootUri' };
     const getArtifact = jest.fn((artifactLocation) => {
-      return Promise.resolve('some content');
+      return Promise.resolve(minimumFlavors);
     });
     commonProps = { ...minimalProps, getArtifact };
     wrapper = shallow(<ShowArtifactLoggedModelView {...commonProps} />);
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<ShowArtifactLoggedModelView {...minimalProps} />);
     expect(wrapper.length).toBe(1);
   });
 
@@ -53,7 +59,7 @@ describe('ShowArtifactLoggedModelView', () => {
       return Promise.resolve(validMlModelFile);
     });
     const props = { ...minimalProps, getArtifact };
-    wrapper = mount(<ShowArtifactLoggedModelView {...props} />);
+    wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
     setImmediate(() => {
       wrapper.update();
       expect(wrapper.find('.artifact-logged-model-view-schema-table').length).toBe(1);
@@ -66,10 +72,61 @@ describe('ShowArtifactLoggedModelView', () => {
       return Promise.resolve(validMlModelFile + '\nhahaha');
     });
     const props = { ...minimalProps, getArtifact };
-    wrapper = mount(<ShowArtifactLoggedModelView {...props} />);
+    wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
     setImmediate(() => {
       wrapper.update();
       expect(wrapper.find('.artifact-logged-model-view-schema-table').length).toBe(0);
+      done();
+    });
+  });
+
+  test('should not break schema table when inputs only in MLmodel file', (done) => {
+    const getArtifact = jest.fn((artifactLocation) => {
+      return Promise.resolve(
+        minimumFlavors +
+          'signature:\n' +
+          '  inputs: \'[{"name": "sepal length (cm)", "type": "double"}, {"name": "sepal width\n' +
+          '    (cm)", "type": "double"}, {"name": "petal length (cm)", "type": "double"}, {"name":\n' +
+          '    "petal width (cm)", "type": "double"}]\'\n',
+      );
+    });
+    const props = { ...minimalProps, getArtifact };
+    wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
+    setImmediate(() => {
+      wrapper.update();
+      expect(wrapper.find('.artifact-logged-model-view-schema-table').length).toBe(1);
+      done();
+    });
+  });
+
+  test('should not break schema table when outputs only in MLmodel file', (done) => {
+    const getArtifact = jest.fn((artifactLocation) => {
+      return Promise.resolve(
+        minimumFlavors +
+          'signature:\n' +
+          '  outputs: \'[{"name": "sepal length (cm)", "type": "double"}, {"name": "sepal width\n' +
+          '    (cm)", "type": "double"}, {"name": "petal length (cm)", "type": "double"}, {"name":\n' +
+          '    "petal width (cm)", "type": "double"}]\'\n',
+      );
+    });
+    const props = { ...minimalProps, getArtifact };
+    wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
+    setImmediate(() => {
+      wrapper.update();
+      expect(wrapper.find('.artifact-logged-model-view-schema-table').length).toBe(1);
+      done();
+    });
+  });
+
+  test('should not break schema table when no inputs or outputs in MLmodel file', (done) => {
+    const getArtifact = jest.fn((artifactLocation) => {
+      return Promise.resolve(minimumFlavors + 'signature:');
+    });
+    const props = { ...minimalProps, getArtifact };
+    wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
+    setImmediate(() => {
+      wrapper.update();
+      expect(wrapper.find('.artifact-logged-model-view-schema-table').length).toBe(1);
       done();
     });
   });
@@ -85,11 +142,11 @@ describe('ShowArtifactLoggedModelView', () => {
 
   test('should find model path in code snippet', (done) => {
     const props = { ...commonProps, path: 'modelPath', artifactRootUri: 'some/root' };
-    wrapper = mount(<ShowArtifactLoggedModelView {...props} />);
+    wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
     setImmediate(() => {
       wrapper.update();
       expect(wrapper.find('.artifact-logged-model-view-code-content').html()).toContain(
-        'some/root/modelPath',
+        'runs:/fakeUuid/modelPath',
       );
       done();
     });
@@ -97,7 +154,7 @@ describe('ShowArtifactLoggedModelView', () => {
 
   test('should suggest registration when model not registered', (done) => {
     const props = { ...commonProps };
-    wrapper = mount(<ShowArtifactLoggedModelView {...props} />);
+    wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
     setImmediate(() => {
       wrapper.update();
       expect(wrapper.find('.artifact-logged-model-view-header').html()).toContain('You can also');
@@ -107,7 +164,7 @@ describe('ShowArtifactLoggedModelView', () => {
 
   test('should not suggest registration when model already registered', (done) => {
     const props = { ...commonProps, registeredModelLink: 'someLink' };
-    wrapper = mount(<ShowArtifactLoggedModelView {...props} />);
+    wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
     setImmediate(() => {
       wrapper.update();
       expect(wrapper.find('.artifact-logged-model-view-header').html()).toContain(
@@ -123,5 +180,43 @@ describe('ShowArtifactLoggedModelView', () => {
     wrapper.setProps({ path: 'newpath', runUuid: 'newRunId' });
     expect(instance.fetchLoggedModelMetadata).toBeCalled();
     expect(instance.props.getArtifact).toBeCalled();
+  });
+
+  test('should render code snippet with original flavor when no pyfunc flavor', (done) => {
+    const getArtifact = jest.fn((artifactLocation) => {
+      return Promise.resolve(`
+flavors:
+  sklearn:
+    version: 1.2.3
+`);
+    });
+    const props = { ...minimalProps, getArtifact };
+    wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
+    setImmediate(() => {
+      wrapper.update();
+      expect(wrapper.state().flavor).toBe('sklearn');
+      const codeContent = wrapper.find('.artifact-logged-model-view-code-content');
+      expect(codeContent.length).toBe(1);
+      expect(codeContent.text().includes('mlflow.sklearn.load_model')).toBe(true);
+      done();
+    });
+  });
+
+  test('should not render code snippet for mleap flavor', (done) => {
+    const getArtifact = jest.fn((artifactLocation) => {
+      return Promise.resolve(`
+flavors:
+  mleap:
+    version: 1.2.3
+`);
+    });
+    const props = { ...minimalProps, getArtifact };
+    wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
+    setImmediate(() => {
+      wrapper.update();
+      expect(wrapper.state().flavor).toBe('mleap');
+      expect(wrapper.find('.artifact-logged-model-view-code-content').length).toBe(0);
+      done();
+    });
   });
 });

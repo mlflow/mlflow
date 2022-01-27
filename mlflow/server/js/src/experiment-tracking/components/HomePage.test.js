@@ -49,8 +49,8 @@ describe('HomePage', () => {
     };
 
     wrapper = shallow(<HomePageImpl {...props} />, {
-      wrappingComponent: () => {
-        const { children } = props;
+      wrappingComponent: (wrappingProps) => {
+        const { children } = wrappingProps;
         return (
           <Provider store={minimalStore}>
             <BrowserRouter>{children}</BrowserRouter>

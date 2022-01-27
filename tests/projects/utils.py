@@ -16,11 +16,12 @@ TEST_DOCKER_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_docker_pr
 TEST_PROJECT_NAME = "example_project"
 TEST_NO_SPEC_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_project_no_spec")
 GIT_PROJECT_URI = "https://github.com/mlflow/mlflow-example"
+GIT_PROJECT_BRANCH = "test-branch"
 SSH_PROJECT_URI = "git@github.com:mlflow/mlflow-example.git"
 
 
 def load_project():
-    """ Loads an example project for use in tests, returning an in-memory `Project` object. """
+    """Loads an example project for use in tests, returning an in-memory `Project` object."""
     return _project_spec.load_project(TEST_PROJECT_DIR)
 
 

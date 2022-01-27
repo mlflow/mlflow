@@ -2,11 +2,12 @@ const url = require('url');
 const path = require('path');
 const fs = require('fs');
 const rewirePolyfills = require('react-app-rewire-polyfills');
-const rewireDefinePlugin = require('react-app-rewire-define-plugin')
+const rewireDefinePlugin = require('react-app-rewire-define-plugin');
+const { override, addBabelPlugins } = require('customize-cra');
 
 // copied from 'react-dev-utils/WebpackDevServerUtils'
 function mayProxy(pathname) {
-  const maybePublicPath = path.resolve("public", pathname.slice(1));
+  const maybePublicPath = path.resolve('public', pathname.slice(1));
   return !fs.existsSync(maybePublicPath);
 }
 
@@ -29,28 +30,70 @@ function rewriteCookies(proxyRes) {
   if (proxyRes.headers['set-cookie'] !== undefined) {
     const newCookies = [];
     proxyRes.headers['set-cookie'].forEach((c) => {
-      newCookies.push(c.replace('Path=/mlflow', 'Path=/'))
+      newCookies.push(c.replace('Path=/mlflow', 'Path=/'));
     });
     proxyRes.headers['set-cookie'] = newCookies;
   }
 }
 
+function rewiredOverrides(config, env) {
+  config = rewirePolyfills(config, env);
+  config = rewireDefinePlugin(config, env, {
+    'process.env': {
+      HIDE_HEADER: process.env.HIDE_HEADER ? JSON.stringify('true') : JSON.stringify('false'),
+      HIDE_EXPERIMENT_LIST: process.env.HIDE_EXPERIMENT_LIST
+        ? JSON.stringify('true')
+        : JSON.stringify('false'),
+      SHOW_GDPR_PURGING_MESSAGES: process.env.SHOW_GDPR_PURGING_MESSAGES
+        ? JSON.stringify('true')
+        : JSON.stringify('false'),
+      USE_ABSOLUTE_AJAX_URLS: process.env.USE_ABSOLUTE_AJAX_URLS
+        ? JSON.stringify('true')
+        : JSON.stringify('false'),
+      SHOULD_REDIRECT_IFRAME: process.env.SHOULD_REDIRECT_IFRAME
+        ? JSON.stringify('true')
+        : JSON.stringify('false'),
+    },
+  });
+  return config;
+}
+
+function i18nOverrides(config) {
+  config.module.rules = config.module.rules.map((rule) => {
+    if (rule.oneOf instanceof Array) {
+      return {
+        ...rule,
+        oneOf: [
+          {
+            test: [new RegExp(path.join('src/i18n/', '.*json'))],
+            use: [
+              {
+                loader: require.resolve('./I18nCompileLoader'),
+              },
+            ],
+          },
+          ...rule.oneOf,
+        ],
+      };
+    }
+
+    return rule;
+  });
+
+  return config;
+}
+
 module.exports = {
-  webpack: function(config, env) {
-    config = rewirePolyfills(config, env);
-    config = rewireDefinePlugin(config, env, {
-      'process.env': {
-        'HIDE_HEADER': process.env.HIDE_HEADER ? JSON.stringify('true') : JSON.stringify('false'),
-        'HIDE_EXPERIMENT_LIST':
-          process.env.HIDE_EXPERIMENT_LIST ? JSON.stringify('true') : JSON.stringify('false'),
-        'SHOW_GDPR_PURGING_MESSAGES':
-          process.env.SHOW_GDPR_PURGING_MESSAGES ? JSON.stringify('true') : JSON.stringify('false'),
-        'USE_ABSOLUTE_AJAX_URLS':
-            process.env.USE_ABSOLUTE_AJAX_URLS ? JSON.stringify('true') : JSON.stringify('false'),
-      }
-    });
-    return config;
-  },
+  webpack: override(
+    rewiredOverrides,
+    i18nOverrides,
+    addBabelPlugins([
+      require.resolve('babel-plugin-formatjs'),
+      {
+        idInterpolationPattern: '[sha512:contenthash:base64:6]',
+      },
+    ]),
+  ),
   devServer: function(configFunction) {
     return function(proxy, allowedHost) {
       const config = configFunction(proxy, allowedHost);
@@ -58,24 +101,26 @@ module.exports = {
       if (proxyTarget) {
         config.hot = true;
         config.https = true;
-        config.proxy = [{
-          context: function(pathname) {
-            return mayProxy(pathname);
+        config.proxy = [
+          {
+            context: function(pathname) {
+              return mayProxy(pathname);
+            },
+            target: proxyTarget,
+            secure: false,
+            changeOrigin: true,
+            ws: true,
+            xfwd: true,
+            onProxyRes: (proxyRes, req) => {
+              rewriteRedirect(proxyRes, req);
+              rewriteCookies(proxyRes);
+            },
           },
-          target: proxyTarget,
-          secure: false,
-          changeOrigin: true,
-          ws: true,
-          xfwd: true,
-          onProxyRes: (proxyRes, req) => {
-            rewriteRedirect(proxyRes, req);
-            rewriteCookies(proxyRes);
-          },
-        }];
+        ];
         config.host = 'localhost';
         config.port = 3000;
       }
       return config;
     };
-  }
-}
+  },
+};

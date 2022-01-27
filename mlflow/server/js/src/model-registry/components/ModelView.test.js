@@ -1,5 +1,4 @@
 import React from 'react';
-import { mount } from 'enzyme';
 import { ModelView, ModelViewImpl, StageFilters } from './ModelView';
 import { mockModelVersionDetailed, mockRegisteredModelDetailed } from '../test-utils';
 import { ModelVersionStatus, Stages } from '../constants';
@@ -7,12 +6,12 @@ import { BrowserRouter } from 'react-router-dom';
 import { ModelVersionTable } from './ModelVersionTable';
 import Utils from '../../common/utils/Utils';
 import { getCompareModelVersionsPageRoute } from '../routes';
-import { Tooltip } from 'antd';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import { RegisteredModelTag } from '../sdk/ModelRegistryMessages';
 import { Provider } from 'react-redux';
+import { mountWithIntl } from '../../common/utils/TestUtils';
 
 describe('ModelView', () => {
   let wrapper;
@@ -80,7 +79,7 @@ describe('ModelView', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <ModelView {...minimalProps} />
@@ -91,7 +90,7 @@ describe('ModelView', () => {
   });
 
   test('should render all model versions initially', () => {
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <ModelView {...minimalProps} />
@@ -120,7 +119,7 @@ describe('ModelView', () => {
   });
 
   test('should render model version table with activeStageOnly when "Active" button is on', () => {
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <ModelView {...minimalProps} />
@@ -137,7 +136,7 @@ describe('ModelView', () => {
   test('Page title is set', () => {
     const mockUpdatePageTitle = jest.fn();
     Utils.updatePageTitle = mockUpdatePageTitle;
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <ModelView {...minimalProps} />
@@ -154,51 +153,25 @@ describe('ModelView', () => {
         ...minimalProps.model,
       },
     };
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <ModelView {...props} />
         </BrowserRouter>
       </Provider>,
     );
-    wrapper
-      .find('.breadcrumb-dropdown')
-      .hostNodes()
-      .simulate('click');
+    wrapper.find('button[data-test-id="overflow-menu-trigger"]').simulate('click');
     // The antd `Menu.Item` component converts the `disabled` attribute to `aria-disabled`
     // when generating HTML. Accordingly, we check for the presence of the `aria-disabled`
     // attribute within the rendered HTML.
-    const deleteMenuItem = wrapper.find('.delete').hostNodes();
+    const deleteMenuItem = wrapper.find('[data-test-id="delete"]').hostNodes();
     expect(deleteMenuItem.prop('aria-disabled')).toBe(true);
     deleteMenuItem.simulate('click');
     expect(wrapper.find(ModelViewImpl).instance().state.isDeleteModalVisible).toBe(false);
   });
 
-  test('should place tooltip on the right', () => {
-    const props = {
-      ...minimalProps,
-      model: {
-        ...minimalProps.model,
-      },
-    };
-    wrapper = mount(
-      <Provider store={minimalStore}>
-        <BrowserRouter>
-          <ModelView {...props} />
-        </BrowserRouter>
-      </Provider>,
-    );
-    wrapper
-      .find('.breadcrumb-dropdown')
-      .hostNodes()
-      .simulate('click');
-    const deleteMenuItem = wrapper.find('.delete').hostNodes();
-    const tooltip = deleteMenuItem.find(Tooltip);
-    expect(tooltip.prop('placement')).toBe('right');
-  });
-
   test('compare button is disabled when no/1 run selected, active when 2+ runs selected', () => {
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <ModelView {...minimalProps} />
@@ -206,8 +179,13 @@ describe('ModelView', () => {
       </Provider>,
     );
 
-    expect(wrapper.find('.btn').length).toBe(1);
-    expect(wrapper.find('.btn').props().disabled).toEqual(true);
+    expect(wrapper.find('[data-test-id="compareButton"]').hostNodes().length).toBe(1);
+    expect(
+      wrapper
+        .find('[data-test-id="compareButton"]')
+        .hostNodes()
+        .props().disabled,
+    ).toEqual(true);
 
     wrapper
       .find(ModelViewImpl)
@@ -216,7 +194,12 @@ describe('ModelView', () => {
         runsSelected: { run_id_1: 'version_1' },
       });
     wrapper.update();
-    expect(wrapper.find('.btn').props().disabled).toEqual(true);
+    expect(
+      wrapper
+        .find('[data-test-id="compareButton"]')
+        .hostNodes()
+        .props().disabled,
+    ).toEqual(true);
 
     const twoRunsSelected = { run_id_1: 'version_1', run_id_2: 'version_2' };
     wrapper
@@ -226,16 +209,24 @@ describe('ModelView', () => {
         runsSelected: twoRunsSelected,
       });
     wrapper.update();
-    expect(wrapper.find('.btn').props().disabled).toEqual(false);
+    expect(
+      wrapper
+        .find('[data-test-id="compareButton"]')
+        .hostNodes()
+        .props().disabled,
+    ).toEqual(false);
 
-    wrapper.find('.btn').simulate('click');
+    wrapper
+      .find('[data-test-id="compareButton"]')
+      .hostNodes()
+      .simulate('click');
     expect(historyMock).toHaveBeenCalledWith(
       getCompareModelVersionsPageRoute(minimalProps['model']['name'], twoRunsSelected),
     );
   });
 
   test('should tags rendered in the UI', () => {
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <ModelView {...minimalProps} />
@@ -244,5 +235,74 @@ describe('ModelView', () => {
     );
     expect(wrapper.html()).toContain('special key');
     expect(wrapper.html()).toContain('not so special value');
+  });
+
+  test('creator description not rendered if user_id is unavailable', () => {
+    wrapper = mountWithIntl(
+      <Provider store={minimalStore}>
+        <BrowserRouter>
+          <ModelView {...minimalProps} />
+        </BrowserRouter>
+      </Provider>,
+    );
+
+    expect(wrapper.find('.metadata-list td.ant-descriptions-item').length).toBe(2);
+    expect(
+      wrapper
+        .find('.metadata-list span.ant-descriptions-item-label')
+        .at(0)
+        .text(),
+    ).toBe('Created Time');
+    expect(
+      wrapper
+        .find('.metadata-list span.ant-descriptions-item-label')
+        .at(1)
+        .text(),
+    ).toBe('Last Modified');
+  });
+
+  test('creator description rendered if user_id is available', () => {
+    const user_id = 'email@databricks.com';
+    const props = {
+      ...minimalProps,
+      model: {
+        ...minimalProps.model,
+        user_id,
+      },
+    };
+    wrapper = mountWithIntl(
+      <Provider store={minimalStore}>
+        <BrowserRouter>
+          <ModelView {...props} />
+        </BrowserRouter>
+      </Provider>,
+    );
+
+    expect(wrapper.find('.metadata-list td.ant-descriptions-item').length).toBe(3);
+    expect(
+      wrapper
+        .find('.metadata-list span.ant-descriptions-item-label')
+        .at(0)
+        .text(),
+    ).toBe('Created Time');
+    expect(
+      wrapper
+        .find('.metadata-list span.ant-descriptions-item-label')
+        .at(1)
+        .text(),
+    ).toBe('Last Modified');
+    expect(
+      wrapper
+        .find('.metadata-list span.ant-descriptions-item-label')
+        .at(2)
+        .text(),
+    ).toBe('Creator');
+
+    expect(
+      wrapper
+        .find('.metadata-list span.ant-descriptions-item-content')
+        .at(2)
+        .text(),
+    ).toBe(user_id);
   });
 });

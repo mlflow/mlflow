@@ -1,5 +1,4 @@
 import React from 'react';
-import { mount } from 'enzyme';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
@@ -7,6 +6,7 @@ import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { CreateModelButton } from './CreateModelButton';
 import { GenericInputModal } from '../../experiment-tracking/components/modals/GenericInputModal';
+import { mountWithIntl } from '../../common/utils/TestUtils';
 
 describe('CreateModelButton', () => {
   let wrapper;
@@ -17,7 +17,7 @@ describe('CreateModelButton', () => {
   beforeEach(() => {
     minimalProps = {};
     minimalStore = mockStore({});
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <CreateModelButton {...minimalProps} />
@@ -31,7 +31,7 @@ describe('CreateModelButton', () => {
   });
 
   test('should render button type link correctly', () => {
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <CreateModelButton buttonType={'link'} />

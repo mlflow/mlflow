@@ -19,13 +19,12 @@ Spark MLlib (native) format
     MLeap-compatible arguments.
 """
 import os
-import yaml
 import logging
 import posixpath
 import re
 import shutil
-import traceback
 import uuid
+import yaml
 
 import mlflow
 from mlflow import pyfunc, mleap
@@ -36,10 +35,20 @@ from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
+from mlflow.utils.environment import (
+    _mlflow_conda_env,
+    _validate_env_arguments,
+    _process_pip_requirements,
+    _process_conda_env,
+    _CONDA_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
+)
+from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
-from mlflow.utils.file_utils import TempDir
+from mlflow.utils.file_utils import TempDir, write_to
 from mlflow.utils.uri import (
     is_local_uri,
     append_to_uri_path,
@@ -48,7 +57,6 @@ from mlflow.utils.uri import (
 )
 from mlflow.utils import databricks_utils
 from mlflow.utils.model_utils import _get_flavor_configuration_from_uri
-from mlflow.utils.annotations import experimental
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
@@ -62,8 +70,16 @@ _SPARK_MODEL_PATH_SUB = "sparkml"
 _logger = logging.getLogger(__name__)
 
 
-def _format_exception(ex):
-    return "".join(traceback.format_exception(type(ex), ex, ex.__traceback__))
+def get_default_pip_requirements():
+    """
+    :return: A list of default pip requirements for MLflow Models produced by this flavor.
+             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+             that, at minimum, contains these requirements.
+    """
+    # Strip the suffix from `dev` versions of PySpark, which are not
+    # available for installation from Anaconda or PyPI
+    pyspark_req = re.sub(r"(\.?)dev.*$", "", _get_pinned_requirement("pyspark"))
+    return [pyspark_req]
 
 
 def get_default_conda_env():
@@ -76,15 +92,10 @@ def get_default_conda_env():
              ``2.4.5.dev0``, invoking this method produces a Conda environment with a
              dependency on PySpark version ``2.4.5``).
     """
-    import pyspark
-
-    # Strip the suffix from `dev` versions of PySpark, which are not
-    # available for installation from Anaconda or PyPI
-    pyspark_version = re.sub(r"(\.?)dev.*", "", pyspark.__version__)
-
-    return _mlflow_conda_env(additional_pip_deps=["pyspark=={}".format(pyspark_version)])
+    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="pyspark"))
 def log_model(
     spark_model,
     artifact_path,
@@ -95,6 +106,8 @@ def log_model(
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+    pip_requirements=None,
+    extra_pip_requirements=None,
 ):
     """
     Log a Spark MLlib model as an MLflow artifact for the current run. This uses the
@@ -130,11 +143,11 @@ def log_model(
     :param sample_input: A sample input used to add the MLeap flavor to the model.
                          This must be a PySpark DataFrame that the model can evaluate. If
                          ``sample_input`` is ``None``, the MLeap flavor is not added.
-    :param registered_model_name: (Experimental) If given, create a model version under
+    :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
 
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -147,7 +160,7 @@ def log_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
@@ -155,8 +168,10 @@ def log_model(
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
-
-
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+             metadata of the logged model.
 
     .. code-block:: python
         :caption: Example
@@ -176,7 +191,7 @@ def log_model(
         model = pipeline.fit(training)
         mlflow.spark.log_model(model, "spark-model")
     """
-    from py4j.protocol import Py4JJavaError
+    from py4j.protocol import Py4JError
 
     _validate_model(spark_model)
     from pyspark.ml import PipelineModel
@@ -202,13 +217,15 @@ def log_model(
             signature=signature,
             input_example=input_example,
             await_registration_for=await_registration_for,
+            pip_requirements=pip_requirements,
+            extra_pip_requirements=extra_pip_requirements,
         )
     model_dir = os.path.join(run_root_artifact_uri, artifact_path)
     # Try to write directly to the artifact repo via Spark. If this fails, defer to Model.log()
     # to persist the model
     try:
         spark_model.save(posixpath.join(model_dir, _SPARK_MODEL_PATH_SUB))
-    except Py4JJavaError:
+    except Py4JError:
         return Model.log(
             artifact_path=artifact_path,
             flavor=mlflow.spark,
@@ -220,6 +237,8 @@ def log_model(
             signature=signature,
             input_example=input_example,
             await_registration_for=await_registration_for,
+            pip_requirements=pip_requirements,
+            extra_pip_requirements=extra_pip_requirements,
         )
 
     # Otherwise, override the default model log behavior and save model directly to artifact repo
@@ -242,6 +261,7 @@ def log_model(
                 registered_model_name,
                 await_registration_for,
             )
+        return mlflow_model.get_model_info()
 
 
 def _tmp_path(dfs_tmp):
@@ -355,7 +375,15 @@ class _HadoopFileSystem:
 
 
 def _save_model_metadata(
-    dst_dir, spark_model, mlflow_model, sample_input, conda_env, signature=None, input_example=None
+    dst_dir,
+    spark_model,
+    mlflow_model,
+    sample_input,
+    conda_env,
+    signature=None,
+    input_example=None,
+    pip_requirements=None,
+    extra_pip_requirements=None,
 ):
     """
     Saves model metadata into the passed-in directory. The persisted metadata assumes that a
@@ -375,16 +403,6 @@ def _save_model_metadata(
         mlflow_model.signature = signature
     if input_example is not None:
         _save_example(mlflow_model, input_example, dst_dir)
-    conda_env_subpath = "conda.yaml"
-    if conda_env is None:
-        conda_env = get_default_conda_env()
-    elif not isinstance(conda_env, dict):
-        with open(conda_env, "r") as f:
-            conda_env = yaml.safe_load(f)
-    with open(os.path.join(dst_dir, conda_env_subpath), "w") as f:
-        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
-
-    _log_pip_requirements(conda_env, dst_dir)
 
     mlflow_model.add_flavor(
         FLAVOR_NAME, pyspark_version=pyspark.__version__, model_data=_SPARK_MODEL_PATH_SUB
@@ -393,9 +411,40 @@ def _save_model_metadata(
         mlflow_model,
         loader_module="mlflow.spark",
         data=_SPARK_MODEL_PATH_SUB,
-        env=conda_env_subpath,
+        env=_CONDA_ENV_FILE_NAME,
     )
     mlflow_model.save(os.path.join(dst_dir, MLMODEL_FILE_NAME))
+
+    if conda_env is None:
+        if pip_requirements is None:
+            default_reqs = get_default_pip_requirements()
+            # To ensure `_load_pyfunc` can successfully load the model during the dependency
+            # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
+            inferred_reqs = mlflow.models.infer_pip_requirements(
+                dst_dir,
+                FLAVOR_NAME,
+                fallback=default_reqs,
+            )
+            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+        else:
+            default_reqs = None
+        conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
+            default_reqs,
+            pip_requirements,
+            extra_pip_requirements,
+        )
+    else:
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
+
+    with open(os.path.join(dst_dir, _CONDA_ENV_FILE_NAME), "w") as f:
+        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    # Save `constraints.txt` if necessary
+    if pip_constraints:
+        write_to(os.path.join(dst_dir, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
+
+    # Save `requirements.txt`
+    write_to(os.path.join(dst_dir, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
 
 def _validate_model(spark_model):
@@ -414,6 +463,7 @@ def _validate_model(spark_model):
         )
 
 
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="pyspark"))
 def save_model(
     spark_model,
     path,
@@ -423,6 +473,8 @@ def save_model(
     sample_input=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
+    pip_requirements=None,
+    extra_pip_requirements=None,
 ):
     """
     Save a Spark MLlib Model to a local path.
@@ -461,7 +513,7 @@ def save_model(
                          This must be a PySpark DataFrame that the model can evaluate. If
                          ``sample_input`` is ``None``, the MLeap flavor is not added.
 
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -474,13 +526,13 @@ def save_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
-
-
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
 
     .. code-block:: python
         :caption: Example
@@ -493,6 +545,8 @@ def save_model(
         mlflow.spark.save_model(model, "spark-model")
     """
     _validate_model(spark_model)
+    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+
     from pyspark.ml import PipelineModel
 
     if not isinstance(spark_model, PipelineModel):
@@ -526,6 +580,8 @@ def save_model(
         conda_env=conda_env,
         signature=signature,
         input_example=input_example,
+        pip_requirements=pip_requirements,
+        extra_pip_requirements=extra_pip_requirements,
     )
 
 
@@ -558,7 +614,7 @@ def _load_model_databricks(model_uri, dfs_tmpdir):
     # Copy the model to a temp DFS location first. We cannot delete this file, as
     # Spark may read from it at any point.
     fuse_dfs_tmpdir = dbfs_hdfs_uri_to_fuse_path(dfs_tmpdir)
-    os.mkdir(fuse_dfs_tmpdir)
+    os.makedirs(fuse_dfs_tmpdir)
     # Workaround for inability to use shutil.copytree with DBFS FUSE due to permission-denied
     # errors on passthrough-enabled clusters when attempting to copy permission bits for directories
     _shutil_copytree_without_file_permissions(src_dir=local_model_path, dst_dir=fuse_dfs_tmpdir)
@@ -655,7 +711,7 @@ def _load_pyfunc(path):
     return _PyFuncModelWrapper(spark, _load_model(model_uri=path))
 
 
-class _PyFuncModelWrapper(object):
+class _PyFuncModelWrapper:
     """
     Wrapper around Spark MLlib PipelineModel providing interface for scoring pandas DataFrame.
     """
@@ -678,7 +734,6 @@ class _PyFuncModelWrapper(object):
         ]
 
 
-@experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
     """

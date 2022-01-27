@@ -28,7 +28,11 @@ alembic_files = [
     "../mlflow/store/db_migrations/alembic.ini",
     "../mlflow/temporary_db_migrations_for_pre_1_users/alembic.ini",
 ]
-extra_files = ["ml-package-versions.yml", "pyspark/ml/log_model_allowlist.txt"]
+extra_files = [
+    "ml-package-versions.yml",
+    "pypi_package_index.json",
+    "pyspark/ml/log_model_allowlist.txt",
+]
 
 """
 Minimal requirements for the skinny MLflow client which provides a limited
@@ -42,11 +46,16 @@ SKINNY_REQUIREMENTS = [
     "databricks-cli>=0.8.7",
     "entrypoints",
     "gitpython>=2.1.0",
-    "pyyaml",
+    "pyyaml>=5.1",
     "protobuf>=3.7.0",
     "pytz",
     "requests>=2.17.3",
     "packaging",
+    # Automated dependency detection in MLflow Models relies on
+    # `importlib_metadata.packages_distributions` to resolve a module name to its package name
+    # (e.g. 'sklearn' -> 'scikit-learn'). importlib_metadata 3.7.0 or newer supports this function:
+    # https://github.com/python/importlib_metadata/blob/main/CHANGES.rst#v370
+    "importlib_metadata>=3.7.0,!=4.7.0",
 ]
 
 """
@@ -56,12 +65,13 @@ Server & UI. It also adds project backends such as Docker and Kubernetes among
 other capabilities.
 """
 CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + [
-    "alembic<=1.4.1",
+    "alembic",
     # Required
     "docker>=4.0.0",
     "Flask",
     "gunicorn; platform_system != 'Windows'",
     "numpy",
+    "scipy",
     "pandas",
     "prometheus-flask-exporter",
     "querystring_parser",
@@ -92,7 +102,6 @@ setup(
             "pyarrow",
             # Required to log artifacts and models to AWS S3 artifact locations
             "boto3",
-            "mleap",
             # Required to log artifacts and models to GCS artifact locations
             "google-cloud-storage",
             "azureml-core>=1.2.0",
@@ -101,6 +110,9 @@ setup(
             # Required by the mlflow.projects module, when running projects against
             # a remote Kubernetes cluster
             "kubernetes",
+            # Required to serve models through MLServer
+            "mlserver>=0.5.3",
+            "mlserver-mlflow>=0.5.3",
         ],
         "sqlserver": ["mlflow-dbstore"],
         "aliyun-oss": ["aliyunstoreplugin"],
@@ -117,10 +129,10 @@ setup(
     else open("README_SKINNY.rst").read() + open("README.rst").read(),
     long_description_content_type="text/x-rst",
     license="Apache License 2.0",
-    classifiers=["Intended Audience :: Developers", "Programming Language :: Python :: 3.6"],
+    classifiers=["Intended Audience :: Developers", "Programming Language :: Python :: 3.7"],
     keywords="ml ai databricks",
     url="https://mlflow.org/",
-    python_requires=">=3.6",
+    python_requires=">=3.7",
     project_urls={
         "Bug Tracker": "https://github.com/mlflow/mlflow/issues",
         "Documentation": "https://mlflow.org/docs/latest/index.html",

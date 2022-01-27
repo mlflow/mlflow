@@ -37,7 +37,6 @@ from mlflow.utils.databricks_utils import (
 )
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import is_databricks_uri, construct_run_url
-from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
     import matplotlib  # pylint: disable=unused-import
@@ -48,7 +47,7 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 
-class MlflowClient(object):
+class MlflowClient:
     """
     Client of an MLflow Tracking Server that creates and manages experiments and runs, and of an
     MLflow Registry Server that creates and manages registered models and model versions. It's a
@@ -273,7 +272,20 @@ class MlflowClient(object):
         order_by: Optional[List[str]] = None,
         page_token: Optional[str] = None,
     ) -> PagedList[RunInfo]:
-        """:return: List of :py:class:`mlflow.entities.RunInfo`
+        """
+        Return run information for runs which belong to the experiment_id.
+
+        :param experiment_id: The experiment id which to search
+        :param run_view_type: ACTIVE_ONLY, DELETED_ONLY, or ALL runs
+        :param max_results: Maximum number of results desired.
+        :param order_by: List of order_by clauses. Currently supported values are
+            are ``metric.key``, ``parameter.key``, ``tag.key``, ``attribute.key``.
+            For example, ``order_by=["tag.release ASC", "metric.click_rate DESC"]``.
+
+        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`RunInfo <mlflow.entities.RunInfo>` objects that satisfy the search
+            expressions. If the underlying tracking store supports pagination, the token for the
+            next page may be obtained via the ``token`` attribute of the returned object.
 
         .. code-block:: python
             :caption: Example
@@ -323,9 +335,23 @@ class MlflowClient(object):
             experiment_id, run_view_type, max_results, order_by, page_token
         )
 
-    def list_experiments(self, view_type: Optional[str] = None) -> List[Experiment]:
+    def list_experiments(
+        self,
+        view_type: int = ViewType.ACTIVE_ONLY,
+        max_results: Optional[int] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList[Experiment]:
         """
-        :return: List of :py:class:`mlflow.entities.Experiment`
+        :param view_type: Qualify requested type of experiments.
+        :param max_results: If passed, specifies the maximum number of experiments desired. If not
+                            passed, all experiments will be returned for the File and SQL backends.
+                            For the REST backend, the server will pick a maximum number of results
+                            to return.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                            a ``list_experiments`` call.
+        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+                 :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
+                 for the next page can be obtained via the ``token`` attribute of the object.
 
         .. code-block:: python
             :caption: Example
@@ -366,7 +392,9 @@ class MlflowClient(object):
             - experiment_id: 1, name: Experiment 1, lifecycle_stage: active
             - experiment_id: 2, name: Experiment 2, lifecycle_stage: deleted
         """
-        return self._tracking_client.list_experiments(view_type)
+        return self._tracking_client.list_experiments(
+            view_type=view_type, max_results=max_results, page_token=page_token
+        )
 
     def get_experiment(self, experiment_id: str) -> Experiment:
         """
@@ -433,12 +461,20 @@ class MlflowClient(object):
         """
         return self._tracking_client.get_experiment_by_name(name)
 
-    def create_experiment(self, name: str, artifact_location: Optional[str] = None) -> str:
+    def create_experiment(
+        self,
+        name: str,
+        artifact_location: Optional[str] = None,
+        tags: Optional[Dict[str, Any]] = None,
+    ) -> str:
         """Create an experiment.
 
         :param name: The experiment name. Must be unique.
         :param artifact_location: The location to store run artifacts.
                                   If not provided, the server picks an appropriate default.
+        :param tags: A dictionary of key-value pairs that are converted into
+                                :py:class:`mlflow.entities.ExperimentTag` objects, set as
+                                experiment tags upon experiment creation.
         :return: String as an integer ID of the created experiment.
 
         .. code-block:: python
@@ -468,7 +504,7 @@ class MlflowClient(object):
             Tags: {'nlp.framework': 'Spark NLP'}
             Lifecycle_stage: active
         """
-        return self._tracking_client.create_experiment(name, artifact_location)
+        return self._tracking_client.create_experiment(name, artifact_location, tags)
 
     def delete_experiment(self, experiment_id: str) -> None:
         """
@@ -600,10 +636,15 @@ class MlflowClient(object):
         Log a metric against the run ID.
 
         :param run_id: The run id to which the metric should be logged.
-        :param key: Metric name.
+        :param key: Metric name (string). This string may only contain alphanumerics, underscores
+                    (_), dashes (-), periods (.), spaces ( ), and slashes (/).
+                    All backend stores will support keys up to length 250, but some may
+                    support larger keys.
         :param value: Metric value (float). Note that some special values such
                       as +/- Infinity may be replaced by other values depending on the store. For
                       example, the SQLAlchemy store replaces +/- Inf with max / min float values.
+                      All backend stores will support values up to length 5000, but some
+                      may support larger values.
         :param timestamp: Time when this metric was calculated. Defaults to the current system time.
         :param step: Integer training step (iteration) at which was the metric calculated.
                      Defaults to 0.
@@ -653,7 +694,13 @@ class MlflowClient(object):
         Log a parameter against the run ID.
 
         :param run_id: The run id to which the param should be logged.
-        :param value: Value is converted to a string.
+        :param key: Parameter name (string). This string may only contain alphanumerics, underscores
+                    (_), dashes (-), periods (.), spaces ( ), and slashes (/).
+                    All backend stores will support keys up to length 250, but some may
+                    support larger keys.
+        :param value: Parameter value (string, but will be string-ified if not).
+                      All backend stores will support values up to length 5000, but some
+                      may support larger values.
 
         .. code-block:: python
             :caption: Example
@@ -731,8 +778,13 @@ class MlflowClient(object):
         Set a tag on the run with the specified ID. Value is converted to a string.
 
         :param run_id: String ID of the run.
-        :param key: Name of the tag.
-        :param value: Tag value (converted to a string)
+        :param key: Tag name (string). This string may only contain alphanumerics,
+                    underscores (_), dashes (-), periods (.), spaces ( ), and slashes (/).
+                    All backend stores will support keys up to length 250, but some may
+                    support larger keys.
+        :param value: Tag value (string, but will be string-ified if not).
+                      All backend stores will support values up to length 5000, but some
+                      may support larger values.
 
         .. code-block:: python
             :caption: Example
@@ -997,7 +1049,6 @@ class MlflowClient(object):
             with open(tmp_path, "w") as f:
                 f.write(text)
 
-    @experimental
     def log_dict(self, run_id: str, dictionary: Any, artifact_file: str) -> None:
         """
         Log a JSON/YAML-serializable object (e.g. `dict`) as an artifact. The serialization
@@ -1042,7 +1093,6 @@ class MlflowClient(object):
                 else:
                     json.dump(dictionary, f, indent=2)
 
-    @experimental
     def log_figure(
         self,
         run_id: str,
@@ -1111,7 +1161,6 @@ class MlflowClient(object):
             else:
                 raise TypeError("Unsupported figure object type: '{}'".format(type(figure)))
 
-    @experimental
     def log_image(
         self, run_id: str, image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: str
     ) -> None:
@@ -1186,7 +1235,7 @@ class MlflowClient(object):
             return isinstance(image, np.ndarray)
 
         def _normalize_to_uint8(x):
-            # Based on: https://github.com/matplotlib/matplotlib/blob/06567e021f21be046b6d6dcf00380c1cb9adaf3c/lib/matplotlib/image.py#L684  # noqa
+            # Based on: https://github.com/matplotlib/matplotlib/blob/06567e021f21be046b6d6dcf00380c1cb9adaf3c/lib/matplotlib/image.py#L684
 
             is_int = np.issubdtype(x.dtype, np.integer)
             low = 0
@@ -1219,7 +1268,7 @@ class MlflowClient(object):
                         "Please install it via: pip install Pillow"
                     ) from exc
 
-                # Ref.: https://numpy.org/doc/stable/reference/generated/numpy.dtype.kind.html#numpy-dtype-kind  # noqa
+                # Ref.: https://numpy.org/doc/stable/reference/generated/numpy.dtype.kind.html#numpy-dtype-kind
                 valid_data_types = {
                     "b": "bool",
                     "i": "signed integer",
@@ -1493,9 +1542,10 @@ class MlflowClient(object):
         :param page_token: Token specifying the next page of results. It should be obtained from
             a ``search_runs`` call.
 
-        :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
-            expressions. If the underlying tracking store supports pagination, the token for
-            the next page may be obtained via the ``token`` attribute of the returned object.
+        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`Run <mlflow.entities.Run>` objects that satisfy the search expressions.
+            If the underlying tracking store supports pagination, the token for the next page may
+            be obtained via the ``token`` attribute of the returned object.
 
         .. code-block:: python
             :caption: Example
@@ -1713,7 +1763,7 @@ class MlflowClient(object):
         Delete registered model.
         Backend raises exception if a registered model with given name does not exist.
 
-        :param name: Name of the registered model to update.
+        :param name: Name of the registered model to delete.
 
         .. code-block:: python
             :caption: Example
@@ -1894,7 +1944,7 @@ class MlflowClient(object):
 
     def get_registered_model(self, name: str) -> RegisteredModel:
         """
-        :param name: Name of the registered model to update.
+        :param name: Name of the registered model to get.
         :return: A single :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
 
         .. code-block:: python
@@ -1930,12 +1980,12 @@ class MlflowClient(object):
         """
         return self._get_registry_client().get_registered_model(name)
 
-    def get_latest_versions(self, name: str, stages: List[str] = None) -> ModelVersion:
+    def get_latest_versions(self, name: str, stages: List[str] = None) -> List[ModelVersion]:
         """
         Latest version models for each requests stage. If no ``stages`` provided, returns the
         latest version for each stage.
 
-        :param name: Name of the registered model to update.
+        :param name: Name of the registered model from which to get the latest versions.
         :param stages: List of desired stages. If input list is None, return latest versions for
                        for ALL_STAGES.
         :return: List of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
@@ -2126,6 +2176,7 @@ class MlflowClient(object):
             :caption: Example
 
             import mlflow.sklearn
+            from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
             from mlflow.tracking import MlflowClient
             from sklearn.ensemble import RandomForestRegressor
 
@@ -2144,8 +2195,9 @@ class MlflowClient(object):
 
             # Create a new version of the rfr model under the registered model name
             desc = "A new version of the model"
-            model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
-            mv = client.create_model_version(name, model_uri, run.info.run_id, description=desc)
+            runs_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
+            model_src = RunsArtifactRepository.get_underlying_uri(runs_uri)
+            mv = client.create_model_version(name, model_src, run.info.run_id, description=desc)
             print("Name: {}".format(mv.name))
             print("Version: {}".format(mv.version))
             print("Description: {}".format(mv.description))

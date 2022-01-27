@@ -19,9 +19,11 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import get_unique_resource_id
+from mlflow.utils.annotations import experimental
 from mlflow.utils.file_utils import TempDir
 from mlflow.models.container import SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS
-from mlflow.models.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME
+from mlflow.models.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME, SERVING_ENVIRONMENT
+
 
 DEFAULT_IMAGE_NAME = "mlflow-pyfunc"
 DEPLOYMENT_MODE_ADD = "add"
@@ -38,6 +40,8 @@ DEFAULT_BUCKET_NAME_PREFIX = "mlflow-sagemaker"
 
 DEFAULT_SAGEMAKER_INSTANCE_TYPE = "ml.m4.xlarge"
 DEFAULT_SAGEMAKER_INSTANCE_COUNT = 1
+
+SAGEMAKER_SERVING_ENVIRONMENT = "SageMaker"
 
 _logger = logging.getLogger(__name__)
 
@@ -158,6 +162,7 @@ def deploy(
     app_name,
     model_uri,
     execution_role_arn=None,
+    assume_role_arn=None,
     bucket=None,
     image_url=None,
     region_name="us-west-2",
@@ -204,6 +209,9 @@ def deploy(
                                call. For more information about SageMaker execution roles for model
                                creation, see
                                https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html.
+    :param assume_role_arn: The name of an IAM cross-account role to be assumed to deploy SageMaker
+                            to another AWS account. If unspecified, SageMaker will be deployed to
+                            the the currently active AWS account.
     :param bucket: S3 bucket where model artifacts will be stored. Defaults to a
                    SageMaker-compatible bucket name.
     :param image_url: URL of the ECR-hosted Docker image the model should be deployed into, produced
@@ -318,8 +326,13 @@ def deploy(
         _validate_deployment_flavor(model_config, flavor)
     _logger.info("Using the %s flavor for deployment!", flavor)
 
-    sage_client = boto3.client("sagemaker", region_name=region_name)
-    s3_client = boto3.client("s3", region_name=region_name)
+    if assume_role_arn is None:
+        assume_role_credentials = dict()
+    else:
+        assume_role_credentials = _assume_role_and_get_credentials(assume_role_arn=assume_role_arn)
+
+    s3_client = boto3.client("s3", region_name=region_name, **assume_role_credentials)
+    sage_client = boto3.client("sagemaker", region_name=region_name, **assume_role_credentials)
 
     endpoint_exists = _find_endpoint(endpoint_name=app_name, sage_client=sage_client) is not None
     if endpoint_exists and mode == DEPLOYMENT_MODE_CREATE:
@@ -342,10 +355,10 @@ def deploy(
     if not image_url:
         image_url = _get_default_image_url(region_name=region_name)
     if not execution_role_arn:
-        execution_role_arn = _get_assumed_role_arn()
+        execution_role_arn = _get_assumed_role_arn(**assume_role_credentials)
     if not bucket:
         _logger.info("No model data bucket specified, using the default bucket")
-        bucket = _get_default_s3_bucket(region_name)
+        bucket = _get_default_s3_bucket(region_name, **assume_role_credentials)
 
     model_s3_path = _upload_s3(
         local_model_path=model_path,
@@ -353,6 +366,7 @@ def deploy(
         prefix=model_name,
         region_name=region_name,
         s3_client=s3_client,
+        **assume_role_credentials,
     )
 
     if endpoint_exists:
@@ -403,12 +417,22 @@ def deploy(
             deployment_operation.clean_up()
 
 
-def delete(app_name, region_name="us-west-2", archive=False, synchronous=True, timeout_seconds=300):
+def delete(
+    app_name,
+    region_name="us-west-2",
+    assume_role_arn=None,
+    archive=False,
+    synchronous=True,
+    timeout_seconds=300,
+):
     """
     Delete a SageMaker application.
 
     :param app_name: Name of the deployed application.
     :param region_name: Name of the AWS region in which the application is deployed.
+    :param assume_role_arn: The name of an IAM cross-account role to be assumed to deploy SageMaker
+                            to another AWS account. If unspecified, SageMaker will be deployed to
+                            the the currently active AWS account.
     :param archive: If ``True``, resources associated with the specified application, such
                     as its associated models and endpoint configuration, are preserved.
                     If ``False``, these resources are deleted. In order to use
@@ -438,8 +462,13 @@ def delete(app_name, region_name="us-west-2", archive=False, synchronous=True, t
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    s3_client = boto3.client("s3", region_name=region_name)
-    sage_client = boto3.client("sagemaker", region_name=region_name)
+    if assume_role_arn is None:
+        assume_role_credentials = dict()
+    else:
+        assume_role_credentials = _assume_role_and_get_credentials(assume_role_arn=assume_role_arn)
+
+    s3_client = boto3.client("s3", region_name=region_name, **assume_role_credentials)
+    sage_client = boto3.client("sagemaker", region_name=region_name, **assume_role_credentials)
 
     endpoint_info = sage_client.describe_endpoint(EndpointName=app_name)
     endpoint_arn = endpoint_info["EndpointArn"]
@@ -489,6 +518,495 @@ def delete(app_name, region_name="us-west-2", archive=False, synchronous=True, t
             )
         if not archive:
             delete_operation.clean_up()
+
+
+@experimental
+def deploy_transform_job(
+    job_name,
+    model_uri,
+    s3_input_data_type,
+    s3_input_uri,
+    content_type,
+    s3_output_path,
+    compression_type="None",
+    split_type="Line",
+    accept="text/csv",
+    assemble_with="Line",
+    input_filter="$",
+    output_filter="$",
+    join_resource="None",
+    execution_role_arn=None,
+    assume_role_arn=None,
+    bucket=None,
+    image_url=None,
+    region_name="us-west-2",
+    instance_type=DEFAULT_SAGEMAKER_INSTANCE_TYPE,
+    instance_count=DEFAULT_SAGEMAKER_INSTANCE_COUNT,
+    vpc_config=None,
+    flavor=None,
+    archive=False,
+    synchronous=True,
+    timeout_seconds=1200,
+):
+    """
+    Deploy an MLflow model on AWS SageMaker and create the corresponding batch transform job.
+    The currently active AWS account must have correct permissions set up.
+
+    :param job_name: Name of the deployed Sagemaker batch transform job.
+    :param model_uri: The location, in URI format, of the MLflow model to deploy to SageMaker.
+                      For example:
+
+                      - ``/Users/me/path/to/local/model``
+                      - ``relative/path/to/local/model``
+                      - ``s3://my_bucket/path/to/model``
+                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+                      - ``models:/<model_name>/<model_version>``
+                      - ``models:/<model_name>/<stage>``
+
+                      For more information about supported URI schemes, see
+                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+                      artifact-locations>`_.
+
+    :param s3_input_data_type: Input data type for the transform job.
+    :param s3_input_uri: S3 key name prefix or a manifest of the input data.
+    :param content_type: The multipurpose internet mail extension (MIME) type of the data.
+    :param s3_output_path: The S3 path to store the output results of the Sagemaker transform job.
+    :param compression_type: The compression type of the transform data.
+    :param split_type: The method to split the transform job's data files into smaller batches.
+    :param accept: The multipurpose internet mail extension (MIME) type of the output data.
+    :param assemble_with: The method to assemble the results of the transform job as
+            a single S3 object.
+    :param input_filter: A JSONPath expression used to select a portion of the input data for
+            the transform job.
+    :param output_filter: A JSONPath expression used to select a portion of the output data from
+            the transform job.
+    :param join_resource: The source of the data to join with the transformed data.
+
+    :param execution_role_arn: The name of an IAM role granting the SageMaker service permissions to
+                               access the specified Docker image and S3 bucket containing MLflow
+                               model artifacts. If unspecified, the currently-assumed role will be
+                               used. This execution role is passed to the SageMaker service when
+                               creating a SageMaker model from the specified MLflow model. It is
+                               passed as the ``ExecutionRoleArn`` parameter of the `SageMaker
+                               CreateModel API call <https://docs.aws.amazon.com/sagemaker/latest/
+                               dg/API_CreateModel.html>`_. This role is *not* assumed for any other
+                               call. For more information about SageMaker execution roles for model
+                               creation, see
+                               https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html.
+    :param assume_role_arn: The name of an IAM cross-account role to be assumed to deploy SageMaker
+                            to another AWS account. If unspecified, SageMaker will be deployed to
+                            the the currently active AWS account.
+    :param bucket: S3 bucket where model artifacts will be stored. Defaults to a
+                   SageMaker-compatible bucket name.
+    :param image_url: URL of the ECR-hosted Docker image the model should be deployed into, produced
+                      by ``mlflow sagemaker build-and-push-container``. This parameter can also
+                      be specified by the environment variable ``MLFLOW_SAGEMAKER_DEPLOY_IMG_URL``.
+    :param region_name: Name of the AWS region to which to deploy the application.
+    :param instance_type: The type of SageMaker ML instance on which to deploy the model. For a list
+                          of supported instance types, see
+                          https://aws.amazon.com/sagemaker/pricing/instance-types/.
+    :param instance_count: The number of SageMaker ML instances on which to deploy the model.
+    :param vpc_config: A dictionary specifying the VPC configuration to use when creating the
+                       new SageMaker model associated with this batch transform job. The acceptable
+                       values for this parameter are identical to those of the ``VpcConfig``
+                       parameter in the `SageMaker boto3 client's create_model method
+                       <https://boto3.readthedocs.io/en/latest/reference/services/sagemaker.html
+                       #SageMaker.Client.create_model>`_. For more information, see
+                       https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow.sagemaker as mfs
+        vpc_config = {
+                        'SecurityGroupIds': [
+                            'sg-123456abc',
+                        ],
+                        'Subnets': [
+                            'subnet-123456abc',
+                        ]
+                     }
+        mfs.deploy_transform_job(..., vpc_config=vpc_config)
+
+    :param flavor: The name of the flavor of the model to use for deployment. Must be either
+                   ``None`` or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS. If ``None``,
+                   a flavor is automatically selected from the model's available flavors. If the
+                   specified flavor is not present or not supported for deployment, an exception
+                   will be thrown.
+    :param archive: If ``True``, resources like Sagemaker models and model artifacts in S3 are
+                    preserved after the finished batch transform job. If ``False``, these resources
+                    are deleted. In order to use ``archive=False``, ``deploy_transform_job()`` must
+                    be executed synchronously with ``synchronous=True``.
+    :param synchronous: If ``True``, this function will block until the deployment process succeeds
+                        or encounters an irrecoverable failure. If ``False``, this function will
+                        return immediately after starting the deployment process. It will not wait
+                        for the deployment process to complete; in this case, the caller is
+                        responsible for monitoring the health and status of the pending deployment
+                        via native SageMaker APIs or the AWS console.
+    :param timeout_seconds: If ``synchronous`` is ``True``, the deployment process will return after
+                            the specified number of seconds if no definitive result (success or
+                            failure) is achieved. Once the function returns, the caller is
+                            responsible for monitoring the health and status of the pending
+                            deployment using native SageMaker APIs or the AWS console. If
+                            ``synchronous`` is ``False``, this parameter is ignored.
+    """
+    import boto3
+
+    if (not archive) and (not synchronous):
+        raise MlflowException(
+            message=(
+                "Resources must be archived when `deploy_transform_job()`"
+                " is executed in non-synchronous mode."
+                " Either set `synchronous=True` or `archive=True`."
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    model_path = _download_artifact_from_uri(model_uri)
+    model_config_path = os.path.join(model_path, MLMODEL_FILE_NAME)
+    if not os.path.exists(model_config_path):
+        raise MlflowException(
+            message=(
+                "Failed to find {} configuration within the specified model's" " root directory."
+            ).format(MLMODEL_FILE_NAME),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    model_config = Model.load(model_config_path)
+
+    if flavor is None:
+        flavor = _get_preferred_deployment_flavor(model_config)
+    else:
+        _validate_deployment_flavor(model_config, flavor)
+    _logger.info("Using the %s flavor for deployment!", flavor)
+
+    if assume_role_arn is None:
+        assume_role_credentials = dict()
+    else:
+        assume_role_credentials = _assume_role_and_get_credentials(assume_role_arn=assume_role_arn)
+
+    s3_client = boto3.client("s3", region_name=region_name, **assume_role_credentials)
+    sage_client = boto3.client("sagemaker", region_name=region_name, **assume_role_credentials)
+
+    transform_job_exists = (
+        _find_transform_job(job_name=job_name, sage_client=sage_client) is not None
+    )
+    if transform_job_exists:
+        raise MlflowException(
+            message=(
+                "You are attempting to deploy a batch transform job with name: {job_name}."
+                "However, a batch transform job with the same name already exists.".format(
+                    job_name=job_name
+                )
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    model_name = _get_sagemaker_transform_model_name(job_name=job_name)
+    if not image_url:
+        image_url = _get_default_image_url(region_name=region_name)
+    if not execution_role_arn:
+        execution_role_arn = _get_assumed_role_arn(**assume_role_credentials)
+    if not bucket:
+        _logger.info("No model data bucket specified, using the default bucket")
+        bucket = _get_default_s3_bucket(region_name, **assume_role_credentials)
+
+    model_s3_path = _upload_s3(
+        local_model_path=model_path,
+        bucket=bucket,
+        prefix=model_name,
+        region_name=region_name,
+        s3_client=s3_client,
+        **assume_role_credentials,
+    )
+
+    deployment_operation = _create_sagemaker_transform_job(
+        job_name=job_name,
+        model_name=model_name,
+        model_s3_path=model_s3_path,
+        model_uri=model_uri,
+        image_url=image_url,
+        flavor=flavor,
+        vpc_config=vpc_config,
+        role=execution_role_arn,
+        sage_client=sage_client,
+        s3_client=s3_client,
+        instance_type=instance_type,
+        instance_count=instance_count,
+        s3_input_data_type=s3_input_data_type,
+        s3_input_uri=s3_input_uri,
+        content_type=content_type,
+        compression_type=compression_type,
+        split_type=split_type,
+        s3_output_path=s3_output_path,
+        accept=accept,
+        assemble_with=assemble_with,
+        input_filter=input_filter,
+        output_filter=output_filter,
+        join_resource=join_resource,
+    )
+
+    if synchronous:
+        _logger.info("Waiting for the batch transform job to complete...")
+        operation_status = deployment_operation.await_completion(timeout_seconds=timeout_seconds)
+        if operation_status.state == _SageMakerOperationStatus.STATE_SUCCEEDED:
+            _logger.info(
+                'The batch transform job completed successfully with message: "%s"',
+                operation_status.message,
+            )
+        else:
+            raise MlflowException(
+                "The batch transform job failed with the following error message:"
+                ' "{error_message}"'.format(error_message=operation_status.message)
+            )
+        if not archive:
+            deployment_operation.clean_up()
+
+
+@experimental
+def terminate_transform_job(
+    job_name,
+    region_name="us-west-2",
+    assume_role_arn=None,
+    archive=False,
+    synchronous=True,
+    timeout_seconds=300,
+):
+    """
+    Terminate a SageMaker batch transform job.
+
+    :param job_name: Name of the deployed Sagemaker batch transform job.
+    :param region_name: Name of the AWS region in which the batch transform job is deployed.
+    :param assume_role_arn: The name of an IAM cross-account role to be assumed to deploy SageMaker
+                            to another AWS account. If unspecified, SageMaker will be deployed to
+                            the the currently active AWS account.
+    :param archive: If ``True``, resources associated with the specified batch transform job,
+                    such as its associated models and model artifacts, are preserved.
+                    If ``False``, these resources are deleted. In order to use ``archive=False``,
+                    ``terminate_transform_job()`` must be executed synchronously
+                    with ``synchronous=True``.
+    :param synchronous: If `True`, this function blocks until the termination process succeeds
+                        or encounters an irrecoverable failure. If `False`, this function
+                        returns immediately after starting the termination process. It will not
+                        wait for the termination process to complete; in this case, the caller is
+                        responsible for monitoring the status of the termination process via native
+                        SageMaker APIs or the AWS console.
+    :param timeout_seconds: If `synchronous` is `True`, the termination process returns after the
+                            specified number of seconds if no definitive result (success or failure)
+                            is achieved. Once the function returns, the caller is responsible
+                            for monitoring the status of the termination process via native
+                            SageMaker APIs or the AWS console. If `synchronous` is False, this
+                            parameter is ignored.
+    """
+    import boto3
+
+    if (not archive) and (not synchronous):
+        raise MlflowException(
+            message=(
+                "Resources must be archived when `terminate_transform_job()`"
+                " is executed in non-synchronous mode."
+                " Either set `synchronous=True` or `archive=True`."
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    if assume_role_arn is None:
+        assume_role_credentials = dict()
+    else:
+        assume_role_credentials = _assume_role_and_get_credentials(assume_role_arn=assume_role_arn)
+
+    s3_client = boto3.client("s3", region_name=region_name, **assume_role_credentials)
+    sage_client = boto3.client("sagemaker", region_name=region_name, **assume_role_credentials)
+
+    transform_job_info = sage_client.describe_transform_job(TransformJobName=job_name)
+    transform_job_arn = transform_job_info["TransformJobArn"]
+
+    sage_client.stop_transform_job(TransformJobName=job_name)
+    _logger.info("Terminated batch transform job with arn: %s", transform_job_arn)
+
+    def status_check_fn():
+        transform_job_info = _find_transform_job(job_name=job_name, sage_client=sage_client)
+
+        if transform_job_info["TransformJobStatus"] == "Stopping":
+            return _SageMakerOperationStatus.in_progress(
+                "Termination is still in progress. Current batch transform job status:\
+                    {transform_job_status}".format(
+                    transform_job_status=transform_job_info["TransformJobStatus"]
+                )
+            )
+        elif transform_job_info["TransformJobStatus"] == "Stopped":
+            return _SageMakerOperationStatus.succeeded(
+                "The SageMaker batch transform job was terminated successfully."
+            )
+
+    def cleanup_fn():
+        _logger.info("Cleaning up unused resources...")
+        model_name = transform_job_info["ModelName"]
+        model_arn = _delete_sagemaker_model(model_name, sage_client, s3_client)
+        _logger.info("Deleted associated model with arn: %s", model_arn)
+
+    stop_operation = _SageMakerOperation(status_check_fn=status_check_fn, cleanup_fn=cleanup_fn)
+
+    if synchronous:
+        _logger.info("Waiting for the termination operation to complete...")
+        operation_status = stop_operation.await_completion(timeout_seconds=timeout_seconds)
+        if operation_status.state == _SageMakerOperationStatus.STATE_SUCCEEDED:
+            _logger.info(
+                'The termination operation completed successfully with message: "%s"',
+                operation_status.message,
+            )
+        else:
+            raise MlflowException(
+                "The termination operation failed with the following error message:"
+                ' "{error_message}"'.format(error_message=operation_status.message)
+            )
+        if not archive:
+            stop_operation.clean_up()
+
+
+@experimental
+def push_model_to_sagemaker(
+    model_name,
+    model_uri,
+    execution_role_arn=None,
+    assume_role_arn=None,
+    bucket=None,
+    image_url=None,
+    region_name="us-west-2",
+    vpc_config=None,
+    flavor=None,
+):
+    """
+    Push an MLflow model to AWS SageMaker model registry.
+    The currently active AWS account must have correct permissions set up.
+
+    :param model_name: Name of the Sagemaker model.
+    :param model_uri: The location, in URI format, of the MLflow model to deploy to SageMaker.
+                      For example:
+
+                      - ``/Users/me/path/to/local/model``
+                      - ``relative/path/to/local/model``
+                      - ``s3://my_bucket/path/to/model``
+                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+                      - ``models:/<model_name>/<model_version>``
+                      - ``models:/<model_name>/<stage>``
+
+                      For more information about supported URI schemes, see
+                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+                      artifact-locations>`_.
+
+    :param execution_role_arn: The name of an IAM role granting the SageMaker service permissions to
+                               access the specified Docker image and S3 bucket containing MLflow
+                               model artifacts. If unspecified, the currently-assumed role will be
+                               used. This execution role is passed to the SageMaker service when
+                               creating a SageMaker model from the specified MLflow model. It is
+                               passed as the ``ExecutionRoleArn`` parameter of the `SageMaker
+                               CreateModel API call <https://docs.aws.amazon.com/sagemaker/latest/
+                               dg/API_CreateModel.html>`_. This role is *not* assumed for any other
+                               call. For more information about SageMaker execution roles for model
+                               creation, see
+                               https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html.
+    :param assume_role_arn: The name of an IAM cross-account role to be assumed to deploy SageMaker
+                            to another AWS account. If unspecified, SageMaker will be deployed to
+                            the the currently active AWS account.
+    :param bucket: S3 bucket where model artifacts will be stored. Defaults to a
+                   SageMaker-compatible bucket name.
+    :param image_url: URL of the ECR-hosted Docker image the model should be deployed into, produced
+                      by ``mlflow sagemaker build-and-push-container``. This parameter can also
+                      be specified by the environment variable ``MLFLOW_SAGEMAKER_DEPLOY_IMG_URL``.
+    :param region_name: Name of the AWS region to which to deploy the application.
+    :param vpc_config: A dictionary specifying the VPC configuration to use when creating the
+                       new SageMaker model. The acceptable values for this parameter are identical
+                       to those of the ``VpcConfig`` parameter in the `SageMaker boto3 client's
+                       create_model method
+                       <https://boto3.readthedocs.io/en/latest/reference/services/sagemaker.html
+                       #SageMaker.Client.create_model>`_. For more information, see
+                       https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow.sagemaker as mfs
+        vpc_config = {
+                        'SecurityGroupIds': [
+                            'sg-123456abc',
+                        ],
+                        'Subnets': [
+                            'subnet-123456abc',
+                        ]
+                     }
+        mfs.push_model_to_sagemaker(..., vpc_config=vpc_config)
+
+    :param flavor: The name of the flavor of the model to use for deployment. Must be either
+                   ``None`` or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS. If ``None``,
+                   a flavor is automatically selected from the model's available flavors. If the
+                   specified flavor is not present or not supported for deployment, an exception
+                   will be thrown.
+    """
+    import boto3
+
+    model_path = _download_artifact_from_uri(model_uri)
+    model_config_path = os.path.join(model_path, MLMODEL_FILE_NAME)
+    if not os.path.exists(model_config_path):
+        raise MlflowException(
+            message=(
+                "Failed to find {} configuration within the specified model's" " root directory."
+            ).format(MLMODEL_FILE_NAME),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    model_config = Model.load(model_config_path)
+
+    if flavor is None:
+        flavor = _get_preferred_deployment_flavor(model_config)
+    else:
+        _validate_deployment_flavor(model_config, flavor)
+    _logger.info("Using the %s flavor for deployment!", flavor)
+
+    if assume_role_arn is None:
+        assume_role_credentials = dict()
+    else:
+        assume_role_credentials = _assume_role_and_get_credentials(assume_role_arn=assume_role_arn)
+
+    s3_client = boto3.client("s3", region_name=region_name, **assume_role_credentials)
+    sage_client = boto3.client("sagemaker", region_name=region_name, **assume_role_credentials)
+
+    if _does_model_exist(model_name=model_name, sage_client=sage_client):
+        raise MlflowException(
+            message=(
+                "You are attempting to create a Sagemaker model with name: {model_name}."
+                "However, a model with the same name already exists.".format(model_name=model_name)
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    if not image_url:
+        image_url = _get_default_image_url(region_name=region_name)
+    if not execution_role_arn:
+        execution_role_arn = _get_assumed_role_arn(**assume_role_credentials)
+    if not bucket:
+        _logger.info("No model data bucket specified, using the default bucket")
+        bucket = _get_default_s3_bucket(region_name, **assume_role_credentials)
+
+    model_s3_path = _upload_s3(
+        local_model_path=model_path,
+        bucket=bucket,
+        prefix=model_name,
+        region_name=region_name,
+        s3_client=s3_client,
+        **assume_role_credentials,
+    )
+
+    model_response = _create_sagemaker_model(
+        model_name=model_name,
+        model_s3_path=model_s3_path,
+        model_uri=model_uri,
+        flavor=flavor,
+        vpc_config=vpc_config,
+        image_url=image_url,
+        execution_role=execution_role_arn,
+        sage_client=sage_client,
+    )
+
+    _logger.info("Created Sagemaker model with arn: %s", model_response["ModelArn"])
 
 
 def run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
@@ -569,42 +1087,65 @@ def _get_default_image_url(region_name):
     return (repository_conf["repositoryUri"] + ":{version}").format(version=mlflow.version.VERSION)
 
 
-def _get_account_id():
+def _get_account_id(**assume_role_credentials):
     import boto3
 
     sess = boto3.Session()
-    sts_client = sess.client("sts")
+    sts_client = sess.client("sts", **assume_role_credentials)
     identity_info = sts_client.get_caller_identity()
     account_id = identity_info["Account"]
     return account_id
 
 
-def _get_assumed_role_arn():
+def _get_assumed_role_arn(**assume_role_credentials):
     """
     :return: ARN of the user's current IAM role.
     """
     import boto3
 
     sess = boto3.Session()
-    sts_client = sess.client("sts")
+    sts_client = sess.client("sts", **assume_role_credentials)
     identity_info = sts_client.get_caller_identity()
     sts_arn = identity_info["Arn"]
     role_name = sts_arn.split("/")[1]
-    iam_client = sess.client("iam")
+    iam_client = sess.client("iam", **assume_role_credentials)
     role_response = iam_client.get_role(RoleName=role_name)
     return role_response["Role"]["Arn"]
 
 
-def _get_default_s3_bucket(region_name):
+def _assume_role_and_get_credentials(assume_role_arn):
+    """
+    Assume a new role in AWS and return the credentials for that role.
+
+    :param assume_role_arn: The ARN of the role that will be assumed
+    :return: Dict with credentials of the assumed role
+    """
+    import boto3
+
+    sts_client = boto3.client("sts")
+    sts_response = sts_client.assume_role(
+        RoleArn=assume_role_arn, RoleSessionName="mlflow-sagemaker"
+    )
+
+    _logger.info("Assuming role %s for deployment!", assume_role_arn)
+
+    return dict(
+        aws_access_key_id=sts_response["Credentials"]["AccessKeyId"],
+        aws_secret_access_key=sts_response["Credentials"]["SecretAccessKey"],
+        aws_session_token=sts_response["Credentials"]["SessionToken"],
+    )
+
+
+def _get_default_s3_bucket(region_name, **assume_role_credentials):
     import boto3
 
     # create bucket if it does not exist
     sess = boto3.Session()
-    account_id = _get_account_id()
+    account_id = _get_account_id(**assume_role_credentials)
     bucket_name = "{pfx}-{rn}-{aid}".format(
         pfx=DEFAULT_BUCKET_NAME_PREFIX, rn=region_name, aid=account_id
     )
-    s3 = sess.client("s3")
+    s3 = sess.client("s3", **assume_role_credentials)
     response = s3.list_buckets()
     buckets = [b["Name"] for b in response["Buckets"]]
     if bucket_name not in buckets:
@@ -638,7 +1179,7 @@ def _make_tarfile(output_filename, source_dir):
             tar.add(os.path.join(source_dir, f), arcname=f)
 
 
-def _upload_s3(local_model_path, bucket, prefix, region_name, s3_client):
+def _upload_s3(local_model_path, bucket, prefix, region_name, s3_client, **assume_role_credentials):
     """
     Upload dir to S3 as .tar.gz.
     :param local_model_path: Local path to a dir.
@@ -650,7 +1191,7 @@ def _upload_s3(local_model_path, bucket, prefix, region_name, s3_client):
     """
     import boto3
 
-    sess = boto3.Session(region_name=region_name)
+    sess = boto3.Session(region_name=region_name, **assume_role_credentials)
     with TempDir() as tmp:
         model_data_file = tmp.path("model.tar.gz")
         _make_tarfile(model_data_file, local_model_path)
@@ -662,14 +1203,17 @@ def _upload_s3(local_model_path, bucket, prefix, region_name, s3_client):
                 Bucket=bucket, Key=key, Tagging={"TagSet": [{"Key": "SageMaker", "Value": "true"}]}
             )
             _logger.info("tag response: %s", response)
-            return "{}/{}/{}".format(s3_client.meta.endpoint_url, bucket, key)
+            return "s3://{}/{}".format(bucket, key)
 
 
 def _get_deployment_config(flavor_name):
     """
     :return: The deployment configuration as a dictionary
     """
-    deployment_config = {DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME: flavor_name}
+    deployment_config = {
+        DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME: flavor_name,
+        SERVING_ENVIRONMENT: SAGEMAKER_SERVING_ENVIRONMENT,
+    }
     return deployment_config
 
 
@@ -677,8 +1221,155 @@ def _get_sagemaker_model_name(endpoint_name):
     return "{en}-model-{uid}".format(en=endpoint_name, uid=get_unique_resource_id())
 
 
+def _get_sagemaker_transform_model_name(job_name):
+    return "{bn}-model-{uid}".format(bn=job_name, uid=get_unique_resource_id())
+
+
 def _get_sagemaker_config_name(endpoint_name):
     return "{en}-config-{uid}".format(en=endpoint_name, uid=get_unique_resource_id())
+
+
+def _create_sagemaker_transform_job(
+    job_name,
+    model_name,
+    model_s3_path,
+    model_uri,
+    image_url,
+    flavor,
+    vpc_config,
+    role,
+    sage_client,
+    s3_client,
+    instance_type,
+    instance_count,
+    s3_input_data_type,
+    s3_input_uri,
+    content_type,
+    compression_type,
+    split_type,
+    s3_output_path,
+    accept,
+    assemble_with,
+    input_filter,
+    output_filter,
+    join_resource,
+):
+    """
+    :param job_name: Name of the deployed Sagemaker batch transform job.
+    :param model_name: The name to assign the new SageMaker model that will be associated with the
+                       specified batch transform job.
+    :param model_s3_path: S3 path where we stored the model artifacts.
+    :param model_uri: URI of the MLflow model to associate with the specified SageMaker batch
+                        transform job.
+    :param image_url: URL of the ECR-hosted docker image the model is being deployed into.
+    :param flavor: The name of the flavor of the model to use for deployment.
+    :param vpc_config: A dictionary specifying the VPC configuration to use when creating the
+                       new SageMaker model associated with this SageMaker batch transform job.
+    :param role: SageMaker execution ARN role.
+    :param sage_client: A boto3 client for SageMaker.
+    :param s3_client: A boto3 client for S3.
+    :param instance_type: The type of SageMaker ML instance on which to deploy the model.
+    :param instance_count: The number of SageMaker ML instances on which to deploy the model.
+    :param s3_input_data_type: Input data type for the transform job.
+    :param s3_input_uri: S3 key name prefix or a manifest of the input data.
+    :param content_type: The multipurpose internet mail extension (MIME) type of the data.
+    :param compression_type: The compression type of the transform data.
+    :param split_type: The method to split the transform job's data files into smaller batches.
+    :param s3_output_path: The S3 path to store the output results of the Sagemaker transform job.
+    :param accept: The multipurpose internet mail extension (MIME) type of the output data.
+    :param assemble_with: The method to assemble the results of the transform job as a single
+                        S3 object.
+    :param input_filter: A JSONPath expression used to select a portion of the input data for the
+                        transform job.
+    :param output_filter: A JSONPath expression used to select a portion of the output data from
+                        the transform job.
+    :param join_resource: The source of the data to join with the transformed data.
+    """
+    _logger.info("Creating new batch transform job with name: %s ...", job_name)
+
+    model_response = _create_sagemaker_model(
+        model_name=model_name,
+        model_s3_path=model_s3_path,
+        model_uri=model_uri,
+        flavor=flavor,
+        vpc_config=vpc_config,
+        image_url=image_url,
+        execution_role=role,
+        sage_client=sage_client,
+    )
+    _logger.info("Created model with arn: %s", model_response["ModelArn"])
+
+    transform_input = {
+        "DataSource": {"S3DataSource": {"S3DataType": s3_input_data_type, "S3Uri": s3_input_uri}},
+        "ContentType": content_type,
+        "CompressionType": compression_type,
+        "SplitType": split_type,
+    }
+
+    transform_output = {
+        "S3OutputPath": s3_output_path,
+        "Accept": accept,
+        "AssembleWith": assemble_with,
+    }
+
+    transform_resources = {"InstanceType": instance_type, "InstanceCount": instance_count}
+
+    data_processing = {
+        "InputFilter": input_filter,
+        "OutputFilter": output_filter,
+        "JoinSource": join_resource,
+    }
+
+    transform_job_response = sage_client.create_transform_job(
+        TransformJobName=job_name,
+        ModelName=model_name,
+        TransformInput=transform_input,
+        TransformOutput=transform_output,
+        TransformResources=transform_resources,
+        DataProcessing=data_processing,
+        Tags=[{"Key": "model_name", "Value": model_name}],
+    )
+    _logger.info(
+        "Created batch transform job with arn: %s", transform_job_response["TransformJobArn"]
+    )
+
+    def status_check_fn():
+        transform_job_info = sage_client.describe_transform_job(TransformJobName=job_name)
+
+        if transform_job_info is None:
+            return _SageMakerOperationStatus.in_progress(
+                "Waiting for batch transform job to be created..."
+            )
+
+        transform_job_status = transform_job_info["TransformJobStatus"]
+        if transform_job_status == "InProgress":
+            return _SageMakerOperationStatus.in_progress(
+                'Waiting for batch transform job to reach the "Completed" state. \
+                    Current batch transform job status:'
+                ' "{transform_job_status}"'.format(transform_job_status=transform_job_status)
+            )
+        elif transform_job_status == "Completed":
+            return _SageMakerOperationStatus.succeeded(
+                "The SageMaker batch transform job was processed successfully."
+            )
+        else:
+            failure_reason = transform_job_info.get(
+                "FailureReason",
+                (
+                    "An unknown SageMaker failure occurred. Please see the SageMaker console logs"
+                    " for more information."
+                ),
+            )
+            return _SageMakerOperationStatus.failed(failure_reason)
+
+    def cleanup_fn():
+        _logger.info("Cleaning up Sagemaker model and S3 model artifacts...")
+        transform_job_info = sage_client.describe_transform_job(TransformJobName=job_name)
+        model_name = transform_job_info["ModelName"]
+        model_arn = _delete_sagemaker_model(model_name, sage_client, s3_client)
+        _logger.info("Deleted associated model with arn: %s", model_arn)
+
+    return _SageMakerOperation(status_check_fn=status_check_fn, cleanup_fn=cleanup_fn)
 
 
 def _create_sagemaker_endpoint(
@@ -741,7 +1432,9 @@ def _create_sagemaker_endpoint(
     )
 
     endpoint_response = sage_client.create_endpoint(
-        EndpointName=endpoint_name, EndpointConfigName=config_name, Tags=[],
+        EndpointName=endpoint_name,
+        EndpointConfigName=config_name,
+        Tags=[],
     )
     _logger.info("Created endpoint with arn: %s", endpoint_response["EndpointArn"])
 
@@ -887,7 +1580,8 @@ def _update_sagemaker_endpoint(
             failure_reason = endpoint_info.get(
                 "FailureReason",
                 (
-                    "An unknown SageMaker failure occurred. Please see the SageMaker console logs for"  # noqa
+                    "An unknown SageMaker failure occurred."
+                    " Please see the SageMaker console logs for"
                     " more information."
                 ),
             )
@@ -964,9 +1658,8 @@ def _delete_sagemaker_model(model_name, sage_client, s3_client):
     # procedure is safe due to the well-documented structure of the `ModelDataUrl`
     # (see https://docs.aws.amazon.com/sagemaker/latest/dg/API_ContainerDefinition.html)
     parsed_data_url = urllib.parse.urlparse(model_data_url)
-    bucket_data_path = parsed_data_url.path.split("/")
-    bucket_name = bucket_data_path[1]
-    bucket_key = "/".join(bucket_data_path[2:])
+    bucket_name = parsed_data_url.netloc
+    bucket_key = parsed_data_url.path.lstrip("/")
 
     s3_client.delete_object(Bucket=bucket_name, Key=bucket_key)
     sage_client.delete_model(ModelName=model_name)
@@ -1008,6 +1701,50 @@ def _find_endpoint(endpoint_name, sage_client):
             )
         else:
             return None
+
+
+def _find_transform_job(job_name, sage_client):
+    """
+    Finds a SageMaker batch transform job with the specified name in the caller's AWS account,
+    returning a NoneType if the transform job is not found.
+
+    :param sage_client: A boto3 client for SageMaker.
+    :return: If the transform job exists, a dictionary of transform job attributes. If the
+             transform job does not exist, ``None``.
+    """
+    transform_jobs_page = sage_client.list_transform_jobs(MaxResults=100, NameContains=job_name)
+
+    while True:
+        for transform_job in transform_jobs_page["TransformJobSummaries"]:
+            if transform_job["TransformJobName"] == job_name:
+                return transform_job
+
+        if "NextToken" in transform_jobs_page:
+            transform_jobs_page = sage_client.list_transform_jobs(
+                MaxResults=100,
+                NextToken=transform_jobs_page["NextToken"],
+                NameContains=job_name,
+            )
+        else:
+            return None
+
+
+def _does_model_exist(model_name, sage_client):
+    """
+    Determines whether a SageMaker model exists with the specified name in the caller's AWS account,
+    returning True if the model exists, returning False if the model does not exist.
+
+    :param sage_client: A boto3 client for SageMaker.
+    :return: If the model exists, ``True``. If the model does not
+             exist, ``False``.
+    """
+    try:
+        response = sage_client.describe_model(ModelName=model_name)
+    except sage_client.exceptions.ClientError as error:
+        if "Could not find model" in error.response["Error"]["Message"]:
+            return False
+    else:
+        return True if response else False
 
 
 class _SageMakerOperation:

@@ -7,20 +7,10 @@ import numpy as np
 import time
 import warnings
 
-import mlflow
-from mlflow.entities import Metric, Param
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils import _chunk_dict, _truncate_dict
-from mlflow.utils.autologging_utils import try_mlflow_log
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
-from mlflow.utils.validation import (
-    MAX_PARAMS_TAGS_PER_BATCH,
-    MAX_METRICS_PER_BATCH,
-    MAX_ENTITIES_PER_BATCH,
-    MAX_ENTITY_KEY_LENGTH,
-    MAX_PARAM_VAL_LENGTH,
-)
+from mlflow.utils.arguments_utils import _get_arg_names
 
 _logger = logging.getLogger(__name__)
 
@@ -44,6 +34,38 @@ _SklearnArtifact = collections.namedtuple(
 _SklearnMetric = collections.namedtuple("_SklearnMetric", ["name", "function", "arguments"])
 
 
+def _gen_xgboost_sklearn_estimators_to_patch():
+    import xgboost as xgb
+
+    all_classes = inspect.getmembers(xgb.sklearn, inspect.isclass)
+    base_class = xgb.sklearn.XGBModel
+    sklearn_estimators = []
+    for _, class_object in all_classes:
+        if issubclass(class_object, base_class) and class_object != base_class:
+            sklearn_estimators.append(class_object)
+
+    return sklearn_estimators
+
+
+def _gen_lightgbm_sklearn_estimators_to_patch():
+    import mlflow.lightgbm
+    import lightgbm as lgb
+
+    all_classes = inspect.getmembers(lgb.sklearn, inspect.isclass)
+    base_class = lgb.sklearn._LGBMModelBase
+    sklearn_estimators = []
+    for _, class_object in all_classes:
+        package_name = class_object.__module__.split(".")[0]
+        if (
+            package_name == mlflow.lightgbm.FLAVOR_NAME
+            and issubclass(class_object, base_class)
+            and class_object != base_class
+        ):
+            sklearn_estimators.append(class_object)
+
+    return sklearn_estimators
+
+
 def _get_estimator_info_tags(estimator):
     """
     :return: A dictionary of MLflow run tag keys and values
@@ -55,15 +77,9 @@ def _get_estimator_info_tags(estimator):
     }
 
 
-def _get_arg_names(f):
-    # `inspect.getargspec` doesn't return a wrapped function's argspec
-    # See: https://hynek.me/articles/decorators#mangled-signatures
-    return list(inspect.signature(f).parameters.keys())
-
-
-def _get_args_for_metrics(fit_func, fit_args, fit_kwargs):
+def _get_X_y_and_sample_weight(fit_func, fit_args, fit_kwargs):
     """
-    Get arguments to pass to metric computations in the following steps.
+    Get a tuple of (X, y, sample_weight) in the following steps.
 
     1. Extract X and y from fit_args and fit_kwargs.
     2. If the sample_weight argument exists in fit_func,
@@ -105,10 +121,9 @@ def _get_args_for_metrics(fit_func, fit_args, fit_kwargs):
         return None
 
     fit_arg_names = _get_arg_names(fit_func)
-
     # In most cases, X_var_name and y_var_name become "X" and "y", respectively.
     # However, certain sklearn models use different variable names for X and y.
-    # E.g., see: https://scikit-learn.org/stable/modules/generated/sklearn.multioutput.MultiOutputClassifier.html#sklearn.multioutput.MultiOutputClassifier.fit # noqa: E501
+    # E.g., see: https://scikit-learn.org/stable/modules/generated/sklearn.multioutput.MultiOutputClassifier.html#sklearn.multioutput.MultiOutputClassifier.fit
     X_var_name, y_var_name = fit_arg_names[:2]
     Xy = _get_Xy(fit_args, fit_kwargs, X_var_name, y_var_name)
     sample_weight = (
@@ -242,6 +257,13 @@ def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight):
     return _get_metrics_value_dict(classifier_metrics)
 
 
+def _get_class_labels_from_estimator(estimator):
+    """
+    Extracts class labels from `estimator` if `estimator.classes` is available.
+    """
+    return estimator.classes_ if hasattr(estimator, "classes_") else None
+
+
 def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight):
     """
     Draw and record various common artifacts for classifier
@@ -273,10 +295,27 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
     if not _is_plotting_supported():
         return []
 
+    def plot_confusion_matrix(*args, **kwargs):
+        import matplotlib
+
+        class_labels = _get_class_labels_from_estimator(fitted_estimator)
+        if class_labels is None:
+            class_labels = set(y_true)
+
+        with matplotlib.rc_context(
+            {
+                "figure.dpi": 288,
+                "figure.figsize": [6.0, 4.0],
+                "font.size": min(10.0, 50.0 / len(class_labels)),
+                "axes.labelsize": 10.0,
+            }
+        ):
+            return sklearn.metrics.plot_confusion_matrix(*args, **kwargs)
+
     classifier_artifacts = [
         _SklearnArtifact(
             name=prefix + "confusion_matrix",
-            function=sklearn.metrics.plot_confusion_matrix,
+            function=plot_confusion_matrix,
             arguments=dict(
                 estimator=fitted_estimator,
                 X=X,
@@ -298,7 +337,10 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
                     name=prefix + "roc_curve",
                     function=sklearn.metrics.plot_roc_curve,
                     arguments=dict(
-                        estimator=fitted_estimator, X=X, y=y_true, sample_weight=sample_weight,
+                        estimator=fitted_estimator,
+                        X=X,
+                        y=y_true,
+                        sample_weight=sample_weight,
                     ),
                     title="ROC curve",
                 ),
@@ -306,7 +348,10 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
                     name=prefix + "precision_recall_curve",
                     function=sklearn.metrics.plot_precision_recall_curve,
                     arguments=dict(
-                        estimator=fitted_estimator, X=X, y=y_true, sample_weight=sample_weight,
+                        estimator=fitted_estimator,
+                        X=X,
+                        y=y_true,
+                        sample_weight=sample_weight,
                     ),
                     title="Precision recall curve",
                 ),
@@ -392,7 +437,7 @@ def _log_warning_for_metrics(func_name, func_call, err):
         func_call.__qualname__
         + " failed. The metric "
         + func_name
-        + "will not be recorded."
+        + " will not be recorded."
         + " Metric error: "
         + str(err)
     )
@@ -412,11 +457,10 @@ def _log_warning_for_artifacts(func_name, func_call, err):
 
 
 def _log_specialized_estimator_content(
-    fitted_estimator, run_id, prefix, X, y_true=None, sample_weight=None
+    autologging_client, fitted_estimator, run_id, prefix, X, y_true=None, sample_weight=None
 ):
     import sklearn
 
-    mlflow_client = MlflowClient()
     metrics = dict()
 
     if y_true is not None:
@@ -436,15 +480,7 @@ def _log_specialized_estimator_content(
             )
             _logger.warning(msg)
         else:
-            # batch log all metrics
-            try_mlflow_log(
-                mlflow_client.log_batch,
-                run_id,
-                metrics=[
-                    Metric(key=str(key), value=value, timestamp=int(time.time() * 1000), step=0)
-                    for key, value in metrics.items()
-                ],
-            )
+            autologging_client.log_metrics(run_id=run_id, metrics=metrics)
 
     if sklearn.base.is_classifier(fitted_estimator):
         try:
@@ -475,17 +511,21 @@ def _log_specialized_estimator_content(
                 except Exception as e:
                     _log_warning_for_artifacts(artifact.name, artifact.function, e)
 
-            try_mlflow_log(mlflow_client.log_artifacts, run_id, tmp_dir.path())
+            MlflowClient().log_artifacts(run_id, tmp_dir.path())
 
     return metrics
 
 
-def _log_estimator_content(estimator, run_id, prefix, X, y_true=None, sample_weight=None):
+def _log_estimator_content(
+    autologging_client, estimator, run_id, prefix, X, y_true=None, sample_weight=None
+):
     """
     Logs content for the given estimator, which includes metrics and artifacts that might be
     tailored to the estimator's type (e.g., regression vs classification). Training labels
     are required for metric computation; metrics will be omitted if labels are not available.
 
+    :param autologging_client: An instance of `MlflowAutologgingQueueingClient` used for
+                               efficiently logging run data to MLflow Tracking.
     :param estimator: The estimator used to compute metrics and artifacts.
     :param run_id: The run under which the content is logged.
     :param prefix: A prefix used to name the logged content. Typically it's 'training_' for
@@ -496,6 +536,7 @@ def _log_estimator_content(estimator, run_id, prefix, X, y_true=None, sample_wei
     :return: A dict of the computed metrics.
     """
     metrics = _log_specialized_estimator_content(
+        autologging_client=autologging_client,
         fitted_estimator=estimator,
         run_id=run_id,
         prefix=prefix,
@@ -521,7 +562,7 @@ def _log_estimator_content(estimator, run_id, prefix, X, y_true=None, sample_wei
             _logger.warning(msg)
         else:
             score_key = prefix + "score"
-            try_mlflow_log(mlflow.log_metric, score_key, score)
+            autologging_client.log_metrics(run_id=run_id, metrics={score_key: score})
             metrics[score_key] = score
 
     return metrics
@@ -577,7 +618,7 @@ def _log_parameter_search_results_as_artifact(cv_results_df, run_id):
     with TempDir() as t:
         results_path = t.path("cv_results.csv")
         cv_results_df.to_csv(results_path, index=False)
-        try_mlflow_log(MlflowClient().log_artifact, run_id, results_path)
+        MlflowClient().log_artifact(run_id, results_path)
 
 
 # Log how many child runs will be created vs omitted based on `max_tuning_runs`.
@@ -604,7 +645,7 @@ def _log_child_runs_info(max_tuning_runs, total_runs):
 
 
 def _create_child_runs_for_parameter_search(
-    cv_estimator, parent_run, max_tuning_runs, child_tags=None
+    autologging_client, cv_estimator, parent_run, max_tuning_runs, child_tags=None
 ):
     """
     Creates a collection of child runs for a parameter search training session.
@@ -612,8 +653,10 @@ def _create_child_runs_for_parameter_search(
     parameter search estimator - `cv_estimator`, which provides relevant performance
     metrics for each point in the parameter search space. One child run is created
     for each point in the parameter search space. For additional information, see
-    `https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html`_. # noqa: E501
+    `https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html`_.
 
+    :param autologging_client: An instance of `MlflowAutologgingQueueingClient` used for
+                               efficiently logging run data to MLflow Tracking.
     :param cv_estimator: The trained parameter search estimator for which to create
                          child runs.
     :param parent_run: A py:class:`mlflow.entities.Run` object referring to the parent
@@ -629,7 +672,6 @@ def _create_child_runs_for_parameter_search(
             if "rank_test_" in col_name:
                 return col_name
 
-    client = MlflowClient()
     # Use the start time of the parent parameter search run as a rough estimate for the
     # start time of child runs, since we cannot precisely determine when each point
     # in the parameter search space was explored
@@ -657,7 +699,8 @@ def _create_child_runs_for_parameter_search(
             rank_column_name = first_custom_rank_column(cv_results_df)
             warnings.warn(
                 "Top {} child runs will be created based on ordering in {} column.".format(
-                    max_tuning_runs, rank_column_name,
+                    max_tuning_runs,
+                    rank_column_name,
                 )
                 + " You can choose not to limit the number of child runs created by"
                 + " setting `max_tuning_runs=None`."
@@ -670,17 +713,15 @@ def _create_child_runs_for_parameter_search(
         tags_to_log = dict(child_tags) if child_tags else {}
         tags_to_log.update({MLFLOW_PARENT_RUN_ID: parent_run.info.run_id})
         tags_to_log.update(_get_estimator_info_tags(seed_estimator))
-        child_run = client.create_run(
+        pending_child_run_id = autologging_client.create_run(
             experiment_id=parent_run.info.experiment_id,
             start_time=child_run_start_time,
             tags=tags_to_log,
         )
 
-        from itertools import zip_longest
-
         params_to_log = dict(base_params)
         params_to_log.update(result_row.get("params", {}))
-        param_batches_to_log = _chunk_dict(params_to_log, chunk_size=MAX_PARAMS_TAGS_PER_BATCH)
+        autologging_client.log_params(run_id=pending_child_run_id, params=params_to_log)
 
         # Parameters values are recorded twice in the set of search `cv_results_`:
         # once within a `params` column with dictionary values and once within
@@ -691,41 +732,18 @@ def _create_child_runs_for_parameter_search(
         # metrics for each training split, which is fairly verbose; accordingly, we filter
         # out per-split metrics in favor of aggregate metrics (mean, std, etc.)
         excluded_metric_prefixes = ["param", "split"]
-        metric_batches_to_log = _chunk_dict(
-            {
-                key: value
-                for key, value in result_row.iteritems()
-                if not any([key.startswith(prefix) for prefix in excluded_metric_prefixes])
-                and isinstance(value, Number)
-            },
-            chunk_size=min(
-                MAX_ENTITIES_PER_BATCH - MAX_PARAMS_TAGS_PER_BATCH, MAX_METRICS_PER_BATCH
-            ),
+        metrics_to_log = {
+            key: value
+            for key, value in result_row.iteritems()
+            if not any([key.startswith(prefix) for prefix in excluded_metric_prefixes])
+            and isinstance(value, Number)
+        }
+        autologging_client.log_metrics(
+            run_id=pending_child_run_id,
+            metrics=metrics_to_log,
         )
 
-        for params_batch, metrics_batch in zip_longest(
-            param_batches_to_log, metric_batches_to_log, fillvalue={}
-        ):
-            # Trim any parameter keys / values and metric keys that exceed the limits
-            # imposed by corresponding MLflow Tracking APIs (e.g., LogParam, LogMetric)
-            truncated_params_batch = _truncate_dict(
-                params_batch, MAX_ENTITY_KEY_LENGTH, MAX_PARAM_VAL_LENGTH
-            )
-            truncated_metrics_batch = _truncate_dict(
-                metrics_batch, max_key_length=MAX_ENTITY_KEY_LENGTH
-            )
-            client.log_batch(
-                run_id=child_run.info.run_id,
-                params=[
-                    Param(str(key), str(value)) for key, value in truncated_params_batch.items()
-                ],
-                metrics=[
-                    Metric(key=str(key), value=value, timestamp=child_run_end_time, step=0)
-                    for key, value in truncated_metrics_batch.items()
-                ],
-            )
-
-        client.set_terminated(run_id=child_run.info.run_id, end_time=child_run_end_time)
+        autologging_client.set_terminated(run_id=pending_child_run_id, end_time=child_run_end_time)
 
 
 def _is_supported_version():

@@ -5,8 +5,8 @@ import cookie from 'cookie';
 // to be set during HTTP requests (e.g., CSRF tokens), we support parsing
 // a set of cookies with a key prefix of "mlflow-request-header-$HeaderName",
 // which will be added as an HTTP header to all AJAX requests.
-export const setupAjaxHeaders = () => {
-  const requestHeaders = getRequestHeaders(document.cookie);
+export const setupAjaxHeaders = (appName = 'mlflow') => {
+  const requestHeaders = getRequestHeaders(document.cookie, appName);
   $(document).ajaxSend((event, jqXHR) => {
     if (requestHeaders) {
       for (const [headerKey, headerValue] of Object.entries(requestHeaders)) {
@@ -16,8 +16,8 @@ export const setupAjaxHeaders = () => {
   });
 };
 
-export const getRequestHeaders = (documentCookie) => {
-  const headerCookiePrefix = 'mlflow-request-header-';
+export const getRequestHeaders = (documentCookie, appName = 'mlflow') => {
+  const headerCookiePrefix = `${appName}-request-header-`;
   const parsedCookie = cookie.parse(documentCookie);
   const headers = {};
   for (const cookieName in parsedCookie) {

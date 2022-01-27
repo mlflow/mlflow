@@ -17,7 +17,6 @@ from mnist import (
     LightningMNISTClassifier,
 )
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.autologging_utils import try_mlflow_log
 
 
 class IterativePrune:
@@ -38,10 +37,10 @@ class IterativePrune:
         model = LightningMNISTClassifier(**parser_dict)
         trainer = pl.Trainer.from_argparse_args(self.parser_args)
         trainer.fit(model, dm)
-        trainer.test()
+        trainer.test(datamodule=dm)
         if os.path.exists(self.base_model_path):
             shutil.rmtree(self.base_model_path)
-        mlflow.pytorch.save_model(trainer.get_model(), self.base_model_path)
+        mlflow.pytorch.save_model(trainer.lightning_module, self.base_model_path)
         return trainer
 
     def load_base_model(self):
@@ -97,7 +96,7 @@ class IterativePrune:
                 f.write("\n")
                 f.write(str(params))
 
-            try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
+            mlflow.log_artifact(local_path=summary_file)
         finally:
             shutil.rmtree(tempdir)
 

@@ -1,10 +1,10 @@
 from abc import ABCMeta, abstractmethod
 
 
-class FlavorBackend(object):
+class FlavorBackend:
     """
-        Abstract class for Flavor Backend.
-        This class defines the API interface for local model deployment of MLflow model flavors.
+    Abstract class for Flavor Backend.
+    This class defines the API interface for local model deployment of MLflow model flavors.
     """
 
     __metaclass__ = ABCMeta
@@ -35,13 +35,14 @@ class FlavorBackend(object):
         pass
 
     @abstractmethod
-    def serve(self, model_uri, port, host):
+    def serve(self, model_uri, port, host, enable_mlserver):
         """
         Serve the specified MLflow model locally.
 
         :param model_uri: URI pointing to the MLflow model to be used for scoring.
         :param port: Port to use for the model deployment.
         :param host: Host to use for the model deployment. Defaults to ``localhost``.
+        :param enable_mlserver: Whether to use MLServer or the local scoring server.
         """
         pass
 

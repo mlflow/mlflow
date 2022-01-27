@@ -33,8 +33,37 @@ MAX_EXPERIMENT_TAG_VAL_LENGTH = 5000
 MAX_ENTITY_KEY_LENGTH = 250
 MAX_MODEL_REGISTRY_TAG_KEY_LENGTH = 250
 MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH = 5000
+MAX_EXPERIMENTS_LISTED_PER_PAGE = 50000
 
 _UNSUPPORTED_DB_TYPE_MSG = "Supported database engines are {%s}" % ", ".join(DATABASE_ENGINES)
+
+PARAM_VALIDATION_MSG = """
+
+The cause of this error is typically due to repeated calls
+to an individual run_id event logging.
+
+Incorrect Example:
+---------------------------------------
+with mlflow.start_run():
+    mlflow.log_param("depth", 3)
+    mlflow.log_param("depth", 5)
+---------------------------------------
+
+Which will throw an MlflowException for overwriting a
+logged parameter.
+
+Correct Example:
+---------------------------------------
+with mlflow.start_run():
+    with mlflow.start_run(nested=True):
+        mlflow.log_param("depth", 3)
+    with mlflow.start_run(nested=True):
+        mlflow.log_param("depth", 5)
+---------------------------------------
+
+Which will create a new nested run for each individual
+model and prevent parameter key collisions within the
+tracking store."""
 
 
 def bad_path_message(name):
@@ -146,6 +175,48 @@ def _validate_model_version_tag(key, value):
     _validate_tag_name(key)
     _validate_length_limit("Model version key", MAX_MODEL_REGISTRY_TAG_KEY_LENGTH, key)
     _validate_length_limit("Model version value", MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH, value)
+
+
+def _validate_list_experiments_max_results(max_results):
+    """
+    Check that `max_results` is within an acceptable range and raise an exception if it isn't.
+    """
+    if max_results is None:
+        return
+
+    if max_results < 1:
+        raise MlflowException(
+            "Invalid value for request parameter max_results. "
+            "It must be at least 1, but got value {}".format(max_results),
+            INVALID_PARAMETER_VALUE,
+        )
+
+    if max_results > MAX_EXPERIMENTS_LISTED_PER_PAGE:
+        raise MlflowException(
+            "Invalid value for request parameter max_results. "
+            "It must be at most {}, but got value {}".format(
+                MAX_EXPERIMENTS_LISTED_PER_PAGE, max_results
+            ),
+            INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_param_keys_unique(params):
+    """Ensures that duplicate param keys are not present in the `log_batch()` params argument"""
+    unique_keys = []
+    dupe_keys = []
+    for param in params:
+        if param.key not in unique_keys:
+            unique_keys.append(param.key)
+        else:
+            dupe_keys.append(param.key)
+
+    if dupe_keys:
+        raise MlflowException(
+            f"Duplicate parameter keys have been submitted: {dupe_keys}. Please ensure "
+            "the request contains only one param value per param key.",
+            INVALID_PARAMETER_VALUE,
+        )
 
 
 def _validate_param_name(name):

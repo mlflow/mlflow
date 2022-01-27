@@ -40,7 +40,7 @@ test_that("can print model correctly after it is loaded", {
 })
 
 test_that("can load and predict with python pyfunct and h2o backend", {
-  pyfunc <- import("mlflow.pyfunc")
+  pyfunc <- reticulate::import("mlflow.pyfunc")
   py_model <- pyfunc$load_model(testthat_model_dir)
 
   expected <- as.data.frame(h2o::h2o.predict(model, h2o::as.h2o(test)))
@@ -50,9 +50,9 @@ test_that("can load and predict with python pyfunct and h2o backend", {
     as.data.frame(py_model$predict(test)), expected
   )
 
-  mlflow.h2o <- import("mlflow.h2o")
+  mlflow.h2o <- reticulate::import("mlflow.h2o")
   h2o_native_model <- mlflow.h2o$load_model(testthat_model_dir)
-  h2o <- import("h2o")
+  h2o <- reticulate::import("h2o")
 
   expect_equivalent(
     as.data.frame(

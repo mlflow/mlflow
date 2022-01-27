@@ -15,14 +15,13 @@ from mlflow.tracking.client import MlflowClient
 from mlflow.utils.autologging_utils import (
     safe_patch,
     autologging_integration,
-    exception_safe_function,
+    picklable_exception_safe_function,
     AutologgingEventLogger,
     ExceptionSafeClass,
     ExceptionSafeAbstractClass,
     PatchFunction,
     with_managed_run,
     is_testing,
-    try_mlflow_log,
 )
 from mlflow.utils.autologging_utils.safety import (
     _AutologgingSessionManager,
@@ -33,7 +32,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 
 from tests.autologging.fixtures import test_mode_off, test_mode_on
 from tests.autologging.fixtures import patch_destination  # pylint: disable=unused-import
-
+from tests.autologging.test_autologging_utils import get_func_attrs
 
 pytestmark = pytest.mark.large
 
@@ -283,7 +282,7 @@ def test_safe_patch_propagates_exceptions_raised_from_original_function(
 
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
 
-    with pytest.raises(Exception) as exc:
+    with pytest.raises(Exception, match=str(exc_to_throw)) as exc:
         patch_destination.fn()
 
     assert exc.value == exc_to_throw
@@ -320,7 +319,7 @@ def test_safe_patch_propagates_exceptions_raised_outside_of_original_function_in
         raise exc_to_throw
 
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
-    with pytest.raises(Exception) as exc:
+    with pytest.raises(Exception, match=str(exc_to_throw)) as exc:
         patch_destination.fn()
 
     assert exc.value == exc_to_throw
@@ -611,14 +610,16 @@ def test_safe_patch_provides_original_function_with_expected_signature(
 
 
 def test_safe_patch_makes_expected_event_logging_calls_for_successful_patch_invocation(
-    patch_destination, test_autologging_integration, mock_event_logger,
+    patch_destination,
+    test_autologging_integration,
+    mock_event_logger,
 ):
     patch_session = None
     og_call_kwargs = {}
 
     def patch_impl(original, *args, **kwargs):
         nonlocal og_call_kwargs
-        kwargs.update({"extra_func": exception_safe_function(lambda k: "foo")})
+        kwargs.update({"extra_func": picklable_exception_safe_function(lambda k: "foo")})
         og_call_kwargs = kwargs
 
         nonlocal patch_session
@@ -643,15 +644,17 @@ def test_safe_patch_makes_expected_event_logging_calls_for_successful_patch_invo
     assert patch_success.exception is original_success.exception is None
 
 
-def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation_throws(
-    patch_destination, test_autologging_integration, mock_event_logger,
+def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation_throws_and_original_succeeds(  # pylint: disable=line-too-long
+    patch_destination,
+    test_autologging_integration,
+    mock_event_logger,
 ):
-    patch_session = None
     exc_to_raise = Exception("thrown from patch")
 
+    throw_location = None
+
     def patch_impl(original, *args, **kwargs):
-        nonlocal patch_session
-        patch_session = _AutologgingSessionManager.active_session()
+        nonlocal throw_location
 
         if throw_location == "before":
             raise exc_to_raise
@@ -663,33 +666,64 @@ def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation
 
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
 
-    throw_location = "before"
-    patch_destination.fn()
-    expected_order_throw_before = ["patch_start", "patch_error"]
-    assert [call.method for call in mock_event_logger.calls] == expected_order_throw_before
-    patch_start, patch_error = mock_event_logger.calls
-    assert patch_start.exception is None
-    assert patch_error.exception == exc_to_raise
-
-    mock_event_logger.reset()
-
-    throw_location = "after"
-    patch_destination.fn()
-    expected_order_throw_after = [
+    expected_order = [
         "patch_start",
         "original_start",
         "original_success",
         "patch_error",
     ]
-    assert [call.method for call in mock_event_logger.calls] == expected_order_throw_after
-    patch_start, original_start, original_success, patch_error = mock_event_logger.calls
-    assert patch_start.exception is original_start.exception is None
-    assert original_success.exception is None
-    assert patch_error.exception == exc_to_raise
+
+    for throw_location in ["before", "after"]:
+        mock_event_logger.reset()
+        patch_destination.fn()
+        assert [call.method for call in mock_event_logger.calls] == expected_order
+        patch_start, original_start, original_success, patch_error = mock_event_logger.calls
+        assert patch_start.exception is None
+        assert original_start.exception is None
+        assert original_success.exception is None
+        assert patch_error.exception == exc_to_raise
+
+
+def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation_throws_and_original_throws(  # pylint: disable=line-too-long
+    patch_destination,
+    test_autologging_integration,
+    mock_event_logger,
+):
+    exc_to_raise = Exception("thrown from patch")
+    original_err_to_raise = Exception("throw from original")
+
+    throw_location = None
+
+    def patch_impl(original, *args, **kwargs):
+        nonlocal throw_location
+
+        if throw_location == "before":
+            raise exc_to_raise
+
+        original(*args, **kwargs)
+
+        if throw_location != "before":
+            raise exc_to_raise
+
+    safe_patch(test_autologging_integration, patch_destination, "throw_error_fn", patch_impl)
+
+    expected_order = ["patch_start", "original_start", "original_error"]
+
+    for throw_location in ["before", "after"]:
+        mock_event_logger.reset()
+        with pytest.raises(Exception, match="throw from original"):
+            patch_destination.throw_error_fn(original_err_to_raise)
+        assert [call.method for call in mock_event_logger.calls] == expected_order
+        patch_start, original_start, original_error = mock_event_logger.calls
+        assert patch_start.exception is None
+        assert original_start.exception is None
+        assert original_error.exception == original_err_to_raise
 
 
 def test_safe_patch_makes_expected_event_logging_calls_when_original_function_throws(
-    patch_destination, test_autologging_integration, mock_event_logger,
+    patch_destination,
+    test_autologging_integration,
+    mock_event_logger,
 ):
     exc_to_raise = Exception("thrown from patch")
 
@@ -714,7 +748,8 @@ def test_safe_patch_makes_expected_event_logging_calls_when_original_function_th
 
 @pytest.mark.usefixtures(test_mode_off.__name__)
 def test_safe_patch_succeeds_when_event_logging_throws_in_standard_mode(
-    patch_destination, test_autologging_integration,
+    patch_destination,
+    test_autologging_integration,
 ):
     patch_preamble_called = False
     patch_postamble_called = False
@@ -786,10 +821,10 @@ def test_safe_patch_succeeds_when_event_logging_throws_in_standard_mode(
     assert [call.method for call in logger.calls] == expected_calls
 
 
-def test_exception_safe_function_exhibits_expected_behavior_in_standard_mode():
+def test_picklable_exception_safe_function_exhibits_expected_behavior_in_standard_mode():
     assert not autologging_utils.is_testing()
 
-    @exception_safe_function
+    @picklable_exception_safe_function
     def non_throwing_function():
         return 10
 
@@ -797,7 +832,7 @@ def test_exception_safe_function_exhibits_expected_behavior_in_standard_mode():
 
     exc_to_throw = Exception("bad implementation")
 
-    @exception_safe_function
+    @picklable_exception_safe_function
     def throwing_function():
         raise exc_to_throw
 
@@ -810,10 +845,10 @@ def test_exception_safe_function_exhibits_expected_behavior_in_standard_mode():
 
 
 @pytest.mark.usefixtures(test_mode_on.__name__)
-def test_exception_safe_function_exhibits_expected_behavior_in_test_mode():
+def test_picklable_exception_safe_function_exhibits_expected_behavior_in_test_mode():
     assert autologging_utils.is_testing()
 
-    @exception_safe_function
+    @picklable_exception_safe_function
     def non_throwing_function():
         return 10
 
@@ -821,11 +856,11 @@ def test_exception_safe_function_exhibits_expected_behavior_in_test_mode():
 
     exc_to_throw = Exception("function error")
 
-    @exception_safe_function
+    @picklable_exception_safe_function
     def throwing_function():
         raise exc_to_throw
 
-    with pytest.raises(Exception) as exc:
+    with pytest.raises(Exception, match=str(exc_to_throw)) as exc:
         throwing_function()
 
     assert exc.value == exc_to_throw
@@ -878,7 +913,7 @@ def test_exception_safe_class_exhibits_expected_behavior_in_test_mode(baseclass,
         def function(self):
             raise exc_to_throw
 
-    with pytest.raises(Exception) as exc:
+    with pytest.raises(Exception, match=str(exc_to_throw)) as exc:
         ThrowingClass().function()
 
     assert exc.value == exc_to_throw
@@ -963,14 +998,14 @@ def test_with_managed_run_with_throwing_function_exhibits_expected_behavior():
 
     patch_function = with_managed_run("test_integration", patch_function)
 
-    with pytest.raises(Exception):
+    with pytest.raises(Exception, match="bad implementation"):
         patch_function(lambda: "foo")
 
     assert patch_function_active_run is not None
     status1 = client.get_run(patch_function_active_run.info.run_id).info.status
     assert RunStatus.from_string(status1) == RunStatus.FAILED
 
-    with mlflow.start_run() as active_run, pytest.raises(Exception):
+    with mlflow.start_run() as active_run, pytest.raises(Exception, match="bad implementation"):
         patch_function(lambda: "foo")
         assert patch_function_active_run == active_run
         # `with_managed_run` should not terminate a preexisting MLflow run,
@@ -1018,14 +1053,14 @@ def test_with_managed_run_with_throwing_class_exhibits_expected_behavior():
 
     TestPatch = with_managed_run("test_integration", TestPatch)
 
-    with pytest.raises(Exception):
+    with pytest.raises(Exception, match="bad implementation"):
         TestPatch.call(lambda: "foo")
 
     assert patch_function_active_run is not None
     status1 = client.get_run(patch_function_active_run.info.run_id).info.status
     assert RunStatus.from_string(status1) == RunStatus.FAILED
 
-    with mlflow.start_run() as active_run, pytest.raises(Exception):
+    with mlflow.start_run() as active_run, pytest.raises(Exception, match="bad implementation"):
         TestPatch.call(lambda: "foo")
         assert patch_function_active_run == active_run
         # `with_managed_run` should not terminate a preexisting MLflow run,
@@ -1073,7 +1108,7 @@ def test_with_managed_run_ends_run_on_keyboard_interrupt():
         "test_integration", lambda original, *args, **kwargs: original(*args, **kwargs)
     )
 
-    with pytest.raises(KeyboardInterrupt):
+    with pytest.raises(KeyboardInterrupt, match=""):
         patch_function_1(original)
 
     assert not mlflow.active_run()
@@ -1089,7 +1124,7 @@ def test_with_managed_run_ends_run_on_keyboard_interrupt():
 
     patch_function_2 = with_managed_run("test_integration", PatchFunction2)
 
-    with pytest.raises(KeyboardInterrupt):
+    with pytest.raises(KeyboardInterrupt, match=""):
 
         patch_function_2.call(original)
 
@@ -1181,7 +1216,7 @@ def test_validate_args_throws_when_extra_args_are_not_exception_safe():
 @pytest.mark.parametrize(
     "baseclass, metaclass", [(object, ExceptionSafeClass), (abc.ABC, ExceptionSafeAbstractClass)]
 )
-def test_validate_args_succeeds_when_extra_args_are_exception_safe_functions_or_classes(
+def test_validate_args_succeeds_when_extra_args_are_picklable_exception_safe_functions_or_classes(
     baseclass, metaclass
 ):
     user_call_args = (1, "b", ["c"])
@@ -1194,10 +1229,10 @@ def test_validate_args_succeeds_when_extra_args_are_exception_safe_functions_or_
 
     autologging_call_args = copy.deepcopy(user_call_args)
     autologging_call_args[2].append(Safe())
-    autologging_call_args += (exception_safe_function(lambda: "foo"),)
+    autologging_call_args += (picklable_exception_safe_function(lambda: "foo"),)
 
     autologging_call_kwargs = copy.deepcopy(user_call_kwargs)
-    autologging_call_kwargs["foo"].append(exception_safe_function(lambda: "foo"))
+    autologging_call_kwargs["foo"].append(picklable_exception_safe_function(lambda: "foo"))
     autologging_call_kwargs["new"] = Safe()
 
     _validate_args(user_call_args, user_call_kwargs, autologging_call_args, autologging_call_kwargs)
@@ -1350,27 +1385,6 @@ def test_validate_autologging_run_validates_run_status_correctly():
         _validate_autologging_run("test_integration", run_id_non_terminal)
 
 
-def test_try_mlflow_log_emits_exceptions_as_warnings_in_standard_mode():
-    assert not autologging_utils.is_testing()
-
-    def throwing_function():
-        raise Exception("bad implementation")
-
-    with pytest.warns(UserWarning, match="bad implementation"):
-        try_mlflow_log(throwing_function)
-
-
-@pytest.mark.usefixtures(test_mode_on.__name__)
-def test_try_mlflow_log_propagates_exceptions_in_test_mode():
-    assert autologging_utils.is_testing()
-
-    def throwing_function():
-        raise Exception("bad implementation")
-
-    with pytest.raises(Exception, match="bad implementation"):
-        try_mlflow_log(throwing_function)
-
-
 def test_session_manager_creates_session_before_patch_executes(
     patch_destination, test_autologging_integration
 ):
@@ -1404,8 +1418,8 @@ def test_session_manager_exits_session_if_error_in_patch(
 
     # If use safe_patch to patch, exception would not come from original fn and so would be logged
     patch_destination.fn = patch_fn
-    with pytest.raises(Exception):
-        patch_destination.fn()
+    with pytest.raises(Exception, match="Exception that should stop autologging session"):
+        patch_destination.fn(lambda: None)
 
     assert _AutologgingSessionManager.active_session() is None
 
@@ -1520,3 +1534,121 @@ def test_nested_call_autologging_disabled_when_top_level_call_autologging_failed
             patch_destination.recursive_fn(level=0, max_depth=max_depth)
         assert patch_impl_call_count == 1
         assert patch_destination.recurse_fn_call_count == max_depth + 1
+
+
+def test_old_patch_reverted_before_run_autolog_fn():
+    class PatchDestination:
+        def f1(self):
+            pass
+
+    original_f1 = PatchDestination.f1
+
+    @autologging_integration("test_old_patch_reverted_before_run_autolog_fn")
+    def autolog(disable=False, exclusive=False, silent=False):
+        assert PatchDestination.f1 is original_f1  # assert old patch has been reverted.
+
+        def patch_impl(original, *args, **kwargs):
+            pass
+
+        safe_patch(
+            "test_old_patch_reverted_before_run_autolog_fn",
+            PatchDestination,
+            "f1",
+            patch_impl,
+        )
+
+    autolog(disable=True)
+    autolog()
+    autolog()  # Test second time call autolog will revert first autolog call installed patch
+
+
+def test_safe_patch_support_property_decorated_method():
+    class BaseEstimator:
+        def __init__(self, has_predict):
+            self._has_predict = has_predict
+
+        def _predict(self, X, a, b):
+            return {"X": X, "a": a, "b": b}
+
+        @property
+        def predict(self):
+            if not self._has_predict:
+                raise AttributeError("does not have predict")
+            return self._predict
+
+    class ExtendedEstimator(BaseEstimator):
+        pass
+
+    original_base_estimator_predict = object.__getattribute__(BaseEstimator, "predict")
+
+    def patched_predict(original, self, *args, **kwargs):
+        result = original(self, *args, **kwargs)
+        if "patch_count" not in result:
+            result["patch_count"] = 1
+        else:
+            result["patch_count"] += 1
+        return result
+
+    flavor_name = "test_if_delegate_has_method_decorated_method_patch"
+
+    @autologging_integration(flavor_name)
+    def autolog(disable=False, exclusive=False, silent=False):  # pylint: disable=unused-argument
+        mlflow.sklearn._patch_estimator_method_if_available(
+            flavor_name,
+            BaseEstimator,
+            "predict",
+            patched_predict,
+            manage_run=False,
+        )
+        mlflow.sklearn._patch_estimator_method_if_available(
+            flavor_name,
+            ExtendedEstimator,
+            "predict",
+            patched_predict,
+            manage_run=False,
+        )
+
+    autolog()
+
+    for EstimatorCls in [BaseEstimator, ExtendedEstimator]:
+        assert EstimatorCls.predict.__doc__ == original_base_estimator_predict.__doc__
+        good_estimator = EstimatorCls(has_predict=True)
+        assert good_estimator.predict.__doc__ == original_base_estimator_predict.__doc__
+
+        expected_result = {"X": 1, "a": 2, "b": 3, "patch_count": 1}
+        assert hasattr(good_estimator, "predict")
+        assert good_estimator.predict(X=1, a=2, b=3) == expected_result
+        assert good_estimator.predict(1, a=2, b=3) == expected_result
+        assert good_estimator.predict(1, 2, b=3) == expected_result
+        assert good_estimator.predict(1, 2, 3) == expected_result
+
+        bad_estimator = EstimatorCls(has_predict=False)
+        assert not hasattr(bad_estimator, "predict")
+        with pytest.raises(AttributeError, match="does not have predict"):
+            bad_estimator.predict(X=1, a=2, b=3)
+
+    autolog(disable=True)
+    assert original_base_estimator_predict is object.__getattribute__(BaseEstimator, "predict")
+    assert "predict" not in ExtendedEstimator.__dict__
+
+
+def test_safe_patch_preserves_original_function_attributes():
+    class Test1:
+        def predict(self, X, a, b):
+            """
+            Test doc for Test1.predict
+            """
+            pass
+
+    def patched_predict(original, self, *args, **kwargs):
+        return original(self, *args, **kwargs)
+
+    flavor_name = "test_safe_patch_preserves_original_function_attributes"
+
+    @autologging_integration(flavor_name)
+    def autolog(disable=False, exclusive=False, silent=False):  # pylint: disable=unused-argument
+        safe_patch(flavor_name, Test1, "predict", patched_predict, manage_run=False)
+
+    original_predict = Test1.predict
+    autolog()
+    assert get_func_attrs(Test1.predict) == get_func_attrs(original_predict)

@@ -1,5 +1,6 @@
 from collections import defaultdict
 from importlib import reload
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 
 import os
 import random
@@ -23,9 +24,12 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     SourceType,
+    ViewType,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
+from mlflow.store.tracking.dbmodels.models import SqlExperiment
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import (
     _EXPERIMENT_ID_ENV_VAR,
@@ -41,6 +45,14 @@ from mlflow.tracking.fluent import (
 )
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_EXPERIMENT_SOURCE_ID,
+    MLFLOW_EXPERIMENT_SOURCE_TYPE,
+    MLFLOW_DATABRICKS_JOB_TYPE_INFO,
+)
+
+from tests.tracking.integration_test_utils import _init_server
+from tests.helper_functions import multi_context
 
 
 class HelperEnv:
@@ -235,6 +247,35 @@ def test_get_experiment_by_id():
         assert experiment.experiment_id == exp_id
 
 
+def test_get_experiment_by_id_with_is_in_databricks_job():
+    exp_id = 768
+    job_id = 123
+    exp_name = "jobs:/" + str(job_id)
+    job_type_info = "NORMAL"
+    with mock.patch(
+        "mlflow.tracking.fluent.is_in_databricks_job"
+    ) as job_detection_mock, mock.patch(
+        "mlflow.tracking.fluent.get_job_type_info"
+    ) as job_type_info_mock, mock.patch(
+        "mlflow.tracking.fluent.get_job_id"
+    ) as job_id_mock, mock.patch(
+        "mlflow.tracking.fluent.get_experiment_name_from_job_id"
+    ) as job_to_experiment_name_mapping_mock, mock.patch.object(
+        MlflowClient, "create_experiment", return_value=exp_id
+    ):
+        job_detection_mock.return_value = True
+        job_type_info_mock.return_value = job_type_info
+        job_id_mock.return_value = job_id
+        job_to_experiment_name_mapping_mock.return_value = exp_name
+        tags = {}
+        tags[MLFLOW_DATABRICKS_JOB_TYPE_INFO] = job_type_info
+        tags[MLFLOW_EXPERIMENT_SOURCE_TYPE] = SourceType.to_string(SourceType.JOB)
+        tags[MLFLOW_EXPERIMENT_SOURCE_ID] = job_id
+
+        assert _get_experiment_id() == exp_id
+        MlflowClient.create_experiment.assert_called_with(exp_name, None, tags)
+
+
 def test_get_experiment_by_name():
     with TempDir(chdr=True):
         name = "Random experiment %d" % random.randint(1, 1e6)
@@ -242,6 +283,46 @@ def test_get_experiment_by_name():
 
         experiment = mlflow.get_experiment_by_name(name)
         assert experiment.experiment_id == exp_id
+
+
+@pytest.mark.parametrize("view_type", [ViewType.ACTIVE_ONLY, ViewType.DELETED_ONLY, ViewType.ALL])
+def test_list_experiments(view_type, tmpdir):
+    sqlite_uri = "sqlite:///" + os.path.join(tmpdir.strpath, "test.db")
+    store = SqlAlchemyStore(sqlite_uri, default_artifact_root=tmpdir.strpath)
+
+    num_experiments = SEARCH_MAX_RESULTS_DEFAULT + 1
+
+    if view_type == ViewType.DELETED_ONLY:
+        # Delete the default experiment
+        mlflow.tracking.MlflowClient(sqlite_uri).delete_experiment("0")
+
+    # This is a bit hacky but much faster than creating experiments one by one with
+    # `mlflow.create_experiment`
+    with store.ManagedSessionMaker() as session:
+        lifecycle_stages = LifecycleStage.view_type_to_stages(view_type)
+        experiments = [
+            SqlExperiment(
+                name=f"exp_{i + 1}",
+                lifecycle_stage=random.choice(lifecycle_stages),
+                artifact_location=tmpdir.strpath,
+            )
+            for i in range(num_experiments - 1)
+        ]
+        session.add_all(experiments)
+
+    try:
+        url, process = _init_server(sqlite_uri, root_artifact_uri=tmpdir.strpath)
+        mlflow.set_tracking_uri(url)
+        # `max_results` is unspecified
+        assert len(mlflow.list_experiments(view_type)) == num_experiments
+        # `max_results` is larger than the number of experiments in the database
+        assert len(mlflow.list_experiments(view_type, num_experiments + 1)) == num_experiments
+        # `max_results` is equal to the number of experiments in the database
+        assert len(mlflow.list_experiments(view_type, num_experiments)) == num_experiments
+        # `max_results` is smaller than the number of experiments in the database
+        assert len(mlflow.list_experiments(view_type, num_experiments - 1)) == num_experiments - 1
+    finally:
+        process.terminate()
 
 
 @pytest.fixture
@@ -288,7 +369,15 @@ def test_start_run_defaults(empty_active_run_stack):  # pylint: disable=unused-a
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with experiment_id_patch, databricks_notebook_patch, user_patch, source_name_patch, source_type_patch, source_version_patch, create_run_patch:  # noqa
+    with multi_context(
+        experiment_id_patch,
+        databricks_notebook_patch,
+        user_patch,
+        source_name_patch,
+        source_type_patch,
+        source_version_patch,
+        create_run_patch,
+    ):
         active_run = start_run()
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id, tags=expected_tags
@@ -327,6 +416,10 @@ def test_start_run_defaults_databricks_notebook(
     webapp_url_patch = mock.patch(
         "mlflow.utils.databricks_utils.get_webapp_url", return_value=mock_webapp_url
     )
+    workspace_info_patch = mock.patch(
+        "mlflow.utils.databricks_utils.get_workspace_info_from_dbutils",
+        return_value=("https://databricks.com", "123456"),
+    )
 
     expected_tags = {
         mlflow_tags.MLFLOW_USER: mock_user,
@@ -336,11 +429,23 @@ def test_start_run_defaults_databricks_notebook(
         mlflow_tags.MLFLOW_DATABRICKS_NOTEBOOK_ID: mock_notebook_id,
         mlflow_tags.MLFLOW_DATABRICKS_NOTEBOOK_PATH: mock_notebook_path,
         mlflow_tags.MLFLOW_DATABRICKS_WEBAPP_URL: mock_webapp_url,
+        mlflow_tags.MLFLOW_DATABRICKS_WORKSPACE_URL: "https://databricks.com",
+        mlflow_tags.MLFLOW_DATABRICKS_WORKSPACE_ID: "123456",
     }
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with experiment_id_patch, databricks_notebook_patch, user_patch, source_version_patch, notebook_id_patch, notebook_path_patch, webapp_url_patch, create_run_patch:  # noqa
+    with multi_context(
+        experiment_id_patch,
+        databricks_notebook_patch,
+        user_patch,
+        source_version_patch,
+        notebook_id_patch,
+        notebook_path_patch,
+        webapp_url_patch,
+        workspace_info_patch,
+        create_run_patch,
+    ):
         active_run = start_run()
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id, tags=expected_tags
@@ -349,7 +454,7 @@ def test_start_run_defaults_databricks_notebook(
 
 
 @pytest.mark.usefixtures(empty_active_run_stack.__name__)
-def test_start_run_with_user_specified_tags():
+def test_start_run_creates_new_run_with_user_specified_tags():
 
     mock_experiment_id = mock.Mock()
     experiment_id_patch = mock.patch(
@@ -389,12 +494,32 @@ def test_start_run_with_user_specified_tags():
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with experiment_id_patch, databricks_notebook_patch, user_patch, source_name_patch, source_type_patch, source_version_patch, create_run_patch:  # noqa
+    with multi_context(
+        experiment_id_patch,
+        databricks_notebook_patch,
+        user_patch,
+        source_name_patch,
+        source_type_patch,
+        source_version_patch,
+        create_run_patch,
+    ):
         active_run = start_run(tags=user_specified_tags)
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id, tags=expected_tags
         )
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
+
+
+@pytest.mark.usefixtures(empty_active_run_stack.__name__)
+def test_start_run_resumes_existing_run_and_sets_user_specified_tags():
+    tags_to_set = {
+        "A": "B",
+        "C": "D",
+    }
+    run_id = mlflow.start_run().info.run_id
+    mlflow.end_run()
+    restarted_run = mlflow.start_run(run_id, tags=tags_to_set)
+    assert tags_to_set.items() <= restarted_run.data.tags.items()
 
 
 def test_start_run_with_parent():
@@ -425,7 +550,13 @@ def test_start_run_with_parent():
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with databricks_notebook_patch, active_run_stack_patch, create_run_patch, user_patch, source_name_patch:  # noqa
+    with multi_context(
+        databricks_notebook_patch,
+        active_run_stack_patch,
+        create_run_patch,
+        user_patch,
+        source_name_patch,
+    ):
         active_run = start_run(experiment_id=mock_experiment_id, nested=True)
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id, tags=expected_tags
@@ -435,7 +566,7 @@ def test_start_run_with_parent():
 
 def test_start_run_with_parent_non_nested():
     with mock.patch("mlflow.tracking.fluent._active_run_stack", [mock.Mock()]):
-        with pytest.raises(Exception):
+        with pytest.raises(Exception, match=r"Run with UUID .+ is already active"):
             start_run()
 
 
@@ -482,7 +613,9 @@ def test_start_run_existing_run_from_environment_with_set_environment(
     env_patch = mock.patch.dict("os.environ", {_RUN_ID_ENV_VAR: run_id})
 
     with env_patch, mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
-        with pytest.raises(MlflowException):
+        with pytest.raises(
+            MlflowException, match="active run ID does not match environment run ID"
+        ):
             set_experiment("test-run")
             start_run()
 
@@ -493,8 +626,9 @@ def test_start_run_existing_run_deleted(empty_active_run_stack):  # pylint: disa
 
     run_id = uuid.uuid4().hex
 
+    match = f"Cannot start run with ID {run_id} because it is in the deleted state"
     with mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match=match):
             start_run(run_id)
 
 
@@ -770,7 +904,7 @@ def test_paginate_gt_maxresults_multipage():
 
 
 def test_paginate_gt_maxresults_onepage():
-    """"
+    """
     Number of runs that fit search criteria is greater than max_results. Only one page expected.
     Expected to only get max_results number of results back.
     """
@@ -792,13 +926,12 @@ def test_delete_tag():
     """
     mlflow.set_tag("a", "b")
     run = MlflowClient().get_run(mlflow.active_run().info.run_id)
-    print(run.info.run_id)
     assert "a" in run.data.tags
     mlflow.delete_tag("a")
     run = MlflowClient().get_run(mlflow.active_run().info.run_id)
     assert "a" not in run.data.tags
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="No tag with name"):
         mlflow.delete_tag("a")
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="No tag with name"):
         mlflow.delete_tag("b")
     mlflow.end_run()
