@@ -2,17 +2,11 @@ Changelog
 =========
 1.23.1 (2022-01-27)
 -------------------
-MLflow 1.23.1 includes several major features and improvements:
+MLflow 1.23.1 is a patch release containing the following bug fixes:
 
-Features:
-
-
-
-Bug fixes and documentation updates:
-
-
-
-Small bug fixes and doc updates ()
+- [Models] Fix a directory creation failure when loading PySpark ML models (#5299, @arjundc-db)
+- [Model Registry] Revert to case-insensitive validation logic for stage names in ``models:/`` URIs (#5312, @lichenran1234)
+- [Projects] Fix a race condition during Project tar file creation (#5303, @dbczumar) 
 
 1.23.0 (2022-01-17)
 ------------------------
