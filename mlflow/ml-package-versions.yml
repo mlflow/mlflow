@@ -41,7 +41,7 @@ pytorch-lightning:
 
   autologging:
     minimum: "1.0.5"
-    maximum: "1.5.8"
+    maximum: "1.5.9"
     requirements: ["torchvision", "scikit-learn"]
     run: |
       pytest tests/pytorch/test_pytorch_autolog.py --large
@@ -115,14 +115,14 @@ xgboost:
 
   models:
     minimum: "0.90"
-    maximum: "1.5.1"
+    maximum: "1.5.2"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/xgboost/test_xgboost_model_export.py --large
 
   autologging:
     minimum: "0.90"
-    maximum: "1.5.1"
+    maximum: "1.5.2"
     requirements: ["scikit-learn", "matplotlib"]
     run: |
       pytest tests/xgboost/test_xgboost_autolog.py --large
@@ -284,7 +284,7 @@ spark:
 
   models:
     minimum: "3.0.0"
-    maximum: "3.2.0"
+    maximum: "3.2.1"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
     # autologging use cases in environments where newer versions of pyspark are available
     # prior to their release on PyPI (e.g. Databricks)
@@ -303,7 +303,7 @@ spark:
 
   autologging:
     minimum: "3.0.0"
-    maximum: "3.2.0"
+    maximum: "3.2.1"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
     # autologging use cases in environments where newer versions of pyspark are available
     # prior to their release on PyPI (e.g. Databricks)
