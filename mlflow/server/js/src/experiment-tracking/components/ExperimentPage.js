@@ -311,6 +311,7 @@ export class ExperimentPage extends Component {
       () => {
         this.updateUrlWithViewState();
         this.snapshotComponentState();
+        this.handleGettingRuns(this.props.searchRunsApi, this.state.searchRunsRequestId);
         if (!this.detectNewRunsTimer) {
           this.detectNewRunsTimer = setInterval(() => this.pollNewRuns(), POLL_INTERVAL);
         }
