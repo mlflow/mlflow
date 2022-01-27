@@ -40,12 +40,12 @@ export class ParallelCoordinatesPlotPanel extends React.Component {
     this.setState({ selectedParamKeys: paramValues });
   };
 
-  onClearParamsSelect = () => {
-    this.setState({ selectedParamKeys: [] });
-  };
-
   handleMetricsSelectChange = (metricValues) => {
     this.setState({ selectedMetricKeys: metricValues });
+  };
+
+  onClearAllSelect = () => {
+    this.setState({ selectedParamKeys: [], selectedMetricKeys: [] });
   };
 
   render() {
@@ -60,7 +60,7 @@ export class ParallelCoordinatesPlotPanel extends React.Component {
           selectedMetricKeys={selectedMetricKeys}
           handleMetricsSelectChange={this.handleMetricsSelectChange}
           handleParamsSelectChange={this.handleParamsSelectChange}
-          onClearParamsSelect={this.onClearParamsSelect}
+          onClearAllSelect={this.onClearAllSelect}
         />
         {!_.isEmpty(selectedParamKeys) || !_.isEmpty(selectedMetricKeys) ? (
           <ParallelCoordinatesPlotView

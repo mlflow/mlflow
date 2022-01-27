@@ -1,10 +1,8 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Button } from '../../shared/building_blocks/Button';
-import { Spacer } from '../../shared/building_blocks/Spacer';
 import { TreeSelect } from 'antd';
 import { FormattedMessage } from 'react-intl';
-import { FlexBar } from '../../shared/building_blocks/FlexBar';
 
 export class ParallelCoordinatesPlotControls extends React.Component {
   static propTypes = {
@@ -16,7 +14,7 @@ export class ParallelCoordinatesPlotControls extends React.Component {
     selectedMetricKeys: PropTypes.arrayOf(PropTypes.string).isRequired,
     handleParamsSelectChange: PropTypes.func.isRequired,
     handleMetricsSelectChange: PropTypes.func.isRequired,
-    onClearParamsSelect: PropTypes.func.isRequired,
+    onClearAllSelect: PropTypes.func.isRequired,
   };
 
   static handleFilterChange = (text, option) =>
@@ -30,31 +28,15 @@ export class ParallelCoordinatesPlotControls extends React.Component {
       selectedMetricKeys,
       handleParamsSelectChange,
       handleMetricsSelectChange,
-      onClearParamsSelect,
+      onClearAllSelect,
     } = this.props;
     return (
       <div className='plot-controls'>
         <div>
-          <FlexBar
-            left={
-              <Spacer size='small' direction='horizontal'>
-                <FormattedMessage
-                  defaultMessage='Parameters:'
-                  description='Label text for parameters in parallel coordinates plot in MLflow'
-                />
-              </Spacer>
-            }
-            right={
-              <Spacer size='small' direction='horizontal'>
-                <Button dataTestId='clear-button' onClick={onClearParamsSelect}>
-                  <FormattedMessage
-                    defaultMessage='Clear All'
-                    description='String for the clear button to clear any selected parameters'
-                  />
-                </Button>
-              </Spacer>
-            }
-          />
+        <FormattedMessage
+          defaultMessage='Parameters:'
+          description='Label text for parameters in parallel coordinates plot in MLflow'
+        />
         </div>
         <TreeSelect
           className='metrics-select'
@@ -92,6 +74,14 @@ export class ParallelCoordinatesPlotControls extends React.Component {
           onChange={handleMetricsSelectChange}
           filterTreeNode={ParallelCoordinatesPlotControls.handleFilterChange}
         />
+        <div style={{ marginTop: 20 }}>
+          <Button dataTestId='clear-button' onClick={onClearAllSelect}>
+            <FormattedMessage
+              defaultMessage='Clear All'
+              description='String for the clear button to clear any selected parameters and metrics'
+            />
+          </Button>
+        </div>
       </div>
     );
   }

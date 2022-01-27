@@ -367,6 +367,10 @@
     "defaultMessage": "Input an experiment name",
     "description": "Input placeholder to enter experiment name for create experiment"
   },
+  "FdDWTo": {
+    "defaultMessage": "Clear All",
+    "description": "String for the clear button to clear any selected parameters and metrics"
+  },
   "FpjDSq": {
     "defaultMessage": "Compare",
     "description": "Text for compare button to compare versions under details tab\n                       on the model view page"
@@ -558,6 +562,10 @@
   "RlRsah": {
     "defaultMessage": "loading...",
     "description": "Loading spinner text to show that the artifact loading is in progress"
+  },
+  "S7ESYH": {
+    "defaultMessage": "Visualizations",
+    "description": "Tabs title for plots on the compare runs page"
   },
   "SAD2Mj": {
     "defaultMessage": "OK",
@@ -887,10 +895,6 @@
     "defaultMessage": "You can also <link>register it to the model registry</link> to version control",
     "description": "Sub text to tell the users where one can go to register the model artifact"
   },
-  "k8hH4B": {
-    "defaultMessage": "Clear All",
-    "description": "String for the clear button to clear any selected parameters"
-  },
   "kFpx6j": {
     "defaultMessage": "With Model Versions",
     "description": "Linked model dropdown option to show experiment runs with model versions only"
@@ -906,6 +910,10 @@
   "kX6Kdv": {
     "defaultMessage": "Plot chart",
     "description": "Link to the view the plot chart for the experiment run"
+  },
+  "lISqyJ": {
+    "defaultMessage": "Run details",
+    "description": "Compare table title on the compare runs page"
   },
   "llVQ2r": {
     "defaultMessage": "Outputs ({numOutputs})",
