@@ -155,10 +155,6 @@
     "defaultMessage": "Add",
     "description": "Add button text in editable tags table view in MLflow"
   },
-  "4mBrG2": {
-    "defaultMessage": "Load model as a Spark UDF.",
-    "description": "Code comment which states how to load model using spark UDF"
-  },
   "5Mzn2b": {
     "defaultMessage": "Creator",
     "description": "Label name for creator metadata in model version page"
@@ -506,6 +502,10 @@
   "Nm/Pjx": {
     "defaultMessage": "Registered at",
     "description": "Column title text for created at timestamp in model version table"
+  },
+  "O1rYVN": {
+    "defaultMessage": "Load model as a Spark UDF. Override result_type if the model does not return double values.",
+    "description": "Code comment which states how to load model using spark UDF"
   },
   "O9r1RR": {
     "defaultMessage": "Start Time:",

@@ -33,3 +33,11 @@ window.jQuery = $; // selenium tests need window.jQuery to exist
 // https://create-react-app.dev/docs/making-a-progressive-web-app/, which should also be handled
 // by most browsers)
 // registerServiceWorker();
+
+const windowOnError = (message, source, lineno, colno, error) => {
+  console.error(error, message);
+  // returning false allows the default handler to fire as well
+  return false;
+};
+
+window.onerror = windowOnError;

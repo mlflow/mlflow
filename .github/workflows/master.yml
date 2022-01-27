@@ -76,10 +76,12 @@ jobs:
         path: ${{ env.R_LIBS_USER }}
         # We cache R dependencies based on a tuple of the current OS, the R version, and the list of
         # R dependencies
-        key: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('mlflow/R/mlflow/R-version') }}-1-${{ hashFiles('mlflow/R/mlflow/depends.Rds') }}
+        key: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('mlflow/R/mlflow/R-version') }}-0-${{ hashFiles('mlflow/R/mlflow/depends.Rds') }}
     - name: Install dependencies
       run: |
         Rscript -e 'source(".install-deps.R", echo=TRUE)'
+        # TODO: Remove this line once h2o 3.36.0.2 is uploaded to https://packagemanager.rstudio.com
+        Rscript -e 'install.packages("h2o", repos="http://cran.r-project.org")'
     - name: Build package
       run: |
         ./build-package.sh
@@ -222,19 +224,20 @@ jobs:
     - name: Set up Node
       uses: actions/setup-node@v1
       with:
-        node-version: 14.x
+        node-version: "16"
     - name: Install dependencies
       run: |
-        npm i
+        yarn install
+        git diff --exit-code
     - name: Run lint
       run: |
-        npm run lint
+        yarn run lint
     - name: Run extract-i18n lint
       run: |
-        npm run extract-i18n:base -- --lint
+        yarn run extract-i18n:base --lint
     - name: Run tests
       run: |
-        npm run test
+        yarn run test
 
   protos:
     runs-on: ubuntu-latest
@@ -375,14 +378,14 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v1
         with:
-          node-version: 14.x
+          node-version: "16"
       - name: Install JS dependencies
         working-directory: mlflow/server/js
         shell: pwsh
         run: |
-          npm i
+          yarn install
       - name: Run JS tests
         working-directory: mlflow/server/js
         shell: pwsh
         run: |
-          npm run test
+          yarn run test

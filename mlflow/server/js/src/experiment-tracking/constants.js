@@ -66,4 +66,4 @@ export const PAGINATION_DEFAULT_STATE = {
 };
 
 export const MAX_DETECT_NEW_RUNS_RESULTS = 26; // so the refresh button badge can be 25+
-export const DETECT_NEW_RUNS_INTERVAL = 15000;
+export const POLL_INTERVAL = 15000;
