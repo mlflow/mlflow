@@ -47,6 +47,25 @@ def _gen_xgboost_sklearn_estimators_to_patch():
     return sklearn_estimators
 
 
+def _gen_lightgbm_sklearn_estimators_to_patch():
+    import mlflow.lightgbm
+    import lightgbm as lgb
+
+    all_classes = inspect.getmembers(lgb.sklearn, inspect.isclass)
+    base_class = lgb.sklearn._LGBMModelBase
+    sklearn_estimators = []
+    for _, class_object in all_classes:
+        package_name = class_object.__module__.split(".")[0]
+        if (
+            package_name == mlflow.lightgbm.FLAVOR_NAME
+            and issubclass(class_object, base_class)
+            and class_object != base_class
+        ):
+            sklearn_estimators.append(class_object)
+
+    return sklearn_estimators
+
+
 def _get_estimator_info_tags(estimator):
     """
     :return: A dictionary of MLflow run tag keys and values
@@ -102,7 +121,6 @@ def _get_X_y_and_sample_weight(fit_func, fit_args, fit_kwargs):
         return None
 
     fit_arg_names = _get_arg_names(fit_func)
-
     # In most cases, X_var_name and y_var_name become "X" and "y", respectively.
     # However, certain sklearn models use different variable names for X and y.
     # E.g., see: https://scikit-learn.org/stable/modules/generated/sklearn.multioutput.MultiOutputClassifier.html#sklearn.multioutput.MultiOutputClassifier.fit
@@ -239,6 +257,13 @@ def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight):
     return _get_metrics_value_dict(classifier_metrics)
 
 
+def _get_class_labels_from_estimator(estimator):
+    """
+    Extracts class labels from `estimator` if `estimator.classes` is available.
+    """
+    return estimator.classes_ if hasattr(estimator, "classes_") else None
+
+
 def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight):
     """
     Draw and record various common artifacts for classifier
@@ -270,10 +295,27 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
     if not _is_plotting_supported():
         return []
 
+    def plot_confusion_matrix(*args, **kwargs):
+        import matplotlib
+
+        class_labels = _get_class_labels_from_estimator(fitted_estimator)
+        if class_labels is None:
+            class_labels = set(y_true)
+
+        with matplotlib.rc_context(
+            {
+                "figure.dpi": 288,
+                "figure.figsize": [6.0, 4.0],
+                "font.size": min(10.0, 50.0 / len(class_labels)),
+                "axes.labelsize": 10.0,
+            }
+        ):
+            return sklearn.metrics.plot_confusion_matrix(*args, **kwargs)
+
     classifier_artifacts = [
         _SklearnArtifact(
             name=prefix + "confusion_matrix",
-            function=sklearn.metrics.plot_confusion_matrix,
+            function=plot_confusion_matrix,
             arguments=dict(
                 estimator=fitted_estimator,
                 X=X,

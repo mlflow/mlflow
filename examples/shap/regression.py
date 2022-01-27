@@ -1,17 +1,16 @@
 import os
 
 import numpy as np
-from sklearn.datasets import load_boston
+from sklearn.datasets import load_diabetes
 from sklearn.linear_model import LinearRegression
 import shap
 
 import mlflow
-from utils import to_pandas_Xy
 
 
 # prepare training data
-X, y = to_pandas_Xy(load_boston())
-X = X.iloc[:50, :8]
+X, y = load_diabetes(return_X_y=True, as_frame=True)
+X = X.iloc[:50, :4]
 y = y.iloc[:50]
 
 # train a model

@@ -68,7 +68,6 @@ def get_default_pip_requirements():
             _get_pinned_requirement,
             [
                 "torch",
-                "torchvision",
                 # We include CloudPickle in the default environment because
                 # it's required by the default pickle module used by `save_model()`
                 # and `log_model()`: `mlflow.pytorch.pickle_module`.
@@ -103,7 +102,6 @@ def get_default_conda_env():
                    'channels': ['conda-forge'],
                    'dependencies': ['python=3.7.5',
                                     {'pip': ['torch==1.5.1',
-                                             'torchvision==0.6.1',
                                              'mlflow',
                                              'cloudpickle==1.6.0']}]}
     """
@@ -211,6 +209,8 @@ def log_model(
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param kwargs: kwargs to pass to ``torch.save`` method.
+    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+             metadata of the logged model.
 
     .. code-block:: python
         :caption: Example
@@ -285,7 +285,7 @@ def log_model(
         PyTorch logged models
     """
     pickle_module = pickle_module or mlflow_pytorch_pickle_module
-    Model.log(
+    return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.pytorch,
         pytorch_model=pytorch_model,
@@ -635,7 +635,8 @@ def _load_model(path, **kwargs):
             return torch.load(model_path, **kwargs)
         except Exception:
             # If fails, assume the model as a scripted model
-            return torch.jit.load(model_path)
+            kwargs.pop("pickle_module", None)  # `torch.jit.load` does not accept `pickle_module`.
+            return torch.jit.load(model_path, **kwargs)
 
 
 def load_model(model_uri, dst_path=None, **kwargs):
@@ -731,7 +732,7 @@ def _load_pyfunc(path, **kwargs):
     return _PyTorchWrapper(_load_model(path, **kwargs))
 
 
-class _PyTorchWrapper(object):
+class _PyTorchWrapper:
     """
     Wrapper class that creates a predict function such that
     predict(data: pd.DataFrame) -> model's output as pd.DataFrame (pandas DataFrame)

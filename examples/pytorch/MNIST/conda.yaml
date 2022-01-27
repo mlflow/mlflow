@@ -8,3 +8,10 @@ dependencies:
   - torchvision>=0.9.1
   - torch>=1.9.0
   - pytorch-lightning==1.5.1
+  # torch <= 1.10.1 doesn't work with setuptools >= 59.6.0.
+  # See the following PRs for details:
+  # https://github.com/pytorch/pytorch/pull/69904
+  # https://github.com/pytorch/pytorch/pull/69947
+  #
+  # TODO: Remove this requirement once torch > 1.10.1 is released.
+  - setuptools<59.6.0

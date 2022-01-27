@@ -45,6 +45,11 @@ from mlflow.tracking.fluent import (
 )
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_EXPERIMENT_SOURCE_ID,
+    MLFLOW_EXPERIMENT_SOURCE_TYPE,
+    MLFLOW_DATABRICKS_JOB_TYPE_INFO,
+)
 
 from tests.tracking.integration_test_utils import _init_server
 from tests.helper_functions import multi_context
@@ -242,6 +247,35 @@ def test_get_experiment_by_id():
         assert experiment.experiment_id == exp_id
 
 
+def test_get_experiment_by_id_with_is_in_databricks_job():
+    exp_id = 768
+    job_id = 123
+    exp_name = "jobs:/" + str(job_id)
+    job_type_info = "NORMAL"
+    with mock.patch(
+        "mlflow.tracking.fluent.is_in_databricks_job"
+    ) as job_detection_mock, mock.patch(
+        "mlflow.tracking.fluent.get_job_type_info"
+    ) as job_type_info_mock, mock.patch(
+        "mlflow.tracking.fluent.get_job_id"
+    ) as job_id_mock, mock.patch(
+        "mlflow.tracking.fluent.get_experiment_name_from_job_id"
+    ) as job_to_experiment_name_mapping_mock, mock.patch.object(
+        MlflowClient, "create_experiment", return_value=exp_id
+    ):
+        job_detection_mock.return_value = True
+        job_type_info_mock.return_value = job_type_info
+        job_id_mock.return_value = job_id
+        job_to_experiment_name_mapping_mock.return_value = exp_name
+        tags = {}
+        tags[MLFLOW_DATABRICKS_JOB_TYPE_INFO] = job_type_info
+        tags[MLFLOW_EXPERIMENT_SOURCE_TYPE] = SourceType.to_string(SourceType.JOB)
+        tags[MLFLOW_EXPERIMENT_SOURCE_ID] = job_id
+
+        assert _get_experiment_id() == exp_id
+        MlflowClient.create_experiment.assert_called_with(exp_name, None, tags)
+
+
 def test_get_experiment_by_name():
     with TempDir(chdr=True):
         name = "Random experiment %d" % random.randint(1, 1e6)
@@ -382,6 +416,10 @@ def test_start_run_defaults_databricks_notebook(
     webapp_url_patch = mock.patch(
         "mlflow.utils.databricks_utils.get_webapp_url", return_value=mock_webapp_url
     )
+    workspace_info_patch = mock.patch(
+        "mlflow.utils.databricks_utils.get_workspace_info_from_dbutils",
+        return_value=("https://databricks.com", "123456"),
+    )
 
     expected_tags = {
         mlflow_tags.MLFLOW_USER: mock_user,
@@ -391,6 +429,8 @@ def test_start_run_defaults_databricks_notebook(
         mlflow_tags.MLFLOW_DATABRICKS_NOTEBOOK_ID: mock_notebook_id,
         mlflow_tags.MLFLOW_DATABRICKS_NOTEBOOK_PATH: mock_notebook_path,
         mlflow_tags.MLFLOW_DATABRICKS_WEBAPP_URL: mock_webapp_url,
+        mlflow_tags.MLFLOW_DATABRICKS_WORKSPACE_URL: "https://databricks.com",
+        mlflow_tags.MLFLOW_DATABRICKS_WORKSPACE_ID: "123456",
     }
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
@@ -403,6 +443,7 @@ def test_start_run_defaults_databricks_notebook(
         notebook_id_patch,
         notebook_path_patch,
         webapp_url_patch,
+        workspace_info_patch,
         create_run_patch,
     ):
         active_run = start_run()

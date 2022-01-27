@@ -66,7 +66,7 @@ def mock_http_request():
     )
 
 
-class TestRestStore(object):
+class TestRestStore:
     @mock.patch("requests.Session.request")
     def test_successful_http_request(self, request):
         def mock_request(*args, **kwargs):

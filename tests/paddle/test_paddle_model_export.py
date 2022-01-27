@@ -9,7 +9,7 @@ import yaml
 import paddle
 from paddle.nn import Linear
 import paddle.nn.functional as F
-from sklearn.datasets import load_boston
+from sklearn.datasets import load_diabetes
 from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
 
@@ -32,7 +32,7 @@ ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
 
 
 def get_dataset():
-    X, y = load_boston(return_X_y=True)
+    X, y = load_diabetes(return_X_y=True)
 
     min_max_scaler = preprocessing.MinMaxScaler()
     X_min_max = min_max_scaler.fit_transform(X)
@@ -50,17 +50,17 @@ def get_dataset():
 @pytest.fixture
 def pd_model():
     class Regressor(paddle.nn.Layer):
-        def __init__(self):
+        def __init__(self, in_features):
             super(Regressor, self).__init__()
-            self.fc_ = Linear(in_features=13, out_features=1)
+            self.fc_ = Linear(in_features=in_features, out_features=1)
 
         @paddle.jit.to_static
         def forward(self, inputs):  # pylint: disable=arguments-differ
             return self.fc_(inputs)
 
-    model = Regressor()
-    model.train()
     training_data, test_data = get_dataset()
+    model = Regressor(training_data.shape[1] - 1)
+    model.train()
     opt = paddle.optimizer.SGD(learning_rate=0.01, parameters=model.parameters())
 
     EPOCH_NUM = 10
@@ -149,10 +149,13 @@ def test_model_log(pd_model, model_path, tmpdir):
         conda_env = os.path.join(tmpdir, "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["paddle"])
 
-        mlflow.paddle.log_model(pd_model=model, artifact_path=artifact_path, conda_env=conda_env)
+        model_info = mlflow.paddle.log_model(
+            pd_model=model, artifact_path=artifact_path, conda_env=conda_env
+        )
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
         )
+        assert model_info.model_uri == model_uri
 
         reloaded_pd_model = mlflow.paddle.load_model(model_uri=model_uri)
         np.testing.assert_array_almost_equal(

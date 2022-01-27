@@ -5,7 +5,6 @@ from datetime import datetime
 
 from moto.core import BaseBackend, BaseModel
 from moto.core.responses import BaseResponse
-from moto.ec2 import ec2_backends
 
 from moto.iam.models import ACCOUNT_ID
 from moto.core.models import base_decorator
@@ -1076,10 +1075,7 @@ class TransformJobDescription:
         return response
 
 
-# Create a SageMaker backend for each EC2 region
-sagemaker_backends = {}
-for region, ec2_backend in ec2_backends.items():
-    new_backend = SageMakerBackend()
-    sagemaker_backends[region] = new_backend
+# Create a SageMaker backend for EC2 region: "us-west-2"
+sagemaker_backends = {"us-west-2": SageMakerBackend()}
 
 mock_sagemaker = base_decorator(sagemaker_backends)

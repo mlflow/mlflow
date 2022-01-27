@@ -47,7 +47,7 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 
-class MlflowClient(object):
+class MlflowClient:
     """
     Client of an MLflow Tracking Server that creates and manages experiments and runs, and of an
     MLflow Registry Server that creates and manages registered models and model versions. It's a
@@ -1980,7 +1980,7 @@ class MlflowClient(object):
         """
         return self._get_registry_client().get_registered_model(name)
 
-    def get_latest_versions(self, name: str, stages: List[str] = None) -> ModelVersion:
+    def get_latest_versions(self, name: str, stages: List[str] = None) -> List[ModelVersion]:
         """
         Latest version models for each requests stage. If no ``stages`` provided, returns the
         latest version for each stage.

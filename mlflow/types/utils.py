@@ -145,7 +145,7 @@ def _infer_schema(data: Any) -> Schema:
             "but got '{}'".format(type(data))
         )
     if not schema.is_tensor_spec() and any(
-        [t in (DataType.integer, DataType.long) for t in schema.column_types()]
+        [t in (DataType.integer, DataType.long) for t in schema.input_types()]
     ):
         warnings.warn(
             "Hint: Inferred schema contains integer column(s). Integer columns in "
@@ -212,7 +212,7 @@ def _infer_pandas_column(col: pd.Series) -> DataType:
     if len(col.values.shape) > 1:
         raise MlflowException("Expected 1d array, got array with shape {}".format(col.shape))
 
-    class IsInstanceOrNone(object):
+    class IsInstanceOrNone:
         def __init__(self, *args):
             self.classes = args
             self.seen_instances = 0

@@ -103,10 +103,11 @@ def test_model_log(h2o_iris_model):
     h2o_model = h2o_iris_model.model
     try:
         artifact_path = "gbm_model"
-        mlflow.h2o.log_model(h2o_model=h2o_model, artifact_path=artifact_path)
+        model_info = mlflow.h2o.log_model(h2o_model=h2o_model, artifact_path=artifact_path)
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
         )
+        assert model_info.model_uri == model_uri
         # Load model
         h2o_model_loaded = mlflow.h2o.load_model(model_uri=model_uri)
         assert all(

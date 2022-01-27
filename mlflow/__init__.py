@@ -27,8 +27,6 @@ implement mutual exclusion manually.
 
 For a lower level API, see the :py:mod:`mlflow.tracking` module.
 """
-import sys
-
 from mlflow.version import VERSION as __version__  # pylint: disable=unused-import
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
 import mlflow.tracking._model_registry.fluent
@@ -100,24 +98,25 @@ except ImportError as e:
 
 _configure_mlflow_loggers(root_module_name=__name__)
 
-_major = 3
-_minor = 6
-_deprecated_version = (_major, _minor)
-_min_supported_version = (_major, _minor + 1)
+# TODO: Comment out this block when we deprecate support for python 3.7.
+# _major = 3
+# _minor = 7
+# _deprecated_version = (_major, _minor)
+# _min_supported_version = (_major, _minor + 1)
 
-if sys.version_info[:2] == _deprecated_version:
-    warnings.warn(
-        "MLflow support for Python {dep_ver} is deprecated and will be dropped in "
-        "an upcoming release. At that point, existing Python {dep_ver} workflows "
-        "that use MLflow will continue to work without modification, but Python {dep_ver} "
-        "users will no longer get access to the latest MLflow features and bugfixes. "
-        "We recommend that you upgrade to Python {min_ver} or newer.".format(
-            dep_ver=".".join(map(str, _deprecated_version)),
-            min_ver=".".join(map(str, _min_supported_version)),
-        ),
-        FutureWarning,
-        stacklevel=2,
-    )
+# if sys.version_info[:2] == _deprecated_version:
+#     warnings.warn(
+#         "MLflow support for Python {dep_ver} is deprecated and will be dropped in "
+#         "an upcoming release. At that point, existing Python {dep_ver} workflows "
+#         "that use MLflow will continue to work without modification, but Python {dep_ver} "
+#         "users will no longer get access to the latest MLflow features and bugfixes. "
+#         "We recommend that you upgrade to Python {min_ver} or newer.".format(
+#             dep_ver=".".join(map(str, _deprecated_version)),
+#             min_ver=".".join(map(str, _min_supported_version)),
+#         ),
+#         FutureWarning,
+#         stacklevel=2,
+#     )
 
 ActiveRun = mlflow.tracking.fluent.ActiveRun
 log_param = mlflow.tracking.fluent.log_param

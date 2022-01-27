@@ -1,7 +1,7 @@
 from abc import ABCMeta, abstractmethod
 
 
-class FlavorBackend(object):
+class FlavorBackend:
     """
     Abstract class for Flavor Backend.
     This class defines the API interface for local model deployment of MLflow model flavors.

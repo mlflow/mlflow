@@ -505,7 +505,7 @@ def _get_new_training_session_class():
     # 1. We don't currently have any use cases for allow_children=True.
     # 2. The list append & pop operations are thread-safe, so we will always clear the session stack
     #    once all _TrainingSessions exit.
-    class _TrainingSession(object):
+    class _TrainingSession:
         _session_stack = []
 
         def __init__(self, clazz, allow_children=True):

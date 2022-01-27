@@ -1,6 +1,7 @@
 import os
 import logging
 import subprocess
+import functools
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.rest_utils import MlflowHostCreds
@@ -9,6 +10,33 @@ from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.uri import get_db_info_from_uri
 
 _logger = logging.getLogger(__name__)
+
+
+def _use_repl_context_if_available(name):
+    """
+    Creates a decorator to insert a short circuit that returns the specified REPL context attribute
+    if it's available.
+
+    :param name: Attribute name (e.g. "apiUrl").
+    :return: Decorator to insert the short circuit.
+    """
+
+    def decorator(f):
+        @functools.wraps(f)
+        def wrapper(*args, **kwargs):
+            try:
+                from dbruntime.databricks_repl_context import get_context
+
+                context = get_context()
+                if context is not None and hasattr(context, name):
+                    return getattr(context, name)
+            except Exception:
+                pass
+            return f(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
 
 
 def _get_dbutils():
@@ -50,6 +78,7 @@ def _get_context_tag(context_tag_key):
         return None
 
 
+@_use_repl_context_if_available("aclPathOfAclRoot")
 def acl_path_of_acl_root():
     try:
         return _get_command_context().aclPathOfAclRoot().get()
@@ -72,6 +101,7 @@ def is_databricks_default_tracking_uri(tracking_uri):
     return tracking_uri.lower().strip() == "databricks"
 
 
+@_use_repl_context_if_available("isInNotebook")
 def is_in_databricks_notebook():
     if _get_property_from_spark_context("spark.databricks.notebook.id") is not None:
         return True
@@ -81,6 +111,7 @@ def is_in_databricks_notebook():
         return False
 
 
+@_use_repl_context_if_available("isInJob")
 def is_in_databricks_job():
     try:
         return get_job_id() is not None and get_job_run_id() is not None
@@ -111,6 +142,7 @@ def is_dbfs_fuse_available():
             return False
 
 
+@_use_repl_context_if_available("isInCluster")
 def is_in_cluster():
     try:
         spark_session = _get_active_spark_session()
@@ -122,6 +154,7 @@ def is_in_cluster():
         return False
 
 
+@_use_repl_context_if_available("notebookId")
 def get_notebook_id():
     """Should only be called if is_in_databricks_notebook is true"""
     notebook_id = _get_property_from_spark_context("spark.databricks.notebook.id")
@@ -133,6 +166,7 @@ def get_notebook_id():
     return None
 
 
+@_use_repl_context_if_available("notebookPath")
 def get_notebook_path():
     """Should only be called if is_in_databricks_notebook is true"""
     path = _get_property_from_spark_context("spark.databricks.notebook.path")
@@ -144,6 +178,7 @@ def get_notebook_path():
         return _get_extra_context("notebook_path")
 
 
+@_use_repl_context_if_available("runtimeVersion")
 def get_databricks_runtime():
     if is_in_databricks_runtime():
         spark_session = _get_active_spark_session()
@@ -154,6 +189,7 @@ def get_databricks_runtime():
     return None
 
 
+@_use_repl_context_if_available("clusterId")
 def get_cluster_id():
     spark_session = _get_active_spark_session()
     if spark_session is None:
@@ -161,6 +197,7 @@ def get_cluster_id():
     return spark_session.conf.get("spark.databricks.clusterUsageTags.clusterId")
 
 
+@_use_repl_context_if_available("jobGroupId")
 def get_job_group_id():
     try:
         dbutils = _get_dbutils()
@@ -171,6 +208,7 @@ def get_job_group_id():
         return None
 
 
+@_use_repl_context_if_available("replId")
 def get_repl_id():
     """
     :return: The ID of the current Databricks Python REPL
@@ -198,6 +236,7 @@ def get_repl_id():
         pass
 
 
+@_use_repl_context_if_available("jobId")
 def get_job_id():
     try:
         return _get_command_context().jobId().get()
@@ -205,6 +244,7 @@ def get_job_id():
         return _get_context_tag("jobId")
 
 
+@_use_repl_context_if_available("idInJob")
 def get_job_run_id():
     try:
         return _get_command_context().idInJob().get()
@@ -212,6 +252,7 @@ def get_job_run_id():
         return _get_context_tag("idInJob")
 
 
+@_use_repl_context_if_available("jobTaskType")
 def get_job_type():
     """Should only be called if is_in_databricks_job is true"""
     try:
@@ -220,6 +261,19 @@ def get_job_type():
         return _get_context_tag("jobTaskType")
 
 
+@_use_repl_context_if_available("jobType")
+def get_job_type_info():
+    try:
+        return _get_context_tag("jobType")
+    except Exception:
+        return None
+
+
+def get_experiment_name_from_job_id(job_id):
+    return "jobs:/" + job_id
+
+
+@_use_repl_context_if_available("commandRunId")
 def get_command_run_id():
     try:
         return _get_command_context().commandRunId().get()
@@ -228,6 +282,7 @@ def get_command_run_id():
         return None
 
 
+@_use_repl_context_if_available("apiUrl")
 def get_webapp_url():
     """Should only be called if is_in_databricks_notebook or is_in_databricks_jobs is true"""
     url = _get_property_from_spark_context("spark.databricks.api.url")
@@ -239,6 +294,7 @@ def get_webapp_url():
         return _get_extra_context("api_url")
 
 
+@_use_repl_context_if_available("workspaceId")
 def get_workspace_id():
     try:
         return _get_command_context().workspaceId().get()
@@ -246,6 +302,7 @@ def get_workspace_id():
         return _get_context_tag("orgId")
 
 
+@_use_repl_context_if_available("browserHostName")
 def get_browser_hostname():
     try:
         return _get_command_context().browserHostName().get()

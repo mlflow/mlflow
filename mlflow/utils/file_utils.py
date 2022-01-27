@@ -181,7 +181,7 @@ def read_yaml(root, file_name):
         raise e
 
 
-class TempDir(object):
+class TempDir:
     def __init__(self, chdr=False, remove_on_exit=True):
         self._dir = None
         self._path = None
@@ -287,7 +287,7 @@ def make_tarfile(output_filename, source_dir, archive_name, custom_filter=None):
         tar_info.mtime = 0
         return tar_info if custom_filter is None else custom_filter(tar_info)
 
-    unzipped_filename = tempfile.mktemp()
+    unzipped_file_handle, unzipped_filename = tempfile.mkstemp()
     try:
         with tarfile.open(unzipped_filename, "w") as tar:
             tar.add(source_dir, arcname=archive_name, filter=_filter_timestamps)
@@ -298,7 +298,7 @@ def make_tarfile(output_filename, source_dir, archive_name, custom_filter=None):
         ) as gzipped_tar, open(unzipped_filename, "rb") as tar:
             gzipped_tar.write(tar.read())
     finally:
-        os.remove(unzipped_filename)
+        os.close(unzipped_file_handle)
 
 
 def _copy_project(src_path, dst_path=""):

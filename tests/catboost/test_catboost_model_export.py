@@ -195,8 +195,9 @@ def test_log_model(cb_model, tmpdir):
         conda_env = os.path.join(tmpdir.strpath, "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["catboost"])
 
-        mlflow.catboost.log_model(model, artifact_path, conda_env=conda_env)
+        model_info = mlflow.catboost.log_model(model, artifact_path, conda_env=conda_env)
         model_uri = "runs:/{}/{}".format(mlflow.active_run().info.run_id, artifact_path)
+        assert model_info.model_uri == model_uri
 
         loaded_model = mlflow.catboost.load_model(model_uri)
         np.testing.assert_array_almost_equal(

@@ -8,6 +8,7 @@ import atexit
 import time
 import logging
 import inspect
+from copy import deepcopy
 from packaging.version import Version
 from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
@@ -29,10 +30,24 @@ from mlflow.utils.autologging_utils import (
     AUTOLOGGING_INTEGRATIONS,
     autologging_is_disabled,
 )
-from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
+from mlflow.utils.databricks_utils import (
+    get_job_id,
+    is_in_databricks_job,
+    is_in_databricks_notebook,
+    get_notebook_id,
+    get_experiment_name_from_job_id,
+    get_job_type_info,
+)
 from mlflow.utils.import_hooks import register_post_import_hook
-from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_EXPERIMENT_SOURCE_ID,
+    MLFLOW_EXPERIMENT_SOURCE_TYPE,
+    MLFLOW_PARENT_RUN_ID,
+    MLFLOW_RUN_NAME,
+    MLFLOW_DATABRICKS_JOB_TYPE_INFO,
+)
 from mlflow.utils.validation import _validate_run_id
+from mlflow.entities import SourceType
 
 if TYPE_CHECKING:
     import pandas  # pylint: disable=unused-import
@@ -278,15 +293,15 @@ def start_run(
 
         exp_id_for_run = experiment_id if experiment_id is not None else _get_experiment_id()
 
-        user_specified_tags = tags or {}
+        user_specified_tags = deepcopy(tags) or {}
         if parent_run_id is not None:
             user_specified_tags[MLFLOW_PARENT_RUN_ID] = parent_run_id
         if run_name is not None:
             user_specified_tags[MLFLOW_RUN_NAME] = run_name
 
-        tags = context_registry.resolve_tags(user_specified_tags)
+        resolved_tags = context_registry.resolve_tags(user_specified_tags)
 
-        active_run_obj = client.create_run(experiment_id=exp_id_for_run, tags=tags)
+        active_run_obj = client.create_run(experiment_id=exp_id_for_run, tags=resolved_tags)
 
     _active_run_stack.append(ActiveRun(active_run_obj))
     return _active_run_stack[-1]
@@ -1327,7 +1342,24 @@ def _get_experiment_id():
         _active_experiment_id
         or _get_experiment_id_from_env()
         or (is_in_databricks_notebook() and get_notebook_id())
+        or (is_in_databricks_job() and get_job_type_info() == "NORMAL" and _create_job_experiment())
     ) or deprecated_default_exp_id
+
+
+def _create_job_experiment() -> str:
+    job_id = get_job_id()
+    tags = {}
+    tags[MLFLOW_DATABRICKS_JOB_TYPE_INFO] = get_job_type_info()
+    tags[MLFLOW_EXPERIMENT_SOURCE_TYPE] = SourceType.to_string(SourceType.JOB)
+    tags[MLFLOW_EXPERIMENT_SOURCE_ID] = job_id
+
+    experiment_id = create_experiment(get_experiment_name_from_job_id(job_id), None, tags)
+    _logger.debug(
+        "Job experiment with experiment_id '%s' created",
+        experiment_id,
+    )
+
+    return experiment_id
 
 
 @autologging_integration("mlflow")

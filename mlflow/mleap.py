@@ -74,6 +74,8 @@ def log_model(
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
 
+    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+             metadata of the logged model.
 
 
     .. code-block:: python
@@ -182,8 +184,6 @@ def save_model(
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
-
-
     """
     if mlflow_model is None:
         mlflow_model = Model()
@@ -213,6 +213,9 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
     from pyspark.ml.pipeline import PipelineModel
     from pyspark.sql import DataFrame
     import mleap.version
+
+    # This import statement adds `serializeToBundle` and `deserializeFromBundle` to `Transformer`:
+    # https://github.com/combust/mleap/blob/37f6f61634798118e2c2eb820ceeccf9d234b810/python/mleap/pyspark/spark_support.py#L32-L33
     from mleap.pyspark.spark_support import SimpleSparkSerializer  # pylint: disable=unused-import
     from py4j.protocol import Py4JError
 

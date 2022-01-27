@@ -5,7 +5,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import shap
-from sklearn.datasets import load_boston, load_iris
+from sklearn.datasets import load_diabetes, load_iris
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 import pandas as pd
 import pytest
@@ -38,17 +38,14 @@ def get_iris():
     )
 
 
-def get_boston():
-    data = load_boston()
-    return (
-        pd.DataFrame(data.data[:100, :4], columns=data.feature_names[:4]),
-        pd.Series(data.target[:100], name="target"),
-    )
+def get_diabetes():
+    X, y = load_diabetes(return_X_y=True, as_frame=True)
+    return X.iloc[:100, :4], y.iloc[:100]
 
 
 @pytest.fixture(scope="module")
 def regressor():
-    X, y = get_boston()
+    X, y = get_diabetes()
     model = RandomForestRegressor()
     model.fit(X, y)
 
@@ -243,7 +240,7 @@ def test_log_explanation_with_small_features():
     num_rows = 50
     assert num_rows < mlflow.shap._MAXIMUM_BACKGROUND_DATA_SIZE
 
-    X, y = get_boston()
+    X, y = get_diabetes()
     X, y = X.iloc[:num_rows], y[:num_rows]
     model = RandomForestRegressor()
     model.fit(X, y)

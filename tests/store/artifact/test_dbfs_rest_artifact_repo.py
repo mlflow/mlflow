@@ -64,7 +64,7 @@ LIST_ARTIFACTS_SINGLE_FILE_RESPONSE = {
 }
 
 
-class TestDbfsArtifactRepository(object):
+class TestDbfsArtifactRepository:
     def test_init_validation_and_cleaning(self):
         with mock.patch(
             DBFS_ARTIFACT_REPOSITORY_PACKAGE + "._get_host_creds_from_default_store"

@@ -307,6 +307,8 @@ def log_model(
                           by converting it to a list. Bytes are base64-encoded.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+             metadata of the logged model.
 
     .. code-block:: python
         :caption: Example
@@ -331,7 +333,7 @@ def log_model(
             est.fit(train_data=train_data, epochs=100, val_data=validation_data)
             mlflow.gluon.log_model(net, "model")
     """
-    Model.log(
+    return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.gluon,
         gluon_model=gluon_model,

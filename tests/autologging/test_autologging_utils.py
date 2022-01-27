@@ -575,15 +575,14 @@ def test_autologging_is_disabled_returns_expected_values():
 
 
 def test_autologging_disable_restores_behavior():
-    import pandas as pd
-    from sklearn.datasets import load_boston
+    from sklearn.datasets import load_diabetes
     from sklearn.linear_model import LinearRegression
 
     mlflow.sklearn.autolog()
 
-    dataset = load_boston()
-    X = pd.DataFrame(dataset.data[:50, :8], columns=dataset.feature_names[:8])
-    y = dataset.target[:50]
+    X, y = load_diabetes(return_X_y=True, as_frame=True)
+    X = X.iloc[:50, :4]
+    y = y.iloc[:50]
 
     # train a model
     model = LinearRegression()

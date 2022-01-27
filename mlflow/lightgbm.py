@@ -25,6 +25,7 @@ import shutil
 import logging
 import functools
 from copy import deepcopy
+from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
@@ -33,6 +34,7 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.environment import (
     _mlflow_conda_env,
     _validate_env_arguments,
@@ -67,21 +69,24 @@ FLAVOR_NAME = "lightgbm"
 _logger = logging.getLogger(__name__)
 
 
-def get_default_pip_requirements():
+def get_default_pip_requirements(include_cloudpickle=False):
     """
     :return: A list of default pip requirements for MLflow Models produced by this flavor.
              Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
              that, at minimum, contains these requirements.
     """
-    return [_get_pinned_requirement("lightgbm")]
+    pip_deps = [_get_pinned_requirement("lightgbm")]
+    if include_cloudpickle:
+        pip_deps.append(_get_pinned_requirement("cloudpickle"))
+    return pip_deps
 
 
-def get_default_conda_env():
+def get_default_conda_env(include_cloudpickle=False):
     """
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
-    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
+    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements(include_cloudpickle))
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
@@ -98,8 +103,8 @@ def save_model(
     """
     Save a LightGBM model to a path on the local file system.
 
-    :param lgb_model: LightGBM model (an instance of `lightgbm.Booster`_) to be saved.
-                      Note that models that implement the `scikit-learn API`_  are not supported.
+    :param lgb_model: LightGBM model (an instance of `lightgbm.Booster`_) or
+                      models that implement the `scikit-learn API`_  to be saved.
     :param path: Local path where the model is to be saved.
     :param conda_env: {{ conda_env }}
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
@@ -132,7 +137,7 @@ def save_model(
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise MlflowException("Path '{}' already exists".format(path))
-    model_data_subpath = "model.lgb"
+    model_data_subpath = "model.lgb" if isinstance(lgb_model, lgb.Booster) else "model.pkl"
     model_data_path = os.path.join(path, model_data_subpath)
     os.makedirs(path)
     if mlflow_model is None:
@@ -143,20 +148,28 @@ def save_model(
         _save_example(mlflow_model, input_example, path)
 
     # Save a LightGBM model
-    lgb_model.save_model(model_data_path)
+    _save_model(lgb_model, model_data_path)
 
+    lgb_model_class = _get_fully_qualified_class_name(lgb_model)
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.lightgbm",
         data=model_data_subpath,
         env=_CONDA_ENV_FILE_NAME,
     )
-    mlflow_model.add_flavor(FLAVOR_NAME, lgb_version=lgb.__version__, data=model_data_subpath)
+    mlflow_model.add_flavor(
+        FLAVOR_NAME,
+        lgb_version=lgb.__version__,
+        data=model_data_subpath,
+        model_class=lgb_model_class,
+    )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
         if pip_requirements is None:
-            default_reqs = get_default_pip_requirements()
+            default_reqs = get_default_pip_requirements(
+                include_cloudpickle=not isinstance(lgb_model, lgb.Booster)
+            )
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
@@ -186,6 +199,22 @@ def save_model(
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
 
+def _save_model(lgb_model, model_path):
+    """
+    LightGBM Boosters are saved using the built-in method `save_model()`,
+    whereas LightGBM scikit-learn models are serialized using Cloudpickle.
+    """
+    import lightgbm as lgb
+
+    if isinstance(lgb_model, lgb.Booster):
+        lgb_model.save_model(model_path)
+    else:
+        import cloudpickle
+
+        with open(model_path, "wb") as out:
+            cloudpickle.dump(lgb_model, out)
+
+
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     lgb_model,
@@ -202,8 +231,8 @@ def log_model(
     """
     Log a LightGBM model as an MLflow artifact for the current run.
 
-    :param lgb_model: LightGBM model (an instance of `lightgbm.Booster`_) to be saved.
-                      Note that models that implement the `scikit-learn API`_  are not supported.
+    :param lgb_model: LightGBM model (an instance of `lightgbm.Booster`_) or
+                      models that implement the `scikit-learn API`_  to be saved.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: {{ conda_env }}
     :param registered_model_name: If given, create a model version under
@@ -234,8 +263,10 @@ def log_model(
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param kwargs: kwargs to pass to `lightgbm.Booster.save_model`_ method.
+    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+             metadata of the logged model.
     """
-    Model.log(
+    return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.lightgbm,
         registered_model_name=registered_model_name,
@@ -251,9 +282,31 @@ def log_model(
 
 
 def _load_model(path):
-    import lightgbm as lgb
+    """
+    Load Model Implementation.
+    :param path: Local filesystem path to
+                    the MLflow Model with the ``lightgbm`` flavor (MLflow < 1.23.0) or
+                    the top-level MLflow Model directory (MLflow >= 1.23.0).
+    """
 
-    return lgb.Booster(model_file=path)
+    model_dir = os.path.dirname(path) if os.path.isfile(path) else path
+    flavor_conf = _get_flavor_configuration(model_path=model_dir, flavor_name=FLAVOR_NAME)
+
+    model_class = flavor_conf.get("model_class", "lightgbm.basic.Booster")
+    lgb_model_path = os.path.join(model_dir, flavor_conf.get("data"))
+
+    if model_class == "lightgbm.basic.Booster":
+        import lightgbm as lgb
+
+        model = lgb.Booster(model_file=lgb_model_path)
+    else:
+        # LightGBM scikit-learn models are deserialized using Cloudpickle.
+        import cloudpickle
+
+        with open(lgb_model_path, "rb") as f:
+            model = cloudpickle.load(f)
+
+    return model
 
 
 def _load_pyfunc(path):
@@ -283,12 +336,11 @@ def load_model(model_uri, dst_path=None):
                      This directory must already exist. If unspecified, a local output
                      path will be created.
 
-    :return: A LightGBM model (an instance of `lightgbm.Booster`_).
+    :return: A LightGBM model (an instance of `lightgbm.Booster`_) or a LightGBM scikit-learn
+             model, depending on the saved model class specification.
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
-    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
-    lgb_model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model.lgb"))
-    return _load_model(path=lgb_model_file_path)
+    return _load_model(path=local_model_path)
 
 
 class _LGBModelWrapper:
@@ -323,13 +375,14 @@ def autolog(
 
     - parameters specified in `lightgbm.train`_.
     - metrics on each iteration (if ``valid_sets`` specified).
-    - metrics at the best iteration (if ``early_stopping_rounds`` specified).
+    - metrics at the best iteration (if ``early_stopping_rounds`` specified or ``early_stopping``
+        callback is set).
     - feature importance (both "split" and "gain") as JSON files and plots.
     - trained model, including:
         - an example of valid input.
         - inferred signature of the inputs and outputs of the model.
 
-    Note that the `scikit-learn API`_ is not supported.
+    Note that the `scikit-learn API`_ is now supported.
 
     :param log_input_examples: If ``True``, input examples from training datasets are collected and
                                logged along with LightGBM model artifacts during training. If
@@ -386,7 +439,7 @@ def autolog(
 
         original(self, *args, **kwargs)
 
-    def train(original, *args, **kwargs):
+    def train(_log_models, original, *args, **kwargs):
         def record_eval_results(eval_results, metrics_logger):
             """
             Create a callback function that records evaluation results.
@@ -447,10 +500,13 @@ def autolog(
             "fobj",
             "feval",
             "init_model",
-            "evals_result",
             "learning_rates",
             "callbacks",
         ]
+        if Version(lightgbm.__version__) <= Version("3.3.1"):
+            # The parameter `evals_result` in `lightgbm.train` is removed in this PR:
+            # https://github.com/microsoft/LightGBM/pull/4882
+            unlogged_params.append("evals_result")
 
         params_to_log_for_fn = get_mlflow_run_params_for_fn_args(
             original, args, kwargs, unlogged_params
@@ -482,12 +538,9 @@ def autolog(
             # training model
             model = original(*args, **kwargs)
 
-            # If early_stopping_rounds is present, logging metrics at the best iteration
+            # If early stopping is activated, logging metrics at the best iteration
             # as extra metrics with the max step + 1.
-            early_stopping_index = all_arg_names.index("early_stopping_rounds")
-            early_stopping = (
-                num_pos_args >= early_stopping_index + 1 or "early_stopping_rounds" in kwargs
-            )
+            early_stopping = model.best_iteration > 0
             if early_stopping:
                 extra_step = len(eval_results)
                 autologging_client.log_metrics(
@@ -549,7 +602,7 @@ def autolog(
             return model_signature
 
         # Whether to automatically log the trained model based on boolean flag.
-        if log_models:
+        if _log_models:
             # Will only resolve `input_example` and `signature` if `log_models` is `True`.
             input_example, signature = resolve_input_example_and_signature(
                 get_input_example,
@@ -572,5 +625,32 @@ def autolog(
 
         return model
 
-    safe_patch(FLAVOR_NAME, lightgbm, "train", train, manage_run=True)
     safe_patch(FLAVOR_NAME, lightgbm.Dataset, "__init__", __init__)
+    safe_patch(
+        FLAVOR_NAME, lightgbm, "train", functools.partial(train, log_models), manage_run=True
+    )
+    # The `train()` method logs LightGBM models as Booster objects. When using LightGBM
+    # scikit-learn models, we want to save / log models as their model classes. So we turn
+    # off the log_models functionality in the `train()` method patched to `lightgbm.sklearn`.
+    # Instead the model logging is handled in `fit_mlflow_xgboost_and_lightgbm()`
+    # in `mlflow.sklearn._autolog()`, where models are logged as LightGBM scikit-learn models
+    # after the `fit()` method returns.
+    safe_patch(
+        FLAVOR_NAME, lightgbm.sklearn, "train", functools.partial(train, False), manage_run=True
+    )
+
+    # enable LightGBM scikit-learn estimators autologging
+    import mlflow.sklearn
+
+    mlflow.sklearn._autolog(
+        flavor_name=FLAVOR_NAME,
+        log_input_examples=log_input_examples,
+        log_model_signatures=log_model_signatures,
+        log_models=log_models,
+        disable=disable,
+        exclusive=exclusive,
+        disable_for_unsupported_versions=disable_for_unsupported_versions,
+        silent=silent,
+        max_tuning_runs=None,
+        log_post_training_metrics=True,
+    )

@@ -104,6 +104,7 @@ export class MetricsPlotPanel extends React.Component {
     // `clearInterval` does nothing when called with `null` or `undefine`:
     // https://www.w3.org/TR/2011/WD-html5-20110525/timers.html#dom-windowtimers-cleartimeout
     clearInterval(this.intervalId);
+    this.intervalId = null;
   };
 
   allRunsCompleted = () => {

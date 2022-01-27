@@ -24,7 +24,7 @@ if TYPE_CHECKING:
         MlflowInferableDataset = Union[pd.DataFrame, np.ndarray, Dict[str, np.ndarray]]
 
 
-class ModelSignature(object):
+class ModelSignature:
     """
     ModelSignature specifies schema of model's inputs and outputs.
 

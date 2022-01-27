@@ -65,7 +65,7 @@ Server & UI. It also adds project backends such as Docker and Kubernetes among
 other capabilities.
 """
 CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + [
-    "alembic<=1.4.1",
+    "alembic",
     # Required
     "docker>=4.0.0",
     "Flask",
@@ -129,10 +129,10 @@ setup(
     else open("README_SKINNY.rst").read() + open("README.rst").read(),
     long_description_content_type="text/x-rst",
     license="Apache License 2.0",
-    classifiers=["Intended Audience :: Developers", "Programming Language :: Python :: 3.6"],
+    classifiers=["Intended Audience :: Developers", "Programming Language :: Python :: 3.7"],
     keywords="ml ai databricks",
     url="https://mlflow.org/",
-    python_requires=">=3.6",
+    python_requires=">=3.7",
     project_urls={
         "Bug Tracker": "https://github.com/mlflow/mlflow/issues",
         "Documentation": "https://mlflow.org/docs/latest/index.html",

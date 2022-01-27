@@ -30,7 +30,7 @@ def databricks_model_artifact_repo():
     return DatabricksModelsArtifactRepository(MOCK_MODEL_ROOT_URI_WITH_PROFILE)
 
 
-class TestDatabricksModelArtifactRepository(object):
+class TestDatabricksModelArtifactRepository:
     def test_init_with_version_uri_containing_profile(self):
         repo = DatabricksModelsArtifactRepository(MOCK_MODEL_ROOT_URI_WITH_PROFILE)
         assert repo.artifact_uri == MOCK_MODEL_ROOT_URI_WITH_PROFILE
@@ -142,8 +142,16 @@ class TestDatabricksModelArtifactRepository(object):
                 DatabricksModelsArtifactRepository(valid_profileless_artifact_uri)
 
     def test_list_artifacts(self, databricks_model_artifact_repo):
+        status_code = 200
+
+        def _raise_for_status():
+            if status_code == 404:
+                raise Exception(
+                    "404 Client Error: Not Found for url: https://shard-uri/api/2.0/mlflow/model-versions/list-artifacts?name=model&version=1"
+                )
+
         list_artifact_dir_response_mock = mock.MagicMock()
-        list_artifact_dir_response_mock.status_code = 200
+        list_artifact_dir_response_mock.status_code = status_code
         list_artifact_dir_json_mock = {
             "files": [
                 {"path": "MLmodel", "is_dir": False, "file_size": 294},
@@ -151,6 +159,7 @@ class TestDatabricksModelArtifactRepository(object):
             ]
         }
         list_artifact_dir_response_mock.text = json.dumps(list_artifact_dir_json_mock)
+        list_artifact_dir_response_mock.raise_for_status.side_effect = _raise_for_status
         with mock.patch(
             DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._call_endpoint"
         ) as call_endpoint_mock:
@@ -164,6 +173,24 @@ class TestDatabricksModelArtifactRepository(object):
             assert artifacts[1].path == "data"
             assert artifacts[1].is_dir is True
             assert artifacts[1].file_size is None
+            call_endpoint_mock.assert_called_once_with(ANY, REGISTRY_LIST_ARTIFACTS_ENDPOINT)
+
+        # errors from API are propagated through to cli response
+        list_artifact_dir_bad_response_mock = mock.MagicMock()
+        status_code = 404
+        list_artifact_dir_bad_response_mock.status_code = status_code
+        list_artifact_dir_bad_response_mock.text = "An error occurred"
+        list_artifact_dir_bad_response_mock.raise_for_status.side_effect = _raise_for_status
+        with mock.patch(
+            DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._call_endpoint"
+        ) as call_endpoint_mock:
+            call_endpoint_mock.return_value = list_artifact_dir_bad_response_mock
+            with pytest.raises(
+                MlflowException,
+                match=r"API request to list files under path `` failed with status code 404. "
+                "Response body: An error occurred",
+            ):
+                databricks_model_artifact_repo.list_artifacts("")
             call_endpoint_mock.assert_called_once_with(ANY, REGISTRY_LIST_ARTIFACTS_ENDPOINT)
 
     def test_list_artifacts_for_single_file(self, databricks_model_artifact_repo):

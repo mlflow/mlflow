@@ -139,7 +139,7 @@ by running the following from your checkout of MLflow:
 
 .. code-block:: bash
 
-    conda create --name mlflow-dev-env python=3.6
+    conda create --name mlflow-dev-env python=3.7
     conda activate mlflow-dev-env
     pip install -e .[extras] # installs mlflow from current checkout with some useful extra utilities
 
@@ -449,6 +449,8 @@ checkout of MLflow:
     # MLflow relies on Alembic (https://alembic.sqlalchemy.org) for schema migrations.
     $ alembic -c mlflow/store/db_migrations/alembic.ini revision -m "add new field to db"
       Generating ~/mlflow/mlflow/store/db_migrations/versions/b446d3984cfa_add_new_field_to_db.py
+    # Update schema files
+    $ cd tests/db && ./update_schemas.sh
 
 
 These commands generate a new migration script (e.g., at ``~/mlflow/mlflow/alembic/versions/12341123_add_new_field_to_db.py``)
