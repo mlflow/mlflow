@@ -121,7 +121,7 @@ def test_initialize_sagemaker_deployment_client_with_region_name():
 
 def test_initialize_sagemaker_deployment_client_with_region_name_and_iam_role_arn():
     plugin = mfs.SageMakerDeploymentClient(
-        "sagemaker:/us-east-1/arn:aws:iam::123456789012:role/dummy.company.com/assumed_role"
+        "sagemaker:/us-east-1/////////arn:aws:iam::123456789012:role/dummy.company.com/assumed_role"
     )
 
     assert plugin.region_name == "us-east-1"

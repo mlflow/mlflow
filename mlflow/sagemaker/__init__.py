@@ -1819,9 +1819,14 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             # values_str would look like us-east-1
             self.region_name = values_str
         else:
-            # values_str would look like us-east-1/arn:aws:1234:role/assumed_role
+            # values_str could look like us-east-1/arn:aws:1234:role/assumed_role
             self.region_name = values_str[:separator_index]
             self.assumed_role_arn = values_str[separator_index + 1 :]
+
+            # if values_str contains multiple interior slashes such as
+            # us-east-1/////arn:aws:1234:role/assumed_role, remove
+            # the extra slashes that come before "arn"
+            self.assumed_role_arn = self.assumed_role_arn.strip("/")
 
         if self.region_name.startswith("arn"):
             raise MlflowException(
