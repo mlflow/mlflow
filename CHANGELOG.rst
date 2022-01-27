@@ -1,5 +1,19 @@
 Changelog
 =========
+1.23.1 (2022-01-27)
+-------------------
+MLflow 1.23.1 includes several major features and improvements:
+
+Features:
+
+
+
+Bug fixes and documentation updates:
+
+
+
+Small bug fixes and doc updates ()
+
 1.23.0 (2022-01-17)
 ------------------------
 MLflow 1.23.0 includes several major features and improvements:
