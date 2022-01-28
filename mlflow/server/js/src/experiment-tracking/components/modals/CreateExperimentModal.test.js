@@ -63,7 +63,7 @@ describe('CreateExperimentModal', () => {
       wrapper = shallow(<CreateExperimentModalImpl {...props} />);
       instance = wrapper.instance();
       const payload = { experimentName: 'myNewExp', artifactLocation: 'artifactLoc' };
-      testPromises.push(expect(instance.handleCreateExperiment(payload)).rejects);
+      testPromises.push(expect(instance.handleCreateExperiment(payload)).rejects.toThrow());
     });
     Promise.all(testPromises).then(() => {
       expect(location.search).toEqual('initialSearchValue');

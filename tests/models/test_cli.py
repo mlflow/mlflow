@@ -196,7 +196,7 @@ def test_serve_gunicorn_opts(iris_data, sk_model):
                 )
             with open(output_file_path, "r") as output_file:
                 stdout = output_file.read()
-        actual = pd.read_json(scoring_response.content, orient="records")
+        actual = pd.read_json(scoring_response.content.decode("utf-8"), orient="records")
         actual = actual[actual.columns[0]].values
         expected = sk_model.predict(x)
         assert all(expected == actual)

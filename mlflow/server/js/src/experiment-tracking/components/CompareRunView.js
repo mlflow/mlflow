@@ -126,212 +126,235 @@ export class CompareRunView extends Component {
     return (
       <div className='CompareRunView'>
         <PageHeader title={title} breadcrumbs={breadcrumbs} />
-        <span id='table-cell-hover-text' className='hover-text'></span>
-        <div className='responsive-table-container' id='compare-run-table-container'>
-          <table className='compare-table table'>
-            <thead className='table-block no-scrollbar'>
-              <tr>
-                <th scope='row' className='head-value sticky_header'>
-                  <FormattedMessage
-                    defaultMessage='Run ID:'
-                    description='Row title for the run id on the experiment compare runs page'
-                  />
-                </th>
-                {this.props.runInfos.map((r) => (
-                  <th scope='row' className='data-value' key={r.run_uuid}>
-                    <Tooltip
-                      title={r.getRunUuid()}
-                      color='blue'
-                      overlayStyle={{ 'max-width': '400px' }}
-                    >
-                      <Link to={Routes.getRunPageRoute(r.getExperimentId(), r.getRunUuid())}>
-                        {r.getRunUuid()}
-                      </Link>
-                    </Tooltip>
+        <CollapsibleSection
+          title={
+            <h1>
+              <FormattedMessage
+                defaultMessage='Visualizations'
+                description='Tabs title for plots on the compare runs page'
+              />
+            </h1>
+          }
+        >
+          <Tabs>
+            <TabPane
+              tab={
+                <FormattedMessage
+                  defaultMessage='Parallel Coordinates Plot'
+                  // eslint-disable-next-line max-len
+                  description='Tab pane title for parallel coordinate plots on the compare runs page'
+                />
+              }
+              key='1'
+            >
+              <ParallelCoordinatesPlotPanel runUuids={this.props.runUuids} />
+            </TabPane>
+            <TabPane
+              tab={
+                <FormattedMessage
+                  defaultMessage='Scatter Plot'
+                  description='Tab pane title for scatterplots on the compare runs page'
+                />
+              }
+              key='2'
+            >
+              <CompareRunScatter
+                runUuids={this.props.runUuids}
+                runDisplayNames={this.props.runDisplayNames}
+              />
+            </TabPane>
+            <TabPane
+              tab={
+                <FormattedMessage
+                  defaultMessage='Contour Plot'
+                  description='Tab pane title for contour plots on the compare runs page'
+                />
+              }
+              key='3'
+            >
+              <CompareRunContour
+                runUuids={this.props.runUuids}
+                runDisplayNames={this.props.runDisplayNames}
+              />
+            </TabPane>
+          </Tabs>
+        </CollapsibleSection>
+        <CollapsibleSection
+          title={
+            <h1>
+              <FormattedMessage
+                defaultMessage='Run details'
+                // eslint-disable-next-line max-len
+                description='Compare table title on the compare runs page'
+              />
+            </h1>
+          }
+        >
+          <div className='responsive-table-container' id='compare-run-table-container'>
+            <table className='compare-table table'>
+              <thead className='table-block no-scrollbar'>
+                <tr>
+                  <th scope='row' className='head-value sticky_header'>
+                    <FormattedMessage
+                      defaultMessage='Run ID:'
+                      description='Row title for the run id on the experiment compare runs page'
+                    />
                   </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className='table-block no-scrollbar'>
-              <tr>
-                <th scope='row' className='head-value sticky_header'>
-                  <FormattedMessage
-                    defaultMessage='Run Name:'
-                    description='Row title for the run name on the experiment compare runs page'
-                  />
-                </th>
-                {runNames.map((runName, i) => {
-                  return (
-                    <td className='data-value' key={runInfos[i].run_uuid}>
-                      <div className='truncate-text single-line'>
-                        <Tooltip
-                          title={runName}
-                          color='blue'
-                          overlayStyle={{ 'max-width': '400px' }}
-                        >
-                          {runName}
-                        </Tooltip>
-                      </div>
-                    </td>
-                  );
-                })}
-              </tr>
-              <tr>
-                <th scope='row' className='head-value sticky_header'>
-                  <FormattedMessage
-                    defaultMessage='Start Time:'
-                    // eslint-disable-next-line max-len
-                    description='Row title for the start time of runs on the experiment compare runs page'
-                  />
-                </th>
-                {this.props.runInfos.map((run) => {
-                  const startTime = run.getStartTime()
-                    ? Utils.formatTimestamp(run.getStartTime())
-                    : '(unknown)';
-                  return (
-                    <td className='data-value' key={run.run_uuid}>
+                  {this.props.runInfos.map((r) => (
+                    <th scope='row' className='data-value' key={r.run_uuid}>
                       <Tooltip
-                        title={startTime}
+                        title={r.getRunUuid()}
                         color='blue'
                         overlayStyle={{ 'max-width': '400px' }}
                       >
-                        {startTime}
+                        <Link to={Routes.getRunPageRoute(r.getExperimentId(), r.getRunUuid())}>
+                          {r.getRunUuid()}
+                        </Link>
                       </Tooltip>
-                    </td>
-                  );
-                })}
-              </tr>
-            </tbody>
-            <tbody className='table-block'>
-              <tr>
-                <th
-                  scope='rowgroup'
-                  className='inter-title'
-                  colSpan={this.props.runInfos.length + 1}
-                >
-                  <CollapsibleSection
-                    title={
-                      <FormattedMessage
-                        defaultMessage='Parameters'
-                        // eslint-disable-next-line max-len
-                        description='Row group title for parameters of runs on the experiment compare runs page'
-                      />
-                    }
-                    onChange={(activeKeys) =>
-                      onCollapsibleSectionChanged('param-block', activeKeys.length === 0)
-                    }
-                  >
-                    <Switch
-                      checkedChildren='Show diff only'
-                      unCheckedChildren='Show diff only'
-                      onChange={(isShowDiffOnly, e) =>
-                        this.switchNonDiffRowsDisplay('param-block', isShowDiffOnly)
-                      }
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className='table-block no-scrollbar'>
+                <tr>
+                  <th scope='row' className='head-value sticky_header'>
+                    <FormattedMessage
+                      defaultMessage='Run Name:'
+                      description='Row title for the run name on the experiment compare runs page'
                     />
-                  </CollapsibleSection>
-                </th>
-              </tr>
-            </tbody>
-            <tbody className='table-block param-block' style={{ maxHeight: '500px' }}>
-              {this.renderDataRows(this.props.paramLists, true)}
-            </tbody>
-            <tbody className='table-block'>
-              <tr>
-                <th
-                  scope='rowgroup'
-                  className='inter-title sticky_header'
-                  colSpan={this.props.runInfos.length + 1}
-                >
-                  <CollapsibleSection
-                    title={
-                      <FormattedMessage
-                        defaultMessage='Metrics'
-                        // eslint-disable-next-line max-len
-                        description='Row group title for metrics of runs on the experiment compare runs page'
-                      />
-                    }
-                    onChange={(activeKeys) =>
-                      onCollapsibleSectionChanged('metric-block', activeKeys.length === 0)
-                    }
-                  >
-                    <Switch
-                      checkedChildren='Show diff only'
-                      unCheckedChildren='Show diff only'
-                      onChange={(isShowDiffOnly, e) =>
-                        this.switchNonDiffRowsDisplay('metric-block', isShowDiffOnly)
-                      }
+                  </th>
+                  {runNames.map((runName, i) => {
+                    return (
+                      <td className='data-value' key={runInfos[i].run_uuid}>
+                        <div className='truncate-text single-line'>
+                          <Tooltip
+                            title={runName}
+                            color='blue'
+                            overlayStyle={{ 'max-width': '400px' }}
+                          >
+                            {runName}
+                          </Tooltip>
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+                <tr>
+                  <th scope='row' className='head-value sticky_header'>
+                    <FormattedMessage
+                      defaultMessage='Start Time:'
+                      // eslint-disable-next-line max-len
+                      description='Row title for the start time of runs on the experiment compare runs page'
                     />
-                  </CollapsibleSection>
-                </th>
-              </tr>
-            </tbody>
-            <tbody className='table-block metric-block' style={{ maxHeight: '300px' }}>
-              {this.renderDataRows(
-                this.props.metricLists,
-                false,
-                (key, data) => {
-                  return (
-                    <Link
-                      to={Routes.getMetricPageRoute(
-                        this.props.runInfos
-                          .map((info) => info.run_uuid)
-                          .filter((uuid, idx) => data[idx] !== undefined),
-                        key,
-                        experimentId,
-                      )}
-                      title='Plot chart'
+                  </th>
+                  {this.props.runInfos.map((run) => {
+                    const startTime = run.getStartTime()
+                      ? Utils.formatTimestamp(run.getStartTime())
+                      : '(unknown)';
+                    return (
+                      <td className='data-value' key={run.run_uuid}>
+                        <Tooltip
+                          title={startTime}
+                          color='blue'
+                          overlayStyle={{ 'max-width': '400px' }}
+                        >
+                          {startTime}
+                        </Tooltip>
+                      </td>
+                    );
+                  })}
+                </tr>
+              </tbody>
+              <tbody className='table-block'>
+                <tr>
+                  <th
+                    scope='rowgroup'
+                    className='inter-title'
+                    colSpan={this.props.runInfos.length + 1}
+                  >
+                    <CollapsibleSection
+                      title={
+                        <FormattedMessage
+                          defaultMessage='Parameters'
+                          // eslint-disable-next-line max-len
+                          description='Row group title for parameters of runs on the experiment compare runs page'
+                        />
+                      }
+                      onChange={(activeKeys) =>
+                        onCollapsibleSectionChanged('param-block', activeKeys.length === 0)
+                      }
                     >
-                      {key}
-                      <i className='fas fa-chart-line' style={{ paddingLeft: '6px' }} />
-                    </Link>
-                  );
-                },
-                Utils.formatMetric,
-              )}
-            </tbody>
-          </table>
-        </div>
-        <Tabs>
-          <TabPane
-            tab={
-              <FormattedMessage
-                defaultMessage='Scatter Plot'
-                description='Tab pane title for scatterplots on the compare runs page'
-              />
-            }
-            key='1'
-          >
-            <CompareRunScatter
-              runUuids={this.props.runUuids}
-              runDisplayNames={this.props.runDisplayNames}
-            />
-          </TabPane>
-          <TabPane
-            tab={
-              <FormattedMessage
-                defaultMessage='Contour Plot'
-                description='Tab pane title for contour plots on the compare runs page'
-              />
-            }
-            key='2'
-          >
-            <CompareRunContour
-              runUuids={this.props.runUuids}
-              runDisplayNames={this.props.runDisplayNames}
-            />
-          </TabPane>
-          <TabPane
-            tab={
-              <FormattedMessage
-                defaultMessage='Parallel Coordinates Plot'
-                description='Tab pane title for parallel coordinate plots on the compare runs page'
-              />
-            }
-            key='3'
-          >
-            <ParallelCoordinatesPlotPanel runUuids={this.props.runUuids} />
-          </TabPane>
-        </Tabs>
+                      <Switch
+                        checkedChildren='Show diff only'
+                        unCheckedChildren='Show diff only'
+                        onChange={(isShowDiffOnly, e) =>
+                          this.switchNonDiffRowsDisplay('param-block', isShowDiffOnly)
+                        }
+                      />
+                    </CollapsibleSection>
+                  </th>
+                </tr>
+              </tbody>
+              <tbody className='table-block param-block' style={{ maxHeight: '500px' }}>
+                {this.renderDataRows(this.props.paramLists, true)}
+              </tbody>
+              <tbody className='table-block'>
+                <tr>
+                  <th
+                    scope='rowgroup'
+                    className='inter-title sticky_header'
+                    colSpan={this.props.runInfos.length + 1}
+                  >
+                    <CollapsibleSection
+                      title={
+                        <FormattedMessage
+                          defaultMessage='Metrics'
+                          // eslint-disable-next-line max-len
+                          description='Row group title for metrics of runs on the experiment compare runs page'
+                        />
+                      }
+                      onChange={(activeKeys) =>
+                        onCollapsibleSectionChanged('metric-block', activeKeys.length === 0)
+                      }
+                    >
+                      <Switch
+                        checkedChildren='Show diff only'
+                        unCheckedChildren='Show diff only'
+                        onChange={(isShowDiffOnly, e) =>
+                          this.switchNonDiffRowsDisplay('metric-block', isShowDiffOnly)
+                        }
+                      />
+                    </CollapsibleSection>
+                  </th>
+                </tr>
+              </tbody>
+              <tbody className='table-block metric-block' style={{ maxHeight: '300px' }}>
+                {this.renderDataRows(
+                  this.props.metricLists,
+                  false,
+                  (key, data) => {
+                    return (
+                      <Link
+                        to={Routes.getMetricPageRoute(
+                          this.props.runInfos
+                            .map((info) => info.run_uuid)
+                            .filter((uuid, idx) => data[idx] !== undefined),
+                          key,
+                          experimentId,
+                        )}
+                        title='Plot chart'
+                      >
+                        {key}
+                        <i className='fas fa-chart-line' style={{ paddingLeft: '6px' }} />
+                      </Link>
+                    );
+                  },
+                  Utils.formatMetric,
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CollapsibleSection>
       </div>
     );
   }
