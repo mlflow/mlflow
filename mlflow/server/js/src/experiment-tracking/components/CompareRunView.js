@@ -76,7 +76,6 @@ export class CompareRunView extends Component {
             <h1>
               <FormattedMessage
                 defaultMessage='Visualizations'
-                // eslint-disable-next-line max-len
                 description='Tabs title for plots on the compare runs page'
               />
             </h1>
@@ -87,6 +86,7 @@ export class CompareRunView extends Component {
               tab={
                 <FormattedMessage
                   defaultMessage='Parallel Coordinates Plot'
+                  // eslint-disable-next-line max-len
                   description='Tab pane title for parallel coordinate plots on the compare runs page'
                 />
               }
