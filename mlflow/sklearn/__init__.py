@@ -902,6 +902,7 @@ def autolog(
     silent=False,
     max_tuning_runs=5,
     log_post_training_metrics=True,
+    serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for scikit-learn estimators.
@@ -1153,6 +1154,9 @@ def autolog(
     :param log_post_training_metrics: If ``True``, post training metrics are logged. Defaults to
                                       ``True``. See the `post training metrics`_ section for more
                                       details.
+    :param serialization_format: The format in which to serialize the model. This should be one of
+                                 the following: ``mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE`` or
+                                 ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``.
     """
     _autolog(
         flavor_name=FLAVOR_NAME,
@@ -1165,6 +1169,7 @@ def autolog(
         silent=silent,
         max_tuning_runs=max_tuning_runs,
         log_post_training_metrics=log_post_training_metrics,
+        serialization_format=serialization_format,
     )
 
 
@@ -1179,6 +1184,7 @@ def _autolog(
     silent=False,
     max_tuning_runs=5,
     log_post_training_metrics=True,
+    serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
 ):  # pylint: disable=unused-argument
     """
     Internal autologging function for scikit-learn models.
@@ -1376,6 +1382,7 @@ def _autolog(
                 artifact_path="model",
                 signature=signature,
                 input_example=input_example,
+                serialization_format=serialization_format,
             )
 
         if _is_parameter_search_estimator(estimator):
@@ -1385,6 +1392,7 @@ def _autolog(
                     artifact_path="best_estimator",
                     signature=signature,
                     input_example=input_example,
+                    serialization_format=serialization_format,
                 )
 
             if hasattr(estimator, "best_score_"):
