@@ -83,6 +83,7 @@ def save_model(
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
+    onnx_execution_providers=None,
 ):
     """
     Save an ONNX model to a path on the local file system.
@@ -113,8 +114,16 @@ def save_model(
                           by converting it to a list. Bytes are base64-encoded.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :param onnx_execution_providers: List of strings defining onnxruntime execution providers.
+                                     Defaults to example:
+                                     ['CUDAExecutionProvider', 'CPUExecutionProvider']
+                                     This uses GPU preferentially over CPU.
+                                     See onnxruntime API for further descriptions.
     """
     import onnx
+
+    if onnx_execution_providers is None:
+        onnx_execution_providers = ONNX_EXECUTION_PROVIDERS
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
@@ -139,7 +148,7 @@ def save_model(
     pyfunc.add_to_model(
         mlflow_model, loader_module="mlflow.onnx", data=model_data_subpath, env=_CONDA_ENV_FILE_NAME
     )
-    mlflow_model.add_flavor(FLAVOR_NAME, onnx_version=onnx.__version__, data=model_data_subpath)
+    mlflow_model.add_flavor(FLAVOR_NAME, onnx_version=onnx.__version__, data=model_data_subpath, providers=onnx_execution_providers)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
@@ -219,7 +228,7 @@ class _OnnxModelWrapper:
         # see the API page below:
         # https://onnxruntime.ai/docs/api/python/api_summary.html#id8
         #
-        
+
         try:
             self.rt = onnxruntime.InferenceSession(path)
         except ValueError:
@@ -369,6 +378,7 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements=None,
     extra_pip_requirements=None,
+    onnx_execution_providers=None
 ):
     """
     Log an ONNX model as an MLflow artifact for the current run.
@@ -404,6 +414,11 @@ def log_model(
                             waits for five minutes. Specify 0 or None to skip waiting.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :param onnx_execution_providers: List of strings defining onnxruntime execution providers.
+                                     Defaults to example:
+                                     ['CUDAExecutionProvider', 'CPUExecutionProvider']
+                                     This uses GPU preferentially over CPU.
+                                     See onnxruntime API for further descriptions.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """
@@ -418,4 +433,5 @@ def log_model(
         await_registration_for=await_registration_for,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
+        onnx_execution_providers=onnx_execution_providers
     )
