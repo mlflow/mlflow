@@ -150,23 +150,12 @@ export class CompareRunContour extends Component {
       tooltips.push(this.getPlotlyTooltip(index));
     });
 
-    // array.sort() doesn't sort negative values correctly.
-    const xsSorted = [...new Set(xs)].sort((a, b) => a - b);
-    const ysSorted = [...new Set(ys)].sort((a, b) => a - b);
-    const z = ysSorted.map(() => xsSorted.map(() => null));
-
-    xs.forEach((_, index) => {
-      const xi = xsSorted.indexOf(xs[index]);
-      const yi = ysSorted.indexOf(ys[index]);
-      z[yi][xi] = zs[index];
-    });
-
     const maybeRenderPlot = () => {
       const invalidAxes = [];
-      if (xsSorted.length < 2) {
+      if (xs.length < 2) {
         invalidAxes.push('X');
       }
-      if (ysSorted.length < 2) {
+      if (ys.length < 2) {
         invalidAxes.push('Y');
       }
       if (invalidAxes.length > 0) {
@@ -182,9 +171,9 @@ export class CompareRunContour extends Component {
           data={[
             // contour plot
             {
-              z,
-              x: xsSorted,
-              y: ysSorted,
+              z: zs,
+              x: xs,
+              y: ys,
               type: 'contour',
               hoverinfo: 'none',
               colorscale: this.getColorscale(),
@@ -195,8 +184,8 @@ export class CompareRunContour extends Component {
             },
             // scatter plot
             {
-              x: xsSorted,
-              y: ysSorted,
+              x: xs,
+              y: ys,
               text: tooltips,
               hoverinfo: 'text',
               type: 'scattergl',
