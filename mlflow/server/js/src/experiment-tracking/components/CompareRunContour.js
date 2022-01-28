@@ -152,10 +152,10 @@ export class CompareRunContour extends Component {
 
     const maybeRenderPlot = () => {
       const invalidAxes = [];
-      if ([...new Set(xs)].length < 2) {
+      if (new Set(xs).size < 2) {
         invalidAxes.push('X');
       }
-      if ([...new Set(ys)].length < 2) {
+      if (new Set(ys).size < 2) {
         invalidAxes.push('Y');
       }
       if (invalidAxes.length > 0) {
