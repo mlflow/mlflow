@@ -42,6 +42,12 @@ export class CompareRunView extends Component {
     this.state = {
       tableContainerWidth: null
     };
+    // onResizeHandler need access `this.state`, so bind `this`.
+    this.onResizeHandler = this.onResizeHandler.bind(this);
+  }
+
+  onResizeHandler(e) {
+    this.setState({tableContainerWidth: document.getElementById('compare-run-table-container').offsetWidth});
   }
 
   componentDidMount() {
@@ -55,14 +61,11 @@ export class CompareRunView extends Component {
       },
     );
     Utils.updatePageTitle(pageTitle);
-    /*
-    this.adjustTableColumnWidth(this.props.runInfos.length);
+
+    this.onResizeHandler(null)
     window.addEventListener(
-      'resize',
-      (e) => this.adjustTableColumnWidth(this.props.runInfos.length),
-      true,
+      'resize', this.onResizeHandler, true,
     );
-    */
 
     function onTableBlockScrollHanlder(e) {
       const blocks = document.querySelectorAll('.compare-table .table-block');
@@ -80,32 +83,11 @@ export class CompareRunView extends Component {
     }
   }
 
-  adjustTableColumnWidth(numRuns) {
-    const tableElem = document.getElementById('compare-run-table-container');
-    if (tableElem === null) {
-      return;
-    }
-    const tableWidth = tableElem.offsetWidth;
-
-    const minColWidth = 200;
-    let colWidth = Math.round(tableWidth / (numRuns + 1));
-    if (colWidth < minColWidth) {
-      colWidth = minColWidth;
-    }
-
-    function setWidth(className, width) {
-      const cells = document.querySelectorAll(`.compare-table .${className}`);
-      const widthValue = `${width}px`;
-      for (let index = 0; index < cells.length; ++index) {
-        cells[index].style.width = widthValue;
-        cells[index].style.minWidth = widthValue;
-        cells[index].style.maxWidth = widthValue;
-      }
-    }
-    setWidth('head-value', colWidth);
-    setWidth('data-value', colWidth);
-    setWidth('compact-data-value', colWidth * numRuns);
-    setWidth('table-block', tableWidth);
+  componentWillUnmount() {
+    // remove event listener otherwise every time mount will add a new listener.
+    window.removeEventListener(
+      'resize', this.setTableContainerWidthState, true,
+    );
   }
 
   getTableColumnWidth() {
@@ -118,7 +100,7 @@ export class CompareRunView extends Component {
         colWidth = minColWidth;
       }
     }
-    return colWidth
+    return colWidth;
   }
 
   render() {
@@ -127,9 +109,9 @@ export class CompareRunView extends Component {
     const { runInfos, runNames } = this.props;
 
     const colWidth = this.getTableColumnWidth();
-    const tableBlockWidth = colWidth * runInfos.length;
-    const colWidthStyle = {width: `${colWidth}px`, minWidth: `${colWidth}px`, maxWidth: `${colWidth}px`};
-    const tableBlockWidthStyle = {width: `${tableBlockWidth}px`, minWidth: `${tableBlockWidth}px`, maxWidth: `${tableBlockWidth}px`};
+    const tableBlockWidth = this.state.tableContainerWidth;
+    const colWidthStyle = {minWidth: `${colWidth}px`, maxWidth: `${colWidth}px`};
+    const tableBlockWidthStyle = {minWidth: `${tableBlockWidth}px`, maxWidth: `${tableBlockWidth}px`};
 
     const title = (
       <FormattedMessage
