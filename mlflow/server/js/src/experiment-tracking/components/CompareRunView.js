@@ -382,15 +382,15 @@ export class CompareRunView extends Component {
     });
 
     return keys.map((k) => {
-      const all_equal = data[k].every((x) => x === data[k][0]);
+      const allEqual = data[k].every((x) => x === data[k][0]);
 
-      let row_class = all_equal ? 'non-diff-row' : 'diff-row';
-      if (highlightChanges && !all_equal) {
-        row_class += ' row-changed';
+      let rowClass = allEqual ? 'non-diff-row' : 'diff-row';
+      if (highlightChanges && !allEqual) {
+        rowClass += ' row-changed';
       }
 
       return (
-        <tr key={k} className={row_class}>
+        <tr key={k} className={rowClass}>
           <th scope='row' className='head-value sticky_header'>
             {headerMap(k, data[k])}
           </th>
