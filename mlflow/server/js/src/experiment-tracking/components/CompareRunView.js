@@ -37,6 +37,13 @@ export class CompareRunView extends Component {
     intl: PropTypes.shape({ formatMessage: PropTypes.func.isRequired }).isRequired,
   };
 
+  constructor(props) {
+    super(props);
+    this.state = {
+      tableContainerWidth: null
+    };
+  }
+
   componentDidMount() {
     const pageTitle = this.props.intl.formatMessage(
       {
@@ -48,12 +55,14 @@ export class CompareRunView extends Component {
       },
     );
     Utils.updatePageTitle(pageTitle);
+    /*
     this.adjustTableColumnWidth(this.props.runInfos.length);
     window.addEventListener(
       'resize',
       (e) => this.adjustTableColumnWidth(this.props.runInfos.length),
       true,
     );
+    */
 
     function onTableBlockScrollHanlder(e) {
       const blocks = document.querySelectorAll('.compare-table .table-block');
@@ -99,10 +108,29 @@ export class CompareRunView extends Component {
     setWidth('table-block', tableWidth);
   }
 
+  getTableColumnWidth() {
+    const minColWidth = 200;
+    var colWidth = minColWidth;
+
+    if (this.state.tableContainerWidth != null) {
+      colWidth = Math.round(this.state.tableContainerWidth / (this.props.runInfos.length + 1));
+      if (colWidth < minColWidth) {
+        colWidth = minColWidth;
+      }
+    }
+    return colWidth
+  }
+
   render() {
     const { experiment } = this.props;
     const experimentId = experiment.getExperimentId();
     const { runInfos, runNames } = this.props;
+
+    const colWidth = this.getTableColumnWidth();
+    const tableBlockWidth = colWidth * runInfos.length;
+    const colWidthStyle = {width: `${colWidth}px`, minWidth: `${colWidth}px`, maxWidth: `${colWidth}px`};
+    const tableBlockWidthStyle = {width: `${tableBlockWidth}px`, minWidth: `${tableBlockWidth}px`, maxWidth: `${tableBlockWidth}px`};
+
     const title = (
       <FormattedMessage
         defaultMessage='Comparing {runs} Runs'
@@ -192,16 +220,16 @@ export class CompareRunView extends Component {
         >
           <div className='responsive-table-container' id='compare-run-table-container'>
             <table className='compare-table table'>
-              <thead className='table-block no-scrollbar'>
+              <thead className='table-block no-scrollbar' style={tableBlockWidthStyle}>
                 <tr>
-                  <th scope='row' className='head-value sticky_header'>
+                  <th scope='row' className='head-value sticky_header' style={colWidthStyle}>
                     <FormattedMessage
                       defaultMessage='Run ID:'
                       description='Row title for the run id on the experiment compare runs page'
                     />
                   </th>
                   {this.props.runInfos.map((r) => (
-                    <th scope='row' className='data-value' key={r.run_uuid}>
+                    <th scope='row' className='data-value' key={r.run_uuid} style={colWidthStyle}>
                       <Tooltip
                         title={r.getRunUuid()}
                         color='blue'
@@ -215,9 +243,9 @@ export class CompareRunView extends Component {
                   ))}
                 </tr>
               </thead>
-              <tbody className='table-block no-scrollbar'>
+              <tbody className='table-block no-scrollbar' style={tableBlockWidthStyle}>
                 <tr>
-                  <th scope='row' className='head-value sticky_header'>
+                  <th scope='row' className='head-value sticky_header' style={colWidthStyle}>
                     <FormattedMessage
                       defaultMessage='Run Name:'
                       description='Row title for the run name on the experiment compare runs page'
@@ -225,7 +253,7 @@ export class CompareRunView extends Component {
                   </th>
                   {runNames.map((runName, i) => {
                     return (
-                      <td className='data-value' key={runInfos[i].run_uuid}>
+                      <td className='data-value' key={runInfos[i].run_uuid} style={colWidthStyle}>
                         <div className='truncate-text single-line'>
                           <Tooltip
                             title={runName}
@@ -240,7 +268,7 @@ export class CompareRunView extends Component {
                   })}
                 </tr>
                 <tr>
-                  <th scope='row' className='head-value sticky_header'>
+                  <th scope='row' className='head-value sticky_header' style={colWidthStyle}>
                     <FormattedMessage
                       defaultMessage='Start Time:'
                       // eslint-disable-next-line max-len
@@ -252,7 +280,7 @@ export class CompareRunView extends Component {
                       ? Utils.formatTimestamp(run.getStartTime())
                       : '(unknown)';
                     return (
-                      <td className='data-value' key={run.run_uuid}>
+                      <td className='data-value' key={run.run_uuid} style={colWidthStyle}>
                         <Tooltip
                           title={startTime}
                           color='blue'
@@ -265,7 +293,7 @@ export class CompareRunView extends Component {
                   })}
                 </tr>
               </tbody>
-              <tbody className='table-block'>
+              <tbody className='table-block' style={tableBlockWidthStyle}>
                 <tr>
                   <th
                     scope='rowgroup'
@@ -295,10 +323,10 @@ export class CompareRunView extends Component {
                   </th>
                 </tr>
               </tbody>
-              <tbody className='table-block param-block' style={{ maxHeight: '500px' }}>
-                {this.renderDataRows(this.props.paramLists, true)}
+              <tbody className='table-block param-block' style={Object.assign({}, tableBlockWidthStyle, {maxHeight: '500px'})}>
+                {this.renderDataRows(this.props.paramLists, colWidth, true)}
               </tbody>
-              <tbody className='table-block'>
+              <tbody className='table-block' style={tableBlockWidthStyle}>
                 <tr>
                   <th
                     scope='rowgroup'
@@ -328,9 +356,10 @@ export class CompareRunView extends Component {
                   </th>
                 </tr>
               </tbody>
-              <tbody className='table-block metric-block' style={{ maxHeight: '300px' }}>
+              <tbody className='table-block metric-block' style={Object.assign({}, tableBlockWidthStyle, {maxHeight: '300px'})}>
                 {this.renderDataRows(
                   this.props.metricLists,
+                  colWidth,
                   false,
                   (key, data) => {
                     return (
@@ -369,6 +398,7 @@ export class CompareRunView extends Component {
   // eslint-disable-next-line no-unused-vars
   renderDataRows(
     list,
+    colWidth,
     highlightChanges = false,
     headerMap = (key, data) => key,
     formatter = (value) => value,
@@ -381,6 +411,7 @@ export class CompareRunView extends Component {
       records.forEach((r) => (data[r.key][i] = r.value));
     });
 
+    const colWidthStyle = {width: `${colWidth}px`, minWidth: `${colWidth}px`, maxWidth: `${colWidth}px`}
     return keys.map((k) => {
       const allEqual = data[k].every((x) => x === data[k][0]);
 
@@ -391,13 +422,13 @@ export class CompareRunView extends Component {
 
       return (
         <tr key={k} className={rowClass}>
-          <th scope='row' className='head-value sticky_header'>
+          <th scope='row' className='head-value sticky_header' style={colWidthStyle}>
             {headerMap(k, data[k])}
           </th>
           {data[k].map((value, i) => {
             const cellText = value === undefined ? '' : formatter(value);
             return (
-              <td className='data-value' key={this.props.runInfos[i].run_uuid}>
+              <td className='data-value' key={this.props.runInfos[i].run_uuid} style={colWidthStyle}>
                 <Tooltip title={cellText} color='blue' overlayStyle={{ 'max-width': '400px' }}>
                   <span className='truncate-text single-line'>{cellText}</span>
                 </Tooltip>

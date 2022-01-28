@@ -7,7 +7,6 @@
 .compare-table .table-block {
   display: block;
   overflow: auto;
-  scrollbar-width: none;
 }
 
 .no-scrollbar::-webkit-scrollbar {
