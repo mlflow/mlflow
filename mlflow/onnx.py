@@ -10,6 +10,7 @@ ONNX (native) format
 import os
 import yaml
 import numpy as np
+from pathlib import Path
 
 import pandas as pd
 
@@ -39,6 +40,7 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 FLAVOR_NAME = "onnx"
+ONNX_EXECUTION_PROVIDERS = ['CUDAExecutionProvider', 'CPUExecutionProvider']
 
 
 def get_default_pip_requirements():
@@ -185,22 +187,45 @@ class _OnnxModelWrapper:
     def __init__(self, path, providers=None):
         import onnxruntime
 
-        if providers is None:
-            providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
+        # Get the model meta data from the MLModel yaml file which may contain the providers specification
+        local_path = str(Path(path).parent)
+        model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
 
-        # NOTE: Some distributions of onnxruntime require the specification of the providers argument on calling. E.g. onnxruntime-gpu.
-        #       The package import call does not differnetiate which architecture specific version has been installed, as all are imported with onnxruntime.
-        #       onnxruntime documentation says that from v1.9.0 some distributions require the providers list to be provided on calling an InferenceSession.
-        #       Therefore the try catch nested structure below attempts to create an inference session with just the model path as pre v1.9.0.
-        #       If that fails, it will use the providers list call. 
-        #       At the moment this is just CUDA and CPU, and probably should be expanded. It's been added to the class init call as an optional argument for further user customisation.
+        # Check if the MLModel config has the providers meta data
+        if 'providers' in model_meta.flavors.get(FLAVOR_NAME).keys():
+            providers = model_meta.flavors.get(FLAVOR_NAME)['providers']
+        # If not, then default to the predefined list.
+        else:
+            providers = ONNX_EXECUTION_PROVIDERS
+
+        # NOTE: Some distributions of onnxruntime require the specification of the providers 
+        # argument on calling. E.g. onnxruntime-gpu. The package import call does not differnetiate
+        #  which architecture specific version has been installed, as all are imported with 
+        # onnxruntime. onnxruntime documentation says that from v1.9.0 some distributions require
+        #  the providers list to be provided on calling an InferenceSession. Therefore the try
+        #  catch structure below attempts to create an inference session with just the model path
+        #  as pre v1.9.0. If that fails, it will use the providers list call. 
+        # At the moment this is just CUDA and CPU, and probably should be expanded. 
+        # A method of user customisation has been provided by adding a variable in the save_model()
+        # function, which allows the ability to pass the list of execution providers via a 
+        # optional argument e.g. 
+        #
+        # mlflow.onnx.save_model(..., providers=['CUDAExecutionProvider'...])
+        #
+        # For details of the execution providers construct of onnxruntime, see:
+        # https://onnxruntime.ai/docs/execution-providers/
+        #
+        # For a information on how execution providers are used with onnxruntime InferenceSession,
+        # see the API page below:
+        # https://onnxruntime.ai/docs/api/python/api_summary.html#id8
+        #
+        
         try:
             self.rt = onnxruntime.InferenceSession(path)
+        except ValueError:
+            self.rt = onnxruntime.InferenceSession(path, providers=providers)
         except:
-            try:
-                self.rt = onnxruntime.InferenceSession(path, providers=providers)
-            except:
-                raise
+            raise
 
 
         assert len(self.rt.get_inputs()) >= 1
