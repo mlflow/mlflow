@@ -202,7 +202,7 @@ export class CompareRunView extends Component {
                 })}
               </tr>
             </tbody>
-            <tbody className='table-block no-scrollbar'>
+            <tbody className='table-block'>
               <tr>
                 <th
                   scope='rowgroup'
@@ -232,10 +232,10 @@ export class CompareRunView extends Component {
                 </th>
               </tr>
             </tbody>
-            <tbody className='table-block param-block no-scrollbar' style={{ maxHeight: '500px' }}>
+            <tbody className='table-block param-block' style={{ maxHeight: '500px' }}>
               {this.renderDataRows(this.props.paramLists, true)}
             </tbody>
-            <tbody className='table-block no-scrollbar'>
+            <tbody className='table-block'>
               <tr>
                 <th
                   scope='rowgroup'
@@ -265,7 +265,7 @@ export class CompareRunView extends Component {
                 </th>
               </tr>
             </tbody>
-            <tbody className='table-block metric-block no-scrollbar' style={{ maxHeight: '300px' }}>
+            <tbody className='table-block metric-block' style={{ maxHeight: '300px' }}>
               {this.renderDataRows(
                 this.props.metricLists,
                 false,
