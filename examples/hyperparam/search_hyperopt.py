@@ -85,6 +85,8 @@ def train(training_data, max_runs, epochs, metric, algo, seed):
                     synchronous=False,  # Allow the run to fail if a model is not properly created
                 )
                 succeeded = p.wait()
+                mlflow.log_params({"lr": lr, "momentum": momentum})
+
             if succeeded:
                 training_run = tracking_client.get_run(p.run_id)
                 metrics = training_run.data.metrics
