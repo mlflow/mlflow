@@ -40,7 +40,11 @@ export class CompareRunView extends Component {
   constructor(props) {
     super(props);
     this.state = {
-      tableContainerWidth: null
+      tableContainerWidth: null,
+      collapseParamBlock: false,
+      collapseMetricBlock: false,
+      onlyShowParamDiff: false,
+      onlyShowMetricDiff: false,
     };
     // onResizeHandler need access `this.state`, so bind `this`.
     this.onResizeHandler = this.onResizeHandler.bind(this);
@@ -127,11 +131,6 @@ export class CompareRunView extends Component {
       <Link to={Routes.getExperimentPageRoute(experimentId)}>{experiment.getName()}</Link>,
       title,
     ];
-
-    function onCollapsibleSectionChanged(blockClass, hideBlock) {
-      const blockElem = document.querySelectorAll(`.compare-table .${blockClass}`)[0];
-      blockElem.style.display = hideBlock ? 'none' : 'block';
-    }
 
     return (
       <div className='CompareRunView'>
@@ -291,14 +290,14 @@ export class CompareRunView extends Component {
                         />
                       }
                       onChange={(activeKeys) =>
-                        onCollapsibleSectionChanged('param-block', activeKeys.length === 0)
+                        this.setState({collapseParamBlock: activeKeys.length === 0})
                       }
                     >
                       <Switch
                         checkedChildren='Show diff only'
                         unCheckedChildren='Show diff only'
                         onChange={(isShowDiffOnly, e) =>
-                          this.switchNonDiffRowsDisplay('param-block', isShowDiffOnly)
+                          this.setState({onlyShowParamDiff: isShowDiffOnly})
                         }
                       />
                     </CollapsibleSection>
@@ -306,7 +305,7 @@ export class CompareRunView extends Component {
                 </tr>
               </tbody>
               <tbody className='table-block param-block' style={Object.assign({}, tableBlockWidthStyle, {maxHeight: '500px'})}>
-                {this.renderDataRows(this.props.paramLists, colWidth, true)}
+                { this.state.collapseParamBlock ? undefined : this.renderDataRows(this.props.paramLists, colWidth, "onlyShowParamDiff", true)}
               </tbody>
               <tbody className='table-block' style={tableBlockWidthStyle}>
                 <tr>
@@ -324,14 +323,14 @@ export class CompareRunView extends Component {
                         />
                       }
                       onChange={(activeKeys) =>
-                        onCollapsibleSectionChanged('metric-block', activeKeys.length === 0)
+                        this.setState({collapseMetricBlock: activeKeys.length === 0})
                       }
                     >
                       <Switch
                         checkedChildren='Show diff only'
                         unCheckedChildren='Show diff only'
                         onChange={(isShowDiffOnly, e) =>
-                          this.switchNonDiffRowsDisplay('metric-block', isShowDiffOnly)
+                          this.setState({onlyShowMetricDiff: isShowDiffOnly})
                         }
                       />
                     </CollapsibleSection>
@@ -339,9 +338,10 @@ export class CompareRunView extends Component {
                 </tr>
               </tbody>
               <tbody className='table-block metric-block' style={Object.assign({}, tableBlockWidthStyle, {maxHeight: '300px'})}>
-                {this.renderDataRows(
+                {this.state.collapseMetricBlock ? undefined : this.renderDataRows(
                   this.props.metricLists,
                   colWidth,
+                  "onlyShowMetricDiff",
                   false,
                   (key, data) => {
                     return (
@@ -370,17 +370,11 @@ export class CompareRunView extends Component {
     );
   }
 
-  switchNonDiffRowsDisplay(blockClass, showDiffOnly) {
-    const nonDiffRows = document.querySelectorAll(`.compare-table .${blockClass} .non-diff-row`);
-    for (let index = 0; index < nonDiffRows.length; ++index) {
-      nonDiffRows[index].style.display = showDiffOnly ? 'none' : '';
-    }
-  }
-
   // eslint-disable-next-line no-unused-vars
   renderDataRows(
     list,
     colWidth,
+    onlyShowDiffStateKey,
     highlightChanges = false,
     headerMap = (key, data) => key,
     formatter = (value) => value,
@@ -397,9 +391,13 @@ export class CompareRunView extends Component {
     return keys.map((k) => {
       const allEqual = data[k].every((x) => x === data[k][0]);
 
-      let rowClass = allEqual ? 'non-diff-row' : 'diff-row';
+      if (this.state[onlyShowDiffStateKey] && allEqual) {
+        return undefined;
+      }
+
+      let rowClass = undefined
       if (highlightChanges && !allEqual) {
-        rowClass += ' row-changed';
+        rowClass = 'row-changed';
       }
 
       return (
