@@ -16,7 +16,6 @@
 .compare-table th.inter-title {
   padding: 20px 0 0;
   background: transparent;
-  position: static;
 }
 
 .compare-table .head-value {
@@ -24,8 +23,10 @@
   overflow-wrap: break-word;
 }
 
-.compare-table .data-value {
+.compare-table td.data-value,
+.compare-table th.data-value {
   overflow: hidden;
+  max-width: 120px;
   text-overflow: ellipsis;
 }
 
@@ -34,22 +35,34 @@
   overflow-x: auto;
 }
 
-.compare-table .row-changed .data-value{
+.compare-table .diff-row .data-value {
   background-color: rgba(249, 237, 190, 0.5) ;
   color: #555;
 }
 
-.compare-table .row-changed .head-value{
+.compare-table .diff-row .head-value {
+  background-color: rgba(249, 237, 190, 1.0) ;
+  color: #555;
+}
+
+.compare-table .diff-row:hover {
   background-color: rgba(249, 237, 190, 1.0) ;
   color: #555;
 }
 
 /* Overrides to make it look more like antd */
 .compare-table {
-  table-layout:fixed;
+  width: 100%;
+  max-width: 100%;
   margin-bottom: 20px;
-}
 
+  /* The border-collapse and border-spacing setting is to make header column "position sticky"
+   * works correctly with the border-bottom style.
+   * https://stackoverflow.com/a/61412922/12301610
+   */
+  border-collapse: separate;
+  border-spacing: 0;
+}
 .compare-table th,
 .compare-table td {
   padding: 12px 8px;
@@ -61,6 +74,6 @@
   background-color:rgb(250, 250, 250);
   text-align: left;
 }
-.compare-table > tbody > tr:hover > td:not(.highlight-data) {
+.compare-table > tbody > tr:hover:not(.diff-row) > td:not(.highlight-data) {
   background-color: rgb(250, 250, 250);
 }

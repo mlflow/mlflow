@@ -48,10 +48,27 @@ export class CompareRunView extends Component {
     };
     // onResizeHandler need access `this.state`, so bind `this`.
     this.onResizeHandler = this.onResizeHandler.bind(this);
+    this.onTableBlockScrollHandler = this.onTableBlockScrollHandler.bind(this);
+
+    this.tableContainerRef = React.createRef()
   }
 
   onResizeHandler(e) {
-    this.setState({tableContainerWidth: document.getElementById('compare-run-table-container').clientWidth});
+    const container = this.tableContainerRef.current;
+    if (container != null) {
+      const containerWidth = container.clientWidth;
+      this.setState({tableContainerWidth: containerWidth});
+    }
+  }
+
+  onTableBlockScrollHandler(e) {
+    const blocks = this.tableContainerRef.current.querySelectorAll('.compare-table .table-block');
+    for (let index = 0; index < blocks.length; ++index) {
+      const block = blocks[index];
+      if (block !== e.target) {
+        block.scrollLeft = e.target.scrollLeft;
+      }
+    }
   }
 
   componentDidMount() {
@@ -66,31 +83,17 @@ export class CompareRunView extends Component {
     );
     Utils.updatePageTitle(pageTitle);
 
-    this.onResizeHandler(null)
     window.addEventListener(
       'resize', this.onResizeHandler, true,
     );
-
-    function onTableBlockScrollHanlder(e) {
-      const blocks = document.querySelectorAll('.compare-table .table-block');
-      for (let index = 0; index < blocks.length; ++index) {
-        const block = blocks[index];
-        if (block !== e.target) {
-          block.scrollLeft = e.target.scrollLeft;
-        }
-      }
-    }
-    const blocks = document.querySelectorAll('.compare-table .table-block');
-    for (let index = 0; index < blocks.length; ++index) {
-      const block = blocks[index];
-      block.onscroll = onTableBlockScrollHanlder;
-    }
+    window.dispatchEvent(new Event('resize'));
   }
 
   componentWillUnmount() {
-    // remove event listener otherwise every time mount will add a new listener.
+    // Because onResizeHandler is registered in `componentDidMount`,
+    // We need unregister it here otherwise every time mount will add a new listener.
     window.removeEventListener(
-      'resize', this.setTableContainerWidthState, true,
+      'resize', this.onResizeHandler, true,
     );
   }
 
@@ -199,9 +202,11 @@ export class CompareRunView extends Component {
             </h1>
           }
         >
-          <div className='responsive-table-container' id='compare-run-table-container'>
+          <div className='responsive-table-container' ref={this.tableContainerRef}>
             <table className='compare-table table'>
-              <thead className='table-block no-scrollbar' style={tableBlockWidthStyle}>
+              <thead className='table-block no-scrollbar' style={tableBlockWidthStyle}
+               onScroll={this.onTableBlockScrollHandler}
+              >
                 <tr>
                   <th scope='row' className='head-value sticky_header' style={colWidthStyle}>
                     <FormattedMessage
@@ -214,7 +219,7 @@ export class CompareRunView extends Component {
                       <Tooltip
                         title={r.getRunUuid()}
                         color='blue'
-                        overlayStyle={{ 'max-width': '400px' }}
+                        overlayStyle={{ maxWidth: '400px' }}
                       >
                         <Link to={Routes.getRunPageRoute(r.getExperimentId(), r.getRunUuid())}>
                           {r.getRunUuid()}
@@ -224,7 +229,9 @@ export class CompareRunView extends Component {
                   ))}
                 </tr>
               </thead>
-              <tbody className='table-block no-scrollbar' style={tableBlockWidthStyle}>
+              <tbody className='table-block no-scrollbar' style={tableBlockWidthStyle}
+               onScroll={this.onTableBlockScrollHandler}
+              >
                 <tr>
                   <th scope='row' className='head-value sticky_header' style={colWidthStyle}>
                     <FormattedMessage
@@ -278,7 +285,7 @@ export class CompareRunView extends Component {
                 <tr>
                   <th
                     scope='rowgroup'
-                    className='inter-title'
+                    className='inter-title sticky_header'
                     colSpan={this.props.runInfos.length + 1}
                     style={tableBlockWidthStyle}
                   >
@@ -305,7 +312,9 @@ export class CompareRunView extends Component {
                   </th>
                 </tr>
               </tbody>
-              <tbody className='table-block param-block' style={Object.assign({}, tableBlockWidthStyle, {maxHeight: '500px'})}>
+              <tbody className='table-block param-block' style={Object.assign({}, tableBlockWidthStyle, {maxHeight: '500px'})}
+               onScroll={this.onTableBlockScrollHandler}
+              >
                 { this.state.collapseParamBlock ? undefined : this.renderDataRows(this.props.paramLists, colWidth, "onlyShowParamDiff", true)}
               </tbody>
               <tbody className='table-block' style={tableBlockWidthStyle}>
@@ -339,7 +348,9 @@ export class CompareRunView extends Component {
                   </th>
                 </tr>
               </tbody>
-              <tbody className='table-block metric-block' style={Object.assign({}, tableBlockWidthStyle, {maxHeight: '300px'})}>
+              <tbody className='table-block metric-block' style={Object.assign({}, tableBlockWidthStyle, {maxHeight: '300px'})}
+               onScroll={this.onTableBlockScrollHandler}
+              >
                 {this.state.collapseMetricBlock ? undefined : this.renderDataRows(
                   this.props.metricLists,
                   colWidth,
@@ -403,7 +414,7 @@ export class CompareRunView extends Component {
 
       let rowClass = undefined
       if (highlightChanges && !allEqual) {
-        rowClass = 'row-changed';
+        rowClass = 'diff-row';
       }
 
       return (
@@ -415,7 +426,7 @@ export class CompareRunView extends Component {
             const cellText = value === undefined ? '' : formatter(value);
             return (
               <td className='data-value' key={this.props.runInfos[i].run_uuid} style={colWidthStyle}>
-                <Tooltip title={cellText} color='blue' overlayStyle={{ 'max-width': '400px' }}>
+                <Tooltip title={cellText} color='blue' overlayStyle={{ maxWidth: '400px' }}>
                   <span className='truncate-text single-line'>{cellText}</span>
                 </Tooltip>
               </td>
