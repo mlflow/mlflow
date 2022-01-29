@@ -1840,14 +1840,13 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-    def _default_config(self):
-        return dict(
+    def _default_config(self, create_mode=True):
+        config = dict(
             assume_role_arn=self.assumed_role_arn,
             execution_role_arn=None,
             bucket=None,
             image_url=None,
             region_name=self.region_name,
-            mode=DEPLOYMENT_MODE_CREATE,
             archive=False,
             instance_type=DEFAULT_SAGEMAKER_INSTANCE_TYPE,
             instance_count=DEFAULT_SAGEMAKER_INSTANCE_COUNT,
@@ -1856,14 +1855,17 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             timeout_seconds=1200,
         )
 
-    def _apply_custom_config(self, custom_config):
-        config = self._default_config()
+        if create_mode:
+            config["mode"] = DEPLOYMENT_MODE_CREATE
+        else:
+            config["mode"] = DEPLOYMENT_MODE_REPLACE
 
+        return config
+
+    def _apply_custom_config(self, config, custom_config):
         for key in custom_config:
             if key in config:
                 config[key] = custom_config[key]
-
-        return config
 
     @experimental
     def create_deployment(self, name, model_uri, flavor=None, config=None):
@@ -1972,27 +1974,26 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                              client = mfs.SageMakerPlugin("sagemaker")
                              client.create_deployment(..., config=dict(vpc_config=vpc_config))
         """
+        final_config = self._default_config()
         if config:
-            config = self._apply_custom_config(config)
-        else:
-            config = self._default_config()
+            self._apply_custom_config(final_config, config)
 
         deploy(
             app_name=name,
             model_uri=model_uri,
             flavor=flavor,
-            execution_role_arn=config["execution_role_arn"],
-            assume_role_arn=config["assume_role_arn"],
-            bucket=config["bucket"],
-            image_url=config["image_url"],
-            region_name=config["region_name"],
+            execution_role_arn=final_config["execution_role_arn"],
+            assume_role_arn=final_config["assume_role_arn"],
+            bucket=final_config["bucket"],
+            image_url=final_config["image_url"],
+            region_name=final_config["region_name"],
             mode=DEPLOYMENT_MODE_CREATE,
-            archive=config["archive"],
-            instance_type=config["instance_type"],
-            instance_count=config["instance_count"],
-            vpc_config=config["vpc_config"],
-            synchronous=config["synchronous"],
-            timeout_seconds=config["timeout_seconds"],
+            archive=final_config["archive"],
+            instance_type=final_config["instance_type"],
+            instance_count=final_config["instance_count"],
+            vpc_config=final_config["vpc_config"],
+            synchronous=final_config["synchronous"],
+            timeout_seconds=final_config["timeout_seconds"],
         )
 
     def update_deployment(self, name, model_uri=None, flavor=None, config=None):
