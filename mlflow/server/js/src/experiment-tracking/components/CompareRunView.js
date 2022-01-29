@@ -51,7 +51,7 @@ export class CompareRunView extends Component {
   }
 
   onResizeHandler(e) {
-    this.setState({tableContainerWidth: document.getElementById('compare-run-table-container').offsetWidth});
+    this.setState({tableContainerWidth: document.getElementById('compare-run-table-container').clientWidth});
   }
 
   componentDidMount() {
@@ -114,8 +114,8 @@ export class CompareRunView extends Component {
 
     const colWidth = this.getTableColumnWidth();
     const tableBlockWidth = this.state.tableContainerWidth;
-    const colWidthStyle = {minWidth: `${colWidth}px`, maxWidth: `${colWidth}px`};
-    const tableBlockWidthStyle = {minWidth: `${tableBlockWidth}px`, maxWidth: `${tableBlockWidth}px`};
+    const colWidthStyle = {width: `${colWidth}px`, minWidth: `${colWidth}px`, maxWidth: `${colWidth}px`};
+    const tableBlockWidthStyle = {width: `${tableBlockWidth}px`, minWidth: `${tableBlockWidth}px`, maxWidth: `${tableBlockWidth}px`};
 
     const title = (
       <FormattedMessage
@@ -280,6 +280,7 @@ export class CompareRunView extends Component {
                     scope='rowgroup'
                     className='inter-title'
                     colSpan={this.props.runInfos.length + 1}
+                    style={tableBlockWidthStyle}
                   >
                     <CollapsibleSection
                       title={
@@ -313,6 +314,7 @@ export class CompareRunView extends Component {
                     scope='rowgroup'
                     className='inter-title sticky_header'
                     colSpan={this.props.runInfos.length + 1}
+                    style={tableBlockWidthStyle}
                   >
                     <CollapsibleSection
                       title={
@@ -379,7 +381,7 @@ export class CompareRunView extends Component {
     headerMap = (key, data) => key,
     formatter = (value) => value,
   ) {
-    const keys = CompareRunUtil.getKeys(list);
+    var keys = CompareRunUtil.getKeys(list);
     const data = {};
     keys.forEach((k) => (data[k] = []));
     list.forEach((records, i) => {
@@ -388,12 +390,16 @@ export class CompareRunView extends Component {
     });
 
     const colWidthStyle = {width: `${colWidth}px`, minWidth: `${colWidth}px`, maxWidth: `${colWidth}px`}
-    return keys.map((k) => {
-      const allEqual = data[k].every((x) => x === data[k][0]);
 
-      if (this.state[onlyShowDiffStateKey] && allEqual) {
-        return undefined;
-      }
+    function isAllEqual(k) {
+      return data[k].every((x) => x === data[k][0])
+    }
+
+    if (this.state[onlyShowDiffStateKey]) {
+      keys = keys.filter(k => !isAllEqual(k))
+    }
+    return keys.map((k) => {
+      const allEqual = isAllEqual(k);
 
       let rowClass = undefined
       if (highlightChanges && !allEqual) {

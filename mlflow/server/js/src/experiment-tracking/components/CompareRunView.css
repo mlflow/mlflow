@@ -46,10 +46,10 @@
 
 /* Overrides to make it look more like antd */
 .compare-table {
-  width: 100%;
-  max-width: 100%;
+  table-layout:fixed;
   margin-bottom: 20px;
 }
+
 .compare-table th,
 .compare-table td {
   padding: 12px 8px;
