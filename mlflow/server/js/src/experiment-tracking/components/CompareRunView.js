@@ -50,14 +50,14 @@ export class CompareRunView extends Component {
     this.onResizeHandler = this.onResizeHandler.bind(this);
     this.onTableBlockScrollHandler = this.onTableBlockScrollHandler.bind(this);
 
-    this.tableContainerRef = React.createRef()
+    this.tableContainerRef = React.createRef();
   }
 
   onResizeHandler(e) {
     const container = this.tableContainerRef.current;
-    if (container != null) {
+    if (container !== null) {
       const containerWidth = container.clientWidth;
-      this.setState({tableContainerWidth: containerWidth});
+      this.setState({ tableContainerWidth: containerWidth });
     }
   }
 
@@ -83,25 +83,21 @@ export class CompareRunView extends Component {
     );
     Utils.updatePageTitle(pageTitle);
 
-    window.addEventListener(
-      'resize', this.onResizeHandler, true,
-    );
+    window.addEventListener('resize', this.onResizeHandler, true);
     window.dispatchEvent(new Event('resize'));
   }
 
   componentWillUnmount() {
     // Because onResizeHandler is registered in `componentDidMount`,
     // We need unregister it here otherwise every time mount will add a new listener.
-    window.removeEventListener(
-      'resize', this.onResizeHandler, true,
-    );
+    window.removeEventListener('resize', this.onResizeHandler, true);
   }
 
   getTableColumnWidth() {
     const minColWidth = 200;
-    var colWidth = minColWidth;
+    let colWidth = minColWidth;
 
-    if (this.state.tableContainerWidth != null) {
+    if (this.state.tableContainerWidth !== null) {
       colWidth = Math.round(this.state.tableContainerWidth / (this.props.runInfos.length + 1));
       if (colWidth < minColWidth) {
         colWidth = minColWidth;
@@ -117,8 +113,16 @@ export class CompareRunView extends Component {
 
     const colWidth = this.getTableColumnWidth();
     const tableBlockWidth = this.state.tableContainerWidth;
-    const colWidthStyle = {width: `${colWidth}px`, minWidth: `${colWidth}px`, maxWidth: `${colWidth}px`};
-    const tableBlockWidthStyle = {width: `${tableBlockWidth}px`, minWidth: `${tableBlockWidth}px`, maxWidth: `${tableBlockWidth}px`};
+    const colWidthStyle = {
+      width: `${colWidth}px`,
+      minWidth: `${colWidth}px`,
+      maxWidth: `${colWidth}px`,
+    };
+    const tableBlockWidthStyle = {
+      width: `${tableBlockWidth}px`,
+      minWidth: `${tableBlockWidth}px`,
+      maxWidth: `${tableBlockWidth}px`,
+    };
 
     const title = (
       <FormattedMessage
@@ -204,8 +208,10 @@ export class CompareRunView extends Component {
         >
           <div className='responsive-table-container' ref={this.tableContainerRef}>
             <table className='compare-table table'>
-              <thead className='table-block no-scrollbar' style={tableBlockWidthStyle}
-               onScroll={this.onTableBlockScrollHandler}
+              <thead
+                className='table-block no-scrollbar'
+                style={tableBlockWidthStyle}
+                onScroll={this.onTableBlockScrollHandler}
               >
                 <tr>
                   <th scope='row' className='head-value sticky_header' style={colWidthStyle}>
@@ -229,8 +235,10 @@ export class CompareRunView extends Component {
                   ))}
                 </tr>
               </thead>
-              <tbody className='table-block no-scrollbar' style={tableBlockWidthStyle}
-               onScroll={this.onTableBlockScrollHandler}
+              <tbody
+                className='table-block no-scrollbar'
+                style={tableBlockWidthStyle}
+                onScroll={this.onTableBlockScrollHandler}
               >
                 <tr>
                   <th scope='row' className='head-value sticky_header' style={colWidthStyle}>
@@ -246,7 +254,7 @@ export class CompareRunView extends Component {
                           <Tooltip
                             title={runName}
                             color='blue'
-                            overlayStyle={{ 'max-width': '400px' }}
+                            overlayStyle={{ maxWidth: '400px' }}
                           >
                             {runName}
                           </Tooltip>
@@ -272,7 +280,7 @@ export class CompareRunView extends Component {
                         <Tooltip
                           title={startTime}
                           color='blue'
-                          overlayStyle={{ 'max-width': '400px' }}
+                          overlayStyle={{ maxWidth: '400px' }}
                         >
                           {startTime}
                         </Tooltip>
@@ -298,24 +306,28 @@ export class CompareRunView extends Component {
                         />
                       }
                       onChange={(activeKeys) =>
-                        this.setState({collapseParamBlock: activeKeys.length === 0})
+                        this.setState({ collapseParamBlock: activeKeys.length === 0 })
                       }
                     >
                       <Switch
                         checkedChildren='Show diff only'
                         unCheckedChildren='Show diff only'
                         onChange={(isShowDiffOnly, e) =>
-                          this.setState({onlyShowParamDiff: isShowDiffOnly})
+                          this.setState({ onlyShowParamDiff: isShowDiffOnly })
                         }
                       />
                     </CollapsibleSection>
                   </th>
                 </tr>
               </tbody>
-              <tbody className='table-block param-block' style={Object.assign({}, tableBlockWidthStyle, {maxHeight: '500px'})}
-               onScroll={this.onTableBlockScrollHandler}
+              <tbody
+                className='table-block param-block'
+                style={Object.assign({}, tableBlockWidthStyle, { maxHeight: '500px' })}
+                onScroll={this.onTableBlockScrollHandler}
               >
-                { this.state.collapseParamBlock ? undefined : this.renderDataRows(this.props.paramLists, colWidth, "onlyShowParamDiff", true)}
+                {this.state.collapseParamBlock
+                  ? undefined
+                  : this.renderDataRows(this.props.paramLists, colWidth, 'onlyShowParamDiff', true)}
               </tbody>
               <tbody className='table-block' style={tableBlockWidthStyle}>
                 <tr>
@@ -334,47 +346,51 @@ export class CompareRunView extends Component {
                         />
                       }
                       onChange={(activeKeys) =>
-                        this.setState({collapseMetricBlock: activeKeys.length === 0})
+                        this.setState({ collapseMetricBlock: activeKeys.length === 0 })
                       }
                     >
                       <Switch
                         checkedChildren='Show diff only'
                         unCheckedChildren='Show diff only'
                         onChange={(isShowDiffOnly, e) =>
-                          this.setState({onlyShowMetricDiff: isShowDiffOnly})
+                          this.setState({ onlyShowMetricDiff: isShowDiffOnly })
                         }
                       />
                     </CollapsibleSection>
                   </th>
                 </tr>
               </tbody>
-              <tbody className='table-block metric-block' style={Object.assign({}, tableBlockWidthStyle, {maxHeight: '300px'})}
-               onScroll={this.onTableBlockScrollHandler}
+              <tbody
+                className='table-block metric-block'
+                style={Object.assign({}, tableBlockWidthStyle, { maxHeight: '300px' })}
+                onScroll={this.onTableBlockScrollHandler}
               >
-                {this.state.collapseMetricBlock ? undefined : this.renderDataRows(
-                  this.props.metricLists,
-                  colWidth,
-                  "onlyShowMetricDiff",
-                  false,
-                  (key, data) => {
-                    return (
-                      <Link
-                        to={Routes.getMetricPageRoute(
-                          this.props.runInfos
-                            .map((info) => info.run_uuid)
-                            .filter((uuid, idx) => data[idx] !== undefined),
-                          key,
-                          experimentId,
-                        )}
-                        title='Plot chart'
-                      >
-                        {key}
-                        <i className='fas fa-chart-line' style={{ paddingLeft: '6px' }} />
-                      </Link>
-                    );
-                  },
-                  Utils.formatMetric,
-                )}
+                {this.state.collapseMetricBlock
+                  ? undefined
+                  : this.renderDataRows(
+                      this.props.metricLists,
+                      colWidth,
+                      'onlyShowMetricDiff',
+                      false,
+                      (key, data) => {
+                        return (
+                          <Link
+                            to={Routes.getMetricPageRoute(
+                              this.props.runInfos
+                                .map((info) => info.run_uuid)
+                                .filter((uuid, idx) => data[idx] !== undefined),
+                              key,
+                              experimentId,
+                            )}
+                            title='Plot chart'
+                          >
+                            {key}
+                            <i className='fas fa-chart-line' style={{ paddingLeft: '6px' }} />
+                          </Link>
+                        );
+                      },
+                      Utils.formatMetric,
+                    )}
               </tbody>
             </table>
           </div>
@@ -392,7 +408,7 @@ export class CompareRunView extends Component {
     headerMap = (key, data) => key,
     formatter = (value) => value,
   ) {
-    var keys = CompareRunUtil.getKeys(list);
+    let keys = CompareRunUtil.getKeys(list);
     const data = {};
     keys.forEach((k) => (data[k] = []));
     list.forEach((records, i) => {
@@ -400,19 +416,23 @@ export class CompareRunView extends Component {
       records.forEach((r) => (data[r.key][i] = r.value));
     });
 
-    const colWidthStyle = {width: `${colWidth}px`, minWidth: `${colWidth}px`, maxWidth: `${colWidth}px`}
+    const colWidthStyle = {
+      width: `${colWidth}px`,
+      minWidth: `${colWidth}px`,
+      maxWidth: `${colWidth}px`,
+    };
 
     function isAllEqual(k) {
-      return data[k].every((x) => x === data[k][0])
+      return data[k].every((x) => x === data[k][0]);
     }
 
     if (this.state[onlyShowDiffStateKey]) {
-      keys = keys.filter(k => !isAllEqual(k))
+      keys = keys.filter((k) => !isAllEqual(k));
     }
     return keys.map((k) => {
       const allEqual = isAllEqual(k);
 
-      let rowClass = undefined
+      let rowClass = undefined;
       if (highlightChanges && !allEqual) {
         rowClass = 'diff-row';
       }
@@ -425,7 +445,11 @@ export class CompareRunView extends Component {
           {data[k].map((value, i) => {
             const cellText = value === undefined ? '' : formatter(value);
             return (
-              <td className='data-value' key={this.props.runInfos[i].run_uuid} style={colWidthStyle}>
+              <td
+                className='data-value'
+                key={this.props.runInfos[i].run_uuid}
+                style={colWidthStyle}
+              >
                 <Tooltip title={cellText} color='blue' overlayStyle={{ maxWidth: '400px' }}>
                   <span className='truncate-text single-line'>{cellText}</span>
                 </Tooltip>
