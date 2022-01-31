@@ -136,7 +136,7 @@ export class CompareRunView extends Component {
         <PageHeader title={title} breadcrumbs={breadcrumbs} />
         <CollapsibleSection
           title={
-            <h1>
+            <h1 style={{ marginTop: 0, marginBottom: 0 }}>
               <FormattedMessage
                 defaultMessage='Visualizations'
                 description='Tabs title for plots on the compare runs page'
@@ -189,7 +189,7 @@ export class CompareRunView extends Component {
         </CollapsibleSection>
         <CollapsibleSection
           title={
-            <h1>
+            <h1 style={{ marginTop: 0, marginBottom: 0 }}>
               <FormattedMessage
                 defaultMessage='Run details'
                 // eslint-disable-next-line max-len
@@ -215,7 +215,8 @@ export class CompareRunView extends Component {
                   <th scope='row' className='data-value' key={r.run_uuid} style={colWidthStyle}>
                     <Tooltip
                       title={r.getRunUuid()}
-                      color='blue'
+                      color='gray'
+                      placement='topLeft'
                       overlayStyle={{ maxWidth: '400px' }}
                       mouseEnterDelay={1.0}
                     >
@@ -241,7 +242,8 @@ export class CompareRunView extends Component {
                       <div className='truncate-text single-line'>
                         <Tooltip
                           title={runName}
-                          color='blue'
+                          color='gray'
+                          placement='topLeft'
                           overlayStyle={{ maxWidth: '400px' }}
                           mouseEnterDelay={1.0}
                         >
@@ -268,7 +270,8 @@ export class CompareRunView extends Component {
                     <td className='data-value' key={run.run_uuid} style={colWidthStyle}>
                       <Tooltip
                         title={startTime}
-                        color='blue'
+                        color='gray'
+                        placement='topLeft'
                         overlayStyle={{ maxWidth: '400px' }}
                         mouseEnterDelay={1.0}
                       >
@@ -283,7 +286,7 @@ export class CompareRunView extends Component {
         </CollapsibleSection>
         <CollapsibleSection
           title={
-            <h1>
+            <h1 style={{ marginTop: 0, marginBottom: 0 }}>
               <FormattedMessage
                 defaultMessage='Parameters'
                 // eslint-disable-next-line max-len
@@ -316,7 +319,7 @@ export class CompareRunView extends Component {
         </CollapsibleSection>
         <CollapsibleSection
           title={
-            <h1>
+            <h1 style={{ marginTop: 0, marginBottom: 0 }}>
               <FormattedMessage
                 defaultMessage='Metrics'
                 // eslint-disable-next-line max-len
@@ -419,7 +422,8 @@ export class CompareRunView extends Component {
               >
                 <Tooltip
                   title={cellText}
-                  color='blue'
+                  color='gray'
+                  placement='topLeft'
                   overlayStyle={{ maxWidth: '400px' }}
                   mouseEnterDelay={1.0}
                 >
