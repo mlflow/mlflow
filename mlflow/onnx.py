@@ -40,7 +40,7 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 FLAVOR_NAME = "onnx"
-ONNX_EXECUTION_PROVIDERS = ['CUDAExecutionProvider', 'CPUExecutionProvider']
+ONNX_EXECUTION_PROVIDERS = ["CUDAExecutionProvider", "CPUExecutionProvider"]
 
 
 def get_default_pip_requirements():
@@ -148,7 +148,12 @@ def save_model(
     pyfunc.add_to_model(
         mlflow_model, loader_module="mlflow.onnx", data=model_data_subpath, env=_CONDA_ENV_FILE_NAME
     )
-    mlflow_model.add_flavor(FLAVOR_NAME, onnx_version=onnx.__version__, data=model_data_subpath, providers=onnx_execution_providers)
+    mlflow_model.add_flavor(
+        FLAVOR_NAME,
+        onnx_version=onnx.__version__,
+        data=model_data_subpath,
+        providers=onnx_execution_providers,
+    )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
@@ -201,23 +206,23 @@ class _OnnxModelWrapper:
         model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
 
         # Check if the MLModel config has the providers meta data
-        if 'providers' in model_meta.flavors.get(FLAVOR_NAME).keys():
-            providers = model_meta.flavors.get(FLAVOR_NAME)['providers']
+        if "providers" in model_meta.flavors.get(FLAVOR_NAME).keys():
+            providers = model_meta.flavors.get(FLAVOR_NAME)["providers"]
         # If not, then default to the predefined list.
         else:
             providers = ONNX_EXECUTION_PROVIDERS
 
-        # NOTE: Some distributions of onnxruntime require the specification of the providers 
+        # NOTE: Some distributions of onnxruntime require the specification of the providers
         # argument on calling. E.g. onnxruntime-gpu. The package import call does not differnetiate
-        #  which architecture specific version has been installed, as all are imported with 
+        #  which architecture specific version has been installed, as all are imported with
         # onnxruntime. onnxruntime documentation says that from v1.9.0 some distributions require
         #  the providers list to be provided on calling an InferenceSession. Therefore the try
         #  catch structure below attempts to create an inference session with just the model path
-        #  as pre v1.9.0. If that fails, it will use the providers list call. 
-        # At the moment this is just CUDA and CPU, and probably should be expanded. 
+        #  as pre v1.9.0. If that fails, it will use the providers list call.
+        # At the moment this is just CUDA and CPU, and probably should be expanded.
         # A method of user customisation has been provided by adding a variable in the save_model()
-        # function, which allows the ability to pass the list of execution providers via a 
-        # optional argument e.g. 
+        # function, which allows the ability to pass the list of execution providers via a
+        # optional argument e.g.
         #
         # mlflow.onnx.save_model(..., providers=['CUDAExecutionProvider'...])
         #
@@ -235,7 +240,6 @@ class _OnnxModelWrapper:
             self.rt = onnxruntime.InferenceSession(path, providers=providers)
         except:
             raise
-
 
         assert len(self.rt.get_inputs()) >= 1
         self.inputs = [(inp.name, inp.type) for inp in self.rt.get_inputs()]
@@ -378,7 +382,7 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements=None,
     extra_pip_requirements=None,
-    onnx_execution_providers=None
+    onnx_execution_providers=None,
 ):
     """
     Log an ONNX model as an MLflow artifact for the current run.
@@ -433,5 +437,5 @@ def log_model(
         await_registration_for=await_registration_for,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
-        onnx_execution_providers=onnx_execution_providers
+        onnx_execution_providers=onnx_execution_providers,
     )
