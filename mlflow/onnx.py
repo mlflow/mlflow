@@ -419,7 +419,8 @@ def log_model(
                                      Defaults to example:
                                      ['CUDAExecutionProvider', 'CPUExecutionProvider']
                                      This uses GPU preferentially over CPU.
-                                     See onnxruntime API for further descriptions.
+                                     See onnxruntime API for further descriptions:
+                                     https://onnxruntime.ai/docs/execution-providers/
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """
