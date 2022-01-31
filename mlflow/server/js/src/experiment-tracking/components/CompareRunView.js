@@ -40,7 +40,7 @@ export class CompareRunView extends Component {
   constructor(props) {
     super(props);
     this.state = {
-      tableContainerWidth: null,
+      tableWidth: null,
       onlyShowParamDiff: false,
       onlyShowMetricDiff: false,
     };
@@ -48,26 +48,26 @@ export class CompareRunView extends Component {
     this.onTableBlockScrollHandler = this.onCompareRunTableScrollHandler.bind(this);
     this.onCompareRunTableScrollHandler = this.onCompareRunTableScrollHandler.bind(this);
 
-    this.tableContainerRef = React.createRef();
+    this.runDetailsTableRef = React.createRef();
     this.compareRunViewRef = React.createRef();
   }
 
   onResizeHandler(e) {
-    const container = this.tableContainerRef.current;
-    if (container !== null) {
-      const containerWidth = container.clientWidth;
-      this.setState({ tableContainerWidth: containerWidth });
+    const table = this.runDetailsTableRef.current;
+    if (table !== null) {
+      const containerWidth = table.clientWidth;
+      this.setState({ tableWidth: containerWidth });
     }
   }
 
   onCompareRunTableScrollHandler(e) {
     const blocks = this.compareRunViewRef.current.querySelectorAll('.compare-run-table');
-    for (let index = 0; index < blocks.length; ++index) {
+    blocks.forEach((_, index) => {
       const block = blocks[index];
       if (block !== e.target) {
         block.scrollLeft = e.target.scrollLeft;
       }
-    }
+    });
   }
 
   componentDidMount() {
@@ -95,8 +95,8 @@ export class CompareRunView extends Component {
     const minColWidth = 200;
     let colWidth = minColWidth;
 
-    if (this.state.tableContainerWidth !== null) {
-      colWidth = Math.round(this.state.tableContainerWidth / (this.props.runInfos.length + 1));
+    if (this.state.tableWidth !== null) {
+      colWidth = Math.round(this.state.tableWidth / (this.props.runInfos.length + 1));
       if (colWidth < minColWidth) {
         colWidth = minColWidth;
       }
@@ -198,89 +198,88 @@ export class CompareRunView extends Component {
             </h1>
           }
         >
-          <div className='responsive-table-container' ref={this.tableContainerRef}>
-            <table
-              className='table compare-table compare-run-table'
-              onScroll={this.onCompareRunTableScrollHandler}
-            >
-              <thead>
-                <tr>
-                  <th scope='row' className='head-value sticky-header' style={colWidthStyle}>
-                    <FormattedMessage
-                      defaultMessage='Run ID:'
-                      description='Row title for the run id on the experiment compare runs page'
-                    />
+          <table
+            className='table compare-table compare-run-table'
+            ref={this.runDetailsTableRef}
+            onScroll={this.onCompareRunTableScrollHandler}
+          >
+            <thead>
+              <tr>
+                <th scope='row' className='head-value sticky-header' style={colWidthStyle}>
+                  <FormattedMessage
+                    defaultMessage='Run ID:'
+                    description='Row title for the run id on the experiment compare runs page'
+                  />
+                </th>
+                {this.props.runInfos.map((r) => (
+                  <th scope='row' className='data-value' key={r.run_uuid} style={colWidthStyle}>
+                    <Tooltip
+                      title={r.getRunUuid()}
+                      color='blue'
+                      overlayStyle={{ maxWidth: '400px' }}
+                      mouseEnterDelay={1.0}
+                    >
+                      <Link to={Routes.getRunPageRoute(r.getExperimentId(), r.getRunUuid())}>
+                        {r.getRunUuid()}
+                      </Link>
+                    </Tooltip>
                   </th>
-                  {this.props.runInfos.map((r) => (
-                    <th scope='row' className='data-value' key={r.run_uuid} style={colWidthStyle}>
-                      <Tooltip
-                        title={r.getRunUuid()}
-                        color='blue'
-                        overlayStyle={{ maxWidth: '400px' }}
-                        mouseEnterDelay={1.0}
-                      >
-                        <Link to={Routes.getRunPageRoute(r.getExperimentId(), r.getRunUuid())}>
-                          {r.getRunUuid()}
-                        </Link>
-                      </Tooltip>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <th scope='row' className='head-value sticky-header' style={colWidthStyle}>
-                    <FormattedMessage
-                      defaultMessage='Run Name:'
-                      description='Row title for the run name on the experiment compare runs page'
-                    />
-                  </th>
-                  {runNames.map((runName, i) => {
-                    return (
-                      <td className='data-value' key={runInfos[i].run_uuid} style={colWidthStyle}>
-                        <div className='truncate-text single-line'>
-                          <Tooltip
-                            title={runName}
-                            color='blue'
-                            overlayStyle={{ maxWidth: '400px' }}
-                            mouseEnterDelay={1.0}
-                          >
-                            {runName}
-                          </Tooltip>
-                        </div>
-                      </td>
-                    );
-                  })}
-                </tr>
-                <tr>
-                  <th scope='row' className='head-value sticky-header' style={colWidthStyle}>
-                    <FormattedMessage
-                      defaultMessage='Start Time:'
-                      // eslint-disable-next-line max-len
-                      description='Row title for the start time of runs on the experiment compare runs page'
-                    />
-                  </th>
-                  {this.props.runInfos.map((run) => {
-                    const startTime = run.getStartTime()
-                      ? Utils.formatTimestamp(run.getStartTime())
-                      : '(unknown)';
-                    return (
-                      <td className='data-value' key={run.run_uuid} style={colWidthStyle}>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope='row' className='head-value sticky-header' style={colWidthStyle}>
+                  <FormattedMessage
+                    defaultMessage='Run Name:'
+                    description='Row title for the run name on the experiment compare runs page'
+                  />
+                </th>
+                {runNames.map((runName, i) => {
+                  return (
+                    <td className='data-value' key={runInfos[i].run_uuid} style={colWidthStyle}>
+                      <div className='truncate-text single-line'>
                         <Tooltip
-                          title={startTime}
+                          title={runName}
                           color='blue'
                           overlayStyle={{ maxWidth: '400px' }}
                           mouseEnterDelay={1.0}
                         >
-                          {startTime}
+                          {runName}
                         </Tooltip>
-                      </td>
-                    );
-                  })}
-                </tr>
-              </tbody>
-            </table>
-          </div>
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+              <tr>
+                <th scope='row' className='head-value sticky-header' style={colWidthStyle}>
+                  <FormattedMessage
+                    defaultMessage='Start Time:'
+                    // eslint-disable-next-line max-len
+                    description='Row title for the start time of runs on the experiment compare runs page'
+                  />
+                </th>
+                {this.props.runInfos.map((run) => {
+                  const startTime = run.getStartTime()
+                    ? Utils.formatTimestamp(run.getStartTime())
+                    : '(unknown)';
+                  return (
+                    <td className='data-value' key={run.run_uuid} style={colWidthStyle}>
+                      <Tooltip
+                        title={startTime}
+                        color='blue'
+                        overlayStyle={{ maxWidth: '400px' }}
+                        mouseEnterDelay={1.0}
+                      >
+                        {startTime}
+                      </Tooltip>
+                    </td>
+                  );
+                })}
+              </tr>
+            </tbody>
+          </table>
         </CollapsibleSection>
         <CollapsibleSection
           title={
@@ -300,22 +299,20 @@ export class CompareRunView extends Component {
           />
           <br />
           <br />
-          <div className='responsive-table-container'>
-            <table
-              className='table compare-table compare-run-table'
-              style={{ maxHeight: '500px' }}
-              onScroll={this.onCompareRunTableScrollHandler}
-            >
-              <tbody>
-                {this.renderDataRows(
-                  this.props.paramLists,
-                  colWidth,
-                  this.state.onlyShowParamDiff,
-                  true,
-                )}
-              </tbody>
-            </table>
-          </div>
+          <table
+            className='table compare-table compare-run-table'
+            style={{ maxHeight: '500px' }}
+            onScroll={this.onCompareRunTableScrollHandler}
+          >
+            <tbody>
+              {this.renderDataRows(
+                this.props.paramLists,
+                colWidth,
+                this.state.onlyShowParamDiff,
+                true,
+              )}
+            </tbody>
+          </table>
         </CollapsibleSection>
         <CollapsibleSection
           title={
@@ -335,40 +332,38 @@ export class CompareRunView extends Component {
           />
           <br />
           <br />
-          <div className='responsive-table-container'>
-            <table
-              className='table compare-table compare-run-table'
-              style={{ maxHeight: '300px' }}
-              onScroll={this.onCompareRunTableScrollHandler}
-            >
-              <tbody>
-                {this.renderDataRows(
-                  this.props.metricLists,
-                  colWidth,
-                  this.state.onlyShowMetricDiff,
-                  false,
-                  (key, data) => {
-                    return (
-                      <Link
-                        to={Routes.getMetricPageRoute(
-                          this.props.runInfos
-                            .map((info) => info.run_uuid)
-                            .filter((uuid, idx) => data[idx] !== undefined),
-                          key,
-                          experimentId,
-                        )}
-                        title='Plot chart'
-                      >
-                        {key}
-                        <i className='fas fa-chart-line' style={{ paddingLeft: '6px' }} />
-                      </Link>
-                    );
-                  },
-                  Utils.formatMetric,
-                )}
-              </tbody>
-            </table>
-          </div>
+          <table
+            className='table compare-table compare-run-table'
+            style={{ maxHeight: '300px' }}
+            onScroll={this.onCompareRunTableScrollHandler}
+          >
+            <tbody>
+              {this.renderDataRows(
+                this.props.metricLists,
+                colWidth,
+                this.state.onlyShowMetricDiff,
+                false,
+                (key, data) => {
+                  return (
+                    <Link
+                      to={Routes.getMetricPageRoute(
+                        this.props.runInfos
+                          .map((info) => info.run_uuid)
+                          .filter((uuid, idx) => data[idx] !== undefined),
+                        key,
+                        experimentId,
+                      )}
+                      title='Plot chart'
+                    >
+                      {key}
+                      <i className='fas fa-chart-line' style={{ paddingLeft: '6px' }} />
+                    </Link>
+                  );
+                },
+                Utils.formatMetric,
+              )}
+            </tbody>
+          </table>
         </CollapsibleSection>
       </div>
     );
@@ -383,7 +378,7 @@ export class CompareRunView extends Component {
     headerMap = (key, data) => key,
     formatter = (value) => value,
   ) {
-    let keys = CompareRunUtil.getKeys(list);
+    const keys = CompareRunUtil.getKeys(list);
     const data = {};
     keys.forEach((k) => (data[k] = []));
     list.forEach((records, i) => {
@@ -401,9 +396,6 @@ export class CompareRunView extends Component {
       return data[k].every((x) => x === data[k][0]);
     }
 
-    if (onlyShowDiff) {
-      keys = keys.filter((k) => !isAllEqual(k));
-    }
     return keys.map((k) => {
       const allEqual = isAllEqual(k);
 
@@ -412,7 +404,7 @@ export class CompareRunView extends Component {
         rowClass = 'diff-row';
       }
 
-      return (
+      return onlyShowDiff && allEqual ? null : (
         <tr key={k} className={rowClass}>
           <th scope='row' className='head-value sticky-header' style={colWidthStyle}>
             {headerMap(k, data[k])}

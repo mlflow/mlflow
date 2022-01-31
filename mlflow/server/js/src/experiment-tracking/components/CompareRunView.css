@@ -1,4 +1,4 @@
-.sticky_header {
+.sticky-header {
   position: sticky;
   position: -webkit-sticky;
   left: 0;
@@ -7,6 +7,7 @@
 .compare-run-table {
   display: block;
   overflow: auto;
+  width: 100%;
 }
 
 .no-scrollbar::-webkit-scrollbar {
