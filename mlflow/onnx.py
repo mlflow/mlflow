@@ -116,9 +116,10 @@ def save_model(
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param onnx_execution_providers: List of strings defining onnxruntime execution providers.
                                      Defaults to example:
-                                     ['CUDAExecutionProvider', 'CPUExecutionProvider']
+                                     ``['CUDAExecutionProvider', 'CPUExecutionProvider']``
                                      This uses GPU preferentially over CPU.
-                                     See onnxruntime API for further descriptions.
+                                     See onnxruntime API for further descriptions:
+                                     https://onnxruntime.ai/docs/execution-providers/
     """
     import onnx
 
@@ -422,7 +423,8 @@ def log_model(
                                      Defaults to example:
                                      ['CUDAExecutionProvider', 'CPUExecutionProvider']
                                      This uses GPU preferentially over CPU.
-                                     See onnxruntime API for further descriptions.
+                                     See onnxruntime API for further descriptions:
+                                     https://onnxruntime.ai/docs/execution-providers/
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """
