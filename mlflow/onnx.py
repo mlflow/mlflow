@@ -118,7 +118,8 @@ def save_model(
                                      Defaults to example:
                                      ``['CUDAExecutionProvider', 'CPUExecutionProvider']``
                                      This uses GPU preferentially over CPU.
-                                     See onnxruntime API for further descriptions.
+                                     See onnxruntime API for further descriptions:
+                                     https://onnxruntime.ai/docs/execution-providers/
     """
     import onnx
 
