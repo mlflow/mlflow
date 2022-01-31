@@ -4,7 +4,7 @@
   left: 0;
 }
 
-.compare-table .table-block {
+.compare-run-table {
   display: block;
   overflow: auto;
 }
