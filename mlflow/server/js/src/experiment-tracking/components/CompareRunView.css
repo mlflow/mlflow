@@ -10,10 +10,6 @@
   width: 100%;
 }
 
-.no-scrollbar::-webkit-scrollbar {
-  display: none
-}
-
 .compare-table th.inter-title {
   padding: 20px 0 0;
   background: transparent;
