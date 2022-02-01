@@ -16,6 +16,7 @@ import mlflow.lightgbm
 from mlflow.lightgbm import _autolog_callback
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
+from mlflow.tracking.client import MlflowClient
 from mlflow.utils.autologging_utils import picklable_exception_safe_function, BatchMetricsLogger
 from unittest.mock import patch
 
@@ -642,3 +643,31 @@ def test_callback_func_is_pickable():
         functools.partial(_autolog_callback, BatchMetricsLogger(run_id="1234"), eval_results={})
     )
     pickle.dumps(cb)
+
+
+@pytest.mark.large
+def test_sklearn_api_autolog_registering_model():
+    registered_model_name = "test_autolog_registered_model"
+    mlflow.lightgbm.autolog(registered_model_name=registered_model_name)
+
+    X, y = datasets.load_iris(return_X_y=True)
+    params = {"n_estimators": 10, "reg_lambda": 1}
+    model = lgb.LGBMClassifier(**params)
+
+    with mlflow.start_run():
+        model.fit(X, y)
+
+        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        assert registered_model.name == registered_model_name
+
+
+@pytest.mark.large
+def test_lgb_api_autolog_registering_model(bst_params, train_set):
+    registered_model_name = "test_autolog_registered_model"
+    mlflow.lightgbm.autolog(registered_model_name=registered_model_name)
+
+    with mlflow.start_run():
+        lgb.train(bst_params, train_set, num_boost_round=1)
+
+        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        assert registered_model.name == registered_model_name

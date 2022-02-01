@@ -4,12 +4,16 @@ import os
 import re
 import tempfile
 import posixpath
+import copy
 
 import logging
 from functools import wraps
 
 from flask import Response, request, current_app, send_file
 from google.protobuf import descriptor
+
+from jsonschema import validate, Draft202012Validator
+from jsonschema.exceptions import ValidationError
 
 from mlflow.entities import Metric, Param, RunTag, ViewType, ExperimentTag, FileInfo
 from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
@@ -131,17 +135,105 @@ _model_registry_store_registry = ModelRegistryStoreRegistryWrapper()
 
 def _get_artifact_repo_mlflow_artifacts():
     """
-    Get an artifact repository specified by `--artifacts-destination` option for `mlflow server`
+    Get an artifact repository specified by ``--artifacts-destination`` option for ``mlflow server``
     command.
     """
     from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR
 
     global _artifact_repo
-
     if _artifact_repo is None:
         _artifact_repo = get_artifact_repository(os.environ[ARTIFACTS_DESTINATION_ENV_VAR])
-
     return _artifact_repo
+
+
+def _is_serving_proxied_artifacts():
+    """
+    :return: ``True`` if the MLflow server is serving proxied artifacts (i.e. acting as a proxy for
+             artifact upload / download / list operations), as would be enabled by specifying the
+             ``--serve-artifacts`` configuration option. ``False`` otherwise.
+    """
+    from mlflow.server import SERVE_ARTIFACTS_ENV_VAR
+
+    return os.environ.get(SERVE_ARTIFACTS_ENV_VAR, "false") == "true"
+
+
+def _is_servable_proxied_run_artifact_root(run_artifact_root):
+    """
+    Determines whether or not the following are true:
+
+    - The specified Run artifact root is a proxied artifact root (i.e. an artifact root with scheme
+      ``http``, ``https``, or ``mlflow-artifacts``).
+
+    - The MLflow server is capable of resolving and accessing the underlying storage location
+      corresponding to the proxied artifact root, allowing it to fulfill artifact list and
+      download requests by using this storage location directly.
+
+    :param run_artifact_root: The Run artifact root location (URI).
+    :return: ``True`` if the specified Run artifact root refers to proxied artifacts that can be
+             served by this MLflow server (i.e. the server has access to the destination and
+             can respond to list and download requests for the artifact). ``False`` otherwise.
+    """
+    parsed_run_artifact_root = urllib.parse.urlparse(run_artifact_root)
+    # NB: If the run artifact root is a proxied artifact root (has scheme `http`, `https`, or
+    # `mlflow-artifacts`) *and* the MLflow server is configured to serve artifacts, the MLflow
+    # server always assumes that it has access to the underlying storage location for the proxied
+    # artifacts. This may not always be accurate. For example:
+    #
+    # An organization may initially use the MLflow server to serve Tracking API requests and proxy
+    # access to artifacts stored in Location A (via `mlflow server --serve-artifacts`). Then, for
+    # scalability and / or security purposes, the organization may decide to store artifacts in a
+    # new location B and set up a separate server (e.g. `mlflow server --artifacts-only`) to proxy
+    # access to artifacts stored in Location B.
+    #
+    # In this scenario, requests for artifacts stored in Location B that are sent to the original
+    # MLflow server will fail if the original MLflow server does not have access to Location B
+    # because it will assume that it can serve all proxied artifacts regardless of the underlying
+    # location. Such failures can be remediated by granting the original MLflow server access to
+    # Location B.
+    return (
+        parsed_run_artifact_root.scheme in ["http", "https", "mlflow-artifacts"]
+        and _is_serving_proxied_artifacts()
+    )
+
+
+def _get_proxied_run_artifact_destination_path(proxied_artifact_root, relative_path=None):
+    """
+    Resolves the specified proxied artifact location within a Run to a concrete storage location.
+
+    :param proxied_artifact_root: The Run artifact root location (URI) with scheme ``http``,
+                                  ``https``, or `mlflow-artifacts` that can be resolved by the
+                                  MLflow server to a concrete storage location.
+    :param relative_path: The relative path of the destination within the specified
+                          ``proxied_artifact_root``. If ``None``, the destination is assumed to be
+                          the resolved ``proxied_artifact_root``.
+    :return: The storage location of the specified artifact.
+    """
+    parsed_proxied_artifact_root = urllib.parse.urlparse(proxied_artifact_root)
+    assert parsed_proxied_artifact_root.scheme in ["http", "https", "mlflow-artifacts"]
+
+    if parsed_proxied_artifact_root.scheme == "mlflow-artifacts":
+        # If the proxied artifact root is an `mlflow-artifacts` URI, the run artifact root path is
+        # simply the path component of the URI, since the fully-qualified format of an
+        # `mlflow-artifacts` URI is `mlflow-artifacts://<netloc>/path/to/artifact`
+        proxied_run_artifact_root_path = parsed_proxied_artifact_root.path.lstrip("/")
+    else:
+        # In this case, the proxied artifact root is an HTTP(S) URL referring to an mlflow-artifacts
+        # API route that can be used to download the artifact. These routes are always anchored at
+        # `/api/2.0/mlflow-artifacts/artifacts`. Accordingly, we split the path on this route anchor
+        # and interpret the rest of the path (everything after the route anchor) as the run artifact
+        # root path
+        mlflow_artifacts_http_route_anchor = "/api/2.0/mlflow-artifacts/artifacts/"
+        assert mlflow_artifacts_http_route_anchor in parsed_proxied_artifact_root.path
+
+        proxied_run_artifact_root_path = parsed_proxied_artifact_root.path.split(
+            mlflow_artifacts_http_route_anchor
+        )[1].lstrip("/")
+
+    return (
+        posixpath.join(proxied_run_artifact_root_path, relative_path)
+        if relative_path is not None
+        else proxied_run_artifact_root_path
+    )
 
 
 def _get_tracking_store(backend_store_uri=None, default_artifact_root=None):
@@ -172,12 +264,67 @@ def initialize_backend_stores(backend_store_uri=None, default_artifact_root=None
     except UnsupportedModelRegistryStoreURIException:
         pass
 
+_STRING_TYPE_DEFAULT_SCHEMA = {"type": "string"}
+_INTEGER_TYPE_DEFAULT_SCHEMA = {"type": "integer"}
+_REQUIRED_PARAM_DEFAULT_SCHEMA = {"required": True}
+
+_DEFAULT_SCHEMAS = {
+    "name": _STRING_TYPE_DEFAULT_SCHEMA,
+    "artifact_location": _STRING_TYPE_DEFAULT_SCHEMA,
+    "tags": {"type": "array", "minItems": 0},
+    "max_results": _INTEGER_TYPE_DEFAULT_SCHEMA,
+    "page_token": _STRING_TYPE_DEFAULT_SCHEMA,
+    "next_page_token": _STRING_TYPE_DEFAULT_SCHEMA,
+    "experiment_id": _STRING_TYPE_DEFAULT_SCHEMA,
+    "experiment_name": _STRING_TYPE_DEFAULT_SCHEMA,
+    "new_name": _STRING_TYPE_DEFAULT_SCHEMA,
+    "timestamp": _INTEGER_TYPE_DEFAULT_SCHEMA,
+    "start_time": _INTEGER_TYPE_DEFAULT_SCHEMA,
+    "end_time": _INTEGER_TYPE_DEFAULT_SCHEMA,
+    "run_id": _STRING_TYPE_DEFAULT_SCHEMA,
+    "key": _STRING_TYPE_DEFAULT_SCHEMA,
+    "step": _INTEGER_TYPE_DEFAULT_SCHEMA,
+    "model_json": _STRING_TYPE_DEFAULT_SCHEMA,
+    "metric_key": _STRING_TYPE_DEFAULT_SCHEMA,
+    "filter": _STRING_TYPE_DEFAULT_SCHEMA,
+    "path": _STRING_TYPE_DEFAULT_SCHEMA,
+    "description": _STRING_TYPE_DEFAULT_SCHEMA,
+    "stages": {"type": "array", "items": _STRING_TYPE_DEFAULT_SCHEMA},
+    "source": _STRING_TYPE_DEFAULT_SCHEMA,
+    "run_link": _STRING_TYPE_DEFAULT_SCHEMA,
+    "version": _STRING_TYPE_DEFAULT_SCHEMA,
+    "order_by": {"type": "array", "items": _STRING_TYPE_DEFAULT_SCHEMA},
+    "archive_existing_versions": {"type": "boolean"}
+}
+
+
+def _build_schema(name, additional_schema = {}):
+
+    schema = copy.deepcopy(_DEFAULT_SCHEMAS.get(name, {}))
+
+    for k, v in additional_schema.items():
+        schema[k] = v
+
+    return schema
+
+def _validate_param_against_schema(schema, param):
+    ## If the schema is empty, do nothing
+    if not schema:
+        return True
+
+    try:
+        Draft202012Validator(schema).validate(param)
+    except ValidationError as e:
+        raise MlflowException(
+            message=e.message,
+            error_code=INVALID_PARAMETER_VALUE
+        )
+
 
 def _get_request_json(flask_request=request):
     return flask_request.get_json(force=True, silent=True)
 
-
-def _get_request_message(request_message, flask_request=request):
+def _get_request_message(request_message, flask_request=request, **additional_schema):
     from querystring_parser import parser
 
     if flask_request.method == "GET" and len(flask_request.query_string) > 0:
@@ -216,9 +363,14 @@ def _get_request_message(request_message, flask_request=request):
     # If request doesn't have json body then assume it's empty.
     if request_json is None:
         request_json = {}
-    parse_dict(request_json, request_message)
-    return request_message
 
+    for k, v in request_json.items():
+        schema = _build_schema(k, additional_schema.get(k, {}))
+        _validate_param_against_schema(schema, v)
+
+    parse_dict(request_json, request_message)
+
+    return request_message
 
 def _send_artifact(artifact_repository, path):
     filename = os.path.abspath(artifact_repository.download_artifacts(path))
@@ -261,13 +413,10 @@ _TEXT_EXTENSIONS = [
     MLPROJECT_FILE_NAME,
 ]
 
-
 def _disable_unless_serve_artifacts(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
-        from mlflow.server import SERVE_ARTIFACTS_ENV_VAR
-
-        if not os.environ.get(SERVE_ARTIFACTS_ENV_VAR):
+        if not _is_serving_proxied_artifacts():
             return Response(
                 (
                     f"Endpoint: {request.url_rule} disabled due to the mlflow server running "
@@ -308,7 +457,18 @@ def get_artifact_handler():
     request_dict = parser.parse(query_string, normalized=True)
     run_id = request_dict.get("run_id") or request_dict.get("run_uuid")
     run = _get_tracking_store().get_run(run_id)
-    return _send_artifact(_get_artifact_repo(run), request_dict["path"])
+
+    if _is_servable_proxied_run_artifact_root(run.info.artifact_uri):
+        artifact_repo = _get_artifact_repo_mlflow_artifacts()
+        artifact_path = _get_proxied_run_artifact_destination_path(
+            proxied_artifact_root=run.info.artifact_uri,
+            relative_path=request_dict["path"],
+        )
+    else:
+        artifact_repo = _get_artifact_repo(run)
+        artifact_path = request_dict["path"]
+
+    return _send_artifact(artifact_repo, artifact_path)
 
 
 def _not_implemented():
@@ -323,7 +483,8 @@ def _not_implemented():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _create_experiment():
-    request_message = _get_request_message(CreateExperiment())
+
+    request_message = _get_request_message(CreateExperiment(), name = _REQUIRED_PARAM_DEFAULT_SCHEMA)
     tags = [ExperimentTag(tag.key, tag.value) for tag in request_message.tags]
     experiment_id = _get_tracking_store().create_experiment(
         request_message.name, request_message.artifact_location, tags
@@ -334,11 +495,10 @@ def _create_experiment():
     response.set_data(message_to_json(response_message))
     return response
 
-
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _get_experiment():
-    request_message = _get_request_message(GetExperiment())
+    request_message = _get_request_message(GetExperiment(), experiment_id = _REQUIRED_PARAM_DEFAULT_SCHEMA)
     response_message = GetExperiment.Response()
     experiment = _get_tracking_store().get_experiment(request_message.experiment_id).to_proto()
     response_message.experiment.MergeFrom(experiment)
@@ -350,7 +510,7 @@ def _get_experiment():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _get_experiment_by_name():
-    request_message = _get_request_message(GetExperimentByName())
+    request_message = _get_request_message(GetExperimentByName(), experiment_name = _REQUIRED_PARAM_DEFAULT_SCHEMA)
     response_message = GetExperimentByName.Response()
     store_exp = _get_tracking_store().get_experiment_by_name(request_message.experiment_name)
     if store_exp is None:
@@ -368,7 +528,7 @@ def _get_experiment_by_name():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _delete_experiment():
-    request_message = _get_request_message(DeleteExperiment())
+    request_message = _get_request_message(DeleteExperiment(), experiment_id = _REQUIRED_PARAM_DEFAULT_SCHEMA)
     _get_tracking_store().delete_experiment(request_message.experiment_id)
     response_message = DeleteExperiment.Response()
     response = Response(mimetype="application/json")
@@ -379,7 +539,7 @@ def _delete_experiment():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _restore_experiment():
-    request_message = _get_request_message(RestoreExperiment())
+    request_message = _get_request_message(RestoreExperiment(), experiment_id = _REQUIRED_PARAM_DEFAULT_SCHEMA)
     _get_tracking_store().restore_experiment(request_message.experiment_id)
     response_message = RestoreExperiment.Response()
     response = Response(mimetype="application/json")
@@ -390,7 +550,7 @@ def _restore_experiment():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _update_experiment():
-    request_message = _get_request_message(UpdateExperiment())
+    request_message = _get_request_message(UpdateExperiment(), experiment_id = _REQUIRED_PARAM_DEFAULT_SCHEMA)
     if request_message.new_name:
         _get_tracking_store().rename_experiment(
             request_message.experiment_id, request_message.new_name
@@ -424,7 +584,7 @@ def _create_run():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _update_run():
-    request_message = _get_request_message(UpdateRun())
+    request_message = _get_request_message(UpdateRun(), run_id = _REQUIRED_PARAM_DEFAULT_SCHEMA)
     run_id = request_message.run_id or request_message.run_uuid
     updated_info = _get_tracking_store().update_run_info(
         run_id, request_message.status, request_message.end_time
@@ -438,7 +598,7 @@ def _update_run():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _delete_run():
-    request_message = _get_request_message(DeleteRun())
+    request_message = _get_request_message(DeleteRun(), run_id = _REQUIRED_PARAM_DEFAULT_SCHEMA)
     _get_tracking_store().delete_run(request_message.run_id)
     response_message = DeleteRun.Response()
     response = Response(mimetype="application/json")
@@ -449,7 +609,7 @@ def _delete_run():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _restore_run():
-    request_message = _get_request_message(RestoreRun())
+    request_message = _get_request_message(RestoreRun(), run_id = _REQUIRED_PARAM_DEFAULT_SCHEMA)
     _get_tracking_store().restore_run(request_message.run_id)
     response_message = RestoreRun.Response()
     response = Response(mimetype="application/json")
@@ -460,7 +620,13 @@ def _restore_run():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _log_metric():
-    request_message = _get_request_message(LogMetric())
+    request_message = _get_request_message(
+        LogMetric(),
+        run_id = _REQUIRED_PARAM_DEFAULT_SCHEMA,
+        key = _REQUIRED_PARAM_DEFAULT_SCHEMA,
+        value = {"required": True, "type": "number"},
+        timestamp = _REQUIRED_PARAM_DEFAULT_SCHEMA
+    )
     metric = Metric(
         request_message.key, request_message.value, request_message.timestamp, request_message.step
     )
@@ -475,7 +641,12 @@ def _log_metric():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _log_param():
-    request_message = _get_request_message(LogParam())
+    request_message = _get_request_message(
+        LogParam(),
+        run_id = _REQUIRED_PARAM_DEFAULT_SCHEMA,
+        key = _REQUIRED_PARAM_DEFAULT_SCHEMA,
+        value = {"required": True, "type": "string"}
+    )
     param = Param(request_message.key, request_message.value)
     run_id = request_message.run_id or request_message.run_uuid
     _get_tracking_store().log_param(run_id, param)
@@ -488,7 +659,11 @@ def _log_param():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _set_experiment_tag():
-    request_message = _get_request_message(SetExperimentTag())
+    request_message = _get_request_message(
+        SetExperimentTag(),
+        key = _REQUIRED_PARAM_DEFAULT_SCHEMA,
+        value = {"type": "string", "required": True}
+    )
     tag = ExperimentTag(request_message.key, request_message.value)
     _get_tracking_store().set_experiment_tag(request_message.experiment_id, tag)
     response_message = SetExperimentTag.Response()
@@ -500,7 +675,11 @@ def _set_experiment_tag():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _set_tag():
-    request_message = _get_request_message(SetTag())
+    request_message = _get_request_message(
+        SetTag(),
+        key = _REQUIRED_PARAM_DEFAULT_SCHEMA,
+        value = {"type": "string", "required": True}
+    )
     tag = RunTag(request_message.key, request_message.value)
     run_id = request_message.run_id or request_message.run_uuid
     _get_tracking_store().set_tag(run_id, tag)
@@ -513,7 +692,7 @@ def _set_tag():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _delete_tag():
-    request_message = _get_request_message(DeleteTag())
+    request_message = _get_request_message(DeleteTag(), key = _REQUIRED_PARAM_DEFAULT_SCHEMA)
     _get_tracking_store().delete_tag(request_message.run_id, request_message.key)
     response_message = DeleteTag.Response()
     response = Response(mimetype="application/json")
@@ -524,7 +703,7 @@ def _delete_tag():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _get_run():
-    request_message = _get_request_message(GetRun())
+    request_message = _get_request_message(GetRun(), run_id = _REQUIRED_PARAM_DEFAULT_SCHEMA)
     response_message = GetRun.Response()
     run_id = request_message.run_id or request_message.run_uuid
     response_message.run.MergeFrom(_get_tracking_store().get_run(run_id).to_proto())
@@ -536,7 +715,10 @@ def _get_run():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _search_runs():
-    request_message = _get_request_message(SearchRuns())
+    request_message = _get_request_message(
+        SearchRuns(),
+        max_results = {"maximum": 50000}
+    )
     response_message = SearchRuns.Response()
     run_view_type = ViewType.ACTIVE_ONLY
     if request_message.HasField("run_view_type"):
@@ -560,7 +742,7 @@ def _search_runs():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _list_artifacts():
-    request_message = _get_request_message(ListArtifacts())
+    request_message = _get_request_message(ListArtifacts(), run_id = _REQUIRED_PARAM_DEFAULT_SCHEMA)
     response_message = ListArtifacts.Response()
     if request_message.HasField("path"):
         path = request_message.path
@@ -568,18 +750,65 @@ def _list_artifacts():
         path = None
     run_id = request_message.run_id or request_message.run_uuid
     run = _get_tracking_store().get_run(run_id)
-    artifact_entities = _get_artifact_repo(run).list_artifacts(path)
+
+    if _is_servable_proxied_run_artifact_root(run.info.artifact_uri):
+        artifact_entities = _list_artifacts_for_proxied_run_artifact_root(
+            proxied_artifact_root=run.info.artifact_uri,
+            relative_path=path,
+        )
+    else:
+        artifact_entities = _get_artifact_repo(run).list_artifacts(path)
+
     response_message.files.extend([a.to_proto() for a in artifact_entities])
-    response_message.root_uri = _get_artifact_repo(run).artifact_uri
+    response_message.root_uri = run.info.artifact_uri
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
 
 
 @catch_mlflow_exception
+def _list_artifacts_for_proxied_run_artifact_root(proxied_artifact_root, relative_path=None):
+    """
+    Lists artifacts from the specified ``relative_path`` within the specified proxied Run artifact
+    root (i.e. a Run artifact root with scheme ``http``, ``https``, or ``mlflow-artifacts``).
+
+    :param proxied_artifact_root: The Run artifact root location (URI) with scheme ``http``,
+                                  ``https``, or ``mlflow-artifacts`` that can be resolved by the
+                                  MLflow server to a concrete storage location.
+    :param relative_path: The relative path within the specified ``proxied_artifact_root`` under
+                          which to list artifact contents. If ``None``, artifacts are listed from
+                          the ``proxied_artifact_root`` directory.
+    """
+    parsed_proxied_artifact_root = urllib.parse.urlparse(proxied_artifact_root)
+    assert parsed_proxied_artifact_root.scheme in ["http", "https", "mlflow-artifacts"]
+
+    artifact_destination_repo = _get_artifact_repo_mlflow_artifacts()
+    artifact_destination_path = _get_proxied_run_artifact_destination_path(
+        proxied_artifact_root=proxied_artifact_root,
+        relative_path=relative_path,
+    )
+
+    artifact_entities = []
+    for file_info in artifact_destination_repo.list_artifacts(artifact_destination_path):
+        basename = posixpath.basename(file_info.path)
+        run_relative_artifact_path = (
+            posixpath.join(relative_path, basename) if relative_path else basename
+        )
+        artifact_entities.append(
+            FileInfo(run_relative_artifact_path, file_info.is_dir, file_info.file_size)
+        )
+
+    return artifact_entities
+
+
+@catch_mlflow_exception
 @_disable_if_artifacts_only
 def _get_metric_history():
-    request_message = _get_request_message(GetMetricHistory())
+    request_message = _get_request_message(
+        GetMetricHistory(),
+        run_id = _REQUIRED_PARAM_DEFAULT_SCHEMA,
+        metric_key = _REQUIRED_PARAM_DEFAULT_SCHEMA
+    )
     response_message = GetMetricHistory.Response()
     run_id = request_message.run_id or request_message.run_uuid
     metric_entites = _get_tracking_store().get_metric_history(run_id, request_message.metric_key)
@@ -592,7 +821,7 @@ def _get_metric_history():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _list_experiments():
-    request_message = _get_request_message(ListExperiments())
+    request_message = _get_request_message(ListExperiments(), max_results = {"maximum": 1000})
     # `ListFields` returns a list of (FieldDescriptor, value) tuples for *present* fields:
     # https://googleapis.dev/python/protobuf/latest/google/protobuf/message.html
     # #google.protobuf.message.Message.ListFields
@@ -608,7 +837,6 @@ def _list_experiments():
 
 
 @catch_mlflow_exception
-@_disable_if_artifacts_only
 def _get_artifact_repo(run):
     return get_artifact_repository(run.info.artifact_uri)
 
@@ -617,7 +845,12 @@ def _get_artifact_repo(run):
 @_disable_if_artifacts_only
 def _log_batch():
     _validate_batch_log_api_req(_get_request_json())
-    request_message = _get_request_message(LogBatch())
+    request_message = _get_request_message(
+        LogBatch(),
+        metrics = {"type": "array", "maxItems": 1000},
+        params = {"type": "array", "maxItems": 100},
+        tags = {"type": "array", "maxItems": 100}
+    )
     metrics = [Metric.from_proto(proto_metric) for proto_metric in request_message.metrics]
     params = [Param.from_proto(proto_param) for proto_param in request_message.params]
     tags = [RunTag.from_proto(proto_tag) for proto_tag in request_message.tags]
@@ -673,7 +906,7 @@ def _wrap_response(response_message):
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _create_registered_model():
-    request_message = _get_request_message(CreateRegisteredModel())
+    request_message = _get_request_message(CreateRegisteredModel(), name = _REQUIRED_PARAM_DEFAULT_SCHEMA)
     registered_model = _get_model_registry_store().create_registered_model(
         name=request_message.name,
         tags=request_message.tags,
@@ -686,7 +919,7 @@ def _create_registered_model():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _get_registered_model():
-    request_message = _get_request_message(GetRegisteredModel())
+    request_message = _get_request_message(GetRegisteredModel(), name = _REQUIRED_PARAM_DEFAULT_SCHEMA)
     registered_model = _get_model_registry_store().get_registered_model(name=request_message.name)
     response_message = GetRegisteredModel.Response(registered_model=registered_model.to_proto())
     return _wrap_response(response_message)
@@ -695,7 +928,7 @@ def _get_registered_model():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _update_registered_model():
-    request_message = _get_request_message(UpdateRegisteredModel())
+    request_message = _get_request_message(UpdateRegisteredModel(), name = _REQUIRED_PARAM_DEFAULT_SCHEMA)
     name = request_message.name
     new_description = request_message.description
     registered_model = _get_model_registry_store().update_registered_model(
@@ -708,7 +941,7 @@ def _update_registered_model():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _rename_registered_model():
-    request_message = _get_request_message(RenameRegisteredModel())
+    request_message = _get_request_message(RenameRegisteredModel(), name = _REQUIRED_PARAM_DEFAULT_SCHEMA)
     name = request_message.name
     new_name = request_message.new_name
     registered_model = _get_model_registry_store().rename_registered_model(
@@ -721,7 +954,7 @@ def _rename_registered_model():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _delete_registered_model():
-    request_message = _get_request_message(DeleteRegisteredModel())
+    request_message = _get_request_message(DeleteRegisteredModel(), name = _REQUIRED_PARAM_DEFAULT_SCHEMA)
     _get_model_registry_store().delete_registered_model(name=request_message.name)
     return _wrap_response(DeleteRegisteredModel.Response())
 
@@ -729,7 +962,7 @@ def _delete_registered_model():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _list_registered_models():
-    request_message = _get_request_message(ListRegisteredModels())
+    request_message = _get_request_message(ListRegisteredModels(), max_results = {"maxItems": 1000})
     registered_models = _get_model_registry_store().list_registered_models(
         request_message.max_results, request_message.page_token
     )
@@ -743,7 +976,7 @@ def _list_registered_models():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _search_registered_models():
-    request_message = _get_request_message(SearchRegisteredModels())
+    request_message = _get_request_message(SearchRegisteredModels(), max_results = {"maxItems": 1000})
     store = _get_model_registry_store()
     registered_models = store.search_registered_models(
         filter_string=request_message.filter,
@@ -761,7 +994,7 @@ def _search_registered_models():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _get_latest_versions():
-    request_message = _get_request_message(GetLatestVersions())
+    request_message = _get_request_message(GetLatestVersions(), name = _REQUIRED_PARAM_DEFAULT_SCHEMA)
     latest_versions = _get_model_registry_store().get_latest_versions(
         name=request_message.name, stages=request_message.stages
     )
@@ -773,7 +1006,12 @@ def _get_latest_versions():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _set_registered_model_tag():
-    request_message = _get_request_message(SetRegisteredModelTag())
+    request_message = _get_request_message(
+        SetRegisteredModelTag(),
+        name = _REQUIRED_PARAM_DEFAULT_SCHEMA,
+        key = _REQUIRED_PARAM_DEFAULT_SCHEMA,
+        value = _REQUIRED_PARAM_DEFAULT_SCHEMA
+    )
     tag = RegisteredModelTag(key=request_message.key, value=request_message.value)
     _get_model_registry_store().set_registered_model_tag(name=request_message.name, tag=tag)
     return _wrap_response(SetRegisteredModelTag.Response())
@@ -782,7 +1020,11 @@ def _set_registered_model_tag():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _delete_registered_model_tag():
-    request_message = _get_request_message(DeleteRegisteredModelTag())
+    request_message = _get_request_message(
+        DeleteRegisteredModelTag(),
+        name = _REQUIRED_PARAM_DEFAULT_SCHEMA,
+        key = _REQUIRED_PARAM_DEFAULT_SCHEMA
+    )
     _get_model_registry_store().delete_registered_model_tag(
         name=request_message.name, key=request_message.key
     )
@@ -792,7 +1034,11 @@ def _delete_registered_model_tag():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _create_model_version():
-    request_message = _get_request_message(CreateModelVersion())
+    request_message = _get_request_message(
+        CreateModelVersion(),
+        name = _REQUIRED_PARAM_DEFAULT_SCHEMA,
+        source = _REQUIRED_PARAM_DEFAULT_SCHEMA
+    )
     model_version = _get_model_registry_store().create_model_version(
         name=request_message.name,
         source=request_message.source,
@@ -821,7 +1067,11 @@ def get_model_version_artifact_handler():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _get_model_version():
-    request_message = _get_request_message(GetModelVersion())
+    request_message = _get_request_message(
+        GetModelVersion(),
+        name = _REQUIRED_PARAM_DEFAULT_SCHEMA,
+        version = _REQUIRED_PARAM_DEFAULT_SCHEMA
+    )
     model_version = _get_model_registry_store().get_model_version(
         name=request_message.name, version=request_message.version
     )
@@ -833,7 +1083,11 @@ def _get_model_version():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _update_model_version():
-    request_message = _get_request_message(UpdateModelVersion())
+    request_message = _get_request_message(
+        UpdateModelVersion(),
+        name = _REQUIRED_PARAM_DEFAULT_SCHEMA,
+        version = _REQUIRED_PARAM_DEFAULT_SCHEMA
+    )
     new_description = None
     if request_message.HasField("description"):
         new_description = request_message.description
@@ -846,7 +1100,13 @@ def _update_model_version():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _transition_stage():
-    request_message = _get_request_message(TransitionModelVersionStage())
+    request_message = _get_request_message(
+        TransitionModelVersionStage(),
+        name = _REQUIRED_PARAM_DEFAULT_SCHEMA,
+        version = _REQUIRED_PARAM_DEFAULT_SCHEMA,
+        stage = _REQUIRED_PARAM_DEFAULT_SCHEMA,
+        archive_existing_versions = _REQUIRED_PARAM_DEFAULT_SCHEMA
+    )
     model_version = _get_model_registry_store().transition_model_version_stage(
         name=request_message.name,
         version=request_message.version,
@@ -861,7 +1121,11 @@ def _transition_stage():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _delete_model_version():
-    request_message = _get_request_message(DeleteModelVersion())
+    request_message = _get_request_message(
+        DeleteModelVersion(),
+        name = _REQUIRED_PARAM_DEFAULT_SCHEMA,
+        version = _REQUIRED_PARAM_DEFAULT_SCHEMA
+    )
     _get_model_registry_store().delete_model_version(
         name=request_message.name, version=request_message.version
     )
@@ -882,7 +1146,7 @@ def _get_model_version_download_uri():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _search_model_versions():
-    request_message = _get_request_message(SearchModelVersions())
+    request_message = _get_request_message(SearchModelVersions(), max_results = {"maximum": 10000})
     model_versions = _get_model_registry_store().search_model_versions(request_message.filter)
     response_message = SearchModelVersions.Response()
     response_message.model_versions.extend([e.to_proto() for e in model_versions])
@@ -892,7 +1156,13 @@ def _search_model_versions():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _set_model_version_tag():
-    request_message = _get_request_message(SetModelVersionTag())
+    request_message = _get_request_message(
+        SetModelVersionTag(),
+        name = _REQUIRED_PARAM_DEFAULT_SCHEMA,
+        version = _REQUIRED_PARAM_DEFAULT_SCHEMA,
+        key = _REQUIRED_PARAM_DEFAULT_SCHEMA,
+        value = {"required": True, "type": "string"}
+    )
     tag = ModelVersionTag(key=request_message.key, value=request_message.value)
     _get_model_registry_store().set_model_version_tag(
         name=request_message.name, version=request_message.version, tag=tag
@@ -903,7 +1173,12 @@ def _set_model_version_tag():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _delete_model_version_tag():
-    request_message = _get_request_message(DeleteModelVersionTag())
+    request_message = _get_request_message(
+        DeleteModelVersionTag(),
+        name = _REQUIRED_PARAM_DEFAULT_SCHEMA,
+        version = _REQUIRED_PARAM_DEFAULT_SCHEMA,
+        key = _REQUIRED_PARAM_DEFAULT_SCHEMA
+    )
     _get_model_registry_store().delete_model_version_tag(
         name=request_message.name, version=request_message.version, key=request_message.key
     )

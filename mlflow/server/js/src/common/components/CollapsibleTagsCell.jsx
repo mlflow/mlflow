@@ -2,6 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import Utils from '../utils/Utils';
 import { css } from 'emotion';
+import { Tooltip } from '@databricks/design-system';
 
 // Number of tags shown when cell is collapsed
 export const NUM_TAGS_ON_COLLAPSED = 3;
@@ -47,16 +48,21 @@ export class CollapsibleTagsCell extends React.Component {
         {tagsToDisplay.map((entry) => {
           const tagName = entry[0];
           const value = entry[1];
+          const tooltipContent = value === '' ? tagName : `${tagName}: ${value}`;
           return (
             <div className='tag-cell-item truncate-text single-line' key={tagName}>
-              {value === '' ? (
-                <span className='tag-name'>{tagName}</span>
-              ) : (
-                <span>
-                  <span className='tag-name'>{tagName}:</span>
-                  <span className='metric-param-value'>{value}</span>
-                </span>
-              )}
+                <Tooltip title={tooltipContent} placement="bottom">
+                  <span className={overflowWithEllipsis}>
+                    {value === '' ? (
+                      <span className='tag-name'>{tagName}</span>
+                    ) : (
+                      <span>
+                        <span className='tag-name'>{tagName}:</span>
+                        <span className='metric-param-value'>{value}</span>
+                      </span>
+                    )}
+                  </span>
+                </Tooltip>
             </div>
           );
         })}
@@ -71,4 +77,13 @@ const expandableListClassName = css({
     textDecoration: 'underline',
     cursor: 'pointer',
   },
+  '.tag-cell-item': {
+    display: 'flex',
+  }
+});
+
+const overflowWithEllipsis = css({
+  textOverflow: 'ellipsis',
+  overflow: 'hidden',
+  flexShrink: 1,
 });

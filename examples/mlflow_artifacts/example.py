@@ -21,7 +21,7 @@ def main():
     with mlflow.start_run() as run, tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path_a = os.path.join(tmp_dir, "a.txt")
         save_text(tmp_path_a, "0")
-        tmp_sub_dir = tmp_path_b = os.path.join(tmp_dir, "dir")
+        tmp_sub_dir = os.path.join(tmp_dir, "dir")
         os.makedirs(tmp_sub_dir)
         tmp_path_b = os.path.join(tmp_sub_dir, "b.txt")
         save_text(tmp_path_b, "1")

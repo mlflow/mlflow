@@ -1,7 +1,10 @@
 import numpy as np
 import json
+import pandas as pd
+import pytest
+from contextlib import nullcontext as does_not_raise
 
-
+from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation import evaluate
 from mlflow.models.evaluation.default_evaluator import (
     _get_classifier_global_metrics,
@@ -11,6 +14,7 @@ from mlflow.models.evaluation.default_evaluator import (
     _get_binary_sum_up_label_pred_prob,
     _get_classifier_per_class_metrics,
     _gen_classifier_curve,
+    _evaluate_custom_metric,
 )
 import mlflow
 from sklearn.linear_model import LogisticRegression
@@ -279,6 +283,7 @@ def test_infer_model_type_by_labels():
     assert _infer_model_type_by_labels([1, 2.5]) == "regressor"
     assert _infer_model_type_by_labels(list(range(2000))) == "regressor"
     assert _infer_model_type_by_labels([1, 2, 3]) == "classifier"
+    assert _infer_model_type_by_labels(list(range(30))) is None
 
 
 def test_extract_raw_model_and_predict_fn(binary_logistic_regressor_model_uri):
@@ -499,3 +504,184 @@ def test_gen_multiclass_roc_curve():
 
     expected_auc = [0.75, 0.75, 0.3333]
     assert np.allclose(results.auc, expected_auc, rtol=1e-3)
+
+
+def test_evaluate_custom_metric_incorrect_return_formats():
+    eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
+    metrics = _get_regressor_metrics(eval_df["target"], eval_df["prediction"])
+
+    def dummy_fn(*_):
+        pass
+
+    with pytest.raises(
+        MlflowException,
+        match=f"'{dummy_fn.__name__}' (.*) returned None",
+    ):
+        _evaluate_custom_metric(0, dummy_fn, eval_df, metrics)
+
+    def incorrect_return_type_1(*_):
+        return 3
+
+    def incorrect_return_type_2(*_):
+        return "stuff", 3
+
+    for test_fn in (
+        incorrect_return_type_1,
+        incorrect_return_type_2,
+    ):
+        with pytest.raises(
+            MlflowException,
+            match=f"'{test_fn.__name__}' (.*) did not return in an expected format",
+        ):
+            _evaluate_custom_metric(0, test_fn, eval_df, metrics)
+
+    def non_str_metric_name(*_):
+        return {123: 123, "a": 32.1, "b": 3}
+
+    def non_numerical_metric_value(*_):
+        return {"stuff": 12, "non_numerical_metric": "123"}
+
+    for test_fn in (
+        non_str_metric_name,
+        non_numerical_metric_value,
+    ):
+        with pytest.raises(
+            MlflowException,
+            match=f"'{test_fn.__name__}' (.*) did not return metrics as a dictionary of "
+            "string metric names with numerical values",
+        ):
+            _evaluate_custom_metric(0, test_fn, eval_df, metrics)
+
+    def non_str_artifact_name(*_):
+        return {"a": 32.1, "b": 3}, {1: [1, 2, 3]}
+
+    with pytest.raises(
+        MlflowException,
+        match=f"'{non_str_artifact_name.__name__}' (.*) did not return artifacts as a "
+        "dictionary of string artifact names with their corresponding objects",
+    ):
+        _evaluate_custom_metric(0, non_str_artifact_name, eval_df, metrics)
+
+
+@pytest.mark.parametrize(
+    "fn, expectation",
+    [
+        (lambda eval_df, _: {"pred_sum": sum(eval_df["prediction"])}, does_not_raise()),
+        (lambda eval_df, builtin_metrics: ({"test": 1.1}, {"a_list": [1, 2, 3]}), does_not_raise()),
+        (
+            lambda _, __: 3,
+            pytest.raises(
+                MlflowException,
+                match="'<lambda>' (.*) did not return in an expected format",
+            ),
+        ),
+    ],
+)
+def test_evaluate_custom_metric_lambda(fn, expectation):
+    eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
+    metrics = _get_regressor_metrics(eval_df["target"], eval_df["prediction"])
+    with expectation:
+        _evaluate_custom_metric(0, fn, eval_df, metrics)
+
+
+def test_evaluate_custom_metric_success():
+    eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
+    metrics = _get_regressor_metrics(eval_df["target"], eval_df["prediction"])
+
+    def example_custom_metric(_, given_metrics):
+        return {
+            "example_count_times_1_point_5": given_metrics["example_count"] * 1.5,
+            "sum_on_label_minus_5": given_metrics["sum_on_label"] - 5,
+            "example_np_metric_1": np.float32(123.2),
+            "example_np_metric_2": np.ulonglong(10000000),
+        }
+
+    res_metrics, res_artifacts = _evaluate_custom_metric(0, example_custom_metric, eval_df, metrics)
+    assert res_metrics == {
+        "example_count_times_1_point_5": metrics["example_count"] * 1.5,
+        "sum_on_label_minus_5": metrics["sum_on_label"] - 5,
+        "example_np_metric_1": np.float32(123.2),
+        "example_np_metric_2": np.ulonglong(10000000),
+    }
+    assert res_artifacts is None
+
+    def example_custom_metric_with_artifacts(given_df, given_metrics):
+        return (
+            {
+                "example_count_times_1_point_5": given_metrics["example_count"] * 1.5,
+                "sum_on_label_minus_5": given_metrics["sum_on_label"] - 5,
+                "example_np_metric_1": np.float32(123.2),
+                "example_np_metric_2": np.ulonglong(10000000),
+            },
+            {
+                "pred_target_abs_diff": np.abs(given_df["prediction"] - given_df["target"]),
+                "example_dictionary_artifact": {"a": 1, "b": 2},
+            },
+        )
+
+    res_metrics_2, res_artifacts_2 = _evaluate_custom_metric(
+        0, example_custom_metric_with_artifacts, eval_df, metrics
+    )
+    assert res_metrics_2 == {
+        "example_count_times_1_point_5": metrics["example_count"] * 1.5,
+        "sum_on_label_minus_5": metrics["sum_on_label"] - 5,
+        "example_np_metric_1": np.float32(123.2),
+        "example_np_metric_2": np.ulonglong(10000000),
+    }
+    assert "pred_target_abs_diff" in res_artifacts_2
+    assert res_artifacts_2["pred_target_abs_diff"].equals(
+        np.abs(eval_df["prediction"] - eval_df["target"])
+    )
+
+    assert "example_dictionary_artifact" in res_artifacts_2
+    assert res_artifacts_2["example_dictionary_artifact"] == {"a": 1, "b": 2}
+
+
+def test_custom_metric(binary_logistic_regressor_model_uri, breast_cancer_dataset):
+    def example_custom_metric(eval_df, given_metrics):
+        return {
+            "true_count": given_metrics["true_negatives"] + given_metrics["true_positives"],
+            "positive_count": np.sum(eval_df["prediction"]),
+        }
+
+    with mlflow.start_run() as run:
+        result = evaluate(
+            binary_logistic_regressor_model_uri,
+            breast_cancer_dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=breast_cancer_dataset._constructor_args["targets"],
+            dataset_name=breast_cancer_dataset.name,
+            evaluators="default",
+            custom_metrics=[example_custom_metric],
+        )
+
+    _, metrics, _, _ = get_run_data(run.info.run_id)
+
+    model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
+    _, _, predict_fn, _ = _extract_raw_model_and_predict_fn(model)
+    y = breast_cancer_dataset.labels_data
+    y_pred = predict_fn(breast_cancer_dataset.features_data)
+
+    expected_metrics = _get_classifier_per_class_metrics(y, y_pred)
+
+    assert "true_count_on_data_breast_cancer_dataset" in metrics
+    assert np.isclose(
+        metrics["true_count_on_data_breast_cancer_dataset"],
+        expected_metrics["true_negatives"] + expected_metrics["true_positives"],
+        rtol=1e-3,
+    )
+
+    assert "true_count" in result.metrics
+    assert np.isclose(
+        result.metrics["true_count"],
+        expected_metrics["true_negatives"] + expected_metrics["true_positives"],
+        rtol=1e-3,
+    )
+
+    assert "positive_count_on_data_breast_cancer_dataset" in metrics
+    assert np.isclose(
+        metrics["positive_count_on_data_breast_cancer_dataset"], np.sum(y_pred), rtol=1e-3
+    )
+
+    assert "positive_count" in result.metrics
+    assert np.isclose(result.metrics["positive_count"], np.sum(y_pred), rtol=1e-3)

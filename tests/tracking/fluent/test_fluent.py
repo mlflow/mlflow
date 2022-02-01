@@ -416,9 +416,14 @@ def test_start_run_defaults_databricks_notebook(
     webapp_url_patch = mock.patch(
         "mlflow.utils.databricks_utils.get_webapp_url", return_value=mock_webapp_url
     )
+    mock_workspace_url = mock.Mock()
+    workspace_url_patch = mock.patch(
+        "mlflow.utils.databricks_utils.get_workspace_url", return_value=mock_workspace_url
+    )
+    mock_workspace_id = mock.Mock()
     workspace_info_patch = mock.patch(
         "mlflow.utils.databricks_utils.get_workspace_info_from_dbutils",
-        return_value=("https://databricks.com", "123456"),
+        return_value=(mock_webapp_url, mock_workspace_id),
     )
 
     expected_tags = {
@@ -429,8 +434,8 @@ def test_start_run_defaults_databricks_notebook(
         mlflow_tags.MLFLOW_DATABRICKS_NOTEBOOK_ID: mock_notebook_id,
         mlflow_tags.MLFLOW_DATABRICKS_NOTEBOOK_PATH: mock_notebook_path,
         mlflow_tags.MLFLOW_DATABRICKS_WEBAPP_URL: mock_webapp_url,
-        mlflow_tags.MLFLOW_DATABRICKS_WORKSPACE_URL: "https://databricks.com",
-        mlflow_tags.MLFLOW_DATABRICKS_WORKSPACE_ID: "123456",
+        mlflow_tags.MLFLOW_DATABRICKS_WORKSPACE_URL: mock_workspace_url,
+        mlflow_tags.MLFLOW_DATABRICKS_WORKSPACE_ID: mock_workspace_id,
     }
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
@@ -443,6 +448,7 @@ def test_start_run_defaults_databricks_notebook(
         notebook_id_patch,
         notebook_path_patch,
         webapp_url_patch,
+        workspace_url_patch,
         workspace_info_patch,
         create_run_patch,
     ):
@@ -797,6 +803,27 @@ def test_search_runs_no_arguments(search_runs_output_format):
         search_runs(output_format=search_runs_output_format)
         mlflow.tracking.fluent._paginate.assert_called_once()
         mlflow.tracking.fluent._get_experiment_id.assert_called_once()
+
+
+def test_search_runs_all_experiments(search_runs_output_format):
+    """
+    When no experiment ID is specified but flag is passed, it should search all experiments.
+    """
+    from mlflow.entities import Experiment
+
+    mock_experiment_id = mock.Mock()
+    mock_experiment = mock.Mock(Experiment)
+    experiment_id_patch = mock.patch(
+        "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
+    )
+    experiment_list_patch = mock.patch(
+        "mlflow.tracking.fluent.list_experiments", return_value=[mock_experiment]
+    )
+    get_paginated_runs_patch = mock.patch("mlflow.tracking.fluent._paginate", return_value=[])
+    with experiment_id_patch, experiment_list_patch, get_paginated_runs_patch:
+        search_runs(output_format=search_runs_output_format, search_all_experiments=True)
+        mlflow.tracking.fluent.list_experiments.assert_called_once()
+        mlflow.tracking.fluent._get_experiment_id.assert_not_called()
 
 
 def test_paginate_lt_maxresults_onepage():
