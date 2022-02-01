@@ -1,4 +1,4 @@
-from mlflow.entities import Experiment, Run, RunInfo, Metric, ViewType
+from mlflow.entities import Experiment, Run, RunInfo, Metric, ViewType, experiment
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
@@ -251,8 +251,16 @@ class RestStore(AbstractStore):
         return [Metric.from_proto(metric) for metric in response_proto.metrics]
 
     def _search_runs(
-        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
+        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token, search_all_experiments
     ):
+        if len(experiment_ids) == 0 and search_all_experiments:
+            experiment_page = self.list_experiments(view_type=ViewType.ALL)
+            experiments = experiment_page
+            while experiment_page.token is not None:
+                experiment_page = self.list_experiments(view_type=ViewType.ALL, page_token=experiment_page.token)
+                experiments += experiment_page
+            experiment_ids = [exp.id for exp in experiments]
+
         experiment_ids = [str(experiment_id) for experiment_id in experiment_ids]
         sr = SearchRuns(
             experiment_ids=experiment_ids,

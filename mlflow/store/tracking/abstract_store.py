@@ -220,6 +220,7 @@ class AbstractStore:
         max_results=SEARCH_MAX_RESULTS_DEFAULT,
         order_by=None,
         page_token=None,
+        search_all_experiments=False,
     ):
         """
         Return runs that match the given list of search expressions within the experiments.
@@ -231,6 +232,8 @@ class AbstractStore:
         :param order_by: List of order_by clauses.
         :param page_token: Token specifying the next page of results. It should be obtained from
             a ``search_runs`` call.
+        :param search_all_experiments: Boolean specifying whether all experiments should be searched.
+            Is only honored if no exeperiments are provided through ``experiment_ids``.
 
         :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
             :py:class:`Run <mlflow.entities.Run>` objects that satisfy the search expressions.
@@ -240,13 +243,13 @@ class AbstractStore:
             meaningful in such cases.
         """
         runs, token = self._search_runs(
-            experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
+            experiment_ids, filter_string, run_view_type, max_results, order_by, page_token, search_all_experiments
         )
         return PagedList(runs, token)
 
     @abstractmethod
     def _search_runs(
-        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
+        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token, search_all_experiments
     ):
         """
         Return runs that match the given list of search expressions within the experiments, as

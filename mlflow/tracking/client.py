@@ -1527,6 +1527,7 @@ class MlflowClient:
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
         order_by: Optional[List[str]] = None,
         page_token: Optional[str] = None,
+        search_all_experiments: bool = False
     ) -> PagedList[Run]:
         """
         Search experiments that fit the search criteria.
@@ -1541,6 +1542,8 @@ class MlflowClient:
                      The default ordering is to sort by ``start_time DESC``, then ``run_id``.
         :param page_token: Token specifying the next page of results. It should be obtained from
             a ``search_runs`` call.
+        :param search_all_experiments: Boolean specifying whether all experiments should be searched.
+            Is only honored if no exeperiments are provided through ``experiment_ids``.
 
         :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
             :py:class:`Run <mlflow.entities.Run>` objects that satisfy the search expressions.
@@ -1608,7 +1611,7 @@ class MlflowClient:
             tags: {'s.release': '1.1.0-RC'}
         """
         return self._tracking_client.search_runs(
-            experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
+            experiment_ids, filter_string, run_view_type, max_results, order_by, page_token, search_all_experiments
         )
 
     # Registry API

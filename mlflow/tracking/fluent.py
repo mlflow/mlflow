@@ -1066,6 +1066,7 @@ def search_runs(
     max_results: int = SEARCH_MAX_RESULTS_PANDAS,
     order_by: Optional[List[str]] = None,
     output_format: str = "pandas",
+    search_all_experiments: bool = False
 ) -> Union[List[Run], "pandas.DataFrame"]:
     """
     Get a pandas DataFrame of runs that fit the search criteria.
@@ -1082,6 +1083,8 @@ def search_runs(
     :param output_format: The output format to be returned. If ``pandas``, a ``pandas.DataFrame``
                           is returned and, if ``list``, a list of :py:class:`mlflow.entities.Run`
                           is returned.
+    :param search_all_experiments: Boolean specifying whether all experiments should be searched.
+        Is only honored if no exeperiments are provided through ``experiment_ids``.
 
     :return: If output_format is ``list``: a list of :py:class:`mlflow.entities.Run`. If
              output_format is ``pandas``: ``pandas.DataFrame`` of runs, where each metric,
@@ -1125,7 +1128,9 @@ def search_runs(
            metrics.m tags.s.release                            run_id
         0       1.55       1.1.0-RC  5cc7feaf532f496f885ad7750809c4d4
     """
-    if experiment_ids is None:
+    if search_all_experiments and (experiment_ids is None or len(experiment_ids) == 0):
+        experiment_ids = [exp.id for exp in list_experiments(view_type=ViewType.ALL)]
+    elif experiment_ids is None:
         experiment_ids = _get_experiment_id()
 
     # Using an internal function as the linter doesn't like assigning a lambda, and inlining the
@@ -1138,6 +1143,7 @@ def search_runs(
             number_to_get,
             order_by,
             next_page_token,
+            search_all_experiments,
         )
 
     runs = _paginate(pagination_wrapper_func, NUM_RUNS_PER_PAGE_PANDAS, max_results)
