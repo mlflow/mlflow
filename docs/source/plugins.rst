@@ -217,6 +217,7 @@ plugin:
        ``model_type`` (the same with ``model_type`` argument in ``mlflow.evaluate`` API),
        ``dataset`` (an instance of `mlflow.models.evaluation.base._EvaluationDataset` containing features and labels (optional) for model evaluation,
        ``run_id`` (the ID of the MLflow Run to which to log results), ``evaluator_config`` (a dictionary of additional configurations for the evaluator).
+     - `DummyEvaluator <https://github.com/mlflow/mlflow/blob/branch-1.23/tests/resources/mlflow-test-plugin/mlflow_test_plugin/dummy_evaluator.py>`_.
 
 
 Testing Your Plugin
@@ -231,7 +232,7 @@ reference implementations as an example:
 * `Example ArtifactRepository tests <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/store/artifact/test_local_artifact_repo.py>`_
 * `Example RunContextProvider tests <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/tracking/context/test_git_context.py>`_
 * `Example Model Registry Store tests <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/store/model_registry/test_sqlalchemy_store.py>`_
-* `Example Custom Mlflow Evaluator tests <https://github.com/mlflow/mlflow/blob/a1faae7c4ae9141c4bb441cb69273f9c12fbc454/tests/resources/mlflow-test-plugin/mlflow_test_plugin/dummy_evaluator.py>`
+* `Example Custom Mlflow Evaluator tests <https://github.com/mlflow/mlflow/blob/branch-1.23/tests/resources/mlflow-test-plugin/mlflow_test_plugin/dummy_evaluator.py>`_
 
 
 Distributing Your Plugin
