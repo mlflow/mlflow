@@ -202,7 +202,8 @@ class _OnnxModelWrapper:
     def __init__(self, path, providers=None):
         import onnxruntime
 
-        # Get the model meta data from the MLModel yaml file which may contain the providers specification
+        # Get the model meta data from the MLModel yaml file which may contain the providers 
+        # specification.
         local_path = str(Path(path).parent)
         model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
 
@@ -239,8 +240,6 @@ class _OnnxModelWrapper:
             self.rt = onnxruntime.InferenceSession(path)
         except ValueError:
             self.rt = onnxruntime.InferenceSession(path, providers=providers)
-        except:
-            raise
 
         assert len(self.rt.get_inputs()) >= 1
         self.inputs = [(inp.name, inp.type) for inp in self.rt.get_inputs()]
