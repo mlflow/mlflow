@@ -202,7 +202,7 @@ class _OnnxModelWrapper:
     def __init__(self, path, providers=None):
         import onnxruntime
 
-        # Get the model meta data from the MLModel yaml file which may contain the providers 
+        # Get the model meta data from the MLModel yaml file which may contain the providers
         # specification.
         local_path = str(Path(path).parent)
         model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
