@@ -52,13 +52,6 @@
   width: 100%;
   max-width: 100%;
   margin-bottom: 20px;
-
-  /* The border-collapse and border-spacing setting is to make header column "position sticky"
-   * works correctly with the border-bottom style.
-   * https://stackoverflow.com/a/61412922/12301610
-   */
-  border-collapse: separate;
-  border-spacing: 0;
 }
 .compare-table th,
 .compare-table td {
