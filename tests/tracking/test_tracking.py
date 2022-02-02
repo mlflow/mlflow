@@ -1055,4 +1055,5 @@ def test_search_runs_multiple_experiments():
     assert len(MlflowClient().search_runs(experiment_ids, "metrics.m_2 = 2", ViewType.ALL)) == 1
     assert len(MlflowClient().search_runs(experiment_ids, "metrics.m_3 < 4", ViewType.ALL)) == 1
 
-    assert len(MlflowClient().search_runs([], None, ViewType.ALL)) == 3
+    assert len(MlflowClient().search_runs([], None, ViewType.ALL)) == 0
+    assert len(MlflowClient().search_runs([], None, ViewType.ALL, search_all_experiments=True)) == 3

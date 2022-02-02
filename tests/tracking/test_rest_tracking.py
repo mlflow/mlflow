@@ -453,7 +453,7 @@ def test_artifacts(mlflow_client):
     assert open("%s/my.file" % dir_artifacts, "r").read() == "Hello, World!"
 
 
-def test_search_pagination(mlflow_client, backend_store_uri):
+def test_search_pagination(mlflow_client):
     experiment_id = mlflow_client.create_experiment("search_pagination")
     runs = [mlflow_client.create_run(experiment_id, start_time=1).info.run_id for _ in range(0, 10)]
     runs = sorted(runs)
@@ -466,6 +466,20 @@ def test_search_pagination(mlflow_client, backend_store_uri):
     result = mlflow_client.search_runs([experiment_id], max_results=4, page_token=result.token)
     assert [r.info.run_id for r in result] == runs[8:]
     assert result.token is None
+
+
+def test_search_all_experiments(mlflow_client):
+    experiment_id_01 = mlflow_client.create_experiment("search_all_experiments_01")
+    experiment_id_02 = mlflow_client.create_experiment("search_all_experiments_02")
+    runs01 = [mlflow_client.create_run(experiment_id_01, start_time=1).info.run_id for _ in range(0, 3)]
+    runs01 = sorted(runs01)
+    runs02 = [mlflow_client.create_run(experiment_id_02, start_time=1).info.run_id for _ in range(0, 3)]
+    runs02 = sorted(runs02)
+    result = [run.info.run_id for run in mlflow_client.search_runs([], search_all_experiments=True)]
+    paginated = result.token is not None
+    if not paginated:
+        for run in runs01 + runs02:
+            assert run in result
 
 
 def test_get_experiment_by_name(mlflow_client, backend_store_uri):

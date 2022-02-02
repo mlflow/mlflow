@@ -121,6 +121,7 @@ def test_client_search_runs_defaults(mock_store):
         max_results=SEARCH_MAX_RESULTS_DEFAULT,
         order_by=None,
         page_token=None,
+        search_all_experiments=False
     )
 
 
@@ -209,7 +210,7 @@ def test_client_search_runs_page_token(mock_store):
 
 
 def test_client_search_runs_empty_list(mock_store):
-    MlflowClient().search_runs([])
+    MlflowClient().search_runs([], search_all_experiments=True)
     mock_store.search_runs.assert_called_once_with(
         experiment_ids=[],
         filter_string="",
@@ -217,6 +218,7 @@ def test_client_search_runs_empty_list(mock_store):
         max_results=SEARCH_MAX_RESULTS_DEFAULT,
         order_by=None,
         page_token=None,
+        search_all_experiments=True
     )
 
 
