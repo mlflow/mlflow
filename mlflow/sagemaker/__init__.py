@@ -1996,6 +1996,8 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             timeout_seconds=final_config["timeout_seconds"],
         )
 
+        return dict(name=name, flavor=flavor)
+
     def update_deployment(self, name, model_uri=None, flavor=None, config=None):
         pass
 

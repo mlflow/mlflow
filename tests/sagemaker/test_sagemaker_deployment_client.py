@@ -7,12 +7,14 @@ from unittest import mock
 import boto3
 import botocore
 import numpy as np
+from click.testing import CliRunner
 from sklearn.linear_model import LogisticRegression
 
 import mlflow
 import mlflow.pyfunc
 import mlflow.sklearn
 import mlflow.sagemaker as mfs
+from mlflow.deployments.cli import commands as cli_commands
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import (
@@ -96,6 +98,21 @@ def mock_sagemaker_aws_services(fn):
         return fn(*args, **kwargs)
 
     return mock_wrapper
+
+
+@mock_sagemaker_aws_services
+def test_assume_role_and_get_credentials():
+    assumed_role_credentials = mfs._assume_role_and_get_credentials(
+        assume_role_arn="arn:aws:iam::123456789012:role/assumed_role"
+    )
+    assert "aws_access_key_id" in assumed_role_credentials.keys()
+    assert "aws_secret_access_key" in assumed_role_credentials.keys()
+    assert "aws_session_token" in assumed_role_credentials.keys()
+    assert len(assumed_role_credentials["aws_session_token"]) == 356
+    assert assumed_role_credentials["aws_session_token"].startswith("FQoGZXIvYXdzE")
+    assert len(assumed_role_credentials["aws_access_key_id"]) == 20
+    assert assumed_role_credentials["aws_access_key_id"].startswith("ASIA")
+    assert len(assumed_role_credentials["aws_secret_access_key"]) == 40
 
 
 def test_initialize_sagemaker_deployment_client_with_only_target_name():
@@ -265,6 +282,56 @@ def test_create_deployment_create_sagemaker_and_s3_resources_with_expected_names
         ]
     )
     assert name in [
+        endpoint["EndpointName"] for endpoint in sagemaker_client.list_endpoints()["Endpoints"]
+    ]
+    model_environment = sagemaker_client.describe_model(ModelName=model_name)["PrimaryContainer"][
+        "Environment"
+    ]
+    assert model_environment == {
+        "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
+        "SERVING_ENVIRONMENT": "SageMaker",
+    }
+
+
+@pytest.mark.large
+@mock_sagemaker_aws_services
+def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_env_from_local(
+    pretrained_model, sagemaker_client
+):
+    app_name = "test-app"
+    region_name = sagemaker_client.meta.region_name
+    result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
+        cli_commands,
+        [
+            "create",
+            "--target",
+            f"sagemaker:/{region_name}",
+            "--name",
+            app_name,
+            "--model-uri",
+            pretrained_model.model_uri,
+        ],
+    )
+    assert result.exit_code == 0
+
+    s3_client = boto3.client("s3", region_name=region_name)
+    default_bucket = mfs._get_default_s3_bucket(region_name)
+    endpoint_description = sagemaker_client.describe_endpoint(EndpointName=app_name)
+    endpoint_production_variants = endpoint_description["ProductionVariants"]
+    assert len(endpoint_production_variants) == 1
+    model_name = endpoint_production_variants[0]["VariantName"]
+    assert model_name in [model["ModelName"] for model in sagemaker_client.list_models()["Models"]]
+    object_names = [
+        entry["Key"] for entry in s3_client.list_objects(Bucket=default_bucket)["Contents"]
+    ]
+    assert any([model_name in object_name for object_name in object_names])
+    assert any(
+        [
+            app_name in config["EndpointConfigName"]
+            for config in sagemaker_client.list_endpoint_configs()["EndpointConfigs"]
+        ]
+    )
+    assert app_name in [
         endpoint["EndpointName"] for endpoint in sagemaker_client.list_endpoints()["Endpoints"]
     ]
     model_environment = sagemaker_client.describe_model(ModelName=model_name)["PrimaryContainer"][

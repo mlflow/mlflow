@@ -55,8 +55,9 @@ class PluginManager(abc.ABC):
         """
         Register a deployment client given its target name and module
 
-        :param target_name: The name of the deployment target. This name will be used by `get_deploy_client()`
-                            to retrieve a deployment client from the plugin store
+        :param target_name: The name of the deployment target. This name will be used by
+                            `get_deploy_client()` to retrieve a deployment client from
+                            the plugin store
         :param plugin_module: The module that implements the deployment plugin interface
         """
         self.registry[target_name] = entrypoints.EntryPoint(target_name, plugin_module, None)
