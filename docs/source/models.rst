@@ -266,6 +266,8 @@ day precision have NumPy type ``datetime64[D]``, while values with nanosecond pr
 type ``datetime64[ns]``. Datetime precision is ignored for column-based model signature but is
 enforced for tensor-based signatures.
 
+.. _how-to-log-models-with-signatures:
+
 How To Log Models With Signatures
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 To include a signature with your model, pass :py:class:`signature object
