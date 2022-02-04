@@ -131,8 +131,8 @@ def log_model(
         .. warning::
 
             Log the model with signature to avoid inference errors. Pytorch float precision default
-            is float32, while numpy float precision default is float64. Adding the signature will 
-            ensure correct precision is used when the model is logged and the model can be queried 
+            is float32, while numpy float precision default is float64. Adding the signature will
+            ensure correct precision is used when the model is logged and the model can be queried
             accurately.
 
     :param pytorch_model: PyTorch model to be saved. Can be either an eager model (subclass of
