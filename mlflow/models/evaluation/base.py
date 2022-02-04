@@ -264,6 +264,7 @@ class EvaluationDataset:
                 spark_df_type = None
         except ImportError:
             supported_dataframe_types = (pd.DataFrame,)
+            spark_df_type = None
 
         if feature_names is not None and len(set(feature_names)) < len(list(feature_names)):
             raise ValueError(
@@ -314,7 +315,7 @@ class EvaluationDataset:
                     "be the name of the column which contains evaluation labels in the `data` "
                     "dataframe."
                 )
-            if isinstance(data, spark_df_type):
+            if spark_df_type and isinstance(data, spark_df_type):
                 _logger.warning(
                     "Specified Spark DataFrame is too large for model evaluation. Only "
                     f"the first {EvaluationDataset.SPARK_DATAFRAME_LIMIT} rows will be used."
