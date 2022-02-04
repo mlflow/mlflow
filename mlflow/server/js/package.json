@@ -86,7 +86,6 @@
     "redux-mock-store": "^1.5.4"
   },
   "scripts": {
-
     "//": "IMPORTANT: For compatibility with Windows in MLflow OSS, do NOT inline environment variables in scripts other than `start-web`. Environment variables can instead be set in `mlflow/server/js/scripts/global-setup.js`.",
     "start": "react-app-rewired start",
     "start-web": "SERVE_WEBAPP=true HIDE_HEADER=true HIDE_EXPERIMENT_LIST=true SHOW_GDPR_PURGING_MESSAGES=true USE_ABSOLUTE_AJAX_URLS=true SHOULD_REDIRECT_IFRAME=true PORT=3001 react-app-rewired start",
