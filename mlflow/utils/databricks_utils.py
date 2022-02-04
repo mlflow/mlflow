@@ -320,6 +320,15 @@ def get_workspace_info_from_dbutils():
     return None, None
 
 
+def get_workspace_url_from_spark_conf():
+    try:
+        spark_session = _get_active_spark_session()
+        if spark_session is not None:
+            return spark_session.conf.get("spark.databricks.workspaceUrl")
+    except Exception:
+        return None
+
+
 def get_workspace_info_from_databricks_secrets(tracking_uri):
     profile, key_prefix = get_db_info_from_uri(tracking_uri)
     if key_prefix:
