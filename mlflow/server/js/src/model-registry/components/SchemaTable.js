@@ -76,8 +76,6 @@ export class SchemaTableImpl extends React.PureComponent {
 
   render() {
     const { schema } = this.props;
-    const plusIcon = <i className='far fa-plus-square' />;
-    const minusIcon = <i className='far fa-minus-square' />;
     const hasSchema = schema.inputs.length || schema.outputs.length;
     const sectionHeaders = hasSchema
       ? [
@@ -123,7 +121,17 @@ export class SchemaTableImpl extends React.PureComponent {
           defaultExpandAllRows={this.props.defaultExpandAllRows}
           expandRowByClick
           expandedRowRender={(record) => record.table}
-          expandIcon={({ expanded }) => (expanded ? minusIcon : plusIcon)}
+          expandIcon={({ expanded, onExpand, record }) =>
+            expanded ? (
+              <span onClick={(e) => onExpand(record, e)}>
+                <i className='far fa-minus-square' />
+              </span>
+            ) : (
+              <span onClick={(e) => onExpand(record, e)}>
+                <i className='far fa-plus-square' />
+              </span>
+            )
+          }
           locale={{
             emptyText: (
               <div>

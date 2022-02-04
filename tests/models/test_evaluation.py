@@ -315,6 +315,33 @@ def test_regressor_evaluate(linear_regressor_model_uri, diabetes_dataset):
         assert eval_result.metrics == expected_metrics
 
 
+def test_pandas_df_regressor_evaluation(linear_regressor_model_uri):
+
+    data = sklearn.datasets.load_diabetes()
+    df = pd.DataFrame(data.data, columns=data.feature_names)
+    df["y"] = data.target
+
+    regressor_model = mlflow.pyfunc.load_model(linear_regressor_model_uri)
+
+    dataset_name = "diabetes_pd"
+
+    for model in [regressor_model, linear_regressor_model_uri]:
+        with mlflow.start_run() as run:
+            eval_result = evaluate(
+                model,
+                data=df,
+                targets="y",
+                model_type="regressor",
+                dataset_name=dataset_name,
+                evaluators=["default"],
+            )
+        _, saved_metrics, _, _ = get_run_data(run.info.run_id)
+
+    augment_name = f"_on_data_{dataset_name}"
+    for k, v in eval_result.metrics.items():
+        assert v == saved_metrics[f"{k}{augment_name}"]
+
+
 def test_dataset_name():
     X, y = get_iris()
     d1 = EvaluationDataset(data=X, targets=y, name="a1")
