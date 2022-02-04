@@ -604,7 +604,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         assert len(self._search(fs, self.experiments[0], run_view_type=ViewType.ACTIVE_ONLY)) == 2
         assert len(self._search(fs, self.experiments[0])) == 2
         assert len(self._search(fs, self.experiments[0], run_view_type=ViewType.DELETED_ONLY)) == 0
-        assert len(self._search(fs, None, search_all_experiments=True))
+        assert len(self._search(fs, None, search_all_experiments=True)) >= 2
 
     def test_search_tags(self):
         fs = FileStore(self.test_root)

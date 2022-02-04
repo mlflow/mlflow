@@ -477,8 +477,9 @@ def test_search_all_experiments(mlflow_client):
     runs02 = [mlflow_client.create_run(experiment_id_02, start_time=1).info.run_id
               for _ in range(0, 3)]
     runs02 = sorted(runs02)
-    result = [run.info.run_id for run in mlflow_client.search_runs([], search_all_experiments=True)]
-    paginated = result.token is not None
+    run_list = mlflow_client.search_runs([], search_all_experiments=True)
+    result = [run.info.run_id for run in run_list]
+    paginated = run_list.token is not None
     if not paginated:
         for run in runs01 + runs02:
             assert run in result

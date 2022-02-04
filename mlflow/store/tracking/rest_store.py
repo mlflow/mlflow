@@ -267,7 +267,7 @@ class RestStore(AbstractStore):
                 experiment_page = self.list_experiments(view_type=ViewType.ALL, 
                                                         page_token=experiment_page.token)
                 experiments += experiment_page
-            experiment_ids = [exp.id for exp in experiments]
+            experiment_ids = [exp.experiment_id for exp in experiments]
 
         experiment_ids = [str(experiment_id) for experiment_id in experiment_ids]
         sr = SearchRuns(
