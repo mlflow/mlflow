@@ -751,7 +751,14 @@ class FileStore(AbstractStore):
         return run_infos
 
     def _search_runs(
-        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token, search_all_experiments
+        self,
+        experiment_ids,
+        filter_string,
+        run_view_type,
+        max_results,
+        order_by,
+        page_token,
+        search_all_experiments
     ):
         from mlflow.utils.search_utils import SearchUtils
 
@@ -763,7 +770,8 @@ class FileStore(AbstractStore):
             )
         runs = []
         if (experiment_ids is None or len(experiment_ids) == 0) and search_all_experiments:
-            experiment_ids = [exp.id for exp in self._get_active_experiments(True) + self._get_deleted_experiments(True)]
+            experiment_ids = [exp.id for exp in self._get_active_experiments(True) 
+                              + self._get_deleted_experiments(True)]
         for experiment_id in experiment_ids:
             run_infos = self._list_run_infos(experiment_id, run_view_type)
             runs.extend(self._get_run_from_info(r) for r in run_infos)

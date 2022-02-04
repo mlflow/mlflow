@@ -49,7 +49,7 @@ class AbstractStoreTestImpl(AbstractStore):
         raise NotImplementedError()
 
     def _search_runs(
-        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
+        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token, search_all_experiments
     ):
         raise NotImplementedError()
 
