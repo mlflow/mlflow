@@ -1,5 +1,3 @@
-import sys
-
 import mlflow
 from collections import namedtuple
 
@@ -318,8 +316,6 @@ def test_regressor_evaluate(linear_regressor_model_uri, diabetes_dataset):
 
 
 def test_pandas_df_regressor_evaluation(linear_regressor_model_uri):
-
-    sys.modules.pop("pyspark")
 
     data = sklearn.datasets.load_diabetes()
     df = pd.DataFrame(data.data, columns=data.feature_names)
