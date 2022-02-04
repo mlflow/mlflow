@@ -250,6 +250,8 @@ class EvaluationDataset:
         self._user_specified_name = name
         self._path = path
         self._hash = None
+        self._supported_dataframe_types = (pd.DataFrame,)
+        self._spark_df_type = None
 
         try:
             # add checking `'pyspark' in sys.modules` to avoid importing pyspark when user
@@ -257,14 +259,10 @@ class EvaluationDataset:
             if "pyspark" in sys.modules:
                 from pyspark.sql import DataFrame as SparkDataFrame
 
-                supported_dataframe_types = (pd.DataFrame, SparkDataFrame)
-                spark_df_type = SparkDataFrame
-            else:
-                supported_dataframe_types = (pd.DataFrame,)
-                spark_df_type = None
+                self._supported_dataframe_types = (pd.DataFrame, SparkDataFrame)
+                self._spark_df_type = SparkDataFrame
         except ImportError:
-            supported_dataframe_types = (pd.DataFrame,)
-            spark_df_type = None
+            pass
 
         if feature_names is not None and len(set(feature_names)) < len(list(feature_names)):
             raise ValueError(
@@ -308,14 +306,14 @@ class EvaluationDataset:
                     f"feature_{str(i + 1).zfill(math.ceil((math.log10(num_features + 1))))}"
                     for i in range(num_features)
                 ]
-        elif isinstance(data, supported_dataframe_types):
+        elif isinstance(data, self._supported_dataframe_types):
             if not isinstance(targets, str):
                 raise ValueError(
                     "If data is a Pandas DataFrame or Spark DataFrame, `targets` argument must "
                     "be the name of the column which contains evaluation labels in the `data` "
                     "dataframe."
                 )
-            if spark_df_type and isinstance(data, spark_df_type):
+            if self._spark_df_type and isinstance(data, self._spark_df_type):
                 _logger.warning(
                     "Specified Spark DataFrame is too large for model evaluation. Only "
                     f"the first {EvaluationDataset.SPARK_DATAFRAME_LIMIT} rows will be used."
