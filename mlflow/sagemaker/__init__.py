@@ -2008,21 +2008,26 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         :param name: Name of the deployed application.
         :param model_uri: The location, in URI format, of the MLflow model to deploy to SageMaker.
                           For example:
+
                           - ``/Users/me/path/to/local/model``
                           - ``relative/path/to/local/model``
                           - ``s3://my_bucket/path/to/model``
                           - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
                           - ``models:/<model_name>/<model_version>``
                           - ``models:/<model_name>/<stage>``
+
                           For more information about supported URI schemes, see
                           `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
                           artifact-locations>`_.
+
         :param flavor: The name of the flavor of the model to use for deployment. Must be either
                        ``None`` or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS.
                        If ``None``, a flavor is automatically selected from the model's available
                        flavors. If the specified flavor is not present or not supported for
                        deployment, an exception will be thrown.
+
         :param config: Configuration paramaters. The supported paramaters are:
+
                        - execution_role_arn: The name of an IAM role granting the SageMaker service
                          permissions to access the specified Docker image and S3 bucket containing
                          MLflow model artifacts. If unspecified, the currently-assumed role will be
@@ -2047,10 +2052,12 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
 
                        - mode: The mode in which to deploy the application.
                          Must be one of the following:
+
                          ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE``
                              If an application of the specified name exists, its model(s) is
                              replaced with the specified model. If no such application exists,
                              it is created with the specified name and model.
+
                          ``mlflow.sagemaker.DEPLOYMENT_MODE_ADD``
                              Add the specified model to a pre-existing application with the
                              specified name, if one exists. If the application does not exist,
@@ -2103,6 +2110,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
 
                          .. code-block:: python
                              :caption: Example
+
                              import mlflow.sagemaker as mfs
                              vpc_config = {
                                              'SecurityGroupIds': [
