@@ -45,7 +45,6 @@ export class CompareRunView extends Component {
       onlyShowMetricDiff: false,
     };
     this.onResizeHandler = this.onResizeHandler.bind(this);
-    this.onTableBlockScrollHandler = this.onCompareRunTableScrollHandler.bind(this);
     this.onCompareRunTableScrollHandler = this.onCompareRunTableScrollHandler.bind(this);
 
     this.runDetailsTableRef = React.createRef();
@@ -104,17 +103,75 @@ export class CompareRunView extends Component {
     return colWidth;
   }
 
+  renderParamTable(colWidth) {
+    const dataRows = this.renderDataRows(
+      this.props.paramLists,
+      colWidth,
+      this.state.onlyShowParamDiff,
+      true,
+    );
+    if (dataRows.length === 0) {
+      return (<h2>No parameters to display.</h2>)
+    } else {
+      return (
+        <table
+          className='table compare-table compare-run-table'
+          style={{ maxHeight: '500px' }}
+          onScroll={this.onCompareRunTableScrollHandler}
+        >
+          <tbody>{dataRows}</tbody>
+        </table>
+      )
+    }
+  }
+
+  renderMetricTable(colWidth, experimentId) {
+    const dataRows = this.renderDataRows(
+      this.props.metricLists,
+      colWidth,
+      this.state.onlyShowMetricDiff,
+      false,
+      (key, data) => {
+        return (
+          <Link
+            to={Routes.getMetricPageRoute(
+              this.props.runInfos
+                .map((info) => info.run_uuid)
+                .filter((uuid, idx) => data[idx] !== undefined),
+              key,
+              experimentId,
+            )}
+            title='Plot chart'
+          >
+            {key}
+            <i className='fas fa-chart-line' style={{ paddingLeft: '6px' }} />
+          </Link>
+        );
+      },
+      Utils.formatMetric,
+    );
+    if (dataRows.length === 0) {
+      return (<h2>No metrics to display.</h2>)
+    } else {
+      return (
+        <table
+          className='table compare-table compare-run-table'
+          style={{ maxHeight: '300px' }}
+          onScroll={this.onCompareRunTableScrollHandler}
+        >
+          <tbody>{dataRows}</tbody>
+        </table>
+      )
+    }
+  }
+
   render() {
     const { experiment } = this.props;
     const experimentId = experiment.getExperimentId();
     const { runInfos, runNames } = this.props;
 
     const colWidth = this.getTableColumnWidth();
-    const colWidthStyle = {
-      width: `${colWidth}px`,
-      minWidth: `${colWidth}px`,
-      maxWidth: `${colWidth}px`,
-    };
+    const colWidthStyle = this.genWidthStyle(colWidth);
 
     const title = (
       <FormattedMessage
@@ -302,20 +359,7 @@ export class CompareRunView extends Component {
           />
           <br />
           <br />
-          <table
-            className='table compare-table compare-run-table'
-            style={{ maxHeight: '500px' }}
-            onScroll={this.onCompareRunTableScrollHandler}
-          >
-            <tbody>
-              {this.renderDataRows(
-                this.props.paramLists,
-                colWidth,
-                this.state.onlyShowParamDiff,
-                true,
-              )}
-            </tbody>
-          </table>
+          {this.renderParamTable(colWidth)}
         </CollapsibleSection>
         <CollapsibleSection
           title={
@@ -335,41 +379,18 @@ export class CompareRunView extends Component {
           />
           <br />
           <br />
-          <table
-            className='table compare-table compare-run-table'
-            style={{ maxHeight: '300px' }}
-            onScroll={this.onCompareRunTableScrollHandler}
-          >
-            <tbody>
-              {this.renderDataRows(
-                this.props.metricLists,
-                colWidth,
-                this.state.onlyShowMetricDiff,
-                false,
-                (key, data) => {
-                  return (
-                    <Link
-                      to={Routes.getMetricPageRoute(
-                        this.props.runInfos
-                          .map((info) => info.run_uuid)
-                          .filter((uuid, idx) => data[idx] !== undefined),
-                        key,
-                        experimentId,
-                      )}
-                      title='Plot chart'
-                    >
-                      {key}
-                      <i className='fas fa-chart-line' style={{ paddingLeft: '6px' }} />
-                    </Link>
-                  );
-                },
-                Utils.formatMetric,
-              )}
-            </tbody>
-          </table>
+          {this.renderMetricTable(colWidth, experimentId)}
         </CollapsibleSection>
       </div>
     );
+  }
+
+  genWidthStyle(width) {
+    return {
+      width: `${width}px`,
+      minWidth: `${width}px`,
+      maxWidth: `${width}px`,
+    };
   }
 
   // eslint-disable-next-line no-unused-vars
@@ -389,17 +410,13 @@ export class CompareRunView extends Component {
       records.forEach((r) => (data[r.key][i] = r.value));
     });
 
-    const colWidthStyle = {
-      width: `${colWidth}px`,
-      minWidth: `${colWidth}px`,
-      maxWidth: `${colWidth}px`,
-    };
+    const colWidthStyle = this.genWidthStyle(colWidth);
 
     function isAllEqual(k) {
       return data[k].every((x) => x === data[k][0]);
     }
 
-    return keys.map((k) => {
+    var result = keys.map((k) => {
       const allEqual = isAllEqual(k);
 
       let rowClass = undefined;
@@ -435,6 +452,8 @@ export class CompareRunView extends Component {
         </tr>
       );
     });
+
+    return result.filter(row => row === null ? false: true);
   }
 }
 
