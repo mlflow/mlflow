@@ -1066,7 +1066,7 @@ def search_runs(
     max_results: int = SEARCH_MAX_RESULTS_PANDAS,
     order_by: Optional[List[str]] = None,
     output_format: str = "pandas",
-    search_all_experiments: bool = False
+    search_all_experiments: bool = False,
 ) -> Union[List[Run], "pandas.DataFrame"]:
     """
     Get a pandas DataFrame of runs that fit the search criteria.

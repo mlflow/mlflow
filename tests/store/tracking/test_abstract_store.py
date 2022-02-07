@@ -56,7 +56,7 @@ class AbstractStoreTestImpl(AbstractStore):
         max_results,
         order_by,
         page_token,
-        search_all_experiments
+        search_all_experiments,
     ):
         raise NotImplementedError()
 

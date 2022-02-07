@@ -758,7 +758,7 @@ class FileStore(AbstractStore):
         max_results,
         order_by,
         page_token,
-        search_all_experiments
+        search_all_experiments,
     ):
         from mlflow.utils.search_utils import SearchUtils
 
@@ -770,8 +770,9 @@ class FileStore(AbstractStore):
             )
         runs = []
         if (experiment_ids is None or len(experiment_ids) == 0) and search_all_experiments:
-            experiment_ids = [exp.experiment_id for exp in 
-                              self.list_experiments(view_type=ViewType.ALL)]
+            experiment_ids = [
+                exp.experiment_id for exp in self.list_experiments(view_type=ViewType.ALL)
+            ]
         for experiment_id in experiment_ids:
             run_infos = self._list_run_infos(experiment_id, run_view_type)
             runs.extend(self._get_run_from_info(r) for r in run_infos)

@@ -754,7 +754,7 @@ class SqlAlchemyStore(AbstractStore):
         max_results,
         order_by,
         page_token,
-        search_all_experiments
+        search_all_experiments,
     ):
         def compute_next_token(current_size):
             next_token = None
@@ -791,8 +791,9 @@ class SqlAlchemyStore(AbstractStore):
                 query = query.outerjoin(j)
 
             if len(experiment_ids) == 0 and search_all_experiments:
-                experiment_ids = [exp.experiment_id for exp in 
-                                  self.list_experiments(view_type=ViewType.ALL)]
+                experiment_ids = [
+                    exp.experiment_id for exp in self.list_experiments(view_type=ViewType.ALL)
+                ]
 
             offset = SearchUtils.parse_start_offset_from_page_token(page_token)
             queried_runs = (

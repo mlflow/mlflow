@@ -225,7 +225,7 @@ def test_client_search_runs_empty_list(mock_store):
         max_results=SEARCH_MAX_RESULTS_DEFAULT,
         order_by=None,
         page_token=None,
-        search_all_experiments=True
+        search_all_experiments=True,
     )
 
 
