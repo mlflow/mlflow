@@ -134,7 +134,7 @@ def log_model(
             For models without signatures, the MLflow Model Server relies on the default inferred
             data type from NumPy. However, PyTorch often expects different defaults, particularly
             when parsing floats. Include the signature to ensure that the model is logged with the
-            correct data type so that the MLflow model server can correctly produce valid input
+            correct data type so that the MLflow model server can correctly provide valid input
             to the model.
 
     :param pytorch_model: PyTorch model to be saved. Can be either an eager model (subclass of
