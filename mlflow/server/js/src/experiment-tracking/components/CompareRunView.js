@@ -111,7 +111,7 @@ export class CompareRunView extends Component {
       true,
     );
     if (dataRows.length === 0) {
-      return (<h2>No parameters to display.</h2>)
+      return <h2>No parameters to display.</h2>;
     } else {
       return (
         <table
@@ -121,7 +121,7 @@ export class CompareRunView extends Component {
         >
           <tbody>{dataRows}</tbody>
         </table>
-      )
+      );
     }
   }
 
@@ -151,7 +151,7 @@ export class CompareRunView extends Component {
       Utils.formatMetric,
     );
     if (dataRows.length === 0) {
-      return (<h2>No metrics to display.</h2>)
+      return <h2>No metrics to display.</h2>;
     } else {
       return (
         <table
@@ -161,7 +161,7 @@ export class CompareRunView extends Component {
         >
           <tbody>{dataRows}</tbody>
         </table>
-      )
+      );
     }
   }
 
@@ -416,7 +416,7 @@ export class CompareRunView extends Component {
       return data[k].every((x) => x === data[k][0]);
     }
 
-    var result = keys.map((k) => {
+    const result = keys.map((k) => {
       const allEqual = isAllEqual(k);
 
       let rowClass = undefined;
@@ -453,7 +453,7 @@ export class CompareRunView extends Component {
       );
     });
 
-    return result.filter(row => row === null ? false: true);
+    return result.filter((row) => row !== null);
   }
 }
 
