@@ -875,6 +875,10 @@
     "defaultMessage": "Tag \"{value}\" already exists.",
     "description": "Validation message for tags that already exist in tags table in MLflow"
   },
+  "hcbIkp": {
+    "defaultMessage": "No parameters to display.",
+    "description": "No parameters to display."
+  },
   "iZm6YQ": {
     "defaultMessage": "<link>Learn more</link>",
     "description": "Learn more link on the form for creating model in the model registry"
@@ -1162,5 +1166,9 @@
   "zMhOr3": {
     "defaultMessage": "Cancel",
     "description": "Cancel button text for model version deletion modal in model versions view page"
+  },
+  "zR8xkw": {
+    "defaultMessage": "No metrics to display.",
+    "description": "No metrics to display."
   }
 }
