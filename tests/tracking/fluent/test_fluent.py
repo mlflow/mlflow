@@ -1,6 +1,5 @@
 from collections import defaultdict
 from importlib import reload
-from mlflow.protos.service_pb2 import Experiment
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 
 import os
@@ -804,6 +803,8 @@ def test_search_runs_all_experiments(search_runs_output_format):
     """
     When no experiment ID is specified but flag is passed, it should search all experiments.
     """
+    from mlflow.entities import Experiment
+
     mock_experiment_id = mock.Mock()
     mock_experiment = mock.Mock(Experiment)
     experiment_id_patch = mock.patch(
