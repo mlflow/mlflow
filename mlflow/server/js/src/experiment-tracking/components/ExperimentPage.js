@@ -74,6 +74,7 @@ export class ExperimentPage extends Component {
   constructor(props) {
     super(props);
     const store = ExperimentPage.getLocalStore(this.props.experimentId);
+    const urlState = Utils.getSearchParamsFromUrl(props.location.search);
     this.state = {
       lastRunsRefreshTime: Date.now(),
       numberOfNewRuns: 0,
@@ -85,7 +86,7 @@ export class ExperimentPage extends Component {
       urlState: props.location.search,
       persistedState: new ExperimentPagePersistedState({
         ...store.loadComponentState(),
-        ...Utils.getSearchParamsFromUrl(props.location.search),
+        ...urlState,
       }).toJSON(),
       pollingState: {
         newRuns: true,

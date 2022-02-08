@@ -169,7 +169,7 @@ sequence of (optionally) named columns with type specified as one of the
 described as a sequence of (optionally) named tensors with type specified as one of the
 `numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_.
 
-To include a signature with your model, pass :py:class:`signature object
+To include a signature with your model, pass a :py:class:`signature object
 <mlflow.models.ModelSignature>` as an argument to the appropriate log_model call, e.g.
 :py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`. More details are in the :ref:`How to log models with signatures <how-to-log-models-with-signatures>` section. The signature is stored in
 JSON format in the :ref:`MLmodel file <pyfunc-model-config>`, together with other model metadata.
