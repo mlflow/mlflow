@@ -33,11 +33,5 @@ Release must always be done from branch `ni-master`.
 
 ```
 git checkout ni-master
-rm -rf dist/*
-python setup.py bdist_wheel
-python3 -m twine upload \
-    --user insight-rw \
-    --password $(gopass show nexus/insight-rw) \
-    --repository-url https://nexus.infra.nagra-insight.com/repository/pypi-dev/ \
-    dist/*
+make release
 ```
