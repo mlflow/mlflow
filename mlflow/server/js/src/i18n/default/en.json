@@ -875,10 +875,6 @@
     "defaultMessage": "Tag \"{value}\" already exists.",
     "description": "Validation message for tags that already exist in tags table in MLflow"
   },
-  "hcbIkp": {
-    "defaultMessage": "No parameters to display.",
-    "description": "No parameters to display."
-  },
   "iZm6YQ": {
     "defaultMessage": "<link>Learn more</link>",
     "description": "Learn more link on the form for creating model in the model registry"
@@ -914,6 +910,10 @@
   "kX6Kdv": {
     "defaultMessage": "Plot chart",
     "description": "Link to the view the plot chart for the experiment run"
+  },
+  "ko5FlR": {
+    "defaultMessage": "No parameters to display.",
+    "description": "The text to show when there is no parameters to display."
   },
   "lISqyJ": {
     "defaultMessage": "Run details",
@@ -1143,6 +1143,10 @@
     "defaultMessage": "<link>Version {versionNumber}</link>",
     "description": "Link to model version in the model version table"
   },
+  "yr+hQW": {
+    "defaultMessage": "No metrics to display.",
+    "description": "The text to show when there is no metrics to display."
+  },
   "yzxYIm": {
     "defaultMessage": "Points:",
     "description": "Label for the toggle button to toggle to show points or not for the metric experiment run"
@@ -1166,9 +1170,5 @@
   "zMhOr3": {
     "defaultMessage": "Cancel",
     "description": "Cancel button text for model version deletion modal in model versions view page"
-  },
-  "zR8xkw": {
-    "defaultMessage": "No metrics to display.",
-    "description": "No metrics to display."
   }
 }

@@ -115,7 +115,7 @@ export class CompareRunView extends Component {
         <h2>
           <FormattedMessage
             defaultMessage='No parameters to display.'
-            description='No parameters to display.'
+            description='The text to show when there is no parameters to display.'
           />
         </h2>
       );
@@ -161,7 +161,7 @@ export class CompareRunView extends Component {
         <h2>
           <FormattedMessage
             defaultMessage='No metrics to display.'
-            description='No metrics to display.'
+            description='The text to show when there is no metrics to display.'
           />
         </h2>
       );
