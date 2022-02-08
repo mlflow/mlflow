@@ -1129,7 +1129,7 @@ def search_runs(
         0       1.55       1.1.0-RC  5cc7feaf532f496f885ad7750809c4d4
     """
     if search_all_experiments and (experiment_ids is None or len(experiment_ids) == 0):
-        experiment_ids = [exp.id for exp in list_experiments(view_type=ViewType.ALL)]
+        experiment_ids = [exp.experiment_id for exp in list_experiments(view_type=ViewType.ALL)]
     elif experiment_ids is None or len(experiment_ids) == 0:
         experiment_ids = _get_experiment_id()
 
@@ -1143,7 +1143,6 @@ def search_runs(
             number_to_get,
             order_by,
             next_page_token,
-            search_all_experiments,
         )
 
     runs = _paginate(pagination_wrapper_func, NUM_RUNS_PER_PAGE_PANDAS, max_results)

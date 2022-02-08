@@ -1,5 +1,6 @@
 from collections import defaultdict
 from importlib import reload
+from mlflow.protos.service_pb2 import Experiment
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 
 import os
@@ -797,6 +798,25 @@ def test_search_runs_no_arguments(search_runs_output_format):
         search_runs(output_format=search_runs_output_format)
         mlflow.tracking.fluent._paginate.assert_called_once()
         mlflow.tracking.fluent._get_experiment_id.assert_called_once()
+
+
+def test_search_runs_all_experiments(search_runs_output_format):
+    """
+    When no experiment ID is specified but flag is passed, it should search all experiments.
+    """
+    mock_experiment_id = mock.Mock()
+    mock_experiment = mock.Mock(Experiment)
+    experiment_id_patch = mock.patch(
+        "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
+    )
+    experiment_list_patch = mock.patch(
+        "mlflow.tracking.fluent.list_experiments", return_value=[mock_experiment]
+    )
+    get_paginated_runs_patch = mock.patch("mlflow.tracking.fluent._paginate", return_value=[])
+    with experiment_id_patch, experiment_list_patch, get_paginated_runs_patch:
+        search_runs(output_format=search_runs_output_format, search_all_experiments=True)
+        mlflow.tracking.fluent.list_experiments.assert_called_once()
+        mlflow.tracking.fluent._get_experiment_id.assert_not_called()
 
 
 def test_paginate_lt_maxresults_onepage():
