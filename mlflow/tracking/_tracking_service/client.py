@@ -422,7 +422,6 @@ class TrackingServiceClient:
         max_results=SEARCH_MAX_RESULTS_DEFAULT,
         order_by=None,
         page_token=None,
-        search_all_experiments=False,
     ):
         """
         Search experiments that fit the search criteria.
@@ -437,8 +436,6 @@ class TrackingServiceClient:
                      The default ordering is to sort by ``start_time DESC``, then ``run_id``.
         :param page_token: Token specifying the next page of results. It should be obtained from
             a ``search_runs`` call.
-        :param search_all_experiments: Boolean specifying whether all experiments should be
-            searched. Is only honored if no exeperiments are provided through ``experiment_ids``.
 
         :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
             :py:class:`Run <mlflow.entities.Run>` objects that satisfy the search expressions.
@@ -454,5 +451,4 @@ class TrackingServiceClient:
             max_results=max_results,
             order_by=order_by,
             page_token=page_token,
-            search_all_experiments=search_all_experiments,
         )

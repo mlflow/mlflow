@@ -56,7 +56,6 @@ class AbstractStoreTestImpl(AbstractStore):
         max_results,
         order_by,
         page_token,
-        search_all_experiments,
     ):
         raise NotImplementedError()
 
@@ -162,5 +161,5 @@ def test_search_runs():
             assert result[i] == runs[i]
         assert result.token == token
         store._search_runs.assert_called_once_with(
-            [experiment_id], None, view_type, SEARCH_MAX_RESULTS_DEFAULT, None, None, False
+            [experiment_id], None, view_type, SEARCH_MAX_RESULTS_DEFAULT, None, None
         )

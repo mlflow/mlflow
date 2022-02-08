@@ -588,17 +588,14 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         filter_str=None,
         run_view_type=ViewType.ALL,
         max_results=SEARCH_MAX_RESULTS_DEFAULT,
-        search_all_experiments=False,
     ):
-        experiment_id_list = [] if experiment_id is None else [experiment_id]
         return [
             r.info.run_id
             for r in fs.search_runs(
-                experiment_id_list,
+                [experiment_id],
                 filter_str,
                 run_view_type,
                 max_results,
-                search_all_experiments=search_all_experiments,
             )
         ]
 
@@ -609,7 +606,6 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         assert len(self._search(fs, self.experiments[0], run_view_type=ViewType.ACTIVE_ONLY)) == 2
         assert len(self._search(fs, self.experiments[0])) == 2
         assert len(self._search(fs, self.experiments[0], run_view_type=ViewType.DELETED_ONLY)) == 0
-        assert len(self._search(fs, None, search_all_experiments=True)) >= 2
 
     def test_search_tags(self):
         fs = FileStore(self.test_root)

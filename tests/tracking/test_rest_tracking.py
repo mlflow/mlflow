@@ -468,25 +468,6 @@ def test_search_pagination(mlflow_client):
     assert result.token is None
 
 
-def test_search_all_experiments(mlflow_client):
-    experiment_id_01 = mlflow_client.create_experiment("search_all_experiments_01")
-    experiment_id_02 = mlflow_client.create_experiment("search_all_experiments_02")
-    runs01 = [
-        mlflow_client.create_run(experiment_id_01, start_time=1).info.run_id for _ in range(0, 3)
-    ]
-    runs01 = sorted(runs01)
-    runs02 = [
-        mlflow_client.create_run(experiment_id_02, start_time=1).info.run_id for _ in range(0, 3)
-    ]
-    runs02 = sorted(runs02)
-    run_list = mlflow_client.search_runs([], search_all_experiments=True)
-    result = [run.info.run_id for run in run_list]
-    paginated = run_list.token is not None
-    if not paginated:
-        for run in runs01 + runs02:
-            assert run in result
-
-
 def test_get_experiment_by_name(mlflow_client, backend_store_uri):
     name = "test_get_experiment_by_name"
     experiment_id = mlflow_client.create_experiment(name)

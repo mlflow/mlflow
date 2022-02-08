@@ -258,18 +258,7 @@ class RestStore(AbstractStore):
         max_results,
         order_by,
         page_token,
-        search_all_experiments,
     ):
-        if len(experiment_ids) == 0 and search_all_experiments:
-            experiment_page = self.list_experiments(view_type=ViewType.ALL)
-            experiments = experiment_page
-            while experiment_page.token is not None:
-                experiment_page = self.list_experiments(
-                    view_type=ViewType.ALL, page_token=experiment_page.token
-                )
-                experiments += experiment_page
-            experiment_ids = [exp.experiment_id for exp in experiments]
-
         experiment_ids = [str(experiment_id) for experiment_id in experiment_ids]
         sr = SearchRuns(
             experiment_ids=experiment_ids,
