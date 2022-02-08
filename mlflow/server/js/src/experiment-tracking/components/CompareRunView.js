@@ -118,7 +118,7 @@ export class CompareRunView extends Component {
             description='No parameters to display.'
           />
         </h2>
-      )
+      );
     }
     return (
       <table
@@ -164,7 +164,7 @@ export class CompareRunView extends Component {
             description='No metrics to display.'
           />
         </h2>
-      )
+      );
     }
     return (
       <table
@@ -416,56 +416,58 @@ export class CompareRunView extends Component {
   ) {
     const keys = CompareRunUtil.getKeys(list);
     const data = {};
-    keys.forEach((k) => (data[k] = []));
+    keys.forEach((k) => (data[k] = { values: [] }));
+
+    function isAllEqual(values) {
+      return values.every((x) => x === values[0]);
+    }
+
     list.forEach((records, i) => {
-      keys.forEach((k) => data[k].push(undefined));
-      records.forEach((r) => (data[r.key][i] = r.value));
+      keys.forEach((k) => {
+        data[k].values.push(undefined);
+      });
+      records.forEach((r) => (data[r.key].values[i] = r.value));
+      keys.forEach((k) => (data[k].isAllEqual = isAllEqual(data[k].values)));
     });
 
     const colWidthStyle = this.genWidthStyle(colWidth);
 
-    function isAllEqual(k) {
-      return data[k].every((x) => x === data[k][0]);
-    }
+    return keys
+      .filter((k) => !(onlyShowDiff && data[k].isAllEqual))
+      .map((k) => {
+        let rowClass = undefined;
+        if (highlightDiff && !data[k].isAllEqual) {
+          rowClass = 'diff-row';
+        }
 
-    const result = keys.map((k) => {
-      const allEqual = isAllEqual(k);
-
-      let rowClass = undefined;
-      if (highlightDiff && !allEqual) {
-        rowClass = 'diff-row';
-      }
-
-      return onlyShowDiff && allEqual ? null : (
-        <tr key={k} className={rowClass}>
-          <th scope='row' className='head-value sticky-header' style={colWidthStyle}>
-            {headerMap(k, data[k])}
-          </th>
-          {data[k].map((value, i) => {
-            const cellText = value === undefined ? '' : formatter(value);
-            return (
-              <td
-                className='data-value'
-                key={this.props.runInfos[i].run_uuid}
-                style={colWidthStyle}
-              >
-                <Tooltip
-                  title={cellText}
-                  color='gray'
-                  placement='topLeft'
-                  overlayStyle={{ maxWidth: '400px' }}
-                  mouseEnterDelay={1.0}
+        return (
+          <tr key={k} className={rowClass}>
+            <th scope='row' className='head-value sticky-header' style={colWidthStyle}>
+              {headerMap(k, data[k].values)}
+            </th>
+            {data[k].values.map((value, i) => {
+              const cellText = value === undefined ? '' : formatter(value);
+              return (
+                <td
+                  className='data-value'
+                  key={this.props.runInfos[i].run_uuid}
+                  style={colWidthStyle}
                 >
-                  <span className='truncate-text single-line'>{cellText}</span>
-                </Tooltip>
-              </td>
-            );
-          })}
-        </tr>
-      );
-    });
-
-    return result.filter((row) => row !== null);
+                  <Tooltip
+                    title={cellText}
+                    color='gray'
+                    placement='topLeft'
+                    overlayStyle={{ maxWidth: '400px' }}
+                    mouseEnterDelay={1.0}
+                  >
+                    <span className='truncate-text single-line'>{cellText}</span>
+                  </Tooltip>
+                </td>
+              );
+            })}
+          </tr>
+        );
+      });
   }
 }
 
