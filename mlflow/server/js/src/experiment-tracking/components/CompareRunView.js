@@ -111,18 +111,24 @@ export class CompareRunView extends Component {
       true,
     );
     if (dataRows.length === 0) {
-      return <h2>No parameters to display.</h2>;
-    } else {
       return (
-        <table
-          className='table compare-table compare-run-table'
-          style={{ maxHeight: '500px' }}
-          onScroll={this.onCompareRunTableScrollHandler}
-        >
-          <tbody>{dataRows}</tbody>
-        </table>
-      );
+        <h2>
+          <FormattedMessage
+            defaultMessage='No parameters to display.'
+            description='No parameters to display.'
+          />
+        </h2>
+      )
     }
+    return (
+      <table
+        className='table compare-table compare-run-table'
+        style={{ maxHeight: '500px' }}
+        onScroll={this.onCompareRunTableScrollHandler}
+      >
+        <tbody>{dataRows}</tbody>
+      </table>
+    );
   }
 
   renderMetricTable(colWidth, experimentId) {
@@ -151,18 +157,24 @@ export class CompareRunView extends Component {
       Utils.formatMetric,
     );
     if (dataRows.length === 0) {
-      return <h2>No metrics to display.</h2>;
-    } else {
       return (
-        <table
-          className='table compare-table compare-run-table'
-          style={{ maxHeight: '300px' }}
-          onScroll={this.onCompareRunTableScrollHandler}
-        >
-          <tbody>{dataRows}</tbody>
-        </table>
-      );
+        <h2>
+          <FormattedMessage
+            defaultMessage='No metrics to display.'
+            description='No metrics to display.'
+          />
+        </h2>
+      )
     }
+    return (
+      <table
+        className='table compare-table compare-run-table'
+        style={{ maxHeight: '300px' }}
+        onScroll={this.onCompareRunTableScrollHandler}
+      >
+        <tbody>{dataRows}</tbody>
+      </table>
+    );
   }
 
   render() {
