@@ -401,7 +401,7 @@ def test_pyfunc_serve_and_score(prophet_model):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED,
     )
 
-    scores = pd.read_json(resp.content, orient="records")
+    scores = pd.read_json(resp.content.decode("utf-8"), orient="records")
 
     # predictions are deterministic, but yhat_lower, yhat_upper are non-deterministic based on
     # stan build underlying environment. Seed value only works for reproducibility of yhat.
