@@ -3,7 +3,7 @@
 This is the Nagra fork readme. README.rst is the official one.
 
 The idea is to contribute to MLFlow as much as possible, but while PRs are reviewed,
-this repo is used to build the custome version of MLFlow used by Insight.
+this repo is used to build the custom version of MLFlow used by Insight.
 
 ## Branch policy
 
@@ -37,7 +37,7 @@ rm -rf dist/*
 python setup.py bdist_wheel
 python3 -m twine upload \
     --user insight-rw \
-    --password $(gopass nexus/insight-rw) \
+    --password $(gopass show nexus/insight-rw) \
     --repository-url https://nexus.infra.nagra-insight.com/repository/pypi-dev/ \
     dist/*
 ```
