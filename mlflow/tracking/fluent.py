@@ -1084,7 +1084,7 @@ def search_runs(
                           is returned and, if ``list``, a list of :py:class:`mlflow.entities.Run`
                           is returned.
     :param search_all_experiments: Boolean specifying whether all experiments should be searched.
-        Is only honored if no exeperiments are provided through ``experiment_ids``.
+        Only honored if ``experiment_ids`` is ``[]`` or ``None``.
 
     :return: If output_format is ``list``: a list of :py:class:`mlflow.entities.Run`. If
              output_format is ``pandas``: ``pandas.DataFrame`` of runs, where each metric,
@@ -1130,7 +1130,7 @@ def search_runs(
     """
     if search_all_experiments and (experiment_ids is None or len(experiment_ids) == 0):
         experiment_ids = [exp.id for exp in list_experiments(view_type=ViewType.ALL)]
-    elif experiment_ids is None:
+    elif experiment_ids is None or len(experiment_ids) == 0:
         experiment_ids = _get_experiment_id()
 
     # Using an internal function as the linter doesn't like assigning a lambda, and inlining the

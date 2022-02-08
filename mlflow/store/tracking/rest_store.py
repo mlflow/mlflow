@@ -251,13 +251,7 @@ class RestStore(AbstractStore):
         return [Metric.from_proto(metric) for metric in response_proto.metrics]
 
     def _search_runs(
-        self,
-        experiment_ids,
-        filter_string,
-        run_view_type,
-        max_results,
-        order_by,
-        page_token,
+        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
     ):
         experiment_ids = [str(experiment_id) for experiment_id in experiment_ids]
         sr = SearchRuns(

@@ -591,12 +591,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
     ):
         return [
             r.info.run_id
-            for r in fs.search_runs(
-                [experiment_id],
-                filter_str,
-                run_view_type,
-                max_results,
-            )
+            for r in fs.search_runs([experiment_id], filter_str, run_view_type, max_results)
         ]
 
     def test_search_runs(self):

@@ -1608,12 +1608,7 @@ class MlflowClient:
             tags: {'s.release': '1.1.0-RC'}
         """
         return self._tracking_client.search_runs(
-            experiment_ids,
-            filter_string,
-            run_view_type,
-            max_results,
-            order_by,
-            page_token,
+            experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
         )
 
     # Registry API
