@@ -255,6 +255,7 @@ def log_model(
             input_example=input_example,
         )
         mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
+        mlflow.tracking.fluent._record_logged_model(mlflow_model)
         if registered_model_name is not None:
             mlflow.register_model(
                 "runs:/%s/%s" % (run_id, artifact_path),
