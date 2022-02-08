@@ -13,8 +13,10 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_
 # Constants used to determine max level of parallelism to use while uploading/downloading artifacts.
 # Max threads to use for parallelism.
 _NUM_MAX_THREADS = 8
+# Max threads per CPU
+_NUM_MAX_THREADS_PER_CPU = 2
 # Default number of CPUs to assume on the machine if unavailable to fetch it using os.cpu_count()
-_NUM_DEFAULT_CPUS = _NUM_MAX_THREADS / 2
+_NUM_DEFAULT_CPUS = _NUM_MAX_THREADS / _NUM_MAX_THREADS_PER_CPU
 
 
 class ArtifactRepository:
@@ -31,7 +33,7 @@ class ArtifactRepository:
         # constants._NUM_MAX_THREADS threads or 2 * the number of CPU cores available on the
         # system (whichever is smaller)
         num_cpus = os.cpu_count() or _NUM_DEFAULT_CPUS
-        num_artifact_workers = min(num_cpus * 2, _NUM_MAX_THREADS)
+        num_artifact_workers = min(num_cpus * _NUM_MAX_THREADS_PER_CPU, _NUM_MAX_THREADS)
         self.thread_pool = ThreadPoolExecutor(max_workers=num_artifact_workers)
 
     @abstractmethod
