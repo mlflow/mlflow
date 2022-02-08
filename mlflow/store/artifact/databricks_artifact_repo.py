@@ -176,12 +176,6 @@ class DatabricksArtifactRepository(ArtifactRepository):
         """
         return self._get_credential_infos(GetCredentialsForRead, run_id, paths)
 
-    def _get_read_credentials(self, run_id, path=None):
-        json_body = message_to_json(GetCredentialsForRead(run_id=run_id, path=path))
-        return self._call_endpoint(
-            DatabricksMlflowArtifactsService, GetCredentialsForRead, json_body
-        )
-
     def _extract_headers_from_credentials(self, headers):
         return {header.name: header.value for header in headers}
 
