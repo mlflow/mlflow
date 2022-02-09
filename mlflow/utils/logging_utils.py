@@ -70,7 +70,6 @@ def _configure_mlflow_loggers(root_module_name):
             },
             "handlers": {
                 "mlflow_handler": {
-                    "level": "INFO",
                     "formatter": "mlflow_formatter",
                     "class": "logging.StreamHandler",
                     "stream": MLFLOW_LOGGING_STREAM,
