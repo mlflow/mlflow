@@ -24,6 +24,13 @@ def reset_logging_enablement():
     logging_utils.enable_logging()
 
 
+@pytest.fixture(autouse=True)
+def reset_logging_level():
+    level_before = logger.level
+    yield
+    logger.setLevel(level_before)
+
+
 class TestStream:
     def __init__(self):
         self.content = None
@@ -89,3 +96,12 @@ def test_event_logging_stream_flushes_properly():
     eprint("foo", flush=True)
     assert "foo" in stream.content
     assert stream.flush_count > 0
+
+
+def test_debug_logs_emitted_correctly_when_configured():
+    stream = TestStream()
+    sys.stderr = stream
+
+    logger.setLevel(logging.DEBUG)
+    logger.debug("test debug")
+    assert "test debug" in stream.content
