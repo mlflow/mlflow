@@ -327,6 +327,6 @@ def test_pyfunc_serve_and_score(h2o_iris_model):
         data=inference_dataframe.as_data_frame(),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
     )
-    scores = pd.read_json(resp.content, orient="records").drop("predict", axis=1)
+    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").drop("predict", axis=1)
     preds = model.predict(inference_dataframe).as_data_frame().drop("predict", axis=1)
     np.testing.assert_array_almost_equal(scores, preds)

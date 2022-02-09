@@ -128,6 +128,15 @@ def log_model(
     """
     Log a PyTorch model as an MLflow artifact for the current run.
 
+        .. warning::
+
+            Log the model with a signature to avoid inference errors.
+            If the model is logged without a signature, the MLflow Model Server relies on the
+            default inferred data type from NumPy. However, PyTorch often expects different
+            defaults, particularly when parsing floats. You must include the signature to ensure
+            that the model is logged with the correct data type so that the MLflow model server
+            can correctly provide valid input.
+
     :param pytorch_model: PyTorch model to be saved. Can be either an eager model (subclass of
                           ``torch.nn.Module``) or scripted model prepared via ``torch.jit.script``
                           or ``torch.jit.trace``.

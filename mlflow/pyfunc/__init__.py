@@ -24,8 +24,9 @@ metadata (MLmodel file). You can score the model by calling the :py:func:`predic
 <mlflow.pyfunc.PyFuncModel.predict>` method, which has the following signature::
 
   predict(
-    model_input: [pandas.DataFrame, Dict[str, numpy.ndarray], numpy.ndarray]
-  ) -> [numpy.ndarray | pandas.(Series | DataFrame)]
+    model_input: [pandas.DataFrame, numpy.ndarray, scipy.sparse.(csc.csc_matrix | csr.csr_matrix),
+    List[Any], Dict[str, Any]]
+  ) -> [numpy.ndarray | pandas.(Series | DataFrame) | List]
 
 All PyFunc models will support `pandas.DataFrame` as input and DL PyFunc models will also support
 tensor inputs in the form of Dict[str, numpy.ndarray] (named tensors) and `numpy.ndarrays`
@@ -70,8 +71,9 @@ following parameters:
          ``predict`` method with the following signature::
 
           predict(
-              model_input: [pandas.DataFrame, Dict[str, numpy.ndarray], numpy.ndarray]
-          ) -> [numpy.ndarray | pandas.(Series | DataFrame)]
+            model_input: [pandas.DataFrame, numpy.ndarray,
+            scipy.sparse.(csc.csc_matrix | csr.csr_matrix), List[Any], Dict[str, Any]]
+          ) -> [numpy.ndarray | pandas.(Series | DataFrame) | List]
 
 - code [optional]:
         Relative path to a directory containing the code packaged with this model.
@@ -595,7 +597,8 @@ class PyFuncModel:
         the input is passed to the model implementation as is. See `Model Signature Enforcement
         <https://www.mlflow.org/docs/latest/models.html#signature-enforcement>`_ for more details."
 
-        :param data: Model input as one of pandas.DataFrame, numpy.ndarray, or
+        :param data: Model input as one of pandas.DataFrame, numpy.ndarray,
+                     scipy.sparse.(csc.csc_matrix | csr.csr_matrix), List[Any], or
                      Dict[str, numpy.ndarray]
         :return: Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
@@ -637,6 +640,7 @@ def load_model(model_uri: str, suppress_warnings: bool = True, dst_path: str = N
                       - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
                       - ``models:/<model_name>/<model_version>``
                       - ``models:/<model_name>/<stage>``
+                      - ``mlflow-artifacts:/path/to/model``
 
                       For more information about supported URI schemes, see
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
@@ -681,6 +685,7 @@ def load_pyfunc(model_uri, suppress_warnings=False):
                       - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
                       - ``models:/<model_name>/<model_version>``
                       - ``models:/<model_name>/<stage>``
+                      - ``mlflow-artifacts:/path/to/model``
 
                       For more information about supported URI schemes, see
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
@@ -755,6 +760,7 @@ def spark_udf(spark, model_uri, result_type="double"):
                       - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
                       - ``models:/<model_name>/<model_version>``
                       - ``models:/<model_name>/<stage>``
+                      - ``mlflow-artifacts:/path/to/model``
 
                       For more information about supported URI schemes, see
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#

@@ -167,7 +167,11 @@ be either column-based or tensor-based. Column-based inputs and outputs can be d
 sequence of (optionally) named columns with type specified as one of the
 :py:class:`MLflow data types <mlflow.types.DataType>`. Tensor-based inputs and outputs can be
 described as a sequence of (optionally) named tensors with type specified as one of the
-`numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_. The signature is stored in
+`numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_.
+
+To include a signature with your model, pass a :py:class:`signature object
+<mlflow.models.ModelSignature>` as an argument to the appropriate log_model call, e.g.
+:py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`. More details are in the :ref:`How to log models with signatures <how-to-log-models-with-signatures>` section. The signature is stored in
 JSON format in the :ref:`MLmodel file <pyfunc-model-config>`, together with other model metadata.
 
 Model signatures are recognized and enforced by standard :ref:`MLflow model deployment tools
@@ -261,6 +265,8 @@ For datetime values, Python has precision built into the type. For example, date
 day precision have NumPy type ``datetime64[D]``, while values with nanosecond precision have
 type ``datetime64[ns]``. Datetime precision is ignored for column-based model signature but is
 enforced for tensor-based signatures.
+
+.. _how-to-log-models-with-signatures:
 
 How To Log Models With Signatures
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
