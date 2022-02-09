@@ -115,7 +115,7 @@ export class CompareRunView extends Component {
         <h2>
           <FormattedMessage
             defaultMessage='No parameters to display.'
-            description='The text to show when there is no parameters to display.'
+            description='Text shown when there are no parameters to display.'
           />
         </h2>
       );
@@ -161,7 +161,7 @@ export class CompareRunView extends Component {
         <h2>
           <FormattedMessage
             defaultMessage='No metrics to display.'
-            description='The text to show when there is no metrics to display.'
+            description='Text shown when there are no metrics to display.'
           />
         </h2>
       );
@@ -416,36 +416,26 @@ export class CompareRunView extends Component {
   ) {
     const keys = CompareRunUtil.getKeys(list);
     const data = {};
-    keys.forEach((k) => (data[k] = { values: [] }));
-
-    function isAllEqual(values) {
-      return values.every((x) => x === values[0]);
-    }
-
+    const hasDiff = (values) => !values.every((x) => x === values[0])
+    keys.forEach((k) => (data[k] = { values: Array(list.length).fill(undefined) }));
     list.forEach((records, i) => {
-      keys.forEach((k) => {
-        data[k].values.push(undefined);
-      });
       records.forEach((r) => (data[r.key].values[i] = r.value));
-      keys.forEach((k) => (data[k].isAllEqual = isAllEqual(data[k].values)));
     });
+    keys.forEach((k) => (data[k].hasDiff = hasDiff(data[k].values)));
 
     const colWidthStyle = this.genWidthStyle(colWidth);
 
     return keys
-      .filter((k) => !(onlyShowDiff && data[k].isAllEqual))
+      .filter((k) => !onlyShowDiff || data[k].hasDiff)
       .map((k) => {
-        let rowClass = undefined;
-        if (highlightDiff && !data[k].isAllEqual) {
-          rowClass = 'diff-row';
-        }
-
+        const { values, hasDiff } = data[k];
+        const rowClass = (highlightDiff && hasDiff) ? 'diff-row' : undefined;
         return (
           <tr key={k} className={rowClass}>
             <th scope='row' className='head-value sticky-header' style={colWidthStyle}>
-              {headerMap(k, data[k].values)}
+              {headerMap(k, values)}
             </th>
-            {data[k].values.map((value, i) => {
+            {values.map((value, i) => {
               const cellText = value === undefined ? '' : formatter(value);
               return (
                 <td
