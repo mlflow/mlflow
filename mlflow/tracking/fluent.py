@@ -1129,7 +1129,9 @@ def search_runs(
         0       1.55       1.1.0-RC  5cc7feaf532f496f885ad7750809c4d4
     """
     if search_all_experiments and (experiment_ids is None or len(experiment_ids) == 0):
-        experiment_ids = [exp.experiment_id for exp in list_experiments(view_type=ViewType.ACTIVE_ONLY)]
+        experiment_ids = [
+            exp.experiment_id for exp in list_experiments(view_type=ViewType.ACTIVE_ONLY)
+        ]
     elif experiment_ids is None or len(experiment_ids) == 0:
         experiment_ids = _get_experiment_id()
 
