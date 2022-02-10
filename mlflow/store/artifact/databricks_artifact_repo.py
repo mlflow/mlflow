@@ -442,7 +442,9 @@ class DatabricksArtifactRepository(ArtifactRepository):
         read_credentials = self._get_read_credential_infos(
             run_id=self.run_id, paths=[run_relative_remote_file_path]
         )
-        assert len(read_credentials) > 0
+        # Read credentials for only one file were requested. So we expected only one value in
+        # the response.
+        assert len(read_credentials) == 1
         self._download_from_cloud(
             cloud_credential_info=read_credentials[0], dst_local_file_path=local_path
         )
