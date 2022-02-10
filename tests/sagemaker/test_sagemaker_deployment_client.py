@@ -973,3 +973,109 @@ def test_deploy_cli_updates_sagemaker_and_s3_resources_in_add_mode(
     endpoint_description = sagemaker_client.describe_endpoint(EndpointName=app_name)
     endpoint_production_variants = endpoint_description["ProductionVariants"]
     assert len(endpoint_production_variants) == 2
+
+
+def test_delete_deployment_in_asynchronous_mode_without_archiving_raises_exception(
+    sagemaker_deployment_client,
+):
+    with pytest.raises(MlflowException, match="Resources must be archived") as exc:
+        sagemaker_deployment_client.delete_deployment(
+            name="dummy", config=dict(archive=False, synchronous=False)
+        )
+
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.large
+@mock_sagemaker_aws_services
+def test_delete_deployment_synchronous_mode_without_archiving_deletes_all_resources(
+    pretrained_model, sagemaker_client, sagemaker_deployment_client
+):
+    name = "test-app"
+    region_name = sagemaker_client.meta.region_name
+
+    sagemaker_deployment_client.create_deployment(
+        name=name, model_uri=pretrained_model.model_uri, config=dict(region_name=region_name)
+    )
+
+    sagemaker_deployment_client.delete_deployment(
+        name=name, config=dict(archive=False, synchronous=True, region_name=region_name)
+    )
+
+    s3_client = boto3.client("s3", region_name=region_name)
+    default_bucket = mfs._get_default_s3_bucket(region_name)
+    s3_objects = s3_client.list_objects_v2(Bucket=default_bucket)
+    endpoints = sagemaker_client.list_endpoints()
+    endpoint_configs = sagemaker_client.list_endpoint_configs()
+    models = sagemaker_client.list_models()
+
+    assert s3_objects["KeyCount"] == 0
+    assert len(endpoints["Endpoints"]) == 0
+    assert len(endpoint_configs["EndpointConfigs"]) == 0
+    assert len(models["Models"]) == 0
+
+
+@pytest.mark.large
+@mock_sagemaker_aws_services
+def test_delete_deployment_synchronous_with_archiving_only_deletes_endpoint(
+    pretrained_model, sagemaker_client, sagemaker_deployment_client
+):
+    name = "test-app"
+    region_name = sagemaker_client.meta.region_name
+
+    sagemaker_deployment_client.create_deployment(
+        name=name, model_uri=pretrained_model.model_uri, config=dict(region_name=region_name)
+    )
+
+    sagemaker_deployment_client.delete_deployment(
+        name=name, config=dict(archive=True, synchronous=True, region_name=region_name)
+    )
+
+    s3_client = boto3.client("s3", region_name=region_name)
+    default_bucket = mfs._get_default_s3_bucket(region_name)
+    s3_objects = s3_client.list_objects_v2(Bucket=default_bucket)
+    endpoints = sagemaker_client.list_endpoints()
+    endpoint_configs = sagemaker_client.list_endpoint_configs()
+    models = sagemaker_client.list_models()
+
+    assert s3_objects["KeyCount"] > 0
+    assert len(endpoints["Endpoints"]) == 0
+    assert len(endpoint_configs["EndpointConfigs"]) > 0
+    assert len(models["Models"]) > 0
+
+
+@pytest.mark.large
+@mock_sagemaker_aws_services
+def test_deploy_cli_deletes_sagemaker_deployment(pretrained_model, sagemaker_client):
+    app_name = "test-app"
+    region_name = sagemaker_client.meta.region_name
+    result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
+        cli_commands,
+        [
+            "create",
+            "--target",
+            f"sagemaker:/{region_name}",
+            "--name",
+            app_name,
+            "--model-uri",
+            pretrained_model.model_uri,
+        ],
+    )
+    assert result.exit_code == 0
+
+    result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
+        cli_commands,
+        [
+            "delete",
+            "--target",
+            "sagemaker",
+            "--name",
+            app_name,
+            "--config",
+            f"region_name={region_name}",
+        ],
+    )
+    assert result.exit_code == 0
+
+    response = sagemaker_client.list_endpoints()
+    assert len(response["Endpoints"]) == 0

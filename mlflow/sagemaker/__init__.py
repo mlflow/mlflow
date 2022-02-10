@@ -458,7 +458,7 @@ def delete(
     if (not archive) and (not synchronous):
         raise MlflowException(
             message=(
-                "Resources must be archived when `deploy()` is executed in non-synchronous mode."
+                "Resources must be archived when `delete()` is executed in non-synchronous mode."
                 " Either set `synchronous=True` or `archive=True`."
             ),
             error_code=INVALID_PARAMETER_VALUE,
@@ -1840,7 +1840,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-    def _default_config(self, create_mode=True):
+    def _default_deployment_config(self, create_mode=True):
         config = dict(
             assume_role_arn=self.assumed_role_arn,
             execution_role_arn=None,
@@ -1974,7 +1974,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                              client = mfs.SageMakerPlugin("sagemaker")
                              client.create_deployment(..., config=dict(vpc_config=vpc_config))
         """
-        final_config = self._default_config()
+        final_config = self._default_deployment_config()
         if config:
             self._apply_custom_config(final_config, config)
 
@@ -2123,7 +2123,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                              client = mfs.SageMakerPlugin("sagemaker")
                              client.update_deployment(..., config=dict(vpc_config=vpc_config))
         """
-        final_config = self._default_config(create_mode=False)
+        final_config = self._default_deployment_config(create_mode=False)
         if config:
             self._apply_custom_config(final_config, config)
 
@@ -2160,8 +2160,57 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
 
         return dict(name=name, flavor=flavor)
 
-    def delete_deployment(self, name):
-        pass
+    @experimental
+    def delete_deployment(self, name, config=None):
+        """
+        Delete a SageMaker application.
+        :param name: Name of the deployed application.
+        :param config: Configuration paramaters. The supported paramaters are:
+
+                       - assume_role_arn: The name of an IAM role to be assumed to delete
+                         the SageMaker deployment.
+
+                       - region_name: Name of the AWS region in which the application is deployed.
+                         Defaults to ``us-west-2``.
+
+                       - archive: If `True`, resources associated with the specified application,
+                         such as its associated models and endpoint configuration, are preserved.
+                         If `False`, these resources are deleted. In order to use
+                         ``archive=False``, ``delete()`` must be executed synchronously with
+                         ``synchronous=True``. Defaults to ``False``.
+
+                       - synchronous: If `True`, this function blocks until the deletion process
+                         succeeds or encounters an irrecoverable failure. If `False`, this function
+                         returns immediately after starting the deletion process. It will not wait
+                         for the deletion process to complete; in this case, the caller is
+                         responsible for monitoring the status of the deletion process via native
+                         SageMaker APIs or the AWS console. Defaults to ``True``.
+
+                       - timeout_seconds: If `synchronous` is `True`, the deletion process returns
+                         after the specified number of seconds if no definitive result
+                         (success or failure) is achieved. Once the function returns, the caller
+                         is responsible for monitoring the status of the deletion process via native
+                         SageMaker APIs or the AWS console. If `synchronous` is False, this
+                         parameter is ignored. Defaults to ``300``.
+        """
+        final_config = dict(
+            region_name="us-west-2",
+            archive=False,
+            synchronous=True,
+            timeout_seconds=300,
+            assume_role_arn=self.assumed_role_arn,
+        )
+        if config:
+            self._apply_custom_config(final_config, config)
+
+        delete(
+            name,
+            region_name=final_config["region_name"],
+            assume_role_arn=final_config["assume_role_arn"],
+            archive=final_config["archive"],
+            synchronous=final_config["synchronous"],
+            timeout_seconds=final_config["timeout_seconds"],
+        )
 
     def list_deployments(self):
         pass
