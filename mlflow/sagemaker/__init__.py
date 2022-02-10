@@ -2216,7 +2216,24 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         pass
 
     def get_deployment(self, name):
-        pass
+        """
+        Returns a dictionary describing the specified deployment.
+        If a region name needs to be specified, the plugin must be initialized
+        with the AWS region in the target_uri such as `sagemaker:/us-east-1`.
+        A :py:class:`mlflow.exceptions.MlflowException` will also be thrown when an error occurs
+        while retrieving the deployment.
+        :param name: Name of deployment to retrieve
+        :return: A dictionary that describes the specified deployment
+        """
+        import boto3
+
+        try:
+            sage_client = boto3.client("sagemaker", region_name=self.region_name)
+            return sage_client.describe_endpoint(EndpointName=name)
+        except Exception as exc:
+            raise MlflowException(
+                message=(f"There was an error while retrieving the deployment: {exc}\n")
+            )
 
     def predict(self, deployment_name, df):
         pass

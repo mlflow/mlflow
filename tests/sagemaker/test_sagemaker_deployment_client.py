@@ -1079,3 +1079,60 @@ def test_deploy_cli_deletes_sagemaker_deployment(pretrained_model, sagemaker_cli
 
     response = sagemaker_client.list_endpoints()
     assert len(response["Endpoints"]) == 0
+
+
+@pytest.mark.large
+@mock_sagemaker_aws_services
+def test_get_deployment_successful(pretrained_model, sagemaker_client):
+    name = "test-app"
+    region_name = sagemaker_client.meta.region_name
+    sagemaker_deployment_client = mfs.SageMakerDeploymentClient(f"sagemaker:/{region_name}")
+    sagemaker_deployment_client.create_deployment(
+        name=name, model_uri=pretrained_model.model_uri, config=dict(region_name=region_name)
+    )
+
+    endpoint_description = sagemaker_deployment_client.get_deployment(name)
+
+    expected_description = sagemaker_client.describe_endpoint(EndpointName=name)
+    assert endpoint_description == expected_description
+
+
+@pytest.mark.large
+@mock_sagemaker_aws_services
+def test_get_deployment_non_existent_deployment():
+    sagemaker_deployment_client = mfs.SageMakerDeploymentClient("sagemaker:/us-west-2")
+
+    with pytest.raises(MlflowException, match="There was an error while"):
+        sagemaker_deployment_client.get_deployment("non-existent app")
+
+
+@pytest.mark.large
+@mock_sagemaker_aws_services
+def test_deploy_cli_gets_sagemaker_deployment(pretrained_model, sagemaker_client):
+    app_name = "test-app"
+    region_name = sagemaker_client.meta.region_name
+    result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
+        cli_commands,
+        [
+            "create",
+            "--target",
+            f"sagemaker:/{region_name}",
+            "--name",
+            app_name,
+            "--model-uri",
+            pretrained_model.model_uri,
+        ],
+    )
+    assert result.exit_code == 0
+
+    result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
+        cli_commands,
+        [
+            "get",
+            "--target",
+            f"sagemaker:/{region_name}",
+            "--name",
+            app_name,
+        ],
+    )
+    assert result.exit_code == 0
