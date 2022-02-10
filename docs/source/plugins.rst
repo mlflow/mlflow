@@ -206,7 +206,7 @@ plugin:
        2) The ``run_local`` and ``target_help`` functions, with the ``target`` parameter excluded, as shown
        `here <https://github.com/mlflow/mlflow/blob/master/mlflow/deployments/base.py>`_
      - `PluginDeploymentClient <https://github.com/mlflow/mlflow/blob/master/tests/resources/mlflow-test-plugin/mlflow_test_plugin/fake_deployment_plugin.py>`_.
-   * - Plugins for custom mlflow evaluator.
+   * - Plugins for :ref:`MLflow Model Evaluation <model-evaluation>`
      - mlflow.model_evaluator
      - The entry point name (e.g. ``dummy_evaluator``) is the evaluator name which is used in the ``evaluators`` argument of the ``mlflow.evaluate`` API.
        The entry point value (e.g. ``dummy_evaluator:DummyEvaluator``) must refer to a subclass of ``mlflow.models.evaluation.ModelEvaluator``;
