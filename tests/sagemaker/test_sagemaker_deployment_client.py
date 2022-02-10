@@ -58,6 +58,22 @@ def sagemaker_deployment_client():
     )
 
 
+def create_sagemaker_deployment_through_cli(app_name, model_uri, region_name):
+    result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
+        cli_commands,
+        [
+            "create",
+            "--target",
+            f"sagemaker:/{region_name}",
+            "--name",
+            app_name,
+            "--model-uri",
+            model_uri,
+        ],
+    )
+    assert result.exit_code == 0
+
+
 def get_sagemaker_backend(region_name):
     return mock_sagemaker.backends[region_name]
 
@@ -300,19 +316,7 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
 ):
     app_name = "test-app"
     region_name = sagemaker_client.meta.region_name
-    result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
-        cli_commands,
-        [
-            "create",
-            "--target",
-            f"sagemaker:/{region_name}",
-            "--name",
-            app_name,
-            "--model-uri",
-            pretrained_model.model_uri,
-        ],
-    )
-    assert result.exit_code == 0
+    create_sagemaker_deployment_through_cli(app_name, pretrained_model.model_uri, region_name)
 
     s3_client = boto3.client("s3", region_name=region_name)
     default_bucket = mfs._get_default_s3_bucket(region_name)
@@ -409,19 +413,7 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
     )
 
     app_name = "test-app"
-    result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
-        cli_commands,
-        [
-            "create",
-            "--target",
-            f"sagemaker:/{region_name}",
-            "--name",
-            app_name,
-            "--model-uri",
-            model_s3_uri,
-        ],
-    )
-    assert result.exit_code == 0
+    create_sagemaker_deployment_through_cli(app_name, model_s3_uri, region_name)
 
     region_name = sagemaker_client.meta.region_name
     s3_client = boto3.client("s3", region_name=region_name)
@@ -876,19 +868,7 @@ def test_deploy_cli_updates_sagemaker_and_s3_resources_in_replace_mode(
 ):
     app_name = "test-app"
     region_name = sagemaker_client.meta.region_name
-    result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
-        cli_commands,
-        [
-            "create",
-            "--target",
-            f"sagemaker:/{region_name}",
-            "--name",
-            app_name,
-            "--model-uri",
-            pretrained_model.model_uri,
-        ],
-    )
-    assert result.exit_code == 0
+    create_sagemaker_deployment_through_cli(app_name, pretrained_model.model_uri, region_name)
 
     result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
         cli_commands,
@@ -940,19 +920,7 @@ def test_deploy_cli_updates_sagemaker_and_s3_resources_in_add_mode(
 ):
     app_name = "test-app"
     region_name = sagemaker_client.meta.region_name
-    result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
-        cli_commands,
-        [
-            "create",
-            "--target",
-            f"sagemaker:/{region_name}",
-            "--name",
-            app_name,
-            "--model-uri",
-            pretrained_model.model_uri,
-        ],
-    )
-    assert result.exit_code == 0
+    create_sagemaker_deployment_through_cli(app_name, pretrained_model.model_uri, region_name)
 
     result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
         cli_commands,
@@ -1049,19 +1017,7 @@ def test_delete_deployment_synchronous_with_archiving_only_deletes_endpoint(
 def test_deploy_cli_deletes_sagemaker_deployment(pretrained_model, sagemaker_client):
     app_name = "test-app"
     region_name = sagemaker_client.meta.region_name
-    result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
-        cli_commands,
-        [
-            "create",
-            "--target",
-            f"sagemaker:/{region_name}",
-            "--name",
-            app_name,
-            "--model-uri",
-            pretrained_model.model_uri,
-        ],
-    )
-    assert result.exit_code == 0
+    create_sagemaker_deployment_through_cli(app_name, pretrained_model.model_uri, region_name)
 
     result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
         cli_commands,
@@ -1111,19 +1067,7 @@ def test_get_deployment_non_existent_deployment():
 def test_deploy_cli_gets_sagemaker_deployment(pretrained_model, sagemaker_client):
     app_name = "test-app"
     region_name = sagemaker_client.meta.region_name
-    result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
-        cli_commands,
-        [
-            "create",
-            "--target",
-            f"sagemaker:/{region_name}",
-            "--name",
-            app_name,
-            "--model-uri",
-            pretrained_model.model_uri,
-        ],
-    )
-    assert result.exit_code == 0
+    create_sagemaker_deployment_through_cli(app_name, pretrained_model.model_uri, region_name)
 
     result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
         cli_commands,
@@ -1135,4 +1079,5 @@ def test_deploy_cli_gets_sagemaker_deployment(pretrained_model, sagemaker_client
             app_name,
         ],
     )
+
     assert result.exit_code == 0
