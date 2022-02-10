@@ -15,8 +15,10 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_
 _NUM_MAX_THREADS = 8
 # Max threads per CPU
 _NUM_MAX_THREADS_PER_CPU = 2
+assert _NUM_MAX_THREADS >= _NUM_MAX_THREADS_PER_CPU
+assert _NUM_MAX_THREADS_PER_CPU > 0
 # Default number of CPUs to assume on the machine if unavailable to fetch it using os.cpu_count()
-_NUM_DEFAULT_CPUS = _NUM_MAX_THREADS / _NUM_MAX_THREADS_PER_CPU
+_NUM_DEFAULT_CPUS = _NUM_MAX_THREADS // _NUM_MAX_THREADS_PER_CPU
 
 
 class ArtifactRepository:
