@@ -28,6 +28,12 @@ def _check_version_in_range(ver, min_ver, max_ver):
     return Version(min_ver) <= Version(ver) <= Version(max_ver)
 
 
+def _check_spark_version_in_range(ver, min_ver, max_ver):
+    if Version(ver) > Version(min_ver):
+        ver = _reset_minor_version(ver)
+    return _check_version_in_range(ver, min_ver, max_ver)
+
+
 def _violates_pep_440(ver):
     try:
         _ = Version(ver)
@@ -43,6 +49,11 @@ def _is_pre_or_dev_release(ver):
 
 def _strip_dev_version_suffix(version):
     return re.sub(r"(\.?)dev.*", "", version)
+
+
+def _reset_minor_version(version):
+    extracted = version.split(".")
+    return ".".join([value if idx < 2 else "0" for idx, value in enumerate(extracted)])
 
 
 def _load_version_file_as_dict():
@@ -76,4 +87,8 @@ def is_flavor_supported_for_associated_package_versions(flavor_name):
     if _violates_pep_440(actual_version) or _is_pre_or_dev_release(actual_version):
         return False
     min_version, max_version, _ = get_min_max_version_and_pip_release(module_key)
-    return _check_version_in_range(actual_version, min_version, max_version)
+
+    if module_name == "pyspark" and is_in_databricks_runtime():
+        return _check_spark_version_in_range(actual_version, min_version, max_version)
+    else:
+        return _check_version_in_range(actual_version, min_version, max_version)
