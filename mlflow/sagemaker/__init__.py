@@ -2213,7 +2213,16 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         )
 
     def list_deployments(self):
-        pass
+        """
+        List deployments. This method returns a list of dictionaries that describes each deployment.
+        If a region name needs to be specified, the plugin must be initialized
+        with the AWS region in the target_uri such as `sagemaker:/us-east-1`.
+        :return: A list of dictionaries corresponding to deployments.
+        """
+        import boto3
+
+        sage_client = boto3.client("sagemaker", region_name=self.region_name)
+        return sage_client.list_endpoints()["Endpoints"]
 
     def get_deployment(self, name):
         """

@@ -1081,3 +1081,45 @@ def test_deploy_cli_gets_sagemaker_deployment(pretrained_model, sagemaker_client
     )
 
     assert result.exit_code == 0
+
+
+@pytest.mark.large
+@mock_sagemaker_aws_services
+def test_list_deployments_returns_all_endpoints(pretrained_model, sagemaker_client):
+    region_name = sagemaker_client.meta.region_name
+    sagemaker_deployment_client = mfs.SageMakerDeploymentClient(f"sagemaker:/{region_name}")
+    sagemaker_deployment_client.create_deployment(
+        name="test-app-1",
+        model_uri=pretrained_model.model_uri,
+        config=dict(region_name=region_name),
+    )
+    sagemaker_deployment_client.create_deployment(
+        name="test-app-2",
+        model_uri=pretrained_model.model_uri,
+        config=dict(region_name=region_name),
+    )
+
+    endpoints = sagemaker_deployment_client.list_deployments()
+
+    assert len(endpoints) == 2
+    assert endpoints[0]["EndpointName"] == "test-app-1"
+    assert endpoints[1]["EndpointName"] == "test-app-2"
+
+
+@pytest.mark.large
+@mock_sagemaker_aws_services
+def test_deploy_cli_list_sagemaker_deployments(pretrained_model, sagemaker_client):
+    region_name = sagemaker_client.meta.region_name
+    create_sagemaker_deployment_through_cli("test-app-1", pretrained_model.model_uri, region_name)
+    create_sagemaker_deployment_through_cli("test-app-2", pretrained_model.model_uri, region_name)
+
+    result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
+        cli_commands,
+        [
+            "list",
+            "--target",
+            f"sagemaker:/{region_name}",
+        ],
+    )
+
+    assert result.exit_code == 0
