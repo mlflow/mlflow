@@ -208,6 +208,7 @@ You may prefer the second, lower-level workflow for the following reasons:
 """
 
 import importlib
+import warnings
 
 import numpy as np
 import os
@@ -253,6 +254,11 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from scipy.sparse import csc_matrix, csr_matrix
+from mlflow.utils.requirements_utils import (
+    _convert_package_name_to_module_name,
+    _get_installed_version,
+    _parse_requirements,
+)
 
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
@@ -628,6 +634,29 @@ class PyFuncModel:
         return yaml.safe_dump({"mlflow.pyfunc.loaded_model": info}, default_flow_style=False)
 
 
+def check_requirements_and_local_installed_mismatch(local_path):
+    req_file_path = os.path.join(local_path, 'requirements.txt')
+    mismatch_items = []
+    for req in _parse_requirements(req_file_path, is_constraint=False):
+        req_str_splits = req.req_str.split("==").split('==')
+        if len(req_str_splits) == 2:
+            package = req_str_splits[0].strip()
+            req_version = req_str_splits[1].strip()
+            module = _convert_package_name_to_module_name(package)
+            installed_version = _get_installed_version(package, module)
+            if req_version!= installed_version:
+                mismatch_items.append((req.req_str, installed_version))
+
+    if len(mismatch_items) > 0:
+        mismatch_items_str = ','.join(
+            [f"dependency {req_str} but version {installed_version} installed"
+             for req_str, installed_version in mismatch_items]
+        )
+        warning_msg = "The loaded model dependencies mismatch with current python environment, " \
+                      f"mismatched packages includes: {mismatch_items_str}"
+        warnings.warn(warning_msg, category=UserWarning)
+
+
 def load_model(model_uri: str, suppress_warnings: bool = True, dst_path: str = None) -> PyFuncModel:
     """
     Load a model stored in Python function format.
@@ -653,6 +682,9 @@ def load_model(model_uri: str, suppress_warnings: bool = True, dst_path: str = N
                      path will be created.
     """
     local_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
+
+    check_requirements_and_local_installed_mismatch(local_path)
+
     model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
 
     conf = model_meta.flavors.get(FLAVOR_NAME)
@@ -826,6 +858,7 @@ def spark_udf(spark, model_uri, result_type="double"):
         local_model_path = _download_artifact_from_uri(
             artifact_uri=model_uri, output_path=local_tmpdir.path()
         )
+        check_requirements_and_local_installed_mismatch(local_model_path)
         archive_path = SparkModelCache.add_local_model(spark, local_model_path)
         model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
 
