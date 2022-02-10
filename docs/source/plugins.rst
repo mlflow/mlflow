@@ -26,6 +26,7 @@ The MLflow Python API supports several types of plugins:
   :py:func:`mlflow.start_run` fluent API.
 * **Model Registry Store**: override model registry backend logic, e.g. to log to a third-party storage solution
 * **MLFlow Project backend**: override the local execution backend to execute a project on your own cluster (Databricks, kubernetes, etc.)
+* **MLFlow ModelEvaluator**: Define custom model evaluator, which can be used in :py:func:`mlflow.evaluate` API.
 
 .. contents:: Table of Contents
   :local:
@@ -208,15 +209,15 @@ plugin:
    * - Plugins for custom mlflow evaluator.
      - mlflow.model_evaluator
      - The entry point name (e.g. ``dummy_evaluator``) is the evaluator name which is used in the ``evaluators`` argument of the ``mlflow.evaluate`` API.
-       The entry point value (e.g. ``dummy_evaluator:DummyEvaluator``) specify a class which is subclass of ``mlflow.models.evaluation.ModelEvaluator``,
+       The entry point value (e.g. ``dummy_evaluator:DummyEvaluator``) must refer to a subclass of ``mlflow.models.evaluation.ModelEvaluator``;
        the subclass must implement 2 methods:
-       1) Implement ``can_evaluate`` method: The method accept keyword-only arguments of ``model_type`` and ``evaluator_config``,
-       return True if the evaluator can evaluate the specified model type with specified evaluator config. False otherwise.
-       2) Implement ``evaluate`` method: In the method implementation, it should log metrics and artifacts, and return evaluation results as an instance
-       of ``mlflow.models.EvaluationResult``. It accepts arguments of ``model`` (a pyfunc model instance.),
-       ``model_type`` (the same with ``model_type`` argument in ``mlflow.evaluate`` API),
-       ``dataset`` (an instance of `mlflow.models.evaluation.base._EvaluationDataset` containing features and labels (optional) for model evaluation,
-       ``run_id`` (the ID of the MLflow Run to which to log results), ``evaluator_config`` (a dictionary of additional configurations for the evaluator).
+       1) ``can_evaluate``: Accepts the keyword-only arguments ``model_type`` and ``evaluator_config``.
+       Returns ``True`` if the evaluator can evaluate the specified model type with the specified evaluator config. Returns ``False`` otherwise.
+       2) ``evaluate``: Computes and logs metrics and artifacts, returning evaluation results as an instance
+       of ``mlflow.models.EvaluationResult``. Accepts the following arguments: ``model`` (a pyfunc model instance),
+       ``model_type`` (identical to the ``model_type`` argument from :py:func:`mlflow.evaluate()`),
+       ``dataset`` (an instance of ``mlflow.models.evaluation.base._EvaluationDataset`` containing features and labels (optional) for model evaluation),
+       ``run_id`` (the ID of the MLflow Run to which to log results), and ``evaluator_config`` (a dictionary of additional configurations for the evaluator).
      - `DummyEvaluator <https://github.com/mlflow/mlflow/blob/branch-1.23/tests/resources/mlflow-test-plugin/mlflow_test_plugin/dummy_evaluator.py>`_.
 
 
