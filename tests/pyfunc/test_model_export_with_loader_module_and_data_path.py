@@ -2,6 +2,7 @@ import os
 import pickle
 import yaml
 import re
+from unittest import mock
 
 import numpy as np
 import pandas as pd
@@ -18,6 +19,7 @@ import mlflow.sklearn
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature, ModelSignature
 from mlflow.models.utils import _read_example
+from mlflow.pyfunc import check_requirements_and_local_installed_mismatch
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import Schema, ColSpec, TensorSpec
 from mlflow.utils.environment import _mlflow_conda_env
@@ -784,6 +786,48 @@ def test_log_model_persists_requirements_in_mlflow_model_directory(
         requirements = f.read().split("\n")
 
     assert pyfunc_custom_env_dict["dependencies"][-1]["pip"] == requirements
+
+
+@pytest.mark.large
+def test_check_requirements_and_local_installed_mismatch(sklearn_knn_model):
+    import cloudpickle
+
+    with mlflow.start_run() as run:
+        mlflow.sklearn.log_model(sklearn_knn_model, "model")
+        pyfunc_model_path = _download_artifact_from_uri(
+            "runs:/{run_id}/{artifact_path}".format(run_id=run.info.run_id, artifact_path="model")
+        )
+        with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
+            check_requirements_and_local_installed_mismatch(pyfunc_model_path)
+            mock_warning.assert_not_called()
+
+            mock_warning.reset_mock()
+
+            original_get_installed_version_fn = mlflow.pyfunc._get_installed_version
+
+            def mock_get_installed_version(package, module=None):
+                if package == "scikit-learn":
+                    return "999.99.11"
+                elif package == "cloudpickle":
+                    return "999.99.22"
+                else:
+                    return original_get_installed_version_fn(package, module)
+
+            with mock.patch("mlflow.pyfunc._get_installed_version", mock_get_installed_version):
+                check_requirements_and_local_installed_mismatch(pyfunc_model_path)
+                mock_warning.assert_called_once()
+                warning_msg = mock_warning.call_args_list[0][0][0]
+                assert warning_msg.startswith(
+                    "The loaded model dependencies mismatch with current python environment"
+                )
+                assert (
+                    f"dependency scikit-learn=={sklearn.__version__} "
+                    "but version 999.99.11 installed" in warning_msg
+                )
+                assert (
+                    f"dependency cloudpickle=={cloudpickle.__version__} "
+                    "but version 999.99.22 installed" in warning_msg
+                )
 
 
 @pytest.mark.large

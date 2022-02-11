@@ -4,6 +4,8 @@ import sys
 import numpy as np
 import pandas as pd
 import pytest
+from unittest import mock
+
 import pyspark
 from pyspark.sql.types import ArrayType, DoubleType, LongType, StringType, FloatType, IntegerType
 from pyspark.sql.utils import AnalysisException
@@ -81,7 +83,12 @@ def test_spark_udf(spark, model_path):
         loader_module=__name__,
         code_path=[os.path.dirname(tests.__file__)],
     )
-    reloaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_path)
+
+    with mock.patch(
+        "mlflow.pyfunc.check_requirements_and_local_installed_mismatch"
+    ) as mock_check_fn:
+        reloaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_path)
+        mock_check_fn.assert_called_once()
 
     pandas_df = pd.DataFrame(data=np.ones((10, 10)), columns=[str(i) for i in range(10)])
     spark_df = spark.createDataFrame(pandas_df)

@@ -411,9 +411,8 @@ def _get_pinned_requirement(package, version=None, module=None):
     return f"{package}=={version}"
 
 
-_package_to_module_map = {
-    'scikit-learn': 'sklearn'
-}
+_package_to_module_map = {"scikit-learn": "sklearn"}
+
 
 def _convert_package_name_to_module_name(package_name):
     package_name = _normalize_package_name(package_name)
