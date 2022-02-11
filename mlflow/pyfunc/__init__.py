@@ -635,6 +635,8 @@ class PyFuncModel:
 
 def check_requirements_and_local_installed_mismatch(local_path):
     req_file_path = os.path.join(local_path, "requirements.txt")
+    if not os.path.exists(req_file_path):
+        return
     mismatch_items = []
     for req in _parse_requirements(req_file_path, is_constraint=False):
         req_str_splits = req.req_str.split("==")
