@@ -148,6 +148,7 @@ def _run(
             base_image=project.docker_env.get("image"),
             run_id=active_run.info.run_id,
             tag=kube_config.get("image-tag"),
+            user_env_vars=project.docker_env.get("environment"),
         )
         image_digest = kb.push_image_to_registry(image.tags[0])
         submitted_run = kb.run_kubernetes_job(
