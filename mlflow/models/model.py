@@ -18,7 +18,6 @@ _logger = logging.getLogger(__name__)
 
 
 MLMODEL_FILE_NAME = "MLmodel"
-
 _LOG_MODEL_METADATA_WARNING_TEMPLATE = (
     "Logging model metadata to the tracking server has failed, possibly due older "
     "server version. The model artifacts have been logged successfully under %s. "

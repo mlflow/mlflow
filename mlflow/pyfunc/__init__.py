@@ -208,7 +208,6 @@ You may prefer the second, lower-level workflow for the following reasons:
 """
 
 import importlib
-import warnings
 
 import numpy as np
 import os
