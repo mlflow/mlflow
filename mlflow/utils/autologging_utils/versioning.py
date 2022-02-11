@@ -29,8 +29,15 @@ def _check_version_in_range(ver, min_ver, max_ver):
 
 
 def _check_spark_version_in_range(ver, min_ver, max_ver):
-    if Version(ver) > Version(min_ver):
-        ver = _reset_minor_version(ver)
+    """
+    Utility function for allowing late addition release changes to PySpark minor version increments
+    to be accepted, provided that the previous minor version has been previously validated.
+    For example, if version 3.2.1 has been validated as functional with MLflow, an upgrade of
+    PySpark's minor version to 3.2.2 will still provide a valid version check.
+    """
+    parsed_ver = Version(ver)
+    if parsed_ver > Version(min_ver):
+        ver = f"{parsed_ver.major}.{parsed_ver.minor}"
     return _check_version_in_range(ver, min_ver, max_ver)
 
 
@@ -49,11 +56,6 @@ def _is_pre_or_dev_release(ver):
 
 def _strip_dev_version_suffix(version):
     return re.sub(r"(\.?)dev.*", "", version)
-
-
-def _reset_minor_version(version):
-    extracted = version.split(".")
-    return ".".join([value if idx < 2 else "0" for idx, value in enumerate(extracted)])
 
 
 def _load_version_file_as_dict():
