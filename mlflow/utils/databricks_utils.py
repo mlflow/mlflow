@@ -311,12 +311,15 @@ def get_browser_hostname():
 
 
 def get_workspace_info_from_dbutils():
-    dbutils = _get_dbutils()
-    if dbutils:
-        browser_hostname = get_browser_hostname()
-        workspace_host = "https://" + browser_hostname if browser_hostname else get_webapp_url()
-        workspace_id = get_workspace_id()
-        return workspace_host, workspace_id
+    try:
+        dbutils = _get_dbutils()
+        if dbutils:
+            browser_hostname = get_browser_hostname()
+            workspace_host = "https://" + browser_hostname if browser_hostname else get_webapp_url()
+            workspace_id = get_workspace_id()
+            return workspace_host, workspace_id
+    except Exception:
+        pass
     return None, None
 
 
