@@ -128,7 +128,7 @@ def test_pmdarima_signature_and_examples_saved_correctly(auto_arima_model, test_
 
 
 def test_pmdarima_load_from_remote_uri_succeeds(
-        auto_arima_object_model, model_path, mock_s3_bucket
+    auto_arima_object_model, model_path, mock_s3_bucket
 ):
 
     mlflow.pmdarima.save_model(pmdarima_model=auto_arima_object_model, path=model_path)
@@ -145,6 +145,7 @@ def test_pmdarima_load_from_remote_uri_succeeds(
         auto_arima_object_model.predict(30), reloaded_pmdarima_model.predict(30)
     )
 
+
 def test_pmdarima_log_model(auto_arima_model):
 
     old_uri = mlflow.get_tracking_uri()
@@ -157,11 +158,17 @@ def test_pmdarima_log_model(auto_arima_model):
                 artifact_path = "pmdarima"
                 conda_env = os.path.join(tmp.path(), "conda_env.yaml")
                 _mlflow_conda_env(conda_env, additional_pip_deps=["pmdarima"])
-                model_info = mlflow.pmdarima.log_model(pmdarima_model=auto_arima_model, artifact_path=artifact_path, conda_env=conda_env)
+                model_info = mlflow.pmdarima.log_model(
+                    pmdarima_model=auto_arima_model,
+                    artifact_path=artifact_path,
+                    conda_env=conda_env,
+                )
                 model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
                 assert model_info.model_uri == model_uri
                 reloaded_model = mlflow.pmdarima.load_model(model_uri=model_uri)
-                np.testing.assert_array_equal(auto_arima_model.predict(20), reloaded_model.predict(20))
+                np.testing.assert_array_equal(
+                    auto_arima_model.predict(20), reloaded_model.predict(20)
+                )
 
                 model_path = _download_artifact_from_uri(artifact_uri=model_uri)
                 model_config = Model.load(os.path.join(model_path, "MLmodel"))
@@ -205,7 +212,7 @@ def test_pmdarima_log_model_no_registered_model_name(auto_arima_model):
 
 
 def test_pmdarima_model_save_persists_specified_conda_env_in_mlflow_model_directory(
-        auto_arima_object_model, model_path, pmdarima_custom_env
+    auto_arima_object_model, model_path, pmdarima_custom_env
 ):
     mlflow.pmdarima.save_model(
         pmdarima_model=auto_arima_object_model, path=model_path, conda_env=pmdarima_custom_env
@@ -238,7 +245,9 @@ def test_pmdarima_log_model_with_pip_requirements(auto_arima_object_model, tmpdi
     req_file = tmpdir.join("requirements.txt")
     req_file.write("a")
     with mlflow.start_run():
-        mlflow.pmdarima.log_model(auto_arima_object_model, "model", pip_requirements=req_file.strpath)
+        mlflow.pmdarima.log_model(
+            auto_arima_object_model, "model", pip_requirements=req_file.strpath
+        )
         _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"], strict=True)
 
     # List of requirements
@@ -320,9 +329,7 @@ def test_pmdarima_pyfunc_serve_and_score(auto_arima_model):
     with mlflow.start_run():
         mlflow.pmdarima.log_model(auto_arima_model, artifact_path)
         model_uri = mlflow.get_artifact_uri(artifact_path)
-    local_predict = auto_arima_model.predict(
-        30
-    )
+    local_predict = auto_arima_model.predict(30)
 
     inference_data = pd.DataFrame({"n_periods": 30}, index=[0])
 
