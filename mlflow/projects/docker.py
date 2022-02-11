@@ -25,6 +25,28 @@ _MLFLOW_DOCKER_TRACKING_DIR_PATH = "/mlflow/tmp/mlruns"
 _PROJECT_TAR_ARCHIVE_NAME = "mlflow-project-docker-build-context"
 
 
+def _parse_user_env_vars(user_env_vars):
+    env_vars = {}
+    if user_env_vars is not None:
+        for user_entry in user_env_vars:
+            if isinstance(user_entry, list):
+                # User has defined a new environment variable for the docker environment
+                env_vars[user_entry[0]] = user_entry[1]
+            else:
+                # User wants to copy an environment variable from system environment
+                system_var = os.environ.get(user_entry)
+                if system_var is None:
+                    raise ExecutionException(
+                        "This project expects the %s environment variables to "
+                        "be set on the machine running the project, but %s was "
+                        "not set. Please ensure all expected environment variables "
+                        "are set" % (", ".join([
+                            e for e in user_env_vars if not isinstance(e, list)]), user_entry)
+                    )
+                env_vars[user_entry] = system_var
+    return env_vars
+
+
 def validate_docker_installation():
     """
     Verify if Docker is installed on host machine.
@@ -52,15 +74,24 @@ def validate_docker_env(project):
         )
 
 
-def build_docker_image(work_dir, repository_uri, base_image, run_id, tag=None):
+def build_docker_image(work_dir, repository_uri, base_image, run_id, tag=None, user_env_vars=None):
     """
     Build a docker image containing the project in `work_dir`, using the base image.
     """
     image_uri = _get_docker_image_uri(repository_uri=repository_uri, work_dir=work_dir, tag=tag)
+    envs = ""
+    if user_env_vars:
+        envs = "ENV " + " ".join([
+            f"{k}={v}" for k, v in _parse_user_env_vars(user_env_vars).items()])
+
     dockerfile = (
-        "FROM {imagename}\n" "COPY {build_context_path}/ {workdir}\n" "WORKDIR {workdir}\n"
+        "FROM {imagename}\n"
+        "{envs}\n"
+        "COPY {build_context_path}/ {workdir}\n"
+        "WORKDIR {workdir}\n"
     ).format(
         imagename=base_image,
+        envs=envs,
         build_context_path=_PROJECT_TAR_ARCHIVE_NAME,
         workdir=MLFLOW_DOCKER_WORKDIR_PATH,
     )
