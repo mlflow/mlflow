@@ -784,6 +784,22 @@ method to load MLflow Models with the ``prophet`` model flavor in native prophet
 
 For more information, see :py:mod:`mlflow.prophet`.
 
+Pmdarima (``pmdarima``)
+^^^^^^^^^^^^^^^^^^^^^^^
+The ``pmdarima`` model flavor enables logging of `pmdarima models <http://alkaline-ml.com/pmdarima/>`_ in MLflow
+format via the :py:func:`mlflow.pmdarima.save_model()` and :py:func:`mlflow.pmdarima.log_model()` methods.
+These methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
+model to be interpreted as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`.
+This loaded PyFunc model can only be scored with a DataFrame input.
+You can also use the :py:func:`mlflow.pmdarima.load_model()` method to load MLflow Models with the ``pmdarima``
+model flavor in native pmdarima formats.
+
+.. note::
+    When predicting a ``pmdarima`` flavor, the ``predict`` method argument ``return_conf_int`` will control the
+    output format. When set to ``False`` or ``None`` (which is the default), the return type will be a
+    ``pandas.series``. When set to ``True``, the return type a ``tuple[pandas.Series, tuple[pandas.Series]]``.
+
+
 .. _model-evaluation:
 
 Model Evaluation
