@@ -339,4 +339,4 @@ def test_pmdarima_pyfunc_serve_and_score(auto_arima_model):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED,
     )
     scores = pd.read_json(resp.content.decode("utf-8"), orient="records")
-    np.testing.assert_array_almost_equal(scores, local_predict)
+    np.testing.assert_array_almost_equal(scores.to_numpy(), local_predict)
