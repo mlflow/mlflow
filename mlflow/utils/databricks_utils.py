@@ -320,7 +320,8 @@ def get_workspace_info_from_dbutils():
     return None, None
 
 
-def get_workspace_url_from_spark_conf():
+@_use_repl_context_if_available("workspaceUrl")
+def get_workspace_url():
     try:
         spark_session = _get_active_spark_session()
         if spark_session is not None:
