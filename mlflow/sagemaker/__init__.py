@@ -418,6 +418,8 @@ def deploy(
         if not archive:
             deployment_operation.clean_up()
 
+    return app_name, flavor
+
 
 def delete(
     app_name,
@@ -1978,7 +1980,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         if config:
             self._apply_custom_config(final_config, config)
 
-        deploy(
+        app_name, flavor = deploy(
             app_name=name,
             model_uri=model_uri,
             flavor=flavor,
@@ -1996,7 +1998,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             timeout_seconds=final_config["timeout_seconds"],
         )
 
-        return dict(name=name, flavor=flavor)
+        return dict(name=app_name, flavor=flavor)
 
     @experimental
     def update_deployment(self, name, model_uri=None, flavor=None, config=None):
@@ -2140,7 +2142,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        deploy(
+        app_name, flavor = deploy(
             app_name=name,
             model_uri=model_uri,
             flavor=flavor,
@@ -2158,7 +2160,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             timeout_seconds=final_config["timeout_seconds"],
         )
 
-        return dict(name=name, flavor=flavor)
+        return dict(name=app_name, flavor=flavor)
 
     @experimental
     def delete_deployment(self, name, config=None):
@@ -2171,7 +2173,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                          the SageMaker deployment.
 
                        - region_name: Name of the AWS region in which the application is deployed.
-                         Defaults to ``us-west-2``.
+                         Defaults to ``us-west-2`` or the region provided in the `target_uri`.
 
                        - archive: If `True`, resources associated with the specified application,
                          such as its associated models and endpoint configuration, are preserved.
@@ -2194,7 +2196,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                          parameter is ignored. Defaults to ``300``.
         """
         final_config = dict(
-            region_name="us-west-2",
+            region_name=self.region_name,
             archive=False,
             synchronous=True,
             timeout_seconds=300,
