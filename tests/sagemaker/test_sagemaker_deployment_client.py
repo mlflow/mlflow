@@ -116,21 +116,6 @@ def mock_sagemaker_aws_services(fn):
     return mock_wrapper
 
 
-@mock_sagemaker_aws_services
-def test_assume_role_and_get_credentials():
-    assumed_role_credentials = mfs._assume_role_and_get_credentials(
-        assume_role_arn="arn:aws:iam::123456789012:role/assumed_role"
-    )
-    assert "aws_access_key_id" in assumed_role_credentials.keys()
-    assert "aws_secret_access_key" in assumed_role_credentials.keys()
-    assert "aws_session_token" in assumed_role_credentials.keys()
-    assert len(assumed_role_credentials["aws_session_token"]) == 356
-    assert assumed_role_credentials["aws_session_token"].startswith("FQoGZXIvYXdzE")
-    assert len(assumed_role_credentials["aws_access_key_id"]) == 20
-    assert assumed_role_credentials["aws_access_key_id"].startswith("ASIA")
-    assert len(assumed_role_credentials["aws_secret_access_key"]) == 40
-
-
 def test_initialize_sagemaker_deployment_client_with_only_target_name():
     plugin = mfs.SageMakerDeploymentClient("sagemaker")
 

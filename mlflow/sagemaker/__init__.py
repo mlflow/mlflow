@@ -328,10 +328,7 @@ def deploy(
         _validate_deployment_flavor(model_config, flavor)
     _logger.info("Using the %s flavor for deployment!", flavor)
 
-    if assume_role_arn is None:
-        assume_role_credentials = dict()
-    else:
-        assume_role_credentials = _assume_role_and_get_credentials(assume_role_arn=assume_role_arn)
+    assume_role_credentials = _assume_role_and_get_credentials(assume_role_arn=assume_role_arn)
 
     s3_client = boto3.client("s3", region_name=region_name, **assume_role_credentials)
     sage_client = boto3.client("sagemaker", region_name=region_name, **assume_role_credentials)
@@ -466,10 +463,7 @@ def delete(
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    if assume_role_arn is None:
-        assume_role_credentials = dict()
-    else:
-        assume_role_credentials = _assume_role_and_get_credentials(assume_role_arn=assume_role_arn)
+    assume_role_credentials = _assume_role_and_get_credentials(assume_role_arn=assume_role_arn)
 
     s3_client = boto3.client("s3", region_name=region_name, **assume_role_credentials)
     sage_client = boto3.client("sagemaker", region_name=region_name, **assume_role_credentials)
@@ -683,10 +677,7 @@ def deploy_transform_job(
         _validate_deployment_flavor(model_config, flavor)
     _logger.info("Using the %s flavor for deployment!", flavor)
 
-    if assume_role_arn is None:
-        assume_role_credentials = dict()
-    else:
-        assume_role_credentials = _assume_role_and_get_credentials(assume_role_arn=assume_role_arn)
+    assume_role_credentials = _assume_role_and_get_credentials(assume_role_arn=assume_role_arn)
 
     s3_client = boto3.client("s3", region_name=region_name, **assume_role_credentials)
     sage_client = boto3.client("sagemaker", region_name=region_name, **assume_role_credentials)
@@ -813,10 +804,7 @@ def terminate_transform_job(
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    if assume_role_arn is None:
-        assume_role_credentials = dict()
-    else:
-        assume_role_credentials = _assume_role_and_get_credentials(assume_role_arn=assume_role_arn)
+    assume_role_credentials = _assume_role_and_get_credentials(assume_role_arn=assume_role_arn)
 
     s3_client = boto3.client("s3", region_name=region_name, **assume_role_credentials)
     sage_client = boto3.client("sagemaker", region_name=region_name, **assume_role_credentials)
@@ -965,10 +953,7 @@ def push_model_to_sagemaker(
         _validate_deployment_flavor(model_config, flavor)
     _logger.info("Using the %s flavor for deployment!", flavor)
 
-    if assume_role_arn is None:
-        assume_role_credentials = dict()
-    else:
-        assume_role_credentials = _assume_role_and_get_credentials(assume_role_arn=assume_role_arn)
+    assume_role_credentials = _assume_role_and_get_credentials(assume_role_arn=assume_role_arn)
 
     s3_client = boto3.client("s3", region_name=region_name, **assume_role_credentials)
     sage_client = boto3.client("sagemaker", region_name=region_name, **assume_role_credentials)
@@ -1148,11 +1133,16 @@ def _get_assumed_role_arn(**assume_role_credentials):
 def _assume_role_and_get_credentials(assume_role_arn):
     """
     Assume a new role in AWS and return the credentials for that role.
+    When ``assume_role_arn`` is ``None`` or an empty string,
+    this function does nothing and returns an empty dictionary.
 
     :param assume_role_arn: The ARN of the role that will be assumed
     :return: Dict with credentials of the assumed role
     """
     import boto3
+
+    if not assume_role_arn:
+        return dict()
 
     sts_client = boto3.client("sts")
     sts_response = sts_client.assume_role(
@@ -2242,12 +2232,9 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         """
         import boto3
 
-        if self.assumed_role_arn is None:
-            assume_role_credentials = dict()
-        else:
-            assume_role_credentials = _assume_role_and_get_credentials(
-                assume_role_arn=self.assumed_role_arn
-            )
+        assume_role_credentials = _assume_role_and_get_credentials(
+            assume_role_arn=self.assumed_role_arn
+        )
 
         sage_client = boto3.client(
             "sagemaker", region_name=self.region_name, **assume_role_credentials
@@ -2287,12 +2274,9 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         """
         import boto3
 
-        if self.assumed_role_arn is None:
-            assume_role_credentials = dict()
-        else:
-            assume_role_credentials = _assume_role_and_get_credentials(
-                assume_role_arn=self.assumed_role_arn
-            )
+        assume_role_credentials = _assume_role_and_get_credentials(
+            assume_role_arn=self.assumed_role_arn
+        )
 
         try:
             sage_client = boto3.client(
