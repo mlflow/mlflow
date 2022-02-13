@@ -2217,13 +2217,41 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
     def list_deployments(self):
         """
         List deployments. This method returns a list of dictionaries that describes each deployment.
+
         If a region name needs to be specified, the plugin must be initialized
-        with the AWS region in the target_uri such as `sagemaker:/us-east-1`.
+        with the AWS region in the ``target_uri`` such as ``sagemaker:/us-east-1``.
+
+        To assume an IAM role, the plugin must be initialized
+        with the AWS region and the role ARN in the ``target_uri`` such as
+        ``sagemaker:/us-east-1/arn:aws:1234:role/assumed_role``.
+
         :return: A list of dictionaries corresponding to deployments.
+
+        .. code-block:: python
+            :caption: Python example
+
+            from mlflow.sagemaker import SageMakerDeploymentClient
+
+            client = SageMakerDeploymentClient("sagemaker:/us-east-1/arn:aws:123:role/assumed_role")
+            client.list_deployments()
+
+        .. code-block:: bash
+            :caption: Command-line example
+
+            mlflow deployments list --target sagemaker:/us-east-1/arn:aws:1234:role/assumed_role
         """
         import boto3
 
-        sage_client = boto3.client("sagemaker", region_name=self.region_name)
+        if self.assumed_role_arn is None:
+            assume_role_credentials = dict()
+        else:
+            assume_role_credentials = _assume_role_and_get_credentials(
+                assume_role_arn=self.assumed_role_arn
+            )
+
+        sage_client = boto3.client(
+            "sagemaker", region_name=self.region_name, **assume_role_credentials
+        )
         return sage_client.list_endpoints()["Endpoints"]
 
     def get_deployment(self, name):
