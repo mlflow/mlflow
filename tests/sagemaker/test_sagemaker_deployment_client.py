@@ -1055,6 +1055,20 @@ def test_get_deployment_successful(pretrained_model, sagemaker_client):
 
 @pytest.mark.large
 @mock_sagemaker_aws_services
+def test_get_deployment_with_assumed_role_arn(
+    pretrained_model, sagemaker_client, sagemaker_deployment_client
+):
+    name = "test-app"
+    sagemaker_deployment_client.create_deployment(name=name, model_uri=pretrained_model.model_uri)
+
+    endpoint_description = sagemaker_deployment_client.get_deployment(name)
+
+    expected_description = sagemaker_client.describe_endpoint(EndpointName=name)
+    assert endpoint_description == expected_description
+
+
+@pytest.mark.large
+@mock_sagemaker_aws_services
 def test_get_deployment_non_existent_deployment():
     sagemaker_deployment_client = mfs.SageMakerDeploymentClient("sagemaker:/us-west-2")
 
