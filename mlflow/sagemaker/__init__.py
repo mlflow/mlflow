@@ -2156,34 +2156,62 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
     def delete_deployment(self, name, config=None):
         """
         Delete a SageMaker application.
+
         :param name: Name of the deployed application.
         :param config: Configuration paramaters. The supported paramaters are:
 
-                       - assume_role_arn: The name of an IAM role to be assumed to delete
+                       - ``assume_role_arn``: The name of an IAM role to be assumed to delete
                          the SageMaker deployment.
 
-                       - region_name: Name of the AWS region in which the application is deployed.
-                         Defaults to ``us-west-2`` or the region provided in the `target_uri`.
+                       - ``region_name``: Name of the AWS region in which the application
+                         is deployed. Defaults to ``us-west-2`` or the region provided in
+                         the `target_uri`.
 
-                       - archive: If `True`, resources associated with the specified application,
-                         such as its associated models and endpoint configuration, are preserved.
-                         If `False`, these resources are deleted. In order to use
+                       - ``archive``: If `True`, resources associated with the specified
+                         application, such as its associated models and endpoint configuration,
+                         are preserved. If `False`, these resources are deleted. In order to use
                          ``archive=False``, ``delete()`` must be executed synchronously with
                          ``synchronous=True``. Defaults to ``False``.
 
-                       - synchronous: If `True`, this function blocks until the deletion process
+                       - ``synchronous``: If `True`, this function blocks until the deletion process
                          succeeds or encounters an irrecoverable failure. If `False`, this function
                          returns immediately after starting the deletion process. It will not wait
                          for the deletion process to complete; in this case, the caller is
                          responsible for monitoring the status of the deletion process via native
                          SageMaker APIs or the AWS console. Defaults to ``True``.
 
-                       - timeout_seconds: If `synchronous` is `True`, the deletion process returns
-                         after the specified number of seconds if no definitive result
+                       - ``timeout_seconds``: If `synchronous` is `True`, the deletion process
+                         returns after the specified number of seconds if no definitive result
                          (success or failure) is achieved. Once the function returns, the caller
                          is responsible for monitoring the status of the deletion process via native
                          SageMaker APIs or the AWS console. If `synchronous` is False, this
                          parameter is ignored. Defaults to ``300``.
+
+        .. code-block:: python
+            :caption: Python example
+
+            from mlflow.sagemaker import SageMakerDeploymentClient
+
+            client = SageMakerDeploymentClient("sagemaker")
+            client.delete_deployment(
+                "my-deployment",
+                assume_role_arn="arn:aws:123:role/assumed_role",
+                region_name="us-east-1",
+                archive=False,
+                synchronous=True,
+                timeout_seconds=300
+            )
+
+        .. code-block:: bash
+            :caption: Command-line example
+
+            mlflow deployments delete --target sagemaker \\
+                    --name my-deployment \\
+                    -C assume_role_arn=arn:aws:123:role/assumed_role \\
+                    -C region_name=us-east-1 \\
+                    -C archive=False \\
+                    -C synchronous=True \\
+                    -C timeout_seconds=300
         """
         final_config = dict(
             region_name=self.region_name,
