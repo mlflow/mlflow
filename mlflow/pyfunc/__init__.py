@@ -641,18 +641,23 @@ def _warn_dependency_requirement_mismatches(model_path):
     if not os.path.exists(req_file_path):
         return
     mismatch_errors = []
-    for req in _parse_requirements(req_file_path, is_constraint=False):
-        req_line = req.req_str
-        mismatch_err = _check_pkg_installed_version_satisfy_requirements(req_line)
-        if mismatch_err is not None:
-            mismatch_errors.append(mismatch_err)
 
-    if len(mismatch_errors) > 0:
-        warning_msg = (
-            "The loaded model dependencies mismatch with current python environment, "
-            f"mismatched packages includes: {', '.join(mismatch_errors)}."
-        )
-        _logger.warning(warning_msg)
+    try:
+        for req in _parse_requirements(req_file_path, is_constraint=False):
+            req_line = req.req_str
+            mismatch_err = _check_pkg_installed_version_satisfy_requirements(req_line)
+            if mismatch_err is not None:
+                mismatch_errors.append(mismatch_err)
+
+        if len(mismatch_errors) > 0:
+            warning_msg = (
+                "The loaded model dependencies mismatch with current python environment, "
+                f"mismatched packages includes: {', '.join(mismatch_errors)}."
+            )
+            _logger.warning(warning_msg)
+    except Exception:
+        _logger.warning('Checking mismatched model dependencies failed.')
+        _logger.debug("", exc_info=True)
 
 
 def load_model(model_uri: str, suppress_warnings: bool = True, dst_path: str = None) -> PyFuncModel:
