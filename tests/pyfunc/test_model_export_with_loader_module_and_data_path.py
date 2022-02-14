@@ -795,8 +795,19 @@ def test_check_requirements_and_local_installed_mismatch(sklearn_knn_model):
 
     with mlflow.start_run() as run:
         mlflow.sklearn.log_model(sklearn_knn_model, "model")
+        mlflow.sklearn.log_model(
+            sklearn_knn_model,
+            "model2",
+            pip_requirements=[
+                "scikit-learn>=0.8,<=0.9",
+                "nonexist-pkg==1.2.3",
+            ],
+        )
         pyfunc_model_path = _download_artifact_from_uri(
             "runs:/{run_id}/{artifact_path}".format(run_id=run.info.run_id, artifact_path="model")
+        )
+        pyfunc_model2_path = _download_artifact_from_uri(
+            "runs:/{run_id}/{artifact_path}".format(run_id=run.info.run_id, artifact_path="model2")
         )
         with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
             _warn_dependency_requirement_mismatches(pyfunc_model_path)
@@ -804,18 +815,28 @@ def test_check_requirements_and_local_installed_mismatch(sklearn_knn_model):
 
             mock_warning.reset_mock()
 
-            original_get_installed_version_fn = \
+            original_get_installed_version_fn = (
                 mlflow.utils.requirements_utils._get_installed_version
+            )
 
-            def mock_get_installed_version(package, module=None):
-                if package == "scikit-learn":
-                    return "999.99.11"
-                elif package == "cloudpickle":
-                    return "999.99.22"
-                else:
-                    return original_get_installed_version_fn(package, module)
+            def gen_mock_get_installed_version_fn(mock_versions):
+                def mock_get_installed_version_fn(package, module=None):
+                    if package in mock_versions:
+                        return mock_versions[package]
+                    else:
+                        return original_get_installed_version_fn(package, module)
 
-            with mock.patch("mlflow.utils.requirements_utils._get_installed_version", mock_get_installed_version):
+                return mock_get_installed_version_fn
+
+            with mock.patch(
+                "mlflow.utils.requirements_utils._get_installed_version",
+                gen_mock_get_installed_version_fn(
+                    {
+                        "scikit-learn": "999.99.11",
+                        "cloudpickle": "999.99.22",
+                    }
+                ),
+            ):
                 _warn_dependency_requirement_mismatches(pyfunc_model_path)
                 mock_warning.assert_called_once()
                 warning_msg = mock_warning.call_args_list[0][0][0]
@@ -829,6 +850,42 @@ def test_check_requirements_and_local_installed_mismatch(sklearn_knn_model):
                 assert (
                     "cloudpickle installed version 999.99.22 mismatch with "
                     f"requirement cloudpickle=={cloudpickle.__version__}" in warning_msg
+                )
+
+            mock_warning.reset_mock()
+
+            with mock.patch(
+                "mlflow.utils.requirements_utils._get_installed_version",
+                gen_mock_get_installed_version_fn(
+                    {
+                        "scikit-learn": "0.8.1",
+                        "nonexist-pkg": "1.2.3",
+                    }
+                ),
+            ):
+                _warn_dependency_requirement_mismatches(pyfunc_model2_path)
+                mock_warning.assert_not_called()
+
+            mock_warning.reset_mock()
+
+            with mock.patch(
+                "mlflow.utils.requirements_utils._get_installed_version",
+                gen_mock_get_installed_version_fn(
+                    {
+                        "scikit-learn": "0.7.1",
+                    }
+                ),
+            ):
+                _warn_dependency_requirement_mismatches(pyfunc_model2_path)
+                mock_warning.assert_called_once()
+                warning_msg = mock_warning.call_args_list[0][0][0]
+                assert (
+                    "scikit-learn installed version 0.7.1 mismatch with "
+                    "requirement scikit-learn>=0.8,<=0.9" in warning_msg
+                )
+                assert (
+                    "package nonexist-pkg is not installed but nonexist-pkg==1.2.3 required"
+                    in warning_msg
                 )
 
 

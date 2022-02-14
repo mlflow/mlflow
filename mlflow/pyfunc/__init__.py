@@ -633,6 +633,10 @@ class PyFuncModel:
 
 
 def _warn_dependency_requirement_mismatches(model_path):
+    """
+    print warning when installed model dependency package versions mismatch with the
+    model requirements file.
+    """
     req_file_path = os.path.join(model_path, _REQUIREMENTS_FILE_NAME)
     if not os.path.exists(req_file_path):
         return

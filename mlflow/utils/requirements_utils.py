@@ -444,4 +444,6 @@ def _check_pkg_installed_version_satisfy_requirements(req_line):
     if req.specifier.contains(installed_version):
         return None
     else:
-        return f"{pkg_name} installed version {installed_version} mismatch with requirement {req_line}"
+        return (
+            f"{pkg_name} installed version {installed_version} mismatch with requirement {req_line}"
+        )
