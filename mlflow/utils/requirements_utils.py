@@ -269,6 +269,21 @@ def _capture_imported_modules(model_uri, flavor):
 
 _MODULES_TO_PACKAGES = None
 
+
+def _init_modules_to_packages_map():
+    global _MODULES_TO_PACKAGES
+    if _MODULES_TO_PACKAGES is None:
+        # Note `importlib_metada.packages_distributions` only captures packages installed into
+        # Python’s site-packages directory via tools such as pip:
+        # https://importlib-metadata.readthedocs.io/en/latest/using.html#using-importlib-metadata
+        _MODULES_TO_PACKAGES = importlib_metadata.packages_distributions()
+
+        # In Databricks, `_MODULES_TO_PACKAGES` doesn't contain pyspark since it's not installed
+        # via pip or conda. To work around this issue, manually add pyspark.
+        if is_in_databricks_runtime():
+            _MODULES_TO_PACKAGES.update({"pyspark": ["pyspark"]})
+
+
 # Represents the PyPI package index at a particular date
 # :param date: The YYYY-MM-DD formatted string date on which the index was fetched.
 # :param package_names: The set of package names in the index.
@@ -298,17 +313,7 @@ def _infer_requirements(model_uri, flavor):
     :param: flavor: The flavor name of the model.
     :return: A list of inferred pip requirements.
     """
-    global _MODULES_TO_PACKAGES
-    if _MODULES_TO_PACKAGES is None:
-        # Note `importlib_metada.packages_distributions` only captures packages installed into
-        # Python’s site-packages directory via tools such as pip:
-        # https://importlib-metadata.readthedocs.io/en/latest/using.html#using-importlib-metadata
-        _MODULES_TO_PACKAGES = importlib_metadata.packages_distributions()
-
-        # In Databricks, `_MODULES_TO_PACKAGES` doesn't contain pyspark since it's not installed
-        # via pip or conda. To work around this issue, manually add pyspark.
-        if is_in_databricks_runtime():
-            _MODULES_TO_PACKAGES.update({"pyspark": ["pyspark"]})
+    _init_modules_to_packages_map()
 
     global _PYPI_PACKAGE_INDEX
     if _PYPI_PACKAGE_INDEX is None:
@@ -411,11 +416,32 @@ def _get_pinned_requirement(package, version=None, module=None):
     return f"{package}=={version}"
 
 
-_package_to_module_map = {"scikit-learn": "sklearn"}
-
-
 def _convert_package_name_to_module_name(package_name):
+    _init_modules_to_packages_map()
+
     package_name = _normalize_package_name(package_name)
-    if package_name in _package_to_module_map:
-        return _package_to_module_map[package_name]
+
+    for module, pkg_list in _MODULES_TO_PACKAGES.items():
+        if package_name in pkg_list:
+            return module
+
     return package_name
+
+
+def _check_pkg_installed_version_satisfy_requirements(req_line):
+    req = pkg_resources.Requirement.parse(req_line)
+    pkg_name = req.name
+    module = _convert_package_name_to_module_name(pkg_name)
+
+    try:
+        installed_version = _get_installed_version(pkg_name, module)
+    except ModuleNotFoundError:
+        return f"package {pkg_name} is not installed but {req_line} required"
+
+    if len(req.specifier) == 0:
+        return None
+
+    if req.specifier.contains(installed_version):
+        return None
+    else:
+        return f"{pkg_name} installed version {installed_version} mismatch with requirement {req_line}"

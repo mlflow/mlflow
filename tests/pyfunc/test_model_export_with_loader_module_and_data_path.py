@@ -19,7 +19,7 @@ import mlflow.sklearn
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature, ModelSignature
 from mlflow.models.utils import _read_example
-from mlflow.pyfunc import check_requirements_and_local_installed_mismatch
+from mlflow.pyfunc import _warn_dependency_requirement_mismatches
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import Schema, ColSpec, TensorSpec
 from mlflow.utils.environment import _mlflow_conda_env
@@ -791,6 +791,7 @@ def test_log_model_persists_requirements_in_mlflow_model_directory(
 @pytest.mark.large
 def test_check_requirements_and_local_installed_mismatch(sklearn_knn_model):
     import cloudpickle
+    import mlflow.utils.requirements_utils
 
     with mlflow.start_run() as run:
         mlflow.sklearn.log_model(sklearn_knn_model, "model")
@@ -798,12 +799,13 @@ def test_check_requirements_and_local_installed_mismatch(sklearn_knn_model):
             "runs:/{run_id}/{artifact_path}".format(run_id=run.info.run_id, artifact_path="model")
         )
         with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
-            check_requirements_and_local_installed_mismatch(pyfunc_model_path)
+            _warn_dependency_requirement_mismatches(pyfunc_model_path)
             mock_warning.assert_not_called()
 
             mock_warning.reset_mock()
 
-            original_get_installed_version_fn = mlflow.pyfunc._get_installed_version
+            original_get_installed_version_fn = \
+                mlflow.utils.requirements_utils._get_installed_version
 
             def mock_get_installed_version(package, module=None):
                 if package == "scikit-learn":
@@ -813,20 +815,20 @@ def test_check_requirements_and_local_installed_mismatch(sklearn_knn_model):
                 else:
                     return original_get_installed_version_fn(package, module)
 
-            with mock.patch("mlflow.pyfunc._get_installed_version", mock_get_installed_version):
-                check_requirements_and_local_installed_mismatch(pyfunc_model_path)
+            with mock.patch("mlflow.utils.requirements_utils._get_installed_version", mock_get_installed_version):
+                _warn_dependency_requirement_mismatches(pyfunc_model_path)
                 mock_warning.assert_called_once()
                 warning_msg = mock_warning.call_args_list[0][0][0]
                 assert warning_msg.startswith(
                     "The loaded model dependencies mismatch with current python environment"
                 )
                 assert (
-                    f"dependency scikit-learn=={sklearn.__version__} "
-                    "but version 999.99.11 installed" in warning_msg
+                    "scikit-learn installed version 999.99.11 mismatch with "
+                    f"requirement scikit-learn=={sklearn.__version__}" in warning_msg
                 )
                 assert (
-                    f"dependency cloudpickle=={cloudpickle.__version__} "
-                    "but version 999.99.22 installed" in warning_msg
+                    "cloudpickle installed version 999.99.22 mismatch with "
+                    f"requirement cloudpickle=={cloudpickle.__version__}" in warning_msg
                 )
 
 

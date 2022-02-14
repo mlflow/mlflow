@@ -254,8 +254,7 @@ from mlflow.protos.databricks_pb2 import (
 )
 from scipy.sparse import csc_matrix, csr_matrix
 from mlflow.utils.requirements_utils import (
-    _convert_package_name_to_module_name,
-    _get_installed_version,
+    _check_pkg_installed_version_satisfy_requirements,
     _parse_requirements,
 )
 
@@ -633,31 +632,21 @@ class PyFuncModel:
         return yaml.safe_dump({"mlflow.pyfunc.loaded_model": info}, default_flow_style=False)
 
 
-def check_requirements_and_local_installed_mismatch(local_path):
-    req_file_path = os.path.join(local_path, "requirements.txt")
+def _warn_dependency_requirement_mismatches(model_path):
+    req_file_path = os.path.join(model_path, _REQUIREMENTS_FILE_NAME)
     if not os.path.exists(req_file_path):
         return
-    mismatch_items = []
+    mismatch_errors = []
     for req in _parse_requirements(req_file_path, is_constraint=False):
-        req_str_splits = req.req_str.split("==")
-        if len(req_str_splits) == 2:
-            package = req_str_splits[0].strip()
-            req_version = req_str_splits[1].strip()
-            module = _convert_package_name_to_module_name(package)
-            installed_version = _get_installed_version(package, module)
-            if req_version != installed_version:
-                mismatch_items.append((req.req_str, installed_version))
+        req_line = req.req_str
+        mismatch_err = _check_pkg_installed_version_satisfy_requirements(req_line)
+        if mismatch_err is not None:
+            mismatch_errors.append(mismatch_err)
 
-    if len(mismatch_items) > 0:
-        mismatch_items_str = " ,".join(
-            [
-                f"dependency {req_str} but version {installed_version} installed"
-                for req_str, installed_version in mismatch_items
-            ]
-        )
+    if len(mismatch_errors) > 0:
         warning_msg = (
             "The loaded model dependencies mismatch with current python environment, "
-            f"mismatched packages includes: {mismatch_items_str}."
+            f"mismatched packages includes: {', '.join(mismatch_errors)}."
         )
         _logger.warning(warning_msg)
 
@@ -688,7 +677,7 @@ def load_model(model_uri: str, suppress_warnings: bool = True, dst_path: str = N
     """
     local_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
 
-    check_requirements_and_local_installed_mismatch(local_path)
+    _warn_dependency_requirement_mismatches(local_path)
 
     model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
 
@@ -864,7 +853,7 @@ def spark_udf(spark, model_uri, result_type="double"):
             artifact_uri=model_uri, output_path=local_tmpdir.path()
         )
         # Assume spark executor python environment is the same with spark driver side.
-        check_requirements_and_local_installed_mismatch(local_model_path)
+        _warn_dependency_requirement_mismatches(local_model_path)
         archive_path = SparkModelCache.add_local_model(spark, local_model_path)
         model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
 
