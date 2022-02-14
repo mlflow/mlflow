@@ -87,7 +87,81 @@ class BaseDeploymentClient(abc.ABC):
         self.target_uri = target_uri
 
     @abc.abstractmethod
-    def create_deployment(self, name, model_uri, flavor=None, config=None):
+    def create_endpoint(self, name, config=None):
+        """
+        Create an endpoint with the specified target. By default, this method should block until
+        deployment completes (i.e. until it's possible to create a deployment within the endpoint).
+        In the case of conflicts (e.g. if it's not possible to create the specified deployment
+        without due to conflict with an existing deployment), raises a
+        :py:class:`mlflow.exceptions.MlflowException`. See target-specific plugin documentation
+        for additional detail on support for asynchronous creation and other configuration.
+
+        :param name: Unique name to use for endpoint. If another endpoint exists with the same
+                     name, raises a :py:class:`mlflow.exceptions.MlflowException`.
+        :param config: (optional) Dict containing target-specific configuration for the
+                       endpoint.
+        :return: Dict corresponding to created endpoint, which must contain the 'name' key.
+        """
+        pass
+
+    @abc.abstractmethod
+    def update_endpoint(self, name, config=None):
+        """
+        Update the endpoint with the specified name. You can update any target-specific attributes
+        of the endpoint (via `config`). By default, this method should block until the update
+        completes (i.e. until it's possible to create a deployment within the endpoint). See
+        target-specific plugin documentation for additional detail on support for asynchronous
+        update and other configuration.
+
+        :param name: Unique name of endpoint to update
+        :param config: (optional) dict containing target-specific configuration for the
+                       endpoint
+        :return: None
+        """
+        pass
+
+    @abc.abstractmethod
+    def delete_endpoint(self, name):
+        """
+        Delete the endpoint with name ``name`` from the specified target. Deletion should be
+        idempotent (i.e. deletion should not fail if retried on a non-existent deployment).
+
+        :param name: Name of endpoint to delete
+        :return: None
+        """
+        pass
+
+    @abc.abstractmethod
+    def list_endpoints(self):
+        """
+        List endpoints in the specified target. This method is expected to return an
+        unpaginated list of all endpoints (an alternative would be to return a dict with
+        an 'endpoints' field containing the actual endpoints, with plugins able to specify
+        other fields, e.g. a next_page_token field, in the returned dictionary for pagination,
+        and to accept a `pagination_args` argument to this method for passing
+        pagination-related args).
+
+        :return: A list of dicts corresponding to endpoints. Each dict is guaranteed to
+                 contain a 'name' key containing the endpoint name. The other fields of
+                 the returned dictionary and their types may vary across targets.
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_endpoint(self, name):
+        """
+        Returns a dictionary describing the specified endpoint, throwing a
+        py:class:`mlflow.exception.MlflowException` if no endpoint exists with the provided
+        name.
+        The dict is guaranteed to contain an 'name' key containing the endpoint name.
+        The other fields of the returned dictionary and their types may vary across targets.
+
+        :param name: Name of endpoint to fetch
+        """
+        pass
+
+    @abc.abstractmethod
+    def create_deployment(self, name, model_uri, flavor=None, config=None, endpoint_uri=None):
         """
         Deploy a model to the specified target. By default, this method should block until
         deployment completes (i.e. until it's possible to perform inference with the deployment).
@@ -104,12 +178,14 @@ class BaseDeploymentClient(abc.ABC):
                        will be chosen.
         :param config: (optional) Dict containing updated target-specific configuration for the
                        deployment
+        :param endpoint_uri: URI of the Endpoint to create this deployment under. May not be
+                             supported by all targets.
         :return: Dict corresponding to created deployment, which must contain the 'name' key.
         """
         pass
 
     @abc.abstractmethod
-    def update_deployment(self, name, model_uri=None, flavor=None, config=None):
+    def update_deployment(self, name, model_uri=None, flavor=None, config=None, endpoint_uri=None):
         """
         Update the deployment with the specified name. You can update the URI of the model, the
         flavor of the deployed model (in which case the model URI must also be specified), and/or
@@ -126,29 +202,36 @@ class BaseDeploymentClient(abc.ABC):
                        deployment will be updated using that flavor.
         :param config: (optional) dict containing updated target-specific configuration for the
                        deployment
+        :param endpoint_uri: URI of the Endpoint containing the deployment to update. May not be
+                             supported by all targets
         :return: None
         """
         pass
 
     @abc.abstractmethod
-    def delete_deployment(self, name):
+    def delete_deployment(self, name, endpoint_uri=None):
         """
         Delete the deployment with name ``name`` from the specified target. Deletion should be
         idempotent (i.e. deletion should not fail if retried on a non-existent deployment).
 
         :param name: Name of deployment to delete
+        :param endpoint_uri: URI of the Endpoint containing the deployment to delete. May not be
+                             supported by all targets.
         :return: None
         """
         pass
 
     @abc.abstractmethod
-    def list_deployments(self):
+    def list_deployments(self, endpoint_uri=None):
         """
         List deployments. This method is expected to return an unpaginated list of all
         deployments (an alternative would be to return a dict with a 'deployments' field
         containing the actual deployments, with plugins able to specify other fields, e.g.
         a next_page_token field, in the returned dictionary for pagination, and to accept
         a `pagination_args` argument to this method for passing pagination-related args).
+
+        :param endpoint_uri: URI of the Endpoint to list all contained deployments. May not be
+                             supported by all targets.
 
         :return: A list of dicts corresponding to deployments. Each dict is guaranteed to
                  contain a 'name' key containing the deployment name. The other fields of
@@ -157,41 +240,67 @@ class BaseDeploymentClient(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def get_deployment(self, name):
+    def get_deployment(self, name, endpoint_uri=None):
         """
         Returns a dictionary describing the specified deployment, throwing a
         py:class:`mlflow.exception.MlflowException` if no deployment exists with the provided
-        ID.
+        name.
         The dict is guaranteed to contain an 'name' key containing the deployment name.
         The other fields of the returned dictionary and their types may vary across
         deployment targets.
 
         :param name: ID of deployment to fetch
+        :param endpoint_uri: URI of the Endpoint containing the deployment to get. May not be
+                             supported by all targets.
         """
         pass
 
     @abc.abstractmethod
-    def predict(self, deployment_name, df):
+    def predict(self, uri, df):
         """
-        Compute predictions on the pandas DataFrame ``df`` using the specified deployment.
+        Compute predictions on the pandas DataFrame ``df`` using the specified endpoint or deployment.
         Note that the input/output types of this method matches that of `mlflow pyfunc predict`
         (we accept a pandas DataFrame as input and return either a pandas DataFrame,
         pandas Series, or numpy array as output).
 
-        :param deployment_name: Name of deployment to predict against
+        :param uri: The URI of the endpoint or deployment to predict against. This can take one of
+                    three forms:
+
+                    - ``endpoints:/<endpoint name>`` for predicting against the default deployment
+                    in an endpoint
+                    - ``deployments:/<endpoint name>/<deployment name>`` for predicting against a
+                    specific deployment in an endpoint
+                    - ``deployments:/<deployment name>`` for predicting against a deployment for
+                    targets which don't support endpoints
+
+                    When using a target which supports endpoints, one of the first two URIs formats
+                    should be used. When using a target which doesn't support endpoints, the third
+                    URI format should be used.
         :param df: Pandas DataFrame to use for inference
         :return: A pandas DataFrame, pandas Series, or numpy array
         """
         pass
 
     @experimental
-    def explain(self, deployment_name, df):  # pylint: disable=unused-argument
+    def explain(self, uri, df):  # pylint: disable=unused-argument
         """
         Generate explanations of model predictions on the specified input pandas Dataframe
         ``df`` for the deployed model. Explanation output formats vary by deployment target,
         and can include details like feature importance for understanding/debugging predictions.
 
-        :param deployment_name: Name of deployment to predict against
+        :param uri: The URI of the endpoint or deployment to predict against. This can take one of
+                    three forms:
+
+                    - ``endpoints:/<endpoint name>`` for predicting against the default deployment
+                    in an endpoint
+                    - ``deployments:/<endpoint name>/<deployment name>`` for predicting against a
+                    specific deployment in an endpoint
+                    - ``deployments:/<deployment name>`` for predicting against a deployment for
+                    targets which don't support endpoints
+
+                    When using a target which supports endpoints, one of the first two URIs formats
+                    should be used. When using a target which doesn't support endpoints, the third
+                    URI format should be used.
         :param df: Pandas DataFrame to use for explaining feature importance in model prediction
         :return: A JSON-able object (pandas dataframe, numpy array, dictionary), or
                  an exception if the implementation is not available in deployment target's class
