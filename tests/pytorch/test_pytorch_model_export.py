@@ -996,7 +996,7 @@ def test_requirements_file_save_model(create_requirements_file, sequential_model
 
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_log_model_invalid_requirement_file_path(sequential_model):
-    with mlflow.start_run(), pytest.raises(FileNotFoundError, match="non_existing_file.txt"):
+    with mlflow.start_run(), pytest.raises(MlflowException, match="FileNotFoundError"):
         mlflow.pytorch.log_model(
             pytorch_model=sequential_model,
             artifact_path="models",
@@ -1089,7 +1089,7 @@ def test_extra_files_save_model(create_extra_files, sequential_model):
 
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_log_model_invalid_extra_file_path(sequential_model):
-    with mlflow.start_run(), pytest.raises(FileNotFoundError, match="non_existing_file.txt"):
+    with mlflow.start_run(), pytest.raises(MlflowException, match="FileNotFoundError"):
         mlflow.pytorch.log_model(
             pytorch_model=sequential_model,
             artifact_path="models",
