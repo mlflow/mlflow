@@ -2289,10 +2289,10 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             )
 
     def predict(self, deployment_name, df):
-        pass
+        raise NotImplementedError("This function is not implemented yet.")
 
     def explain(self, deployment_name, df):  # pylint: disable=unused-argument
-        pass
+        raise NotImplementedError("This function is not implemented yet.")
 
 
 class _SageMakerOperation:
