@@ -1855,9 +1855,23 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         return config
 
     def _apply_custom_config(self, config, custom_config):
-        for key in custom_config:
-            if key in config:
-                config[key] = custom_config[key]
+        import json
+
+        int_fields = {"instance_count", "timeout_seconds"}
+        bool_fields = {"synchronous", "archive"}
+        dict_fields = {"vpc_config"}
+        for key, value in custom_config.items():
+            if key not in config:
+                continue
+
+            if key in int_fields and not isinstance(value, int):
+                value = int(value)
+            elif key in bool_fields and not isinstance(value, bool):
+                value = value == "True"
+            elif key in dict_fields and not isinstance(value, dict):
+                value = json.parse(value)
+
+            config[key] = value
 
     @experimental
     def create_deployment(self, name, model_uri, flavor=None, config=None):
