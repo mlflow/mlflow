@@ -28,7 +28,7 @@ pytorch:
 
   models:
     minimum: "1.4.0"
-    maximum: "1.10.1"
+    maximum: "1.10.2"
     requirements: ["torchvision", "scikit-learn", "transformers"]
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py --large
@@ -41,7 +41,7 @@ pytorch-lightning:
 
   autologging:
     minimum: "1.0.5"
-    maximum: "1.5.8"
+    maximum: "1.5.10"
     requirements: ["torchvision", "scikit-learn"]
     run: |
       pytest tests/pytorch/test_pytorch_autolog.py --large
@@ -54,7 +54,7 @@ tensorflow:
 
   models:
     minimum: "2.0.0"
-    maximum: "2.7.0"
+    maximum: "2.8.0"
     requirements:
       "< 2.2": ["h5py<3.0", "scikit-learn"]
       # Requirements to run tests for keras
@@ -70,7 +70,7 @@ tensorflow:
 
   autologging:
     minimum: "2.0.0"
-    maximum: "2.7.0"
+    maximum: "2.8.0"
     requirements:
       "< 2.2": ["h5py<3.0"]
       "== dev": ["scikit-learn"]
@@ -87,7 +87,7 @@ keras:
 
   models:
     minimum: "2.3.0"
-    maximum: "2.7.0"
+    maximum: "2.8.0"
     requirements:
       "<= 2.3.1": ["tensorflow==2.2.1", "scikit-learn", "pyspark", "pyarrow", "transformers<=4.11.3"]
       "> 2.3.1, < 2.6.0": ["tensorflow<2.5.0", "scikit-learn", "pyspark", "pyarrow", "transformers"]
@@ -97,7 +97,7 @@ keras:
 
   autologging:
     minimum: "2.3.0"
-    maximum: "2.7.0"
+    maximum: "2.8.0"
     requirements:
       # keras 2.3.1 is incompatible with tensorflow > 2.2.1 and causes the issue reported here:
       # https://github.com/tensorflow/tensorflow/issues/38589
@@ -115,14 +115,14 @@ xgboost:
 
   models:
     minimum: "0.90"
-    maximum: "1.5.1"
+    maximum: "1.5.2"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/xgboost/test_xgboost_model_export.py --large
 
   autologging:
     minimum: "0.90"
-    maximum: "1.5.1"
+    maximum: "1.5.2"
     requirements: ["scikit-learn", "matplotlib"]
     run: |
       pytest tests/xgboost/test_xgboost_autolog.py --large
@@ -243,7 +243,7 @@ spacy:
 
   models:
     minimum: "2.2.4"
-    maximum: "3.2.1"
+    maximum: "3.2.2"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/spacy/test_spacy_model_export.py --large
@@ -256,13 +256,13 @@ statsmodels:
 
   models:
     minimum: "0.11.1"
-    maximum: "0.13.1"
+    maximum: "0.13.2"
     run: |
       pytest tests/statsmodels/test_statsmodels_model_export.py --large
 
   autologging:
     minimum: "0.11.1"
-    maximum: "0.13.1"
+    maximum: "0.13.2"
     run: |
       pytest tests/statsmodels/test_statsmodels_autolog.py --large
 
@@ -285,7 +285,7 @@ spark:
 
   models:
     minimum: "3.0.0"
-    maximum: "3.2.0"
+    maximum: "3.2.1"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
     # autologging use cases in environments where newer versions of pyspark are available
     # prior to their release on PyPI (e.g. Databricks)
@@ -304,7 +304,7 @@ spark:
 
   autologging:
     minimum: "3.0.0"
-    maximum: "3.2.0"
+    maximum: "3.2.1"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
     # autologging use cases in environments where newer versions of pyspark are available
     # prior to their release on PyPI (e.g. Databricks)
