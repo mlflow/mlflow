@@ -1904,11 +1904,16 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                        deployment, an exception will be thrown.
         :param config: Configuration paramaters. The supported paramaters are:
 
-                       - execution_role_arn: The name of an IAM role granting the SageMaker service
-                         permissions to access the specified Docker image and S3 bucket containing
-                         MLflow model artifacts. If unspecified, the currently-assumed role will be
-                         used. This execution role is passed to the SageMaker service when
-                         creating a SageMaker model from the specified MLflow model. It is
+                       - ``assume_role_arn``: The name of an IAM cross-account role to be assumed
+                         to deploy SageMaker to another AWS account. If this parameter is not
+                         specified, the role given in the ``target_uri`` will be used. If the
+                         role is not given in the ``target_uri``, defaults to ``us-west-2``.
+
+                       - ``execution_role_arn``: The name of an IAM role granting the SageMaker
+                         service permissions to access the specified Docker image and S3 bucket
+                         containing MLflow model artifacts. If unspecified, the currently-assumed
+                         role will be used. This execution role is passed to the SageMaker service
+                         when creating a SageMaker model from the specified MLflow model. It is
                          passed as the ``ExecutionRoleArn`` parameter of the `SageMaker
                          CreateModel API call <https://docs.aws.amazon.com/sagemaker/latest/
                          dg/API_CreateModel.html>`_. This role is *not* assumed for any other
@@ -1916,69 +1921,137 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                          creation, see
                          https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html.
 
-                       - bucket: S3 bucket where model artifacts will be stored. Defaults to a
+                       - ``bucket``: S3 bucket where model artifacts will be stored. Defaults to a
                          SageMaker-compatible bucket name.
 
-                       - image_url: URL of the ECR-hosted Docker image the model should be deployed
-                         into, produced by ``mlflow sagemaker build-and-push-container``.
+                       - ``image_url``: URL of the ECR-hosted Docker image the model should be
+                         deployed into, produced by ``mlflow sagemaker build-and-push-container``.
                          This parameter can also be specified by the environment variable
                          ``MLFLOW_SAGEMAKER_DEPLOY_IMG_URL``.
 
-                       - region_name: Name of the AWS region to which to deploy the application.
+                       - ``region_name``: Name of the AWS region to which to deploy the application.
+                         If unspecified, use the region name given in the ``target_uri``.
+                         If it is also not specified in the ``target_uri``,
+                         defaults to ``us-west-2``.
 
-                       - archive: If ``True``, any pre-existing SageMaker application resources
+                       - ``mode``: The mode in which to deploy the application.
+                         Must be one of the following:
+
+                         ``mlflow.sagemaker.DEPLOYMENT_MODE_CREATE``
+                             Create a SageMaker endpoint from the given model.
+                             This is the default mode.
+
+                         ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE``
+                             If an application of the specified name exists, its model(s) is
+                             replaced with the specified model. If no such application exists,
+                             it is created with the specified name and model.
+
+                         ``mlflow.sagemaker.DEPLOYMENT_MODE_ADD``
+                             Add the specified model to a pre-existing application with the
+                             specified name, if one exists. If the application does not exist,
+                             a new application is created with the specified name and model.
+                             NOTE: If the application **already exists**, the specified model is
+                             added to the application's corresponding SageMaker endpoint with an
+                             initial weight of zero (0). To route traffic to the model,
+                             update the application's associated endpoint configuration using
+                             either the AWS console or the ``UpdateEndpointWeightsAndCapacities``
+                             function defined in https://docs.aws.amazon.com/sagemaker/latest/dg/API_UpdateEndpointWeightsAndCapacities.html.
+
+                       - ``archive``: If ``True``, any pre-existing SageMaker application resources
                          that become inactive (i.e. as a result of deploying in
                          ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE`` mode) are preserved.
                          These resources may include unused SageMaker models and endpoint
                          configurations that were associated with a prior version of the
                          application endpoint. If ``False``, these resources are deleted.
                          In order to use ``archive=False``, ``create_deployment()`` must be executed
-                         synchronously with ``synchronous=True``.
+                         synchronously with ``synchronous=True``. Defaults to ``False``.
 
-                       - instance_type: The type of SageMaker ML instance on which to deploy the
+                       - ``instance_type``: The type of SageMaker ML instance on which to deploy the
                          model. For a list of supported instance types, see
                          https://aws.amazon.com/sagemaker/pricing/instance-types/.
+                         Defaults to ``ml.m4.xlarge``.
 
-                       - instance_count: The number of SageMaker ML instances on which to deploy
-                         the model.
+                       - ``instance_count``: The number of SageMaker ML instances on which to deploy
+                         the model. Defaults to ``1``.
 
-                       - synchronous: If ``True``, this function will block until the deployment
+                       - ``synchronous``: If ``True``, this function will block until the deployment
                          process succeeds or encounters an irrecoverable failure. If ``False``,
                          this function will return immediately after starting the deployment
                          process. It will not wait for the deployment process to complete;
                          in this case, the caller is responsible for monitoring the health and
                          status of the pending deployment via native SageMaker APIs or the AWS
-                         console.
+                         console. Defaults to ``True``.
 
-                       - timeout_seconds: If ``synchronous`` is ``True``, the deployment process
+                       - ``timeout_seconds``: If ``synchronous`` is ``True``, the deployment process
                          will return after the specified number of seconds if no definitive result
                          (success or failure) is achieved. Once the function returns, the caller is
                          responsible for monitoring the health and status of the pending
                          deployment using native SageMaker APIs or the AWS console. If
                          ``synchronous`` is ``False``, this parameter is ignored.
+                         Defaults to ``300``.
 
-                       - vpc_config: A dictionary specifying the VPC configuration to use when
+                       - ``vpc_config``: A dictionary specifying the VPC configuration to use when
                          creating the new SageMaker model associated with this application.
                          The acceptable values for this parameter are identical to those of the
                          ``VpcConfig`` parameter in the `SageMaker boto3 client's create_model
                          method <https://boto3.readthedocs.io/en/latest/reference/services/sagemaker.html
                          #SageMaker.Client.create_model>`_. For more information, see
                          https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html.
+                         Defaults to ``None``.
 
-                         .. code-block:: python
-                             :caption: Example
+        .. code-block:: python
+            :caption: Python example
 
-                             import mlflow.sagemaker as mfs
-                             vpc_config = {
-                                             'SecurityGroupIds': [
-                                                 'sg-123456abc',
-                                             ],
-                                             'Subnets': [
-                                                 'subnet-123456abc',
-                                             ]
-                                          }
-                             client = mfs.SageMakerPlugin("sagemaker")
-                             client.create_deployment(..., config=dict(vpc_config=vpc_config))
+            from mlflow.sagemaker import SageMakerDeploymentClient
+
+            vpc_config = {
+                'SecurityGroupIds': [
+                    'sg-123456abc',
+                ],
+                'Subnets': [
+                    'subnet-123456abc',
+                ]
+            }
+            config=dict(
+                assume_role_arn="arn:aws:123:role/assumed_role",
+                execution_role_arn="arn:aws:456:role/execution_role",
+                bucket_name="my-s3-bucket",
+                image_url="1234.dkr.ecr.us-east-1.amazonaws.com/mlflow-test:1.23.1",
+                region_name="us-east-1",
+                mode="create",
+                archive=False,
+                instance_type="ml.m5.4xlarge",
+                instance_count=1,
+                synchronous=True,
+                timeout_seconds=300,
+                vpc_config=vpc_config
+            )
+            client = SageMakerDeploymentClient("sagemaker")
+            client.create_deployment(
+                "my-deployment",
+                model_uri="/mlruns/0/abc/model",
+                flavor="python_function",
+                config=config
+            )
+        .. code-block:: bash
+            :caption:  Command-line example
+
+            mlflow deployments create --target sagemaker:/us-east-1/arn:aws:123:role/assumed_role \\
+                    --name my-deployment \\
+                    --model-uri /mlruns/0/abc/model \\
+                    --flavor python_function\\
+                    -C execution_role_arn=arn:aws:456:role/execution_role \\
+                    -C bucket_name=my-s3-bucket \\
+                    -C image_url=1234.dkr.ecr.us-east-1.amazonaws.com/mlflow-test:1.23.1 \\
+                    -C region_name=us-east-1 \\
+                    -C mode=create \\
+                    -C archive=False \\
+                    -C instance_type=ml.m5.4xlarge \\
+                    -C instance_count=1 \\
+                    -C synchronous=True \\
+                    -C timeout_seconds=300 \\
+                    -C vpc_config='{"SecurityGroupIds": ["sg-123456abc"], \\
+                    "Subnets": ["subnet-123456abc"]}'
         """
         final_config = self._default_deployment_config()
         if config:
@@ -2090,7 +2163,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                          These resources may include unused SageMaker models and endpoint
                          configurations that were associated with a prior version of the
                          application endpoint. If ``False``, these resources are deleted.
-                         In order to use ``archive=False``, ``deploy()`` must be executed
+                         In order to use ``archive=False``, ``update_deployment()`` must be executed
                          synchronously with ``synchronous=True``. Defaults to ``False``.
 
                        - ``instance_type``: The type of SageMaker ML instance on which to deploy the
@@ -2132,13 +2205,13 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             from mlflow.sagemaker import SageMakerDeploymentClient
 
             vpc_config = {
-                            'SecurityGroupIds': [
-                                'sg-123456abc',
-                            ],
-                            'Subnets': [
-                                'subnet-123456abc',
-                            ]
-                         }
+                'SecurityGroupIds': [
+                    'sg-123456abc',
+                ],
+                'Subnets': [
+                    'subnet-123456abc',
+                ]
+            }
             config=dict(
                 assume_role_arn="arn:aws:123:role/assumed_role",
                 execution_role_arn="arn:aws:456:role/execution_role",
