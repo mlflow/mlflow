@@ -841,15 +841,16 @@ def test_check_requirements_and_local_installed_mismatch(sklearn_knn_model):
                 mock_warning.assert_called_once()
                 warning_msg = mock_warning.call_args_list[0][0][0]
                 assert warning_msg.startswith(
-                    "The loaded model dependencies mismatch with current python environment"
+                    "Detected one or more mismatches between the model's dependencies "
+                    "and the current Python environment"
                 )
                 assert (
-                    "scikit-learn installed version 999.99.11 mismatch with "
-                    f"requirement scikit-learn=={sklearn.__version__}" in warning_msg
+                    "scikit-learn (current: 999.99.11, required: "
+                    f"scikit-learn=={sklearn.__version__}" in warning_msg
                 )
                 assert (
-                    "cloudpickle installed version 999.99.22 mismatch with "
-                    f"requirement cloudpickle=={cloudpickle.__version__}" in warning_msg
+                    " - cloudpickle (current: 999.99.22, required: "
+                    f"cloudpickle=={cloudpickle.__version__})" in warning_msg
                 )
 
             mock_warning.reset_mock()
@@ -880,12 +881,12 @@ def test_check_requirements_and_local_installed_mismatch(sklearn_knn_model):
                 mock_warning.assert_called_once()
                 warning_msg = mock_warning.call_args_list[0][0][0]
                 assert (
-                    "scikit-learn installed version 0.7.1 mismatch with "
-                    "requirement scikit-learn>=0.8,<=0.9" in warning_msg
+                    "scikit-learn (current: 0.7.1, required: "
+                    f"scikit-learn>=0.8,<=0.9" in warning_msg
                 )
                 assert (
-                    "package nonexist-pkg is not installed but nonexist-pkg==1.2.3 required"
-                    in warning_msg
+                    " - nonexist-pkg (current: uninstalled, required: "
+                    f"nonexist-pkg==1.2.3)" in warning_msg
                 )
 
 

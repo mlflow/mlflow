@@ -640,23 +640,32 @@ def _warn_dependency_requirement_mismatches(model_path):
     req_file_path = os.path.join(model_path, _REQUIREMENTS_FILE_NAME)
     if not os.path.exists(req_file_path):
         return
-    mismatch_errors = []
 
     try:
+        mismatch_errs = []
         for req in _parse_requirements(req_file_path, is_constraint=False):
             req_line = req.req_str
-            mismatch_err = _check_pkg_installed_version_satisfy_requirements(req_line)
-            if mismatch_err is not None:
-                mismatch_errors.append(mismatch_err)
+            mismatch_info = _check_pkg_installed_version_satisfy_requirements(req_line)
+            if mismatch_info is not None:
+                current_status = mismatch_info.installed_version \
+                    if mismatch_info.installed_version else 'uninstalled'
+                mismatch_errs.append(
+                    f" - {mismatch_info.package_name} "
+                    f"(current: {current_status}, required: {req_line})"
+                )
 
-        if len(mismatch_errors) > 0:
+        if len(mismatch_errs) > 0:
+            mismatch_str = "\n".join(mismatch_errs)
             warning_msg = (
-                "The loaded model dependencies mismatch with current python environment, "
-                f"mismatched packages includes: {', '.join(mismatch_errors)}."
+                "Detected one or more mismatches between the model's dependencies and the current "
+                f"Python environment:\n{mismatch_str}"
             )
             _logger.warning(warning_msg)
     except Exception:
-        _logger.warning('Checking mismatched model dependencies failed.')
+        _logger.warning(
+            'Checking mismatched model dependencies failed. '
+            'Set logging level to DEBUG to see the full traceback.'
+        )
         _logger.debug("", exc_info=True)
 
 
