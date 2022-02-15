@@ -1774,6 +1774,12 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
     Initialize a deployment client for SageMaker. The default region and assumed role ARN will
     be set according to the value of the `target_uri`.
 
+    This class is meant to supercede the other ``mlflow.sagemaker`` real-time serving API's.
+    It is also designed to be used through the :py:mod:`mlflow.deployments` module.
+    This means that you can deploy to SageMaker using the
+    `mlflow deployments CLI <https://www.mlflow.org/docs/latest/cli.html#mlflow-deployments>`_ and
+    get a client through the :py:mod:`mlflow.deployments.get_deploy_client` function.
+
     :param target_uri: A URI that follows one of the following formats:
 
                        - ``sagemaker``: This will set the default region to `us-west-2` and
