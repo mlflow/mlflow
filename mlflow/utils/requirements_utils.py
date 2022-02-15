@@ -420,7 +420,7 @@ def _get_pinned_requirement(package, version=None, module=None):
 
 
 _MismatchPackageInfo = namedtuple(
-    '_MismatchPackageInfo', ['package_name', 'installed_version', 'requirement']
+    "_MismatchPackageInfo", ["package_name", "installed_version", "requirement"]
 )
 
 

@@ -647,8 +647,11 @@ def _warn_dependency_requirement_mismatches(model_path):
             req_line = req.req_str
             mismatch_info = _check_pkg_installed_version_satisfy_requirements(req_line)
             if mismatch_info is not None:
-                current_status = mismatch_info.installed_version \
-                    if mismatch_info.installed_version else 'uninstalled'
+                current_status = (
+                    mismatch_info.installed_version
+                    if mismatch_info.installed_version
+                    else "uninstalled"
+                )
                 mismatch_errs.append(
                     f" - {mismatch_info.package_name} "
                     f"(current: {current_status}, required: {req_line})"
@@ -663,8 +666,8 @@ def _warn_dependency_requirement_mismatches(model_path):
             _logger.warning(warning_msg)
     except Exception:
         _logger.warning(
-            'Checking mismatched model dependencies failed. '
-            'Set logging level to DEBUG to see the full traceback.'
+            "Checking mismatched model dependencies failed. "
+            "Set logging level to DEBUG to see the full traceback."
         )
         _logger.debug("", exc_info=True)
 
