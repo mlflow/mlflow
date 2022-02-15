@@ -1993,7 +1993,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             bucket=final_config["bucket"],
             image_url=final_config["image_url"],
             region_name=final_config["region_name"],
-            mode=DEPLOYMENT_MODE_CREATE,
+            mode=final_config["mode"],
             archive=final_config["archive"],
             instance_type=final_config["instance_type"],
             instance_count=final_config["instance_count"],

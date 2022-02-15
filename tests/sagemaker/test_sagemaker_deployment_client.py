@@ -626,6 +626,104 @@ def test_create_deployment_throws_exception_after_endpoint_creation_fails(
     assert exc.value.error_code == ErrorCode.Name(INTERNAL_ERROR)
 
 
+@pytest.mark.large
+@mock_sagemaker_aws_services
+def test_create_deployment_in_replace_mode_removes_preexisting_models_from_endpoint(
+    pretrained_model, sagemaker_client, sagemaker_deployment_client
+):
+    name = "test-app"
+    sagemaker_deployment_client.create_deployment(
+        name=name,
+        model_uri=pretrained_model.model_uri,
+    )
+
+    sagemaker_deployment_client.update_deployment(
+        name=name,
+        model_uri=pretrained_model.model_uri,
+        config=dict(
+            mode=mfs.DEPLOYMENT_MODE_ADD,
+            archive=True,
+            synchronous=False,
+        ),
+    )
+
+    endpoint_response_before_replacement = sagemaker_client.describe_endpoint(EndpointName=name)
+    endpoint_config_name_before_replacement = endpoint_response_before_replacement[
+        "EndpointConfigName"
+    ]
+    endpoint_config_response_before_replacement = sagemaker_client.describe_endpoint_config(
+        EndpointConfigName=endpoint_config_name_before_replacement
+    )
+    production_variants_before_replacement = endpoint_config_response_before_replacement[
+        "ProductionVariants"
+    ]
+    deployed_models_before_replacement = [
+        variant["ModelName"] for variant in production_variants_before_replacement
+    ]
+
+    sagemaker_deployment_client.update_deployment(
+        name=name,
+        model_uri=pretrained_model.model_uri,
+        config=dict(
+            mode=mfs.DEPLOYMENT_MODE_REPLACE,
+            archive=True,
+            synchronous=False,
+        ),
+    )
+
+    endpoint_response_after_replacement = sagemaker_client.describe_endpoint(EndpointName=name)
+    endpoint_config_name_after_replacement = endpoint_response_after_replacement[
+        "EndpointConfigName"
+    ]
+    endpoint_config_response_after_replacement = sagemaker_client.describe_endpoint_config(
+        EndpointConfigName=endpoint_config_name_after_replacement
+    )
+    production_variants_after_replacement = endpoint_config_response_after_replacement[
+        "ProductionVariants"
+    ]
+    deployed_models_after_replacement = [
+        variant["ModelName"] for variant in production_variants_after_replacement
+    ]
+    assert len(deployed_models_after_replacement) == 1
+    assert all(
+        [
+            model_name not in deployed_models_after_replacement
+            for model_name in deployed_models_before_replacement
+        ]
+    )
+
+
+@pytest.mark.large
+@mock_sagemaker_aws_services
+def test_create_deployment_in_add_mode_adds_new_model_to_existing_endpoint(
+    pretrained_model, sagemaker_client, sagemaker_deployment_client
+):
+    name = "test-app"
+    sagemaker_deployment_client.create_deployment(
+        name=name,
+        model_uri=pretrained_model.model_uri,
+    )
+
+    sagemaker_deployment_client.update_deployment(
+        name=name,
+        model_uri=pretrained_model.model_uri,
+        config=dict(
+            mode=mfs.DEPLOYMENT_MODE_ADD,
+            archive=True,
+            synchronous=False,
+        ),
+    )
+    models_added = 2
+
+    endpoint_response = sagemaker_client.describe_endpoint(EndpointName=name)
+    endpoint_config_name = endpoint_response["EndpointConfigName"]
+    endpoint_config_response = sagemaker_client.describe_endpoint_config(
+        EndpointConfigName=endpoint_config_name
+    )
+    production_variants = endpoint_config_response["ProductionVariants"]
+    assert len(production_variants) == models_added
+
+
 def test_update_deployment_with_create_mode_raises_exception(
     pretrained_model, sagemaker_deployment_client
 ):
