@@ -657,6 +657,7 @@ def _warn_dependency_requirement_mismatches(model_path):
             )
             _logger.warning(warning_msg)
     except Exception as e:
+        raise
         _logger.warning(
             f"Encountered an unexpected error ({e}) while detecting model dependency mismatches. "
             "Set logging level to DEBUG to see the full traceback."

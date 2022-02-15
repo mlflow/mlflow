@@ -210,7 +210,6 @@ def _get_installed_version(package, module=None):
     Obtains the installed package version using `importlib_metadata.version`. If it fails, use
     `__import__(module or package).__version__`.
     """
-    _init_modules_and_packages_maps()
     try:
         version = importlib_metadata.version(package)
     except importlib_metadata.PackageNotFoundError:
@@ -438,6 +437,7 @@ def _check_requirement_satisfied(requirement_str):
     If installed package satisfy the requirements, return None,
     otherwise return an instance of namedtuple `_MismatchPackageInfo`.
     """
+    _init_modules_and_packages_maps()
     req = pkg_resources.Requirement.parse(requirement_str)
     pkg_name = req.name
 
