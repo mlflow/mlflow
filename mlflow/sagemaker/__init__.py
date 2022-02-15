@@ -1869,7 +1869,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             elif key in bool_fields and not isinstance(value, bool):
                 value = value == "True"
             elif key in dict_fields and not isinstance(value, dict):
-                value = json.parse(value)
+                value = json.loads(value)
 
             config[key] = value
 

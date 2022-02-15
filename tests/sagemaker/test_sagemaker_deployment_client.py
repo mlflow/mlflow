@@ -158,6 +158,60 @@ def test_init_sagemaker_deployment_client_with_iam_role_arn_but_no_region_name_r
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
+@pytest.mark.parametrize("field_name", ["instance_count", "timeout_seconds"])
+def test__apply_custom_config_converts_from_string_to_int_for_int_fields(
+    field_name, sagemaker_deployment_client
+):
+    config = {field_name: 0}
+    custom_config = {field_name: "5"}
+
+    sagemaker_deployment_client._apply_custom_config(config, custom_config)
+
+    assert config[field_name] == 5
+
+
+@pytest.mark.parametrize("field_name", ["synchronous", "archive"])
+def test__apply_custom_config_converts_from_string_to_bool_for_bool_fields(
+    field_name, sagemaker_deployment_client
+):
+    config = {field_name: True}
+    custom_config = {field_name: "False"}
+
+    sagemaker_deployment_client._apply_custom_config(config, custom_config)
+
+    assert config[field_name] is False
+
+
+def test__apply_custom_config_converts_from_string_to_dict_for_dict_fields(
+    sagemaker_deployment_client,
+):
+    import json
+
+    vpc_config = {
+        "SecurityGroupIds": [
+            "sg-123456abc",
+        ],
+        "Subnets": [
+            "subnet-123456abc",
+        ],
+    }
+    config = {"vpc_config": None}
+    custom_config = {"vpc_config": json.dumps(vpc_config)}
+
+    sagemaker_deployment_client._apply_custom_config(config, custom_config)
+
+    assert config["vpc_config"] == vpc_config
+
+
+def test__apply_custom_config_does_not_change_type_of_string_fields(sagemaker_deployment_client):
+    config = {"region_name": "us-west-1"}
+    custom_config = {"region_name": "us-east-3"}
+
+    sagemaker_deployment_client._apply_custom_config(config, custom_config)
+
+    assert config["region_name"] == "us-east-3"
+
+
 @pytest.mark.large
 @mock_sagemaker_aws_services
 def test_create_deployment_with_non_existent_assume_role_arn_raises_exception(pretrained_model):
