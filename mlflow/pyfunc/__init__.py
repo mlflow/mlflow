@@ -254,7 +254,7 @@ from mlflow.protos.databricks_pb2 import (
 )
 from scipy.sparse import csc_matrix, csr_matrix
 from mlflow.utils.requirements_utils import (
-    _check_pkg_installed_version_satisfy_requirements,
+    _check_requirement_satisfied,
     _parse_requirements,
 )
 
@@ -645,28 +645,20 @@ def _warn_dependency_requirement_mismatches(model_path):
         mismatch_errs = []
         for req in _parse_requirements(req_file_path, is_constraint=False):
             req_line = req.req_str
-            mismatch_info = _check_pkg_installed_version_satisfy_requirements(req_line)
+            mismatch_info = _check_requirement_satisfied(req_line)
             if mismatch_info is not None:
-                current_status = (
-                    mismatch_info.installed_version
-                    if mismatch_info.installed_version
-                    else "uninstalled"
-                )
-                mismatch_errs.append(
-                    f" - {mismatch_info.package_name} "
-                    f"(current: {current_status}, required: {req_line})"
-                )
+                mismatch_errs.append(str(mismatch_info))
 
         if len(mismatch_errs) > 0:
-            mismatch_str = "\n".join(mismatch_errs)
+            mismatch_str = " - " + "\n - ".join(mismatch_errs)
             warning_msg = (
                 "Detected one or more mismatches between the model's dependencies and the current "
                 f"Python environment:\n{mismatch_str}"
             )
             _logger.warning(warning_msg)
-    except Exception:
+    except Exception as e:
         _logger.warning(
-            "Checking mismatched model dependencies failed. "
+            f"Encountered an unexpected error ({e}) while detecting model dependency mismatches. "
             "Set logging level to DEBUG to see the full traceback."
         )
         _logger.debug("", exc_info=True)

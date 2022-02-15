@@ -14,6 +14,7 @@ from itertools import filterfalse, chain
 from collections import namedtuple
 import logging
 import re
+from typing import NamedTuple
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -209,6 +210,7 @@ def _get_installed_version(package, module=None):
     Obtains the installed package version using `importlib_metadata.version`. If it fails, use
     `__import__(module or package).__version__`.
     """
+    _init_modules_and_packages_maps()
     try:
         version = importlib_metadata.version(package)
     except importlib_metadata.PackageNotFoundError:
@@ -222,7 +224,7 @@ def _get_installed_version(package, module=None):
         # 1.9.0+cu102
         # $ python -c "import importlib_metadata; print(importlib_metadata.version('torch'))"
         # 1.9.0
-        version = __import__(module or _PACKAGES_TO_MODULES.get(package) or package).__version__
+        version = __import__(module or package).__version__
 
     # Strip the suffix from `dev` versions of PySpark, which are not available for installation
     # from Anaconda or PyPI
@@ -267,26 +269,27 @@ def _capture_imported_modules(model_uri, flavor):
             return f.read().splitlines()
 
 
-def _gen_model_package_maps():
-    # Note `importlib_metada.packages_distributions` only captures packages installed into
-    # Python’s site-packages directory via tools such as pip:
-    # https://importlib-metadata.readthedocs.io/en/latest/using.html#using-importlib-metadata
-    _modules_to_packages = importlib_metadata.packages_distributions()
-
-    # In Databricks, `_MODULES_TO_PACKAGES` doesn't contain pyspark since it's not installed
-    # via pip or conda. To work around this issue, manually add pyspark.
-    if is_in_databricks_runtime():
-        _modules_to_packages.update({"pyspark": ["pyspark"]})
-
-    _packages_to_modules = {}
-    for module, pkg_list in _modules_to_packages.items():
-        for pkg_name in pkg_list:
-            _packages_to_modules[pkg_name] = module
-
-    return _modules_to_packages, _packages_to_modules
+_MODULES_TO_PACKAGES = None
+_PACKAGES_TO_MODULES = None
 
 
-_MODULES_TO_PACKAGES, _PACKAGES_TO_MODULES = _gen_model_package_maps()
+def _init_modules_and_packages_maps():
+    global _MODULES_TO_PACKAGES, _PACKAGES_TO_MODULES
+    if _MODULES_TO_PACKAGES is None and _PACKAGES_TO_MODULES is None:
+        # Note `importlib_metada.packages_distributions` only captures packages installed into
+        # Python’s site-packages directory via tools such as pip:
+        # https://importlib-metadata.readthedocs.io/en/latest/using.html#using-importlib-metadata
+        _MODULES_TO_PACKAGES = importlib_metadata.packages_distributions()
+
+        # In Databricks, `_MODULES_TO_PACKAGES` doesn't contain pyspark since it's not installed
+        # via pip or conda. To work around this issue, manually add pyspark.
+        if is_in_databricks_runtime():
+            _MODULES_TO_PACKAGES.update({"pyspark": ["pyspark"]})
+
+        _PACKAGES_TO_MODULES = {}
+        for module, pkg_list in _MODULES_TO_PACKAGES.items():
+            for pkg_name in pkg_list:
+                _PACKAGES_TO_MODULES[pkg_name] = module
 
 
 # Represents the PyPI package index at a particular date
@@ -318,6 +321,7 @@ def _infer_requirements(model_uri, flavor):
     :param: flavor: The flavor name of the model.
     :return: A list of inferred pip requirements.
     """
+    _init_modules_and_packages_maps()
     global _PYPI_PACKAGE_INDEX
     if _PYPI_PACKAGE_INDEX is None:
         _PYPI_PACKAGE_INDEX = _load_pypi_package_index()
@@ -419,26 +423,31 @@ def _get_pinned_requirement(package, version=None, module=None):
     return f"{package}=={version}"
 
 
-_MismatchPackageInfo = namedtuple(
-    "_MismatchPackageInfo", ["package_name", "installed_version", "requirement"]
-)
+class _MismatchedPackageInfo(NamedTuple):
+    package_name: str
+    installed_version: str
+    requirement: str
+
+    def __str__(self):
+        current_status = self.installed_version if self.installed_version else "uninstalled"
+        return f"{self.package_name} (current: {current_status}, required: {self.requirement})"
 
 
-def _check_pkg_installed_version_satisfy_requirements(req_line):
+def _check_requirement_satisfied(requirement_str):
     """
     If installed package satisfy the requirements, return None,
     otherwise return an instance of namedtuple `_MismatchPackageInfo`.
     """
-    req = pkg_resources.Requirement.parse(req_line)
+    req = pkg_resources.Requirement.parse(requirement_str)
     pkg_name = req.name
 
     try:
-        installed_version = _get_installed_version(pkg_name)
+        installed_version = _get_installed_version(pkg_name, _PACKAGES_TO_MODULES.get(pkg_name))
     except ModuleNotFoundError:
-        return _MismatchPackageInfo(
+        return _MismatchedPackageInfo(
             package_name=pkg_name,
             installed_version=None,
-            requirement=req_line,
+            requirement=requirement_str,
         )
 
     if len(req.specifier) == 0:
@@ -447,8 +456,8 @@ def _check_pkg_installed_version_satisfy_requirements(req_line):
     if req.specifier.contains(installed_version):
         return None
     else:
-        return _MismatchPackageInfo(
+        return _MismatchedPackageInfo(
             package_name=pkg_name,
             installed_version=installed_version,
-            requirement=req_line,
+            requirement=requirement_str,
         )
