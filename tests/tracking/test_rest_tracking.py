@@ -453,7 +453,7 @@ def test_artifacts(mlflow_client):
     assert open("%s/my.file" % dir_artifacts, "r").read() == "Hello, World!"
 
 
-def test_search_pagination(mlflow_client, backend_store_uri):
+def test_search_pagination(mlflow_client):
     experiment_id = mlflow_client.create_experiment("search_pagination")
     runs = [mlflow_client.create_run(experiment_id, start_time=1).info.run_id for _ in range(0, 10)]
     runs = sorted(runs)
