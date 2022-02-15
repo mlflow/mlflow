@@ -2206,15 +2206,15 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
 
             from mlflow.sagemaker import SageMakerDeploymentClient
 
-            client = SageMakerDeploymentClient("sagemaker")
-            client.delete_deployment(
-                "my-deployment",
+            config = dict(
                 assume_role_arn="arn:aws:123:role/assumed_role",
                 region_name="us-east-1",
                 archive=False,
                 synchronous=True,
                 timeout_seconds=300
             )
+            client = SageMakerDeploymentClient("sagemaker")
+            client.delete_deployment("my-deployment", config=config)
 
         .. code-block:: bash
             :caption: Command-line example
