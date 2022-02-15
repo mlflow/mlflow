@@ -6,6 +6,7 @@ import threading
 import math
 import sqlalchemy
 import sqlalchemy.sql.expression as sql
+from sqlalchemy.future import select
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_THRESHOLD
@@ -475,13 +476,13 @@ class SqlAlchemyStore(AbstractStore):
                  run attributes when fetching a run: ``latest_metrics``, ``params``, and ``tags``.
         """
         return [
-            # Use a subquery load rather than a joined load in order to minimize the memory overhead
-            # of the eager loading procedure. For more information about relationship loading
-            # techniques, see https://docs.sqlalchemy.org/en/13/orm/
+            # Use a select in load rather than a joined load in order to minimize the memory
+            # overhead of the eager loading procedure. For more information about relationship
+            # loading techniques, see https://docs.sqlalchemy.org/en/13/orm/
             # loading_relationships.html#relationship-loading-techniques
-            sqlalchemy.orm.subqueryload(SqlRun.latest_metrics),
-            sqlalchemy.orm.subqueryload(SqlRun.params),
-            sqlalchemy.orm.subqueryload(SqlRun.tags),
+            sqlalchemy.orm.selectinload(SqlRun.latest_metrics),
+            sqlalchemy.orm.selectinload(SqlRun.params),
+            sqlalchemy.orm.selectinload(SqlRun.tags),
         ]
 
     def _check_run_is_active(self, run):
@@ -772,20 +773,20 @@ class SqlAlchemyStore(AbstractStore):
             # ``run.to_mlflow_entity()``, so eager loading helps avoid additional database queries
             # that are otherwise executed at attribute access time under a lazy loading model.
             parsed_filters = SearchUtils.parse_search_filter(filter_string)
-            parsed_orderby, sorting_joins = _get_orderby_clauses(order_by, session)
+            cases_orderby, parsed_orderby, sorting_joins = _get_orderby_clauses(order_by, session)
 
-            query = session.query(SqlRun)
+            stmt = select(SqlRun, *cases_orderby)
             for j in _get_sqlalchemy_filter_clauses(parsed_filters, session):
-                query = query.join(j)
+                stmt = stmt.join(j)
             # using an outer join is necessary here because we want to be able to sort
             # on a column (tag, metric or param) without removing the lines that
             # do not have a value for this column (which is what inner join would do)
             for j in sorting_joins:
-                query = query.outerjoin(j)
+                stmt = stmt.outerjoin(j)
 
             offset = SearchUtils.parse_start_offset_from_page_token(page_token)
-            queried_runs = (
-                query.distinct()
+            stmt = (
+                stmt.distinct()
                 .options(*self._get_eager_run_query_options())
                 .filter(
                     SqlRun.experiment_id.in_(experiment_ids),
@@ -795,8 +796,8 @@ class SqlAlchemyStore(AbstractStore):
                 .order_by(*parsed_orderby)
                 .offset(offset)
                 .limit(max_results)
-                .all()
             )
+            queried_runs = session.execute(stmt).scalars(SqlRun).all()
 
             runs = [run.to_mlflow_entity() for run in queried_runs]
             next_page_token = compute_next_token(len(runs))
@@ -920,6 +921,7 @@ def _get_orderby_clauses(order_by_list, session):
     ordering_joins = []
     clause_id = 0
     observed_order_by_clauses = set()
+    select_clauses = []
     # contrary to filters, it is not easily feasible to separately handle sorting
     # on attributes and on joined tables as we must keep all clauses in the same order
     if order_by_list:
@@ -956,24 +958,26 @@ def _get_orderby_clauses(order_by_list, session):
             # same main query, the CASE WHEN columns need to have unique names to
             # avoid ambiguity
             if SearchUtils.is_metric(key_type, "="):
-                clauses.append(
-                    sql.case(
-                        [
-                            # Ideally the use of "IS" is preferred here but owing to sqlalchemy
-                            # translation in MSSQL we are forced to use "=" instead.
-                            # These 2 options are functionally identical / unchanged because
-                            # the column (is_nan) is not nullable. However it could become an issue
-                            # if this precondition changes in the future.
-                            (subquery.c.is_nan == sqlalchemy.true(), 1),
-                            (order_value.is_(None), 1),
-                        ],
-                        else_=0,
-                    ).label("clause_%s" % clause_id)
-                )
+                case = sql.case(
+                    [
+                        # Ideally the use of "IS" is preferred here but owing to sqlalchemy
+                        # translation in MSSQL we are forced to use "=" instead.
+                        # These 2 options are functionally identical / unchanged because
+                        # the column (is_nan) is not nullable. However it could become an issue
+                        # if this precondition changes in the future.
+                        (subquery.c.is_nan == sqlalchemy.true(), 1),
+                        (order_value.is_(None), 1),
+                    ],
+                    else_=0,
+                ).label("clause_%s" % clause_id)
+
             else:  # other entities do not have an 'is_nan' field
-                clauses.append(
-                    sql.case([(order_value.is_(None), 1)], else_=0).label("clause_%s" % clause_id)
+                case = sql.case([(order_value.is_(None), 1)], else_=0).label(
+                    "clause_%s" % clause_id
                 )
+            clauses.append(case.name)
+            select_clauses.append(case)
+            select_clauses.append(order_value)
 
             if (key_type, key) in observed_order_by_clauses:
                 raise MlflowException(
@@ -989,4 +993,4 @@ def _get_orderby_clauses(order_by_list, session):
     if (SearchUtils._ATTRIBUTE_IDENTIFIER, SqlRun.start_time.key) not in observed_order_by_clauses:
         clauses.append(SqlRun.start_time.desc())
     clauses.append(SqlRun.run_uuid)
-    return clauses, ordering_joins
+    return select_clauses, clauses, ordering_joins
