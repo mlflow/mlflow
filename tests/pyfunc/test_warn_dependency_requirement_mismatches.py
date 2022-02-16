@@ -45,22 +45,15 @@ def test_warn_dependency_requirement_mismatches(tmpdir):
             ),
         ):
             _warn_dependency_requirement_mismatches(model_path)
-            mock_warning.assert_called_once_with(AnyStringWith(
-                "Detected one or more mismatches between the model's dependencies "
-                "and the current Python environment"
-            ))
-            mock_warning.assert_called_once_with(AnyStringWith(
-                " - scikit-learn (current: 999.99.11, required: "
-                f"scikit-learn=={sklearn.__version__}"
-            ))
-            mock_warning.assert_called_once_with(AnyStringWith(
-                " - cloudpickle (current: 999.99.22, required: "
-                f"cloudpickle=={cloudpickle.__version__})"
-            ))
+            mock_warning.assert_called_once_with(
+                "Detected one or more mismatches between the model's dependencies and the current "
+                "Python environment:\n - cloudpickle (current: 999.99.22, required: "
+                "cloudpickle==2.0.0)\n - scikit-learn (current: 999.99.11, required: "
+                "scikit-learn==1.0.2)"
+            )
 
         mock_warning.reset_mock()
 
-        req_file.remove()
         req_file.write("scikit-learn>=0.8,<=0.9")
 
         # Test case: requirement with multiple version specifiers is satisfied
@@ -79,28 +72,49 @@ def test_warn_dependency_requirement_mismatches(tmpdir):
             gen_mock_get_installed_version_fn({"scikit-learn": "0.7.1"}),
         ):
             _warn_dependency_requirement_mismatches(model_path)
-            mock_warning.assert_called_once_with(AnyStringWith(
-                " - scikit-learn (current: 0.7.1, required: scikit-learn>=0.8,<=0.9)"
-            ))
+            mock_warning.assert_called_once_with(
+                AnyStringWith(" - scikit-learn (current: 0.7.1, required: scikit-learn>=0.8,<=0.9)")
+            )
 
         mock_warning.reset_mock()
 
         # Test case: required package is uninstalled.
-        req_file.remove()
         req_file.write("uninstalled-pkg==1.2.3")
         _warn_dependency_requirement_mismatches(model_path)
-        mock_warning.assert_called_once_with(AnyStringWith(
-            " - uninstalled-pkg (current: uninstalled, required: uninstalled-pkg==1.2.3)"
-        ))
+        mock_warning.assert_called_once_with(
+            AnyStringWith(
+                " - uninstalled-pkg (current: uninstalled, required: uninstalled-pkg==1.2.3)"
+            )
+        )
 
-    # Test case: an unexpected error happens while detecting mismatched packages.
-    with mock.patch(
-        "mlflow.pyfunc._check_requirement_satisfied",
-        side_effect=RuntimeError("check_requirement_satisfied_fn_failed"),
-    ), mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
-        _warn_dependency_requirement_mismatches(tmpdir)
-        mock_warning.assert_called_once_with(AnyStringWith(
-            "Encountered an unexpected error "
-            "(RuntimeError('check_requirement_satisfied_fn_failed')) while "
-            "detecting model dependency mismatches"
-        ))
+        mock_warning.reset_mock()
+
+        # Test case: requirement with package without specifiers is not satisfied
+        req_file.write("uninstalled-pkg")
+        _warn_dependency_requirement_mismatches(model_path)
+        mock_warning.assert_called_once_with(
+            AnyStringWith(" - uninstalled-pkg (current: uninstalled, required: uninstalled-pkg)")
+        )
+
+        mock_warning.reset_mock()
+
+        # Test case: requirement with package without specifiers is satisfied
+        req_file.write("mlflow")
+        _warn_dependency_requirement_mismatches(model_path)
+        mock_warning.assert_not_called()
+
+        mock_warning.reset_mock()
+
+        # Test case: an unexpected error happens while detecting mismatched packages.
+        with mock.patch(
+            "mlflow.pyfunc._check_requirement_satisfied",
+            side_effect=RuntimeError("check_requirement_satisfied_fn_failed"),
+        ):
+            _warn_dependency_requirement_mismatches(tmpdir)
+            mock_warning.assert_called_once_with(
+                AnyStringWith(
+                    "Encountered an unexpected error "
+                    "(RuntimeError('check_requirement_satisfied_fn_failed')) while "
+                    "detecting model dependency mismatches"
+                )
+            )
