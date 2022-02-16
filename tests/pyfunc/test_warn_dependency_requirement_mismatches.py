@@ -1,4 +1,3 @@
-import os
 from unittest import mock
 import pytest
 import cloudpickle
@@ -46,10 +45,13 @@ def test_warn_dependency_requirement_mismatches(tmpdir):
         ):
             _warn_dependency_requirement_mismatches(model_path)
             mock_warning.assert_called_once_with(
-                "Detected one or more mismatches between the model's dependencies and the current "
-                "Python environment:\n - cloudpickle (current: 999.99.22, required: "
-                "cloudpickle==2.0.0)\n - scikit-learn (current: 999.99.11, required: "
-                "scikit-learn==1.0.2)"
+                f"""
+Detected one or more mismatches between the model's dependencies and the current Python environment:
+ - cloudpickle (current: 999.99.22, required: cloudpickle=={cloudpickle.__version__})
+ - scikit-learn (current: 999.99.11, required: scikit-learn=={sklearn.__version__})
+""".strip().format(
+                    sklearn_version=sklearn.__version__, cloudpickle_version=cloudpickle.__version__
+                )
             )
 
         mock_warning.reset_mock()
