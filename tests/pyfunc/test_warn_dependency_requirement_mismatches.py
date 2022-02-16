@@ -45,10 +45,10 @@ def test_warn_dependency_requirement_mismatches(tmpdir):
         ):
             _warn_dependency_requirement_mismatches(model_path)
             mock_warning.assert_called_once_with(
-                f"""
+                """
 Detected one or more mismatches between the model's dependencies and the current Python environment:
- - cloudpickle (current: 999.99.22, required: cloudpickle=={cloudpickle.__version__})
- - scikit-learn (current: 999.99.11, required: scikit-learn=={sklearn.__version__})
+ - cloudpickle (current: 999.99.22, required: cloudpickle=={cloudpickle_version})
+ - scikit-learn (current: 999.99.11, required: scikit-learn=={sklearn_version})
 """.strip().format(
                     sklearn_version=sklearn.__version__, cloudpickle_version=cloudpickle.__version__
                 )
@@ -91,16 +91,7 @@ Detected one or more mismatches between the model's dependencies and the current
 
         mock_warning.reset_mock()
 
-        # Test case: requirement with package without specifiers is not satisfied
-        req_file.write("uninstalled-pkg")
-        _warn_dependency_requirement_mismatches(model_path)
-        mock_warning.assert_called_once_with(
-            AnyStringWith(" - uninstalled-pkg (current: uninstalled, required: uninstalled-pkg)")
-        )
-
-        mock_warning.reset_mock()
-
-        # Test case: requirement with package without specifiers is satisfied
+        # Test case: requirement without version specifiers
         req_file.write("mlflow")
         _warn_dependency_requirement_mismatches(model_path)
         mock_warning.assert_not_called()
