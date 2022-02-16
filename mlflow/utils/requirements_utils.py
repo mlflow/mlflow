@@ -454,7 +454,7 @@ def _check_requirement_satisfied(requirement_str):
             requirement=requirement_str,
         )
 
-    if req.specifier and not req.specifier.contains(installed_version):
+    if len(req.specifier) > 0 and not req.specifier.contains(installed_version):
         return _MismatchedPackageInfo(
             package_name=pkg_name,
             installed_version=installed_version,
