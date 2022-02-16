@@ -795,10 +795,47 @@ You can also use the :py:func:`mlflow.pmdarima.load_model()` method to load MLfl
 model flavor in native pmdarima formats.
 
 .. note::
-    When predicting a ``pmdarima`` flavor, the ``predict`` method argument ``return_conf_int`` will control the
-    output format. When set to ``False`` or ``None`` (which is the default), the return type will be a
+    When predicting a ``pmdarima`` flavor, the ``predict`` method argument ``return_conf_int`` controls the
+    output format. When set to ``False`` or ``None`` (which is the default), the return type is a
     ``pandas.series``. When set to ``True``, the return type a ``tuple[pandas.Series, tuple[pandas.Series]]``.
 
+Example usage of pmdarima artifact loaded as a pyfunc:
+
+.. code-block:: py
+
+    import pmdarima
+    import mlflow
+    import pandas as pd
+
+    data = pmdarima.datasets.load_airpassengers()
+
+    with mlflow.start_run():
+
+        model = pmdarima.auto_arima(data, seasonal=True)
+        mlflow.pmdarima.save_model(model, "/tmp/model.pmd")
+
+    loaded_pyfunc = mlflow.pyfunc.load_model("/tmp/model.pmd")
+
+    prediction_conf = pd.DataFrame([{"n_periods": 4, "return_conf_int": True, "alpha": 0.1}])
+
+    predictions = loaded_pyfunc.predict(prediction_conf)
+
+    forecast_df = pd.DataFrame.from_records(predictions, index=["yhat", ("yhat_lower", "yhat_upper")]).T
+
+Output:
+
+====== ========== ========================
+Index  yhat       (yhat_lower, yhat_upper)
+====== ========== ========================
+0      467.573731 [423.30995, 511.83751]
+1      490.494467 [416.17449, 564.81444]
+2      509.138684 [420.56255, 597.71117]
+3      492.554714 [397.30634, 587.80309]
+====== ========== ========================
+
+.. warning::
+    Signature logging for ``pmdarima`` will not function correctly if ``return_conf_int`` is set to ``True``.
+    The return type ``[tuple]`` is not supported for signature recording.
 
 .. _model-evaluation:
 

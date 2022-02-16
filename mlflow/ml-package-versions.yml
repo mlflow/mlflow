@@ -343,3 +343,15 @@ mleap:
         exit 1
       fi
       pytest tests/mleap/test_mleap_model_export.py --large
+
+pmdarima:
+  package_info:
+    pip_release: "pmdarima"
+    install_dev: |
+      pip install git+https://github.com/alkaline-ml/pmdarima.git
+
+  models:
+    minimum: "1.6.1"
+    maximum: "1.8.4"
+    run: |
+      pytest tests/pmdarima/test_pmdarima_model_export.py --large

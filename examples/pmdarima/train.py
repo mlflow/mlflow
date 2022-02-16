@@ -20,16 +20,18 @@ with mlflow.start_run():
 
     train, test = model_selection.train_test_split(data, train_size=150)
 
+    print("Training AutoARIMA model...")
     arima = auto_arima(
         train,
         error_action="ignore",
         trace=False,
         suppress_warnings=True,
-        maxiter=50,
+        maxiter=5,
         seasonal=True,
         m=12,
     )
 
+    print("Model trained. \nExtracting parameters...")
     parameters = arima.get_params(deep=True)
 
     metrics = {x: getattr(arima, x)() for x in ["aicc", "aic", "bic", "hqic", "oob"]}
@@ -52,6 +54,6 @@ with mlflow.start_run():
 
 loaded_model = mlflow.pmdarima.load_model(model_uri)
 
-forecast = loaded_model.predict(60)
+forecast = loaded_model.predict(30)
 
 print(f"Forecast: \n{forecast}")

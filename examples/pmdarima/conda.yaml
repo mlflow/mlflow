@@ -6,4 +6,4 @@ dependencies:
   - pip
   - pip:
     - pmdarima
-    - mlflow>=1.23.0
+    - mlflow>=1.23.1

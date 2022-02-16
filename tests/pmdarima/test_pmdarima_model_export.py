@@ -9,6 +9,7 @@ import yaml
 
 import mlflow.pmdarima
 from mlflow import pyfunc
+from mlflow.exceptions import MlflowException
 from mlflow.models import infer_signature, Model
 from mlflow.models.utils import _read_example
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
@@ -340,3 +341,19 @@ def test_pmdarima_pyfunc_serve_and_score(auto_arima_model):
     )
     scores = pd.read_json(resp.content.decode("utf-8"), orient="records").to_numpy().flatten()
     np.testing.assert_array_almost_equal(scores, local_predict)
+
+
+def test_pmdarima_pyfunc_raises_invalid_df_input(auto_arima_model, model_path):
+
+    mlflow.pmdarima.save_model(pmdarima_model=auto_arima_model, path=model_path)
+    loaded_pyfunc = mlflow.pyfunc.load_model(model_uri=model_path)
+
+    with pytest.raises(MlflowException, match="The provided prediction pd.DataFrame "):
+
+        predict_conf_rows = pd.DataFrame([{"n_periods": 60}, {"n_periods": 100}])
+        loaded_pyfunc.predict(predict_conf_rows)
+
+    with pytest.raises(MlflowException, match="The provided schema "):
+
+        predict_conf_name = pd.DataFrame([{"n_periods": 10, "invalid": True}])
+        loaded_pyfunc.predict(predict_conf_name)
