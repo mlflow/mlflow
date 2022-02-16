@@ -72,7 +72,7 @@ class MlflowArtifactsRepository(HttpArtifactRepository):
         elif uri_parse.path == base_url:  # for operations like list artifacts
             resolved = base_url
         else:
-            resolved = f"{base_url}/{track_parse.path}{uri_parse.path}"
+            resolved = f"{track_parse.path}/{base_url}/{uri_parse.path}"
         resolved = re.sub("//+", "/", resolved)
 
         if uri_parse.host and uri_parse.port:
