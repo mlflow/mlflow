@@ -11,13 +11,12 @@ from tests.helper_functions import AnyStringWith
 
 @pytest.mark.large
 def test_warn_dependency_requirement_mismatches(tmpdir):
-    model_path = tmpdir
     req_file = tmpdir.join("requirements.txt")
     req_file.write(f"cloudpickle=={cloudpickle.__version__}\nscikit-learn=={sklearn.__version__}\n")
 
     with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
         # Test case: all packages satisfy requirements.
-        _warn_dependency_requirement_mismatches(model_path)
+        _warn_dependency_requirement_mismatches(model_path=tmpdir)
         mock_warning.assert_not_called()
 
         mock_warning.reset_mock()
@@ -43,7 +42,7 @@ def test_warn_dependency_requirement_mismatches(tmpdir):
                 }
             ),
         ):
-            _warn_dependency_requirement_mismatches(model_path)
+            _warn_dependency_requirement_mismatches(model_path=tmpdir)
             mock_warning.assert_called_once_with(
                 """
 Detected one or more mismatches between the model's dependencies and the current Python environment:
@@ -63,7 +62,7 @@ Detected one or more mismatches between the model's dependencies and the current
             "mlflow.utils.requirements_utils._get_installed_version",
             gen_mock_get_installed_version_fn({"scikit-learn": "0.8.1"}),
         ):
-            _warn_dependency_requirement_mismatches(model_path)
+            _warn_dependency_requirement_mismatches(model_path=tmpdir)
             mock_warning.assert_not_called()
 
         mock_warning.reset_mock()
@@ -73,7 +72,7 @@ Detected one or more mismatches between the model's dependencies and the current
             "mlflow.utils.requirements_utils._get_installed_version",
             gen_mock_get_installed_version_fn({"scikit-learn": "0.7.1"}),
         ):
-            _warn_dependency_requirement_mismatches(model_path)
+            _warn_dependency_requirement_mismatches(model_path=tmpdir)
             mock_warning.assert_called_once_with(
                 AnyStringWith(" - scikit-learn (current: 0.7.1, required: scikit-learn>=0.8,<=0.9)")
             )
@@ -82,7 +81,7 @@ Detected one or more mismatches between the model's dependencies and the current
 
         # Test case: required package is uninstalled.
         req_file.write("uninstalled-pkg==1.2.3")
-        _warn_dependency_requirement_mismatches(model_path)
+        _warn_dependency_requirement_mismatches(model_path=tmpdir)
         mock_warning.assert_called_once_with(
             AnyStringWith(
                 " - uninstalled-pkg (current: uninstalled, required: uninstalled-pkg==1.2.3)"
@@ -93,7 +92,7 @@ Detected one or more mismatches between the model's dependencies and the current
 
         # Test case: requirement without version specifiers
         req_file.write("mlflow")
-        _warn_dependency_requirement_mismatches(model_path)
+        _warn_dependency_requirement_mismatches(model_path=tmpdir)
         mock_warning.assert_not_called()
 
         mock_warning.reset_mock()
@@ -103,7 +102,7 @@ Detected one or more mismatches between the model's dependencies and the current
             "mlflow.pyfunc._check_requirement_satisfied",
             side_effect=RuntimeError("check_requirement_satisfied_fn_failed"),
         ):
-            _warn_dependency_requirement_mismatches(tmpdir)
+            _warn_dependency_requirement_mismatches(model_path=tmpdir)
             mock_warning.assert_called_once_with(
                 AnyStringWith(
                     "Encountered an unexpected error "
