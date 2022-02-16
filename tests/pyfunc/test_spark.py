@@ -84,9 +84,7 @@ def test_spark_udf(spark, model_path):
         code_path=[os.path.dirname(tests.__file__)],
     )
 
-    with mock.patch(
-        "mlflow.pyfunc.check_requirements_and_local_installed_mismatch"
-    ) as mock_check_fn:
+    with mock.patch("mlflow.pyfunc._warn_dependency_requirement_mismatches") as mock_check_fn:
         reloaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_path)
         mock_check_fn.assert_called_once()
 

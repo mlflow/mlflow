@@ -642,22 +642,21 @@ def _warn_dependency_requirement_mismatches(model_path):
         return
 
     try:
-        mismatch_errs = []
+        mismatch_infos = []
         for req in _parse_requirements(req_file_path, is_constraint=False):
             req_line = req.req_str
             mismatch_info = _check_requirement_satisfied(req_line)
             if mismatch_info is not None:
-                mismatch_errs.append(str(mismatch_info))
+                mismatch_infos.append(str(mismatch_info))
 
-        if len(mismatch_errs) > 0:
-            mismatch_str = " - " + "\n - ".join(mismatch_errs)
+        if len(mismatch_infos) > 0:
+            mismatch_str = " - " + "\n - ".join(mismatch_infos)
             warning_msg = (
                 "Detected one or more mismatches between the model's dependencies and the current "
                 f"Python environment:\n{mismatch_str}"
             )
             _logger.warning(warning_msg)
     except Exception as e:
-        raise
         _logger.warning(
             f"Encountered an unexpected error ({e}) while detecting model dependency mismatches. "
             "Set logging level to DEBUG to see the full traceback."
