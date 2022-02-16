@@ -445,6 +445,12 @@ def _check_requirement_satisfied(requirement_str):
     req = pkg_resources.Requirement.parse(requirement_str)
     pkg_name = req.name
 
+    if is_in_databricks_runtime() and pkg_name == 'pyspark':
+        # for databricks runtime pyspark, ignore micro-version mismatch.
+        # replace == specifier to be ~= specifier, but keep === specifier unchanged.
+        requirement_str = re.sub('([^=])==([^=])', r'\1~=\2', requirement_str)
+        req = pkg_resources.Requirement.parse(requirement_str)
+
     try:
         installed_version = _get_installed_version(pkg_name, _PACKAGES_TO_MODULES.get(pkg_name))
     except ModuleNotFoundError:
