@@ -634,8 +634,8 @@ class PyFuncModel:
 
 def _warn_dependency_requirement_mismatches(model_path):
     """
-    print warning when installed model dependency package versions mismatch with the
-    model requirements file.
+    Inspects the model's dependencies and prints a warning if the current Python environment
+    doesn't satisfy them.
     """
     req_file_path = os.path.join(model_path, _REQUIREMENTS_FILE_NAME)
     if not os.path.exists(req_file_path):
@@ -658,8 +658,8 @@ def _warn_dependency_requirement_mismatches(model_path):
             _logger.warning(warning_msg)
     except Exception as e:
         _logger.warning(
-            f"Encountered an unexpected error ({e}) while detecting model dependency mismatches. "
-            "Set logging level to DEBUG to see the full traceback."
+            f"Encountered an unexpected error ({repr(e)}) while detecting model dependency "
+            "mismatches. Set logging level to DEBUG to see the full traceback."
         )
         _logger.debug("", exc_info=True)
 
