@@ -831,7 +831,7 @@ Index  yhat       yhat_lower yhat_upper
 1      490.494467 416.17449  564.81444
 2      509.138684 420.56255  597.71117
 3      492.554714 397.30634  587.80309
-====== ========== =========  ==========
+====== ========== ========== ==========
 
 .. warning::
     Signature logging for ``pmdarima`` will not function correctly if ``return_conf_int`` is set to ``True`` from
