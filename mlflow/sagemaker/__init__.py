@@ -1131,13 +1131,13 @@ def _get_assumed_role_arn(**assume_role_credentials):
     return role_response["Role"]["Arn"]
 
 
-def _assume_role_and_get_credentials(assume_role_arn):
+def _assume_role_and_get_credentials(assume_role_arn=None):
     """
     Assume a new role in AWS and return the credentials for that role.
     When ``assume_role_arn`` is ``None`` or an empty string,
     this function does nothing and returns an empty dictionary.
 
-    :param assume_role_arn: The ARN of the role that will be assumed
+    :param assume_role_arn: Optional ARN of the role that will be assumed
     :return: Dict with credentials of the assumed role
     """
     import boto3
