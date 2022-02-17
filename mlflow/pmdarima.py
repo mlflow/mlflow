@@ -14,9 +14,10 @@ Pmdarima format
 import os
 import logging
 import pickle
-
+import warnings
 import pandas as pd
 import yaml
+import pmdarima
 
 import mlflow
 from mlflow import pyfunc
@@ -295,6 +296,7 @@ def _load_pyfunc(path):
 class _PmdarimaModelWrapper:
     def __init__(self, pmdarima_model):
         self.pmdarima_model = pmdarima_model
+        self._pmdarima_version = pmdarima.__version__
 
     def predict(self, dataframe) -> pd.DataFrame:
 
@@ -320,6 +322,13 @@ class _PmdarimaModelWrapper:
         # `X` entries as a 2D array structure to the predict method.
         exogoneous_regressor = attrs.get("X", None)
 
+        if exogoneous_regressor and self._pmdarima_version < "1.8.0":
+            warnings.warn(
+                "An exogeneous regressor element was provided in column 'X'. This is "
+                "supported only in pmdarima version >= 1.8.0. Installed version: "
+                f"{self._pmdarima_version}"
+            )
+
         return_conf_int = attrs.get("return_conf_int", False)
         alpha = attrs.get("alpha", 0.05)
 
@@ -329,12 +338,19 @@ class _PmdarimaModelWrapper:
                 "an integer value for number of future periods to predict."
             )
 
-        raw_predictions = self.pmdarima_model.predict(
-            n_periods=n_periods,
-            X=exogoneous_regressor,
-            return_conf_int=return_conf_int,
-            alpha=alpha,
-        )
+        if self._pmdarima_version >= "1.8.0":
+            raw_predictions = self.pmdarima_model.predict(
+                n_periods=n_periods,
+                X=exogoneous_regressor,
+                return_conf_int=return_conf_int,
+                alpha=alpha,
+            )
+        else:
+            raw_predictions = self.pmdarima_model.predict(
+                n_periods=n_periods,
+                return_conf_int=return_conf_int,
+                alpha=alpha,
+            )
 
         if return_conf_int:
             ci_low, ci_high = list(zip(*raw_predictions[1]))

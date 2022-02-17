@@ -351,7 +351,7 @@ pmdarima:
       pip install git+https://github.com/alkaline-ml/pmdarima.git
 
   models:
-    minimum: "1.6.1"
+    minimum: "1.8.4"
     maximum: "1.8.4"
     requirements: ["prophet"]
     run: |

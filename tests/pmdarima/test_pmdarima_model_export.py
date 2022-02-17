@@ -97,13 +97,15 @@ def test_pmdarima_autoarima_pyfunc_save_and_load(auto_arima_model, model_path):
     mlflow.pmdarima.save_model(pmdarima_model=auto_arima_model, path=model_path)
     loaded_pyfunc = mlflow.pyfunc.load_model(model_uri=model_path)
 
-    predict_conf = pd.DataFrame({"n_periods": 60, "return_conf_int": True, "alpha": 0.1}, index=[0])
-
     model_predict = auto_arima_model.predict(n_periods=60, return_conf_int=True, alpha=0.1)
+
+    predict_conf = pd.DataFrame({"n_periods": 60, "return_conf_int": True, "alpha": 0.1}, index=[0])
     pyfunc_predict = loaded_pyfunc.predict(predict_conf)
 
-    for idx, arr in enumerate(model_predict):
-        np.testing.assert_array_equal(arr, pyfunc_predict[idx])
+    np.testing.assert_array_equal(model_predict[0], pyfunc_predict["yhat"])
+    yhat_low, yhat_high = list(zip(*model_predict[1]))
+    np.testing.assert_array_equal(yhat_low, pyfunc_predict["yhat_lower"])
+    np.testing.assert_array_equal(yhat_high, pyfunc_predict["yhat_upper"])
 
 
 def test_pmdarima_signature_and_examples_saved_correctly(auto_arima_model, test_data):
