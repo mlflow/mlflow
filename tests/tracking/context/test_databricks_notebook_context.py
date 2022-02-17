@@ -27,7 +27,9 @@ def test_databricks_notebook_run_context_tags():
         "mlflow.utils.databricks_utils.get_workspace_url",
         return_value="https://dev.databricks.com",
     )
-    patch_workspace_url_none = mock.patch("mlflow.utils.databricks_utils.get_workspace_url")
+    patch_workspace_url_none = mock.patch(
+        "mlflow.utils.databricks_utils.get_workspace_url", return_value=None
+    )
     patch_workspace_info = mock.patch(
         "mlflow.utils.databricks_utils.get_workspace_info_from_dbutils",
         return_value=("https://databricks.com", "123456"),
