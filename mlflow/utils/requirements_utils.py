@@ -442,14 +442,14 @@ def _check_requirement_satisfied(requirement_str):
     Otherwise, returns an instance of `_MismatchedPackageInfo`.
     """
     _init_packages_to_modules_map()
-    req = pkg_resources.Requirement.parse(requirement_str)
-    pkg_name = req.name
 
-    if pkg_name == "pyspark" and is_in_databricks_runtime():
+    if re.match(r"pyspark[^\w-]", requirement_str) and is_in_databricks_runtime():
         # for databricks runtime pyspark, ignore micro-version mismatch.
         # replace == specifier to be ~= specifier, but keep === specifier unchanged.
         requirement_str = re.sub("([^=])==([^=])", r"\1~=\2", requirement_str)
-        req = pkg_resources.Requirement.parse(requirement_str)
+
+    req = pkg_resources.Requirement.parse(requirement_str)
+    pkg_name = req.name
 
     try:
         installed_version = _get_installed_version(pkg_name, _PACKAGES_TO_MODULES.get(pkg_name))
