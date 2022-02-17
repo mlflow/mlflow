@@ -116,7 +116,6 @@ def save_model(
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     """
-    import pmdarima
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
