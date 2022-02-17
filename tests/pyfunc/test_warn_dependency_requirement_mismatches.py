@@ -2,6 +2,7 @@ from unittest import mock
 import pytest
 import cloudpickle
 import sklearn
+from contextlib import contextmanager
 
 from mlflow.pyfunc import _warn_dependency_requirement_mismatches
 import mlflow.utils.requirements_utils
@@ -9,16 +10,18 @@ import mlflow.utils.requirements_utils
 from tests.helper_functions import AnyStringWith
 
 
-def _gen_mock_get_installed_version_fn(mock_versions):
-    original_get_installed_version_fn = mlflow.utils.requirements_utils._get_installed_version
+@contextmanager
+def mock_get_installed_version(mock_versions):
+    original_get_installed_version = mlflow.utils.requirements_utils._get_installed_version
 
-    def mock_get_installed_version_fn(package, module=None):
-        if package in mock_versions:
-            return mock_versions[package]
-        else:
-            return original_get_installed_version_fn(package, module)
+    def new_get_installed_version(package, module=None):
+        return mock_versions.get(package) or original_get_installed_version(package, module)
 
-    return mock_get_installed_version_fn
+    with mock.patch(
+        "mlflow.utils.requirements_utils._get_installed_version",
+        new_get_installed_version,
+    ) as mock_get_installed_version:
+        yield mock_get_installed_version
 
 
 @pytest.mark.large
@@ -34,14 +37,11 @@ def test_warn_dependency_requirement_mismatches(tmpdir):
         mock_warning.reset_mock()
 
         # Test case: multiple mismatched packages
-        with mock.patch(
-            "mlflow.utils.requirements_utils._get_installed_version",
-            _gen_mock_get_installed_version_fn(
-                {
-                    "scikit-learn": "999.99.11",
-                    "cloudpickle": "999.99.22",
-                }
-            ),
+        with mock_get_installed_version(
+            {
+                "scikit-learn": "999.99.11",
+                "cloudpickle": "999.99.22",
+            }
         ):
             _warn_dependency_requirement_mismatches(model_path=tmpdir)
             mock_warning.assert_called_once_with(
@@ -59,20 +59,14 @@ Detected one or more mismatches between the model's dependencies and the current
         req_file.write("scikit-learn>=0.8,<=0.9")
 
         # Test case: requirement with multiple version specifiers is satisfied
-        with mock.patch(
-            "mlflow.utils.requirements_utils._get_installed_version",
-            _gen_mock_get_installed_version_fn({"scikit-learn": "0.8.1"}),
-        ):
+        with mock_get_installed_version({"scikit-learn": "0.8.1"}):
             _warn_dependency_requirement_mismatches(model_path=tmpdir)
             mock_warning.assert_not_called()
 
         mock_warning.reset_mock()
 
         # Test case: requirement with multiple version specifiers is not satisfied
-        with mock.patch(
-            "mlflow.utils.requirements_utils._get_installed_version",
-            _gen_mock_get_installed_version_fn({"scikit-learn": "0.7.1"}),
-        ):
+        with mock_get_installed_version({"scikit-learn": "0.7.1"}):
             _warn_dependency_requirement_mismatches(model_path=tmpdir)
             mock_warning.assert_called_once_with(
                 AnyStringWith(" - scikit-learn (current: 0.7.1, required: scikit-learn>=0.8,<=0.9)")
@@ -119,20 +113,16 @@ def test_warn_dependency_requirement_mismatches_ignore_databricks_runtime_micro_
     req_file.write("pyspark==3.2.1")
 
     with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
-        with mock.patch("mlflow.utils.requirements_utils.is_in_databricks_runtime", lambda: True):
+        with mock.patch(
+            "mlflow.utils.requirements_utils.is_in_databricks_runtime", return_value=True
+        ):
             for pyspark_version in ["3.2.1", "3.2.2"]:
-                with mock.patch(
-                    "mlflow.utils.requirements_utils._get_installed_version",
-                    _gen_mock_get_installed_version_fn({"pyspark": pyspark_version}),
-                ):
+                with mock_get_installed_version({"pyspark": pyspark_version}):
                     _warn_dependency_requirement_mismatches(model_path=tmpdir)
                     mock_warning.assert_not_called()
                     mock_warning.reset_mock()
 
-        with mock.patch(
-            "mlflow.utils.requirements_utils._get_installed_version",
-            _gen_mock_get_installed_version_fn({"pyspark": "3.2.2"}),
-        ):
+        with mock_get_installed_version({"pyspark": "3.2.2"}):
             _warn_dependency_requirement_mismatches(model_path=tmpdir)
             mock_warning.assert_called_once_with(
                 AnyStringWith(" - pyspark (current: 3.2.2, required: pyspark==3.2.1)")

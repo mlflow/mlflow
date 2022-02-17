@@ -445,7 +445,7 @@ def _check_requirement_satisfied(requirement_str):
 
     if re.match(r"pyspark[^\w-]", requirement_str) and is_in_databricks_runtime():
         # for databricks runtime pyspark, ignore micro-version mismatch.
-        # replace == specifier to be ~= specifier, but keep === specifier unchanged.
+        # replace == operator with ~= operator, but keep === operator unchanged.
         requirement_str = re.sub("([^=])==([^=])", r"\1~=\2", requirement_str)
 
     req = pkg_resources.Requirement.parse(requirement_str)
