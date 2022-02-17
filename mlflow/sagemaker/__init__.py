@@ -1060,7 +1060,8 @@ def target_help():
     :return:
     :rtype: str
     """
-    help_str = """For detailed documentation on the SageMaker deployment client, please visit
+    help_str = """\
+    For detailed documentation on the SageMaker deployment client, please visit
     https://mlflow.org/docs/latest/python_api/mlflow.sagemaker.html#mlflow.sagemaker.SageMakerDeploymentClient
 
     The target URI must follow the following formats:
