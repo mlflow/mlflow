@@ -5,6 +5,7 @@ from mlflow.store.artifact.http_artifact_repo import HttpArtifactRepository
 from mlflow.tracking._tracking_service.utils import get_tracking_uri
 from mlflow.exceptions import MlflowException
 
+
 def _check_if_host_is_numeric(hostname):
     if hostname:
         try:
@@ -67,24 +68,21 @@ class MlflowArtifactsRepository(HttpArtifactRepository):
             resolved = f"{base_url}/{track_parse.path}{uri_parse.path}"
         resolved = re.sub("//+", "/", resolved)
 
-        resolved_artifacts_uri = urlunparse((
-            # scheme
-            track_parse.scheme,
-
-            # netloc
-            uri_parse.netloc if uri_parse.netloc else track_parse.netloc,
-
-            # path
-            resolved,
-
-            # params
-            '',
-
-            # query
-            '',
-
-            # fragment
-            ''
-        ))
+        resolved_artifacts_uri = urlunparse(
+            (
+                # scheme
+                track_parse.scheme,
+                # netloc
+                uri_parse.netloc if uri_parse.netloc else track_parse.netloc,
+                # path
+                resolved,
+                # params
+                "",
+                # query
+                "",
+                # fragment
+                "",
+            )
+        )
 
         return resolved_artifacts_uri.replace("///", "/").rstrip("/")
