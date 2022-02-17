@@ -113,6 +113,7 @@ def test_warn_dependency_requirement_mismatches_ignore_databricks_runtime_micro_
     req_file.write("pyspark==3.2.1")
 
     with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
+        # Test for databricks pyspark
         with mock.patch(
             "mlflow.utils.requirements_utils.is_in_databricks_runtime", return_value=True
         ):
@@ -122,6 +123,7 @@ def test_warn_dependency_requirement_mismatches_ignore_databricks_runtime_micro_
                     mock_warning.assert_not_called()
                     mock_warning.reset_mock()
 
+        # Test for non-databricks pyspark
         with mock_get_installed_version({"pyspark": "3.2.2"}):
             _warn_dependency_requirement_mismatches(model_path=tmpdir)
             mock_warning.assert_called_once_with(
