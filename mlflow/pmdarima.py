@@ -17,7 +17,6 @@ import pickle
 import warnings
 import pandas as pd
 import yaml
-import pmdarima
 
 import mlflow
 from mlflow import pyfunc
@@ -116,6 +115,7 @@ def save_model(
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     """
+    import pmdarima
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
@@ -294,6 +294,8 @@ def _load_pyfunc(path):
 
 class _PmdarimaModelWrapper:
     def __init__(self, pmdarima_model):
+        import pmdarima
+
         self.pmdarima_model = pmdarima_model
         self._pmdarima_version = pmdarima.__version__
 
