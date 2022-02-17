@@ -9,6 +9,18 @@ import mlflow.utils.requirements_utils
 from tests.helper_functions import AnyStringWith
 
 
+def _gen_mock_get_installed_version_fn(mock_versions):
+    original_get_installed_version_fn = mlflow.utils.requirements_utils._get_installed_version
+
+    def mock_get_installed_version_fn(package, module=None):
+        if package in mock_versions:
+            return mock_versions[package]
+        else:
+            return original_get_installed_version_fn(package, module)
+
+    return mock_get_installed_version_fn
+
+
 @pytest.mark.large
 def test_warn_dependency_requirement_mismatches(tmpdir):
     req_file = tmpdir.join("requirements.txt")
@@ -21,21 +33,10 @@ def test_warn_dependency_requirement_mismatches(tmpdir):
 
         mock_warning.reset_mock()
 
-        original_get_installed_version_fn = mlflow.utils.requirements_utils._get_installed_version
-
-        def gen_mock_get_installed_version_fn(mock_versions):
-            def mock_get_installed_version_fn(package, module=None):
-                if package in mock_versions:
-                    return mock_versions[package]
-                else:
-                    return original_get_installed_version_fn(package, module)
-
-            return mock_get_installed_version_fn
-
         # Test case: multiple mismatched packages
         with mock.patch(
             "mlflow.utils.requirements_utils._get_installed_version",
-            gen_mock_get_installed_version_fn(
+            _gen_mock_get_installed_version_fn(
                 {
                     "scikit-learn": "999.99.11",
                     "cloudpickle": "999.99.22",
@@ -60,7 +61,7 @@ Detected one or more mismatches between the model's dependencies and the current
         # Test case: requirement with multiple version specifiers is satisfied
         with mock.patch(
             "mlflow.utils.requirements_utils._get_installed_version",
-            gen_mock_get_installed_version_fn({"scikit-learn": "0.8.1"}),
+            _gen_mock_get_installed_version_fn({"scikit-learn": "0.8.1"}),
         ):
             _warn_dependency_requirement_mismatches(model_path=tmpdir)
             mock_warning.assert_not_called()
@@ -70,7 +71,7 @@ Detected one or more mismatches between the model's dependencies and the current
         # Test case: requirement with multiple version specifiers is not satisfied
         with mock.patch(
             "mlflow.utils.requirements_utils._get_installed_version",
-            gen_mock_get_installed_version_fn({"scikit-learn": "0.7.1"}),
+            _gen_mock_get_installed_version_fn({"scikit-learn": "0.7.1"}),
         ):
             _warn_dependency_requirement_mismatches(model_path=tmpdir)
             mock_warning.assert_called_once_with(
@@ -110,3 +111,30 @@ Detected one or more mismatches between the model's dependencies and the current
                     "detecting model dependency mismatches"
                 )
             )
+
+
+@pytest.mark.large
+def test_warn_dependency_requirement_mismatches_ignore_databricks_runtime_micro_version(tmpdir):
+    req_file = tmpdir.join("requirements.txt")
+    req_file.write("pyspark==3.2.1")
+
+    with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
+        with mock.patch("mlflow.utils.requirements_utils.is_in_databricks_runtime", lambda: True):
+            for pyspark_version in ["3.2.1", "3.2.2"]:
+                with mock.patch(
+                    "mlflow.utils.requirements_utils._get_installed_version",
+                    _gen_mock_get_installed_version_fn({"pyspark": pyspark_version}),
+                ):
+                    _warn_dependency_requirement_mismatches(model_path=tmpdir)
+                    mock_warning.assert_not_called()
+                    mock_warning.reset_mock()
+
+        with mock.patch(
+            "mlflow.utils.requirements_utils._get_installed_version",
+            _gen_mock_get_installed_version_fn({"pyspark": "3.2.2"}),
+        ):
+            _warn_dependency_requirement_mismatches(model_path=tmpdir)
+            mock_warning.assert_called_once_with(
+                AnyStringWith(" - pyspark (current: 3.2.2, required: pyspark==3.2.1)")
+            )
+            mock_warning.reset_mock()
