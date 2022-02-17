@@ -353,5 +353,6 @@ pmdarima:
   models:
     minimum: "1.6.1"
     maximum: "1.8.4"
+    requirements: ["prophet"]
     run: |
       pytest tests/pmdarima/test_pmdarima_model_export.py --large

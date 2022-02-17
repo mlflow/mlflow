@@ -14,6 +14,8 @@ Pmdarima format
 import os
 import logging
 import pickle
+
+import pandas as pd
 import yaml
 
 import mlflow
@@ -96,12 +98,14 @@ def save_model(
                       from mlflow.models.signature import infer_signature
 
                       model = pmdarima.auto_arima(data)
-                      predictions = model.predict(n_periods=30)
+                      predictions = model.predict(n_periods=30, return_conf_int=False)
                       signature = infer_signature(data, predictions)
 
                       .. Warning:: if utilizing confidence interval generation in the ``predict``
-                        method of a ``pmdarima`` model (``return_conf_int=True``, the signature
-                        will not be inferred due to the complex tuple return type.
+                        method of a ``pmdarima`` model (``return_conf_int=True``), the signature
+                        will not be inferred due to the complex tuple return type when using the
+                        native ``ARIMA.predict()`` API. ``infer_schema`` will function correctly
+                        if using the ``pyfunc`` flavor of the model, though.
 
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
@@ -200,12 +204,14 @@ def log_model(
                       from mlflow.models.signature import infer_signature
 
                       model = pmdarima.auto_arima(data)
-                      predictions = model.predict(n_periods=30)
+                      predictions = model.predict(n_periods=30, return_conf_int=False)
                       signature = infer_signature(data, predictions)
 
                       .. Warning:: if utilizing confidence interval generation in the ``predict``
-                        method of a ``pmdarima`` model (``return_conf_int=True``, the signature
-                        will not be inferred due to the complex tuple return type.
+                        method of a ``pmdarima`` model (``return_conf_int=True``), the signature
+                        will not be inferred due to the complex tuple return type when using the
+                        native ``ARIMA.predict()`` API. ``infer_schema`` will function correctly
+                        if using the ``pyfunc`` flavor of the model, though.
 
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
@@ -290,7 +296,7 @@ class _PmdarimaModelWrapper:
     def __init__(self, pmdarima_model):
         self.pmdarima_model = pmdarima_model
 
-    def predict(self, dataframe):
+    def predict(self, dataframe) -> pd.DataFrame:
 
         schema = {"n_periods", "X", "return_conf_int", "alpha"}
         df_schema = dataframe.columns.values.tolist()
@@ -312,7 +318,7 @@ class _PmdarimaModelWrapper:
 
         # NB Any model that is trained with exogeneous regressor elements will need to provide
         # `X` entries as a 2D array structure to the predict method.
-        X = attrs.get("X", None)
+        exogoneous_regressor = attrs.get("X", None)
 
         return_conf_int = attrs.get("return_conf_int", False)
         alpha = attrs.get("alpha", 0.05)
@@ -323,6 +329,19 @@ class _PmdarimaModelWrapper:
                 "an integer value for number of future periods to predict."
             )
 
-        return self.pmdarima_model.predict(
-            n_periods=n_periods, X=X, return_conf_int=return_conf_int, alpha=alpha
+        raw_predictions = self.pmdarima_model.predict(
+            n_periods=n_periods,
+            X=exogoneous_regressor,
+            return_conf_int=return_conf_int,
+            alpha=alpha,
         )
+
+        if return_conf_int:
+            ci_low, ci_high = list(zip(*raw_predictions[1]))
+            predictions = pd.DataFrame.from_dict(
+                {"yhat": raw_predictions[0], "yhat_lower": ci_low, "yhat_upper": ci_high}
+            )
+        else:
+            predictions = pd.DataFrame.from_dict({"yhat": raw_predictions})
+
+        return predictions

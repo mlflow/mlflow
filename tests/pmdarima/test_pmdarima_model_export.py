@@ -108,10 +108,38 @@ def test_pmdarima_autoarima_pyfunc_save_and_load(auto_arima_model, model_path):
 
 def test_pmdarima_signature_and_examples_saved_correctly(auto_arima_model, test_data):
 
-    # NB: with return_conf_int=True, the return type of pmdarima models is a tuple.
+    # NB: Signature inference will only work on the first element of the tuple return
     prediction = auto_arima_model.predict(n_periods=20, return_conf_int=True, alpha=0.05)
     signature_ = infer_signature(test_data, prediction[0])
     example_ = test_data[0:5].copy(deep=False)
+    for signature in (None, signature_):
+        for example in (None, example_):
+            with TempDir() as tmp:
+                path = tmp.path("model")
+                mlflow.pmdarima.save_model(
+                    auto_arima_model, path=path, signature=signature, input_example=example
+                )
+                mlflow_model = Model.load(path)
+                assert signature == mlflow_model.signature
+                if example is None:
+                    assert mlflow_model.saved_input_example_info is None
+                else:
+                    r_example = _read_example(mlflow_model, path).copy(deep=False)
+                    np.testing.assert_array_equal(r_example, example)
+
+
+def test_pmdarima_signature_and_example_for_confidence_interval_mode(
+    auto_arima_model, model_path, test_data
+):
+
+    mlflow.pmdarima.save_model(pmdarima_model=auto_arima_model, path=model_path)
+    loaded_pyfunc = mlflow.pyfunc.load_model(model_uri=model_path)
+
+    predict_conf = pd.DataFrame([{"n_periods": 10, "return_conf_int": True, "alpha": 0.2}])
+    forecast = loaded_pyfunc.predict(predict_conf)
+
+    signature_ = infer_signature(test_data["orders"], forecast)
+    example_ = test_data[0:10].copy(deep=False)
     for signature in (None, signature_):
         for example in (None, example_):
             with TempDir() as tmp:
@@ -357,3 +385,23 @@ def test_pmdarima_pyfunc_raises_invalid_df_input(auto_arima_model, model_path):
 
         predict_conf_name = pd.DataFrame([{"n_periods": 10, "invalid": True}])
         loaded_pyfunc.predict(predict_conf_name)
+
+
+def test_pmdarima_pyfunc_return_correct_structure(auto_arima_model, model_path):
+
+    mlflow.pmdarima.save_model(pmdarima_model=auto_arima_model, path=model_path)
+    loaded_pyfunc = mlflow.pyfunc.load_model(model_uri=model_path)
+
+    predict_conf_no_ci = pd.DataFrame([{"n_periods": 10, "return_conf_int": False}])
+    forecast_no_ci = loaded_pyfunc.predict(predict_conf_no_ci)
+
+    assert isinstance(forecast_no_ci, pd.DataFrame)
+    assert len(forecast_no_ci == 10)
+    assert len(forecast_no_ci.columns.values == 1)
+
+    predict_conf_with_ci = pd.DataFrame([{"n_periods": 10, "return_conf_int": True}])
+    forecast_with_ci = loaded_pyfunc.predict(predict_conf_with_ci)
+
+    assert isinstance(forecast_with_ci, pd.DataFrame)
+    assert len(forecast_with_ci == 10)
+    assert len(forecast_with_ci.columns.values == 3)
