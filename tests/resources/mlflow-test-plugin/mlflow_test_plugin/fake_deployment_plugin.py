@@ -10,7 +10,9 @@ class PluginDeploymentClient(BaseDeploymentClient):
             raise RuntimeError("Error requested")
         return {"name": f_deployment_name, "flavor": flavor}
 
-    def delete_deployment(self, name):
+    def delete_deployment(self, name, config=None):
+        if config and config.get("raiseError") == "True":
+            raise RuntimeError("Error requested")
         return None
 
     def update_deployment(self, name, model_uri=None, flavor=None, config=None):
