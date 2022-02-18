@@ -2,6 +2,7 @@ import numpy as np
 import json
 import pandas as pd
 import pytest
+import re
 
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation import evaluate
@@ -13,7 +14,7 @@ from mlflow.models.evaluation.default_evaluator import (
     _get_binary_sum_up_label_pred_prob,
     _get_classifier_per_class_metrics,
     _gen_classifier_curve,
-    _evaluate_custom_metric,
+    _evaluate_custom_metric_fn,
 )
 import mlflow
 from sklearn.linear_model import LogisticRegression
@@ -504,17 +505,17 @@ def test_gen_multiclass_roc_curve():
     assert np.allclose(results.auc, expected_auc, rtol=1e-3)
 
 
-def test_evaluate_custom_metric_handle_none_result():
+def test_evaluate_custom_metric_fn_handle_none_result():
     eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
     metrics = _get_regressor_metrics(eval_df["target"], eval_df["prediction"])
 
     def dummy_fn(*_):
         pass
 
-    assert _evaluate_custom_metric(dummy_fn, eval_df, metrics) == (None, None)
+    assert _evaluate_custom_metric_fn(dummy_fn, eval_df, metrics) == (None, None)
 
 
-def test_evaluate_custom_metric_incorrect_return_formats():
+def test_evaluate_custom_metric_fn_incorrect_return_formats():
     eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
     metrics = _get_regressor_metrics(eval_df["target"], eval_df["prediction"])
 
@@ -543,18 +544,20 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         with pytest.raises(
             MlflowException,
             match=(
-                f"Custom metric '{test_fn.__name__}' did not return in an expected format."
-                f"The two acceptable return types are:"
-                f"1. Dict[AnyStr, Union[int, float, np.number]: a dictionary of metrics"
-                f"2. Tuple[Dict[AnyStr, Union[int, float, np.number]], Dict[AnyStr, Any]]: a"
-                f"   dictionary of metrics and a dictionary of artifacts."
-                f"For more, check out the docstring for mlflow.evaluate"
+                re.escape(
+                    f"Custom metric '{test_fn.__name__}' did not return in an expected format."
+                    f"The two acceptable return types are:"
+                    f"1. Dict[AnyStr, Union[int, float, np.number]: a dictionary of metrics"
+                    f"2. Tuple[Dict[AnyStr, Union[int, float, np.number]], Dict[AnyStr, Any]]: a"
+                    f"   dictionary of metrics and a dictionary of artifacts."
+                    f"For more, check out the docstring for mlflow.evaluate"
+                )
             ),
         ):
-            _evaluate_custom_metric(test_fn, eval_df, metrics)
+            _evaluate_custom_metric_fn(test_fn, eval_df, metrics)
 
 
-def test_evaluate_custom_metric_success():
+def test_evaluate_custom_metric_fn_success():
     eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
     metrics = _get_regressor_metrics(eval_df["target"], eval_df["prediction"])
 
@@ -566,7 +569,7 @@ def test_evaluate_custom_metric_success():
             "example_np_metric_2": np.ulonglong(10000000),
         }
 
-    res_metrics, res_artifacts = _evaluate_custom_metric(example_custom_metric, eval_df, metrics)
+    res_metrics, res_artifacts = _evaluate_custom_metric_fn(example_custom_metric, eval_df, metrics)
     assert res_metrics == {
         "example_count_times_1_point_5": metrics["example_count"] * 1.5,
         "sum_on_label_minus_5": metrics["sum_on_label"] - 5,
@@ -589,7 +592,7 @@ def test_evaluate_custom_metric_success():
             },
         )
 
-    res_metrics_2, res_artifacts_2 = _evaluate_custom_metric(
+    res_metrics_2, res_artifacts_2 = _evaluate_custom_metric_fn(
         example_custom_metric_with_artifacts, eval_df, metrics
     )
     assert res_metrics_2 == {
@@ -621,7 +624,7 @@ def test_custom_metric(binary_logistic_regressor_model_uri, breast_cancer_datase
             targets=breast_cancer_dataset._constructor_args["targets"],
             dataset_name=breast_cancer_dataset.name,
             evaluators="default",
-            custom_metrics=[example_custom_metric],
+            custom_metric_fns=[example_custom_metric],
         )
 
     _, metrics, _, _ = get_run_data(run.info.run_id)

@@ -462,7 +462,15 @@ class ModelEvaluator(metaclass=ABCMeta):
 
     @abstractmethod
     def evaluate(
-        self, *, model, model_type, dataset, run_id, evaluator_config, custom_metrics=None, **kwargs
+        self,
+        *,
+        model,
+        model_type,
+        dataset,
+        run_id,
+        evaluator_config,
+        custom_metric_fns=None,
+        **kwargs,
     ):
         """
         The abstract API to log metrics and artifacts, and return evaluation results.
@@ -475,7 +483,7 @@ class ModelEvaluator(metaclass=ABCMeta):
         :param run_id: The ID of the MLflow Run to which to log results.
         :param evaluator_config: A dictionary of additional configurations for
                                  the evaluator.
-        :param custom_metrics: A list of custom metric functions
+        :param custom_metric_fns: A list of callable custom metric functions
         :param kwargs: For forwards compatibility, a placeholder for additional arguments that
                        may be added to the evaluation interface in the future.
         :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
@@ -600,7 +608,7 @@ def _evaluate(
     run_id,
     evaluator_name_list,
     evaluator_name_to_conf_map,
-    custom_metrics,
+    custom_metric_fns,
 ):
     """
     The public API "evaluate" will verify argument first, and then pass normalized arguments
@@ -634,7 +642,7 @@ def _evaluate(
                 dataset=dataset,
                 run_id=run_id,
                 evaluator_config=config,
-                custom_metrics=custom_metrics,
+                custom_metric_fns=custom_metric_fns,
             )
             eval_results.append(result)
 
@@ -666,7 +674,7 @@ def evaluate(
     feature_names: list = None,
     evaluators=None,
     evaluator_config=None,
-    custom_metrics=None,
+    custom_metric_fns=None,
 ):
     """
     Evaluate a PyFunc model on the specified dataset using one or more specified ``evaluators``, and
@@ -790,6 +798,69 @@ def evaluate(
                              If multiple evaluators are specified, each configuration should be
                              supplied as a nested dictionary whose key is the evaluator name.
 
+    :param custom_metric_fns: (Optional) A list of custom metric functions. A custom metric
+                              function is required to take in two parameters:
+                              - Union[pandas.Dataframe, pyspark.sql.DataFrame]: The first being a
+                                Pandas or Spark DataFrame containing ``prediction`` and ``target``
+                                column. The ``prediction`` column contains the predictions made by
+                                the model. The ``target`` column contains the corresponding labels
+                                to the predictions made on that row.
+                              - Dict: The second is a dictionary containing the metrics calculated
+                                by the default evaluator. The keys are the names of the metrics
+                                and the values are the scalar values of the metrics. Refer to the
+                                DefaultEvaluator behavior section for what metrics will be returned
+                                based on the type of model (i.e. classifier or regressor).
+
+                              A custom metric function can return in two different formats:
+                              - Dict[AnyStr, Union[int, float, np.number]: a singular dictionary of
+                                custom metrics, where the keys are the names of the metrics, and the
+                                values are the scalar values of the metrics.
+                              - Tuple[Dict[AnyStr, Union[int,float,np.number]], Dict[AnyStr,Any]]:
+                                a tuple of a dict containing the custom metrics, and a dict of
+                                artifacts, where the keys are the names of the artifacts, and the
+                                values are objects representing the artifacts.
+
+                              Object types that artifacts be represented as:
+                              - A string uri representing the file path to the artifact. MLflow will
+                                infer the type of the artifact based on the file extension.
+                              - ``EvaluationArtifact`` type objects. i.e. CsvEvaluationArtifact,
+                                ImageEvaluationArtifact.
+                              - Pandas DataFrame. This will be resolved as a parquet artifact.
+                              - Numpy array. This will be saved as a .npy artifact.
+                              - Matplotlib Figure. This will be saved as an image artifact.
+                              - Any JSON serializable object. This will be saved as a JSON artifact.
+
+                              Custom Metric Function Boilerplate:
+                                  ``
+                                  def custom_metrics_boilerplate(eval_df, builtin_metrics):
+                                      ...
+                                      metrics: Dict[AnyStr, Union[int, float, np.number]] = ???
+                                      artifacts: Dict[AnyStr, Any] = ???
+                                      ...
+                                      # If no artifacts, replace the below with `return metrics`
+                                      return metrics, artifacts
+                                  ``
+
+                              Example Usage:
+                              def squared_diff_plus_one(eval_df, builtin_metrics):
+                                  return {
+                                      "sdiff_plus_one": (np.sum(np.abs(eval_df["prediction"]
+                                                        - eval_df["target"]+1)**2))
+                                  }
+
+                              def scatter_plot(eval_df, builtin_metrics):
+                                  plt.scatter(eval_df['prediction'], eval_df['target'])
+                                  plt.xlabel('Targets')
+                                  plt.ylabel('Predictions')
+                                  plt.title("Targets vs. Predictions")
+                                  plt.savefig("some/path/example.png")
+                                  return {}, {“pred_target_scatter”: “some/path/example.png”}
+
+                              with mlflow.start_run():
+                                  mlflow.evaluate(
+                                      model, X, targets, custom_metrics=(
+                                      squared_diff_plus_one,scatter_plot)...)
+
     :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
              evaluation results.
     """
@@ -826,5 +897,5 @@ def evaluate(
             run_id=run_id,
             evaluator_name_list=evaluator_name_list,
             evaluator_name_to_conf_map=evaluator_name_to_conf_map,
-            custom_metrics=custom_metrics,
+            custom_metric_fns=custom_metric_fns,
         )
