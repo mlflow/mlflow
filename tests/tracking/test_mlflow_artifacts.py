@@ -5,6 +5,7 @@ import tempfile
 import requests
 import pathlib
 import pytest
+import json
 
 import mlflow
 from tests.helper_functions import LOCALHOST, get_safe_port
@@ -245,3 +246,49 @@ docker-compose down {rmi_option} --volumes --remove-orphans
         check=True,
         cwd=os.path.join(root, "examples", "mlflow_artifacts"),
     )
+
+
+def get_artifacts_from_rest_api(url, run_id, path=None):
+    if path:
+        resp = requests.get(url, params={"run_id": run_id, "path": path})
+    else:
+        resp = requests.get(url, params={"run_id": run_id})
+    assert resp.status_code == 200
+    return json.loads(resp.content.decode("utf-8"))
+
+
+def test_mlflow_artifacts_rest_api_list_artifacts(artifacts_server, tmpdir):
+    url = artifacts_server.url
+    mlflow.set_tracking_uri(url)
+    name = "rest_api_test"
+    api = f"{url}/api/2.0/mlflow/artifacts/list"
+    tmp_path_a = tmpdir.join("a.txt")
+    tmp_path_a.write("0")
+    tmp_path_b = tmpdir.join("b.txt")
+    tmp_path_b.write("1")
+    mlflow.set_experiment(name)
+    with mlflow.start_run():
+        mlflow.log_artifact(tmp_path_a)
+        mlflow.log_artifact(tmp_path_b, "dir")
+
+    client = mlflow.tracking.MlflowClient()
+    experiment = client.get_experiment_by_name(name)
+    exp_id = experiment.experiment_id
+    run_id = client.list_run_infos(experiment.experiment_id)[0].run_id
+    artifacts = get_artifacts_from_rest_api(api, run_id)
+    assert len(artifacts) >= 1
+    artifacts_base = get_artifacts_from_rest_api(api, run_id, exp_id)
+    artifacts_path = f"{exp_id}/{artifacts_base['files'][0]['path']}/artifacts"
+
+    artifacts_contents = get_artifacts_from_rest_api(api, run_id, f"{artifacts_path}")
+    expected_contents = {
+        "files": [
+            {"path": "a.txt", "is_dir": False, "file_size": 1},
+            {"path": "dir", "is_dir": True},
+        ]
+    }
+    assert artifacts_contents == expected_contents
+
+    nested_contents = get_artifacts_from_rest_api(api, run_id, f"{artifacts_path}/dir")
+    expected_nested = {"files": [{"path": "b.txt", "is_dir": False, "file_size": 1}]}
+    assert nested_contents == expected_nested

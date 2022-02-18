@@ -85,6 +85,7 @@ _logger = logging.getLogger(__name__)
 _tracking_store = None
 _model_registry_store = None
 _artifact_repo = None
+_serve_artifacts_mode = None
 STATIC_PREFIX_ENV_VAR = "_MLFLOW_STATIC_PREFIX"
 
 
@@ -142,6 +143,20 @@ def _get_artifact_repo_mlflow_artifacts():
         _artifact_repo = get_artifact_repository(os.environ[ARTIFACTS_DESTINATION_ENV_VAR])
 
     return _artifact_repo
+
+
+def _get_serve_artifacts_mode():
+    """
+    Set whether the MLflow server is operating in ``--serve-artifacts`` mode for artifact listing
+    endpoint resolution.
+    """
+    from mlflow.server import SERVE_ARTIFACTS_ENV_VAR
+
+    global _serve_artifacts_mode
+
+    if _serve_artifacts_mode is None:
+        _serve_artifacts_mode = os.environ.get(SERVE_ARTIFACTS_ENV_VAR, "false") == "true"
+    return _serve_artifacts_mode
 
 
 def _get_tracking_store(backend_store_uri=None, default_artifact_root=None):
@@ -560,6 +575,16 @@ def _search_runs():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _list_artifacts():
+
+    if _get_serve_artifacts_mode():
+        return _list_artifacts_mlflow_artifacts()
+    else:
+        return _list_artifacts_non_proxy()
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_artifacts_non_proxy():
     request_message = _get_request_message(ListArtifacts())
     response_message = ListArtifacts.Response()
     if request_message.HasField("path"):
