@@ -558,6 +558,7 @@ def test_evaluator_interface(multiclass_logistic_regressor_model_uri, iris_datas
                     dataset_name=iris_dataset.name,
                     evaluators="test_evaluator1",
                     evaluator_config=evaluator1_config,
+                    custom_metric_fns=None,
                 )
                 assert eval1_result.metrics == evaluator1_return_value.metrics
                 assert eval1_result.artifacts == evaluator1_return_value.artifacts
@@ -571,6 +572,7 @@ def test_evaluator_interface(multiclass_logistic_regressor_model_uri, iris_datas
                     dataset=iris_dataset,
                     run_id=run.info.run_id,
                     evaluator_config=evaluator1_config,
+                    custom_metric_fns=None,
                 )
 
 
@@ -633,6 +635,7 @@ def test_evaluate_with_multi_evaluators(multiclass_logistic_regressor_model_uri,
                         dataset=iris_dataset,
                         run_id=run.info.run_id,
                         evaluator_config=evaluator1_config,
+                        custom_metric_fns=None,
                     )
                     mock_can_evaluate2.assert_called_once_with(
                         model_type="classifier",
@@ -644,6 +647,7 @@ def test_evaluate_with_multi_evaluators(multiclass_logistic_regressor_model_uri,
                         dataset=iris_dataset,
                         run_id=run.info.run_id,
                         evaluator_config=evaluator2_config,
+                        custom_metric_fns=None,
                     )
 
 
