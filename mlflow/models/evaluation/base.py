@@ -461,7 +461,9 @@ class ModelEvaluator(metaclass=ABCMeta):
         raise NotImplementedError()
 
     @abstractmethod
-    def evaluate(self, *, model, model_type, dataset, run_id, evaluator_config, **kwargs):
+    def evaluate(
+        self, *, model, model_type, dataset, run_id, evaluator_config, custom_metrics=None, **kwargs
+    ):
         """
         The abstract API to log metrics and artifacts, and return evaluation results.
 
@@ -473,6 +475,7 @@ class ModelEvaluator(metaclass=ABCMeta):
         :param run_id: The ID of the MLflow Run to which to log results.
         :param evaluator_config: A dictionary of additional configurations for
                                  the evaluator.
+        :param custom_metrics: A list of custom metric functions
         :param kwargs: For forwards compatibility, a placeholder for additional arguments that
                        may be added to the evaluation interface in the future.
         :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
@@ -590,7 +593,14 @@ def _get_last_failed_evaluator():
 
 
 def _evaluate(
-    *, model, model_type, dataset, run_id, evaluator_name_list, evaluator_name_to_conf_map
+    *,
+    model,
+    model_type,
+    dataset,
+    run_id,
+    evaluator_name_list,
+    evaluator_name_to_conf_map,
+    custom_metrics,
 ):
     """
     The public API "evaluate" will verify argument first, and then pass normalized arguments
@@ -624,6 +634,7 @@ def _evaluate(
                 dataset=dataset,
                 run_id=run_id,
                 evaluator_config=config,
+                custom_metrics=custom_metrics,
             )
             eval_results.append(result)
 
@@ -655,6 +666,7 @@ def evaluate(
     feature_names: list = None,
     evaluators=None,
     evaluator_config=None,
+    custom_metrics=None,
 ):
     """
     Evaluate a PyFunc model on the specified dataset using one or more specified ``evaluators``, and
@@ -814,4 +826,5 @@ def evaluate(
             run_id=run_id,
             evaluator_name_list=evaluator_name_list,
             evaluator_name_to_conf_map=evaluator_name_to_conf_map,
+            custom_metrics=custom_metrics,
         )

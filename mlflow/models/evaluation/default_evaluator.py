@@ -1,4 +1,5 @@
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.base import (
     ModelEvaluator,
     EvaluationResult,
@@ -256,6 +257,45 @@ _matplotlib_config = {
     "figure.dpi": 288,
     "figure.figsize": [6.0, 4.0],
 }
+
+
+def _evaluate_custom_metric(custom_metric_fn, eval_df, builtin_metrics):
+    result = custom_metric_fn(eval_df, builtin_metrics)
+    if result is None:
+        _logger.warning(
+            f"Custom metric function '{custom_metric_fn.__name__}' returned None. Logging ignored."
+        )
+        return None, None
+
+    def __validate_metrics_dict(metrics):
+        return isinstance(metrics, dict) and all(
+            isinstance(metric_name, str) and isinstance(metric_val, (int, float, np.number))
+            for metric_name, metric_val in metrics.items()
+        )
+
+    def __validate_artifacts_dict(artifacts):
+        return isinstance(artifacts, dict) and all(
+            isinstance(artifacts_name, str) for artifacts_name in artifacts.keys()
+        )
+
+    if isinstance(result, dict) and __validate_metrics_dict(result):
+        return result, None
+
+    if (
+        isinstance(result, tuple)
+        and __validate_metrics_dict(result[0])
+        and __validate_artifacts_dict(result[1])
+    ):
+        return result
+
+    raise MlflowException(
+        f"Custom metric '{custom_metric_fn.__name__}' did not return in an expected format."
+        f"The two acceptable return types are:"
+        f"1. Dict[AnyStr, Union[int, float, np.number]: a dictionary of metrics"
+        f"2. Tuple[Dict[AnyStr, Union[int, float, np.number]], Dict[AnyStr, Any]]: a dictionary"
+        f"   of metrics and a dictionary of artifacts."
+        f"For more, check out the docstring for mlflow.evaluate"
+    )
 
 
 # pylint: disable=attribute-defined-outside-init
@@ -540,6 +580,17 @@ class DefaultEvaluator(ModelEvaluator):
 
         self._log_pandas_df_artifact(per_class_metrics_collection_df, "per_class_metrics")
 
+    def _evaluate_custom_metrics(self):
+        for custom_metric_fn in self.custom_metrics:
+            # recreating the dataframe for each custom metric function call,
+            # in case the user modifies the eval_df inside their custom function.
+            eval_df = pd.DataFrame({"prediction": self.y_pred, "target": self.y})
+            metric_results, _ = _evaluate_custom_metric(custom_metric_fn, eval_df, self.metrics)
+            # skip logging metric functions that doesn't return anything
+            if metric_results is None:
+                continue
+            self.metrics.update(metric_results)
+
     def _evaluate_classifier(self):
         from mlflow.models.evaluation.lift_curve import plot_lift_curve
 
@@ -618,6 +669,7 @@ class DefaultEvaluator(ModelEvaluator):
                 "confusion_matrix",
             )
 
+        self._evaluate_custom_metrics()
         self._log_metrics()
         self._log_model_explainability()
         return EvaluationResult(self.metrics, self.artifacts)
@@ -626,6 +678,7 @@ class DefaultEvaluator(ModelEvaluator):
         self.y_pred = self.model.predict(self.X)
         self.metrics.update(_get_regressor_metrics(self.y, self.y_pred))
 
+        self._evaluate_custom_metrics()
         self._log_metrics()
         self._log_model_explainability()
         return EvaluationResult(self.metrics, self.artifacts)
@@ -638,6 +691,7 @@ class DefaultEvaluator(ModelEvaluator):
         dataset,
         run_id,
         evaluator_config,
+        custom_metrics=None,
         **kwargs,
     ):
         import matplotlib
@@ -653,6 +707,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.evaluator_config = evaluator_config
             self.dataset_name = dataset.name
             self.feature_names = dataset.feature_names
+            self.custom_metrics = [] if custom_metrics is None else custom_metrics
 
             (
                 model_loader_module,
