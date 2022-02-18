@@ -6,6 +6,7 @@ import pytest
 from mlflow.store.artifact.mlflow_artifacts_repo import MlflowArtifactsRepository
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.exceptions import MlflowException
+from mlflow.tracking._tracking_service.utils import _get_default_host_creds
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -113,15 +114,24 @@ def mlflow_artifact_repo_with_host():
 def test_log_artifact(mlflow_artifact_repo, tmpdir, artifact_path):
     tmp_path = tmpdir.join("a.txt")
     tmp_path.write("0")
-    with mock.patch("requests.Session.put", return_value=MockResponse({}, 200)) as mock_put:
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.http_request",
+        return_value=MockResponse({}, 200),
+    ) as mock_put:
         mlflow_artifact_repo.log_artifact(tmp_path, artifact_path)
-        paths = (artifact_path,) if artifact_path else ()
-        expected_url = posixpath.join(mlflow_artifact_repo.artifact_uri, *paths, tmp_path.basename)
+        paths = (artifact_path, tmp_path.basename) if artifact_path else (tmp_path.basename,)
         mock_put.assert_called_once_with(
-            expected_url, data=FileObjectMatcher(tmp_path, "rb"), timeout=mock.ANY
+            mlflow_artifact_repo._host_creds,
+            posixpath.join("/", *paths),
+            "PUT",
+            data=FileObjectMatcher(tmp_path, "rb"),
+            timeout=mock.ANY,
         )
 
-    with mock.patch("requests.Session.put", return_value=MockResponse({}, 400)) as mock_put:
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.http_request",
+        return_value=MockResponse({}, 400),
+    ):
         with pytest.raises(Exception, match="request failed"):
             mlflow_artifact_repo.log_artifact(tmp_path, artifact_path)
 
@@ -130,17 +140,24 @@ def test_log_artifact(mlflow_artifact_repo, tmpdir, artifact_path):
 def test_log_artifact_with_host_and_port(mlflow_artifact_repo_with_host, tmpdir, artifact_path):
     tmp_path = tmpdir.join("a.txt")
     tmp_path.write("0")
-    with mock.patch("requests.Session.put", return_value=MockResponse({}, 200)) as mock_put:
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.http_request",
+        return_value=MockResponse({}, 200),
+    ) as mock_put:
         mlflow_artifact_repo_with_host.log_artifact(tmp_path, artifact_path)
-        paths = (artifact_path,) if artifact_path else ()
-        expected_url = posixpath.join(
-            mlflow_artifact_repo_with_host.artifact_uri, *paths, tmp_path.basename
-        )
+        paths = (artifact_path, tmp_path.basename) if artifact_path else (tmp_path.basename,)
         mock_put.assert_called_once_with(
-            expected_url, data=FileObjectMatcher(tmp_path, "rb"), timeout=mock.ANY
+            mlflow_artifact_repo_with_host._host_creds,
+            posixpath.join("/", *paths),
+            "PUT",
+            data=FileObjectMatcher(tmp_path, "rb"),
+            timeout=mock.ANY,
         )
 
-    with mock.patch("requests.Session.put", return_value=MockResponse({}, 400)) as mock_put:
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.http_request",
+        return_value=MockResponse({}, 400),
+    ):
         with pytest.raises(Exception, match="request failed"):
             mlflow_artifact_repo_with_host.log_artifact(tmp_path, artifact_path)
 
@@ -152,35 +169,44 @@ def test_log_artifacts(mlflow_artifact_repo, tmpdir, artifact_path):
     tmp_path_a.write("0")
     tmp_path_b.write("1")
 
-    with mock.patch("requests.Session.put", return_value=MockResponse({}, 200)) as mock_put:
+    with mock.patch.object(mlflow_artifact_repo, "log_artifact") as mock_log_artifact:
         mlflow_artifact_repo.log_artifacts(tmpdir, artifact_path)
-        paths = (artifact_path,) if artifact_path else ()
-        expected_url_1 = posixpath.join(
-            mlflow_artifact_repo.artifact_uri, *paths, tmp_path_a.basename
+        mock_log_artifact.assert_has_calls(
+            [
+                mock.call(tmp_path_a.strpath, artifact_path),
+                mock.call(
+                    tmp_path_b.strpath,
+                    posixpath.join(artifact_path, "dir") if artifact_path else "dir",
+                ),
+            ],
         )
-        expected_url_2 = posixpath.join(
-            mlflow_artifact_repo.artifact_uri, *paths, "dir", tmp_path_b.basename
-        )
-        calls = [(args[0], kwargs["data"]) for args, kwargs in mock_put.call_args_list]
-        assert calls == [
-            (expected_url_1, FileObjectMatcher(tmp_path_a, "rb")),
-            (expected_url_2, FileObjectMatcher(tmp_path_b, "rb")),
-        ]
 
-    with mock.patch("requests.Session.put", return_value=MockResponse({}, 400)) as mock_put:
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.http_request",
+        return_value=MockResponse({}, 400),
+    ):
         with pytest.raises(Exception, match="request failed"):
             mlflow_artifact_repo.log_artifacts(tmpdir, artifact_path)
 
 
 def test_list_artifacts(mlflow_artifact_repo):
-    with mock.patch("requests.Session.get", return_value=MockResponse({}, 200)) as mock_get:
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.http_request",
+        return_value=MockResponse({}, 200),
+    ) as mock_get:
         assert mlflow_artifact_repo.list_artifacts() == []
+        endpoint = "/mlflow-artifacts/artifacts"
+        url, _ = mlflow_artifact_repo.artifact_uri.split(endpoint, maxsplit=1)
         mock_get.assert_called_once_with(
-            mlflow_artifact_repo.artifact_uri, params={"path": ""}, timeout=mock.ANY
+            _get_default_host_creds(url),
+            endpoint,
+            "GET",
+            params={"path": ""},
+            timeout=mock.ANY,
         )
 
     with mock.patch(
-        "requests.Session.get",
+        "mlflow.store.artifact.http_artifact_repo.http_request",
         return_value=MockResponse(
             {
                 "files": [
@@ -190,11 +216,11 @@ def test_list_artifacts(mlflow_artifact_repo):
             },
             200,
         ),
-    ) as mock_get:
+    ):
         assert [a.path for a in mlflow_artifact_repo.list_artifacts()] == ["1.txt", "dir"]
 
     with mock.patch(
-        "requests.Session.get",
+        "mlflow.store.artifact.http_artifact_repo.http_request",
         return_value=MockResponse(
             {
                 "files": [
@@ -204,13 +230,16 @@ def test_list_artifacts(mlflow_artifact_repo):
             },
             200,
         ),
-    ) as mock_get:
+    ):
         assert [a.path for a in mlflow_artifact_repo.list_artifacts(path="path")] == [
             "path/1.txt",
             "path/dir",
         ]
 
-    with mock.patch("requests.Session.get", return_value=MockResponse({}, 400)) as mock_get:
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.http_request",
+        return_value=MockResponse({}, 400),
+    ):
         with pytest.raises(Exception, match="request failed"):
             mlflow_artifact_repo.list_artifacts()
 
@@ -223,18 +252,25 @@ def read_file(path):
 @pytest.mark.parametrize("remote_file_path", ["a.txt", "dir/b.xtx"])
 def test_download_file(mlflow_artifact_repo, tmpdir, remote_file_path):
     with mock.patch(
-        "requests.Session.get", return_value=MockStreamResponse("data", 200)
+        "mlflow.store.artifact.http_artifact_repo.http_request",
+        return_value=MockStreamResponse("data", 200),
     ) as mock_get:
         tmp_path = tmpdir.join(posixpath.basename(remote_file_path))
         mlflow_artifact_repo._download_file(remote_file_path, tmp_path)
-        expected_url = posixpath.join(mlflow_artifact_repo.artifact_uri, remote_file_path)
-        mock_get.assert_called_once_with(expected_url, stream=True, timeout=mock.ANY)
+        mock_get.assert_called_once_with(
+            mlflow_artifact_repo._host_creds,
+            posixpath.join("/", remote_file_path),
+            "GET",
+            stream=True,
+            timeout=mock.ANY,
+        )
         with open(tmp_path) as f:
             assert f.read() == "data"
 
     with mock.patch(
-        "requests.Session.get", return_value=MockStreamResponse("data", 400)
-    ) as mock_get:
+        "mlflow.store.artifact.http_artifact_repo.http_request",
+        return_value=MockStreamResponse("data", 400),
+    ):
         with pytest.raises(Exception, match="request failed"):
             mlflow_artifact_repo._download_file(remote_file_path, tmp_path)
 
@@ -274,7 +310,10 @@ def test_download_artifacts(mlflow_artifact_repo, tmpdir):
         # Response for `_download_file("dir/b.txt")`
         MockStreamResponse("data_b", 200),
     ]
-    with mock.patch("requests.Session.get", side_effect=side_effect):
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.http_request",
+        side_effect=side_effect,
+    ):
         mlflow_artifact_repo.download_artifacts("", tmpdir)
         paths = [os.path.join(root, f) for root, _, files in os.walk(tmpdir) for f in files]
         assert [os.path.relpath(p, tmpdir) for p in paths] == [

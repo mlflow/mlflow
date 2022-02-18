@@ -253,6 +253,10 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from scipy.sparse import csc_matrix, csr_matrix
+from mlflow.utils.requirements_utils import (
+    _check_requirement_satisfied,
+    _parse_requirements,
+)
 
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
@@ -628,6 +632,38 @@ class PyFuncModel:
         return yaml.safe_dump({"mlflow.pyfunc.loaded_model": info}, default_flow_style=False)
 
 
+def _warn_dependency_requirement_mismatches(model_path):
+    """
+    Inspects the model's dependencies and prints a warning if the current Python environment
+    doesn't satisfy them.
+    """
+    req_file_path = os.path.join(model_path, _REQUIREMENTS_FILE_NAME)
+    if not os.path.exists(req_file_path):
+        return
+
+    try:
+        mismatch_infos = []
+        for req in _parse_requirements(req_file_path, is_constraint=False):
+            req_line = req.req_str
+            mismatch_info = _check_requirement_satisfied(req_line)
+            if mismatch_info is not None:
+                mismatch_infos.append(str(mismatch_info))
+
+        if len(mismatch_infos) > 0:
+            mismatch_str = " - " + "\n - ".join(mismatch_infos)
+            warning_msg = (
+                "Detected one or more mismatches between the model's dependencies and the current "
+                f"Python environment:\n{mismatch_str}"
+            )
+            _logger.warning(warning_msg)
+    except Exception as e:
+        _logger.warning(
+            f"Encountered an unexpected error ({repr(e)}) while detecting model dependency "
+            "mismatches. Set logging level to DEBUG to see the full traceback."
+        )
+        _logger.debug("", exc_info=True)
+
+
 def load_model(model_uri: str, suppress_warnings: bool = True, dst_path: str = None) -> PyFuncModel:
     """
     Load a model stored in Python function format.
@@ -653,6 +689,9 @@ def load_model(model_uri: str, suppress_warnings: bool = True, dst_path: str = N
                      path will be created.
     """
     local_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
+
+    _warn_dependency_requirement_mismatches(local_path)
+
     model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
 
     conf = model_meta.flavors.get(FLAVOR_NAME)
@@ -826,6 +865,8 @@ def spark_udf(spark, model_uri, result_type="double"):
         local_model_path = _download_artifact_from_uri(
             artifact_uri=model_uri, output_path=local_tmpdir.path()
         )
+        # Assume spark executor python environment is the same with spark driver side.
+        _warn_dependency_requirement_mismatches(local_model_path)
         archive_path = SparkModelCache.add_local_model(spark, local_model_path)
         model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
 

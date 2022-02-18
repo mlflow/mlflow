@@ -311,13 +311,26 @@ def get_browser_hostname():
 
 
 def get_workspace_info_from_dbutils():
-    dbutils = _get_dbutils()
-    if dbutils:
-        browser_hostname = get_browser_hostname()
-        workspace_host = "https://" + browser_hostname if browser_hostname else get_webapp_url()
-        workspace_id = get_workspace_id()
-        return workspace_host, workspace_id
+    try:
+        dbutils = _get_dbutils()
+        if dbutils:
+            browser_hostname = get_browser_hostname()
+            workspace_host = "https://" + browser_hostname if browser_hostname else get_webapp_url()
+            workspace_id = get_workspace_id()
+            return workspace_host, workspace_id
+    except Exception:
+        pass
     return None, None
+
+
+@_use_repl_context_if_available("workspaceUrl")
+def get_workspace_url():
+    try:
+        spark_session = _get_active_spark_session()
+        if spark_session is not None:
+            return spark_session.conf.get("spark.databricks.workspaceUrl")
+    except Exception:
+        return None
 
 
 def get_workspace_info_from_databricks_secrets(tracking_uri):

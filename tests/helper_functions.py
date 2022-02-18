@@ -453,3 +453,8 @@ class StartsWithMatcher:
 
     def __eq__(self, other):
         return isinstance(other, str) and other.startswith(self.prefix)
+
+
+class AnyStringWith(str):
+    def __eq__(self, other):
+        return self in other
