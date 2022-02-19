@@ -590,6 +590,7 @@ class DefaultEvaluator(ModelEvaluator):
             if metric_results is None:
                 continue
             self.metrics.update(metric_results)
+            # TODO: artifact detection and logging.
 
     def _evaluate_classifier(self):
         from mlflow.models.evaluation.lift_curve import plot_lift_curve
