@@ -226,20 +226,12 @@ def log_model(
     try:
         spark_model.save(posixpath.join(model_dir, _SPARK_MODEL_PATH_SUB))
     except Py4JError:
-        return Model.log(
-            artifact_path=artifact_path,
-            flavor=mlflow.spark,
-            spark_model=spark_model,
-            conda_env=conda_env,
-            dfs_tmpdir=dfs_tmpdir,
-            sample_input=sample_input,
-            registered_model_name=registered_model_name,
-            signature=signature,
-            input_example=input_example,
-            await_registration_for=await_registration_for,
-            pip_requirements=pip_requirements,
-            extra_pip_requirements=extra_pip_requirements,
-        )
+        # Expose the function checkUserHasAcl() in MlflowBackend.scala through RPC
+        # Similar as GetCredentialsForWrite
+        check_user_has_acl(run_root_artifact_uri)
+        # Convert the artifact uri to "idbfs://..." for secure access via Spark
+        idbfs_path = get_idbfs_uri(posixpath.join(model_dir, _SPARK_MODEL_PATH_SUB))
+        spark_model.save(idbfs_path)
 
     # Otherwise, override the default model log behavior and save model directly to artifact repo
     mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
