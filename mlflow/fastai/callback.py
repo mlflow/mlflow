@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import logging
 
 import mlflow.tracking
-from mlflow.utils.autologging_utils import ExceptionSafeClass
+from mlflow.utils.autologging_utils import ExceptionSafeClass, get_autologging_config
 from mlflow.fastai import log_model
 
 from fastai.callback.core import Callback
@@ -140,4 +140,9 @@ class __MlflowFastaiCallback(Callback, metaclass=ExceptionSafeClass):
                 cb("after_fit")
 
         if self.log_models:
-            log_model(self.learn, artifact_path="model")
+            registered_model_name = get_autologging_config(
+                mlflow.paddle.FLAVOR_NAME, "registered_model_name", None
+            )
+            log_model(
+                self.learn, artifact_path="model", registered_model_name=registered_model_name
+            )

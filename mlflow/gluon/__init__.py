@@ -353,6 +353,7 @@ def autolog(
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
+    registered_model_name=None,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging from Gluon to MLflow.
@@ -373,6 +374,8 @@ def autolog(
     :param silent: If ``True``, suppress all event logs and warnings from MLflow during MXNet Gluon
                    autologging. If ``False``, show all events and warnings during MXNet Gluon
                    autologging.
+    :param registered_model_name: If given, register the fitted model as the given name, or
+                                  create a new version model under the given name.
     """
 
     from mxnet.gluon.contrib.estimator import Estimator

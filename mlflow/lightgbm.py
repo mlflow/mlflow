@@ -61,6 +61,7 @@ from mlflow.utils.autologging_utils import (
     ENSURE_AUTOLOGGING_ENABLED_TEXT,
     batch_metrics_logger,
     MlflowAutologgingQueueingClient,
+    get_autologging_config,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -369,6 +370,7 @@ def autolog(
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
+    registered_model_name=None,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging from LightGBM to MLflow. Logs the following:
@@ -411,6 +413,8 @@ def autolog(
     :param silent: If ``True``, suppress all event logs and warnings from MLflow during LightGBM
                    autologging. If ``False``, show all events and warnings during LightGBM
                    autologging.
+    :param registered_model_name: If given, register the fitted model as the given name, or
+                                  create a new version model under the given name.
     """
     import lightgbm
     import numpy as np
@@ -612,11 +616,15 @@ def autolog(
                 _logger,
             )
 
+            registered_model_name = get_autologging_config(
+                mlflow.paddle.FLAVOR_NAME, "registered_model_name", None
+            )
             log_model(
                 model,
                 artifact_path="model",
                 signature=signature,
                 input_example=input_example,
+                registered_model_name=registered_model_name,
             )
 
         param_logging_operations.await_completion()

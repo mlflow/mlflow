@@ -311,7 +311,14 @@ def patched_fit(original, self, *args, **kwargs):
         shutil.rmtree(tempdir)
 
     if log_models:
-        mlflow.pytorch.log_model(pytorch_model=self.model, artifact_path="model")
+        registered_model_name = get_autologging_config(
+            mlflow.paddle.FLAVOR_NAME, "registered_model_name", None
+        )
+        mlflow.pytorch.log_model(
+            pytorch_model=self.model,
+            artifact_path="model",
+            registered_model_name=registered_model_name,
+        )
 
         if early_stop_callback is not None and self.checkpoint_callback.best_model_path:
             mlflow.log_artifact(

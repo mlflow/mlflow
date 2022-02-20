@@ -2,7 +2,7 @@ from mxnet.gluon.contrib.estimator import EpochEnd, TrainBegin, TrainEnd
 from mxnet.gluon.nn import HybridSequential
 
 import mlflow
-from mlflow.utils.autologging_utils import ExceptionSafeClass
+from mlflow.utils.autologging_utils import ExceptionSafeClass, get_autologging_config
 
 
 class __MLflowGluonCallback(EpochEnd, TrainEnd, TrainBegin, metaclass=ExceptionSafeClass):
@@ -36,4 +36,9 @@ class __MLflowGluonCallback(EpochEnd, TrainEnd, TrainBegin, metaclass=ExceptionS
 
     def train_end(self, estimator, *args, **kwargs):
         if isinstance(estimator.net, HybridSequential) and self.log_models:
-            mlflow.gluon.log_model(estimator.net, artifact_path="model")
+            registered_model_name = get_autologging_config(
+                mlflow.paddle.FLAVOR_NAME, "registered_model_name", None
+            )
+            mlflow.gluon.log_model(
+                estimator.net, artifact_path="model", registered_model_name=registered_model_name
+            )

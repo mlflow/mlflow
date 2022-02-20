@@ -45,6 +45,7 @@ from mlflow.utils.autologging_utils import (
     ExceptionSafeClass,
     log_fn_args_as_params,
     batch_metrics_logger,
+    get_autologging_config,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -565,6 +566,7 @@ def autolog(
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
+    registered_model_name=None,
 ):  # pylint: disable=unused-argument
     # pylint: disable=E0611
     """
@@ -627,6 +629,8 @@ def autolog(
     :param silent: If ``True``, suppress all event logs and warnings from MLflow during Keras
                    autologging. If ``False``, show all events and warnings during Keras
                    autologging.
+    :param registered_model_name: If given, register the fitted model as the given name, or
+                                  create a new version model under the given name.
     """
     import keras
 
@@ -685,7 +689,14 @@ def autolog(
 
             def on_train_end(self, logs=None):
                 if log_models:
-                    log_model(self.model, artifact_path="model")
+                    registered_model_name = get_autologging_config(
+                        mlflow.paddle.FLAVOR_NAME, "registered_model_name", None
+                    )
+                    log_model(
+                        self.model,
+                        artifact_path="model",
+                        registered_model_name=registered_model_name,
+                    )
 
             # As of Keras 2.4.0, Keras Callback implementations must define the following
             # methods indicating whether or not the callback overrides functions for
