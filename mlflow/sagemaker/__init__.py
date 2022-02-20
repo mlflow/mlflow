@@ -2463,9 +2463,68 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
 
     def predict(self, deployment_name, df):
         """
-        *This function has not been implemented and will be coming soon.*
+        Compute predictions on the pandas DataFrame ``df`` using the specified deployment.
+
+        Note that the input/output types of this method matches that of `mlflow pyfunc predict`
+        (we accept a pandas DataFrame as input and return either a pandas DataFrame,
+        pandas Series, or numpy array as output).
+
+        If a region name needs to be specified, the plugin must be initialized
+        with the AWS region in the ``target_uri`` such as ``sagemaker:/us-east-1``.
+
+        To assume an IAM role, the plugin must be initialized
+        with the AWS region and the role ARN in the ``target_uri`` such as
+        ``sagemaker:/us-east-1/arn:aws:1234:role/assumed_role``.
+
+        :param deployment_name: Name of deployment to predict against
+        :param df: Pandas DataFrame to use for inference
+        :return: A pandas DataFrame, pandas Series, or numpy array
+
+        .. code-block:: python
+            :caption: Python example
+
+            import pandas as pd
+            from mlflow.sagemaker import SageMakerDeploymentClient
+
+            df = pd.DataFrame(data=[[1, 2, 3]], columns=["feat1", "feat2", "feat3"])
+            client = SageMakerDeploymentClient("sagemaker:/us-east-1/arn:aws:123:role/assumed_role")
+            client.predict("my-deployment", df)
+
+        .. code-block:: bash
+            :caption: Command-line example
+
+            cat > ./input.json <<- input
+            {"feat1": {"0": 1}, "feat2": {"0": 2}, "feat3": {"0": 3}}
+            input
+
+            mlflow deployments predict \\
+                --target sagemaker:/us-east-1/arn:aws:1234:role/assumed_role \\
+                --name my-deployment \\
+                --input-path ./input.json
         """
-        raise NotImplementedError("This function is not implemented yet.")
+        import boto3
+        from pandas import read_json
+
+        assume_role_credentials = _assume_role_and_get_credentials(
+            assume_role_arn=self.assumed_role_arn
+        )
+
+        try:
+            sage_client = boto3.client(
+                "sagemaker-runtime", region_name=self.region_name, **assume_role_credentials
+            )
+            response = sage_client.invoke_endpoint(
+                EndpointName=deployment_name,
+                Body=df.to_json(orient="split"),
+                ContentType="application/json; format=pandas-split",
+            )
+
+            response_body = response["Body"].read().decode("utf-8")
+            return read_json(response_body)
+        except Exception as exc:
+            raise MlflowException(
+                message=(f"There was an error while getting model prediction: {exc}\n")
+            )
 
     def explain(self, deployment_name, df):
         """

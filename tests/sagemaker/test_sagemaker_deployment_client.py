@@ -1293,3 +1293,26 @@ def test_deploy_cli_list_sagemaker_deployments(pretrained_model, sagemaker_clien
     )
 
     assert result.exit_code == 0
+
+
+@mock_sagemaker_aws_services
+def test_predict(sagemaker_deployment_client):
+    import pandas as pd
+    from io import BytesIO
+
+    boto_caller = botocore.client.BaseClient._make_api_call
+
+    def mock_invoke_endpoint(self, operation_name, operation_kwargs):
+        if operation_name == "InvokeEndpoint":
+            result = dict(Body=BytesIO(b"[1.23]"))
+        else:
+            result = boto_caller(self, operation_name, operation_kwargs)
+        return result
+
+    with mock.patch("botocore.client.BaseClient._make_api_call", new=mock_invoke_endpoint):
+        df = pd.DataFrame(data=[[1, 2]], columns=["a", "b"])
+
+        result = sagemaker_deployment_client.predict("test", df)
+
+        assert isinstance(result, pd.DataFrame)
+        assert list(result[0]) == [1.23]
