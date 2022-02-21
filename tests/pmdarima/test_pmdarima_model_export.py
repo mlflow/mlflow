@@ -1,6 +1,8 @@
 import os
 import pytest
 from unittest import mock
+import requests
+from pkg_resources import parse_version
 
 import pmdarima
 import numpy as np
@@ -356,9 +358,26 @@ def test_pmdarima_model_log_without_conda_env_uses_default_env_with_expected_dep
 
 def test_pmdarima_pyfunc_serve_and_score(auto_arima_model):
 
+    # NB: dev version of pmdarima uses a __version__ tag of "0.0.0" which will fail the env build.
+    # To be as safe as possible in cross version tests, use the latest released version when
+    # testing dev pmdarima.
+
+    def get_latest_version():
+        ver = pmdarima.__version__
+        if ver == "0.0.0":
+            url = "https://pypi.org/pypi/pmdarima/json"
+            resp = requests.get(url).json()
+            releases = resp["releases"].keys()
+            return sorted(releases, key=parse_version, reverse=True)[0]
+        else:
+            return ver
+
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.pmdarima.log_model(auto_arima_model, artifact_path)
+        # mlflow.pmdarima.log_model(auto_arima_model, artifact_path)
+        mlflow.pmdarima.log_model(
+            auto_arima_model, artifact_path, pip_requirements=[f"pmdarima=={get_latest_version()}"]
+        )
         model_uri = mlflow.get_artifact_uri(artifact_path)
     local_predict = auto_arima_model.predict(30)
 
