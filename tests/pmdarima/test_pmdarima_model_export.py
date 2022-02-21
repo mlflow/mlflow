@@ -374,7 +374,6 @@ def test_pmdarima_pyfunc_serve_and_score(auto_arima_model):
 
     artifact_path = "model"
     with mlflow.start_run():
-        # mlflow.pmdarima.log_model(auto_arima_model, artifact_path)
         mlflow.pmdarima.log_model(
             auto_arima_model, artifact_path, pip_requirements=[f"pmdarima=={get_latest_version()}"]
         )
