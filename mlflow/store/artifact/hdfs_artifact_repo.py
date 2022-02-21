@@ -126,7 +126,7 @@ class HdfsArtifactRepository(ArtifactRepository):
 
         hdfs_base_path = _resolve_base_path(self.path, artifact_path)
         if dst_path and os.path.exists(dst_path):
-            local_dir =  os.path.abspath(dst_path)
+            local_dir = os.path.abspath(dst_path)
         else:
             local_dir = _tmp_dir(dst_path)
 
