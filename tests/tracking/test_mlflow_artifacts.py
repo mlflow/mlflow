@@ -5,7 +5,6 @@ import tempfile
 import requests
 import pathlib
 import pytest
-import json
 
 import mlflow
 from tests.helper_functions import LOCALHOST, get_safe_port
@@ -253,8 +252,8 @@ def get_artifacts_from_rest_api(url, run_id, path=None):
         resp = requests.get(url, params={"run_id": run_id, "path": path})
     else:
         resp = requests.get(url, params={"run_id": run_id})
-    assert resp.status_code == 200
-    return json.loads(resp.content.decode("utf-8"))
+    resp.raise_for_status()
+    return resp.json()
 
 
 def test_mlflow_artifacts_rest_api_list_artifacts(artifacts_server, tmpdir):

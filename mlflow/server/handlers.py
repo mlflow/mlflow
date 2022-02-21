@@ -147,8 +147,8 @@ def _get_artifact_repo_mlflow_artifacts():
 
 def _get_serve_artifacts_mode():
     """
-    Set whether the MLflow server is operating in ``--serve-artifacts`` mode for artifact listing
-    endpoint resolution.
+    Initializes ``_serve_artifacts_mode`` that indicates whether the MLflow server is operating in
+    ``-serve_artifacts`` mode for artifact listing and returns the value.
     """
     from mlflow.server import SERVE_ARTIFACTS_ENV_VAR
 
@@ -633,7 +633,6 @@ def _list_experiments():
 
 
 @catch_mlflow_exception
-@_disable_if_artifacts_only
 def _get_artifact_repo(run):
     return get_artifact_repository(run.info.artifact_uri)
 
