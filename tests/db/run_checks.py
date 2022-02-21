@@ -33,10 +33,7 @@ def run_logging_operations():
             python_model=MockModel(),
             registered_model_name="mock",
         )
-    runs = mlflow.search_runs(
-      experiment_ids=["0"],
-      order_by=["param.start_time DESC"]
-    )
+    runs = mlflow.search_runs(experiment_ids=["0"], order_by=["param.start_time DESC"])
 
     run = mlflow.get_run(runs["run_id"][0])
 
