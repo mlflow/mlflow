@@ -349,7 +349,7 @@ prophet:
     pip_release: "prophet"
     install_dev: |
       if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "prophet-*.whl") ]; then
-        pip wheel --no-deps --wheel-dir $CACHE_DIR git+https://github.com/facebook/prophet.git
+        pip wheel --no-deps --wheel-dir $CACHE_DIR git+https://github.com/facebook/prophet.git#subdirectory=python
       fi
       pip install $CACHE_DIR/prophet-*.whl
 
