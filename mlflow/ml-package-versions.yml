@@ -343,3 +343,18 @@ mleap:
         exit 1
       fi
       pytest tests/mleap/test_mleap_model_export.py --large
+
+prophet:
+  package_info:
+    pip_release: "prophet"
+    install_dev: |
+      if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "prophet-*.whl") ]; then
+        pip wheel --no-deps --wheel-dir $CACHE_DIR git+https://github.com/facebook/prophet.git
+      fi
+      pip install $CACHE_DIR/prophet-*.whl
+
+  models:
+    minimum: "1.0.1"
+    maximum: "1.0.1"
+    run: |
+      pytest tests/prophet/test_prophet_model_export.py --large
