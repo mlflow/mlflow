@@ -150,7 +150,6 @@ jobs:
         distribution: 'adopt'
     - uses: conda-incubator/setup-miniconda@v2
       with:
-        python-version: 3.7
         mamba-version: "*"
         activate-environment: ''
         auto-activate-base: false
