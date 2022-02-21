@@ -213,10 +213,11 @@ def test_model_log(prophet_model):
                 conda_env = os.path.join(tmp.path(), "conda_env.yaml")
                 _mlflow_conda_env(conda_env, additional_pip_deps=["pystan", "prophet"])
 
-                mlflow.prophet.log_model(
+                model_info = mlflow.prophet.log_model(
                     pr_model=prophet_model.model, artifact_path=artifact_path, conda_env=conda_env
                 )
                 model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
+                assert model_info.model_uri == model_uri
                 reloaded_prophet_model = mlflow.prophet.load_model(model_uri=model_uri)
 
                 np.testing.assert_array_equal(
@@ -400,7 +401,7 @@ def test_pyfunc_serve_and_score(prophet_model):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED,
     )
 
-    scores = pd.read_json(resp.content, orient="records")
+    scores = pd.read_json(resp.content.decode("utf-8"), orient="records")
 
     # predictions are deterministic, but yhat_lower, yhat_upper are non-deterministic based on
     # stan build underlying environment. Seed value only works for reproducibility of yhat.

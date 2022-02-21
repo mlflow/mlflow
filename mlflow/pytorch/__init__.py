@@ -128,6 +128,15 @@ def log_model(
     """
     Log a PyTorch model as an MLflow artifact for the current run.
 
+        .. warning::
+
+            Log the model with a signature to avoid inference errors.
+            If the model is logged without a signature, the MLflow Model Server relies on the
+            default inferred data type from NumPy. However, PyTorch often expects different
+            defaults, particularly when parsing floats. You must include the signature to ensure
+            that the model is logged with the correct data type so that the MLflow model server
+            can correctly provide valid input.
+
     :param pytorch_model: PyTorch model to be saved. Can be either an eager model (subclass of
                           ``torch.nn.Module``) or scripted model prepared via ``torch.jit.script``
                           or ``torch.jit.trace``.
@@ -209,6 +218,8 @@ def log_model(
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param kwargs: kwargs to pass to ``torch.save`` method.
+    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+             metadata of the logged model.
 
     .. code-block:: python
         :caption: Example
@@ -283,7 +294,7 @@ def log_model(
         PyTorch logged models
     """
     pickle_module = pickle_module or mlflow_pytorch_pickle_module
-    Model.log(
+    return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.pytorch,
         pytorch_model=pytorch_model,
@@ -730,7 +741,7 @@ def _load_pyfunc(path, **kwargs):
     return _PyTorchWrapper(_load_model(path, **kwargs))
 
 
-class _PyTorchWrapper(object):
+class _PyTorchWrapper:
     """
     Wrapper class that creates a predict function such that
     predict(data: pd.DataFrame) -> model's output as pd.DataFrame (pandas DataFrame)

@@ -25,6 +25,7 @@ import shutil
 import logging
 import functools
 from copy import deepcopy
+from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
@@ -102,8 +103,8 @@ def save_model(
     """
     Save a LightGBM model to a path on the local file system.
 
-    :param lgb_model: LightGBM model (an instance of `lightgbm.Booster`_) to be saved.
-                      Note that models that implement the `scikit-learn API`_  are not supported.
+    :param lgb_model: LightGBM model (an instance of `lightgbm.Booster`_) or
+                      models that implement the `scikit-learn API`_  to be saved.
     :param path: Local path where the model is to be saved.
     :param conda_env: {{ conda_env }}
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
@@ -230,8 +231,8 @@ def log_model(
     """
     Log a LightGBM model as an MLflow artifact for the current run.
 
-    :param lgb_model: LightGBM model (an instance of `lightgbm.Booster`_) to be saved.
-                      Note that models that implement the `scikit-learn API`_  are not supported.
+    :param lgb_model: LightGBM model (an instance of `lightgbm.Booster`_) or
+                      models that implement the `scikit-learn API`_  to be saved.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: {{ conda_env }}
     :param registered_model_name: If given, create a model version under
@@ -262,8 +263,10 @@ def log_model(
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param kwargs: kwargs to pass to `lightgbm.Booster.save_model`_ method.
+    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+             metadata of the logged model.
     """
-    Model.log(
+    return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.lightgbm,
         registered_model_name=registered_model_name,
@@ -372,13 +375,14 @@ def autolog(
 
     - parameters specified in `lightgbm.train`_.
     - metrics on each iteration (if ``valid_sets`` specified).
-    - metrics at the best iteration (if ``early_stopping_rounds`` specified).
+    - metrics at the best iteration (if ``early_stopping_rounds`` specified or ``early_stopping``
+        callback is set).
     - feature importance (both "split" and "gain") as JSON files and plots.
     - trained model, including:
         - an example of valid input.
         - inferred signature of the inputs and outputs of the model.
 
-    Note that the `scikit-learn API`_ is not supported.
+    Note that the `scikit-learn API`_ is now supported.
 
     :param log_input_examples: If ``True``, input examples from training datasets are collected and
                                logged along with LightGBM model artifacts during training. If
@@ -435,7 +439,7 @@ def autolog(
 
         original(self, *args, **kwargs)
 
-    def train(original, *args, **kwargs):
+    def train(_log_models, original, *args, **kwargs):
         def record_eval_results(eval_results, metrics_logger):
             """
             Create a callback function that records evaluation results.
@@ -496,10 +500,13 @@ def autolog(
             "fobj",
             "feval",
             "init_model",
-            "evals_result",
             "learning_rates",
             "callbacks",
         ]
+        if Version(lightgbm.__version__) <= Version("3.3.1"):
+            # The parameter `evals_result` in `lightgbm.train` is removed in this PR:
+            # https://github.com/microsoft/LightGBM/pull/4882
+            unlogged_params.append("evals_result")
 
         params_to_log_for_fn = get_mlflow_run_params_for_fn_args(
             original, args, kwargs, unlogged_params
@@ -531,12 +538,9 @@ def autolog(
             # training model
             model = original(*args, **kwargs)
 
-            # If early_stopping_rounds is present, logging metrics at the best iteration
+            # If early stopping is activated, logging metrics at the best iteration
             # as extra metrics with the max step + 1.
-            early_stopping_index = all_arg_names.index("early_stopping_rounds")
-            early_stopping = (
-                num_pos_args >= early_stopping_index + 1 or "early_stopping_rounds" in kwargs
-            )
+            early_stopping = model.best_iteration > 0
             if early_stopping:
                 extra_step = len(eval_results)
                 autologging_client.log_metrics(
@@ -598,7 +602,7 @@ def autolog(
             return model_signature
 
         # Whether to automatically log the trained model based on boolean flag.
-        if log_models:
+        if _log_models:
             # Will only resolve `input_example` and `signature` if `log_models` is `True`.
             input_example, signature = resolve_input_example_and_signature(
                 get_input_example,
@@ -621,5 +625,32 @@ def autolog(
 
         return model
 
-    safe_patch(FLAVOR_NAME, lightgbm, "train", train, manage_run=True)
     safe_patch(FLAVOR_NAME, lightgbm.Dataset, "__init__", __init__)
+    safe_patch(
+        FLAVOR_NAME, lightgbm, "train", functools.partial(train, log_models), manage_run=True
+    )
+    # The `train()` method logs LightGBM models as Booster objects. When using LightGBM
+    # scikit-learn models, we want to save / log models as their model classes. So we turn
+    # off the log_models functionality in the `train()` method patched to `lightgbm.sklearn`.
+    # Instead the model logging is handled in `fit_mlflow_xgboost_and_lightgbm()`
+    # in `mlflow.sklearn._autolog()`, where models are logged as LightGBM scikit-learn models
+    # after the `fit()` method returns.
+    safe_patch(
+        FLAVOR_NAME, lightgbm.sklearn, "train", functools.partial(train, False), manage_run=True
+    )
+
+    # enable LightGBM scikit-learn estimators autologging
+    import mlflow.sklearn
+
+    mlflow.sklearn._autolog(
+        flavor_name=FLAVOR_NAME,
+        log_input_examples=log_input_examples,
+        log_model_signatures=log_model_signatures,
+        log_models=log_models,
+        disable=disable,
+        exclusive=exclusive,
+        disable_for_unsupported_versions=disable_for_unsupported_versions,
+        silent=silent,
+        max_tuning_runs=None,
+        log_post_training_metrics=True,
+    )

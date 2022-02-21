@@ -382,7 +382,7 @@ def test_log_model_with_non_keyword_args_fails(saved_tf_iris_model):
 def test_log_and_load_model_persists_and_restores_model_successfully(saved_tf_iris_model):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.tensorflow.log_model(
+        model_info = mlflow.tensorflow.log_model(
             tf_saved_model_dir=saved_tf_iris_model.path,
             tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
             tf_signature_def_key=saved_tf_iris_model.signature_def_key,
@@ -391,6 +391,7 @@ def test_log_and_load_model_persists_and_restores_model_successfully(saved_tf_ir
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
         )
+        assert model_info.model_uri == model_uri
 
     mlflow.tensorflow.load_model(model_uri=model_uri)
 

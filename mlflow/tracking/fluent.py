@@ -30,10 +30,24 @@ from mlflow.utils.autologging_utils import (
     AUTOLOGGING_INTEGRATIONS,
     autologging_is_disabled,
 )
-from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
+from mlflow.utils.databricks_utils import (
+    get_job_id,
+    is_in_databricks_job,
+    is_in_databricks_notebook,
+    get_notebook_id,
+    get_experiment_name_from_job_id,
+    get_job_type_info,
+)
 from mlflow.utils.import_hooks import register_post_import_hook
-from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_EXPERIMENT_SOURCE_ID,
+    MLFLOW_EXPERIMENT_SOURCE_TYPE,
+    MLFLOW_PARENT_RUN_ID,
+    MLFLOW_RUN_NAME,
+    MLFLOW_DATABRICKS_JOB_TYPE_INFO,
+)
 from mlflow.utils.validation import _validate_run_id
+from mlflow.entities import SourceType
 
 if TYPE_CHECKING:
     import pandas  # pylint: disable=unused-import
@@ -1052,6 +1066,7 @@ def search_runs(
     max_results: int = SEARCH_MAX_RESULTS_PANDAS,
     order_by: Optional[List[str]] = None,
     output_format: str = "pandas",
+    search_all_experiments: bool = False,
 ) -> Union[List[Run], "pandas.DataFrame"]:
     """
     Get a pandas DataFrame of runs that fit the search criteria.
@@ -1068,6 +1083,8 @@ def search_runs(
     :param output_format: The output format to be returned. If ``pandas``, a ``pandas.DataFrame``
                           is returned and, if ``list``, a list of :py:class:`mlflow.entities.Run`
                           is returned.
+    :param search_all_experiments: Boolean specifying whether all experiments should be searched.
+        Only honored if ``experiment_ids`` is ``[]`` or ``None``.
 
     :return: If output_format is ``list``: a list of :py:class:`mlflow.entities.Run`. If
              output_format is ``pandas``: ``pandas.DataFrame`` of runs, where each metric,
@@ -1111,7 +1128,11 @@ def search_runs(
            metrics.m tags.s.release                            run_id
         0       1.55       1.1.0-RC  5cc7feaf532f496f885ad7750809c4d4
     """
-    if not experiment_ids:
+    if search_all_experiments and (experiment_ids is None or len(experiment_ids) == 0):
+        experiment_ids = [
+            exp.experiment_id for exp in list_experiments(view_type=ViewType.ACTIVE_ONLY)
+        ]
+    elif experiment_ids is None or len(experiment_ids) == 0:
         experiment_ids = _get_experiment_id()
 
     # Using an internal function as the linter doesn't like assigning a lambda, and inlining the
@@ -1328,7 +1349,24 @@ def _get_experiment_id():
         _active_experiment_id
         or _get_experiment_id_from_env()
         or (is_in_databricks_notebook() and get_notebook_id())
+        or (is_in_databricks_job() and get_job_type_info() == "NORMAL" and _create_job_experiment())
     ) or deprecated_default_exp_id
+
+
+def _create_job_experiment() -> str:
+    job_id = get_job_id()
+    tags = {}
+    tags[MLFLOW_DATABRICKS_JOB_TYPE_INFO] = get_job_type_info()
+    tags[MLFLOW_EXPERIMENT_SOURCE_TYPE] = SourceType.to_string(SourceType.JOB)
+    tags[MLFLOW_EXPERIMENT_SOURCE_ID] = job_id
+
+    experiment_id = create_experiment(get_experiment_name_from_job_id(job_id), None, tags)
+    _logger.debug(
+        "Job experiment with experiment_id '%s' created",
+        experiment_id,
+    )
+
+    return experiment_id
 
 
 @autologging_integration("mlflow")

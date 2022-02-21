@@ -2,7 +2,7 @@ name: "setup-python"
 description: "Ensures to install a python version that's available on Anaconda"
 inputs:
   python-version:
-    description: "The python version to install (e.g. 3.6)"
+    description: "The python version to install (e.g. 3.7)"
     required: true
 outputs:
   installed-python-version:
@@ -20,12 +20,12 @@ runs:
       # where we trigger more than 100 GitHub Actions runs.
       run: |
         python_version="${{ inputs.python-version }}"
-        if [[ "$python_version" == "3.6" ]]; then
-          python_version="3.6.13"
-        elif [[ "$python_version" == "3.7" ]]; then
+        if [[ "$python_version" == "3.7" ]]; then
           python_version="3.7.12"
+        elif [[ "$python_version" == "3.8" ]]; then
+          python_version="3.8.12"
         else
-          echo "Invalid python version: '$python_version'. Must be one of ['3.6', '3.7']"
+          echo "Invalid python version: '$python_version'. Must be one of ['3.7', '3.8']"
           exit 1
         fi
         echo "::set-output name=version::$python_version"

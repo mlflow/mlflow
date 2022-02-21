@@ -1,7 +1,7 @@
 Type: Package
 Package: mlflow
 Title: Interface to 'MLflow'
-Version: 1.22.1
+Version: 1.23.1
 Authors@R: 
     c(person(given = "Matei",
              family = "Zaharia",
@@ -46,7 +46,6 @@ Imports:
     swagger,
     tibble (>= 2.0.0),
     withr,
-    xml2,
     yaml,
     zeallot
 Suggests:

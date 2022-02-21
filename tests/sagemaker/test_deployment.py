@@ -108,6 +108,14 @@ def test_assume_role_and_get_credentials():
     assert len(assumed_role_credentials["aws_secret_access_key"]) == 40
 
 
+@pytest.mark.parametrize("arn", [None, ""])
+def test_assume_role_and_get_credentials_with_empty_arn(arn):
+    assumed_role_credentials = mfs._assume_role_and_get_credentials(assume_role_arn=arn)
+
+    assert isinstance(assumed_role_credentials, dict)
+    assert len(assumed_role_credentials) == 0
+
+
 @pytest.mark.large
 @mock_sagemaker_aws_services
 def test_deployment_with_non_existent_assume_role_arn_raises_exception(pretrained_model):

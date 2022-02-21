@@ -350,6 +350,8 @@ def log_model(
                             waits for five minutes. Specify 0 or None to skip waiting.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+             metadata of the logged model.
 
     .. code-block:: python
         :caption: Example
@@ -371,7 +373,7 @@ def log_model(
         # log model
         mlflow.sklearn.log_model(sk_model, "sk_models")
     """
-    Model.log(
+    return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.sklearn,
         sk_model=sk_model,
@@ -900,6 +902,7 @@ def autolog(
     silent=False,
     max_tuning_runs=5,
     log_post_training_metrics=True,
+    serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for scikit-learn estimators.
@@ -1151,6 +1154,9 @@ def autolog(
     :param log_post_training_metrics: If ``True``, post training metrics are logged. Defaults to
                                       ``True``. See the `post training metrics`_ section for more
                                       details.
+    :param serialization_format: The format in which to serialize the model. This should be one of
+                                 the following: ``mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE`` or
+                                 ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``.
     """
     _autolog(
         flavor_name=FLAVOR_NAME,
@@ -1163,6 +1169,7 @@ def autolog(
         silent=silent,
         max_tuning_runs=max_tuning_runs,
         log_post_training_metrics=log_post_training_metrics,
+        serialization_format=serialization_format,
     )
 
 
@@ -1177,6 +1184,7 @@ def _autolog(
     silent=False,
     max_tuning_runs=5,
     log_post_training_metrics=True,
+    serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
 ):  # pylint: disable=unused-argument
     """
     Internal autologging function for scikit-learn models.
@@ -1198,6 +1206,7 @@ def _autolog(
         _is_supported_version,
         _get_X_y_and_sample_weight,
         _gen_xgboost_sklearn_estimators_to_patch,
+        _gen_lightgbm_sklearn_estimators_to_patch,
         _log_estimator_content,
         _all_estimators,
         _get_estimator_info_tags,
@@ -1225,12 +1234,12 @@ def _autolog(
             stacklevel=2,
         )
 
-    def fit_mlflow_xgboost(original, self, *args, **kwargs):
+    def fit_mlflow_xgboost_and_lightgbm(original, self, *args, **kwargs):
         """
-        Autologging function for XGBoost scikit-learn models
+        Autologging function for XGBoost and LightGBM scikit-learn models
         """
-        # parameter, metric, and non-model artifact logging
-        # are done in `train()` in `mlflow.xgboost.autolog()`
+        # parameter, metric, and non-model artifact logging are done in
+        # `train()` in `mlflow.xgboost.autolog()` and `mlflow.lightgbm.autolog()`
         fit_output = original(self, *args, **kwargs)
         # log models after training
         X = _get_X_y_and_sample_weight(self.fit, args, kwargs)[0]
@@ -1242,7 +1251,12 @@ def _autolog(
                 log_model_signatures,
                 _logger,
             )
-            mlflow.xgboost.log_model(
+            log_model_func = (
+                mlflow.xgboost.log_model
+                if flavor_name == mlflow.xgboost.FLAVOR_NAME
+                else mlflow.lightgbm.log_model
+            )
+            log_model_func(
                 self,
                 artifact_path="model",
                 signature=signature,
@@ -1368,6 +1382,7 @@ def _autolog(
                 artifact_path="model",
                 signature=signature,
                 input_example=input_example,
+                serialization_format=serialization_format,
             )
 
         if _is_parameter_search_estimator(estimator):
@@ -1377,6 +1392,7 @@ def _autolog(
                     artifact_path="best_estimator",
                     signature=signature,
                     input_example=input_example,
+                    serialization_format=serialization_format,
                 )
 
             if hasattr(estimator, "best_score_"):
@@ -1609,7 +1625,10 @@ def _autolog(
 
     if flavor_name == mlflow.xgboost.FLAVOR_NAME:
         estimators_to_patch = _gen_xgboost_sklearn_estimators_to_patch()
-        patched_fit_impl = fit_mlflow_xgboost
+        patched_fit_impl = fit_mlflow_xgboost_and_lightgbm
+    elif flavor_name == mlflow.lightgbm.FLAVOR_NAME:
+        estimators_to_patch = _gen_lightgbm_sklearn_estimators_to_patch()
+        patched_fit_impl = fit_mlflow_xgboost_and_lightgbm
     else:
         estimators_to_patch = _gen_estimators_to_patch()
         patched_fit_impl = fit_mlflow

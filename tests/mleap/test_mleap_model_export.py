@@ -139,7 +139,7 @@ def test_mleap_model_log(spark_model_iris):
     artifact_path = "model"
     register_model_patch = mock.patch("mlflow.register_model")
     with mlflow.start_run(), register_model_patch:
-        mlflow.spark.log_model(
+        model_info = mlflow.spark.log_model(
             spark_model=spark_model_iris.model,
             sample_input=spark_model_iris.spark_df,
             artifact_path=artifact_path,
@@ -148,6 +148,7 @@ def test_mleap_model_log(spark_model_iris):
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
         )
+        assert model_info.model_uri == model_uri
         mlflow.register_model.assert_called_once_with(
             model_uri, "Model1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
         )
@@ -188,4 +189,21 @@ def test_mleap_module_model_save_with_invalid_sample_input_type_raises_exception
         invalid_input = pd.DataFrame()
         mlflow.spark.save_model(
             spark_model=spark_model_iris.model, path=model_path, sample_input=invalid_input
+        )
+
+
+@pytest.mark.large
+def test_spark_module_model_save_with_mleap_and_unsupported_transformer_raises_exception(
+    spark_model_iris, model_path
+):
+    class CustomTransformer(JavaModel):
+        def _transform(self, dataset):
+            return dataset
+
+    unsupported_pipeline = Pipeline(stages=[CustomTransformer()])
+    unsupported_model = unsupported_pipeline.fit(spark_model_iris.spark_df)
+
+    with pytest.raises(ValueError, match="CustomTransformer"):
+        mlflow.spark.save_model(
+            spark_model=unsupported_model, path=model_path, sample_input=spark_model_iris.spark_df
         )

@@ -115,12 +115,13 @@ def _test_model_log(statsmodels_model, model_path, *predict_args):
             conda_env = os.path.join(tmp.path(), "conda_env.yaml")
             _mlflow_conda_env(conda_env, additional_pip_deps=["statsmodels"])
 
-            mlflow.statsmodels.log_model(
+            model_info = mlflow.statsmodels.log_model(
                 statsmodels_model=model, artifact_path=artifact_path, conda_env=conda_env
             )
             model_uri = "runs:/{run_id}/{artifact_path}".format(
                 run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
             )
+            assert model_info.model_uri == model_uri
 
             reloaded_model = mlflow.statsmodels.load_model(model_uri=model_uri)
             if hasattr(model, "predict"):
@@ -407,5 +408,5 @@ def test_pyfunc_serve_and_score():
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    scores = pd.read_json(resp.content, orient="records").values.squeeze()
+    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values.squeeze()
     np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe))

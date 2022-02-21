@@ -194,7 +194,7 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
 
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
-        mlflow.pyfunc.log_model(
+        model_info = mlflow.pyfunc.log_model(
             artifact_path=pyfunc_artifact_path,
             artifacts={"sk_model": sklearn_model_uri},
             python_model=main_scoped_model_class(test_predict),
@@ -202,6 +202,7 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
         pyfunc_model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path
         )
+        assert model_info.model_uri == pyfunc_model_uri
         pyfunc_model_path = _download_artifact_from_uri(
             "runs:/{run_id}/{artifact_path}".format(
                 run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path
@@ -963,7 +964,7 @@ def test_repr_can_be_called_withtout_run_id_or_artifact_path():
         flavors={"python_function": {"loader_module": "someFlavour"}},
     )
 
-    class TestModel(object):
+    class TestModel:
         def predict(self, model_input):
             return model_input
 

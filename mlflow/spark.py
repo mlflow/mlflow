@@ -23,7 +23,6 @@ import logging
 import posixpath
 import re
 import shutil
-import traceback
 import uuid
 import yaml
 
@@ -69,10 +68,6 @@ DFS_TMP = "/tmp/mlflow"
 _SPARK_MODEL_PATH_SUB = "sparkml"
 
 _logger = logging.getLogger(__name__)
-
-
-def _format_exception(ex):
-    return "".join(traceback.format_exception(type(ex), ex, ex.__traceback__))
 
 
 def get_default_pip_requirements():
@@ -175,6 +170,8 @@ def log_model(
                             waits for five minutes. Specify 0 or None to skip waiting.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+             metadata of the logged model.
 
     .. code-block:: python
         :caption: Example
@@ -258,12 +255,14 @@ def log_model(
             input_example=input_example,
         )
         mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
+        mlflow.tracking.fluent._record_logged_model(mlflow_model)
         if registered_model_name is not None:
             mlflow.register_model(
                 "runs:/%s/%s" % (run_id, artifact_path),
                 registered_model_name,
                 await_registration_for,
             )
+        return mlflow_model.get_model_info()
 
 
 def _tmp_path(dfs_tmp):
@@ -616,7 +615,7 @@ def _load_model_databricks(model_uri, dfs_tmpdir):
     # Copy the model to a temp DFS location first. We cannot delete this file, as
     # Spark may read from it at any point.
     fuse_dfs_tmpdir = dbfs_hdfs_uri_to_fuse_path(dfs_tmpdir)
-    os.mkdir(fuse_dfs_tmpdir)
+    os.makedirs(fuse_dfs_tmpdir)
     # Workaround for inability to use shutil.copytree with DBFS FUSE due to permission-denied
     # errors on passthrough-enabled clusters when attempting to copy permission bits for directories
     _shutil_copytree_without_file_permissions(src_dir=local_model_path, dst_dir=fuse_dfs_tmpdir)
@@ -713,7 +712,7 @@ def _load_pyfunc(path):
     return _PyFuncModelWrapper(spark, _load_model(model_uri=path))
 
 
-class _PyFuncModelWrapper(object):
+class _PyFuncModelWrapper:
     """
     Wrapper around Spark MLlib PipelineModel providing interface for scoring pandas DataFrame.
     """

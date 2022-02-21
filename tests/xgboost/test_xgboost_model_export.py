@@ -158,12 +158,13 @@ def test_model_log(xgb_model, model_path):
                 conda_env = os.path.join(tmp.path(), "conda_env.yaml")
                 _mlflow_conda_env(conda_env, additional_pip_deps=["xgboost"])
 
-                mlflow.xgboost.log_model(
+                model_info = mlflow.xgboost.log_model(
                     xgb_model=model, artifact_path=artifact_path, conda_env=conda_env
                 )
                 model_uri = "runs:/{run_id}/{artifact_path}".format(
                     run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
                 )
+                assert model_info.model_uri == model_uri
 
                 reloaded_model = mlflow.xgboost.load_model(model_uri=model_uri)
                 np.testing.assert_array_almost_equal(
@@ -453,7 +454,7 @@ def test_pyfunc_serve_and_score(xgb_model):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    scores = pd.read_json(resp.content, orient="records").values.squeeze()
+    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values.squeeze()
     np.testing.assert_array_almost_equal(scores, model.predict(inference_dmatrix))
 
 
@@ -478,7 +479,7 @@ def test_pyfunc_serve_and_score_sklearn(model):
         pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    scores = pd.read_json(resp.content, orient="records").values.squeeze()
+    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values.squeeze()
     np.testing.assert_array_equal(scores, model.predict(X.head(3)))
 
 

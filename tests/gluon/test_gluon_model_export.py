@@ -133,10 +133,11 @@ def test_model_log_load(gluon_model, model_data, model_path):
 
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.gluon.log_model(gluon_model, artifact_path=artifact_path)
+        model_info = mlflow.gluon.log_model(gluon_model, artifact_path=artifact_path)
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
         )
+        assert model_info.model_uri == model_uri
 
     # Loading Gluon model
     model_loaded = mlflow.gluon.load_model(model_uri, ctx.cpu())
@@ -308,7 +309,7 @@ def test_gluon_model_serving_and_scoring_as_pyfunc(gluon_model, model_data):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    response_values = pd.read_json(scoring_response.content, orient="records").values.astype(
-        np.float32
-    )
+    response_values = pd.read_json(
+        scoring_response.content.decode("utf-8"), orient="records"
+    ).values.astype(np.float32)
     assert all(np.argmax(response_values, axis=1) == expected.asnumpy())

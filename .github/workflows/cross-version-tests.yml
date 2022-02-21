@@ -32,8 +32,8 @@ on:
       - master
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_number || github.ref }}
+  cancel-in-progress: true
 
 defaults:
   run:
@@ -52,7 +52,7 @@ jobs:
           ref: ${{ github.event.inputs.ref }}
       - uses: actions/setup-python@v2
         with:
-          python-version: "3.6"
+          python-version: "3.7"
       - name: Install dependencies
         run: |
           pip install packaging requests pyyaml pytest
@@ -103,24 +103,28 @@ jobs:
         with:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
+      - name: Get Java version
+        id: get-java-version
+        run: |
+          if [ "${{ matrix.package }}" = "mleap" ]
+          then
+            java_version=8
+          else
+            java_version=11
+          fi
+          echo "::set-output name=version::$java_version"
       - uses: actions/setup-java@v2
         with:
-          # GitHub Actions' Ubuntu 20.04 image uses Java 11 (which is incompatible with Spark 2.4.x) by default:
-          # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md#java
-          java-version: 8
+          java-version: ${{ steps.get-java-version.outputs.version }}
           distribution: "adopt"
       - name: Get python version
         id: get-python-version
         run: |
-          if [[ "${{ matrix.version }}" = "dev" ]] || \
-             [[ "${{ matrix.package }}" = "scikit-learn" && ! "${{ matrix.version }}" =~ ^0\.* ]] || \
-             [[ "${{ matrix.package }}" = "statsmodels" ]] || \
-             [[ "${{ matrix.package }}" = "tensorflow" && ! "${{ matrix.version }}" =~ ^2\.[0-6] ]] || \
-             [[ "${{ matrix.package }}" = "keras" && ! "${{ matrix.version }}" =~ ^2\.[0-6] ]]
+          if [[ "${{ matrix.package }}" = "statsmodels" && "${{ matrix.version }}" = "dev" ]]
           then
-            python_version=3.7
+            python_version=3.8
           else
-            python_version=3.6
+            python_version=3.7
           fi
           echo "::set-output name=version::$python_version"
       - uses: ./.github/actions/setup-python

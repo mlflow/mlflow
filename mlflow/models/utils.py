@@ -14,7 +14,7 @@ from scipy.sparse import csr_matrix, csc_matrix
 ModelInputExample = Union[pd.DataFrame, np.ndarray, dict, list, csr_matrix, csc_matrix]
 
 
-class _Example(object):
+class _Example:
     """
     Represents an input example for MLflow model.
 
@@ -192,8 +192,8 @@ def _save_example(mlflow_model: Model, input_example: ModelInputExample, path: s
 def _read_example(mlflow_model: Model, path: str):
     """
     Read example from a model directory. Returns None if there is no example metadata (i.e. the
-    model was saved without example). Raises IO Exception if there is model metadata but the example
-    file is missing.
+    model was saved without example). Raises FileNotFoundError if there is model metadata but the
+    example file is missing.
 
     :param mlflow_model: Model metadata.
     :param path: Path to the model directory.
@@ -234,3 +234,22 @@ def _read_sparse_matrix_from_json(path, example_type):
             return csc_matrix((data, indices, indptr), shape=shape)
         else:
             return csr_matrix((data, indices, indptr), shape=shape)
+
+
+def plot_lines(data_series, xlabel, ylabel, legend_loc=None, line_kwargs=None):
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots()
+
+    if line_kwargs is None:
+        line_kwargs = {}
+
+    for label, data_x, data_y in data_series:
+        ax.plot(data_x, data_y, label=label, **line_kwargs)
+
+    if legend_loc:
+        ax.legend(loc=legend_loc)
+
+    ax.set(xlabel=xlabel, ylabel=ylabel)
+
+    return fig, ax

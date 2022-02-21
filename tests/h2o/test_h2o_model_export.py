@@ -103,10 +103,11 @@ def test_model_log(h2o_iris_model):
     h2o_model = h2o_iris_model.model
     try:
         artifact_path = "gbm_model"
-        mlflow.h2o.log_model(h2o_model=h2o_model, artifact_path=artifact_path)
+        model_info = mlflow.h2o.log_model(h2o_model=h2o_model, artifact_path=artifact_path)
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
         )
+        assert model_info.model_uri == model_uri
         # Load model
         h2o_model_loaded = mlflow.h2o.load_model(model_uri=model_uri)
         assert all(
@@ -326,6 +327,6 @@ def test_pyfunc_serve_and_score(h2o_iris_model):
         data=inference_dataframe.as_data_frame(),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
     )
-    scores = pd.read_json(resp.content, orient="records").drop("predict", axis=1)
+    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").drop("predict", axis=1)
     preds = model.predict(inference_dataframe).as_data_frame().drop("predict", axis=1)
     np.testing.assert_array_almost_equal(scores, preds)

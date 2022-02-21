@@ -191,7 +191,7 @@ def keras_custom_env(tmpdir):
 
 @pytest.mark.allow_infer_pip_requirements_fallback
 def test_that_keras_module_arg_works(model_path):
-    class MyModel(object):
+    class MyModel:
         def __init__(self, x):
             self._x = x
 
@@ -203,7 +203,7 @@ def test_that_keras_module_arg_works(model_path):
             with h5py.File(path, "w") as f:
                 f.create_dataset(name="x", data=self._x)
 
-    class FakeKerasModule(object):
+    class FakeKerasModule:
         __name__ = "some.test.keras.module"
         __version__ = "42.42.42"
 
@@ -295,7 +295,7 @@ def test_model_save_load(build_model, save_format, model_path, data):
     )
     print(scoring_response.content)
     actual_scoring_response = pd.read_json(
-        scoring_response.content, orient="records", encoding="utf8"
+        scoring_response.content.decode("utf-8"), orient="records", encoding="utf8"
     ).values.astype(np.float32)
     np.testing.assert_allclose(actual_scoring_response, expected, rtol=1e-5)
 
@@ -401,10 +401,11 @@ def test_model_log(model, data, predicted):
             if should_start_run:
                 mlflow.start_run()
             artifact_path = "keras_model"
-            mlflow.keras.log_model(model, artifact_path=artifact_path)
+            model_info = mlflow.keras.log_model(model, artifact_path=artifact_path)
             model_uri = "runs:/{run_id}/{artifact_path}".format(
                 run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
             )
+            assert model_info.model_uri == model_uri
 
             # Load model
             model_loaded = mlflow.keras.load_model(model_uri=model_uri)

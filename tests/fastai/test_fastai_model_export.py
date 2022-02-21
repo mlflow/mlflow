@@ -149,13 +149,14 @@ def test_model_log(fastai_model, model_path):
                 conda_env = os.path.join(tmp.path(), "conda_env.yaml")
                 _mlflow_conda_env(conda_env, additional_pip_deps=["fastai"])
 
-                mlflow.fastai.log_model(
+                model_info = mlflow.fastai.log_model(
                     fastai_learner=model, artifact_path=artifact_path, conda_env=conda_env
                 )
 
                 model_uri = "runs:/{run_id}/{artifact_path}".format(
                     run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
                 )
+                assert model_info.model_uri == model_uri
 
                 reloaded_model = mlflow.fastai.load_model(model_uri=model_uri)
 
@@ -396,7 +397,7 @@ def test_pyfunc_serve_and_score(fastai_model):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
     )
     # `[:, -1]` extracts the prediction column
-    scores = pd.read_json(resp.content, orient="records").values[:, -1]
+    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values[:, -1]
     np.testing.assert_array_almost_equal(
         scores, mlflow.fastai._FastaiModelWrapper(model).predict(inference_dataframe).values[:, -1]
     )

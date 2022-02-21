@@ -6,7 +6,7 @@ import zipfile
 from pyspark.files import SparkFiles
 
 
-class SparkModelCache(object):
+class SparkModelCache:
     """Caches models in memory on Spark Executors, to avoid continually reloading from disk.
 
     This class has to be part of a different module than the one that _uses_ it. This is

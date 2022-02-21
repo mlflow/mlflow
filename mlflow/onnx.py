@@ -10,6 +10,7 @@ ONNX (native) format
 import os
 import yaml
 import numpy as np
+from pathlib import Path
 
 import pandas as pd
 
@@ -39,6 +40,7 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 FLAVOR_NAME = "onnx"
+ONNX_EXECUTION_PROVIDERS = ["CUDAExecutionProvider", "CPUExecutionProvider"]
 
 
 def get_default_pip_requirements():
@@ -81,6 +83,7 @@ def save_model(
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
+    onnx_execution_providers=None,
 ):
     """
     Save an ONNX model to a path on the local file system.
@@ -111,8 +114,17 @@ def save_model(
                           by converting it to a list. Bytes are base64-encoded.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :param onnx_execution_providers: List of strings defining onnxruntime execution providers.
+                                     Defaults to example:
+                                     ``['CUDAExecutionProvider', 'CPUExecutionProvider']``
+                                     This uses GPU preferentially over CPU.
+                                     See onnxruntime API for further descriptions:
+                                     https://onnxruntime.ai/docs/execution-providers/
     """
     import onnx
+
+    if onnx_execution_providers is None:
+        onnx_execution_providers = ONNX_EXECUTION_PROVIDERS
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
@@ -137,7 +149,12 @@ def save_model(
     pyfunc.add_to_model(
         mlflow_model, loader_module="mlflow.onnx", data=model_data_subpath, env=_CONDA_ENV_FILE_NAME
     )
-    mlflow_model.add_flavor(FLAVOR_NAME, onnx_version=onnx.__version__, data=model_data_subpath)
+    mlflow_model.add_flavor(
+        FLAVOR_NAME,
+        onnx_version=onnx.__version__,
+        data=model_data_subpath,
+        providers=onnx_execution_providers,
+    )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
@@ -182,10 +199,48 @@ def _load_model(model_file):
 
 
 class _OnnxModelWrapper:
-    def __init__(self, path):
+    def __init__(self, path, providers=None):
         import onnxruntime
 
-        self.rt = onnxruntime.InferenceSession(path)
+        # Get the model meta data from the MLModel yaml file which may contain the providers
+        # specification.
+        local_path = str(Path(path).parent)
+        model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
+
+        # Check if the MLModel config has the providers meta data
+        if "providers" in model_meta.flavors.get(FLAVOR_NAME).keys():
+            providers = model_meta.flavors.get(FLAVOR_NAME)["providers"]
+        # If not, then default to the predefined list.
+        else:
+            providers = ONNX_EXECUTION_PROVIDERS
+
+        # NOTE: Some distributions of onnxruntime require the specification of the providers
+        # argument on calling. E.g. onnxruntime-gpu. The package import call does not differnetiate
+        #  which architecture specific version has been installed, as all are imported with
+        # onnxruntime. onnxruntime documentation says that from v1.9.0 some distributions require
+        #  the providers list to be provided on calling an InferenceSession. Therefore the try
+        #  catch structure below attempts to create an inference session with just the model path
+        #  as pre v1.9.0. If that fails, it will use the providers list call.
+        # At the moment this is just CUDA and CPU, and probably should be expanded.
+        # A method of user customisation has been provided by adding a variable in the save_model()
+        # function, which allows the ability to pass the list of execution providers via a
+        # optional argument e.g.
+        #
+        # mlflow.onnx.save_model(..., providers=['CUDAExecutionProvider'...])
+        #
+        # For details of the execution providers construct of onnxruntime, see:
+        # https://onnxruntime.ai/docs/execution-providers/
+        #
+        # For a information on how execution providers are used with onnxruntime InferenceSession,
+        # see the API page below:
+        # https://onnxruntime.ai/docs/api/python/api_summary.html#id8
+        #
+
+        try:
+            self.rt = onnxruntime.InferenceSession(path)
+        except ValueError:
+            self.rt = onnxruntime.InferenceSession(path, providers=providers)
+
         assert len(self.rt.get_inputs()) >= 1
         self.inputs = [(inp.name, inp.type) for inp in self.rt.get_inputs()]
         self.output_names = [outp.name for outp in self.rt.get_outputs()]
@@ -327,6 +382,7 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements=None,
     extra_pip_requirements=None,
+    onnx_execution_providers=None,
 ):
     """
     Log an ONNX model as an MLflow artifact for the current run.
@@ -362,8 +418,16 @@ def log_model(
                             waits for five minutes. Specify 0 or None to skip waiting.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :param onnx_execution_providers: List of strings defining onnxruntime execution providers.
+                                     Defaults to example:
+                                     ['CUDAExecutionProvider', 'CPUExecutionProvider']
+                                     This uses GPU preferentially over CPU.
+                                     See onnxruntime API for further descriptions:
+                                     https://onnxruntime.ai/docs/execution-providers/
+    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+             metadata of the logged model.
     """
-    Model.log(
+    return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.onnx,
         onnx_model=onnx_model,
@@ -374,4 +438,5 @@ def log_model(
         await_registration_for=await_registration_for,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
+        onnx_execution_providers=onnx_execution_providers,
     )

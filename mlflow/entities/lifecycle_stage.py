@@ -2,7 +2,7 @@ from mlflow.entities.view_type import ViewType
 from mlflow.exceptions import MlflowException
 
 
-class LifecycleStage(object):
+class LifecycleStage:
     ACTIVE = "active"
     DELETED = "deleted"
     _VALID_STAGES = set([ACTIVE, DELETED])

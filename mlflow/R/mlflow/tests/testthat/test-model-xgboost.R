@@ -40,16 +40,16 @@ test_that("can load model and predict with rfunc backend", {
 })
 
 test_that("can load and predict with python pyfunct and xgboost backend", {
-  pyfunc <- import("mlflow.pyfunc")
+  pyfunc <- reticulate::import("mlflow.pyfunc")
   py_model <- pyfunc$load_model(testthat_model_dir)
   expect_equal(
     as.numeric(py_model$predict(test$data)),
     unname(predict(model, as.matrix(test$data)))
   )
 
-  mlflow.xgboost <- import("mlflow.xgboost")
+  mlflow.xgboost <- reticulate::import("mlflow.xgboost")
   xgboost_native_model <- mlflow.xgboost$load_model(testthat_model_dir)
-  xgboost <- import("xgboost")
+  xgboost <- reticulate::import("xgboost")
 
   expect_equivalent(
     as.numeric(xgboost_native_model$predict(xgboost$DMatrix(test$data))),

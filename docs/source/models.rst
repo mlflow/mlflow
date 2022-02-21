@@ -167,7 +167,11 @@ be either column-based or tensor-based. Column-based inputs and outputs can be d
 sequence of (optionally) named columns with type specified as one of the
 :py:class:`MLflow data types <mlflow.types.DataType>`. Tensor-based inputs and outputs can be
 described as a sequence of (optionally) named tensors with type specified as one of the
-`numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_. The signature is stored in
+`numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_.
+
+To include a signature with your model, pass a :py:class:`signature object
+<mlflow.models.ModelSignature>` as an argument to the appropriate log_model call, e.g.
+:py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`. More details are in the :ref:`How to log models with signatures <how-to-log-models-with-signatures>` section. The signature is stored in
 JSON format in the :ref:`MLmodel file <pyfunc-model-config>`, together with other model metadata.
 
 Model signatures are recognized and enforced by standard :ref:`MLflow model deployment tools
@@ -261,6 +265,8 @@ For datetime values, Python has precision built into the type. For example, date
 day precision have NumPy type ``datetime64[D]``, while values with nanosecond precision have
 type ``datetime64[ns]``. Datetime precision is ignored for column-based model signature but is
 enforced for tensor-based signatures.
+
+.. _how-to-log-models-with-signatures:
 
 How To Log Models With Signatures
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -440,6 +446,8 @@ flavors to benefit from all these tools:
 .. contents::
   :local:
   :depth: 1
+
+.. _pyfunc-model-flavor:
 
 Python Function (``python_function``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -775,6 +783,64 @@ You can also use the :py:func:`mlflow.prophet.load_model()`
 method to load MLflow Models with the ``prophet`` model flavor in native prophet format.
 
 For more information, see :py:mod:`mlflow.prophet`.
+
+.. _model-evaluation:
+
+Model Evaluation
+----------------
+After building and training your MLflow Model, you can use the :py:func:`mlflow.evaluate()` API to
+evaluate its performance on one or more datasets of your choosing. :py:func:`mlflow.evaluate()`
+currently supports evaluation of MLflow Models with the
+:ref:`python_function (pyfunc) model flavor <pyfunc-model-flavor>` for classification and regression
+tasks, computing a variety of task-specific performance metrics, model performance plots, and
+model explanations. Evaluation results are logged to :ref:`MLflow Tracking <tracking>`.
+
+The following `example from the MLflow GitHub Repository
+<https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_on_binary_classifier.py>`_
+uses :py:func:`mlflow.evaluate()` to evaluate the performance of a classifier
+on the `UCI Adult Data Set <https://archive.ics.uci.edu/ml/datasets/adult>`_, logging a
+comprehensive collection of MLflow Metrics and Artifacts that provide insight into model performance
+and behavior:
+
+.. code-block:: py
+
+    import xgboost
+    import shap
+    import mlflow
+    from sklearn.model_selection import train_test_split
+
+    # load UCI Adult Data Set; segment it into training and test sets
+    X, y = shap.datasets.adult()
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
+
+    # train XGBoost model
+    model = xgboost.XGBClassifier().fit(X_train, y_train)
+
+    # construct an evaluation dataset from the test set
+    eval_data = X_test
+    eval_data["label"] = y_test
+
+    with mlflow.start_run() as run:
+        model_info = mlflow.sklearn.log_model(model, "model")
+        result = mlflow.evaluate(
+            model_info.model_uri,
+            eval_data,
+            targets="label",
+            model_type="classifier",
+            dataset_name="adult",
+            evaluators=["default"],
+        )
+
+|eval_metrics_img| |eval_importance_img|
+
+.. |eval_metrics_img| image:: _static/images/model_evaluation_metrics.png
+   :width: 30%
+
+.. |eval_importance_img| image:: _static/images/model_evaluation_feature_importance.png
+   :width: 69%
+
+More information about model evaluation behaviors and outputs is available in the
+:py:func:`mlflow.evaluate()` API docs.
 
 Model Customization
 -------------------

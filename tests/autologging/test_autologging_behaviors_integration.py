@@ -90,17 +90,18 @@ def test_autologging_integrations_use_safe_patch_for_monkey_patching(integration
         ) as gorilla_mock, mock.patch(
             integration.__name__ + ".safe_patch", wraps=safe_patch
         ) as safe_patch_mock:
-            # In `mlflow.xgboost.autolog()`, we enable autologging for XGBoost sklearn
-            # models using `mlflow.sklearn._autolog()`. So besides `safe_patch` calls in
-            # `mlflow.xgboost.autolog()`, we need to count additional `safe_patch` calls
+            # In `mlflow.xgboost.autolog()` and `mlflow.lightgbm.autolog()`,
+            # we enable autologging for XGBoost and LightGBM sklearn models
+            # using `mlflow.sklearn._autolog()`. So besides `safe_patch` calls in
+            # `autolog()`, we need to count additional `safe_patch` calls
             # in sklearn autologging routine as well.
-            if integration.__name__ == "mlflow.xgboost":
+            if integration.__name__ in ["mlflow.xgboost", "mlflow.lightgbm"]:
                 with mock.patch(
                     "mlflow.sklearn.safe_patch", wraps=safe_patch
-                ) as xgb_sklearn_safe_patch_mock:
+                ) as sklearn_safe_patch_mock:
                     integration.autolog(disable=False)
                     safe_patch_call_count = (
-                        safe_patch_mock.call_count + xgb_sklearn_safe_patch_mock.call_count
+                        safe_patch_mock.call_count + sklearn_safe_patch_mock.call_count
                     )
             else:
                 integration.autolog(disable=False)

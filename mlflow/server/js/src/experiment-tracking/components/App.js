@@ -22,7 +22,7 @@ import {
 import { ModelVersionPage } from '../../model-registry/components/ModelVersionPage';
 import { ModelListPage } from '../../model-registry/components/ModelListPage';
 import { ModelPage } from '../../model-registry/components/ModelPage';
-import CompareModelVersionsPage from '../../model-registry/components/CompareModelVersionsPage';
+import { CompareModelVersionsPage } from '../../model-registry/components/CompareModelVersionsPage';
 
 const isExperimentsActive = (match, location) => {
   // eslint-disable-next-line prefer-const

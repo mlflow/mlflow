@@ -24,8 +24,9 @@ metadata (MLmodel file). You can score the model by calling the :py:func:`predic
 <mlflow.pyfunc.PyFuncModel.predict>` method, which has the following signature::
 
   predict(
-    model_input: [pandas.DataFrame, Dict[str, numpy.ndarray], numpy.ndarray]
-  ) -> [numpy.ndarray | pandas.(Series | DataFrame)]
+    model_input: [pandas.DataFrame, numpy.ndarray, scipy.sparse.(csc.csc_matrix | csr.csr_matrix),
+    List[Any], Dict[str, Any]]
+  ) -> [numpy.ndarray | pandas.(Series | DataFrame) | List]
 
 All PyFunc models will support `pandas.DataFrame` as input and DL PyFunc models will also support
 tensor inputs in the form of Dict[str, numpy.ndarray] (named tensors) and `numpy.ndarrays`
@@ -70,8 +71,9 @@ following parameters:
          ``predict`` method with the following signature::
 
           predict(
-              model_input: [pandas.DataFrame, Dict[str, numpy.ndarray], numpy.ndarray]
-          ) -> [numpy.ndarray | pandas.(Series | DataFrame)]
+            model_input: [pandas.DataFrame, numpy.ndarray,
+            scipy.sparse.(csc.csc_matrix | csr.csr_matrix), List[Any], Dict[str, Any]]
+          ) -> [numpy.ndarray | pandas.(Series | DataFrame) | List]
 
 - code [optional]:
         Relative path to a directory containing the code packaged with this model.
@@ -251,6 +253,10 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from scipy.sparse import csc_matrix, csr_matrix
+from mlflow.utils.requirements_utils import (
+    _check_requirement_satisfied,
+    _parse_requirements,
+)
 
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
@@ -563,7 +569,7 @@ def _enforce_schema(pfInput: PyFuncInput, input_schema: Schema):
     )
 
 
-class PyFuncModel(object):
+class PyFuncModel:
     """
     MLflow 'python function' model.
 
@@ -595,7 +601,8 @@ class PyFuncModel(object):
         the input is passed to the model implementation as is. See `Model Signature Enforcement
         <https://www.mlflow.org/docs/latest/models.html#signature-enforcement>`_ for more details."
 
-        :param data: Model input as one of pandas.DataFrame, numpy.ndarray, or
+        :param data: Model input as one of pandas.DataFrame, numpy.ndarray,
+                     scipy.sparse.(csc.csc_matrix | csr.csr_matrix), List[Any], or
                      Dict[str, numpy.ndarray]
         :return: Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
@@ -625,6 +632,38 @@ class PyFuncModel(object):
         return yaml.safe_dump({"mlflow.pyfunc.loaded_model": info}, default_flow_style=False)
 
 
+def _warn_dependency_requirement_mismatches(model_path):
+    """
+    Inspects the model's dependencies and prints a warning if the current Python environment
+    doesn't satisfy them.
+    """
+    req_file_path = os.path.join(model_path, _REQUIREMENTS_FILE_NAME)
+    if not os.path.exists(req_file_path):
+        return
+
+    try:
+        mismatch_infos = []
+        for req in _parse_requirements(req_file_path, is_constraint=False):
+            req_line = req.req_str
+            mismatch_info = _check_requirement_satisfied(req_line)
+            if mismatch_info is not None:
+                mismatch_infos.append(str(mismatch_info))
+
+        if len(mismatch_infos) > 0:
+            mismatch_str = " - " + "\n - ".join(mismatch_infos)
+            warning_msg = (
+                "Detected one or more mismatches between the model's dependencies and the current "
+                f"Python environment:\n{mismatch_str}"
+            )
+            _logger.warning(warning_msg)
+    except Exception as e:
+        _logger.warning(
+            f"Encountered an unexpected error ({repr(e)}) while detecting model dependency "
+            "mismatches. Set logging level to DEBUG to see the full traceback."
+        )
+        _logger.debug("", exc_info=True)
+
+
 def load_model(model_uri: str, suppress_warnings: bool = True, dst_path: str = None) -> PyFuncModel:
     """
     Load a model stored in Python function format.
@@ -637,6 +676,7 @@ def load_model(model_uri: str, suppress_warnings: bool = True, dst_path: str = N
                       - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
                       - ``models:/<model_name>/<model_version>``
                       - ``models:/<model_name>/<stage>``
+                      - ``mlflow-artifacts:/path/to/model``
 
                       For more information about supported URI schemes, see
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
@@ -649,6 +689,9 @@ def load_model(model_uri: str, suppress_warnings: bool = True, dst_path: str = N
                      path will be created.
     """
     local_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
+
+    _warn_dependency_requirement_mismatches(local_path)
+
     model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
 
     conf = model_meta.flavors.get(FLAVOR_NAME)
@@ -681,6 +724,7 @@ def load_pyfunc(model_uri, suppress_warnings=False):
                       - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
                       - ``models:/<model_name>/<model_version>``
                       - ``models:/<model_name>/<stage>``
+                      - ``mlflow-artifacts:/path/to/model``
 
                       For more information about supported URI schemes, see
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
@@ -755,6 +799,7 @@ def spark_udf(spark, model_uri, result_type="double"):
                       - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
                       - ``models:/<model_name>/<model_version>``
                       - ``models:/<model_name>/<stage>``
+                      - ``mlflow-artifacts:/path/to/model``
 
                       For more information about supported URI schemes, see
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
@@ -820,6 +865,8 @@ def spark_udf(spark, model_uri, result_type="double"):
         local_model_path = _download_artifact_from_uri(
             artifact_uri=model_uri, output_path=local_tmpdir.path()
         )
+        # Assume spark executor python environment is the same with spark driver side.
+        _warn_dependency_requirement_mismatches(local_model_path)
         archive_path = SparkModelCache.add_local_model(spark, local_model_path)
         model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
 
@@ -1199,6 +1246,8 @@ def log_model(
                             waits for five minutes. Specify 0 or None to skip waiting.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+             metadata of the logged model.
     """
     return Model.log(
         artifact_path=artifact_path,

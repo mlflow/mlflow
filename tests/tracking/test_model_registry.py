@@ -489,8 +489,8 @@ def test_latest_models(mlflow_client, backend_store_uri):
     assert {"None": "7"} == get_latest(["None"])
     assert {"Staging": "6"} == get_latest(["Staging"])
     assert {"None": "7", "Staging": "6"} == get_latest(["None", "Staging"])
-    assert {"Production": "4", "Staging": "6"} == get_latest(None)
-    assert {"Production": "4", "Staging": "6"} == get_latest([])
+    assert {"Production": "4", "Staging": "6", "Archived": "3", "None": "7"} == get_latest(None)
+    assert {"Production": "4", "Staging": "6", "Archived": "3", "None": "7"} == get_latest([])
 
 
 def test_delete_model_version_flow(mlflow_client, backend_store_uri):

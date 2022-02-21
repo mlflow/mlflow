@@ -9,12 +9,12 @@ import pyspark
 from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.pipeline import Pipeline
-from pyspark.ml.wrapper import JavaModel
 import pytest
 from sklearn import datasets
 import shutil
 from collections import namedtuple
 import yaml
+from packaging.version import Version
 
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
@@ -62,6 +62,22 @@ SparkModelWithData = namedtuple(
 # other tests.
 @pytest.fixture(scope="session", autouse=True)
 def spark_context():
+    if Version(pyspark.__version__) < Version("3.1"):
+        # A workaround for this issue:
+        # https://stackoverflow.com/questions/62109276/errorjava-lang-unsupportedoperationexception-for-pyspark-pandas-udf-documenta
+        spark_home = (
+            os.environ.get("SPARK_HOME")
+            if "SPARK_HOME" in os.environ
+            else os.path.dirname(pyspark.__file__)
+        )
+        conf_dir = os.path.join(spark_home, "conf")
+        os.makedirs(conf_dir, exist_ok=True)
+        with open(os.path.join(conf_dir, "spark-defaults.conf"), "w") as f:
+            conf = """
+spark.driver.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
+spark.executor.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
+"""
+            f.write(conf)
     conf = pyspark.SparkConf()
     max_tries = 3
     for num_tries in range(max_tries):
@@ -557,7 +573,7 @@ def test_sparkml_model_log_persists_specified_conda_env_in_mlflow_model_director
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        sparkm.log_model(
+        model_info = sparkm.log_model(
             spark_model=spark_model_iris.model,
             artifact_path=artifact_path,
             conda_env=spark_custom_env,
@@ -565,6 +581,7 @@ def test_sparkml_model_log_persists_specified_conda_env_in_mlflow_model_director
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
         )
+        assert model_info.model_uri == model_uri
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -636,20 +653,13 @@ def test_pyspark_version_is_logged_without_dev_suffix(spark_model_iris):
 
 
 @pytest.mark.large
-def test_spark_module_model_save_with_mleap_and_unsupported_transformer_raises_exception(
-    spark_model_iris, model_path
-):
-    class CustomTransformer(JavaModel):
-        def _transform(self, dataset):
-            return dataset
-
-    unsupported_pipeline = Pipeline(stages=[CustomTransformer()])
-    unsupported_model = unsupported_pipeline.fit(spark_model_iris.spark_df)
-
-    with pytest.raises(ValueError, match="CustomTransformer"):
-        sparkm.save_model(
-            spark_model=unsupported_model, path=model_path, sample_input=spark_model_iris.spark_df
-        )
+def test_model_is_recorded_when_using_direct_save(spark_model_iris):
+    # Patch `is_local_uri` to enforce direct model serialization to DFS
+    with mock.patch("mlflow.spark.is_local_uri", return_value=False):
+        with mlflow.start_run():
+            sparkm.log_model(spark_model=spark_model_iris.model, artifact_path="model")
+            current_tags = mlflow.get_run(mlflow.active_run().info.run_id).data.tags
+            assert mlflow.utils.mlflow_tags.MLFLOW_LOGGED_MODELS in current_tags
 
 
 def test_shutil_copytree_without_file_permissions(tmpdir):

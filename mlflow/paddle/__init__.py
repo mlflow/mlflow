@@ -119,13 +119,13 @@ def save_model(
         import numpy as np
         import os
         import random
-        from sklearn.datasets import load_boston
+        from sklearn.datasets import load_diabetes
         from sklearn.model_selection import train_test_split
         from sklearn import preprocessing
 
         def load_data():
             # dataset on boston housing prediction
-            X, y = load_boston(return_X_y=True)
+            X, y = load_diabetes(return_X_y=True, as_frame=True)
 
             min_max_scaler = preprocessing.MinMaxScaler()
             X_min_max = min_max_scaler.fit_transform(X)
@@ -371,6 +371,8 @@ def log_model(
                             waits for five minutes. Specify 0 or None to skip waiting.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+             metadata of the logged model.
 
     .. code-block:: python
         :caption: Example
@@ -419,7 +421,7 @@ def _load_pyfunc(path):
     return _PaddleWrapper(load_model(path))
 
 
-class _PaddleWrapper(object):
+class _PaddleWrapper:
     """
     Wrapper class that creates a predict function such that
     predict(data: pd.DataFrame) -> model's output as pd.DataFrame (pandas DataFrame)

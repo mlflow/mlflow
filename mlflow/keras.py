@@ -361,6 +361,8 @@ def log_model(
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param kwargs: kwargs to pass to ``keras_model.save`` method.
+    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+             metadata of the logged model.
 
     .. code-block:: python
         :caption: Example
@@ -376,7 +378,7 @@ def log_model(
         with mlflow.start_run() as run:
             mlflow.keras.log_model(keras_model, "models")
     """
-    Model.log(
+    return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.keras,
         keras_model=keras_model,

@@ -1,6 +1,7 @@
 import click
 import sys
 import json
+from inspect import signature
 from mlflow.utils import cli_args
 from mlflow.deployments import interface
 from mlflow.utils.proto_json_utils import NumpyEncoder, _get_jsonable_obj
@@ -168,14 +169,22 @@ def update_deployment(flavor, model_uri, target, name, config):
 
 
 @commands.command("delete")
+@parse_custom_arguments
 @deployment_name
 @target_details
-def delete_deployment(target, name):
+def delete_deployment(target, name, config):
     """
     Delete the deployment with name given at `--name` from the specified target.
     """
     client = interface.get_deploy_client(target)
-    client.delete_deployment(name)
+
+    sig = signature(client.delete_deployment)
+    if "config" in sig.parameters:
+        config_dict = _user_args_to_dict(config)
+        client.delete_deployment(name, config=config_dict)
+    else:
+        client.delete_deployment(name)
+
     click.echo("Deployment {} is deleted".format(name))
 
 
