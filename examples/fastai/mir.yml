@@ -1,0 +1,5 @@
+$schema: https://azuremlschemas.azureedge.net/latest/managedOnlineEndpoint.schema.json
+name: fastai-model
+auth_mode: key
+traffic:
+  blue: 100
