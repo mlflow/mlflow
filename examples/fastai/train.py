@@ -27,7 +27,7 @@ def parse_args():
     parser.add_argument(
         "--epochs",
         type=int,
-        default=5,
+        default=2,
         help="number of epochs (default: 5). Note it takes about 1 min per epoch",
     )
     return parser.parse_args()
@@ -61,6 +61,7 @@ def main():
     with mlflow.start_run():
         # Train and fit with default or supplied command line arguments
         learn.fit_one_cycle(args.epochs, args.lr)
+        mlflow.fastai.log_model(learn, "fastai")
 
 
 if __name__ == "__main__":

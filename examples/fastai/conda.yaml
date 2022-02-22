@@ -3,6 +3,7 @@ channels:
   - conda-forge
 dependencies:
   - python=3.7.5
+  - jupyterlab
   - pip
   - pip:
     - fastai>=2.4.1

@@ -7,5 +7,5 @@ environment:
   image: mcr.microsoft.com/azureml/openmpi3.1.2-ubuntu18.04
   conda_file: ./conda.yaml
 # invoke completions (Ctrl+Space, Cmd+Space) to see the list of computes available
-compute: azureml:cpu-cluster
+compute: azureml:hancwang1
 # This defines the input datasets to mount. The names of the items in inputs can be referenced in the command
