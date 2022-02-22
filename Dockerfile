@@ -4,6 +4,7 @@ WORKDIR /app
 
 ADD . /app
 
+ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     # install prequired modules to support install of mlflow and related components
     apt-get install -y default-libmysqlclient-dev build-essential curl \
