@@ -1261,7 +1261,7 @@ def _autolog(
                 else mlflow.lightgbm.log_model
             )
             registered_model_name = get_autologging_config(
-                FLAVOR_NAME, "registered_model_name", None
+                flavor_name, "registered_model_name", None
             )
             log_model_func(
                 self,

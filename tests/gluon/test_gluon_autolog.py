@@ -14,7 +14,7 @@ import mlflow
 import mlflow.gluon
 from mlflow.gluon._autolog import __MLflowGluonCallback
 from mlflow.utils.autologging_utils import BatchMetricsLogger
-from unittest.mock import patch
+from unittest.mock import patch, ANY
 from tests.gluon.utils import is_mxnet_older_than_1_6_0, get_estimator
 
 
@@ -203,3 +203,35 @@ def test_autolog_persists_manually_created_run():
 def test_callback_is_callable():
     cb = __MLflowGluonCallback(log_models=True, metrics_logger=BatchMetricsLogger(run_id="1234"))
     pickle.dumps(cb)
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("registered_model_name", [None, "model_abc"])
+def test_autolog_registering_model(registered_model_name):
+    mlflow.gluon.autolog(registered_model_name=registered_model_name)
+
+    data = DataLoader(LogsDataset(), batch_size=128, last_batch="discard")
+
+    model = HybridSequential()
+    model.add(Dense(64, activation="relu"))
+    model.add(Dense(10))
+    model.initialize()
+    model.hybridize()
+
+    trainer = Trainer(
+        model.collect_params(), "adam", optimizer_params={"learning_rate": 0.001, "epsilon": 1e-07}
+    )
+    est = get_estimator(model, trainer)
+
+    with patch("mlflow.register_model") as mock_register_model, \
+            mlflow.start_run(), \
+            warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        est.fit(data, epochs=3)
+
+        if registered_model_name is None:
+            mock_register_model.assert_not_called()
+        else:
+            mock_register_model.assert_called_once_with(
+                ANY, registered_model_name, await_registration_for=ANY
+            )

@@ -10,6 +10,7 @@ from sklearn import datasets
 import xgboost as xgb
 import matplotlib as mpl
 import yaml
+from unittest.mock import patch, ANY
 
 import mlflow
 import mlflow.xgboost
@@ -598,3 +599,39 @@ def test_callback_class_is_pickable():
 
     cb = AutologCallback(BatchMetricsLogger(run_id="1234"), eval_results={})
     pickle.dumps(cb)
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("registered_model_name", [None, "model_abc"])
+def test_sklearn_api_autolog_registering_model(registered_model_name):
+    mlflow.xgboost.autolog(registered_model_name=registered_model_name)
+
+    X, y = datasets.load_iris(return_X_y=True)
+    params = {"n_estimators": 10, "reg_lambda": 1}
+    model = xgb.XGBRegressor(**params)
+
+    with patch("mlflow.register_model") as mock_register_model, mlflow.start_run():
+        model.fit(X, y)
+
+        if registered_model_name is None:
+            mock_register_model.assert_not_called()
+        else:
+            mock_register_model.assert_called_once_with(
+                ANY, registered_model_name, await_registration_for=ANY
+            )
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("registered_model_name", [None, "model_abc"])
+def test_xgb_api_autolog_registering_model(registered_model_name, bst_params, dtrain):
+    mlflow.xgboost.autolog(registered_model_name=registered_model_name)
+
+    with patch("mlflow.register_model") as mock_register_model, mlflow.start_run():
+        xgb.train(bst_params, dtrain)
+        if registered_model_name is None:
+            mock_register_model.assert_not_called()
+        else:
+            mock_register_model.assert_called_once_with(
+                ANY, registered_model_name, await_registration_for=ANY
+            )
+

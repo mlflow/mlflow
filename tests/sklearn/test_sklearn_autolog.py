@@ -17,6 +17,7 @@ import sklearn.pipeline
 import sklearn.model_selection
 from scipy.stats import uniform
 from scipy.sparse import csr_matrix, csc_matrix
+from unittest.mock import patch, ANY
 
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -1928,3 +1929,17 @@ def test_autolog_print_warning_if_custom_estimator_pickling_raise_error():
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert len(params) > 0 and len(metrics) > 0 and len(tags) > 0 and artifacts == []
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("registered_model_name", [None, "model_abc"])
+def test_autolog_registering_model(registered_model_name):
+    mlflow.sklearn.autolog(registered_model_name=registered_model_name)
+    with patch("mlflow.register_model") as mock_register_model, mlflow.start_run():
+        sklearn.cluster.KMeans().fit(*get_iris())
+        if registered_model_name is None:
+            mock_register_model.assert_not_called()
+        else:
+            mock_register_model.assert_called_once_with(
+                ANY, registered_model_name, await_registration_for=ANY
+            )

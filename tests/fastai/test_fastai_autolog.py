@@ -1,6 +1,6 @@
 import pickle
 from functools import partial
-from unittest.mock import patch
+from unittest.mock import patch, ANY
 
 import pytest
 import numpy as np
@@ -420,3 +420,19 @@ def test_callback_is_picklable():
         BatchMetricsLogger(run_id="1234"), log_models=True, is_fine_tune=False
     )
     pickle.dumps(cb)
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("registered_model_name", [None, "model_abc"])
+def test_autolog_registering_model(registered_model_name, iris_data):
+    mlflow.fastai.autolog(registered_model_name=registered_model_name)
+    with patch("mlflow.register_model") as mock_register_model, mlflow.start_run():
+        model = fastai_tabular_model(iris_data)
+        model.fit(NUM_EPOCHS)
+
+        if registered_model_name is None:
+            mock_register_model.assert_not_called()
+        else:
+            mock_register_model.assert_called_once_with(
+                ANY, registered_model_name, await_registration_for=ANY
+            )

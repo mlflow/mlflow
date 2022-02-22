@@ -16,7 +16,7 @@ import mlflow.tensorflow
 from mlflow.tensorflow._autolog import _TensorBoard, __MLflowTfKeras2Callback
 import mlflow.keras
 from mlflow.utils.autologging_utils import BatchMetricsLogger, autologging_is_disabled
-from unittest.mock import patch
+from unittest.mock import patch, ANY
 
 import os
 
@@ -974,3 +974,18 @@ def test_import_keras_with_fluent_autolog_enables_tensorflow_autologging():
 
     assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
     assert autologging_is_disabled(mlflow.keras.FLAVOR_NAME)
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("registered_model_name", [None, "model_abc"])
+def test_tf_keras_model_autolog_registering_model(registered_model_name, random_train_data, random_one_hot_labels):
+    mlflow.tensorflow.autolog(registered_model_name=registered_model_name)
+    with patch("mlflow.register_model") as mock_register_model, mlflow.start_run():
+        model = create_tf_keras_model()
+        model.fit(random_train_data, random_one_hot_labels, epochs=10)
+        if registered_model_name is None:
+            mock_register_model.assert_not_called()
+        else:
+            mock_register_model.assert_called_once_with(
+                ANY, registered_model_name, await_registration_for=ANY
+            )

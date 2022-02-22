@@ -7,6 +7,7 @@ import pytest
 from collections import namedtuple
 from packaging.version import Version
 from unittest import mock
+from unittest.mock import patch, ANY
 
 import mlflow
 from mlflow.entities import RunStatus
@@ -804,3 +805,18 @@ def test_autologging_handle_wrong_tuning_params(dataset_regression):
         ValueError, match="Tuning params should not include params not owned by the tuned estimator"
     ):
         pipeline.fit(dataset_regression)
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("registered_model_name", [None, "model_abc"])
+def test_autolog_registering_model(registered_model_name, spark_session, dataset_binomial):
+    mlflow.pyspark.ml.autolog(registered_model_name=registered_model_name)
+    with patch("mlflow.register_model") as mock_register_model, mlflow.start_run():
+        lr = LinearRegression()
+        lr.fit(dataset_binomial)
+        if registered_model_name is None:
+            mock_register_model.assert_not_called()
+        else:
+            mock_register_model.assert_called_once_with(
+                ANY, registered_model_name, await_registration_for=ANY
+            )

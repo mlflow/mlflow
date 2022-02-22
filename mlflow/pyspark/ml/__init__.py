@@ -898,10 +898,6 @@ def autolog(
 
         if log_models:
             if _should_log_model(spark_model):
-                registered_model_name = get_autologging_config(
-                    AUTOLOGGING_INTEGRATION_NAME, "registered_model_name", None
-                )
-
                 # TODO: support model signature
                 mlflow.spark.log_model(
                     spark_model, artifact_path="model", registered_model_name=registered_model_name

@@ -2,6 +2,7 @@ import pytest
 import paddle
 import mlflow
 from mlflow.tracking import MlflowClient
+from unittest.mock import patch, ANY
 
 pytestmark = pytest.mark.large
 
@@ -92,3 +93,18 @@ def test_autolog_log_models_configuration(log_models):
 
     artifacts = MlflowClient().list_artifacts(run.info.run_id)
     assert any(x.path == "model" for x in artifacts) == log_models
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("registered_model_name", [None, "model_abc"])
+def test_autolog_registering_model(registered_model_name):
+    mlflow.paddle.autolog(registered_model_name=registered_model_name)
+
+    with patch("mlflow.register_model") as mock_register_model, mlflow.start_run():
+        train_model()
+        if registered_model_name is None:
+            mock_register_model.assert_not_called()
+        else:
+            mock_register_model.assert_called_once_with(
+                ANY, registered_model_name, await_registration_for=ANY
+            )
