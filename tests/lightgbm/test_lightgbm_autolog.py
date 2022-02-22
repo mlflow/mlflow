@@ -677,4 +677,3 @@ def test_lgb_api_autolog_registering_model(registered_model_name, bst_params, tr
             mock_register_model.assert_called_once_with(
                 ANY, registered_model_name, await_registration_for=ANY
             )
-

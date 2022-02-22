@@ -223,9 +223,9 @@ def test_autolog_registering_model(registered_model_name):
     )
     est = get_estimator(model, trainer)
 
-    with patch("mlflow.register_model") as mock_register_model, \
-            mlflow.start_run(), \
-            warnings.catch_warnings():
+    with patch(
+        "mlflow.register_model"
+    ) as mock_register_model, mlflow.start_run(), warnings.catch_warnings():
         warnings.simplefilter("ignore")
         est.fit(data, epochs=3)
 

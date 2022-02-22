@@ -978,7 +978,9 @@ def test_import_keras_with_fluent_autolog_enables_tensorflow_autologging():
 
 @pytest.mark.large
 @pytest.mark.parametrize("registered_model_name", [None, "model_abc"])
-def test_tf_keras_model_autolog_registering_model(registered_model_name, random_train_data, random_one_hot_labels):
+def test_tf_keras_model_autolog_registering_model(
+    registered_model_name, random_train_data, random_one_hot_labels
+):
     mlflow.tensorflow.autolog(registered_model_name=registered_model_name)
     with patch("mlflow.register_model") as mock_register_model, mlflow.start_run():
         model = create_tf_keras_model()
