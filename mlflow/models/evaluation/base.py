@@ -825,7 +825,7 @@ def evaluate(
                                 infer the type of the artifact based on the file extension.
                               - ``EvaluationArtifact`` type objects. i.e. CsvEvaluationArtifact,
                                 ImageEvaluationArtifact.
-                              - Pandas DataFrame. This will be resolved as a parquet artifact.
+                              - Pandas DataFrame. This will be resolved as a CSV artifact.
                               - Numpy array. This will be saved as a .npy artifact.
                               - Matplotlib Figure. This will be saved as an image artifact.
                               - Any JSON serializable object. This will be saved as a JSON artifact.
