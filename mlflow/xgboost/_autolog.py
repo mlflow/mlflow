@@ -42,9 +42,11 @@ if IS_TRAINING_CALLBACK_SUPPORTED:
             evaluation_result_dict = {}
             for data_name, metric_dict in evals_log.items():
                 for metric_name, metric_values_on_each_iter in metric_dict.items():
+                    # XGBoost provides some metrics with "@", e.g. "ndcg@3"
+                    metric_name = metric_name.replace("@", "_at_")
                     key = "{}-{}".format(data_name, metric_name)
                     # The last element in `metric_values_on_each_iter` corresponds to
-                    # the meric on the current iteration
+                    # the metric on the current iteration
                     evaluation_result_dict[key] = metric_values_on_each_iter[-1]
 
             self.metrics_logger.record_metrics(evaluation_result_dict, epoch)
