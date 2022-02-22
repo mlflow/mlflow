@@ -57,6 +57,10 @@ az extension remove -n azure-cli-ml && az extension add -n ml -y
 
 Hooray! After the setup is finished, we can come down to the business now.
 
+## Display the training dataset
+
+TODO: Write a sample notebook
+
 ## Train local
 
 In the conda environment, you should be able to run the training code directly. You might be prompted to sign in your Azure account, follow the printed instruction to do it.
