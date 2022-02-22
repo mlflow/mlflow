@@ -469,7 +469,7 @@ class ModelEvaluator(metaclass=ABCMeta):
         dataset,
         run_id,
         evaluator_config,
-        custom_metric_fns=None,
+        custom_metrics=None,
         **kwargs,
     ):
         """
@@ -483,7 +483,7 @@ class ModelEvaluator(metaclass=ABCMeta):
         :param run_id: The ID of the MLflow Run to which to log results.
         :param evaluator_config: A dictionary of additional configurations for
                                  the evaluator.
-        :param custom_metric_fns: A list of callable custom metric functions
+        :param custom_metrics: A list of callable custom metric functions
         :param kwargs: For forwards compatibility, a placeholder for additional arguments that
                        may be added to the evaluation interface in the future.
         :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
@@ -608,7 +608,7 @@ def _evaluate(
     run_id,
     evaluator_name_list,
     evaluator_name_to_conf_map,
-    custom_metric_fns,
+    custom_metrics,
 ):
     """
     The public API "evaluate" will verify argument first, and then pass normalized arguments
@@ -642,7 +642,7 @@ def _evaluate(
                 dataset=dataset,
                 run_id=run_id,
                 evaluator_config=config,
-                custom_metric_fns=custom_metric_fns,
+                custom_metrics=custom_metrics,
             )
             eval_results.append(result)
 
@@ -674,7 +674,7 @@ def evaluate(
     feature_names: list = None,
     evaluators=None,
     evaluator_config=None,
-    custom_metric_fns=None,
+    custom_metrics=None,
 ):
     """
     Evaluate a PyFunc model on the specified dataset using one or more specified ``evaluators``, and
@@ -798,7 +798,7 @@ def evaluate(
                              If multiple evaluators are specified, each configuration should be
                              supplied as a nested dictionary whose key is the evaluator name.
 
-    :param custom_metric_fns: (Optional) A list of custom metric functions. A custom metric
+    :param custom_metrics: (Optional) A list of custom metric functions. A custom metric
                               function is required to take in two parameters:
                               - Union[pandas.Dataframe, pyspark.sql.DataFrame]: The first being a
                                 Pandas or Spark DataFrame containing ``prediction`` and ``target``
@@ -897,5 +897,5 @@ def evaluate(
             run_id=run_id,
             evaluator_name_list=evaluator_name_list,
             evaluator_name_to_conf_map=evaluator_name_to_conf_map,
-            custom_metric_fns=custom_metric_fns,
+            custom_metrics=custom_metrics,
         )

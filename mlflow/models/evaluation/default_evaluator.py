@@ -259,11 +259,11 @@ _matplotlib_config = {
 }
 
 
-def _evaluate_custom_metric_fn(custom_metric_fn, eval_df, builtin_metrics):
-    result = custom_metric_fn(eval_df, builtin_metrics)
+def _evaluate_custom_metric(custom_metric, eval_df, builtin_metrics):
+    result = custom_metric(eval_df, builtin_metrics)
     if result is None:
         _logger.warning(
-            f"Custom metric function '{custom_metric_fn.__name__}' returned None. Logging ignored."
+            f"Custom metric function '{custom_metric.__name__}' returned None. Logging ignored."
         )
         return None, None
 
@@ -289,7 +289,7 @@ def _evaluate_custom_metric_fn(custom_metric_fn, eval_df, builtin_metrics):
         return result
 
     raise MlflowException(
-        f"Custom metric '{custom_metric_fn.__name__}' did not return in an expected format."
+        f"Custom metric '{custom_metric.__name__}' did not return in an expected format."
         f"The two acceptable return types are:"
         f"1. Dict[AnyStr, Union[int, float, np.number]: a dictionary of metrics"
         f"2. Tuple[Dict[AnyStr, Union[int, float, np.number]], Dict[AnyStr, Any]]: a"
@@ -580,12 +580,12 @@ class DefaultEvaluator(ModelEvaluator):
 
         self._log_pandas_df_artifact(per_class_metrics_collection_df, "per_class_metrics")
 
-    def _evaluate_custom_metric_fns(self):
-        for custom_metric_fn in self.custom_metric_fns:
+    def _evaluate_custom_metrics(self):
+        for custom_metric in self.custom_metrics:
             # recreating the dataframe for each custom metric function call,
             # in case the user modifies the eval_df inside their custom function.
             eval_df = pd.DataFrame({"prediction": self.y_pred, "target": self.y})
-            metric_results, _ = _evaluate_custom_metric_fn(custom_metric_fn, eval_df, self.metrics)
+            metric_results, _ = _evaluate_custom_metric(custom_metric, eval_df, self.metrics)
             # skip logging metric functions that doesn't return anything
             if metric_results is None:
                 continue
@@ -670,7 +670,7 @@ class DefaultEvaluator(ModelEvaluator):
                 "confusion_matrix",
             )
 
-        self._evaluate_custom_metric_fns()
+        self._evaluate_custom_metrics()
         self._log_metrics()
         self._log_model_explainability()
         return EvaluationResult(self.metrics, self.artifacts)
@@ -679,7 +679,7 @@ class DefaultEvaluator(ModelEvaluator):
         self.y_pred = self.model.predict(self.X)
         self.metrics.update(_get_regressor_metrics(self.y, self.y_pred))
 
-        self._evaluate_custom_metric_fns()
+        self._evaluate_custom_metrics()
         self._log_metrics()
         self._log_model_explainability()
         return EvaluationResult(self.metrics, self.artifacts)
@@ -692,7 +692,7 @@ class DefaultEvaluator(ModelEvaluator):
         dataset,
         run_id,
         evaluator_config,
-        custom_metric_fns=None,
+        custom_metrics=None,
         **kwargs,
     ):
         import matplotlib
@@ -708,7 +708,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.evaluator_config = evaluator_config
             self.dataset_name = dataset.name
             self.feature_names = dataset.feature_names
-            self.custom_metric_fns = [] if custom_metric_fns is None else custom_metric_fns
+            self.custom_metrics = [] if custom_metrics is None else custom_metrics
 
             (
                 model_loader_module,
