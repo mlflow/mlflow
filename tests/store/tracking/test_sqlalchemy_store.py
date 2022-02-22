@@ -2005,11 +2005,11 @@ def test_get_orderby_clauses():
     store = SqlAlchemyStore("sqlite:///:memory:", ARTIFACT_URI)
     with store.ManagedSessionMaker() as session:
         # test that ['runs.start_time DESC', 'SqlRun.run_uuid'] is returned by default
-        parsed = [str(x) for x in _get_orderby_clauses([], session)[0]]
+        parsed = [str(x) for x in _get_orderby_clauses([], session)[1]]
         assert parsed == ["runs.start_time DESC", "SqlRun.run_uuid"]
 
         # test that the given 'start_time' replaces the default one ('runs.start_time DESC')
-        parsed = [str(x) for x in _get_orderby_clauses(["attribute.start_time ASC"], session)[0]]
+        parsed = [str(x) for x in _get_orderby_clauses(["attribute.start_time ASC"], session)[1]]
         assert "SqlRun.start_time" in parsed
         assert "SqlRun.start_time DESC" not in parsed
 
@@ -2030,7 +2030,11 @@ def test_get_orderby_clauses():
         # test that an exception is NOT raised when key types are different
         _get_orderby_clauses(["param.a", "metric.a", "tag.a"], session)
 
+        select_clause, parsed, _ = _get_orderby_clauses(["metric.a"], session)
+        select_clause = [str(x) for x in select_clause]
+        parsed = [str(x) for x in parsed]
         # test that "=" is used rather than "is" when comparing to True
-        parsed = [str(x) for x in _get_orderby_clauses(["metric.a"], session)[0]]
-        assert "is_nan = true" in parsed[0]
-        assert "value IS NULL" in parsed[0]
+        assert "is_nan = true" in select_clause[0]
+        assert "value IS NULL" in select_clause[0]
+        # test that clause name is in parsed
+        assert "clause_1" in parsed[0]
