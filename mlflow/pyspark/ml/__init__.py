@@ -899,7 +899,7 @@ def autolog(
         if log_models:
             if _should_log_model(spark_model):
                 registered_model_name = get_autologging_config(
-                    mlflow.paddle.FLAVOR_NAME, "registered_model_name", None
+                    AUTOLOGGING_INTEGRATION_NAME, "registered_model_name", None
                 )
 
                 # TODO: support model signature

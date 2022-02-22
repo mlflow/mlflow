@@ -141,7 +141,7 @@ class __MlflowFastaiCallback(Callback, metaclass=ExceptionSafeClass):
 
         if self.log_models:
             registered_model_name = get_autologging_config(
-                mlflow.paddle.FLAVOR_NAME, "registered_model_name", None
+                mlflow.fastai.FLAVOR_NAME, "registered_model_name", None
             )
             log_model(
                 self.learn, artifact_path="model", registered_model_name=registered_model_name

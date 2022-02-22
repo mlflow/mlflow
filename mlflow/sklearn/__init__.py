@@ -1261,7 +1261,7 @@ def _autolog(
                 else mlflow.lightgbm.log_model
             )
             registered_model_name = get_autologging_config(
-                mlflow.paddle.FLAVOR_NAME, "registered_model_name", None
+                FLAVOR_NAME, "registered_model_name", None
             )
             log_model_func(
                 self,
@@ -1385,7 +1385,7 @@ def _autolog(
                 _logger,
             )
             registered_model_name = get_autologging_config(
-                mlflow.paddle.FLAVOR_NAME, "registered_model_name", None
+                FLAVOR_NAME, "registered_model_name", None
             )
             _log_model_with_except_handling(
                 estimator,

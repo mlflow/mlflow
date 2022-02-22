@@ -312,7 +312,7 @@ def patched_fit(original, self, *args, **kwargs):
 
     if log_models:
         registered_model_name = get_autologging_config(
-            mlflow.paddle.FLAVOR_NAME, "registered_model_name", None
+            mlflow.pytorch.FLAVOR_NAME, "registered_model_name", None
         )
         mlflow.pytorch.log_model(
             pytorch_model=self.model,

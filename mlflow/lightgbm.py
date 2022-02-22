@@ -617,7 +617,7 @@ def autolog(
             )
 
             registered_model_name = get_autologging_config(
-                mlflow.paddle.FLAVOR_NAME, "registered_model_name", None
+                FLAVOR_NAME, "registered_model_name", None
             )
             log_model(
                 model,

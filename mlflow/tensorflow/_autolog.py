@@ -47,7 +47,7 @@ class __MLflowTfKeras2Callback(Callback, metaclass=ExceptionSafeClass):
     def on_train_end(self, logs=None):  # pylint: disable=unused-argument
         if self.log_models:
             registered_model_name = get_autologging_config(
-                mlflow.paddle.FLAVOR_NAME, "registered_model_name", None
+                mlflow.tensorflow.FLAVOR_NAME, "registered_model_name", None
             )
             mlflow.keras.log_model(
                 self.model, artifact_path="model", registered_model_name=registered_model_name
