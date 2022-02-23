@@ -262,9 +262,7 @@ _matplotlib_config = {
 def _evaluate_custom_metric(custom_metric, eval_df, builtin_metrics):
     result = custom_metric(eval_df, builtin_metrics)
     if result is None:
-        _logger.warning(
-            f"Custom metric function '{custom_metric.__name__}' returned None."
-        )
+        _logger.warning(f"Custom metric function '{custom_metric.__name__}' returned None.")
         return None, None
 
     def __validate_metrics_dict(metrics):
@@ -582,9 +580,8 @@ class DefaultEvaluator(ModelEvaluator):
             eval_df = pd.DataFrame({"prediction": self.y_pred, "target": self.y})
             metric_results, _ = _evaluate_custom_metric(custom_metric, eval_df, self.metrics)
             # skip logging metric functions that doesn't return anything
-            if metric_results is None:
-                continue
-            self.metrics.update(metric_results)
+            if metric_results is not None:
+                self.metrics.update(metric_results)
             # TODO: artifact detection and logging.
 
     def _evaluate_classifier(self):

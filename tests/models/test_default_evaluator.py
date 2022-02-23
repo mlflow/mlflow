@@ -543,16 +543,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     ):
         with pytest.raises(
             MlflowException,
-            match=(
-                re.escape(
-                    f"Custom metric '{test_fn.__name__}' did not return in an expected format."
-                    f"The two acceptable return types are:"
-                    f"1. Dict[AnyStr, Union[int, float, np.number]: a dictionary of metrics"
-                    f"2. Tuple[Dict[AnyStr, Union[int, float, np.number]], Dict[AnyStr, Any]]: a"
-                    f"   dictionary of metrics and a dictionary of artifacts."
-                    f"For more, check out the docstring for mlflow.evaluate"
-                )
-            ),
+            match=(re.escape(f"'{test_fn.__name__}' did not return in an expected format")),
         ):
             _evaluate_custom_metric(test_fn, eval_df, metrics)
 
