@@ -1,4 +1,6 @@
 import pandas as pd
+import numpy as np
+import json
 
 from mlflow.models.evaluation.base import EvaluationArtifact
 
@@ -20,4 +22,31 @@ class CsvEvaluationArtifact(EvaluationArtifact):
 
     def _load_content_from_file(self, local_artifact_path):
         self._content = pd.read_csv(local_artifact_path)
+        return self._content
+
+
+class ParquetEvaluationArtifact(EvaluationArtifact):
+    def _save(self, output_artifact_path):
+        self._content.to_parquet(output_artifact_path, compression="brotli")
+
+    def _load_content_from_file(self, local_artifact_path):
+        self._content = pd.read_parquet(local_artifact_path)
+        return self._content
+
+
+class NpyEvaluationArtifact(EvaluationArtifact):
+    def _save(self, output_artifact_path):
+        np.save(output_artifact_path, self._content, allow_pickle=False)
+
+    def _load_content_from_file(self, local_artifact_path):
+        self._content = np.load(local_artifact_path, allow_pickle=False)
+        return self._content
+
+
+class JsonEvaluationArtifact(EvaluationArtifact):
+    def _save(self, output_artifact_path):
+        json.dump(self._content, open(output_artifact_path, "w"))
+
+    def _load_content_from_file(self, local_artifact_path):
+        self._content = json.load(open(local_artifact_path, "r"))
         return self._content

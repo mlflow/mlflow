@@ -3,21 +3,31 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.base import (
     ModelEvaluator,
     EvaluationResult,
+    EvaluationArtifact,
 )
 from mlflow.entities.metric import Metric
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.string_utils import truncate_str_from_middle
 from mlflow.models.utils import plot_lines
-from mlflow.models.evaluation.artifacts import ImageEvaluationArtifact, CsvEvaluationArtifact
+from mlflow.models.evaluation.artifacts import (
+    ImageEvaluationArtifact,
+    CsvEvaluationArtifact,
+    JsonEvaluationArtifact,
+    NpyEvaluationArtifact,
+    ParquetEvaluationArtifact,
+)
 
 from sklearn import metrics as sk_metrics
 import math
+import json
 from collections import namedtuple
 import numbers
 import pandas as pd
 import numpy as np
 import copy
+import pathlib
+import shutil
 import time
 from functools import partial
 import logging
@@ -330,6 +340,91 @@ def _evaluate_custom_metric(index, custom_metric, eval_df, builtin_metrics):
         "https://mlflow.org/docs/latest/python_api/mlflow.html#mlflow.evaluate",
         error_code=INVALID_PARAMETER_VALUE,
     )
+
+
+def _load_custom_metric_artifact(dataset_name, temp_dir, artifact_name, raw_artifact):
+    if isinstance(raw_artifact, EvaluationArtifact):
+        return raw_artifact
+
+    # Given local path, type inference through file extension
+    if isinstance(raw_artifact, str):
+        artifact_path = pathlib.Path(raw_artifact)
+        ext_to_artifact_map = {
+            ".png": ImageEvaluationArtifact,
+            ".jpg": ImageEvaluationArtifact,
+            ".jpeg": ImageEvaluationArtifact,
+            ".json": JsonEvaluationArtifact,
+            ".npy": NpyEvaluationArtifact,
+            ".csv": CsvEvaluationArtifact,
+            ".parquet": ParquetEvaluationArtifact,
+        }
+        if artifact_path.is_file() and artifact_path.suffix in ext_to_artifact_map.keys():
+            # copy file to temp location with file name in the defined format
+            artifact_file_name = _gen_log_key(artifact_name, dataset_name) + artifact_path.suffix
+            artifact_file_local_path = temp_dir.path(artifact_file_name)
+            shutil.copyfile(raw_artifact, artifact_file_local_path)
+
+            mlflow.log_artifact(artifact_file_local_path)
+            return ext_to_artifact_map[artifact_path.suffix](
+                uri=mlflow.get_artifact_uri(artifact_file_name)
+            )
+        raise MlflowException(
+            f"Artifact '{artifact_name}' with provided path '{raw_artifact}'"
+            f"cannot be recognized. The supported file extensions are:"
+            f".png, .jpg, .jpeg, .json, .npy, .csv, .parquet"
+        )
+
+    import matplotlib.pyplot as pyplot
+
+    # Given object, type inference
+    type_to_ext_map = {
+        pd.DataFrame: ".csv",
+        np.ndarray: ".npy",
+        pyplot.Figure: ".png",
+    }
+
+    type_to_artifact_map = {
+        pd.DataFrame: CsvEvaluationArtifact,
+        np.ndarray: NpyEvaluationArtifact,
+        pyplot.Figure: ImageEvaluationArtifact,
+    }
+
+    artifact_file_name = (
+        _gen_log_key(artifact_name, dataset_name)
+        + f"{type_to_ext_map.get(type(raw_artifact), '.json')}"
+    )
+
+    artifact_file_local_path = temp_dir.path(artifact_file_name)
+
+    if isinstance(raw_artifact, pd.DataFrame):
+        raw_artifact.to_csv(artifact_file_local_path, index=False)
+    elif isinstance(raw_artifact, np.ndarray):
+        np.save(artifact_file_local_path, raw_artifact, allow_pickle=False)
+    elif isinstance(raw_artifact, pyplot.Figure):
+        raw_artifact.savefig(artifact_file_local_path)
+    else:
+        # try serializing as JSON.
+        try:
+            json.dump(raw_artifact, open(artifact_file_local_path, "w"))
+        except TypeError:
+            raise MlflowException(
+                f"Artifact '{artifact_name}' with type '{type(raw_artifact)}' is not"
+                f"supported. Supported object types for artifacts are:"
+                f"- A string uri representing the file path to the artifact. MLflow"
+                f"  will infer the type of the artifact based on the file extension."
+                f"- EvaluationArtifact type objects. i.e. ImageEvaluationArtifact."
+                f"- Pandas DataFrame. This will be resolved as a CSV artifact."
+                f"- Numpy array. This will be saved as a .npy artifact."
+                f"- Matplotlib Figure. This will be saved as an image artifact."
+                f"- Any JSON serializable object. This will be saved as a JSON file."
+            )
+
+    mlflow.log_artifact(artifact_file_local_path)
+    artifact = type_to_artifact_map.get(type(raw_artifact), JsonEvaluationArtifact)(
+        uri=mlflow.get_artifact_uri(artifact_file_name)
+    )
+    artifact._load(artifact_file_local_path)
+    return artifact
 
 
 # pylint: disable=attribute-defined-outside-init
