@@ -1,98 +1,50 @@
-Welcome to the CLI v2 workshop.
+# AzureML CLI v2 workshop
 
+Welcome to the CLI v2 workshop! In this workshop, you'll learn how to set up a conda environment on an AzureML compute instance, train a deep learning model to recognize hand written digits(MNIST dataset) and inference the trained model.
 
-# Environment setup
+If you haven't done so, please follow steps in [setup.md](./setup.md) to setup your environment.
 
-In this workshop, we'll use a compute instance as the local environment, clone a GitHub repo and create a conda environment
-
-## Create an AzureML compute instance as your environment
-
-Pick a test workspace of your choice, create a compute instance (or your an exiting one if you have).
-
-If you're creating a new compute instance, the default settings are good enough.
-
-## [Authenticate your Git Account with SSH](https://docs.microsoft.com/en-us/azure/machine-learning/concept-train-model-git-integration#authenticate-your-git-account-with-ssh)
-
-
-## Clone the mlflow repository
-
-Code of this worship is checked into a forked mlflow repo. After the git setup above, run below command to clone the repo
-
-```
-git clone https://github.com/luigiw/mlflow.git
-```
-
-Run a `ls` command to check if the `mlflow` folder is created.
-
-## Create a conda environment
-
-Cd into the fastai example folder, which contains all code and files needed for this workshop.
-
-```
-cd ./mlflow/examples/fastai
-```
-
-You can see there's a `conda.yaml` file. This is the configuration file you use to create a conda environment.
-
-Run this command to create the conda environment, name of the environment is `fasai-example`
-```
-conda env update --file ./conda.yaml
-```
-Activate the environment by,
-
-```
-conda activate fastai-example
-```
-
-
-## Install AzureML CLI extension v2
-
-You should already have Azure CLI and AzureML v1 extension installed, to remove the v1 extension and install the v2 extension run,
-
-```
-az extension remove -n azure-cli-ml && az extension add -n ml -y
-```
-
-# Training
+## Training
 
 Hooray! After the setup is finished, we can come down to the business now.
 
-## Display the training dataset
+### Display the training dataset
 
 TODO: Write a sample notebook
 
-## Train local
+### Run training code on the compute instance
 
 In the conda environment, you should be able to run the training code directly. You might be prompted to sign in your Azure account, follow the printed instruction to do it.
 
-```
- `python train.py`
+```bash
+ python train.py
 ```
 
-## Train remote
+### Train remote
 
 Login the Azure CLI
 
-```
+```bash
 az login
 ```
 
 Set the Azure CLI default subscription to the current subscription
-```
+
+```bash
 az account set --subscription <the-sub-id-of-your-ws>
 ```
 
 Submit an AzureML training job
-```
+
+```bash
 az ml job create -f azureml-job.yml
 ```
 
+## Inferencing
 
-# Inferencing
+### Deploy local
 
-## Deploy local
-
-## Deploy remote
+### Deploy remote
 
 Create an MIR endpoint
 
