@@ -5,6 +5,7 @@ from mlflow.models.evaluation.base import (
     EvaluationResult,
 )
 from mlflow.entities.metric import Metric
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.string_utils import truncate_str_from_middle
 from mlflow.models.utils import plot_lines
@@ -16,6 +17,7 @@ from collections import namedtuple
 import numbers
 import pandas as pd
 import numpy as np
+import copy
 import time
 from functools import partial
 import logging
@@ -259,10 +261,27 @@ _matplotlib_config = {
 }
 
 
-def _evaluate_custom_metric(custom_metric, eval_df, builtin_metrics):
+def _evaluate_custom_metric(index, custom_metric, eval_df, builtin_metrics):
+    """
+    This function calls the `custom_metric` function and performs validations on the returned
+    result to ensure that they are in the expected format. It will raise a MlflowException if
+    the result is not in the expected format.
+
+    :param index
+    :param custom_metric: A user provided custom metric function
+    :param eval_df: A Pandas dataframe object containing a prediction and a target column
+    :param builtin_metrics: A dictionary of metrics produced by the default evaluator
+    :return: A tuple of dictionaries. The first is a dictionary of metrics, the second is
+             a dictionary of artifacts (which can be null if the custom metric function did
+             not produce any).
+    """
     result = custom_metric(eval_df, builtin_metrics)
     if result is None:
-        _logger.warning(f"Custom metric function '{custom_metric.__name__}' returned None.")
+        _logger.warning(
+            f"Custom metric function "
+            f"'{getattr(custom_metric, '__name__', repr(custom_metric))}' at index "
+            f"{index} in the `custom_metrics` parameter returned None."
+        )
         return None, None
 
     def __validate_metrics_dict(metrics):
@@ -281,13 +300,17 @@ def _evaluate_custom_metric(custom_metric, eval_df, builtin_metrics):
 
     if (
         isinstance(result, tuple)
+        and len(result) == 2
         and __validate_metrics_dict(result[0])
         and __validate_artifacts_dict(result[1])
     ):
         return result
 
     raise MlflowException(
-        f"Custom metric '{custom_metric.__name__}' did not return in an expected format."
+        f"Custom metric '{getattr(custom_metric, '__name__', repr(custom_metric))}' at index "
+        f"{index} in the `custom_metrics` parameter did not return in an expected format. For more "
+        f"details refer to: https://mlflow.org/docs/latest/python_api/mlflow.html#mlflow.evaluate",
+        error_code=INVALID_PARAMETER_VALUE,
     )
 
 
@@ -574,11 +597,13 @@ class DefaultEvaluator(ModelEvaluator):
         self._log_pandas_df_artifact(per_class_metrics_collection_df, "per_class_metrics")
 
     def _evaluate_custom_metrics(self):
-        for custom_metric in self.custom_metrics:
+        for i, custom_metric in enumerate(self.custom_metrics):
             # recreating the dataframe for each custom metric function call,
             # in case the user modifies the eval_df inside their custom function.
-            eval_df = pd.DataFrame({"prediction": self.y_pred, "target": self.y})
-            metric_results, _ = _evaluate_custom_metric(custom_metric, eval_df, self.metrics)
+            eval_df = pd.DataFrame(
+                {"prediction": copy.deepcopy(self.y_pred), "target": copy.deepcopy(self.y)}
+            )
+            metric_results, _ = _evaluate_custom_metric(i, custom_metric, eval_df, self.metrics)
             # skip logging metric functions that doesn't return anything
             if metric_results is not None:
                 self.metrics.update(metric_results)

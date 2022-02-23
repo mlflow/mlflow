@@ -2,7 +2,6 @@ import numpy as np
 import json
 import pandas as pd
 import pytest
-import re
 
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation import evaluate
@@ -512,7 +511,7 @@ def test_evaluate_custom_metric_handle_none_result():
     def dummy_fn(*_):
         pass
 
-    assert _evaluate_custom_metric(dummy_fn, eval_df, metrics) == (None, None)
+    assert _evaluate_custom_metric(0, dummy_fn, eval_df, metrics) == (None, None)
 
 
 def test_evaluate_custom_metric_incorrect_return_formats():
@@ -543,9 +542,9 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     ):
         with pytest.raises(
             MlflowException,
-            match=(re.escape(f"'{test_fn.__name__}' did not return in an expected format")),
+            match=f"'{test_fn.__name__}' (.*) did not return in an expected format",
         ):
-            _evaluate_custom_metric(test_fn, eval_df, metrics)
+            _evaluate_custom_metric(0, test_fn, eval_df, metrics)
 
 
 def test_evaluate_custom_metric_success():
@@ -560,7 +559,7 @@ def test_evaluate_custom_metric_success():
             "example_np_metric_2": np.ulonglong(10000000),
         }
 
-    res_metrics, res_artifacts = _evaluate_custom_metric(example_custom_metric, eval_df, metrics)
+    res_metrics, res_artifacts = _evaluate_custom_metric(0, example_custom_metric, eval_df, metrics)
     assert res_metrics == {
         "example_count_times_1_point_5": metrics["example_count"] * 1.5,
         "sum_on_label_minus_5": metrics["sum_on_label"] - 5,
@@ -584,7 +583,7 @@ def test_evaluate_custom_metric_success():
         )
 
     res_metrics_2, res_artifacts_2 = _evaluate_custom_metric(
-        example_custom_metric_with_artifacts, eval_df, metrics
+        0, example_custom_metric_with_artifacts, eval_df, metrics
     )
     assert res_metrics_2 == {
         "example_count_times_1_point_5": metrics["example_count"] * 1.5,
