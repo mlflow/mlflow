@@ -4,6 +4,8 @@ import os
 import re
 import tempfile
 import posixpath
+import urllib
+import uuid
 
 import logging
 from functools import wraps
@@ -73,6 +75,9 @@ from mlflow.protos.mlflow_artifacts_pb2 import (
 )
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.store.artifact.http_artifact_repo import HttpArtifactRepository
+from mlflow.store.artifact.mlflow_artifacts_repo import MlflowArtifactsRepository
+from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
@@ -132,7 +137,7 @@ _model_registry_store_registry = ModelRegistryStoreRegistryWrapper()
 
 def _get_artifact_repo_mlflow_artifacts():
     """
-    Get an artifact repository specified by `--artifacts-destination` option for `mlflow server`
+    Get an artifact repository specified by ``--artifacts-destination`` option for ``mlflow server``
     command.
     """
     from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR
@@ -155,7 +160,13 @@ def _get_serve_artifacts_mode():
     global _serve_artifacts_mode
 
     if _serve_artifacts_mode is None:
-        _serve_artifacts_mode = os.environ.get(SERVE_ARTIFACTS_ENV_VAR, "false") == "true"
+        environment_flag = os.environ.get(SERVE_ARTIFACTS_ENV_VAR, "false") == "true"
+        artifact_repo = _get_artifact_repo_mlflow_artifacts()
+
+        _serve_artifacts_mode = environment_flag and isinstance(
+            artifact_repo,
+            (HttpArtifactRepository, MlflowArtifactsRepository, LocalArtifactRepository),
+        )
     return _serve_artifacts_mode
 
 
@@ -586,13 +597,16 @@ def _list_artifacts():
 @_disable_if_artifacts_only
 def _list_artifacts_non_proxy():
     request_message = _get_request_message(ListArtifacts())
-    response_message = ListArtifacts.Response()
+
     if request_message.HasField("path"):
         path = request_message.path
     else:
         path = None
+
     run_id = request_message.run_id or request_message.run_uuid
     run = _get_tracking_store().get_run(run_id)
+
+    response_message = ListArtifacts.Response()
     artifact_entities = _get_artifact_repo(run).list_artifacts(path)
     response_message.files.extend([a.to_proto() for a in artifact_entities])
     response_message.root_uri = _get_artifact_repo(run).artifact_uri
@@ -995,19 +1009,91 @@ def _list_artifacts_mlflow_artifacts():
     A request handler for `GET /mlflow-artifacts/artifacts?path=<value>` to list artifacts in `path`
     (a relative path from the root artifact directory).
     """
+    from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR
+
     request_message = _get_request_message(ListArtifactsMlflowArtifacts())
     path = request_message.path if request_message.HasField("path") else None
+
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
+
+    print(f"\n\n RAW PATH DATA: {path}")
+
+    def uuid_check(value):
+        try:
+            uuid.UUID(str(value))
+            return True
+        except ValueError:
+            return False
+
+    _artifact_root = _get_run_root_path()
+
+    if isinstance(_artifact_root, str):
+        root_path = _artifact_root
+        print(f"The artifact root is: {root_path}")
+        if any(uuid_check(x) for x in root_path.split("/")):
+            if path:
+                path = posixpath.join(root_path, path)
+            else:
+                path = root_path
+    else:
+        root_path = os.environ.get(ARTIFACTS_DESTINATION_ENV_VAR)
+        print(f"The root path is: {root_path}")
+        print(f"The path at this point is: {path}")
+        if path:
+            if not any(uuid_check(x) for x in path.split("/")):
+                path = posixpath.join(root_path, path)
+        else:
+            path = root_path
+
+        # if path:
+        #     if not path.startswith(root_path):
+        #         path = posixpath.join(root_path, path)
+        # else:
+        #     path = root_path
+
+    # if not path:
+    #     run_path = _get_run_root_path()
+    #     if isinstance(run_path, str):
+    #         path = run_path
+    #     else:
+    #         path = os.environ.get(ARTIFACTS_DESTINATION_ENV_VAR)
+
+    print(f"\n\n GET_RUN_ROOT_PATH: {path}")
+
+    # if path and not any(uuid_check(x) for x in path.split("/")):
+    #     path = posixpath.join(root_path, path)
+
     files = []
     for file_info in artifact_repo.list_artifacts(path):
         basename = posixpath.basename(file_info.path)
         new_file_info = FileInfo(basename, file_info.is_dir, file_info.file_size)
         files.append(new_file_info.to_proto())
+
+    print(f"\nFILES_PAYLOAD: {files}\n")
     response_message = ListArtifacts.Response()
     response_message.files.extend(files)
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
+
+
+@catch_mlflow_exception
+def _get_run_root_path():
+    request_message = _get_request_message(ListArtifacts())
+    if request_message:
+        run_id = request_message.run_id or request_message.run_uuid
+        run = _get_tracking_store().get_run(run_id)
+        artifact_uri = run.info.artifact_uri
+        core_path = urllib.parse.urlparse(artifact_uri)
+        if core_path.scheme.startswith("http"):
+            _, path = core_path.path.split("mlflow-artifacts/artifacts/", 1)
+        elif core_path.scheme.startswith("mlflow-artifacts"):
+            path = core_path.path.lstrip("/")
+        else:
+            _, path = core_path.path.split("mlartifacts/", 1)
+    else:
+        path = None
+    return path
 
 
 def _add_static_prefix(route):
