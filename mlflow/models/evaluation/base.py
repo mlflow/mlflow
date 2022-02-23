@@ -483,7 +483,7 @@ class ModelEvaluator(metaclass=ABCMeta):
         :param run_id: The ID of the MLflow Run to which to log results.
         :param evaluator_config: A dictionary of additional configurations for
                                  the evaluator.
-        :param custom_metrics: A list of callable custom metric functions
+        :param custom_metrics: A list of callable custom metric functions.
         :param kwargs: For forwards compatibility, a placeholder for additional arguments that
                        may be added to the evaluation interface in the future.
         :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
@@ -837,8 +837,9 @@ def evaluate(
                                       metrics: Dict[AnyStr, Union[int, float, np.number]] = ???
                                       artifacts: Dict[AnyStr, Any] = ???
                                       ...
-                                      # If no artifacts, replace the below with `return metrics`
-                                      return metrics, artifacts
+                                      if artifacts is not None:
+                                          return metrics, artifacts
+                                      return metrics
                                   ``
 
                               Example Usage:
@@ -858,8 +859,8 @@ def evaluate(
 
                               with mlflow.start_run():
                                   mlflow.evaluate(
-                                      model, X, targets, custom_metrics=(
-                                      squared_diff_plus_one,scatter_plot)...)
+                                      model, X, targets, custom_metrics=[
+                                      squared_diff_plus_one,scatter_plot,...])
 
     :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
              evaluation results.

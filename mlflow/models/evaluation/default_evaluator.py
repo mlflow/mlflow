@@ -263,7 +263,7 @@ def _evaluate_custom_metric(custom_metric, eval_df, builtin_metrics):
     result = custom_metric(eval_df, builtin_metrics)
     if result is None:
         _logger.warning(
-            f"Custom metric function '{custom_metric.__name__}' returned None. Logging ignored."
+            f"Custom metric function '{custom_metric.__name__}' returned None."
         )
         return None, None
 
@@ -290,11 +290,6 @@ def _evaluate_custom_metric(custom_metric, eval_df, builtin_metrics):
 
     raise MlflowException(
         f"Custom metric '{custom_metric.__name__}' did not return in an expected format."
-        f"The two acceptable return types are:"
-        f"1. Dict[AnyStr, Union[int, float, np.number]: a dictionary of metrics"
-        f"2. Tuple[Dict[AnyStr, Union[int, float, np.number]], Dict[AnyStr, Any]]: a"
-        f"   dictionary of metrics and a dictionary of artifacts."
-        f"For more, check out the docstring for mlflow.evaluate"
     )
 
 
