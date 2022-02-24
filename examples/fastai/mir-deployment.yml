@@ -1,8 +1,6 @@
 $schema: https://azuremlschemas.azureedge.net/latest/managedOnlineDeployment.schema.json
 # invoke completions (Ctrl+Space, Cmd+Space) to see the list of models available
-model:
-  local_path: .\mlruns\0\fb8b86e5ff3949399df5ba7ff29447c5\artifacts\model
-  model_format: mlflow
+model: azureml:fastai:1
 instance_type: Standard_F2s_v2
 instance_count: 1
 name: blue
