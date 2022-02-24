@@ -1013,7 +1013,7 @@ def _list_artifacts_mlflow_artifacts():
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     _run_root_path = _get_run_root_path()
 
-    if isinstance(_run_root_path, str):
+    if _run_root_path and isinstance(_run_root_path, str):
         path = _insert_run_path_mlflow_artifacts_uri(_run_root_path, path)
     else:
         root_path = os.environ.get(ARTIFACTS_DESTINATION_ENV_VAR)
@@ -1081,7 +1081,7 @@ def _get_run_root_path():
             _, path = core_path.path.split("mlartifacts", 1)
     else:
         path = ""
-    return path.lstrip("/")
+    return path.lstrip("/").lstrip("\\").lstrip("\\\\")
 
 
 def _add_static_prefix(route):
