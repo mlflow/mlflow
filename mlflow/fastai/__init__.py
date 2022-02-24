@@ -405,8 +405,9 @@ def autolog(
     :param silent: If ``True``, suppress all event logs and warnings from MLflow during Fastai
                    autologging. If ``False``, show all events and warnings during Fastai
                    autologging.
-    :param registered_model_name: If given, register the fitted model as the given name, or
-                                  create a new version model under the given name.
+    :param registered_model_name: If given, each time a model is trained, it is registered as a
+                                  new model version of the registered model with this name.
+                                  The registered model is created if it does not already exist.
 
     .. code-block:: python
         :caption: Example

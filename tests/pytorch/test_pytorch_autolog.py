@@ -10,7 +10,8 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from mlflow.utils.file_utils import TempDir
 from iris_data_module import IrisDataModule, IrisDataModuleWithoutValidation
 from mlflow.pytorch._pytorch_autolog import _get_optimizer_name
-from unittest.mock import patch, ANY
+from unittest.mock import patch
+from mlflow.tracking.client import MlflowClient
 
 NUM_EPOCHS = 20
 
@@ -308,19 +309,16 @@ def test_pytorch_autologging_supports_data_parallel_execution():
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("registered_model_name", [None, "model_abc"])
-def test_autolog_registering_model(registered_model_name):
+def test_autolog_registering_model():
+    registered_model_name = "test_autolog_registered_model"
     mlflow.pytorch.autolog(registered_model_name=registered_model_name)
     model = IrisClassification()
     dm = IrisDataModule()
     dm.setup(stage="fit")
     trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
 
-    with patch("mlflow.register_model") as mock_register_model, mlflow.start_run():
+    with mlflow.start_run():
         trainer.fit(model, dm)
-        if registered_model_name is None:
-            mock_register_model.assert_not_called()
-        else:
-            mock_register_model.assert_called_once_with(
-                ANY, registered_model_name, await_registration_for=ANY
-            )
+
+        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        assert registered_model.name == registered_model_name

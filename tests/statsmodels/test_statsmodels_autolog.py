@@ -4,6 +4,7 @@ import numpy as np
 from statsmodels.tsa.base.tsa_model import TimeSeriesModel
 import mlflow
 import mlflow.statsmodels
+from mlflow.tracking.client import MlflowClient
 from unittest.mock import patch, ANY
 from tests.statsmodels.model_fixtures import (
     arma_model,
@@ -215,14 +216,11 @@ def test_statsmodels_autolog_loads_model_from_artifact():
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("registered_model_name", [None, "model_abc"])
-def test_autolog_registering_model(registered_model_name):
+def test_autolog_registering_model():
+    registered_model_name = "test_autolog_registered_model"
     mlflow.statsmodels.autolog(registered_model_name=registered_model_name)
-    with patch("mlflow.register_model") as mock_register_model, mlflow.start_run():
+    with mlflow.start_run():
         ols_model()
-        if registered_model_name is None:
-            mock_register_model.assert_not_called()
-        else:
-            mock_register_model.assert_called_once_with(
-                ANY, registered_model_name, await_registration_for=ANY
-            )
+
+        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        assert registered_model.name == registered_model_name

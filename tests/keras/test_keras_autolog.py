@@ -5,6 +5,7 @@ from packaging.version import Version
 
 import mlflow
 import mlflow.keras
+from mlflow.tracking.client import MlflowClient
 from mlflow.utils.autologging_utils import BatchMetricsLogger
 from unittest.mock import patch, ANY
 
@@ -407,20 +408,16 @@ def test_fit_generator(random_train_data, random_one_hot_labels):
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("registered_model_name", [None, "model_abc"])
-def test_autolog_registering_model(registered_model_name, random_train_data, random_one_hot_labels):
+def test_autolog_registering_model(random_train_data, random_one_hot_labels):
+    registered_model_name = "test_autolog_registered_model"
     mlflow.keras.autolog(registered_model_name=registered_model_name)
 
     data = random_train_data
     labels = random_one_hot_labels
 
     model = create_model()
-    with patch("mlflow.register_model") as mock_register_model, mlflow.start_run():
+    with mlflow.start_run():
         model.fit(data, labels, epochs=10)
 
-        if registered_model_name is None:
-            mock_register_model.assert_not_called()
-        else:
-            mock_register_model.assert_called_once_with(
-                ANY, registered_model_name, await_registration_for=ANY
-            )
+        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        assert registered_model.name == registered_model_name

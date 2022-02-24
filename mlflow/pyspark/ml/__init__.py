@@ -795,8 +795,9 @@ def autolog(
     :param log_post_training_metrics: If ``True``, post training metrics are logged. Defaults to
                                       ``True``. See the `post training metrics`_ section for more
                                       details.
-    :param registered_model_name: If given, register the fitted model as the given name, or
-                                  create a new version model under the given name.
+    :param registered_model_name: If given, each time a model is trained, it is registered as a
+                                  new model version of the registered model with this name.
+                                  The registered model is created if it does not already exist.
 
     **The default log model allowlist in mlflow**
         .. literalinclude:: ../../../mlflow/pyspark/ml/log_model_allowlist.txt

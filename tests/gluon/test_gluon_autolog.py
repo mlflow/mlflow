@@ -12,6 +12,7 @@ from mxnet.gluon.nn import HybridSequential, Dense
 
 import mlflow
 import mlflow.gluon
+from mlflow.tracking.client import MlflowClient
 from mlflow.gluon._autolog import __MLflowGluonCallback
 from mlflow.utils.autologging_utils import BatchMetricsLogger
 from unittest.mock import patch, ANY
@@ -206,8 +207,8 @@ def test_callback_is_callable():
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("registered_model_name", [None, "model_abc"])
-def test_autolog_registering_model(registered_model_name):
+def test_autolog_registering_model():
+    registered_model_name = "test_autolog_registered_model"
     mlflow.gluon.autolog(registered_model_name=registered_model_name)
 
     data = DataLoader(LogsDataset(), batch_size=128, last_batch="discard")
@@ -223,15 +224,9 @@ def test_autolog_registering_model(registered_model_name):
     )
     est = get_estimator(model, trainer)
 
-    with patch(
-        "mlflow.register_model"
-    ) as mock_register_model, mlflow.start_run(), warnings.catch_warnings():
+    with mlflow.start_run(), warnings.catch_warnings():
         warnings.simplefilter("ignore")
         est.fit(data, epochs=3)
 
-        if registered_model_name is None:
-            mock_register_model.assert_not_called()
-        else:
-            mock_register_model.assert_called_once_with(
-                ANY, registered_model_name, await_registration_for=ANY
-            )
+        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        assert registered_model.name == registered_model_name
