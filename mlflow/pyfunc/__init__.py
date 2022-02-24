@@ -208,6 +208,8 @@ You may prefer the second, lower-level workflow for the following reasons:
 """
 
 import importlib
+import pickle
+import sys
 
 import numpy as np
 import os
@@ -215,6 +217,11 @@ import pandas
 import yaml
 from copy import deepcopy
 import logging
+import subprocess
+import tempfile
+import hashlib
+import threading
+import socket
 
 from typing import Any, Union, List, Dict
 import mlflow
@@ -232,7 +239,16 @@ from mlflow.pyfunc.model import get_default_pip_requirements
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType, Schema, TensorSpec
 from mlflow.types.utils import clean_tensor_type
-from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
+from mlflow.utils import (
+    PYTHON_VERSION,
+    get_major_minor_py_version,
+    databricks_utils,
+    read_long_from_stream,
+    write_long_to_stream,
+    read_data_from_stream,
+    write_data_to_stream,
+    get_file_sha_hexdigest,
+)
 from mlflow.utils.annotations import deprecated
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, write_to
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -656,15 +672,235 @@ def _warn_dependency_requirement_mismatches(model_path):
                 f"Python environment:\n{mismatch_str}"
             )
             _logger.warning(warning_msg)
+            return False
+        else:
+            return True
     except Exception as e:
         _logger.warning(
             f"Encountered an unexpected error ({repr(e)}) while detecting model dependency "
             "mismatches. Set logging level to DEBUG to see the full traceback."
         )
         _logger.debug("", exc_info=True)
+        return e
 
 
-def load_model(model_uri: str, suppress_warnings: bool = True, dst_path: str = None) -> PyFuncModel:
+_PYENV_CMD = 'pyenv'
+_VIRTUALENV_CMD = 'virtualenv'
+
+_PYTHON_ENV_CACHE_DIR = None
+
+
+def _get_or_create_python_env_cache_dir():
+    global _PYTHON_ENV_CACHE_DIR
+    if _PYTHON_ENV_CACHE_DIR is not None:
+        return _PYTHON_ENV_CACHE_DIR
+
+    if databricks_utils.is_in_databricks_runtime():
+        # In databricks, the '/local_disk0/.ephemeral_nfs' is mounted as NFS disk
+        # the data stored in the disk is shared with all remote nodes.
+        root_dir = '/local_disk0/.ephemeral_nfs/mlflow/cache'
+        os.makedirs(root_dir, exist_ok=True)
+        _PYTHON_ENV_CACHE_DIR = tempfile.mkdtemp(dir=root_dir)
+        # TODO: register deleting cache dir handler when exit
+    else:
+        """
+        import atexit
+        import shutil
+        _PYTHON_ENV_CACHE_DIR = tempfile.mkdtemp()
+        atexit.register(shutil.rmtree, _PYTHON_ENV_CACHE_DIR, ignore_errors=True)
+        """
+        _PYTHON_ENV_CACHE_DIR = '/tmp' # For debug purpose
+
+    os.makedirs(os.path.join(_PYTHON_ENV_CACHE_DIR, 'pythons'), exist_ok=True)
+    os.makedirs(os.path.join(_PYTHON_ENV_CACHE_DIR, 'venvs'), exist_ok=True)
+
+    return _PYTHON_ENV_CACHE_DIR
+
+
+_PICKLE_PROTOCOL_FOR_RESTORE_PY_ENV = 3
+
+
+class PyFuncModelWithRestoredPythonEnv(PyFuncModel):
+
+    def __init__(
+            self,
+            model_meta: Model,
+            loader_module: str,
+            model_path: str,
+            py_version: str,
+            requirements_file_path: str,
+    ):
+        if not model_meta:
+            raise MlflowException("Model is missing metadata.")
+        self._model_meta = model_meta
+        self._loader_module = loader_module
+        self._model_path = model_path
+        self._py_version = py_version
+        self._requirements_file_path = requirements_file_path
+        self._subproc = None
+        self._virtual_env_python_bin = None
+        self._comm_sock = None
+
+    def _setup_restored_python_env_subproc(self):
+        env_cache_dir = _get_or_create_python_env_cache_dir()
+        pyenv_home_path = os.path.join(
+            env_cache_dir, 'pythons'
+        )
+        python_installation_path = os.path.join(
+            pyenv_home_path, '.pyenv', 'versions', self._py_version
+        )
+        if not os.path.exists(python_installation_path):
+            # install specified python version
+            sub_env = os.environ.copy()
+            sub_env['HOME'] = pyenv_home_path
+            subprocess.run(
+                [_PYENV_CMD, 'install', '-v', self._py_version],
+                check=True, stdout=sys.stdout, stderr=sys.stderr,
+                env=sub_env
+            )
+        else:
+            _logger.info(f'Found python installation cache at {python_installation_path}')
+        python_bin_path = os.path.join(
+            python_installation_path, 'bin/python'
+        )
+        req_file_content_sha = get_file_sha_hexdigest(self._requirements_file_path)
+        virtual_env_path = os.path.join(
+            env_cache_dir, 'venvs', req_file_content_sha
+        )
+        if not os.path.exists(virtual_env_path):
+            # install virtual env
+            subprocess.run(
+                [_VIRTUALENV_CMD, f'--python={python_bin_path}', virtual_env_path]
+            )
+            virtual_env_pip = os.path.join(
+                virtual_env_path, 'bin/pip'
+            )
+            subprocess.run(
+                [virtual_env_pip, 'install', '-r', self._requirements_file_path],
+                check=True, stdout=sys.stdout, stderr=sys.stderr
+            )
+            # For debug purpose, install the dev mlflow version in virtual env
+            subprocess.run(
+                [virtual_env_pip, 'install', '-e',
+                 os.path.dirname(os.path.dirname(mlflow.__file__))]
+            )
+        else:
+            _logger.info(f'Found python virtual env cache at {virtual_env_path}')
+
+        self._virtual_env_python_bin = os.path.join(
+            virtual_env_path, 'bin/python'
+        )
+        # setup tcp connection with subproc
+        listen_sock = socket.socket()
+        try:
+            listen_sock.bind(('127.0.0.1', 0))
+            server_port = listen_sock.getsockname()[1]
+            listen_sock.listen(1)
+
+            self._subproc = subprocess.Popen(
+                [self._virtual_env_python_bin,
+                 '-m', 'mlflow.pyfunc.restored_python_env_model_infer_subproc',
+                 '--server_port', str(server_port),
+                 '--loader_module', self._loader_module,
+                 '--model_path', self._model_path,
+                 ],
+                stdout=sys.stdout, stderr=sys.stderr,
+            )
+
+            comm_sock, _ = listen_sock.accept()
+            self._comm_sock = comm_sock
+            self._comm_stream = comm_sock.makefile('rwb')
+        finally:
+            listen_sock.close()
+
+    def predict(self, data: PyFuncInput) -> PyFuncOutput:
+        import pandas as pd
+        if self._subproc is None:
+            self._setup_restored_python_env_subproc()
+
+        batch_size = 10  # TODO: automatically determine best batch size.
+        total_size = len(data)
+
+        def send_infer_data_to_subproc():
+            # TODO: address: csc matric cannot be slice efficiently in horizontal way
+            pos = 0
+            while pos < total_size:
+                end_pos = min(pos + batch_size, total_size)
+                batch_data = data[pos: end_pos]
+                pickle.dump(
+                    batch_data, self._comm_stream, protocol=_PICKLE_PROTOCOL_FOR_RESTORE_PY_ENV
+                )
+                self._comm_stream.flush()
+                pos += batch_size
+
+            # write a None object as the data end signal.
+            pickle.dump(None, self._comm_stream, protocol=_PICKLE_PROTOCOL_FOR_RESTORE_PY_ENV)
+            self._comm_stream.flush()
+
+        send_data_thread = threading.Thread(target=send_infer_data_to_subproc, daemon=True)
+        send_data_thread.start()
+
+        received_data = []
+        while True:
+            batch = pickle.load(self._comm_stream)
+            _logger.info(
+                'parent proc load prediction batch done.'
+            )
+            if batch is None:
+                break
+            received_data.append(batch)
+
+        if isinstance(received_data[0], (np.ndarray, list)):
+            result = np.concatenate(received_data)
+        elif isinstance(received_data[0], (pd.DataFrame, pd.Series)):
+            result = pd.concat(received_data, axis=0)
+        else:
+            raise RuntimeError('Unknown result data type.')
+
+        _logger.info(
+            'parent proc: merged batch data from subproc.'
+        )
+        return result
+
+    def close(self):
+        self._comm_stream.close()
+        self._comm_sock.shutdown(socket.SHUT_RDWR)
+        self._comm_sock.close()
+        # self._subproc.terminate()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    @property
+    def metadata(self):
+        """Model metadata."""
+        if self._model_meta is None:
+            raise MlflowException("Model is missing metadata.")
+        return self._model_meta
+
+    def __repr__(self):
+        info = {}
+        if self._model_meta is not None:
+            if hasattr(self._model_meta, "run_id") and self._model_meta.run_id is not None:
+                info["run_id"] = self._model_meta.run_id
+            if (
+                hasattr(self._model_meta, "artifact_path")
+                and self._model_meta.artifact_path is not None
+            ):
+                info["artifact_path"] = self._model_meta.artifact_path
+            info["flavor"] = self._model_meta.flavors[FLAVOR_NAME]["loader_module"]
+        return yaml.safe_dump({"mlflow.pyfunc.loaded_model": info}, default_flow_style=False)
+
+
+def load_model(
+        model_uri: str,
+        suppress_warnings: bool = True,
+        dst_path: str = None,
+        restore_python_env = False,
+) -> Union[PyFuncModel]:
     """
     Load a model stored in Python function format.
 
@@ -690,8 +926,6 @@ def load_model(model_uri: str, suppress_warnings: bool = True, dst_path: str = N
     """
     local_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
 
-    _warn_dependency_requirement_mismatches(local_path)
-
     model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
 
     conf = model_meta.flavors.get(FLAVOR_NAME)
@@ -701,14 +935,29 @@ def load_model(model_uri: str, suppress_warnings: bool = True, dst_path: str = N
             RESOURCE_DOES_NOT_EXIST,
         )
     model_py_version = conf.get(PY_VERSION)
-    if not suppress_warnings:
+    is_py_version_mismatch = \
         _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)
     if CODE in conf and conf[CODE]:
         code_path = os.path.join(local_path, conf[CODE])
         mlflow.pyfunc.utils._add_code_to_system_path(code_path=code_path)
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
-    model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
-    return PyFuncModel(model_meta=model_meta, model_impl=model_impl)
+
+    is_env_mismatch = _warn_dependency_requirement_mismatches(local_path) is False
+
+    loader_module = conf[MAIN]
+
+    if not restore_python_env or (not is_env_mismatch and not is_py_version_mismatch):
+        model_impl = importlib.import_module(loader_module)._load_pyfunc(data_path)
+        return PyFuncModel(model_meta=model_meta, model_impl=model_impl)
+    else:
+        req_file_path = os.path.join(local_path, _REQUIREMENTS_FILE_NAME)
+        return PyFuncModelWithRestoredPythonEnv(
+            model_meta=model_meta,
+            loader_module=loader_module,
+            model_path=data_path,
+            py_version=model_py_version,
+            requirements_file_path=req_file_path,
+        )
 
 
 @deprecated("mlflow.pyfunc.load_model", 1.0)
@@ -749,6 +998,7 @@ def _warn_potentially_incompatible_py_version_if_necessary(model_py_version=None
             " incompatible with the version of Python that is currently running: Python %s",
             PYTHON_VERSION,
         )
+        return True
     elif get_major_minor_py_version(model_py_version) != get_major_minor_py_version(PYTHON_VERSION):
         _logger.warning(
             "The version of Python that the model was saved in, `Python %s`, differs"
@@ -757,6 +1007,8 @@ def _warn_potentially_incompatible_py_version_if_necessary(model_py_version=None
             model_py_version,
             PYTHON_VERSION,
         )
+        return True
+    return False
 
 
 def spark_udf(spark, model_uri, result_type="double"):

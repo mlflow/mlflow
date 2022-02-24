@@ -1,6 +1,8 @@
 import logging
 from itertools import islice
 from sys import version_info
+import struct
+import hashlib
 
 
 _logger = logging.getLogger(__name__)
@@ -172,3 +174,31 @@ def _inspect_original_var_name(var, fallback_name):
 
     except Exception:
         return fallback_name
+
+
+def read_long_from_stream(stream):
+    length = stream.read(8)
+    if not length:
+        raise EOFError
+    return struct.unpack("!q", length)[0]
+
+
+def write_long_to_stream(value, stream):
+    stream.write(struct.pack("!q", value))
+
+
+def read_data_from_stream(stream):
+    data_len = read_long_from_stream(stream)
+    return stream.read(data_len)
+
+
+def write_data_to_stream(data_in_bytes, stream):
+    write_long_to_stream(len(data_in_bytes), stream)
+    stream.write(data_in_bytes)
+
+
+def get_file_sha_hexdigest(file_path):
+    with open(file_path, 'rb') as f:
+        file_data = f.read()
+
+    return hashlib.sha1(file_data).hexdigest()
