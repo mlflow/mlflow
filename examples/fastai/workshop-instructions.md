@@ -57,6 +57,33 @@ Screenshot below show that local endpoint is up and running
 
 Now we can use `http://localhost:5000/invocations` endpoint to do some inferencing locally. Yuppiieeee .....
 
+Lets run an inference request
+```python
+import requests
+
+inference_request = {
+    "columns": [
+        "alcohol",
+        "chlorides",
+        "citric acid",
+        "density",
+        "fixed acidity",
+        "free sulfur dioxide",
+        "pH",
+        "residual sugar",
+        "sulphates",
+        "total sulfur dioxide",
+        "volatile acidity",
+    ],
+    "data": [[7.4,0.7,0,1.9,0.076,11,34,0.9978,3.51,0.56,9.4]],
+}
+
+endpoint = "http://localhost:5000/invocations"
+response = requests.post(endpoint, json=inference_request)
+
+response.json()
+```
+
 ### Deploy remote
 
 Create an MIR endpoint
