@@ -1074,14 +1074,14 @@ def _get_run_root_path():
         artifact_uri = run.info.artifact_uri
         core_path = urllib.parse.urlparse(artifact_uri)
         if core_path.scheme.startswith("http"):
-            _, path = core_path.path.split("mlflow-artifacts/artifacts/", 1)
+            _, _, path = core_path.path.split("artifacts", 2)
         elif core_path.scheme.startswith("mlflow-artifacts"):
-            path = core_path.path.lstrip("/")
+            path = core_path.path
         else:
-            _, path = core_path.path.split("mlartifacts/", 1)
+            _, path = core_path.path.split("mlartifacts", 1)
     else:
-        path = None
-    return path
+        path = ""
+    return path.lstrip("/")
 
 
 def _add_static_prefix(route):
