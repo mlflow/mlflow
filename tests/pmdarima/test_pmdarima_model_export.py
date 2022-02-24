@@ -1,8 +1,6 @@
 import os
 import pytest
 from unittest import mock
-import requests
-from pkg_resources import parse_version
 
 import pmdarima
 import numpy as np
@@ -28,9 +26,12 @@ from tests.helper_functions import (
     _compare_conda_env_requirements,
     _assert_pip_requirements,
     pyfunc_serve_and_score_model,
+    _is_available_on_pypi,
 )
 
 pytestmark = pytest.mark.large
+
+EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("pmdarima") else ["--no-conda"]
 
 
 @pytest.fixture(scope="function")
@@ -358,24 +359,11 @@ def test_pmdarima_model_log_without_conda_env_uses_default_env_with_expected_dep
 
 def test_pmdarima_pyfunc_serve_and_score(auto_arima_model):
 
-    # NB: dev version of pmdarima uses a __version__ tag of "0.0.0" which will fail the env build.
-    # To be as safe as possible in cross version tests, use the latest released version when
-    # testing dev pmdarima.
-
-    def get_latest_version():
-        ver = pmdarima.__version__
-        if ver == "0.0.0":
-            url = "https://pypi.org/pypi/pmdarima/json"
-            resp = requests.get(url).json()
-            releases = resp["releases"].keys()
-            return sorted(releases, key=parse_version, reverse=True)[0]
-        else:
-            return ver
-
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.pmdarima.log_model(
-            auto_arima_model, artifact_path, pip_requirements=[f"pmdarima=={get_latest_version()}"]
+            auto_arima_model,
+            artifact_path,
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
     local_predict = auto_arima_model.predict(30)
@@ -386,6 +374,7 @@ def test_pmdarima_pyfunc_serve_and_score(auto_arima_model):
         model_uri,
         data=inference_data,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED,
+        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
     scores = pd.read_json(resp.content.decode("utf-8"), orient="records").to_numpy().flatten()
     np.testing.assert_array_almost_equal(scores, local_predict)
@@ -401,10 +390,15 @@ def test_pmdarima_pyfunc_raises_invalid_df_input(auto_arima_model, model_path):
         predict_conf_rows = pd.DataFrame([{"n_periods": 60}, {"n_periods": 100}])
         loaded_pyfunc.predict(predict_conf_rows)
 
-    with pytest.raises(MlflowException, match="The provided schema "):
+    with pytest.raises(MlflowException, match="The provided prediction configuration "):
 
-        predict_conf_name = pd.DataFrame([{"n_periods": 10, "invalid": True}])
+        predict_conf_name = pd.DataFrame([{"invalid": True}])
         loaded_pyfunc.predict(predict_conf_name)
+
+    with pytest.raises(MlflowException, match="The provided `n_periods` value "):
+
+        predict_conf_rows = pd.DataFrame([{"n_periods": "60"}])
+        loaded_pyfunc.predict(predict_conf_rows)
 
 
 def test_pmdarima_pyfunc_return_correct_structure(auto_arima_model, model_path):
@@ -416,12 +410,12 @@ def test_pmdarima_pyfunc_return_correct_structure(auto_arima_model, model_path):
     forecast_no_ci = loaded_pyfunc.predict(predict_conf_no_ci)
 
     assert isinstance(forecast_no_ci, pd.DataFrame)
-    assert len(forecast_no_ci == 10)
-    assert len(forecast_no_ci.columns.values == 1)
+    assert len(forecast_no_ci) == 10
+    assert len(forecast_no_ci.columns.values) == 1
 
     predict_conf_with_ci = pd.DataFrame([{"n_periods": 10, "return_conf_int": True}])
     forecast_with_ci = loaded_pyfunc.predict(predict_conf_with_ci)
 
     assert isinstance(forecast_with_ci, pd.DataFrame)
-    assert len(forecast_with_ci == 10)
-    assert len(forecast_with_ci.columns.values == 3)
+    assert len(forecast_with_ci) == 10
+    assert len(forecast_with_ci.columns.values) == 3

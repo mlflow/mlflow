@@ -17,6 +17,7 @@ import pickle
 import warnings
 import pandas as pd
 import yaml
+from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
@@ -30,6 +31,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
     _mlflow_conda_env,
     _validate_env_arguments,
@@ -50,6 +52,7 @@ _MODEL_TYPE_KEY = "model_type"
 _logger = logging.getLogger(__name__)
 
 
+@experimental
 def get_default_pip_requirements():
     """
     :return: A list of default pip requirements for MLflow Models produced by this flavor.
@@ -59,6 +62,7 @@ def get_default_pip_requirements():
     return [_get_pinned_requirement("pmdarima")]
 
 
+@experimental
 def get_default_conda_env():
     """
     :return: The default Conda environment for MLflow Models produced by calls to
@@ -67,6 +71,7 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
+@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     pmdarima_model,
@@ -95,11 +100,11 @@ def save_model(
 
                       .. code-block:: py
 
-                      from mlflow.models.signature import infer_signature
+                        from mlflow.models.signature import infer_signature
 
-                      model = pmdarima.auto_arima(data)
-                      predictions = model.predict(n_periods=30, return_conf_int=False)
-                      signature = infer_signature(data, predictions)
+                        model = pmdarima.auto_arima(data)
+                        predictions = model.predict(n_periods=30, return_conf_int=False)
+                        signature = infer_signature(data, predictions)
 
                       .. Warning:: if utilizing confidence interval generation in the ``predict``
                         method of a ``pmdarima`` model (``return_conf_int=True``), the signature
@@ -168,6 +173,7 @@ def save_model(
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
 
+@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     pmdarima_model,
@@ -201,11 +207,11 @@ def log_model(
 
                       .. code-block:: py
 
-                      from mlflow.models.signature import infer_signature
+                        from mlflow.models.signature import infer_signature
 
-                      model = pmdarima.auto_arima(data)
-                      predictions = model.predict(n_periods=30, return_conf_int=False)
-                      signature = infer_signature(data, predictions)
+                        model = pmdarima.auto_arima(data)
+                        predictions = model.predict(n_periods=30, return_conf_int=False)
+                        signature = infer_signature(data, predictions)
 
                       .. Warning:: if utilizing confidence interval generation in the ``predict``
                         method of a ``pmdarima`` model (``return_conf_int=True``), the signature
@@ -244,6 +250,7 @@ def log_model(
     )
 
 
+@experimental
 def load_model(model_uri, dst_path=None):
     """
     Load a ``pmdarima`` ``ARIMA`` model or ``Pipeline`` object from a local file or a run.
@@ -301,31 +308,37 @@ class _PmdarimaModelWrapper:
 
     def predict(self, dataframe) -> pd.DataFrame:
 
-        schema = {"n_periods", "X", "return_conf_int", "alpha"}
         df_schema = dataframe.columns.values.tolist()
 
         if len(dataframe) > 1:
             raise MlflowException(
-                f"The provided prediction pd.DataFrame {dataframe.to_string()} "
-                f"contains {len(dataframe)} rows. Only 1 row should be supplied."
-            )
-
-        if not set(df_schema).issubset(schema):
-            raise MlflowException(
-                f"The provided schema {df_schema} contains invalid columns. "
-                f"Columns must be part of: {schema}"
+                f"The provided prediction pd.DataFrame contains {len(dataframe)} rows. "
+                "Only 1 row should be supplied."
             )
 
         attrs = dataframe.to_dict(orient="index").get(0)
         n_periods = attrs.get("n_periods", None)
 
-        # NB Any model that is trained with exogeneous regressor elements will need to provide
-        # `X` entries as a 2D array structure to the predict method.
-        exogoneous_regressor = attrs.get("X", None)
+        if not n_periods:
+            raise MlflowException(
+                f"The provided prediction configuration pd.DataFrame columns ({df_schema}) do not"
+                "contain the required column `n_periods` for specifying future prediction periods "
+                "to generate."
+            )
 
-        if exogoneous_regressor and self._pmdarima_version < "1.8.0":
+        if not isinstance(n_periods, int):
+            raise MlflowException(
+                f"The provided `n_periods` value {n_periods} must be an integer."
+                f"provided type: {type(n_periods)}"
+            )
+
+        # NB Any model that is trained with exogenous regressor elements will need to provide
+        # `X` entries as a 2D array structure to the predict method.
+        exogonous_regressor = attrs.get("X", None)
+
+        if exogonous_regressor and Version(self._pmdarima_version) < Version("1.8.0"):
             warnings.warn(
-                "An exogeneous regressor element was provided in column 'X'. This is "
+                "An exogenous regressor element was provided in column 'X'. This is "
                 "supported only in pmdarima version >= 1.8.0. Installed version: "
                 f"{self._pmdarima_version}"
             )
@@ -339,10 +352,10 @@ class _PmdarimaModelWrapper:
                 "an integer value for number of future periods to predict."
             )
 
-        if self._pmdarima_version >= "1.8.0":
+        if Version(self._pmdarima_version) >= Version("1.8.0"):
             raw_predictions = self.pmdarima_model.predict(
                 n_periods=n_periods,
-                X=exogoneous_regressor,
+                X=exogonous_regressor,
                 return_conf_int=return_conf_int,
                 alpha=alpha,
             )

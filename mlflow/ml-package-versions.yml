@@ -354,8 +354,8 @@ pmdarima:
       pip install $CACHE_DIR/pmdarima-*.whl
 
   models:
-    minimum: "1.8.4"
-    maximum: "1.8.4"
+    minimum: "1.8.0"
+    maximum: "1.8.5"
     requirements: ["prophet"]
     run: |
       pytest tests/pmdarima/test_pmdarima_model_export.py --large

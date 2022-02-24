@@ -16,8 +16,6 @@ pytest tests/utils/test_model_utils.py --large
 pytest tests/h2o --large
 pytest tests/shap --large
 pytest tests/paddle --large
-pytest tests/prophet --large
-pytest tests/pmdarima --large
 
 pytest tests/tracking/fluent/test_fluent_autolog.py --large
 pytest tests/autologging --large
