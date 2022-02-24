@@ -61,7 +61,7 @@ def main():
     with mlflow.start_run():
         # Train and fit with default or supplied command line arguments
         learn.fit_one_cycle(args.epochs, args.lr)
-        mlflow.fastai.log_model(learn, "fastai")
+        mlflow.fastai.log_model(learn, "fastai", registered_model_name="CnnLearningMnistModel")
 
 
 if __name__ == "__main__":

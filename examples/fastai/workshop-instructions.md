@@ -42,7 +42,47 @@ az ml job create -f azureml-job.yml
 
 ## Inferencing
 
+After model is trained and registered (done in the training script) we will start with inferencing.
 ### Deploy local
+To deploy model locally run the below command on the terminal with conda environment activate (see setup file for conda environment).
+
+```bash
+mlflow models serve --model-uri models:/ElasticnetWineModel/1
+```
+
+The command above will deploy model `ElasticWineModel` version `1` locally as local REST API endpoint. Default port used is 5000.
+
+Screenshot below show that local endpoint is up and running
+![Local Inference](./local_inference.png)
+
+Now we can use `http://localhost:5000/invocations` endpoint to do some inferencing locally. Yuppiieeee .....
+
+Lets run an inference request
+```python
+import requests
+
+inference_request = {
+    "columns": [
+        "alcohol",
+        "chlorides",
+        "citric acid",
+        "density",
+        "fixed acidity",
+        "free sulfur dioxide",
+        "pH",
+        "residual sugar",
+        "sulphates",
+        "total sulfur dioxide",
+        "volatile acidity",
+    ],
+    "data": [[7.4,0.7,0,1.9,0.076,11,34,0.9978,3.51,0.56,9.4]],
+}
+
+endpoint = "http://localhost:5000/invocations"
+response = requests.post(endpoint, json=inference_request)
+
+response.json()
+```
 
 ### Deploy remote
 

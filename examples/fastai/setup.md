@@ -32,7 +32,7 @@ cd ./mlflow/examples/fastai
 
 `conda.yaml` is the configuration file you use to create the new conda environment. `conda.yaml` specifies dependencies like `mlflow`, `fastai` and `azureml-mlflow` that are needed for this workshop. When you create the conda environment, you'll see each of the depending package installed.
 
-Run this command to create the conda environment, name of the environment is `fasai-example`
+Run this command to create the conda environment, name of the environment is `fastai-example`
 
 ```bash
 conda env update --file ./conda.yaml
@@ -42,6 +42,17 @@ Activate the environment by,
 
 ```bash
 conda activate fastai-example
+```
+
+Run the below commands to allow conda env to show up among the list of kernels in jupyter notebook
+```bash
+conda install -c anaconda ipykernel
+python3 -m ipykernel install --user --name=fastai-example
+```
+
+Install widgets for visualizations
+```bash
+pip3 install ipywidgets
 ```
 
 ## Install AzureML CLI extension v2
