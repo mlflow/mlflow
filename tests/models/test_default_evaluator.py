@@ -504,19 +504,18 @@ def test_gen_multiclass_roc_curve():
     assert np.allclose(results.auc, expected_auc, rtol=1e-3)
 
 
-def test_evaluate_custom_metric_handle_none_result():
+def test_evaluate_custom_metric_incorrect_return_formats():
     eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
     metrics = _get_regressor_metrics(eval_df["target"], eval_df["prediction"])
 
     def dummy_fn(*_):
         pass
 
-    assert _evaluate_custom_metric(0, dummy_fn, eval_df, metrics) == (None, None)
-
-
-def test_evaluate_custom_metric_incorrect_return_formats():
-    eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
-    metrics = _get_regressor_metrics(eval_df["target"], eval_df["prediction"])
+    with pytest.raises(
+        MlflowException,
+        match=f"'{dummy_fn.__name__}' (.*) returned None",
+    ):
+        _evaluate_custom_metric(0, dummy_fn, eval_df, metrics)
 
     def incorrect_return_type_1(*_):
         return 3
@@ -524,27 +523,42 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def incorrect_return_type_2(*_):
         return "stuff", 3
 
-    def non_str_metric_name(*_):
-        return {123: 123, "a": 32.1, "b": 3}
-
-    def non_numerical_metric_value(*_):
-        return {"stuff": 12, "non_numerical_metric": "123"}
-
-    def non_str_artifact_name(*_):
-        return {"a": 32.1, "b": 3}, {1: [1, 2, 3]}
-
     for test_fn in (
         incorrect_return_type_1,
         incorrect_return_type_2,
-        non_str_metric_name,
-        non_numerical_metric_value,
-        non_str_artifact_name,
     ):
         with pytest.raises(
             MlflowException,
             match=f"'{test_fn.__name__}' (.*) did not return in an expected format",
         ):
             _evaluate_custom_metric(0, test_fn, eval_df, metrics)
+
+    def non_str_metric_name(*_):
+        return {123: 123, "a": 32.1, "b": 3}
+
+    def non_numerical_metric_value(*_):
+        return {"stuff": 12, "non_numerical_metric": "123"}
+
+    for test_fn in (
+        non_str_metric_name,
+        non_numerical_metric_value,
+    ):
+        with pytest.raises(
+            MlflowException,
+            match=f"'{test_fn.__name__}' (.*) did not return metrics as a dictionary of "
+            "string metric names with numerical values",
+        ):
+            _evaluate_custom_metric(0, test_fn, eval_df, metrics)
+
+    def non_str_artifact_name(*_):
+        return {"a": 32.1, "b": 3}, {1: [1, 2, 3]}
+
+    with pytest.raises(
+        MlflowException,
+        match=f"'{non_str_artifact_name.__name__}' (.*) did not return artifacts as a "
+        "dictionary of string artifact names with their corresponding objects",
+    ):
+        _evaluate_custom_metric(0, non_str_artifact_name, eval_df, metrics)
 
 
 def test_evaluate_custom_metric_success():

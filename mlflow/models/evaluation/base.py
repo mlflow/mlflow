@@ -462,15 +462,7 @@ class ModelEvaluator(metaclass=ABCMeta):
 
     @abstractmethod
     def evaluate(
-        self,
-        *,
-        model,
-        model_type,
-        dataset,
-        run_id,
-        evaluator_config,
-        custom_metrics=None,
-        **kwargs,
+        self, *, model, model_type, dataset, run_id, evaluator_config, custom_metrics=None, **kwargs
     ):
         """
         The abstract API to log metrics and artifacts, and return evaluation results.
@@ -799,43 +791,55 @@ def evaluate(
                              supplied as a nested dictionary whose key is the evaluator name.
 
     :param custom_metrics: (Optional) A list of custom metric functions. A custom metric
-                              function is required to take in two parameters:
-                              - Union[pandas.Dataframe, pyspark.sql.DataFrame]: The first being a
-                                Pandas or Spark DataFrame containing ``prediction`` and ``target``
-                                column. The ``prediction`` column contains the predictions made by
-                                the model. The ``target`` column contains the corresponding labels
-                                to the predictions made on that row.
-                              - Dict: The second is a dictionary containing the metrics calculated
-                                by the default evaluator. The keys are the names of the metrics
-                                and the values are the scalar values of the metrics. Refer to the
-                                DefaultEvaluator behavior section for what metrics will be returned
-                                based on the type of model (i.e. classifier or regressor).
+                           function is required to take in two parameters:
 
-                              A custom metric function can return in two different formats:
-                              - Dict[AnyStr, Union[int, float, np.number]: a singular dictionary of
-                                custom metrics, where the keys are the names of the metrics, and the
-                                values are the scalar values of the metrics.
+                           - Union[pandas.Dataframe, pyspark.sql.DataFrame]: The first being a
+                             Pandas or Spark DataFrame containing ``prediction`` and ``target``
+                             column. The ``prediction`` column contains the predictions made by
+                             the model. The ``target`` column contains the corresponding labels
+                             to the predictions made on that row.
+                           - Dict: The second is a dictionary containing the metrics calculated
+                             by the default evaluator. The keys are the names of the metrics
+                             and the values are the scalar values of the metrics. Refer to the
+                             DefaultEvaluator behavior section for what metrics will be returned
+                             based on the type of model (i.e. classifier or regressor).
 
-                              .. code-block:: python
-                                  :caption: Custom Metric Function Boilerplate:
-                                  def custom_metrics_boilerplate(eval_df, builtin_metrics):
-                                      ...
-                                      metrics: Dict[AnyStr, Union[int, float, np.number]] = ???
-                                      ...
-                                      return metrics
+                           A custom metric function can return in the following format:
 
-                              .. code-block:: python
-                                  :caption: Example usage of custom metrics:
-                                  def squared_diff_plus_one(eval_df, builtin_metrics):
-                                      return {
-                                          "sdiff_plus_one": (np.sum(np.abs(eval_df["prediction"]
-                                                            - eval_df["target"]+1)**2))
-                                      }
+                           - Dict[AnyStr, Union[int, float, np.number]: a singular dictionary of
+                             custom metrics, where the keys are the names of the metrics, and the
+                             values are the scalar values of the metrics.
 
-                                  with mlflow.start_run():
-                                      mlflow.evaluate(
-                                          model, X, targets, custom_metrics=[
-                                          squared_diff_plus_one,...])
+                           .. code-block:: python
+                               :caption: Custom Metric Function Boilerplate
+
+                               def custom_metrics_boilerplate(eval_df, builtin_metrics):
+                                   # ...
+                                   metrics: Dict[AnyStr, Union[int, float, np.number]] = some_dict
+                                   # ...
+                                   return metrics
+
+                           .. code-block:: python
+                               :caption: Example usage of custom metrics
+
+                               def squared_diff_plus_one(eval_df, builtin_metrics):
+                                 return {
+                                     "squared_diff_plus_one": (
+                                         np.sum(
+                                             np.abs(
+                                                 eval_df["prediction"] - eval_df["target"] + 1
+                                             ) ** 2
+                                         )
+                                     )
+                                 }
+
+                               with mlflow.start_run():
+                                   mlflow.evaluate(
+                                       model,
+                                       X,
+                                       targets,
+                                       custom_metrics=[squared_diff_plus_one, ...],
+                                   )
 
     :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
              evaluation results.

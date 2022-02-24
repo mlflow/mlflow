@@ -267,49 +267,67 @@ def _evaluate_custom_metric(index, custom_metric, eval_df, builtin_metrics):
     result to ensure that they are in the expected format. It will raise a MlflowException if
     the result is not in the expected format.
 
-    :param index
-    :param custom_metric: A user provided custom metric function
-    :param eval_df: A Pandas dataframe object containing a prediction and a target column
-    :param builtin_metrics: A dictionary of metrics produced by the default evaluator
+    :param index: The index of the custom metric function in the custom_metrics parameter
+                  of the mlflow.evaluate function.
+    :param custom_metric: A user provided custom metric function.
+    :param eval_df: A Pandas dataframe object containing a prediction and a target column.
+    :param builtin_metrics: A dictionary of metrics produced by the default evaluator.
     :return: A tuple of dictionaries. The first is a dictionary of metrics, the second is
-             a dictionary of artifacts (which can be null if the custom metric function did
+             a dictionary of artifacts (which can be None if the custom metric function did
              not produce any).
     """
+    exception_header = (
+        f"Custom metric function "
+        f"'{getattr(custom_metric, '__name__', repr(custom_metric))}' at index {index} in the "
+        f"`custom_metrics` parameter"
+    )
+
     result = custom_metric(eval_df, builtin_metrics)
     if result is None:
-        _logger.warning(
-            f"Custom metric function "
-            f"'{getattr(custom_metric, '__name__', repr(custom_metric))}' at index "
-            f"{index} in the `custom_metrics` parameter returned None."
-        )
-        return None, None
+        raise MlflowException(f"{exception_header} returned None.")
 
-    def __validate_metrics_dict(metrics):
-        return isinstance(metrics, dict) and all(
+    def __validate_metrics(metrics):
+        if not all(
             isinstance(metric_name, str) and isinstance(metric_val, (int, float, np.number))
             for metric_name, metric_val in metrics.items()
-        )
+        ):
+            raise MlflowException(
+                f"{exception_header} did not return metrics as a dictionary of string metric names "
+                "with numerical values."
+            )
 
-    def __validate_artifacts_dict(artifacts):
-        return isinstance(artifacts, dict) and all(
-            isinstance(artifacts_name, str) for artifacts_name in artifacts.keys()
-        )
+    def __validate_artifacts(artifacts):
+        if not (
+            isinstance(artifacts, dict)
+            and all(isinstance(artifacts_name, str) for artifacts_name in artifacts.keys())
+        ):
+            raise MlflowException(
+                f"{exception_header} did not return artifacts as a dictionary of string artifact "
+                "names with their corresponding objects."
+            )
 
-    if isinstance(result, dict) and __validate_metrics_dict(result):
+    if isinstance(result, dict):
+        __validate_metrics(result)
         return result, None
 
     if (
         isinstance(result, tuple)
         and len(result) == 2
-        and __validate_metrics_dict(result[0])
-        and __validate_artifacts_dict(result[1])
+        and isinstance(result[0], dict)
+        and isinstance(result[1], dict)
     ):
+        __validate_metrics(result[0])
+        __validate_artifacts(result[1])
         return result
 
     raise MlflowException(
-        f"Custom metric '{getattr(custom_metric, '__name__', repr(custom_metric))}' at index "
-        f"{index} in the `custom_metrics` parameter did not return in an expected format. For more "
-        f"details refer to: https://mlflow.org/docs/latest/python_api/mlflow.html#mlflow.evaluate",
+        f"{exception_header} did not return in an expected format. "
+        "The two acceptable return types are: \n"
+        "1. Dict[AnyStr, Union[int, float, np.number]: a dictionary of metrics \n"
+        "2. Tuple[Dict[AnyStr, Union[int, float, np.number]], Dict[AnyStr, Any]]: a"
+        "   dictionary of metrics and a dictionary of artifacts. \n"
+        "For more details refer to: "
+        "https://mlflow.org/docs/latest/python_api/mlflow.html#mlflow.evaluate",
         error_code=INVALID_PARAMETER_VALUE,
     )
 
@@ -597,16 +615,18 @@ class DefaultEvaluator(ModelEvaluator):
         self._log_pandas_df_artifact(per_class_metrics_collection_df, "per_class_metrics")
 
     def _evaluate_custom_metrics(self):
+        if self.custom_metrics is None:
+            return
+        copy_of_y_pred = copy.deepcopy(self.y_pred)
+        copy_of_y = copy.deepcopy(self.y)
+        copy_of_metrics = copy.deepcopy(self.metrics)
         for i, custom_metric in enumerate(self.custom_metrics):
             # recreating the dataframe for each custom metric function call,
             # in case the user modifies the eval_df inside their custom function.
-            eval_df = pd.DataFrame(
-                {"prediction": copy.deepcopy(self.y_pred), "target": copy.deepcopy(self.y)}
-            )
-            metric_results, _ = _evaluate_custom_metric(i, custom_metric, eval_df, self.metrics)
+            eval_df = pd.DataFrame({"prediction": copy_of_y_pred, "target": copy_of_y})
+            metric_results, _ = _evaluate_custom_metric(i, custom_metric, eval_df, copy_of_metrics)
             # skip logging metric functions that doesn't return anything
-            if metric_results is not None:
-                self.metrics.update(metric_results)
+            self.metrics.update(metric_results)
             # TODO: artifact detection and logging.
 
     def _evaluate_classifier(self):
@@ -725,7 +745,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.evaluator_config = evaluator_config
             self.dataset_name = dataset.name
             self.feature_names = dataset.feature_names
-            self.custom_metrics = [] if custom_metrics is None else custom_metrics
+            self.custom_metrics = custom_metrics
 
             (
                 model_loader_module,
