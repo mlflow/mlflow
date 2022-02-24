@@ -807,6 +807,7 @@ def test_autologging_handle_wrong_tuning_params(dataset_regression):
         pipeline.fit(dataset_regression)
 
 
+# pylint: disable=unused-argument
 @pytest.mark.large
 def test_autolog_registering_model(spark_session, dataset_binomial):
     registered_model_name = "test_autolog_registered_model"

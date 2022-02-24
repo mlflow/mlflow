@@ -7,7 +7,7 @@ import mlflow
 import mlflow.keras
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.autologging_utils import BatchMetricsLogger
-from unittest.mock import patch, ANY
+from unittest.mock import patch
 
 import keras
 

@@ -15,7 +15,7 @@ import mlflow.gluon
 from mlflow.tracking.client import MlflowClient
 from mlflow.gluon._autolog import __MLflowGluonCallback
 from mlflow.utils.autologging_utils import BatchMetricsLogger
-from unittest.mock import patch, ANY
+from unittest.mock import patch
 from tests.gluon.utils import is_mxnet_older_than_1_6_0, get_estimator
 
 

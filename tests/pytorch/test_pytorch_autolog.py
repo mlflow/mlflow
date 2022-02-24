@@ -10,7 +10,6 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from mlflow.utils.file_utils import TempDir
 from iris_data_module import IrisDataModule, IrisDataModuleWithoutValidation
 from mlflow.pytorch._pytorch_autolog import _get_optimizer_name
-from unittest.mock import patch
 from mlflow.tracking.client import MlflowClient
 
 NUM_EPOCHS = 20

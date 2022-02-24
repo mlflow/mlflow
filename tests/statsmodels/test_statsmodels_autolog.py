@@ -5,7 +5,6 @@ from statsmodels.tsa.base.tsa_model import TimeSeriesModel
 import mlflow
 import mlflow.statsmodels
 from mlflow.tracking.client import MlflowClient
-from unittest.mock import patch, ANY
 from tests.statsmodels.model_fixtures import (
     arma_model,
     ols_model,

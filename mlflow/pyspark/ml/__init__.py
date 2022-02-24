@@ -18,7 +18,6 @@ from mlflow.utils.autologging_utils import (
     _get_new_training_session_class,
     autologging_integration,
     safe_patch,
-    get_autologging_config,
 )
 from mlflow.utils.autologging_utils import get_method_call_arg_value
 from mlflow.utils.file_utils import TempDir

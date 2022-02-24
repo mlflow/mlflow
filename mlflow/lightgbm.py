@@ -61,7 +61,6 @@ from mlflow.utils.autologging_utils import (
     ENSURE_AUTOLOGGING_ENABLED_TEXT,
     batch_metrics_logger,
     MlflowAutologgingQueueingClient,
-    get_autologging_config,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
