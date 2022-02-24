@@ -811,8 +811,8 @@ a *single-row* ``Pandas DataFrame`` configuration argument. The following column
     (for example, if the training data series elements represent one value per hour, in order to forecast 3 days of
     future data, set the column ``n_periods`` to ``72``.
 * ``X`` (optional) - exogenous regressor values (*only supported in pmdarima version >= 1.8.0*) a 2D array of values for
-    future time period events. For more information, read the underlying library explanation
-    `here <https://www.statsmodels.org/stable/endog_exog.html>`_.
+    future time period events. For more information, read the underlying library
+    `explanation <https://www.statsmodels.org/stable/endog_exog.html>`_.
 * ``return_conf_int`` (optional) - a boolean (Default: ``False``) for whether to return confidence interval values.
     See above note.
 * ``alpha`` (optional) - the significance value for calculating confidence intervals. (Default: ``0.05``)
