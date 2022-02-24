@@ -6,6 +6,10 @@ In this workshop, you'll learn how to set up a conda environment on an AzureML c
 
 If you haven't done so, please follow steps in [setup.md](./setup.md) to setup your environment.
 
+## Overview
+
+Let's using a jupyter notebooks to go over what we'll be doing in this workshop. [sample notebook](./mnist.ipynb)
+
 ## Training
 
 ### Basic commands
@@ -42,12 +46,6 @@ or
 az ml model list
 ```
 
-### Display the training dataset
-
-Now let's take a look at the dataset we'll be using for this training.
-
-TODO: instructions on opening the sample notebook. Anything needs to be installed to run the notebook? FastAI?
-
 ### Run training code on the compute instance
 
 `train.py` in the `fastai` folder contains the training code. We can look at the code together. One thing to note is that the code doesn't have any AzureML SDK dependencies, but it's still capable of using AzureML services as tracking server and logging metrics, models and artifacts to your AzureML workspace. You'll see this in the next step.
@@ -57,8 +55,6 @@ You already have dependencies installed in your conda environment, you should be
 ```bash
  python train.py
 ```
-
-TODO: does local run register a model?
 
 Although the training happened locally on the CI, you'll see a run created for the training under `Default` experiment, you'll also see logs, metrics and model created for the training.
 
@@ -133,8 +129,6 @@ response.json()
 ### Deploy remote
 
 [Managed endpoints](https://techcommunity.microsoft.com/t5/ai-machine-learning-blog/announcing-managed-endpoints-in-azure-machine-learning-for/ba-p/2366481) is an AzureML product that manages the inferencing infrastructure for customers, so that they can focus on their business logic.
-
-TODO: How does the audience get the trained model? Check it into the repo?
 
 There're 2 concepts need to be explained for people who might not be familiar with how inferencing works, endpoint and deployment. An endpoint is like a server customers can call with input data to get a prediction. The endpoint is also like a load balancer where there can be multiple deployments behind it. Each deployment has different configuration on which model to use, what's the environment and how to invoke the model to get the prediction result. We can look at the endpoint yaml and deployment yaml file together.
 
