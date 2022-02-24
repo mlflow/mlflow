@@ -334,9 +334,9 @@ class _PmdarimaModelWrapper:
 
         # NB Any model that is trained with exogenous regressor elements will need to provide
         # `X` entries as a 2D array structure to the predict method.
-        exogonous_regressor = attrs.get("X", None)
+        exogenous_regressor = attrs.get("X", None)
 
-        if exogonous_regressor and Version(self._pmdarima_version) < Version("1.8.0"):
+        if exogenous_regressor and Version(self._pmdarima_version) < Version("1.8.0"):
             warnings.warn(
                 "An exogenous regressor element was provided in column 'X'. This is "
                 "supported only in pmdarima version >= 1.8.0. Installed version: "
@@ -355,7 +355,7 @@ class _PmdarimaModelWrapper:
         if Version(self._pmdarima_version) >= Version("1.8.0"):
             raw_predictions = self.pmdarima_model.predict(
                 n_periods=n_periods,
-                X=exogonous_regressor,
+                X=exogenous_regressor,
                 return_conf_int=return_conf_int,
                 alpha=alpha,
             )
