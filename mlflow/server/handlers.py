@@ -4,6 +4,7 @@ import os
 import re
 import tempfile
 import posixpath
+import pathlib
 import urllib
 import uuid
 
@@ -143,10 +144,8 @@ def _get_artifact_repo_mlflow_artifacts():
     from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR
 
     global _artifact_repo
-
     if _artifact_repo is None:
         _artifact_repo = get_artifact_repository(os.environ[ARTIFACTS_DESTINATION_ENV_VAR])
-
     return _artifact_repo
 
 
@@ -158,11 +157,9 @@ def _get_serve_artifacts_mode():
     from mlflow.server import SERVE_ARTIFACTS_ENV_VAR
 
     global _serve_artifacts_mode
-
     if _serve_artifacts_mode is None:
         environment_flag = os.environ.get(SERVE_ARTIFACTS_ENV_VAR, "false") == "true"
         artifact_repo = _get_artifact_repo_mlflow_artifacts()
-
         _serve_artifacts_mode = environment_flag and isinstance(
             artifact_repo,
             (HttpArtifactRepository, MlflowArtifactsRepository, LocalArtifactRepository),
@@ -1013,68 +1010,59 @@ def _list_artifacts_mlflow_artifacts():
 
     request_message = _get_request_message(ListArtifactsMlflowArtifacts())
     path = request_message.path if request_message.HasField("path") else None
-
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
+    _run_root_path = _get_run_root_path()
 
-    print(f"\n\n RAW PATH DATA: {path}")
-
-    def uuid_check(value):
-        try:
-            uuid.UUID(str(value))
-            return True
-        except ValueError:
-            return False
-
-    _artifact_root = _get_run_root_path()
-
-    if isinstance(_artifact_root, str):
-        root_path = _artifact_root
-        print(f"The artifact root is: {root_path}")
-        if any(uuid_check(x) for x in root_path.split("/")):
-            if path:
-                path = posixpath.join(root_path, path)
-            else:
-                path = root_path
+    if isinstance(_run_root_path, str):
+        path = _insert_run_path_mlflow_artifacts_uri(_run_root_path, path)
     else:
         root_path = os.environ.get(ARTIFACTS_DESTINATION_ENV_VAR)
-        print(f"The root path is: {root_path}")
-        print(f"The path at this point is: {path}")
         if path:
-            if not any(uuid_check(x) for x in path.split("/")):
+            if not _uuid_in_path(path):
                 path = posixpath.join(root_path, path)
         else:
             path = root_path
-
-        # if path:
-        #     if not path.startswith(root_path):
-        #         path = posixpath.join(root_path, path)
-        # else:
-        #     path = root_path
-
-    # if not path:
-    #     run_path = _get_run_root_path()
-    #     if isinstance(run_path, str):
-    #         path = run_path
-    #     else:
-    #         path = os.environ.get(ARTIFACTS_DESTINATION_ENV_VAR)
-
-    print(f"\n\n GET_RUN_ROOT_PATH: {path}")
-
-    # if path and not any(uuid_check(x) for x in path.split("/")):
-    #     path = posixpath.join(root_path, path)
 
     files = []
     for file_info in artifact_repo.list_artifacts(path):
         basename = posixpath.basename(file_info.path)
         new_file_info = FileInfo(basename, file_info.is_dir, file_info.file_size)
         files.append(new_file_info.to_proto())
-
-    print(f"\nFILES_PAYLOAD: {files}\n")
     response_message = ListArtifacts.Response()
     response_message.files.extend(files)
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
+
+
+def _uuid_in_path(path: str):
+    """
+    Utility for determining if a path contains a ``run_id`` UUID. Boolean return.
+    """
+
+    def _uuid_check(value):
+        try:
+            uuid.UUID(str(value))
+            return True
+        except ValueError:
+            return False
+
+    return any(_uuid_check(part) for part in pathlib.Path(path).parts)
+
+
+def _insert_run_path_mlflow_artifacts_uri(run_root_path: str, path: str):
+    """
+    Handler utility for validating if a root path contains a ``run_id`` UUID and iif it does, add
+    the ``ListArtifactsMlflowArtifacts`` response path if present. Otherwise, pass through the path
+    argument.
+    """
+    if _uuid_in_path(run_root_path):
+        if path:
+            return posixpath.join(run_root_path, path)
+        else:
+            return run_root_path
+    else:
+        return path
 
 
 @catch_mlflow_exception

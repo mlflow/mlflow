@@ -274,19 +274,8 @@ def test_mlflow_artifacts_rest_api_list_artifacts(artifacts_server, tmpdir):
     experiment = client.get_experiment_by_name(name)
     run = client.list_run_infos(experiment.experiment_id)
     run_id = run[0].run_id
-
-    print("DIRECT API ARTIFACTS: ")
-    print(client.list_artifacts(run_id))
-    print(client.list_artifacts(run_id, "dir"))
-    print("END OF DIRECT API ARTIFACTS")
-
-    print(f"\n\n RUN_INFO: \n{run}")
-    print(f"\n\n RUN_ID: \n{run_id}")
     artifacts = get_artifacts_from_rest_api(api, run_id)
-    print(f"\nARTIFACTS: \n {artifacts}")
-
     assert len(artifacts) >= 1
-
     expected_contents = {
         "files": [
             {"path": "a.txt", "is_dir": False, "file_size": 1},
@@ -294,10 +283,6 @@ def test_mlflow_artifacts_rest_api_list_artifacts(artifacts_server, tmpdir):
         ]
     }
     assert artifacts == expected_contents
-
     nested_contents = get_artifacts_from_rest_api(api, run_id, "dir")
-
-    print(f"\n\n NESTED_CONTENTS: {nested_contents}\n\n")
-
     expected_nested = {"files": [{"path": "b.txt", "is_dir": False, "file_size": 1}]}
     assert nested_contents == expected_nested
