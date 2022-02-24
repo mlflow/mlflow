@@ -1141,7 +1141,7 @@ class MlflowClient:
         """
 
         def _is_matplotlib_figure(fig):
-            import matplotlib
+            import matplotlib.figure
 
             return isinstance(fig, matplotlib.figure.Figure)
 
