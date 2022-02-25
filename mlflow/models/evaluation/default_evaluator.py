@@ -617,15 +617,16 @@ class DefaultEvaluator(ModelEvaluator):
     def _evaluate_custom_metrics(self):
         if self.custom_metrics is None:
             return
-        copy_of_y_pred = copy.deepcopy(self.y_pred)
-        copy_of_y = copy.deepcopy(self.y)
-        copy_of_metrics = copy.deepcopy(self.metrics)
-        for i, custom_metric in enumerate(self.custom_metrics):
-            # recreating the dataframe for each custom metric function call,
-            # in case the user modifies the eval_df inside their custom function.
-            eval_df = pd.DataFrame({"prediction": copy_of_y_pred, "target": copy_of_y})
-            metric_results, _ = _evaluate_custom_metric(i, custom_metric, eval_df, copy_of_metrics)
-            # skip logging metric functions that doesn't return anything
+        builtin_metrics = copy.deepcopy(self.metrics)
+        eval_df = pd.DataFrame(
+            {"prediction": copy.deepcopy(self.y_pred), "target": copy.deepcopy(self.y)}
+        )
+        for index, custom_metric in enumerate(self.custom_metrics):
+            # deepcopying eval_df and builtin_metrics for each custom metric function call,
+            # in case the user modifies them inside their function(s).
+            metric_results, _ = _evaluate_custom_metric(
+                index, custom_metric, eval_df.copy(), copy.deepcopy(builtin_metrics)
+            )
             self.metrics.update(metric_results)
             # TODO: artifact detection and logging.
 

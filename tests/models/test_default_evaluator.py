@@ -2,6 +2,7 @@ import numpy as np
 import json
 import pandas as pd
 import pytest
+from contextlib import nullcontext as does_not_raise
 
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation import evaluate
@@ -561,6 +562,27 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         _evaluate_custom_metric(0, non_str_artifact_name, eval_df, metrics)
 
 
+@pytest.mark.parametrize(
+    "fn, expectation",
+    [
+        (lambda eval_df, _: {"pred_sum": sum(eval_df["prediction"])}, does_not_raise()),
+        (lambda eval_df, builtin_metrics: ({"test": 1.1}, {"a_list": [1, 2, 3]}), does_not_raise()),
+        (
+            lambda _, __: 3,
+            pytest.raises(
+                MlflowException,
+                match="'<lambda>' (.*) did not return in an expected format",
+            ),
+        ),
+    ],
+)
+def test_evaluate_custom_metric_lambda(fn, expectation):
+    eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
+    metrics = _get_regressor_metrics(eval_df["target"], eval_df["prediction"])
+    with expectation:
+        _evaluate_custom_metric(0, fn, eval_df, metrics)
+
+
 def test_evaluate_custom_metric_success():
     eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
     metrics = _get_regressor_metrics(eval_df["target"], eval_df["prediction"])
@@ -605,12 +627,13 @@ def test_evaluate_custom_metric_success():
         "example_np_metric_1": np.float32(123.2),
         "example_np_metric_2": np.ulonglong(10000000),
     }
-    assert "pred_target_abs_diff" in res_artifacts_2 and res_artifacts_2[
-        "pred_target_abs_diff"
-    ].equals(np.abs(eval_df["prediction"] - eval_df["target"]))
-    assert "example_dictionary_artifact" in res_artifacts_2 and res_artifacts_2[
-        "example_dictionary_artifact"
-    ] == {"a": 1, "b": 2}
+    assert "pred_target_abs_diff" in res_artifacts_2
+    assert res_artifacts_2["pred_target_abs_diff"].equals(
+        np.abs(eval_df["prediction"] - eval_df["target"])
+    )
+
+    assert "example_dictionary_artifact" in res_artifacts_2
+    assert res_artifacts_2["example_dictionary_artifact"] == {"a": 1, "b": 2}
 
 
 def test_custom_metric(binary_logistic_regressor_model_uri, breast_cancer_dataset):
@@ -640,22 +663,24 @@ def test_custom_metric(binary_logistic_regressor_model_uri, breast_cancer_datase
 
     expected_metrics = _get_classifier_per_class_metrics(y, y_pred)
 
-    assert "true_count_on_data_breast_cancer_dataset" in metrics and np.isclose(
+    assert "true_count_on_data_breast_cancer_dataset" in metrics
+    assert np.isclose(
         metrics["true_count_on_data_breast_cancer_dataset"],
         expected_metrics["true_negatives"] + expected_metrics["true_positives"],
         rtol=1e-3,
     )
 
-    assert "true_count" in result.metrics and np.isclose(
+    assert "true_count" in result.metrics
+    assert np.isclose(
         result.metrics["true_count"],
         expected_metrics["true_negatives"] + expected_metrics["true_positives"],
         rtol=1e-3,
     )
 
-    assert "positive_count_on_data_breast_cancer_dataset" in metrics and np.isclose(
+    assert "positive_count_on_data_breast_cancer_dataset" in metrics
+    assert np.isclose(
         metrics["positive_count_on_data_breast_cancer_dataset"], np.sum(y_pred), rtol=1e-3
     )
 
-    assert "positive_count" in result.metrics and np.isclose(
-        result.metrics["positive_count"], np.sum(y_pred), rtol=1e-3
-    )
+    assert "positive_count" in result.metrics
+    assert np.isclose(result.metrics["positive_count"], np.sum(y_pred), rtol=1e-3)
