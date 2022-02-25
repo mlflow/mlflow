@@ -16,6 +16,7 @@ import mlflow.xgboost
 from mlflow.xgboost._autolog import IS_TRAINING_CALLBACK_SUPPORTED, autolog_callback
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
+from mlflow.tracking.client import MlflowClient
 from mlflow.utils.autologging_utils import BatchMetricsLogger, picklable_exception_safe_function
 
 mpl.use("Agg")
@@ -611,3 +612,31 @@ def test_callback_class_is_pickable():
 
     cb = AutologCallback(BatchMetricsLogger(run_id="1234"), eval_results={})
     pickle.dumps(cb)
+
+
+@pytest.mark.large
+def test_sklearn_api_autolog_registering_model():
+    registered_model_name = "test_autolog_registered_model"
+    mlflow.xgboost.autolog(registered_model_name=registered_model_name)
+
+    X, y = datasets.load_iris(return_X_y=True)
+    params = {"n_estimators": 10, "reg_lambda": 1}
+    model = xgb.XGBRegressor(**params)
+
+    with mlflow.start_run():
+        model.fit(X, y)
+
+        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        assert registered_model.name == registered_model_name
+
+
+@pytest.mark.large
+def test_xgb_api_autolog_registering_model(bst_params, dtrain):
+    registered_model_name = "test_autolog_registered_model"
+    mlflow.xgboost.autolog(registered_model_name=registered_model_name)
+
+    with mlflow.start_run():
+        xgb.train(bst_params, dtrain)
+
+        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        assert registered_model.name == registered_model_name

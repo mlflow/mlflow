@@ -18,6 +18,7 @@ import mlflow.fastai
 from mlflow.fastai.callback import __MlflowFastaiCallback
 from mlflow.utils.autologging_utils import BatchMetricsLogger
 from tests.conftest import tracking_uri_mock  # pylint: disable=unused-import
+from mlflow.tracking.client import MlflowClient
 
 mpl.use("Agg")
 
@@ -420,3 +421,15 @@ def test_callback_is_picklable():
         BatchMetricsLogger(run_id="1234"), log_models=True, is_fine_tune=False
     )
     pickle.dumps(cb)
+
+
+@pytest.mark.large
+def test_autolog_registering_model(iris_data):
+    registered_model_name = "test_autolog_registered_model"
+    mlflow.fastai.autolog(registered_model_name=registered_model_name)
+    with mlflow.start_run():
+        model = fastai_tabular_model(iris_data)
+        model.fit(NUM_EPOCHS)
+
+        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        assert registered_model.name == registered_model_name

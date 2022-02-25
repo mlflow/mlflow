@@ -10,6 +10,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from mlflow.utils.file_utils import TempDir
 from iris_data_module import IrisDataModule, IrisDataModuleWithoutValidation
 from mlflow.pytorch._pytorch_autolog import _get_optimizer_name
+from mlflow.tracking.client import MlflowClient
 
 NUM_EPOCHS = 20
 
@@ -304,3 +305,19 @@ def test_pytorch_autologging_supports_data_parallel_execution():
     artifacts = list(map(lambda x: x.path, artifacts))
     assert "model" in artifacts
     assert "model_summary.txt" in artifacts
+
+
+@pytest.mark.large
+def test_autolog_registering_model():
+    registered_model_name = "test_autolog_registered_model"
+    mlflow.pytorch.autolog(registered_model_name=registered_model_name)
+    model = IrisClassification()
+    dm = IrisDataModule()
+    dm.setup(stage="fit")
+    trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
+
+    with mlflow.start_run():
+        trainer.fit(model, dm)
+
+        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        assert registered_model.name == registered_model_name
