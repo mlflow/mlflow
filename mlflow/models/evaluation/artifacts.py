@@ -34,7 +34,7 @@ class ParquetEvaluationArtifact(EvaluationArtifact):
         return self._content
 
 
-class NpyEvaluationArtifact(EvaluationArtifact):
+class NumpyEvaluationArtifact(EvaluationArtifact):
     def _save(self, output_artifact_path):
         np.save(output_artifact_path, self._content, allow_pickle=False)
 

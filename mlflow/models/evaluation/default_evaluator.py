@@ -14,7 +14,7 @@ from mlflow.models.evaluation.artifacts import (
     ImageEvaluationArtifact,
     CsvEvaluationArtifact,
     JsonEvaluationArtifact,
-    NpyEvaluationArtifact,
+    NumpyEvaluationArtifact,
     ParquetEvaluationArtifact,
 )
 
@@ -363,7 +363,7 @@ def _load_custom_metric_artifact(
             ".jpg": ImageEvaluationArtifact,
             ".jpeg": ImageEvaluationArtifact,
             ".json": JsonEvaluationArtifact,
-            ".npy": NpyEvaluationArtifact,
+            ".npy": NumpyEvaluationArtifact,
             ".csv": CsvEvaluationArtifact,
             ".parquet": ParquetEvaluationArtifact,
         }
@@ -394,13 +394,12 @@ def _load_custom_metric_artifact(
 
     type_to_artifact_map = {
         pd.DataFrame: CsvEvaluationArtifact,
-        np.ndarray: NpyEvaluationArtifact,
+        np.ndarray: NumpyEvaluationArtifact,
         pyplot.Figure: ImageEvaluationArtifact,
     }
 
-    artifact_file_name = (
-        _gen_log_key(artifact_name, dataset_name)
-        + f"{type_to_ext_map.get(type(raw_artifact), '.json')}"
+    artifact_file_name = _gen_log_key(artifact_name, dataset_name) + type_to_ext_map.get(
+        type(raw_artifact), ".json"
     )
 
     artifact_file_local_path = temp_dir.path(artifact_file_name)

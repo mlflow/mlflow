@@ -10,7 +10,7 @@ from mlflow.models.evaluation.artifacts import (
     CsvEvaluationArtifact,
     ImageEvaluationArtifact,
     JsonEvaluationArtifact,
-    NpyEvaluationArtifact,
+    NumpyEvaluationArtifact,
     ParquetEvaluationArtifact,
 )
 from mlflow.models.evaluation.default_evaluator import (
@@ -789,7 +789,7 @@ def test_load_custom_metric_artifact_for_npy_file():
             )
         _, _, _, artifacts = get_run_data(run.info.run_id)
         assert set(artifacts) == {"npy_artifact_on_data_example_dataset.npy"}
-        assert isinstance(artifact, NpyEvaluationArtifact)
+        assert isinstance(artifact, NumpyEvaluationArtifact)
         assert np.array_equal(np.load(tmp.path("test.npy")), np_arr)
 
 
@@ -843,7 +843,7 @@ def test_load_custom_metric_artifact_for_ndarray_object():
             )
     _, _, _, artifacts = get_run_data(run.info.run_id)
     assert set(artifacts) == {"ndarray_artifact_on_data_example_dataset.npy"}
-    assert isinstance(artifact, NpyEvaluationArtifact)
+    assert isinstance(artifact, NumpyEvaluationArtifact)
     assert np.array_equal(artifact.content, np_arr)
 
 
