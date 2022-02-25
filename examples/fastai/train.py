@@ -14,6 +14,9 @@ from fastai.vision.all import (
     URLs,
 )
 from fastai.vision.all import cnn_learner, get_image_files, parent_label, resnet18, untar_data
+import numpy as np
+from mlflow.models.signature import ModelSignature
+from mlflow.types.schema import Schema, TensorSpec
 
 
 def parse_args():
@@ -37,7 +40,6 @@ def main():
     # Parse command-line arguments
     args = parse_args()
 
-    # Split data between training and testing
     splitter = GrandparentSplitter(train_name="training", valid_name="testing")
 
     # Prepare DataBlock which is a generic container to quickly build Datasets and DataLoaders
@@ -49,19 +51,40 @@ def main():
     )
 
     # Download, untar the MNIST data set and create DataLoader from DataBlock
-    data = mnist.dataloaders(untar_data(URLs.MNIST), bs=256, num_workers=0)
+    data_path = untar_data(URLs.MNIST)
+    image_files = get_image_files(data_path)
+    print('Data located at:', data_path)
 
+    data = mnist.dataloaders(data_path, bs=256, num_workers=0)
+
+
+    input_schema = Schema([
+        TensorSpec(np.dtype(np.uint8), (-1, -1, -1, 3)),
+    ])
+    output_schema = Schema([
+        TensorSpec(np.dtype(np.float32), (-1, 10)),
+    ])
+    
+    signature = ModelSignature(inputs=input_schema, outputs=output_schema)
+    
     # Enable auto logging
-    mlflow.fastai.autolog()
+    #mlflow.fastai.autolog()
 
     # Create Learner model
     learn = cnn_learner(data, resnet18)
 
-    # Start MLflow session
-    with mlflow.start_run():
+    saved_model = "/home/azureuser/.fastai/model.fastai"
+
+    with mlflow.start_run() as run:
         # Train and fit with default or supplied command line arguments
-        learn.fit_one_cycle(args.epochs, args.lr)
-        mlflow.fastai.log_model(learn, "fastai", registered_model_name="CnnLearningMnistModel")
+        learn.fit_one_cycle(1, 0.1)
+        learn.export(saved_model)
+        model = mlflow.pyfunc.log_model("model", 
+                                    registered_model_name="digits_cnn_model",
+                                    data_path=saved_model, 
+                                    code_path=["./fastai_model_loader.py"], 
+                                    loader_module="fastai_model_loader", 
+                                    signature=signature)
 
 
 if __name__ == "__main__":
