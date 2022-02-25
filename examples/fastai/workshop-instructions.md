@@ -141,5 +141,5 @@ az ml online-endpoint create -f ./mir.yml
 To create an MIR deployment,
 
 ```bash
-
+az ml online-deployment create -f mir-deployment.yml
 ```
