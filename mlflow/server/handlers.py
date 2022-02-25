@@ -1100,55 +1100,6 @@ def _list_artifacts_mlflow_artifacts():
     return response
 
 
-def _uuid_in_path(path: str):
-    """
-    Utility for determining if a path contains a ``run_id`` UUID. Boolean return.
-    """
-
-    def _uuid_check(value):
-        try:
-            uuid.UUID(str(value))
-            return True
-        except ValueError:
-            return False
-
-    return any(_uuid_check(part) for part in pathlib.Path(path).parts)
-
-
-def _insert_run_path_mlflow_artifacts_uri(run_root_path: str, path: str):
-    """
-    Handler utility for validating if a root path contains a ``run_id`` UUID and iif it does, add
-    the ``ListArtifactsMlflowArtifacts`` response path if present. Otherwise, pass through the path
-    argument.
-    """
-    if _uuid_in_path(run_root_path):
-        if path:
-            return posixpath.join(run_root_path, path)
-        else:
-            return run_root_path
-    else:
-        return path
-
-
-@catch_mlflow_exception
-def _get_run_root_path():
-    request_message = _get_request_message(ListArtifacts())
-    if request_message:
-        run_id = request_message.run_id or request_message.run_uuid
-        run = _get_tracking_store().get_run(run_id)
-        artifact_uri = run.info.artifact_uri
-        core_path = urllib.parse.urlparse(artifact_uri)
-        if core_path.scheme.startswith("http"):
-            _, _, path = core_path.path.split("artifacts", 2)
-        elif core_path.scheme.startswith("mlflow-artifacts"):
-            path = core_path.path
-        else:
-            _, path = core_path.path.split("mlartifacts", 1)
-    else:
-        path = ""
-    return path.lstrip("/").lstrip("\\").lstrip("\\\\")
-
-
 def _add_static_prefix(route):
     prefix = os.environ.get(STATIC_PREFIX_ENV_VAR)
     if prefix:
