@@ -53,7 +53,7 @@ az ml model list
 You already have dependencies installed in your conda environment, you should be able to just run the training code directly.
 
 ```bash
- python train.py
+ python train_new.py
 ```
 
 Although the training happened locally on the CI, you'll see a run created for the training under `Default` experiment, you'll also see logs, metrics and model created for the training.

@@ -1,7 +1,7 @@
 $schema: https://azuremlschemas.azureedge.net/latest/commandJob.schema.json
 code:
   local_path: ./
-command: python train.py
+command: python train_new.py
 # invoke completions (Ctrl+Space, Cmd+Space) to see the list of environments available
 environment:
   image: mcr.microsoft.com/azureml/openmpi3.1.2-ubuntu18.04
