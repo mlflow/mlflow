@@ -176,6 +176,22 @@ def _is_servable_proxied_run_artifact_root(run_artifact_root):
              can respond to list and download requests for the artifact). `False` otherwise.
     """
     parsed_run_artifact_root = urllib.parse.urlparse(run_artifact_root)
+    # NB: If the run artifact root is a proxied artifact root (has scheme `http`, `https`, or
+    # `mlflow-artifacts`) *and* the MLflow server is configured to serve artifacts, the MLflow
+    # server always assumes that it has access to the underlying storage location for the proxied
+    # artifacts. This may not always be accurate. For example:
+    #
+    # An organization may initially use the MLflow server to serve Tracking API requests and proxy
+    # access to artifacts stored in Location A (via `mlflow server --serve-artifacts`). Then, for
+    # scalability and / or security purposes, the organization may decide to store artifacts in a
+    # new location B and set up a separate server (e.g. `mlflow server --artifacts-only`) to proxy
+    # access to artifacts stored in Location B.
+    #
+    # In this scenario, requests for artifacts stored in Location B that are sent to the original
+    # MLflow server will fail if the original MLflow server does not have access to Location B
+    # because it will assume that it can serve all proxied artifacts regardless of the underlying
+    # location. Such failures can be remediated by granting the original MLflow server access to
+    # Location B.
     return (
         parsed_run_artifact_root.scheme in ["http", "https", "mlflow-artifacts"] and
         _is_serving_artifacts()
