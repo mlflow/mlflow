@@ -116,3 +116,13 @@ To create an MIR deployment,
 ```bash
 az ml online-deployment create -f mir-deployment.yml
 ```
+
+The last step is that you can put the example input from the previous section, put it into a local file and invoke the remote endpoint. With this command, you make a call to the just deployed model in the cloud, all infrastructure is managed for you. How cool is that!
+
+```bash
+az ml online-endpoint invoke -n <endpoint-name> -d <deployment> -r request-file.json
+```
+
+## Summary
+
+Thank you so much for finishing the workshop together with us. In this workshop we learned how to train a deep learning model, deploy the model and inference the model using mlflow and AzureML CLI v2. The training and deployment can be done both locally or remotely using AzureML compute without code change. Hope you enjoyed the workshop. Thank you.
