@@ -91,7 +91,6 @@ _logger = logging.getLogger(__name__)
 _tracking_store = None
 _model_registry_store = None
 _artifact_repo = None
-_serve_artifacts_mode = None
 STATIC_PREFIX_ENV_VAR = "_MLFLOW_STATIC_PREFIX"
 
 
@@ -149,22 +148,15 @@ def _get_artifact_repo_mlflow_artifacts():
     return _artifact_repo
 
 
-def _get_serve_artifacts_mode():
+def _is_serving_artifacts():
     """
-    Initializes ``_serve_artifacts_mode`` that indicates whether the MLflow server is operating in
-    ``-serve_artifacts`` mode for artifact listing and returns the value.
+    :return: `True` if the MLflow server is serving artifacts (i.e. acting as a proxy for artifact
+             upload / download / list operations), as would be enabled by specifying the
+             `--serve-artifacts` configuration option. `False` otherwise.
     """
     from mlflow.server import SERVE_ARTIFACTS_ENV_VAR
 
-    global _serve_artifacts_mode
-    if _serve_artifacts_mode is None:
-        environment_flag = os.environ.get(SERVE_ARTIFACTS_ENV_VAR, "false") == "true"
-        artifact_repo = _get_artifact_repo_mlflow_artifacts()
-        _serve_artifacts_mode = environment_flag and isinstance(
-            artifact_repo,
-            (HttpArtifactRepository, MlflowArtifactsRepository, LocalArtifactRepository),
-        )
-    return _serve_artifacts_mode
+    return os.environ.get(SERVE_ARTIFACTS_ENV_VAR, "false") == "true"
 
 
 def _get_tracking_store(backend_store_uri=None, default_artifact_root=None):
@@ -288,9 +280,7 @@ _TEXT_EXTENSIONS = [
 def _disable_unless_serve_artifacts(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
-        from mlflow.server import SERVE_ARTIFACTS_ENV_VAR
-
-        if not os.environ.get(SERVE_ARTIFACTS_ENV_VAR):
+        if not _is_serving_artifacts():
             return Response(
                 (
                     f"Endpoint: {request.url_rule} disabled due to the mlflow server running "
@@ -583,33 +573,60 @@ def _search_runs():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _list_artifacts():
-
-    if _get_serve_artifacts_mode():
-        return _list_artifacts_mlflow_artifacts()
-    else:
-        return _list_artifacts_non_proxy()
-
-
-@catch_mlflow_exception
-@_disable_if_artifacts_only
-def _list_artifacts_non_proxy():
     request_message = _get_request_message(ListArtifacts())
-
+    response_message = ListArtifacts.Response()
     if request_message.HasField("path"):
         path = request_message.path
     else:
         path = None
-
     run_id = request_message.run_id or request_message.run_uuid
     run = _get_tracking_store().get_run(run_id)
+    
+    parsed_run_artifact_root = urllib.parse.urlparse(run.info.artifact_uri)
+    if parsed_run_artifact_root.scheme in ["http", "https", "mlflow-artifacts"]\
+            and _is_serving_artifacts():
+        artifact_entities = _list_artifacts_for_proxied_run_artifact_root(
+            parsed_proxied_artifact_root=parsed_run_artifact_root,
+            relative_path=path,
+        )
+    else:
+        artifact_entities = _get_artifact_repo(run).list_artifacts(path)
 
-    response_message = ListArtifacts.Response()
-    artifact_entities = _get_artifact_repo(run).list_artifacts(path)
     response_message.files.extend([a.to_proto() for a in artifact_entities])
     response_message.root_uri = _get_artifact_repo(run).artifact_uri
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
+
+
+@catch_mlflow_exception
+def _list_artifacts_for_proxied_run_artifact_root(parsed_proxied_artifact_root, relative_path=None):
+    """
+    Lists artifacts from the specified `relative_path` within the specified proxied MLflow Run
+    artifact root (i.e. a Run artifact root with scheme `http`, `https`, or `mlflow-artifacts`).
+
+    :param proxied_artifact_root: A `urllib.parse.ParseResult` object representing a parsed artifact
+                                  root location with scheme `http`, `https`, or `mlflow-artifacts`
+                                  that can be resolved by the MLflow artifact server to a concrete
+                                  storage location.
+    :param relative_path: The relative path within the specified `proxied_artifact_root` under which
+                          to list artifact contents.
+    """
+    artifact_destination_repo = _get_artifact_repo_mlflow_artifacts()
+
+    if parsed_proxied_artifact_root.scheme == "mlflow-artifacts":
+        artifact_destination_path = posixpath.join(parsed_proxied_artifact_root.path, relative_path) 
+    else:
+        assert parsed_proxied_artifact_root.scheme in ["http", "https"]
+        # TODO: Fix this
+        artifact_destination_path = relative_path
+    
+    artifact_entities  = []
+    for file_info in artifact_repo.list_artifacts(artifact_destination_path):
+        basename = posixpath.basename(file_info.path)
+        artifact_entities.append(FileInfo(basename, file_info.is_dir, file_info.file_size))
+
+    return artifact_entities
 
 
 @catch_mlflow_exception
@@ -1006,23 +1023,9 @@ def _list_artifacts_mlflow_artifacts():
     A request handler for `GET /mlflow-artifacts/artifacts?path=<value>` to list artifacts in `path`
     (a relative path from the root artifact directory).
     """
-    from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR
-
     request_message = _get_request_message(ListArtifactsMlflowArtifacts())
     path = request_message.path if request_message.HasField("path") else None
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
-    _run_root_path = _get_run_root_path()
-
-    if _run_root_path and isinstance(_run_root_path, str):
-        path = _insert_run_path_mlflow_artifacts_uri(_run_root_path, path)
-    else:
-        root_path = os.environ.get(ARTIFACTS_DESTINATION_ENV_VAR)
-        if path:
-            if not _uuid_in_path(path):
-                path = posixpath.join(root_path, path)
-        else:
-            path = root_path
-
     files = []
     for file_info in artifact_repo.list_artifacts(path):
         basename = posixpath.basename(file_info.path)
