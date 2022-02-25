@@ -2,7 +2,6 @@ import numpy as np
 import json
 import pandas as pd
 import pytest
-import re
 from contextlib import nullcontext as does_not_raise
 
 from mlflow.exceptions import MlflowException
@@ -699,7 +698,7 @@ def test_custom_metric(binary_logistic_regressor_model_uri, breast_cancer_datase
 def test_load_custom_metric_artifact_returns_given_evaluation_artifact_as_is():
     csv_artifact = CsvEvaluationArtifact("some/path")
     result = _load_custom_metric_artifact(
-        "example_dataset", TempDir(), "csv_artifact", csv_artifact
+        "example_dataset", TempDir(), "csv_artifact", csv_artifact, 0, ""
     )
     assert csv_artifact is result
 
@@ -708,13 +707,11 @@ def test_load_custom_metric_artifact_raise_exception_for_non_file_artifact_path(
     with TempDir() as tmp:
         with pytest.raises(
             MlflowException,
-            match=re.escape(
-                f"Artifact 'non_file_artifact' with provided path '{tmp.path()}'"
-                f"cannot be recognized. The supported file extensions are:"
-                f".png, .jpg, .jpeg, .json, .npy, .csv, .parquet"
-            ),
+            match=f"produced an unsupported artifact 'non_file_artifact' with path '{tmp.path()}'",
         ):
-            _load_custom_metric_artifact("example_dataset", tmp, "non_file_artifact", tmp.path())
+            _load_custom_metric_artifact(
+                "example_dataset", tmp, "non_file_artifact", tmp.path(), 0, ""
+            )
 
 
 def test_load_custom_metric_artifact_raise_exception_for_unsupported_file_extension():
@@ -724,13 +721,11 @@ def test_load_custom_metric_artifact_raise_exception_for_unsupported_file_extens
             f.write("some stuff that shouldn't be read")
         with pytest.raises(
             MlflowException,
-            match=re.escape(
-                f"Artifact 'invalid_ext_artifact' with provided path '{path}'"
-                f"cannot be recognized. The supported file extensions are:"
-                f".png, .jpg, .jpeg, .json, .npy, .csv, .parquet"
-            ),
+            match=f"produced an unsupported artifact 'invalid_ext_artifact' with path '{path}'",
         ):
-            _load_custom_metric_artifact("example_dataset", tmp, "invalid_ext_artifact", path)
+            _load_custom_metric_artifact(
+                "example_dataset", tmp, "invalid_ext_artifact", path, 0, ""
+            )
 
 
 def test_load_custom_metric_artifact_for_image_files():
@@ -746,13 +741,13 @@ def test_load_custom_metric_artifact_for_image_files():
 
         with mlflow.start_run() as run:
             artifact_1 = _load_custom_metric_artifact(
-                "example_dataset", tmp, "png_img_artifact", tmp.path("test.png")
+                "example_dataset", tmp, "png_img_artifact", tmp.path("test.png"), 0, ""
             )
             artifact_2 = _load_custom_metric_artifact(
-                "example_dataset", tmp, "jpg_img_artifact", tmp.path("test.jpg")
+                "example_dataset", tmp, "jpg_img_artifact", tmp.path("test.jpg"), 0, ""
             )
             artifact_3 = _load_custom_metric_artifact(
-                "example_dataset", tmp, "jpeg_img_artifact", tmp.path("test.jpeg")
+                "example_dataset", tmp, "jpeg_img_artifact", tmp.path("test.jpeg"), 0, ""
             )
 
         _, _, _, artifacts = get_run_data(run.info.run_id)
@@ -776,7 +771,7 @@ def test_load_custom_metric_artifact_for_json_file():
         json.dump([1, 2, 3], open(tmp.path("test.json"), "w"))
         with mlflow.start_run() as run:
             artifact = _load_custom_metric_artifact(
-                "example_dataset", tmp, "json_artifact", tmp.path("test.json")
+                "example_dataset", tmp, "json_artifact", tmp.path("test.json"), 0, ""
             )
         _, _, _, artifacts = get_run_data(run.info.run_id)
         assert set(artifacts) == {"json_artifact_on_data_example_dataset.json"}
@@ -790,7 +785,7 @@ def test_load_custom_metric_artifact_for_npy_file():
         np.save(tmp.path("test.npy"), np_arr, allow_pickle=False)
         with mlflow.start_run() as run:
             artifact = _load_custom_metric_artifact(
-                "example_dataset", tmp, "npy_artifact", tmp.path("test.npy")
+                "example_dataset", tmp, "npy_artifact", tmp.path("test.npy"), 0, ""
             )
         _, _, _, artifacts = get_run_data(run.info.run_id)
         assert set(artifacts) == {"npy_artifact_on_data_example_dataset.npy"}
@@ -804,7 +799,7 @@ def test_load_custom_metric_artifact_for_csv_file():
         df.to_csv(tmp.path("test.csv"), index=False)
         with mlflow.start_run() as run:
             artifact = _load_custom_metric_artifact(
-                "example_dataset", tmp, "csv_artifact", tmp.path("test.csv")
+                "example_dataset", tmp, "csv_artifact", tmp.path("test.csv"), 0, ""
             )
         _, _, _, artifacts = get_run_data(run.info.run_id)
         assert set(artifacts) == {"csv_artifact_on_data_example_dataset.csv"}
@@ -818,7 +813,7 @@ def test_load_custom_metric_artifact_for_parquet_file():
         df.to_parquet(tmp.path("test.parquet"))
         with mlflow.start_run() as run:
             artifact = _load_custom_metric_artifact(
-                "example_dataset", tmp, "parquet_artifact", tmp.path("test.parquet")
+                "example_dataset", tmp, "parquet_artifact", tmp.path("test.parquet"), 0, ""
             )
         _, _, _, artifacts = get_run_data(run.info.run_id)
         assert set(artifacts) == {"parquet_artifact_on_data_example_dataset.parquet"}
@@ -830,7 +825,9 @@ def test_load_custom_metric_artifact_for_dataframe_object():
     df = pd.DataFrame({"test": [1, 2, 3]})
     with TempDir() as tmp:
         with mlflow.start_run() as run:
-            artifact = _load_custom_metric_artifact("example_dataset", tmp, "df_artifact", df)
+            artifact = _load_custom_metric_artifact(
+                "example_dataset", tmp, "df_artifact", df, 0, ""
+            )
     _, _, _, artifacts = get_run_data(run.info.run_id)
     assert set(artifacts) == {"df_artifact_on_data_example_dataset.csv"}
     assert isinstance(artifact, CsvEvaluationArtifact)
@@ -842,7 +839,7 @@ def test_load_custom_metric_artifact_for_ndarray_object():
     with TempDir() as tmp:
         with mlflow.start_run() as run:
             artifact = _load_custom_metric_artifact(
-                "example_dataset", tmp, "ndarray_artifact", np_arr
+                "example_dataset", tmp, "ndarray_artifact", np_arr, 0, ""
             )
     _, _, _, artifacts = get_run_data(run.info.run_id)
     assert set(artifacts) == {"ndarray_artifact_on_data_example_dataset.npy"}
@@ -864,7 +861,7 @@ def test_load_custom_metric_artifact_for_plt_figure_objects():
     with TempDir() as tmp:
         with mlflow.start_run() as run:
             artifact = _load_custom_metric_artifact(
-                "example_dataset", tmp, "plt_figure_artifact", fig
+                "example_dataset", tmp, "plt_figure_artifact", fig, 0, ""
             )
     _, _, _, artifacts = get_run_data(run.info.run_id)
     assert set(artifacts) == {"plt_figure_artifact_on_data_example_dataset.png"}
@@ -879,10 +876,10 @@ def test_load_custom_metric_artifact_for_json_serializable_objects():
     with TempDir() as tmp:
         with mlflow.start_run() as run:
             artifact_1 = _load_custom_metric_artifact(
-                "example_dataset", tmp, "json_dict_artifact", ex_dict
+                "example_dataset", tmp, "json_dict_artifact", ex_dict, 0, ""
             )
             artifact_2 = _load_custom_metric_artifact(
-                "example_dataset", tmp, "json_list_artifact", ex_list
+                "example_dataset", tmp, "json_list_artifact", ex_list, 0, ""
             )
     _, _, _, artifacts = get_run_data(run.info.run_id)
     assert set(artifacts) == {
@@ -906,18 +903,9 @@ def test_load_custom_metric_artifact_raise_exception_for_unsupported_artifact_ob
     with TempDir() as tmp:
         with pytest.raises(
             MlflowException,
-            match=re.escape(
-                f"Artifact 'unsupported_artifact' with type '{type(unsupported_object)}' is not"
-                f"supported. Supported object types for artifacts are:"
-                f"- A string uri representing the file path to the artifact. MLflow"
-                f"  will infer the type of the artifact based on the file extension."
-                f"- EvaluationArtifact type objects. i.e. ImageEvaluationArtifact."
-                f"- Pandas DataFrame. This will be resolved as a CSV artifact."
-                f"- Numpy array. This will be saved as a .npy artifact."
-                f"- Matplotlib Figure. This will be saved as an image artifact."
-                f"- Any JSON serializable object. This will be saved as a JSON file."
-            ),
+            match=f"produced an unsupported artifact 'unsupported_artifact' with type "
+            f"'{type(unsupported_object)}'",
         ):
             _load_custom_metric_artifact(
-                "example_dataset", tmp, "unsupported_artifact", unsupported_object
+                "example_dataset", tmp, "unsupported_artifact", unsupported_object, 0, ""
             )

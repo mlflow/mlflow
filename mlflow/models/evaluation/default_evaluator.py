@@ -271,6 +271,13 @@ _matplotlib_config = {
 }
 
 
+def _get_custom_metric_exception_header(index, custom_metric_name):
+    return (
+        f"Custom metric function '{custom_metric_name}' at index {index} in the "
+        "`custom_metrics` parameter"
+    )
+
+
 def _evaluate_custom_metric(index, custom_metric, eval_df, builtin_metrics):
     """
     This function calls the `custom_metric` function and performs validations on the returned
@@ -286,10 +293,8 @@ def _evaluate_custom_metric(index, custom_metric, eval_df, builtin_metrics):
              a dictionary of artifacts (which can be None if the custom metric function did
              not produce any).
     """
-    exception_header = (
-        f"Custom metric function "
-        f"'{getattr(custom_metric, '__name__', repr(custom_metric))}' at index {index} in the "
-        f"`custom_metrics` parameter"
+    exception_header = _get_custom_metric_exception_header(
+        index, getattr(custom_metric, "__name__", repr(custom_metric))
     )
 
     result = custom_metric(eval_df, builtin_metrics)
@@ -342,9 +347,13 @@ def _evaluate_custom_metric(index, custom_metric, eval_df, builtin_metrics):
     )
 
 
-def _load_custom_metric_artifact(dataset_name, temp_dir, artifact_name, raw_artifact):
+def _load_custom_metric_artifact(
+    dataset_name, temp_dir, artifact_name, raw_artifact, custom_metric_index, custom_metric_name
+):
     if isinstance(raw_artifact, EvaluationArtifact):
         return raw_artifact
+
+    exception_header = _get_custom_metric_exception_header(custom_metric_index, custom_metric_name)
 
     # Given local path, type inference through file extension
     if isinstance(raw_artifact, str):
@@ -369,8 +378,8 @@ def _load_custom_metric_artifact(dataset_name, temp_dir, artifact_name, raw_arti
                 uri=mlflow.get_artifact_uri(artifact_file_name)
             )
         raise MlflowException(
-            f"Artifact '{artifact_name}' with provided path '{raw_artifact}'"
-            f"cannot be recognized. The supported file extensions are:"
+            f"{exception_header} produced an unsupported artifact '{artifact_name}' with path "
+            f"'{raw_artifact}'. The supported file extensions are:"
             f".png, .jpg, .jpeg, .json, .npy, .csv, .parquet"
         )
 
@@ -408,8 +417,8 @@ def _load_custom_metric_artifact(dataset_name, temp_dir, artifact_name, raw_arti
             json.dump(raw_artifact, open(artifact_file_local_path, "w"))
         except TypeError:
             raise MlflowException(
-                f"Artifact '{artifact_name}' with type '{type(raw_artifact)}' is not"
-                f"supported. Supported object types for artifacts are:"
+                f"{exception_header} produced an unsupported artifact '{artifact_name}' with type "
+                f"'{type(raw_artifact)}'. Supported object types for artifacts are:"
                 f"- A string uri representing the file path to the artifact. MLflow"
                 f"  will infer the type of the artifact based on the file extension."
                 f"- EvaluationArtifact type objects. i.e. ImageEvaluationArtifact."
