@@ -45,6 +45,8 @@ Below, you can find a number of tutorials and examples for various MLflow use ca
 
   - `Prophet <https://github.com/mlflow/mlflow/tree/master/examples/prophet>`_
 
+  - `Pmdarima <https://github.com/mlflow/mlflow/tree/master/examples/pmdarima>`_
+
   - scikit-learn
 
     + `Diabetes example <https://github.com/mlflow/mlflow/tree/master/examples/sklearn_elasticnet_diabetes>`_
