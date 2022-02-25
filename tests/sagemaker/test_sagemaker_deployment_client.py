@@ -1305,7 +1305,7 @@ def test_predict_with_dataframe_input_output(sagemaker_deployment_client):
     def mock_invoke_endpoint(self, operation_name, operation_kwargs):
         if operation_name == "InvokeEndpoint":
             output_json = output_df.to_json(orient="split")
-            result = dict(Body=BytesIO(bytes(output_json, encoding='utf-8')))
+            result = dict(Body=BytesIO(bytes(output_json, encoding="utf-8")))
         else:
             result = boto_caller(self, operation_name, operation_kwargs)
         return result
@@ -1325,7 +1325,7 @@ def test_predict_with_array_input_output(sagemaker_deployment_client):
 
     def mock_invoke_endpoint(self, operation_name, operation_kwargs):
         if operation_name == "InvokeEndpoint":
-            result = dict(Body=BytesIO(b'[1,2,3]'))
+            result = dict(Body=BytesIO(b"[1,2,3]"))
         else:
             result = boto_caller(self, operation_name, operation_kwargs)
         return result
