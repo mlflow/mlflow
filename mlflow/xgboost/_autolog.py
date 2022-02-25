@@ -32,7 +32,7 @@ if IS_TRAINING_CALLBACK_SUPPORTED:
             self.metrics_logger = metrics_logger
             self.eval_results = eval_results
 
-        def after_iteration(self, model, epoch, evals_log):
+        def after_iteration(self, model, epoch, evals_log):  # pylint: disable=unused-argument
             """
             Run after each iteration. Return True when training should stop.
             """

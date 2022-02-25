@@ -1,5 +1,5 @@
 """
-The ``mlflow.prophet`` module provides and API for logging and loading Prophet models.
+The ``mlflow.prophet`` module provides an API for logging and loading Prophet models.
 This module exports univariate Prophet models in the following flavors:
 
 Prophet (native) format

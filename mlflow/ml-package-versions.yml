@@ -358,3 +358,19 @@ prophet:
     maximum: "1.0.1"
     run: |
       pytest tests/prophet/test_prophet_model_export.py --large
+
+pmdarima:
+  package_info:
+    pip_release: "pmdarima"
+    install_dev: |
+      if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "pmdarima-*.whl") ]; then
+        pip wheel --no-deps --wheel-dir $CACHE_DIR git+https://github.com/alkaline-ml/pmdarima.git
+      fi
+      pip install $CACHE_DIR/pmdarima-*.whl
+
+  models:
+    minimum: "1.8.0"
+    maximum: "1.8.5"
+    requirements: ["prophet"]
+    run: |
+      pytest tests/pmdarima/test_pmdarima_model_export.py --large

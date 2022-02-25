@@ -68,6 +68,7 @@ try:
     import mlflow.pyspark as pyspark
     import mlflow.paddle as paddle
     import mlflow.prophet as prophet
+    import mlflow.pmdarima as pmdarima
 
     _model_flavors_supported = [
         "catboost",
@@ -89,6 +90,7 @@ try:
         "shap",
         "paddle",
         "prophet",
+        "pmdarima",
     ]
 except ImportError as e:
     # We are conditional loading these commands since the skinny client does
