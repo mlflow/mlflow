@@ -708,9 +708,7 @@ def _list_artifacts_for_proxied_run_artifact_root(proxied_artifact_root, relativ
     for file_info in artifact_destination_repo.list_artifacts(artifact_destination_path):
         basename = posixpath.basename(file_info.path)
         run_relative_artifact_path = (
-            posixpath.join(relative_path, basename)
-            if relative_path
-            else basename
+            posixpath.join(relative_path, basename) if relative_path else basename
         )
         artifact_entities.append(
             FileInfo(run_relative_artifact_path, file_info.is_dir, file_info.file_size)
