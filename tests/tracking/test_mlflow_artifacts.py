@@ -247,42 +247,53 @@ docker-compose down {rmi_option} --volumes --remove-orphans
     )
 
 
-def get_artifacts_from_rest_api(url, run_id, path=None):
-    if path:
-        resp = requests.get(url, params={"run_id": run_id, "path": path})
-    else:
-        resp = requests.get(url, params={"run_id": run_id})
-    resp.raise_for_status()
-    return resp.json()
+def test_rest_tracking_api_list_artifacts_with_proxied_artifacts(artifacts_server, tmpdir):
 
+    def list_artifacts_via_rest_api(url, run_id, path=None):
+        if path:
+            resp = requests.get(url, params={"run_id": run_id, "path": path})
+        else:
+            resp = requests.get(url, params={"run_id": run_id})
+        resp.raise_for_status()
+        return resp.json()
 
-def test_mlflow_artifacts_rest_api_list_artifacts(artifacts_server, tmpdir):
     url = artifacts_server.url
     mlflow.set_tracking_uri(url)
-    name = "rest_api_test"
     api = f"{url}/api/2.0/mlflow/artifacts/list"
+
     tmp_path_a = tmpdir.join("a.txt")
     tmp_path_a.write("0")
     tmp_path_b = tmpdir.join("b.txt")
     tmp_path_b.write("1")
-    mlflow.set_experiment(name)
-    with mlflow.start_run():
+    mlflow.set_experiment("rest_list_api_test")
+    with mlflow.start_run() as run:
         mlflow.log_artifact(tmp_path_a)
         mlflow.log_artifact(tmp_path_b, "dir")
 
-    client = mlflow.tracking.MlflowClient()
-    experiment = client.get_experiment_by_name(name)
-    run = client.list_run_infos(experiment.experiment_id)
-    run_id = run[0].run_id
-    artifacts = get_artifacts_from_rest_api(api, run_id)
-    assert len(artifacts) >= 1
-    expected_contents = {
-        "files": [
-            {"path": "a.txt", "is_dir": False, "file_size": 1},
-            {"path": "dir", "is_dir": True},
-        ]
-    }
-    assert artifacts == expected_contents
-    nested_contents = get_artifacts_from_rest_api(api, run_id, "dir")
-    expected_nested = {"files": [{"path": "b.txt", "is_dir": False, "file_size": 1}]}
-    assert nested_contents == expected_nested
+    list_artifacts_response = list_artifacts_via_rest_api(url=api, run_id=run.info.run_id)
+    assert list_artifacts_response.get("files") == [
+        {"path": "a.txt", "is_dir": False, "file_size": 1},
+        {"path": "dir", "is_dir": True},
+    ]
+    assert list_artifacts_response.get("root_uri") == run.info.artifact_uri
+
+    nested_list_artifacts_response = list_artifacts_via_rest_api(url=api, run_id=run.info.run_id, path="dir")
+    assert nested_list_artifacts_response.get("files") == [
+        {"path": "dir/b.txt", "is_dir": False, "file_size": 1},
+    ]
+    assert list_artifacts_response.get("root_uri") == run.info.artifact_uri
+
+
+def test_rest_get_artifact_api_proxied_with_artifacts(artifacts_server, tmpdir):
+    url = artifacts_server.url
+    mlflow.set_tracking_uri(url)
+    tmp_path_a = tmpdir.join("a.txt")
+    tmp_path_a.write("abcdefg")
+
+    mlflow.set_experiment("rest_get_artifact_api_test")
+    with mlflow.start_run() as run:
+        mlflow.log_artifact(tmp_path_a)
+
+    get_artifact_response = requests.get(url=f"{url}/get-artifact", params={"run_id": run.info.run_id, "path": "a.txt"})
+    get_artifact_response.raise_for_status()
+    assert get_artifact_response.text == "abcdefg"
