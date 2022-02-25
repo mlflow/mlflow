@@ -2,11 +2,13 @@ import os
 import pytest
 import time
 from collections import namedtuple
+from io import BytesIO
 from unittest import mock
 
 import boto3
 import botocore
 import numpy as np
+import pandas as pd
 from click.testing import CliRunner
 from sklearn.linear_model import LogisticRegression
 
@@ -1296,15 +1298,14 @@ def test_deploy_cli_list_sagemaker_deployments(pretrained_model, sagemaker_clien
 
 
 @mock_sagemaker_aws_services
-def test_predict(sagemaker_deployment_client):
-    import pandas as pd
-    from io import BytesIO
-
+def test_predict_with_dataframe_input_output(sagemaker_deployment_client):
+    output_df = pd.DataFrame({1: ["2", ".", "3"]})
     boto_caller = botocore.client.BaseClient._make_api_call
 
     def mock_invoke_endpoint(self, operation_name, operation_kwargs):
         if operation_name == "InvokeEndpoint":
-            result = dict(Body=BytesIO(b"[1.23]"))
+            output_json = output_df.to_json(orient="split")
+            result = dict(Body=BytesIO(bytes(output_json, encoding='utf-8')))
         else:
             result = boto_caller(self, operation_name, operation_kwargs)
         return result
@@ -1315,4 +1316,22 @@ def test_predict(sagemaker_deployment_client):
         result = sagemaker_deployment_client.predict("test", df)
 
         assert isinstance(result, pd.DataFrame)
-        assert list(result[0]) == [1.23]
+        assert result.equals(output_df)
+
+
+@mock_sagemaker_aws_services
+def test_predict_with_array_input_output(sagemaker_deployment_client):
+    boto_caller = botocore.client.BaseClient._make_api_call
+
+    def mock_invoke_endpoint(self, operation_name, operation_kwargs):
+        if operation_name == "InvokeEndpoint":
+            result = dict(Body=BytesIO(b'[1,2,3]'))
+        else:
+            result = boto_caller(self, operation_name, operation_kwargs)
+        return result
+
+    with mock.patch("botocore.client.BaseClient._make_api_call", new=mock_invoke_endpoint):
+        result = sagemaker_deployment_client.predict("test", np.array(range(10)))
+
+        assert isinstance(result, pd.DataFrame)
+        assert list(result[0]) == [1, 2, 3]

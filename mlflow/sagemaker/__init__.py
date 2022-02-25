@@ -2463,11 +2463,10 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
 
     def predict(self, deployment_name, df):
         """
-        Compute predictions on the pandas DataFrame ``df`` using the specified deployment.
+        Compute predictions from the specified deployment using the provided PyFunc input.
 
-        Note that the input/output types of this method matches that of `mlflow pyfunc predict`
-        (we accept a pandas DataFrame as input and return either a pandas DataFrame,
-        pandas Series, or numpy array as output).
+        The input/output types of this method match the :ref:`MLflow PyFunc prediction
+        interface <pyfunc-inference-api>`.
 
         If a region name needs to be specified, the plugin must be initialized
         with the AWS region in the ``target_uri`` such as ``sagemaker:/us-east-1``.
@@ -2476,9 +2475,11 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         with the AWS region and the role ARN in the ``target_uri`` such as
         ``sagemaker:/us-east-1/arn:aws:1234:role/assumed_role``.
 
-        :param deployment_name: Name of deployment to predict against
-        :param df: Pandas DataFrame to use for inference
-        :return: A pandas DataFrame, pandas Series, or numpy array
+        :param deployment_name: Name of the deployment to predict against.
+        :param df: A PyFunc input, such as a Pandas DataFrame, NumPy array, list, or dictionary.
+                   For a complete list of supported input types, see :ref:`pyfunc-inference-api`.
+        :return: A PyFunc output, such as a Pandas DataFrame, Pandas Series, or NumPy array.
+                 For a complete list of supported output types, see :ref:`pyfunc-inference-api`.
 
         .. code-block:: python
             :caption: Python example
@@ -2502,8 +2503,10 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 --name my-deployment \\
                 --input-path ./input.json
         """
+        import json
         import boto3
-        from pandas import read_json
+        from mlflow.pyfunc.scoring_server import infer_and_parse_json_input
+        from mlflow.utils.proto_json_utils import _get_jsonable_obj
 
         assume_role_credentials = _assume_role_and_get_credentials(
             assume_role_arn=self.assumed_role_arn
@@ -2515,12 +2518,12 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             )
             response = sage_client.invoke_endpoint(
                 EndpointName=deployment_name,
-                Body=df.to_json(orient="split"),
-                ContentType="application/json; format=pandas-split",
+                Body=json.dumps(_get_jsonable_obj(df)),
+                ContentType="application/json",
             )
 
             response_body = response["Body"].read().decode("utf-8")
-            return read_json(response_body)
+            return infer_and_parse_json_input(response_body)
         except Exception as exc:
             raise MlflowException(
                 message=(f"There was an error while getting model prediction: {exc}\n")
