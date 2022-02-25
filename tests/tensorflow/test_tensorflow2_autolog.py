@@ -856,6 +856,18 @@ def test_fit_generator(random_train_data, random_one_hot_labels):
 
 
 @pytest.mark.large
+def test_tf_keras_model_autolog_registering_model(random_train_data, random_one_hot_labels):
+    registered_model_name = "test_autolog_registered_model"
+    mlflow.tensorflow.autolog(registered_model_name=registered_model_name)
+    with mlflow.start_run():
+        model = create_tf_keras_model()
+        model.fit(random_train_data, random_one_hot_labels, epochs=10)
+
+        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        assert registered_model.name == registered_model_name
+
+
+@pytest.mark.large
 @pytest.mark.usefixtures("clear_tf_keras_imports")
 def test_fluent_autolog_with_tf_keras_logs_expected_content(
     random_train_data, random_one_hot_labels
@@ -907,18 +919,6 @@ def test_tf_keras_autolog_distributed_training(random_train_data, random_one_hot
         model.fit(random_train_data, random_one_hot_labels, **fit_params)
     client = mlflow.tracking.MlflowClient()
     assert client.get_run(run.info.run_id).data.params.keys() >= fit_params.keys()
-
-
-@pytest.mark.large
-def test_tf_keras_model_autolog_registering_model(random_train_data, random_one_hot_labels):
-    registered_model_name = "test_autolog_registered_model"
-    mlflow.tensorflow.autolog(registered_model_name=registered_model_name)
-    with mlflow.start_run():
-        model = create_tf_keras_model()
-        model.fit(random_train_data, random_one_hot_labels, epochs=10)
-
-        registered_model = MlflowClient().get_registered_model(registered_model_name)
-        assert registered_model.name == registered_model_name
 
 
 @pytest.mark.large
