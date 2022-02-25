@@ -89,7 +89,7 @@ After model is trained and registered (done in the training script) we will star
 To deploy a model locally run the below command on the terminal.
 
 ```bash
-mlflow models serve --model-uri models:/ElasticnetWineModel/1
+mlflow models serve --model-uri models:/digits_cnn_model/1
 ```
 
 The command above will deploy model `ElasticWineModel` version `1` locally as local REST API endpoint. Default port used is 5000.
