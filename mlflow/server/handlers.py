@@ -146,10 +146,10 @@ def _get_artifact_repo_mlflow_artifacts():
     return _artifact_repo
 
 
-def _is_serving_artifacts():
+def _is_serving_proxied_artifacts():
     """
-    :return: ``True`` if the MLflow server is serving artifacts (i.e. acting as a proxy for artifact
-             upload / download / list operations), as would be enabled by specifying the
+    :return: ``True`` if the MLflow server is serving proxied artifacts (i.e. acting as a proxy for
+             artifact upload / download / list operations), as would be enabled by specifying the
              ``--serve-artifacts`` configuration option. ``False`` otherwise.
     """
     from mlflow.server import SERVE_ARTIFACTS_ENV_VAR
@@ -192,7 +192,7 @@ def _is_servable_proxied_run_artifact_root(run_artifact_root):
     # Location B.
     return (
         parsed_run_artifact_root.scheme in ["http", "https", "mlflow-artifacts"]
-        and _is_serving_artifacts()
+        and _is_serving_proxied_artifacts()
     )
 
 
@@ -357,7 +357,7 @@ _TEXT_EXTENSIONS = [
 def _disable_unless_serve_artifacts(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
-        if not _is_serving_artifacts():
+        if not _is_serving_proxied_artifacts():
             return Response(
                 (
                     f"Endpoint: {request.url_rule} disabled due to the mlflow server running "
