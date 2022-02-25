@@ -329,7 +329,25 @@ def get_artifact_handler():
     request_dict = parser.parse(query_string, normalized=True)
     run_id = request_dict.get("run_id") or request_dict.get("run_uuid")
     run = _get_tracking_store().get_run(run_id)
+
+    if _get_serve_artifacts_mode():
+        return _get_artifact_handler_non_proxy(run, request_dict)
+    else:
+        return _get_artifact_handler_proxy(run, request_dict)
+
+
+@catch_mlflow_exception
+def _get_artifact_handler_non_proxy(run, request_dict):
     return _send_artifact(_get_artifact_repo(run), request_dict["path"])
+
+
+@catch_mlflow_exception
+def _get_artifact_handler_proxy(run, request_dict):
+
+    artifact_uri = run.info.artifact_uri
+    qualified_path = _append_path_to_artifact_uri(artifact_uri, request_dict["path"])
+    artifact_repo = _get_artifact_repo_mlflow_artifacts()
+    return _send_artifact(artifact_repo, qualified_path)
 
 
 def _not_implemented():
