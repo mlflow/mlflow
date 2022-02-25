@@ -33,6 +33,9 @@ def run_logging_operations():
             python_model=MockModel(),
             registered_model_name="mock",
         )
+    runs = mlflow.search_runs(experiment_ids=["0"], order_by=["param.start_time DESC"])
+
+    run = mlflow.get_run(runs["run_id"][0])
 
     # Ensure the following migration scripts work correctly:
     # - cfd24bdc0731_update_run_status_constraint_with_killed.py

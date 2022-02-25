@@ -142,6 +142,19 @@ def test_xgb_autolog_logs_specified_params(bst_params, dtrain):
 
 
 @pytest.mark.large
+def test_xgb_autolog_atsign_metrics():
+    mlflow.xgboost.autolog()
+    xgb_metrics = ["ndcg@2", "map@3-", "error@0.4"]
+    expected_metrics = {"train-ndcg_at_2", "train-map_at_3-", "train-error_at_0.4"}
+
+    params = {"objective": "rank:pairwise", "eval_metric": xgb_metrics}
+    dtrain = xgb.DMatrix(np.array([[0], [1]]), label=[1, 0])
+    xgb.train(params, dtrain, evals=[(dtrain, "train")], num_boost_round=1)
+    run = get_latest_run()
+    assert set(run.data.metrics) == expected_metrics
+
+
+@pytest.mark.large
 def test_xgb_autolog_sklearn():
 
     mlflow.xgboost.autolog()
