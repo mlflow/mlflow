@@ -1,9 +1,11 @@
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.base import (
     ModelEvaluator,
     EvaluationResult,
 )
 from mlflow.entities.metric import Metric
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.string_utils import truncate_str_from_middle
 from mlflow.models.utils import plot_lines
@@ -15,6 +17,7 @@ from collections import namedtuple
 import numbers
 import pandas as pd
 import numpy as np
+import copy
 import time
 from functools import partial
 import logging
@@ -256,6 +259,77 @@ _matplotlib_config = {
     "figure.dpi": 288,
     "figure.figsize": [6.0, 4.0],
 }
+
+
+def _evaluate_custom_metric(index, custom_metric, eval_df, builtin_metrics):
+    """
+    This function calls the `custom_metric` function and performs validations on the returned
+    result to ensure that they are in the expected format. It will raise a MlflowException if
+    the result is not in the expected format.
+
+    :param index: The index of the custom metric function in the custom_metrics parameter
+                  of the mlflow.evaluate function.
+    :param custom_metric: A user provided custom metric function.
+    :param eval_df: A Pandas dataframe object containing a prediction and a target column.
+    :param builtin_metrics: A dictionary of metrics produced by the default evaluator.
+    :return: A tuple of dictionaries. The first is a dictionary of metrics, the second is
+             a dictionary of artifacts (which can be None if the custom metric function did
+             not produce any).
+    """
+    exception_header = (
+        f"Custom metric function "
+        f"'{getattr(custom_metric, '__name__', repr(custom_metric))}' at index {index} in the "
+        f"`custom_metrics` parameter"
+    )
+
+    result = custom_metric(eval_df, builtin_metrics)
+    if result is None:
+        raise MlflowException(f"{exception_header} returned None.")
+
+    def __validate_metrics(metrics):
+        if not all(
+            isinstance(metric_name, str) and isinstance(metric_val, (int, float, np.number))
+            for metric_name, metric_val in metrics.items()
+        ):
+            raise MlflowException(
+                f"{exception_header} did not return metrics as a dictionary of string metric names "
+                "with numerical values."
+            )
+
+    def __validate_artifacts(artifacts):
+        if not (
+            isinstance(artifacts, dict)
+            and all(isinstance(artifacts_name, str) for artifacts_name in artifacts.keys())
+        ):
+            raise MlflowException(
+                f"{exception_header} did not return artifacts as a dictionary of string artifact "
+                "names with their corresponding objects."
+            )
+
+    if isinstance(result, dict):
+        __validate_metrics(result)
+        return result, None
+
+    if (
+        isinstance(result, tuple)
+        and len(result) == 2
+        and isinstance(result[0], dict)
+        and isinstance(result[1], dict)
+    ):
+        __validate_metrics(result[0])
+        __validate_artifacts(result[1])
+        return result
+
+    raise MlflowException(
+        f"{exception_header} did not return in an expected format. "
+        "The two acceptable return types are: \n"
+        "1. Dict[AnyStr, Union[int, float, np.number]: a dictionary of metrics \n"
+        "2. Tuple[Dict[AnyStr, Union[int, float, np.number]], Dict[AnyStr, Any]]: a"
+        "   dictionary of metrics and a dictionary of artifacts. \n"
+        "For more details refer to: "
+        "https://mlflow.org/docs/latest/python_api/mlflow.html#mlflow.evaluate",
+        error_code=INVALID_PARAMETER_VALUE,
+    )
 
 
 # pylint: disable=attribute-defined-outside-init
@@ -540,6 +614,22 @@ class DefaultEvaluator(ModelEvaluator):
 
         self._log_pandas_df_artifact(per_class_metrics_collection_df, "per_class_metrics")
 
+    def _evaluate_custom_metrics(self):
+        if self.custom_metrics is None:
+            return
+        builtin_metrics = copy.deepcopy(self.metrics)
+        eval_df = pd.DataFrame(
+            {"prediction": copy.deepcopy(self.y_pred), "target": copy.deepcopy(self.y)}
+        )
+        for index, custom_metric in enumerate(self.custom_metrics):
+            # deepcopying eval_df and builtin_metrics for each custom metric function call,
+            # in case the user modifies them inside their function(s).
+            metric_results, _ = _evaluate_custom_metric(
+                index, custom_metric, eval_df.copy(), copy.deepcopy(builtin_metrics)
+            )
+            self.metrics.update(metric_results)
+            # TODO: artifact detection and logging.
+
     def _evaluate_classifier(self):
         from mlflow.models.evaluation.lift_curve import plot_lift_curve
 
@@ -618,6 +708,7 @@ class DefaultEvaluator(ModelEvaluator):
                 "confusion_matrix",
             )
 
+        self._evaluate_custom_metrics()
         self._log_metrics()
         self._log_model_explainability()
         return EvaluationResult(self.metrics, self.artifacts)
@@ -626,6 +717,7 @@ class DefaultEvaluator(ModelEvaluator):
         self.y_pred = self.model.predict(self.X)
         self.metrics.update(_get_regressor_metrics(self.y, self.y_pred))
 
+        self._evaluate_custom_metrics()
         self._log_metrics()
         self._log_model_explainability()
         return EvaluationResult(self.metrics, self.artifacts)
@@ -638,6 +730,7 @@ class DefaultEvaluator(ModelEvaluator):
         dataset,
         run_id,
         evaluator_config,
+        custom_metrics=None,
         **kwargs,
     ):
         import matplotlib
@@ -653,6 +746,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.evaluator_config = evaluator_config
             self.dataset_name = dataset.name
             self.feature_names = dataset.feature_names
+            self.custom_metrics = custom_metrics
 
             (
                 model_loader_module,
