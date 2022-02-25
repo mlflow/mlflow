@@ -794,14 +794,6 @@ This loaded PyFunc model can only be scored with a DataFrame input.
 You can also use the :py:func:`mlflow.pmdarima.load_model()` method to load MLflow Models with the ``pmdarima``
 model flavor in native pmdarima formats.
 
-.. note::
-    When predicting a ``pmdarima`` flavor, the ``predict`` method's ``DataFrame`` configuration column
-    ``return_conf_int``'s value controls the output format. When the column's value is set to ``False`` or ``None``
-    (which is the default if this column is not supplied in the configuration ``DataFrame``), the schema of the
-    returned ``Pandas DataFrame`` is a single column: ``["yhat"]``. When set to ``True``, the schema of the returned
-    ``DataFrame`` is: ``["yhat", "yhat_lower", "yhat_upper"]`` with the respective lower (``yhat_lower``) and
-    upper (``yhat_upper``) confidence intervals added to the forecast predictions (``yhat``).
-
 The interface for utilizing a ``pmdarima`` model loaded as a ``pyfunc`` type for generating forecast predictions uses
 a *single-row* ``Pandas DataFrame`` configuration argument. The following columns in this configuration
 ``Pandas DataFrame`` are supported:
@@ -829,6 +821,14 @@ Index  n_periods return_conf_int
 
 .. warning::
     The ``Pandas DataFrame`` passed to a ``pmdarima`` ``pyfunc`` flavor must only contain 1 row.
+
+.. note::
+    When predicting a ``pmdarima`` flavor, the ``predict`` method's ``DataFrame`` configuration column
+    ``return_conf_int``'s value controls the output format. When the column's value is set to ``False`` or ``None``
+    (which is the default if this column is not supplied in the configuration ``DataFrame``), the schema of the
+    returned ``Pandas DataFrame`` is a single column: ``["yhat"]``. When set to ``True``, the schema of the returned
+    ``DataFrame`` is: ``["yhat", "yhat_lower", "yhat_upper"]`` with the respective lower (``yhat_lower``) and
+    upper (``yhat_upper``) confidence intervals added to the forecast predictions (``yhat``).
 
 Example usage of pmdarima artifact loaded as a pyfunc with confidence intervals calculated:
 
