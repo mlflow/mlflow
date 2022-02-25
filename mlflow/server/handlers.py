@@ -193,8 +193,8 @@ def _is_servable_proxied_run_artifact_root(run_artifact_root):
     # location. Such failures can be remediated by granting the original MLflow server access to
     # Location B.
     return (
-        parsed_run_artifact_root.scheme in ["http", "https", "mlflow-artifacts"] and
-        _is_serving_artifacts()
+        parsed_run_artifact_root.scheme in ["http", "https", "mlflow-artifacts"]
+        and _is_serving_artifacts()
     )
 
 
@@ -399,7 +399,7 @@ def get_artifact_handler():
     else:
         artifact_repo = _get_artifact_repo(run)
         artifact_path = request_dict["path"]
-        
+
     return _send_artifact(artifact_repo, artifact_path)
 
 
@@ -698,7 +698,7 @@ def _list_artifacts_for_proxied_run_artifact_root(proxied_artifact_root, relativ
         relative_path=relative_path,
     )
 
-    artifact_entities  = []
+    artifact_entities = []
     for file_info in artifact_destination_repo.list_artifacts(artifact_destination_path):
         basename = posixpath.basename(file_info.path)
         artifact_path = posixpath.join(relative_path, basename) if relative_path else basename

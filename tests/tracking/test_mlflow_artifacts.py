@@ -248,7 +248,6 @@ docker-compose down {rmi_option} --volumes --remove-orphans
 
 
 def test_rest_tracking_api_list_artifacts_with_proxied_artifacts(artifacts_server, tmpdir):
-
     def list_artifacts_via_rest_api(url, run_id, path=None):
         if path:
             resp = requests.get(url, params={"run_id": run_id, "path": path})
@@ -277,7 +276,9 @@ def test_rest_tracking_api_list_artifacts_with_proxied_artifacts(artifacts_serve
     ]
     assert list_artifacts_response.get("root_uri") == run.info.artifact_uri
 
-    nested_list_artifacts_response = list_artifacts_via_rest_api(url=api, run_id=run.info.run_id, path="dir")
+    nested_list_artifacts_response = list_artifacts_via_rest_api(
+        url=api, run_id=run.info.run_id, path="dir"
+    )
     assert nested_list_artifacts_response.get("files") == [
         {"path": "dir/b.txt", "is_dir": False, "file_size": 1},
     ]
@@ -294,6 +295,8 @@ def test_rest_get_artifact_api_proxied_with_artifacts(artifacts_server, tmpdir):
     with mlflow.start_run() as run:
         mlflow.log_artifact(tmp_path_a)
 
-    get_artifact_response = requests.get(url=f"{url}/get-artifact", params={"run_id": run.info.run_id, "path": "a.txt"})
+    get_artifact_response = requests.get(
+        url=f"{url}/get-artifact", params={"run_id": run.info.run_id, "path": "a.txt"}
+    )
     get_artifact_response.raise_for_status()
     assert get_artifact_response.text == "abcdefg"
