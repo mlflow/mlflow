@@ -4,9 +4,7 @@ import os
 import re
 import tempfile
 import posixpath
-import pathlib
 import urllib
-import uuid
 
 import logging
 from functools import wraps
