@@ -1,7 +1,7 @@
 $schema: https://azuremlschemas.azureedge.net/latest/managedOnlineDeployment.schema.json
 # invoke completions (Ctrl+Space, Cmd+Space) to see the list of models available
 model:
-  local_path: ./ElasticnetWineModel
+  local_path: ./digits_cnn_model
   model_format: mlflow
 instance_type: Standard_F4s_v2
 instance_count: 1

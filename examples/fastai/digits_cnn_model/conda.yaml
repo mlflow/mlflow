@@ -13,4 +13,5 @@ dependencies:
   - ipykernel==5.3.4
   - ipython-genutils==0.2.0
   - protobuf==3.19.4
+  - itsdangerous<2.1.0
 name: mlflow-env
