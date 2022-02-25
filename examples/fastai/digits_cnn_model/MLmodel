@@ -1,0 +1,16 @@
+artifact_path: model
+flavors:
+  python_function:
+    code: code
+    data: data/model.fastai
+    env: conda.yaml
+    loader_module: fastai_model_loader
+    python_version: 3.7.5
+model_uuid: 7720dcb039a3477e8e594bf0e0dba0a4
+run_id: 2b300ab1-93de-46d4-938a-15f411c77576
+signature:
+  inputs: '[{"type": "tensor", "tensor-spec": {"dtype": "uint8", "shape": [-1, -1,
+    -1, 3]}}]'
+  outputs: '[{"type": "tensor", "tensor-spec": {"dtype": "float32", "shape": [-1,
+    10]}}]'
+utc_time_created: '2022-02-25 20:24:35.455683'

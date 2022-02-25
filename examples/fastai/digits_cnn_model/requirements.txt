@@ -1,0 +1,9 @@
+mlflow
+cffi==1.14.6
+cloudpickle==2.0.0
+colorama==0.4.4
+defusedxml==0.7.1
+fastai==2.5.3
+ipykernel==5.3.4
+ipython-genutils==0.2.0
+protobuf==3.19.4
