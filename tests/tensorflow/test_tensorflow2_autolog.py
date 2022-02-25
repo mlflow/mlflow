@@ -910,6 +910,18 @@ def test_tf_keras_autolog_distributed_training(random_train_data, random_one_hot
 
 
 @pytest.mark.large
+def test_tf_keras_model_autolog_registering_model(random_train_data, random_one_hot_labels):
+    registered_model_name = "test_autolog_registered_model"
+    mlflow.tensorflow.autolog(registered_model_name=registered_model_name)
+    with mlflow.start_run():
+        model = create_tf_keras_model()
+        model.fit(random_train_data, random_one_hot_labels, epochs=10)
+
+        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        assert registered_model.name == registered_model_name
+
+
+@pytest.mark.large
 @pytest.mark.skipif(
     Version(tf.__version__) < Version("2.6.0"),
     reason=("TensorFlow only has a hard dependency on Keras in version >= 2.6.0"),
@@ -975,15 +987,3 @@ def test_import_keras_with_fluent_autolog_enables_tensorflow_autologging():
 
     assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
     assert autologging_is_disabled(mlflow.keras.FLAVOR_NAME)
-
-
-@pytest.mark.large
-def test_tf_keras_model_autolog_registering_model(random_train_data, random_one_hot_labels):
-    registered_model_name = "test_autolog_registered_model"
-    mlflow.tensorflow.autolog(registered_model_name=registered_model_name)
-    with mlflow.start_run():
-        model = create_tf_keras_model()
-        model.fit(random_train_data, random_one_hot_labels, epochs=10)
-
-        registered_model = MlflowClient().get_registered_model(registered_model_name)
-        assert registered_model.name == registered_model_name
