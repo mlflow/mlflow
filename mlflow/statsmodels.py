@@ -396,6 +396,7 @@ def autolog(
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
+    registered_model_name=None,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures automatic logging from statsmodels to MLflow.
@@ -422,6 +423,9 @@ def autolog(
     :param silent: If ``True``, suppress all event logs and warnings from MLflow during statsmodels
                    autologging. If ``False``, show all events and warnings during statsmodels
                    autologging.
+    :param registered_model_name: If given, each time a model is trained, it is registered as a
+                                  new model version of the registered model with this name.
+                                  The registered model is created if it does not already exist.
     """
     import statsmodels
 
@@ -508,8 +512,15 @@ def autolog(
                 if get_autologging_config(FLAVOR_NAME, "log_models", True):
                     global _save_model_called_from_autolog
                     _save_model_called_from_autolog = True
+                    registered_model_name = get_autologging_config(
+                        FLAVOR_NAME, "registered_model_name", None
+                    )
                     try:
-                        log_model(model, artifact_path="model")
+                        log_model(
+                            model,
+                            artifact_path="model",
+                            registered_model_name=registered_model_name,
+                        )
                     finally:
                         _save_model_called_from_autolog = False
 

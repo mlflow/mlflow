@@ -58,6 +58,7 @@ from mlflow.utils.autologging_utils import (
     MlflowAutologgingQueueingClient,
     disable_autologging,
     update_wrapper_extended,
+    get_autologging_config,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -903,6 +904,7 @@ def autolog(
     max_tuning_runs=5,
     log_post_training_metrics=True,
     serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
+    registered_model_name=None,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for scikit-learn estimators.
@@ -1157,6 +1159,9 @@ def autolog(
     :param serialization_format: The format in which to serialize the model. This should be one of
                                  the following: ``mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE`` or
                                  ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``.
+    :param registered_model_name: If given, each time a model is trained, it is registered as a
+                                  new model version of the registered model with this name.
+                                  The registered model is created if it does not already exist.
     """
     _autolog(
         flavor_name=FLAVOR_NAME,
@@ -1256,11 +1261,15 @@ def _autolog(
                 if flavor_name == mlflow.xgboost.FLAVOR_NAME
                 else mlflow.lightgbm.log_model
             )
+            registered_model_name = get_autologging_config(
+                flavor_name, "registered_model_name", None
+            )
             log_model_func(
                 self,
                 artifact_path="model",
                 signature=signature,
                 input_example=input_example,
+                registered_model_name=registered_model_name,
             )
         return fit_output
 
@@ -1376,13 +1385,16 @@ def _autolog(
                 log_model_signatures,
                 _logger,
             )
-
+            registered_model_name = get_autologging_config(
+                FLAVOR_NAME, "registered_model_name", None
+            )
             _log_model_with_except_handling(
                 estimator,
                 artifact_path="model",
                 signature=signature,
                 input_example=input_example,
                 serialization_format=serialization_format,
+                registered_model_name=registered_model_name,
             )
 
         if _is_parameter_search_estimator(estimator):
