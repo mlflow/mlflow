@@ -159,6 +159,58 @@ def _is_serving_artifacts():
     return os.environ.get(SERVE_ARTIFACTS_ENV_VAR, "false") == "true"
 
 
+def _is_servable_proxied_run_artifact_root(run_artifact_root):
+    """
+    Determines whether or not the following are true:
+
+    - The specified Run artifact root is a proxied artifact root (i.e. an artifact root with scheme
+      `http`, `https`, or `mlflow-artifacts`).
+
+    - The MLflow server is capable of resolving and accessing the underlying storage location
+      corresponding to the proxied artifact root, allowing it to fulfill artifact list and
+      download requests by using this storage location directly.
+
+    :param run_artifact_root: The Run artifact root location (URI).
+    :return: `True` if the specified Run artifact root refers to proxied artifacts that can be
+             served by this MLflow server (i.e. the server has access to the destination and
+             can respond to list and download requests for the artifact). `False` otherwise.
+    """
+    parsed_run_artifact_root = urllib.parse.urlparse(run_artifact_root)
+    return (
+        parsed_run_artifact_root.scheme in ["http", "https", "mlflow-artifacts"] and
+        _is_serving_artifacts()
+    )
+
+
+def _get_proxied_run_artifact_destination_path(proxied_artifact_root, relative_path=None):
+    """
+    Resolves the specified proxied artifact location within a Run to a concrete storage location.
+
+    :param proxied_artifact_root: The Run artifact root location (URI) with scheme `http`, `https`,
+                                  or `mlflow-artifacts` that can be resolved by the MLflow server
+                                  to a concrete storage location.
+    :param relative_path: The relative path of the destination within the specified
+                          `proxied_artifact_root`. If `None`, the destination is assumed to be
+                          the resolved `proxied_artifact_root`.
+    :return: The storage location of the specified artifact.
+    """
+    parsed_proxied_artifact_root = urllib.parse.urlparse(proxied_artifact_root)
+    assert parsed_proxied_artifact_root.scheme in ["http", "https", "mlflow-artifacts"]
+
+    if parsed_proxied_artifact_root.scheme == "mlflow-artifacts":
+        proxied_run_root_path = parsed_proxied_artifact_root.path.lstrip("/")
+    else:
+        proxied_run_root_path = parsed_proxied_artifact_root.path.lstrip(
+            "/api/2.0/mlflow-artifacts/artifacts/"
+        )
+
+    return (
+        posixpath.join(proxied_run_root_path, relative_path)
+        if relative_path is not None
+        else proxied_run_root_path
+    )
+
+
 def _get_tracking_store(backend_store_uri=None, default_artifact_root=None):
     from mlflow.server import BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
 
@@ -321,7 +373,18 @@ def get_artifact_handler():
     request_dict = parser.parse(query_string, normalized=True)
     run_id = request_dict.get("run_id") or request_dict.get("run_uuid")
     run = _get_tracking_store().get_run(run_id)
-    return _send_artifact(_get_artifact_repo(run), request_dict["path"])
+
+    if _is_servable_proxied_run_artifact_root(run.info.artifact_uri):
+        artifact_repo = _get_artifact_repo_mlflow_artifacts()
+        artifact_path = _get_proxied_run_artifact_destination_path(
+            proxied_artifact_root=run.info.artifact_uri,
+            relative_path=request_dict["path"],
+        )
+    else:
+        artifact_repo = _get_artifact_repo(run)
+        artifact_path = request_dict["path"]
+        
+    return _send_artifact(artifact_repo, artifact_path)
 
 
 def _not_implemented():
@@ -581,50 +644,49 @@ def _list_artifacts():
         path = None
     run_id = request_message.run_id or request_message.run_uuid
     run = _get_tracking_store().get_run(run_id)
-    
-    parsed_run_artifact_root = urllib.parse.urlparse(run.info.artifact_uri)
-    if parsed_run_artifact_root.scheme in ["http", "https", "mlflow-artifacts"]\
-            and _is_serving_artifacts():
+
+    if _is_servable_proxied_run_artifact_root(run.info.artifact_uri):
         artifact_entities = _list_artifacts_for_proxied_run_artifact_root(
-            parsed_proxied_artifact_root=parsed_run_artifact_root,
+            proxied_artifact_root=run.info.artifact_uri,
             relative_path=path,
         )
     else:
         artifact_entities = _get_artifact_repo(run).list_artifacts(path)
 
     response_message.files.extend([a.to_proto() for a in artifact_entities])
-    response_message.root_uri = _get_artifact_repo(run).artifact_uri
+    response_message.root_uri = run.info.artifact_uri
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
 
 
 @catch_mlflow_exception
-def _list_artifacts_for_proxied_run_artifact_root(parsed_proxied_artifact_root, relative_path=None):
+def _list_artifacts_for_proxied_run_artifact_root(proxied_artifact_root, relative_path=None):
     """
-    Lists artifacts from the specified `relative_path` within the specified proxied MLflow Run
-    artifact root (i.e. a Run artifact root with scheme `http`, `https`, or `mlflow-artifacts`).
+    Lists artifacts from the specified `relative_path` within the specified proxied Run artifact
+    root (i.e. a Run artifact root with scheme `http`, `https`, or `mlflow-artifacts`).
 
-    :param proxied_artifact_root: A `urllib.parse.ParseResult` object representing a parsed artifact
-                                  root location with scheme `http`, `https`, or `mlflow-artifacts`
-                                  that can be resolved by the MLflow artifact server to a concrete
-                                  storage location.
+    :param proxied_artifact_root: The Run artifact root location (URI) with scheme `http`, `https`,
+                                  or `mlflow-artifacts` that can be resolved by the MLflow server
+                                  to a concrete storage location.
     :param relative_path: The relative path within the specified `proxied_artifact_root` under which
-                          to list artifact contents.
+                          to list artifact contents. If `None`, artifacts are listed from the
+                          `proxied_artifact_root` directory.
     """
-    artifact_destination_repo = _get_artifact_repo_mlflow_artifacts()
+    parsed_proxied_artifact_root = urllib.parse.urlparse(proxied_artifact_root)
+    assert parsed_proxied_artifact_root.scheme in ["http", "https", "mlflow-artifacts"]
 
-    if parsed_proxied_artifact_root.scheme == "mlflow-artifacts":
-        artifact_destination_path = posixpath.join(parsed_proxied_artifact_root.path, relative_path) 
-    else:
-        assert parsed_proxied_artifact_root.scheme in ["http", "https"]
-        # TODO: Fix this
-        artifact_destination_path = relative_path
-    
+    artifact_destination_repo = _get_artifact_repo_mlflow_artifacts()
+    artifact_destination_path = _get_proxied_run_artifact_destination_path(
+        proxied_artifact_root=proxied_artifact_root,
+        relative_path=relative_path,
+    )
+
     artifact_entities  = []
-    for file_info in artifact_repo.list_artifacts(artifact_destination_path):
+    for file_info in artifact_destination_repo.list_artifacts(artifact_destination_path):
         basename = posixpath.basename(file_info.path)
-        artifact_entities.append(FileInfo(basename, file_info.is_dir, file_info.file_size))
+        artifact_path = posixpath.join(relative_path, basename) if relative_path else basename
+        artifact_entities.append(FileInfo(artifact_path, file_info.is_dir, file_info.file_size))
 
     return artifact_entities
 
