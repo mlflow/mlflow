@@ -7,8 +7,8 @@ MLflow 1.24.0 includes several major features and improvements:
 Features:
 
 - [Tracking] Support uploading, downloading, and listing artifacts through the MLflow server via ``mlflow server --serve-artifacts`` (#5320, @BenWilson2, @harupy)
-- [Tracking] Add ``registered_model_name`` argument to ``mlflow.autolog()`` for automatic model registration during autologging (#5395, @WeichenXu123)
-- [UI] Improve and restructure the Compare Runs page. Additions include "diff-only view" toggles and scrollable tables (#5306, @WeichenXu123)
+- [Tracking] Add the ``registered_model_name`` argument to ``mlflow.autolog()`` for automatic model registration during autologging (#5395, @WeichenXu123)
+- [UI] Improve and restructure the Compare Runs page. Additions include "show diff only" toggles and scrollable tables (#5306, @WeichenXu123)
 - [Models] Introduce ``mlflow.pmdarima`` flavor for pmdarima models (#5373, @BenWilson2)
 - [Models] When loading an MLflow Model, print a warning if a mismatch is detected between the current environment and the Model's dependencies (#5368, @WeichenXu123)
 - [Models] Support computing custom scalar metrics during model evaluation with ``mlflow.evaluate()`` (#5389, @MarkYHZhang)
@@ -22,7 +22,7 @@ Bug fixes and documentation updates:
 - [Tracking] Fix an import error that occurred when ``mlflow.log_figure()`` was used without ``matplotlib.figure`` imported (#5406, @WeichenXu123)
 - [Tracking] Correctly log XGBoost metrics containing the ``@`` symbol during autologging (#5403, @maxfriedrich)
 - [Tracking] Fix a SQL Server database error that occurred during Runs search (#5382, @dianacarvalho1)
-- [Tracking] When downloading artifacts from HDFS, store them in the user-specified destination directory if specified (#5210, @DimaClaudiu)
+- [Tracking] When downloading artifacts from HDFS, store them in the user-specified destination directory (#5210, @DimaClaudiu)
 - [Tracking / Model Registry] Improve performance of large artifact and model downloads (#5359, @mehtayogita)
 - [Models] Fix fast.ai PyFunc inference behavior for models with 2D outputs (#5411, @santiagxf)
 - [Models] Record Spark model information to the active run when ``mlflow.spark.log_model()`` is called (#5355, @szczeles)
