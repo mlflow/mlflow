@@ -464,18 +464,18 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 
 
 @pytest.mark.large
-def test_model_save_uses_cloudpickle_serialization_format_by_default(sklearn_knn_model, model_path):
+def test_model_save_uses_pickle_serialization_format_by_default(sklearn_knn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path)
 
     sklearn_conf = _get_flavor_configuration(
         model_path=model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME
     )
     assert "serialization_format" in sklearn_conf
-    assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE
+    assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE
 
 
 @pytest.mark.large
-def test_model_log_uses_cloudpickle_serialization_format_by_default(sklearn_knn_model):
+def test_model_log_uses_pickle_serialization_format_by_default(sklearn_knn_model):
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=sklearn_knn_model.model, artifact_path=artifact_path)
@@ -488,7 +488,7 @@ def test_model_log_uses_cloudpickle_serialization_format_by_default(sklearn_knn_
         model_path=model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME
     )
     assert "serialization_format" in sklearn_conf
-    assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE
+    assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE
 
 
 @pytest.mark.large

@@ -139,7 +139,7 @@ def save_model(
     path,
     conda_env=None,
     mlflow_model=None,
-    serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
+    serialization_format=SERIALIZATION_FORMAT_PICKLE,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     pip_requirements=None,
@@ -161,8 +161,8 @@ def save_model(
                                  the formats listed in
                                  ``mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS``. The Cloudpickle
                                  format, ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``,
-                                 provides better cross-system compatibility by identifying and
-                                 packaging code dependencies with the serialized model.
+                                 is not supported for long-term model storage or cross-system
+                                 compatibility.
 
     :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
@@ -299,7 +299,7 @@ def log_model(
     sk_model,
     artifact_path,
     conda_env=None,
-    serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
+    serialization_format=SERIALIZATION_FORMAT_PICKLE,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -322,8 +322,8 @@ def log_model(
                                  the formats listed in
                                  ``mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS``. The Cloudpickle
                                  format, ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``,
-                                 provides better cross-system compatibility by identifying and
-                                 packaging code dependencies with the serialized model.
+                                 is not supported for long-term model storage or cross-system
+                                 compatibility.
     :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
@@ -903,7 +903,7 @@ def autolog(
     silent=False,
     max_tuning_runs=5,
     log_post_training_metrics=True,
-    serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
+    serialization_format=SERIALIZATION_FORMAT_PICKLE,
     registered_model_name=None,
 ):  # pylint: disable=unused-argument
     """
@@ -1159,6 +1159,9 @@ def autolog(
     :param serialization_format: The format in which to serialize the model. This should be one of
                                  the following: ``mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE`` or
                                  ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``.
+                                 ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``
+                                 is not supported for long-term model storage or cross-system
+                                 compatibility.
     :param registered_model_name: If given, each time a model is trained, it is registered as a
                                   new model version of the registered model with this name.
                                   The registered model is created if it does not already exist.
@@ -1189,7 +1192,7 @@ def _autolog(
     silent=False,
     max_tuning_runs=5,
     log_post_training_metrics=True,
-    serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
+    serialization_format=SERIALIZATION_FORMAT_PICKLE,
 ):  # pylint: disable=unused-argument
     """
     Internal autologging function for scikit-learn models.
