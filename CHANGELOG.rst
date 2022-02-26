@@ -1,6 +1,6 @@
 Changelog
 =========
-1.24.0 (2022-02-26)
+1.24.0 (2022-02-27)
 -------------------
 MLflow 1.24.0 includes several major features and improvements:
 
