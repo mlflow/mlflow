@@ -1,5 +1,43 @@
 Changelog
 =========
+1.24.0 (2022-02-26)
+-------------------
+MLflow 1.24.0 includes several major features and improvements:
+
+Features:
+
+- Implement the `predict()` function for SageMaker deployment plugin (#5396, @jamestran201)
+- [Custom Metrics] Enabled support for logging of numerical metrics (#5389, @MarkYHZhang)
+- Add model registration argument for autolog (#5395, @WeichenXu123)
+- Pmdarima flavor (#5373, @BenWilson2)
+- Move the code that deploys a SageMaker Endpoint to a plugin that implements BaseDeploymentClient (#4971, @jamestran201)
+- Warning for dependency mismatches (#5368, @WeichenXu123)
+- Condense run comparison table (#5306, @WeichenXu123)
+- Update UI (#5307, @harupy)
+- Create job experiment if the start_run source is a job (#5267, @sunishsheth2009)
+
+Bug fixes and documentation updates:
+
+- Adding support for multiclass models or models returning multiple probabilities in fastai and the pyfunc flavor (#5411, @santiagxf)
+- Fix ListArtifacts and get-artifact compatibility errors with proxied artifacts (#5409, @dbczumar)
+- init (#5406, @WeichenXu123)
+- Fix XGBoost autologging for metrics with @ (#5403, @maxfriedrich)
+- Fix #5360 (#5382, @dianacarvalho1)
+- Uniquely-named directory was always created for hdfs artifact repo (#5210, @DimaClaudiu)
+- Enable basic auth in MlflowArtifactsRepository (#5370, @TimNooren)
+- store/artifact/mlflow: utilize netloc over host:port (#5385, @mert-kirpici)
+- store/artifact/mlflow: fix resolved path order (#5384, @mert-kirpici)
+- increase timeout on image push (#5363, @zanitete)
+- Parallelize download of artifacts and improve performance of downloading large models. (#5359, @mehtayogita)
+- Add support for minor version incremental increase for pyspark (#5366, @BenWilson2)
+- Fix (#5362, @dbczumar)
+- Record logged Spark model (#5355, @szczeles)
+- add test for pandas df evaluate submission and type definition handling (#5345, @BenWilson2)
+- onnxruntime InferenceSession fix to bug #5308 (#5317, @ecm200)
+- Add developer guide for building model evaluation plugins (#5333, @WeichenXu123)
+
+Small bug fixes and doc updates (#5298, @wamartin-aml; #5399, #5321, #5313, #5305, #5268, #5284, @harupy; #5329, @Ark-kun; #5375, #5346, #5304, @dbczumar; #5401, @BenWilson2; #5326, #5315, @WeichenXu123; #5236, @singankit; #5302, @timvink; #5357, @maitre-matt; #5347, #5344, @mehtayogita; #5367, @apurva-koti; #5348, #5328, #5310, @liangz1)
+
 1.23.1 (2022-01-27)
 -------------------
 MLflow 1.23.1 is a patch release containing the following bug fixes:
