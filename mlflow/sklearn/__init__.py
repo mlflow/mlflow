@@ -481,7 +481,7 @@ class _SklearnCustomModelPicklingError(pickle.PicklingError):
 
 def _dump_model(pickle_lib, sk_model, out):
     try:
-        pickle_lib.dump(sk_model, out)
+        pickle_lib.dump(sk_model, out, protocol=pickle.DEFAULT_PROTOCOL)
     except (pickle.PicklingError, TypeError, AttributeError) as e:
         if sk_model.__class__ not in _gen_estimators_to_patch():
             raise _SklearnCustomModelPicklingError(sk_model, e)
