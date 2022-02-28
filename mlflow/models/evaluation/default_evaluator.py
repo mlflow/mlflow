@@ -355,9 +355,10 @@ def _load_custom_metric_artifact(
 
     exception_header = _get_custom_metric_exception_header(custom_metric_index, custom_metric_name)
 
-    # Given local path, type inference through file extension
+    # If path is str, convert to pathlib.Path. Then, type inference through file extension
     if isinstance(raw_artifact, str):
-        artifact_path = pathlib.Path(raw_artifact)
+        raw_artifact = pathlib.Path(raw_artifact)
+    if isinstance(raw_artifact, pathlib.Path):
         ext_to_artifact_map = {
             ".png": ImageEvaluationArtifact,
             ".jpg": ImageEvaluationArtifact,
@@ -367,14 +368,14 @@ def _load_custom_metric_artifact(
             ".csv": CsvEvaluationArtifact,
             ".parquet": ParquetEvaluationArtifact,
         }
-        if artifact_path.is_file() and artifact_path.suffix in ext_to_artifact_map.keys():
+        if raw_artifact.is_file() and raw_artifact.suffix in ext_to_artifact_map.keys():
             # copy file to temp location with file name in the defined format
-            artifact_file_name = _gen_log_key(artifact_name, dataset_name) + artifact_path.suffix
+            artifact_file_name = _gen_log_key(artifact_name, dataset_name) + raw_artifact.suffix
             artifact_file_local_path = temp_dir.path(artifact_file_name)
             shutil.copyfile(raw_artifact, artifact_file_local_path)
 
             mlflow.log_artifact(artifact_file_local_path)
-            return ext_to_artifact_map[artifact_path.suffix](
+            return ext_to_artifact_map[raw_artifact.suffix](
                 uri=mlflow.get_artifact_uri(artifact_file_name)
             )
         raise MlflowException(
