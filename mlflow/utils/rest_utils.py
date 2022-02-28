@@ -3,6 +3,7 @@ import json
 import requests
 import urllib3
 from contextlib import contextmanager
+from functools import lru_cache
 from packaging.version import Version
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
@@ -31,30 +32,42 @@ _TRANSIENT_FAILURE_RESPONSE_CODES = frozenset(
         504,  # Gateway Timeout
     ]
 )
-# A dictionary caching Requests.Sessions during runtime. This is useful for TCP connection re-use.
-_REQUEST_SESSIONS = {}
 
 
-def _get_request_session(retry_kwargs):
+@lru_cache(maxsize=64)
+def _get_request_session(max_retries, backoff_factor, retry_codes):
     """
     Returns a cached Requests.Session object for making HTTP request.
 
-    :param retry_kwargs: a dict containing urllib3.Retry instantiation arguments. A change will
-      result in creating and caching a new Requests.Session object.
+    :param max_retries: Maximum total number of retries.
+    :param backoff_factor: a time factor for exponential backoff. e.g. value 5 means the HTTP
+      request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
+      exponential backoff.
+    :param retry_codes: a list of HTTP response error codes that qualifies for retry.
     :return: requests.Session object.
     """
-    # If a session already exists for the retry configuration, simply returns it.
-    retry_key = hash(frozenset(retry_kwargs.items()))
-    if retry_key in _REQUEST_SESSIONS:
-        return _REQUEST_SESSIONS.get(retry_key)
+    assert 0 <= max_retries < 10
+    assert 0 <= backoff_factor < 120
 
-    # Otherwise create a new session with current retry configuration.
+    retry_kwargs = {
+        "total": max_retries,
+        "connect": max_retries,
+        "read": max_retries,
+        "redirect": max_retries,
+        "status": max_retries,
+        "status_forcelist": retry_codes,
+        "backoff_factor": backoff_factor,
+    }
+    if Version(urllib3.__version__) >= Version("1.26.0"):
+        retry_kwargs["allowed_methods"] = None
+    else:
+        retry_kwargs["method_whitelist"] = None
+
     retry = Retry(**retry_kwargs)
     adapter = HTTPAdapter(max_retries=retry)
     session = requests.Session()
     session.mount("https://", adapter)
     session.mount("http://", adapter)
-    _REQUEST_SESSIONS[retry_key] = session
     return session
 
 
@@ -75,24 +88,7 @@ def _get_http_response_with_retries(
 
     :return: requests.Response object.
     """
-    assert 0 <= max_retries < 10
-    assert 0 <= backoff_factor < 120
-
-    retry_kwargs = {
-        "total": max_retries,
-        "connect": max_retries,
-        "read": max_retries,
-        "redirect": max_retries,
-        "status": max_retries,
-        "status_forcelist": retry_codes,
-        "backoff_factor": backoff_factor,
-    }
-    if Version(urllib3.__version__) >= Version("1.26.0"):
-        retry_kwargs["allowed_methods"] = None
-    else:
-        retry_kwargs["method_whitelist"] = None
-
-    session = _get_request_session(retry_kwargs)
+    session = _get_request_session(max_retries, backoff_factor, retry_codes)
     return session.request(method, url, **kwargs)
 
 
