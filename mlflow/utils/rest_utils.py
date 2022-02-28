@@ -31,6 +31,31 @@ _TRANSIENT_FAILURE_RESPONSE_CODES = frozenset(
         504,  # Gateway Timeout
     ]
 )
+# A dictionary caching Requests.Sessions during runtime. This is useful for TCP connection re-use.
+_REQUEST_SESSIONS = {}
+
+
+def _get_request_session(retry_kwargs):
+    """
+    Returns a cached Requests.Session object for making HTTP request.
+
+    :param retry_kwargs: a dict containing urllib3.Retry instantiation arguments. A change will
+      result in creating and caching a new Requests.Session object.
+    :return: requests.Session object.
+    """
+    # If a session already exists for the retry configuration, simply returns it.
+    retry_key = hash(frozenset(retry_kwargs.items()))
+    if retry_key in _REQUEST_SESSIONS:
+        return _REQUEST_SESSIONS.get(retry_key)
+
+    # Otherwise create a new session with current retry configuration.
+    retry = Retry(**retry_kwargs)
+    adapter = HTTPAdapter(max_retries=retry)
+    session = requests.Session()
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    _REQUEST_SESSIONS[retry_key] = session
+    return session
 
 
 def _get_http_response_with_retries(
@@ -67,13 +92,8 @@ def _get_http_response_with_retries(
     else:
         retry_kwargs["method_whitelist"] = None
 
-    retry = Retry(**retry_kwargs)
-    adapter = HTTPAdapter(max_retries=retry)
-    with requests.Session() as http:
-        http.mount("https://", adapter)
-        http.mount("http://", adapter)
-        response = http.request(method, url, **kwargs)
-        return response
+    session = _get_request_session(retry_kwargs)
+    return session.request(method, url, **kwargs)
 
 
 def http_request(

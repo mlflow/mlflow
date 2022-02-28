@@ -4,6 +4,7 @@ from unittest import mock
 import numpy
 import pytest
 
+import mlflow.utils.rest_utils as rest_utils
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.pyfunc.scoring_server import NumpyEncoder
 from mlflow.utils.rest_utils import (
@@ -103,6 +104,32 @@ def test_call_endpoints_raises_exceptions():
         mock_call_endpoint.side_effect = [RestException({}), None]
         with pytest.raises(RestException, match="INTERNAL_ERROR"):
             call_endpoints(host_only, endpoints, "", response_proto)
+
+
+@mock.patch("requests.Session.request")
+def test_http_request_session_cache_works_with_default_args(request):
+    rest_utils._REQUEST_SESSIONS = {}  # Reset the request sessions to empty.
+    for url in ("http://my-host1", "http://my-host2", "http://my-host3"):
+        host_only_url = MlflowHostCreds(url)
+        response = mock.MagicMock()
+        response.status_code = 200
+        request.return_value = response
+        http_request(host_only_url, "/my/endpoint", "GET")
+        # All requests should share a single Requests.Session object.
+        assert len(rest_utils._REQUEST_SESSIONS) == 1
+
+
+@mock.patch("requests.Session.request")
+def test_http_request_session_cache_works_with_varying_max_retries(request):
+    rest_utils._REQUEST_SESSIONS = {}  # Reset the request sessions to empty.
+    for idx, url in enumerate(("http://my-host1", "http://my-host2", "http://my-host3")):
+        host_only_url = MlflowHostCreds(url)
+        response = mock.MagicMock()
+        response.status_code = 200
+        request.return_value = response
+        http_request(host_only_url, "/my/endpoint", "GET", max_retries=idx)
+        # All requests should share a single Requests.Session object.
+        assert len(rest_utils._REQUEST_SESSIONS) == idx + 1
 
 
 @mock.patch("requests.Session.request")
