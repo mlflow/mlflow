@@ -746,8 +746,10 @@ def test_load_custom_metric_artifact_for_image_files(tmp_path):
             artifact_2 = _load_custom_metric_artifact(
                 "example_dataset", tmp, "jpg_img_artifact", tmp_path / "test.jpg", 0, ""
             )
+
+            # test to see if str path representation works
             artifact_3 = _load_custom_metric_artifact(
-                "example_dataset", tmp, "jpeg_img_artifact", tmp_path / "test.jpeg", 0, ""
+                "example_dataset", tmp, "jpeg_img_artifact", str(tmp_path / "test.jpeg"), 0, ""
             )
 
         _, _, _, artifacts = get_run_data(run.info.run_id)
