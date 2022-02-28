@@ -481,6 +481,9 @@ class _SklearnCustomModelPicklingError(pickle.PicklingError):
 
 def _dump_model(pickle_lib, sk_model, out):
     try:
+        # Using python's default protocol to optimize compatibility.
+        # Otherwise cloudpickle uses latest protocol leading to incompatibilities.
+        # See https://github.com/mlflow/mlflow/issues/5419
         pickle_lib.dump(sk_model, out, protocol=pickle.DEFAULT_PROTOCOL)
     except (pickle.PicklingError, TypeError, AttributeError) as e:
         if sk_model.__class__ not in _gen_estimators_to_patch():
