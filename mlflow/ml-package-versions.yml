@@ -230,7 +230,7 @@ onnx:
 
   models:
     minimum: "1.5.0"
-    maximum: "1.10.2"
+    maximum: "1.11.0"
     requirements: ["onnxruntime", "torch", "scikit-learn"]
     run: |
       pytest tests/onnx/test_onnx_model_export.py --large
