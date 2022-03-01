@@ -2,10 +2,10 @@ import os
 import time
 
 import click
+import psycopg2
+
 import mlflow
 from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
-
-import psycopg2
 
 
 def generate_runs(num_runs):
