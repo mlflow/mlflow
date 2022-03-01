@@ -6,13 +6,13 @@
 $(git rev-parse --show-toplevel)/dev/build_wheel.sh
 ```
 
-# Run Benchmark
+# Run benchmark
 
 ```
-QUERY=$(cat join_params_and_metrics.sql) NUM_RUNS=1000 docker-compose run postgres-benchmark
+QUERY=$(cat benchmark.sql) NUM_RUNS=1000 docker-compose run postgres-benchmark
 ```
 
-# Clean Up
+# Clean up
 
 ```
 docker-compose down --volumes --remove-orphans
