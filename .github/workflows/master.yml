@@ -200,7 +200,13 @@ jobs:
       working-directory: tests/db
       run: |
         ./build_wheel.sh
-        QUERY=$(cat benchmark.sql) NUM_RUNS=10000 docker-compose run postgres-benchmark
+        docker-compose run postgres-benchmark \
+          python benchmark.py  \
+          --query "$(cat benchmark.sql)" \
+          --num-experiments 1 \
+          --num-runs 500 \
+          --num-params 10 \
+          --num-metrics 10
 
   java:
     runs-on: ubuntu-latest

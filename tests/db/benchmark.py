@@ -8,12 +8,14 @@ import mlflow
 from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
 
 
-def generate_runs(num_runs):
-    print(f"Creating {num_runs} runs...")
-    for _ in range(num_runs):
-        with mlflow.start_run():
-            mlflow.log_params({f"p_{idx}": idx for idx in range(5)})
-            mlflow.log_metrics({f"m_{idx}": idx for idx in range(5)})
+def generate_runs(num_experiments, num_runs, num_params, num_metrics):
+    for i in range(num_experiments):
+        if i != 0:
+            mlflow.set_experiment(f"experiment_{i}")
+        for _ in range(num_runs):
+            with mlflow.start_run():
+                mlflow.log_params({f"p_{idx}": idx for idx in range(num_params)})
+                mlflow.log_metrics({f"m_{idx}": idx for idx in range(num_metrics)})
 
 
 def run_query(query):
@@ -26,11 +28,19 @@ def run_query(query):
 
 @click.command()
 @click.option("--query", type=click.STRING, help="Query to run")
+@click.option(
+    "--num-experiments", type=click.INT, default=3, help="Number of experiments to create"
+)
 @click.option("--num-runs", type=click.INT, default=100, help="Number of runs to create")
-def main(query, num_runs):
-    generate_runs(num_runs)
+@click.option("--num-params", type=click.INT, default=5, help="Number of paramters to create")
+@click.option("--num-metrics", type=click.INT, default=5, help="Number of metrics to create")
+def main(query, num_experiments, num_runs, num_params, num_metrics):
+    generate_runs(num_experiments, num_runs, num_params, num_metrics)
     exec_time = run_query(query)
+    print("Number of experiments:", num_experiments)
     print("Number of runs:", num_runs)
+    print("Number of parameters:", num_params)
+    print("Number of metrics:", num_metrics)
     print("Query:")
     max_line_length = max(map(len, query.split("\n")))
     print("=" * max_line_length)
