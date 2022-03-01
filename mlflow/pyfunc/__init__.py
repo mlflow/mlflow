@@ -701,8 +701,7 @@ def load_model(model_uri: str, suppress_warnings: bool = True, dst_path: str = N
             RESOURCE_DOES_NOT_EXIST,
         )
     model_py_version = conf.get(PY_VERSION)
-    if not suppress_warnings:
-        _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)
+    _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)
     if CODE in conf and conf[CODE]:
         code_path = os.path.join(local_path, conf[CODE])
         mlflow.pyfunc.utils._add_code_to_system_path(code_path=code_path)
