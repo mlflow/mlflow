@@ -664,7 +664,9 @@ def _warn_dependency_requirement_mismatches(model_path):
         _logger.debug("", exc_info=True)
 
 
-def load_model(model_uri: str, suppress_warnings: bool = True, dst_path: str = None) -> PyFuncModel:
+def load_model(
+    model_uri: str, suppress_warnings: bool = False, dst_path: str = None
+) -> PyFuncModel:
     """
     Load a model stored in Python function format.
 
@@ -690,7 +692,8 @@ def load_model(model_uri: str, suppress_warnings: bool = True, dst_path: str = N
     """
     local_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
 
-    _warn_dependency_requirement_mismatches(local_path)
+    if not suppress_warnings:
+        _warn_dependency_requirement_mismatches(local_path)
 
     model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
 
