@@ -52,6 +52,14 @@ def _mlflow_conda_env(
 
     env = yaml.safe_load(_conda_header)
     env["dependencies"] = ["python={}".format(PYTHON_VERSION)]
+    try:
+        import pip
+
+        pip_version = getattr(pip, "__version__")
+        if pip_version:
+            env["dependencies"].append(f"pip={pip_version}")
+    except ImportError:
+        pass
     if conda_deps is not None:
         env["dependencies"] += conda_deps
     env["dependencies"].append({"pip": pip_deps})
