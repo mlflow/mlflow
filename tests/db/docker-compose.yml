@@ -19,6 +19,19 @@ services:
       MLFLOW_TRACKING_URI: postgresql://mlflowuser:mlflowpassword@postgres:5432/mlflowdb
     command: python run_checks.py --schema-output schemas/postgres.sql
 
+  postgres-benchmark:
+    depends_on:
+      - postgres
+    build:
+      context: .
+    volumes:
+      - .:/tmp/mlflow
+    environment:
+      QUERY: ${QUERY}
+      NUM_RUNS: ${NUM_RUNS}
+      MLFLOW_TRACKING_URI: postgresql://mlflowuser:mlflowpassword@postgres:5432/mlflowdb
+    command: python benchmark.py  --query "$QUERY" --num-runs "$NUM_RUNS"
+
   mysql:
     image: mysql
     restart: always

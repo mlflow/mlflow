@@ -192,6 +192,16 @@ jobs:
         ./dev/test-anaconda-compatibility.sh "anaconda3:2020.11"
         ./dev/test-anaconda-compatibility.sh "anaconda3:2019.03"
 
+  postgres-benchmark:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run PostgreSQL benchmark
+      working-directory: tests/db
+      run: |
+        ./build_wheel.sh
+        QUERY=$(cat benchmark.sql) NUM_RUNS=10000 docker-compose run postgres-benchmark
+
   java:
     runs-on: ubuntu-latest
     steps:
