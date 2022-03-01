@@ -3,7 +3,7 @@
 # Build wheel
 
 ```
-$(git rev-parse --show-toplevel)/dev/build_wheel.sh
+./build_wheel.sh
 ```
 
 # Run benchmark
