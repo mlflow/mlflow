@@ -274,6 +274,7 @@ from mlflow.utils.requirements_utils import (
     _check_requirement_satisfied,
     _parse_requirements,
 )
+from mlflow.utils._spark_utils import _SparkBroadcastFileCache
 
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
@@ -695,10 +696,15 @@ _PICKLE_PROTOCOL_FOR_RESTORE_PY_ENV = 3
 
 
 class _RestoredPythonEnvSubprocessMgr:
-
-    def __init__(self, py_version, requirements_file_path):
+    """
+    We need create _RestoredPythonEnvSubprocessMgr instance
+    from spark application driver side.
+    """
+    def __init__(self, py_version, requirements_file_path, loader_module, model_path):
         self._py_version = py_version
         self._requirements_file_path = requirements_file_path
+        self._loader_module = loader_module
+        self._model_path = model_path
 
         self._subproc = None
         self._python_installation_dir = None
@@ -749,10 +755,10 @@ class _RestoredPythonEnvSubprocessMgr:
         pyenv_home_path = os.path.join(
             env_cache_dir, 'pythons'
         )
-        python_installation_path = os.path.join(
+        self._python_installation_dir = os.path.join(
             pyenv_home_path, '.pyenv', 'versions', self._py_version
         )
-        if not os.path.exists(python_installation_path):
+        if not os.path.exists(self._python_installation_dir):
             # install specified python version
             sub_env = os.environ.copy()
             sub_env['HOME'] = pyenv_home_path
@@ -762,21 +768,21 @@ class _RestoredPythonEnvSubprocessMgr:
                 env=sub_env
             )
         else:
-            _logger.info(f'Found python installation cache at {python_installation_path}')
+            _logger.info(f'Found python installation cache at {self._python_installation_dir}')
         python_bin_path = os.path.join(
-            python_installation_path, 'bin/python'
+            self._python_installation_dir, 'bin/python'
         )
         req_file_content_sha = get_file_sha_hexdigest(self._requirements_file_path)
-        virtual_env_path = os.path.join(
+        self._virtual_env_dir = os.path.join(
             env_cache_dir, 'venvs', req_file_content_sha
         )
-        if not os.path.exists(virtual_env_path):
+        if not os.path.exists(self._virtual_env_dir):
             # install virtual env
             subprocess.run(
-                [_VIRTUALENV_CMD, f'--python={python_bin_path}', virtual_env_path]
+                [_VIRTUALENV_CMD, f'--python={python_bin_path}', self._virtual_env_dir]
             )
             virtual_env_pip = os.path.join(
-                virtual_env_path, 'bin/pip'
+                self._virtual_env_dir, 'bin/pip'
             )
             subprocess.run(
                 [virtual_env_pip, 'install', '-r', self._requirements_file_path],
@@ -788,13 +794,16 @@ class _RestoredPythonEnvSubprocessMgr:
                  os.path.dirname(os.path.dirname(mlflow.__file__))]
             )
         else:
-            _logger.info(f'Found python virtual env cache at {virtual_env_path}')
+            _logger.info(f'Found python virtual env cache at {self._virtual_env_dir}')
 
         self._virtual_env_python_bin = os.path.join(
-            virtual_env_path, 'bin/python'
+            self._virtual_env_dir, 'bin/python'
         )
 
-    def create_subproc(self, loader_module, model_path):
+    def create_subproc(self):
+        """
+        This method can be called from driver side or executor side.
+        """
         # setup tcp connection with subproc
         listen_sock = socket.socket()
         try:
@@ -807,8 +816,8 @@ class _RestoredPythonEnvSubprocessMgr:
                 [self._virtual_env_python_bin,
                  '-m', 'mlflow.pyfunc.restored_python_env_model_infer_subproc',
                  '--server_port', str(server_port),
-                 '--loader_module', loader_module,
-                 '--model_path', model_path,
+                 '--loader_module', self._loader_module,
+                 '--model_path', self._model_path,
                  ],
                 stdout=sys.stdout, stderr=sys.stderr,
             )
@@ -844,14 +853,17 @@ class PyFuncModelWithRestoredPythonEnv(PyFuncModel):
         self._loader_module = loader_module
         self._model_path = model_path
         self._restored_env_sub_proc_mgr = _RestoredPythonEnvSubprocessMgr(
-            py_version, requirements_file_path
+            py_version=py_version,
+            requirements_file_path=requirements_file_path,
+            loader_module=loader_module,
+            model_path=model_path,
         )
 
     def predict(self, data: PyFuncInput) -> PyFuncOutput:
         import pandas as pd
         if self._restored_env_sub_proc_mgr.subproc is None:
             self._restored_env_sub_proc_mgr.setup_restored_python_env()
-            self._restored_env_sub_proc_mgr.create_subproc(self._loader_module, self._model_path)
+            self._restored_env_sub_proc_mgr.create_subproc()
 
         batch_size = 10  # TODO: automatically determine best batch size.
         total_size = len(data)
@@ -890,7 +902,7 @@ class PyFuncModelWithRestoredPythonEnv(PyFuncModel):
         except (socket.error, EOFError):
             # When EOFError raised, it means subproc closes the socket unexpectedly.
             # (e.g. the subproc raise some exception and cause python proc exit and before
-            # exit the socket will be closed).
+            # exit all sockets will be closed).
             # When other socket error happen, it might means the subproc crashed.
             # In any cases, it is not network caused error because the socket send/recv
             # on IP 127.0.0.1 which is not related to network.
@@ -964,7 +976,10 @@ def load_model(
                      This directory must already exist. If unspecified, a local output
                      path will be created.
     """
-    local_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
+    local_path = _download_artifact_from_uri(
+        artifact_uri=model_uri,
+        output_path=(dst_path or tempfile.mkdtemp(dir=_get_or_create_model_cache_dir()))
+    )
 
     model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
 
@@ -1051,7 +1066,44 @@ def _warn_potentially_incompatible_py_version_if_necessary(model_py_version=None
     return False
 
 
-def spark_udf(spark, model_uri, result_type="double"):
+_MODEL_CACHE_DIR = None
+
+def _get_or_create_model_cache_dir():
+    global _MODEL_CACHE_DIR
+    if _MODEL_CACHE_DIR is not None:
+        return _MODEL_CACHE_DIR
+
+    if databricks_utils.is_in_databricks_runtime():
+        # In databricks, the '/local_disk0/.ephemeral_nfs' is mounted as NFS disk
+        # the data stored in the disk is shared with all remote nodes.
+        root_dir = os.path.join(_DATABRICKS_NFS_CACHE_ROOT_DIR, "models")
+        os.makedirs(root_dir, exist_ok=True)
+        _MODEL_CACHE_DIR = tempfile.mkdtemp(dir=root_dir)
+        # TODO: register deleting cache dir handler when exit
+    else:
+        import atexit
+        import shutil
+        _MODEL_CACHE_DIR = tempfile.mkdtemp()
+        atexit.register(shutil.rmtree, _MODEL_CACHE_DIR, ignore_errors=True)
+
+    return _MODEL_CACHE_DIR
+
+
+def _create_symlink(src, dst):
+    # The logic here is for addressing some race conditions.
+    try:
+        if os.path.exists(dst) and os.readlink(dst) != src:
+            os.remove(dst)
+    except:
+        pass
+
+    try:
+        os.symlink(src, dst)
+    except:
+        pass
+
+
+def spark_udf(spark, model_uri, result_type="double", restore_env=False):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
 
@@ -1153,16 +1205,42 @@ def spark_udf(spark, model_uri, result_type="double"):
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    with TempDir() as local_tmpdir:
-        local_model_path = _download_artifact_from_uri(
-            artifact_uri=model_uri, output_path=local_tmpdir.path()
-        )
-        # Assume spark executor python environment is the same with spark driver side.
-        _warn_dependency_requirement_mismatches(local_model_path)
-        model_cache_key = SparkModelCache.add_local_model(local_model_path)
-        model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
+    local_model_path = _download_artifact_from_uri(
+        artifact_uri=model_uri, output_path=tempfile.mkdtemp(dir=_get_or_create_model_cache_dir())
+    )
+    # Assume spark executor python environment is the same with spark driver side.
+    _warn_dependency_requirement_mismatches(local_model_path)
 
-    def _predict_row_batch(model, *args):
+    # TODO: for databricks runtime, use NFS to avoid copy model files to remote workers.
+    model_cache_key = SparkModelCache.add_local_model(local_model_path)
+    model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
+
+    model_conf = model_metadata.flavors.get(FLAVOR_NAME)
+    model_py_version = conf.get(PY_VERSION)
+    loader_module = model_conf[MAIN]
+    req_file_path = os.path.join(local_path, _REQUIREMENTS_FILE_NAME)
+
+    restored_env_sub_proc_mgr = _RestoredPythonEnvSubprocessMgr(
+        py_version=model_py_version,
+        requirements_file_path=req_file_path,
+        loader_module=loader_module,
+        model_path=local_model_path
+    )
+
+    restored_env_sub_proc_mgr.setup_restored_python_env()
+
+    _is_in_databricks_runtime = databricks_utils.is_in_databricks_runtime()
+
+    python_installation_dir_cache_key = None
+    virtual_env_dir_cache_key = None
+    if not spark.conf.get('spark.master').startswith("local") and \
+            not _is_in_databricks_runtime:
+        # distribute python installation directory,
+        # and virtual env directory to spark remote workers.
+        python_installation_dir_cache_key = _SparkBroadcastFileCache.add_file(restored_env_sub_proc_mgr._python_installation_dir)
+        virtual_env_dir_cache_key = _SparkBroadcastFileCache.add_file(restored_env_sub_proc_mgr._virtual_env_dir)
+
+    def _predict_row_batch(model, comm_stream, args):
         input_schema = model.metadata.get_input_schema()
         pdf = None
 
@@ -1191,7 +1269,10 @@ def spark_udf(spark, model_uri, result_type="double"):
                     )
             pdf = pandas.DataFrame(data={names[i]: x for i, x in enumerate(args)}, columns=names)
 
-        result = model.predict(pdf)
+        # TODO: pipeline IO and inference computation.
+        pickle.dump(pdf, comm_stream)
+        comm_stream.flush()
+        result = pickle.load(comm_stream)
 
         if not isinstance(result, pandas.DataFrame):
             result = pandas.DataFrame(data=result)
@@ -1227,13 +1308,39 @@ def spark_udf(spark, model_uri, result_type="double"):
         else:
             return result[result.columns[0]]
 
+    driver_hostname = socket.gethostname()
+
     def predict(iterator):
         # Note: this is a pandas udf function in iteration style, which takes an iterator of
         # tuple of pandas.Series and outputs an iterator of pandas.Series.
+        if not _is_in_databricks_runtime and \
+                driver_hostname != socket.gethostname():
+            local_python_installation_dir = \
+                _SparkBroadcastFileCache.get_file(python_installation_dir_cache_key)
+            _create_symlink(
+                local_python_installation_dir, restored_env_sub_proc_mgr._python_installation_dir
+            )
+            local_virtual_env_dir = \
+                _SparkBroadcastFileCache.get_file(virtual_env_dir_cache_key)
+            _create_symlink(
+                local_virtual_env_dir, restored_env_sub_proc_mgr._virtual_env_dir
+            )
+
         model = SparkModelCache.get_or_load(model_cache_key)
-        for row_batch in iterator:
-            # the `row_batch` is a tuple which composes of several pd.Series/pd.DataFrame objects.
-            yield _predict_row_batch(model, *row_batch)
+        restored_env_sub_proc_mgr.create_subproc()
+        comm_stream = restored_env_sub_proc_mgr.comm_stream
+
+        try:
+            for row_batch in iterator:
+                # the `row_batch` is a tuple which composes of several pd.Series/pd.DataFrame objects.
+                yield _predict_row_batch(model, comm_stream, row_batch)
+                # receive final "None" object.
+                if pickle.load(comm_stream) is not None:
+                    raise RuntimeError('Internal error.')
+        except (socket.error, EOFError):
+            raise RuntimeError('Sub-process running under virtual python environment failed.')
+        finally:
+            restored_env_sub_proc_mgr.close()
 
     udf = pandas_udf(predict, result_type, functionType=PandasUDFType.SCALAR_ITER)
     udf.metadata = model_metadata
