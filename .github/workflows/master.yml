@@ -204,7 +204,7 @@ jobs:
           python benchmark.py  \
           --query "$(cat benchmark.sql)" \
           --num-experiments 1 \
-          --num-runs 500 \
+          --num-runs 1000 \
           --num-params 10 \
           --num-metrics 10
 
