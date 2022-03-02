@@ -1103,7 +1103,7 @@ def _create_symlink(src, dst):
         pass
 
 
-def spark_udf(spark, model_uri, result_type="double", restore_env=False):
+def spark_udf(spark, model_uri, result_type="double"):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
 
