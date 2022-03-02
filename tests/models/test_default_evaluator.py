@@ -22,7 +22,7 @@ from mlflow.models.evaluation.default_evaluator import (
     _get_classifier_per_class_metrics,
     _gen_classifier_curve,
     _evaluate_custom_metric,
-    _load_custom_metric_artifact,
+    _infer_artifact_type_and_ext,
 )
 import mlflow
 from sklearn.linear_model import LogisticRegression
@@ -645,12 +645,156 @@ def test_evaluate_custom_metric_success():
     assert res_artifacts_2["example_dictionary_artifact"] == {"a": 1, "b": 2}
 
 
-def test_custom_metric(binary_logistic_regressor_model_uri, breast_cancer_dataset):
+def test_infer_artifact_type_and_ext_raise_exception_for_non_file_artifact_path(tmp_path):
+    with pytest.raises(
+        MlflowException,
+        match=f"produced an unsupported artifact 'non_file_artifact' with path '{tmp_path}'",
+    ):
+        _infer_artifact_type_and_ext("non_file_artifact", tmp_path, "")
+
+
+def test_infer_artifact_type_and_ext_raise_exception_for_unsupported_file_extension(tmp_path):
+    path = tmp_path / "invalid_ext_example.some_ext"
+    with open(path, "w") as f:
+        f.write("some stuff that shouldn't be read")
+    with pytest.raises(
+        MlflowException,
+        match=f"produced an unsupported artifact 'invalid_ext_artifact' with path '{path}'",
+    ):
+        _infer_artifact_type_and_ext("invalid_ext_artifact", path, "")
+
+
+def test_infer_artifact_type_and_ext_for_image_files(tmp_path):
+    import matplotlib.pyplot as plt
+
+    fig = plt.figure()
+    plt.plot([1, 2, 3])
+
+    for ext in ("png", "jpg", "jpeg"):
+        fig.savefig(tmp_path / f"test.{ext}")
+        inferred_from_path, inferred_type, inferred_ext = _infer_artifact_type_and_ext(
+            f"{ext}_img_artifact", tmp_path / f"test.{ext}", ""
+        )
+        assert inferred_from_path
+        assert inferred_type is ImageEvaluationArtifact
+        assert inferred_ext == f".{ext}"
+
+
+def test_infer_artifact_type_and_ext_for_json_file(tmp_path):
+    json.dump([1, 2, 3], open(tmp_path / "test.json", "w"))
+    inferred_from_path, inferred_type, inferred_ext = _infer_artifact_type_and_ext(
+        "json_artifact", tmp_path / "test.json", ""
+    )
+    assert inferred_from_path
+    assert inferred_type is JsonEvaluationArtifact
+    assert inferred_ext == ".json"
+
+
+def test_infer_artifact_type_and_ext_for_npy_file(tmp_path):
+    np_arr = np.array([1, 2, 3])
+    np.save(tmp_path / "test.npy", np_arr, allow_pickle=False)
+    inferred_from_path, inferred_type, inferred_ext = _infer_artifact_type_and_ext(
+        "npy_artifact", tmp_path / "test.npy", ""
+    )
+    assert inferred_from_path
+    assert inferred_type is NumpyEvaluationArtifact
+    assert inferred_ext == ".npy"
+
+
+def test_infer_artifact_type_and_ext_for_csv_file(tmp_path):
+    df = pd.DataFrame({"test": [1, 2, 3]})
+    df.to_csv(tmp_path / "test.csv", index=False)
+    inferred_from_path, inferred_type, inferred_ext = _infer_artifact_type_and_ext(
+        "csv_artifact", tmp_path / "test.csv", ""
+    )
+    assert inferred_from_path
+    assert inferred_type is CsvEvaluationArtifact
+    assert inferred_ext == ".csv"
+
+
+def test_infer_artifact_type_and_ext_for_parquet_file(tmp_path):
+    df = pd.DataFrame({"test": [1, 2, 3]})
+    df.to_parquet(tmp_path / "test.parquet")
+    inferred_from_path, inferred_type, inferred_ext = _infer_artifact_type_and_ext(
+        "parquet_artifact", tmp_path / "test.parquet", ""
+    )
+    assert inferred_from_path
+    assert inferred_type is ParquetEvaluationArtifact
+    assert inferred_ext == ".parquet"
+
+
+def test_infer_artifact_type_and_ext_for_dataframe_object():
+    df = pd.DataFrame({"test": [1, 2, 3]})
+    inferred_from_path, inferred_type, inferred_ext = _infer_artifact_type_and_ext(
+        "df_artifact", df, ""
+    )
+    assert not inferred_from_path
+    assert inferred_type is CsvEvaluationArtifact
+    assert inferred_ext == ".csv"
+
+
+def test_infer_artifact_type_and_ext_for_ndarray_object():
+    np_arr = np.array([1, 2, 3])
+    inferred_from_path, inferred_type, inferred_ext = _infer_artifact_type_and_ext(
+        "ndarray_artifact", np_arr, ""
+    )
+    assert not inferred_from_path
+    assert inferred_type is NumpyEvaluationArtifact
+    assert inferred_ext == ".npy"
+
+
+def test_infer_artifact_type_and_ext_for_plt_figure_objects():
+    import matplotlib.pyplot as plt
+
+    fig = plt.figure()
+    plt.plot([1, 2, 3])
+    inferred_from_path, inferred_type, inferred_ext = _infer_artifact_type_and_ext(
+        "plt_figure_artifact", fig, ""
+    )
+    assert not inferred_from_path
+    assert inferred_type is ImageEvaluationArtifact
+    assert inferred_ext == ".png"
+
+
+def test_infer_artifact_type_and_ext_for_json_serializable_objects():
+    ex_dict = {"a": 1, "b": "test", "c": 1.2}
+    ex_list = [1, 2, 3, "test"]
+
+    inferred_from_path, inferred_type, inferred_ext = _infer_artifact_type_and_ext(
+        "json_dict_artifact", ex_dict, ""
+    )
+    assert not inferred_from_path
+    assert inferred_type is JsonEvaluationArtifact
+    assert inferred_ext == ".json"
+
+    inferred_from_path, inferred_type, inferred_ext = _infer_artifact_type_and_ext(
+        "json_list_artifact", ex_list, ""
+    )
+    assert not inferred_from_path
+    assert inferred_type is JsonEvaluationArtifact
+    assert inferred_ext == ".json"
+
+
+def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_dataset, tmp_path):
     def example_custom_metric(eval_df, given_metrics):
-        return {
+        example_metrics = {
             "true_count": given_metrics["true_negatives"] + given_metrics["true_positives"],
             "positive_count": np.sum(eval_df["prediction"]),
         }
+        df = pd.DataFrame({"a": [1, 2, 3]})
+        df.to_csv(tmp_path / "user_logged_df.csv", index=False)
+        np_array = np.array([1, 2, 3, 4, 5])
+        np.save(tmp_path / "arr.npy", np_array)
+
+        mlflow.log_artifact(tmp_path / "user_logged_df.csv")
+        example_artifacts = {
+            "test_json_artifact": {"a": 3, "b": [1, 2]},
+            "test_csv_artifact": CsvEvaluationArtifact(
+                uri=mlflow.get_artifact_uri("user_logged_df.csv")
+            ),
+            "test_npy_artifact": tmp_path / "arr.npy",
+        }
+        return example_metrics, example_artifacts
 
     with mlflow.start_run() as run:
         result = evaluate(
@@ -663,7 +807,7 @@ def test_custom_metric(binary_logistic_regressor_model_uri, breast_cancer_datase
             custom_metrics=[example_custom_metric],
         )
 
-    _, metrics, _, _ = get_run_data(run.info.run_id)
+    _, metrics, _, artifacts = get_run_data(run.info.run_id)
 
     model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
     _, _, predict_fn, _ = _extract_raw_model_and_predict_fn(model)
@@ -678,7 +822,6 @@ def test_custom_metric(binary_logistic_regressor_model_uri, breast_cancer_datase
         expected_metrics["true_negatives"] + expected_metrics["true_positives"],
         rtol=1e-3,
     )
-
     assert "true_count" in result.metrics
     assert np.isclose(
         result.metrics["true_count"],
@@ -690,168 +833,111 @@ def test_custom_metric(binary_logistic_regressor_model_uri, breast_cancer_datase
     assert np.isclose(
         metrics["positive_count_on_data_breast_cancer_dataset"], np.sum(y_pred), rtol=1e-3
     )
-
     assert "positive_count" in result.metrics
     assert np.isclose(result.metrics["positive_count"], np.sum(y_pred), rtol=1e-3)
 
+    assert "test_json_artifact" in result.artifacts
+    assert "test_json_artifact_on_data_breast_cancer_dataset.json" in artifacts
+    assert isinstance(result.artifacts["test_json_artifact"], JsonEvaluationArtifact)
+    assert result.artifacts["test_json_artifact"].content == {"a": 3, "b": [1, 2]}
 
-def test_load_custom_metric_artifact_returns_given_evaluation_artifact_as_is():
-    csv_artifact = CsvEvaluationArtifact("some/path")
-    result = _load_custom_metric_artifact(
-        "example_dataset", TempDir(), "csv_artifact", csv_artifact, 0, ""
-    )
-    assert csv_artifact is result
+    assert "test_csv_artifact" in result.artifacts
+    assert "user_logged_df.csv" in artifacts
+    assert isinstance(result.artifacts["test_csv_artifact"], CsvEvaluationArtifact)
+    assert result.artifacts["test_csv_artifact"].content.equals(pd.DataFrame({"a": [1, 2, 3]}))
 
-
-def test_load_custom_metric_artifact_raise_exception_for_non_file_artifact_path(tmp_path):
-    with TempDir() as tmp:
-        with pytest.raises(
-            MlflowException,
-            match=f"produced an unsupported artifact 'non_file_artifact' with path '{tmp_path}'",
-        ):
-            _load_custom_metric_artifact(
-                "example_dataset", tmp, "non_file_artifact", tmp_path, 0, ""
-            )
+    assert "test_npy_artifact" in result.artifacts
+    assert "test_npy_artifact_on_data_breast_cancer_dataset.npy" in artifacts
+    assert isinstance(result.artifacts["test_npy_artifact"], NumpyEvaluationArtifact)
+    assert np.array_equal(result.artifacts["test_npy_artifact"].content, np.array([1, 2, 3, 4, 5]))
 
 
-def test_load_custom_metric_artifact_raise_exception_for_unsupported_file_extension(tmp_path):
-    with TempDir() as tmp:
-        path = tmp_path / "invalid_ext_example.some_ext"
-        with open(path, "w") as f:
-            f.write("some stuff that shouldn't be read")
-        with pytest.raises(
-            MlflowException,
-            match=f"produced an unsupported artifact 'invalid_ext_artifact' with path '{path}'",
-        ):
-            _load_custom_metric_artifact(
-                "example_dataset", tmp, "invalid_ext_artifact", path, 0, ""
-            )
-
-
-def test_load_custom_metric_artifact_for_image_files(tmp_path):
-    import matplotlib.pyplot as plt
-    from PIL.Image import open as open_image
-
-    fig = plt.figure()
-    plt.plot([1, 2, 3])
-    with TempDir() as tmp:
-        fig.savefig(tmp_path / "test.png")
-        fig.savefig(tmp_path / "test.jpg")
-        fig.savefig(tmp_path / "test.jpeg")
-
-        with mlflow.start_run() as run:
-            artifact_1 = _load_custom_metric_artifact(
-                "example_dataset", tmp, "png_img_artifact", tmp_path / "test.png", 0, ""
-            )
-            artifact_2 = _load_custom_metric_artifact(
-                "example_dataset", tmp, "jpg_img_artifact", tmp_path / "test.jpg", 0, ""
-            )
-
-            # test to see if str path representation works
-            artifact_3 = _load_custom_metric_artifact(
-                "example_dataset", tmp, "jpeg_img_artifact", str(tmp_path / "test.jpeg"), 0, ""
-            )
-
-        _, _, _, artifacts = get_run_data(run.info.run_id)
-        assert set(artifacts) == {
-            "png_img_artifact_on_data_example_dataset.png",
-            "jpg_img_artifact_on_data_example_dataset.jpg",
-            "jpeg_img_artifact_on_data_example_dataset.jpeg",
-        }
-
-        assert isinstance(artifact_1, ImageEvaluationArtifact)
-        assert isinstance(artifact_2, ImageEvaluationArtifact)
-        assert isinstance(artifact_3, ImageEvaluationArtifact)
-
-        assert open_image(tmp_path / "test.png") == artifact_1.content
-        assert open_image(tmp_path / "test.jpg") == artifact_2.content
-        assert open_image(tmp_path / "test.jpeg") == artifact_3.content
-
-
-def test_load_custom_metric_artifact_for_json_file(tmp_path):
-    with TempDir() as tmp:
-        json.dump([1, 2, 3], open(tmp_path / "test.json", "w"))
-        with mlflow.start_run() as run:
-            artifact = _load_custom_metric_artifact(
-                "example_dataset", tmp, "json_artifact", tmp_path / "test.json", 0, ""
-            )
-        _, _, _, artifacts = get_run_data(run.info.run_id)
-        assert set(artifacts) == {"json_artifact_on_data_example_dataset.json"}
-        assert isinstance(artifact, JsonEvaluationArtifact)
-        assert json.load(open(tmp_path / "test.json", "r")) == [1, 2, 3]
-
-
-def test_load_custom_metric_artifact_for_npy_file(tmp_path):
-    with TempDir() as tmp:
-        np_arr = np.array([1, 2, 3])
-        np.save(tmp_path / "test.npy", np_arr, allow_pickle=False)
-        with mlflow.start_run() as run:
-            artifact = _load_custom_metric_artifact(
-                "example_dataset", tmp, "npy_artifact", tmp_path / "test.npy", 0, ""
-            )
-        _, _, _, artifacts = get_run_data(run.info.run_id)
-        assert set(artifacts) == {"npy_artifact_on_data_example_dataset.npy"}
-        assert isinstance(artifact, NumpyEvaluationArtifact)
-        assert np.array_equal(np.load(tmp_path / "test.npy"), np_arr)
-
-
-def test_load_custom_metric_artifact_for_csv_file(tmp_path):
-    with TempDir() as tmp:
-        df = pd.DataFrame({"test": [1, 2, 3]})
-        df.to_csv(tmp_path / "test.csv", index=False)
-        with mlflow.start_run() as run:
-            artifact = _load_custom_metric_artifact(
-                "example_dataset", tmp, "csv_artifact", tmp_path / "test.csv", 0, ""
-            )
-        _, _, _, artifacts = get_run_data(run.info.run_id)
-        assert set(artifacts) == {"csv_artifact_on_data_example_dataset.csv"}
-        assert isinstance(artifact, CsvEvaluationArtifact)
-        assert df.equals(pd.read_csv(tmp_path / "test.csv"))
-
-
-def test_load_custom_metric_artifact_for_parquet_file(tmp_path):
-    with TempDir() as tmp:
-        df = pd.DataFrame({"test": [1, 2, 3]})
-        df.to_parquet(tmp_path / "test.parquet")
-        with mlflow.start_run() as run:
-            artifact = _load_custom_metric_artifact(
-                "example_dataset", tmp, "parquet_artifact", tmp_path / "test.parquet", 0, ""
-            )
-        _, _, _, artifacts = get_run_data(run.info.run_id)
-        assert set(artifacts) == {"parquet_artifact_on_data_example_dataset.parquet"}
-        assert isinstance(artifact, ParquetEvaluationArtifact)
-        assert df.equals(pd.read_parquet(tmp_path / "test.parquet"))
-
-
-def test_load_custom_metric_artifact_for_dataframe_object():
-    df = pd.DataFrame({"test": [1, 2, 3]})
-    with TempDir() as tmp:
-        with mlflow.start_run() as run:
-            artifact = _load_custom_metric_artifact(
-                "example_dataset", tmp, "df_artifact", df, 0, ""
-            )
-    _, _, _, artifacts = get_run_data(run.info.run_id)
-    assert set(artifacts) == {"df_artifact_on_data_example_dataset.csv"}
-    assert isinstance(artifact, CsvEvaluationArtifact)
-    assert df.equals(artifact.content)
-
-
-def test_load_custom_metric_artifact_for_ndarray_object():
-    np_arr = np.array([1, 2, 3])
-    with TempDir() as tmp:
-        with mlflow.start_run() as run:
-            artifact = _load_custom_metric_artifact(
-                "example_dataset", tmp, "ndarray_artifact", np_arr, 0, ""
-            )
-    _, _, _, artifacts = get_run_data(run.info.run_id)
-    assert set(artifacts) == {"ndarray_artifact_on_data_example_dataset.npy"}
-    assert isinstance(artifact, NumpyEvaluationArtifact)
-    assert np.array_equal(artifact.content, np_arr)
-
-
-def test_load_custom_metric_artifact_for_plt_figure_objects():
+def test_custom_metric_logs_artifacts_from_paths(
+    binary_logistic_regressor_model_uri, breast_cancer_dataset, tmp_path
+):
     import matplotlib.pyplot as plt
     from PIL import Image
+
+    def example_custom_metric(_, __):
+        example_artifacts = {}
+
+        # images
+        fig = plt.figure()
+        plt.plot([1, 2, 3])
+        for ext in ("png", "jpg", "jpeg"):
+            fig.savefig(tmp_path / f"test.{ext}", format=ext)
+            example_artifacts[f"test_{ext}_artifact"] = tmp_path / f"test.{ext}"
+
+        # json
+        json.dump([1, 2, 3], open(tmp_path / "test.json", "w"))
+        example_artifacts["test_json_artifact"] = tmp_path / "test.json"
+
+        # numpy
+        np_array = np.array([1, 2, 3, 4, 5])
+        np.save(tmp_path / "test.npy", np_array)
+        example_artifacts["test_npy_artifact"] = tmp_path / "test.npy"
+
+        # csv
+        df = pd.DataFrame({"a": [1, 2, 3]})
+        df.to_csv(tmp_path / "test.csv", index=False)
+        example_artifacts["test_csv_artifact"] = tmp_path / "test.csv"
+
+        # parquet
+        df = pd.DataFrame({"test": [1, 2, 3]})
+        df.to_parquet(tmp_path / "test.parquet")
+        example_artifacts["test_parquet_artifact"] = tmp_path / "test.parquet"
+
+        return {}, example_artifacts
+
+    with mlflow.start_run() as run:
+        result = evaluate(
+            binary_logistic_regressor_model_uri,
+            breast_cancer_dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=breast_cancer_dataset._constructor_args["targets"],
+            dataset_name=breast_cancer_dataset.name,
+            evaluators="default",
+            custom_metrics=[example_custom_metric],
+        )
+
+    _, _, _, artifacts = get_run_data(run.info.run_id)
+
+    for img_ext in ("png", "jpg", "jpeg"):
+        assert f"test_{img_ext}_artifact" in result.artifacts
+        assert f"test_{img_ext}_artifact_on_data_breast_cancer_dataset.{img_ext}" in artifacts
+        assert isinstance(result.artifacts[f"test_{img_ext}_artifact"], ImageEvaluationArtifact)
+        assert result.artifacts[f"test_{img_ext}_artifact"].content == Image.open(
+            tmp_path / f"test.{img_ext}"
+        )
+
+    assert "test_json_artifact" in result.artifacts
+    assert "test_json_artifact_on_data_breast_cancer_dataset.json" in artifacts
+    assert isinstance(result.artifacts["test_json_artifact"], JsonEvaluationArtifact)
+    assert result.artifacts["test_json_artifact"].content == [1, 2, 3]
+
+    assert "test_npy_artifact" in result.artifacts
+    assert "test_npy_artifact_on_data_breast_cancer_dataset.npy" in artifacts
+    assert isinstance(result.artifacts["test_npy_artifact"], NumpyEvaluationArtifact)
+    assert np.array_equal(result.artifacts["test_npy_artifact"].content, np.array([1, 2, 3, 4, 5]))
+
+    assert "test_csv_artifact" in result.artifacts
+    assert "test_csv_artifact_on_data_breast_cancer_dataset.csv" in artifacts
+    assert isinstance(result.artifacts["test_csv_artifact"], CsvEvaluationArtifact)
+    assert result.artifacts["test_csv_artifact"].content.equals(pd.DataFrame({"a": [1, 2, 3]}))
+
+    assert "test_parquet_artifact" in result.artifacts
+    assert "test_parquet_artifact_on_data_breast_cancer_dataset.parquet" in artifacts
+    assert isinstance(result.artifacts["test_parquet_artifact"], ParquetEvaluationArtifact)
+    assert result.artifacts["test_parquet_artifact"].content.equals(
+        pd.DataFrame({"test": [1, 2, 3]})
+    )
+
+
+def test_custom_metric_logs_artifacts_from_objects(
+    binary_logistic_regressor_model_uri, breast_cancer_dataset
+):
+    import matplotlib.pyplot as plt
+    from PIL import Image, ImageChops
     import io
 
     fig = plt.figure()
@@ -860,54 +946,72 @@ def test_load_custom_metric_artifact_for_plt_figure_objects():
     fig.savefig(buf)
     buf.seek(0)
     img = Image.open(buf)
-    with TempDir() as tmp:
-        with mlflow.start_run() as run:
-            artifact = _load_custom_metric_artifact(
-                "example_dataset", tmp, "plt_figure_artifact", fig, 0, ""
-            )
+
+    def example_custom_metric(_, __):
+        return {}, {
+            "test_image_artifact": fig,
+            "test_json_artifact": [1, 2, 3],
+            "test_npy_artifact": np.array([1, 2, 3, 4, 5]),
+            "test_csv_artifact": pd.DataFrame({"a": [1, 2, 3]}),
+        }
+
+    with mlflow.start_run() as run:
+        result = evaluate(
+            binary_logistic_regressor_model_uri,
+            breast_cancer_dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=breast_cancer_dataset._constructor_args["targets"],
+            dataset_name=breast_cancer_dataset.name,
+            evaluators="default",
+            custom_metrics=[example_custom_metric],
+        )
+
     _, _, _, artifacts = get_run_data(run.info.run_id)
-    assert set(artifacts) == {"plt_figure_artifact_on_data_example_dataset.png"}
-    assert isinstance(artifact, ImageEvaluationArtifact)
-    assert img == artifact.content
+
+    assert "test_image_artifact" in result.artifacts
+    assert "test_image_artifact_on_data_breast_cancer_dataset.png" in artifacts
+    assert isinstance(result.artifacts["test_image_artifact"], ImageEvaluationArtifact)
+    img_diff = ImageChops.difference(result.artifacts["test_image_artifact"].content, img).getbbox()
+    assert img_diff is None
+
+    assert "test_json_artifact" in result.artifacts
+    assert "test_json_artifact_on_data_breast_cancer_dataset.json" in artifacts
+    assert isinstance(result.artifacts["test_json_artifact"], JsonEvaluationArtifact)
+    assert result.artifacts["test_json_artifact"].content == [1, 2, 3]
+
+    assert "test_npy_artifact" in result.artifacts
+    assert "test_npy_artifact_on_data_breast_cancer_dataset.npy" in artifacts
+    assert isinstance(result.artifacts["test_npy_artifact"], NumpyEvaluationArtifact)
+    assert np.array_equal(result.artifacts["test_npy_artifact"].content, np.array([1, 2, 3, 4, 5]))
+
+    assert "test_csv_artifact" in result.artifacts
+    assert "test_csv_artifact_on_data_breast_cancer_dataset.csv" in artifacts
+    assert isinstance(result.artifacts["test_csv_artifact"], CsvEvaluationArtifact)
+    assert result.artifacts["test_csv_artifact"].content.equals(pd.DataFrame({"a": [1, 2, 3]}))
 
 
-def test_load_custom_metric_artifact_for_json_serializable_objects():
-    ex_dict = {"a": 1, "b": "test", "c": 1.2}
-    ex_list = [1, 2, 3, "test"]
-
-    with TempDir() as tmp:
-        with mlflow.start_run() as run:
-            artifact_1 = _load_custom_metric_artifact(
-                "example_dataset", tmp, "json_dict_artifact", ex_dict, 0, ""
-            )
-            artifact_2 = _load_custom_metric_artifact(
-                "example_dataset", tmp, "json_list_artifact", ex_list, 0, ""
-            )
-    _, _, _, artifacts = get_run_data(run.info.run_id)
-    assert set(artifacts) == {
-        "json_dict_artifact_on_data_example_dataset.json",
-        "json_list_artifact_on_data_example_dataset.json",
-    }
-
-    assert isinstance(artifact_1, JsonEvaluationArtifact)
-    assert isinstance(artifact_2, JsonEvaluationArtifact)
-
-    assert ex_dict == artifact_1.content
-    assert ex_list == artifact_2.content
-
-
-def test_load_custom_metric_artifact_raise_exception_for_unsupported_artifact_object():
+def test_custom_metric_logs_artifacts_for_unsupported_artifact_object(
+    binary_logistic_regressor_model_uri, breast_cancer_dataset
+):
     class ExampleUnsupportedObject:
         def __init__(self):
             self.x = 10
 
-    unsupported_object = ExampleUnsupportedObject()
-    with TempDir() as tmp:
-        with pytest.raises(
-            MlflowException,
-            match=f"produced an unsupported artifact 'unsupported_artifact' with type "
-            f"'{type(unsupported_object)}'",
-        ):
-            _load_custom_metric_artifact(
-                "example_dataset", tmp, "unsupported_artifact", unsupported_object, 0, ""
+    def example_custom_metric(_, __):
+        return {}, {"unsupported_artifact": ExampleUnsupportedObject()}
+
+    with pytest.raises(
+        MlflowException,
+        match="produced an unsupported artifact 'unsupported_artifact' with type "
+        f"'{type(ExampleUnsupportedObject())}'",
+    ):
+        with mlflow.start_run():
+            evaluate(
+                binary_logistic_regressor_model_uri,
+                breast_cancer_dataset._constructor_args["data"],
+                model_type="classifier",
+                targets=breast_cancer_dataset._constructor_args["targets"],
+                dataset_name=breast_cancer_dataset.name,
+                evaluators="default",
+                custom_metrics=[example_custom_metric],
             )

@@ -793,12 +793,12 @@ def evaluate(
     :param custom_metrics: (Optional) A list of custom metric functions. A custom metric
                            function is required to take in two parameters:
 
-                           - Union[pandas.Dataframe, pyspark.sql.DataFrame]: The first being a
+                           - ``Union[pandas.Dataframe, pyspark.sql.DataFrame]``: The first being a
                              Pandas or Spark DataFrame containing ``prediction`` and ``target``
                              column. The ``prediction`` column contains the predictions made by
                              the model. The ``target`` column contains the corresponding labels
                              to the predictions made on that row.
-                           - Dict: The second is a dictionary containing the metrics calculated
+                           - ``Dict``: The second is a dictionary containing the metrics calculated
                              by the default evaluator. The keys are the names of the metrics
                              and the values are the scalar values of the metrics. Refer to the
                              DefaultEvaluator behavior section for what metrics will be returned
@@ -806,9 +806,24 @@ def evaluate(
 
                            A custom metric function can return in the following format:
 
-                           - Dict[AnyStr, Union[int, float, np.number]: a singular dictionary of
+                           - ``Dict[AnyStr, Union[int, float, np.number]``: a singular dictionary of
                              custom metrics, where the keys are the names of the metrics, and the
                              values are the scalar values of the metrics.
+                           - ``Tuple[Dict[AnyStr, Union[int,float,np.number]], Dict[AnyStr,Any]]``:
+                             a tuple of a dict containing the custom metrics, and a dict of
+                             artifacts, where the keys are the names of the artifacts, and the
+                             values are objects representing the artifacts.
+
+                           Object types that artifacts be represented as:
+
+                           - A string uri representing the file path to the artifact. MLflow will
+                             infer the type of the artifact based on the file extension.
+                           - ``EvaluationArtifact`` type objects. i.e. ``CsvEvaluationArtifact``,
+                             ``ImageEvaluationArtifact``.
+                           - Pandas DataFrame. This will be resolved as a CSV artifact.
+                           - Numpy array. This will be saved as a .npy artifact.
+                           - Matplotlib Figure. This will be saved as an image artifact.
+                           - Any JSON serializable object. This will be saved as a JSON artifact.
 
                            .. code-block:: python
                                :caption: Custom Metric Function Boilerplate
@@ -816,29 +831,40 @@ def evaluate(
                                def custom_metrics_boilerplate(eval_df, builtin_metrics):
                                    # ...
                                    metrics: Dict[AnyStr, Union[int, float, np.number]] = some_dict
+                                   artifacts: Dict[AnyStr, Any] = some_artifact_dict
                                    # ...
+                                   if artifacts is not None:
+                                       return metrics, artifacts
                                    return metrics
 
                            .. code-block:: python
                                :caption: Example usage of custom metrics
 
                                def squared_diff_plus_one(eval_df, builtin_metrics):
-                                 return {
-                                     "squared_diff_plus_one": (
-                                         np.sum(
-                                             np.abs(
-                                                 eval_df["prediction"] - eval_df["target"] + 1
-                                             ) ** 2
-                                         )
-                                     )
-                                 }
+                                   return {
+                                       "squared_diff_plus_one": (
+                                           np.sum(
+                                               np.abs(
+                                                   eval_df["prediction"] - eval_df["target"] + 1
+                                               ) ** 2
+                                           )
+                                       )
+                                   }
+
+                               def scatter_plot(eval_df, builtin_metrics):
+                                   plt.scatter(eval_df['prediction'], eval_df['target'])
+                                   plt.xlabel('Targets')
+                                   plt.ylabel('Predictions')
+                                   plt.title("Targets vs. Predictions")
+                                   plt.savefig("some/path/example.png")
+                                   return {}, {"pred_target_scatter": "some/path/example.png"}
 
                                with mlflow.start_run():
                                    mlflow.evaluate(
                                        model,
                                        X,
                                        targets,
-                                       custom_metrics=[squared_diff_plus_one, ...],
+                                       custom_metrics=[squared_diff_plus_one, scatter_plot],
                                    )
 
     :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
