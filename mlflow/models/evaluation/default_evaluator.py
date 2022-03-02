@@ -15,7 +15,9 @@ from mlflow.models.evaluation.artifacts import (
     CsvEvaluationArtifact,
     JsonEvaluationArtifact,
     NumpyEvaluationArtifact,
-    ParquetEvaluationArtifact,
+    EXT_TO_ARTIFACT_MAP,
+    TYPE_TO_ARTIFACT_MAP,
+    TYPE_TO_EXT_MAP,
 )
 
 from sklearn import metrics as sk_metrics
@@ -348,44 +350,33 @@ def _evaluate_custom_metric(index, custom_metric, eval_df, builtin_metrics):
 
 
 def _infer_artifact_type_and_ext(artifact_name, raw_artifact, exception_header):
+    """
+    This function performs type and file extension inference on the provided artifact
+    :param artifact_name: The name of the provided artifact
+    :param raw_artifact: The artifact object
+    :param exception_header: The header of any exceptions thrown in this function
+    :return: A tuple comprised of: a boolean representing whether or not raw_artifact is a path
+             to a file, an EvaluationArtifact (e.g. ImageEvaluationArtifact) class, a string
+             representing the appropriate file extension of the artifact.
+    """
+
     # Given a path-like object: a string representation of path, or a pathlib.Path object
     if isinstance(raw_artifact, str):
         raw_artifact = pathlib.Path(raw_artifact)
     if isinstance(raw_artifact, pathlib.Path):
-        ext_to_artifact_map = {
-            ".png": ImageEvaluationArtifact,
-            ".jpg": ImageEvaluationArtifact,
-            ".jpeg": ImageEvaluationArtifact,
-            ".json": JsonEvaluationArtifact,
-            ".npy": NumpyEvaluationArtifact,
-            ".csv": CsvEvaluationArtifact,
-            ".parquet": ParquetEvaluationArtifact,
-        }
-        if raw_artifact.is_file() and raw_artifact.suffix in ext_to_artifact_map.keys():
-            return True, ext_to_artifact_map[raw_artifact.suffix], raw_artifact.suffix
+        if raw_artifact.is_file() and raw_artifact.suffix in EXT_TO_ARTIFACT_MAP.keys():
+            return True, EXT_TO_ARTIFACT_MAP[raw_artifact.suffix], raw_artifact.suffix
         raise MlflowException(
             f"{exception_header} produced an unsupported artifact '{artifact_name}' with path "
-            f"'{raw_artifact}'. The supported file extensions are:"
-            f".csv, .jpeg, .jpg, .png, .json, .npy, .parquet"
+            f"'{raw_artifact}'. The supported file extensions are: "
+            f"{', '.join(EXT_TO_ARTIFACT_MAP.keys())}"
         )
 
     # Given as other python object
-    import matplotlib.pyplot as pyplot
-
-    type_to_ext_map = {
-        pd.DataFrame: ".csv",
-        np.ndarray: ".npy",
-        pyplot.Figure: ".png",
-    }
-    type_to_artifact_map = {
-        pd.DataFrame: CsvEvaluationArtifact,
-        np.ndarray: NumpyEvaluationArtifact,
-        pyplot.Figure: ImageEvaluationArtifact,
-    }
     return (
         False,
-        type_to_artifact_map.get(type(raw_artifact), JsonEvaluationArtifact),
-        type_to_ext_map.get(type(raw_artifact), ".json"),
+        TYPE_TO_ARTIFACT_MAP.get(type(raw_artifact), JsonEvaluationArtifact),
+        TYPE_TO_EXT_MAP.get(type(raw_artifact), ".json"),
     )
 
 

@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import json
+import matplotlib.pyplot as plt
 
 from mlflow.models.evaluation.base import EvaluationArtifact
 
@@ -50,3 +51,26 @@ class JsonEvaluationArtifact(EvaluationArtifact):
     def _load_content_from_file(self, local_artifact_path):
         self._content = json.load(open(local_artifact_path, "r"))
         return self._content
+
+
+EXT_TO_ARTIFACT_MAP = {
+    ".png": ImageEvaluationArtifact,
+    ".jpg": ImageEvaluationArtifact,
+    ".jpeg": ImageEvaluationArtifact,
+    ".json": JsonEvaluationArtifact,
+    ".npy": NumpyEvaluationArtifact,
+    ".csv": CsvEvaluationArtifact,
+    ".parquet": ParquetEvaluationArtifact,
+}
+
+TYPE_TO_EXT_MAP = {
+    pd.DataFrame: ".csv",
+    np.ndarray: ".npy",
+    plt.Figure: ".png",
+}
+
+TYPE_TO_ARTIFACT_MAP = {
+    pd.DataFrame: CsvEvaluationArtifact,
+    np.ndarray: NumpyEvaluationArtifact,
+    plt.Figure: ImageEvaluationArtifact,
+}

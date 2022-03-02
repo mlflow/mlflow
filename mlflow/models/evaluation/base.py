@@ -814,7 +814,7 @@ def evaluate(
                              artifacts, where the keys are the names of the artifacts, and the
                              values are objects representing the artifacts.
 
-                           Object types that artifacts be represented as:
+                           Object types that artifacts can be represented as:
 
                            - A string uri representing the file path to the artifact. MLflow will
                              infer the type of the artifact based on the file extension.
