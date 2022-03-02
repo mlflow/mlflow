@@ -1,10 +1,10 @@
 import socket
 import sys
 import importlib
-from mlflow.pyfunc import _PICKLE_PROTOCOL_FOR_RESTORE_PY_ENV
 import argparse
 import pickle
 
+_PICKLE_PROTOCOL_FOR_RESTORE_PY_ENV = 3
 
 if __name__ == "__main__":
     sys.stdin.close()  # for safety, close it.

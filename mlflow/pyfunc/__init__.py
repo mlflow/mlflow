@@ -210,6 +210,7 @@ You may prefer the second, lower-level workflow for the following reasons:
 import importlib
 import pickle
 import sys
+import io
 
 import numpy as np
 import os
@@ -687,62 +688,64 @@ def _warn_dependency_requirement_mismatches(model_path):
 _PYENV_CMD = 'pyenv'
 _VIRTUALENV_CMD = 'virtualenv'
 
-_PYTHON_ENV_CACHE_DIR = None
-
-
-def _get_or_create_python_env_cache_dir():
-    global _PYTHON_ENV_CACHE_DIR
-    if _PYTHON_ENV_CACHE_DIR is not None:
-        return _PYTHON_ENV_CACHE_DIR
-
-    if databricks_utils.is_in_databricks_runtime():
-        # In databricks, the '/local_disk0/.ephemeral_nfs' is mounted as NFS disk
-        # the data stored in the disk is shared with all remote nodes.
-        root_dir = '/local_disk0/.ephemeral_nfs/mlflow/cache'
-        os.makedirs(root_dir, exist_ok=True)
-        _PYTHON_ENV_CACHE_DIR = tempfile.mkdtemp(dir=root_dir)
-        # TODO: register deleting cache dir handler when exit
-    else:
-        """
-        import atexit
-        import shutil
-        _PYTHON_ENV_CACHE_DIR = tempfile.mkdtemp()
-        atexit.register(shutil.rmtree, _PYTHON_ENV_CACHE_DIR, ignore_errors=True)
-        """
-        _PYTHON_ENV_CACHE_DIR = '/tmp' # For debug purpose
-
-    os.makedirs(os.path.join(_PYTHON_ENV_CACHE_DIR, 'pythons'), exist_ok=True)
-    os.makedirs(os.path.join(_PYTHON_ENV_CACHE_DIR, 'venvs'), exist_ok=True)
-
-    return _PYTHON_ENV_CACHE_DIR
+_DATABRICKS_NFS_CACHE_ROOT_DIR = "/local_disk0/.ephemeral_nfs/mlflow/cache"
 
 
 _PICKLE_PROTOCOL_FOR_RESTORE_PY_ENV = 3
 
 
-class PyFuncModelWithRestoredPythonEnv(PyFuncModel):
+class _RestoredPythonEnvSubprocessMgr:
 
-    def __init__(
-            self,
-            model_meta: Model,
-            loader_module: str,
-            model_path: str,
-            py_version: str,
-            requirements_file_path: str,
-    ):
-        if not model_meta:
-            raise MlflowException("Model is missing metadata.")
-        self._model_meta = model_meta
-        self._loader_module = loader_module
-        self._model_path = model_path
+    def __init__(self, py_version, requirements_file_path):
         self._py_version = py_version
         self._requirements_file_path = requirements_file_path
+
         self._subproc = None
+        self._python_installation_dir = None
+        self._virtual_env_dir = None
+
         self._virtual_env_python_bin = None
         self._comm_sock = None
+        self._comm_stream = None
 
-    def _setup_restored_python_env_subproc(self):
-        env_cache_dir = _get_or_create_python_env_cache_dir()
+    _PYTHON_ENV_CACHE_DIR = None
+
+    @staticmethod
+    def _get_or_create_python_env_cache_dir():
+        if _RestoredPythonEnvSubprocessMgr._PYTHON_ENV_CACHE_DIR is not None:
+            return _RestoredPythonEnvSubprocessMgr._PYTHON_ENV_CACHE_DIR
+
+        if databricks_utils.is_in_databricks_runtime():
+            # In databricks, the '/local_disk0/.ephemeral_nfs' is mounted as NFS disk
+            # the data stored in the disk is shared with all remote nodes.
+            root_dir = os.path.join(_DATABRICKS_NFS_CACHE_ROOT_DIR, "env")
+            os.makedirs(root_dir, exist_ok=True)
+            _RestoredPythonEnvSubprocessMgr._PYTHON_ENV_CACHE_DIR = tempfile.mkdtemp(dir=root_dir)
+            # TODO: register deleting cache dir handler when exit
+        else:
+            """
+            import atexit
+            import shutil
+            _RestoredPythonEnvSubprocessMgr._PYTHON_ENV_CACHE_DIR = tempfile.mkdtemp()
+            atexit.register(shutil.rmtree, _RestoredPythonEnvSubprocessMgr._PYTHON_ENV_CACHE_DIR, ignore_errors=True)
+            """
+            _RestoredPythonEnvSubprocessMgr._PYTHON_ENV_CACHE_DIR = '/tmp'  # For testing purpose
+
+        os.makedirs(os.path.join(_RestoredPythonEnvSubprocessMgr._PYTHON_ENV_CACHE_DIR, 'pythons'), exist_ok=True)
+        os.makedirs(os.path.join(_RestoredPythonEnvSubprocessMgr._PYTHON_ENV_CACHE_DIR, 'venvs'), exist_ok=True)
+
+        return _RestoredPythonEnvSubprocessMgr._PYTHON_ENV_CACHE_DIR
+
+    @property
+    def comm_stream(self):
+        return self._comm_stream
+
+    @property
+    def subproc(self):
+        return self._subproc
+
+    def setup_restored_python_env(self):
+        env_cache_dir = _RestoredPythonEnvSubprocessMgr._get_or_create_python_env_cache_dir()
         pyenv_home_path = os.path.join(
             env_cache_dir, 'pythons'
         )
@@ -790,19 +793,22 @@ class PyFuncModelWithRestoredPythonEnv(PyFuncModel):
         self._virtual_env_python_bin = os.path.join(
             virtual_env_path, 'bin/python'
         )
+
+    def create_subproc(self, loader_module, model_path):
         # setup tcp connection with subproc
         listen_sock = socket.socket()
         try:
             listen_sock.bind(('127.0.0.1', 0))
             server_port = listen_sock.getsockname()[1]
+            listen_sock.settimeout(10)
             listen_sock.listen(1)
 
             self._subproc = subprocess.Popen(
                 [self._virtual_env_python_bin,
                  '-m', 'mlflow.pyfunc.restored_python_env_model_infer_subproc',
                  '--server_port', str(server_port),
-                 '--loader_module', self._loader_module,
-                 '--model_path', self._model_path,
+                 '--loader_module', loader_module,
+                 '--model_path', model_path,
                  ],
                 stdout=sys.stdout, stderr=sys.stderr,
             )
@@ -810,13 +816,42 @@ class PyFuncModelWithRestoredPythonEnv(PyFuncModel):
             comm_sock, _ = listen_sock.accept()
             self._comm_sock = comm_sock
             self._comm_stream = comm_sock.makefile('rwb')
+        except socket.timeout:
+            raise RuntimeError('Launch sub process for virtual python environment failed.')
         finally:
             listen_sock.close()
 
+    def close(self):
+        self._comm_stream.close()
+        self._comm_sock.shutdown(socket.SHUT_RDWR)
+        self._comm_sock.close()
+        # self._subproc.terminate()
+
+
+class PyFuncModelWithRestoredPythonEnv(PyFuncModel):
+
+    def __init__(
+            self,
+            model_meta: Model,
+            loader_module: str,
+            model_path: str,
+            py_version: str,
+            requirements_file_path: str,
+    ):
+        if not model_meta:
+            raise MlflowException("Model is missing metadata.")
+        self._model_meta = model_meta
+        self._loader_module = loader_module
+        self._model_path = model_path
+        self._restored_env_sub_proc_mgr = _RestoredPythonEnvSubprocessMgr(
+            py_version, requirements_file_path
+        )
+
     def predict(self, data: PyFuncInput) -> PyFuncOutput:
         import pandas as pd
-        if self._subproc is None:
-            self._setup_restored_python_env_subproc()
+        if self._restored_env_sub_proc_mgr.subproc is None:
+            self._restored_env_sub_proc_mgr.setup_restored_python_env()
+            self._restored_env_sub_proc_mgr.create_subproc(self._loader_module, self._model_path)
 
         batch_size = 10  # TODO: automatically determine best batch size.
         total_size = len(data)
@@ -828,27 +863,38 @@ class PyFuncModelWithRestoredPythonEnv(PyFuncModel):
                 end_pos = min(pos + batch_size, total_size)
                 batch_data = data[pos: end_pos]
                 pickle.dump(
-                    batch_data, self._comm_stream, protocol=_PICKLE_PROTOCOL_FOR_RESTORE_PY_ENV
+                    batch_data, self._restored_env_sub_proc_mgr.comm_stream,
+                    protocol=_PICKLE_PROTOCOL_FOR_RESTORE_PY_ENV
                 )
-                self._comm_stream.flush()
+                self._restored_env_sub_proc_mgr.comm_stream.flush()
                 pos += batch_size
 
             # write a None object as the data end signal.
-            pickle.dump(None, self._comm_stream, protocol=_PICKLE_PROTOCOL_FOR_RESTORE_PY_ENV)
-            self._comm_stream.flush()
+            pickle.dump(None, self._restored_env_sub_proc_mgr.comm_stream,
+                        protocol=_PICKLE_PROTOCOL_FOR_RESTORE_PY_ENV)
+            self._restored_env_sub_proc_mgr.comm_stream.flush()
 
         send_data_thread = threading.Thread(target=send_infer_data_to_subproc, daemon=True)
         send_data_thread.start()
 
         received_data = []
-        while True:
-            batch = pickle.load(self._comm_stream)
-            _logger.info(
-                'parent proc load prediction batch done.'
-            )
-            if batch is None:
-                break
-            received_data.append(batch)
+        try:
+            while True:
+                batch = pickle.load(self._restored_env_sub_proc_mgr.comm_stream)
+                _logger.info(
+                    'parent proc load prediction batch done.'
+                )
+                if batch is None:
+                    break
+                received_data.append(batch)
+        except (socket.error, EOFError):
+            # When EOFError raised, it means subproc closes the socket unexpectedly.
+            # (e.g. the subproc raise some exception and cause python proc exit and before
+            # exit the socket will be closed).
+            # When other socket error happen, it might means the subproc crashed.
+            # In any cases, it is not network caused error because the socket send/recv
+            # on IP 127.0.0.1 which is not related to network.
+            raise RuntimeError('Sub-process running under virtual python environment failed.')
 
         if isinstance(received_data[0], (np.ndarray, list)):
             result = np.concatenate(received_data)
@@ -862,17 +908,11 @@ class PyFuncModelWithRestoredPythonEnv(PyFuncModel):
         )
         return result
 
-    def close(self):
-        self._comm_stream.close()
-        self._comm_sock.shutdown(socket.SHUT_RDWR)
-        self._comm_sock.close()
-        # self._subproc.terminate()
-
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
+        self._restored_env_sub_proc_mgr.close()
 
     @property
     def metadata(self):
@@ -1092,7 +1132,7 @@ def spark_udf(spark, model_uri, result_type="double"):
     # functionality.
     import functools
     from mlflow.pyfunc.spark_model_cache import SparkModelCache
-    from pyspark.sql.functions import pandas_udf
+    from pyspark.sql.functions import pandas_udf, PandasUDFType
     from pyspark.sql.types import _parse_datatype_string
     from pyspark.sql.types import ArrayType, DataType as SparkDataType
     from pyspark.sql.types import DoubleType, IntegerType, FloatType, LongType, StringType
@@ -1122,8 +1162,7 @@ def spark_udf(spark, model_uri, result_type="double"):
         model_cache_key = SparkModelCache.add_local_model(local_model_path)
         model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
 
-    def predict(*args):
-        model = SparkModelCache.get_or_load(model_cache_key)
+    def _predict_row_batch(model, *args):
         input_schema = model.metadata.get_input_schema()
         pdf = None
 
@@ -1188,7 +1227,15 @@ def spark_udf(spark, model_uri, result_type="double"):
         else:
             return result[result.columns[0]]
 
-    udf = pandas_udf(predict, result_type)
+    def predict(iterator):
+        # Note: this is a pandas udf function in iteration style, which takes an iterator of
+        # tuple of pandas.Series and outputs an iterator of pandas.Series.
+        model = SparkModelCache.get_or_load(model_cache_key)
+        for row_batch in iterator:
+            # the `row_batch` is a tuple which composes of several pd.Series/pd.DataFrame objects.
+            yield _predict_row_batch(model, *row_batch)
+
+    udf = pandas_udf(predict, result_type, functionType=PandasUDFType.SCALAR_ITER)
     udf.metadata = model_metadata
 
     @functools.wraps(udf)

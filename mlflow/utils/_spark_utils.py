@@ -3,7 +3,6 @@ import tempfile
 import uuid
 import atexit
 import shutil
-from pyspark.files import SparkFiles
 
 
 def _get_active_spark_session():
@@ -81,6 +80,9 @@ class _SparkBroadcastFileCache:
         #   2. If we cache the extracted files globally and allow it being shared with multiple
         #   python processes (udf tasks), then we are hard to handle race condition. Each udf task run
         #   within an individual python process and they are hard to coordinate with all others.
+        # TODO:
+        #  the `sparkContext.addArchive` API was added since spark 3.1, for earlier spark version,
+        #  fallback to using `sparkContext.addFile` instead.
         _spark_context_add_archive(_get_active_spark_session(), archive_path)
         # Note: the cache key is in the format "{uuid}.zip", we must ensure the cache key is unique
         # for each file_path
@@ -91,8 +93,8 @@ class _SparkBroadcastFileCache:
     @staticmethod
     def get_file(cache_key):
         """
+        Provided cache key returned by `add_file`, return the local file (or directory) path.
         This method can be called from spark task routine.
-        The file_path must be the same value with the path you called `add_file` from driver side.
-        Return the unarchived file/directory.
         """
+        from pyspark.files import SparkFiles
         return SparkFiles.get(cache_key)

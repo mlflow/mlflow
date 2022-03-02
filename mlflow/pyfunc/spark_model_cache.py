@@ -4,7 +4,6 @@ import tempfile
 import zipfile
 
 from mlflow.utils._spark_utils import _SparkBroadcastFileCache
-from pyspark.files import SparkFiles
 
 
 # TODO: For databricks runtime, use NFS instead of spark files for distributing model to remote workers.
@@ -32,6 +31,7 @@ class SparkModelCache:
         """Given a model_path which refers to a pyfunc directory locally,
         we will zip the directory up, enable it to be distributed to executors.
         This method must be called from spark driver side.
+        return a cache key for the model_path
         """
         model_path = os.path.normpath(model_path)
         _, archive_basepath = tempfile.mkstemp()
@@ -40,8 +40,8 @@ class SparkModelCache:
     @staticmethod
     def get_or_load(cache_key):
         """
-        Given a model_path used in `add_local_model`, this method will return the loaded model.
-        This method can be called from spark UDF routine.
+        Given a cache key returned by `add_local_model`, this method will return the loaded model.
+        This method can be called from either spark UDF routine or driver side.
         """
         if cache_key in SparkModelCache._models:
             SparkModelCache._cache_hits += 1
