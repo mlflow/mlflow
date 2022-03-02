@@ -10,3 +10,7 @@ def _get_active_spark_session():
     except Exception:
         # Fall back to this internal field for Spark 2.x and below.
         return SparkSession._instantiatedSession
+
+
+def _add_spark_cache_file(spark, file_path):
+    spark.sparkContext._jsc.sc().addArchive(file_path)

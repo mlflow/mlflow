@@ -853,7 +853,7 @@ class PyFuncModelWithRestoredPythonEnv(PyFuncModel):
         if isinstance(received_data[0], (np.ndarray, list)):
             result = np.concatenate(received_data)
         elif isinstance(received_data[0], (pd.DataFrame, pd.Series)):
-            result = pd.concat(received_data, axis=0)
+            result = pd.concat(received_data, axis=0, ignore_index=True)
         else:
             raise RuntimeError('Unknown result data type.')
 

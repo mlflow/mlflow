@@ -3,9 +3,11 @@ import shutil
 import tempfile
 import zipfile
 
+from mlflow.utils._spark_utils import _add_spark_cache_file
 from pyspark.files import SparkFiles
 
 
+# TODO: For databricks runtime, use NFS instead of spark files for distributing model to remote workers.
 class SparkModelCache:
     """Caches models in memory on Spark Executors, to avoid continually reloading from disk.
 
@@ -35,7 +37,7 @@ class SparkModelCache:
         # NB: We must archive the directory as Spark.addFile does not support non-DFS
         # directories when recursive=True.
         archive_path = shutil.make_archive(archive_basepath, "zip", model_path)
-        spark.sparkContext.addFile(archive_path)
+        _add_spark_cache_file(spark, archive_path)
         return archive_path
 
     @staticmethod
@@ -52,14 +54,10 @@ class SparkModelCache:
         # SparkFiles.get(), as opposed to the (absolute) path.
         archive_path_basename = os.path.basename(archive_path)
         local_path = SparkFiles.get(archive_path_basename)
-        temp_dir = tempfile.mkdtemp()
-        zip_ref = zipfile.ZipFile(local_path, "r")
-        zip_ref.extractall(temp_dir)
-        zip_ref.close()
 
         # We must rely on a supposed cyclic import here because we want this behavior
         # on the Spark Executors (i.e., don't try to pickle the load_model function).
         from mlflow.pyfunc import load_pyfunc  # pylint: disable=cyclic-import
 
-        SparkModelCache._models[archive_path] = load_pyfunc(temp_dir)
+        SparkModelCache._models[archive_path] = load_pyfunc(local_path)
         return SparkModelCache._models[archive_path]
