@@ -47,7 +47,6 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_JOB_TYPE_INFO,
 )
 from mlflow.utils.validation import _validate_run_id
-from mlflow.entities import SourceType
 
 if TYPE_CHECKING:
     import pandas  # pylint: disable=unused-import
