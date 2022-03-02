@@ -822,7 +822,11 @@ def evaluate(
                              ``ImageEvaluationArtifact``.
                            - Pandas DataFrame. This will be resolved as a CSV artifact.
                            - Numpy array. This will be saved as a .npy artifact.
-                           - Matplotlib Figure. This will be saved as an image artifact.
+                           - Matplotlib Figure. This will be saved as an image artifact. Note that
+                             ``matplotlib.pyplot.savefig`` is called behind the scene with default
+                             configurations. To customize, either save the figure with the desired
+                             configurations and return its file path or define customizations
+                             through environment variables in ``matplotlib.rcParams``.
                            - Any JSON serializable object. This will be saved as a JSON artifact.
 
                            .. code-block:: python
