@@ -1119,11 +1119,11 @@ def spark_udf(spark, model_uri, result_type="double"):
         )
         # Assume spark executor python environment is the same with spark driver side.
         _warn_dependency_requirement_mismatches(local_model_path)
-        archive_path = SparkModelCache.add_local_model(spark, local_model_path)
+        model_cache_key = SparkModelCache.add_local_model(local_model_path)
         model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
 
     def predict(*args):
-        model = SparkModelCache.get_or_load(archive_path)
+        model = SparkModelCache.get_or_load(model_cache_key)
         input_schema = model.metadata.get_input_schema()
         pdf = None
 

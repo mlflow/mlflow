@@ -3,7 +3,7 @@ import shutil
 import tempfile
 import zipfile
 
-from mlflow.utils._spark_utils import _add_spark_cache_file
+from mlflow.utils._spark_utils import _SparkBroadcastFileCache
 from pyspark.files import SparkFiles
 
 
@@ -28,36 +28,30 @@ class SparkModelCache:
         pass
 
     @staticmethod
-    def add_local_model(spark, model_path):
-        """Given a SparkSession and a model_path which refers to a pyfunc directory locally,
-        we will zip the directory up, enable it to be distributed to executors, and return
-        the "archive_path", which should be used as the path in get_or_load().
+    def add_local_model(model_path):
+        """Given a model_path which refers to a pyfunc directory locally,
+        we will zip the directory up, enable it to be distributed to executors.
+        This method must be called from spark driver side.
         """
+        model_path = os.path.normpath(model_path)
         _, archive_basepath = tempfile.mkstemp()
-        # NB: We must archive the directory as Spark.addFile does not support non-DFS
-        # directories when recursive=True.
-        archive_path = shutil.make_archive(archive_basepath, "zip", model_path)
-        _add_spark_cache_file(spark, archive_path)
-        return archive_path
+        return _SparkBroadcastFileCache.add_file(model_path)
 
     @staticmethod
-    def get_or_load(archive_path):
-        """Given a path returned by add_local_model(), this method will return the loaded model.
-        If this Python process ever loaded the model before, we will reuse that copy.
+    def get_or_load(cache_key):
         """
-        if archive_path in SparkModelCache._models:
+        Given a model_path used in `add_local_model`, this method will return the loaded model.
+        This method can be called from spark UDF routine.
+        """
+        if cache_key in SparkModelCache._models:
             SparkModelCache._cache_hits += 1
-            return SparkModelCache._models[archive_path]
+            return SparkModelCache._models[cache_key]
 
-        # BUG: Despite the documentation of SparkContext.addFile() and SparkFiles.get() in Scala
-        # and Python, it turns out that we actually need to use the basename as the input to
-        # SparkFiles.get(), as opposed to the (absolute) path.
-        archive_path_basename = os.path.basename(archive_path)
-        local_path = SparkFiles.get(archive_path_basename)
+        local_path = _SparkBroadcastFileCache.get_file(cache_key)
 
         # We must rely on a supposed cyclic import here because we want this behavior
         # on the Spark Executors (i.e., don't try to pickle the load_model function).
         from mlflow.pyfunc import load_pyfunc  # pylint: disable=cyclic-import
 
-        SparkModelCache._models[archive_path] = load_pyfunc(local_path)
-        return SparkModelCache._models[archive_path]
+        SparkModelCache._models[cache_key] = load_pyfunc(local_path)
+        return SparkModelCache._models[cache_key]
