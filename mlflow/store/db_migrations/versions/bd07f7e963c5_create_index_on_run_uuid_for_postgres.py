@@ -17,11 +17,11 @@ depends_on = None
 
 
 def upgrade():
-    # This part of the migration is only relevant for PostgreSQL.
+    # This part of the migration is only relevant for PostgreSQL and SQLite.
     # As a fix for https://github.com/mlflow/mlflow/issues/3785, create indexes on run_uuid columns
     # to speed up SQL operations.
     bind = op.get_bind()
-    if bind.engine.name == "postgresql":
+    if bind.engine.name in ["postgresql", "sqlite"]:
         for table in ["params", "metrics", "latest_metrics", "tags"]:
             op.create_index(f"index_{table}_run_uuid", table, ["run_uuid"])
 
