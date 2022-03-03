@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import json
 import pandas as pd
@@ -664,115 +665,65 @@ def test_infer_artifact_type_and_ext_raise_exception_for_unsupported_file_extens
         _infer_artifact_type_and_ext("invalid_ext_artifact", path, "")
 
 
-def test_infer_artifact_type_and_ext_for_image_files(tmp_path):
-    import matplotlib.pyplot as plt
+@pytest.mark.parametrize(
+    "is_file,artifact,artifact_type,ext",
+    [
+        (True, lambda path: plt.figure().savefig(path), ImageEvaluationArtifact, "png"),
+        (True, lambda path: plt.figure().savefig(path), ImageEvaluationArtifact, "jpg"),
+        (True, lambda path: plt.figure().savefig(path), ImageEvaluationArtifact, "jpeg"),
+        (True, lambda path: json.dump([1, 2, 3], open(path, "w")), JsonEvaluationArtifact, "json"),
+        (
+            True,
+            lambda path: np.save(path, np.array([1, 2, 3]), allow_pickle=False),
+            NumpyEvaluationArtifact,
+            "npy",
+        ),
+        (
+            True,
+            lambda path: pd.DataFrame({"test": [1, 2, 3]}).to_csv(path, index=False),
+            CsvEvaluationArtifact,
+            "csv",
+        ),
+        (
+            True,
+            lambda path: pd.DataFrame({"test": [1, 2, 3]}).to_parquet(path),
+            ParquetEvaluationArtifact,
+            "parquet",
+        ),
+        (False, pd.DataFrame({"test": [1, 2, 3]}), CsvEvaluationArtifact, "csv"),
+        (False, np.array([1, 2, 3]), NumpyEvaluationArtifact, "npy"),
+        (False, plt.figure(), ImageEvaluationArtifact, "png"),
+        (False, {"a": 1, "b": "e", "c": 1.2, "d": [1, 2]}, JsonEvaluationArtifact, "json"),
+        (False, [1, 2, 3, "test"], JsonEvaluationArtifact, "json"),
+    ],
+)
+def test_infer_artifact_type_and_ext(is_file, artifact, artifact_type, ext, tmp_path):
+    if is_file:
+        artifact_representation = tmp_path / f"test.{ext}"
+        artifact(artifact_representation)
+    else:
+        artifact_representation = artifact
+    inferred_from_path, inferred_type, inferred_ext = _infer_artifact_type_and_ext(
+        f"{ext}_{artifact_type.__name__}_artifact", artifact_representation, ""
+    )
+    assert not (is_file ^ inferred_from_path)
+    assert inferred_type is artifact_type
+    assert inferred_ext == f".{ext}"
 
-    fig = plt.figure()
-    plt.plot([1, 2, 3])
 
-    for ext in ("png", "jpg", "jpeg"):
-        fig.savefig(tmp_path / f"test.{ext}")
-        inferred_from_path, inferred_type, inferred_ext = _infer_artifact_type_and_ext(
-            f"{ext}_img_artifact", tmp_path / f"test.{ext}", ""
+def _start_run_for_custom_metric_tests(model_uri, dataset, custom_metrics):
+    with mlflow.start_run() as run:
+        result = evaluate(
+            model_uri,
+            dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=dataset._constructor_args["targets"],
+            dataset_name=dataset.name,
+            evaluators="default",
+            custom_metrics=custom_metrics,
         )
-        assert inferred_from_path
-        assert inferred_type is ImageEvaluationArtifact
-        assert inferred_ext == f".{ext}"
-
-
-def test_infer_artifact_type_and_ext_for_json_file(tmp_path):
-    json.dump([1, 2, 3], open(tmp_path / "test.json", "w"))
-    inferred_from_path, inferred_type, inferred_ext = _infer_artifact_type_and_ext(
-        "json_artifact", tmp_path / "test.json", ""
-    )
-    assert inferred_from_path
-    assert inferred_type is JsonEvaluationArtifact
-    assert inferred_ext == ".json"
-
-
-def test_infer_artifact_type_and_ext_for_npy_file(tmp_path):
-    np_arr = np.array([1, 2, 3])
-    np.save(tmp_path / "test.npy", np_arr, allow_pickle=False)
-    inferred_from_path, inferred_type, inferred_ext = _infer_artifact_type_and_ext(
-        "npy_artifact", tmp_path / "test.npy", ""
-    )
-    assert inferred_from_path
-    assert inferred_type is NumpyEvaluationArtifact
-    assert inferred_ext == ".npy"
-
-
-def test_infer_artifact_type_and_ext_for_csv_file(tmp_path):
-    df = pd.DataFrame({"test": [1, 2, 3]})
-    df.to_csv(tmp_path / "test.csv", index=False)
-    inferred_from_path, inferred_type, inferred_ext = _infer_artifact_type_and_ext(
-        "csv_artifact", tmp_path / "test.csv", ""
-    )
-    assert inferred_from_path
-    assert inferred_type is CsvEvaluationArtifact
-    assert inferred_ext == ".csv"
-
-
-def test_infer_artifact_type_and_ext_for_parquet_file(tmp_path):
-    df = pd.DataFrame({"test": [1, 2, 3]})
-    df.to_parquet(tmp_path / "test.parquet")
-    inferred_from_path, inferred_type, inferred_ext = _infer_artifact_type_and_ext(
-        "parquet_artifact", tmp_path / "test.parquet", ""
-    )
-    assert inferred_from_path
-    assert inferred_type is ParquetEvaluationArtifact
-    assert inferred_ext == ".parquet"
-
-
-def test_infer_artifact_type_and_ext_for_dataframe_object():
-    df = pd.DataFrame({"test": [1, 2, 3]})
-    inferred_from_path, inferred_type, inferred_ext = _infer_artifact_type_and_ext(
-        "df_artifact", df, ""
-    )
-    assert not inferred_from_path
-    assert inferred_type is CsvEvaluationArtifact
-    assert inferred_ext == ".csv"
-
-
-def test_infer_artifact_type_and_ext_for_ndarray_object():
-    np_arr = np.array([1, 2, 3])
-    inferred_from_path, inferred_type, inferred_ext = _infer_artifact_type_and_ext(
-        "ndarray_artifact", np_arr, ""
-    )
-    assert not inferred_from_path
-    assert inferred_type is NumpyEvaluationArtifact
-    assert inferred_ext == ".npy"
-
-
-def test_infer_artifact_type_and_ext_for_plt_figure_objects():
-    import matplotlib.pyplot as plt
-
-    fig = plt.figure()
-    plt.plot([1, 2, 3])
-    inferred_from_path, inferred_type, inferred_ext = _infer_artifact_type_and_ext(
-        "plt_figure_artifact", fig, ""
-    )
-    assert not inferred_from_path
-    assert inferred_type is ImageEvaluationArtifact
-    assert inferred_ext == ".png"
-
-
-def test_infer_artifact_type_and_ext_for_json_serializable_objects():
-    ex_dict = {"a": 1, "b": "test", "c": 1.2}
-    ex_list = [1, 2, 3, "test"]
-
-    inferred_from_path, inferred_type, inferred_ext = _infer_artifact_type_and_ext(
-        "json_dict_artifact", ex_dict, ""
-    )
-    assert not inferred_from_path
-    assert inferred_type is JsonEvaluationArtifact
-    assert inferred_ext == ".json"
-
-    inferred_from_path, inferred_type, inferred_ext = _infer_artifact_type_and_ext(
-        "json_list_artifact", ex_list, ""
-    )
-    assert not inferred_from_path
-    assert inferred_type is JsonEvaluationArtifact
-    assert inferred_ext == ".json"
+    _, metrics, _, artifacts = get_run_data(run.info.run_id)
+    return result, metrics, artifacts
 
 
 def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_dataset, tmp_path):
@@ -796,18 +747,9 @@ def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_
         }
         return example_metrics, example_artifacts
 
-    with mlflow.start_run() as run:
-        result = evaluate(
-            binary_logistic_regressor_model_uri,
-            breast_cancer_dataset._constructor_args["data"],
-            model_type="classifier",
-            targets=breast_cancer_dataset._constructor_args["targets"],
-            dataset_name=breast_cancer_dataset.name,
-            evaluators="default",
-            custom_metrics=[example_custom_metric],
-        )
-
-    _, metrics, _, artifacts = get_run_data(run.info.run_id)
+    result, metrics, artifacts = _start_run_for_custom_metric_tests(
+        binary_logistic_regressor_model_uri, breast_cancer_dataset, [example_custom_metric]
+    )
 
     model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
     _, _, predict_fn, _ = _extract_raw_model_and_predict_fn(model)
@@ -855,7 +797,6 @@ def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_
 def test_custom_metric_logs_artifacts_from_paths(
     binary_logistic_regressor_model_uri, breast_cancer_dataset, tmp_path
 ):
-    import matplotlib.pyplot as plt
     from PIL import Image
 
     def example_custom_metric(_, __):
@@ -889,18 +830,9 @@ def test_custom_metric_logs_artifacts_from_paths(
 
         return {}, example_artifacts
 
-    with mlflow.start_run() as run:
-        result = evaluate(
-            binary_logistic_regressor_model_uri,
-            breast_cancer_dataset._constructor_args["data"],
-            model_type="classifier",
-            targets=breast_cancer_dataset._constructor_args["targets"],
-            dataset_name=breast_cancer_dataset.name,
-            evaluators="default",
-            custom_metrics=[example_custom_metric],
-        )
-
-    _, _, _, artifacts = get_run_data(run.info.run_id)
+    result, _, artifacts = _start_run_for_custom_metric_tests(
+        binary_logistic_regressor_model_uri, breast_cancer_dataset, [example_custom_metric]
+    )
 
     for img_ext in ("png", "jpg", "jpeg"):
         assert f"test_{img_ext}_artifact" in result.artifacts
@@ -936,7 +868,6 @@ def test_custom_metric_logs_artifacts_from_paths(
 def test_custom_metric_logs_artifacts_from_objects(
     binary_logistic_regressor_model_uri, breast_cancer_dataset
 ):
-    import matplotlib.pyplot as plt
     from PIL import Image, ImageChops
     import io
 
@@ -955,18 +886,9 @@ def test_custom_metric_logs_artifacts_from_objects(
             "test_csv_artifact": pd.DataFrame({"a": [1, 2, 3]}),
         }
 
-    with mlflow.start_run() as run:
-        result = evaluate(
-            binary_logistic_regressor_model_uri,
-            breast_cancer_dataset._constructor_args["data"],
-            model_type="classifier",
-            targets=breast_cancer_dataset._constructor_args["targets"],
-            dataset_name=breast_cancer_dataset.name,
-            evaluators="default",
-            custom_metrics=[example_custom_metric],
-        )
-
-    _, _, _, artifacts = get_run_data(run.info.run_id)
+    result, _, artifacts = _start_run_for_custom_metric_tests(
+        binary_logistic_regressor_model_uri, breast_cancer_dataset, [example_custom_metric]
+    )
 
     assert "test_image_artifact" in result.artifacts
     assert "test_image_artifact_on_data_breast_cancer_dataset.png" in artifacts
@@ -1005,13 +927,6 @@ def test_custom_metric_logs_artifacts_for_unsupported_artifact_object(
         match="produced an unsupported artifact 'unsupported_artifact' with type "
         f"'{type(ExampleUnsupportedObject())}'",
     ):
-        with mlflow.start_run():
-            evaluate(
-                binary_logistic_regressor_model_uri,
-                breast_cancer_dataset._constructor_args["data"],
-                model_type="classifier",
-                targets=breast_cancer_dataset._constructor_args["targets"],
-                dataset_name=breast_cancer_dataset.name,
-                evaluators="default",
-                custom_metrics=[example_custom_metric],
-            )
+        _start_run_for_custom_metric_tests(
+            binary_logistic_regressor_model_uri, breast_cancer_dataset, [example_custom_metric]
+        )
