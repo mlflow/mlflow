@@ -124,6 +124,11 @@ def test_log_artifact(gcs_mock, tmpdir):
 
     # This will call isfile on the code path being used,
     # thus testing that it's being called with an actually file path
+    def custom_isfile(*args, **kwargs):
+        if args:
+            return os.path.isfile(args[0])
+        return os.path.isfile(kwargs.get("filename"))
+
     mock_method_chain(
         gcs_mock,
         [
@@ -132,7 +137,7 @@ def test_log_artifact(gcs_mock, tmpdir):
             "blob",
             "upload_from_filename",
         ],
-        side_effect=os.path.isfile,
+        side_effect=custom_isfile
     )
     repo.log_artifact(fpath)
 
@@ -149,6 +154,11 @@ def test_log_artifacts(gcs_mock, tmpdir):
     subd.join("b.txt").write("B")
     subd.join("c.txt").write("C")
 
+    def custom_isfile(*args, **kwargs):
+        if args:
+            return os.path.isfile(args[0])
+        return os.path.isfile(kwargs.get("filename"))
+
     mock_method_chain(
         gcs_mock,
         [
@@ -157,16 +167,16 @@ def test_log_artifacts(gcs_mock, tmpdir):
             "blob",
             "upload_from_filename",
         ],
-        side_effect=os.path.isfile,
+        side_effect=custom_isfile,
     )
     repo.log_artifacts(subd.strpath)
 
     gcs_mock.Client().bucket.assert_called_with("test_bucket")
     gcs_mock.Client().bucket().blob().upload_from_filename.assert_has_calls(
         [
-            mock.call(os.path.normpath("%s/a.txt" % subd.strpath)),
-            mock.call(os.path.normpath("%s/b.txt" % subd.strpath)),
-            mock.call(os.path.normpath("%s/c.txt" % subd.strpath)),
+            mock.call(os.path.normpath("%s/a.txt" % subd.strpath), timeout=repo._GCS_DEFAULT_TIMEOUT),
+            mock.call(os.path.normpath("%s/b.txt" % subd.strpath), timeout=repo._GCS_DEFAULT_TIMEOUT),
+            mock.call(os.path.normpath("%s/c.txt" % subd.strpath), timeout=repo._GCS_DEFAULT_TIMEOUT),
         ],
         any_order=True,
     )
