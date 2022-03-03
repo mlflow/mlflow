@@ -252,11 +252,13 @@ def save_model(
 
     # `PyFuncModel` only works for sklearn models that define `predict()`.
     if hasattr(sk_model, "predict"):
+        code_path_subdir = _copy_code_paths(code_paths, path)
         pyfunc.add_to_model(
             mlflow_model,
             loader_module="mlflow.sklearn",
             model_path=model_data_subpath,
             env=_CONDA_ENV_FILE_NAME,
+            code=code_path_subdir,
         )
     mlflow_model.add_flavor(
         FLAVOR_NAME,

@@ -366,10 +366,12 @@ def _copy_code_paths(code_paths, path, default_subpath="code"):
         code_dir_subpath = None
     return code_dir_subpath
 
+
 def _validate_code_paths(code_paths):
     if code_paths is not None:
         if not isinstance(code_paths, list):
             raise TypeError("Argument code_paths should be a list, not {}".format(type(code_paths)))
+
 
 def _get_local_project_dir_size(project_path):
     """
