@@ -7,6 +7,7 @@ services:
       POSTGRES_DB: mlflowdb
       POSTGRES_USER: mlflowuser
       POSTGRES_PASSWORD: mlflowpassword
+    command: postgres -c log_destination=stderr -c log_statement=all
 
   mlflow-postgres:
     depends_on:
@@ -16,6 +17,7 @@ services:
     volumes:
       - .:/tmp/mlflow
     environment:
+      CREATE_INDEX: ${CREATE_INDEX:-false}
       MLFLOW_TRACKING_URI: postgresql://mlflowuser:mlflowpassword@postgres:5432/mlflowdb
     command: python run_checks.py --schema-output schemas/postgres.sql
 
