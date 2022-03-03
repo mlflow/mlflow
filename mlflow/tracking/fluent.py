@@ -1339,6 +1339,18 @@ def _get_experiment_id():
     )
 
 
+def _create_repo_notebook_experiment() -> str:
+    notebook_id = get_notebook_id()
+    path = get_notebook_path()
+    tags = {MLFLOW_EXPERIMENT_SOURCE_TYPE: "REPO_NOTEBOOK", MLFLOW_EXPERIMENT_SOURCE_ID: notebook_id}
+
+    experiment_id = create_experiment(path, None, tags)
+
+    _logger.debug("Repo notebook experiment with experiment_id '%s' created", experiment_id)
+
+    return experiment_id
+
+
 @autologging_integration("mlflow")
 def autolog(
     log_input_examples: bool = False,
