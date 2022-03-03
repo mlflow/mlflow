@@ -1,8 +1,8 @@
 """create index on run_uuid for postgres
 
-Revision ID: 5c7212895a9f
-Revises: beed69c8e3d1
-Create Date: 2022-03-03 09:49:26.082301
+Revision ID: bd07f7e963c5
+Revises: c48cb773bb87
+Create Date: 2022-03-03 10:14:34.037978
 
 """
 from alembic import op
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = "5c7212895a9f"
-down_revision = "beed69c8e3d1"
+revision = "bd07f7e963c5"
+down_revision = "c48cb773bb87"
 branch_labels = None
 depends_on = None
 
