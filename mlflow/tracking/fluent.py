@@ -1582,6 +1582,7 @@ def autolog(
         FULLY_IMPORTED_KERAS = True
 
         import tensorflow
+
         setup_autologging(tensorflow)
 
     register_post_import_hook(
