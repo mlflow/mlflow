@@ -630,9 +630,8 @@ def autolog(
 ):  # pylint: disable=unused-argument
     # pylint: disable=E0611
     """
-    Enables automatic logging from TensorFlow to MLflow.
-    Note that autologging for ``tf.keras`` is handled by :py:func:`mlflow.tensorflow.autolog`,
-    not :py:func:`mlflow.keras.autolog`.
+    Enables automatic logging from TensorFlow and Keras to MLflow.
+
     As an example, try running the
     `TensorFlow examples <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
 

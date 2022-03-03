@@ -30,9 +30,8 @@ from tests.autologging.fixtures import reset_stderr  # pylint: disable=unused-im
 
 library_to_mlflow_module_without_spark_datasource = {
     tensorflow: mlflow.tensorflow,
-    # NB: In Keras >= 2.6.0, fluent autologging enables TensorFlow logging because Keras APIs
-    # are aliases for tf.keras APIs in these versions of Keras
-    keras: mlflow.keras if Version(keras.__version__) < Version("2.6.0") else mlflow.tensorflow,
+    # NB: ``mlflow.tensorflow.autolog()`` is used for Keras models
+    keras: mlflow.tensorflow,
     fastai: mlflow.fastai,
     sklearn: mlflow.sklearn,
     xgboost: mlflow.xgboost,

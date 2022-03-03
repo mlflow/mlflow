@@ -11,7 +11,7 @@ for predicting wine quality.
 * `hyperparam`  shows how to do hyperparameter tuning with MLflow and some popular optimization libraries.
 * `keras` modifies 
 [a Keras classification example](https://github.com/keras-team/keras/blob/ed07472bc5fc985982db355135d37059a1f887a9/examples/reuters_mlp.py)
-and uses MLflow's `mlflow.keras.autolog()` API to automatically log metrics and parameters
+and uses MLflow's `mlflow.tensorflow.autolog()` API to automatically log metrics and parameters
 to MLflow during training.
 * `multistep_workflow` is an end-to-end of a data ETL and ML training pipeline built as an MLflow 
 project. The example shows how parts of the workflow can leverage from previously run steps.
