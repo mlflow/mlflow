@@ -37,7 +37,7 @@ def _infer_model_type_by_labels(labels):
             return "regressor"
     if len(distinct_labels) > 1000 and len(distinct_labels) / len(labels) > 0.7:
         return "regressor"
-    if len(distinct_labels) < 20:
+    if len(distinct_labels) < 10:
         return "classifier"
     return None  # unknown
 
