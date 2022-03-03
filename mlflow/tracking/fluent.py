@@ -1342,7 +1342,10 @@ def _get_experiment_id():
 def _create_repo_notebook_experiment() -> str:
     notebook_id = get_notebook_id()
     path = get_notebook_path()
-    tags = {MLFLOW_EXPERIMENT_SOURCE_TYPE: "REPO_NOTEBOOK", MLFLOW_EXPERIMENT_SOURCE_ID: notebook_id}
+    tags = {
+        MLFLOW_EXPERIMENT_SOURCE_TYPE: "REPO_NOTEBOOK",
+        MLFLOW_EXPERIMENT_SOURCE_ID: notebook_id,
+    }
 
     experiment_id = create_experiment(path, None, tags)
 
