@@ -24,7 +24,7 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.file_utils import write_to
+from mlflow.utils.file_utils import write_to, _validate_code_paths, _copy_code_paths
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
@@ -137,6 +137,7 @@ def save_model(
     path,
     mlflow_model=None,
     conda_env=None,
+    code_paths=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     pip_requirements=None,
@@ -149,6 +150,9 @@ def save_model(
     :param path: Local path where the model is to be saved.
     :param mlflow_model: MLflow model config this flavor is being added to.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
@@ -197,6 +201,7 @@ def save_model(
     import mxnet as mx
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+    _validate_code_paths(code_paths)
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise MlflowException("Path '{}' already exists".format(path))
@@ -214,7 +219,8 @@ def save_model(
     # a specific epoch's parameters, and is there only for display purposes.
     gluon_model.export(os.path.join(data_path, _MODEL_SAVE_PATH))
 
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.gluon", env=_CONDA_ENV_FILE_NAME)
+    code_dir_subpath = _copy_code_paths(code_paths, path)
+    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.gluon", env=_CONDA_ENV_FILE_NAME, code=code_dir_subpath)
     mlflow_model.add_flavor(FLAVOR_NAME, mxnet_version=mx.__version__)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
@@ -270,6 +276,7 @@ def log_model(
     gluon_model,
     artifact_path,
     conda_env=None,
+    code_paths=None,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -282,6 +289,9 @@ def log_model(
     :param gluon_model: Gluon model to be saved. Must be already hybridized.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
@@ -338,6 +348,7 @@ def log_model(
         flavor=mlflow.gluon,
         gluon_model=gluon_model,
         conda_env=conda_env,
+        code_paths=code_paths,
         registered_model_name=registered_model_name,
         signature=signature,
         input_example=input_example,
