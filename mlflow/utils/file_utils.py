@@ -357,6 +357,16 @@ def _copy_file_or_tree(src, dst, dst_dir=None):
     return dst_subpath
 
 
+def _copy_code_paths(code_paths, path, default_subpath="code"):
+    if code_paths is not None:
+        code_dir_subpath = default_subpath
+        for code_path in code_paths:
+            _copy_file_or_tree(src=code_path, dst=path, dst_dir=code_dir_subpath)
+    else:
+        code_dir_subpath = None
+    return code_dir_subpath
+
+
 def _get_local_project_dir_size(project_path):
     """
     Internal function for reporting the size of a local project directory before copying to
