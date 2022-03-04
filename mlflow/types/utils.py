@@ -198,7 +198,7 @@ def _infer_numpy_dtype(dtype) -> DataType:
         return DataType.binary
     elif dtype.kind == "O":
         raise Exception(
-            "Can not infer object without looking at the values, call " "_map_numpy_array instead."
+            "Can not infer object without looking at the values, call _map_numpy_array instead."
         )
     elif dtype.kind == "M":
         return DataType.datetime
