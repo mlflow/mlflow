@@ -1403,8 +1403,8 @@ Breaking changes: None
 
 Features:
 
-- [Projects] MLflow will use the conda installation directory given by the $MLFLOW_CONDA_HOME
-  if specified (e.g. running conda commands by invoking "$MLFLOW_CONDA_HOME/bin/conda"), defaulting
+- [Projects] MLflow will use the conda installation directory given by the `$MLFLOW_CONDA_HOME`
+  if specified (e.g. running conda commands by invoking `$MLFLOW_CONDA_HOME/bin/conda`), defaulting
   to running "conda" otherwise. (#231, @smurching)
 - [UI] Show GitHub links in the UI for projects run from http(s):// GitHub URLs (#235, @smurching)
 
