@@ -283,7 +283,7 @@ def test_infer_model_type_by_labels():
     assert _infer_model_type_by_labels([1, 2.5]) == "regressor"
     assert _infer_model_type_by_labels(list(range(2000))) == "regressor"
     assert _infer_model_type_by_labels([1, 2, 3]) == "classifier"
-    assert _infer_model_type_by_labels(list(range(20))) is None
+    assert _infer_model_type_by_labels(list(range(30))) is None
 
 
 def test_extract_raw_model_and_predict_fn(binary_logistic_regressor_model_uri):
