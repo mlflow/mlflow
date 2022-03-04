@@ -188,7 +188,7 @@ Bug fixes and documentation updates:
 - Fix a bug in the model scoring server that rejected requests specifying a valid `Content-Type` header with the charset parameter (#4609, @Ark-kun)
 - Fixed a bug that caused SQLAlchemy backends to exhaust DB connections. (#4663, @arpitjasa-db)
 - Improve docker build procedures to raise exceptions if docker builds fail (#4610, @Ark-kun)
-- Disable autologging for scikit-learn cross*val*\* APIs, which are incompatible with autologging (#4590, @WeichenXu123)
+- Disable autologging for scikit-learn `cross_val_*` APIs, which are incompatible with autologging (#4590, @WeichenXu123)
 - Deprecate MLflow Models support for fast.ai V1 (#4728, @dbczumar)
 - Deprecate the old Azure ML deployment APIs `mlflow.azureml.cli.build_image` and `mlflow.azureml.build_image` (#4646, @trangevi)
 - Deprecate MLflow Models support for TensorFlow < 2.0 and Keras < 2.3 (#4716, @harupy)
