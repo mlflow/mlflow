@@ -45,27 +45,29 @@ ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
 
 class ModuleScopedSubclassedModel(RegressorMixin):
-    def fit(self, X=None, y=None):
-        # The prediction will always just be the mean of y
+    # pylint: disable=unused-argument
+    def fit(self, x=None, y=None):
+        # pylint: disable=attribute-defined-outside-init
         self.y_bar = np.mean(y)
 
-    def predict(self, X=None):
+    def predict(self, x=None):
         # Give back the mean of y, in the same
         # length as the number of X observations
-        return np.ones(X.shape[0]) * self.y_bar
+        return np.ones(x.shape[0]) * self.y_bar
 
 
 @pytest.fixture(scope="module")
 def data():
-    X, y = datasets.make_blobs(n_samples=100, n_features=2, centers=3)
-    return X, y
+    # pylint: disable=unbalanced-tuple-unpacking
+    x, y = datasets.make_blobs(n_samples=100, n_features=2, centers=3)
+    return x, y
 
 
 @pytest.fixture(scope="module")
 def module_scoped_subclassed_model(data):
     """
-    A custom sklearn model inheriting from ``sklearn.base.RegressorMixin`` whose class is defined in the test
-    module scope.
+    ]    A custom sklearn model inheriting from ``sklearn.base.RegressorMixin`` whose class is
+        defined in the test module scope.
     """
     model = ModuleScopedSubclassedModel()
     X, y = data

@@ -455,7 +455,7 @@ def save_explainer(
         else:
             explainer.save(explainer_output_file_handle)
 
-    code_dir_subpath = _copy_code_paths(code_paths)
+    code_dir_subpath = _copy_code_paths(code_paths, path)
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.shap",

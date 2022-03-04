@@ -109,6 +109,7 @@ def save_model(
     keras_model,
     path,
     conda_env=None,
+    code_paths=None,
     mlflow_model=None,
     custom_objects=None,
     keras_module=None,
@@ -171,6 +172,7 @@ def save_model(
         mlflow.keras.save_model(keras_model, keras_model_path)
     """
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+    _validate_code_paths(code_paths)
 
     if keras_module is None:
 
@@ -265,9 +267,14 @@ def save_model(
         data=data_subpath,
     )
 
+    code_dir_subpath = _copy_code_paths(code_paths, path)
     # append loader_module, data and env data to mlflow_model
     pyfunc.add_to_model(
-        mlflow_model, loader_module="mlflow.keras", data=data_subpath, env=_CONDA_ENV_FILE_NAME
+        mlflow_model,
+        loader_module="mlflow.keras",
+        data=data_subpath,
+        env=_CONDA_ENV_FILE_NAME,
+        code=code_dir_subpath,
     )
 
     # save mlflow_model to path/MLmodel

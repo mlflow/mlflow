@@ -132,7 +132,7 @@ def save_model(
             for pipe_component in spacy_model.pipeline
         ]
     ):
-        code_dir_subpath = _copy_code_paths(code_paths)
+        code_dir_subpath = _copy_code_paths(code_paths, path)
         pyfunc.add_to_model(
             mlflow_model,
             loader_module="mlflow.spacy",

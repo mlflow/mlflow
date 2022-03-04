@@ -157,7 +157,7 @@ def save_model(
                 '`mlflow.statsmodels.log_model(model, remove_data=True, artifact_path="model")`'
             )
 
-    code_dir_subpath = _copy_code_paths(code_paths)
+    code_dir_subpath = _copy_code_paths(code_paths, path)
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.statsmodels",

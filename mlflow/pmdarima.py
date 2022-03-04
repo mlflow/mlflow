@@ -141,7 +141,7 @@ def save_model(
     _save_model(pmdarima_model, model_data_path)
 
     model_bin_kwargs = {_MODEL_BINARY_KEY: _MODEL_BINARY_FILE_NAME}
-    code_dir_subpath = _copy_code_paths(code_paths)
+    code_dir_subpath = _copy_code_paths(code_paths, path)
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.pmdarima",

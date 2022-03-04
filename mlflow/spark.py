@@ -413,7 +413,7 @@ def _save_model_metadata(
     mlflow_model.add_flavor(
         FLAVOR_NAME, pyspark_version=pyspark.__version__, model_data=_SPARK_MODEL_PATH_SUB
     )
-    code_dir_subpath = _copy_code_paths(code_paths)
+    code_dir_subpath = _copy_code_paths(code_paths, dst_dir)
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.spark",
@@ -621,6 +621,7 @@ def _load_model_databricks(model_uri, dfs_tmpdir):
 
     # Download model saved to remote URI to local filesystem
     local_model_path = _download_artifact_from_uri(model_uri)
+    pyfunc.utils._add_code_from_conf_to_system_path(local_model_path)
     # Spark ML expects the model to be stored on DFS
     # Copy the model to a temp DFS location first. We cannot delete this file, as
     # Spark may read from it at any point.
@@ -688,13 +689,6 @@ def load_model(model_uri, dfs_tmpdir=None):
         model_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
         _logger.info("'%s' resolved as '%s'", runs_uri, model_uri)
     flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)
-    try:
-        pyfunc_conf = _get_flavor_configuration_from_uri(model_uri, pyfunc.FLAVOR_NAME)
-    except MlflowException:
-        pyfunc_conf = {}
-    if pyfunc.CODE in pyfunc_conf and pyfunc_conf[pyfunc.CODE]:
-        code_path = os.path.join(local_path, pyfunc_conf[pyfunc.CODE])
-        pyfunc.utils._add_code_to_system_path(code_path)
     model_uri = append_to_uri_path(model_uri, flavor_conf["model_data"])
     return _load_model(model_uri=model_uri, dfs_tmpdir_base=dfs_tmpdir)
 

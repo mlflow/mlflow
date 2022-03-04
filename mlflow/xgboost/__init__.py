@@ -149,7 +149,7 @@ def save_model(
     # Save an XGBoost model
     xgb_model.save_model(model_data_path)
     xgb_model_class = _get_fully_qualified_class_name(xgb_model)
-    code_dir_subpath = _copy_code_paths(code_paths)
+    code_dir_subpath = _copy_code_paths(code_paths, path)
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.xgboost",
