@@ -255,6 +255,7 @@ def log_model(
             input_example=input_example,
         )
         mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
+        mlflow.tracking.fluent._record_logged_model(mlflow_model)
         if registered_model_name is not None:
             mlflow.register_model(
                 "runs:/%s/%s" % (run_id, artifact_path),
@@ -614,7 +615,7 @@ def _load_model_databricks(model_uri, dfs_tmpdir):
     # Copy the model to a temp DFS location first. We cannot delete this file, as
     # Spark may read from it at any point.
     fuse_dfs_tmpdir = dbfs_hdfs_uri_to_fuse_path(dfs_tmpdir)
-    os.mkdir(fuse_dfs_tmpdir)
+    os.makedirs(fuse_dfs_tmpdir)
     # Workaround for inability to use shutil.copytree with DBFS FUSE due to permission-denied
     # errors on passthrough-enabled clusters when attempting to copy permission bits for directories
     _shutil_copytree_without_file_permissions(src_dir=local_model_path, dst_dir=fuse_dfs_tmpdir)

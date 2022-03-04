@@ -28,6 +28,19 @@ def _check_version_in_range(ver, min_ver, max_ver):
     return Version(min_ver) <= Version(ver) <= Version(max_ver)
 
 
+def _check_spark_version_in_range(ver, min_ver, max_ver):
+    """
+    Utility function for allowing late addition release changes to PySpark minor version increments
+    to be accepted, provided that the previous minor version has been previously validated.
+    For example, if version 3.2.1 has been validated as functional with MLflow, an upgrade of
+    PySpark's minor version to 3.2.2 will still provide a valid version check.
+    """
+    parsed_ver = Version(ver)
+    if parsed_ver > Version(min_ver):
+        ver = f"{parsed_ver.major}.{parsed_ver.minor}"
+    return _check_version_in_range(ver, min_ver, max_ver)
+
+
 def _violates_pep_440(ver):
     try:
         _ = Version(ver)
@@ -76,4 +89,8 @@ def is_flavor_supported_for_associated_package_versions(flavor_name):
     if _violates_pep_440(actual_version) or _is_pre_or_dev_release(actual_version):
         return False
     min_version, max_version, _ = get_min_max_version_and_pip_release(module_key)
-    return _check_version_in_range(actual_version, min_version, max_version)
+
+    if module_name == "pyspark" and is_in_databricks_runtime():
+        return _check_spark_version_in_range(actual_version, min_version, max_version)
+    else:
+        return _check_version_in_range(actual_version, min_version, max_version)

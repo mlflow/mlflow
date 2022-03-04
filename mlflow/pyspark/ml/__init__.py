@@ -679,6 +679,7 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
     log_post_training_metrics=True,
+    registered_model_name=None,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for pyspark ml estimators.
@@ -793,6 +794,9 @@ def autolog(
     :param log_post_training_metrics: If ``True``, post training metrics are logged. Defaults to
                                       ``True``. See the `post training metrics`_ section for more
                                       details.
+    :param registered_model_name: If given, each time a model is trained, it is registered as a
+                                  new model version of the registered model with this name.
+                                  The registered model is created if it does not already exist.
 
     **The default log model allowlist in mlflow**
         .. literalinclude:: ../../../mlflow/pyspark/ml/log_model_allowlist.txt
@@ -896,8 +900,7 @@ def autolog(
             if _should_log_model(spark_model):
                 # TODO: support model signature
                 mlflow.spark.log_model(
-                    spark_model,
-                    artifact_path="model",
+                    spark_model, artifact_path="model", registered_model_name=registered_model_name
                 )
                 if _is_parameter_search_model(spark_model):
                     mlflow.spark.log_model(

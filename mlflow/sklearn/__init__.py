@@ -58,6 +58,7 @@ from mlflow.utils.autologging_utils import (
     MlflowAutologgingQueueingClient,
     disable_autologging,
     update_wrapper_extended,
+    get_autologging_config,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -480,7 +481,10 @@ class _SklearnCustomModelPicklingError(pickle.PicklingError):
 
 def _dump_model(pickle_lib, sk_model, out):
     try:
-        pickle_lib.dump(sk_model, out)
+        # Using python's default protocol to optimize compatibility.
+        # Otherwise cloudpickle uses latest protocol leading to incompatibilities.
+        # See https://github.com/mlflow/mlflow/issues/5419
+        pickle_lib.dump(sk_model, out, protocol=pickle.DEFAULT_PROTOCOL)
     except (pickle.PicklingError, TypeError, AttributeError) as e:
         if sk_model.__class__ not in _gen_estimators_to_patch():
             raise _SklearnCustomModelPicklingError(sk_model, e)
@@ -902,6 +906,8 @@ def autolog(
     silent=False,
     max_tuning_runs=5,
     log_post_training_metrics=True,
+    serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
+    registered_model_name=None,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for scikit-learn estimators.
@@ -1153,6 +1159,12 @@ def autolog(
     :param log_post_training_metrics: If ``True``, post training metrics are logged. Defaults to
                                       ``True``. See the `post training metrics`_ section for more
                                       details.
+    :param serialization_format: The format in which to serialize the model. This should be one of
+                                 the following: ``mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE`` or
+                                 ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``.
+    :param registered_model_name: If given, each time a model is trained, it is registered as a
+                                  new model version of the registered model with this name.
+                                  The registered model is created if it does not already exist.
     """
     _autolog(
         flavor_name=FLAVOR_NAME,
@@ -1165,6 +1177,7 @@ def autolog(
         silent=silent,
         max_tuning_runs=max_tuning_runs,
         log_post_training_metrics=log_post_training_metrics,
+        serialization_format=serialization_format,
     )
 
 
@@ -1179,6 +1192,7 @@ def _autolog(
     silent=False,
     max_tuning_runs=5,
     log_post_training_metrics=True,
+    serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
 ):  # pylint: disable=unused-argument
     """
     Internal autologging function for scikit-learn models.
@@ -1250,11 +1264,15 @@ def _autolog(
                 if flavor_name == mlflow.xgboost.FLAVOR_NAME
                 else mlflow.lightgbm.log_model
             )
+            registered_model_name = get_autologging_config(
+                flavor_name, "registered_model_name", None
+            )
             log_model_func(
                 self,
                 artifact_path="model",
                 signature=signature,
                 input_example=input_example,
+                registered_model_name=registered_model_name,
             )
         return fit_output
 
@@ -1370,12 +1388,16 @@ def _autolog(
                 log_model_signatures,
                 _logger,
             )
-
+            registered_model_name = get_autologging_config(
+                FLAVOR_NAME, "registered_model_name", None
+            )
             _log_model_with_except_handling(
                 estimator,
                 artifact_path="model",
                 signature=signature,
                 input_example=input_example,
+                serialization_format=serialization_format,
+                registered_model_name=registered_model_name,
             )
 
         if _is_parameter_search_estimator(estimator):
@@ -1385,6 +1407,7 @@ def _autolog(
                     artifact_path="best_estimator",
                     signature=signature,
                     input_example=input_example,
+                    serialization_format=serialization_format,
                 )
 
             if hasattr(estimator, "best_score_"):

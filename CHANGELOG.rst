@@ -1,5 +1,46 @@
 Changelog
 =========
+1.24.0 (2022-02-27)
+-------------------
+MLflow 1.24.0 includes several major features and improvements:
+
+Features:
+
+- [Tracking] Support uploading, downloading, and listing artifacts through the MLflow server via ``mlflow server --serve-artifacts`` (#5320, @BenWilson2, @harupy)
+- [Tracking] Add the ``registered_model_name`` argument to ``mlflow.autolog()`` for automatic model registration during autologging (#5395, @WeichenXu123)
+- [UI] Improve and restructure the Compare Runs page. Additions include "show diff only" toggles and scrollable tables (#5306, @WeichenXu123)
+- [Models] Introduce ``mlflow.pmdarima`` flavor for pmdarima models (#5373, @BenWilson2)
+- [Models] When loading an MLflow Model, print a warning if a mismatch is detected between the current environment and the Model's dependencies (#5368, @WeichenXu123)
+- [Models] Support computing custom scalar metrics during model evaluation with ``mlflow.evaluate()`` (#5389, @MarkYHZhang)
+- [Scoring] Add support for deploying and evaluating SageMaker models via the `MLflow Deployments API <https://mlflow.org/docs/latest/models.html#deployment-to-custom-targets>`_ (#4971, #5396, @jamestran201)
+
+Bug fixes and documentation updates:
+
+- [Tracking / UI] Fix artifact listing and download failures that occurred when operating the MLflow server in ``--serve-artifacts`` mode (#5409, @dbczumar)
+- [Tracking] Support environment-variable-based authentication when making artifact requests to the MLflow server in ``--serve-artifacts`` mode (#5370, @TimNooren)
+- [Tracking] Fix bugs in hostname and path resolution when making artifacts requests to the MLflow server in ``--serve-artifacts`` mode (#5384, #5385, @mert-kirpici)
+- [Tracking] Fix an import error that occurred when ``mlflow.log_figure()`` was used without ``matplotlib.figure`` imported (#5406, @WeichenXu123)
+- [Tracking] Correctly log XGBoost metrics containing the ``@`` symbol during autologging (#5403, @maxfriedrich)
+- [Tracking] Fix a SQL Server database error that occurred during Runs search (#5382, @dianacarvalho1)
+- [Tracking] When downloading artifacts from HDFS, store them in the user-specified destination directory (#5210, @DimaClaudiu)
+- [Tracking / Model Registry] Improve performance of large artifact and model downloads (#5359, @mehtayogita)
+- [Models] Fix fast.ai PyFunc inference behavior for models with 2D outputs (#5411, @santiagxf)
+- [Models] Record Spark model information to the active run when ``mlflow.spark.log_model()`` is called (#5355, @szczeles)
+- [Models] Restore onnxruntime execution providers when loading ONNX models with ``mlflow.pyfunc.load_model()`` (#5317, @ecm200)
+- [Projects] Increase Docker image push timeout when using Projects with Docker (#5363, @zanitete)
+- [Python] Fix a bug that prevented users from enabling DEBUG-level Python log outputs (#5362, @dbczumar)
+- [Docs] Add a developer guide explaining how to build custom plugins for ``mlflow.evaluate()`` (#5333, @WeichenXu123)
+
+Small bug fixes and doc updates (#5298, @wamartin-aml; #5399, #5321, #5313, #5307, #5305, #5268, #5284, @harupy; #5329, @Ark-kun; #5375, #5346, #5304, @dbczumar; #5401, #5366, #5345, @BenWilson2; #5326, #5315, @WeichenXu123; #5236, @singankit; #5302, @timvink; #5357, @maitre-matt; #5347, #5344, @mehtayogita; #5367, @apurva-koti; #5348, #5328, #5310, @liangz1; #5267, @sunishsheth2009)
+
+1.23.1 (2022-01-27)
+-------------------
+MLflow 1.23.1 is a patch release containing the following bug fixes:
+
+- [Models] Fix a directory creation failure when loading PySpark ML models (#5299, @arjundc-db)
+- [Model Registry] Revert to using case-insensitive validation logic for stage names in ``models:/`` URIs (#5312, @lichenran1234)
+- [Projects] Fix a race condition during Project tar file creation (#5303, @dbczumar) 
+
 1.23.0 (2022-01-17)
 ------------------------
 MLflow 1.23.0 includes several major features and improvements:

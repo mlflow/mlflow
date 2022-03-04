@@ -45,3 +45,5 @@ paddlepaddle
 #   To install in dev environment, ensure that gcc>=8 is installed to allow pystan
 #   to compile the model binaries. See: https://gcc.gnu.org/install/
 prophet
+# Required by mlflow.pmdarima
+pmdarima

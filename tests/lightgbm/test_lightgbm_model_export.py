@@ -402,7 +402,7 @@ def test_pyfunc_serve_and_score(lgb_model):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    scores = pd.read_json(resp.content, orient="records").values.squeeze()
+    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values.squeeze()
     np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe))
 
 
@@ -427,7 +427,7 @@ def test_pyfunc_serve_and_score_sklearn(model):
         pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    scores = pd.read_json(resp.content, orient="records").values.squeeze()
+    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values.squeeze()
     np.testing.assert_array_equal(scores, model.predict(X.head(3)))
 
 

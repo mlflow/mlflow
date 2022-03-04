@@ -1,7 +1,7 @@
 from tensorflow.keras.callbacks import Callback, TensorBoard
 
 import mlflow
-from mlflow.utils.autologging_utils import ExceptionSafeClass
+from mlflow.utils.autologging_utils import ExceptionSafeClass, get_autologging_config
 
 
 class _TensorBoard(TensorBoard, metaclass=ExceptionSafeClass):
@@ -46,4 +46,9 @@ class __MLflowTfKeras2Callback(Callback, metaclass=ExceptionSafeClass):
 
     def on_train_end(self, logs=None):  # pylint: disable=unused-argument
         if self.log_models:
-            mlflow.keras.log_model(self.model, artifact_path="model")
+            registered_model_name = get_autologging_config(
+                mlflow.tensorflow.FLAVOR_NAME, "registered_model_name", None
+            )
+            mlflow.keras.log_model(
+                self.model, artifact_path="model", registered_model_name=registered_model_name
+            )

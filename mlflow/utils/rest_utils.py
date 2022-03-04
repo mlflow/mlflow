@@ -3,6 +3,7 @@ import json
 import requests
 import urllib3
 from contextlib import contextmanager
+from functools import lru_cache
 from packaging.version import Version
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
@@ -33,22 +34,17 @@ _TRANSIENT_FAILURE_RESPONSE_CODES = frozenset(
 )
 
 
-def _get_http_response_with_retries(
-    method, url, max_retries, backoff_factor, retry_codes, **kwargs
-):
+@lru_cache(maxsize=64)
+def _get_request_session(max_retries, backoff_factor, retry_codes):
     """
-    Performs an HTTP request using Python's `requests` module with an automatic retry policy.
+    Returns a cached Requests.Session object for making HTTP request.
 
-    :param method: a string indicating the method to use, e.g. "GET", "POST", "PUT".
-    :param url: the target URL address for the HTTP request.
     :param max_retries: Maximum total number of retries.
     :param backoff_factor: a time factor for exponential backoff. e.g. value 5 means the HTTP
       request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
       exponential backoff.
     :param retry_codes: a list of HTTP response error codes that qualifies for retry.
-    :param kwargs: Additional keyword arguments to pass to `requests.Session.request()`
-
-    :return: requests.Response object.
+    :return: requests.Session object.
     """
     assert 0 <= max_retries < 10
     assert 0 <= backoff_factor < 120
@@ -69,11 +65,31 @@ def _get_http_response_with_retries(
 
     retry = Retry(**retry_kwargs)
     adapter = HTTPAdapter(max_retries=retry)
-    with requests.Session() as http:
-        http.mount("https://", adapter)
-        http.mount("http://", adapter)
-        response = http.request(method, url, **kwargs)
-        return response
+    session = requests.Session()
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
+
+
+def _get_http_response_with_retries(
+    method, url, max_retries, backoff_factor, retry_codes, **kwargs
+):
+    """
+    Performs an HTTP request using Python's `requests` module with an automatic retry policy.
+
+    :param method: a string indicating the method to use, e.g. "GET", "POST", "PUT".
+    :param url: the target URL address for the HTTP request.
+    :param max_retries: Maximum total number of retries.
+    :param backoff_factor: a time factor for exponential backoff. e.g. value 5 means the HTTP
+      request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
+      exponential backoff.
+    :param retry_codes: a list of HTTP response error codes that qualifies for retry.
+    :param kwargs: Additional keyword arguments to pass to `requests.Session.request()`
+
+    :return: requests.Response object.
+    """
+    session = _get_request_session(max_retries, backoff_factor, retry_codes)
+    return session.request(method, url, **kwargs)
 
 
 def http_request(
@@ -347,3 +363,8 @@ class MlflowHostCreds:
         self.ignore_tls_verification = ignore_tls_verification
         self.client_cert_path = client_cert_path
         self.server_cert_path = server_cert_path
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.__dict__ == other.__dict__
+        return NotImplemented

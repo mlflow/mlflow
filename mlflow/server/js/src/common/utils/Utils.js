@@ -391,19 +391,8 @@ class Utils {
         );
       }
       return res;
-    } else if (sourceType === 'NOTEBOOK') {
-      const revisionId = Utils.getNotebookRevisionId(tags);
-      const notebookId = Utils.getNotebookId(tags);
-      return this.renderNotebookSource(queryParams, notebookId, revisionId, runUuid, sourceName);
-    } else if (sourceType === 'JOB') {
-      const jobIdTag = 'mlflow.databricks.jobID';
-      const jobRunIdTag = 'mlflow.databricks.jobRunID';
-      const jobId = tags && tags[jobIdTag] && tags[jobIdTag].value;
-      const jobRunId = tags && tags[jobRunIdTag] && tags[jobRunIdTag].value;
-      return this.renderJobSource(queryParams, jobId, jobRunId, res);
-    } else {
-      return res;
     }
+    return res;
   }
 
   /**
@@ -415,6 +404,7 @@ class Utils {
     revisionId,
     runUuid,
     sourceName,
+    workspaceUrl = null,
     nameOverride = null,
   ) {
     // sourceName may not be present when rendering feature table notebook consumers from remote
@@ -424,7 +414,7 @@ class Utils {
       ? Utils.baseName(sourceName)
       : Utils.getDefaultNotebookRevisionName(notebookId, revisionId);
     if (notebookId) {
-      let url = Utils.setQueryParams(window.location.origin, queryParams);
+      let url = Utils.setQueryParams(workspaceUrl || window.location.origin, queryParams);
       url += `#notebook/${notebookId}`;
       if (revisionId) {
         url += `/revision/${revisionId}`;
@@ -449,13 +439,20 @@ class Utils {
   /**
    * Renders the job source name and entry point into an HTML element. Used for display.
    */
-  static renderJobSource(queryParams, jobId, jobRunId, jobName, nameOverride = null) {
+  static renderJobSource(
+    queryParams,
+    jobId,
+    jobRunId,
+    jobName,
+    workspaceUrl = null,
+    nameOverride = null,
+  ) {
     if (jobId) {
       // jobName may not be present when rendering feature table job consumers from remote
       // workspaces or when getJob API failed to fetch the jobName. Always provide a default
       // job name in such case.
       const reformatJobName = jobName || Utils.getDefaultJobRunName(jobId, jobRunId);
-      let url = Utils.setQueryParams(window.location.origin, queryParams);
+      let url = Utils.setQueryParams(workspaceUrl || window.location.origin, queryParams);
       url += `#job/${jobId}`;
       if (jobRunId) {
         url += `/run/${jobRunId}`;

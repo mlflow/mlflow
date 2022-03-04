@@ -16,6 +16,7 @@ from mlflow.utils.validation import (
     MAX_PARAM_VAL_LENGTH,
     MAX_ENTITY_KEY_LENGTH,
 )
+from mlflow.tracking.client import MlflowClient
 
 import pyspark
 from pyspark.ml import Pipeline
@@ -485,7 +486,7 @@ def test_param_search_estimator(  # pylint: disable=unused-argument
         assert math.isclose(avg_metric_value, run_data.metrics[avg_metric_name], rel_tol=1e-6)
         assert math.isclose(avg_metric_value, float(row.get(avg_metric_name)), rel_tol=1e-6)
 
-        if isinstance(estimator, CrossValidator) and Version(pyspark.__version__) > Version("3.2"):
+        if isinstance(estimator, CrossValidator) and Version(pyspark.__version__) >= Version("3.3"):
             std_metric_name = f"std_{metric_name}"
             std_metric_value = model.stdMetrics[row_index]
             assert math.isclose(std_metric_value, run_data.metrics[std_metric_name], rel_tol=1e-6)
@@ -804,3 +805,16 @@ def test_autologging_handle_wrong_tuning_params(dataset_regression):
         ValueError, match="Tuning params should not include params not owned by the tuned estimator"
     ):
         pipeline.fit(dataset_regression)
+
+
+# pylint: disable=unused-argument
+@pytest.mark.large
+def test_autolog_registering_model(spark_session, dataset_binomial):
+    registered_model_name = "test_autolog_registered_model"
+    mlflow.pyspark.ml.autolog(registered_model_name=registered_model_name)
+    with mlflow.start_run():
+        lr = LinearRegression()
+        lr.fit(dataset_binomial)
+
+        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        assert registered_model.name == registered_model_name

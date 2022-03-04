@@ -652,6 +652,16 @@ def test_pyspark_version_is_logged_without_dev_suffix(spark_model_iris):
             assert any(x == f"pyspark=={unaffected_version}" for x in pip_deps)
 
 
+@pytest.mark.large
+def test_model_is_recorded_when_using_direct_save(spark_model_iris):
+    # Patch `is_local_uri` to enforce direct model serialization to DFS
+    with mock.patch("mlflow.spark.is_local_uri", return_value=False):
+        with mlflow.start_run():
+            sparkm.log_model(spark_model=spark_model_iris.model, artifact_path="model")
+            current_tags = mlflow.get_run(mlflow.active_run().info.run_id).data.tags
+            assert mlflow.utils.mlflow_tags.MLFLOW_LOGGED_MODELS in current_tags
+
+
 def test_shutil_copytree_without_file_permissions(tmpdir):
     src_dir = tmpdir.mkdir("src-dir")
     dst_dir = tmpdir.mkdir("dst-dir")

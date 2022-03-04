@@ -893,9 +893,6 @@ class TestDatabricksArtifactRepository:
                 ArtifactCredentialInfo(
                     signed_uri=MOCK_AZURE_SIGNED_URI, type=ArtifactCredentialType.AZURE_SAS_URI
                 ),
-                ArtifactCredentialInfo(
-                    signed_uri=MOCK_AZURE_SIGNED_URI, type=ArtifactCredentialType.AZURE_SAS_URI
-                ),
             ]
             get_list_mock.return_value = [
                 FileInfo(path="file_1.txt", is_dir=False, file_size=100),
@@ -996,9 +993,6 @@ class TestDatabricksArtifactRepository:
                 FileInfo(path="file_2.txt", is_dir=False, file_size=0),
             ]
             read_credentials_mock.return_value = [
-                ArtifactCredentialInfo(
-                    signed_uri=MOCK_AZURE_SIGNED_URI, type=ArtifactCredentialType.AZURE_SAS_URI
-                ),
                 ArtifactCredentialInfo(
                     signed_uri=MOCK_AZURE_SIGNED_URI, type=ArtifactCredentialType.AZURE_SAS_URI
                 ),

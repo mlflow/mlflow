@@ -16,6 +16,7 @@ import mlflow.xgboost
 from mlflow.xgboost._autolog import IS_TRAINING_CALLBACK_SUPPORTED, autolog_callback
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
+from mlflow.tracking.client import MlflowClient
 from mlflow.utils.autologging_utils import BatchMetricsLogger, picklable_exception_safe_function
 
 mpl.use("Agg")
@@ -139,6 +140,19 @@ def test_xgb_autolog_logs_specified_params(bst_params, dtrain):
 
     for param in unlogged_params:
         assert param not in params
+
+
+@pytest.mark.large
+def test_xgb_autolog_atsign_metrics():
+    mlflow.xgboost.autolog()
+    xgb_metrics = ["ndcg@2", "map@3-", "error@0.4"]
+    expected_metrics = {"train-ndcg_at_2", "train-map_at_3-", "train-error_at_0.4"}
+
+    params = {"objective": "rank:pairwise", "eval_metric": xgb_metrics}
+    dtrain = xgb.DMatrix(np.array([[0], [1]]), label=[1, 0])
+    xgb.train(params, dtrain, evals=[(dtrain, "train")], num_boost_round=1)
+    run = get_latest_run()
+    assert set(run.data.metrics) == expected_metrics
 
 
 @pytest.mark.large
@@ -598,3 +612,31 @@ def test_callback_class_is_pickable():
 
     cb = AutologCallback(BatchMetricsLogger(run_id="1234"), eval_results={})
     pickle.dumps(cb)
+
+
+@pytest.mark.large
+def test_sklearn_api_autolog_registering_model():
+    registered_model_name = "test_autolog_registered_model"
+    mlflow.xgboost.autolog(registered_model_name=registered_model_name)
+
+    X, y = datasets.load_iris(return_X_y=True)
+    params = {"n_estimators": 10, "reg_lambda": 1}
+    model = xgb.XGBRegressor(**params)
+
+    with mlflow.start_run():
+        model.fit(X, y)
+
+        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        assert registered_model.name == registered_model_name
+
+
+@pytest.mark.large
+def test_xgb_api_autolog_registering_model(bst_params, dtrain):
+    registered_model_name = "test_autolog_registered_model"
+    mlflow.xgboost.autolog(registered_model_name=registered_model_name)
+
+    with mlflow.start_run():
+        xgb.train(bst_params, dtrain)
+
+        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        assert registered_model.name == registered_model_name

@@ -167,7 +167,11 @@ be either column-based or tensor-based. Column-based inputs and outputs can be d
 sequence of (optionally) named columns with type specified as one of the
 :py:class:`MLflow data types <mlflow.types.DataType>`. Tensor-based inputs and outputs can be
 described as a sequence of (optionally) named tensors with type specified as one of the
-`numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_. The signature is stored in
+`numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_.
+
+To include a signature with your model, pass a :py:class:`signature object
+<mlflow.models.ModelSignature>` as an argument to the appropriate log_model call, e.g.
+:py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`. More details are in the :ref:`How to log models with signatures <how-to-log-models-with-signatures>` section. The signature is stored in
 JSON format in the :ref:`MLmodel file <pyfunc-model-config>`, together with other model metadata.
 
 Model signatures are recognized and enforced by standard :ref:`MLflow model deployment tools
@@ -261,6 +265,8 @@ For datetime values, Python has precision built into the type. For example, date
 day precision have NumPy type ``datetime64[D]``, while values with nanosecond precision have
 type ``datetime64[ns]``. Datetime precision is ignored for column-based model signature but is
 enforced for tensor-based signatures.
+
+.. _how-to-log-models-with-signatures:
 
 How To Log Models With Signatures
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -778,6 +784,89 @@ method to load MLflow Models with the ``prophet`` model flavor in native prophet
 
 For more information, see :py:mod:`mlflow.prophet`.
 
+Pmdarima (``pmdarima``) (Experimental)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The ``pmdarima`` model flavor enables logging of `pmdarima models <http://alkaline-ml.com/pmdarima/>`_ in MLflow
+format via the :py:func:`mlflow.pmdarima.save_model()` and :py:func:`mlflow.pmdarima.log_model()` methods.
+These methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
+model to be interpreted as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`.
+This loaded PyFunc model can only be scored with a DataFrame input.
+You can also use the :py:func:`mlflow.pmdarima.load_model()` method to load MLflow Models with the ``pmdarima``
+model flavor in native pmdarima formats.
+
+The interface for utilizing a ``pmdarima`` model loaded as a ``pyfunc`` type for generating forecast predictions uses
+a *single-row* ``Pandas DataFrame`` configuration argument. The following columns in this configuration
+``Pandas DataFrame`` are supported:
+
+* ``n_periods`` (required) - specifies the number of future periods to generate starting from the last datetime value
+    of the training dataset, utilizing the frequency of the input training series when the model was trained.
+    (for example, if the training data series elements represent one value per hour, in order to forecast 3 days of
+    future data, set the column ``n_periods`` to ``72``.
+* ``X`` (optional) - exogenous regressor values (*only supported in pmdarima version >= 1.8.0*) a 2D array of values for
+    future time period events. For more information, read the underlying library
+    `explanation <https://www.statsmodels.org/stable/endog_exog.html>`_.
+* ``return_conf_int`` (optional) - a boolean (Default: ``False``) for whether to return confidence interval values.
+    See above note.
+* ``alpha`` (optional) - the significance value for calculating confidence intervals. (Default: ``0.05``)
+
+An example configuration for the ``pyfunc`` predict of a ``pmdarima`` model is shown below, with a future period
+prediction count of 100, a confidence interval calculation generation, no exogenous regressor elements, and a default
+alpha of ``0.05``:
+
+====== ========= ===============
+Index  n_periods return_conf_int
+====== ========= ===============
+0      100       True
+====== ========= ===============
+
+.. warning::
+    The ``Pandas DataFrame`` passed to a ``pmdarima`` ``pyfunc`` flavor must only contain 1 row.
+
+.. note::
+    When predicting a ``pmdarima`` flavor, the ``predict`` method's ``DataFrame`` configuration column
+    ``return_conf_int``'s value controls the output format. When the column's value is set to ``False`` or ``None``
+    (which is the default if this column is not supplied in the configuration ``DataFrame``), the schema of the
+    returned ``Pandas DataFrame`` is a single column: ``["yhat"]``. When set to ``True``, the schema of the returned
+    ``DataFrame`` is: ``["yhat", "yhat_lower", "yhat_upper"]`` with the respective lower (``yhat_lower``) and
+    upper (``yhat_upper``) confidence intervals added to the forecast predictions (``yhat``).
+
+Example usage of pmdarima artifact loaded as a pyfunc with confidence intervals calculated:
+
+.. code-block:: py
+
+    import pmdarima
+    import mlflow
+    import pandas as pd
+
+    data = pmdarima.datasets.load_airpassengers()
+
+    with mlflow.start_run():
+
+        model = pmdarima.auto_arima(data, seasonal=True)
+        mlflow.pmdarima.save_model(model, "/tmp/model.pmd")
+
+    loaded_pyfunc = mlflow.pyfunc.load_model("/tmp/model.pmd")
+
+    prediction_conf = pd.DataFrame([{"n_periods": 4, "return_conf_int": True, "alpha": 0.1}])
+
+    predictions = loaded_pyfunc.predict(prediction_conf)
+
+Output (``Pandas DataFrame``):
+
+====== ========== ========== ==========
+Index  yhat       yhat_lower yhat_upper
+====== ========== ========== ==========
+0      467.573731 423.30995  511.83751
+1      490.494467 416.17449  564.81444
+2      509.138684 420.56255  597.71117
+3      492.554714 397.30634  587.80309
+====== ========== ========== ==========
+
+.. warning::
+    Signature logging for ``pmdarima`` will not function correctly if ``return_conf_int`` is set to ``True`` from
+    a non-pyfunc artifact. The output of the native ``ARIMA.predict()`` when returning confidence intervals is not
+    a recognized signature type.
+
 .. _model-evaluation:
 
 Model Evaluation
@@ -805,7 +894,6 @@ and behavior:
 
     # load UCI Adult Data Set; segment it into training and test sets
     X, y = shap.datasets.adult()
-    num_examples = len(X)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
 
     # train XGBoost model

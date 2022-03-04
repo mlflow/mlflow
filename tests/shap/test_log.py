@@ -310,5 +310,5 @@ def test_pyfunc_serve_and_score():
         data=pd.DataFrame(X[:3]),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
     )
-    scores = pd.read_json(resp.content, orient="records").values
+    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values
     np.testing.assert_allclose(scores, model(X[:3]).values, rtol=100, atol=100)

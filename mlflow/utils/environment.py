@@ -46,14 +46,21 @@ def _mlflow_conda_env(
     pip_deps = (["mlflow"] if install_mlflow else []) + (
         additional_pip_deps if additional_pip_deps else []
     )
-    conda_deps = (additional_conda_deps if additional_conda_deps else []) + (
-        ["pip"] if pip_deps else []
-    )
+    conda_deps = additional_conda_deps if additional_conda_deps else []
+    if pip_deps:
+        pip_version = _get_pip_version()
+        if pip_version is not None:
+            conda_deps.append(f"pip={pip_version}")
+        else:
+            _logger.warning(
+                "Failed to resolve installed pip version. ``pip`` will be added to conda.yaml"
+                " environment spec without a version specifier."
+            )
+            conda_deps.append("pip")
 
     env = yaml.safe_load(_conda_header)
     env["dependencies"] = ["python={}".format(PYTHON_VERSION)]
-    if conda_deps is not None:
-        env["dependencies"] += conda_deps
+    env["dependencies"] += conda_deps
     env["dependencies"].append({"pip": pip_deps})
     if additional_conda_channels is not None:
         env["channels"] += additional_conda_channels
@@ -64,6 +71,20 @@ def _mlflow_conda_env(
         return None
     else:
         return env
+
+
+def _get_pip_version():
+    """
+    :return: The version of ``pip`` that is installed in the current environment,
+             or ``None`` if ``pip`` is not currently installed / does not have a
+             ``__version__`` attribute.
+    """
+    try:
+        import pip
+
+        return getattr(pip, "__version__")
+    except ImportError:
+        return None
 
 
 def _mlflow_additional_pip_env(pip_deps, path=None):
