@@ -2,11 +2,11 @@ import entrypoints
 import warnings
 import logging
 
-from mlflow.tracking._default_experiment.databricks_notebook_context import (
-    DatabricksNotebookExperimentContext,
+from mlflow.tracking._default_experiment.databricks_notebook_experiment_provider import (
+    DatabricksNotebookExperimentProvider,
 )
-from mlflow.tracking._default_experiment.databricks_job_context import (
-    DatabricksJobExperimentContext,
+from mlflow.tracking._default_experiment.databricks_job_experiment_provider import (
+    DatabricksJobExperimentProvider,
 )
 
 
@@ -16,11 +16,11 @@ _logger = logging.getLogger(__name__)
 class DefaultExperimentProviderRegistry(object):
     """Registry for default experiment provider implementations
 
-    This class allows the registration of a default experiment provider
-    which can be used to infer meta information about the context of an
-    MLflow experiment. Implementations declared though the
-    entrypoints `mlflow.default_experiment_provider` group can be automatically
-    registered through the `register_entrypoints` method.
+    This class allows the registration of default experiment providers, which are used to provide
+    MLflow Experiment IDs based on the current context where the MLflow client is running when
+    the user has not explicitly set an experiment. Implementations declared though the entrypoints
+    `mlflow.default_experiment_provider` group can be automatically registered through the
+    `register_entrypoints` method.
     """
 
     def __init__(self):
@@ -46,8 +46,8 @@ class DefaultExperimentProviderRegistry(object):
 
 
 _default_experiment_provider_registry = DefaultExperimentProviderRegistry()
-_default_experiment_provider_registry.register(DatabricksNotebookExperimentContext)
-_default_experiment_provider_registry.register(DatabricksJobExperimentContext)
+_default_experiment_provider_registry.register(DatabricksNotebookExperimentProvider)
+_default_experiment_provider_registry.register(DatabricksJobExperimentProvider)
 
 _default_experiment_provider_registry.register_entrypoints()
 
@@ -61,13 +61,12 @@ def get_experiment_id():
     :return: An experiment_id for the run.
     """
 
-    # TODO: Replace with None for 1.0, leaving for 0.9.1 release backcompat with existing servers
-    deprecated_default_exp_id = "0"
-    experiment_id = deprecated_default_exp_id
+    experiment_id = "0"
     for provider in _default_experiment_provider_registry:
         try:
             if provider.in_context():
                 experiment_id = provider.get_experiment_id()
+                break
         except Exception as e:
             _logger.warning("Encountered unexpected error while getting experiment_id: %s", e)
 

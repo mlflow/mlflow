@@ -177,6 +177,10 @@ def test_get_experiment_id_with_active_experiment_returns_active_experiment_id()
         assert _get_experiment_id() == exp_id
 
 
+def test_get_experiment_id_with_no_active_experiments_returns_zero():
+    assert _get_experiment_id() == "0"
+
+
 def test_get_experiment_id_in_databricks_detects_notebook_id_by_default():
     notebook_id = 768
 
@@ -229,6 +233,15 @@ def test_get_experiment_by_id():
         assert experiment.experiment_id == exp_id
 
 
+def test_get_experiment_by_id_with_is_in_databricks_job():
+    job_exp_id = 123
+    with mock.patch(
+        "mlflow.tracking.fluent.default_experiment_registry.get_experiment_id"
+    ) as job_id_mock:
+        job_id_mock.return_value = job_exp_id
+        assert _get_experiment_id() == job_exp_id
+
+
 def test_get_experiment_by_name():
     with TempDir(chdr=True):
         name = "Random experiment %d" % random.randint(1, 1e6)
@@ -264,7 +277,6 @@ def test_list_experiments(view_type, tmpdir):
         session.add_all(experiments)
 
     try:
-        print("In try")
         url, process = _init_server(sqlite_uri, root_artifact_uri=tmpdir.strpath)
         print("In process %s", process)
         mlflow.set_tracking_uri(url)
@@ -277,7 +289,6 @@ def test_list_experiments(view_type, tmpdir):
         # `max_results` is smaller than the number of experiments in the database
         assert len(mlflow.list_experiments(view_type, num_experiments - 1)) == num_experiments - 1
     finally:
-        print("In finally")
         process.terminate()
 
 

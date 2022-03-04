@@ -3,11 +3,11 @@ from unittest import mock
 import pytest
 
 import mlflow.tracking._default_experiment.registry
-from mlflow.tracking._default_experiment.databricks_notebook_context import (
-    DatabricksNotebookExperimentContext,
+from mlflow.tracking._default_experiment.databricks_notebook_experiment_provider import (
+    DatabricksNotebookExperimentProvider,
 )
-from mlflow.tracking._default_experiment.databricks_job_context import (
-    DatabricksJobExperimentContext,
+from mlflow.tracking._default_experiment.databricks_job_experiment_provider import (
+    DatabricksJobExperimentProvider,
 )
 from mlflow.tracking._default_experiment.registry import (
     DefaultExperimentProviderRegistry,
@@ -70,8 +70,8 @@ def _currently_registered_default_experiment_provider_classes():
 
 def test_registry_instance_defaults():
     expected_classes = {
-        DatabricksNotebookExperimentContext,
-        DatabricksJobExperimentContext,
+        DatabricksNotebookExperimentProvider,
+        DatabricksJobExperimentProvider,
     }
     assert expected_classes.issubset(_currently_registered_default_experiment_provider_classes())
 
@@ -140,5 +140,30 @@ def mock_default_experiment_providers():
     skipped_provider.get_experiment_id.assert_not_called()
 
 
+@pytest.fixture
+def mock_default_experiment_multiple_context_providers():
+    base_provider = mock.Mock()
+    base_provider.in_context.return_value = True
+    base_provider.get_experiment_id.return_value = "experiment_id_1"
+
+    unused_provider = mock.Mock()
+    unused_provider.in_context.return_value = True
+    unused_provider.get_experiment_id.return_value = "experiment_id_2"
+
+    providers = [base_provider, unused_provider]
+
+    with mock.patch(
+        "mlflow.tracking._default_experiment.registry._default_experiment_provider_registry",
+        providers,
+    ):
+        yield
+
+    unused_provider.get_experiment_id.assert_not_called()
+
+
 def test_get_experiment_id(mock_default_experiment_providers):
+    assert get_experiment_id() == "experiment_id_1"
+
+
+def test_get_experiment_id_multiple_context(mock_default_experiment_multiple_context_providers):
     assert get_experiment_id() == "experiment_id_1"

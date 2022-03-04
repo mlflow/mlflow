@@ -6,8 +6,8 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_EXPERIMENT_SOURCE_TYPE,
     MLFLOW_EXPERIMENT_SOURCE_ID,
 )
-from mlflow.tracking._default_experiment.databricks_job_context import (
-    DatabricksJobExperimentContext,
+from mlflow.tracking._default_experiment.databricks_job_experiment_provider import (
+    DatabricksJobExperimentProvider,
 )
 from tests.helper_functions import multi_context
 from mlflow.tracking import MlflowClient
@@ -21,7 +21,29 @@ def test_databricks_job_default_experiment_in_context():
     ) as get_job_type_info:
         in_job_mock.return_value = True
         get_job_type_info.return_value = "NORMAL"
-        assert DatabricksJobExperimentContext().in_context() == True
+        assert DatabricksJobExperimentProvider().in_context() == True
+
+
+def test_databricks_job_default_experiment_in_context_with_not_in_databricks_job():
+    with mock.patch(
+        "mlflow.utils.databricks_utils.is_in_databricks_job"
+    ) as in_job_mock, mock.patch(
+        "mlflow.utils.databricks_utils.get_job_type_info"
+    ) as get_job_type_info:
+        in_job_mock.return_value = False
+        get_job_type_info.return_value = "NORMAL"
+        assert DatabricksJobExperimentProvider().in_context() == False
+
+
+def test_databricks_job_default_experiment_in_context_with_ephemeral_job_type():
+    with mock.patch(
+        "mlflow.utils.databricks_utils.is_in_databricks_job"
+    ) as in_job_mock, mock.patch(
+        "mlflow.utils.databricks_utils.get_job_type_info"
+    ) as get_job_type_info:
+        in_job_mock.return_value = True
+        get_job_type_info.return_value = "EPHEMERAL"
+        assert DatabricksJobExperimentProvider().in_context() == False
 
 
 def test_databricks_job_default_experiment_id():
@@ -53,7 +75,7 @@ def test_databricks_job_default_experiment_id():
         tags[MLFLOW_EXPERIMENT_SOURCE_TYPE] = SourceType.to_string(SourceType.JOB)
         tags[MLFLOW_EXPERIMENT_SOURCE_ID] = job_id_mock.return_value
 
-        assert DatabricksJobExperimentContext().get_experiment_id() == experiment_id
+        assert DatabricksJobExperimentProvider().get_experiment_id() == experiment_id
         create_experiment_mock.assert_called_once_with(
             experiment_name_from_job_id_mock.return_value, None, tags
         )

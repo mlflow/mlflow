@@ -2,7 +2,7 @@ from mlflow.tracking._default_experiment.abstract_context import DefaultExperime
 from mlflow.utils import databricks_utils
 
 
-class DatabricksNotebookExperimentContext(DefaultExperimentProvider):
+class DatabricksNotebookExperimentProvider(DefaultExperimentProvider):
     def in_context(self):
         return databricks_utils.is_in_databricks_notebook()
 

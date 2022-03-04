@@ -11,7 +11,7 @@ from mlflow.utils.mlflow_tags import (
 _logger = logging.getLogger(__name__)
 
 
-class DatabricksJobExperimentContext(DefaultExperimentProvider):
+class DatabricksJobExperimentProvider(DefaultExperimentProvider):
     def in_context(self):
         return (
             databricks_utils.is_in_databricks_job()
@@ -29,7 +29,7 @@ class DatabricksJobExperimentContext(DefaultExperimentProvider):
             databricks_utils.get_experiment_name_from_job_id(job_id), None, tags
         )
         _logger.debug(
-            "Job experiment with experiment_id '%s' created",
+            "Job experiment with experiment ID '%s' fetched or created",
             experiment_id,
         )
 
