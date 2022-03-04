@@ -711,7 +711,7 @@ def test_infer_artifact_type_and_ext(is_file, artifact, artifact_type, ext, tmp_
     assert inferred_ext == f".{ext}"
 
 
-def _start_run_for_custom_metric_tests(model_uri, dataset, custom_metrics):
+def _get_results_for_custom_metrics_tests(model_uri, dataset, custom_metrics):
     with mlflow.start_run() as run:
         result = evaluate(
             model_uri,
@@ -747,7 +747,7 @@ def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_
         }
         return example_metrics, example_artifacts
 
-    result, metrics, artifacts = _start_run_for_custom_metric_tests(
+    result, metrics, artifacts = _get_results_for_custom_metrics_tests(
         binary_logistic_regressor_model_uri, breast_cancer_dataset, [example_custom_metric]
     )
 
@@ -830,7 +830,7 @@ def test_custom_metric_logs_artifacts_from_paths(
 
         return {}, example_artifacts
 
-    result, _, artifacts = _start_run_for_custom_metric_tests(
+    result, _, artifacts = _get_results_for_custom_metrics_tests(
         binary_logistic_regressor_model_uri, breast_cancer_dataset, [example_custom_metric]
     )
 
@@ -886,7 +886,7 @@ def test_custom_metric_logs_artifacts_from_objects(
             "test_csv_artifact": pd.DataFrame({"a": [1, 2, 3]}),
         }
 
-    result, _, artifacts = _start_run_for_custom_metric_tests(
+    result, _, artifacts = _get_results_for_custom_metrics_tests(
         binary_logistic_regressor_model_uri, breast_cancer_dataset, [example_custom_metric]
     )
 
@@ -927,6 +927,6 @@ def test_custom_metric_logs_artifacts_for_unsupported_artifact_object(
         match="produced an unsupported artifact 'unsupported_artifact' with type "
         f"'{type(ExampleUnsupportedObject())}'",
     ):
-        _start_run_for_custom_metric_tests(
+        _get_results_for_custom_metrics_tests(
             binary_logistic_regressor_model_uri, breast_cancer_dataset, [example_custom_metric]
         )
