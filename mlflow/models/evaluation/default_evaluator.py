@@ -37,7 +37,9 @@ def _infer_model_type_by_labels(labels):
             return "regressor"
     if len(distinct_labels) > 1000 and len(distinct_labels) / len(labels) > 0.7:
         return "regressor"
-    return "classifier"
+    if len(distinct_labels) <= 20:
+        return "classifier"
+    return None  # unknown
 
 
 def _extract_raw_model_and_predict_fn(model):
@@ -766,7 +768,7 @@ class DefaultEvaluator(ModelEvaluator):
 
             infered_model_type = _infer_model_type_by_labels(self.y)
 
-            if model_type != infered_model_type:
+            if infered_model_type is not None and model_type != infered_model_type:
                 _logger.warning(
                     f"According to the evaluation dataset label values, the model type looks like "
                     f"{infered_model_type}, but you specified model type {model_type}. Please "
