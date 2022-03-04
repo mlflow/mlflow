@@ -45,7 +45,13 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.file_utils import _copy_file_or_tree, TempDir, write_to
+from mlflow.utils.file_utils import (
+    _copy_file_or_tree,
+    TempDir,
+    write_to,
+    _copy_code_paths,
+    _validate_code_paths,
+)
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.autologging_utils import (
     autologging_integration,
@@ -112,6 +118,7 @@ def log_model(
     tf_signature_def_key,
     artifact_path,
     conda_env=None,
+    code_paths=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     registered_model_name=None,
@@ -187,6 +194,7 @@ def log_model(
         tf_meta_graph_tags=tf_meta_graph_tags,
         tf_signature_def_key=tf_signature_def_key,
         conda_env=conda_env,
+        code_paths=code_paths,
         registered_model_name=registered_model_name,
         signature=signature,
         input_example=input_example,
@@ -205,6 +213,7 @@ def save_model(
     path,
     mlflow_model=None,
     conda_env=None,
+    code_paths=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     pip_requirements=None,
@@ -254,6 +263,7 @@ def save_model(
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     """
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+    _validate_code_paths(code_paths)
 
     _logger.info(
         "Validating the specified TensorFlow model by attempting to load it in a new TensorFlow"
@@ -285,8 +295,15 @@ def save_model(
         meta_graph_tags=tf_meta_graph_tags,
         signature_def_key=tf_signature_def_key,
     )
+
+    code_dir_subpath = _copy_code_paths(code_paths, path)
     mlflow_model.add_flavor(FLAVOR_NAME, **flavor_conf)
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.tensorflow", env=_CONDA_ENV_FILE_NAME)
+    pyfunc.add_to_model(
+        mlflow_model,
+        loader_module="mlflow.tensorflow",
+        env=_CONDA_ENV_FILE_NAME,
+        code=code_dir_subpath,
+    )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
@@ -371,6 +388,7 @@ def load_model(model_uri, dst_path=None):
                                 for _, output_signature in signature_definition.outputs.items()]
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
+    pyfunc.utils._add_code_from_conf_to_system_path(local_model_path)
     (
         tf_saved_model_dir,
         tf_meta_graph_tags,

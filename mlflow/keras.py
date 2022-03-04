@@ -36,7 +36,7 @@ from mlflow.utils.environment import (
     _CONSTRAINTS_FILE_NAME,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.file_utils import write_to
+from mlflow.utils.file_utils import write_to, _copy_code_paths, _validate_code_paths
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.autologging_utils import (
@@ -309,6 +309,7 @@ def log_model(
     keras_model,
     artifact_path,
     conda_env=None,
+    code_paths=None,
     custom_objects=None,
     keras_module=None,
     registered_model_name=None,
@@ -384,6 +385,7 @@ def log_model(
         flavor=mlflow.keras,
         keras_model=keras_model,
         conda_env=conda_env,
+        code_paths=code_paths,
         custom_objects=custom_objects,
         keras_module=keras_module,
         registered_model_name=registered_model_name,
@@ -544,6 +546,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
         predictions = keras_model.predict(x_test)
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
+    pyfunc.utils._add_code_from_conf_to_system_path(local_model_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     keras_module = importlib.import_module(flavor_conf.get("keras_module", "keras"))
     keras_model_artifacts_path = os.path.join(

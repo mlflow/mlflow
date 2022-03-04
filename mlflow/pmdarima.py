@@ -29,7 +29,7 @@ from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.utils.file_utils import write_to
+from mlflow.utils.file_utils import write_to, _validate_code_paths, _copy_code_paths
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
@@ -77,6 +77,7 @@ def save_model(
     pmdarima_model,
     path,
     conda_env=None,
+    code_paths=None,
     mlflow_model=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -123,6 +124,7 @@ def save_model(
     import pmdarima
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+    _validate_code_paths(code_paths)
 
     path = os.path.abspath(path)
     if os.path.exists(path):
@@ -139,8 +141,13 @@ def save_model(
     _save_model(pmdarima_model, model_data_path)
 
     model_bin_kwargs = {_MODEL_BINARY_KEY: _MODEL_BINARY_FILE_NAME}
+    code_dir_subpath = _copy_code_paths(code_paths)
     pyfunc.add_to_model(
-        mlflow_model, loader_module="mlflow.pmdarima", env=_CONDA_ENV_FILE_NAME, **model_bin_kwargs
+        mlflow_model,
+        loader_module="mlflow.pmdarima",
+        env=_CONDA_ENV_FILE_NAME,
+        code=code_dir_subpath,
+        **model_bin_kwargs,
     )
     flavor_conf = {
         _MODEL_TYPE_KEY: pmdarima_model.__class__.__name__,
@@ -179,6 +186,7 @@ def log_model(
     pmdarima_model,
     artifact_path,
     conda_env=None,
+    code_paths=None,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -241,6 +249,7 @@ def log_model(
         registered_model_name=registered_model_name,
         pmdarima_model=pmdarima_model,
         conda_env=conda_env,
+        code_paths=code_paths,
         signature=signature,
         input_example=input_example,
         await_registration_for=await_registration_for,
@@ -273,6 +282,7 @@ def load_model(model_uri, dst_path=None):
     :return: A ``pmdarima`` model instance
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
+    pyfunc.utils._add_code_from_conf_to_system_path(local_model_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     pmdarima_model_file_path = os.path.join(
         local_model_path, flavor_conf.get(_MODEL_BINARY_KEY, _MODEL_BINARY_FILE_NAME)

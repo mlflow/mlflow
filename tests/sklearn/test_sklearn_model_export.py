@@ -9,6 +9,7 @@ import pandas as pd
 import sklearn.datasets as datasets
 import sklearn.linear_model as glm
 import sklearn.neighbors as knn
+from sklearn.base import RegressorMixin
 from sklearn.pipeline import Pipeline as SKPipeline
 from sklearn.preprocessing import FunctionTransformer as SKFunctionTransformer
 
@@ -41,6 +42,35 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = (
 )
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
+
+
+class ModuleScopedSubclassedModel(RegressorMixin):
+    def fit(self, X=None, y=None):
+        # The prediction will always just be the mean of y
+        self.y_bar = np.mean(y)
+
+    def predict(self, X=None):
+        # Give back the mean of y, in the same
+        # length as the number of X observations
+        return np.ones(X.shape[0]) * self.y_bar
+
+
+@pytest.fixture(scope="module")
+def data():
+    X, y = datasets.make_blobs(n_samples=100, n_features=2, centers=3)
+    return X, y
+
+
+@pytest.fixture(scope="module")
+def module_scoped_subclassed_model(data):
+    """
+    A custom sklearn model inheriting from ``sklearn.base.RegressorMixin`` whose class is defined in the test
+    module scope.
+    """
+    model = ModuleScopedSubclassedModel()
+    X, y = data
+    model.fit(X, y)
+    return model
 
 
 @pytest.fixture(scope="session")
@@ -621,3 +651,21 @@ def test_pyfunc_serve_and_score(sklearn_knn_model):
     )
     scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values.squeeze()
     np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe))
+
+
+def test_load_model_succeeds_with_code_paths(module_scoped_subclassed_model, data):
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(
+            module_scoped_subclassed_model, artifact_path, code_paths=[__file__]
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    scoring_response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=data[0],
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        extra_args=["--no-conda"],
+    )
+
+    assert scoring_response.status_code == 200

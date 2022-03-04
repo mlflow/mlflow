@@ -37,7 +37,7 @@ from mlflow.utils.environment import (
     _CONSTRAINTS_FILE_NAME,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.file_utils import write_to
+from mlflow.utils.file_utils import write_to, _copy_code_paths, _validate_code_paths
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
@@ -72,6 +72,7 @@ def save_model(
     cb_model,
     path,
     conda_env=None,
+    code_paths=None,
     mlflow_model=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -113,6 +114,7 @@ def save_model(
     import catboost as cb
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+    _validate_code_paths(code_paths)
 
     path = os.path.abspath(path)
     if os.path.exists(path):
@@ -129,10 +131,12 @@ def save_model(
     cb_model.save_model(model_data_path, **kwargs)
 
     model_bin_kwargs = {_MODEL_BINARY_KEY: _MODEL_BINARY_FILE_NAME}
+    code_dir_subpath = _copy_code_paths(code_paths)
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.catboost",
         env=_CONDA_ENV_FILE_NAME,
+        code=code_dir_subpath,
         **model_bin_kwargs,
     )
 
@@ -181,6 +185,7 @@ def log_model(
     cb_model,
     artifact_path,
     conda_env=None,
+    code_paths=None,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -235,6 +240,7 @@ def log_model(
         registered_model_name=registered_model_name,
         cb_model=cb_model,
         conda_env=conda_env,
+        code_paths=code_paths,
         signature=signature,
         input_example=input_example,
         await_registration_for=await_registration_for,
@@ -301,6 +307,7 @@ def load_model(model_uri, dst_path=None):
              or `CatBoostRegressor`_)
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
+    pyfunc.utils._add_code_from_conf_to_system_path(local_model_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     cb_model_file_path = os.path.join(
         local_model_path, flavor_conf.get(_MODEL_BINARY_KEY, _MODEL_BINARY_FILE_NAME)

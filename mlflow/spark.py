@@ -48,7 +48,7 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
-from mlflow.utils.file_utils import TempDir, write_to
+from mlflow.utils.file_utils import TempDir, write_to, _validate_code_paths, _copy_code_paths
 from mlflow.utils.uri import (
     is_local_uri,
     append_to_uri_path,
@@ -100,6 +100,7 @@ def log_model(
     spark_model,
     artifact_path,
     conda_env=None,
+    code_paths=None,
     dfs_tmpdir=None,
     sample_input=None,
     registered_model_name=None,
@@ -211,6 +212,7 @@ def log_model(
             flavor=mlflow.spark,
             spark_model=spark_model,
             conda_env=conda_env,
+            code_paths=code_paths,
             dfs_tmpdir=dfs_tmpdir,
             sample_input=sample_input,
             registered_model_name=registered_model_name,
@@ -231,6 +233,7 @@ def log_model(
             flavor=mlflow.spark,
             spark_model=spark_model,
             conda_env=conda_env,
+            code_paths=code_paths,
             dfs_tmpdir=dfs_tmpdir,
             sample_input=sample_input,
             registered_model_name=registered_model_name,
@@ -251,6 +254,7 @@ def log_model(
             mlflow_model,
             sample_input,
             conda_env,
+            code_paths,
             signature=signature,
             input_example=input_example,
         )
@@ -381,6 +385,7 @@ def _save_model_metadata(
     mlflow_model,
     sample_input,
     conda_env,
+    code_paths,
     signature=None,
     input_example=None,
     pip_requirements=None,
@@ -408,11 +413,13 @@ def _save_model_metadata(
     mlflow_model.add_flavor(
         FLAVOR_NAME, pyspark_version=pyspark.__version__, model_data=_SPARK_MODEL_PATH_SUB
     )
+    code_dir_subpath = _copy_code_paths(code_paths)
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.spark",
         data=_SPARK_MODEL_PATH_SUB,
         env=_CONDA_ENV_FILE_NAME,
+        code=code_dir_subpath,
     )
     mlflow_model.save(os.path.join(dst_dir, MLMODEL_FILE_NAME))
 
@@ -470,6 +477,7 @@ def save_model(
     path,
     mlflow_model=None,
     conda_env=None,
+    code_paths=None,
     dfs_tmpdir=None,
     sample_input=None,
     signature: ModelSignature = None,
@@ -547,6 +555,7 @@ def save_model(
     """
     _validate_model(spark_model)
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+    _validate_code_paths(code_paths)
 
     from pyspark.ml import PipelineModel
 
@@ -579,6 +588,7 @@ def save_model(
         mlflow_model=mlflow_model,
         sample_input=sample_input,
         conda_env=conda_env,
+        code_paths=code_paths,
         signature=signature,
         input_example=input_example,
         pip_requirements=pip_requirements,
@@ -678,6 +688,13 @@ def load_model(model_uri, dfs_tmpdir=None):
         model_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
         _logger.info("'%s' resolved as '%s'", runs_uri, model_uri)
     flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)
+    try:
+        pyfunc_conf = _get_flavor_configuration_from_uri(model_uri, pyfunc.FLAVOR_NAME)
+    except MlflowException:
+        pyfunc_conf = {}
+    if pyfunc.CODE in pyfunc_conf and pyfunc_conf[pyfunc.CODE]:
+        code_path = os.path.join(local_path, pyfunc_conf[pyfunc.CODE])
+        pyfunc.utils._add_code_to_system_path(code_path)
     model_uri = append_to_uri_path(model_uri, flavor_conf["model_data"])
     return _load_model(model_uri=model_uri, dfs_tmpdir_base=dfs_tmpdir)
 

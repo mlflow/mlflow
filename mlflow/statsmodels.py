@@ -33,7 +33,7 @@ from mlflow.utils.environment import (
     _CONSTRAINTS_FILE_NAME,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.file_utils import write_to
+from mlflow.utils.file_utils import write_to, _validate_code_paths, _copy_code_paths
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
@@ -84,6 +84,7 @@ def save_model(
     statsmodels_model,
     path,
     conda_env=None,
+    code_paths=None,
     mlflow_model=None,
     remove_data: bool = False,
     signature: ModelSignature = None,
@@ -128,6 +129,7 @@ def save_model(
     import statsmodels
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+    _validate_code_paths(code_paths)
 
     path = os.path.abspath(path)
     if os.path.exists(path):
@@ -155,11 +157,13 @@ def save_model(
                 '`mlflow.statsmodels.log_model(model, remove_data=True, artifact_path="model")`'
             )
 
+    code_dir_subpath = _copy_code_paths(code_paths)
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.statsmodels",
         data=STATSMODELS_DATA_SUBPATH,
         env=_CONDA_ENV_FILE_NAME,
+        code=code_dir_subpath,
     )
     mlflow_model.add_flavor(
         FLAVOR_NAME, statsmodels_version=statsmodels.__version__, data=STATSMODELS_DATA_SUBPATH
@@ -203,6 +207,7 @@ def log_model(
     statsmodels_model,
     artifact_path,
     conda_env=None,
+    code_paths=None,
     registered_model_name=None,
     remove_data: bool = False,
     signature: ModelSignature = None,
@@ -260,6 +265,7 @@ def log_model(
         registered_model_name=registered_model_name,
         statsmodels_model=statsmodels_model,
         conda_env=conda_env,
+        code_paths=code_paths,
         signature=signature,
         input_example=input_example,
         await_registration_for=await_registration_for,
@@ -306,6 +312,7 @@ def load_model(model_uri, dst_path=None):
     :return: A statsmodels model (an instance of `statsmodels.base.model.Results`_).
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
+    pyfunc.utils._add_code_from_conf_to_system_path(local_model_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     statsmodels_model_file_path = os.path.join(
         local_model_path, flavor_conf.get("data", STATSMODELS_DATA_SUBPATH)

@@ -35,7 +35,7 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.file_utils import write_to
+from mlflow.utils.file_utils import write_to, _copy_code_paths, _validate_code_paths
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
@@ -68,6 +68,7 @@ def save_model(
     path,
     training=False,
     conda_env=None,
+    code_paths=None,
     mlflow_model=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -191,6 +192,7 @@ def save_model(
     import paddle
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+    _validate_code_paths(code_paths)
 
     if os.path.exists(path):
         raise MlflowException(
@@ -213,12 +215,14 @@ def save_model(
     else:
         paddle.jit.save(pd_model, output_path)
 
+    code_dir_subpath = _copy_code_paths(code_paths, path)
     # `PyFuncModel` only works for paddle models that define `predict()`.
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.paddle",
         model_path=model_data_subpath,
         env=_CONDA_ENV_FILE_NAME,
+        code=code_dir_subpath,
     )
     mlflow_model.add_flavor(
         FLAVOR_NAME,
@@ -296,6 +300,7 @@ def load_model(model_uri, model=None, dst_path=None, **kwargs):
     import paddle
 
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
+    pyfunc.utils._add_code_to_system_path(local_model_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     pd_model_artifacts_path = os.path.join(local_model_path, flavor_conf["pickled_model"])
     if model is None:
@@ -323,6 +328,7 @@ def log_model(
     artifact_path,
     training=False,
     conda_env=None,
+    code_paths=None,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -403,6 +409,7 @@ def log_model(
         flavor=mlflow.paddle,
         pd_model=pd_model,
         conda_env=conda_env,
+        code_paths=code_paths,
         registered_model_name=registered_model_name,
         signature=signature,
         input_example=input_example,

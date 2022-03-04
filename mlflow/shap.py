@@ -29,7 +29,7 @@ from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
 )
-from mlflow.utils.file_utils import write_to
+from mlflow.utils.file_utils import write_to, _validate_code_paths, _copy_code_paths
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
@@ -289,6 +289,7 @@ def log_explainer(
     artifact_path,
     serialize_model_using_mlflow=True,
     conda_env=None,
+    code_path=None,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -342,6 +343,7 @@ def log_explainer(
         flavor=mlflow.shap,
         explainer=explainer,
         conda_env=conda_env,
+        code_path=code_path,
         serialize_model_using_mlflow=serialize_model_using_mlflow,
         registered_model_name=registered_model_name,
         signature=signature,
@@ -359,6 +361,7 @@ def save_explainer(
     path,
     serialize_model_using_mlflow=True,
     conda_env=None,
+    code_paths=None,
     mlflow_model=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -406,6 +409,7 @@ def save_explainer(
     import shap
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+    _validate_code_paths(code_paths)
 
     if os.path.exists(path):
         raise MlflowException(
@@ -451,12 +455,14 @@ def save_explainer(
         else:
             explainer.save(explainer_output_file_handle)
 
+    code_dir_subpath = _copy_code_paths(code_paths)
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.shap",
         model_path=explainer_data_subpath,
         underlying_model_flavor=underlying_model_flavor,
         env=_CONDA_ENV_FILE_NAME,
+        code=code_dir_subpath,
     )
 
     mlflow_model.add_flavor(
@@ -586,6 +592,7 @@ def load_explainer(model_uri):
     """
 
     explainer_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    pyfunc.utils._add_code_from_conf_to_system_path(explainer_path)
     flavor_conf = _get_flavor_configuration(model_path=explainer_path, flavor_name=FLAVOR_NAME)
     explainer_artifacts_path = os.path.join(explainer_path, flavor_conf["serialized_explainer"])
     underlying_model_flavor = flavor_conf["underlying_model_flavor"]
