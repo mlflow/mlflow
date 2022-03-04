@@ -62,7 +62,7 @@ def main():
     # Enable auto logging
     mlflow.fastai.autolog()
 
-    # Create a model
+    # Create Learner model
     learn = Learner(get_data_loaders(), Model(), loss_func=nn.MSELoss(), splitter=splitter)
 
     # Start MLflow session
