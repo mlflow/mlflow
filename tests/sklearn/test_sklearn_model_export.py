@@ -653,21 +653,3 @@ def test_pyfunc_serve_and_score(sklearn_knn_model):
     )
     scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values.squeeze()
     np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe))
-
-
-def test_load_model_succeeds_with_code_paths(module_scoped_subclassed_model, data):
-    artifact_path = "model"
-    with mlflow.start_run():
-        mlflow.sklearn.log_model(
-            module_scoped_subclassed_model, artifact_path, code_paths=[__file__]
-        )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
-
-    scoring_response = pyfunc_serve_and_score_model(
-        model_uri,
-        data=data[0],
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        extra_args=["--no-conda"],
-    )
-
-    assert scoring_response.status_code == 200
