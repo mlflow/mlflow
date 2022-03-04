@@ -1,4 +1,4 @@
-"""create index on run_uuid for postgres
+"""create index on run_uuid
 
 Revision ID: bd07f7e963c5
 Revises: c48cb773bb87
