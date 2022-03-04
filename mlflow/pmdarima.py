@@ -91,6 +91,9 @@ def save_model(
                            temporal series.
     :param path: Local path destination for the serialized model (in pickle format) is to be saved.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     :param signature: :py:class:`Model Signature <mlflow.models.ModelSignature>` describes model
                       input and output :py:class:`Schema <mlflow.types.Schema>`. The model
@@ -202,6 +205,9 @@ def log_model(
                            temporal series.
     :param artifact_path: Run-relative artifact path to save the model instance to.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param registered_model_name: This argument may change or be removed in a
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a

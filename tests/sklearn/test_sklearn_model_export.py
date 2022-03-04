@@ -9,7 +9,6 @@ import pandas as pd
 import sklearn.datasets as datasets
 import sklearn.linear_model as glm
 import sklearn.neighbors as knn
-from sklearn.base import RegressorMixin
 from sklearn.pipeline import Pipeline as SKPipeline
 from sklearn.preprocessing import FunctionTransformer as SKFunctionTransformer
 
@@ -42,37 +41,6 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = (
 )
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
-
-
-class ModuleScopedSubclassedModel(RegressorMixin):
-    # pylint: disable=unused-argument
-    def fit(self, x=None, y=None):
-        # pylint: disable=attribute-defined-outside-init
-        self.y_bar = np.mean(y)
-
-    def predict(self, x=None):
-        # Give back the mean of y, in the same
-        # length as the number of X observations
-        return np.ones(x.shape[0]) * self.y_bar
-
-
-@pytest.fixture(scope="module")
-def data():
-    # pylint: disable=unbalanced-tuple-unpacking
-    x, y = datasets.make_blobs(n_samples=100, n_features=2, centers=3)
-    return x, y
-
-
-@pytest.fixture(scope="module")
-def module_scoped_subclassed_model(data):
-    """
-    ]    A custom sklearn model inheriting from ``sklearn.base.RegressorMixin`` whose class is
-        defined in the test module scope.
-    """
-    model = ModuleScopedSubclassedModel()
-    X, y = data
-    model.fit(X, y)
-    return model
 
 
 @pytest.fixture(scope="session")

@@ -289,7 +289,7 @@ def log_explainer(
     artifact_path,
     serialize_model_using_mlflow=True,
     conda_env=None,
-    code_path=None,
+    code_paths=None,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -309,6 +309,9 @@ def log_explainer(
                                         models of 'sklearn' or 'pytorch' flavors.
 
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
@@ -343,7 +346,7 @@ def log_explainer(
         flavor=mlflow.shap,
         explainer=explainer,
         conda_env=conda_env,
-        code_path=code_path,
+        code_paths=code_paths,
         serialize_model_using_mlflow=serialize_model_using_mlflow,
         registered_model_name=registered_model_name,
         signature=signature,
@@ -384,6 +387,9 @@ def save_explainer(
                                          models of 'sklearn' or 'pytorch' flavors.
 
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.

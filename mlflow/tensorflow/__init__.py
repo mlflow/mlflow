@@ -156,6 +156,9 @@ def log_model(
                                  ``tf.saved_model.builder.SavedModelBuilder`` method.
     :param artifact_path: The run-relative path to which to log model artifacts.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
@@ -240,6 +243,9 @@ def save_model(
     :param path: Local path where the MLflow model is to be saved.
     :param mlflow_model: MLflow model configuration to which to add the ``tensorflow`` flavor.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`

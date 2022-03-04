@@ -125,6 +125,9 @@ def save_model(
     :param keras_model: Keras model to be saved.
     :param path: Local path where the model is to be saved.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param mlflow_model: MLflow model config this flavor is being added to.
     :param custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
                            custom classes or functions associated with the Keras model. MLflow saves
@@ -333,6 +336,9 @@ def log_model(
     :param keras_model: Keras model to be saved.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
                            custom classes or functions associated with the Keras model. MLflow saves
                            these custom layers using CloudPickle and restores them automatically
