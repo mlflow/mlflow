@@ -321,6 +321,8 @@ def _validate_param_against_schema(schema, param):
             error_code=INVALID_PARAMETER_VALUE
         )
 
+    return True
+
 
 def _get_request_json(flask_request=request):
     return flask_request.get_json(force=True, silent=True)
