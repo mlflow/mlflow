@@ -863,15 +863,19 @@ def evaluate(
                                    plt.xlabel('Targets')
                                    plt.ylabel('Predictions')
                                    plt.title("Targets vs. Predictions")
-                                   with tempfile.TemporaryDirectory() as tmpdir:
-                                       plt.savefig(os.path.join(tmpdir, "example.png"))
-                                   return {}, {"pred_target_scatter": "some/path/example.png"}
+                                   plt.savefig(os.path.join(tmp_dir, "example.png"))
+                                   return {}, {
+                                       "pred_target_scatter": os.path.join(tmp_dir, "example.png")
+                                   }
 
-                               with mlflow.start_run():
+                               with mlflow.start_run(), tempfile.TemporaryDirectory() as tmp_dir:
                                    mlflow.evaluate(
                                        model,
-                                       X,
+                                       data,
                                        targets,
+                                       model_type,
+                                       dataset_name,
+                                       evaluators,
                                        custom_metrics=[squared_diff_plus_one, scatter_plot],
                                    )
 
