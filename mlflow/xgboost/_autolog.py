@@ -14,11 +14,15 @@ def _patch_metric_names(metric_dict):
     patched_metrics = {
         metric_name.replace("@", "_at_"): value for metric_name, value in metric_dict.items()
     }
-    if patched_metrics != metric_dict:
-        _logger.warning(
+    changed_keys = set(patched_metrics.keys()) - set(metric_dict.keys())
+    if changed_keys:
+        _logger.info(
             "Identified one or more metrics with names containing the invalid character `@`."
-            " These metric names have been sanitized by replacing `@` with `_at_`."
+            " These metric names have been sanitized by replacing `@` with `_at_`, as follows: %s",
+            ", ".join(changed_keys)
         )
+
+    return patched_metrics
 
 
 def autolog_callback(env, metrics_logger, eval_results):
