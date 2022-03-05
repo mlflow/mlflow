@@ -1,14 +1,24 @@
 from packaging.version import Version
+import logging
 import xgboost
 
 # Suppress a false positive pylint error: https://github.com/PyCQA/pylint/issues/1630
 # pylint: disable=unused-import
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
 
+_logger = logging.getLogger(__name__)
+
 
 def _patch_metric_names(metric_dict):
     # XGBoost provides some metrics with "@", e.g. "ndcg@3" that are not valid MLflow metric names
-    return {metric_name.replace("@", "_at_"): value for metric_name, value in metric_dict.items()}
+    patched_metrics = {
+        metric_name.replace("@", "_at_"): value for metric_name, value in metric_dict.items()
+    }
+    if patched_metrics != metric_dict:
+        _logger.warning(
+            "Identified one or more metrics with names containing the invalid character `@`."
+            " These metric names have been sanitized by replacing `@` with `_at_`."
+        )
 
 
 def autolog_callback(env, metrics_logger, eval_results):
