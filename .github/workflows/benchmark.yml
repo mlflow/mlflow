@@ -19,7 +19,9 @@ defaults:
 jobs:
   benchmark:
     runs-on: ubuntu-latest
-    working-directory: tests/db
+    defaults:
+      run:
+        working-directory: tests/db
     steps:
       - uses: actions/checkout@v2
       - name: Build images
