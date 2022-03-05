@@ -24,6 +24,24 @@ class GCSArtifactRepository(ArtifactRepository):
             from google.cloud import storage as gcs_storage
 
             self.gcs = gcs_storage
+
+        from google.cloud.storage.constants import _DEFAULT_TIMEOUT
+
+        self._GCS_DOWNLOAD_CHUNK_SIZE = (
+            int(os.environ.get("MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE"))
+            if os.environ.get("MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE")
+            else None
+        )
+        self._GCS_UPLOAD_CHUNK_SIZE = (
+            int(os.environ.get("MLFLOW_GCS_UPLOAD_CHUNK_SIZE"))
+            if os.environ.get("MLFLOW_GCS_UPLOAD_CHUNK_SIZE")
+            else None
+        )
+        self._GCS_DEFAULT_TIMEOUT = (
+            float(os.environ.get("MLFLOW_GCS_DEFAULT_TIMEOUT"))
+            if os.environ.get("MLFLOW_GCS_DEFAULT_TIMEOUT")
+            else _DEFAULT_TIMEOUT
+        )
         super().__init__(artifact_uri)
 
     @staticmethod
@@ -53,8 +71,8 @@ class GCSArtifactRepository(ArtifactRepository):
         dest_path = posixpath.join(dest_path, os.path.basename(local_file))
 
         gcs_bucket = self._get_bucket(bucket)
-        blob = gcs_bucket.blob(dest_path)
-        blob.upload_from_filename(local_file)
+        blob = gcs_bucket.blob(dest_path, chunk_size=self._GCS_UPLOAD_CHUNK_SIZE)
+        blob.upload_from_filename(local_file, timeout=self._GCS_DEFAULT_TIMEOUT)
 
     def log_artifacts(self, local_dir, artifact_path=None):
         (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
@@ -71,7 +89,9 @@ class GCSArtifactRepository(ArtifactRepository):
                 upload_path = posixpath.join(dest_path, rel_path)
             for f in filenames:
                 path = posixpath.join(upload_path, f)
-                gcs_bucket.blob(path).upload_from_filename(os.path.join(root, f))
+                gcs_bucket.blob(path, chunk_size=self._GCS_UPLOAD_CHUNK_SIZE).upload_from_filename(
+                    os.path.join(root, f), timeout=self._GCS_DEFAULT_TIMEOUT
+                )
 
     def list_artifacts(self, path=None):
         (bucket, artifact_path) = self.parse_gcs_uri(self.artifact_uri)
@@ -107,7 +127,9 @@ class GCSArtifactRepository(ArtifactRepository):
         (bucket, remote_root_path) = self.parse_gcs_uri(self.artifact_uri)
         remote_full_path = posixpath.join(remote_root_path, remote_file_path)
         gcs_bucket = self._get_bucket(bucket)
-        gcs_bucket.blob(remote_full_path).download_to_filename(local_path)
+        gcs_bucket.blob(
+            remote_full_path, chunk_size=self._GCS_DOWNLOAD_CHUNK_SIZE
+        ).download_to_filename(local_path, timeout=self._GCS_DEFAULT_TIMEOUT)
 
     def delete_artifacts(self, artifact_path=None):
         raise MlflowException("Not implemented yet")
