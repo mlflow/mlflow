@@ -1,0 +1,35 @@
+name: Benchmark
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -exo pipefail {0}
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    working-directory: tests/db
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build images
+        run: |
+          ./build_wheel.sh
+          docker-compose build
+      - name: Run benchmark
+        run: |
+          docker-compose run benchmark python benchmark.py \
+            --num-experiments=100 --num-runs=1000 --num-metrics=50 --num-params=50
+      - name: Show free disk space
+        run: |
+          df -h
