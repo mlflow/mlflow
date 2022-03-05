@@ -19,7 +19,7 @@ def _patch_metric_names(metric_dict):
         _logger.info(
             "Identified one or more metrics with names containing the invalid character `@`."
             " These metric names have been sanitized by replacing `@` with `_at_`, as follows: %s",
-            ", ".join(changed_keys)
+            ", ".join(changed_keys),
         )
 
     return patched_metrics
