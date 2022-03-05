@@ -2,7 +2,6 @@ from packaging.version import Version
 import os
 import json
 import functools
-import mock
 import pickle
 import pytest
 import numpy as np
@@ -11,6 +10,7 @@ from sklearn import datasets
 import xgboost as xgb
 import matplotlib as mpl
 import yaml
+from unittest import mock
 
 import mlflow
 import mlflow.xgboost
