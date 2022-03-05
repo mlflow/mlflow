@@ -86,16 +86,21 @@ def generate_data(num_experiments, num_runs, num_params, num_metrics):
 def show_tables():
     # https://stackoverflow.com/a/2611745/6943581
     query = """
-WITH tbl AS
+WITH tbl1 AS
   (SELECT table_schema,
           table_name
    FROM information_schema.tables
    WHERE table_name not like 'pg_%'
-     AND table_schema in ('public'))
-SELECT table_name,
+     AND table_schema in ('public')),
+  tbl2 AS
+    (SELECT table_name,
        (xpath('/row/c/text()', query_to_xml(format('select count(*) as c from %I.%I', table_schema, TABLE_NAME), FALSE, TRUE, '')))[1]::text::int AS num_rows,
-       pg_relation_size(quote_ident(table_name)) AS size
-FROM tbl
+       pg_table_size(quote_ident(table_name)) AS size
+    FROM tbl1)
+
+SELECT *
+FROM tbl2
+WHERE num_rows > 0
 ORDER BY num_rows DESC;
 """
     with psycopg2.connect(os.getenv(_TRACKING_URI_ENV_VAR)) as conn:

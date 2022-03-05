@@ -31,7 +31,7 @@ jobs:
       - name: Run benchmark
         run: |
           docker-compose run benchmark python benchmark.py \
-            --num-experiments=100 --num-runs=10 --num-metrics=50 --num-params=50
+            --num-experiments=100 --num-runs=100 --num-metrics=50 --num-params=50
       - name: Show free disk space
         run: |
           df -h
