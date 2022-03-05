@@ -818,6 +818,8 @@ def evaluate(
 
                            - A string uri representing the file path to the artifact. MLflow will
                              infer the type of the artifact based on the file extension.
+                           - A string representation of a JSON object. This will be saved as a
+                             .json artifact.
                            - ``EvaluationArtifact`` type objects. i.e. ``CsvEvaluationArtifact``,
                              ``ImageEvaluationArtifact``.
                            - Pandas DataFrame. This will be resolved as a CSV artifact.
@@ -827,7 +829,7 @@ def evaluate(
                              configurations. To customize, either save the figure with the desired
                              configurations and return its file path or define customizations
                              through environment variables in ``matplotlib.rcParams``.
-                           - Any JSON serializable object. This will be saved as a JSON artifact.
+                           - Other objects will be attempted to be pickled with protocol 4.
 
                            .. code-block:: python
                                :caption: Custom Metric Function Boilerplate
@@ -856,11 +858,13 @@ def evaluate(
                                    }
 
                                def scatter_plot(eval_df, builtin_metrics):
+                                   import tempfile
                                    plt.scatter(eval_df['prediction'], eval_df['target'])
                                    plt.xlabel('Targets')
                                    plt.ylabel('Predictions')
                                    plt.title("Targets vs. Predictions")
-                                   plt.savefig("some/path/example.png")
+                                   with tempfile.TemporaryDirectory() as tmpdir:
+                                       plt.savefig(os.path.join(tmpdir, "example.png"))
                                    return {}, {"pred_target_scatter": "some/path/example.png"}
 
                                with mlflow.start_run():

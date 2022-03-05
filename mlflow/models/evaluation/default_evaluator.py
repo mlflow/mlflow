@@ -13,11 +13,9 @@ from mlflow.models.utils import plot_lines
 from mlflow.models.evaluation.artifacts import (
     ImageEvaluationArtifact,
     CsvEvaluationArtifact,
-    JsonEvaluationArtifact,
     NumpyEvaluationArtifact,
-    EXT_TO_ARTIFACT_MAP,
-    TYPE_TO_ARTIFACT_MAP,
-    TYPE_TO_EXT_MAP,
+    _infer_artifact_type_and_ext,
+    JsonEvaluationArtifact,
 )
 
 from sklearn import metrics as sk_metrics
@@ -28,9 +26,9 @@ import numbers
 import pandas as pd
 import numpy as np
 import copy
-import pathlib
 import shutil
 import time
+import pickle
 from functools import partial
 import logging
 from packaging.version import Version
@@ -273,33 +271,29 @@ _matplotlib_config = {
 }
 
 
-def _get_custom_metric_exception_header(index, custom_metric_name):
-    return (
-        f"Custom metric function '{custom_metric_name}' at index {index} in the "
-        "`custom_metrics` parameter"
-    )
+_CustomMetricFnTuple = namedtuple("_CustomMetricFnTuple", ["fn", "name", "index"])
 
 
-def _evaluate_custom_metric(index, custom_metric, eval_df, builtin_metrics):
+def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
     """
     This function calls the `custom_metric` function and performs validations on the returned
     result to ensure that they are in the expected format. It will raise a MlflowException if
     the result is not in the expected format.
 
-    :param index: The index of the custom metric function in the custom_metrics parameter
-                  of the mlflow.evaluate function.
-    :param custom_metric: A user provided custom metric function.
+    :param custom_metric_tuple: Containing a user provided function and its index in the
+                                ``custom_metrics`` parameter of ``mlflow.evaluate``
     :param eval_df: A Pandas dataframe object containing a prediction and a target column.
     :param builtin_metrics: A dictionary of metrics produced by the default evaluator.
     :return: A tuple of dictionaries. The first is a dictionary of metrics, the second is
              a dictionary of artifacts (which can be None if the custom metric function did
              not produce any).
     """
-    exception_header = _get_custom_metric_exception_header(
-        index, getattr(custom_metric, "__name__", repr(custom_metric))
+    exception_header = (
+        f"Custom metric function '{custom_metric_tuple.name}' at index {custom_metric_tuple.index}"
+        " in the `custom_metrics` parameter"
     )
 
-    result = custom_metric(eval_df, builtin_metrics)
+    result = custom_metric_tuple.fn(eval_df, builtin_metrics)
     if result is None:
         raise MlflowException(f"{exception_header} returned None.")
 
@@ -346,37 +340,6 @@ def _evaluate_custom_metric(index, custom_metric, eval_df, builtin_metrics):
         "For more details refer to: "
         "https://mlflow.org/docs/latest/python_api/mlflow.html#mlflow.evaluate",
         error_code=INVALID_PARAMETER_VALUE,
-    )
-
-
-def _infer_artifact_type_and_ext(artifact_name, raw_artifact, exception_header):
-    """
-    This function performs type and file extension inference on the provided artifact
-    :param artifact_name: The name of the provided artifact
-    :param raw_artifact: The artifact object
-    :param exception_header: The header of any exceptions thrown in this function
-    :return: A tuple comprised of: a boolean representing whether or not raw_artifact is a path
-             to a file, an EvaluationArtifact (e.g. ImageEvaluationArtifact) class, a string
-             representing the appropriate file extension of the artifact.
-    """
-
-    # Given a path-like object: a string representation of path, or a pathlib.Path object
-    if isinstance(raw_artifact, str):
-        raw_artifact = pathlib.Path(raw_artifact)
-    if isinstance(raw_artifact, pathlib.Path):
-        if raw_artifact.is_file() and raw_artifact.suffix in EXT_TO_ARTIFACT_MAP.keys():
-            return True, EXT_TO_ARTIFACT_MAP[raw_artifact.suffix], raw_artifact.suffix
-        raise MlflowException(
-            f"{exception_header} produced an unsupported artifact '{artifact_name}' with path "
-            f"'{raw_artifact}'. The supported file extensions are: "
-            f"{', '.join(EXT_TO_ARTIFACT_MAP.keys())}"
-        )
-
-    # Given as other python object
-    return (
-        False,
-        TYPE_TO_ARTIFACT_MAP.get(type(raw_artifact), JsonEvaluationArtifact),
-        TYPE_TO_EXT_MAP.get(type(raw_artifact), ".json"),
     )
 
 
@@ -662,24 +625,32 @@ class DefaultEvaluator(ModelEvaluator):
 
         self._log_pandas_df_artifact(per_class_metrics_collection_df, "per_class_metrics")
 
-    def _log_custom_metric_artifact(
-        self, artifact_name, raw_artifact, custom_metric_index, custom_metric_name
-    ):
+    def _log_custom_metric_artifact(self, artifact_name, raw_artifact, custom_metric_tuple):
         if isinstance(raw_artifact, EvaluationArtifact):
             return raw_artifact
 
-        exception_header = _get_custom_metric_exception_header(
-            custom_metric_index, custom_metric_name
+        exception_header = (
+            f"Custom metric function '{custom_metric_tuple.name}' at index "
+            "{custom_metric_tuple.index} in the `custom_metrics` parameter"
         )
 
         inferred_from_path, inferred_type, inferred_ext = _infer_artifact_type_and_ext(
-            artifact_name, raw_artifact, exception_header
+            artifact_name, raw_artifact, custom_metric_tuple
         )
         artifact_file_name = _gen_log_key(artifact_name, self.dataset_name) + inferred_ext
         artifact_file_local_path = self.temp_dir.path(artifact_file_name)
 
+        # ParquetEvaluationArtifact isn't explicitly stated here because such artifacts can only
+        # be supplied through file. Which is handled by the first if clause. This is because
+        # DataFrame objects default to be stored as CsvEvaluationArtifact.
         if inferred_from_path:
             shutil.copyfile(raw_artifact, artifact_file_local_path)
+        elif inferred_type is JsonEvaluationArtifact:
+            with open(artifact_file_local_path, "w") as f:
+                if isinstance(raw_artifact, str):
+                    f.write(raw_artifact)
+                else:
+                    json.dump(raw_artifact, f)
         elif inferred_type is CsvEvaluationArtifact:
             raw_artifact.to_csv(artifact_file_local_path, index=False)
         elif inferred_type is NumpyEvaluationArtifact:
@@ -687,20 +658,26 @@ class DefaultEvaluator(ModelEvaluator):
         elif inferred_type is ImageEvaluationArtifact:
             raw_artifact.savefig(artifact_file_local_path)
         else:
-            # try serializing as JSON.
+            # storing as pickle
             try:
-                json.dump(raw_artifact, open(artifact_file_local_path, "w"))
-            except TypeError:
+                # Using protocol 4 because it is the highest supported protocol as of the
+                # introduction of PickleEvaluationArtifact. For more regarding pickle protocols,
+                # refer to: https://docs.python.org/3/library/pickle.html#data-stream-format
+                with open(artifact_file_local_path, "wb") as f:
+                    pickle.dump(raw_artifact, f, protocol=4)
+            except pickle.PickleError:
                 raise MlflowException(
                     f"{exception_header} produced an unsupported artifact '{artifact_name}' with "
-                    f"type '{type(raw_artifact)}'. Supported object types for artifacts are:"
-                    f"- A string uri representing the file path to the artifact. MLflow"
-                    f"  will infer the type of the artifact based on the file extension."
-                    f"- EvaluationArtifact type objects. i.e. ImageEvaluationArtifact."
-                    f"- Pandas DataFrame. This will be resolved as a CSV artifact."
-                    f"- Numpy array. This will be saved as a .npy artifact."
-                    f"- Matplotlib Figure. This will be saved as an image artifact."
-                    f"- Any JSON serializable object. This will be saved as a JSON file."
+                    f"type '{type(raw_artifact)}'. Supported object types for artifacts are:\n"
+                    "- A string uri representing the file path to the artifact. MLflow"
+                    "  will infer the type of the artifact based on the file extension.\n"
+                    "- A string representation of a JSON object. This will be saved as a "
+                    ".json artifact.\n"
+                    "- EvaluationArtifact type objects. i.e. ImageEvaluationArtifact."
+                    "- Pandas DataFrame. This will be saved as a .csv artifact."
+                    "- Numpy array. This will be saved as a .npy artifact."
+                    "- Matplotlib Figure. This will be saved as an .png image artifact."
+                    "- Other objects will be attempted to be pickled with protocol 4."
                 )
 
         mlflow.log_artifact(artifact_file_local_path)
@@ -708,7 +685,7 @@ class DefaultEvaluator(ModelEvaluator):
         artifact._load(artifact_file_local_path)
         return artifact
 
-    def _log_custom_metrics(self):
+    def _evaluate_custom_metrics_and_log_produced_artifacts(self):
         if self.custom_metrics is None:
             return
         builtin_metrics = copy.deepcopy(self.metrics)
@@ -716,10 +693,17 @@ class DefaultEvaluator(ModelEvaluator):
             {"prediction": copy.deepcopy(self.y_pred), "target": copy.deepcopy(self.y)}
         )
         for index, custom_metric in enumerate(self.custom_metrics):
+            custom_metric_tuple = _CustomMetricFnTuple(
+                fn=custom_metric,
+                index=index,
+                name=getattr(custom_metric, "__name__", repr(custom_metric)),
+            )
             # deepcopying eval_df and builtin_metrics for each custom metric function call,
             # in case the user modifies them inside their function(s).
             metric_results, artifact_results = _evaluate_custom_metric(
-                index, custom_metric, eval_df.copy(), copy.deepcopy(builtin_metrics)
+                custom_metric_tuple,
+                eval_df.copy(),
+                copy.deepcopy(builtin_metrics),
             )
             self.metrics.update(metric_results)
             if artifact_results is not None:
@@ -727,9 +711,14 @@ class DefaultEvaluator(ModelEvaluator):
                     self.artifacts[artifact_name] = self._log_custom_metric_artifact(
                         artifact_name,
                         raw_artifact,
-                        index,
-                        getattr(custom_metric, "__name__", repr(custom_metric)),
+                        custom_metric_tuple,
                     )
+
+    def _log_and_return_evaluation_result(self):
+        self._evaluate_custom_metrics_and_log_produced_artifacts()
+        self._log_metrics()
+        self._log_model_explainability()
+        return EvaluationResult(self.metrics, self.artifacts)
 
     def _evaluate_classifier(self):
         from mlflow.models.evaluation.lift_curve import plot_lift_curve
@@ -809,19 +798,13 @@ class DefaultEvaluator(ModelEvaluator):
                 "confusion_matrix",
             )
 
-        self._log_custom_metrics()
-        self._log_metrics()
-        self._log_model_explainability()
-        return EvaluationResult(self.metrics, self.artifacts)
+        return self._log_and_return_evaluation_result()
 
     def _evaluate_regressor(self):
         self.y_pred = self.model.predict(self.X)
         self.metrics.update(_get_regressor_metrics(self.y, self.y_pred))
 
-        self._log_custom_metrics()
-        self._log_metrics()
-        self._log_model_explainability()
-        return EvaluationResult(self.metrics, self.artifacts)
+        return self._log_and_return_evaluation_result()
 
     def evaluate(
         self,

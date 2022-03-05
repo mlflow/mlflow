@@ -13,6 +13,8 @@ from mlflow.models.evaluation.artifacts import (
     JsonEvaluationArtifact,
     NumpyEvaluationArtifact,
     ParquetEvaluationArtifact,
+    TextEvaluationArtifact,
+    PickleEvaluationArtifact,
 )
 from mlflow.models.evaluation.default_evaluator import (
     _get_classifier_global_metrics,
@@ -23,7 +25,7 @@ from mlflow.models.evaluation.default_evaluator import (
     _get_classifier_per_class_metrics,
     _gen_classifier_curve,
     _evaluate_custom_metric,
-    _infer_artifact_type_and_ext,
+    _CustomMetricFnTuple,
 )
 import mlflow
 from sklearn.linear_model import LogisticRegression
@@ -526,7 +528,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         MlflowException,
         match=f"'{dummy_fn.__name__}' (.*) returned None",
     ):
-        _evaluate_custom_metric(0, dummy_fn, eval_df, metrics)
+        _evaluate_custom_metric(_CustomMetricFnTuple(dummy_fn, "dummy_fn", 0), eval_df, metrics)
 
     def incorrect_return_type_1(*_):
         return 3
@@ -542,7 +544,9 @@ def test_evaluate_custom_metric_incorrect_return_formats():
             MlflowException,
             match=f"'{test_fn.__name__}' (.*) did not return in an expected format",
         ):
-            _evaluate_custom_metric(0, test_fn, eval_df, metrics)
+            _evaluate_custom_metric(
+                _CustomMetricFnTuple(test_fn, test_fn.__name__, 0), eval_df, metrics
+            )
 
     def non_str_metric_name(*_):
         return {123: 123, "a": 32.1, "b": 3}
@@ -559,7 +563,9 @@ def test_evaluate_custom_metric_incorrect_return_formats():
             match=f"'{test_fn.__name__}' (.*) did not return metrics as a dictionary of "
             "string metric names with numerical values",
         ):
-            _evaluate_custom_metric(0, test_fn, eval_df, metrics)
+            _evaluate_custom_metric(
+                _CustomMetricFnTuple(test_fn, test_fn.__name__, 0), eval_df, metrics
+            )
 
     def non_str_artifact_name(*_):
         return {"a": 32.1, "b": 3}, {1: [1, 2, 3]}
@@ -569,7 +575,11 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         match=f"'{non_str_artifact_name.__name__}' (.*) did not return artifacts as a "
         "dictionary of string artifact names with their corresponding objects",
     ):
-        _evaluate_custom_metric(0, non_str_artifact_name, eval_df, metrics)
+        _evaluate_custom_metric(
+            _CustomMetricFnTuple(non_str_artifact_name, non_str_artifact_name.__name__, 0),
+            eval_df,
+            metrics,
+        )
 
 
 @pytest.mark.parametrize(
@@ -590,7 +600,7 @@ def test_evaluate_custom_metric_lambda(fn, expectation):
     eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
     metrics = _get_regressor_metrics(eval_df["target"], eval_df["prediction"])
     with expectation:
-        _evaluate_custom_metric(0, fn, eval_df, metrics)
+        _evaluate_custom_metric(_CustomMetricFnTuple(fn, "<lambda>", 0), eval_df, metrics)
 
 
 def test_evaluate_custom_metric_success():
@@ -605,7 +615,9 @@ def test_evaluate_custom_metric_success():
             "example_np_metric_2": np.ulonglong(10000000),
         }
 
-    res_metrics, res_artifacts = _evaluate_custom_metric(0, example_custom_metric, eval_df, metrics)
+    res_metrics, res_artifacts = _evaluate_custom_metric(
+        _CustomMetricFnTuple(example_custom_metric, "", 0), eval_df, metrics
+    )
     assert res_metrics == {
         "example_count_times_1_point_5": metrics["example_count"] * 1.5,
         "sum_on_label_minus_5": metrics["sum_on_label"] - 5,
@@ -629,7 +641,7 @@ def test_evaluate_custom_metric_success():
         )
 
     res_metrics_2, res_artifacts_2 = _evaluate_custom_metric(
-        0, example_custom_metric_with_artifacts, eval_df, metrics
+        _CustomMetricFnTuple(example_custom_metric_with_artifacts, "", 0), eval_df, metrics
     )
     assert res_metrics_2 == {
         "example_count_times_1_point_5": metrics["example_count"] * 1.5,
@@ -637,6 +649,9 @@ def test_evaluate_custom_metric_success():
         "example_np_metric_1": np.float32(123.2),
         "example_np_metric_2": np.ulonglong(10000000),
     }
+
+    # pylint: disable=unsupported-membership-test
+    assert isinstance(res_artifacts_2, dict)
     assert "pred_target_abs_diff" in res_artifacts_2
     assert res_artifacts_2["pred_target_abs_diff"].equals(
         np.abs(eval_df["prediction"] - eval_df["target"])
@@ -644,71 +659,6 @@ def test_evaluate_custom_metric_success():
 
     assert "example_dictionary_artifact" in res_artifacts_2
     assert res_artifacts_2["example_dictionary_artifact"] == {"a": 1, "b": 2}
-
-
-def test_infer_artifact_type_and_ext_raise_exception_for_non_file_artifact_path(tmp_path):
-    with pytest.raises(
-        MlflowException,
-        match=f"produced an unsupported artifact 'non_file_artifact' with path '{tmp_path}'",
-    ):
-        _infer_artifact_type_and_ext("non_file_artifact", tmp_path, "")
-
-
-def test_infer_artifact_type_and_ext_raise_exception_for_unsupported_file_extension(tmp_path):
-    path = tmp_path / "invalid_ext_example.some_ext"
-    with open(path, "w") as f:
-        f.write("some stuff that shouldn't be read")
-    with pytest.raises(
-        MlflowException,
-        match=f"produced an unsupported artifact 'invalid_ext_artifact' with path '{path}'",
-    ):
-        _infer_artifact_type_and_ext("invalid_ext_artifact", path, "")
-
-
-@pytest.mark.parametrize(
-    "is_file,artifact,artifact_type,ext",
-    [
-        (True, lambda path: plt.figure().savefig(path), ImageEvaluationArtifact, "png"),
-        (True, lambda path: plt.figure().savefig(path), ImageEvaluationArtifact, "jpg"),
-        (True, lambda path: plt.figure().savefig(path), ImageEvaluationArtifact, "jpeg"),
-        (True, lambda path: json.dump([1, 2, 3], open(path, "w")), JsonEvaluationArtifact, "json"),
-        (
-            True,
-            lambda path: np.save(path, np.array([1, 2, 3]), allow_pickle=False),
-            NumpyEvaluationArtifact,
-            "npy",
-        ),
-        (
-            True,
-            lambda path: pd.DataFrame({"test": [1, 2, 3]}).to_csv(path, index=False),
-            CsvEvaluationArtifact,
-            "csv",
-        ),
-        (
-            True,
-            lambda path: pd.DataFrame({"test": [1, 2, 3]}).to_parquet(path),
-            ParquetEvaluationArtifact,
-            "parquet",
-        ),
-        (False, pd.DataFrame({"test": [1, 2, 3]}), CsvEvaluationArtifact, "csv"),
-        (False, np.array([1, 2, 3]), NumpyEvaluationArtifact, "npy"),
-        (False, plt.figure(), ImageEvaluationArtifact, "png"),
-        (False, {"a": 1, "b": "e", "c": 1.2, "d": [1, 2]}, JsonEvaluationArtifact, "json"),
-        (False, [1, 2, 3, "test"], JsonEvaluationArtifact, "json"),
-    ],
-)
-def test_infer_artifact_type_and_ext(is_file, artifact, artifact_type, ext, tmp_path):
-    if is_file:
-        artifact_representation = tmp_path / f"test.{ext}"
-        artifact(artifact_representation)
-    else:
-        artifact_representation = artifact
-    inferred_from_path, inferred_type, inferred_ext = _infer_artifact_type_and_ext(
-        f"{ext}_{artifact_type.__name__}_artifact", artifact_representation, ""
-    )
-    assert not (is_file ^ inferred_from_path)
-    assert inferred_type is artifact_type
-    assert inferred_ext == f".{ext}"
 
 
 def _get_results_for_custom_metrics_tests(model_uri, dataset, custom_metrics):
@@ -810,7 +760,8 @@ def test_custom_metric_logs_artifacts_from_paths(
             example_artifacts[f"test_{ext}_artifact"] = tmp_path / f"test.{ext}"
 
         # json
-        json.dump([1, 2, 3], open(tmp_path / "test.json", "w"))
+        with open(tmp_path / "test.json", "w") as f:
+            json.dump([1, 2, 3], f)
         example_artifacts["test_json_artifact"] = tmp_path / "test.json"
 
         # numpy
@@ -827,6 +778,11 @@ def test_custom_metric_logs_artifacts_from_paths(
         df = pd.DataFrame({"test": [1, 2, 3]})
         df.to_parquet(tmp_path / "test.parquet")
         example_artifacts["test_parquet_artifact"] = tmp_path / "test.parquet"
+
+        # text
+        with open(tmp_path / "test.txt", "w") as f:
+            f.write("hello world")
+        example_artifacts["test_text_artifact"] = tmp_path / "test.txt"
 
         return {}, example_artifacts
 
@@ -864,6 +820,20 @@ def test_custom_metric_logs_artifacts_from_paths(
         pd.DataFrame({"test": [1, 2, 3]})
     )
 
+    assert "test_text_artifact" in result.artifacts
+    assert "test_text_artifact_on_data_breast_cancer_dataset.txt" in artifacts
+    assert isinstance(result.artifacts["test_text_artifact"], TextEvaluationArtifact)
+    assert result.artifacts["test_text_artifact"].content == "hello world"
+
+
+class _ExampleToBePickledObject:
+    def __init__(self):
+        self.a = [1, 2, 3]
+        self.b = "hello"
+
+    def __eq__(self, o: object) -> bool:
+        return self.a == o.a and self.b == self.b
+
 
 def test_custom_metric_logs_artifacts_from_objects(
     binary_logistic_regressor_model_uri, breast_cancer_dataset
@@ -884,6 +854,8 @@ def test_custom_metric_logs_artifacts_from_objects(
             "test_json_artifact": [1, 2, 3],
             "test_npy_artifact": np.array([1, 2, 3, 4, 5]),
             "test_csv_artifact": pd.DataFrame({"a": [1, 2, 3]}),
+            "test_json_text_artifact": '{"a": [1, 2, 3], "c": 3.4}',
+            "test_pickled_artifact": _ExampleToBePickledObject(),
         }
 
     result, _, artifacts = _get_results_for_custom_metrics_tests(
@@ -911,22 +883,12 @@ def test_custom_metric_logs_artifacts_from_objects(
     assert isinstance(result.artifacts["test_csv_artifact"], CsvEvaluationArtifact)
     assert result.artifacts["test_csv_artifact"].content.equals(pd.DataFrame({"a": [1, 2, 3]}))
 
+    assert "test_json_text_artifact" in result.artifacts
+    assert "test_json_text_artifact_on_data_breast_cancer_dataset.json" in artifacts
+    assert isinstance(result.artifacts["test_json_text_artifact"], JsonEvaluationArtifact)
+    assert result.artifacts["test_json_text_artifact"].content == {"a": [1, 2, 3], "c": 3.4}
 
-def test_custom_metric_logs_artifacts_for_unsupported_artifact_object(
-    binary_logistic_regressor_model_uri, breast_cancer_dataset
-):
-    class ExampleUnsupportedObject:
-        def __init__(self):
-            self.x = 10
-
-    def example_custom_metric(_, __):
-        return {}, {"unsupported_artifact": ExampleUnsupportedObject()}
-
-    with pytest.raises(
-        MlflowException,
-        match="produced an unsupported artifact 'unsupported_artifact' with type "
-        f"'{type(ExampleUnsupportedObject())}'",
-    ):
-        _get_results_for_custom_metrics_tests(
-            binary_logistic_regressor_model_uri, breast_cancer_dataset, [example_custom_metric]
-        )
+    assert "test_pickled_artifact" in result.artifacts
+    assert "test_pickled_artifact_on_data_breast_cancer_dataset.pickle" in artifacts
+    assert isinstance(result.artifacts["test_pickled_artifact"], PickleEvaluationArtifact)
+    assert result.artifacts["test_pickled_artifact"].content == _ExampleToBePickledObject()
