@@ -308,16 +308,16 @@ def _build_schema(name, additional_schema = {}):
 
     return schema
 
-def _validate_param_against_schema(schema, param):
+def _validate_param_against_schema(schema, param, value):
     ## If the schema is empty, do nothing
     if not schema:
         return True
 
     try:
-        Draft202012Validator(schema).validate(param)
+        Draft202012Validator(schema).validate(value)
     except ValidationError as e:
         raise MlflowException(
-            message=e.message,
+            message="Invalid value supplied for '{}''".format(param) + e.message,
             error_code=INVALID_PARAMETER_VALUE
         )
 
@@ -369,7 +369,7 @@ def _get_request_message(request_message, flask_request=request, **additional_sc
 
     for k, v in request_json.items():
         schema = _build_schema(k, additional_schema.get(k, {}))
-        _validate_param_against_schema(schema, v)
+        _validate_param_against_schema(schema, k, v)
 
     parse_dict(request_json, request_message)
 
