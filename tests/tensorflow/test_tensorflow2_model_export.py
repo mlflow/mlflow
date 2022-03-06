@@ -35,6 +35,7 @@ from tests.helper_functions import (
     _compare_conda_env_requirements,
     _assert_pip_requirements,
     _is_available_on_pypi,
+    _compare_logged_code_paths,
 )
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
@@ -794,3 +795,17 @@ def test_tf_saved_model_model_with_tf_keras_api(tmpdir):
         assert np.allclose(predictions["dense"], np.asarray([-0.09599352]))
 
     load_and_predict()
+
+
+def test_save_model_with_code_paths(saved_tf_iris_model, model_path):
+    with mock.patch("mlflow.pyfunc.utils._add_code_from_conf_to_system_path") as add_mock:
+        mlflow.tensorflow.save_model(
+            tf_saved_model_dir=saved_tf_iris_model.path,
+            tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+            tf_signature_def_key=saved_tf_iris_model.signature_def_key,
+            path=model_path,
+            code_paths=[__file__],
+        )
+        _compare_logged_code_paths(__file__, model_path)
+        mlflow.tensorflow.load_model(model_uri=model_path)
+        add_mock.assert_called_with(model_path)

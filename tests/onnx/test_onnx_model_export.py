@@ -25,6 +25,7 @@ from tests.helper_functions import (
     _compare_conda_env_requirements,
     _assert_pip_requirements,
     _is_available_on_pypi,
+    _compare_logged_code_paths,
 )
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -638,3 +639,11 @@ def test_pyfunc_predict_supports_models_with_list_outputs(onnx_sklearn_model, mo
     mlflow.onnx.save_model(onnx_sklearn_model, model_path)
     wrapper = mlflow.pyfunc.load_model(model_path)
     wrapper.predict(pd.DataFrame(x))
+
+
+def test_save_model_with_code_paths(onnx_model, model_path):
+    with mock.patch("mlflow.pyfunc.utils._add_code_from_conf_to_system_path") as add_mock:
+        mlflow.onnx.save_model(onnx_model, model_path, code_paths=[__file__])
+        _compare_logged_code_paths(__file__, model_path)
+        mlflow.onnx.load_model(model_path)
+        add_mock.assert_called_with(model_path)

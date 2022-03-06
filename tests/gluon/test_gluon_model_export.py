@@ -2,6 +2,7 @@ from packaging.version import Version
 import os
 import warnings
 import yaml
+from unittest import mock
 
 import mxnet as mx
 import numpy as np
@@ -29,6 +30,7 @@ from tests.helper_functions import (
     _compare_conda_env_requirements,
     _assert_pip_requirements,
     _is_available_on_pypi,
+    _compare_logged_code_paths,
 )
 
 if Version(mx.__version__) >= Version("2.0.0"):
@@ -313,3 +315,11 @@ def test_gluon_model_serving_and_scoring_as_pyfunc(gluon_model, model_data):
         scoring_response.content.decode("utf-8"), orient="records"
     ).values.astype(np.float32)
     assert all(np.argmax(response_values, axis=1) == expected.asnumpy())
+
+
+def test_save_model_with_code_paths(gluon_model, model_path):
+    with mock.patch("mlflow.pyfunc.utils._add_code_from_conf_to_system_path") as add_mock:
+        mlflow.gluon.save_model(gluon_model=gluon_model, path=model_path, code_paths=[__file__])
+        _compare_logged_code_paths(__file__, model_path)
+        mlflow.gluon.load_model(model_path, ctx.cpu())
+        add_mock.assert_called_with(model_path)

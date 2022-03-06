@@ -29,6 +29,7 @@ from tests.helper_functions import (
     pyfunc_serve_and_score_model,
     _compare_conda_env_requirements,
     _assert_pip_requirements,
+    _compare_logged_code_paths,
 )
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
@@ -401,3 +402,13 @@ def test_pyfunc_serve_and_score(fastai_model):
     np.testing.assert_array_almost_equal(
         scores, mlflow.fastai._FastaiModelWrapper(model).predict(inference_dataframe).values[:, -1]
     )
+
+
+def test_save_model_with_code_paths(fastai_model, model_path):
+    with mock.patch("mlflow.pyfunc.utils._add_code_from_conf_to_system_path") as add_mock:
+        mlflow.fastai.save_model(
+            fastai_learner=fastai_model.model, path=model_path, code_paths=[__file__]
+        )
+        _compare_logged_code_paths(__file__, model_path)
+        mlflow.fastai.load_model(model_uri=model_path)
+        add_mock.assert_called_with(model_path)

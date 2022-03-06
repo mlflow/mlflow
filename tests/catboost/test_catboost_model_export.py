@@ -28,6 +28,7 @@ from tests.helper_functions import (
     _compare_conda_env_requirements,
     _assert_pip_requirements,
     _is_available_on_pypi,
+    _compare_logged_code_paths,
 )
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("catboost") else ["--no-conda"]
@@ -419,3 +420,11 @@ def test_pyfunc_serve_and_score_sklearn(reg_model):
     )
     scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values.squeeze()
     np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe.head(3)))
+
+
+def test_save_model_with_code_paths(cb_model, model_path):
+    with mock.patch("mlflow.pyfunc.utils._add_code_from_conf_to_system_path") as add_mock:
+        mlflow.catboost.save_model(cb_model=cb_model.model, path=model_path, code_paths=[__file__])
+        _compare_logged_code_paths(__file__, model_path)
+        mlflow.catboost.load_model(model_uri=model_path)
+        add_mock.assert_called_with(model_path)
