@@ -21,7 +21,6 @@ import pandas
 from packaging.version import Version
 from threading import RLock
 
-
 import mlflow
 import mlflow.keras
 from mlflow import pyfunc
@@ -50,6 +49,8 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
+    INPUT_EXAMPLE_SAMPLE_ROWS,
+    resolve_input_example_and_signature,
     picklable_exception_safe_function,
     PatchFunction,
     log_fn_args_as_params,
@@ -57,7 +58,8 @@ from mlflow.utils.autologging_utils import (
 )
 from mlflow.entities import Metric
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-
+from mlflow.models import infer_signature
+from mlflow.utils.autologging_utils import get_autologging_config
 
 FLAVOR_NAME = "tensorflow"
 
@@ -153,7 +155,7 @@ def log_model(
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
 
-        :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -627,6 +629,8 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
     registered_model_name=None,
+    log_input_examples=True,
+    log_model_signatures=True,
 ):  # pylint: disable=unused-argument
     # pylint: disable=E0611
     """
@@ -696,6 +700,14 @@ def autolog(
     :param registered_model_name: If given, each time a model is trained, it is registered as a
                                   new model version of the registered model with this name.
                                   The registered model is created if it does not already exist.
+    :param log_input_examples: If ``True``, input examples from training datasets are collected and
+                               logged along with tf/keras model artifacts during training. If
+                               ``False``, input examples are not logged.
+    :param log_model_signatures: If ``True``,
+                                 :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
+                                 describing model inputs and outputs are collected and logged along
+                                 with tf/keras model artifacts during training. If ``False``,
+                                 signatures are not logged.
     """
     import tensorflow
 
@@ -875,9 +887,7 @@ def autolog(
                     # modifying their contents for future training invocations. Introduce
                     # TensorBoard & tf.keras callbacks if necessary
                     callbacks = list(args[5])
-                    callbacks, self.log_dir = _setup_callbacks(
-                        callbacks, log_models, metrics_logger
-                    )
+                    callbacks, self.log_dir = _setup_callbacks(callbacks, False, metrics_logger)
                     # Replace the callbacks positional entry in the copied arguments and convert
                     # the arguments back to tuple form for usage in the training function
                     args[5] = callbacks
@@ -887,13 +897,95 @@ def autolog(
                     # & tf.keras callbacks if necessary
                     callbacks = list(kwargs.get("callbacks") or [])
                     kwargs["callbacks"], self.log_dir = _setup_callbacks(
-                        callbacks, log_models, metrics_logger
+                        callbacks, False, metrics_logger
                     )
 
                 early_stop_callback = _get_early_stop_callback(callbacks)
                 _log_early_stop_callback_params(early_stop_callback)
 
                 history = original(inst, *args, **kwargs)
+
+                if log_models:
+                    import numpy as np
+
+                    def _is_x_type_supported_for_autologging(input_data):
+                        is_x_supported = False
+                        if isinstance(input_data, np.ndarray):
+                            is_x_supported = True
+                        elif isinstance(input_data, pandas.Series):
+                            is_x_supported = True
+                        elif isinstance(input_data, tensorflow.data.Dataset):
+                            is_x_supported = True
+                        elif isinstance(input_data, dict):
+                            is_x_supported = True
+                            for name in input_data.keys():
+                                data_type = input_data[name]
+                                if not isinstance(data_type, np.ndarray):
+                                    is_x_supported = False
+                        elif isinstance(input_data, tensorflow.keras.utils.Sequence):
+                            if isinstance(input_data[:][0], np.ndarray):
+                                is_x_supported = True
+
+                        if not is_x_supported:
+                            warnings.warn(
+                                "Tensorflow keras autologging only "
+                                "supports one of these types: numpy array, "
+                                "dictionary of (name -> numpy.ndarray), tf.data dataset"
+                            )
+                        return is_x_supported
+
+                    def _get_input_data_slice(input_example):
+                        input_example_slice = None
+                        if isinstance(input_example, np.ndarray):
+                            input_example_slice = input_example[:INPUT_EXAMPLE_SAMPLE_ROWS]
+                        elif isinstance(input_example, tensorflow.data.Dataset):
+                            input_example_slice = np.array(
+                                [
+                                    v[0]
+                                    for v in input_example.take(
+                                        INPUT_EXAMPLE_SAMPLE_ROWS
+                                    ).as_numpy_iterator()
+                                ]
+                            )
+                        elif isinstance(input_example, dict):
+                            input_example_slice = {
+                                k: np.take(v, range(0, INPUT_EXAMPLE_SAMPLE_ROWS))
+                                for k, v in input_example.items()
+                            }
+                        elif isinstance(input_example, tensorflow.keras.utils.Sequence):
+                            input_example_slice = input_example[:][0][:INPUT_EXAMPLE_SAMPLE_ROWS]
+
+                        return input_example_slice
+
+                    def _infer_model_signature(input_example):
+                        try:
+                            model_output = history.model.predict(input_example)
+                            model_signature = infer_signature(input_example, model_output)
+                        except TypeError as te:
+                            warnings.warn(str(te))
+                            model_signature = None
+                        return model_signature
+
+                    signature = None
+                    input_example = None
+                    if _is_x_type_supported_for_autologging(args[0]):
+                        input_example, signature = resolve_input_example_and_signature(
+                            lambda: _get_input_data_slice(args[0]),
+                            _infer_model_signature,
+                            log_input_examples,
+                            log_model_signatures,
+                            _logger,
+                        )
+
+                    mlflow.keras.log_model(
+                        keras_model=history.model,
+                        artifact_path="model",
+                        input_example=input_example,
+                        signature=signature,
+                        registered_model_name=get_autologging_config(
+                            FLAVOR_NAME, "registered_model_name", None
+                        ),
+                    )
 
                 _log_early_stop_callback_metrics(
                     callback=early_stop_callback,
@@ -906,8 +998,6 @@ def autolog(
                 local_dir=self.log_dir.location,
                 artifact_path="tensorboard_logs",
             )
-            if self.log_dir.is_temp:
-                shutil.rmtree(self.log_dir.location)
 
             return history
 
