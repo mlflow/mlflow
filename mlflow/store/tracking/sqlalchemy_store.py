@@ -2,6 +2,7 @@ import json
 import logging
 import uuid
 import threading
+import contextlib
 
 import math
 import sqlalchemy
@@ -221,6 +222,29 @@ class SqlAlchemyStore(AbstractStore):
             created = True
 
         return instance, created
+
+    def _get_or_create_many(self, session, model, list_of_args):
+        """
+        Receives a list of dictionary arguments and applies the _get_or_create
+        logic for all of them with a slight difference. The difference is that
+        all recently created instances are collected into a list and saved
+        to db at once.
+
+        Returns a list of tuples where first element is the instance and the
+        second element whether it was created or not.
+        """
+        instances = []
+        to_be_saved = []
+        for args in list_of_args:
+            instance = session.query(model).filter_by(**args).first()
+            created = False if instance else True
+            if created:
+                instance = model(**args)
+                to_be_saved.append(instance)
+            instances.append((instance, created))
+            
+        self._save_to_db(session=session, objs=to_be_saved)
+        return instances
 
     def _get_artifact_location(self, experiment_id):
         return append_to_uri_path(self.artifact_root_uri, str(experiment_id))
@@ -574,7 +598,7 @@ class SqlAlchemyStore(AbstractStore):
             )
             return [run_id[0] for run_id in run_ids]
 
-    def log_metric(self, run_id, metric):
+    def _get_metric_value_details(self, metric):
         _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
         is_nan = math.isnan(metric.value)
         if is_nan:
@@ -584,6 +608,10 @@ class SqlAlchemyStore(AbstractStore):
             value = 1.7976931348623157e308 if metric.value > 0 else -1.7976931348623157e308
         else:
             value = metric.value
+        return metric, value, is_nan
+
+    def log_metric(self, run_id, metric):
+        metric, value, is_nan = self._get_metric_value_details(metric)
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
@@ -603,6 +631,52 @@ class SqlAlchemyStore(AbstractStore):
             # we assume that the ``latest_metrics`` table already accounts for its presence
             if just_created:
                 self._update_latest_metric_if_necessary(logged_metric, session)
+
+    def log_metrics(self, run_id, metrics, session=None, check_run=True):
+        if not metrics:
+            return
+
+        # use a seen list and do not add same metric more than once
+        # to keep the behavior of `_get_or_create` in log_metric as it
+        # queries the session to try to fetch an instance that matches
+        # the given metric.
+        # Therefore, duplicate metric values are eliminated here to maintain
+        # the same behavior.
+        metric_args = []
+        seen = set()
+        for metric in metrics:
+            metric, value, is_nan = self._get_metric_value_details(metric)
+            if metric not in seen:
+                metric_args.append(dict(
+                    run_uuid=run_id,
+                    key=metric.key,
+                    value=value,
+                    timestamp=metric.timestamp,
+                    step=metric.step,
+                    is_nan=is_nan
+                ))
+            seen.add(metric)
+
+        # use nullcontext approach if a session is given, otherwise obtain
+        # a new session via ManagedSessionMaker
+        context = (
+            self.ManagedSessionMaker() if session is None
+            else contextlib.nullcontext(session)
+        )
+
+        with context as session:
+            if check_run:
+                run = self._get_run(run_uuid=run_id, session=session)
+                self._check_run_is_active(run)
+            instances = self._get_or_create_many(
+                session, SqlMetric, metric_args)
+            # keep the behavior of updating latest metric table if necessary
+            # for each created or retrieved metric
+            for (sql_metric, just_created) in instances:
+                if just_created:
+                    self._update_latest_metric_if_necessary(
+                        sql_metric, session)
+        
 
     @staticmethod
     def _update_latest_metric_if_necessary(logged_metric, session):
@@ -692,6 +766,38 @@ class SqlAlchemyStore(AbstractStore):
                 else:
                     raise
 
+    def log_params(self, run_id, params, session=None, check_run=True):
+        if not params:
+            return
+
+        param_args = [
+            dict(run_uuid=run_id, key=param.key, value=param.value)
+            for param in params
+        ]
+
+        # use nullcontext approach if a session is given, otherwise obtain
+        # a new session via ManagedSessionMaker
+        context = (
+            self.ManagedSessionMaker() if session is None
+            else contextlib.nullcontext(session)
+        )
+
+        with context as session:
+            if check_run:
+                run = self._get_run(run_uuid=run_id, session=session)
+                self._check_run_is_active(run)
+            
+            # commit the session to keep the behavior in `log_param`
+            # and in case of any IntegrityError, just call log_param
+            # one by one
+            try:
+                self._get_or_create_many(session, SqlParam, param_args)
+                session.commit()
+            except sqlalchemy.exc.IntegrityError:
+                session.rollback()
+                for param in params:
+                    self.log_param(run_id, param)
+
     def set_experiment_tag(self, experiment_id, tag):
         """
         Set a tag for the specified experiment
@@ -721,6 +827,32 @@ class SqlAlchemyStore(AbstractStore):
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
+
+    def set_tags(self, run_id, tags, session=None, check_run=True):
+        """
+        Set multiple tags on a run
+
+        :param run_id: String ID of the run
+        :param tags: List of RunTag instances to log
+        """
+        if not tags:
+            return
+            
+        # use nullcontext approach if a session is given, otherwise obtain
+        # a new session via ManagedSessionMaker
+        context = (
+            self.ManagedSessionMaker() if session is None
+            else contextlib.nullcontext(session)
+        )
+
+        with context as session:
+            if check_run:
+                run = self._get_run(run_uuid=run_id, session=session)
+                self._check_run_is_active(run)
+            for tag in tags:
+                _validate_tag(tag.key, tag.value)
+                session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
+
 
     def delete_tag(self, run_id, key):
         """
@@ -811,17 +943,24 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
+
+        # call log_params first as it commits the session.
+        # do not pass session and let it create its own
         try:
-            for param in params:
-                self.log_param(run_id, param)
-            for metric in metrics:
-                self.log_metric(run_id, metric)
-            for tag in tags:
-                self.set_tag(run_id, tag)
+            self.log_params(run_id, params, check_run=False)
         except MlflowException as e:
-            raise e
+                raise e
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)
+        
+        with self.ManagedSessionMaker() as session:
+            try:
+                self.log_metrics(run_id, metrics, session, check_run=False)
+                self.set_tags(run_id, tags, session, check_run=False)
+            except MlflowException as e:
+                raise e
+            except Exception as e:
+                raise MlflowException(e, INTERNAL_ERROR)
 
     def record_logged_model(self, run_id, mlflow_model):
         from mlflow.models import Model
