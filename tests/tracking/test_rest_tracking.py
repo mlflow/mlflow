@@ -123,6 +123,10 @@ def test_create_get_list_experiment(mlflow_client):
     experiment_id = mlflow_client.create_experiment(
         "My Experiment", artifact_location="my_location", tags={"key1": "val1", "key2": "val2"}
     )
+
+    with pytest.raises(MlflowException, match=r"Invalid experiment name"):
+        mlflow_client.create_experiment(3141, artifact_location="my_location", tags={"k1": "v1"})
+
     exp = mlflow_client.get_experiment(experiment_id)
     assert exp.name == "My Experiment"
     assert exp.artifact_location == "my_location"
@@ -273,6 +277,25 @@ def test_log_metrics_params_tags(mlflow_client, backend_store_uri):
     mlflow_client.set_tag(run_id, "taggity", "do-dah")
     run = mlflow_client.get_run(run_id)
     assert run.data.metrics.get("metric") == 123.456
+
+    with pytest.raises(MlflowException, match=r"Invalid value for 'run_id' supplied"):
+        mlflow_client.log_metric(31, key="metric", value=41, timestamp=59, step=26)
+
+    with pytest.raises(MlflowException, match=r"Invalid value for 'key' supplied"):
+        mlflow_client.log_metric(run_id, key=31, value=41, timestamp=59, step=26)
+
+    with pytest.raises(MlflowException, match=r"Invalid value for 'value' supplied"):
+        mlflow_client.log_metric(run_id, key="foo", value=True, timestamp=31, step=41)
+
+    with pytest.raises(MlflowException, match=r"Invalid value for 'run_id' supplied"):
+        mlflow_client.log_param(31, key="foo", value="bar", timestamp=59, step=26)
+
+    with pytest.raises(MlflowException, match=r"Invalid value for 'key' supplied"):
+        mlflow_client.log_param(run_id, key=31, value="bar", timestamp=59, step=26)
+
+    with pytest.raises(MlflowException, match=r"Invalid value for 'value' supplied"):
+        mlflow_client.log_param(run_id, key="foo", value=31, timestamp=41, step=59)
+
     import math
 
     assert math.isnan(run.data.metrics.get("nan_metric"))
