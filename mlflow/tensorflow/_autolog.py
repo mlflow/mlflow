@@ -44,7 +44,7 @@ class __MLflowTfKeras2Callback(Callback, metaclass=ExceptionSafeClass):
                 "Build the model first by calling `build()` "
                 "or by calling the model on a batch of data." == str(ex)
             ):
-                warnings.warn("s")
+                warnings.warn(str(ex))
             else:
                 raise ex
 
