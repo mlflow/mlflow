@@ -47,7 +47,6 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_JOB_TYPE_INFO,
 )
 from mlflow.utils.validation import _validate_run_id
-from mlflow.entities import SourceType
 
 if TYPE_CHECKING:
     import pandas  # pylint: disable=unused-import
@@ -1358,7 +1357,7 @@ def _create_job_experiment() -> str:
     job_id = get_job_id()
     tags = {}
     tags[MLFLOW_DATABRICKS_JOB_TYPE_INFO] = get_job_type_info()
-    tags[MLFLOW_EXPERIMENT_SOURCE_TYPE] = SourceType.to_string(SourceType.JOB)
+    tags[MLFLOW_EXPERIMENT_SOURCE_TYPE] = "JOB"
     tags[MLFLOW_EXPERIMENT_SOURCE_ID] = job_id
 
     experiment_id = create_experiment(get_experiment_name_from_job_id(job_id), None, tags)
