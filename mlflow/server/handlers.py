@@ -317,7 +317,7 @@ def _validate_param_against_schema(schema, param, value):
         Draft202012Validator(schema).validate(value)
     except ValidationError as e:
         raise MlflowException(
-            message="Invalid value supplied for '{}''".format(param) + e.message,
+            message="Invalid value for '{}' supplied.".format(param) + "\n" + e.message,
             error_code=INVALID_PARAMETER_VALUE
         )
 
