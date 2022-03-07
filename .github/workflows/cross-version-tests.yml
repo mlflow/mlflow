@@ -150,7 +150,9 @@ jobs:
       - name: Install mlflow & test dependencies
         run: |
           python --version
-          pip install --upgrade pip wheel
+          pip install --upgrade pip
+          latest_pip_version=$(pip --version | cut -d ' ' -f 2)
+          pip install --upgrade "pip<$latest_pip_version" wheel
           pip install -e .
           pip install -r requirements/small-requirements.txt
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
