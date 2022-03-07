@@ -1022,6 +1022,8 @@ def test_fluent_autolog_with_tf_keras_preserves_v2_model_reference():
 def test_import_tensorflow_with_fluent_autolog_enables_tf_autologging():
     mlflow.autolog()
 
+    import tensorflow  # pylint: disable=unused-variable,unused-import,reimported
+
     assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
 
     # NB: In Tensorflow >= 2.6, we redirect keras autologging to tensorflow autologging
@@ -1036,6 +1038,8 @@ def test_import_tensorflow_with_fluent_autolog_enables_tf_autologging():
 @pytest.mark.usefixtures("clear_tf_keras_imports")
 def test_import_tf_keras_with_fluent_autolog_enables_tf_autologging():
     mlflow.autolog()
+
+    import tensorflow.keras  # pylint: disable=unused-variable,unused-import
 
     assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
 
