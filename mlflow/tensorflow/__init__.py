@@ -954,15 +954,14 @@ def autolog(
                                             ).as_numpy_iterator()
                                         ]
                                     )[0]
-                                else:
-                                    return np.array(
-                                        [
-                                            v[0]
-                                            for v in input_example_n_steps.take(
-                                                INPUT_EXAMPLE_SAMPLE_ROWS
-                                            ).as_numpy_iterator()
-                                        ]
-                                    )
+                                return np.array(
+                                    [
+                                        v[0]
+                                        for v in input_example_n_steps.take(
+                                            INPUT_EXAMPLE_SAMPLE_ROWS
+                                        ).as_numpy_iterator()
+                                    ]
+                                )
 
                             return _extract_n_steps(input_example)
                         elif isinstance(input_example, dict):
