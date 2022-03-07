@@ -930,23 +930,41 @@ def autolog(
                             warnings.warn(
                                 "Tensorflow keras autologging only "
                                 "supports one of these types: numpy array, "
-                                "dictionary of (name -> numpy.ndarray), tf.data dataset"
+                                "dictionary of (name -> numpy.ndarray), "
+                                "tf.data dataset or tf.keras.utils.Sequence"
                             )
                         return is_x_supported
 
-                    def _get_input_data_slice(input_example):
+                    def _get_input_data_slice(input_example, history):
                         input_example_slice = None
                         if isinstance(input_example, np.ndarray):
                             input_example_slice = input_example[:INPUT_EXAMPLE_SAMPLE_ROWS]
                         elif isinstance(input_example, tensorflow.data.Dataset):
-                            input_example_slice = np.array(
-                                [
-                                    v[0]
-                                    for v in input_example.take(
-                                        INPUT_EXAMPLE_SAMPLE_ROWS
-                                    ).as_numpy_iterator()
-                                ]
-                            )
+                            steps = 1
+                            if history.params is not None and "steps" in history.params:
+                                steps = history.params["steps"]
+
+                            def _extract_n_steps(input_example_n_steps):
+                                if steps > 1:
+                                    return np.array(
+                                        [
+                                            v[0][:INPUT_EXAMPLE_SAMPLE_ROWS]
+                                            for v in input_example_n_steps.take(
+                                                1
+                                            ).as_numpy_iterator()
+                                        ]
+                                    )[0]
+                                else:
+                                    return np.array(
+                                        [
+                                            v[0]
+                                            for v in input_example_n_steps.take(
+                                                INPUT_EXAMPLE_SAMPLE_ROWS
+                                            ).as_numpy_iterator()
+                                        ]
+                                    )
+
+                            return _extract_n_steps(input_example)
                         elif isinstance(input_example, dict):
                             input_example_slice = {
                                 k: np.take(v, range(0, INPUT_EXAMPLE_SAMPLE_ROWS))
@@ -970,7 +988,7 @@ def autolog(
                     input_example = None
                     if _is_x_type_supported_for_autologging(args[0]):
                         input_example, signature = resolve_input_example_and_signature(
-                            lambda: _get_input_data_slice(args[0]),
+                            lambda: _get_input_data_slice(args[0], history),
                             _infer_model_signature,
                             log_input_examples,
                             log_model_signatures,
@@ -998,7 +1016,8 @@ def autolog(
                 local_dir=self.log_dir.location,
                 artifact_path="tensorboard_logs",
             )
-
+            if self.log_dir.is_temp:
+                shutil.rmtree(self.log_dir.location)
             return history
 
         def _on_exception(self, exception):
