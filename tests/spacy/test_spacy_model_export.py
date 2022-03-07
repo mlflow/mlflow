@@ -422,14 +422,16 @@ def test_pyfunc_serve_and_score(spacy_model_with_data):
 
 
 @pytest.mark.large
-def test_save_model_with_code_paths(spacy_model_with_data, model_path):
-    with mock.patch("mlflow.pyfunc.utils._add_code_from_conf_to_system_path") as add_mock:
-        mlflow.spacy.save_model(
-            spacy_model=spacy_model_with_data.model, path=model_path, code_paths=[__file__]
-        )
-        _compare_logged_code_paths(__file__, model_path)
-        mlflow.spacy.load_model(model_path)
-        add_mock.assert_called_with(model_path)
+def test_log_model_with_code_paths(spacy_model_with_data):
+    artifact_path = "model"
+    with mlflow.start_run(), mock.patch(
+        "mlflow.pyfunc.utils._add_code_from_conf_to_system_path"
+    ) as add_mock:
+        mlflow.spacy.log_model(spacy_model_with_data.model, artifact_path, code_paths=[__file__])
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+        _compare_logged_code_paths(__file__, model_uri)
+        mlflow.spacy.load_model(model_uri)
+        add_mock.assert_called_with(os.path.realpath(model_uri))
 
 
 def _train_model(nlp, train_data, n_iter=5):

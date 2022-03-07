@@ -412,11 +412,13 @@ def test_pyfunc_serve_and_score(prophet_model):
     )
 
 
-def test_save_model_with_code_paths(prophet_model, model_path):
-    with mock.patch("mlflow.pyfunc.utils._add_code_from_conf_to_system_path") as add_mock:
-        mlflow.prophet.save_model(
-            pr_model=prophet_model.model, path=model_path, code_paths=[__file__]
-        )
-        _compare_logged_code_paths(__file__, model_path)
-        mlflow.prophet.load_model(model_uri=model_path)
-        add_mock.assert_called_with(model_path)
+def test_log_model_with_code_paths(prophet_model):
+    artifact_path = "model"
+    with mlflow.start_run(), mock.patch(
+        "mlflow.pyfunc.utils._add_code_from_conf_to_system_path"
+    ) as add_mock:
+        mlflow.prophet.log_model(prophet_model.model, artifact_path, code_paths=[__file__])
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+        _compare_logged_code_paths(__file__, model_uri)
+        mlflow.prophet.load_model(model_uri)
+        add_mock.assert_called_with(os.path.realpath(model_uri))

@@ -797,15 +797,19 @@ def test_tf_saved_model_model_with_tf_keras_api(tmpdir):
     load_and_predict()
 
 
-def test_save_model_with_code_paths(saved_tf_iris_model, model_path):
-    with mock.patch("mlflow.pyfunc.utils._add_code_from_conf_to_system_path") as add_mock:
-        mlflow.tensorflow.save_model(
+def test_log_model_with_code_paths(saved_tf_iris_model):
+    artifact_path = "model"
+    with mlflow.start_run(), mock.patch(
+        "mlflow.pyfunc.utils._add_code_from_conf_to_system_path"
+    ) as add_mock:
+        mlflow.tensorflow.log_model(
             tf_saved_model_dir=saved_tf_iris_model.path,
             tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
             tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-            path=model_path,
+            artifact_path=artifact_path,
             code_paths=[__file__],
         )
-        _compare_logged_code_paths(__file__, model_path)
-        mlflow.tensorflow.load_model(model_uri=model_path)
-        add_mock.assert_called_with(model_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+        _compare_logged_code_paths(__file__, model_uri)
+        mlflow.tensorflow.load_model(model_uri)
+        add_mock.assert_called_with(os.path.realpath(model_uri))

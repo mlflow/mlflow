@@ -530,9 +530,13 @@ def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(xgb_model,
     )
 
 
-def test_save_model_with_code_paths(xgb_model, model_path):
-    with mock.patch("mlflow.pyfunc.utils._add_code_from_conf_to_system_path") as add_mock:
-        mlflow.xgboost.save_model(xgb_model=xgb_model.model, path=model_path, code_paths=[__file__])
-        _compare_logged_code_paths(__file__, model_path)
-        mlflow.xgboost.load_model(model_uri=model_path)
-        add_mock.assert_called_with(model_path)
+def test_log_model_with_code_paths(xgb_model):
+    artifact_path = "model"
+    with mlflow.start_run(), mock.patch(
+        "mlflow.pyfunc.utils._add_code_from_conf_to_system_path"
+    ) as add_mock:
+        mlflow.xgboost.log_model(xgb_model.model, artifact_path, code_paths=[__file__])
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+        _compare_logged_code_paths(__file__, model_uri)
+        mlflow.xgboost.load_model(model_uri=model_uri)
+        add_mock.assert_called_with(os.path.realpath(model_uri))

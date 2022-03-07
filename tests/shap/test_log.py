@@ -1,4 +1,5 @@
 import mlflow
+import os
 import shap
 import numpy as np
 import pandas as pd
@@ -319,10 +320,13 @@ def test_pyfunc_serve_and_score():
     np.testing.assert_allclose(scores, model(X[:3]).values, rtol=100, atol=100)
 
 
-def test_save_model_with_code_paths(shap_model, tmpdir):
-    with mock.patch("mlflow.pyfunc.utils._add_code_from_conf_to_system_path") as add_mock:
-        model_path = tmpdir.join("code-path-test").strpath
-        mlflow.shap.save_explainer(shap_model, path=model_path, code_paths=[__file__])
-        _compare_logged_code_paths(__file__, model_path)
-        mlflow.shap.load_explainer(model_uri=model_path)
-        add_mock.assert_called_with(model_path)
+def test_log_model_with_code_paths(shap_model):
+    artifact_path = "model"
+    with mlflow.start_run(), mock.patch(
+        "mlflow.pyfunc.utils._add_code_from_conf_to_system_path"
+    ) as add_mock:
+        mlflow.shap.log_explainer(shap_model, artifact_path, code_paths=[__file__])
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+        _compare_logged_code_paths(__file__, model_uri)
+        mlflow.shap.load_explainer(model_uri)
+        add_mock.assert_called_with(os.path.realpath(model_uri))
