@@ -1095,6 +1095,10 @@ def _assert_keras_autolog_input_example_load_and_predict_with_nparray(run, rando
 
 
 @pytest.mark.large
+@pytest.mark.skipif(
+    Version(tf.__version__) < Version("2.6.0"),
+    reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
+    )
 def test_keras_autolog_input_example_load_and_predict_with_nparray(
     random_train_data, random_one_hot_labels
 ):
@@ -1106,6 +1110,10 @@ def test_keras_autolog_input_example_load_and_predict_with_nparray(
 
 
 @pytest.mark.large
+@pytest.mark.skipif(
+    Version(tf.__version__) < Version("2.6.0"),
+    reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
+    )
 def test_keras_autolog_infers_model_signature_correctly_with_nparray(
     random_train_data, random_one_hot_labels
 ):
@@ -1121,6 +1129,10 @@ def test_keras_autolog_infers_model_signature_correctly_with_nparray(
 
 
 @pytest.mark.large
+@pytest.mark.skipif(
+    Version(tf.__version__) < Version("2.6.0"),
+    reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
+    )
 def test_keras_autolog_input_example_load_and_predict_with_tf_dataset(fashion_mnist_tf_dataset):
     mlflow.tensorflow.autolog()
     fashion_mnist_model = _create_fashion_mnist_model()
@@ -1135,6 +1147,10 @@ def test_keras_autolog_input_example_load_and_predict_with_tf_dataset(fashion_mn
 
 
 @pytest.mark.large
+@pytest.mark.skipif(
+    Version(tf.__version__) < Version("2.6.0"),
+    reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
+    )
 def test_keras_autolog_infers_model_signature_correctly_with_tf_dataset(fashion_mnist_tf_dataset):
     mlflow.tensorflow.autolog()
     fashion_mnist_model = _create_fashion_mnist_model()
@@ -1148,6 +1164,10 @@ def test_keras_autolog_infers_model_signature_correctly_with_tf_dataset(fashion_
 
 
 @pytest.mark.large
+@pytest.mark.skipif(
+    Version(tf.__version__) < Version("2.6.0"),
+    reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
+    )
 def test_keras_autolog_input_example_load_and_predict_with_dict(
     random_train_dict_mapping, random_one_hot_labels
 ):
@@ -1166,6 +1186,10 @@ def test_keras_autolog_input_example_load_and_predict_with_dict(
 
 
 @pytest.mark.large
+@pytest.mark.skipif(
+    Version(tf.__version__) < Version("2.6.0"),
+    reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
+    )
 def test_keras_autolog_infers_model_signature_correctly_with_dict(
     random_train_dict_mapping, random_one_hot_labels
 ):
@@ -1186,6 +1210,10 @@ def test_keras_autolog_infers_model_signature_correctly_with_dict(
 
 
 @pytest.mark.large
+@pytest.mark.skipif(
+    Version(tf.__version__) < Version("2.6.0"),
+    reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
+    )
 def test_keras_autolog_input_example_load_and_predict_with_keras_sequence(keras_data_gen_sequence):
     mlflow.tensorflow.autolog()
     model = create_tf_keras_model()
@@ -1197,6 +1225,10 @@ def test_keras_autolog_input_example_load_and_predict_with_keras_sequence(keras_
 
 
 @pytest.mark.large
+@pytest.mark.skipif(
+    Version(tf.__version__) < Version("2.6.0"),
+    reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
+    )
 def test_keras_autolog_infers_model_signature_correctly_with_keras_sequence(
     keras_data_gen_sequence,
 ):
