@@ -621,7 +621,6 @@ def _load_model_databricks(model_uri, dfs_tmpdir):
 
     # Download model saved to remote URI to local filesystem
     local_model_path = _download_artifact_from_uri(model_uri)
-    pyfunc.utils._add_code_from_conf_to_system_path(local_model_path)
     # Spark ML expects the model to be stored on DFS
     # Copy the model to a temp DFS location first. We cannot delete this file, as
     # Spark may read from it at any point.
@@ -689,7 +688,10 @@ def load_model(model_uri, dfs_tmpdir=None):
         model_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
         _logger.info("'%s' resolved as '%s'", runs_uri, model_uri)
     flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)
+
     model_uri = append_to_uri_path(model_uri, flavor_conf["model_data"])
+    local_model_path = _download_artifact_from_uri(model_uri)
+    pyfunc.utils._add_code_from_conf_to_system_path(local_model_path)
     return _load_model(model_uri=model_uri, dfs_tmpdir_base=dfs_tmpdir)
 
 

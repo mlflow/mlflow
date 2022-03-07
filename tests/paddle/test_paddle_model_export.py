@@ -574,4 +574,4 @@ def test_log_model_with_code_paths(pd_model):
         model_uri = mlflow.get_artifact_uri(artifact_path)
         _compare_logged_code_paths(__file__, model_uri)
         mlflow.paddle.load_model(model_uri)
-        add_mock.assert_called_with(os.path.realpath(model_path))
+        add_mock.assert_called_with(os.path.realpath(model_uri))

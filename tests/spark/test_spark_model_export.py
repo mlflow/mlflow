@@ -1,5 +1,6 @@
 import logging
 import os
+import posixpath
 
 import json
 from unittest import mock
@@ -36,6 +37,7 @@ from tests.helper_functions import (
     _compare_conda_env_requirements,
     _get_pip_deps,
     _assert_pip_requirements,
+    _compare_logged_code_paths,
 )
 from tests.pyfunc.test_spark import score_model_as_udf, get_spark_session
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
@@ -676,3 +678,19 @@ def test_shutil_copytree_without_file_permissions(tmpdir):
     assert set(os.listdir(dst_dir.join("subdir").strpath)) == {"subdir-file.txt"}
     assert dst_dir.join("subdir").join("subdir-file.txt").read() == "testing 123"
     assert dst_dir.join("top-level-file.txt").read() == "hi"
+
+
+def test_log_model_with_code_paths(spark_model_iris):
+    artifact_path = "model"
+    with mlflow.start_run(), mock.patch(
+        "mlflow.pyfunc.utils._add_code_from_conf_to_system_path"
+    ) as add_mock:
+        sparkm.log_model(
+            spark_model=spark_model_iris.model, artifact_path=artifact_path, code_paths=[__file__]
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+        _compare_logged_code_paths(__file__, model_uri)
+        sparkm.load_model(model_uri)
+        add_mock.assert_called_with(
+            posixpath.join(os.path.realpath(model_uri), sparkm._SPARK_MODEL_PATH_SUB)
+        )
