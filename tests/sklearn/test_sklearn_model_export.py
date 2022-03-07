@@ -627,10 +627,10 @@ def test_pyfunc_serve_and_score(sklearn_knn_model):
 def test_log_model_with_code_paths(sklearn_knn_model):
     artifact_path = "model"
     with mlflow.start_run(), mock.patch(
-        "mlflow.pyfunc.utils._add_code_from_conf_to_system_path"
+        "mlflow.sklearn._add_code_from_conf_to_system_path"
     ) as add_mock:
         mlflow.sklearn.log_model(sklearn_knn_model.model, artifact_path, code_paths=[__file__])
         model_uri = mlflow.get_artifact_uri(artifact_path)
-        _compare_logged_code_paths(__file__, model_uri)
+        _compare_logged_code_paths(__file__, model_uri, mlflow.sklearn.FLAVOR_NAME)
         mlflow.sklearn.load_model(model_uri=model_uri)
-        add_mock.assert_called_with(os.path.realpath(model_uri))
+        add_mock.assert_called()

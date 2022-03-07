@@ -29,7 +29,12 @@ from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
 )
-from mlflow.utils.file_utils import write_to, _validate_code_paths, _copy_code_paths
+from mlflow.utils.file_utils import (
+    write_to,
+    _validate_code_paths,
+    _copy_code_paths,
+    _add_code_from_conf_to_system_path,
+)
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
@@ -476,6 +481,7 @@ def save_explainer(
         shap_version=shap.__version__,
         serialized_explainer=explainer_data_subpath,
         underlying_model_flavor=underlying_model_flavor,
+        code=code_dir_subpath,
     )
 
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
@@ -598,8 +604,8 @@ def load_explainer(model_uri):
     """
 
     explainer_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    pyfunc.utils._add_code_from_conf_to_system_path(explainer_path)
     flavor_conf = _get_flavor_configuration(model_path=explainer_path, flavor_name=FLAVOR_NAME)
+    _add_code_from_conf_to_system_path(explainer_path, flavor_conf)
     explainer_artifacts_path = os.path.join(explainer_path, flavor_conf["serialized_explainer"])
     underlying_model_flavor = flavor_conf["underlying_model_flavor"]
     model = None

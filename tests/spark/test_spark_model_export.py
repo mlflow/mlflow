@@ -1,6 +1,5 @@
 import logging
 import os
-import posixpath
 
 import json
 from unittest import mock
@@ -683,14 +682,12 @@ def test_shutil_copytree_without_file_permissions(tmpdir):
 def test_log_model_with_code_paths(spark_model_iris):
     artifact_path = "model"
     with mlflow.start_run(), mock.patch(
-        "mlflow.pyfunc.utils._add_code_from_conf_to_system_path"
+        "mlflow.spark._add_code_from_conf_to_system_path"
     ) as add_mock:
         sparkm.log_model(
             spark_model=spark_model_iris.model, artifact_path=artifact_path, code_paths=[__file__]
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
-        _compare_logged_code_paths(__file__, model_uri)
+        _compare_logged_code_paths(__file__, model_uri, mlflow.spark.FLAVOR_NAME)
         sparkm.load_model(model_uri)
-        add_mock.assert_called_with(
-            posixpath.join(os.path.realpath(model_uri), sparkm._SPARK_MODEL_PATH_SUB)
-        )
+        add_mock.assert_called()

@@ -481,10 +481,10 @@ def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(lgb_model,
 def test_log_model_with_code_paths(lgb_model):
     artifact_path = "model"
     with mlflow.start_run(), mock.patch(
-        "mlflow.pyfunc.utils._add_code_from_conf_to_system_path"
+        "mlflow.lightgbm._add_code_from_conf_to_system_path"
     ) as add_mock:
         mlflow.lightgbm.log_model(lgb_model.model, artifact_path, code_paths=[__file__])
         model_uri = mlflow.get_artifact_uri(artifact_path)
-        _compare_logged_code_paths(__file__, model_uri)
+        _compare_logged_code_paths(__file__, model_uri, mlflow.lightgbm.FLAVOR_NAME)
         mlflow.lightgbm.load_model(model_uri)
-        add_mock.assert_called_with(os.path.realpath(model_uri))
+        add_mock.assert_called()

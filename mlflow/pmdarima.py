@@ -29,7 +29,12 @@ from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.utils.file_utils import write_to, _validate_code_paths, _copy_code_paths
+from mlflow.utils.file_utils import (
+    write_to,
+    _validate_code_paths,
+    _copy_code_paths,
+    _add_code_from_conf_to_system_path,
+)
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
@@ -156,7 +161,9 @@ def save_model(
         _MODEL_TYPE_KEY: pmdarima_model.__class__.__name__,
         **model_bin_kwargs,
     }
-    mlflow_model.add_flavor(FLAVOR_NAME, pmdarima_version=pmdarima.__version__, **flavor_conf)
+    mlflow_model.add_flavor(
+        FLAVOR_NAME, pmdarima_version=pmdarima.__version__, code=code_dir_subpath, **flavor_conf
+    )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
@@ -288,8 +295,8 @@ def load_model(model_uri, dst_path=None):
     :return: A ``pmdarima`` model instance
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
-    pyfunc.utils._add_code_from_conf_to_system_path(local_model_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     pmdarima_model_file_path = os.path.join(
         local_model_path, flavor_conf.get(_MODEL_BINARY_KEY, _MODEL_BINARY_FILE_NAME)
     )

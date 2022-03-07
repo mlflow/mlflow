@@ -48,7 +48,13 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
-from mlflow.utils.file_utils import TempDir, write_to, _validate_code_paths, _copy_code_paths
+from mlflow.utils.file_utils import (
+    TempDir,
+    write_to,
+    _validate_code_paths,
+    _copy_code_paths,
+    _add_code_from_conf_to_system_path,
+)
 from mlflow.utils.uri import (
     is_local_uri,
     append_to_uri_path,
@@ -410,10 +416,13 @@ def _save_model_metadata(
     if input_example is not None:
         _save_example(mlflow_model, input_example, dst_dir)
 
-    mlflow_model.add_flavor(
-        FLAVOR_NAME, pyspark_version=pyspark.__version__, model_data=_SPARK_MODEL_PATH_SUB
-    )
     code_dir_subpath = _copy_code_paths(code_paths, dst_dir)
+    mlflow_model.add_flavor(
+        FLAVOR_NAME,
+        pyspark_version=pyspark.__version__,
+        model_data=_SPARK_MODEL_PATH_SUB,
+        code=code_dir_subpath,
+    )
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.spark",
@@ -688,10 +697,10 @@ def load_model(model_uri, dfs_tmpdir=None):
         model_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
         _logger.info("'%s' resolved as '%s'", runs_uri, model_uri)
     flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)
-
     model_uri = append_to_uri_path(model_uri, flavor_conf["model_data"])
     local_model_path = _download_artifact_from_uri(model_uri)
-    pyfunc.utils._add_code_from_conf_to_system_path(local_model_path)
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
+
     return _load_model(model_uri=model_uri, dfs_tmpdir_base=dfs_tmpdir)
 
 

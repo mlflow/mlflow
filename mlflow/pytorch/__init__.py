@@ -20,7 +20,6 @@ import posixpath
 
 import mlflow
 import shutil
-import mlflow.pyfunc.utils as pyfunc_utils
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature
@@ -41,7 +40,13 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.file_utils import _copy_code_paths, _validate_code_paths, TempDir, write_to
+from mlflow.utils.file_utils import (
+    _copy_code_paths,
+    _validate_code_paths,
+    _add_code_from_conf_to_system_path,
+    TempDir,
+    write_to,
+)
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
@@ -546,6 +551,7 @@ def save_model(
         FLAVOR_NAME,
         model_data=model_data_subpath,
         pytorch_version=str(torch.__version__),
+        code=code_dir_subpath,
         **torchserve_artifacts_config,
     )
     pyfunc.add_to_model(
@@ -702,10 +708,9 @@ def load_model(model_uri, dst_path=None, **kwargs):
     import torch
 
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
-
-    pyfunc_utils._add_code_from_conf_to_system_path(local_model_path)
-
     pytorch_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    _add_code_from_conf_to_system_path(local_model_path, pytorch_conf)
+
     if torch.__version__ != pytorch_conf["pytorch_version"]:
         _logger.warning(
             "Stored model version '%s' does not match installed PyTorch version '%s'",

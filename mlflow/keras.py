@@ -36,7 +36,12 @@ from mlflow.utils.environment import (
     _CONSTRAINTS_FILE_NAME,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.file_utils import write_to, _copy_code_paths, _validate_code_paths
+from mlflow.utils.file_utils import (
+    write_to,
+    _copy_code_paths,
+    _validate_code_paths,
+    _add_code_from_conf_to_system_path,
+)
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.autologging_utils import (
@@ -261,6 +266,7 @@ def save_model(
     else:
         keras_model.save(model_path, **kwargs)
 
+    code_dir_subpath = _copy_code_paths(code_paths, path)
     # update flavor info to mlflow_model
     mlflow_model.add_flavor(
         FLAVOR_NAME,
@@ -268,9 +274,9 @@ def save_model(
         keras_version=keras_module.__version__,
         save_format=save_format,
         data=data_subpath,
+        code=code_dir_subpath,
     )
 
-    code_dir_subpath = _copy_code_paths(code_paths, path)
     # append loader_module, data and env data to mlflow_model
     pyfunc.add_to_model(
         mlflow_model,
@@ -559,8 +565,8 @@ def load_model(model_uri, dst_path=None, **kwargs):
         predictions = keras_model.predict(x_test)
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
-    pyfunc.utils._add_code_from_conf_to_system_path(local_model_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     keras_module = importlib.import_module(flavor_conf.get("keras_module", "keras"))
     keras_model_artifacts_path = os.path.join(
         local_model_path, flavor_conf.get("data", _MODEL_SAVE_PATH)

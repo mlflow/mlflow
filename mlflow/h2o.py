@@ -28,7 +28,12 @@ from mlflow.utils.environment import (
     _CONSTRAINTS_FILE_NAME,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.file_utils import write_to, _copy_code_paths, _validate_code_paths
+from mlflow.utils.file_utils import (
+    write_to,
+    _copy_code_paths,
+    _validate_code_paths,
+    _add_code_from_conf_to_system_path,
+)
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import _get_flavor_configuration
 
@@ -142,7 +147,9 @@ def save_model(
         env=_CONDA_ENV_FILE_NAME,
         code=code_dir_subpath,
     )
-    mlflow_model.add_flavor(FLAVOR_NAME, h2o_version=h2o.__version__, data=model_data_subpath)
+    mlflow_model.add_flavor(
+        FLAVOR_NAME, h2o_version=h2o.__version__, data=model_data_subpath, code=code_dir_subpath
+    )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
@@ -311,8 +318,8 @@ def load_model(model_uri, dst_path=None):
              <http://docs.h2o.ai/h2o/latest-stable/h2o-py/docs/intro.html#models>`_.
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
-    pyfunc.utils._add_code_from_conf_to_system_path(local_model_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     # Flavor configurations for models saved in MLflow version <= 0.8.0 may not contain a
     # `data` key; in this case, we assume the model artifact path to be `model.h2o`
     h2o_model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model.h2o"))

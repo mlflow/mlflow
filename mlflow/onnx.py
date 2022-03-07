@@ -34,7 +34,12 @@ from mlflow.utils.environment import (
     _CONSTRAINTS_FILE_NAME,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.file_utils import write_to, _validate_code_paths, _copy_code_paths
+from mlflow.utils.file_utils import (
+    write_to,
+    _validate_code_paths,
+    _copy_code_paths,
+    _add_code_from_conf_to_system_path,
+)
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -164,6 +169,7 @@ def save_model(
         onnx_version=onnx.__version__,
         data=model_data_subpath,
         providers=onnx_execution_providers,
+        code=code_dir_subpath,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
@@ -375,8 +381,8 @@ def load_model(model_uri, dst_path=None):
 
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
-    pyfunc.utils._add_code_from_conf_to_system_path(local_model_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     onnx_model_artifacts_path = os.path.join(local_model_path, flavor_conf["data"])
     return _load_model(model_file=onnx_model_artifacts_path)
 

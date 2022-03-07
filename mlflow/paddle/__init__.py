@@ -35,7 +35,12 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.file_utils import write_to, _copy_code_paths, _validate_code_paths
+from mlflow.utils.file_utils import (
+    write_to,
+    _copy_code_paths,
+    _validate_code_paths,
+    _add_code_from_conf_to_system_path,
+)
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
@@ -231,6 +236,7 @@ def save_model(
         FLAVOR_NAME,
         pickled_model=model_data_subpath,
         paddle_version=paddle.__version__,
+        code=code_dir_subpath,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
@@ -303,8 +309,8 @@ def load_model(model_uri, model=None, dst_path=None, **kwargs):
     import paddle
 
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
-    pyfunc.utils._add_code_from_conf_to_system_path(local_model_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     pd_model_artifacts_path = os.path.join(local_model_path, flavor_conf["pickled_model"])
     if model is None:
         return paddle.jit.load(pd_model_artifacts_path, **kwargs)

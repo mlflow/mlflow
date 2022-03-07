@@ -45,7 +45,12 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils import gorilla
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.file_utils import write_to, _copy_code_paths, _validate_code_paths
+from mlflow.utils.file_utils import (
+    write_to,
+    _copy_code_paths,
+    _validate_code_paths,
+    _add_code_from_conf_to_system_path,
+)
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -265,6 +270,7 @@ def save_model(
         pickled_model=model_data_subpath,
         sklearn_version=sklearn.__version__,
         serialization_format=serialization_format,
+        code=code_path_subdir,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
@@ -562,7 +568,7 @@ def load_model(model_uri, dst_path=None):
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
-    pyfunc.utils._add_code_from_conf_to_system_path(local_model_path)
+    _add_code_from_conf_to_system_path(local_model_path, FLAVOR_NAME)
     sklearn_model_artifacts_path = os.path.join(local_model_path, flavor_conf["pickled_model"])
     serialization_format = flavor_conf.get("serialization_format", SERIALIZATION_FORMAT_PICKLE)
     return _load_model_from_local_file(

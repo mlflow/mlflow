@@ -51,6 +51,7 @@ from mlflow.utils.file_utils import (
     write_to,
     _copy_code_paths,
     _validate_code_paths,
+    _add_code_from_conf_to_system_path,
 )
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.autologging_utils import (
@@ -303,7 +304,7 @@ def save_model(
     )
 
     code_dir_subpath = _copy_code_paths(code_paths, path)
-    mlflow_model.add_flavor(FLAVOR_NAME, **flavor_conf)
+    mlflow_model.add_flavor(FLAVOR_NAME, code=code_dir_subpath, **flavor_conf)
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.tensorflow",
@@ -394,12 +395,13 @@ def load_model(model_uri, dst_path=None):
                                 for _, output_signature in signature_definition.outputs.items()]
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
-    pyfunc.utils._add_code_from_conf_to_system_path(local_model_path)
+    flavor_conf = _get_flavor_configuration(local_model_path, FLAVOR_NAME)
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     (
         tf_saved_model_dir,
         tf_meta_graph_tags,
         tf_signature_def_key,
-    ) = _get_and_parse_flavor_configuration(model_path=local_model_path)
+    ) = _parse_flavor_configuration(flavor_conf, local_model_path)
     return _load_tensorflow_saved_model(
         tf_saved_model_dir=tf_saved_model_dir,
         tf_meta_graph_tags=tf_meta_graph_tags,
@@ -439,7 +441,7 @@ def _load_tensorflow_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_sign
     return loaded_sig[tf_signature_def_key]
 
 
-def _get_and_parse_flavor_configuration(model_path):
+def _parse_flavor_configuration(flavor_conf, model_path):
     """
     :param path: Local filesystem path to the MLflow Model with the ``tensorflow`` flavor.
     :return: A triple containing the following elements:
@@ -452,7 +454,6 @@ def _get_and_parse_flavor_configuration(model_path):
                                          with the model. This is a key within the serialized
                                          ``SavedModel``'s signature definition mapping.
     """
-    flavor_conf = _get_flavor_configuration(model_path=model_path, flavor_name=FLAVOR_NAME)
     tf_saved_model_dir = os.path.join(model_path, flavor_conf["saved_model_dir"])
     tf_meta_graph_tags = flavor_conf["meta_graph_tags"]
     tf_signature_def_key = flavor_conf["signature_def_key"]
@@ -469,11 +470,12 @@ def _load_pyfunc(path):
     """
     import tensorflow
 
+    flavor_conf = _get_flavor_configuration(path, FLAVOR_NAME)
     (
         tf_saved_model_dir,
         tf_meta_graph_tags,
         tf_signature_def_key,
-    ) = _get_and_parse_flavor_configuration(model_path=path)
+    ) = _parse_flavor_configuration(flavor_conf, path)
 
     loaded_model = tensorflow.saved_model.load(  # pylint: disable=no-value-for-parameter
         export_dir=tf_saved_model_dir, tags=tf_meta_graph_tags

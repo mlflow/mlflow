@@ -320,10 +320,10 @@ def test_gluon_model_serving_and_scoring_as_pyfunc(gluon_model, model_data):
 def test_log_model_with_code_paths(gluon_model):
     artifact_path = "model"
     with mlflow.start_run(), mock.patch(
-        "mlflow.pyfunc.utils._add_code_from_conf_to_system_path"
+        "mlflow.gluon._add_code_from_conf_to_system_path"
     ) as add_mock:
         mlflow.gluon.log_model(gluon_model, artifact_path, code_paths=[__file__])
         model_uri = mlflow.get_artifact_uri(artifact_path)
-        _compare_logged_code_paths(__file__, model_uri)
+        _compare_logged_code_paths(__file__, model_uri, mlflow.gluon.FLAVOR_NAME)
         mlflow.gluon.load_model(model_uri, ctx.cpu())
-        add_mock.assert_called_with(os.path.realpath(model_uri))
+        add_mock.assert_called()

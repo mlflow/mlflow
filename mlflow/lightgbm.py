@@ -45,7 +45,12 @@ from mlflow.utils.environment import (
     _CONSTRAINTS_FILE_NAME,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.file_utils import write_to, _copy_code_paths, _validate_code_paths
+from mlflow.utils.file_utils import (
+    write_to,
+    _copy_code_paths,
+    _validate_code_paths,
+    _add_code_from_conf_to_system_path,
+)
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
@@ -169,6 +174,7 @@ def save_model(
         lgb_version=lgb.__version__,
         data=model_data_subpath,
         model_class=lgb_model_class,
+        code=code_dir_subpath,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
@@ -352,7 +358,8 @@ def load_model(model_uri, dst_path=None):
              model, depending on the saved model class specification.
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
-    pyfunc.utils._add_code_from_conf_to_system_path(local_model_path)
+    flavor_conf = _get_flavor_configuration(local_model_path, FLAVOR_NAME)
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     return _load_model(path=local_model_path)
 
 
