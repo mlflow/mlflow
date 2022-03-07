@@ -61,7 +61,7 @@ Bug fixes and documentation updates:
 
 - [Models] Fix a bug in MLflow Model schema enforcement where strings were incorrectly cast to Pandas objects (#5134, @stevenchen-db)
 - [Models] Fix a bug where keyword arguments passed to `mlflow.pytorch.load_model()` were not applied for scripted models (#5163, @schmidt-jake)
-- [Model Registry][r] Fix bug in R client `mlflow_create_model_version()` API that caused model `source` to be set incorrectly (#5185, @bramrodenburg)
+- [Model Registry/R] Fix bug in R client `mlflow_create_model_version()` API that caused model `source` to be set incorrectly (#5185, @bramrodenburg)
 - [Projects] Fix parsing behavior for Project URIs containing quotes (#5117, @dinaldoap)
 - [Scoring] Use the correct 400-level error code for malformed MLflow Model Server requests (#5003, @abatomunkuev)
 - [Tracking] Fix a bug where `mlflow.start_run()` modified user-supplied tags dictionary (#5191, @matheusMoreno)
@@ -1021,7 +1021,7 @@ More features and improvements
 - [Tracking] R API additions to be at parity with REST API and Python (#1122, @kevinykuo)
 - [Tracking] Limit number of results returned from `SearchRuns` API and UI for faster load (#1125, @mparkhe; #1154, @andrewmchen)
 - [Artifacts] To avoid having many copies of large model files in serving, `ArtifactRepository.download_artifacts` no longer copies local artifacts (#1307, @andrewmchen; #1383, @dbczumar)
-- [Artifacts][projects] Support GCS in download utilities. `gs://bucket/path` files are now supported by the `mlflow artifacts download` CLI command and as parameters of type `path` in MLProject files. (#1168, @drewmcdonald)
+- [Artifacts/Projects] Support GCS in download utilities. `gs://bucket/path` files are now supported by the `mlflow artifacts download` CLI command and as parameters of type `path` in MLProject files. (#1168, @drewmcdonald)
 - [Models] All Python models exported by MLflow now declare `mlflow` as a dependency by default. In addition, we introduce a flag `--install-mlflow` users can pass to `mlflow models serve` and `mlflow models predict` methods to force installation of the latest version of MLflow into the model's environment. (#1308, @tomasatdatabricks)
 - [Models] Update model flavors to lazily import dependencies in Python. Modules that define Model flavors now import extra dependencies such as `tensorflow`, `scikit-learn`, and `pytorch` inside individual _methods_, ensuring that these modules can be imported and explored even if the dependencies have not been installed on your system. Also, the `DEFAULT_CONDA_ENVIRONMENT` module variable has been replaced with a `get_default_conda_env()` function for each flavor. (#1238, @dbczumar)
 - [Models] It is now possible to pass extra arguments to `mlflow.keras.load_model` that will be passed through to `keras.load_model`. (#1330, @yorickvP)
@@ -1042,7 +1042,7 @@ Bug fixes and documentation updates
 - [Artifacts] Fix GCS artifact logging of subdirectories (#1285, @jason-huling)
 - [Projects] Fix bug not sharing `SQLite` database file with Docker container (#1347, @tomasatdatabricks; #1375, @aarondav)
 - [Java] Mark `sendPost` and `sendGet` as experimental (#1186, @aarondav)
-- [Python][cli] Mark `azureml.build_image` as experimental (#1222, #1233 @sueann)
+- [Python/CLI] Mark `azureml.build_image` as experimental (#1222, #1233 @sueann)
 - [Docs] Document public MLflow environment variables (#1343, @aarondav)
 - [Docs] Document MLflow system tags for runs (#1342, @aarondav)
 - [Docs] Autogenerate CLI documentation to include subcommands and descriptions (#1231, @sueann)
@@ -1061,15 +1061,15 @@ Breaking changes:
 
 More features and improvements:
 
-- [Search][api] Moving search filters into a query string based syntax, with Java client, Python client, and UI support. This also improves quote, period, and special character handling in query strings and adds the ability to search on tags in filter string. (#1042, #1055, #1063, #1068, #1099, #1106 @mparkhe; #1025 @andrewmchen; #1060 @smurching)
+- [Search/API] Moving search filters into a query string based syntax, with Java client, Python client, and UI support. This also improves quote, period, and special character handling in query strings and adds the ability to search on tags in filter string. (#1042, #1055, #1063, #1068, #1099, #1106 @mparkhe; #1025 @andrewmchen; #1060 @smurching)
 - [Tracking] Limits and validations to batch-logging APIs in OSS server (#958 @smurching)
-- [Tracking][java] Java client API for batch-logging (#1081 @mparkhe)
+- [Tracking/Java] Java client API for batch-logging (#1081 @mparkhe)
 - [Tracking] Improved consistency of handling multiple metric values per timestamp across tracking stores (#972, #999 @dbczumar)
 
 Bug fixes and documentation updates:
 
-- [Tracking][python] Reintroduces the parent_run_id argument to MlflowClient.create_run. This API is planned for removal in MLflow 1.0 (#1137 @smurching)
-- [Tracking][python] Provide default implementations of AbstractStore log methods (#1051 @acroz)
+- [Tracking/Python] Reintroduces the parent_run_id argument to MlflowClient.create_run. This API is planned for removal in MLflow 1.0 (#1137 @smurching)
+- [Tracking/Python] Provide default implementations of AbstractStore log methods (#1051 @acroz)
 - [R] (Released on CRAN as MLflow 0.9.0.1) Small bug fixes with R (#1123 @smurching; #1045, #1017, #1019, #1039, #1048, #1098, #1101, #1107, #1108, #1119 @tomasatdatabricks)
 
 Small bug fixes and doc updates (#1024, #1029 @bayethiernodiop; #1075 @avflor; #968, #1010, #1070, #1091, #1092 @smurching; #1004, #1085 @dbczumar; #1033, #1046 @sueann; #1053 @tomasatdatabricks; #987 @hanyucui; #935, #941 @jimthompson5802; #963 @amilbourne; #1016 @andrewmchen; #991 @jaroslawk; #1007 @mparkhe)
@@ -1112,10 +1112,10 @@ More features and improvements:
 - [Models] PyTorch model persistence improvements to allow persisting definitions and dependencies outside the immediate scope:
   - Add a `code_paths` parameter to `mlflow.pytorch.save_model` and `mlflow.pytorch.log_model` to allow external module dependencies to be specified as paths to python files. (#842, @dbczumar)
   - Improve `mlflow.pytorch.save_model` to capture class definitions from notebooks and the `__main__` scope (#851, #861, @dbczumar)
-- [Runs][r] Allow client to infer context info when creating new run in fluent API (#958, @tomasatdatabricks)
-- [Runs][ui] Support Git Commit hyperlink for Gitlab and Bitbucket. Previously the clickable hyperlink was generated only for Github pages. (#901)
-- [Search][api] Allow param value to have any content, not just alphanumeric characters, `.`, and `-` (#788, @mparkhe)
-- [Search][api] Support "filter" string in the `SearchRuns` API. Corresponding UI improvements are planned for the future (#905, @mparkhe)
+- [Runs/R] Allow client to infer context info when creating new run in fluent API (#958, @tomasatdatabricks)
+- [Runs/UI] Support Git Commit hyperlink for Gitlab and Bitbucket. Previously the clickable hyperlink was generated only for Github pages. (#901)
+- [Search]/API] Allow param value to have any content, not just alphanumeric characters, `.`, and `-` (#788, @mparkhe)
+- [Search/API] Support "filter" string in the `SearchRuns` API. Corresponding UI improvements are planned for the future (#905, @mparkhe)
 - [Logging] Basic support for LogBatch. NOTE: The feature is currently experimental and the behavior is expected to change in the near future. (#950, #951, #955, #1001, @smurching)
 
 Bug fixes and documentation updates:
@@ -1125,7 +1125,7 @@ Bug fixes and documentation updates:
 - [UI] Fix a bug with Databricks notebook URL links (#891, @smurching)
 - [Export] Fix for missing run name in csv export (#864, @jimthompson5802)
 - [Example] Correct missing tensorboardX module error in PyTorch example when running in MLflow Docker container (#809, @jimthompson5802)
-- [Scoring][r] Fix local serving of rfunc models (#874, @kevinykuo)
+- [Scoring/R] Fix local serving of rfunc models (#874, @kevinykuo)
 - [Docs] Improve flavor-specific documentation in Models documentation (#909, @dbczumar)
 
 Small bug fixes and doc updates (#822, #899, #787, #785, #780, #942, @hanyucui; #862, #904, #954, #806, #857, #845, @stbof; #907, #872, @smurching; #896, #858, #836, #859, #923, #939, #933, #931, #952, @dbczumar; #880, @zblz; #876, @acroz; #827, #812, #816, #829, @jimthompson5802; #837, #790, #897, #974, #900, @mparkhe; #831, #798, @aarondav; #814, @sueann; #824, #912, @mateiz; #922, #947, @tomasatdatabricks; #795, @KevYuen; #676, @mlaradji; #906, @4n4nd; #777, @tmielika; #804, @alkersan)
