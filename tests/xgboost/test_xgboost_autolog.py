@@ -168,7 +168,10 @@ def test_xgb_autolog_atsign_metrics_info_log(xgb_metric):
 
     if "@" in xgb_metric:
         mock_info_log.assert_called_once()
-        first_pos_arg, second_pos_arg, = mock_info_log.call_args[0]
+        (
+            first_pos_arg,
+            second_pos_arg,
+        ) = mock_info_log.call_args[0]
         assert "metric names have been sanitized" in first_pos_arg
         assert xgb_metric.replace("@", "_at_") in second_pos_arg
         assert "map" not in second_pos_arg
