@@ -78,9 +78,11 @@ def generate_data(num_experiments, num_runs, num_params, num_metrics):
                     mlflow.log_params({f"p_{idx}": idx for idx in indices})
                 for indices in chunks(range(num_metrics), MAX_PARAMS_TAGS_PER_BATCH):
                     mlflow.log_metrics({f"m_{idx}": idx for idx in indices})
-        show_tables()
-        benchmark()
-        print("=" * 80 + "\n")
+        if (idx_exp + 1) % int(num_experiments / 10) == 0:
+            show_tables()
+            join_params_and_metrics_on_runs()
+            benchmark()
+            print("=" * 80 + "\n")
 
 
 def show_tables():
@@ -102,6 +104,20 @@ SELECT *
 FROM tbl2
 WHERE num_rows > 0
 ORDER BY num_rows DESC;
+"""
+    with psycopg2.connect(os.getenv(_TRACKING_URI_ENV_VAR)) as conn:
+        print_dataframe(pd.read_sql(query, conn))
+
+
+def join_params_and_metrics_on_runs():
+    query = """
+EXPLAIN ANALYZE
+
+SELECT *
+FROM runs
+JOIN params on params.run_uuid = runs.run_uuid
+JOIN metrics on metrics.run_uuid = params.run_uuid
+WHERE runs.experiment_id = 0
 """
     with psycopg2.connect(os.getenv(_TRACKING_URI_ENV_VAR)) as conn:
         print_dataframe(pd.read_sql(query, conn))
