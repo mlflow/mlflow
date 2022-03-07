@@ -1916,8 +1916,7 @@ def test_autolog_print_warning_if_custom_estimator_pickling_raise_error():
 
     with mlflow.start_run() as run, mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
         non_pickable_kmeans = NonPickleableKmeans()
-
-        with pytest.raises(TypeError, match="can't pickle generator objects"):
+        with pytest.raises(TypeError, match=r"(can't|cannot) pickle.+generator"):
             pickle.dumps(non_pickable_kmeans)
 
         non_pickable_kmeans.fit(*get_iris())
