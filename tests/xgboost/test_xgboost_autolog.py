@@ -10,6 +10,7 @@ from sklearn import datasets
 import xgboost as xgb
 import matplotlib as mpl
 import yaml
+from unittest import mock
 
 import mlflow
 import mlflow.xgboost
@@ -153,6 +154,29 @@ def test_xgb_autolog_atsign_metrics():
     xgb.train(params, dtrain, evals=[(dtrain, "train")], num_boost_round=1)
     run = get_latest_run()
     assert set(run.data.metrics) == expected_metrics
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("xgb_metric", ["ndcg@2", "error"])
+def test_xgb_autolog_atsign_metrics_info_log(xgb_metric):
+    mlflow.xgboost.autolog()
+
+    with mock.patch("mlflow.xgboost._autolog._logger.info") as mock_info_log:
+        params = {"objective": "rank:pairwise", "eval_metric": [xgb_metric, "map"]}
+        dtrain = xgb.DMatrix(np.array([[0], [1]]), label=[1, 0])
+        xgb.train(params, dtrain, evals=[(dtrain, "train")], num_boost_round=1)
+
+    if "@" in xgb_metric:
+        mock_info_log.assert_called_once()
+        (
+            first_pos_arg,
+            second_pos_arg,
+        ) = mock_info_log.call_args[0]
+        assert "metric names have been sanitized" in first_pos_arg
+        assert xgb_metric.replace("@", "_at_") in second_pos_arg
+        assert "map" not in second_pos_arg
+    else:
+        mock_info_log.assert_not_called()
 
 
 @pytest.mark.large
