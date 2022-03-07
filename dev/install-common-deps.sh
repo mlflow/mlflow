@@ -17,7 +17,13 @@ sudo apt clean
 df -h
 
 python --version
-pip install --upgrade pip wheel
+
+# When a new version of pip is released on PyPI, it takes a while until that version is
+# uploaded to conda-forge. This time lag causes `conda create` to fail with
+# a `ResolvePackageNotFound` error. As a workaround, use the second latest version of pip.
+pip install --upgrade pip
+latest_pip_version=$(pip --version | cut -d ' ' -f 2)
+pip install --upgrade "pip<$latest_pip_version" wheel
 pip --version
 
 if [[ "$MLFLOW_SKINNY" == "true" ]]; then
