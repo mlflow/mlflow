@@ -944,7 +944,9 @@ def autolog(
                                 for k, v in input_training_data.items()
                             }
                         elif isinstance(input_training_data, tensorflow.keras.utils.Sequence):
-                            input_example_slice = input_training_data[:][0][:INPUT_EXAMPLE_SAMPLE_ROWS]
+                            input_example_slice = input_training_data[:][0][
+                                :INPUT_EXAMPLE_SAMPLE_ROWS
+                            ]
 
                         else:
                             warnings.warn(
@@ -966,7 +968,7 @@ def autolog(
                         return model_signature
 
                     input_example, signature = resolve_input_example_and_signature(
-                        lambda: _get_input_data_slice(),
+                        _get_input_data_slice,
                         _infer_model_signature,
                         log_input_examples,
                         log_model_signatures,
