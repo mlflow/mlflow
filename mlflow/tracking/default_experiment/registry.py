@@ -2,10 +2,10 @@ import entrypoints
 import warnings
 import logging
 
-from mlflow.tracking._default_experiment.databricks_notebook_experiment_provider import (
+from mlflow.tracking.default_experiment.databricks_notebook_experiment_provider import (
     DatabricksNotebookExperimentProvider,
 )
-from mlflow.tracking._default_experiment.databricks_job_experiment_provider import (
+from mlflow.tracking.default_experiment.databricks_job_experiment_provider import (
     DatabricksJobExperimentProvider,
 )
 

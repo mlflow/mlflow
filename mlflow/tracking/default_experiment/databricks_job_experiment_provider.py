@@ -1,5 +1,5 @@
 import logging
-from mlflow.tracking._default_experiment.abstract_context import DefaultExperimentProvider
+from mlflow.tracking.default_experiment.abstract_context import DefaultExperimentProvider
 from mlflow.utils import databricks_utils
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.mlflow_tags import (
@@ -11,6 +11,7 @@ from mlflow.utils.mlflow_tags import (
 _logger = logging.getLogger(__name__)
 _active_job_experiment_id = None
 
+
 class DatabricksJobExperimentProvider(DefaultExperimentProvider):
     def in_context(self):
         return (
@@ -19,6 +20,7 @@ class DatabricksJobExperimentProvider(DefaultExperimentProvider):
         )
 
     def get_experiment_id(self):
+        global _active_job_experiment_id
         if _active_job_experiment_id:
             return _active_job_experiment_id
 
@@ -40,7 +42,6 @@ class DatabricksJobExperimentProvider(DefaultExperimentProvider):
             experiment_id,
         )
 
-        global _active_job_experiment_id
         _active_job_experiment_id = experiment_id
 
         return experiment_id

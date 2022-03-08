@@ -6,7 +6,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_EXPERIMENT_SOURCE_TYPE,
     MLFLOW_EXPERIMENT_SOURCE_ID,
 )
-from mlflow.tracking._default_experiment.databricks_job_experiment_provider import (
+from mlflow.tracking.default_experiment.databricks_job_experiment_provider import (
     DatabricksJobExperimentProvider,
 )
 from tests.helper_functions import multi_context

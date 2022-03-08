@@ -22,7 +22,7 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking import artifact_utils, _get_store
 from mlflow.tracking.context import registry as context_registry
-from mlflow.tracking._default_experiment import registry as default_experiment_registry
+from mlflow.tracking.default_experiment import registry as default_experiment_registry
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils import env
 from mlflow.utils.autologging_utils import (

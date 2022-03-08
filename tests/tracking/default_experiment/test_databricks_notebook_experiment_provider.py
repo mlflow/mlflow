@@ -1,6 +1,6 @@
 from unittest import mock
 
-from mlflow.tracking._default_experiment.databricks_notebook_experiment_provider import (
+from mlflow.tracking.default_experiment.databricks_notebook_experiment_provider import (
     DatabricksNotebookExperimentProvider,
 )
 

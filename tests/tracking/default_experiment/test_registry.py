@@ -2,14 +2,14 @@ from importlib import reload
 from unittest import mock
 import pytest
 
-import mlflow.tracking._default_experiment.registry
-from mlflow.tracking._default_experiment.databricks_notebook_experiment_provider import (
+import mlflow.tracking.default_experiment.registry
+from mlflow.tracking.default_experiment.databricks_notebook_experiment_provider import (
     DatabricksNotebookExperimentProvider,
 )
-from mlflow.tracking._default_experiment.databricks_job_experiment_provider import (
+from mlflow.tracking.default_experiment.databricks_job_experiment_provider import (
     DatabricksJobExperimentProvider,
 )
-from mlflow.tracking._default_experiment.registry import (
+from mlflow.tracking.default_experiment.registry import (
     DefaultExperimentProviderRegistry,
     get_experiment_id,
 )
@@ -64,7 +64,7 @@ def test_default_experiment_provider_registry_register_entrypoints_handles_excep
 def _currently_registered_default_experiment_provider_classes():
     return {
         provider.__class__
-        for provider in mlflow.tracking._default_experiment.registry._default_experiment_provider_registry  # pylint: disable=line-too-long
+        for provider in mlflow.tracking.default_experiment.registry._default_experiment_provider_registry  # pylint: disable=line-too-long
     }
 
 
@@ -88,7 +88,7 @@ def test_registry_instance_loads_entrypoints():
     ) as mock_get_group_all:
         # Entrypoints are registered at import time, so we need to reload the module to register the
         # entrypoint given by the mocked extrypoints.get_group_all
-        reload(mlflow.tracking._default_experiment.registry)
+        reload(mlflow.tracking.default_experiment.registry)
 
     assert MockRunContext in _currently_registered_default_experiment_provider_classes()
     mock_get_group_all.assert_called_once_with("mlflow.default_experiment_provider")
@@ -98,7 +98,7 @@ def test_registry_instance_loads_entrypoints():
 def test_default_experiment_provider_registry_with_installed_plugin(tmp_wkdir):
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
 
-    reload(mlflow.tracking._default_experiment.registry)
+    reload(mlflow.tracking.default_experiment.registry)
 
     from mlflow_test_plugin.default_experiment_provider import PluginDefaultExperimentProvider
 
@@ -132,7 +132,7 @@ def mock_default_experiment_providers():
     providers = [base_provider, skipped_provider, exception_provider]
 
     with mock.patch(
-        "mlflow.tracking._default_experiment.registry._default_experiment_provider_registry",
+        "mlflow.tracking.default_experiment.registry._default_experiment_provider_registry",
         providers,
     ):
         yield
@@ -153,7 +153,7 @@ def mock_default_experiment_multiple_context_providers():
     providers = [base_provider, unused_provider]
 
     with mock.patch(
-        "mlflow.tracking._default_experiment.registry._default_experiment_provider_registry",
+        "mlflow.tracking.default_experiment.registry._default_experiment_provider_registry",
         providers,
     ):
         yield
