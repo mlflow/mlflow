@@ -961,6 +961,15 @@ def autolog(
                     def _infer_model_signature(input_data_slice):
                         try:
                             model_output = history.model.predict(input_data_slice)
+
+                            if Version(tensorflow.__version__) <= Version("2.1.4"):
+                                # For these versions, `stop_training` flag on Model is set to False
+                                # This flag is used by the callback
+                                # (inside `_log_early_stop_callback_metrics`)
+                                # for logging of early stop metrics. In order for
+                                # that to work, need to force that flag to be True
+                                history.model.stop_training = True
+
                             model_signature = infer_signature(input_data_slice, model_output)
                         except TypeError as te:
                             warnings.warn(str(te))
