@@ -829,7 +829,8 @@ def evaluate(
                              configurations. To customize, either save the figure with the desired
                              configurations and return its file path or define customizations
                              through environment variables in ``matplotlib.rcParams``.
-                           - Other objects will be attempted to be pickled with protocol 4.
+                           - Other objects will be attempted to be pickled with the default
+                             protocol.
 
                            .. code-block:: python
                                :caption: Custom Metric Function Boilerplate

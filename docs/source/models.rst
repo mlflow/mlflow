@@ -923,20 +923,20 @@ and behavior:
    :width: 69%
 
 
-Evaluating on Custom Metrics
+Evaluating with Custom Metrics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If the default set of metrics is insufficient, you can specify a list of functions to the ``custom_metrics``
-argument of :py:func:`mlflow.evaluate()` to evaluate your models in ways that you see fit. Custom metric
+If the default set of metrics is insufficient, you can specify a list of ``custom_metrics`` functions to 
+:py:func:`mlflow.evaluate()` to produce custom performance metrics for the model(s) that you're evaluating. Custom metric
 functions should accept two arguments: a DataFrame containing ``prediction`` and ``target`` columns, 
-and a dictionary of the default set of metrics. For a full list of default metrics, refer to the documentation 
+and a dictionary containing the default set of metrics. For a full list of default metrics, refer to the documentation 
 of :py:func:`mlflow.evaluate()`.
 
 The following `short example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics.py>`_ 
 uses :py:func:`mlflow.evaluate()` with a custom metric function to evaluate the performance of a regressor on the
 `California Housing Dataset <https://www.dcc.fc.up.pt/~ltorgo/Regression/cal_housing.html>`_.
-Note that custom metric functions can return both metrics and artifacts. It can either return a single
+Note that custom metric functions can return both metrics and artifacts. They can either return a single
 dictionary of metrics, or two dictionaries representing metrics and artifacts.
 
 .. code-block:: py
@@ -970,8 +970,9 @@ dictionary of metrics, or two dictionaries representing metrics and artifacts.
         """
         This example custom metric function creates a metric based on the ``prediction`` and
         ``target`` columns in ``eval_df`` and a metric derived from existing metrics in
-        ``builtin_metrics``. In addition, it also generates and saves a scatter plot to a file
-        as an image artifact.
+        ``builtin_metrics``. It also generates and saves a scatter plot that visualizes the
+        relationship between the predictions and targets for the given model to a file as an
+        image artifact.
         """
         metrics = {
             "squared_diff_plus_one": np.sum(np.abs(eval_df["prediction"] - eval_df["target"] + 1) ** 2),
@@ -1001,10 +1002,10 @@ dictionary of metrics, or two dictionaries representing metrics and artifacts.
         )
 
 
-For a more comprehensive usage of custom metrics, refer to `this example from the MLflow GitHub Repository
+For a more comprehensive custom metrics usage example, refer to `this example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics_comprehensive.py>`_.
 
-Any additional information about model evaluation behaviors and outputs is available in the
+Additional information about model evaluation behaviors and outputs is available in the
 :py:func:`mlflow.evaluate()` API docs.
 
 Model Customization

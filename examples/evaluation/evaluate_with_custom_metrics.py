@@ -27,8 +27,9 @@ def example_custom_metric_fn(eval_df, builtin_metrics):
     """
     This example custom metric function creates a metric based on the ``prediction`` and
     ``target`` columns in ``eval_df`` and a metric derived from existing metrics in
-    ``builtin_metrics``. In addition, it also generates and saves a scatter plot to a file
-    as an image artifact.
+    ``builtin_metrics``. It also generates and saves a scatter plot that visualizes the
+    relationship between the predictions and targets for the given model to a file as an
+    image artifact.
     """
     metrics = {
         "squared_diff_plus_one": np.sum(np.abs(eval_df["prediction"] - eval_df["target"] + 1) ** 2),

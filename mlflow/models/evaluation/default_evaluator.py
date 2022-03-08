@@ -271,7 +271,20 @@ _matplotlib_config = {
 }
 
 
-_CustomMetricFnTuple = namedtuple("_CustomMetricFnTuple", ["fn", "name", "index"])
+_CustomMetric = namedtuple("_CustomMetric", ["function", "name", "index"])
+"""
+A namedtuple representing a custom metric function and its properties.
+
+Attributes
+----------
+function : Callable
+    the custom metric function
+name : str
+    the name of the custom metric function
+index : int
+    the index of the custom metric function in the ``custom_metrics`` argument of mlflow.evaluate
+
+"""
 
 
 def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
@@ -293,7 +306,7 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
         " in the `custom_metrics` parameter"
     )
 
-    result = custom_metric_tuple.fn(eval_df, builtin_metrics)
+    result = custom_metric_tuple.function(eval_df, builtin_metrics)
     if result is None:
         raise MlflowException(f"{exception_header} returned None.")
 
@@ -626,6 +639,19 @@ class DefaultEvaluator(ModelEvaluator):
         self._log_pandas_df_artifact(per_class_metrics_collection_df, "per_class_metrics")
 
     def _log_custom_metric_artifact(self, artifact_name, raw_artifact, custom_metric_tuple):
+        """
+        This function logs and returns a custom metric artifact. Two cases:
+            - The provided artifact is an EvaluationArtifact instance: it will return that object
+            - The provided artifact is a path to a file, the function will make a copy of it with
+              a formatted name in a temporary directory and call mlflow.log_artifact.
+            - Otherwise: will attempt to save the artifact to an temporary path with an inferred
+              type. Then call mlflow.log_artifact.
+
+        :param artifact_name: the name of the artifact
+        :param raw_artifact:  the object representing the artifact
+        :param custom_metric_tuple: an instance of the _CustomMetric namedtuple
+        :return: EvaluationArtifact
+        """
         if isinstance(raw_artifact, EvaluationArtifact):
             return raw_artifact
 
@@ -660,11 +686,8 @@ class DefaultEvaluator(ModelEvaluator):
         else:
             # storing as pickle
             try:
-                # Using protocol 4 because it is the highest supported protocol as of the
-                # introduction of PickleEvaluationArtifact. For more regarding pickle protocols,
-                # refer to: https://docs.python.org/3/library/pickle.html#data-stream-format
                 with open(artifact_file_local_path, "wb") as f:
-                    pickle.dump(raw_artifact, f, protocol=4)
+                    pickle.dump(raw_artifact, f)
             except pickle.PickleError:
                 raise MlflowException(
                     f"{exception_header} produced an unsupported artifact '{artifact_name}' with "
@@ -693,8 +716,8 @@ class DefaultEvaluator(ModelEvaluator):
             {"prediction": copy.deepcopy(self.y_pred), "target": copy.deepcopy(self.y)}
         )
         for index, custom_metric in enumerate(self.custom_metrics):
-            custom_metric_tuple = _CustomMetricFnTuple(
-                fn=custom_metric,
+            custom_metric_tuple = _CustomMetric(
+                function=custom_metric,
                 index=index,
                 name=getattr(custom_metric, "__name__", repr(custom_metric)),
             )
@@ -715,6 +738,11 @@ class DefaultEvaluator(ModelEvaluator):
                     )
 
     def _log_and_return_evaluation_result(self):
+        """
+        This function logs all of the produced metrics and artifacts (including custom metrics)
+        along with model explainability. Then, returns an instance of EvaluationResult.
+        :return:
+        """
         self._evaluate_custom_metrics_and_log_produced_artifacts()
         self._log_metrics()
         self._log_model_explainability()

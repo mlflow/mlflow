@@ -43,9 +43,6 @@ def file_artifacts_fn(eval_df, builtin_metrics):
     This example shows how you can return file paths as representation
     of the produced artifacts. For a full list of supported file extensions
     refer to https://mlflow.org/docs/latest/python_api/mlflow.html#mlflow.evaluate
-    :param eval_df:
-    :param builtin_metrics:
-    :return:
     """
     example_np_arr = np.array([1, 2, 3])
     np.save(os.path.join(tmp_dir, "example.npy"), example_np_arr, allow_pickle=False)

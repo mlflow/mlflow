@@ -25,7 +25,7 @@ from mlflow.models.evaluation.default_evaluator import (
     _get_classifier_per_class_metrics,
     _gen_classifier_curve,
     _evaluate_custom_metric,
-    _CustomMetricFnTuple,
+    _CustomMetric,
 )
 import mlflow
 from sklearn.linear_model import LogisticRegression
@@ -528,7 +528,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         MlflowException,
         match=f"'{dummy_fn.__name__}' (.*) returned None",
     ):
-        _evaluate_custom_metric(_CustomMetricFnTuple(dummy_fn, "dummy_fn", 0), eval_df, metrics)
+        _evaluate_custom_metric(_CustomMetric(dummy_fn, "dummy_fn", 0), eval_df, metrics)
 
     def incorrect_return_type_1(*_):
         return 3
@@ -544,9 +544,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
             MlflowException,
             match=f"'{test_fn.__name__}' (.*) did not return in an expected format",
         ):
-            _evaluate_custom_metric(
-                _CustomMetricFnTuple(test_fn, test_fn.__name__, 0), eval_df, metrics
-            )
+            _evaluate_custom_metric(_CustomMetric(test_fn, test_fn.__name__, 0), eval_df, metrics)
 
     def non_str_metric_name(*_):
         return {123: 123, "a": 32.1, "b": 3}
@@ -563,9 +561,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
             match=f"'{test_fn.__name__}' (.*) did not return metrics as a dictionary of "
             "string metric names with numerical values",
         ):
-            _evaluate_custom_metric(
-                _CustomMetricFnTuple(test_fn, test_fn.__name__, 0), eval_df, metrics
-            )
+            _evaluate_custom_metric(_CustomMetric(test_fn, test_fn.__name__, 0), eval_df, metrics)
 
     def non_str_artifact_name(*_):
         return {"a": 32.1, "b": 3}, {1: [1, 2, 3]}
@@ -576,7 +572,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         "dictionary of string artifact names with their corresponding objects",
     ):
         _evaluate_custom_metric(
-            _CustomMetricFnTuple(non_str_artifact_name, non_str_artifact_name.__name__, 0),
+            _CustomMetric(non_str_artifact_name, non_str_artifact_name.__name__, 0),
             eval_df,
             metrics,
         )
@@ -600,7 +596,7 @@ def test_evaluate_custom_metric_lambda(fn, expectation):
     eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
     metrics = _get_regressor_metrics(eval_df["target"], eval_df["prediction"])
     with expectation:
-        _evaluate_custom_metric(_CustomMetricFnTuple(fn, "<lambda>", 0), eval_df, metrics)
+        _evaluate_custom_metric(_CustomMetric(fn, "<lambda>", 0), eval_df, metrics)
 
 
 def test_evaluate_custom_metric_success():
@@ -616,7 +612,7 @@ def test_evaluate_custom_metric_success():
         }
 
     res_metrics, res_artifacts = _evaluate_custom_metric(
-        _CustomMetricFnTuple(example_custom_metric, "", 0), eval_df, metrics
+        _CustomMetric(example_custom_metric, "", 0), eval_df, metrics
     )
     assert res_metrics == {
         "example_count_times_1_point_5": metrics["example_count"] * 1.5,
@@ -641,7 +637,7 @@ def test_evaluate_custom_metric_success():
         )
 
     res_metrics_2, res_artifacts_2 = _evaluate_custom_metric(
-        _CustomMetricFnTuple(example_custom_metric_with_artifacts, "", 0), eval_df, metrics
+        _CustomMetric(example_custom_metric_with_artifacts, "", 0), eval_df, metrics
     )
     assert res_metrics_2 == {
         "example_count_times_1_point_5": metrics["example_count"] * 1.5,

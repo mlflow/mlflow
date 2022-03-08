@@ -75,10 +75,7 @@ class TextEvaluationArtifact(EvaluationArtifact):
 class PickleEvaluationArtifact(EvaluationArtifact):
     def _save(self, output_artifact_path):
         with open(output_artifact_path, "wb") as f:
-            # Using protocol 4 because it is the highest supported protocol as of the
-            # introduction of PickleEvaluationArtifact. For more details regarding pickle
-            # protocols, refer to: https://docs.python.org/3/library/pickle.html#data-stream-format
-            pickle.dump(self._content, f, protocol=4)
+            pickle.dump(self._content, f)
 
     def _load_content_from_file(self, local_artifact_path):
         with open(local_artifact_path, "rb") as f:
