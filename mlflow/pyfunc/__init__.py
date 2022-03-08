@@ -249,6 +249,7 @@ from mlflow.utils import (
     read_data_from_stream,
     write_data_to_stream,
     get_file_sha_hexdigest,
+    find_free_port,
 )
 from mlflow.utils.annotations import deprecated
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, write_to
@@ -1035,6 +1036,8 @@ def spark_udf(spark, model_uri, result_type="double"):
     from pyspark.sql.types import ArrayType, DataType as SparkDataType
     from pyspark.sql.types import DoubleType, IntegerType, FloatType, LongType, StringType
     from mlflow.utils._spark_utils import _get_active_spark_session
+    from mlflow.utils.process import kill_proc
+    from mlflow.pyfunc import scoring_server
 
     spark = _get_active_spark_session()
     spark_in_local_mode = spark.conf.get("spark.master").startswith("local")
@@ -1076,7 +1079,7 @@ def spark_udf(spark, model_uri, result_type="double"):
         # setup python env in driver side
         virtual_env_python_bin = _setup_restored_python_env(model_py_version)
 
-    def _predict_row_batch(model, comm_stream, args):
+    def _predict_row_batch(model, client, args):
         input_schema = model.metadata.get_input_schema()
         pdf = None
 
@@ -1106,9 +1109,7 @@ def spark_udf(spark, model_uri, result_type="double"):
             pdf = pandas.DataFrame(data={names[i]: x for i, x in enumerate(args)}, columns=names)
 
         # TODO: pipeline IO and inference computation.
-        pickle.dump(pdf, comm_stream)
-        comm_stream.flush()
-        result = pickle.load(comm_stream)
+        result = client.invoke(pdf, scoring_server.CONTENT_TYPE_FORMAT_RECORDS_ORIENTED)
 
         if not isinstance(result, pandas.DataFrame):
             result = pandas.DataFrame(data=result)
@@ -1144,8 +1145,6 @@ def spark_udf(spark, model_uri, result_type="double"):
         else:
             return result[result.columns[0]]
 
-    driver_hostname = socket.gethostname()
-
     def predict(iterator):
         import requests
         from mlflow.pyfunc.scoring_server.client import ScoringServerClient
@@ -1162,17 +1161,38 @@ def spark_udf(spark, model_uri, result_type="double"):
         # TODO: use SparkModelCache
         model = _load_model_from_local_path(local_model_path_on_executor)
 
+        server_port = find_free_port()
+        # __pyfunc_model_local_path__=... gunicorn -b 127.0.0.1:{port} -w 1 --timeout=500 -- mlflow.pyfunc.scoring_server.wsgi:app
+        server_proc_env = os.environ.copy()
+        server_proc_env[scoring_server._SERVER_MODEL_LOCAL_PATH] = local_model_path_on_executor
+        gunicorn_bin_path = os.path.join(os.path.dirname(virtual_env_python_bin_on_executor), "gunicorn")
+        # launch scoring server
+        scoring_server_proc = subprocess.Popen(
+            [
+                gunicorn_bin_path, "-b", f"127.0.0.1:{server_port}", "-w", "1", "--timeout=500", "--",
+                "mlflow.pyfunc.scoring_server.wsgi:app"
+            ],
+            stdout=sys.stdout, stderr=sys.stderr,
+            env=server_proc_env
+        )
+
+        client = ScoringServerClient("127.0.0.1", server_port)
+        client.wait_server_ready()
 
         try:
             for row_batch in iterator:
                 # the `row_batch` is a tuple which composes of several pd.Series/pd.DataFrame objects.
-                yield _predict_row_batch(model, comm_stream, row_batch)
-                # receive final "None" object.
-                if pickle.load(comm_stream) is not None:
-                    raise RuntimeError('Internal error.')
-
+                yield _predict_row_batch(model, client, row_batch)
         finally:
+            # TODO: Keep scoring server running until python process exit.
+            #  Because when "spark.python.worker.reuse" is True, mutiple python UDF tasks
+            #  (one task per dataframe partition) might share one python process, so that
+            #  we can avoid to launch scoring server when every python UDF task started and
+            #  kill it when every python UDF task finished.
 
+            # TODO: use process control (prctl) to ask the system to send SIGTERM to the scoring server
+            #  process when its parent (Python worker) is dead.
+            kill_proc(scoring_server_proc)
 
     udf = pandas_udf(predict, result_type, functionType=PandasUDFType.SCALAR_ITER)
     udf.metadata = model_metadata

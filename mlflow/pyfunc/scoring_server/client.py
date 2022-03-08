@@ -1,6 +1,7 @@
 import requests
-
+import time
 from mlflow.pyfunc import scoring_server
+
 
 class ScoringServerClient:
 
@@ -13,6 +14,18 @@ class ScoringServerClient:
         if ping_status.status_code != 200:
             raise Exception(f"ping failed (error code {ping_status.status_code})")
 
+    def wait_server_ready(self, timeout=30):
+        begin_time = time.time()
+        while True:
+            time.sleep(0.3)
+            try:
+                self.ping()
+                return
+            except Exception:
+                pass
+            if time.time() - begin_time > timeout:
+                break
+        raise RuntimeError('Wait scoring server ready timeout.')
 
     def invoke(self, data, content_type):
         import numpy as np
@@ -47,3 +60,4 @@ class ScoringServerClient:
             )
 
         return scoring_server.load_predictions_from_json_str(scoring_response.text)
+
