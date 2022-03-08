@@ -7,12 +7,12 @@ class DefaultExperimentProvider(object):
     current client context. For example, when the MLflow client is running in a Databricks Job,
     a provider is used to obtain the ID of the MLflow Experiment associated with the Job.
 
-    Usually the experiment_id is set explicitly by the user, but if the experiment is not set
+    Usually the experiment_id is set explicitly by the user, but if the experiment is not set,
     MLflow computes a default experiment id based on different contexts.
     When an experiment is created via the fluent ``mlflow.start_run`` method, MLflow iterates
-    through all registered DefaultExperimentProvider. For each context provider
-    where ``in_context`` returns ``True``, MLflow calls the ``get_experiment_id``
-    method on the context provider to compute experiment_id for the experiment.
+    through the registered ``DefaultExperimentProvider``s until it finds one whose
+    ``in_context()`` method returns ``True``; MLflow then calls the provider's
+    ``get_experiment_id()`` method and uses the resulting experiment ID for Tracking operations.
     """
 
     __metaclass__ = ABCMeta
@@ -32,7 +32,7 @@ class DefaultExperimentProvider(object):
     def get_experiment_id(self):
         """
         Provide the MLflow Experiment ID for the current MLflow client context.
-            Assumes that ``in_context()`` is ``True``.
+        Assumes that ``in_context()`` is ``True``.
 
         :return: The ID of the MLflow Experiment associated with the current context.
         """
