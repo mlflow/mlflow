@@ -1,4 +1,18 @@
-# Changelog
+# CHANGELOG
+## 1.24.1.dev0 (2022-03-08)
+
+MLflow 1.24.1.dev0 includes several major features and improvements:
+
+Features:
+
+
+
+Bug fixes and documentation updates:
+
+- Add ENV variables to control GCS upload/download chunk size and timeouts (#5438, @mokrueger)
+- Create index on `run_uuid` columns for PostgreSQL to improve SQL operations (#5443, @harupy)
+
+Small bug fixes and doc updates (#5468, #5455, #5453, #5454, #5452, #5446, #5445, #5431, @harupy; #5422, @Ark-kun; #5447, #5435, @WeichenXu123; #5459, #5437, @dbczumar; #5428, @jinzhang21; #5442, @apurva-koti)
 
 ## 1.24.0 (2022-02-27)
 
