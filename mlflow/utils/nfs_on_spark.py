@@ -7,8 +7,8 @@ from mlflow.utils._spark_utils import _get_active_spark_session
 # None represent no NFS directory available.
 # Note:
 #  1. If NFS directory set, you must ensure all spark cluster nodes using the same hardware and
-#  installed the same OS with the same environment configured, because mfllow uses NFS directory
-#  to broad driver side virtual environment to remote workers if NFS available, heterogeneous
+#  installed the same OS with the same environment configured, because mlflow uses NFS directory
+#  to distribute driver side virtual environment to remote workers if NFS available, heterogeneous
 #  cluster nodes might cause issues under the case.
 #  2. The NFS directory must be mounted before importing mlflow.
 #  3. For databricks users, don't set this config, databricks product sets up internal NFS service
