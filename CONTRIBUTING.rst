@@ -41,7 +41,7 @@ actively review pull requests and are also happy to provide implementation guida
 
 Once your pull request against the MLflow Repository has been merged, your corresponding changes
 will be automatically included in the next MLflow release. Every change is listed in the MLflow
-release notes and `Changelog <https://github.com/mlflow/mlflow/blob/master/CHANGELOG.rst>`_.
+release notes and `Changelog <https://github.com/mlflow/mlflow/blob/master/CHANGELOG.md>`_.
 
 Congratulations, you have just contributed to MLflow. We appreciate your contribution!
 
