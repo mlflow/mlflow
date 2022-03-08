@@ -275,7 +275,7 @@ from mlflow.utils.requirements_utils import (
     _check_requirement_satisfied,
     _parse_requirements,
 )
-from mlflow.utils._spark_utils import _SparkBroadcastFileCache
+from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
 
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
@@ -691,20 +691,6 @@ _PYENV_CMD = 'pyenv'
 _VIRTUALENV_CMD = 'virtualenv'
 
 
-# set this to specify a NFS (network file system) path which shared with all spark cluster nodes.
-# This will help optimize routine of distributing spark driver files to remote workers.
-# None represent no NFS available.
-# Q: shall we read the value from spark config ?
-_NFS_CACHE_ROOT_DIR = None
-
-
-def _get_nfs_cache_root_dir():
-    if databricks_utils.is_in_databricks_runtime():
-        return "/local_disk0/.ephemeral_nfs/mlflow/cache"
-    else:
-        return _NFS_CACHE_ROOT_DIR
-
-
 _PYENV_HOME = None
 
 
@@ -717,11 +703,11 @@ def _get_or_create_pyenv_home_dir():
     global _PYENV_HOME
 
     if _PYENV_HOME is None:
-        nfs_root_dir = _get_nfs_cache_root_dir()
+        nfs_root_dir = get_nfs_cache_root_dir()
 
         if nfs_root_dir is not None:
-            home_dir = os.path.join(nfs_root_dir, 'pyenv_home')
-            _PYENV_HOME = os.makedirs(home_dir, exist_ok=True)
+            _PYENV_HOME = os.path.join(nfs_root_dir, 'pyenv_home')
+            os.makedirs(_PYENV_HOME, exist_ok=True)
         else:
             _PYENV_HOME = os.path.expanduser('~')
 
@@ -738,14 +724,14 @@ def _get_or_create_python_virtual_env_temp_dir():
     """
     global _VIRTUAL_ENV_DIR
     if _VIRTUAL_ENV_DIR is None:
-        nfs_root_dir = _get_nfs_cache_root_dir()
+        nfs_root_dir = get_nfs_cache_root_dir()
         if nfs_root_dir is not None:
             # In databricks, the '/local_disk0/.ephemeral_nfs' is mounted as NFS disk
             # the data stored in the disk is shared with all remote nodes.
             root_dir = os.path.join(nfs_root_dir, "venvs")
             os.makedirs(root_dir, exist_ok=True)
             _VIRTUAL_ENV_DIR = tempfile.mkdtemp(dir=root_dir)
-            # TODO: register deleting cache dir handler when exit
+            # TODO: register deleting _VIRTUAL_ENV_DIR handler when exit
         else:
             import atexit
             import shutil
@@ -921,14 +907,14 @@ def _warn_potentially_incompatible_py_version_if_necessary(model_py_version=None
 
 
 def _get_or_create_model_cache_dir():
-    nfs_root_dir = _get_nfs_cache_root_dir()
+    nfs_root_dir = get_nfs_cache_root_dir()
     if nfs_root_dir is not None:
         # In databricks, the '/local_disk0/.ephemeral_nfs' is mounted as NFS disk
         # the data stored in the disk is shared with all remote nodes.
         root_dir = os.path.join(nfs_root_dir, "models")
         os.makedirs(root_dir, exist_ok=True)
         tmp_model_dir = tempfile.mkdtemp(dir=root_dir)
-        # TODO: register deleting cache dir handler when exit
+        # TODO: register deleting tmp_model_dir handler when exit
     else:
         import atexit
         import shutil
@@ -1043,7 +1029,7 @@ def spark_udf(spark, model_uri, result_type="double"):
 
     spark = _get_active_spark_session()
     spark_in_local_mode = spark.conf.get("spark.master").startswith("local")
-    use_nfs = _get_nfs_cache_root_dir() is not None
+    use_nfs = get_nfs_cache_root_dir() is not None
 
     if not isinstance(result_type, SparkDataType):
         result_type = _parse_datatype_string(result_type)
@@ -1069,7 +1055,7 @@ def spark_udf(spark, model_uri, result_type="double"):
     _warn_dependency_requirement_mismatches(local_model_path)
 
     if not use_nfs and not spark_in_local_mode:
-        model_dir_cache_key = _SparkBroadcastFileCache.add_file(local_model_path)
+        model_archive_path = SparkModelCache.add_local_model(spark, local_model_path)
 
     model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
     model_conf = model_metadata.flavors.get(FLAVOR_NAME)
@@ -1153,14 +1139,11 @@ def spark_udf(spark, model_uri, result_type="double"):
         # Note: this is a pandas udf function in iteration style, which takes an iterator of
         # tuple of pandas.Series and outputs an iterator of pandas.Series.
         if not use_nfs and not spark_in_local_mode:
-            local_model_path_on_executor = _SparkBroadcastFileCache.get_file(model_dir_cache_key)
+            model_on_executor, local_model_path_on_executor = SparkModelCache.get_or_load(model_archive_path)
             virtual_env_python_bin_on_executor = _setup_restored_python_env(model_py_version, req_file_path)
         else:
-            local_model_path_on_executor = local_model_path
+            model_on_executor, local_model_path_on_executor = SparkModelCache.get_or_load_from_nfs_dir(local_model_path)
             virtual_env_python_bin_on_executor = virtual_env_python_bin
-
-        # TODO: use SparkModelCache
-        model = _load_model_from_local_path(local_model_path_on_executor)
 
         server_port = find_free_port()
         # Command: __pyfunc_model_local_path__=... gunicorn -b 127.0.0.1:{port} -w 1 --timeout=500 -- mlflow.pyfunc.scoring_server.wsgi:app
@@ -1183,7 +1166,7 @@ def spark_udf(spark, model_uri, result_type="double"):
         try:
             for row_batch in iterator:
                 # the `row_batch` is a tuple which composes of several pd.Series/pd.DataFrame objects.
-                yield _predict_row_batch(model, client, row_batch)
+                yield _predict_row_batch(model_on_executor, client, row_batch)
         finally:
             # TODO: Keep scoring server running until python process exit.
             #  Because when "spark.python.worker.reuse" is True, mutiple python UDF tasks

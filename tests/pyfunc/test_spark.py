@@ -244,9 +244,11 @@ def test_model_cache(spark, model_path):
         code_path=[os.path.dirname(tests.__file__)],
     )
 
-    cache_key = SparkModelCache.add_local_model(model_path)
+    archive_path = SparkModelCache.add_local_model(spark, model_path)
+    assert archive_path != model_path
+
     # Ensure we can use the model locally.
-    local_model = SparkModelCache.get_or_load(cache_key)
+    local_model = SparkModelCache.get_or_load(archive_path)
     assert isinstance(local_model, PyFuncModel)
     assert isinstance(local_model._model_impl, ConstantPyfuncWrapper)
 
@@ -256,7 +258,7 @@ def test_model_cache(spark, model_path):
 
     # Request the model on all executors, and see how many times we got cache hits.
     def get_model(_):
-        model = SparkModelCache.get_or_load(cache_key)
+        model = SparkModelCache.get_or_load(archive_path)
         assert isinstance(model, PyFuncModel)
         # NB: Can not use instanceof test as remote does not know about ConstantPyfuncWrapper class.
         assert type(model._model_impl).__name__ == constant_model_name

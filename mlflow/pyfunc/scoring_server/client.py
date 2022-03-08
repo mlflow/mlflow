@@ -59,5 +59,4 @@ class ScoringServerClient:
                 f"Invocation failed (error code {response.status_code}, response: {response.text})"
             )
 
-        return scoring_server.load_predictions_from_json_str(scoring_response.text)
-
+        return scoring_server.load_predictions_from_json_str(response.text)
