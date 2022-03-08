@@ -130,6 +130,15 @@ def _flatten(iterable):
     return chain.from_iterable(iterable)
 
 
+# https://www.python.org/dev/peps/pep-0508/#names
+_PACKAGE_NAME_REGEX = re.compile(r"^(\w+|\w+[\w._-]*\w+)")
+
+
+def _get_package_name(requirement):
+    m = _PACKAGE_NAME_REGEX.match(requirement)
+    return m and m.group(1)
+
+
 _NORMALIZE_REGEX = re.compile(r"[-_.]+")
 
 
