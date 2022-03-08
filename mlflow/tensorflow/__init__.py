@@ -960,14 +960,20 @@ def autolog(
 
                     def _infer_model_signature(input_data_slice):
                         try:
+                            original_stop_training = history.model.stop_training
                             model_output = history.model.predict(input_data_slice)
 
-                            if Version(tensorflow.__version__) <= Version("2.1.4"):
+                            if (
+                                Version(tensorflow.__version__) <= Version("2.1.4")
+                                and original_stop_training
+                            ):
                                 # For these versions, `stop_training` flag on Model is set to False
                                 # This flag is used by the callback
                                 # (inside `_log_early_stop_callback_metrics`)
                                 # for logging of early stop metrics. In order for
-                                # that to work, need to force that flag to be True
+                                # that to work, need to force that flag to be True again since doing
+                                # predict on that model sets `stop_training` to false for
+                                # those TF versions
                                 history.model.stop_training = True
 
                             model_signature = infer_signature(input_data_slice, model_output)
