@@ -6,7 +6,7 @@ import zipfile
 from mlflow.utils._spark_utils import _SparkBroadcastFileCache
 
 
-# TODO: For databricks runtime, use NFS instead of spark files for distributing model to remote workers.
+# TODO: for NFS available cases, use NFS instead of spark files for distributing model to remote workers.
 class SparkModelCache:
     """Caches models in memory on Spark Executors, to avoid continually reloading from disk.
 
@@ -51,7 +51,7 @@ class SparkModelCache:
 
         # We must rely on a supposed cyclic import here because we want this behavior
         # on the Spark Executors (i.e., don't try to pickle the load_model function).
-        from mlflow.pyfunc import load_pyfunc  # pylint: disable=cyclic-import
+        from mlflow.pyfunc import _load_model_from_local_path  # pylint: disable=cyclic-import
 
-        SparkModelCache._models[cache_key] = load_pyfunc(local_path)
+        SparkModelCache._models[cache_key] = _load_model_from_local_path(local_path)
         return SparkModelCache._models[cache_key]

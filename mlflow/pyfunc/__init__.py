@@ -715,113 +715,100 @@ def _get_or_create_pyenv_home_dir():
     """
     global _PYENV_HOME
 
-    nfs_root_dir = _get_nfs_cache_root_dir()
+    if _PYENV_HOME is None:
+        nfs_root_dir = _get_nfs_cache_root_dir()
 
-    if nfs_root_dir is not None:
-        return os.path.join(nfs_root_dir, 'pyenv_home')
-    else:
-        return os.path.expanduser('~')
+        if nfs_root_dir is not None:
+            home_dir = os.path.join(nfs_root_dir, 'pyenv_home')
+            _PYENV_HOME = os.makedirs(home_dir, exist_ok=True)
+        else:
+            _PYENV_HOME = os.path.expanduser('~')
+
+    return _PYENV_HOME
 
 
-def _create_python_virtual_env_temp_dir():
+_VIRTUAL_ENV_DIR = None
+
+def _get_or_create_python_virtual_env_temp_dir():
     """
     Note: the python virtual env dir is NOT SHARED across different REPLs/users processes.
     and when python process exist the directory will be automatically removed.
     """
-    nfs_root_dir = _get_nfs_cache_root_dir()
-    if nfs_root_dir is not None:
-        # In databricks, the '/local_disk0/.ephemeral_nfs' is mounted as NFS disk
-        # the data stored in the disk is shared with all remote nodes.
-        root_dir = os.path.join(nfs_root_dir, "venvs")
-        os.makedirs(root_dir, exist_ok=True)
-        venv_dir = tempfile.mkdtemp(dir=root_dir)
-        # TODO: register deleting cache dir handler when exit
-    else:
-        import atexit
-        import shutil
-        venv_dir = tempfile.mkdtemp()
-        atexit.register(shutil.rmtree, venv_dir, ignore_errors=True)
+    global _VIRTUAL_ENV_DIR
+    if _VIRTUAL_ENV_DIR is None:
+        nfs_root_dir = _get_nfs_cache_root_dir()
+        if nfs_root_dir is not None:
+            # In databricks, the '/local_disk0/.ephemeral_nfs' is mounted as NFS disk
+            # the data stored in the disk is shared with all remote nodes.
+            root_dir = os.path.join(nfs_root_dir, "venvs")
+            os.makedirs(root_dir, exist_ok=True)
+            _VIRTUAL_ENV_DIR = tempfile.mkdtemp(dir=root_dir)
+            # TODO: register deleting cache dir handler when exit
+        else:
+            import atexit
+            import shutil
+            _VIRTUAL_ENV_DIR = tempfile.mkdtemp()
+            atexit.register(shutil.rmtree, _VIRTUAL_ENV_DIR, ignore_errors=True)
 
-    return venv_dir
+    return _VIRTUAL_ENV_DIR
 
 
 _PICKLE_PROTOCOL_FOR_RESTORE_PY_ENV = 3
 
 
-class _RestoredPythonEnvSubprocessMgr:
-    """
-    We need create _RestoredPythonEnvSubprocessMgr instance
-    from spark application driver side.
-    """
-    def __init__(self, py_version, requirements_file_path, loader_module, model_path):
-        self._py_version = py_version
-        self._requirements_file_path = requirements_file_path
-        self._loader_module = loader_module
-        self._model_path = model_path
+def _setup_restored_python_env(py_version):
+    # TODO: support py_version format (major.minor), and install latest micro version
+    pyenv_home_path = _get_or_create_pyenv_home_dir()
 
-        self._subproc = None
-        self._python_installation_dir = None
-        self._virtual_env_dir = None
+    # install specified python version
+    pyenv_proc_env = os.environ.copy()
+    pyenv_proc_env['HOME'] = pyenv_home_path
+    subprocess.run(
+        [_PYENV_CMD, 'install', '-v', '-s', py_version],
+        check=True, stdout=sys.stdout, stderr=sys.stderr,
+        env=pyenv_proc_env
+    )
 
-        self._virtual_env_python_bin = None
+    python_bin_path = os.path.join(
+        pyenv_home_path, f'.pyenv/versions/{py_version}/bin/python'
+    )
 
-    @property
-    def subproc(self):
-        return self._subproc
+    venv_cache_root_dir = _get_or_create_python_virtual_env_temp_dir()
 
-    def setup_restored_python_env(self):
-        env_cache_dir = _RestoredPythonEnvSubprocessMgr._create_python_virtual_env_temp_dir()
-        pyenv_home_path = os.path.join(
-            env_cache_dir, 'pythons'
-        )
-        self._python_installation_dir = os.path.join(
-            pyenv_home_path, '.pyenv', 'versions', self._py_version
-        )
-        if not os.path.exists(self._python_installation_dir):
-            # install specified python version
-            sub_env = os.environ.copy()
-            sub_env['HOME'] = pyenv_home_path
-            subprocess.run(
-                [_PYENV_CMD, 'install', '-v', self._py_version],
-                check=True, stdout=sys.stdout, stderr=sys.stderr,
-                env=sub_env
-            )
-        else:
-            _logger.info(f'Found python installation cache at {self._python_installation_dir}')
-        python_bin_path = os.path.join(
-            self._python_installation_dir, 'bin/python'
-        )
-        req_file_content_sha = get_file_sha_hexdigest(self._requirements_file_path)
-        self._virtual_env_dir = os.path.join(
-            env_cache_dir, 'venvs', req_file_content_sha
-        )
-        if not os.path.exists(self._virtual_env_dir):
+    req_file_content_sha = get_file_sha_hexdigest(self._requirements_file_path)
+    virtual_env_dir = os.path.join(
+        venv_cache_root_dir, req_file_content_sha
+    )
+    if not os.path.exists(virtual_env_dir):
+        try:
             # install virtual env
             subprocess.run(
-                [_VIRTUALENV_CMD, f'--python={python_bin_path}', self._virtual_env_dir]
+                [_VIRTUALENV_CMD, f'--python={python_bin_path}', virtual_env_dir]
             )
             virtual_env_pip = os.path.join(
-                self._virtual_env_dir, 'bin/pip'
+                virtual_env_dir, 'bin/pip'
             )
             subprocess.run(
                 [virtual_env_pip, 'install', '-r', self._requirements_file_path],
                 check=True, stdout=sys.stdout, stderr=sys.stderr
             )
-            # For debug purpose, install the dev mlflow version in virtual env
+            # TODO: log mlflow version when logging model and get mlflow version from logged model.
             subprocess.run(
-                [virtual_env_pip, 'install', '-e',
-                 os.path.dirname(os.path.dirname(mlflow.__file__))]
+                [virtual_env_pip, 'install', 'mlflow', 'gunicorn']
             )
-        else:
-            _logger.info(f'Found python virtual env cache at {self._virtual_env_dir}')
+        except Exception:
+            # If exception happens during setup virtual env, delete the broken virtual env directory.
+            # otherwise the broken virtual env is cached and follow-up setting up virtual env
+            # using the same requirement file will reusing the broken directory and failed again.
+            shutil.rmtree(virtual_env_dir, ignore_errors=True)
+            raise
+    else:
+        _logger.info(f'Found python virtual env cache at {self._virtual_env_dir}')
 
-        self._virtual_env_python_bin = os.path.join(
-            self._virtual_env_dir, 'bin/python'
-        )
-
-    def close(self):
-        # self._subproc.terminate()
-        pass
+    virtual_env_python_bin = os.path.join(
+        virtual_env_dir, 'bin/python'
+    )
+    return virtual_env_python_bin
 
 
 def _load_model_from_local_path(
@@ -1051,6 +1038,7 @@ def spark_udf(spark, model_uri, result_type="double"):
 
     spark = _get_active_spark_session()
     spark_in_local_mode = spark.conf.get("spark.master").startswith("local")
+    use_nfs = _get_nfs_cache_root_dir() is not None
 
     if not isinstance(result_type, SparkDataType):
         result_type = _parse_datatype_string(result_type)
@@ -1075,7 +1063,7 @@ def spark_udf(spark, model_uri, result_type="double"):
     # Assume spark executor python environment is the same with spark driver side.
     _warn_dependency_requirement_mismatches(local_model_path)
 
-    if _get_nfs_cache_root_dir() is None and not spark_in_local_mode:
+    if not use_nfs and not spark_in_local_mode:
         model_dir_cache_key = _SparkBroadcastFileCache.add_file(local_model_path)
 
     model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
@@ -1084,14 +1072,9 @@ def spark_udf(spark, model_uri, result_type="double"):
     loader_module = model_conf[MAIN]
     req_file_path = os.path.join(local_path, _REQUIREMENTS_FILE_NAME)
 
-    restored_env_sub_proc_mgr = _RestoredPythonEnvSubprocessMgr(
-        py_version=model_py_version,
-        requirements_file_path=req_file_path,
-        loader_module=loader_module,
-        model_path=local_model_path
-    )
-
-    restored_env_sub_proc_mgr.setup_restored_python_env()
+    if use_nfs or spark_in_local_mode:
+        # setup python env in driver side
+        virtual_env_python_bin = _setup_restored_python_env(model_py_version)
 
     def _predict_row_batch(model, comm_stream, args):
         input_schema = model.metadata.get_input_schema()
@@ -1164,18 +1147,21 @@ def spark_udf(spark, model_uri, result_type="double"):
     driver_hostname = socket.gethostname()
 
     def predict(iterator):
+        import requests
+        from mlflow.pyfunc.scoring_server.client import ScoringServerClient
+
         # Note: this is a pandas udf function in iteration style, which takes an iterator of
         # tuple of pandas.Series and outputs an iterator of pandas.Series.
-        if _get_nfs_cache_root_dir() is None and not spark_in_local_mode:
+        if not use_nfs and not spark_in_local_mode:
             local_model_path_on_executor = _SparkBroadcastFileCache.get_file(model_dir_cache_key)
+            virtual_env_python_bin_on_executor = _setup_restored_python_env(model_py_version)
         else:
             local_model_path_on_executor = local_model_path
+            virtual_env_python_bin_on_executor = virtual_env_python_bin
 
         # TODO: use SparkModelCache
-        model = load_model(local_model_path_on_executor)
+        model = _load_model_from_local_path(local_model_path_on_executor)
 
-        restored_env_sub_proc_mgr.create_subproc()
-        comm_stream = restored_env_sub_proc_mgr.comm_stream
 
         try:
             for row_batch in iterator:
@@ -1184,10 +1170,9 @@ def spark_udf(spark, model_uri, result_type="double"):
                 # receive final "None" object.
                 if pickle.load(comm_stream) is not None:
                     raise RuntimeError('Internal error.')
-        except (socket.error, EOFError):
-            raise RuntimeError('Sub-process running under virtual python environment failed.')
+
         finally:
-            restored_env_sub_proc_mgr.close()
+
 
     udf = pandas_udf(predict, result_type, functionType=PandasUDFType.SCALAR_ITER)
     udf.metadata = model_metadata
