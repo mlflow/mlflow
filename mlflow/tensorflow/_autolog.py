@@ -39,11 +39,7 @@ class __MLflowTfKeras2Callback(Callback, metaclass=ExceptionSafeClass):
             summary = "\n".join(sum_list)
             mlflow.log_text(summary, artifact_file="model_summary.txt")
         except ValueError as ex:
-            if (
-                "This model has not yet been built. "
-                "Build the model first by calling `build()` "
-                "or by calling the model on a batch of data." == str(ex)
-            ):
+            if "This model has not yet been built" in str(ex):
                 warnings.warn(str(ex))
             else:
                 raise ex

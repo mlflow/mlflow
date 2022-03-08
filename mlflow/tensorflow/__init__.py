@@ -55,11 +55,11 @@ from mlflow.utils.autologging_utils import (
     PatchFunction,
     log_fn_args_as_params,
     batch_metrics_logger,
+    get_autologging_config,
 )
 from mlflow.entities import Metric
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.models import infer_signature
-from mlflow.utils.autologging_utils import get_autologging_config
 
 FLAVOR_NAME = "tensorflow"
 
@@ -908,38 +908,12 @@ def autolog(
                 if log_models:
                     import numpy as np
 
-                    def _is_x_type_supported_for_autologging(input_data):
-                        is_x_supported = False
-                        if isinstance(input_data, np.ndarray):
-                            is_x_supported = True
-                        elif isinstance(input_data, pandas.Series):
-                            is_x_supported = True
-                        elif isinstance(input_data, tensorflow.data.Dataset):
-                            is_x_supported = True
-                        elif isinstance(input_data, dict):
-                            is_x_supported = True
-                            for name in input_data.keys():
-                                data_type = input_data[name]
-                                if not isinstance(data_type, np.ndarray):
-                                    is_x_supported = False
-                        elif isinstance(input_data, tensorflow.keras.utils.Sequence):
-                            if isinstance(input_data[:][0], np.ndarray):
-                                is_x_supported = True
-
-                        if not is_x_supported:
-                            warnings.warn(
-                                "Tensorflow keras autologging only "
-                                "supports one of these types: numpy array, "
-                                "dictionary of (name -> numpy.ndarray), "
-                                "tf.data dataset or tf.keras.utils.Sequence"
-                            )
-                        return is_x_supported
-
-                    def _get_input_data_slice(input_example, history):
+                    def _get_input_data_slice():
+                        input_training_data = args[0]
                         input_example_slice = None
-                        if isinstance(input_example, np.ndarray):
-                            input_example_slice = input_example[:INPUT_EXAMPLE_SAMPLE_ROWS]
-                        elif isinstance(input_example, tensorflow.data.Dataset):
+                        if isinstance(input_training_data, np.ndarray):
+                            input_example_slice = input_training_data[:INPUT_EXAMPLE_SAMPLE_ROWS]
+                        elif isinstance(input_training_data, tensorflow.data.Dataset):
                             steps = 1
                             if history.params is not None and "steps" in history.params:
                                 steps = history.params["steps"]
@@ -963,36 +937,41 @@ def autolog(
                                     ]
                                 )
 
-                            return _extract_n_steps(input_example)
-                        elif isinstance(input_example, dict):
+                            return _extract_n_steps(input_training_data)
+                        elif isinstance(input_training_data, dict):
                             input_example_slice = {
                                 k: np.take(v, range(0, INPUT_EXAMPLE_SAMPLE_ROWS))
-                                for k, v in input_example.items()
+                                for k, v in input_training_data.items()
                             }
-                        elif isinstance(input_example, tensorflow.keras.utils.Sequence):
-                            input_example_slice = input_example[:][0][:INPUT_EXAMPLE_SAMPLE_ROWS]
+                        elif isinstance(input_training_data, tensorflow.keras.utils.Sequence):
+                            input_example_slice = input_training_data[:][0][:INPUT_EXAMPLE_SAMPLE_ROWS]
+
+                        else:
+                            warnings.warn(
+                                "Tensorflow keras autologging only "
+                                "supports input types of: numpy.ndarray, "
+                                "dict(<key> -> numpy.ndarray), tensorflow.data.Dataset, "
+                                "or tensorflow.keras.utils.Sequence"
+                            )
 
                         return input_example_slice
 
-                    def _infer_model_signature(input_example):
+                    def _infer_model_signature(input_data_slice):
                         try:
-                            model_output = history.model.predict(input_example)
-                            model_signature = infer_signature(input_example, model_output)
+                            model_output = history.model.predict(input_data_slice)
+                            model_signature = infer_signature(input_data_slice, model_output)
                         except TypeError as te:
                             warnings.warn(str(te))
                             model_signature = None
                         return model_signature
 
-                    signature = None
-                    input_example = None
-                    if _is_x_type_supported_for_autologging(args[0]):
-                        input_example, signature = resolve_input_example_and_signature(
-                            lambda: _get_input_data_slice(args[0], history),
-                            _infer_model_signature,
-                            log_input_examples,
-                            log_model_signatures,
-                            _logger,
-                        )
+                    input_example, signature = resolve_input_example_and_signature(
+                        lambda: _get_input_data_slice(),
+                        _infer_model_signature,
+                        log_input_examples,
+                        log_model_signatures,
+                        _logger,
+                    )
 
                     mlflow.keras.log_model(
                         keras_model=history.model,
