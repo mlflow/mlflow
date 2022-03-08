@@ -29,6 +29,7 @@ from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
 )
+from mlflow.utils.requirements_utils import _get_package_name
 from mlflow.utils.file_utils import (
     write_to,
     _validate_code_paths,
@@ -543,7 +544,8 @@ def _get_conda_and_pip_dependencies(conda_env):
                 if pip_dependency != "mlflow":
                     pip_deps.append(pip_dependency)
         else:
-            if dependency.split("=")[0] != "python" and dependency.split("=")[0] != "pip":
+            package_name = _get_package_name(dependency)
+            if package_name is not None and package_name not in ["python", "pip"]:
                 conda_deps.append(dependency)
 
     return conda_deps, pip_deps
