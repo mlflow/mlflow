@@ -13,7 +13,7 @@ def _pandas_string_type():
     try:
         return pd.StringDtype()
     except AttributeError:
-        return np.object
+        return object
 
 
 class DataType(Enum):
@@ -45,7 +45,7 @@ class DataType(Enum):
     """64b floating point numbers. """
     string = (6, np.dtype("str"), "StringType", _pandas_string_type())
     """Text data."""
-    binary = (7, np.dtype("bytes"), "BinaryType", np.object)
+    binary = (7, np.dtype("bytes"), "BinaryType", object)
     """Sequence of raw bytes."""
     datetime = (8, np.dtype("datetime64"), "TimestampType")
     """64b datetime data."""
