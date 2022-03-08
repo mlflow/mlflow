@@ -132,7 +132,7 @@ def save_model(
 
     # Save spacy-model
     spacy_model.to_disk(path=model_data_path)
-
+    code_dir_subpath = _copy_code_paths(code_paths, path)
     # Save the pyfunc flavor if at least one text categorizer in spaCy pipeline
     if any(
         [
@@ -140,7 +140,6 @@ def save_model(
             for pipe_component in spacy_model.pipeline
         ]
     ):
-        code_dir_subpath = _copy_code_paths(code_paths, path)
         pyfunc.add_to_model(
             mlflow_model,
             loader_module="mlflow.spacy",
