@@ -255,9 +255,9 @@ def save_model(
         serialization_format=serialization_format,
     )
 
+    code_path_subdir = _copy_code_paths(code_paths, path)
     # `PyFuncModel` only works for sklearn models that define `predict()`.
     if hasattr(sk_model, "predict"):
-        code_path_subdir = _copy_code_paths(code_paths, path)
         pyfunc.add_to_model(
             mlflow_model,
             loader_module="mlflow.sklearn",
