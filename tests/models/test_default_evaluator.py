@@ -683,12 +683,8 @@ def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_
         np_array = np.array([1, 2, 3, 4, 5])
         np.save(tmp_path / "arr.npy", np_array)
 
-        mlflow.log_artifact(tmp_path / "user_logged_df.csv")
         example_artifacts = {
             "test_json_artifact": {"a": 3, "b": [1, 2]},
-            "test_csv_artifact": CsvEvaluationArtifact(
-                uri=mlflow.get_artifact_uri("user_logged_df.csv")
-            ),
             "test_npy_artifact": tmp_path / "arr.npy",
         }
         return example_metrics, example_artifacts
@@ -728,11 +724,6 @@ def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_
     assert "test_json_artifact_on_data_breast_cancer_dataset.json" in artifacts
     assert isinstance(result.artifacts["test_json_artifact"], JsonEvaluationArtifact)
     assert result.artifacts["test_json_artifact"].content == {"a": 3, "b": [1, 2]}
-
-    assert "test_csv_artifact" in result.artifacts
-    assert "user_logged_df.csv" in artifacts
-    assert isinstance(result.artifacts["test_csv_artifact"], CsvEvaluationArtifact)
-    assert result.artifacts["test_csv_artifact"].content.equals(pd.DataFrame({"a": [1, 2, 3]}))
 
     assert "test_npy_artifact" in result.artifacts
     assert "test_npy_artifact_on_data_breast_cancer_dataset.npy" in artifacts

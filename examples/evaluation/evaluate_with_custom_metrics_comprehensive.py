@@ -8,7 +8,6 @@ import mlflow
 import matplotlib.pyplot as plt
 import tempfile
 import os
-from mlflow.models.evaluation.artifacts import CsvEvaluationArtifact
 
 # loading the California housing dataset
 cali_housing = fetch_california_housing(as_frame=True)
@@ -99,18 +98,11 @@ def object_artifacts_fn(eval_df, builtin_metrics):
     plt.title("Targets vs. Predictions")
     example_custom_class = ExampleClass(10)
 
-    # In rare cases, you might already have constructed a EvaluationArtifact-like object
-    # in which case, you can directly return that as well.
-    example_df.to_csv(os.path.join(tmp_dir, "example2.csv"), index=False)
-    mlflow.log_artifact(os.path.join(tmp_dir, "example2.csv"))
-    csv_eval_artifact = CsvEvaluationArtifact(uri=mlflow.get_artifact_uri("example2.csv"))
-
     return {}, {
         "example_np_arr_from_obj_saved_as_npy": example_np_arr,
         "example_df_from_obj_saved_as_csv": example_df,
         "example_dict_from_obj_saved_as_json": example_dict,
         "example_image_from_obj_saved_as_png": example_image,
-        "example_df_from_csv_eval_artifact_obj": csv_eval_artifact,
         "example_dict_from_json_str_saved_as_json": example_dict_2,
         "example_class_from_obj_saved_as_pickle": example_custom_class,
     }

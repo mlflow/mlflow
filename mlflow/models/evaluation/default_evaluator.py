@@ -3,7 +3,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.base import (
     ModelEvaluator,
     EvaluationResult,
-    EvaluationArtifact,
 )
 from mlflow.entities.metric import Metric
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -641,7 +640,6 @@ class DefaultEvaluator(ModelEvaluator):
     def _log_custom_metric_artifact(self, artifact_name, raw_artifact, custom_metric_tuple):
         """
         This function logs and returns a custom metric artifact. Two cases:
-            - The provided artifact is an EvaluationArtifact instance: it will return that object
             - The provided artifact is a path to a file, the function will make a copy of it with
               a formatted name in a temporary directory and call mlflow.log_artifact.
             - Otherwise: will attempt to save the artifact to an temporary path with an inferred
@@ -652,12 +650,10 @@ class DefaultEvaluator(ModelEvaluator):
         :param custom_metric_tuple: an instance of the _CustomMetric namedtuple
         :return: EvaluationArtifact
         """
-        if isinstance(raw_artifact, EvaluationArtifact):
-            return raw_artifact
 
-        exception_header = (
+        exception_and_warning_header = (
             f"Custom metric function '{custom_metric_tuple.name}' at index "
-            "{custom_metric_tuple.index} in the `custom_metrics` parameter"
+            f"{custom_metric_tuple.index} in the `custom_metrics` parameter"
         )
 
         inferred_from_path, inferred_type, inferred_ext = _infer_artifact_type_and_ext(
@@ -688,19 +684,23 @@ class DefaultEvaluator(ModelEvaluator):
             try:
                 with open(artifact_file_local_path, "wb") as f:
                     pickle.dump(raw_artifact, f)
+                _logger.warning(
+                    f"{exception_and_warning_header} produced an artifact '{artifact_name}'"
+                    f" with type '{type(raw_artifact)}' that is logged as a pickle artifact."
+                )
             except pickle.PickleError:
                 raise MlflowException(
-                    f"{exception_header} produced an unsupported artifact '{artifact_name}' with "
-                    f"type '{type(raw_artifact)}'. Supported object types for artifacts are:\n"
+                    f"{exception_and_warning_header} produced an unsupported artifact "
+                    f"'{artifact_name}' with type '{type(raw_artifact)}' that cannot be pickled. "
+                    "Supported object types for artifacts are:\n"
                     "- A string uri representing the file path to the artifact. MLflow"
                     "  will infer the type of the artifact based on the file extension.\n"
                     "- A string representation of a JSON object. This will be saved as a "
                     ".json artifact.\n"
-                    "- EvaluationArtifact type objects. i.e. ImageEvaluationArtifact."
                     "- Pandas DataFrame. This will be saved as a .csv artifact."
                     "- Numpy array. This will be saved as a .npy artifact."
                     "- Matplotlib Figure. This will be saved as an .png image artifact."
-                    "- Other objects will be attempted to be pickled with protocol 4."
+                    "- Other objects will be attempted to be pickled with default protocol."
                 )
 
         mlflow.log_artifact(artifact_file_local_path)
