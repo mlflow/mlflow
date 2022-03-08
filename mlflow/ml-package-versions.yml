@@ -223,14 +223,14 @@ onnx:
       # Build wheel
       python_version=$(python -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
       docker run --rm -v $(pwd):/github/workspace --workdir /github/workspace --entrypoint bash \
-        quay.io/pypa/manylinux2010_x86_64 .github/workflows/manylinux/entrypoint.sh $python_version manylinux2010_x86_64 pull_request
+        quay.io/pypa/manylinux2014_x86_64 .github/workflows/manylinux/entrypoint.sh $python_version manylinux2014_x86_64 pull_request
 
       # Install wheel
-      pip install dist/*manylinux2010_x86_64.whl
+      pip install dist/*manylinux2014_x86_64.whl
 
   models:
     minimum: "1.5.0"
-    maximum: "1.10.2"
+    maximum: "1.11.0"
     requirements: ["onnxruntime", "torch", "scikit-learn"]
     run: |
       pytest tests/onnx/test_onnx_model_export.py --large
@@ -343,3 +343,34 @@ mleap:
         exit 1
       fi
       pytest tests/mleap/test_mleap_model_export.py --large
+
+prophet:
+  package_info:
+    pip_release: "prophet"
+    install_dev: |
+      if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "prophet-*.whl") ]; then
+        pip wheel --no-deps --wheel-dir $CACHE_DIR git+https://github.com/facebook/prophet.git#subdirectory=python
+      fi
+      pip install $CACHE_DIR/prophet-*.whl
+
+  models:
+    minimum: "1.0.1"
+    maximum: "1.0.1"
+    run: |
+      pytest tests/prophet/test_prophet_model_export.py --large
+
+pmdarima:
+  package_info:
+    pip_release: "pmdarima"
+    install_dev: |
+      if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "pmdarima-*.whl") ]; then
+        pip wheel --no-deps --wheel-dir $CACHE_DIR git+https://github.com/alkaline-ml/pmdarima.git
+      fi
+      pip install $CACHE_DIR/pmdarima-*.whl
+
+  models:
+    minimum: "1.8.0"
+    maximum: "1.8.5"
+    requirements: ["prophet"]
+    run: |
+      pytest tests/pmdarima/test_pmdarima_model_export.py --large

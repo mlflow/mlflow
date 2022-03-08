@@ -317,7 +317,7 @@ class _FastaiModelWrapper:
     def predict(self, dataframe):
         dl = self.learner.dls.test_dl(dataframe)
         preds, _ = self.learner.get_preds(dl=dl)
-        return pd.DataFrame(map(np.array, preds.numpy()), columns=["predictions"])
+        return pd.Series(map(np.array, preds.numpy())).to_frame("predictions")
 
 
 def _load_pyfunc(path):
@@ -380,6 +380,7 @@ def autolog(
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
+    registered_model_name=None,
 ):  # pylint: disable=unused-argument
     """
     Enable automatic logging from Fastai to MLflow.
@@ -404,6 +405,9 @@ def autolog(
     :param silent: If ``True``, suppress all event logs and warnings from MLflow during Fastai
                    autologging. If ``False``, show all events and warnings during Fastai
                    autologging.
+    :param registered_model_name: If given, each time a model is trained, it is registered as a
+                                  new model version of the registered model with this name.
+                                  The registered model is created if it does not already exist.
 
     .. code-block:: python
         :caption: Example

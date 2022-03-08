@@ -41,7 +41,7 @@ python_mlflow_bin <- function() {
 #' @importFrom reticulate conda_binary
 python_conda_home <- function() {
   path <- try(dirname(dirname(mlflow_conda_bin())), silent = TRUE)
-  if (class(path) == "try-error") {
+  if (inherits(path, "try-error")) {
     return(NA)
   }
   path

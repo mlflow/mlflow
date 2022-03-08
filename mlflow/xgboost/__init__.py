@@ -59,6 +59,7 @@ from mlflow.utils.autologging_utils import (
     ENSURE_AUTOLOGGING_ENABLED_TEXT,
     batch_metrics_logger,
     MlflowAutologgingQueueingClient,
+    get_autologging_config,
 )
 
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -338,6 +339,7 @@ def autolog(
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
+    registered_model_name=None,
 ):  # pylint: disable=W0102,unused-argument
     """
     Enables (or disables) and configures autologging from XGBoost to MLflow. Logs the following:
@@ -380,6 +382,9 @@ def autolog(
     :param silent: If ``True``, suppress all event logs and warnings from MLflow during XGBoost
                    autologging. If ``False``, show all events and warnings during XGBoost
                    autologging.
+    :param registered_model_name: If given, each time a model is trained, it is registered as a
+                                  new model version of the registered model with this name.
+                                  The registered model is created if it does not already exist.
     """
     import functools
     import xgboost
@@ -655,11 +660,15 @@ def autolog(
                 _logger,
             )
 
+            registered_model_name = get_autologging_config(
+                FLAVOR_NAME, "registered_model_name", None
+            )
             log_model(
                 model,
                 artifact_path="model",
                 signature=signature,
                 input_example=input_example,
+                registered_model_name=registered_model_name,
             )
 
         param_logging_operations.await_completion()

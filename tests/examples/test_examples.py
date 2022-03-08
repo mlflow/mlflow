@@ -73,6 +73,7 @@ def report_free_disk_space(capsys):
 
 
 @pytest.mark.large
+@pytest.mark.notrackingurimock
 @pytest.mark.parametrize(
     "directory, params",
     [
@@ -133,6 +134,7 @@ def test_mlflow_run_example(directory, params, tmpdir):
 
 
 @pytest.mark.large
+@pytest.mark.notrackingurimock
 @pytest.mark.parametrize(
     "directory, command",
     [
@@ -185,6 +187,7 @@ def test_mlflow_run_example(directory, params, tmpdir):
         ("ray_serve", ["python", "train_model.py"]),
         ("pip_requirements", ["python", "pip_requirements.py"]),
         ("fastai", ["python", "train.py", "--lr", "0.02", "--epochs", "3"]),
+        ("pmdarima", ["python", "train.py"]),
     ],
 )
 def test_command_example(directory, command):

@@ -15,6 +15,7 @@ import mlflow
 import mlflow.tensorflow
 from mlflow.tensorflow._autolog import _TensorBoard, __MLflowTfKeras2Callback
 import mlflow.keras
+from mlflow.tracking.client import MlflowClient
 from mlflow.utils.autologging_utils import BatchMetricsLogger, autologging_is_disabled
 from unittest.mock import patch
 
@@ -852,6 +853,18 @@ def test_fit_generator(random_train_data, random_one_hot_labels):
     assert params["steps_per_epoch"] == "1"
     assert "accuracy" in metrics
     assert "loss" in metrics
+
+
+@pytest.mark.large
+def test_tf_keras_model_autolog_registering_model(random_train_data, random_one_hot_labels):
+    registered_model_name = "test_autolog_registered_model"
+    mlflow.tensorflow.autolog(registered_model_name=registered_model_name)
+    with mlflow.start_run():
+        model = create_tf_keras_model()
+        model.fit(random_train_data, random_one_hot_labels, epochs=10)
+
+        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        assert registered_model.name == registered_model_name
 
 
 @pytest.mark.large

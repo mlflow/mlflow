@@ -730,6 +730,7 @@ def _get_or_create_pyenv_home_dir():
 
 _VIRTUAL_ENV_DIR = None
 
+
 def _get_or_create_python_virtual_env_temp_dir():
     """
     Note: the python virtual env dir is NOT SHARED across different REPLs/users processes.
@@ -757,7 +758,8 @@ def _get_or_create_python_virtual_env_temp_dir():
 _PICKLE_PROTOCOL_FOR_RESTORE_PY_ENV = 3
 
 
-def _setup_restored_python_env(py_version):
+def _setup_restored_python_env(py_version, requirements_file_path):
+    import shutil
     # TODO: support py_version format (major.minor), and install latest micro version
     pyenv_home_path = _get_or_create_pyenv_home_dir()
 
@@ -776,7 +778,7 @@ def _setup_restored_python_env(py_version):
 
     venv_cache_root_dir = _get_or_create_python_virtual_env_temp_dir()
 
-    req_file_content_sha = get_file_sha_hexdigest(self._requirements_file_path)
+    req_file_content_sha = get_file_sha_hexdigest(requirements_file_path)
     virtual_env_dir = os.path.join(
         venv_cache_root_dir, req_file_content_sha
     )
@@ -790,7 +792,7 @@ def _setup_restored_python_env(py_version):
                 virtual_env_dir, 'bin/pip'
             )
             subprocess.run(
-                [virtual_env_pip, 'install', '-r', self._requirements_file_path],
+                [virtual_env_pip, 'install', '-r', requirements_file_path],
                 check=True, stdout=sys.stdout, stderr=sys.stderr
             )
             # TODO: log mlflow version when logging model and get mlflow version from logged model.
@@ -804,7 +806,7 @@ def _setup_restored_python_env(py_version):
             shutil.rmtree(virtual_env_dir, ignore_errors=True)
             raise
     else:
-        _logger.info(f'Found python virtual env cache at {self._virtual_env_dir}')
+        _logger.info(f'Found python virtual env cache at {virtual_env_dir}')
 
     virtual_env_python_bin = os.path.join(
         virtual_env_dir, 'bin/python'
@@ -1072,12 +1074,11 @@ def spark_udf(spark, model_uri, result_type="double"):
     model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
     model_conf = model_metadata.flavors.get(FLAVOR_NAME)
     model_py_version = model_conf.get(PY_VERSION)
-    loader_module = model_conf[MAIN]
-    req_file_path = os.path.join(local_path, _REQUIREMENTS_FILE_NAME)
+    req_file_path = os.path.join(local_model_path, _REQUIREMENTS_FILE_NAME)
 
     if use_nfs or spark_in_local_mode:
         # setup python env in driver side
-        virtual_env_python_bin = _setup_restored_python_env(model_py_version)
+        virtual_env_python_bin = _setup_restored_python_env(model_py_version, req_file_path)
 
     def _predict_row_batch(model, client, args):
         input_schema = model.metadata.get_input_schema()
@@ -1153,7 +1154,7 @@ def spark_udf(spark, model_uri, result_type="double"):
         # tuple of pandas.Series and outputs an iterator of pandas.Series.
         if not use_nfs and not spark_in_local_mode:
             local_model_path_on_executor = _SparkBroadcastFileCache.get_file(model_dir_cache_key)
-            virtual_env_python_bin_on_executor = _setup_restored_python_env(model_py_version)
+            virtual_env_python_bin_on_executor = _setup_restored_python_env(model_py_version, req_file_path)
         else:
             local_model_path_on_executor = local_model_path
             virtual_env_python_bin_on_executor = virtual_env_python_bin
@@ -1162,7 +1163,7 @@ def spark_udf(spark, model_uri, result_type="double"):
         model = _load_model_from_local_path(local_model_path_on_executor)
 
         server_port = find_free_port()
-        # __pyfunc_model_local_path__=... gunicorn -b 127.0.0.1:{port} -w 1 --timeout=500 -- mlflow.pyfunc.scoring_server.wsgi:app
+        # Command: __pyfunc_model_local_path__=... gunicorn -b 127.0.0.1:{port} -w 1 --timeout=500 -- mlflow.pyfunc.scoring_server.wsgi:app
         server_proc_env = os.environ.copy()
         server_proc_env[scoring_server._SERVER_MODEL_LOCAL_PATH] = local_model_path_on_executor
         gunicorn_bin_path = os.path.join(os.path.dirname(virtual_env_python_bin_on_executor), "gunicorn")
