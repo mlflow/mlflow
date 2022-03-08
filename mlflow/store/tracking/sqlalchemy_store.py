@@ -766,13 +766,13 @@ class SqlAlchemyStore(AbstractStore):
                 else:
                     raise
 
-    def _log_params(self, run_id, params, session=None, check_run=True):
+    def _log_params(self, run_id, params, session=None):
         if not params:
             return
-
-        param_args = [
-            dict(run_uuid=run_id, key=param.key, value=param.value)
-            for param in params
+        # eliminate duplicate Param entities
+        param_instances = [
+            SqlParam(run_uuid=run_id, key=param.key, value=param.value)
+            for param in set(params)
         ]
 
         # use nullcontext approach if a session is given, otherwise obtain
@@ -783,20 +783,43 @@ class SqlAlchemyStore(AbstractStore):
         )
 
         with context as session:
-            if check_run:
-                run = self._get_run(run_uuid=run_id, session=session)
-                self._check_run_is_active(run)
-            
-            # commit the session to keep the behavior in `log_param`
-            # and in case of any IntegrityError, just call log_param
-            # one by one
+            run = self._get_run(run_uuid=run_id, session=session)
+            self._check_run_is_active(run)
+
+            # commit the session to make sure that we catch any IntegrityError
+            # and try to handle them.
             try:
-                self._get_or_create_many(session, SqlParam, param_args)
+                self._save_to_db(session=session, objs=param_instances)
                 session.commit()
             except sqlalchemy.exc.IntegrityError:
+                # Roll back the current session to make it usable for further transactions. In the
+                # event of an error during "commit", a rollback is required in order to continue
+                # using the session. In this case, we re-use the session because the SqlRun, `run`,
+                # is lazily evaluated during the invocation of `run.params`.
                 session.rollback()
-                for param in params:
-                    self.log_param(run_id, param)
+
+                # in case of an integrity error, compare the parameters of the
+                # run. If the parameters match the ones whom being saved, 
+                # ignore the exception since idempotency is reached.
+                non_matching_params = []
+                for param in param_instances:
+                    existing_value = [p.value for p in run.params if p.key == param.key]
+                    existing_value = existing_value[0] if existing_value else None
+                    if param.value != existing_value:
+                        non_matching_params.append({
+                            "key": param.key,
+                            "old_value": existing_value,
+                            "new_value": param.value
+                        })
+
+                if non_matching_params:
+                    raise MlflowException(
+                        "Changing param values is not allowed. Params were already logged='{}'"
+                        " for run ID='{}'.".format(non_matching_params, run_id),
+                        INVALID_PARAMETER_VALUE,
+                    )
+                # if there's no mismatch, do not raise an Exception since
+                # we are sure that idempotency is reached.
 
     def set_experiment_tag(self, experiment_id, tag):
         """
