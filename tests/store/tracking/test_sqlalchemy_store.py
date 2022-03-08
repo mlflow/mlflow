@@ -731,7 +731,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             warnings.resetwarnings()
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
-    def test_log_metrics(self):
+    def test__log_metrics(self):
         run = self._run_factory()
 
         tkey = "blahmetric"
@@ -747,7 +747,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             metric, metric2, nan_metric, pos_inf_metric, neg_inf_metric,
             metric, metric2
         ]
-        self.store.log_metrics(run.info.run_id, metrics)
+        self.store._log_metrics(run.info.run_id, metrics)
 
         run = self.store.get_run(run.info.run_id)
         self.assertTrue(
@@ -767,7 +767,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             self.assertTrue(
                 run.data.metrics["NegInf"] == -1.7976931348623157e308)
 
-    def test_log_metrics_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_value(self):
+    def test__log_metrics_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_value(self):
         run = self._run_factory()
         run_id = run.info.run_id
         metric_name = "test-metric-1"
@@ -785,7 +785,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         metrics = []
         for step, timestamp, value in reversed(tuples_to_log):
             metrics.append(Metric(metric_name, value, timestamp, step))
-        self.store.log_metrics(run_id, metrics)
+        self.store._log_metrics(run_id, metrics)
 
         metric_history = self.store.get_metric_history(run_id, metric_name)
         logged_tuples = [(m.step, m.timestamp, m.value) for m in metric_history]
@@ -816,7 +816,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
         warnings.simplefilter("ignore")
         with self.assertRaises(MlflowException) as exception_context, warnings.catch_warnings():
-            self.store.log_metrics(run.info.run_id, metrics)
+            self.store._log_metrics(run.info.run_id, metrics)
             warnings.resetwarnings()
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
@@ -873,35 +873,35 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             self.store.log_param(run.info.run_id, param)
         assert exception_context.exception.error_code == ErrorCode.Name(INTERNAL_ERROR)
 
-    def test_log_params(self):
+    def test__log_params(self):
         run = self._run_factory()
 
         tkey = "blahmetric"
         tval = "100.0"
         param = entities.Param(tkey, tval)
         param2 = entities.Param("new param", "new key")
-        self.store.log_params(run.info.run_id, [param, param2])
+        self.store._log_params(run.info.run_id, [param, param2])
 
         run = self.store.get_run(run.info.run_id)
         self.assertEqual(2, len(run.data.params))
         self.assertTrue(
             tkey in run.data.params and run.data.params[tkey] == tval)
 
-    def test_log_params_same_values(self):
+    def test__log_params_same_values(self):
         run = self._run_factory()
 
         tkey = "blahmetric"
         tval = "100.0"
         param = entities.Param(tkey, tval)
         param2 = entities.Param("new param", "new key")
-        self.store.log_params(run.info.run_id, [param, param2, param2])
+        self.store._log_params(run.info.run_id, [param, param2, param2])
 
         run = self.store.get_run(run.info.run_id)
         self.assertEqual(2, len(run.data.params))
         self.assertTrue(
             tkey in run.data.params and run.data.params[tkey] == tval)
 
-    def test_log_params_same_values_calls_log_param(self):
+    def test__log_params_same_values_calls_log_param(self):
         run = self._run_factory()
 
         tkey = "blahmetric"
@@ -913,10 +913,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         # one by one
         package = "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"
         with mock.patch(package + ".log_param") as log_param_mock:
-            self.store.log_params(run.info.run_id, [param, param2, param2])
+            self.store._log_params(run.info.run_id, [param, param2, param2])
             log_param_mock.assert_called()
 
-    def test_log_params_uniqueness(self):
+    def test__log_params_uniqueness(self):
         run = self._run_factory()
 
         tkey = "blahmetric"
@@ -925,7 +925,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         param2 = entities.Param(tkey, "newval")
 
         with self.assertRaises(MlflowException) as e:
-            self.store.log_params(run.info.run_id, [param, param2])
+            self.store._log_params(run.info.run_id, [param, param2])
         self.assertIn(
             "Changing param values is not allowed. Param with key=", e.exception.message)
 
@@ -987,7 +987,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         run = self.store.get_run(run.info.run_id)
         self.assertTrue(tkey in run.data.tags and run.data.tags[tkey] == new_val)
 
-    def test_set_tags(self):
+    def test__set_tags(self):
         run = self._run_factory()
 
         tkey = "test tag"
@@ -1002,7 +1002,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         tags = [tag, new_tag, a_different_tag]
 
         # Overwriting tags is allowed
-        self.store.set_tags(run.info.run_id, tags)
+        self.store._set_tags(run.info.run_id, tags)
 
         run = self.store.get_run(run.info.run_id)
         self.assertTrue(

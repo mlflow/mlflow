@@ -632,7 +632,7 @@ class SqlAlchemyStore(AbstractStore):
             if just_created:
                 self._update_latest_metric_if_necessary(logged_metric, session)
 
-    def log_metrics(self, run_id, metrics, session=None, check_run=True):
+    def _log_metrics(self, run_id, metrics, session=None, check_run=True):
         if not metrics:
             return
 
@@ -766,7 +766,7 @@ class SqlAlchemyStore(AbstractStore):
                 else:
                     raise
 
-    def log_params(self, run_id, params, session=None, check_run=True):
+    def _log_params(self, run_id, params, session=None, check_run=True):
         if not params:
             return
 
@@ -828,7 +828,7 @@ class SqlAlchemyStore(AbstractStore):
             self._check_run_is_active(run)
             session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
 
-    def set_tags(self, run_id, tags, session=None, check_run=True):
+    def _set_tags(self, run_id, tags, session=None, check_run=True):
         """
         Set multiple tags on a run
 
@@ -947,16 +947,16 @@ class SqlAlchemyStore(AbstractStore):
         # call log_params first as it commits the session.
         # do not pass session and let it create its own
         try:
-            self.log_params(run_id, params, check_run=False)
+            self._log_params(run_id, params)
         except MlflowException as e:
-                raise e
+            raise e
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)
         
         with self.ManagedSessionMaker() as session:
             try:
-                self.log_metrics(run_id, metrics, session, check_run=False)
-                self.set_tags(run_id, tags, session, check_run=False)
+                self._log_metrics(run_id, metrics, session)
+                self._set_tags(run_id, tags, session)
             except MlflowException as e:
                 raise e
             except Exception as e:
