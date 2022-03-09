@@ -116,7 +116,8 @@ def log_model(
     Note: If no run is active, it will instantiate a run to obtain a run_id.
 
     :param spark_model: Spark model to be saved - MLflow can only save descendants of
-                        pyspark.ml.Model which implement MLReadable and MLWritable.
+                        pyspark.ml.Model or pyspark.ml.Transformer which implement
+                        MLReadable and MLWritable.
     :param artifact_path: Run relative artifact path.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decsribes the environment
@@ -451,9 +452,13 @@ def _save_model_metadata(
 def _validate_model(spark_model):
     from pyspark.ml.util import MLReadable, MLWritable
     from pyspark.ml import Model as PySparkModel
+    from pyspark.ml import Transformer as PySparkTransformer
 
     if (
-        not isinstance(spark_model, PySparkModel)
+        (
+            not isinstance(spark_model, PySparkModel)
+            and not isinstance(spark_model, PySparkTransformer)
+        )
         or not isinstance(spark_model, MLReadable)
         or not isinstance(spark_model, MLWritable)
     ):
@@ -485,7 +490,8 @@ def save_model(
     is also serialized in MLeap format and the MLeap flavor is added.
 
     :param spark_model: Spark model to be saved - MLflow can only save descendants of
-                        pyspark.ml.Model which implement MLReadable and MLWritable.
+                        pyspark.ml.Model or pyspark.ml.Transformer which implement
+                        MLReadable and MLWritable.
     :param path: Local path where the model is to be saved.
     :param mlflow_model: MLflow model config this flavor is being added to.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
@@ -728,7 +734,14 @@ class _PyFuncModelWrapper:
         :param pandas_df: pandas DataFrame containing input data.
         :return: List with model predictions.
         """
+        from pyspark.ml import PipelineModel
+
         spark_df = self.spark.createDataFrame(pandas_df)
+        if isinstance(self.spark_model, PipelineModel) and self.spark_model.stages[-1].hasParam(
+            "outputCol"
+        ):
+            # make sure predict work by default for Transformers
+            self.spark_model.stages[-1].setOutputCol("prediction")
         return [
             x.prediction
             for x in self.spark_model.transform(spark_df).select("prediction").collect()
