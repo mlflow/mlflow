@@ -603,7 +603,6 @@ def test_save_model_with_wrong_codepaths_fails_correctly(
         mlflow.pytorch.save_model(
             path=model_path, pytorch_model=module_scoped_subclassed_model, code_paths="some string"
         )
-    assert not os.path.exists(model_path)
 
 
 @pytest.mark.large

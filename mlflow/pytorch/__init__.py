@@ -487,10 +487,11 @@ def save_model(
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
 
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+
     model_data_subpath = "data"
     model_data_path = os.path.join(path, model_data_subpath)
     os.makedirs(model_data_path)
-    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
     # Persist the pickle module name as a file in the model's `data` directory. This is necessary
     # because the `data` directory is the only available parameter to `_load_pyfunc`, and it
