@@ -5,13 +5,18 @@ import pandas as pd
 import sklearn
 from sklearn.datasets import load_diabetes
 import pytest
+from unittest import mock
 
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.utils import PYTHON_VERSION
 from mlflow.tracking import MlflowClient
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.model_utils import _get_flavor_configuration
-from tests.helper_functions import pyfunc_serve_and_score_model, _assert_pip_requirements
+from tests.helper_functions import (
+    pyfunc_serve_and_score_model,
+    _assert_pip_requirements,
+    _compare_logged_code_paths,
+)
 
 
 @pytest.fixture(scope="module")
@@ -312,3 +317,15 @@ def test_pyfunc_serve_and_score():
     )
     scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values
     np.testing.assert_allclose(scores, model(X[:3]).values, rtol=100, atol=100)
+
+
+def test_log_model_with_code_paths(shap_model):
+    artifact_path = "model"
+    with mlflow.start_run(), mock.patch(
+        "mlflow.shap._add_code_from_conf_to_system_path"
+    ) as add_mock:
+        mlflow.shap.log_explainer(shap_model, artifact_path, code_paths=[__file__])
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+        _compare_logged_code_paths(__file__, model_uri, mlflow.shap.FLAVOR_NAME)
+        mlflow.shap.load_explainer(model_uri)
+        add_mock.assert_called()

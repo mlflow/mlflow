@@ -25,6 +25,7 @@ from tests.helper_functions import (
     _compare_conda_env_requirements,
     _assert_pip_requirements,
     _is_available_on_pypi,
+    _compare_logged_code_paths,
 )
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -638,3 +639,16 @@ def test_pyfunc_predict_supports_models_with_list_outputs(onnx_sklearn_model, mo
     mlflow.onnx.save_model(onnx_sklearn_model, model_path)
     wrapper = mlflow.pyfunc.load_model(model_path)
     wrapper.predict(pd.DataFrame(x))
+
+
+@pytest.mark.large
+def test_log_model_with_code_paths(onnx_model):
+    artifact_path = "model"
+    with mlflow.start_run(), mock.patch(
+        "mlflow.onnx._add_code_from_conf_to_system_path"
+    ) as add_mock:
+        mlflow.onnx.log_model(onnx_model, artifact_path, code_paths=[__file__])
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+        _compare_logged_code_paths(__file__, model_uri, mlflow.onnx.FLAVOR_NAME)
+        mlflow.onnx.load_model(model_uri)
+        add_mock.assert_called()

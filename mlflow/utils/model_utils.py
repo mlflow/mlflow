@@ -1,4 +1,5 @@
 import os
+import sys
 
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -6,6 +7,9 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.uri import append_to_uri_path
+from mlflow.utils.file_utils import _copy_file_or_tree
+
+FLAVOR_CONFIG_CODE = "code"
 
 
 def _get_flavor_configuration(model_path, flavor_name):
@@ -67,3 +71,67 @@ def _get_flavor_configuration_from_uri(model_uri, flavor_name):
             RESOURCE_DOES_NOT_EXIST,
         )
     return model_conf.flavors[flavor_name]
+
+
+def _get_code_dirs(src_code_path, dst_code_path=None):
+    """
+    Obtains the names of the subdirectories contained under the specified source code
+    path and joins them with the specified destination code path.
+
+    :param src_code_path: The path of the source code directory for which to list subdirectories.
+    :param dst_code_path: The destination directory path to which subdirectory names should be
+                          joined.
+    """
+    if not dst_code_path:
+        dst_code_path = src_code_path
+    return [
+        (os.path.join(dst_code_path, x))
+        for x in os.listdir(src_code_path)
+        if os.path.isdir(x) and not x == "__pycache__"
+    ]
+
+
+def _validate_code_paths(code_paths):
+    if code_paths is not None:
+        if not isinstance(code_paths, list):
+            raise TypeError("Argument code_paths should be a list, not {}".format(type(code_paths)))
+
+
+def _validate_and_copy_code_paths(code_paths, path, default_subpath="code"):
+    """
+    Validates that a code path is a valid list and copies the code paths to a directory. This
+    can later be used to log custom code as an artifact.
+
+    :param code_paths: A list of files or directories containing code that should be logged
+    as artifacts
+    :param path: The local model path.
+    :param default_subpath: The default directory name used to store code artifacts.
+    """
+    _validate_code_paths(code_paths)
+    if code_paths is not None:
+        code_dir_subpath = default_subpath
+        for code_path in code_paths:
+            _copy_file_or_tree(src=code_path, dst=path, dst_dir=code_dir_subpath)
+    else:
+        code_dir_subpath = None
+    return code_dir_subpath
+
+
+def _add_code_to_system_path(code_path):
+    sys.path = [code_path] + _get_code_dirs(code_path) + sys.path
+
+
+def _add_code_from_conf_to_system_path(local_path, conf, code_key=FLAVOR_CONFIG_CODE):
+    """
+    Checks if any code_paths were logged with the model in the flavor conf and prepends
+    the directory to the system path.
+
+    :param local_path: The local path containing model artifacts.
+    :param conf: The flavor-specific conf that should contain the FLAVOR_CONFIG_CODE
+    key, which specifies the directory containing custom code logged as artifacts.
+    :param code_key: The key used by the flavor to indicate custom code artifacts.
+    By default this is FLAVOR_CONFIG_CODE.
+    """
+    if code_key in conf and conf[code_key]:
+        code_path = os.path.join(local_path, conf[code_key])
+        _add_code_to_system_path(code_path)

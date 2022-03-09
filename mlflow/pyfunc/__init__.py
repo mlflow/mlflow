@@ -219,7 +219,6 @@ import logging
 from typing import Any, Union, List, Dict
 import mlflow
 import mlflow.pyfunc.model
-import mlflow.pyfunc.utils
 from mlflow.models import Model, ModelSignature, ModelInputExample
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
@@ -235,7 +234,11 @@ from mlflow.types.utils import clean_tensor_type
 from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
 from mlflow.utils.annotations import deprecated
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, write_to
-from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
+    _add_code_from_conf_to_system_path,
+)
 from mlflow.utils.environment import (
     _validate_env_arguments,
     _process_pip_requirements,
@@ -706,9 +709,8 @@ def load_model(
     model_py_version = conf.get(PY_VERSION)
     if not suppress_warnings:
         _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)
-    if CODE in conf and conf[CODE]:
-        code_path = os.path.join(local_path, conf[CODE])
-        mlflow.pyfunc.utils._add_code_to_system_path(code_path=code_path)
+
+    _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE)
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
     model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
     return PyFuncModel(model_meta=model_meta, model_impl=model_impl)
@@ -1296,23 +1298,23 @@ def _save_model_with_loader_module_and_data_path(
     :return: Model configuration containing model info.
     """
 
-    code = None
     data = None
 
     if data_path is not None:
         model_file = _copy_file_or_tree(src=data_path, dst=path, dst_dir="data")
         data = model_file
 
-    if code_paths is not None:
-        for code_path in code_paths:
-            _copy_file_or_tree(src=code_path, dst=path, dst_dir="code")
-        code = "code"
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
     if mlflow_model is None:
         mlflow_model = Model()
 
     mlflow.pyfunc.add_to_model(
-        mlflow_model, loader_module=loader_module, code=code, data=data, env=_CONDA_ENV_FILE_NAME
+        mlflow_model,
+        loader_module=loader_module,
+        code=code_dir_subpath,
+        data=data,
+        env=_CONDA_ENV_FILE_NAME,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 

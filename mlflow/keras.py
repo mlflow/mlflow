@@ -38,7 +38,11 @@ from mlflow.utils.environment import (
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
+    _add_code_from_conf_to_system_path,
+)
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
@@ -109,6 +113,7 @@ def save_model(
     keras_model,
     path,
     conda_env=None,
+    code_paths=None,
     mlflow_model=None,
     custom_objects=None,
     keras_module=None,
@@ -124,6 +129,9 @@ def save_model(
     :param keras_model: Keras model to be saved.
     :param path: Local path where the model is to be saved.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param mlflow_model: MLflow model config this flavor is being added to.
     :param custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
                            custom classes or functions associated with the Keras model. MLflow saves
@@ -216,6 +224,7 @@ def save_model(
     data_subpath = "data"
     data_path = os.path.join(path, data_subpath)
     os.makedirs(data_path)
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
     if mlflow_model is None:
         mlflow_model = Model()
@@ -263,11 +272,16 @@ def save_model(
         keras_version=keras_module.__version__,
         save_format=save_format,
         data=data_subpath,
+        code=code_dir_subpath,
     )
 
     # append loader_module, data and env data to mlflow_model
     pyfunc.add_to_model(
-        mlflow_model, loader_module="mlflow.keras", data=data_subpath, env=_CONDA_ENV_FILE_NAME
+        mlflow_model,
+        loader_module="mlflow.keras",
+        data=data_subpath,
+        env=_CONDA_ENV_FILE_NAME,
+        code=code_dir_subpath,
     )
 
     # save mlflow_model to path/MLmodel
@@ -309,6 +323,7 @@ def log_model(
     keras_model,
     artifact_path,
     conda_env=None,
+    code_paths=None,
     custom_objects=None,
     keras_module=None,
     registered_model_name=None,
@@ -325,6 +340,9 @@ def log_model(
     :param keras_model: Keras model to be saved.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
                            custom classes or functions associated with the Keras model. MLflow saves
                            these custom layers using CloudPickle and restores them automatically
@@ -384,6 +402,7 @@ def log_model(
         flavor=mlflow.keras,
         keras_model=keras_model,
         conda_env=conda_env,
+        code_paths=code_paths,
         custom_objects=custom_objects,
         keras_module=keras_module,
         registered_model_name=registered_model_name,
@@ -545,6 +564,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     keras_module = importlib.import_module(flavor_conf.get("keras_module", "keras"))
     keras_model_artifacts_path = os.path.join(
         local_model_path, flavor_conf.get("data", _MODEL_SAVE_PATH)

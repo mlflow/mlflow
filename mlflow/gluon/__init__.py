@@ -12,6 +12,11 @@ from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
+    _add_code_from_conf_to_system_path,
+)
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import (
     _mlflow_conda_env,
@@ -70,6 +75,8 @@ def load_model(model_uri, ctx, dst_path=None):
     from mxnet import sym
 
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
+    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
 
     model_arch_path = os.path.join(local_model_path, "data", _MODEL_SAVE_PATH) + "-symbol.json"
     model_params_path = os.path.join(local_model_path, "data", _MODEL_SAVE_PATH) + "-0000.params"
@@ -137,6 +144,7 @@ def save_model(
     path,
     mlflow_model=None,
     conda_env=None,
+    code_paths=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     pip_requirements=None,
@@ -149,6 +157,9 @@ def save_model(
     :param path: Local path where the model is to be saved.
     :param mlflow_model: MLflow model config this flavor is being added to.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
@@ -203,6 +214,7 @@ def save_model(
     data_subpath = "data"
     data_path = os.path.join(path, data_subpath)
     os.makedirs(data_path)
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
     if mlflow_model is None:
         mlflow_model = Model()
     if signature is not None:
@@ -214,8 +226,10 @@ def save_model(
     # a specific epoch's parameters, and is there only for display purposes.
     gluon_model.export(os.path.join(data_path, _MODEL_SAVE_PATH))
 
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.gluon", env=_CONDA_ENV_FILE_NAME)
-    mlflow_model.add_flavor(FLAVOR_NAME, mxnet_version=mx.__version__)
+    pyfunc.add_to_model(
+        mlflow_model, loader_module="mlflow.gluon", env=_CONDA_ENV_FILE_NAME, code=code_dir_subpath
+    )
+    mlflow_model.add_flavor(FLAVOR_NAME, mxnet_version=mx.__version__, code=code_dir_subpath)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
@@ -270,6 +284,7 @@ def log_model(
     gluon_model,
     artifact_path,
     conda_env=None,
+    code_paths=None,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -282,6 +297,9 @@ def log_model(
     :param gluon_model: Gluon model to be saved. Must be already hybridized.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
@@ -338,6 +356,7 @@ def log_model(
         flavor=mlflow.gluon,
         gluon_model=gluon_model,
         conda_env=conda_env,
+        code_paths=code_paths,
         registered_model_name=registered_model_name,
         signature=signature,
         input_example=input_example,

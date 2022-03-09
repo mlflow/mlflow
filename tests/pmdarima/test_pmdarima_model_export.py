@@ -27,6 +27,7 @@ from tests.helper_functions import (
     _assert_pip_requirements,
     pyfunc_serve_and_score_model,
     _is_available_on_pypi,
+    _compare_logged_code_paths,
 )
 
 pytestmark = pytest.mark.large
@@ -419,3 +420,15 @@ def test_pmdarima_pyfunc_return_correct_structure(auto_arima_model, model_path):
     assert isinstance(forecast_with_ci, pd.DataFrame)
     assert len(forecast_with_ci) == 10
     assert len(forecast_with_ci.columns.values) == 3
+
+
+def test_log_model_with_code_paths(auto_arima_model):
+    artifact_path = "model"
+    with mlflow.start_run(), mock.patch(
+        "mlflow.pmdarima._add_code_from_conf_to_system_path"
+    ) as add_mock:
+        mlflow.pmdarima.log_model(auto_arima_model, artifact_path, code_paths=[__file__])
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+        _compare_logged_code_paths(__file__, model_uri, mlflow.pmdarima.FLAVOR_NAME)
+        mlflow.pmdarima.load_model(model_uri)
+        add_mock.assert_called()

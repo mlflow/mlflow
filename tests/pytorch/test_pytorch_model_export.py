@@ -35,6 +35,7 @@ from tests.helper_functions import (
     _assert_pip_requirements,
     _is_available_on_pypi,
     _is_importable,
+    _compare_logged_code_paths,
 )
 
 _logger = logging.getLogger(__name__)
@@ -602,7 +603,6 @@ def test_save_model_with_wrong_codepaths_fails_correctly(
         mlflow.pytorch.save_model(
             path=model_path, pytorch_model=module_scoped_subclassed_model, code_paths="some string"
         )
-    assert not os.path.exists(model_path)
 
 
 @pytest.mark.large
@@ -1194,3 +1194,19 @@ def test_log_state_dict(sequential_model, data):
         _predict(sequential_model, data),
         decimal=4,
     )
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
+def test_log_model_with_code_paths(sequential_model):
+    artifact_path = "model"
+    with mlflow.start_run(), mock.patch(
+        "mlflow.pytorch._add_code_from_conf_to_system_path"
+    ) as add_mock:
+        mlflow.pytorch.log_model(
+            sequential_model, artifact_path=artifact_path, code_paths=[__file__]
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+        _compare_logged_code_paths(__file__, model_uri, mlflow.pytorch.FLAVOR_NAME)
+        mlflow.pytorch.load_model(model_uri)
+        add_mock.assert_called()
