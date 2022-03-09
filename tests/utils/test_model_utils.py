@@ -70,8 +70,16 @@ def test_get_flavor_configuration_with_present_flavor_returns_expected_configura
     assert sklearn_flavor_config == model_config.flavors[mlflow.sklearn.FLAVOR_NAME]
 
 
-def test_add_code_to_system_path():
+def test_add_code_to_system_path(sklearn_knn_model, model_path):
+    mlflow.sklearn.save_model(
+        sk_model=sklearn_knn_model,
+        path=model_path,
+        code_paths=["tests/utils/test_resources/dummy_module.py"],
+    )
+    sklearn_flavor_config = mlflow_model_utils._get_flavor_configuration(
+        model_path=model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME
+    )
     with pytest.raises(ModuleNotFoundError, match="No module named 'dummy_module'"):
         import dummy_module
-    mlflow_model_utils._add_code_to_system_path("tests/utils/test_resources")
+    mlflow_model_utils._add_code_from_conf_to_system_path(model_path, sklearn_flavor_config)
     import dummy_module

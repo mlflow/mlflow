@@ -101,6 +101,11 @@ def _validate_and_copy_code_paths(code_paths, path, default_subpath="code"):
     """
     Validates that a code path is a valid list and copies the code paths to a directory. This
     can later be used to log custom code as an artifact.
+
+    :param code_paths: A list of files or directories containing code that should be logged
+    as artifacts
+    :param path: The local model path.
+    :param default_subpath: The default directory name used to store code artifacts.
     """
     _validate_code_paths(code_paths)
     if code_paths is not None:
@@ -119,9 +124,9 @@ def _add_code_to_system_path(code_path):
 def _add_code_from_conf_to_system_path(local_path, conf, code_key=FLAVOR_CONFIG_CODE):
     """
     Checks if any code_paths were logged with the model in the flavor conf and prepends
-    the files to the system path.
+    the directory to the system path.
 
-    :param local_path: The local path that the model artifacts are downloaded to.
+    :param local_path: The local path containing model artifacts.
     :param conf: The flavor-specific conf that should contain the FLAVOR_CONFIG_CODE
     key, which specifies the directory containing custom code logged as artifacts.
     :param code_key: The key used by the flavor to indicate custom code artifacts.
