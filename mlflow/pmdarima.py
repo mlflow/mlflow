@@ -28,7 +28,11 @@ from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
+    _add_code_from_conf_to_system_path,
+)
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.annotations import experimental
@@ -77,6 +81,7 @@ def save_model(
     pmdarima_model,
     path,
     conda_env=None,
+    code_paths=None,
     mlflow_model=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -90,6 +95,9 @@ def save_model(
                            temporal series.
     :param path: Local path destination for the serialized model (in pickle format) is to be saved.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     :param signature: :py:class:`Model Signature <mlflow.models.ModelSignature>` describes model
                       input and output :py:class:`Schema <mlflow.types.Schema>`. The model
@@ -128,6 +136,8 @@ def save_model(
     if os.path.exists(path):
         raise MlflowException(f"Path '{path}' already exists")
     os.makedirs(path)
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+
     if mlflow_model is None:
         mlflow_model = Model()
     if signature is not None:
@@ -140,13 +150,19 @@ def save_model(
 
     model_bin_kwargs = {_MODEL_BINARY_KEY: _MODEL_BINARY_FILE_NAME}
     pyfunc.add_to_model(
-        mlflow_model, loader_module="mlflow.pmdarima", env=_CONDA_ENV_FILE_NAME, **model_bin_kwargs
+        mlflow_model,
+        loader_module="mlflow.pmdarima",
+        env=_CONDA_ENV_FILE_NAME,
+        code=code_dir_subpath,
+        **model_bin_kwargs,
     )
     flavor_conf = {
         _MODEL_TYPE_KEY: pmdarima_model.__class__.__name__,
         **model_bin_kwargs,
     }
-    mlflow_model.add_flavor(FLAVOR_NAME, pmdarima_version=pmdarima.__version__, **flavor_conf)
+    mlflow_model.add_flavor(
+        FLAVOR_NAME, pmdarima_version=pmdarima.__version__, code=code_dir_subpath, **flavor_conf
+    )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
@@ -179,6 +195,7 @@ def log_model(
     pmdarima_model,
     artifact_path,
     conda_env=None,
+    code_paths=None,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -194,6 +211,9 @@ def log_model(
                            temporal series.
     :param artifact_path: Run-relative artifact path to save the model instance to.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param registered_model_name: This argument may change or be removed in a
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a
@@ -241,6 +261,7 @@ def log_model(
         registered_model_name=registered_model_name,
         pmdarima_model=pmdarima_model,
         conda_env=conda_env,
+        code_paths=code_paths,
         signature=signature,
         input_example=input_example,
         await_registration_for=await_registration_for,
@@ -274,6 +295,7 @@ def load_model(model_uri, dst_path=None):
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     pmdarima_model_file_path = os.path.join(
         local_model_path, flavor_conf.get(_MODEL_BINARY_KEY, _MODEL_BINARY_FILE_NAME)
     )

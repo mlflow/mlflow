@@ -36,7 +36,11 @@ from mlflow.utils.environment import (
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
+    _add_code_from_conf_to_system_path,
+)
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 FLAVOR_NAME = "onnx"
@@ -78,6 +82,7 @@ def save_model(
     onnx_model,
     path,
     conda_env=None,
+    code_paths=None,
     mlflow_model=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -91,6 +96,9 @@ def save_model(
     :param onnx_model: ONNX model to be saved.
     :param path: Local path where the model is to be saved.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
 
     :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
@@ -134,6 +142,8 @@ def save_model(
             message="Path '{}' already exists".format(path), error_code=RESOURCE_ALREADY_EXISTS
         )
     os.makedirs(path)
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+
     if mlflow_model is None:
         mlflow_model = Model()
     if signature is not None:
@@ -147,13 +157,18 @@ def save_model(
     onnx.save_model(onnx_model, model_data_path)
 
     pyfunc.add_to_model(
-        mlflow_model, loader_module="mlflow.onnx", data=model_data_subpath, env=_CONDA_ENV_FILE_NAME
+        mlflow_model,
+        loader_module="mlflow.onnx",
+        data=model_data_subpath,
+        env=_CONDA_ENV_FILE_NAME,
+        code=code_dir_subpath,
     )
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         onnx_version=onnx.__version__,
         data=model_data_subpath,
         providers=onnx_execution_providers,
+        code=code_dir_subpath,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
@@ -366,6 +381,7 @@ def load_model(model_uri, dst_path=None):
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     onnx_model_artifacts_path = os.path.join(local_model_path, flavor_conf["data"])
     return _load_model(model_file=onnx_model_artifacts_path)
 
@@ -376,6 +392,7 @@ def log_model(
     onnx_model,
     artifact_path,
     conda_env=None,
+    code_paths=None,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -390,6 +407,9 @@ def log_model(
     :param onnx_model: ONNX model to be saved.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
@@ -432,6 +452,7 @@ def log_model(
         flavor=mlflow.onnx,
         onnx_model=onnx_model,
         conda_env=conda_env,
+        code_paths=code_paths,
         registered_model_name=registered_model_name,
         signature=signature,
         input_example=input_example,

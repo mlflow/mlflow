@@ -30,6 +30,7 @@ from tests.helper_functions import (
     _compare_conda_env_requirements,
     _assert_pip_requirements,
     _is_available_on_pypi,
+    _compare_logged_code_paths,
 )
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("lightgbm") else ["--no-conda"]
@@ -475,3 +476,15 @@ def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(lgb_model,
         reloaded_lgb.predict(lgb_model.inference_dataframe),
         reloaded_pyfunc.predict(lgb_model.inference_dataframe),
     )
+
+
+def test_log_model_with_code_paths(lgb_model):
+    artifact_path = "model"
+    with mlflow.start_run(), mock.patch(
+        "mlflow.lightgbm._add_code_from_conf_to_system_path"
+    ) as add_mock:
+        mlflow.lightgbm.log_model(lgb_model.model, artifact_path, code_paths=[__file__])
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+        _compare_logged_code_paths(__file__, model_uri, mlflow.lightgbm.FLAVOR_NAME)
+        mlflow.lightgbm.load_model(model_uri)
+        add_mock.assert_called()

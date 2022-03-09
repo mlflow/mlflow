@@ -2,6 +2,7 @@ import os
 import random
 from collections import namedtuple
 from packaging.version import Version
+from unittest import mock
 
 import pandas as pd
 import pytest
@@ -28,6 +29,7 @@ from tests.helper_functions import (
     _assert_pip_requirements,
     _is_available_on_pypi,
     allow_infer_pip_requirements_fallback_if,
+    _compare_logged_code_paths,
 )
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("spacy") else ["--no-conda"]
@@ -417,6 +419,19 @@ def test_pyfunc_serve_and_score(spacy_model_with_data):
     )
     scores = pd.read_json(resp.content.decode("utf-8"), orient="records")
     pd.testing.assert_frame_equal(scores, _predict(model, inference_dataframe))
+
+
+@pytest.mark.large
+def test_log_model_with_code_paths(spacy_model_with_data):
+    artifact_path = "model"
+    with mlflow.start_run(), mock.patch(
+        "mlflow.spacy._add_code_from_conf_to_system_path"
+    ) as add_mock:
+        mlflow.spacy.log_model(spacy_model_with_data.model, artifact_path, code_paths=[__file__])
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+        _compare_logged_code_paths(__file__, model_uri, mlflow.spacy.FLAVOR_NAME)
+        mlflow.spacy.load_model(model_uri)
+        add_mock.assert_called()
 
 
 def _train_model(nlp, train_data, n_iter=5):

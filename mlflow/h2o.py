@@ -28,9 +28,15 @@ from mlflow.utils.environment import (
     _CONSTRAINTS_FILE_NAME,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.file_utils import write_to
+from mlflow.utils.file_utils import (
+    write_to,
+)
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
+    _add_code_from_conf_to_system_path,
+)
 
 FLAVOR_NAME = "h2o"
 
@@ -57,6 +63,7 @@ def save_model(
     h2o_model,
     path,
     conda_env=None,
+    code_paths=None,
     mlflow_model=None,
     settings=None,
     signature: ModelSignature = None,
@@ -70,6 +77,9 @@ def save_model(
     :param h2o_model: H2O model to be saved.
     :param path: Local path where the model is to be saved.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
@@ -101,6 +111,7 @@ def save_model(
     model_data_subpath = "model.h2o"
     model_data_path = os.path.join(path, model_data_subpath)
     os.makedirs(model_data_path)
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
     if mlflow_model is None:
         mlflow_model = Model()
@@ -130,9 +141,15 @@ def save_model(
         yaml.safe_dump(settings, stream=settings_file)
 
     pyfunc.add_to_model(
-        mlflow_model, loader_module="mlflow.h2o", data=model_data_subpath, env=_CONDA_ENV_FILE_NAME
+        mlflow_model,
+        loader_module="mlflow.h2o",
+        data=model_data_subpath,
+        env=_CONDA_ENV_FILE_NAME,
+        code=code_dir_subpath,
     )
-    mlflow_model.add_flavor(FLAVOR_NAME, h2o_version=h2o.__version__, data=model_data_subpath)
+    mlflow_model.add_flavor(
+        FLAVOR_NAME, h2o_version=h2o.__version__, data=model_data_subpath, code=code_dir_subpath
+    )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
@@ -172,6 +189,7 @@ def log_model(
     h2o_model,
     artifact_path,
     conda_env=None,
+    code_paths=None,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -185,6 +203,9 @@ def log_model(
     :param h2o_model: H2O model to be saved.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
@@ -219,6 +240,7 @@ def log_model(
         registered_model_name=registered_model_name,
         h2o_model=h2o_model,
         conda_env=conda_env,
+        code_paths=code_paths,
         signature=signature,
         input_example=input_example,
         pip_requirements=pip_requirements,
@@ -297,6 +319,7 @@ def load_model(model_uri, dst_path=None):
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     # Flavor configurations for models saved in MLflow version <= 0.8.0 may not contain a
     # `data` key; in this case, we assume the model artifact path to be `model.h2o`
     h2o_model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model.h2o"))
