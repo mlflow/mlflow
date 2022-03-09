@@ -111,10 +111,6 @@ def _create_fashion_mnist_model():
 @pytest.fixture
 def keras_data_gen_sequence(random_train_data, random_one_hot_labels):
     class DataGenerator(tf.keras.utils.Sequence):
-        # def __init__(self):
-        # self.batch_size = 32
-        # self.output_shape = (6, 12)
-
         def __len__(self):
             return 128
 
@@ -1090,7 +1086,6 @@ def _assert_keras_autolog_input_example_load_and_predict_with_nparray(run, rando
     input_example = _read_example(model_conf, model_path)
     np.testing.assert_array_almost_equal(input_example, random_train_data[:5])
     pyfunc_model = mlflow.pyfunc.load_model(os.path.join(run.info.artifact_uri, "model"))
-    # Ensure input data slice works and is valid for the model
     pyfunc_model.predict(input_example)
 
 
@@ -1142,7 +1137,6 @@ def test_keras_autolog_input_example_load_and_predict_with_tf_dataset(fashion_mn
         model_conf = Model.load(os.path.join(model_path, "MLmodel"))
         input_example = _read_example(model_conf, model_path)
         pyfunc_model = mlflow.pyfunc.load_model(os.path.join(run.info.artifact_uri, "model"))
-        # Ensure input data slice works and is valid for the model
         pyfunc_model.predict(input_example)
 
 
@@ -1181,7 +1175,6 @@ def test_keras_autolog_input_example_load_and_predict_with_dict(
         for k, v in random_train_dict_mapping.items():
             np.testing.assert_array_almost_equal(input_example[k], np.take(v, range(0, 5)))
         pyfunc_model = mlflow.pyfunc.load_model(os.path.join(run.info.artifact_uri, "model"))
-        # Ensure input data slice works and is valid for the model
         pyfunc_model.predict(input_example)
 
 

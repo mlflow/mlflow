@@ -969,7 +969,7 @@ def autolog(
                             ):
                                 # For these versions, `stop_training` flag on Model is set to False
                                 # This flag is used by the callback
-                                # (inside `_log_early_stop_callback_metrics`)
+                                # (inside ``_log_early_stop_callback_metrics``)
                                 # for logging of early stop metrics. In order for
                                 # that to work, need to force that flag to be True again since doing
                                 # predict on that model sets `stop_training` to false for
