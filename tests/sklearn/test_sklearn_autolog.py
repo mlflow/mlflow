@@ -1875,10 +1875,8 @@ def test_is_metrics_value_loggable():
     is_metric_value_loggable = mlflow.sklearn._AutologgingMetricsManager.is_metric_value_loggable
     assert is_metric_value_loggable(3)
     assert is_metric_value_loggable(3.5)
-    assert is_metric_value_loggable(np.int(3))
     assert is_metric_value_loggable(np.float32(3.5))
     assert not is_metric_value_loggable(True)
-    assert not is_metric_value_loggable(np.bool(True))
     assert not is_metric_value_loggable([1, 2])
     assert not is_metric_value_loggable(np.array([1, 2]))
 
@@ -1916,8 +1914,7 @@ def test_autolog_print_warning_if_custom_estimator_pickling_raise_error():
 
     with mlflow.start_run() as run, mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
         non_pickable_kmeans = NonPickleableKmeans()
-
-        with pytest.raises(TypeError, match="can't pickle generator objects"):
+        with pytest.raises(TypeError, match=r"(can't|cannot) pickle.+generator"):
             pickle.dumps(non_pickable_kmeans)
 
         non_pickable_kmeans.fit(*get_iris())

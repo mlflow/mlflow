@@ -164,15 +164,15 @@ def test_schema_inference_on_dataframe(pandas_df_with_all_types):
 
 def test_schema_inference_on_pandas_series():
     # test objects
-    schema = _infer_schema(pd.Series(np.array(["a"], dtype=np.object)))
+    schema = _infer_schema(pd.Series(np.array(["a"], dtype=object)))
     assert schema == Schema([ColSpec(DataType.string)])
-    schema = _infer_schema(pd.Series(np.array([bytes([1])], dtype=np.object)))
+    schema = _infer_schema(pd.Series(np.array([bytes([1])], dtype=object)))
     assert schema == Schema([ColSpec(DataType.binary)])
-    schema = _infer_schema(pd.Series(np.array([bytearray([1]), None], dtype=np.object)))
+    schema = _infer_schema(pd.Series(np.array([bytearray([1]), None], dtype=object)))
     assert schema == Schema([ColSpec(DataType.binary)])
-    schema = _infer_schema(pd.Series(np.array([True, None], dtype=np.object)))
+    schema = _infer_schema(pd.Series(np.array([True, None], dtype=object)))
     assert schema == Schema([ColSpec(DataType.string)])
-    schema = _infer_schema(pd.Series(np.array([1.1, None], dtype=np.object)))
+    schema = _infer_schema(pd.Series(np.array([1.1, None], dtype=object)))
     assert schema == Schema([ColSpec(DataType.double)])
 
     # test bytes
@@ -180,11 +180,11 @@ def test_schema_inference_on_pandas_series():
     assert schema == Schema([ColSpec(DataType.binary)])
 
     # test string
-    schema = _infer_schema(pd.Series(np.array(["a"], dtype=np.str)))
+    schema = _infer_schema(pd.Series(np.array(["a"], dtype=str)))
     assert schema == Schema([ColSpec(DataType.string)])
 
     # test boolean
-    schema = _infer_schema(pd.Series(np.array([True], dtype=np.bool)))
+    schema = _infer_schema(pd.Series(np.array([True], dtype=bool)))
     assert schema == Schema([ColSpec(DataType.boolean)])
 
     # test ints

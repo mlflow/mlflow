@@ -650,7 +650,7 @@ class _AutologgingMetricsManager:
         as an MLflow metric.
         """
         return isinstance(metric_value, (int, float, np.number)) and not isinstance(
-            metric_value, (bool, np.bool)
+            metric_value, bool
         )
 
     def register_model(self, model, run_id):

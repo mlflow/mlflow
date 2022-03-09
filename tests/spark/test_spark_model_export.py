@@ -21,7 +21,6 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.tracking
 from mlflow import pyfunc
 from mlflow import spark as sparkm
-from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -275,10 +274,16 @@ def test_estimator_model_export(spark_model_estimator, model_path, spark_custom_
 
 @pytest.mark.large
 def test_transformer_model_export(spark_model_transformer, model_path, spark_custom_env):
-    with pytest.raises(MlflowException, match="Cannot serialize this model"):
-        sparkm.save_model(
-            spark_model_transformer.model, path=model_path, conda_env=spark_custom_env
-        )
+    sparkm.save_model(spark_model_transformer.model, path=model_path, conda_env=spark_custom_env)
+    # score and compare the reloaded sparkml model
+    reloaded_model = sparkm.load_model(model_uri=model_path)
+    preds_df = reloaded_model.transform(spark_model_transformer.spark_df)
+    preds = [x.features for x in preds_df.select("features").collect()]
+    assert spark_model_transformer.predictions == preds
+    # 2. score and compare reloaded pyfunc
+    m = pyfunc.load_pyfunc(model_path)
+    preds2 = m.predict(spark_model_transformer.spark_df.toPandas())
+    assert spark_model_transformer.predictions == preds2
 
 
 @pytest.mark.large
@@ -388,13 +393,6 @@ def test_sparkml_estimator_model_log(
     finally:
         mlflow.end_run()
         mlflow.set_tracking_uri(old_tracking_uri)
-
-
-@pytest.mark.large
-def test_sparkml_model_log_invalid_args(spark_model_transformer, model_path):
-    # pylint: disable=unused-argument
-    with pytest.raises(MlflowException, match="Cannot serialize this model"):
-        sparkm.log_model(spark_model=spark_model_transformer.model, artifact_path="model0")
 
 
 @pytest.mark.large
