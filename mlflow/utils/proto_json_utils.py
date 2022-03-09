@@ -168,7 +168,7 @@ class NumpyEncoder(JSONEncoder):
             return base64.encodebytes(x).decode("ascii")
 
         if isinstance(o, np.ndarray):
-            if o.dtype == np.object:
+            if o.dtype == object:
                 return [self.try_convert(x)[0] for x in o.tolist()], True
             elif o.dtype == np.bytes_:
                 return np.vectorize(encode_binary)(o), True
