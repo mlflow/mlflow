@@ -1,3 +1,5 @@
+import warnings
+
 from tensorflow.keras.callbacks import Callback, TensorBoard
 
 import mlflow
@@ -32,9 +34,15 @@ class __MLflowTfKeras2Callback(Callback, metaclass=ExceptionSafeClass):
             mlflow.log_param("opt_" + attribute, config[attribute])
 
         sum_list = []
-        self.model.summary(print_fn=sum_list.append)
-        summary = "\n".join(sum_list)
-        mlflow.log_text(summary, artifact_file="model_summary.txt")
+        try:
+            self.model.summary(print_fn=sum_list.append)
+            summary = "\n".join(sum_list)
+            mlflow.log_text(summary, artifact_file="model_summary.txt")
+        except ValueError as ex:
+            if "This model has not yet been built" in str(ex):
+                warnings.warn(str(ex))
+            else:
+                raise ex
 
     def on_epoch_end(self, epoch, logs=None):
         # NB: tf.Keras uses zero-indexing for epochs, while other TensorFlow Estimator
