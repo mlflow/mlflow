@@ -21,7 +21,6 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.tracking
 from mlflow import pyfunc
 from mlflow import spark as sparkm
-from mlflow.exceptions import MlflowException  # pylint: disable=unused-import
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -281,6 +280,10 @@ def test_transformer_model_export(spark_model_transformer, model_path, spark_cus
     preds_df = reloaded_model.transform(spark_model_transformer.spark_df)
     preds = [x.features for x in preds_df.select("features").collect()]
     assert spark_model_transformer.predictions == preds
+    # 2. score and compare reloaded pyfunc
+    m = pyfunc.load_pyfunc(model_path)
+    preds2 = m.predict(spark_model_transformer.spark_df.toPandas())
+    assert spark_model_transformer.predictions == preds2
 
 
 @pytest.mark.large
@@ -387,42 +390,6 @@ def test_sparkml_estimator_model_log(
         preds_df = reloaded_model.transform(spark_model_estimator.spark_df)
         preds = [x.prediction for x in preds_df.select("prediction").collect()]
         assert spark_model_estimator.predictions == preds
-    finally:
-        mlflow.end_run()
-        mlflow.set_tracking_uri(old_tracking_uri)
-
-
-@pytest.mark.large
-@pytest.mark.parametrize("should_start_run", [False, True])
-@pytest.mark.parametrize("use_dfs_tmpdir", [False, True])
-def test_sparkml_transformer_model_log(
-    tmpdir, spark_model_transformer, should_start_run, use_dfs_tmpdir
-):
-    old_tracking_uri = mlflow.get_tracking_uri()
-    if use_dfs_tmpdir:
-        dfs_tmpdir = None
-    else:
-        dfs_tmpdir = tmpdir.join("test").strpath
-
-    try:
-        tracking_dir = os.path.abspath(str(tmpdir.join("mlruns")))
-        mlflow.set_tracking_uri("file://%s" % tracking_dir)
-        if should_start_run:
-            mlflow.start_run()
-        artifact_path = "model"
-        sparkm.log_model(
-            artifact_path=artifact_path,
-            spark_model=spark_model_transformer.model,
-            dfs_tmpdir=dfs_tmpdir,
-        )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
-
-        reloaded_model = sparkm.load_model(model_uri=model_uri, dfs_tmpdir=dfs_tmpdir)
-        preds_df = reloaded_model.transform(spark_model_transformer.spark_df)
-        preds = [x.features for x in preds_df.select("features").collect()]
-        assert spark_model_transformer.predictions == preds
     finally:
         mlflow.end_run()
         mlflow.set_tracking_uri(old_tracking_uri)

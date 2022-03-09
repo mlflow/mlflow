@@ -734,7 +734,12 @@ class _PyFuncModelWrapper:
         :param pandas_df: pandas DataFrame containing input data.
         :return: List with model predictions.
         """
+        from pyspark.ml import PipelineModel
+
         spark_df = self.spark.createDataFrame(pandas_df)
+        if isinstance(self.spark_model, PipelineModel):
+            # make sure predict work by default for Transformers
+            self.spark_model.stages[-1].setOutputCol("prediction")
         return [
             x.prediction
             for x in self.spark_model.transform(spark_df).select("prediction").collect()
