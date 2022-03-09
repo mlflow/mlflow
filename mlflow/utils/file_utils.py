@@ -21,7 +21,6 @@ try:
 except ImportError:
     from yaml import SafeLoader as YamlSafeLoader, SafeDumper as YamlSafeDumper
 
-
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MissingConfigException
 from mlflow.utils.rest_utils import cloud_storage_http_request, augmented_raise_for_status
@@ -484,21 +483,3 @@ def _handle_readonly_on_windows(func, path, exc_info):
         raise exc_value
     os.chmod(path, stat.S_IWRITE)
     func(path)
-
-
-def _get_code_dirs(src_code_path, dst_code_path=None):
-    """
-    Obtains the names of the subdirectories contained under the specified source code
-    path and joins them with the specified destination code path.
-
-    :param src_code_path: The path of the source code directory for which to list subdirectories.
-    :param dst_code_path: The destination directory path to which subdirectory names should be
-                          joined.
-    """
-    if not dst_code_path:
-        dst_code_path = src_code_path
-    return [
-        (os.path.join(dst_code_path, x))
-        for x in os.listdir(src_code_path)
-        if os.path.isdir(x) and not x == "__pycache__"
-    ]
