@@ -36,14 +36,13 @@ from mlflow.utils.environment import (
     _CONSTRAINTS_FILE_NAME,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.file_utils import (
-    write_to,
-    _copy_code_paths,
-    _validate_code_paths,
+from mlflow.utils.file_utils import write_to
+from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
 )
-from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.autologging_utils import (
     log_fn_args_as_params,
     safe_patch,
@@ -148,7 +147,6 @@ def save_model(
     from pathlib import Path
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
-    _validate_code_paths(code_paths)
 
     path = os.path.abspath(path)
     if os.path.exists(path):
@@ -157,6 +155,7 @@ def save_model(
     model_data_path = os.path.join(path, model_data_subpath)
     model_data_path = Path(model_data_path)
     os.makedirs(path)
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
     if mlflow_model is None:
         mlflow_model = Model()
@@ -171,8 +170,6 @@ def save_model(
     fastai_learner.remove_cbs(cbs)
     fastai_learner.export(model_data_path, **kwargs)
     fastai_learner.add_cbs(cbs)
-
-    code_dir_subpath = _copy_code_paths(code_paths, path)
 
     pyfunc.add_to_model(
         mlflow_model,

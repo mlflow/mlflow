@@ -30,12 +30,13 @@ from mlflow.utils.environment import (
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import (
     write_to,
-    _copy_code_paths,
-    _validate_code_paths,
-    _add_code_from_conf_to_system_path,
 )
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
+    _add_code_from_conf_to_system_path,
+)
 
 FLAVOR_NAME = "h2o"
 
@@ -103,7 +104,6 @@ def save_model(
     import h2o
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
-    _validate_code_paths(code_paths)
 
     path = os.path.abspath(path)
     if os.path.exists(path):
@@ -111,6 +111,7 @@ def save_model(
     model_data_subpath = "model.h2o"
     model_data_path = os.path.join(path, model_data_subpath)
     os.makedirs(model_data_path)
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
     if mlflow_model is None:
         mlflow_model = Model()
@@ -139,7 +140,6 @@ def save_model(
     with open(os.path.join(model_data_path, "h2o.yaml"), "w") as settings_file:
         yaml.safe_dump(settings, stream=settings_file)
 
-    code_dir_subpath = _copy_code_paths(code_paths, path)
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.h2o",

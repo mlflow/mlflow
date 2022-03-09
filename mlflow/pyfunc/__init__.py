@@ -233,15 +233,12 @@ from mlflow.types import DataType, Schema, TensorSpec
 from mlflow.types.utils import clean_tensor_type
 from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
 from mlflow.utils.annotations import deprecated
-from mlflow.utils.file_utils import (
-    TempDir,
-    _copy_file_or_tree,
-    write_to,
-    _validate_code_paths,
-    _copy_code_paths,
+from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, write_to
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
 )
-from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.environment import (
     _validate_env_arguments,
     _process_pip_requirements,
@@ -1079,7 +1076,6 @@ def save_model(
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     """
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
-    _validate_code_paths(code_path)
 
     mlflow_model = kwargs.pop("model", mlflow_model)
     if len(kwargs) > 0:
@@ -1308,7 +1304,7 @@ def _save_model_with_loader_module_and_data_path(
         model_file = _copy_file_or_tree(src=data_path, dst=path, dst_dir="data")
         data = model_file
 
-    code_dir_subpath = _copy_code_paths(code_paths, path)
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
     if mlflow_model is None:
         mlflow_model = Model()

@@ -35,13 +35,12 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.file_utils import (
-    write_to,
-    _copy_code_paths,
-    _validate_code_paths,
+from mlflow.utils.file_utils import write_to
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
 )
-from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
@@ -200,7 +199,6 @@ def save_model(
     import paddle
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
-    _validate_code_paths(code_paths)
 
     if os.path.exists(path):
         raise MlflowException(
@@ -208,6 +206,8 @@ def save_model(
         )
 
     os.makedirs(path)
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+
     if mlflow_model is None:
         mlflow_model = Model()
     if signature is not None:
@@ -223,7 +223,6 @@ def save_model(
     else:
         paddle.jit.save(pd_model, output_path)
 
-    code_dir_subpath = _copy_code_paths(code_paths, path)
     # `PyFuncModel` only works for paddle models that define `predict()`.
     pyfunc.add_to_model(
         mlflow_model,

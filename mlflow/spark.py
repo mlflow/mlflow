@@ -48,13 +48,7 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
-from mlflow.utils.file_utils import (
-    TempDir,
-    write_to,
-    _validate_code_paths,
-    _copy_code_paths,
-    _add_code_from_conf_to_system_path,
-)
+from mlflow.utils.file_utils import TempDir, write_to
 from mlflow.utils.uri import (
     is_local_uri,
     append_to_uri_path,
@@ -62,7 +56,11 @@ from mlflow.utils.uri import (
     is_valid_dbfs_uri,
 )
 from mlflow.utils import databricks_utils
-from mlflow.utils.model_utils import _get_flavor_configuration_from_uri
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration_from_uri,
+    _validate_and_copy_code_paths,
+    _add_code_from_conf_to_system_path,
+)
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
@@ -416,7 +414,7 @@ def _save_model_metadata(
     if input_example is not None:
         _save_example(mlflow_model, input_example, dst_dir)
 
-    code_dir_subpath = _copy_code_paths(code_paths, dst_dir)
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, dst_dir)
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         pyspark_version=pyspark.__version__,
@@ -564,7 +562,6 @@ def save_model(
     """
     _validate_model(spark_model)
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
-    _validate_code_paths(code_paths)
 
     from pyspark.ml import PipelineModel
 

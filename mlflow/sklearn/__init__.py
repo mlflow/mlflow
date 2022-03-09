@@ -45,15 +45,14 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils import gorilla
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.file_utils import (
-    write_to,
-    _copy_code_paths,
-    _validate_code_paths,
-    _add_code_from_conf_to_system_path,
-)
+from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
-from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
+    _add_code_from_conf_to_system_path,
+)
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
@@ -221,7 +220,6 @@ def save_model(
     import sklearn
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
-    _validate_code_paths(code_paths)
 
     if serialization_format not in SUPPORTED_SERIALIZATION_FORMATS:
         raise MlflowException(
@@ -240,6 +238,8 @@ def save_model(
             message="Path '{}' already exists".format(path), error_code=RESOURCE_ALREADY_EXISTS
         )
     os.makedirs(path)
+    code_path_subdir = _validate_and_copy_code_paths(code_paths, path)
+
     if mlflow_model is None:
         mlflow_model = Model()
     if signature is not None:
@@ -255,7 +255,6 @@ def save_model(
         serialization_format=serialization_format,
     )
 
-    code_path_subdir = _copy_code_paths(code_paths, path)
     # `PyFuncModel` only works for sklearn models that define `predict()`.
     if hasattr(sk_model, "predict"):
         pyfunc.add_to_model(

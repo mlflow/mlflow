@@ -36,14 +36,13 @@ from mlflow.utils.environment import (
     _CONSTRAINTS_FILE_NAME,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.file_utils import (
-    write_to,
-    _copy_code_paths,
-    _validate_code_paths,
+from mlflow.utils.file_utils import write_to
+from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
 )
-from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
@@ -180,7 +179,6 @@ def save_model(
         mlflow.keras.save_model(keras_model, keras_model_path)
     """
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
-    _validate_code_paths(code_paths)
 
     if keras_module is None:
 
@@ -226,6 +224,7 @@ def save_model(
     data_subpath = "data"
     data_path = os.path.join(path, data_subpath)
     os.makedirs(data_path)
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
     if mlflow_model is None:
         mlflow_model = Model()
@@ -266,7 +265,6 @@ def save_model(
     else:
         keras_model.save(model_path, **kwargs)
 
-    code_dir_subpath = _copy_code_paths(code_paths, path)
     # update flavor info to mlflow_model
     mlflow_model.add_flavor(
         FLAVOR_NAME,

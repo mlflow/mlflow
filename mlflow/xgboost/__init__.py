@@ -43,13 +43,12 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.file_utils import (
-    write_to,
-    _copy_code_paths,
-    _validate_code_paths,
+from mlflow.utils.file_utils import write_to
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
 )
-from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.arguments_utils import _get_arg_names
@@ -139,12 +138,13 @@ def save_model(
     import xgboost as xgb
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
-    _validate_code_paths(code_paths)
 
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise MlflowException("Path '{}' already exists".format(path))
     os.makedirs(path)
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+
     if mlflow_model is None:
         mlflow_model = Model()
     if signature is not None:
@@ -157,7 +157,6 @@ def save_model(
     # Save an XGBoost model
     xgb_model.save_model(model_data_path)
     xgb_model_class = _get_fully_qualified_class_name(xgb_model)
-    code_dir_subpath = _copy_code_paths(code_paths, path)
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.xgboost",

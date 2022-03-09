@@ -30,14 +30,13 @@ from mlflow.utils.environment import (
     _REQUIREMENTS_FILE_NAME,
 )
 from mlflow.utils.requirements_utils import _get_package_name
-from mlflow.utils.file_utils import (
-    write_to,
-    _validate_code_paths,
-    _copy_code_paths,
+from mlflow.utils.file_utils import write_to
+from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
 )
-from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -421,7 +420,6 @@ def save_explainer(
     import shap
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
-    _validate_code_paths(code_paths)
 
     if os.path.exists(path):
         raise MlflowException(
@@ -430,6 +428,8 @@ def save_explainer(
         )
 
     os.makedirs(path)
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+
     if mlflow_model is None:
         mlflow_model = Model()
     if signature is not None:
@@ -467,7 +467,6 @@ def save_explainer(
         else:
             explainer.save(explainer_output_file_handle)
 
-    code_dir_subpath = _copy_code_paths(code_paths, path)
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.shap",

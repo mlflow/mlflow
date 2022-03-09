@@ -27,7 +27,6 @@ from mlflow.exceptions import MissingConfigException
 from mlflow.utils.rest_utils import cloud_storage_http_request, augmented_raise_for_status
 
 ENCODING = "utf-8"
-CODE = "code"
 
 
 def is_directory(name):
@@ -359,22 +358,6 @@ def _copy_file_or_tree(src, dst, dst_dir=None):
     return dst_subpath
 
 
-def _copy_code_paths(code_paths, path, default_subpath="code"):
-    if code_paths is not None:
-        code_dir_subpath = default_subpath
-        for code_path in code_paths:
-            _copy_file_or_tree(src=code_path, dst=path, dst_dir=code_dir_subpath)
-    else:
-        code_dir_subpath = None
-    return code_dir_subpath
-
-
-def _validate_code_paths(code_paths):
-    if code_paths is not None:
-        if not isinstance(code_paths, list):
-            raise TypeError("Argument code_paths should be a list, not {}".format(type(code_paths)))
-
-
 def _get_local_project_dir_size(project_path):
     """
     Internal function for reporting the size of a local project directory before copying to
@@ -519,13 +502,3 @@ def _get_code_dirs(src_code_path, dst_code_path=None):
         for x in os.listdir(src_code_path)
         if os.path.isdir(x) and not x == "__pycache__"
     ]
-
-
-def _add_code_to_system_path(code_path):
-    sys.path = [code_path] + _get_code_dirs(code_path) + sys.path
-
-
-def _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE):
-    if code_key in conf and conf[code_key]:
-        code_path = os.path.join(local_path, conf[code_key])
-        _add_code_to_system_path(code_path)

@@ -45,15 +45,12 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.file_utils import (
-    _copy_file_or_tree,
-    TempDir,
-    write_to,
-    _copy_code_paths,
-    _validate_code_paths,
+from mlflow.utils.file_utils import _copy_file_or_tree, TempDir, write_to
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
 )
-from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
@@ -270,7 +267,6 @@ def save_model(
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     """
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
-    _validate_code_paths(code_paths)
 
     _logger.info(
         "Validating the specified TensorFlow model by attempting to load it in a new TensorFlow"
@@ -286,6 +282,8 @@ def save_model(
     if os.path.exists(path):
         raise MlflowException("Path '{}' already exists".format(path), DIRECTORY_NOT_EMPTY)
     os.makedirs(path)
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+
     if mlflow_model is None:
         mlflow_model = Model()
     if signature is not None:
@@ -303,7 +301,6 @@ def save_model(
         signature_def_key=tf_signature_def_key,
     )
 
-    code_dir_subpath = _copy_code_paths(code_paths, path)
     mlflow_model.add_flavor(FLAVOR_NAME, code=code_dir_subpath, **flavor_conf)
     pyfunc.add_to_model(
         mlflow_model,

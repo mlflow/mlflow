@@ -41,13 +41,14 @@ from mlflow.utils.environment import (
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.file_utils import (
-    _copy_code_paths,
-    _validate_code_paths,
-    _add_code_from_conf_to_system_path,
     TempDir,
     write_to,
 )
-from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
+    _add_code_from_conf_to_system_path,
+)
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
@@ -473,7 +474,6 @@ def save_model(
 
     if not isinstance(pytorch_model, torch.nn.Module):
         raise TypeError("Argument 'pytorch_model' should be a torch.nn.Module")
-    _validate_code_paths(code_paths)
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise RuntimeError("Path '{}' already exists".format(path))
@@ -490,6 +490,8 @@ def save_model(
     model_data_subpath = "data"
     model_data_path = os.path.join(path, model_data_subpath)
     os.makedirs(model_data_path)
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+
     # Persist the pickle module name as a file in the model's `data` directory. This is necessary
     # because the `data` directory is the only available parameter to `_load_pyfunc`, and it
     # does not contain the MLmodel configuration; therefore, it is not sufficient to place
@@ -544,8 +546,6 @@ def save_model(
             rel_path = os.path.basename(requirements_file)
             torchserve_artifacts_config[_REQUIREMENTS_FILE_KEY] = {"path": rel_path}
             shutil.move(tmp_requirements_dir.path(rel_path), path)
-
-    code_dir_subpath = _copy_code_paths(code_paths, path)
 
     mlflow_model.add_flavor(
         FLAVOR_NAME,

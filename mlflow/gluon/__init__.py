@@ -12,7 +12,11 @@ from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
-from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
+    _add_code_from_conf_to_system_path,
+)
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import (
     _mlflow_conda_env,
@@ -25,12 +29,7 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.file_utils import (
-    write_to,
-    _validate_code_paths,
-    _copy_code_paths,
-    _add_code_from_conf_to_system_path,
-)
+from mlflow.utils.file_utils import write_to
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
@@ -209,13 +208,13 @@ def save_model(
     import mxnet as mx
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
-    _validate_code_paths(code_paths)
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise MlflowException("Path '{}' already exists".format(path))
     data_subpath = "data"
     data_path = os.path.join(path, data_subpath)
     os.makedirs(data_path)
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
     if mlflow_model is None:
         mlflow_model = Model()
     if signature is not None:
@@ -227,7 +226,6 @@ def save_model(
     # a specific epoch's parameters, and is there only for display purposes.
     gluon_model.export(os.path.join(data_path, _MODEL_SAVE_PATH))
 
-    code_dir_subpath = _copy_code_paths(code_paths, path)
     pyfunc.add_to_model(
         mlflow_model, loader_module="mlflow.gluon", env=_CONDA_ENV_FILE_NAME, code=code_dir_subpath
     )

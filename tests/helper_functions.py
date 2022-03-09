@@ -21,8 +21,8 @@ import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.pyfunc
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.file_utils import read_yaml, write_yaml, CODE
-from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.file_utils import read_yaml, write_yaml
+from mlflow.utils.model_utils import _get_flavor_configuration, FLAVOR_CONFIG_CODE
 from mlflow.utils.environment import (
     _get_pip_deps,
     _CONDA_ENV_FILE_NAME,
@@ -349,7 +349,7 @@ def _compare_logged_code_paths(code_path, model_path, flavor_name):
         model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
     )
     flavor_conf = _get_flavor_configuration(model_path, flavor_name=flavor_name)
-    assert pyfunc_conf[mlflow.pyfunc.CODE] == flavor_conf[CODE]
+    assert pyfunc_conf[mlflow.pyfunc.CODE] == flavor_conf[FLAVOR_CONFIG_CODE]
     saved_code_path = os.path.join(model_path, pyfunc_conf[mlflow.pyfunc.CODE])
     assert os.path.exists(saved_code_path)
 
