@@ -737,9 +737,8 @@ class _PyFuncModelWrapper:
         from pyspark.ml import PipelineModel
 
         spark_df = self.spark.createDataFrame(pandas_df)
-        if isinstance(self.spark_model, PipelineModel):
+        if isinstance(self.spark_model, PipelineModel) and self.spark_model.stages[-1].hasParam("outputCol"):
             # make sure predict work by default for Transformers
-            if self.spark_model.stages[-1].hasParam("outputCol"):
                 self.spark_model.stages[-1].setOutputCol("prediction")
         return [
             x.prediction
