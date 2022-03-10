@@ -898,6 +898,9 @@ def autolog(
 
             log_fn_args_as_params(original, args, kwargs, unlogged_params)
 
+            # NB: early_stop_callback must be initialized to support TF >= 2.6.3 callback behavior
+            early_stop_callback = None
+
             run_id = mlflow.active_run().info.run_id
             with batch_metrics_logger(run_id) as metrics_logger:
                 # Check if the 'callback' argument of fit() is set positionally
