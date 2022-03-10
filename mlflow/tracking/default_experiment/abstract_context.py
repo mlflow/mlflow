@@ -24,7 +24,7 @@ class DefaultExperimentProvider(object):
         identify an associated MLflow Experiment ID.
 
         :return: ``True`` if the MLflow client is running in a context where the provider
-        can identify an associated MLflow Experiment ID. ``False`` otherwise.
+                can identify an associated MLflow Experiment ID. ``False`` otherwise.
         """
         pass
 
