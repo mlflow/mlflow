@@ -16,6 +16,7 @@ _logger = logging.getLogger(__name__)
 # an experiment. The order below is the order in which the these providers are registered.
 _EXPERIMENT_PROVIDERS = (DatabricksNotebookExperimentProvider, DatabricksJobExperimentProvider)
 
+
 class DefaultExperimentProviderRegistry(object):
     """Registry for default experiment provider implementations
 
@@ -46,6 +47,7 @@ class DefaultExperimentProviderRegistry(object):
 
     def __iter__(self):
         return iter(self._registry)
+
 
 _default_experiment_provider_registry = DefaultExperimentProviderRegistry()
 _default_experiment_provider_registry.register(_EXPERIMENT_PROVIDERS[0])
