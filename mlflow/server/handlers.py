@@ -13,9 +13,6 @@ from functools import wraps
 from flask import Response, request, current_app, send_file
 from google.protobuf import descriptor
 
-from jsonschema import validate, Draft202012Validator
-from jsonschema.exceptions import ValidationError
-
 from mlflow.entities import Metric, Param, RunTag, ViewType, ExperimentTag, FileInfo
 from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
 from mlflow.exceptions import MlflowException
@@ -265,69 +262,41 @@ def initialize_backend_stores(backend_store_uri=None, default_artifact_root=None
     except UnsupportedModelRegistryStoreURIException:
         pass
 
-_STRING_TYPE_DEFAULT_SCHEMA = {"type": "string"}
-_INTEGER_TYPE_DEFAULT_SCHEMA = {"type": "integer"}
-_REQUIRED_PARAM_DEFAULT_SCHEMA = {"required": True}
+def _assert_string(x):
+    assert isinstance(x, str)
 
-_DEFAULT_SCHEMAS = {
-    "name": _STRING_TYPE_DEFAULT_SCHEMA,
-    "artifact_location": _STRING_TYPE_DEFAULT_SCHEMA,
-    "tags": {"type": "array", "minItems": 0},
-    "max_results": _INTEGER_TYPE_DEFAULT_SCHEMA,
-    "page_token": _STRING_TYPE_DEFAULT_SCHEMA,
-    "next_page_token": _STRING_TYPE_DEFAULT_SCHEMA,
-    "experiment_id": _STRING_TYPE_DEFAULT_SCHEMA,
-    "experiment_name": _STRING_TYPE_DEFAULT_SCHEMA,
-    "new_name": _STRING_TYPE_DEFAULT_SCHEMA,
-    "timestamp": _INTEGER_TYPE_DEFAULT_SCHEMA,
-    "start_time": _INTEGER_TYPE_DEFAULT_SCHEMA,
-    "end_time": _INTEGER_TYPE_DEFAULT_SCHEMA,
-    "run_id": _STRING_TYPE_DEFAULT_SCHEMA,
-    "key": _STRING_TYPE_DEFAULT_SCHEMA,
-    "step": _INTEGER_TYPE_DEFAULT_SCHEMA,
-    "model_json": _STRING_TYPE_DEFAULT_SCHEMA,
-    "metric_key": _STRING_TYPE_DEFAULT_SCHEMA,
-    "filter": _STRING_TYPE_DEFAULT_SCHEMA,
-    "path": _STRING_TYPE_DEFAULT_SCHEMA,
-    "description": _STRING_TYPE_DEFAULT_SCHEMA,
-    "stages": {"type": "array", "items": _STRING_TYPE_DEFAULT_SCHEMA},
-    "source": _STRING_TYPE_DEFAULT_SCHEMA,
-    "run_link": _STRING_TYPE_DEFAULT_SCHEMA,
-    "version": _STRING_TYPE_DEFAULT_SCHEMA,
-    "order_by": {"type": "array", "items": _STRING_TYPE_DEFAULT_SCHEMA},
-    "archive_existing_versions": {"type": "boolean"}
-}
+def _assert_int(x):
+    assert isinstance(x, int)
 
+def _assert_bool(x):
+    assert isinstance(x, bool)
 
-def _build_schema(name, additional_schema = {}):
+def _assert_float(x):
+    assert isinstance(x, float)
 
-    schema = copy.deepcopy(_DEFAULT_SCHEMAS.get(name, {}))
+def _assert_array(x):
+    assert isinstance(x, list)
 
-    for k, v in additional_schema.items():
-        schema[k] = v
-
-    return schema
+def _assert_required(x):
+    assert x is not None
 
 def _validate_param_against_schema(schema, param, value):
-    ## If the schema is empty, do nothing
-    if not schema:
-        return True
+    for f in schema:
+        try:
+            f(value)
+        except AssertionError as e:
+            raise MlflowException(
+                message="Invalid value {} for '{}' supplied.".format(value, param) + "\nSee the API docs for more information on parameters.",
+                error_code=INVALID_PARAMETER_VALUE
+            )
 
-    try:
-        Draft202012Validator(schema).validate(value)
-    except ValidationError as e:
-        raise MlflowException(
-            message="Invalid value for '{}' supplied.".format(param) + "\n" + e.message,
-            error_code=INVALID_PARAMETER_VALUE
-        )
-
-    return True
+    return None
 
 
 def _get_request_json(flask_request=request):
     return flask_request.get_json(force=True, silent=True)
 
-def _get_request_message(request_message, flask_request=request, **additional_schema):
+def _get_request_message(request_message, flask_request=request, schema = {}):
     from querystring_parser import parser
 
     if flask_request.method == "GET" and len(flask_request.query_string) > 0:
@@ -368,8 +337,8 @@ def _get_request_message(request_message, flask_request=request, **additional_sc
         request_json = {}
 
     for k, v in request_json.items():
-        schema = _build_schema(k, additional_schema.get(k, {}))
-        _validate_param_against_schema(schema, k, v)
+        if (k in schema.keys()):
+            _validate_param_against_schema(schema[k], k, v)
 
     parse_dict(request_json, request_message)
 
@@ -487,7 +456,16 @@ def _not_implemented():
 @_disable_if_artifacts_only
 def _create_experiment():
 
-    request_message = _get_request_message(CreateExperiment(), name = _REQUIRED_PARAM_DEFAULT_SCHEMA)
+    request_message = _get_request_message(
+        CreateExperiment(),
+        schema = {
+            "name": [
+                _assert_required,
+                _assert_string
+            ]
+        }
+    )
+
     tags = [ExperimentTag(tag.key, tag.value) for tag in request_message.tags]
     experiment_id = _get_tracking_store().create_experiment(
         request_message.name, request_message.artifact_location, tags
@@ -501,7 +479,15 @@ def _create_experiment():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _get_experiment():
-    request_message = _get_request_message(GetExperiment(), experiment_id = _REQUIRED_PARAM_DEFAULT_SCHEMA)
+    request_message = _get_request_message(
+        GetExperiment(),
+        schema = {
+            "experiment_id": [
+                _assert_required,
+                _assert_string
+            ]
+        }
+    )
     response_message = GetExperiment.Response()
     experiment = _get_tracking_store().get_experiment(request_message.experiment_id).to_proto()
     response_message.experiment.MergeFrom(experiment)
@@ -513,7 +499,15 @@ def _get_experiment():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _get_experiment_by_name():
-    request_message = _get_request_message(GetExperimentByName(), experiment_name = _REQUIRED_PARAM_DEFAULT_SCHEMA)
+    request_message = _get_request_message(
+        GetExperimentByName(),
+        schema = {
+            "experiment_name": [
+                _assert_required,
+                _assert_string
+            ]
+        }
+    )
     response_message = GetExperimentByName.Response()
     store_exp = _get_tracking_store().get_experiment_by_name(request_message.experiment_name)
     if store_exp is None:
@@ -531,7 +525,15 @@ def _get_experiment_by_name():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _delete_experiment():
-    request_message = _get_request_message(DeleteExperiment(), experiment_id = _REQUIRED_PARAM_DEFAULT_SCHEMA)
+    request_message = _get_request_message(
+        DeleteExperiment(),
+        schema = {
+            "experiment_id": [
+                _assert_required,
+                _assert_string
+            ]
+        }
+    )
     _get_tracking_store().delete_experiment(request_message.experiment_id)
     response_message = DeleteExperiment.Response()
     response = Response(mimetype="application/json")
@@ -542,7 +544,15 @@ def _delete_experiment():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _restore_experiment():
-    request_message = _get_request_message(RestoreExperiment(), experiment_id = _REQUIRED_PARAM_DEFAULT_SCHEMA)
+    request_message = _get_request_message(
+        RestoreExperiment(),
+        schema = {
+            "experiment_id": [
+                _assert_required,
+                _assert_string
+            ]
+        }
+    )
     _get_tracking_store().restore_experiment(request_message.experiment_id)
     response_message = RestoreExperiment.Response()
     response = Response(mimetype="application/json")
@@ -553,7 +563,18 @@ def _restore_experiment():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _update_experiment():
-    request_message = _get_request_message(UpdateExperiment(), experiment_id = _REQUIRED_PARAM_DEFAULT_SCHEMA)
+    request_message = _get_request_message(
+        UpdateExperiment(),
+        schema = {
+            "experiment_id": [
+                _assert_required,
+                _assert_string
+            ],
+            "new_name": [
+                _assert_string
+            ]
+        }
+    )
     if request_message.new_name:
         _get_tracking_store().rename_experiment(
             request_message.experiment_id, request_message.new_name
@@ -567,7 +588,17 @@ def _update_experiment():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _create_run():
-    request_message = _get_request_message(CreateRun())
+    request_message = _get_request_message(
+        CreateRun(),
+        schema = {
+            "experiment_id": [
+                _assert_string
+            ],
+            "start_time": [
+                _assert_int
+            ]
+        }
+    )
 
     tags = [RunTag(tag.key, tag.value) for tag in request_message.tags]
     run = _get_tracking_store().create_run(
@@ -587,7 +618,18 @@ def _create_run():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _update_run():
-    request_message = _get_request_message(UpdateRun(), run_id = _REQUIRED_PARAM_DEFAULT_SCHEMA)
+    request_message = _get_request_message(
+        UpdateRun(),
+        schema = {
+            "run_id": [
+                _assert_required,
+                _assert_string
+            ],
+            "end_time": [
+                _assert_int
+            ]
+        }
+    )
     run_id = request_message.run_id or request_message.run_uuid
     updated_info = _get_tracking_store().update_run_info(
         run_id, request_message.status, request_message.end_time
@@ -601,7 +643,15 @@ def _update_run():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _delete_run():
-    request_message = _get_request_message(DeleteRun(), run_id = _REQUIRED_PARAM_DEFAULT_SCHEMA)
+    request_message = _get_request_message(
+        DeleteRun(),
+        schema = {
+            "run_id": [
+                _assert_required,
+                _assert_string
+            ]
+        }
+    )
     _get_tracking_store().delete_run(request_message.run_id)
     response_message = DeleteRun.Response()
     response = Response(mimetype="application/json")
@@ -612,7 +662,15 @@ def _delete_run():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _restore_run():
-    request_message = _get_request_message(RestoreRun(), run_id = _REQUIRED_PARAM_DEFAULT_SCHEMA)
+    request_message = _get_request_message(
+        RestoreRun(),
+        schema = {
+            "run_id": [
+                _assert_required,
+                _assert_string
+            ]
+        }
+    )
     _get_tracking_store().restore_run(request_message.run_id)
     response_message = RestoreRun.Response()
     response = Response(mimetype="application/json")
@@ -625,10 +683,27 @@ def _restore_run():
 def _log_metric():
     request_message = _get_request_message(
         LogMetric(),
-        run_id = _REQUIRED_PARAM_DEFAULT_SCHEMA,
-        key = _REQUIRED_PARAM_DEFAULT_SCHEMA,
-        value = {"required": True, "type": "number"},
-        timestamp = _REQUIRED_PARAM_DEFAULT_SCHEMA
+        schema = {
+            "run_id": [
+                _assert_required,
+                _assert_string
+            ],
+            "key": [
+                _assert_required,
+                _assert_string
+            ],
+            "value": [
+                _assert_required,
+                _assert_float
+            ],
+            "timestamp": [
+                _assert_int,
+                _assert_required
+            ],
+            "step": [
+                _assert_int
+            ]
+        }
     )
     metric = Metric(
         request_message.key, request_message.value, request_message.timestamp, request_message.step
@@ -646,9 +721,20 @@ def _log_metric():
 def _log_param():
     request_message = _get_request_message(
         LogParam(),
-        run_id = _REQUIRED_PARAM_DEFAULT_SCHEMA,
-        key = _REQUIRED_PARAM_DEFAULT_SCHEMA,
-        value = {"required": True, "type": "string"}
+        schema = {
+            "run_id": [
+                _assert_required,
+                _assert_string
+            ],
+            "key": [
+                _assert_required,
+                _assert_string
+            ],
+            "value": [
+                _assert_required,
+                _assert_string
+            ]
+        }
     )
     param = Param(request_message.key, request_message.value)
     run_id = request_message.run_id or request_message.run_uuid
@@ -664,8 +750,20 @@ def _log_param():
 def _set_experiment_tag():
     request_message = _get_request_message(
         SetExperimentTag(),
-        key = _REQUIRED_PARAM_DEFAULT_SCHEMA,
-        value = {"type": "string", "required": True}
+        schema = {
+            "experiment_id": [
+                _assert_required,
+                _assert_string
+            ],
+            "key": [
+                _assert_required,
+                _assert_string
+            ],
+            "value": [
+                _assert_required,
+                _assert_string
+            ]
+        }
     )
     tag = ExperimentTag(request_message.key, request_message.value)
     _get_tracking_store().set_experiment_tag(request_message.experiment_id, tag)
@@ -680,8 +778,20 @@ def _set_experiment_tag():
 def _set_tag():
     request_message = _get_request_message(
         SetTag(),
-        key = _REQUIRED_PARAM_DEFAULT_SCHEMA,
-        value = {"type": "string", "required": True}
+        schema = {
+            "run_id": [
+                _assert_required,
+                _assert_string
+            ],
+            "key": [
+                _assert_required,
+                _assert_string
+            ],
+            "value": [
+                _assert_required,
+                _assert_string
+            ]
+        }
     )
     tag = RunTag(request_message.key, request_message.value)
     run_id = request_message.run_id or request_message.run_uuid
@@ -695,7 +805,19 @@ def _set_tag():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _delete_tag():
-    request_message = _get_request_message(DeleteTag(), key = _REQUIRED_PARAM_DEFAULT_SCHEMA)
+    request_message = _get_request_message(
+        DeleteTag(),
+        schema = {
+            "run_id": [
+                _assert_required,
+                _assert_string
+            ],
+            "key": [
+                _assert_required,
+                _assert_string
+            ]
+        }
+    )
     _get_tracking_store().delete_tag(request_message.run_id, request_message.key)
     response_message = DeleteTag.Response()
     response = Response(mimetype="application/json")
@@ -706,7 +828,15 @@ def _delete_tag():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _get_run():
-    request_message = _get_request_message(GetRun(), run_id = _REQUIRED_PARAM_DEFAULT_SCHEMA)
+    request_message = _get_request_message(
+        GetRun(),
+        schema = {
+            "run_id": [
+                _assert_required,
+                _assert_string
+            ]
+        }
+    )
     response_message = GetRun.Response()
     run_id = request_message.run_id or request_message.run_uuid
     response_message.run.MergeFrom(_get_tracking_store().get_run(run_id).to_proto())
@@ -718,9 +848,32 @@ def _get_run():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _search_runs():
+
+    def _assert_max_50k(x):
+        assert x <= 50000
+
+    def _assert_item_type_string(x):
+        for item in x:
+            _assert_string(item)
+
     request_message = _get_request_message(
         SearchRuns(),
-        max_results = {"maximum": 50000}
+        schema = {
+            "experiment_ids": [
+                _assert_array
+            ],
+            "filter": [
+                _assert_string
+            ],
+            "max_results": [
+                _assert_int,
+                _assert_max_50k
+            ],
+            "order_by": [
+                _assert_array,
+                _assert_item_type_string
+            ]
+        }
     )
     response_message = SearchRuns.Response()
     run_view_type = ViewType.ACTIVE_ONLY
@@ -745,7 +898,21 @@ def _search_runs():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _list_artifacts():
-    request_message = _get_request_message(ListArtifacts(), run_id = _REQUIRED_PARAM_DEFAULT_SCHEMA)
+    request_message = _get_request_message(
+        ListArtifacts(),
+        schema = {
+            "run_id": [
+                _assert_string,
+                _assert_required
+            ],
+            "path": [
+                _assert_string
+            ],
+            "page_token": [
+                _assert_string
+            ]
+        }
+    )
     response_message = ListArtifacts.Response()
     if request_message.HasField("path"):
         path = request_message.path
@@ -809,8 +976,16 @@ def _list_artifacts_for_proxied_run_artifact_root(proxied_artifact_root, relativ
 def _get_metric_history():
     request_message = _get_request_message(
         GetMetricHistory(),
-        run_id = _REQUIRED_PARAM_DEFAULT_SCHEMA,
-        metric_key = _REQUIRED_PARAM_DEFAULT_SCHEMA
+        schema = {
+            "run_id": [
+                _assert_string,
+                _assert_required
+            ],
+            "metric_key": [
+                _assert_string,
+                _assert_required
+            ]
+        }
     )
     response_message = GetMetricHistory.Response()
     run_id = request_message.run_id or request_message.run_uuid
@@ -824,7 +999,17 @@ def _get_metric_history():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _list_experiments():
-    request_message = _get_request_message(ListExperiments(), max_results = {"maximum": 1000})
+    request_message = _get_request_message(
+        ListExperiments(),
+        schema = {
+            "max_results": [
+                _assert_int
+            ],
+            "page_token": [
+                _assert_string
+            ]
+        }
+    )
     # `ListFields` returns a list of (FieldDescriptor, value) tuples for *present* fields:
     # https://googleapis.dev/python/protobuf/latest/google/protobuf/message.html
     # #google.protobuf.message.Message.ListFields
@@ -850,9 +1035,21 @@ def _log_batch():
     _validate_batch_log_api_req(_get_request_json())
     request_message = _get_request_message(
         LogBatch(),
-        metrics = {"type": "array", "maxItems": 1000},
-        params = {"type": "array", "maxItems": 100},
-        tags = {"type": "array", "maxItems": 100}
+        schema = {
+            "run_id": [
+                _assert_string,
+                _assert_required
+            ],
+            "metrics": [
+                _assert_array,
+            ],
+            "params": [
+                _assert_array,
+            ],
+            "tags": [
+                _assert_array,
+            ]
+        }
     )
     metrics = [Metric.from_proto(proto_metric) for proto_metric in request_message.metrics]
     params = [Param.from_proto(proto_param) for proto_param in request_message.params]
@@ -869,7 +1066,18 @@ def _log_batch():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _log_model():
-    request_message = _get_request_message(LogModel())
+    request_message = _get_request_message(
+        LogModel(),
+        schema = {
+            "run_id": [
+                _assert_string,
+                _assert_required
+            ],
+            "model_json": [
+                _assert_string
+            ]
+        }
+    )
     try:
         model = json.loads(request_message.model_json)
     except Exception:
@@ -909,7 +1117,21 @@ def _wrap_response(response_message):
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _create_registered_model():
-    request_message = _get_request_message(CreateRegisteredModel(), name = _REQUIRED_PARAM_DEFAULT_SCHEMA)
+    request_message = _get_request_message(
+        CreateRegisteredModel(),
+        schema = {
+            "name": [
+                _assert_string,
+                _assert_required
+            ],
+            "tags": [
+                _assert_array
+            ],
+            "description": [
+                _assert_string
+            ]
+        }
+    )
     registered_model = _get_model_registry_store().create_registered_model(
         name=request_message.name,
         tags=request_message.tags,
@@ -922,7 +1144,15 @@ def _create_registered_model():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _get_registered_model():
-    request_message = _get_request_message(GetRegisteredModel(), name = _REQUIRED_PARAM_DEFAULT_SCHEMA)
+    request_message = _get_request_message(
+        GetRegisteredModel(),
+        schema = {
+            "name": [
+                _assert_string,
+                _assert_required
+            ]
+        }
+    )
     registered_model = _get_model_registry_store().get_registered_model(name=request_message.name)
     response_message = GetRegisteredModel.Response(registered_model=registered_model.to_proto())
     return _wrap_response(response_message)
@@ -931,7 +1161,18 @@ def _get_registered_model():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _update_registered_model():
-    request_message = _get_request_message(UpdateRegisteredModel(), name = _REQUIRED_PARAM_DEFAULT_SCHEMA)
+    request_message = _get_request_message(
+        UpdateRegisteredModel(),
+        schema = {
+            "name": [
+                _assert_string,
+                _assert_required
+            ],
+            "description": [
+                _assert_string
+            ]
+        }
+    )
     name = request_message.name
     new_description = request_message.description
     registered_model = _get_model_registry_store().update_registered_model(
@@ -944,7 +1185,18 @@ def _update_registered_model():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _rename_registered_model():
-    request_message = _get_request_message(RenameRegisteredModel(), name = _REQUIRED_PARAM_DEFAULT_SCHEMA)
+    request_message = _get_request_message(
+        RenameRegisteredModel(),
+        schema = {
+            "name": [
+                _assert_string,
+                _assert_required
+            ],
+            "new_name": [
+                _assert_string
+            ]
+        }
+    )
     name = request_message.name
     new_name = request_message.new_name
     registered_model = _get_model_registry_store().rename_registered_model(
@@ -957,7 +1209,15 @@ def _rename_registered_model():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _delete_registered_model():
-    request_message = _get_request_message(DeleteRegisteredModel(), name = _REQUIRED_PARAM_DEFAULT_SCHEMA)
+    request_message = _get_request_message(
+        DeleteRegisteredModel(),
+        schema = {
+            "name": [
+                _assert_string,
+                _assert_required
+            ]
+        }
+    )
     _get_model_registry_store().delete_registered_model(name=request_message.name)
     return _wrap_response(DeleteRegisteredModel.Response())
 
@@ -965,7 +1225,22 @@ def _delete_registered_model():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _list_registered_models():
-    request_message = _get_request_message(ListRegisteredModels(), max_results = {"maxItems": 1000})
+
+    def assert_max_1k(x):
+        assert x <= 1000
+
+    request_message = _get_request_message(
+        ListRegisteredModels(),
+        schema = {
+            "max_results": [
+                _assert_int,
+                _assert_max_1k
+            ],
+            "page_token": [
+                _assert_string
+            ]
+        }
+    )
     registered_models = _get_model_registry_store().list_registered_models(
         request_message.max_results, request_message.page_token
     )
@@ -979,7 +1254,33 @@ def _list_registered_models():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _search_registered_models():
-    request_message = _get_request_message(SearchRegisteredModels(), max_results = {"maxItems": 1000})
+
+    def assert_max_1k(x):
+        assert x <= 1000
+
+    def _assert_item_type_string(x):
+        for item in x:
+            _assert_string(x)
+
+    request_message = _get_request_message(
+        SearchRegisteredModels(),
+        schema = {
+            "filter": [
+                _assert_string
+            ],
+            "max_results": [
+                _assert_int,
+                _assert_max_1k
+            ],
+            "order_by": [
+                _assert_array,
+                _assert_item_type_string
+            ],
+            "page_token": [
+                _assert_string
+            ]
+        }
+    )
     store = _get_model_registry_store()
     registered_models = store.search_registered_models(
         filter_string=request_message.filter,
@@ -997,7 +1298,7 @@ def _search_registered_models():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _get_latest_versions():
-    request_message = _get_request_message(GetLatestVersions(), name = _REQUIRED_PARAM_DEFAULT_SCHEMA)
+    request_message = _get_request_message(GetLatestVersions())
     latest_versions = _get_model_registry_store().get_latest_versions(
         name=request_message.name, stages=request_message.stages
     )
@@ -1010,10 +1311,7 @@ def _get_latest_versions():
 @_disable_if_artifacts_only
 def _set_registered_model_tag():
     request_message = _get_request_message(
-        SetRegisteredModelTag(),
-        name = _REQUIRED_PARAM_DEFAULT_SCHEMA,
-        key = _REQUIRED_PARAM_DEFAULT_SCHEMA,
-        value = _REQUIRED_PARAM_DEFAULT_SCHEMA
+        SetRegisteredModelTag()
     )
     tag = RegisteredModelTag(key=request_message.key, value=request_message.value)
     _get_model_registry_store().set_registered_model_tag(name=request_message.name, tag=tag)
@@ -1024,9 +1322,7 @@ def _set_registered_model_tag():
 @_disable_if_artifacts_only
 def _delete_registered_model_tag():
     request_message = _get_request_message(
-        DeleteRegisteredModelTag(),
-        name = _REQUIRED_PARAM_DEFAULT_SCHEMA,
-        key = _REQUIRED_PARAM_DEFAULT_SCHEMA
+        DeleteRegisteredModelTag()
     )
     _get_model_registry_store().delete_registered_model_tag(
         name=request_message.name, key=request_message.key
@@ -1038,9 +1334,7 @@ def _delete_registered_model_tag():
 @_disable_if_artifacts_only
 def _create_model_version():
     request_message = _get_request_message(
-        CreateModelVersion(),
-        name = _REQUIRED_PARAM_DEFAULT_SCHEMA,
-        source = _REQUIRED_PARAM_DEFAULT_SCHEMA
+        CreateModelVersion()
     )
     model_version = _get_model_registry_store().create_model_version(
         name=request_message.name,
@@ -1071,9 +1365,7 @@ def get_model_version_artifact_handler():
 @_disable_if_artifacts_only
 def _get_model_version():
     request_message = _get_request_message(
-        GetModelVersion(),
-        name = _REQUIRED_PARAM_DEFAULT_SCHEMA,
-        version = _REQUIRED_PARAM_DEFAULT_SCHEMA
+        GetModelVersion()
     )
     model_version = _get_model_registry_store().get_model_version(
         name=request_message.name, version=request_message.version
@@ -1087,9 +1379,7 @@ def _get_model_version():
 @_disable_if_artifacts_only
 def _update_model_version():
     request_message = _get_request_message(
-        UpdateModelVersion(),
-        name = _REQUIRED_PARAM_DEFAULT_SCHEMA,
-        version = _REQUIRED_PARAM_DEFAULT_SCHEMA
+        UpdateModelVersion()
     )
     new_description = None
     if request_message.HasField("description"):
@@ -1104,11 +1394,7 @@ def _update_model_version():
 @_disable_if_artifacts_only
 def _transition_stage():
     request_message = _get_request_message(
-        TransitionModelVersionStage(),
-        name = _REQUIRED_PARAM_DEFAULT_SCHEMA,
-        version = _REQUIRED_PARAM_DEFAULT_SCHEMA,
-        stage = _REQUIRED_PARAM_DEFAULT_SCHEMA,
-        archive_existing_versions = _REQUIRED_PARAM_DEFAULT_SCHEMA
+        TransitionModelVersionStage()
     )
     model_version = _get_model_registry_store().transition_model_version_stage(
         name=request_message.name,
@@ -1125,9 +1411,7 @@ def _transition_stage():
 @_disable_if_artifacts_only
 def _delete_model_version():
     request_message = _get_request_message(
-        DeleteModelVersion(),
-        name = _REQUIRED_PARAM_DEFAULT_SCHEMA,
-        version = _REQUIRED_PARAM_DEFAULT_SCHEMA
+        DeleteModelVersion()
     )
     _get_model_registry_store().delete_model_version(
         name=request_message.name, version=request_message.version
@@ -1149,7 +1433,7 @@ def _get_model_version_download_uri():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _search_model_versions():
-    request_message = _get_request_message(SearchModelVersions(), max_results = {"maximum": 10000})
+    request_message = _get_request_message(SearchModelVersions())
     model_versions = _get_model_registry_store().search_model_versions(request_message.filter)
     response_message = SearchModelVersions.Response()
     response_message.model_versions.extend([e.to_proto() for e in model_versions])
@@ -1160,11 +1444,7 @@ def _search_model_versions():
 @_disable_if_artifacts_only
 def _set_model_version_tag():
     request_message = _get_request_message(
-        SetModelVersionTag(),
-        name = _REQUIRED_PARAM_DEFAULT_SCHEMA,
-        version = _REQUIRED_PARAM_DEFAULT_SCHEMA,
-        key = _REQUIRED_PARAM_DEFAULT_SCHEMA,
-        value = {"required": True, "type": "string"}
+        SetModelVersionTag()
     )
     tag = ModelVersionTag(key=request_message.key, value=request_message.value)
     _get_model_registry_store().set_model_version_tag(
@@ -1177,10 +1457,7 @@ def _set_model_version_tag():
 @_disable_if_artifacts_only
 def _delete_model_version_tag():
     request_message = _get_request_message(
-        DeleteModelVersionTag(),
-        name = _REQUIRED_PARAM_DEFAULT_SCHEMA,
-        version = _REQUIRED_PARAM_DEFAULT_SCHEMA,
-        key = _REQUIRED_PARAM_DEFAULT_SCHEMA
+        DeleteModelVersionTag()
     )
     _get_model_registry_store().delete_model_version_tag(
         name=request_message.name, version=request_message.version, key=request_message.key
