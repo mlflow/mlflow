@@ -652,7 +652,7 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
     registered_model_name=None,
-    log_input_examples=True,
+    log_input_examples=False,
     log_model_signatures=True,
 ):  # pylint: disable=unused-argument
     # pylint: disable=E0611
@@ -897,7 +897,6 @@ def autolog(
             unlogged_params = ["self", "x", "y", "callbacks", "validation_data", "verbose"]
 
             log_fn_args_as_params(original, args, kwargs, unlogged_params)
-            early_stop_callback = None
 
             run_id = mlflow.active_run().info.run_id
             with batch_metrics_logger(run_id) as metrics_logger:
