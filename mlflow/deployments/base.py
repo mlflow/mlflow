@@ -324,8 +324,6 @@ class BaseDeploymentClient(abc.ABC):
                        will be chosen.
         :param config: (optional) Dict containing updated target-specific configuration for the
                        deployment
-        :param endpoint_uri: URI of the Endpoint to create this deployment under. May not be
-                             supported by all targets.
         :return: Dict corresponding to created deployment, which must contain the 'name' key.
         """
         pass
@@ -348,8 +346,6 @@ class BaseDeploymentClient(abc.ABC):
                        deployment will be updated using that flavor.
         :param config: (optional) dict containing updated target-specific configuration for the
                        deployment
-        :param endpoint_uri: URI of the Endpoint containing the deployment to update. May not be
-                             supported by all targets
         :return: None
         """
         pass
@@ -361,8 +357,6 @@ class BaseDeploymentClient(abc.ABC):
         idempotent (i.e. deletion should not fail if retried on a non-existent deployment).
 
         :param name: Name of deployment to delete
-        :param endpoint_uri: URI of the Endpoint containing the deployment to delete. May not be
-                             supported by all targets.
         :return: None
         """
         pass
@@ -376,9 +370,6 @@ class BaseDeploymentClient(abc.ABC):
         a next_page_token field, in the returned dictionary for pagination, and to accept
         a `pagination_args` argument to this method for passing pagination-related args).
 
-        :param endpoint_uri: URI of the Endpoint to list all contained deployments. May not be
-                             supported by all targets.
-
         :return: A list of dicts corresponding to deployments. Each dict is guaranteed to
                  contain a 'name' key containing the deployment name. The other fields of
                  the returned dictionary and their types may vary across deployment targets.
@@ -390,63 +381,37 @@ class BaseDeploymentClient(abc.ABC):
         """
         Returns a dictionary describing the specified deployment, throwing a
         py:class:`mlflow.exception.MlflowException` if no deployment exists with the provided
-        name.
+        ID.
         The dict is guaranteed to contain an 'name' key containing the deployment name.
         The other fields of the returned dictionary and their types may vary across
         deployment targets.
 
         :param name: ID of deployment to fetch
-        :param endpoint_uri: URI of the Endpoint containing the deployment to get. May not be
-                             supported by all targets.
         """
         pass
 
     @abc.abstractmethod
-    def predict(self, name, df):
+    def predict(self, deployment_name, df):
         """
-        Compute predictions on the pandas DataFrame ``df`` using the specified endpoint or deployment.
+        Compute predictions on the pandas DataFrame ``df`` using the specified deployment.
         Note that the input/output types of this method matches that of `mlflow pyfunc predict`
         (we accept a pandas DataFrame as input and return either a pandas DataFrame,
         pandas Series, or numpy array as output).
 
-        :param uri: The URI of the endpoint or deployment to predict against. This can take one of
-                    three forms:
-
-                    - ``endpoints:/<endpoint name>`` for predicting against the default deployment
-                    in an endpoint
-                    - ``deployments:/<endpoint name>/<deployment name>`` for predicting against a
-                    specific deployment in an endpoint
-                    - ``deployments:/<deployment name>`` for predicting against a deployment for
-                    targets which don't support endpoints
-
-                    When using a target which supports endpoints, one of the first two URIs formats
-                    should be used. When using a target which doesn't support endpoints, the third
-                    URI format should be used.
+        :param deployment_name: Name of deployment to predict against
         :param df: Pandas DataFrame to use for inference
         :return: A pandas DataFrame, pandas Series, or numpy array
         """
         pass
 
     @experimental
-    def explain(self, name, df):  # pylint: disable=unused-argument
+    def explain(self, deployment_name, df):  # pylint: disable=unused-argument
         """
         Generate explanations of model predictions on the specified input pandas Dataframe
         ``df`` for the deployed model. Explanation output formats vary by deployment target,
         and can include details like feature importance for understanding/debugging predictions.
 
-        :param uri: The URI of the endpoint or deployment to predict against. This can take one of
-                    three forms:
-
-                    - ``endpoints:/<endpoint name>`` for predicting against the default deployment
-                    in an endpoint
-                    - ``deployments:/<endpoint name>/<deployment name>`` for predicting against a
-                    specific deployment in an endpoint
-                    - ``deployments:/<deployment name>`` for predicting against a deployment for
-                    targets which don't support endpoints
-
-                    When using a target which supports endpoints, one of the first two URIs formats
-                    should be used. When using a target which doesn't support endpoints, the third
-                    URI format should be used.
+        :param deployment_name: Name of deployment to predict against
         :param df: Pandas DataFrame to use for explaining feature importance in model prediction
         :return: A JSON-able object (pandas dataframe, numpy array, dictionary), or
                  an exception if the implementation is not available in deployment target's class
