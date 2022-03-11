@@ -25,22 +25,16 @@ class GCSArtifactRepository(ArtifactRepository):
 
             self.gcs = gcs_storage
 
-        from google.cloud.storage.constants import _DEFAULT_TIMEOUT
+        self._GCS_DOWNLOAD_CHUNK_SIZE = self._parse_mlflow_gcs_vars(
+            os.environ.get("MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE"), "chunk_size"
+        )
 
-        self._GCS_DOWNLOAD_CHUNK_SIZE = (
-            int(os.environ.get("MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE"))
-            if os.environ.get("MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE")
-            else None
+        self._GCS_UPLOAD_CHUNK_SIZE = self._parse_mlflow_gcs_vars(
+            os.environ.get("MLFLOW_GCS_UPLOAD_CHUNK_SIZE"), "chunk_size"
         )
-        self._GCS_UPLOAD_CHUNK_SIZE = (
-            int(os.environ.get("MLFLOW_GCS_UPLOAD_CHUNK_SIZE"))
-            if os.environ.get("MLFLOW_GCS_UPLOAD_CHUNK_SIZE")
-            else None
-        )
-        self._GCS_DEFAULT_TIMEOUT = (
-            float(os.environ.get("MLFLOW_GCS_DEFAULT_TIMEOUT"))
-            if os.environ.get("MLFLOW_GCS_DEFAULT_TIMEOUT")
-            else _DEFAULT_TIMEOUT
+
+        self._GCS_DEFAULT_TIMEOUT = self._parse_mlflow_gcs_vars(
+            os.environ.get("MLFLOW_GCS_DEFAULT_TIMEOUT"), "timeout"
         )
         super().__init__(artifact_uri)
 
@@ -130,6 +124,24 @@ class GCSArtifactRepository(ArtifactRepository):
         gcs_bucket.blob(
             remote_full_path, chunk_size=self._GCS_DOWNLOAD_CHUNK_SIZE
         ).download_to_filename(local_path, timeout=self._GCS_DEFAULT_TIMEOUT)
+
+    def _parse_mlflow_gcs_vars(self, environment_variable, var_type):
+        if var_type == "timeout":
+            if environment_variable:
+                if environment_variable == -1:
+                    return None
+                else:
+                    return float(environment_variable)
+            else:
+                from google.cloud.storage.constants import _DEFAULT_TIMEOUT
+
+                return _DEFAULT_TIMEOUT
+
+        elif var_type == "chunk_size":
+            if environment_variable:
+                return int(environment_variable)
+            else:
+                return None
 
     def delete_artifacts(self, artifact_path=None):
         raise MlflowException("Not implemented yet")
