@@ -803,6 +803,9 @@ def evaluate(
                              and the values are the scalar values of the metrics. Refer to the
                              DefaultEvaluator behavior section for what metrics will be returned
                              based on the type of model (i.e. classifier or regressor).
+                           - (Optional) ``str``: the path to a temporary directory that can be used
+                             by the custom metric function to temporarily store produced artifacts.
+                             The directory will be deleted after the artifacts are logged.
 
                            A custom metric function can return in the following format:
 
@@ -813,9 +816,6 @@ def evaluate(
                              a tuple of a dict containing the custom metrics, and a dict of
                              artifacts, where the keys are the names of the artifacts, and the
                              values are objects representing the artifacts.
-                           - (Optional) str: the path to a temporary directory that can be used by
-                             the custom metric function to temporarily store produced artifacts.
-                             The directory will be deleted after the artifacts are logged.
 
                            Object types that artifacts can be represented as:
 
