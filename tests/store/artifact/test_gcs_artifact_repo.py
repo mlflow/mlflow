@@ -6,6 +6,7 @@ from unittest import mock
 
 from google.cloud.storage import client as gcs_client
 from google.auth.exceptions import DefaultCredentialsError
+from google.cloud.storage.constants import _DEFAULT_TIMEOUT
 
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
@@ -302,3 +303,19 @@ def test_download_artifacts_downloads_expected_content(gcs_mock, tmpdir):
     dir_contents = os.listdir(tmpdir.strpath)
     assert file_path_1 in dir_contents
     assert file_path_2 in dir_contents
+
+
+@pytest.mark.parametrize(
+    "env_var,var_type,expected",
+    [
+        (None, "timeout", _DEFAULT_TIMEOUT),
+        (5, "timeout", 5),
+        (-1, "timeout", None),
+        (None, "chunk_size", None),
+        (5, "chunk_size", 5),
+    ],
+)
+def test_env_var_parse(gcs_mock, env_var, var_type, expected):
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", gcs_mock)
+    gcs_mock.Client.return_value.bucket.return_value.list_blobs.return_value = mock.MagicMock()
+    assert expected == repo._parse_mlflow_gcs_vars(env_var, var_type)
