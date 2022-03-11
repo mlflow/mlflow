@@ -39,7 +39,9 @@ from mlflow.utils.environment import (
     _validate_env_arguments,
     _process_pip_requirements,
     _process_conda_env,
+    _PythonEnv,
     _CONDA_ENV_FILE_NAME,
+    _PYTHON_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
 )
@@ -292,6 +294,10 @@ def save_model(
 
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
+
+    _PythonEnv.from_current_environment().with_dependencies(
+        [f"-r {_REQUIREMENTS_FILE_NAME}"]
+    ).to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))

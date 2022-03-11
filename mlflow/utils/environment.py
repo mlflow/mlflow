@@ -1,7 +1,7 @@
 import yaml
 import os
 import logging
-
+import sys
 
 from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.requirements_utils import _parse_requirements, _infer_requirements
@@ -16,8 +16,67 @@ channels:
 """
 
 _CONDA_ENV_FILE_NAME = "conda.yaml"
+_PYTHON_ENV_FILE_NAME = "python-env.yaml"
 _REQUIREMENTS_FILE_NAME = "requirements.txt"
 _CONSTRAINTS_FILE_NAME = "constraints.txt"
+
+
+class _PythonEnv:
+    def __init__(self, python=None, build_dependencies=None, dependencies=None):
+        self.python = python
+        self.build_dependencies = build_dependencies
+        self.dependencies = dependencies
+
+    def __str__(self):
+        return str(self.to_dict())
+
+    @staticmethod
+    def _get_python_version():
+        return ".".join(map(str, sys.version_info[:3]))
+
+    @staticmethod
+    def _get_package_version(package_name):
+        try:
+            return __import__(package_name).__version__
+        except (ImportError, AttributeError):
+            return None
+
+    @staticmethod
+    def _get_build_dependencies():
+        dependencies = []
+        for package in ["pip", "setuptools", "wheel"]:
+            version = _PythonEnv._get_package_version(package)
+            if version:
+                dependencies.append(package + "==" + version)
+        return dependencies
+
+    def to_dict(self):
+        return self.__dict__.copy()
+
+    @classmethod
+    def from_dict(cls, dct):
+        return cls(**dct)
+
+    def with_dependencies(self, dependencies):
+        kwargs = {**self.to_dict, "dependencies": dependencies}
+        return _PythonEnv(**kwargs)
+
+    @classmethod
+    def from_current_environment(cls):
+        return cls(
+            python=_PythonEnv._get_python_version(),
+            build_dependencies=_PythonEnv._get_build_dependencies(),
+        )
+
+    def to_yaml(self, path):
+        with open(path, "w") as f:
+            data = {k: v for k, v in self.to_dict().items() if v is not None}
+            yaml.safe_dump(data, f, sort_keys=False, default_flow_style=False)
+
+    @classmethod
+    def from_yaml(cls, path):
+        with open(path) as f:
+            return cls.from_dict(yaml.safe_load(f))
 
 
 def _mlflow_conda_env(
