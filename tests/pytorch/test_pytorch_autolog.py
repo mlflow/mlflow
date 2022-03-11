@@ -43,6 +43,19 @@ def pytorch_model_without_validation():
     return trainer, run
 
 
+@pytest.fixture
+def pytorch_model_with_every_step_logged():
+    mlflow.pytorch.autolog(log_every_n_step=1)
+    model = IrisClassification()
+    dm = IrisDataModule()
+    dm.setup(stage="fit")
+    trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
+    trainer.fit(model, dm)
+    client = mlflow.tracking.MlflowClient()
+    run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
+    return trainer, run
+
+
 @pytest.mark.parametrize("log_models", [True, False])
 def test_pytorch_autolog_log_models_configuration(log_models):
     mlflow.pytorch.autolog(log_models=log_models)
@@ -73,9 +86,12 @@ def test_pytorch_autolog_logs_expected_data(pytorch_model):
     _, run = pytorch_model
     data = run.data
 
-    # Checking if metrics are logged
+    # Checking if metrics are logged.
+    # When autolog is configured with the default configuration to not log on steps,
+    # then all metrics are logged per epoch, including step based metrics.
     client = mlflow.tracking.MlflowClient()
-    for metric_key in ["loss", "train_acc", "val_loss", "val_acc"]:
+    for metric_key in ["loss", "train_acc", "val_loss", "val_acc",
+                       "loss_forked", "loss_forked_step", "loss_forked_epoch"]:
         assert metric_key in run.data.metrics
         metric_history = client.get_metric_history(run.info.run_id, metric_key)
         assert len(metric_history) == NUM_EPOCHS
@@ -100,6 +116,26 @@ def test_pytorch_autolog_logs_expected_metrics_without_validation(pytorch_model_
         assert metric_key in run.data.metrics
         metric_history = client.get_metric_history(run.info.run_id, metric_key)
         assert len(metric_history) == NUM_EPOCHS
+
+
+def test_pytorch_autolog_logging_forked_metrics_on_step_and_epoch(pytorch_model_with_every_step_logged):
+    # When autolog is configured to log on steps as well as epochs,
+    # then we only log step based metrics per step and not on epochs.
+    trainer, run = pytorch_model_with_every_step_logged
+    num_steps = trainer.global_step
+
+    client = mlflow.tracking.MlflowClient()
+    for (metric_key, expected_len) in [
+            ("train_acc", NUM_EPOCHS),
+            ("loss", num_steps),
+            ("loss_forked", NUM_EPOCHS),
+            ("loss_forked_step", num_steps),
+            ("loss_forked_epoch", NUM_EPOCHS),
+    ]:
+        assert metric_key in run.data.metrics, f"Missing {metric_key} in metrics"
+        metric_history = client.get_metric_history(run.info.run_id, metric_key)
+        assert len(metric_history) == expected_len, (
+            f"Expected {expected_len} values for {metric_key}, got {len(metric_history)}")
 
 
 # pylint: disable=unused-argument
