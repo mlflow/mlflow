@@ -70,34 +70,33 @@ def target_help():
     )
 
 
-class BaseDeploymentClient(abc.ABC):
+class BaseEndpointClient(abc.ABC):
     """
-    Base class exposing Python model deployment APIs.
+        Base class exposing Python model endpoint APIs.
 
-    Plugin implementors should define target-specific deployment logic via a subclass of
-    ``BaseDeploymentClient`` within the plugin module, and customize method docstrings with
-    target-specific information.
+        Plugin implementors should define target-specific logic via a subclass of ``BaseEndpointClient``
+        within the plugin module, and customize method docstrings with target-specific information.
 
-    .. Note::
-        Subclasses should raise :py:class:`mlflow.exceptions.MlflowException` in error cases (e.g.
-        on failure to deploy a model).
-    """
+        .. Note::
+            Subclasses should raise :py:class:`mlflow.exceptions.MlflowException` in error cases (e.g.
+            on failure to deploy a model).
+        """
 
     def __init__(self, target_uri):
         self.target_uri = target_uri
 
     @abc.abstractmethod
-    def create_endpoint(self, name, config=None):
+    def create_endpoint(self, endpoint_name, config=None):
         """
         Create an endpoint with the specified target. By default, this method should block until
-        deployment completes (i.e. until it's possible to create a deployment within the endpoint).
-        In the case of conflicts (e.g. if it's not possible to create the specified deployment
-        without due to conflict with an existing deployment), raises a
+        creation completes (i.e. until it's possible to create a deployment within the endpoint).
+        In the case of conflicts (e.g. if it's not possible to create the specified endpoint
+        due to conflict with an existing endpoint), raises a
         :py:class:`mlflow.exceptions.MlflowException`. See target-specific plugin documentation
         for additional detail on support for asynchronous creation and other configuration.
 
-        :param name: Unique name to use for endpoint. If another endpoint exists with the same
-                     name, raises a :py:class:`mlflow.exceptions.MlflowException`.
+        :param endpoint_name: Unique name to use for endpoint. If another endpoint exists with the same
+                              name, raises a :py:class:`mlflow.exceptions.MlflowException`.
         :param config: (optional) Dict containing target-specific configuration for the
                        endpoint.
         :return: Dict corresponding to created endpoint, which must contain the 'name' key.
@@ -105,7 +104,7 @@ class BaseDeploymentClient(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def update_endpoint(self, name, config=None):
+    def update_endpoint(self, endpoint_name, config=None):
         """
         Update the endpoint with the specified name. You can update any target-specific attributes
         of the endpoint (via `config`). By default, this method should block until the update
@@ -113,7 +112,7 @@ class BaseDeploymentClient(abc.ABC):
         target-specific plugin documentation for additional detail on support for asynchronous
         update and other configuration.
 
-        :param name: Unique name of endpoint to update
+        :param endpoint_name: Unique name of endpoint to update
         :param config: (optional) dict containing target-specific configuration for the
                        endpoint
         :return: None
@@ -121,12 +120,12 @@ class BaseDeploymentClient(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def delete_endpoint(self, name):
+    def delete_endpoint(self, endpoint_name):
         """
         Delete the endpoint with name ``name`` from the specified target. Deletion should be
         idempotent (i.e. deletion should not fail if retried on a non-existent deployment).
 
-        :param name: Name of endpoint to delete
+        :param endpoint_name: Name of endpoint to delete
         :return: None
         """
         pass
@@ -148,7 +147,7 @@ class BaseDeploymentClient(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def get_endpoint(self, name):
+    def get_endpoint(self, endpoint_name):
         """
         Returns a dictionary describing the specified endpoint, throwing a
         py:class:`mlflow.exception.MlflowException` if no endpoint exists with the provided
@@ -156,12 +155,159 @@ class BaseDeploymentClient(abc.ABC):
         The dict is guaranteed to contain an 'name' key containing the endpoint name.
         The other fields of the returned dictionary and their types may vary across targets.
 
-        :param name: Name of endpoint to fetch
+        :param endpoint_name: Name of endpoint to fetch
         """
         pass
 
     @abc.abstractmethod
-    def create_deployment(self, name, model_uri, flavor=None, config=None, endpoint_uri=None):
+    def create_deployment(self, deployment_name, endpoint_name, model_uri, flavor=None, config=None):
+        """
+        Deploy a model to the specified target, within the specified endpoint. By default, this method
+        should block until deployment completes (i.e. until it's possible to perform inference with
+        the deployment). In the case of conflicts (e.g. if it's not possible to create the specified
+        deployment due to conflict with an existing deployment), raises a
+        :py:class:`mlflow.exceptions.MlflowException`. See target-specific plugin documentation
+        for additional detail on support for asynchronous deployment and other configuration.
+
+        :param deployment_name: Name to use for deployment, unique within the specified endpoint.
+                                If another deployment exists with the same name, raises a
+                                :py:class:`mlflow.exceptions.MlflowException`
+        :param endpoint_name: Name of the endpoint to create the deployment within
+        :param model_uri: URI of model to deploy
+        :param flavor: (optional) Model flavor to deploy. If unspecified, a default flavor
+                       will be chosen.
+        :param config: (optional) Dict containing updated target-specific configuration for the
+                       deployment
+        :return: Dict corresponding to created deployment, which must contain the 'name' key
+        """
+        pass
+
+    @abc.abstractmethod
+    def update_deployment(self, deployment_name, endpoint_name, model_uri=None, flavor=None, config=None):
+        """
+        Update the deployment with the specified name within the specified endpoint. You can update
+        the URI of the model, the flavor of the deployed model (in which case the model URI must
+        also be specified), and/or any target-specific attributes of the deployment (via `config`).
+        By default, this method should block until deployment completes (i.e. until it's possible
+        to perform inference with the updated deployment). See target-specific plugin documentation
+        for additional detail on support for asynchronous deployment and other configuration.
+
+        :param deployment_name: Name of deployment to update
+        :param endpoint_name: Name of the endpoint containing the deployment to update
+        :param model_uri: URI of a new model to deploy.
+        :param flavor: (optional) new model flavor to use for deployment. If provided,
+                       ``model_uri`` must also be specified. If ``flavor`` is unspecified but
+                       ``model_uri`` is specified, a default flavor will be chosen and the
+                       deployment will be updated using that flavor.
+        :param config: (optional) dict containing updated target-specific configuration for the
+                       deployment
+        :return: None
+        """
+        pass
+
+    @abc.abstractmethod
+    def delete_deployment(self, deployment_name, endpoint_name):
+        """
+        Delete the deployment with name ``name`` from the specified endpoing. Deletion should be
+        idempotent (i.e. deletion should not fail if retried on a non-existent deployment).
+
+        :param deployment_name: Name of deployment to delete
+        :param endpoint_name: Name of the Endpoint containing the deployment to delete
+        :return: None
+        """
+        pass
+
+    @abc.abstractmethod
+    def list_deployments(self, endpoint_name):
+        """
+        List deployments within the specified endpoint. This method is expected to return
+        an unpaginated list of all deployments (an alternative would be to return a dict
+        with a 'deployments' field containing the actual deployments, with plugins able to
+        specify other fields, e.g. a next_page_token field, in the returned dictionary for
+        pagination, and to accept a `pagination_args` argument to this method for passing
+        pagination-related args).
+
+        :param endpoint_name: Name of the Endpoint to list all contained deployments
+
+        :return: A list of dicts corresponding to deployments. Each dict is guaranteed to
+                 contain a 'name' key containing the deployment name. The other fields of
+                 the returned dictionary and their types may vary across deployment targets.
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_deployment(self, deployment_name, endpoint_name):
+        """
+        Returns a dictionary describing the specified deployment, throwing a
+        py:class:`mlflow.exception.MlflowException` if no deployment exists with the provided
+        name in the provided endpoint.
+        The dict is guaranteed to contain an 'name' key containing the deployment name.
+        The other fields of the returned dictionary and their types may vary across
+        deployment targets.
+
+        :param deployment_name: Name of deployment to fetch
+        :param endpoint_name: Name of the Endpoint containing the deployment to fetch
+        """
+        pass
+
+    @abc.abstractmethod
+    def predict(self, endpoint_name, df, deployment_name=None):
+        """
+        Compute predictions on the pandas DataFrame ``df`` using the specified endpoint.
+        Note that the input/output types of this method matches that of `mlflow pyfunc predict`
+        (we accept a pandas DataFrame as input and return either a pandas DataFrame,
+        pandas Series, or numpy array as output).
+
+        By default, the prediction will be issued to the endpoint and subject to any traffic routing
+        that is in place on the endpoint. Alternatively, the name of a specific deployment within
+        the endpoint can be provided in order to issue a prediction against that specific deployment,
+        for the sake of testing.
+
+        :param endpoint_name: The endpoint to issue the prediction against
+        :param df: Pandas DataFrame to use for inference
+        :param deployment_name: If provided issue a prediction against the specified endpoint,
+                                bypassing the endpoint traffic settings
+        :return: A pandas DataFrame, pandas Series, or numpy array
+        """
+        pass
+
+    @experimental
+    def explain(self, endpoint_name, df, deployment_name=None):  # pylint: disable=unused-argument
+        """
+        Generate explanations of model predictions on the specified input pandas Dataframe
+        ``df`` for the deployed model. Explanation output formats vary by deployment target,
+        and can include details like feature importance for understanding/debugging predictions.
+
+        :param endpoint_name: The endpoint to issue the prediction against
+        :param df: Pandas DataFrame to use for explaining feature importance in model prediction
+        :param deployment_name: If provided issue a prediction against the specified endpoint,
+                                bypassing the endpoint traffic settings
+        :return: A JSON-able object (pandas dataframe, numpy array, dictionary), or
+                 an exception if the implementation is not available in deployment target's class
+        """
+        raise MlflowException(
+            "Computing model explanations is not yet supported for this deployment target"
+        )
+
+
+class BaseDeploymentClient(abc.ABC):
+    """
+    Base class exposing Python model deployment APIs.
+
+    Plugin implementors should define target-specific deployment logic via a subclass of
+    ``BaseDeploymentClient`` within the plugin module, and customize method docstrings with
+    target-specific information.
+
+    .. Note::
+        Subclasses should raise :py:class:`mlflow.exceptions.MlflowException` in error cases (e.g.
+        on failure to deploy a model).
+    """
+
+    def __init__(self, target_uri):
+        self.target_uri = target_uri
+
+    @abc.abstractmethod
+    def create_deployment(self, name, model_uri, flavor=None, config=None):
         """
         Deploy a model to the specified target. By default, this method should block until
         deployment completes (i.e. until it's possible to perform inference with the deployment).
@@ -185,7 +331,7 @@ class BaseDeploymentClient(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def update_deployment(self, name, model_uri=None, flavor=None, config=None, endpoint_uri=None):
+    def update_deployment(self, name, model_uri=None, flavor=None, config=None):
         """
         Update the deployment with the specified name. You can update the URI of the model, the
         flavor of the deployed model (in which case the model URI must also be specified), and/or
@@ -209,7 +355,7 @@ class BaseDeploymentClient(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def delete_deployment(self, name, endpoint_uri=None):
+    def delete_deployment(self, name):
         """
         Delete the deployment with name ``name`` from the specified target. Deletion should be
         idempotent (i.e. deletion should not fail if retried on a non-existent deployment).
@@ -222,7 +368,7 @@ class BaseDeploymentClient(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def list_deployments(self, endpoint_uri=None):
+    def list_deployments(self):
         """
         List deployments. This method is expected to return an unpaginated list of all
         deployments (an alternative would be to return a dict with a 'deployments' field
@@ -240,7 +386,7 @@ class BaseDeploymentClient(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def get_deployment(self, name, endpoint_uri=None):
+    def get_deployment(self, name):
         """
         Returns a dictionary describing the specified deployment, throwing a
         py:class:`mlflow.exception.MlflowException` if no deployment exists with the provided
@@ -256,7 +402,7 @@ class BaseDeploymentClient(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def predict(self, uri, df):
+    def predict(self, name, df):
         """
         Compute predictions on the pandas DataFrame ``df`` using the specified endpoint or deployment.
         Note that the input/output types of this method matches that of `mlflow pyfunc predict`
@@ -282,7 +428,7 @@ class BaseDeploymentClient(abc.ABC):
         pass
 
     @experimental
-    def explain(self, uri, df):  # pylint: disable=unused-argument
+    def explain(self, name, df):  # pylint: disable=unused-argument
         """
         Generate explanations of model predictions on the specified input pandas Dataframe
         ``df`` for the deployed model. Explanation output formats vary by deployment target,
