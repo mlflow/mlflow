@@ -680,6 +680,26 @@ def _get_results_for_custom_metrics_tests(model_uri, dataset, custom_metrics):
     return result, metrics, artifacts
 
 
+def test_custom_metric_produced_multiple_artifacts_with_same_name_throw_exception(
+    binary_logistic_regressor_model_uri, breast_cancer_dataset
+):
+    def example_custom_metric_1(_, __):
+        return {}, {"test_json_artifact": {"a": 2, "b": [1, 2]}}
+
+    def example_custom_metric_2(_, __):
+        return {}, {"test_json_artifact": {"a": 3, "b": [1, 2]}}
+
+    with pytest.raises(
+        MlflowException,
+        match="cannot be logged because there already exists an artifact with the same name",
+    ):
+        _get_results_for_custom_metrics_tests(
+            binary_logistic_regressor_model_uri,
+            breast_cancer_dataset,
+            [example_custom_metric_1, example_custom_metric_2],
+        )
+
+
 def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_dataset):
     def example_custom_metric(eval_df, given_metrics, tmp_path):
         example_metrics = {

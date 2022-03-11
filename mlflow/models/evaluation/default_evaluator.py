@@ -34,6 +34,7 @@ from functools import partial
 import logging
 from packaging.version import Version
 import inspect
+import pathlib
 
 _logger = logging.getLogger(__name__)
 
@@ -670,6 +671,12 @@ class DefaultEvaluator(ModelEvaluator):
         )
         artifact_file_name = _gen_log_key(artifact_name, self.dataset_name) + inferred_ext
         artifact_file_local_path = self.temp_dir.path(artifact_file_name)
+
+        if pathlib.Path(artifact_file_local_path).exists():
+            raise MlflowException(
+                f"{exception_and_warning_header} produced an artifact '{artifact_name}' that "
+                "cannot be logged because there already exists an artifact with the same name."
+            )
 
         # ParquetEvaluationArtifact isn't explicitly stated here because such artifacts can only
         # be supplied through file. Which is handled by the first if clause. This is because
