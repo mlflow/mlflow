@@ -6,7 +6,6 @@ from sklearn.model_selection import train_test_split
 import numpy as np
 import mlflow
 import matplotlib.pyplot as plt
-import tempfile
 import os
 
 # loading the California housing dataset
@@ -37,42 +36,42 @@ def metrics_only_fn(eval_df, builtin_metrics):
     }
 
 
-def file_artifacts_fn(eval_df, builtin_metrics):
+def file_artifacts_fn(eval_df, builtin_metrics, artifacts_dir):
     """
     This example shows how you can return file paths as representation
     of the produced artifacts. For a full list of supported file extensions
     refer to https://mlflow.org/docs/latest/python_api/mlflow.html#mlflow.evaluate
     """
     example_np_arr = np.array([1, 2, 3])
-    np.save(os.path.join(tmp_dir, "example.npy"), example_np_arr, allow_pickle=False)
+    np.save(os.path.join(artifacts_dir, "example.npy"), example_np_arr, allow_pickle=False)
 
     example_df = pd.DataFrame({"test": [2.2, 3.1], "test2": [3, 2]})
-    example_df.to_csv(os.path.join(tmp_dir, "example.csv"), index=False)
-    example_df.to_parquet(os.path.join(tmp_dir, "example.parquet"))
+    example_df.to_csv(os.path.join(artifacts_dir, "example.csv"), index=False)
+    example_df.to_parquet(os.path.join(artifacts_dir, "example.parquet"))
 
     example_json = {"hello": "there", "test_list": [0.1, 0.3, 4]}
     example_json.update(builtin_metrics)
-    with open(os.path.join(tmp_dir, "example.json"), "w") as f:
+    with open(os.path.join(artifacts_dir, "example.json"), "w") as f:
         json.dump(example_json, f)
 
     plt.scatter(eval_df["prediction"], eval_df["target"])
     plt.xlabel("Targets")
     plt.ylabel("Predictions")
     plt.title("Targets vs. Predictions")
-    plt.savefig(os.path.join(tmp_dir, "example.png"))
-    plt.savefig(os.path.join(tmp_dir, "example.jpeg"))
+    plt.savefig(os.path.join(artifacts_dir, "example.png"))
+    plt.savefig(os.path.join(artifacts_dir, "example.jpeg"))
 
-    with open(os.path.join(tmp_dir, "example.txt"), "w") as f:
+    with open(os.path.join(artifacts_dir, "example.txt"), "w") as f:
         f.write("hello world!")
 
     return {}, {
-        "example_np_arr_from_npy_file": os.path.join(tmp_dir, "example.npy"),
-        "example_df_from_csv_file": os.path.join(tmp_dir, "example.csv"),
-        "example_df_from_parquet_file": os.path.join(tmp_dir, "example.parquet"),
-        "example_dict_from_json_file": os.path.join(tmp_dir, "example.json"),
-        "example_image_from_png_file": os.path.join(tmp_dir, "example.png"),
-        "example_image_from_jpeg_file": os.path.join(tmp_dir, "example.jpeg"),
-        "example_string_from_txt_file": os.path.join(tmp_dir, "example.txt"),
+        "example_np_arr_from_npy_file": os.path.join(artifacts_dir, "example.npy"),
+        "example_df_from_csv_file": os.path.join(artifacts_dir, "example.csv"),
+        "example_df_from_parquet_file": os.path.join(artifacts_dir, "example.parquet"),
+        "example_dict_from_json_file": os.path.join(artifacts_dir, "example.json"),
+        "example_image_from_png_file": os.path.join(artifacts_dir, "example.png"),
+        "example_image_from_jpeg_file": os.path.join(artifacts_dir, "example.jpeg"),
+        "example_string_from_txt_file": os.path.join(artifacts_dir, "example.txt"),
     }
 
 
@@ -108,7 +107,7 @@ def object_artifacts_fn(eval_df, builtin_metrics):
     }
 
 
-def mixed_example_fn(eval_df, builtin_metrics):
+def mixed_example_fn(eval_df, builtin_metrics, artifacts_dir):
     """
     This example mixes together some of the different ways to return metrics and artifacts
     """
@@ -125,15 +124,15 @@ def mixed_example_fn(eval_df, builtin_metrics):
     plt.ylabel("Predictions")
     plt.title("Targets vs. Predictions")
 
-    plt.savefig(os.path.join(tmp_dir, "example2.png"))
+    plt.savefig(os.path.join(artifacts_dir, "example2.png"))
     artifacts = {
         "example_dict_2_from_obj_saved_as_csv": example_dict,
-        "example_image_2_from_png_file": os.path.join(tmp_dir, "example2.png"),
+        "example_image_2_from_png_file": os.path.join(artifacts_dir, "example2.png"),
     }
     return metrics, artifacts
 
 
-with mlflow.start_run() as run, tempfile.TemporaryDirectory() as tmp_dir:
+with mlflow.start_run() as run:
     mlflow.sklearn.log_model(lin_reg, "model")
     model_uri = mlflow.get_artifact_uri("model")
     result = mlflow.evaluate(

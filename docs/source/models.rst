@@ -924,13 +924,15 @@ and behavior:
 
 
 Evaluating with Custom Metrics
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If the default set of metrics is insufficient, you can specify a list of ``custom_metrics`` functions to 
 :py:func:`mlflow.evaluate()` to produce custom performance metrics for the model(s) that you're evaluating. Custom metric
-functions should accept two arguments: a DataFrame containing ``prediction`` and ``target`` columns, 
+functions should accept at least two arguments: a DataFrame containing ``prediction`` and ``target`` columns,
 and a dictionary containing the default set of metrics. For a full list of default metrics, refer to the documentation 
-of :py:func:`mlflow.evaluate()`.
+of :py:func:`mlflow.evaluate()`. If the custom metric function produces artifacts in the form of files, it should also
+accept an additional string argument representing the path to the temporary directory that can be used to store such
+artifacts.
 
 The following `short example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics.py>`_ 
@@ -946,7 +948,6 @@ dictionary of metrics, or two dictionaries representing metrics and artifacts.
     from sklearn.model_selection import train_test_split
     import numpy as np
     import mlflow
-    import tempfile
     import os
     import matplotlib.pyplot as plt
 
@@ -966,13 +967,13 @@ dictionary of metrics, or two dictionaries representing metrics and artifacts.
     eval_data["target"] = y_test
 
 
-    def example_custom_metric_fn(eval_df, builtin_metrics):
+    def example_custom_metric_fn(eval_df, builtin_metrics, artifacts_dir):
         """
         This example custom metric function creates a metric based on the ``prediction`` and
         ``target`` columns in ``eval_df`` and a metric derived from existing metrics in
-        ``builtin_metrics``. It also generates and saves a scatter plot that visualizes the
-        relationship between the predictions and targets for the given model to a file as an
-        image artifact.
+        ``builtin_metrics``. It also generates and saves a scatter plot to ``artifacts_dir`` that
+        visualizes the relationship between the predictions and targets for the given model to a
+        file as an image artifact.
         """
         metrics = {
             "squared_diff_plus_one": np.sum(np.abs(eval_df["prediction"] - eval_df["target"] + 1) ** 2),
@@ -982,13 +983,13 @@ dictionary of metrics, or two dictionaries representing metrics and artifacts.
         plt.xlabel("Targets")
         plt.ylabel("Predictions")
         plt.title("Targets vs. Predictions")
-        plot_path = os.path.join(tmp_dir, "example_scatter_plot.png")
+        plot_path = os.path.join(artifacts_dir, "example_scatter_plot.png")
         plt.savefig(plot_path)
         artifacts = {"example_scatter_plot_artifact": plot_path}
         return metrics, artifacts
 
 
-    with mlflow.start_run() as run, tempfile.TemporaryDirectory() as tmp_dir:
+    with mlflow.start_run() as run:
         mlflow.sklearn.log_model(lin_reg, "model")
         model_uri = mlflow.get_artifact_uri("model")
         result = mlflow.evaluate(

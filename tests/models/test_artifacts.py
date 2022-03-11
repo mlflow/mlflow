@@ -22,7 +22,7 @@ from mlflow.models.evaluation.default_evaluator import _CustomMetric
 
 @pytest.fixture
 def cm_fn_tuple():
-    return _CustomMetric(None, None, None)
+    return _CustomMetric(lambda: None, "", 0, "")
 
 
 def __generate_dummy_json_file(path):

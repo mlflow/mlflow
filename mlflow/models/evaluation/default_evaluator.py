@@ -21,6 +21,8 @@ from sklearn import metrics as sk_metrics
 import math
 import json
 from collections import namedtuple
+from typing import NamedTuple, Callable
+import tempfile
 import numbers
 import pandas as pd
 import numpy as np
@@ -31,6 +33,7 @@ import pickle
 from functools import partial
 import logging
 from packaging.version import Version
+import inspect
 
 _logger = logging.getLogger(__name__)
 
@@ -270,20 +273,20 @@ _matplotlib_config = {
 }
 
 
-_CustomMetric = namedtuple("_CustomMetric", ["function", "name", "index"])
-"""
-A namedtuple representing a custom metric function and its properties.
+class _CustomMetric(NamedTuple):
+    """
+    A namedtuple representing a custom metric function and its properties.
 
-Attributes
-----------
-function : Callable
-    the custom metric function
-name : str
-    the name of the custom metric function
-index : int
-    the index of the custom metric function in the ``custom_metrics`` argument of mlflow.evaluate
+    function : the custom metric function
+    name : the name of the custom metric function
+    index : the index of the function in the ``custom_metrics`` argument of mlflow.evaluate
+    artifacts_dir : the path to a temporary directory to store produced artifacts of the function
+    """
 
-"""
+    function: Callable
+    name: str
+    index: int
+    artifacts_dir: str
 
 
 def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
@@ -305,7 +308,13 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
         " in the `custom_metrics` parameter"
     )
 
-    result = custom_metric_tuple.function(eval_df, builtin_metrics)
+    if len(inspect.signature(custom_metric_tuple.function).parameters) == 3:
+        result = custom_metric_tuple.function(
+            eval_df, builtin_metrics, custom_metric_tuple.artifacts_dir
+        )
+    else:
+        result = custom_metric_tuple.function(eval_df, builtin_metrics)
+
     if result is None:
         raise MlflowException(f"{exception_header} returned None.")
 
@@ -716,26 +725,28 @@ class DefaultEvaluator(ModelEvaluator):
             {"prediction": copy.deepcopy(self.y_pred), "target": copy.deepcopy(self.y)}
         )
         for index, custom_metric in enumerate(self.custom_metrics):
-            custom_metric_tuple = _CustomMetric(
-                function=custom_metric,
-                index=index,
-                name=getattr(custom_metric, "__name__", repr(custom_metric)),
-            )
-            # deepcopying eval_df and builtin_metrics for each custom metric function call,
-            # in case the user modifies them inside their function(s).
-            metric_results, artifact_results = _evaluate_custom_metric(
-                custom_metric_tuple,
-                eval_df.copy(),
-                copy.deepcopy(builtin_metrics),
-            )
-            self.metrics.update(metric_results)
-            if artifact_results is not None:
-                for artifact_name, raw_artifact in artifact_results.items():
-                    self.artifacts[artifact_name] = self._log_custom_metric_artifact(
-                        artifact_name,
-                        raw_artifact,
-                        custom_metric_tuple,
-                    )
+            with tempfile.TemporaryDirectory() as artifacts_dir:
+                custom_metric_tuple = _CustomMetric(
+                    function=custom_metric,
+                    index=index,
+                    name=getattr(custom_metric, "__name__", repr(custom_metric)),
+                    artifacts_dir=artifacts_dir,
+                )
+                # deepcopying eval_df and builtin_metrics for each custom metric function call,
+                # in case the user modifies them inside their function(s).
+                metric_results, artifact_results = _evaluate_custom_metric(
+                    custom_metric_tuple,
+                    eval_df.copy(),
+                    copy.deepcopy(builtin_metrics),
+                )
+                self.metrics.update(metric_results)
+                if artifact_results is not None:
+                    for artifact_name, raw_artifact in artifact_results.items():
+                        self.artifacts[artifact_name] = self._log_custom_metric_artifact(
+                            artifact_name,
+                            raw_artifact,
+                            custom_metric_tuple,
+                        )
 
     def _log_and_return_evaluation_result(self):
         """

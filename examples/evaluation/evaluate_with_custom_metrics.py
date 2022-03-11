@@ -3,7 +3,6 @@ from sklearn.datasets import fetch_california_housing
 from sklearn.model_selection import train_test_split
 import numpy as np
 import mlflow
-import tempfile
 import os
 import matplotlib.pyplot as plt
 
@@ -23,13 +22,13 @@ eval_data = X_test.copy()
 eval_data["target"] = y_test
 
 
-def example_custom_metric_fn(eval_df, builtin_metrics):
+def example_custom_metric_fn(eval_df, builtin_metrics, artifacts_dir):
     """
     This example custom metric function creates a metric based on the ``prediction`` and
     ``target`` columns in ``eval_df`` and a metric derived from existing metrics in
-    ``builtin_metrics``. It also generates and saves a scatter plot that visualizes the
-    relationship between the predictions and targets for the given model to a file as an
-    image artifact.
+    ``builtin_metrics``. It also generates and saves a scatter plot to ``artifacts_dir`` that
+    visualizes the relationship between the predictions and targets for the given model to a
+    file as an image artifact.
     """
     metrics = {
         "squared_diff_plus_one": np.sum(np.abs(eval_df["prediction"] - eval_df["target"] + 1) ** 2),
@@ -39,13 +38,13 @@ def example_custom_metric_fn(eval_df, builtin_metrics):
     plt.xlabel("Targets")
     plt.ylabel("Predictions")
     plt.title("Targets vs. Predictions")
-    plot_path = os.path.join(tmp_dir, "example_scatter_plot.png")
+    plot_path = os.path.join(artifacts_dir, "example_scatter_plot.png")
     plt.savefig(plot_path)
     artifacts = {"example_scatter_plot_artifact": plot_path}
     return metrics, artifacts
 
 
-with mlflow.start_run() as run, tempfile.TemporaryDirectory() as tmp_dir:
+with mlflow.start_run() as run:
     mlflow.sklearn.log_model(lin_reg, "model")
     model_uri = mlflow.get_artifact_uri("model")
     result = mlflow.evaluate(

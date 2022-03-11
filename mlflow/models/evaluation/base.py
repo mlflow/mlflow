@@ -813,6 +813,9 @@ def evaluate(
                              a tuple of a dict containing the custom metrics, and a dict of
                              artifacts, where the keys are the names of the artifacts, and the
                              values are objects representing the artifacts.
+                           - (Optional) str: the path to a temporary directory that can be used by
+                             the custom metric function to temporarily store produced artifacts.
+                             The directory will be deleted after the artifacts are logged.
 
                            Object types that artifacts can be represented as:
 
@@ -856,18 +859,20 @@ def evaluate(
                                        )
                                    }
 
-                               def scatter_plot(eval_df, builtin_metrics):
+                               def scatter_plot(eval_df, builtin_metrics, artifacts_dir):
                                    import tempfile
                                    plt.scatter(eval_df['prediction'], eval_df['target'])
                                    plt.xlabel('Targets')
                                    plt.ylabel('Predictions')
                                    plt.title("Targets vs. Predictions")
-                                   plt.savefig(os.path.join(tmp_dir, "example.png"))
+                                   plt.savefig(os.path.join(artifacts_dir, "example.png"))
                                    return {}, {
-                                       "pred_target_scatter": os.path.join(tmp_dir, "example.png")
+                                       "pred_target_scatter": os.path.join(
+                                            artifacts_dir, "example.png"
+                                       )
                                    }
 
-                               with mlflow.start_run(), tempfile.TemporaryDirectory() as tmp_dir:
+                               with mlflow.start_run():
                                    mlflow.evaluate(
                                        model,
                                        data,

@@ -83,7 +83,7 @@ class PickleEvaluationArtifact(EvaluationArtifact):
         return self._content
 
 
-EXT_TO_ARTIFACT_MAP = {
+_EXT_TO_ARTIFACT_MAP = {
     ".png": ImageEvaluationArtifact,
     ".jpg": ImageEvaluationArtifact,
     ".jpeg": ImageEvaluationArtifact,
@@ -94,13 +94,13 @@ EXT_TO_ARTIFACT_MAP = {
     ".txt": TextEvaluationArtifact,
 }
 
-TYPE_TO_EXT_MAP = {
+_TYPE_TO_EXT_MAP = {
     pd.DataFrame: ".csv",
     np.ndarray: ".npy",
     plt.Figure: ".png",
 }
 
-TYPE_TO_ARTIFACT_MAP = {
+_TYPE_TO_ARTIFACT_MAP = {
     pd.DataFrame: CsvEvaluationArtifact,
     np.ndarray: NumpyEvaluationArtifact,
     plt.Figure: ImageEvaluationArtifact,
@@ -150,21 +150,21 @@ def _infer_artifact_type_and_ext(artifact_name, raw_artifact, custom_metric_tupl
             raise MlflowException(f"{exception_header} with path '{raw_artifact}' does not exist.")
         if not raw_artifact.is_file():
             raise MlflowException(f"{exception_header} with path '{raw_artifact}' is not a file.")
-        if raw_artifact.suffix not in EXT_TO_ARTIFACT_MAP.keys():
+        if raw_artifact.suffix not in _EXT_TO_ARTIFACT_MAP.keys():
             raise MlflowException(
                 f"{exception_header} with path '{raw_artifact}' does not match any of the supported"
-                f" file extensions: {', '.join(EXT_TO_ARTIFACT_MAP.keys())}."
+                f" file extensions: {', '.join(_EXT_TO_ARTIFACT_MAP.keys())}."
             )
         return _InferredArtifactProperties(
-            from_path=True, type=EXT_TO_ARTIFACT_MAP[raw_artifact.suffix], ext=raw_artifact.suffix
+            from_path=True, type=_EXT_TO_ARTIFACT_MAP[raw_artifact.suffix], ext=raw_artifact.suffix
         )
 
     # Type inference based on object type
-    if type(raw_artifact) in TYPE_TO_ARTIFACT_MAP.keys():
+    if type(raw_artifact) in _TYPE_TO_ARTIFACT_MAP.keys():
         return _InferredArtifactProperties(
             from_path=False,
-            type=TYPE_TO_ARTIFACT_MAP[type(raw_artifact)],
-            ext=TYPE_TO_EXT_MAP[type(raw_artifact)],
+            type=_TYPE_TO_ARTIFACT_MAP[type(raw_artifact)],
+            ext=_TYPE_TO_EXT_MAP[type(raw_artifact)],
         )
 
     # Given as other python object, we first attempt to infer as JsonEvaluationArtifact. If that

@@ -30,8 +30,12 @@ from mlflow.models.evaluation.default_evaluator import (
 import mlflow
 from sklearn.linear_model import LogisticRegression
 
+from tempfile import TemporaryDirectory
+from os.path import join as path_join
+from PIL import Image, ImageChops
+import io
+
 # pylint: disable=unused-import
-from mlflow.utils.file_utils import TempDir
 from tests.models.test_evaluation import (
     get_run_data,
     linear_regressor_model_uri,
@@ -528,7 +532,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         MlflowException,
         match=f"'{dummy_fn.__name__}' (.*) returned None",
     ):
-        _evaluate_custom_metric(_CustomMetric(dummy_fn, "dummy_fn", 0), eval_df, metrics)
+        _evaluate_custom_metric(_CustomMetric(dummy_fn, "dummy_fn", 0, ""), eval_df, metrics)
 
     def incorrect_return_type_1(*_):
         return 3
@@ -544,7 +548,9 @@ def test_evaluate_custom_metric_incorrect_return_formats():
             MlflowException,
             match=f"'{test_fn.__name__}' (.*) did not return in an expected format",
         ):
-            _evaluate_custom_metric(_CustomMetric(test_fn, test_fn.__name__, 0), eval_df, metrics)
+            _evaluate_custom_metric(
+                _CustomMetric(test_fn, test_fn.__name__, 0, ""), eval_df, metrics
+            )
 
     def non_str_metric_name(*_):
         return {123: 123, "a": 32.1, "b": 3}
@@ -561,7 +567,9 @@ def test_evaluate_custom_metric_incorrect_return_formats():
             match=f"'{test_fn.__name__}' (.*) did not return metrics as a dictionary of "
             "string metric names with numerical values",
         ):
-            _evaluate_custom_metric(_CustomMetric(test_fn, test_fn.__name__, 0), eval_df, metrics)
+            _evaluate_custom_metric(
+                _CustomMetric(test_fn, test_fn.__name__, 0, ""), eval_df, metrics
+            )
 
     def non_str_artifact_name(*_):
         return {"a": 32.1, "b": 3}, {1: [1, 2, 3]}
@@ -572,7 +580,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         "dictionary of string artifact names with their corresponding objects",
     ):
         _evaluate_custom_metric(
-            _CustomMetric(non_str_artifact_name, non_str_artifact_name.__name__, 0),
+            _CustomMetric(non_str_artifact_name, non_str_artifact_name.__name__, 0, ""),
             eval_df,
             metrics,
         )
@@ -596,7 +604,7 @@ def test_evaluate_custom_metric_lambda(fn, expectation):
     eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
     metrics = _get_regressor_metrics(eval_df["target"], eval_df["prediction"])
     with expectation:
-        _evaluate_custom_metric(_CustomMetric(fn, "<lambda>", 0), eval_df, metrics)
+        _evaluate_custom_metric(_CustomMetric(fn, "<lambda>", 0, ""), eval_df, metrics)
 
 
 def test_evaluate_custom_metric_success():
@@ -612,7 +620,7 @@ def test_evaluate_custom_metric_success():
         }
 
     res_metrics, res_artifacts = _evaluate_custom_metric(
-        _CustomMetric(example_custom_metric, "", 0), eval_df, metrics
+        _CustomMetric(example_custom_metric, "", 0, ""), eval_df, metrics
     )
     assert res_metrics == {
         "example_count_times_1_point_5": metrics["example_count"] * 1.5,
@@ -637,7 +645,7 @@ def test_evaluate_custom_metric_success():
         )
 
     res_metrics_2, res_artifacts_2 = _evaluate_custom_metric(
-        _CustomMetric(example_custom_metric_with_artifacts, "", 0), eval_df, metrics
+        _CustomMetric(example_custom_metric_with_artifacts, "", 0, ""), eval_df, metrics
     )
     assert res_metrics_2 == {
         "example_count_times_1_point_5": metrics["example_count"] * 1.5,
@@ -672,20 +680,20 @@ def _get_results_for_custom_metrics_tests(model_uri, dataset, custom_metrics):
     return result, metrics, artifacts
 
 
-def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_dataset, tmp_path):
-    def example_custom_metric(eval_df, given_metrics):
+def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_dataset):
+    def example_custom_metric(eval_df, given_metrics, tmp_path):
         example_metrics = {
             "true_count": given_metrics["true_negatives"] + given_metrics["true_positives"],
             "positive_count": np.sum(eval_df["prediction"]),
         }
         df = pd.DataFrame({"a": [1, 2, 3]})
-        df.to_csv(tmp_path / "user_logged_df.csv", index=False)
+        df.to_csv(path_join(tmp_path, "user_logged_df.csv"), index=False)
         np_array = np.array([1, 2, 3, 4, 5])
-        np.save(tmp_path / "arr.npy", np_array)
+        np.save(path_join(tmp_path, "arr.npy"), np_array)
 
         example_artifacts = {
             "test_json_artifact": {"a": 3, "b": [1, 2]},
-            "test_npy_artifact": tmp_path / "arr.npy",
+            "test_npy_artifact": path_join(tmp_path, "arr.npy"),
         }
         return example_metrics, example_artifacts
 
@@ -732,44 +740,43 @@ def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_
 
 
 def test_custom_metric_logs_artifacts_from_paths(
-    binary_logistic_regressor_model_uri, breast_cancer_dataset, tmp_path
+    binary_logistic_regressor_model_uri, breast_cancer_dataset
 ):
-    from PIL import Image
-
-    def example_custom_metric(_, __):
+    def example_custom_metric(_, __, tmp_path):
         example_artifacts = {}
 
         # images
-        fig = plt.figure()
-        plt.plot([1, 2, 3])
         for ext in ("png", "jpg", "jpeg"):
-            fig.savefig(tmp_path / f"test.{ext}", format=ext)
-            example_artifacts[f"test_{ext}_artifact"] = tmp_path / f"test.{ext}"
+            fig = plt.figure(figsize=(8, 5), dpi=100)
+            plt.plot([1, 2, 3])
+            fig.savefig(path_join(tmp_path, f"test.{ext}"), format=ext)
+            plt.clf()
+            example_artifacts[f"test_{ext}_artifact"] = path_join(tmp_path, f"test.{ext}")
 
         # json
-        with open(tmp_path / "test.json", "w") as f:
+        with open(path_join(tmp_path, "test.json"), "w") as f:
             json.dump([1, 2, 3], f)
-        example_artifacts["test_json_artifact"] = tmp_path / "test.json"
+        example_artifacts["test_json_artifact"] = path_join(tmp_path, "test.json")
 
         # numpy
         np_array = np.array([1, 2, 3, 4, 5])
-        np.save(tmp_path / "test.npy", np_array)
-        example_artifacts["test_npy_artifact"] = tmp_path / "test.npy"
+        np.save(path_join(tmp_path, "test.npy"), np_array)
+        example_artifacts["test_npy_artifact"] = path_join(tmp_path, "test.npy")
 
         # csv
         df = pd.DataFrame({"a": [1, 2, 3]})
-        df.to_csv(tmp_path / "test.csv", index=False)
-        example_artifacts["test_csv_artifact"] = tmp_path / "test.csv"
+        df.to_csv(path_join(tmp_path, "test.csv"), index=False)
+        example_artifacts["test_csv_artifact"] = path_join(tmp_path, "test.csv")
 
         # parquet
         df = pd.DataFrame({"test": [1, 2, 3]})
-        df.to_parquet(tmp_path / "test.parquet")
-        example_artifacts["test_parquet_artifact"] = tmp_path / "test.parquet"
+        df.to_parquet(path_join(tmp_path, "test.parquet"))
+        example_artifacts["test_parquet_artifact"] = path_join(tmp_path, "test.parquet")
 
         # text
-        with open(tmp_path / "test.txt", "w") as f:
+        with open(path_join(tmp_path, "test.txt"), "w") as f:
             f.write("hello world")
-        example_artifacts["test_text_artifact"] = tmp_path / "test.txt"
+        example_artifacts["test_text_artifact"] = path_join(tmp_path, "test.txt")
 
         return {}, example_artifacts
 
@@ -777,13 +784,18 @@ def test_custom_metric_logs_artifacts_from_paths(
         binary_logistic_regressor_model_uri, breast_cancer_dataset, [example_custom_metric]
     )
 
-    for img_ext in ("png", "jpg", "jpeg"):
-        assert f"test_{img_ext}_artifact" in result.artifacts
-        assert f"test_{img_ext}_artifact_on_data_breast_cancer_dataset.{img_ext}" in artifacts
-        assert isinstance(result.artifacts[f"test_{img_ext}_artifact"], ImageEvaluationArtifact)
-        assert result.artifacts[f"test_{img_ext}_artifact"].content == Image.open(
-            tmp_path / f"test.{img_ext}"
-        )
+    with TemporaryDirectory() as tmp_dir:
+        for img_ext in ("png", "jpg", "jpeg"):
+            assert f"test_{img_ext}_artifact" in result.artifacts
+            assert f"test_{img_ext}_artifact_on_data_breast_cancer_dataset.{img_ext}" in artifacts
+            assert isinstance(result.artifacts[f"test_{img_ext}_artifact"], ImageEvaluationArtifact)
+            expected_fig = plt.figure(figsize=(8, 5), dpi=100)
+            plt.plot([1, 2, 3])
+            expected_fig.savefig(path_join(tmp_dir, f"test.{img_ext}"), format=img_ext)
+            plt.clf()
+            assert result.artifacts[f"test_{img_ext}_artifact"].content == Image.open(
+                path_join(tmp_dir, f"test.{img_ext}")
+            )
 
     assert "test_json_artifact" in result.artifacts
     assert "test_json_artifact_on_data_breast_cancer_dataset.json" in artifacts
@@ -825,9 +837,6 @@ class _ExampleToBePickledObject:
 def test_custom_metric_logs_artifacts_from_objects(
     binary_logistic_regressor_model_uri, breast_cancer_dataset
 ):
-    from PIL import Image, ImageChops
-    import io
-
     fig = plt.figure()
     plt.plot([1, 2, 3])
     buf = io.BytesIO()
