@@ -11,6 +11,7 @@ import (
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
+// Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
 // DatabricksMlflowArtifactsServiceClient is the client API for DatabricksMlflowArtifactsService service.
@@ -90,8 +91,8 @@ type UnsafeDatabricksMlflowArtifactsServiceServer interface {
 	mustEmbedUnimplementedDatabricksMlflowArtifactsServiceServer()
 }
 
-func RegisterDatabricksMlflowArtifactsServiceServer(s *grpc.Server, srv DatabricksMlflowArtifactsServiceServer) {
-	s.RegisterService(&_DatabricksMlflowArtifactsService_serviceDesc, srv)
+func RegisterDatabricksMlflowArtifactsServiceServer(s grpc.ServiceRegistrar, srv DatabricksMlflowArtifactsServiceServer) {
+	s.RegisterService(&DatabricksMlflowArtifactsService_ServiceDesc, srv)
 }
 
 func _DatabricksMlflowArtifactsService_GetCredentialsForRead_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -104,7 +105,7 @@ func _DatabricksMlflowArtifactsService_GetCredentialsForRead_Handler(srv interfa
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.DatabricksMlflowArtifactsService/GetCredentialsForRead",
+		FullMethod: "/mlflow.DatabricksMlflowArtifactsService/getCredentialsForRead",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DatabricksMlflowArtifactsServiceServer).GetCredentialsForRead(ctx, req.(*GetCredentialsForRead))
@@ -122,7 +123,7 @@ func _DatabricksMlflowArtifactsService_GetCredentialsForWrite_Handler(srv interf
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.DatabricksMlflowArtifactsService/GetCredentialsForWrite",
+		FullMethod: "/mlflow.DatabricksMlflowArtifactsService/getCredentialsForWrite",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DatabricksMlflowArtifactsServiceServer).GetCredentialsForWrite(ctx, req.(*GetCredentialsForWrite))
@@ -130,7 +131,10 @@ func _DatabricksMlflowArtifactsService_GetCredentialsForWrite_Handler(srv interf
 	return interceptor(ctx, in, info, handler)
 }
 
-var _DatabricksMlflowArtifactsService_serviceDesc = grpc.ServiceDesc{
+// DatabricksMlflowArtifactsService_ServiceDesc is the grpc.ServiceDesc for DatabricksMlflowArtifactsService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var DatabricksMlflowArtifactsService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "mlflow.DatabricksMlflowArtifactsService",
 	HandlerType: (*DatabricksMlflowArtifactsServiceServer)(nil),
 	Methods: []grpc.MethodDesc{

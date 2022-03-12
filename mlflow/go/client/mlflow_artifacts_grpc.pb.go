@@ -11,6 +11,7 @@ import (
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
+// Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
 // MlflowArtifactsServiceClient is the client API for MlflowArtifactsService service.
@@ -90,8 +91,8 @@ type UnsafeMlflowArtifactsServiceServer interface {
 	mustEmbedUnimplementedMlflowArtifactsServiceServer()
 }
 
-func RegisterMlflowArtifactsServiceServer(s *grpc.Server, srv MlflowArtifactsServiceServer) {
-	s.RegisterService(&_MlflowArtifactsService_serviceDesc, srv)
+func RegisterMlflowArtifactsServiceServer(s grpc.ServiceRegistrar, srv MlflowArtifactsServiceServer) {
+	s.RegisterService(&MlflowArtifactsService_ServiceDesc, srv)
 }
 
 func _MlflowArtifactsService_DownloadArtifact_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -104,7 +105,7 @@ func _MlflowArtifactsService_DownloadArtifact_Handler(srv interface{}, ctx conte
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.artifacts.MlflowArtifactsService/DownloadArtifact",
+		FullMethod: "/mlflow.artifacts.MlflowArtifactsService/downloadArtifact",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MlflowArtifactsServiceServer).DownloadArtifact(ctx, req.(*DownloadArtifact))
@@ -122,7 +123,7 @@ func _MlflowArtifactsService_UploadArtifact_Handler(srv interface{}, ctx context
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.artifacts.MlflowArtifactsService/UploadArtifact",
+		FullMethod: "/mlflow.artifacts.MlflowArtifactsService/uploadArtifact",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MlflowArtifactsServiceServer).UploadArtifact(ctx, req.(*UploadArtifact))
@@ -140,7 +141,7 @@ func _MlflowArtifactsService_ListArtifacts_Handler(srv interface{}, ctx context.
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.artifacts.MlflowArtifactsService/ListArtifacts",
+		FullMethod: "/mlflow.artifacts.MlflowArtifactsService/listArtifacts",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MlflowArtifactsServiceServer).ListArtifacts(ctx, req.(*ListArtifacts))
@@ -148,7 +149,10 @@ func _MlflowArtifactsService_ListArtifacts_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
-var _MlflowArtifactsService_serviceDesc = grpc.ServiceDesc{
+// MlflowArtifactsService_ServiceDesc is the grpc.ServiceDesc for MlflowArtifactsService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var MlflowArtifactsService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "mlflow.artifacts.MlflowArtifactsService",
 	HandlerType: (*MlflowArtifactsServiceServer)(nil),
 	Methods: []grpc.MethodDesc{

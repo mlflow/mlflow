@@ -11,6 +11,7 @@ import (
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
+// Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
 // MlflowServiceClient is the client API for MlflowService service.
@@ -585,8 +586,8 @@ type UnsafeMlflowServiceServer interface {
 	mustEmbedUnimplementedMlflowServiceServer()
 }
 
-func RegisterMlflowServiceServer(s *grpc.Server, srv MlflowServiceServer) {
-	s.RegisterService(&_MlflowService_serviceDesc, srv)
+func RegisterMlflowServiceServer(s grpc.ServiceRegistrar, srv MlflowServiceServer) {
+	s.RegisterService(&MlflowService_ServiceDesc, srv)
 }
 
 func _MlflowService_GetExperimentByName_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -599,7 +600,7 @@ func _MlflowService_GetExperimentByName_Handler(srv interface{}, ctx context.Con
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.MlflowService/GetExperimentByName",
+		FullMethod: "/mlflow.MlflowService/getExperimentByName",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MlflowServiceServer).GetExperimentByName(ctx, req.(*GetExperimentByName))
@@ -617,7 +618,7 @@ func _MlflowService_CreateExperiment_Handler(srv interface{}, ctx context.Contex
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.MlflowService/CreateExperiment",
+		FullMethod: "/mlflow.MlflowService/createExperiment",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MlflowServiceServer).CreateExperiment(ctx, req.(*CreateExperiment))
@@ -635,7 +636,7 @@ func _MlflowService_ListExperiments_Handler(srv interface{}, ctx context.Context
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.MlflowService/ListExperiments",
+		FullMethod: "/mlflow.MlflowService/listExperiments",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MlflowServiceServer).ListExperiments(ctx, req.(*ListExperiments))
@@ -653,7 +654,7 @@ func _MlflowService_GetExperiment_Handler(srv interface{}, ctx context.Context, 
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.MlflowService/GetExperiment",
+		FullMethod: "/mlflow.MlflowService/getExperiment",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MlflowServiceServer).GetExperiment(ctx, req.(*GetExperiment))
@@ -671,7 +672,7 @@ func _MlflowService_DeleteExperiment_Handler(srv interface{}, ctx context.Contex
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.MlflowService/DeleteExperiment",
+		FullMethod: "/mlflow.MlflowService/deleteExperiment",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MlflowServiceServer).DeleteExperiment(ctx, req.(*DeleteExperiment))
@@ -689,7 +690,7 @@ func _MlflowService_RestoreExperiment_Handler(srv interface{}, ctx context.Conte
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.MlflowService/RestoreExperiment",
+		FullMethod: "/mlflow.MlflowService/restoreExperiment",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MlflowServiceServer).RestoreExperiment(ctx, req.(*RestoreExperiment))
@@ -707,7 +708,7 @@ func _MlflowService_UpdateExperiment_Handler(srv interface{}, ctx context.Contex
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.MlflowService/UpdateExperiment",
+		FullMethod: "/mlflow.MlflowService/updateExperiment",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MlflowServiceServer).UpdateExperiment(ctx, req.(*UpdateExperiment))
@@ -725,7 +726,7 @@ func _MlflowService_CreateRun_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.MlflowService/CreateRun",
+		FullMethod: "/mlflow.MlflowService/createRun",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MlflowServiceServer).CreateRun(ctx, req.(*CreateRun))
@@ -743,7 +744,7 @@ func _MlflowService_UpdateRun_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.MlflowService/UpdateRun",
+		FullMethod: "/mlflow.MlflowService/updateRun",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MlflowServiceServer).UpdateRun(ctx, req.(*UpdateRun))
@@ -761,7 +762,7 @@ func _MlflowService_DeleteRun_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.MlflowService/DeleteRun",
+		FullMethod: "/mlflow.MlflowService/deleteRun",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MlflowServiceServer).DeleteRun(ctx, req.(*DeleteRun))
@@ -779,7 +780,7 @@ func _MlflowService_RestoreRun_Handler(srv interface{}, ctx context.Context, dec
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.MlflowService/RestoreRun",
+		FullMethod: "/mlflow.MlflowService/restoreRun",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MlflowServiceServer).RestoreRun(ctx, req.(*RestoreRun))
@@ -797,7 +798,7 @@ func _MlflowService_LogMetric_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.MlflowService/LogMetric",
+		FullMethod: "/mlflow.MlflowService/logMetric",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MlflowServiceServer).LogMetric(ctx, req.(*LogMetric))
@@ -815,7 +816,7 @@ func _MlflowService_LogParam_Handler(srv interface{}, ctx context.Context, dec f
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.MlflowService/LogParam",
+		FullMethod: "/mlflow.MlflowService/logParam",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MlflowServiceServer).LogParam(ctx, req.(*LogParam))
@@ -833,7 +834,7 @@ func _MlflowService_SetExperimentTag_Handler(srv interface{}, ctx context.Contex
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.MlflowService/SetExperimentTag",
+		FullMethod: "/mlflow.MlflowService/setExperimentTag",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MlflowServiceServer).SetExperimentTag(ctx, req.(*SetExperimentTag))
@@ -851,7 +852,7 @@ func _MlflowService_SetTag_Handler(srv interface{}, ctx context.Context, dec fun
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.MlflowService/SetTag",
+		FullMethod: "/mlflow.MlflowService/setTag",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MlflowServiceServer).SetTag(ctx, req.(*SetTag))
@@ -869,7 +870,7 @@ func _MlflowService_DeleteTag_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.MlflowService/DeleteTag",
+		FullMethod: "/mlflow.MlflowService/deleteTag",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MlflowServiceServer).DeleteTag(ctx, req.(*DeleteTag))
@@ -887,7 +888,7 @@ func _MlflowService_GetRun_Handler(srv interface{}, ctx context.Context, dec fun
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.MlflowService/GetRun",
+		FullMethod: "/mlflow.MlflowService/getRun",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MlflowServiceServer).GetRun(ctx, req.(*GetRun))
@@ -905,7 +906,7 @@ func _MlflowService_SearchRuns_Handler(srv interface{}, ctx context.Context, dec
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.MlflowService/SearchRuns",
+		FullMethod: "/mlflow.MlflowService/searchRuns",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MlflowServiceServer).SearchRuns(ctx, req.(*SearchRuns))
@@ -923,7 +924,7 @@ func _MlflowService_ListArtifacts_Handler(srv interface{}, ctx context.Context, 
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.MlflowService/ListArtifacts",
+		FullMethod: "/mlflow.MlflowService/listArtifacts",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MlflowServiceServer).ListArtifacts(ctx, req.(*ListArtifacts))
@@ -941,7 +942,7 @@ func _MlflowService_GetMetricHistory_Handler(srv interface{}, ctx context.Contex
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.MlflowService/GetMetricHistory",
+		FullMethod: "/mlflow.MlflowService/getMetricHistory",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MlflowServiceServer).GetMetricHistory(ctx, req.(*GetMetricHistory))
@@ -959,7 +960,7 @@ func _MlflowService_LogBatch_Handler(srv interface{}, ctx context.Context, dec f
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.MlflowService/LogBatch",
+		FullMethod: "/mlflow.MlflowService/logBatch",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MlflowServiceServer).LogBatch(ctx, req.(*LogBatch))
@@ -977,7 +978,7 @@ func _MlflowService_LogModel_Handler(srv interface{}, ctx context.Context, dec f
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.MlflowService/LogModel",
+		FullMethod: "/mlflow.MlflowService/logModel",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MlflowServiceServer).LogModel(ctx, req.(*LogModel))
@@ -985,7 +986,10 @@ func _MlflowService_LogModel_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
-var _MlflowService_serviceDesc = grpc.ServiceDesc{
+// MlflowService_ServiceDesc is the grpc.ServiceDesc for MlflowService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var MlflowService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "mlflow.MlflowService",
 	HandlerType: (*MlflowServiceServer)(nil),
 	Methods: []grpc.MethodDesc{

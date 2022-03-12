@@ -11,6 +11,7 @@ import (
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
+// Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
 // ModelRegistryServiceClient is the client API for ModelRegistryService service.
@@ -315,8 +316,8 @@ type UnsafeModelRegistryServiceServer interface {
 	mustEmbedUnimplementedModelRegistryServiceServer()
 }
 
-func RegisterModelRegistryServiceServer(s *grpc.Server, srv ModelRegistryServiceServer) {
-	s.RegisterService(&_ModelRegistryService_serviceDesc, srv)
+func RegisterModelRegistryServiceServer(s grpc.ServiceRegistrar, srv ModelRegistryServiceServer) {
+	s.RegisterService(&ModelRegistryService_ServiceDesc, srv)
 }
 
 func _ModelRegistryService_CreateRegisteredModel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -329,7 +330,7 @@ func _ModelRegistryService_CreateRegisteredModel_Handler(srv interface{}, ctx co
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.ModelRegistryService/CreateRegisteredModel",
+		FullMethod: "/mlflow.ModelRegistryService/createRegisteredModel",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ModelRegistryServiceServer).CreateRegisteredModel(ctx, req.(*CreateRegisteredModel))
@@ -347,7 +348,7 @@ func _ModelRegistryService_RenameRegisteredModel_Handler(srv interface{}, ctx co
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.ModelRegistryService/RenameRegisteredModel",
+		FullMethod: "/mlflow.ModelRegistryService/renameRegisteredModel",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ModelRegistryServiceServer).RenameRegisteredModel(ctx, req.(*RenameRegisteredModel))
@@ -365,7 +366,7 @@ func _ModelRegistryService_UpdateRegisteredModel_Handler(srv interface{}, ctx co
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.ModelRegistryService/UpdateRegisteredModel",
+		FullMethod: "/mlflow.ModelRegistryService/updateRegisteredModel",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ModelRegistryServiceServer).UpdateRegisteredModel(ctx, req.(*UpdateRegisteredModel))
@@ -383,7 +384,7 @@ func _ModelRegistryService_DeleteRegisteredModel_Handler(srv interface{}, ctx co
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.ModelRegistryService/DeleteRegisteredModel",
+		FullMethod: "/mlflow.ModelRegistryService/deleteRegisteredModel",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ModelRegistryServiceServer).DeleteRegisteredModel(ctx, req.(*DeleteRegisteredModel))
@@ -401,7 +402,7 @@ func _ModelRegistryService_GetRegisteredModel_Handler(srv interface{}, ctx conte
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.ModelRegistryService/GetRegisteredModel",
+		FullMethod: "/mlflow.ModelRegistryService/getRegisteredModel",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ModelRegistryServiceServer).GetRegisteredModel(ctx, req.(*GetRegisteredModel))
@@ -419,7 +420,7 @@ func _ModelRegistryService_SearchRegisteredModels_Handler(srv interface{}, ctx c
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.ModelRegistryService/SearchRegisteredModels",
+		FullMethod: "/mlflow.ModelRegistryService/searchRegisteredModels",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ModelRegistryServiceServer).SearchRegisteredModels(ctx, req.(*SearchRegisteredModels))
@@ -437,7 +438,7 @@ func _ModelRegistryService_ListRegisteredModels_Handler(srv interface{}, ctx con
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.ModelRegistryService/ListRegisteredModels",
+		FullMethod: "/mlflow.ModelRegistryService/listRegisteredModels",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ModelRegistryServiceServer).ListRegisteredModels(ctx, req.(*ListRegisteredModels))
@@ -455,7 +456,7 @@ func _ModelRegistryService_GetLatestVersions_Handler(srv interface{}, ctx contex
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.ModelRegistryService/GetLatestVersions",
+		FullMethod: "/mlflow.ModelRegistryService/getLatestVersions",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ModelRegistryServiceServer).GetLatestVersions(ctx, req.(*GetLatestVersions))
@@ -473,7 +474,7 @@ func _ModelRegistryService_CreateModelVersion_Handler(srv interface{}, ctx conte
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.ModelRegistryService/CreateModelVersion",
+		FullMethod: "/mlflow.ModelRegistryService/createModelVersion",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ModelRegistryServiceServer).CreateModelVersion(ctx, req.(*CreateModelVersion))
@@ -491,7 +492,7 @@ func _ModelRegistryService_UpdateModelVersion_Handler(srv interface{}, ctx conte
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.ModelRegistryService/UpdateModelVersion",
+		FullMethod: "/mlflow.ModelRegistryService/updateModelVersion",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ModelRegistryServiceServer).UpdateModelVersion(ctx, req.(*UpdateModelVersion))
@@ -509,7 +510,7 @@ func _ModelRegistryService_TransitionModelVersionStage_Handler(srv interface{}, 
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.ModelRegistryService/TransitionModelVersionStage",
+		FullMethod: "/mlflow.ModelRegistryService/transitionModelVersionStage",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ModelRegistryServiceServer).TransitionModelVersionStage(ctx, req.(*TransitionModelVersionStage))
@@ -527,7 +528,7 @@ func _ModelRegistryService_DeleteModelVersion_Handler(srv interface{}, ctx conte
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.ModelRegistryService/DeleteModelVersion",
+		FullMethod: "/mlflow.ModelRegistryService/deleteModelVersion",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ModelRegistryServiceServer).DeleteModelVersion(ctx, req.(*DeleteModelVersion))
@@ -545,7 +546,7 @@ func _ModelRegistryService_GetModelVersion_Handler(srv interface{}, ctx context.
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.ModelRegistryService/GetModelVersion",
+		FullMethod: "/mlflow.ModelRegistryService/getModelVersion",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ModelRegistryServiceServer).GetModelVersion(ctx, req.(*GetModelVersion))
@@ -563,7 +564,7 @@ func _ModelRegistryService_SearchModelVersions_Handler(srv interface{}, ctx cont
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.ModelRegistryService/SearchModelVersions",
+		FullMethod: "/mlflow.ModelRegistryService/searchModelVersions",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ModelRegistryServiceServer).SearchModelVersions(ctx, req.(*SearchModelVersions))
@@ -581,7 +582,7 @@ func _ModelRegistryService_GetModelVersionDownloadUri_Handler(srv interface{}, c
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.ModelRegistryService/GetModelVersionDownloadUri",
+		FullMethod: "/mlflow.ModelRegistryService/getModelVersionDownloadUri",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ModelRegistryServiceServer).GetModelVersionDownloadUri(ctx, req.(*GetModelVersionDownloadUri))
@@ -599,7 +600,7 @@ func _ModelRegistryService_SetRegisteredModelTag_Handler(srv interface{}, ctx co
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.ModelRegistryService/SetRegisteredModelTag",
+		FullMethod: "/mlflow.ModelRegistryService/setRegisteredModelTag",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ModelRegistryServiceServer).SetRegisteredModelTag(ctx, req.(*SetRegisteredModelTag))
@@ -617,7 +618,7 @@ func _ModelRegistryService_SetModelVersionTag_Handler(srv interface{}, ctx conte
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.ModelRegistryService/SetModelVersionTag",
+		FullMethod: "/mlflow.ModelRegistryService/setModelVersionTag",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ModelRegistryServiceServer).SetModelVersionTag(ctx, req.(*SetModelVersionTag))
@@ -635,7 +636,7 @@ func _ModelRegistryService_DeleteRegisteredModelTag_Handler(srv interface{}, ctx
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.ModelRegistryService/DeleteRegisteredModelTag",
+		FullMethod: "/mlflow.ModelRegistryService/deleteRegisteredModelTag",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ModelRegistryServiceServer).DeleteRegisteredModelTag(ctx, req.(*DeleteRegisteredModelTag))
@@ -653,7 +654,7 @@ func _ModelRegistryService_DeleteModelVersionTag_Handler(srv interface{}, ctx co
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/mlflow.ModelRegistryService/DeleteModelVersionTag",
+		FullMethod: "/mlflow.ModelRegistryService/deleteModelVersionTag",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ModelRegistryServiceServer).DeleteModelVersionTag(ctx, req.(*DeleteModelVersionTag))
@@ -661,7 +662,10 @@ func _ModelRegistryService_DeleteModelVersionTag_Handler(srv interface{}, ctx co
 	return interceptor(ctx, in, info, handler)
 }
 
-var _ModelRegistryService_serviceDesc = grpc.ServiceDesc{
+// ModelRegistryService_ServiceDesc is the grpc.ServiceDesc for ModelRegistryService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var ModelRegistryService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "mlflow.ModelRegistryService",
 	HandlerType: (*ModelRegistryServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
