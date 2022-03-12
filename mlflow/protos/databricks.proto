@@ -5,6 +5,7 @@ import "scalapb/scalapb.proto";
 
 package mlflow;
 
+option go_package = "github.com/mlflow/mlflow/mlflow/go/client";
 option java_package = "com.databricks.api.proto.databricks";
 option (scalapb.options).flat_package = true;
 
