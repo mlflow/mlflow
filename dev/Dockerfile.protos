@@ -5,7 +5,8 @@
 # $ docker run --rm \
 #     -v $(pwd)/mlflow/protos:/app/mlflow/protos \
 #     -v $(pwd)/mlflow/java/client/src/main/java:/app/mlflow/java/client/src/main/java \
-#     -v $(pwd)/generate-protos.sh:/app/generate-protos.sh \
+#     -v $(pwd)/mlflow/go/client:/app/mlflow/go/client \
+#     -v $(pwd)/dev/generate-protos.sh:/app/generate-protos.sh \
 #     gen-protos ./generate-protos.sh
 
 FROM ubuntu:20.04
@@ -18,3 +19,9 @@ RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.6.
 RUN unzip protoc-3.6.0-linux-x86_64.zip -d /tmp/protoc
 ENV PATH="/tmp/protoc/bin:${PATH}"
 RUN protoc --version
+
+RUN curl -OL https://go.dev/dl/go1.17.8.linux-amd64.tar.gz
+RUN tar -C /tmp -xvf go1.17.8.linux-amd64.tar.gz
+ENV PATH="/tmp/go/bin:/root/go/bin:${PATH}"
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.26
+RUN go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.1

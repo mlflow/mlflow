@@ -2,11 +2,11 @@
 
 set -ex
 PROTOC_VERSION="$(protoc --version)"
-# if [[ "$PROTOC_VERSION" != 'libprotoc 3.6.0' && "$PROTOC_VERSION" != 'libprotoc 3.6.1' ]]; then
-# 	echo "Required libprotoc versions to be 3.6.0 or 3.6.1 (preferred)."
-# 	echo "We found: $PROTOC_VERSION"
-# 	exit 1
-# fi
+if [[ "$PROTOC_VERSION" != 'libprotoc 3.6.0' && "$PROTOC_VERSION" != 'libprotoc 3.6.1' ]]; then
+	echo "Required libprotoc versions to be 3.6.0 or 3.6.1 (preferred)."
+	echo "We found: $PROTOC_VERSION"
+	exit 1
+fi
 PROTOS="mlflow/protos"
 protoc -I="$PROTOS" \
     --python_out="$PROTOS" \
