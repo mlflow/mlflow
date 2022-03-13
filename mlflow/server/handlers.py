@@ -280,6 +280,12 @@ def _assert_array(x):
 def _assert_required(x):
     assert x is not None
 
+def assert_max_1k(x):
+    assert x <= 1000
+
+def _assert_max_50k(x):
+    assert x <= 50000
+
 def _validate_param_against_schema(schema, param, value):
     for f in schema:
         try:
@@ -849,9 +855,6 @@ def _get_run():
 @_disable_if_artifacts_only
 def _search_runs():
 
-    def _assert_max_50k(x):
-        assert x <= 50000
-
     def _assert_item_type_string(x):
         for item in x:
             _assert_string(item)
@@ -1226,9 +1229,6 @@ def _delete_registered_model():
 @_disable_if_artifacts_only
 def _list_registered_models():
 
-    def assert_max_1k(x):
-        assert x <= 1000
-
     request_message = _get_request_message(
         ListRegisteredModels(),
         schema = {
@@ -1254,9 +1254,6 @@ def _list_registered_models():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _search_registered_models():
-
-    def assert_max_1k(x):
-        assert x <= 1000
 
     def _assert_item_type_string(x):
         for item in x:
@@ -1298,7 +1295,19 @@ def _search_registered_models():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _get_latest_versions():
-    request_message = _get_request_message(GetLatestVersions())
+    request_message = _get_request_message(
+        GetLatestVersions(),
+        schema = {
+            "name": [
+                _assert_string,
+                _assert_required
+            ],
+            "stages": [
+                _assert_array,
+                _assert_item_type_string
+            ]
+        }
+    )
     latest_versions = _get_model_registry_store().get_latest_versions(
         name=request_message.name, stages=request_message.stages
     )
@@ -1311,7 +1320,21 @@ def _get_latest_versions():
 @_disable_if_artifacts_only
 def _set_registered_model_tag():
     request_message = _get_request_message(
-        SetRegisteredModelTag()
+        SetRegisteredModelTag(),
+        schema = {
+            "name": [
+                _assert_string,
+                _assert_required
+            ],
+            "key": [
+                _assert_string,
+                _assert_required
+            ],
+            "value": [
+                _assert_string,
+                _assert_required
+            ]
+        }
     )
     tag = RegisteredModelTag(key=request_message.key, value=request_message.value)
     _get_model_registry_store().set_registered_model_tag(name=request_message.name, tag=tag)
@@ -1322,7 +1345,17 @@ def _set_registered_model_tag():
 @_disable_if_artifacts_only
 def _delete_registered_model_tag():
     request_message = _get_request_message(
-        DeleteRegisteredModelTag()
+        DeleteRegisteredModelTag(),
+        schema = {
+            "name": [
+                _assert_string,
+                _assert_required
+            ],
+            "key": [
+                _assert_string,
+                _assert_required
+            ]
+        }
     )
     _get_model_registry_store().delete_registered_model_tag(
         name=request_message.name, key=request_message.key
@@ -1334,7 +1367,29 @@ def _delete_registered_model_tag():
 @_disable_if_artifacts_only
 def _create_model_version():
     request_message = _get_request_message(
-        CreateModelVersion()
+        CreateModelVersion(),
+        schema = {
+            "name": [
+                _assert_string,
+                _assert_required
+            ],
+            "source": [
+                _assert_string,
+                _assert_required
+            ],
+            "run_id": [
+                _assert_string
+            ],
+            "tags": [
+                _assert_array
+            ],
+            "run_link": [
+                _assert_string
+            ],
+            "description": [
+                _assert_string
+            ]
+        }
     )
     model_version = _get_model_registry_store().create_model_version(
         name=request_message.name,
@@ -1365,7 +1420,17 @@ def get_model_version_artifact_handler():
 @_disable_if_artifacts_only
 def _get_model_version():
     request_message = _get_request_message(
-        GetModelVersion()
+        GetModelVersion(),
+        schema = {
+            "name": [
+                _assert_string,
+                _assert_required
+            ],
+            "version": [
+                _assert_string,
+                _assert_required
+            ]
+        }
     )
     model_version = _get_model_registry_store().get_model_version(
         name=request_message.name, version=request_message.version
@@ -1379,7 +1444,20 @@ def _get_model_version():
 @_disable_if_artifacts_only
 def _update_model_version():
     request_message = _get_request_message(
-        UpdateModelVersion()
+        UpdateModelVersion(),
+        schema = {
+            "name": [
+                _assert_string,
+                _assert_required
+            ],
+            "version": [
+                _assert_string,
+                _assert_required
+            ],
+            "description": [
+                _assert_string
+            ]
+        }
     )
     new_description = None
     if request_message.HasField("description"):
@@ -1394,7 +1472,24 @@ def _update_model_version():
 @_disable_if_artifacts_only
 def _transition_stage():
     request_message = _get_request_message(
-        TransitionModelVersionStage()
+        TransitionModelVersionStage(),
+        schema = {
+            "name": [
+                _assert_string,
+                _assert_required
+            ],
+            "version": [
+                _assert_string,
+                _assert_required
+            ],
+            "stage": [
+                _assert_string,
+                _assert_required
+            ],
+            "archive_existing_versions": [
+                _assert_bool
+            ]
+        }
     )
     model_version = _get_model_registry_store().transition_model_version_stage(
         name=request_message.name,
@@ -1411,7 +1506,17 @@ def _transition_stage():
 @_disable_if_artifacts_only
 def _delete_model_version():
     request_message = _get_request_message(
-        DeleteModelVersion()
+        DeleteModelVersion(),
+        schema = {
+            "name": [
+                _assert_string,
+                _assert_required
+            ],
+            "version": [
+                _assert_string,
+                _assert_required
+            ]
+        }
     )
     _get_model_registry_store().delete_model_version(
         name=request_message.name, version=request_message.version
@@ -1444,7 +1549,25 @@ def _search_model_versions():
 @_disable_if_artifacts_only
 def _set_model_version_tag():
     request_message = _get_request_message(
-        SetModelVersionTag()
+        SetModelVersionTag(),
+        schema = {
+            "name": [
+                _assert_string,
+                _assert_required
+            ],
+            "version": [
+                _assert_string,
+                _assert_required
+            ],
+            "key": [
+                _assert_string,
+                _assert_required
+            ],
+            "value": [
+                _assert_string,
+                _assert_required
+            ]
+        }
     )
     tag = ModelVersionTag(key=request_message.key, value=request_message.value)
     _get_model_registry_store().set_model_version_tag(
@@ -1457,7 +1580,21 @@ def _set_model_version_tag():
 @_disable_if_artifacts_only
 def _delete_model_version_tag():
     request_message = _get_request_message(
-        DeleteModelVersionTag()
+        DeleteModelVersionTag(),
+        schema = {
+            "name": [
+                _assert_string,
+                _assert_required
+            ],
+            "version": [
+                _assert_string,
+                _assert_required
+            ],
+            "key": [
+                _assert_string,
+                _assert_required
+            ]
+        }
     )
     _get_model_registry_store().delete_model_version_tag(
         name=request_message.name, version=request_message.version, key=request_message.key
