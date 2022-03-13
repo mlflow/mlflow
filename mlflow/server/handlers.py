@@ -5,7 +5,6 @@ import re
 import tempfile
 import posixpath
 import urllib
-import copy
 
 import logging
 from functools import wraps
