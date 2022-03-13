@@ -215,6 +215,8 @@ import pandas
 import yaml
 from copy import deepcopy
 import logging
+import sys
+import subprocess
 
 from typing import Any, Union, List, Dict
 import mlflow
@@ -764,7 +766,28 @@ def _warn_potentially_incompatible_py_version_if_necessary(model_py_version=None
         )
 
 
-def spark_udf(spark, model_uri, result_type="double"):
+def _get_or_create_model_cache_dir():
+    from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
+    import tempfile
+
+    nfs_root_dir = get_nfs_cache_root_dir()
+    if nfs_root_dir is not None:
+        # In databricks, the '/local_disk0/.ephemeral_nfs' is mounted as NFS disk
+        # the data stored in the disk is shared with all remote nodes.
+        root_dir = os.path.join(nfs_root_dir, "models")
+        os.makedirs(root_dir, exist_ok=True)
+        tmp_model_dir = tempfile.mkdtemp(dir=root_dir)
+        # TODO: register deleting tmp_model_dir handler when exit
+    else:
+        import atexit
+        import shutil
+        tmp_model_dir = tempfile.mkdtemp()
+        atexit.register(shutil.rmtree, tmp_model_dir, ignore_errors=True)
+
+    return tmp_model_dir
+
+
+def spark_udf(spark, model_uri, result_type="double", env_type="local"):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
 
@@ -845,10 +868,16 @@ def spark_udf(spark, model_uri, result_type="double"):
     # functionality.
     import functools
     from mlflow.pyfunc.spark_model_cache import SparkModelCache
+    from mlflow.utils._spark_utils import _get_active_spark_session
+    from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
     from pyspark.sql.functions import pandas_udf
     from pyspark.sql.types import _parse_datatype_string
     from pyspark.sql.types import ArrayType, DataType as SparkDataType
     from pyspark.sql.types import DoubleType, IntegerType, FloatType, LongType, StringType
+
+    spark = _get_active_spark_session()
+    spark_in_local_mode = spark.conf.get("spark.master").startswith("local")
+    use_nfs = get_nfs_cache_root_dir() is not None
 
     if not isinstance(result_type, SparkDataType):
         result_type = _parse_datatype_string(result_type)
@@ -866,17 +895,16 @@ def spark_udf(spark, model_uri, result_type="double"):
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    with TempDir() as local_tmpdir:
-        local_model_path = _download_artifact_from_uri(
-            artifact_uri=model_uri, output_path=local_tmpdir.path()
-        )
-        # Assume spark executor python environment is the same with spark driver side.
-        _warn_dependency_requirement_mismatches(local_model_path)
+    local_model_path = _download_artifact_from_uri(
+        artifact_uri=model_uri, output_path=_get_or_create_model_cache_dir()
+    )
+    # Assume spark executor python environment is the same with spark driver side.
+    _warn_dependency_requirement_mismatches(local_model_path)
+    if not use_nfs and not spark_in_local_mode:
         archive_path = SparkModelCache.add_local_model(spark, local_model_path)
-        model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
+    model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
 
-    def predict(*args):
-        model = SparkModelCache.get_or_load(archive_path)
+    def _predict_row_batch(model, client, args):
         input_schema = model.metadata.get_input_schema()
         pdf = None
 
@@ -905,7 +933,10 @@ def spark_udf(spark, model_uri, result_type="double"):
                     )
             pdf = pandas.DataFrame(data={names[i]: x for i, x in enumerate(args)}, columns=names)
 
-        result = model.predict(pdf)
+        if client is None:
+            result = model.predict(pdf)
+        else:
+            result = client.invoke(pdf)
 
         if not isinstance(result, pandas.DataFrame):
             result = pandas.DataFrame(data=result)
@@ -940,6 +971,58 @@ def spark_udf(spark, model_uri, result_type="double"):
             return pandas.Series(result.to_numpy().tolist())
         else:
             return result[result.columns[0]]
+
+    def predict(iterator):
+        from mlflow.utils.process import kill_proc
+        from mlflow.pyfunc import scoring_server
+        from mlflow.pyfunc.scoring_server.client import ScoringServerClient
+        from mlflow.utils import find_free_port
+
+        # Note: this is a pandas udf function in iteration style, which takes an iterator of
+        # tuple of pandas.Series and outputs an iterator of pandas.Series.
+        if not use_nfs and not spark_in_local_mode:
+            model = SparkModelCache.get_or_load(archive_path)
+        else:
+            model = mlflow.pyfunc.load_model()
+
+        scoring_server_proc = None
+        if env_type == "conda":
+            server_port = find_free_port()
+
+            # launch scoring server
+            # TODO: set timeout for server requests handler.
+            scoring_server_proc = subprocess.Popen(
+                [
+                    "mlflow", "models", "serve", "-m", local_model_path,
+                    "-p", str(server_port), "-w", "1", "--install-mlflow", "true",
+                ],
+                stdout=sys.stdout, stderr=sys.stderr,
+            )
+
+            client = ScoringServerClient("127.0.0.1", server_port)
+            client.wait_server_ready()
+        elif env_type == "virtualenv":
+            raise NotImplementedError()
+        elif env_type == "local":
+            client = None
+        else:
+            raise ValueError()
+
+        try:
+            for row_batch in iterator:
+                # the `row_batch` is a tuple which composes of several pd.Series/pd.DataFrame objects.
+                yield _predict_row_batch(model, client, row_batch)
+        finally:
+            # TODO: Keep scoring server running until python process exit.
+            #  Because when "spark.python.worker.reuse" is True, mutiple python UDF tasks
+            #  (one task per dataframe partition) might share one python process, so that
+            #  we can avoid to launch scoring server when every python UDF task started and
+            #  kill it when every python UDF task finished.
+
+            # TODO: use process control (prctl) to ask the system to send SIGTERM to the scoring server
+            #  process when its parent (Python worker) is dead.
+            if scoring_server_proc is not None:
+                kill_proc(scoring_server_proc)
 
     udf = pandas_udf(predict, result_type)
     udf.metadata = model_metadata

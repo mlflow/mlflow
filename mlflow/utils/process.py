@@ -1,5 +1,6 @@
 import os
 import subprocess
+import signal
 
 
 class ShellCommandException(Exception):
@@ -57,3 +58,16 @@ def exec_cmd(
                 "Non-zero exit code: %s\n\nSTDOUT:\n%s\n\nSTDERR:%s" % (exit_code, stdout, stderr)
             )
         return exit_code, stdout, stderr
+
+
+def kill_proc(proc):
+    if proc.poll() is None:
+        # Terminate the process group containing the scoring process.
+        # This will terminate all child processes of the scoring process
+        if os.name != "nt":
+            pgrp = os.getpgid(proc.pid)
+            os.killpg(pgrp, signal.SIGTERM)
+        else:
+            # https://stackoverflow.com/questions/47016723/windows-equivalent-for-spawning-and-killing-separate-process-group-in-python-3
+            proc.send_signal(signal.CTRL_BREAK_EVENT)
+            proc.kill()
