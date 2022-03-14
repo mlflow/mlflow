@@ -58,7 +58,7 @@ class _PythonEnv:
         return cls(**dct)
 
     def with_dependencies(self, dependencies):
-        kwargs = {**self.to_dict, "dependencies": dependencies}
+        kwargs = {**self.to_dict(), "dependencies": dependencies}
         return _PythonEnv(**kwargs)
 
     @classmethod
