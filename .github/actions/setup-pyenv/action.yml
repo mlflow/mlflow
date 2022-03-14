@@ -16,7 +16,7 @@ runs:
       if: runner.os == 'ubuntu'
       run: |
         git clone --depth 1 https://github.com/pyenv/pyenv.git $HOME/.pyenv
-    - name: Define environment variables
+    - name: Setup environment variables
       if: runner.os == 'ubuntu'
       run: |
         PYENV_ROOT="$HOME/.pyenv"
@@ -33,7 +33,7 @@ runs:
       if: runner.os == 'windows'
       run: |
         pip install pyenv-win --target $HOME\\.pyenv
-    - name: Define environment variables
+    - name: Setup environment variables
       if: runner.os == 'windows'
       run: |
         echo "PYENV=$USERPROFILE\.pyenv\pyenv-win\\" >> $GITHUB_ENV
