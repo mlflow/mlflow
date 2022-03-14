@@ -157,7 +157,7 @@ def test_spark_udf_autofills_no_arguments(spark):
                 columns=["x", "b", "c", "d"], data={"x": [1], "b": [2], "c": [3], "d": [4]}
             )
         )
-        with pytest.raises(AnalysisException, match=r"cannot resolve 'a' given input columns"):
+        with pytest.raises(AnalysisException, match=r"Column 'a' does not exist"):
             bad_data.withColumn("res", udf())
 
     nameless_signature = ModelSignature(
@@ -247,21 +247,28 @@ def test_model_cache(spark, model_path):
     archive_path = SparkModelCache.add_local_model(spark, model_path)
     assert archive_path != model_path
 
-    # Ensure we can use the model locally.
-    local_model = SparkModelCache.get_or_load(archive_path)
-    assert isinstance(local_model, PyFuncModel)
-    assert isinstance(local_model._model_impl, ConstantPyfuncWrapper)
-
     # Define the model class name as a string so that each Spark executor can reference it
     # without attempting to resolve ConstantPyfuncWrapper, which is only available on the driver.
     constant_model_name = ConstantPyfuncWrapper.__name__
 
+    def check_get_or_load_return_value(_model, _path):
+        assert _path != model_path
+        assert os.path.isdir(_path)
+        model2 = mlflow.pyfunc.load_model(_path)
+        for model in [_model, model2]:
+            assert isinstance(model, PyFuncModel)
+            # NB: Can not use instanceof test as remote does not know about ConstantPyfuncWrapper class.
+            assert type(model._model_impl).__name__ == constant_model_name
+
+    # Ensure we can use the model locally.
+    local_model, local_model_path = SparkModelCache.get_or_load(archive_path)
+
+    check_get_or_load_return_value(local_model, local_model_path)
+
     # Request the model on all executors, and see how many times we got cache hits.
     def get_model(_):
-        model = SparkModelCache.get_or_load(archive_path)
-        assert isinstance(model, PyFuncModel)
-        # NB: Can not use instanceof test as remote does not know about ConstantPyfuncWrapper class.
-        assert type(model._model_impl).__name__ == constant_model_name
+        _model, _local_model_path = SparkModelCache.get_or_load(archive_path)
+        check_get_or_load_return_value(_model, _local_model_path)
         return SparkModelCache._cache_hits
 
     # This will run 30 distinct tasks, and we expect most to reuse an already-loaded model.
