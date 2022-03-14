@@ -1,0 +1,45 @@
+name: "setup-pyenv"
+description: "Setup pyenv"
+runs:
+  using: "composite"
+  steps:
+    # Ubuntu
+    - name: Install python build tools
+      if: runner.os == 'ubuntu'
+      # https://github.com/pyenv/pyenv/wiki#suggested-build-environment
+      run: |
+        sudo apt-get update -y
+        sudo apt-get install -y make build-essential libssl-dev zlib1g-dev \
+        libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm \
+        libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
+    - name: Install pyenv - ubuntu
+      if: runner.os == 'ubuntu'
+      run: |
+        git clone https://github.com/pyenv/pyenv.git ~/.pyenv --depth 1
+    - name: Setup pyenv - ubuntu
+      if: runner.os == 'ubuntu'
+      run: |
+        PYENV_ROOT="$HOME/.pyenv"
+        PYENV_BIN="$PYENV_ROOT/bin"
+        echo "$PYENV_BIN" >> $GITHUB_PATH
+        echo "PYENV_ROOT=$PYENV_ROOT" >> $GITHUB_ENV
+    - name: Check pyenv - ubuntu
+      if: runner.os == 'ubuntu'
+      run: |
+        pyenv --version
+
+    # Windows
+    - name: Install pyenv - windows
+      if: runner.os == 'windows'
+      run: |
+        pip install pyenv-win --target $HOME\\.pyenv
+    - name: Setup pyenv - windows
+      if: runner.os == 'windows'
+      run: |
+        echo "PYENV=$USERPROFILE\.pyenv\pyenv-win\\" >> $GITHUB_ENV
+        echo "PYENV_HOME=$USERPROFILE\.pyenv\pyenv-win\\" >> $GITHUB_ENV
+        echo "$USERPROFILE\.pyenv\pyenv-win\\bin\\" >> $GITHUB_PATH
+    - name: Check pyenv - windows
+      if: runner.os == 'windows'
+      run: |
+        pyenv --version
