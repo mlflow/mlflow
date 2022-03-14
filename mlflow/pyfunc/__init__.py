@@ -986,6 +986,24 @@ def spark_udf(spark, model_uri, result_type="double", env_type="local"):
             local_model_path_on_executor = local_model_path
 
         scoring_server_proc = None
+
+        # TODO: Support virtual env.
+        #
+        # TODO: For conda/virtualenv restored env cases,
+        #  For each individual python process (driver side), create individual and temporary
+        #  conda env dir / virtualenv env dir and when process exit,
+        #  delete the temporary env dir.
+        #  The reason is
+        #   1. env dir might be a large size directory and cleaning it when process exit
+        #      help saving disk space.
+        #   2. We have conda package cache dir and pip cache dir which are shared across all
+        #      python processes which help reducing downloading time.
+        #   3. Avoid race conditions related issues.
+        #
+        # TODO:
+        #   For NFS available case, set conda env dir / virtualenv env dir in sub-directory under
+        #   NFS directory, and in spark driver side prepare restored env once, and then all
+        #   spark UDF tasks running on spark workers can skip re-creating the restored env.
         if env_type == "conda":
             server_port = find_free_port()
 

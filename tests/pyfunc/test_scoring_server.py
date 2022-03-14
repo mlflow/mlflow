@@ -613,3 +613,27 @@ def test_get_cmd(args: dict, expected: str):
     assert cmd == (
         f"gunicorn {expected} ${{GUNICORN_CMD_ARGS}} -- mlflow.pyfunc.scoring_server.wsgi:app"
     )
+
+
+@pytest.mark.large
+def test_scoring_server_client(sklearn_model, model_path):
+    from mlflow.pyfunc.scoring_server.client import start_server, kill_server, ScoringServerClient
+    from mlflow.utils import find_free_port
+
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
+    expected_result = sklearn_model.model.predict(sklearn_model.inference_data)
+
+    port = find_free_port()
+
+    try:
+        server_proc = start_server(port, model_path, host='127.0.0.1', no_conda=True)
+
+        client = ScoringServerClient(host='127.0.0.1', port=port)
+        client.wait_server_ready()
+
+        for orient in ["records", "split"]:
+            data = pd.DataFrame(sklearn_model.inference_data)
+            result = client.invoke(data, orient)
+            np.testing.assert_allclose(result, expected_result, rtol=1e-5)
+    finally:
+        kill_server(server_proc)

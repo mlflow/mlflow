@@ -5,6 +5,7 @@ import subprocess
 import os
 import sys
 import signal
+import json
 
 
 class ScoringServerClient:
@@ -14,7 +15,6 @@ class ScoringServerClient:
 
     def ping(self):
         ping_status = requests.get(url=self.url_prefix + "/ping")
-        print("connection attempt", i, "server is up! ping status", ping_status)
         if ping_status.status_code != 200:
             raise Exception(f"ping failed (error code {ping_status.status_code})")
 
@@ -37,7 +37,6 @@ class ScoringServerClient:
         content_type_list = []
         if type(data) == pd.DataFrame:
             content_type_list.append(scoring_server.CONTENT_TYPE_JSON)
-
             if pandas_orient == "records":
                 content_type_list.append(scoring_server.CONTENT_TYPE_FORMAT_RECORDS_ORIENTED)
             elif pandas_orient == "split":
@@ -46,13 +45,14 @@ class ScoringServerClient:
                 raise Exception(
                     "Unexpected pandas_orient for Pandas dataframe input %s" % pandas_orient
                 )
-            data = data.to_json(orient=pandas_orient)
         else:
             raise RuntimeError("Unsupported data type.")
 
+        post_data = json.dumps(scoring_server._get_jsonable_obj(data, pandas_orient=pandas_orient))
+
         response = requests.post(
             url=self.url_prefix + "/invocations",
-            data=data,
+            data=post_data,
             headers={"Content-Type": "; ".join(content_type_list)},
         )
 
@@ -61,19 +61,23 @@ class ScoringServerClient:
                 f"Invocation failed (error code {response.status_code}, response: {response.text})"
             )
 
-        return scoring_server._get_jsonable_obj(response.text, pandas_orient)
+        return scoring_server.load_predictions_from_json_str(response.text)
 
 
 def start_server(
         server_port, local_model_path,
         host='127.0.0.1', num_workers=1,
-        env=None, stdout=sys.stdout, stderr=sys.stderr
+        no_conda=False,
+        env=None, stdout=sys.stdout, stderr=sys.stderr,
 ):
     cmd = [
         "mlflow", "models", "serve", "-m", local_model_path,
         "-h", host,
         "-p", str(server_port), "-w", str(num_workers), "--install-mlflow",
     ]
+    if no_conda:
+        cmd.append("--no-conda")
+
     if os.name != "nt":
         return subprocess.Popen(
             cmd,

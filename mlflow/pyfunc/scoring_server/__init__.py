@@ -188,6 +188,21 @@ def predictions_to_json(raw_predictions, output):
     json.dump(predictions, output, cls=NumpyEncoder)
 
 
+def load_predictions_from_json_str(json_str):
+    raw_predictions = json.loads(json_str)  # TODO: Implement numpy decoder and set cls to be numpy decoder ?
+    wrapper_attr_name = os.environ.get(PREDICTIONS_WRAPPER_ATTR_NAME_ENV_KEY, None)
+    if wrapper_attr_name:
+        raw_predictions = raw_predictions[wrapper_attr_name]
+
+    if len(raw_predictions) == 0:
+        return raw_predictions
+
+    if isinstance(raw_predictions[0], dict):
+        return pd.DataFrame.from_records(raw_predictions)
+    else:
+        return raw_predictions
+
+
 def _handle_serving_error(error_message, error_code, include_traceback=True):
     """
     Logs information about an exception thrown by model inference code that is currently being
