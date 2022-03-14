@@ -1,6 +1,7 @@
 import os
 import subprocess
 import signal
+import sys
 
 
 class ShellCommandException(Exception):
@@ -58,6 +59,32 @@ def exec_cmd(
                 "Non-zero exit code: %s\n\nSTDOUT:\n%s\n\nSTDERR:%s" % (exit_code, stdout, stderr)
             )
         return exit_code, stdout, stderr
+
+
+def start_proc(cmd, env=None, stdout=sys.stdout, stderr=sys.stderr):
+    if os.name != "nt":
+        return subprocess.Popen(
+            ["bash", "-c", *cmd],  # Shall we use "bach -c ..." ?
+            stdout=stdout,
+            stderr=stderr,
+            universal_newlines=True,
+            env=env,
+            # Assign the scoring process to a process group. All child processes of the
+            # scoring process will be assigned to this group as well. This allows child
+            # processes of the scoring process to be terminated successfully
+            preexec_fn=os.setsid,
+        )
+    else:
+        return subprocess.Popen(
+            cmd,  # Shall we use "cmd /c ..." ?
+            stdout=stdout,
+            stderr=stderr,
+            universal_newlines=True,
+            env=env,
+            # On Windows, `os.setsid` and `preexec_fn` are unavailable
+            # https://stackoverflow.com/questions/47016723/windows-equivalent-for-spawning-and-killing-separate-process-group-in-python-3
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+        )
 
 
 def kill_proc(proc):

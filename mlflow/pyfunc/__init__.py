@@ -973,7 +973,7 @@ def spark_udf(spark, model_uri, result_type="double", env_type="local"):
             return result[result.columns[0]]
 
     def predict(iterator):
-        from mlflow.utils.process import kill_proc
+        from mlflow.utils.process import start_proc, kill_proc
         from mlflow.pyfunc import scoring_server
         from mlflow.pyfunc.scoring_server.client import ScoringServerClient
         from mlflow.utils import find_free_port
@@ -991,7 +991,7 @@ def spark_udf(spark, model_uri, result_type="double", env_type="local"):
 
             # launch scoring server
             # TODO: set timeout for server requests handler.
-            scoring_server_proc = subprocess.Popen(
+            scoring_server_proc = start_proc(
                 [
                     "mlflow", "models", "serve", "-m", local_model_path,
                     "-p", str(server_port), "-w", "1", "--install-mlflow", "true",
