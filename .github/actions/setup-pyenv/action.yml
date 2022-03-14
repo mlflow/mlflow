@@ -6,7 +6,8 @@ runs:
     ########## Ubuntu ##########
     - name: Install python build tools
       if: runner.os == 'ubuntu'
-      # https://github.com/pyenv/pyenv/wiki#suggested-build-environment
+      shell: bash
+      # Ref: https://github.com/pyenv/pyenv/wiki#suggested-build-environment
       run: |
         sudo apt-get update -y
         sudo apt-get install -y make build-essential libssl-dev zlib1g-dev \
@@ -14,10 +15,12 @@ runs:
         libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
     - name: Install pyenv
       if: runner.os == 'ubuntu'
+      shell: bash
       run: |
         git clone --depth 1 https://github.com/pyenv/pyenv.git $HOME/.pyenv
     - name: Setup environment variables
       if: runner.os == 'ubuntu'
+      shell: bash
       run: |
         PYENV_ROOT="$HOME/.pyenv"
         PYENV_BIN="$PYENV_ROOT/bin"
@@ -25,21 +28,25 @@ runs:
         echo "PYENV_ROOT=$PYENV_ROOT" >> $GITHUB_ENV
     - name: Check pyenv version
       if: runner.os == 'ubuntu'
+      shell: bash
       run: |
         pyenv --version
 
     ########## Windows ##########
     - name: Install pyenv
       if: runner.os == 'windows'
+      shell: bash
       run: |
         pip install pyenv-win --target $HOME\\.pyenv
     - name: Setup environment variables
       if: runner.os == 'windows'
+      shell: bash
       run: |
         echo "PYENV=$USERPROFILE\.pyenv\pyenv-win\\" >> $GITHUB_ENV
         echo "PYENV_HOME=$USERPROFILE\.pyenv\pyenv-win\\" >> $GITHUB_ENV
         echo "$USERPROFILE\.pyenv\pyenv-win\\bin\\" >> $GITHUB_PATH
     - name: Check pyenv version
       if: runner.os == 'windows'
+      shell: bash
       run: |
         pyenv --version
