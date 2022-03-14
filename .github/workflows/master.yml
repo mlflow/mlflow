@@ -144,7 +144,7 @@ jobs:
     - uses: ./.github/actions/setup-python
       with:
         python-version: "3.7"
-    - uses: ./.github/actions/setup-python
+    - uses: ./.github/actions/setup-pyenv
     - uses: actions/setup-java@v2
       with:
         java-version: 11
@@ -368,7 +368,7 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: "3.7"
-      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
       - name: Install python dependencies
         run: |
           pip install -r requirements/small-requirements.txt
