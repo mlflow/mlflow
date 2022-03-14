@@ -77,7 +77,8 @@ def model_path(tmpdir):
 
 
 @pytest.mark.large
-def test_spark_udf(spark, model_path):
+@pytest.mark.parametrize("env_manager", ["local", "conda"])
+def test_spark_udf(spark, model_path, env_manager):
     mlflow.pyfunc.save_model(
         path=model_path,
         loader_module=__name__,
@@ -113,18 +114,21 @@ def test_spark_udf(spark, model_path):
                     expected = expected.astype(np.float32)
 
             expected = [list(row[1]) if is_array else row[1][0] for row in expected.iterrows()]
-            pyfunc_udf = spark_udf(spark, model_path, result_type=t)
+            pyfunc_udf = spark_udf(spark, model_path, result_type=t, env_manager=env_manager)
             new_df = spark_df.withColumn("prediction", pyfunc_udf(*pandas_df.columns))
             actual = list(new_df.select("prediction").toPandas()["prediction"])
             assert expected == actual
             if not is_array:
-                pyfunc_udf = spark_udf(spark, model_path, result_type=tname)
+                pyfunc_udf = spark_udf(
+                    spark, model_path, result_type=tname, env_manager=env_manager
+                )
                 new_df = spark_df.withColumn("prediction", pyfunc_udf(*pandas_df.columns))
                 actual = list(new_df.select("prediction").toPandas()["prediction"])
                 assert expected == actual
 
 
-def test_spark_udf_autofills_no_arguments(spark):
+@pytest.mark.parametrize("env_manager", ["local", "conda"])
+def test_spark_udf_autofills_no_arguments(spark, env_manager):
     class TestModel(PythonModel):
         def predict(self, context, model_input):
             return [model_input.columns] * len(model_input)
@@ -140,7 +144,8 @@ def test_spark_udf_autofills_no_arguments(spark):
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
         udf = mlflow.pyfunc.spark_udf(
-            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
+            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType()),
+            env_manager=env_manager
         )
         res = good_data.withColumn("res", udf()).select("res").toPandas()
         assert res["res"][0] == ["a", "b", "c"]
@@ -167,7 +172,8 @@ def test_spark_udf_autofills_no_arguments(spark):
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=nameless_signature)
         udf = mlflow.pyfunc.spark_udf(
-            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
+            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType()),
+            env_manager=env_manager
         )
         with pytest.raises(
             MlflowException,
@@ -179,13 +185,15 @@ def test_spark_udf_autofills_no_arguments(spark):
         # model without signature
         mlflow.pyfunc.log_model("model", python_model=TestModel())
         udf = mlflow.pyfunc.spark_udf(
-            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
+            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType()),
+            env_manager=env_manager
         )
         with pytest.raises(pyspark.sql.utils.PythonException, match=r".+"):
             res = good_data.withColumn("res", udf()).select("res").toPandas()
 
 
-def test_spark_udf_autofills_column_names_with_schema(spark):
+@pytest.mark.parametrize("env_manager", ["local", "conda"])
+def test_spark_udf_autofills_column_names_with_schema(spark, env_manager):
     class TestModel(PythonModel):
         def predict(self, context, model_input):
             return [model_input.columns] * len(model_input)
@@ -197,7 +205,8 @@ def test_spark_udf_autofills_column_names_with_schema(spark):
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
         udf = mlflow.pyfunc.spark_udf(
-            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
+            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType()),
+            env_manager=env_manager
         )
         data = spark.createDataFrame(
             pd.DataFrame(
@@ -213,7 +222,8 @@ def test_spark_udf_autofills_column_names_with_schema(spark):
         assert res["res4"][0] == ["a", "b", "c"]
 
 
-def test_spark_udf_with_datetime_columns(spark):
+@pytest.mark.parametrize("env_manager", ["local", "conda"])
+def test_spark_udf_with_datetime_columns(spark, env_manager):
     class TestModel(PythonModel):
         def predict(self, context, model_input):
             return [model_input.columns] * len(model_input)
@@ -225,7 +235,8 @@ def test_spark_udf_with_datetime_columns(spark):
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
         udf = mlflow.pyfunc.spark_udf(
-            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
+            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType()),
+            env_manager=env_manager
         )
         data = spark.range(10).selectExpr(
             "current_timestamp() as timestamp", "current_date() as date"

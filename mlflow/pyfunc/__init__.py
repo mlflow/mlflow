@@ -787,7 +787,7 @@ def _get_or_create_model_cache_dir():
     return tmp_model_dir
 
 
-def spark_udf(spark, model_uri, result_type="double", env_type="local"):
+def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
 
@@ -859,6 +859,11 @@ def spark_udf(spark, model_uri, result_type="double", env_type="local"):
         - "string" or ``pyspark.sql.types.StringType``: The leftmost column converted to ``string``.
 
         - ``ArrayType(StringType)``: All columns converted to ``string``.
+
+    :param env_manager: Available values "local", "conda", "virtualenv" (default "local").
+        Specify the environment manage used to restore the model required python environment.
+        If set "local", then use current python environment.
+        If set "conda", then use conda to restore model required python environment.
 
     :return: Spark UDF that applies the model's ``predict`` method to the data and returns a
              type specified by ``result_type``, which by default is a double.
@@ -1005,7 +1010,7 @@ def spark_udf(spark, model_uri, result_type="double", env_type="local"):
         #   For NFS available case, set conda env dir / virtualenv env dir in sub-directory under
         #   NFS directory, and in spark driver side prepare restored env once, and then all
         #   spark UDF tasks running on spark workers can skip re-creating the restored env.
-        if env_type == "conda":
+        if env_manager == "conda":
             server_port = find_free_port()
 
             # launch scoring server
@@ -1016,9 +1021,9 @@ def spark_udf(spark, model_uri, result_type="double", env_type="local"):
 
             client = ScoringServerClient("127.0.0.1", server_port)
             client.wait_server_ready()
-        elif env_type == "virtualenv":
+        elif env_manager == "virtualenv":
             raise NotImplementedError()
-        elif env_type == "local":
+        elif env_manager == "local":
             client = None
         else:
             raise ValueError()
