@@ -874,6 +874,7 @@ def spark_udf(spark, model_uri, result_type="double", env_type="local"):
     from pyspark.sql.types import _parse_datatype_string
     from pyspark.sql.types import ArrayType, DataType as SparkDataType
     from pyspark.sql.types import DoubleType, IntegerType, FloatType, LongType, StringType
+    from pyspark.sql.functions import PandasUDFType
 
     spark = _get_active_spark_session()
     spark_in_local_mode = spark.conf.get("spark.master").startswith("local")
@@ -1038,7 +1039,7 @@ def spark_udf(spark, model_uri, result_type="double", env_type="local"):
             if scoring_server_proc is not None:
                 kill_server(scoring_server_proc)
 
-    udf = pandas_udf(predict, result_type)
+    udf = pandas_udf(predict, result_type, functionType=PandasUDFType.SCALAR_ITER)
     udf.metadata = model_metadata
 
     @functools.wraps(udf)
