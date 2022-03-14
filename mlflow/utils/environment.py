@@ -31,7 +31,7 @@ class _PythonEnv:
         return str(self.to_dict())
 
     @staticmethod
-    def _get_python_version():
+    def get_current_python():
         return ".".join(map(str, sys.version_info[:3]))
 
     @staticmethod
@@ -42,13 +42,13 @@ class _PythonEnv:
             return None
 
     @staticmethod
-    def _get_build_dependencies():
-        dependencies = []
+    def get_default_build_dependencies():
+        build_dependencies = []
         for package in ["pip", "setuptools", "wheel"]:
             version = _PythonEnv._get_package_version(package)
-            if version:
-                dependencies.append(package + "==" + version)
-        return dependencies
+            dep = (package + "==" + version) if version else package
+            build_dependencies.append(dep)
+        return build_dependencies
 
     def to_dict(self):
         return self.__dict__.copy()
@@ -57,16 +57,23 @@ class _PythonEnv:
     def from_dict(cls, dct):
         return cls(**dct)
 
+    def with_python(self, python):
+        kwargs = {**self.to_dict(), "python": python}
+        return _PythonEnv(**kwargs)
+
+    def with_current_python(self):
+        return self.with_python(_PythonEnv.get_current_python())
+
+    def with_build_dependencies(self, build_dependencies):
+        kwargs = {**self.to_dict(), "build_dependencies": build_dependencies}
+        return _PythonEnv(**kwargs)
+
+    def with_default_build_dependencies(self):
+        return self.with_build_dependencies(_PythonEnv.get_default_build_dependencies())
+
     def with_dependencies(self, dependencies):
         kwargs = {**self.to_dict(), "dependencies": dependencies}
         return _PythonEnv(**kwargs)
-
-    @classmethod
-    def from_current_environment(cls):
-        return cls(
-            python=_PythonEnv._get_python_version(),
-            build_dependencies=_PythonEnv._get_build_dependencies(),
-        )
 
     def to_yaml(self, path):
         with open(path, "w") as f:

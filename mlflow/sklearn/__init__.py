@@ -295,9 +295,13 @@ def save_model(
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
-    _PythonEnv.from_current_environment().with_dependencies(
-        [f"-r {_REQUIREMENTS_FILE_NAME}"]
-    ).to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
+    (
+        _PythonEnv()
+        .with_current_python()
+        .with_default_build_dependencies()
+        .with_dependencies([f"-r {_REQUIREMENTS_FILE_NAME}"])
+        .to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
+    )
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
