@@ -15,7 +15,7 @@ runs:
     - name: Install pyenv
       if: runner.os == 'ubuntu'
       run: |
-        git clone https://github.com/pyenv/pyenv.git $HOME/.pyenv --depth 1
+        git clone --depth 1 https://github.com/pyenv/pyenv.git $HOME/.pyenv
     - name: Define environment variables
       if: runner.os == 'ubuntu'
       run: |
