@@ -973,17 +973,17 @@ def spark_udf(spark, model_uri, result_type="double", env_type="local"):
             return result[result.columns[0]]
 
     def predict(iterator):
-        from mlflow.utils.process import start_proc, kill_proc
         from mlflow.pyfunc import scoring_server
-        from mlflow.pyfunc.scoring_server.client import ScoringServerClient
+        from mlflow.pyfunc.scoring_server.client import ScoringServerClient, start_server, kill_server
         from mlflow.utils import find_free_port
 
         # Note: this is a pandas udf function in iteration style, which takes an iterator of
         # tuple of pandas.Series and outputs an iterator of pandas.Series.
         if not use_nfs and not spark_in_local_mode:
-            model = SparkModelCache.get_or_load(archive_path)
+            model, local_model_path_on_executor = SparkModelCache.get_or_load(archive_path)
         else:
-            model = mlflow.pyfunc.load_model()
+            model = mlflow.pyfunc.load_model(local_model_path)
+            local_model_path_on_executor = local_model_path
 
         scoring_server_proc = None
         if env_type == "conda":
@@ -991,12 +991,8 @@ def spark_udf(spark, model_uri, result_type="double", env_type="local"):
 
             # launch scoring server
             # TODO: set timeout for server requests handler.
-            scoring_server_proc = start_proc(
-                [
-                    "mlflow", "models", "serve", "-m", local_model_path,
-                    "-p", str(server_port), "-w", "1", "--install-mlflow", "true",
-                ],
-                stdout=sys.stdout, stderr=sys.stderr,
+            scoring_server_proc = start_server(
+                server_port, local_model_path_on_executor, num_workers=1,
             )
 
             client = ScoringServerClient("127.0.0.1", server_port)
@@ -1022,7 +1018,7 @@ def spark_udf(spark, model_uri, result_type="double", env_type="local"):
             # TODO: use process control (prctl) to ask the system to send SIGTERM to the scoring server
             #  process when its parent (Python worker) is dead.
             if scoring_server_proc is not None:
-                kill_proc(scoring_server_proc)
+                kill_server(scoring_server_proc)
 
     udf = pandas_udf(predict, result_type)
     udf.metadata = model_metadata

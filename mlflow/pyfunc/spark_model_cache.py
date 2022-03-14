@@ -16,7 +16,7 @@ class SparkModelCache:
     store per-process state in a static map.
     """
 
-    # Map from unique name --> loaded model.
+    # Map from unique name --> (loaded model, local_model_path).
     _models = {}
 
     # Number of cache hits we've had, for testing purposes.
@@ -40,7 +40,8 @@ class SparkModelCache:
 
     @staticmethod
     def get_or_load(archive_path):
-        """Given a path returned by add_local_model(), this method will return the loaded model.
+        """Given a path returned by add_local_model(), this method will return a tuple of
+        (loaded_model, local_model_path).
         If this Python process ever loaded the model before, we will reuse that copy.
         """
         if archive_path in SparkModelCache._models:
@@ -61,5 +62,5 @@ class SparkModelCache:
         # on the Spark Executors (i.e., don't try to pickle the load_model function).
         from mlflow.pyfunc import load_pyfunc  # pylint: disable=cyclic-import
 
-        SparkModelCache._models[archive_path] = load_pyfunc(temp_dir)
+        SparkModelCache._models[archive_path] = (load_pyfunc(temp_dir), temp_dir)
         return SparkModelCache._models[archive_path]
