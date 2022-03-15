@@ -35,26 +35,26 @@ def serve_and_score(model_uri, data, extra_args=None):
 
 
 @pytest.fixture
-def temp_env_root(tmp_path, monkeypatch):
+def temp_mlflow_env_root(tmp_path, monkeypatch):
     env_root = tmp_path / "envs"
     monkeypatch.setenv(_MLFLOW_ENV_ROOT_ENV_VAR, str(env_root))
     return env_root
 
 
-def test_virtualenv_serving(temp_env_root, sklearn_model):
+def test_reuse_environment(temp_mlflow_env_root, sklearn_model):
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(sklearn_model.model, artifact_path="model")
 
     scores = serve_and_score(model_info.model_uri, sklearn_model.X_pred)
     np.testing.assert_array_almost_equal(scores, sklearn_model.y_pred)
-    # This call should reuse the environment created in the previous run
+    # This call should reuse the environment created in the previous call
     scores = serve_and_score(model_info.model_uri, sklearn_model.X_pred)
     np.testing.assert_array_almost_equal(scores, sklearn_model.y_pred)
-    assert len(os.listdir(temp_env_root)) == 1
+    assert len(os.listdir(temp_mlflow_env_root)) == 1
 
 
-@pytest.mark.usefixtures(temp_env_root.__name__)
-def test_virtualenv_serving_when_python_env_does_not_exist(sklearn_model):
+@pytest.mark.usefixtures(temp_mlflow_env_root.__name__)
+def test_python_env_does_not_exist(sklearn_model):
     with mlflow.start_run():
         with mock.patch("mlflow.utils.environment.PythonEnv.to_yaml") as mock_to_yaml:
             model_info = mlflow.sklearn.log_model(sklearn_model.model, artifact_path="model")
@@ -64,7 +64,7 @@ def test_virtualenv_serving_when_python_env_does_not_exist(sklearn_model):
     np.testing.assert_array_almost_equal(scores, sklearn_model.y_pred)
 
 
-def test_virtualenv_serving_pip_install_fails(temp_env_root, sklearn_model):
+def test_pip_install_fails(temp_mlflow_env_root, sklearn_model):
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
             sklearn_model.model,
@@ -76,4 +76,4 @@ def test_virtualenv_serving_pip_install_fails(temp_env_root, sklearn_model):
         serve_and_score(model_info.model_uri, sklearn_model.X_pred)
     except Exception:
         pass
-    assert len(list(temp_env_root.iterdir())) == 0
+    assert len(list(temp_mlflow_env_root.iterdir())) == 0
