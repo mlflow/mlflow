@@ -922,7 +922,91 @@ and behavior:
 .. |eval_importance_img| image:: _static/images/model_evaluation_feature_importance.png
    :width: 69%
 
-More information about model evaluation behaviors and outputs is available in the
+
+Evaluating with Custom Metrics
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If the default set of metrics is insufficient, you can specify a list of ``custom_metrics`` functions to 
+:py:func:`mlflow.evaluate()` to produce custom performance metrics for the model(s) that you're evaluating. Custom metric
+functions should accept at least two arguments: a DataFrame containing ``prediction`` and ``target`` columns,
+and a dictionary containing the default set of metrics. For a full list of default metrics, refer to the documentation 
+of :py:func:`mlflow.evaluate()`. If the custom metric function produces artifacts in the form of files, it should also
+accept an additional string argument representing the path to the temporary directory that can be used to store such
+artifacts.
+
+The following `short example from the MLflow GitHub Repository
+<https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics.py>`_ 
+uses :py:func:`mlflow.evaluate()` with a custom metric function to evaluate the performance of a regressor on the
+`California Housing Dataset <https://www.dcc.fc.up.pt/~ltorgo/Regression/cal_housing.html>`_.
+Note that custom metric functions can return both metrics and artifacts. They can either return a single
+dictionary of metrics, or two dictionaries representing metrics and artifacts.
+
+.. code-block:: py
+
+    from sklearn.linear_model import LinearRegression
+    from sklearn.datasets import fetch_california_housing
+    from sklearn.model_selection import train_test_split
+    import numpy as np
+    import mlflow
+    import os
+    import matplotlib.pyplot as plt
+
+    # loading the California housing dataset
+    cali_housing = fetch_california_housing(as_frame=True)
+
+    # split the dataset into train and test partitions
+    X_train, X_test, y_train, y_test = train_test_split(
+        cali_housing.data, cali_housing.target, test_size=0.2, random_state=123
+    )
+
+    # train the model
+    lin_reg = LinearRegression().fit(X_train, y_train)
+
+    # creating the evaluation dataframe
+    eval_data = X_test.copy()
+    eval_data["target"] = y_test
+
+
+    def example_custom_metric_fn(eval_df, builtin_metrics, artifacts_dir):
+        """
+        This example custom metric function creates a metric based on the ``prediction`` and
+        ``target`` columns in ``eval_df`` and a metric derived from existing metrics in
+        ``builtin_metrics``. It also generates and saves a scatter plot to ``artifacts_dir`` that
+        visualizes the relationship between the predictions and targets for the given model to a
+        file as an image artifact.
+        """
+        metrics = {
+            "squared_diff_plus_one": np.sum(np.abs(eval_df["prediction"] - eval_df["target"] + 1) ** 2),
+            "sum_on_label_divided_by_two": builtin_metrics["sum_on_label"] / 2,
+        }
+        plt.scatter(eval_df["prediction"], eval_df["target"])
+        plt.xlabel("Targets")
+        plt.ylabel("Predictions")
+        plt.title("Targets vs. Predictions")
+        plot_path = os.path.join(artifacts_dir, "example_scatter_plot.png")
+        plt.savefig(plot_path)
+        artifacts = {"example_scatter_plot_artifact": plot_path}
+        return metrics, artifacts
+
+
+    with mlflow.start_run() as run:
+        mlflow.sklearn.log_model(lin_reg, "model")
+        model_uri = mlflow.get_artifact_uri("model")
+        result = mlflow.evaluate(
+            model=model_uri,
+            data=eval_data,
+            targets="target",
+            model_type="regressor",
+            dataset_name="cali_housing",
+            evaluators=["default"],
+            custom_metrics=[example_custom_metric_fn],
+        )
+
+
+For a more comprehensive custom metrics usage example, refer to `this example from the MLflow GitHub Repository
+<https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics_comprehensive.py>`_.
+
+Additional information about model evaluation behaviors and outputs is available in the
 :py:func:`mlflow.evaluate()` API docs.
 
 Model Customization
