@@ -846,7 +846,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
         with self.assertRaises(MlflowException) as e:
             self.store.log_param(run.info.run_id, param2)
-        self.assertIn("Changing param values is not allowed. Param with key=", e.exception.message)
+        self.assertIn(
+            "Using the same key for param values is not allowed. Given keys are=",
+            e.exception.message
+        )
 
     def test_log_empty_str(self):
         run = self._run_factory()
@@ -901,21 +904,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         self.assertTrue(
             tkey in run.data.params and run.data.params[tkey] == tval)
 
-    def test__log_params_same_values_calls_log_param(self):
-        run = self._run_factory()
-
-        tkey = "blahmetric"
-        tval = "100.0"
-        param = entities.Param(tkey, tval)
-        param2 = entities.Param("new param", "new key")
-
-        # now, mock log_param method to verify that it is called to log params
-        # one by one
-        package = "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"
-        with mock.patch(package + ".log_param") as log_param_mock:
-            self.store._log_params(run.info.run_id, [param, param2, param2])
-            log_param_mock.assert_called()
-
     def test__log_params_uniqueness(self):
         run = self._run_factory()
 
@@ -927,7 +915,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         with self.assertRaises(MlflowException) as e:
             self.store._log_params(run.info.run_id, [param, param2])
         self.assertIn(
-            "Changing param values is not allowed. Param with key=", e.exception.message)
+            "Using the same key for param values is not allowed. Given keys are=",
+            e.exception.message
+        )
 
     def test_set_experiment_tag(self):
         exp_id = self._experiment_factory("setExperimentTagExp")
@@ -1776,7 +1766,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             self.store.log_batch(
                 run.info.run_id, metrics=[metric], params=[overwrite_param], tags=[tag]
             )
-        self.assertIn("Changing param values is not allowed. Param with key=", e.exception.message)
+        self.assertIn(
+            "Using the same key for param values is not allowed. Given keys are=",
+            e.exception.message
+        )
         assert e.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         self._verify_logged(self.store, run.info.run_id, metrics=[], params=[param], tags=[])
 
@@ -1792,7 +1785,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             self.store.log_batch(
                 run.info.run_id, metrics=[metric], params=[param0, param1], tags=[tag]
             )
-        self.assertIn("Changing param values is not allowed. Param with key=", e.exception.message)
+        self.assertIn(
+            "Using the same key for param values is not allowed. Given keys are=",
+            e.exception.message
+        )
         assert e.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         self._verify_logged(self.store, run.info.run_id, metrics=[], params=[param0], tags=[])
 
@@ -1810,9 +1806,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             raise Exception("Some internal error")
 
         package = "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"
-        with mock.patch(package + ".log_metrics") as metric_mock, mock.patch(
-            package + ".log_params"
-        ) as param_mock, mock.patch(package + ".set_tags") as tags_mock:
+        with mock.patch(package + "._log_metrics") as metric_mock, mock.patch(
+            package + "._log_params"
+        ) as param_mock, mock.patch(package + "._set_tags") as tags_mock:
             metric_mock.side_effect = _raise_exception_fn
             param_mock.side_effect = _raise_exception_fn
             tags_mock.side_effect = _raise_exception_fn
