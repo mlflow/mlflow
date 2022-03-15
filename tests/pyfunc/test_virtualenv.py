@@ -69,7 +69,7 @@ def test_pip_install_fails(temp_mlflow_env_root, sklearn_model):
         model_info = mlflow.sklearn.log_model(
             sklearn_model.model,
             artifact_path="model",
-            # Enforce pip install to fail using a non-existing package version
+            # Enforce pip install to fail using a non-existent package version
             pip_requirements=["mlflow==999.999.999"],
         )
     try:
