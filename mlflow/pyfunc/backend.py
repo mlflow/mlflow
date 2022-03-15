@@ -113,17 +113,26 @@ class PyFuncBackend(FlavorBackend):
         self._install_mlflow = install_mlflow
 
     def prepare_env(self, model_uri):
-        local_path = _download_artifact_from_uri(model_uri)
-        if self._no_conda or ENV not in self._config:
+        if self._should_use_local():
             return 0
-        conda_env_path = os.path.join(local_path, self._config[ENV])
+
+        local_path = _download_artifact_from_uri(model_uri)
         command = 'python -c ""'
-        return _execute_in_conda_env(
-            conda_env_path,
-            command,
-            self._install_mlflow,
-            self._get_env_id(),
-        )
+        if self._should_use_conda():
+            conda_env_path = os.path.join(local_path, self._config[ENV])
+            return _execute_in_conda_env(
+                conda_env_path,
+                command,
+                self._install_mlflow,
+                self._get_env_id(),
+            )
+        if self._should_use_virtualenv():
+            return _execute_in_virtualenv(
+                local_path,
+                command,
+                self._install_mlflow,
+                self._get_env_id(),
+            )
 
     def predict(self, model_uri, input_path, output_path, content_type, json_format):
         """
@@ -134,30 +143,40 @@ class PyFuncBackend(FlavorBackend):
         # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
         # platform compatibility.
         local_uri = path_to_local_file_uri(local_path)
+        if self._should_use_local():
+            return scoring_server._predict(
+                local_uri, input_path, output_path, content_type, json_format
+            )
+
+        command = (
+            'python -c "from mlflow.pyfunc.scoring_server import _predict; _predict('
+            "model_uri={model_uri}, "
+            "input_path={input_path}, "
+            "output_path={output_path}, "
+            "content_type={content_type}, "
+            'json_format={json_format})"'
+        ).format(
+            model_uri=repr(local_uri),
+            input_path=repr(input_path),
+            output_path=repr(output_path),
+            content_type=repr(content_type),
+            json_format=repr(json_format),
+        )
         if self._should_use_conda():
             conda_env_path = os.path.join(local_path, self._config[ENV])
-            command = (
-                'python -c "from mlflow.pyfunc.scoring_server import _predict; _predict('
-                "model_uri={model_uri}, "
-                "input_path={input_path}, "
-                "output_path={output_path}, "
-                "content_type={content_type}, "
-                'json_format={json_format})"'
-            ).format(
-                model_uri=repr(local_uri),
-                input_path=repr(input_path),
-                output_path=repr(output_path),
-                content_type=repr(content_type),
-                json_format=repr(json_format),
-            )
             return _execute_in_conda_env(
                 conda_env_path,
                 command,
                 self._install_mlflow,
                 self._get_env_id(),
             )
-        else:
-            scoring_server._predict(local_uri, input_path, output_path, content_type, json_format)
+        elif self._should_use_virtualenv():
+            return _execute_in_virtualenv(
+                local_path,
+                command,
+                self._install_mlflow,
+                self._get_env_id(),
+            )
 
     def _get_env_id(self):
         return os.environ.get("MLFLOW_HOME", VERSION) if self._install_mlflow else None
@@ -167,6 +186,9 @@ class PyFuncBackend(FlavorBackend):
 
     def _should_use_virtualenv(self):
         return self._env_manager is EnvManager.VIRTUALENV
+
+    def _should_use_local(self):
+        return self._env_manager is EnvManager.LOCAL
 
     def serve(self, model_uri, port, host, enable_mlserver):  # pylint: disable=W0221
         """
@@ -307,7 +329,7 @@ def _install_python(version):
     return Path(pyenv_root).joinpath("versions", version, "bin", "python")
 
 
-def _execute_in_virtualenv(local_model_path, command, install_mlflow, env_id, command_env):
+def _execute_in_virtualenv(local_model_path, command, install_mlflow, env_id, command_env=None):
     is_windows = _is_windows()
 
     # Read environment information
