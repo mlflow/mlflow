@@ -818,7 +818,7 @@ class SqlAlchemyStore(AbstractStore):
             self._check_run_is_active(run)
             session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
 
-    def _set_tags(self, run_id, tags, session=None, check_run=True):
+    def _set_tags(self, run_id, tags, session=None):
         """
         Set multiple tags on a run
 
@@ -836,9 +836,6 @@ class SqlAlchemyStore(AbstractStore):
         )
 
         with context as session:
-            if check_run:
-                run = self._get_run(run_uuid=run_id, session=session)
-                self._check_run_is_active(run)
             for tag in tags:
                 _validate_tag(tag.key, tag.value)
                 session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
