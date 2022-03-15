@@ -64,6 +64,20 @@ class ScoringServerClient:
         return scoring_server.load_predictions_from_json_str(response.text)
 
 
+def prepare_env(local_model_path, stdout=sys.stdout, stderr=sys.stderr):
+    cmd = [
+        "mlflow", "models", "prepare-env", "-m", local_model_path,
+        "--install-mlflow",
+    ]
+    return subprocess.run(
+        cmd,
+        stdout=stdout,
+        stderr=stderr,
+        universal_newlines=True,
+        check=True
+    )
+
+
 def start_server(
         server_port, local_model_path,
         host='127.0.0.1', num_workers=1,

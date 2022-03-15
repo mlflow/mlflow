@@ -21,6 +21,11 @@ from mlflow.pyfunc.spark_model_cache import SparkModelCache
 import tests
 from mlflow.types import Schema, ColSpec
 
+import sklearn.datasets as datasets
+from collections import namedtuple, OrderedDict
+import sklearn.neighbors as knn
+
+
 prediction = [int(1), int(2), "class1", float(0.1), 0.2]
 types = [np.int32, int, str, np.float32, np.double]
 
@@ -76,9 +81,21 @@ def model_path(tmpdir):
     return os.path.join(str(tmpdir), "model")
 
 
+ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
+
+
+@pytest.fixture(scope="session")
+def sklearn_model():
+    iris = datasets.load_iris()
+    X = iris.data[:, :2]  # we only take the first two features.
+    y = iris.target
+    knn_model = knn.KNeighborsClassifier()
+    knn_model.fit(X, y)
+    return ModelWithData(model=knn_model, inference_data=X)
+
+
 @pytest.mark.large
-@pytest.mark.parametrize("env_manager", ["local", "conda"])
-def test_spark_udf(spark, model_path, env_manager):
+def test_spark_udf(spark, model_path):
     mlflow.pyfunc.save_model(
         path=model_path,
         loader_module=__name__,
@@ -114,21 +131,34 @@ def test_spark_udf(spark, model_path, env_manager):
                     expected = expected.astype(np.float32)
 
             expected = [list(row[1]) if is_array else row[1][0] for row in expected.iterrows()]
-            pyfunc_udf = spark_udf(spark, model_path, result_type=t, env_manager=env_manager)
+            pyfunc_udf = spark_udf(spark, model_path, result_type=t)
             new_df = spark_df.withColumn("prediction", pyfunc_udf(*pandas_df.columns))
             actual = list(new_df.select("prediction").toPandas()["prediction"])
             assert expected == actual
             if not is_array:
-                pyfunc_udf = spark_udf(
-                    spark, model_path, result_type=tname, env_manager=env_manager
-                )
+                pyfunc_udf = spark_udf(spark, model_path, result_type=tname)
                 new_df = spark_df.withColumn("prediction", pyfunc_udf(*pandas_df.columns))
                 actual = list(new_df.select("prediction").toPandas()["prediction"])
                 assert expected == actual
 
 
-@pytest.mark.parametrize("env_manager", ["local", "conda"])
-def test_spark_udf_autofills_no_arguments(spark, env_manager):
+@pytest.mark.large
+def test_spark_udf_with_conda_env_restored(spark, sklearn_model, model_path):
+    from pyspark.sql.functions import col
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
+    infer_data = pd.DataFrame(sklearn_model.inference_data, columns=['a', 'b'])
+
+    infer_spark_df = spark.createDataFrame(infer_data).repartition(1)
+
+    pyfunc_udf = spark_udf(spark, model_path, env_manager="conda")
+    result = infer_spark_df.select(pyfunc_udf(col("a"), col("b")).alias("predictions")) \
+        .toPandas().predictions.to_numpy()
+
+    expected_result = sklearn_model.model.predict(sklearn_model.inference_data)
+    np.testing.assert_allclose(result, expected_result, rtol=1e-5)
+
+
+def test_spark_udf_autofills_no_arguments(spark):
     class TestModel(PythonModel):
         def predict(self, context, model_input):
             return [model_input.columns] * len(model_input)
@@ -162,7 +192,7 @@ def test_spark_udf_autofills_no_arguments(spark, env_manager):
                 columns=["x", "b", "c", "d"], data={"x": [1], "b": [2], "c": [3], "d": [4]}
             )
         )
-        with pytest.raises(AnalysisException, match=r"Column 'a' does not exist"):
+        with pytest.raises(AnalysisException, match=r"cannot resolve 'a' given input columns"):
             bad_data.withColumn("res", udf())
 
     nameless_signature = ModelSignature(
@@ -172,8 +202,7 @@ def test_spark_udf_autofills_no_arguments(spark, env_manager):
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=nameless_signature)
         udf = mlflow.pyfunc.spark_udf(
-            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType()),
-            env_manager=env_manager
+            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
         )
         with pytest.raises(
             MlflowException,
@@ -185,15 +214,13 @@ def test_spark_udf_autofills_no_arguments(spark, env_manager):
         # model without signature
         mlflow.pyfunc.log_model("model", python_model=TestModel())
         udf = mlflow.pyfunc.spark_udf(
-            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType()),
-            env_manager=env_manager
+            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
         )
         with pytest.raises(pyspark.sql.utils.PythonException, match=r".+"):
             res = good_data.withColumn("res", udf()).select("res").toPandas()
 
 
-@pytest.mark.parametrize("env_manager", ["local", "conda"])
-def test_spark_udf_autofills_column_names_with_schema(spark, env_manager):
+def test_spark_udf_autofills_column_names_with_schema(spark):
     class TestModel(PythonModel):
         def predict(self, context, model_input):
             return [model_input.columns] * len(model_input)
@@ -205,8 +232,7 @@ def test_spark_udf_autofills_column_names_with_schema(spark, env_manager):
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
         udf = mlflow.pyfunc.spark_udf(
-            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType()),
-            env_manager=env_manager
+            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
         )
         data = spark.createDataFrame(
             pd.DataFrame(
@@ -222,8 +248,7 @@ def test_spark_udf_autofills_column_names_with_schema(spark, env_manager):
         assert res["res4"][0] == ["a", "b", "c"]
 
 
-@pytest.mark.parametrize("env_manager", ["local", "conda"])
-def test_spark_udf_with_datetime_columns(spark, env_manager):
+def test_spark_udf_with_datetime_columns(spark):
     class TestModel(PythonModel):
         def predict(self, context, model_input):
             return [model_input.columns] * len(model_input)
@@ -235,8 +260,7 @@ def test_spark_udf_with_datetime_columns(spark, env_manager):
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
         udf = mlflow.pyfunc.spark_udf(
-            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType()),
-            env_manager=env_manager
+            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
         )
         data = spark.range(10).selectExpr(
             "current_timestamp() as timestamp", "current_date() as date"

@@ -262,6 +262,7 @@ from mlflow.utils.requirements_utils import (
     _check_requirement_satisfied,
     _parse_requirements,
 )
+from mlflow.utils import find_free_port
 
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
@@ -873,15 +874,15 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     # functionality.
     import functools
     from mlflow.pyfunc.spark_model_cache import SparkModelCache
-    from mlflow.utils._spark_utils import _get_active_spark_session
     from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
     from pyspark.sql.functions import pandas_udf
     from pyspark.sql.types import _parse_datatype_string
     from pyspark.sql.types import ArrayType, DataType as SparkDataType
     from pyspark.sql.types import DoubleType, IntegerType, FloatType, LongType, StringType
     from pyspark.sql.functions import PandasUDFType
+    # importing here to prevent circular import
+    from mlflow.pyfunc.scoring_server.client import prepare_env
 
-    spark = _get_active_spark_session()
     spark_in_local_mode = spark.conf.get("spark.master").startswith("local")
     use_nfs = get_nfs_cache_root_dir() is not None
 
@@ -908,6 +909,12 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     _warn_dependency_requirement_mismatches(local_model_path)
     if not use_nfs and not spark_in_local_mode:
         archive_path = SparkModelCache.add_local_model(spark, local_model_path)
+    else:
+        if env_manager == "conda":
+            prepare_env(local_model_path)
+        elif env_manager == "virtualenv":
+            raise NotImplementedError()
+
     model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
 
     def _predict_row_batch(model, client, args):
@@ -978,11 +985,17 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         else:
             return result[result.columns[0]]
 
-    def predict(iterator):
-        from mlflow.pyfunc import scoring_server
-        from mlflow.pyfunc.scoring_server.client import ScoringServerClient, start_server, kill_server
-        from mlflow.utils import find_free_port
+    MLFLOW_HOME = os.environ.get('MLFLOW_HOME', None)
 
+    def predict(iterator):
+        # Set MLFLOW_HOME env variable on spark UDF task side,
+        # it is used when creating conda env / virtualenv env.
+        if MLFLOW_HOME is not None:
+            os.environ['MLFLOW_HOME'] = MLFLOW_HOME
+
+        # importing here to prevent circular import
+        from mlflow.pyfunc import scoring_server
+        from mlflow.pyfunc.scoring_server.client import ScoringServerClient, start_server, kill_server, prepare_env
         # Note: this is a pandas udf function in iteration style, which takes an iterator of
         # tuple of pandas.Series and outputs an iterator of pandas.Series.
         if not use_nfs and not spark_in_local_mode:
@@ -1013,14 +1026,21 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         if env_manager == "conda":
             server_port = find_free_port()
 
+            # Call "prepare env" in advance in order to reduce scoring server launch time.
+            # So that we can use a shorter timeout when call `client.wait_server_ready`,
+            # otherwise we have to set a long timeout for `client.wait_server_ready` time,
+            # this prevents spark UDF task failing fast if other exception raised when scoring
+            # server launching.
+            if not use_nfs and not spark_in_local_mode:
+                prepare_env(local_model_path_on_executor)
             # launch scoring server
-            # TODO: set timeout for server requests handler.
+            # TODO: adjust timeout for server requests handler.
             scoring_server_proc = start_server(
                 server_port, local_model_path_on_executor, num_workers=1,
             )
 
             client = ScoringServerClient("127.0.0.1", server_port)
-            client.wait_server_ready()
+            client.wait_server_ready(timeout=30)
         elif env_manager == "virtualenv":
             raise NotImplementedError()
         elif env_manager == "local":
