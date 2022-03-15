@@ -83,6 +83,7 @@ ENV_MANAGER = click.option(
 
 
 def _get_env_manager(no_conda, env_manager):
+    result = env_manager
     # Both `--no-conda` and `--env-manager` are specified
     if no_conda and env_manager is not None:
         raise Exception(
@@ -96,14 +97,34 @@ def _get_env_manager(no_conda, env_manager):
             FutureWarning,
             stacklevel=2,
         )
-        return EnvManager.LOCAL
+        result = EnvManager.LOCAL
     # Neither `--no-conda` or `--env-manager` is specified. In this case, conda should be used
     # to preserve the existing behavior.
     elif env_manager is None:
-        return EnvManager.CONDA
+        result = EnvManager.CONDA
+
+    if result is EnvManager.CONDA:
+        warnings.warn(
+            (
+                "Restoring the model environment using conda is discouraged now. Please use "
+                "virtualenv instead by specifying `--env-manager=virtualenv`."
+            ),
+            UserWarning,
+            stacklevel=2,
+        )
+
+    if result is EnvManager.VIRTUALENV:
+        warnings.warn(
+            (
+                "Virtualenv support is still experimental and will be changed or "
+                "removed in a future release without warning.",
+            ),
+            UserWarning,
+            stacklevel=2,
+        )
 
     # Only `--env-manager` is specified
-    return env_manager
+    return result
 
 
 INSTALL_MLFLOW = click.option(
