@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 
@@ -145,14 +146,25 @@ def test_spark_udf(spark, model_path):
 @pytest.mark.large
 def test_spark_udf_with_conda_env_restored(spark, sklearn_model, model_path):
     from pyspark.sql.functions import col
-    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
+
+    sklearn_log_version = "0.22.1"
+    mlflow.sklearn.save_model(
+        sk_model=sklearn_model.model, path=model_path,
+        pip_requirements=[f"scikit-learn=={sklearn_log_version}"]
+    )
     infer_data = pd.DataFrame(sklearn_model.inference_data, columns=['a', 'b'])
 
     infer_spark_df = spark.createDataFrame(infer_data).repartition(1)
 
-    pyfunc_udf = spark_udf(spark, model_path, env_manager="conda")
-    result = infer_spark_df.select(pyfunc_udf(col("a"), col("b")).alias("predictions")) \
-        .toPandas().predictions.to_numpy()
+    check_dict = {"sklearn": sklearn_log_version}
+    new_env = {
+        **os.environ.copy(),
+        'MLFLOW_SPARK_UDF_RESTORED_ENV_MODULE_VERSION_CHECK_DICT': json.dumps(check_dict)
+    }
+    with mock.patch.dict(os.environ, new_env):
+        pyfunc_udf = spark_udf(spark, model_path, env_manager="conda")
+        result = infer_spark_df.select(pyfunc_udf(col("a"), col("b")).alias("predictions")) \
+            .toPandas().predictions.to_numpy()
 
     expected_result = sklearn_model.model.predict(sklearn_model.inference_data)
     np.testing.assert_allclose(result, expected_result, rtol=1e-5)
@@ -174,8 +186,7 @@ def test_spark_udf_autofills_no_arguments(spark):
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
         udf = mlflow.pyfunc.spark_udf(
-            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType()),
-            env_manager=env_manager
+            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
         )
         res = good_data.withColumn("res", udf()).select("res").toPandas()
         assert res["res"][0] == ["a", "b", "c"]

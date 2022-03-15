@@ -215,8 +215,7 @@ import pandas
 import yaml
 from copy import deepcopy
 import logging
-import sys
-import subprocess
+import json
 
 from typing import Any, Union, List, Dict
 import mlflow
@@ -986,6 +985,10 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
             return result[result.columns[0]]
 
     MLFLOW_HOME = os.environ.get('MLFLOW_HOME', None)
+    restored_env_module_version_check_dict = \
+        os.environ.get('MLFLOW_SPARK_UDF_RESTORED_ENV_MODULE_VERSION_CHECK_DICT', None)
+    if restored_env_module_version_check_dict is not None:
+        restored_env_module_version_check_dict = json.loads(restored_env_module_version_check_dict)
 
     def predict(iterator):
         # Set MLFLOW_HOME env variable on spark UDF task side,
@@ -1041,6 +1044,15 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
 
             client = ScoringServerClient("127.0.0.1", server_port)
             client.wait_server_ready(timeout=30)
+
+            # If env variable "MLFLOW_SPARK_UDF_RESTORED_ENV_MODULE_VERSION_CHECK_DICT" is set,
+            # in spark UDF task, check the restored env modules has the same version with the
+            # provided version in the given dict.
+            # This is for testing purpose.
+            if restored_env_module_version_check_dict is not None:
+                for module, expected_version in restored_env_module_version_check_dict.items():
+                    assert client.get_module_version(module) == expected_version
+
         elif env_manager == "virtualenv":
             raise NotImplementedError()
         elif env_manager == "local":

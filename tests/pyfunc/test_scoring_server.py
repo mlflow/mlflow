@@ -8,6 +8,7 @@ from packaging.version import Version
 
 import pytest
 import random
+import sklearn
 import sklearn.datasets as datasets
 import sklearn.neighbors as knn
 
@@ -630,6 +631,8 @@ def test_scoring_server_client(sklearn_model, model_path):
 
         client = ScoringServerClient(host='127.0.0.1', port=port)
         client.wait_server_ready()
+
+        assert client.get_module_version("sklearn") == sklearn.__version__
 
         for orient in ["records", "split"]:
             data = pd.DataFrame(sklearn_model.inference_data)

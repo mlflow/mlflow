@@ -20,6 +20,7 @@ import os
 import pandas as pd
 import sys
 import traceback
+import importlib
 
 # NB: We need to be careful what we import form mlflow here. Scoring server is used from within
 # model's conda environment. The version of mlflow doing the serving (outside) and the version of
@@ -241,6 +242,11 @@ def init(model: PyFuncModel):
         health = model is not None
         status = 200 if health else 404
         return flask.Response(response="\n", status=status, mimetype="application/json")
+
+    @app.route("/version/<module>", methods=["GET"])
+    def get_module_version(module):
+        ver = importlib.import_module(module).__version__
+        return flask.Response(response=ver, status=200, mimetype="text/plain")
 
     @app.route("/invocations", methods=["POST"])
     @catch_mlflow_exception

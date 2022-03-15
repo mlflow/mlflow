@@ -31,6 +31,16 @@ class ScoringServerClient:
                 break
         raise RuntimeError('Wait scoring server ready timeout.')
 
+    def get_module_version(self, module_name):
+        """
+        Get module version on the scoring server worker python environment.
+        This method is for testing purpose.
+        """
+        status = requests.get(url=self.url_prefix + f"/version/{module_name}")
+        if status.status_code != 200:
+            raise Exception(f"get_module_version failed (error code {status.status_code})")
+        return status.text.strip()
+
     def invoke(self, data, pandas_orient="records"):
         import pandas as pd
 
