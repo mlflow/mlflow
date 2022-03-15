@@ -1,10 +1,17 @@
 import yaml
 import os
 import logging
-
+import sys
+import re
+import json
+from enum import Enum
 
 from mlflow.utils import PYTHON_VERSION
-from mlflow.utils.requirements_utils import _parse_requirements, _infer_requirements
+from mlflow.utils.requirements_utils import (
+    _parse_requirements,
+    _infer_requirements,
+    _get_package_name,
+)
 from packaging.requirements import Requirement, InvalidRequirement
 
 _logger = logging.getLogger(__name__)
@@ -18,6 +25,91 @@ channels:
 _CONDA_ENV_FILE_NAME = "conda.yaml"
 _REQUIREMENTS_FILE_NAME = "requirements.txt"
 _CONSTRAINTS_FILE_NAME = "constraints.txt"
+_PYTHON_ENV_FILE_NAME = "python-env.yaml"
+
+
+class EnvManager(Enum):
+    LOCAL = "local"
+    CONDA = "conda"
+    VIRTUALENV = "virtualenv"
+
+
+_PYTHON_REQUIREMENT_REGEX = re.compile(r"^python=([\d.]+)$")
+
+
+class PythonEnv:
+    def __init__(self, python=None, build_dependencies=None, dependencies=None):
+        self.python = python
+        self.build_dependencies = build_dependencies
+        self.dependencies = dependencies
+
+    def __str__(self):
+        return str(self.to_dict())
+
+    @staticmethod
+    def get_current_python():
+        return ".".join(map(str, sys.version_info[:3]))
+
+    @staticmethod
+    def _get_package_version(package_name):
+        try:
+            return __import__(package_name).__version__
+        except (ImportError, AttributeError):
+            return None
+
+    @staticmethod
+    def get_default_build_dependencies():
+        build_dependencies = []
+        for package in ["pip", "setuptools", "wheel"]:
+            version = PythonEnv._get_package_version(package)
+            dep = (package + "==" + version) if version else package
+            build_dependencies.append(dep)
+        return build_dependencies
+
+    def to_dict(self):
+        return self.__dict__.copy()
+
+    @classmethod
+    def from_dict(cls, dct):
+        return cls(**dct)
+
+    def to_yaml(self, path):
+        with open(path, "w") as f:
+            # Exclude None and empty lists
+            data = {k: v for k, v in self.to_dict().items() if v}
+            yaml.safe_dump(data, f, sort_keys=False, default_flow_style=False)
+
+    @classmethod
+    def from_yaml(cls, path):
+        with open(path) as f:
+            return cls.from_dict(yaml.safe_load(f))
+
+    @classmethod
+    def from_conda_yaml(cls, path):
+        with open(path) as f:
+            conda_env = yaml.safe_load(f)
+
+        python = None
+        dependencies = None
+        for dep in conda_env.get("dependencies", []):
+            if isinstance(dep, str):
+                if not python:
+                    match = _PYTHON_REQUIREMENT_REGEX.match(dep)
+                    if match:
+                        python = match.group(1)
+
+            elif _is_pip_deps(dep):
+                dependencies = dep["pip"]
+
+            if python and dependencies:
+                return cls(
+                    python=python,
+                    dependencies=dependencies,
+                )
+
+        raise ValueError(
+            f"Failed to create a `PythonEnv` object from:\n{json.dumps(conda_env, indent=2)}"
+        )
 
 
 def _mlflow_conda_env(
@@ -117,6 +209,13 @@ def _get_pip_deps(conda_env):
             if _is_pip_deps(dep):
                 return dep["pip"]
     return []
+
+
+def _contains_conda_packages(conda_yaml_dict, exclude=("python", "pip", "setuptools", "wheel")):
+    packages = [
+        _get_package_name(d) for d in conda_yaml_dict.get("dependencies", []) if isinstance(d, str)
+    ]
+    return len(set(packages).difference(exclude)) > 0
 
 
 def _overwrite_pip_deps(conda_env, new_pip_deps):

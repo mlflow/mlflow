@@ -30,10 +30,18 @@ def commands():
 @cli_args.HOST
 @cli_args.WORKERS
 @cli_args.NO_CONDA
+@cli_args.ENV_MANAGER
 @cli_args.INSTALL_MLFLOW
 @cli_args.ENABLE_MLSERVER
 def serve(
-    model_uri, port, host, workers, no_conda=False, install_mlflow=False, enable_mlserver=False
+    model_uri,
+    port,
+    host,
+    workers,
+    no_conda=False,
+    env_manager=None,
+    install_mlflow=False,
+    enable_mlserver=False,
 ):
     """
     Serve a model saved with MLflow by launching a webserver on the specified host and port.
@@ -54,8 +62,13 @@ def serve(
             "data": [[1, 2, 3], [4, 5, 6]]
         }'
     """
+    env_manager = cli_args._get_env_manager(no_conda, env_manager)
     return _get_flavor_backend(
-        model_uri, no_conda=no_conda, workers=workers, install_mlflow=install_mlflow
+        model_uri,
+        no_conda=no_conda,
+        env_manager=env_manager,
+        workers=workers,
+        install_mlflow=install_mlflow,
     ).serve(model_uri=model_uri, port=port, host=host, enable_mlserver=enable_mlserver)
 
 

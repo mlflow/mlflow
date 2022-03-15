@@ -80,6 +80,7 @@ CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + [
     # Required to run the MLflow server against SQL-backed storage
     "sqlalchemy",
     "waitress; platform_system == 'Windows'",
+    "virtualenv",
 ]
 
 _is_mlflow_skinny = bool(os.environ.get(_MLFLOW_SKINNY_ENV_VAR))
@@ -117,10 +118,7 @@ setup(
         "sqlserver": ["mlflow-dbstore"],
         "aliyun-oss": ["aliyunstoreplugin"],
     },
-    entry_points="""
-        [console_scripts]
-        mlflow=mlflow.cli:cli
-    """,
+    entry_points={"console_scripts": ["mlflow=mlflow.cli:cli"]},
     zip_safe=False,
     author="Databricks",
     description="MLflow: A Platform for ML Development and Productionization",
