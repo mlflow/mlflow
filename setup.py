@@ -118,7 +118,10 @@ setup(
         "sqlserver": ["mlflow-dbstore"],
         "aliyun-oss": ["aliyunstoreplugin"],
     },
-    entry_points={"console_scripts": ["mlflow=mlflow.cli:cli"]},
+    entry_points="""
+        [console_scripts]
+        mlflow=mlflow.cli:cli
+    """,
     zip_safe=False,
     author="Databricks",
     description="MLflow: A Platform for ML Development and Productionization",
