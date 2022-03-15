@@ -72,8 +72,8 @@ def _env_manager_callback(_, __, value):
 
 ENV_MANAGER = click.option(
     "--env-manager",
+    default=None,
     required=False,
-    # TODO: Set an appropriate default value once we remove `--no-conda`.
     type=click.UNPROCESSED,
     callback=_env_manager_callback,
     help="If specified, create an environment for MLmodel/MLproject using the specified "
@@ -97,7 +97,8 @@ def _get_env_manager(no_conda, env_manager):
             stacklevel=2,
         )
         return EnvManager.LOCAL
-    # Neither `--no-conda` or `--env-manager` is specified
+    # Neither `--no-conda` or `--env-manager` is specified. In this case, conda should be used
+    # to preserve the existing behavior.
     elif env_manager is None:
         return EnvManager.CONDA
 
