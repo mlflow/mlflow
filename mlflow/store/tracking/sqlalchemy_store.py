@@ -223,29 +223,6 @@ class SqlAlchemyStore(AbstractStore):
 
         return instance, created
 
-    def _get_or_create_many(self, session, model, list_of_args):
-        """
-        Receives a list of dictionary arguments and applies the _get_or_create
-        logic for all of them with a slight difference. The difference is that
-        all recently created instances are collected into a list and saved
-        to db at once.
-
-        Returns a list of tuples where first element is the instance and the
-        second element whether it was created or not.
-        """
-        instances = []
-        to_be_saved = []
-        for args in list_of_args:
-            instance = session.query(model).filter_by(**args).first()
-            created = False if instance else True
-            if created:
-                instance = model(**args)
-                to_be_saved.append(instance)
-            instances.append((instance, created))
-            
-        self._save_to_db(session=session, objs=to_be_saved)
-        return instances
-
     def _get_artifact_location(self, experiment_id):
         return append_to_uri_path(self.artifact_root_uri, str(experiment_id))
 
@@ -632,22 +609,18 @@ class SqlAlchemyStore(AbstractStore):
             if just_created:
                 self._update_latest_metric_if_necessary(logged_metric, session)
 
-    def _log_metrics(self, run_id, metrics, session=None, check_run=True):
+    def _log_metrics(self, run_id, metrics, session=None):
         if not metrics:
             return
 
-        # use a seen list and do not add same metric more than once
-        # to keep the behavior of `_get_or_create` in log_metric as it
-        # queries the session to try to fetch an instance that matches
-        # the given metric.
-        # Therefore, duplicate metric values are eliminated here to maintain
-        # the same behavior.
-        metric_args = []
+        # Duplicate metric values are eliminated here to maintain
+        # the same behavior in log_metric
+        metric_instances = []
         seen = set()
         for metric in metrics:
             metric, value, is_nan = self._get_metric_value_details(metric)
             if metric not in seen:
-                metric_args.append(dict(
+                metric_instances.append(SqlMetric(
                     run_uuid=run_id,
                     key=metric.key,
                     value=value,
@@ -665,17 +638,11 @@ class SqlAlchemyStore(AbstractStore):
         )
 
         with context as session:
-            if check_run:
-                run = self._get_run(run_uuid=run_id, session=session)
-                self._check_run_is_active(run)
-            instances = self._get_or_create_many(
-                session, SqlMetric, metric_args)
+            self._save_to_db(session=session, objs=metric_instances)
             # keep the behavior of updating latest metric table if necessary
             # for each created or retrieved metric
-            for (sql_metric, just_created) in instances:
-                if just_created:
-                    self._update_latest_metric_if_necessary(
-                        sql_metric, session)
+            for logged_metric in metric_instances:
+                self._update_latest_metric_if_necessary(logged_metric, session)
         
 
     @staticmethod
