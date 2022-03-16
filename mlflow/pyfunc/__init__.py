@@ -716,6 +716,10 @@ def load_model(
     return PyFuncModel(model_meta=model_meta, model_impl=model_impl)
 
 
+def print_model_dependencies(model_uri):
+    pass
+
+
 @deprecated("mlflow.pyfunc.load_model", 1.0)
 def load_pyfunc(model_uri, suppress_warnings=False):
     """
