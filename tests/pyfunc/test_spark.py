@@ -161,7 +161,7 @@ def test_spark_udf(spark, model_path):
 
 
 @pytest.mark.large
-def test_spark_udf_with_conda_env_restored(spark, sklearn_model, model_path, tmpdir):
+def test_spark_udf_with_conda_env_restored(spark, sklearn_model, model_path, tmpdir, monkeypatch):
     from pyspark.sql.functions import col
     from mlflow.utils.conda import get_conda_bin_executable
 
@@ -203,15 +203,13 @@ name: test_spark_udf_log_sklearn_model_env""")
 
     infer_spark_df = spark.createDataFrame(infer_data).repartition(1)
 
-    check_dict = {"sklearn": sklearn_log_version}
-    new_env = {
-        **os.environ.copy(),
-        'MLFLOW_SPARK_UDF_RESTORED_ENV_MODULE_VERSION_CHECK_DICT': json.dumps(check_dict)
-    }
-    with mock.patch.dict(os.environ, new_env):
-        pyfunc_udf = spark_udf(spark, model_path, env_manager="conda")
-        result = infer_spark_df.select(pyfunc_udf(col("a"), col("b")).alias("predictions")) \
-            .toPandas().predictions.to_numpy()
+    monkeypatch.setenv(
+        "MLFLOW_SPARK_UDF_RESTORED_ENV_MODULE_VERSION_CHECK_DICT",
+        json.dumps({"sklearn": sklearn_log_version})
+    )
+    pyfunc_udf = spark_udf(spark, model_path, env_manager="conda")
+    result = infer_spark_df.select(pyfunc_udf(col("a"), col("b")).alias("predictions")) \
+        .toPandas().predictions.to_numpy()
 
     np.testing.assert_allclose(result, expected_pred_result, rtol=1e-5)
 
