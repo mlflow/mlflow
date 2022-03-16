@@ -34,7 +34,10 @@ class ScoringServerClient:
     def get_module_version(self, module_name):
         """
         Get module version on the scoring server worker python environment.
-        This method is for testing purpose.
+        This method is for testing purpose, i.e., when the server launched in the
+        restored python environment, via the client, we can query the python module
+        on the running server worker. So that in test code we can confirm the
+        server worker are running on correct restored python environment.
         """
         status = requests.get(url=self.url_prefix + f"/version/{module_name}")
         if status.status_code != 200:
@@ -77,8 +80,9 @@ class ScoringServerClient:
 def prepare_env(local_model_path, stdout=sys.stdout, stderr=sys.stderr):
     cmd = [
         "mlflow", "models", "prepare-env", "-m", local_model_path,
-        "--install-mlflow",
     ]
+    if 'MLFLOW_HOME' in os.environ:
+        cmd.append("--install-mlflow")
     return subprocess.run(
         cmd,
         stdout=stdout,
@@ -97,10 +101,12 @@ def start_server(
     cmd = [
         "mlflow", "models", "serve", "-m", local_model_path,
         "-h", host,
-        "-p", str(server_port), "-w", str(num_workers), "--install-mlflow",
+        "-p", str(server_port), "-w", str(num_workers),
     ]
     if no_conda:
         cmd.append("--no-conda")
+    elif 'MLFLOW_HOME' in os.environ:
+        cmd.append("--install-mlflow")
 
     if os.name != "nt":
         return subprocess.Popen(
