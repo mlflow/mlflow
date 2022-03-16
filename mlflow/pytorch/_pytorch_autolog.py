@@ -179,13 +179,14 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
             return
         step = trainer.global_step
         if (step + 1) % self.log_every_n_step == 0:
-            # When logging at the end of a batch step, we only want to log metrics that are logged on steps,
-            # so rather than using trainer.callback_metrics which will also contain epoch logged metrics
-            # after an epoch has completed, we access the on_step metrics using trainer.logger_connector.metrics.
-            # For forked metrics (metrics logged on both steps and epochs), we exclude the metric with the non-forked
-            # name (eg. "loss" when we have "loss", "loss_step" and "loss_epoch") so that this is only logged on epochs.
-            # We also record which metrics we've logged per step, so we can later exclude these from metrics logged on
-            # epochs.
+            # When logging at the end of a batch step, we only want to log metrics that are logged
+            # on steps, so rather than using trainer.callback_metrics which will also contain epoch
+            # logged metrics after an epoch has completed, we access the on_step metrics using
+            # trainer.logger_connector.metrics. For forked metrics (metrics logged on both steps and
+            # epochs), we exclude the metric with the non-forked name (eg. "loss" when we have
+            # "loss", "loss_step" and "loss_epoch") so that this is only logged on epochs. We also
+            # record which metrics we've logged per step, so we can later exclude these from metrics
+            # logged on epochs.
             metrics = trainer.logger_connector.metrics["callback"]
             metric_items = [
                 item
