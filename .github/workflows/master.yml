@@ -83,6 +83,8 @@ jobs:
         # TODO: Remove this line once h2o 3.36.0.2 is uploaded to https://packagemanager.rstudio.com
         Rscript -e 'install.packages("h2o", repos="http://cran.r-project.org")'
     - name: Build package
+      env:
+        USE_DEVEL: true
       run: |
         ./build-package.sh
     - name: Create test environment
