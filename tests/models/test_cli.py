@@ -529,7 +529,7 @@ def test_experimental_warning_is_raised_for_virtualenv(mock_flavor_backend):
 @pytest.mark.parametrize(
     "additional_args",
     [
-        # conda is used when neither `--no-conda` or `--env-manager` is specified
+        # conda is used when neither `--no-conda` nor `--env-manager` is specified
         (),
         # Explicitly specify conda
         ("--env-manager=conda",),

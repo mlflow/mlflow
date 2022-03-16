@@ -98,7 +98,7 @@ def _get_env_manager(no_conda, env_manager):
             stacklevel=2,
         )
         result = EnvManager.LOCAL
-    # Neither `--no-conda` or `--env-manager` is specified. In this case, conda should be used
+    # Neither `--no-conda` nor `--env-manager` is specified. In this case, conda should be used
     # to preserve the existing behavior.
     elif env_manager is None:
         result = EnvManager.CONDA
