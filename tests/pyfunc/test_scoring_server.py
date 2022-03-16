@@ -626,6 +626,7 @@ def test_scoring_server_client(sklearn_model, model_path):
 
     port = find_free_port()
 
+    server_proc = None
     try:
         server_proc = start_server(port, model_path, host='127.0.0.1', no_conda=True)
 
@@ -639,4 +640,5 @@ def test_scoring_server_client(sklearn_model, model_path):
             result = client.invoke(data, orient)
             np.testing.assert_allclose(result, expected_result, rtol=1e-5)
     finally:
-        kill_server(server_proc)
+        if server_proc is not None:
+            kill_server(server_proc)
