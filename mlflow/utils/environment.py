@@ -39,6 +39,15 @@ _PYTHON_REQUIREMENT_REGEX = re.compile(r"^python=([\d.]+)$")
 
 class PythonEnv:
     def __init__(self, python=None, build_dependencies=None, dependencies=None):
+        if python is not None and not isinstance(python, str):
+            raise TypeError(f"`python` must be a string but got {type(python)}")
+        if build_dependencies is not None and not isinstance(build_dependencies, list):
+            raise TypeError(
+                f"`build_dependencies` must be a list but got {type(build_dependencies)}"
+            )
+        if dependencies is not None and not isinstance(dependencies, list):
+            raise TypeError(f"`dependencies` must be a list but got {type(dependencies)}")
+
         self.python = python
         self.build_dependencies = build_dependencies
         self.dependencies = dependencies
