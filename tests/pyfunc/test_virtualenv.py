@@ -10,9 +10,18 @@ from sklearn.datasets import load_iris
 
 import mlflow
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON_SPLIT_ORIENTED
-from mlflow.pyfunc.backend import _MLFLOW_ENV_ROOT_ENV_VAR
+from mlflow.pyfunc.backend import (
+    _MLFLOW_ENV_ROOT_ENV_VAR,
+    _is_pyenv_available,
+    _is_virtualenv_available,
+)
 
 from tests.helper_functions import pyfunc_serve_and_score_model
+
+requires_pyenv_and_virtualenv = pytest.mark.skipif(
+    not (_is_pyenv_available() and _is_virtualenv_available()),
+    reason="requires pyenv and virtualenv",
+)
 
 
 @pytest.fixture(scope="module")
@@ -42,6 +51,11 @@ def temp_mlflow_env_root(tmp_path, monkeypatch):
     return env_root
 
 
+use_temp_mlflow_env_root = pytest.mark.usefixtures(temp_mlflow_env_root.__name__)
+
+
+@requires_pyenv_and_virtualenv
+@use_temp_mlflow_env_root
 def test_reuse_environment(temp_mlflow_env_root, sklearn_model):
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(sklearn_model.model, artifact_path="model")
@@ -54,7 +68,8 @@ def test_reuse_environment(temp_mlflow_env_root, sklearn_model):
     assert len(os.listdir(temp_mlflow_env_root)) == 1
 
 
-@pytest.mark.usefixtures(temp_mlflow_env_root.__name__)
+@requires_pyenv_and_virtualenv
+@use_temp_mlflow_env_root
 def test_python_env_does_not_exist(sklearn_model):
     with mlflow.start_run():
         with mock.patch("mlflow.utils.environment.PythonEnv.to_yaml") as mock_to_yaml:
@@ -65,6 +80,7 @@ def test_python_env_does_not_exist(sklearn_model):
     np.testing.assert_array_almost_equal(scores, sklearn_model.y_pred)
 
 
+@requires_pyenv_and_virtualenv
 def test_pip_install_fails(temp_mlflow_env_root, sklearn_model):
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
@@ -78,7 +94,8 @@ def test_pip_install_fails(temp_mlflow_env_root, sklearn_model):
     assert len(list(temp_mlflow_env_root.iterdir())) == 0
 
 
-@pytest.mark.usefixtures(temp_mlflow_env_root.__name__)
+@requires_pyenv_and_virtualenv
+@use_temp_mlflow_env_root
 def test_model_contains_conda_packages(sklearn_model):
     conda_env = {
         "name": "mlflow-env",

@@ -61,7 +61,7 @@ def _run_command(command, **kwargs):
 
 
 def _run_multiple_commands(commands, **kwargs):
-    _run_command(_join_commands(*commands), shell=True, **kwargs)
+    _run_command([*_get_entrypoint(), _join_commands(*commands)], **kwargs)
 
 
 def _get_output(command, env=None, **kwargs):
@@ -282,15 +282,21 @@ def _execute_in_conda_env(conda_env_path, command, install_mlflow, env_id, comma
     )
 
 
+def _is_pyenv_available():
+    return subprocess.run(["pyenv", "--version"], check=False).returncode == 0
+
+
 def _validate_pyenv_is_available():
-    prc = subprocess.run(["pyenv", "--version"], check=False)
-    if prc.returncode != 0:
+    if not _is_pyenv_available():
         raise Exception("pyenv must be available to use this feature")
 
 
+def _is_virtualenv_available():
+    return subprocess.run(["virtualenv", "--version"], check=False).returncode == 0
+
+
 def _validate_virtualenv_is_available():
-    prc = subprocess.run(["virtualenv", "--version"], check=False)
-    if prc.returncode != 0:
+    if not _is_virtualenv_available():
         raise Exception("virtualenv must be available to use this feature")
 
 
