@@ -402,7 +402,7 @@ def _execute_in_virtualenv(local_model_path, command, install_mlflow, env_id, co
                 "Encountered an unexpected error while installing dependencies. Removing %s",
                 env_dir,
             )
-            shutil.rmtree(env_dir)
+            shutil.rmtree(env_dir, ignore_errors=True)
             raise
 
     # Run the command
