@@ -3,6 +3,7 @@ import os
 import hashlib
 import shutil
 from pathlib import Path
+import uuid
 
 import yaml
 import subprocess
@@ -331,6 +332,10 @@ def _install_python(version):
     return Path(pyenv_root).joinpath("versions", version, "bin", "python")
 
 
+def _wrap_with_single_quotes(s):
+    return "'" + s + "'"
+
+
 def _execute_in_virtualenv(local_model_path, command, install_mlflow, env_id, command_env=None):
     is_windows = _is_windows()
 
@@ -383,22 +388,26 @@ def _execute_in_virtualenv(local_model_path, command, install_mlflow, env_id, co
         try:
             _logger.info("Installing build dependencies")
             if python_env.build_dependencies:
-                build_dependencies = " ".join(python_env.build_dependencies)
+                temp_requirements_file = model_path / f"requirements.{uuid.uuid4().hex}.txt"
+                temp_requirements_file.write_text("\n".join(python_env.build_dependencies))
                 _run_multiple_commands(
-                    [activate_cmd, f"pip install {build_dependencies}"],
+                    [activate_cmd, f"pip install -r {temp_requirements_file}"],
                     # Run `pip install` in the model directory to refer to the requirements
                     # file correctly
-                    cwd=local_model_path,
+                    cwd=model_path,
                 )
+                temp_requirements_file.unlink()
             _logger.info("Installing dependencies")
             if python_env.dependencies:
-                dependencies = " ".join(python_env.dependencies)
+                temp_requirements_file = model_path / f"requirements.{uuid.uuid4().hex}.txt"
+                temp_requirements_file.write_text("\n".join(python_env.dependencies))
                 _run_multiple_commands(
-                    [activate_cmd, f"pip install {dependencies}"],
+                    [activate_cmd, f"pip install -r {temp_requirements_file}"],
                     # Run `pip install` in the model directory to refer to the requirements
                     # file correctly
-                    cwd=local_model_path,
+                    cwd=model_path,
                 )
+                temp_requirements_file.unlink()
         except:
             _logger.warning(
                 "Encountered an unexpected error while installing dependencies. Removing %s",
