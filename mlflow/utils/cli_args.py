@@ -123,7 +123,6 @@ def _get_env_manager(no_conda, env_manager):
             stacklevel=2,
         )
 
-    # Only `--env-manager` is specified
     return result
 
 

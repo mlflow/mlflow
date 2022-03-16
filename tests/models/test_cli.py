@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 
+from click.testing import CliRunner
 import numpy as np
 import pandas as pd
 import pytest
@@ -22,6 +23,7 @@ import mlflow
 from mlflow import pyfunc
 import mlflow.sklearn
 
+import mlflow.models.cli as models_cli
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils import PYTHON_VERSION
@@ -496,3 +498,45 @@ def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enabl
             assert scoring_response_dict["error_code"] == ErrorCode.Name(BAD_REQUEST)
             assert "message" in scoring_response_dict
             assert "stack_trace" in scoring_response_dict
+
+
+patch_get_flavor_backend = mock.patch("mlflow.models.cli._get_flavor_backend")
+
+
+@patch_get_flavor_backend
+def test_future_warning_is_raised_when_no_conda_is_specified(mock_flavor_backend):
+    with pytest.warns(FutureWarning, match=r"--no-conda.+deprecated"):
+        CliRunner().invoke(models_cli, ["--model-uri", "model", "--no-conda"])
+    mock_flavor_backend.assert_called_once()
+
+
+def test_exception_is_thrown_when_both_no_conda_and_env_manager_are_specified():
+    with pytest.raises(Exception, match="cannot be specified at the same time"):
+        CliRunner().invoke(
+            models_cli,
+            ["--model-uri", "model", "--no-conda", "--env-manager=local"],
+            catch_exceptions=False,
+        )
+
+
+@patch_get_flavor_backend
+def test_experimental_warning_is_raised_for_virtualenv(mock_flavor_backend):
+    with pytest.warns(UserWarning, match="Virtualenv support is still experimental"):
+        CliRunner().invoke(models_cli, ["--model-uri", "model", "--env-manager=virtualenv"])
+    mock_flavor_backend.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "additional_args",
+    [
+        # conda is used when neither `--no-conda` or `--env-manager` is specified
+        (),
+        # Explicitly specify conda
+        ("--env-manager=conda",),
+    ],
+)
+@patch_get_flavor_backend
+def test_warning_is_raised_for_conda(mock_flavor_backend, additional_args):
+    with pytest.warns(UserWarning, match="conda is discouraged"):
+        CliRunner().invoke(models_cli, ["--model-uri", "model", *additional_args])
+    mock_flavor_backend.assert_called_once()
