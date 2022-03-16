@@ -40,37 +40,40 @@ def _is_windows():
     return os.name == "nt"
 
 
-def _join_commands(*commands):
-    sep = " & " if _is_windows() else " && "
-    return sep.join(commands)
+def _get_and_operator():
+    return " & " if _is_windows() else " && "
+
+
+def _join(args, sep=" "):
+    return sep.join(map(str, args))
 
 
 def _get_entrypoint():
     return ["cmd", "/c"] if _is_windows() else ["bash", "-c"]
 
 
-def _run_command(command, **kwargs):
-    prc = subprocess.Popen(command, **kwargs)
-    returncode = prc.wait()
-    if returncode != 0:
-        raise Exception(
-            "Command '{0}' returned non zero return code. Return code = {1}".format(
-                command, returncode
-            )
-        )
+def _run_command(args, check=True, **kwargs):
+    return subprocess.run([*_get_entrypoint(), _join(args)], check=check, **kwargs)
 
 
 def _run_multiple_commands(commands, **kwargs):
-    _run_command([*_get_entrypoint(), _join_commands(*commands)], **kwargs)
+    return _run_command([_join(commands, sep=_get_and_operator())], **kwargs)
 
 
-def _get_output(command, env=None, **kwargs):
-    prc = subprocess.Popen(command, stdout=subprocess.PIPE, env=env, **kwargs)
-    stdout = prc.communicate()[0].decode("utf-8")
+def _get_stdout(args, **kwargs):
+    prc = _run_command(args, check=False, capture_output=True, **kwargs)
+    stdout = prc.stdout.decode("utf-8")
+    stderr = prc.stderr.decode("utf-8")
     if prc.returncode != 0:
         raise Exception(
-            "Command '{0}' returned non zero return code. Return code = {1}".format(
-                command, prc.returncode
+            "\n".join(
+                [
+                    f"Command {args} returned non-zero exit status {prc.returncode}",
+                    "===== stdout =====",
+                    stdout,
+                    "===== stderr =====",
+                    stderr,
+                ]
             )
         )
     return stdout
@@ -324,17 +327,11 @@ def _install_python(version):
         if pyenv_root is None:
             raise MlflowException("Environment variable 'PYENV_ROOT' must be set")
     else:
-        pyenv_root = _get_output(["pyenv", "root"]).strip()
+        pyenv_root = _get_stdout(["pyenv", "root"]).strip()
     return Path(pyenv_root).joinpath("versions", version, "bin", "python")
 
 
-def _wrap_with_single_quotes(s):
-    return "'" + s + "'"
-
-
 def _execute_in_virtualenv(local_model_path, command, install_mlflow, env_id, command_env=None):
-    is_windows = _is_windows()
-
     # Read environment information
     model_path = Path(local_model_path)
     python_env_file = model_path / _PYTHON_ENV_FILE_NAME
@@ -375,6 +372,7 @@ def _execute_in_virtualenv(local_model_path, command, install_mlflow, env_id, co
         _logger.info("Environment %s already exists", env_dir)
 
     # Construct a command to activate the environment
+    is_windows = _is_windows()
     paths = ("Scripts", "activate.bat") if is_windows else ("bin", "activate")
     activator = env_dir.joinpath(*paths)
     activate_cmd = activator if is_windows else f"source {activator}"
@@ -382,28 +380,17 @@ def _execute_in_virtualenv(local_model_path, command, install_mlflow, env_id, co
     # Install dependencies
     if not env_exists:
         try:
-            _logger.info("Installing build dependencies")
-            if python_env.build_dependencies:
-                temp_requirements_file = model_path / f"requirements.{uuid.uuid4().hex}.txt"
-                temp_requirements_file.write_text("\n".join(python_env.build_dependencies))
-                _run_multiple_commands(
-                    [activate_cmd, f"pip install -r {temp_requirements_file}"],
-                    # Run `pip install` in the model directory to refer to the requirements
-                    # file correctly
-                    cwd=model_path,
-                )
-                temp_requirements_file.unlink()
             _logger.info("Installing dependencies")
-            if python_env.dependencies:
-                temp_requirements_file = model_path / f"requirements.{uuid.uuid4().hex}.txt"
-                temp_requirements_file.write_text("\n".join(python_env.dependencies))
+            for deps in filter(None, [python_env.build_dependencies, python_env.dependencies]):
+                tmp_req_file = model_path / f"requirements.{uuid.uuid4().hex}.txt"
+                tmp_req_file.write_text("\n".join(deps))
                 _run_multiple_commands(
-                    [activate_cmd, f"pip install -r {temp_requirements_file}"],
+                    [activate_cmd, f"pip install -r {tmp_req_file}"],
                     # Run `pip install` in the model directory to refer to the requirements
                     # file correctly
                     cwd=model_path,
                 )
-                temp_requirements_file.unlink()
+                tmp_req_file.unlink()
         except:
             _logger.warning(
                 "Encountered an unexpected error while installing dependencies. Removing %s",
