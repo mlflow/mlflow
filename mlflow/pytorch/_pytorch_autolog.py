@@ -321,7 +321,7 @@ def patched_fit(original, self, *args, **kwargs):
 
     log_models = get_autologging_config(mlflow.pytorch.FLAVOR_NAME, "log_models", True)
     log_every_n_epoch = get_autologging_config(mlflow.pytorch.FLAVOR_NAME, "log_every_n_epoch", 1)
-    log_every_n_step = get_autologging_config(mlflow.pytorch.FLAVOR_NAME, "log_every_n_step", False)
+    log_every_n_step = get_autologging_config(mlflow.pytorch.FLAVOR_NAME, "log_every_n_step", None)
 
     early_stop_callback = None
     for callback in self.callbacks:
