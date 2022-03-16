@@ -57,7 +57,9 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
     Callback for auto-logging metrics and parameters.
     """
 
-    def __init__(self, client, metrics_logger, run_id, log_models, log_every_n_epoch, log_every_n_step):
+    def __init__(
+        self, client, metrics_logger, run_id, log_models, log_every_n_epoch, log_every_n_step
+    ):
         self.early_stopping = False
         self.client = client
         self.metrics_logger = metrics_logger
@@ -92,7 +94,11 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
             # and includes metrics logged on steps and epochs.
             # If we have logged any metrics on a step basis in mlflow, we exclude these from the
             # epoch level metrics to prevent mixing epoch and step based values.
-            metric_items = (item for item in trainer.callback_metrics.items() if item[0] not in self._step_metrics)
+            metric_items = (
+                item
+                for item in trainer.callback_metrics.items()
+                if item[0] not in self._step_metrics
+            )
             self._log_metrics(trainer, pl_module.current_epoch, metric_items)
 
     _pl_version = Version(pl.__version__)
@@ -161,7 +167,7 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
 
     @rank_zero_only
     def on_train_batch_end(
-            self, trainer, pl_module, *args
+        self, trainer, pl_module, *args
     ):  # pylint: disable=signature-differs,arguments-differ,unused-argument
         """
         Log metric values after each step
@@ -182,8 +188,10 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
             # epochs.
             metrics = trainer.logger_connector.metrics["callback"]
             metric_items = [
-                item for item in metrics.items() if
-                item[0].endswith("_step") or f"{item[0]}_step" not in metrics.keys()]
+                item
+                for item in metrics.items()
+                if item[0].endswith("_step") or f"{item[0]}_step" not in metrics.keys()
+            ]
             for item in metric_items:
                 self._step_metrics.add(item[0])
             self._log_metrics(trainer, step, metric_items)
@@ -322,7 +330,9 @@ def patched_fit(original, self, *args, **kwargs):
 
     if not any(isinstance(callbacks, __MLflowPLCallback) for callbacks in self.callbacks):
         self.callbacks += [
-            __MLflowPLCallback(client, metrics_logger, run_id, log_models, log_every_n_epoch, log_every_n_step)
+            __MLflowPLCallback(
+                client, metrics_logger, run_id, log_models, log_every_n_epoch, log_every_n_step
+            )
         ]
 
     client.flush(synchronous=False)
