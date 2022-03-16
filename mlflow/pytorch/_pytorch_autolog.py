@@ -8,6 +8,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.core.memory import ModelSummary
 from pytorch_lightning.utilities import rank_zero_only
 
+from mlflow.exceptions import MlflowException
 from mlflow.utils.autologging_utils import (
     ExceptionSafeAbstractClass,
     BatchMetricsLogger,
@@ -28,6 +29,9 @@ logging.basicConfig(level=logging.ERROR)
 # tracking uri, experiment_id and run_id which may lead to a race condition.
 # TODO: Replace __MlflowPLCallback with Pytorch Lightning's built-in MlflowLogger
 # once the above mentioned issues have been addressed
+
+
+_pl_version = Version(pl.__version__)
 
 
 def _get_optimizer_name(optimizer):
@@ -60,6 +64,10 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
     def __init__(
         self, client, metrics_logger, run_id, log_models, log_every_n_epoch, log_every_n_step
     ):
+        if log_every_n_step and _pl_version < Version("1.1.0"):
+            raise MlflowException(
+                "log_every_n_step is only supported for PyTorch-Lightning >= 1.1.0"
+            )
         self.early_stopping = False
         self.client = client
         self.metrics_logger = metrics_logger
@@ -100,8 +108,6 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
                 if item[0] not in self._step_metrics
             )
             self._log_metrics(trainer, pl_module.current_epoch, metric_items)
-
-    _pl_version = Version(pl.__version__)
 
     # In pytorch-lightning >= 1.4.0, validation is run inside the training epoch and
     # `trainer.callback_metrics` contains both training and validation metrics of the
@@ -180,14 +186,11 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         step = trainer.global_step
         if (step + 1) % self.log_every_n_step == 0:
             # When logging at the end of a batch step, we only want to log metrics that are logged
-            # on steps, so rather than using trainer.callback_metrics which will also contain epoch
-            # logged metrics after an epoch has completed, we access the on_step metrics using
-            # trainer.logger_connector.metrics. For forked metrics (metrics logged on both steps and
-            # epochs), we exclude the metric with the non-forked name (eg. "loss" when we have
-            # "loss", "loss_step" and "loss_epoch") so that this is only logged on epochs. We also
-            # record which metrics we've logged per step, so we can later exclude these from metrics
-            # logged on epochs.
-            metrics = trainer.logger_connector.metrics["callback"]
+            # on steps. For forked metrics (metrics logged on both steps and epochs), we exclude the
+            # metric with the non-forked name (eg. "loss" when we have "loss", "loss_step" and
+            # "loss_epoch") so that this is only logged on epochs. We also record which metrics
+            # we've logged per step, so we can later exclude these from metrics logged on epochs.
+            metrics = _get_step_metrics(trainer)
             metric_items = [
                 item
                 for item in metrics.items()
@@ -297,6 +300,24 @@ def _log_early_stop_metrics(early_stop_callback, client, run_id):
         metrics["wait_count"] = early_stop_callback.wait_count
 
     client.log_metrics(run_id, metrics)
+
+
+# PyTorch-Lightning refactored the LoggerConnector class in version 1.4.0 and changed how
+# metrics are accessed.
+if _pl_version >= Version("1.4.0"):
+
+    def _get_step_metrics(trainer):
+        # logger_connector.metrics provides only on_step or on_epoch metrics depending on whether
+        # we're at the end of an epoch, as opposed to logger_connector.callback_metrics which caches
+        # all seen metrics and so will also contain epoch logged metrics after an epoch has
+        # completed.
+        return trainer.logger_connector.metrics["callback"]
+
+
+else:
+
+    def _get_step_metrics(trainer):
+        return trainer.logger_connector.cached_results.get_latest_batch_log_metrics()
 
 
 def patched_fit(original, self, *args, **kwargs):
