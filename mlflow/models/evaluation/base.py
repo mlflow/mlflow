@@ -15,6 +15,7 @@ import logging
 import struct
 import sys
 import math
+import pathlib
 from collections import OrderedDict
 from abc import ABCMeta, abstractmethod
 
@@ -107,7 +108,7 @@ class EvaluationResult:
             uri = meta["uri"]
             ArtifactCls = _get_class_from_string(meta["class_name"])
             artifact = ArtifactCls(uri=uri)
-            artifact._load(os.path.join(artifacts_dir, artifact_name))
+            artifact._load(os.path.join(artifacts_dir, pathlib.Path(uri).name))
             artifacts[artifact_name] = artifact
 
         return EvaluationResult(metrics=metrics, artifacts=artifacts)
@@ -131,8 +132,8 @@ class EvaluationResult:
         artifacts_dir = os.path.join(path, "artifacts")
         os.mkdir(artifacts_dir)
 
-        for artifact_name, artifact in self.artifacts.items():
-            artifact._save(os.path.join(artifacts_dir, artifact_name))
+        for artifact in self.artifacts.values():
+            artifact._save(os.path.join(artifacts_dir, pathlib.Path(artifact.uri).name))
 
     @property
     def metrics(self) -> Dict[str, Any]:
