@@ -41,6 +41,10 @@ _BUILD_PACKAGE_REGEX = re.compile(
 
 
 class PythonEnv:
+    """
+    Represents environment information for an MLflow Model.
+    """
+
     def __init__(self, python=None, build_dependencies=None, dependencies=None):
         if python is not None and not isinstance(python, str):
             raise TypeError(f"`python` must be a string but got {type(python)}")

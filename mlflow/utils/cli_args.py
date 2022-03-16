@@ -92,8 +92,10 @@ def _get_env_manager(no_conda, env_manager):
     # Only `--no-conda` is specified
     elif no_conda:
         warnings.warn(
-            "`--no-conda` is deprecated and will be removed in a future MLflow release. "
-            "Please use `--env-manager=local` instead.",
+            (
+                "`--no-conda` is deprecated and will be removed in a future MLflow release. "
+                "Please use `--env-manager=local` instead."
+            ),
             FutureWarning,
             stacklevel=2,
         )
@@ -117,7 +119,7 @@ def _get_env_manager(no_conda, env_manager):
         warnings.warn(
             (
                 "Virtualenv support is still experimental and will be changed or "
-                "removed in a future release without warning.",
+                "removed in a future release without warning."
             ),
             UserWarning,
             stacklevel=2,

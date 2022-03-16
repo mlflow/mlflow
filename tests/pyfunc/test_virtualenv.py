@@ -72,8 +72,37 @@ def test_pip_install_fails(temp_mlflow_env_root, sklearn_model):
             # Enforce pip install to fail using a non-existent package version
             pip_requirements=["mlflow==999.999.999"],
         )
-    try:
+    with pytest.raises(AssertionError, match="scoring process died"):
         serve_and_score(model_info.model_uri, sklearn_model.X_pred)
-    except Exception:
-        pass
     assert len(list(temp_mlflow_env_root.iterdir())) == 0
+
+
+@pytest.mark.usefixtures(temp_mlflow_env_root.__name__)
+def test_model_contains_conda_packages(sklearn_model):
+    conda_env = {
+        "name": "mlflow-env",
+        "channels": ["conda-forge"],
+        "dependencies": [
+            "python=3.7.9",
+            "conda-package=1.2.3",  # <- conda package
+            "pip<=21.3.1",
+            {
+                "pip": [
+                    "mlflow",
+                    "scikit-learn==1.0.2",
+                ]
+            },
+        ],
+    }
+
+    with mlflow.start_run():
+        with mock.patch("mlflow.utils.environment.PythonEnv.to_yaml") as mock_to_yaml:
+            model_info = mlflow.sklearn.log_model(
+                sklearn_model.model,
+                artifact_path="model",
+                conda_env=conda_env,
+            )
+            mock_to_yaml.assert_called_once()
+
+    with pytest.raises(AssertionError, match="scoring process died"):
+        serve_and_score(model_info.model_uri, sklearn_model.X_pred)
