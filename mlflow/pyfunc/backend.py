@@ -82,9 +82,9 @@ def _get_stdout(args, **kwargs):
 def _get_install_mlflow_command():
     mlflow_home = os.getenv(_MLFLOW_HOME_ENV_VAR)
     return (
-        "pip install -e {}".format(mlflow_home)  # dev version
+        "pip install -e {} 1>&2".format(mlflow_home)  # dev version
         if mlflow_home
-        else "pip install mlflow=={}".format(VERSION)
+        else "pip install mlflow=={} 1>&2".format(VERSION)
     )
 
 
@@ -326,9 +326,11 @@ def _install_python(version):
         pyenv_root = os.getenv("PYENV_ROOT")
         if pyenv_root is None:
             raise MlflowException("Environment variable 'PYENV_ROOT' must be set")
+        path_to_bin = ("python.exe",)
     else:
         pyenv_root = _get_stdout(["pyenv", "root"]).strip()
-    return Path(pyenv_root).joinpath("versions", version, "bin", "python")
+        path_to_bin = ("bin", "python")
+    return Path(pyenv_root).joinpath("versions", version, *path_to_bin)
 
 
 def _execute_in_virtualenv(local_model_path, command, install_mlflow, env_id, command_env=None):
