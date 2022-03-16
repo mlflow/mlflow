@@ -286,7 +286,7 @@ def _execute_in_conda_env(conda_env_path, command, install_mlflow, env_id, comma
 
 
 def _is_pyenv_available():
-    return subprocess.run(["pyenv", "--version"], check=False).returncode == 0
+    return _run_command(["pyenv", "--version"], check=False).returncode == 0
 
 
 def _validate_pyenv_is_available():
@@ -295,7 +295,7 @@ def _validate_pyenv_is_available():
 
 
 def _is_virtualenv_available():
-    return subprocess.run(["virtualenv", "--version"], check=False).returncode == 0
+    return _run_command(["virtualenv", "--version"], check=False).returncode == 0
 
 
 def _validate_virtualenv_is_available():
