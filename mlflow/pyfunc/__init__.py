@@ -216,6 +216,7 @@ import yaml
 from copy import deepcopy
 import logging
 import json
+import tempfile
 
 from typing import Any, Union, List, Dict
 import mlflow
@@ -262,6 +263,7 @@ from mlflow.utils.requirements_utils import (
     _parse_requirements,
 )
 from mlflow.utils import find_free_port
+from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
 
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
@@ -767,9 +769,6 @@ def _warn_potentially_incompatible_py_version_if_necessary(model_py_version=None
 
 
 def _get_or_create_model_cache_dir():
-    from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
-    import tempfile
-
     nfs_root_dir = get_nfs_cache_root_dir()
     if nfs_root_dir is not None:
         # In databricks, the '/local_disk0/.ephemeral_nfs' is mounted as NFS disk

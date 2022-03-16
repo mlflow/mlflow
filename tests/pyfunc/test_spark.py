@@ -1,5 +1,6 @@
 import json
 import os
+import subprocess
 import sys
 
 import numpy as np
@@ -24,7 +25,7 @@ from mlflow.types import Schema, ColSpec
 
 import sklearn.datasets as datasets
 from collections import namedtuple, OrderedDict
-import sklearn.neighbors as knn
+from sklearn.neighbors import KNeighborsClassifier
 
 
 prediction = [int(1), int(2), "class1", float(0.1), 0.2]
@@ -85,14 +86,30 @@ def model_path(tmpdir):
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
 
-@pytest.fixture(scope="session")
-def sklearn_model():
+def _gen_sklearn_model():
     iris = datasets.load_iris()
     X = iris.data[:, :2]  # we only take the first two features.
     y = iris.target
-    knn_model = knn.KNeighborsClassifier()
+    knn_model = KNeighborsClassifier()
     knn_model.fit(X, y)
     return ModelWithData(model=knn_model, inference_data=X)
+
+
+def _log_sklearn_model_and_save_preditions(model_path, predictions_output_path):
+    """
+    This method is used in `test_spark_udf_with_conda_env_restored`.
+    """
+    model, infer_data = _gen_sklearn_model()
+    mlflow.sklearn.save_model(
+        sk_model=model, path=model_path,
+    )
+    with open(predictions_output_path, 'w') as f:
+        json.dump(model.predict(infer_data).tolist(), f)
+
+
+@pytest.fixture(scope="session")
+def sklearn_model():
+    return _gen_sklearn_model()
 
 
 @pytest.mark.large
@@ -144,14 +161,44 @@ def test_spark_udf(spark, model_path):
 
 
 @pytest.mark.large
-def test_spark_udf_with_conda_env_restored(spark, sklearn_model, model_path):
+def test_spark_udf_with_conda_env_restored(spark, sklearn_model, model_path, tmpdir):
     from pyspark.sql.functions import col
+    from mlflow.utils.conda import get_conda_bin_executable
 
     sklearn_log_version = "0.22.1"
-    mlflow.sklearn.save_model(
-        sk_model=sklearn_model.model, path=model_path,
-        pip_requirements=[f"scikit-learn=={sklearn_log_version}"]
-    )
+
+    tmp_conda_file_path = os.path.join(tmpdir.strpath, "conda.yaml")
+    with open(tmp_conda_file_path, "w") as f:
+        f.write(f"""
+channels:
+- conda-forge
+dependencies:
+- python=3.7.12
+- pip=22.0.3
+- pip:
+  - mlflow
+  - pytest
+  - pyspark
+  - scikit-learn=={sklearn_log_version}
+name: test_spark_udf_log_sklearn_model_env""")
+
+    conda_path = get_conda_bin_executable("conda")
+    tmp_preds_output_path = os.path.join(tmpdir.strpath, "preds.json")
+    log_sklearn_model_commands = [
+        f"conda env create -f {tmp_conda_file_path} --force",
+        f"source {os.path.dirname(conda_path)}/../etc/profile.d/conda.sh",
+        "conda activate test_spark_udf_log_sklearn_model_env",
+        f"python -c \""
+        "from tests.pyfunc.test_spark import _log_sklearn_model_and_save_preditions;"
+        f"_log_sklearn_model_and_save_preditions('{model_path}', '{tmp_preds_output_path}')\""
+    ]
+
+    # log sklearn model in created python env which sklearn=={sklearn_log_version} installed.
+    subprocess.run(["bash", "-c", " && ".join(log_sklearn_model_commands)], check=True)
+
+    with open(tmp_preds_output_path, "r") as f:
+        expected_pred_result = json.load(f)
+
     infer_data = pd.DataFrame(sklearn_model.inference_data, columns=['a', 'b'])
 
     infer_spark_df = spark.createDataFrame(infer_data).repartition(1)
@@ -166,8 +213,7 @@ def test_spark_udf_with_conda_env_restored(spark, sklearn_model, model_path):
         result = infer_spark_df.select(pyfunc_udf(col("a"), col("b")).alias("predictions")) \
             .toPandas().predictions.to_numpy()
 
-    expected_result = sklearn_model.model.predict(sklearn_model.inference_data)
-    np.testing.assert_allclose(result, expected_result, rtol=1e-5)
+    np.testing.assert_allclose(result, expected_pred_result, rtol=1e-5)
 
 
 def test_spark_udf_autofills_no_arguments(spark):

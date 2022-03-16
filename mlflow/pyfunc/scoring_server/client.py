@@ -45,7 +45,7 @@ class ScoringServerClient:
         import pandas as pd
 
         content_type_list = []
-        if type(data) == pd.DataFrame:
+        if isinstance(data, pd.DataFrame):
             content_type_list.append(scoring_server.CONTENT_TYPE_JSON)
             if pandas_orient == "records":
                 content_type_list.append(scoring_server.CONTENT_TYPE_FORMAT_RECORDS_ORIENTED)
