@@ -387,7 +387,10 @@ def _execute_in_virtualenv(local_model_path, command, install_mlflow, env_id, co
                 tmp_req_file = model_path / f"requirements.{uuid.uuid4().hex}.txt"
                 tmp_req_file.write_text("\n".join(deps))
                 _run_multiple_commands(
-                    [activate_cmd, f"pip install -r {tmp_req_file}"],
+                    # In windows `pip install pip==x.y.z` causes the following error:
+                    # `[WinError 5] Access is denied: 'C:\path\to\pip.exe`
+                    # We can avoid this issue by using `python -m`.
+                    [activate_cmd, f"python -m pip install -r {tmp_req_file}"],
                     # Run `pip install` in the model directory to refer to the requirements
                     # file correctly
                     cwd=model_path,
