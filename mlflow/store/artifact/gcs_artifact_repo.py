@@ -43,7 +43,7 @@ class GCSArtifactRepository(ArtifactRepository):
             else _DEFAULT_TIMEOUT
         )
 
-        # If the user-supplied timeout environment variable value is -1, 
+        # If the user-supplied timeout environment variable value is -1,
         # use `None` for `self._GCS_DEFAULT_TIMEOUT`
         # to use indefinite timeout
         self._GCS_DEFAULT_TIMEOUT = (
