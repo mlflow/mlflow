@@ -50,11 +50,7 @@ def _get_entrypoint():
 
 
 def _run_command(command, **kwargs):
-    prc = subprocess.Popen(
-        command,
-        shell=_is_windows(),
-        **kwargs,
-    )
+    prc = subprocess.Popen(command, **kwargs)
     returncode = prc.wait()
     if returncode != 0:
         raise Exception(
@@ -65,17 +61,11 @@ def _run_command(command, **kwargs):
 
 
 def _run_multiple_commands(commands, **kwargs):
-    _run_command([*_get_entrypoint(), _join_commands(*commands)], **kwargs)
+    _run_command(_join_commands(*commands), shell=True, **kwargs)
 
 
 def _get_output(command, env=None, **kwargs):
-    prc = subprocess.Popen(
-        command,
-        shell=_is_windows(),
-        stdout=subprocess.PIPE,
-        env=env,
-        **kwargs,
-    )
+    prc = subprocess.Popen(command, stdout=subprocess.PIPE, env=env, **kwargs)
     stdout = prc.communicate()[0].decode("utf-8")
     if prc.returncode != 0:
         raise Exception(
@@ -293,13 +283,13 @@ def _execute_in_conda_env(conda_env_path, command, install_mlflow, env_id, comma
 
 
 def _validate_pyenv_is_available():
-    prc = subprocess.run(["which", "pyenv"], check=False)
+    prc = subprocess.run(["pyenv", "--version"], check=False)
     if prc.returncode != 0:
         raise Exception("pyenv must be available to use this feature")
 
 
 def _validate_virtualenv_is_available():
-    prc = subprocess.run(["which", "virtualenv"], check=False)
+    prc = subprocess.run(["virtualenv", "--version"], check=False)
     if prc.returncode != 0:
         raise Exception("virtualenv must be available to use this feature")
 

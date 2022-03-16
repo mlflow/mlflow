@@ -377,6 +377,7 @@ jobs:
       - name: Run python tests
         run: |
           pytest --ignore-flavors --ignore=tests/projects tests
+          pytest tests/pyfunc/test_virtualenv.py
       - name: Set up Node
         uses: actions/setup-node@v1
         with:

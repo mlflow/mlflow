@@ -37,6 +37,7 @@ def serve_and_score(model_uri, data, extra_args=None):
 @pytest.fixture
 def temp_mlflow_env_root(tmp_path, monkeypatch):
     env_root = tmp_path / "envs"
+    env_root.mkdir(exist_ok=True)
     monkeypatch.setenv(_MLFLOW_ENV_ROOT_ENV_VAR, str(env_root))
     return env_root
 
