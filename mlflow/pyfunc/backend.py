@@ -386,7 +386,7 @@ def _execute_in_virtualenv(local_model_path, command, install_mlflow, env_id, co
                 build_dependencies = " ".join(python_env.build_dependencies)
                 _run_multiple_commands(
                     [activate_cmd, f"pip install {build_dependencies}"],
-                    # Run `pip install` in the model direcotry to refer to the requirements
+                    # Run `pip install` in the model directory to refer to the requirements
                     # file correctly
                     cwd=local_model_path,
                 )
@@ -395,7 +395,7 @@ def _execute_in_virtualenv(local_model_path, command, install_mlflow, env_id, co
                 dependencies = " ".join(python_env.dependencies)
                 _run_multiple_commands(
                     [activate_cmd, f"pip install {dependencies}"],
-                    # Run `pip install` in the model direcotry to refer to the requirements
+                    # Run `pip install` in the model directory to refer to the requirements
                     # file correctly
                     cwd=local_model_path,
                 )
