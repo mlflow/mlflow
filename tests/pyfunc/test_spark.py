@@ -67,7 +67,7 @@ def get_spark_session(conf):
     conf.set(key="spark_session.python.worker.reuse", value=True)
     return (
         pyspark.sql.SparkSession.builder.config(conf=conf)
-        .master("local[2]")  # local-cluster[2, 1, 1024]
+        .master("local-cluster[2, 1, 1024]")
         .getOrCreate()
     )
 
