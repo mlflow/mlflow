@@ -292,13 +292,15 @@ def _execute_in_conda_env(conda_env_path, command, install_mlflow, env_id, comma
 
 
 def _validate_pyenv_is_available():
-    # TODO
-    pass
+    prc = subprocess.run(["which", "pyenv"], check=False)
+    if prc.returncode != 0:
+        raise Exception("pyenv must be available to use this feature")
 
 
 def _validate_virtualenv_is_available():
-    # TODO
-    pass
+    prc = subprocess.run(["which", "virtualenv"], check=False)
+    if prc.returncode != 0:
+        raise Exception("virtualenv must be available to use this feature")
 
 
 def _get_env_name_for_virtualenv(string):
