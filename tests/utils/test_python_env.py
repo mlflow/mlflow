@@ -3,7 +3,7 @@ import pytest
 from mlflow.utils.environment import PythonEnv
 
 
-def test_validation():
+def test_constructor_argument_validation():
     with pytest.raises(TypeError, match="`python` must be a string"):
         PythonEnv(python=1)
 
@@ -65,7 +65,29 @@ dependencies:
     assert python_env.dependencies == ["a", "b"]
 
 
-def test_from_conda_yaml_with_invalid_conda_yaml(tmp_path):
+def test_from_conda_yaml_build_dependencies(tmp_path):
+    content = """
+name: example
+channels:
+  - conda-forge
+dependencies:
+  - python=3.7.5
+  - pip=1.2.3
+  - wheel==4.5.6
+  - setuptools<=7.8.9
+  - pip:
+    - a
+    - b
+"""
+    yaml_path = tmp_path / "conda.yaml"
+    yaml_path.write_text(content)
+    python_env = PythonEnv.from_conda_yaml(yaml_path)
+    assert python_env.python == "3.7.5"
+    assert python_env.build_dependencies == ["pip==1.2.3", "wheel==4.5.6", "setuptools<=7.8.9"]
+    assert python_env.dependencies == ["a", "b"]
+
+
+def test_from_conda_yaml_missing_python(tmp_path):
     content = """
 name: example
 channels:

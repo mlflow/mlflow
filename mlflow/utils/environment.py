@@ -34,7 +34,10 @@ class EnvManager(Enum):
     VIRTUALENV = "virtualenv"
 
 
-_PYTHON_REQUIREMENT_REGEX = re.compile(r"^python=([\d.]+)$")
+_PYTHON_REGEX = re.compile(r"^python(=|==|<=)([\d.]+)$")  # matches, e.g., "python=3.7.12"
+_BUILD_PACKAGE_REGEX = re.compile(
+    r"^(pip|setuptools|wheel)(<|>|<=|>=|=|==|!=)([\d.]+)$"
+)  # matches, e.g., "pip=22.0.4"
 
 
 class PythonEnv:
@@ -100,21 +103,30 @@ class PythonEnv:
 
         python = None
         dependencies = None
+        build_dependencies = []
         for dep in conda_env.get("dependencies", []):
             if isinstance(dep, str):
                 if not python:
-                    match = _PYTHON_REQUIREMENT_REGEX.match(dep)
+                    match = _PYTHON_REGEX.match(dep)
                     if match:
-                        python = match.group(1)
+                        python = match.group(2)
+                        continue
+
+                match = _BUILD_PACKAGE_REGEX.match(dep)
+                if match:
+                    name, operator, version = match.groups()
+                    operator = "==" if operator == "=" else operator
+                    build_dependencies.append(name + operator + version)
 
             elif _is_pip_deps(dep):
                 dependencies = dep["pip"]
 
-            if python and dependencies:
-                return cls(
-                    python=python,
-                    dependencies=dependencies,
-                )
+        if python and dependencies:
+            return cls(
+                python=python,
+                build_dependencies=build_dependencies or None,
+                dependencies=dependencies,
+            )
 
         raise ValueError(
             f"Failed to create a `PythonEnv` object from:\n{json.dumps(conda_env, indent=2)}"
