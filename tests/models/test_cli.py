@@ -506,14 +506,14 @@ patch_get_flavor_backend = mock.patch("mlflow.models.cli._get_flavor_backend")
 @patch_get_flavor_backend
 def test_future_warning_is_raised_when_no_conda_is_specified(mock_flavor_backend):
     with pytest.warns(FutureWarning, match=r"--no-conda.+deprecated"):
-        CliRunner().invoke(models_cli, ["--model-uri", "model", "--no-conda"])
+        CliRunner().invoke(models_cli.serve, ["--model-uri", "model", "--no-conda"])
     mock_flavor_backend.assert_called_once()
 
 
 def test_exception_is_thrown_when_both_no_conda_and_env_manager_are_specified():
     with pytest.raises(Exception, match="cannot be specified at the same time"):
         CliRunner().invoke(
-            models_cli,
+            models_cli.serve,
             ["--model-uri", "model", "--no-conda", "--env-manager=local"],
             catch_exceptions=False,
         )
@@ -522,7 +522,7 @@ def test_exception_is_thrown_when_both_no_conda_and_env_manager_are_specified():
 @patch_get_flavor_backend
 def test_experimental_warning_is_raised_for_virtualenv(mock_flavor_backend):
     with pytest.warns(UserWarning, match="Virtualenv support is still experimental"):
-        CliRunner().invoke(models_cli, ["--model-uri", "model", "--env-manager=virtualenv"])
+        CliRunner().invoke(models_cli.serve, ["--model-uri", "model", "--env-manager=virtualenv"])
     mock_flavor_backend.assert_called_once()
 
 
@@ -538,5 +538,5 @@ def test_experimental_warning_is_raised_for_virtualenv(mock_flavor_backend):
 @patch_get_flavor_backend
 def test_warning_is_raised_for_conda(mock_flavor_backend, additional_args):
     with pytest.warns(UserWarning, match="conda is discouraged"):
-        CliRunner().invoke(models_cli, ["--model-uri", "model", *additional_args])
+        CliRunner().invoke(models_cli.serve, ["--model-uri", "model", *additional_args])
     mock_flavor_backend.assert_called_once()
