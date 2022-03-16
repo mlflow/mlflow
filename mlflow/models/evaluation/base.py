@@ -15,7 +15,8 @@ import logging
 import struct
 import sys
 import math
-import pathlib
+import urllib
+import posixpath
 from collections import OrderedDict
 from abc import ABCMeta, abstractmethod
 
@@ -108,7 +109,8 @@ class EvaluationResult:
             uri = meta["uri"]
             ArtifactCls = _get_class_from_string(meta["class_name"])
             artifact = ArtifactCls(uri=uri)
-            artifact._load(os.path.join(artifacts_dir, pathlib.Path(uri).name))
+            filename = posixpath.basename(urllib.parse.urlparse(uri).path)
+            artifact._load(os.path.join(artifacts_dir, filename))
             artifacts[artifact_name] = artifact
 
         return EvaluationResult(metrics=metrics, artifacts=artifacts)
@@ -133,7 +135,8 @@ class EvaluationResult:
         os.mkdir(artifacts_dir)
 
         for artifact in self.artifacts.values():
-            artifact._save(os.path.join(artifacts_dir, pathlib.Path(artifact.uri).name))
+            filename = posixpath.basename(urllib.parse.urlparse(artifact.uri).path)
+            artifact._save(os.path.join(artifacts_dir, filename))
 
     @property
     def metrics(self) -> Dict[str, Any]:
