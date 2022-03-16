@@ -14,6 +14,7 @@ from mlflow.utils.rest_utils import (
     call_endpoint,
     call_endpoints,
     _can_parse_as_json_object,
+    _USER_AGENT,
 )
 from mlflow.protos.service_pb2 import GetRun
 from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, ErrorCode
@@ -245,6 +246,75 @@ def test_http_request_request_headers(request):
             "http://my-host/my/endpoint",
             verify="/some/path",
             headers={**_DEFAULT_HEADERS, "test": "header"},
+            timeout=120,
+        )
+
+
+@mock.patch("requests.Session.request")
+def test_http_request_request_headers_user_agent(request):
+    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
+
+    from mlflow_test_plugin.request_header_provider import PluginRequestHeaderProvider
+
+    # The test plugin's request header provider always returns False from in_context to avoid
+    # polluting request headers in developers' environments. The following mock overrides this to
+    # perform the integration test.
+    with mock.patch.object(
+        PluginRequestHeaderProvider, "in_context", return_value=True
+    ), mock.patch.object(
+        PluginRequestHeaderProvider,
+        "request_headers",
+        return_value={_USER_AGENT: "test_user_agent"},
+    ):
+        host_only = MlflowHostCreds("http://my-host", server_cert_path="/some/path")
+        expected_headers = {
+            _USER_AGENT: "{} {}".format(_DEFAULT_HEADERS[_USER_AGENT], "test_user_agent")
+        }
+
+        response = mock.MagicMock()
+        response.status_code = 200
+        request.return_value = response
+        http_request(host_only, "/my/endpoint", "GET")
+        request.assert_called_with(
+            "GET",
+            "http://my-host/my/endpoint",
+            verify="/some/path",
+            headers=expected_headers,
+            timeout=120,
+        )
+
+
+@mock.patch("requests.Session.request")
+def test_http_request_request_headers_user_agent_and_extra_header(request):
+    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
+
+    from mlflow_test_plugin.request_header_provider import PluginRequestHeaderProvider
+
+    # The test plugin's request header provider always returns False from in_context to avoid
+    # polluting request headers in developers' environments. The following mock overrides this to
+    # perform the integration test.
+    with mock.patch.object(
+        PluginRequestHeaderProvider, "in_context", return_value=True
+    ), mock.patch.object(
+        PluginRequestHeaderProvider,
+        "request_headers",
+        return_value={_USER_AGENT: "test_user_agent", "header": "value"},
+    ):
+        host_only = MlflowHostCreds("http://my-host", server_cert_path="/some/path")
+        expected_headers = {
+            _USER_AGENT: "{} {}".format(_DEFAULT_HEADERS[_USER_AGENT], "test_user_agent"),
+            "header": "value",
+        }
+
+        response = mock.MagicMock()
+        response.status_code = 200
+        request.return_value = response
+        http_request(host_only, "/my/endpoint", "GET")
+        request.assert_called_with(
+            "GET",
+            "http://my-host/my/endpoint",
+            verify="/some/path",
+            headers=expected_headers,
             timeout=120,
         )
 
