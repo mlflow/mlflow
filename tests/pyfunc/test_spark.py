@@ -204,7 +204,7 @@ name: test_spark_udf_log_sklearn_model_env"""
 
     infer_data = pd.DataFrame(sklearn_model.inference_data, columns=["a", "b"])
 
-    infer_spark_df = spark.createDataFrame(infer_data).repartition(1)
+    infer_spark_df = spark.createDataFrame(infer_data)
 
     monkeypatch.setenv(
         "MLFLOW_SPARK_UDF_RESTORED_ENV_MODULE_VERSION_CHECK_DICT",
