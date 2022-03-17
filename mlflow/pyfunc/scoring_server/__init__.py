@@ -190,7 +190,9 @@ def predictions_to_json(raw_predictions, output):
 
 
 def load_predictions_from_json_str(json_str):
-    raw_predictions = json.loads(json_str)  # TODO: Implement numpy decoder and set cls to be numpy decoder ?
+    raw_predictions = json.loads(
+        json_str
+    )  # TODO: Implement numpy decoder and set cls to be numpy decoder ?
     wrapper_attr_name = os.environ.get(PREDICTIONS_WRAPPER_ATTR_NAME_ENV_KEY, None)
     if wrapper_attr_name:
         raw_predictions = raw_predictions[wrapper_attr_name]

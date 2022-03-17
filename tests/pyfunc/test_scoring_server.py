@@ -628,9 +628,9 @@ def test_scoring_server_client(sklearn_model, model_path):
 
     server_proc = None
     try:
-        server_proc = start_server(port, model_path, host='127.0.0.1', no_conda=True)
+        server_proc = start_server(port, model_path, host="127.0.0.1", no_conda=True)
 
-        client = ScoringServerClient(host='127.0.0.1', port=port)
+        client = ScoringServerClient(host="127.0.0.1", port=port)
         client.wait_server_ready()
 
         assert client.get_module_version("sklearn") == sklearn.__version__

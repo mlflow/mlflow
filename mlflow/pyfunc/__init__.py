@@ -780,6 +780,7 @@ def _get_or_create_model_cache_dir():
     else:
         import atexit
         import shutil
+
         tmp_model_dir = tempfile.mkdtemp()
         atexit.register(shutil.rmtree, tmp_model_dir, ignore_errors=True)
 
@@ -879,11 +880,14 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     from pyspark.sql.types import ArrayType, DataType as SparkDataType
     from pyspark.sql.types import DoubleType, IntegerType, FloatType, LongType, StringType
     from pyspark.sql.functions import PandasUDFType
+
     # importing here to prevent circular import
     from mlflow.pyfunc.scoring_server.client import prepare_env
 
     spark_in_local_mode = spark.conf.get("spark.master").startswith("local")
     use_nfs = get_nfs_cache_root_dir() is not None
+
+    use_spark_to_broadcast_file = not (spark_in_local_mode or use_nfs)
 
     if not isinstance(result_type, SparkDataType):
         result_type = _parse_datatype_string(result_type)
@@ -906,7 +910,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     )
     # Assume spark executor python environment is the same with spark driver side.
     _warn_dependency_requirement_mismatches(local_model_path)
-    if not use_nfs and not spark_in_local_mode:
+    if use_spark_to_broadcast_file:
         archive_path = SparkModelCache.add_local_model(spark, local_model_path)
     else:
         if env_manager == "conda":
@@ -981,9 +985,10 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         else:
             return result[result.columns[0]]
 
-    MLFLOW_HOME = os.environ.get('MLFLOW_HOME', None)
-    restored_env_module_version_check_dict = \
-        os.environ.get('MLFLOW_SPARK_UDF_RESTORED_ENV_MODULE_VERSION_CHECK_DICT', None)
+    MLFLOW_HOME = os.environ.get("MLFLOW_HOME", None)
+    restored_env_module_version_check_dict = os.environ.get(
+        "MLFLOW_SPARK_UDF_RESTORED_ENV_MODULE_VERSION_CHECK_DICT", None
+    )
     if restored_env_module_version_check_dict is not None:
         restored_env_module_version_check_dict = json.loads(restored_env_module_version_check_dict)
 
@@ -991,11 +996,17 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         # Set MLFLOW_HOME env variable on spark UDF task side,
         # it is used when creating conda env / virtualenv env.
         if MLFLOW_HOME is not None:
-            os.environ['MLFLOW_HOME'] = MLFLOW_HOME
+            os.environ["MLFLOW_HOME"] = MLFLOW_HOME
 
         # importing here to prevent circular import
         from mlflow.pyfunc import scoring_server
-        from mlflow.pyfunc.scoring_server.client import ScoringServerClient, start_server, kill_server, prepare_env
+        from mlflow.pyfunc.scoring_server.client import (
+            ScoringServerClient,
+            start_server,
+            kill_server,
+            prepare_env,
+        )
+
         # Note: this is a pandas udf function in iteration style, which takes an iterator of
         # tuple of pandas.Series and outputs an iterator of pandas.Series.
 
@@ -1021,8 +1032,10 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         if env_manager == "conda":
             server_port = find_free_port()
 
-            if not use_nfs and not spark_in_local_mode:
-                local_model_path_on_executor = _SparkDirectoryDistributor.get_or_extract(archive_path)
+            if use_spark_to_broadcast_file:
+                local_model_path_on_executor = _SparkDirectoryDistributor.get_or_extract(
+                    archive_path
+                )
                 # Call "prepare env" in advance in order to reduce scoring server launch time.
                 # So that we can use a shorter timeout when call `client.wait_server_ready`,
                 # otherwise we have to set a long timeout for `client.wait_server_ready` time,
@@ -1034,7 +1047,9 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
             # launch scoring server
             # TODO: adjust timeout for server requests handler.
             scoring_server_proc = start_server(
-                server_port, local_model_path_on_executor, num_workers=1,
+                server_port,
+                local_model_path_on_executor,
+                num_workers=1,
             )
 
             client = ScoringServerClient("127.0.0.1", server_port)
@@ -1055,7 +1070,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
             raise NotImplementedError()
         elif env_manager == "local":
 
-            if not use_nfs and not spark_in_local_mode:
+            if use_spark_to_broadcast_file:
                 loaded_model, _ = SparkModelCache.get_or_load(archive_path)
             else:
                 loaded_model = mlflow.pyfunc.load_model(local_model_path)

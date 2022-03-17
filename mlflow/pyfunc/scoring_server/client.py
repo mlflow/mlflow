@@ -9,7 +9,6 @@ import json
 
 
 class ScoringServerClient:
-
     def __init__(self, host, port):
         self.url_prefix = f"http://{host}:{port}"
 
@@ -29,7 +28,7 @@ class ScoringServerClient:
                 pass
             if time.time() - begin_time > timeout:
                 break
-        raise RuntimeError('Wait scoring server ready timeout.')
+        raise RuntimeError("Wait scoring server ready timeout.")
 
     def get_module_version(self, module_name):
         """
@@ -79,33 +78,43 @@ class ScoringServerClient:
 
 def prepare_env(local_model_path, stdout=sys.stdout, stderr=sys.stderr):
     cmd = [
-        "mlflow", "models", "prepare-env", "-m", local_model_path,
+        "mlflow",
+        "models",
+        "prepare-env",
+        "-m",
+        local_model_path,
     ]
-    if 'MLFLOW_HOME' in os.environ:
+    if "MLFLOW_HOME" in os.environ:
         cmd.append("--install-mlflow")
-    return subprocess.run(
-        cmd,
-        stdout=stdout,
-        stderr=stderr,
-        universal_newlines=True,
-        check=True
-    )
+    return subprocess.run(cmd, stdout=stdout, stderr=stderr, universal_newlines=True, check=True)
 
 
 def start_server(
-        server_port, local_model_path,
-        host='127.0.0.1', num_workers=1,
-        no_conda=False,
-        env=None, stdout=sys.stdout, stderr=sys.stderr,
+    server_port,
+    local_model_path,
+    host="127.0.0.1",
+    num_workers=1,
+    no_conda=False,
+    env=None,
+    stdout=sys.stdout,
+    stderr=sys.stderr,
 ):
     cmd = [
-        "mlflow", "models", "serve", "-m", local_model_path,
-        "-h", host,
-        "-p", str(server_port), "-w", str(num_workers),
+        "mlflow",
+        "models",
+        "serve",
+        "-m",
+        local_model_path,
+        "-h",
+        host,
+        "-p",
+        str(server_port),
+        "-w",
+        str(num_workers),
     ]
     if no_conda:
         cmd.append("--no-conda")
-    elif 'MLFLOW_HOME' in os.environ:
+    elif "MLFLOW_HOME" in os.environ:
         cmd.append("--install-mlflow")
 
     if os.name != "nt":

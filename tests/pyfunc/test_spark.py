@@ -101,9 +101,10 @@ def _log_sklearn_model_and_save_preditions(model_path, predictions_output_path):
     """
     model, infer_data = _gen_sklearn_model()
     mlflow.sklearn.save_model(
-        sk_model=model, path=model_path,
+        sk_model=model,
+        path=model_path,
     )
-    with open(predictions_output_path, 'w') as f:
+    with open(predictions_output_path, "w") as f:
         json.dump(model.predict(infer_data).tolist(), f)
 
 
@@ -169,7 +170,8 @@ def test_spark_udf_with_conda_env_restored(spark, sklearn_model, model_path, tmp
 
     tmp_conda_file_path = os.path.join(tmpdir.strpath, "conda.yaml")
     with open(tmp_conda_file_path, "w") as f:
-        f.write(f"""
+        f.write(
+            f"""
 channels:
 - conda-forge
 dependencies:
@@ -180,7 +182,8 @@ dependencies:
   - pytest
   - pyspark
   - scikit-learn=={sklearn_log_version}
-name: test_spark_udf_log_sklearn_model_env""")
+name: test_spark_udf_log_sklearn_model_env"""
+        )
 
     conda_path = get_conda_bin_executable("conda")
     tmp_preds_output_path = os.path.join(tmpdir.strpath, "preds.json")
@@ -188,9 +191,9 @@ name: test_spark_udf_log_sklearn_model_env""")
         f"conda env create -f {tmp_conda_file_path} --force",
         f"source {os.path.dirname(conda_path)}/../etc/profile.d/conda.sh",
         "conda activate test_spark_udf_log_sklearn_model_env",
-        f"python -c \""
+        f'python -c "'
         "from tests.pyfunc.test_spark import _log_sklearn_model_and_save_preditions;"
-        f"_log_sklearn_model_and_save_preditions('{model_path}', '{tmp_preds_output_path}')\""
+        f"_log_sklearn_model_and_save_preditions('{model_path}', '{tmp_preds_output_path}')\"",
     ]
 
     # log sklearn model in created python env which sklearn=={sklearn_log_version} installed.
@@ -199,17 +202,20 @@ name: test_spark_udf_log_sklearn_model_env""")
     with open(tmp_preds_output_path, "r") as f:
         expected_pred_result = json.load(f)
 
-    infer_data = pd.DataFrame(sklearn_model.inference_data, columns=['a', 'b'])
+    infer_data = pd.DataFrame(sklearn_model.inference_data, columns=["a", "b"])
 
     infer_spark_df = spark.createDataFrame(infer_data).repartition(1)
 
     monkeypatch.setenv(
         "MLFLOW_SPARK_UDF_RESTORED_ENV_MODULE_VERSION_CHECK_DICT",
-        json.dumps({"sklearn": sklearn_log_version})
+        json.dumps({"sklearn": sklearn_log_version}),
     )
     pyfunc_udf = spark_udf(spark, model_path, env_manager="conda")
-    result = infer_spark_df.select(pyfunc_udf(col("a"), col("b")).alias("predictions")) \
-        .toPandas().predictions.to_numpy()
+    result = (
+        infer_spark_df.select(pyfunc_udf(col("a"), col("b")).alias("predictions"))
+        .toPandas()
+        .predictions.to_numpy()
+    )
 
     np.testing.assert_allclose(result, expected_pred_result, rtol=1e-5)
 
