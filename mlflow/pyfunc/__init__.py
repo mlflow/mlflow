@@ -248,6 +248,7 @@ from mlflow.utils.environment import (
     _CONSTRAINTS_FILE_NAME,
 )
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.exceptions import MlflowException
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.protos.databricks_pb2 import (
@@ -717,7 +718,15 @@ def load_model(
 
 
 def print_model_dependencies(model_uri):
-    pass
+    local_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=None)
+    req_file_path = os.path.join(local_path, _REQUIREMENTS_FILE_NAME)
+    print(f"model {model_uri} dependencies:")
+    with open(req_file_path, "r") as f:
+        print(f.read())
+    print("\n")
+    if is_in_databricks_runtime():
+        print(f"On databricks notebook, you can run command '%pip install -r {req_file_path}' "
+              "to install all dependencies required by the model.")
 
 
 @deprecated("mlflow.pyfunc.load_model", 1.0)
