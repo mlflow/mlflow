@@ -718,6 +718,11 @@ def load_model(
 
 
 def print_model_dependencies(model_uri):
+    """
+    Given a model URL, print model dependencies provided by model’s requirements.txt file.
+    And for databricks runtime, also print an instruction to update python environment with
+    the model dependencies.
+    """
     local_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=None)
     req_file_path = os.path.join(local_path, _REQUIREMENTS_FILE_NAME)
     print(f"model {model_uri} dependencies:")
@@ -726,7 +731,8 @@ def print_model_dependencies(model_uri):
     print("\n")
     if is_in_databricks_runtime():
         print(f"On databricks notebook, you can run command '%pip install -r {req_file_path}' "
-              "to install all dependencies required by the model.")
+              "to update current python environment with model’s requirements.txt, and rerun "
+              "inference commands.")
 
 
 @deprecated("mlflow.pyfunc.load_model", 1.0)
