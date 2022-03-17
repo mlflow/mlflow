@@ -872,6 +872,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     # functionality.
     import functools
     from mlflow.pyfunc.spark_model_cache import SparkModelCache
+    from mlflow.utils._spark_utils import _SparkDirectoryDistributor
     from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
     from pyspark.sql.functions import pandas_udf
     from pyspark.sql.types import _parse_datatype_string
@@ -915,8 +916,8 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
 
     model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
 
-    def _predict_row_batch(model, client, args):
-        input_schema = model.metadata.get_input_schema()
+    def _predict_row_batch(predict_fn, args):
+        input_schema = model_metadata.get_input_schema()
         pdf = None
 
         for x in args:
@@ -944,10 +945,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                     )
             pdf = pandas.DataFrame(data={names[i]: x for i, x in enumerate(args)}, columns=names)
 
-        if client is None:
-            result = model.predict(pdf)
-        else:
-            result = client.invoke(pdf)
+        result = predict_fn(pdf)
 
         if not isinstance(result, pandas.DataFrame):
             result = pandas.DataFrame(data=result)
@@ -1000,11 +998,6 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         from mlflow.pyfunc.scoring_server.client import ScoringServerClient, start_server, kill_server, prepare_env
         # Note: this is a pandas udf function in iteration style, which takes an iterator of
         # tuple of pandas.Series and outputs an iterator of pandas.Series.
-        if not use_nfs and not spark_in_local_mode:
-            model, local_model_path_on_executor = SparkModelCache.get_or_load(archive_path)
-        else:
-            model = mlflow.pyfunc.load_model(local_model_path)
-            local_model_path_on_executor = local_model_path
 
         scoring_server_proc = None
 
@@ -1028,13 +1021,16 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         if env_manager == "conda":
             server_port = find_free_port()
 
-            # Call "prepare env" in advance in order to reduce scoring server launch time.
-            # So that we can use a shorter timeout when call `client.wait_server_ready`,
-            # otherwise we have to set a long timeout for `client.wait_server_ready` time,
-            # this prevents spark UDF task failing fast if other exception raised when scoring
-            # server launching.
             if not use_nfs and not spark_in_local_mode:
+                local_model_path_on_executor = _SparkDirectoryDistributor.get_or_extract(archive_path)
+                # Call "prepare env" in advance in order to reduce scoring server launch time.
+                # So that we can use a shorter timeout when call `client.wait_server_ready`,
+                # otherwise we have to set a long timeout for `client.wait_server_ready` time,
+                # this prevents spark UDF task failing fast if other exception raised when scoring
+                # server launching.
                 prepare_env(local_model_path_on_executor)
+            else:
+                local_model_path_on_executor = local_model_path
             # launch scoring server
             # TODO: adjust timeout for server requests handler.
             scoring_server_proc = start_server(
@@ -1052,17 +1048,28 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                 for module, expected_version in restored_env_module_version_check_dict.items():
                     assert client.get_module_version(module) == expected_version
 
+            def batch_predict_fn(pdf):
+                return client.invoke(pdf)
+
         elif env_manager == "virtualenv":
             raise NotImplementedError()
         elif env_manager == "local":
-            client = None
+
+            if not use_nfs and not spark_in_local_mode:
+                loaded_model, _ = SparkModelCache.get_or_load(archive_path)
+            else:
+                loaded_model = mlflow.pyfunc.load_model(local_model_path)
+
+            def batch_predict_fn(pdf):
+                return loaded_model.predict(pdf)
+
         else:
             raise ValueError()
 
         try:
             for row_batch in iterator:
                 # the `row_batch` is a tuple which composes of several pd.Series/pd.DataFrame objects.
-                yield _predict_row_batch(model, client, row_batch)
+                yield _predict_row_batch(batch_predict_fn, row_batch)
         finally:
             # TODO: Keep scoring server running until python process exit.
             #  Because when "spark.python.worker.reuse" is True, mutiple python UDF tasks
