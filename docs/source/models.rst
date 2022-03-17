@@ -1306,37 +1306,42 @@ Deploy a ``python_function`` model on Microsoft Azure ML
 
 The MLflow plugin `azureml-mlflow <https://pypi.org/project/azureml-mlflow/>`_ can deploy models to Azure ML, either to Azure Kubernetes Service (AKS) or Azure Container Instances (ACI) for real-time serving. 
 
-The resulting container image contains a web server that accepts the following data formats as input:
+The resulting deployment accepts the following data formats as input:
 
 * JSON-serialized pandas DataFrames in the ``split`` orientation. For example, ``data = pandas_df.to_json(orient='split')``. This format is specified using a ``Content-Type`` request header value of ``application/json``.
 
-Deployments can be generated using both the Python API or MLflow CLI. On both cases, a ``JSON`` configuration file has to be specified with the details of the deployment you want to achieve. If not indicated, then a default deployment is done using Azure Container Instances (ACI). You can check the full specification at `Deployment configuration schema <https://docs.microsoft.com/en-us/azure/machine-learning/reference-azure-machine-learning-cli#deployment-configuration-schema>`_. The deployment configuration file looks as follows:
+Deployments can be generated using both the Python API or MLflow CLI. On both cases, a ``JSON`` configuration file can be indicated with the details of the deployment you want to achieve. If not indicated, then a default deployment is done using Azure Container Instances (ACI) and a minimal configuration. The full specification of this configuration file can be checked at `Deployment configuration schema <https://docs.microsoft.com/en-us/azure/machine-learning/reference-azure-machine-learning-cli#deployment-configuration-schema>`_. On both cases, you will also need the Azure ML MLFlow Tracking URI of your particular Azure ML Workspace where you want to deploy your model. You can obtain this URI in several ways:
 
-.. rubric:: For an ACI deployment
+* In the `Azure ML portal <https://ml.azure.com>`_, in the upper right corner, clic on the name of the workspace and on the pop-up blade that will show-up, clic on ``View all properties in Azure Portal``. In the properties panel, you will see the value corresponding to ``MLflow tracking URI``.
+* Programmatically, using Azure ML SDK with the method `Woskspace.get_mlflow_tracking_uri() <https://docs.microsoft.com/en-us/python/api/azureml-core/azureml.core.workspace.workspace?view=azure-ml-py#azureml-core-workspace-workspace-get-mlflow-tracking-uri>`_. If you are running inside Azure ML Compute, like for instance a Compute Instace, you can get this value also from the environment variable ``os.environ["MLFLOW_TRACKING_URI"]``.
+* Manually, for a given Subscription ID, Resource Group and Azure ML Workspace, the URI is as follows: ``azureml://eastus.api.azureml.ms/mlflow/v1.0/subscriptions/<SUBSCRIPTION_ID>/resourceGroups/<RESOURCE_GROUP_NAME>/providers/Microsoft.MachineLearningServices/workspaces/<WORKSPACE_NAME>``
+
+
+.. rubric:: Configuration example for ACI deployment
 
 .. code-block:: json
 
     {
-      computeType: aci,
-      containerResourceRequirements: 
+      "computeType": "aci",
+      "containerResourceRequirements: 
       {
-        cpu: 1,
-        memoryInGB: 1
+        "cpu": 1,
+        "memoryInGB": 1
       },
-      location: eastus2,
+      "location": "eastus2",
     }
 
 Remarks:
  * If ``containerResourceRequirements`` is not indicated, a deployment with minimal compute configuration is applied (``cpu: 0.1`` and ``memory: 0.5``).
  * If ``location`` is not indicated, it defaults to the location of the workspace.
 
-.. rubric:: For an AKS deployment
+.. rubric:: Configuration example for an AKS deployment
 
 .. code-block:: json
 
     {
-      computeType: aks,
-      computeTargetName: aks-mlflow
+      "computeType": "aks",
+      "computeTargetName": "aks-mlflow"
     }
 
 Remarks:
@@ -1362,8 +1367,8 @@ The following examples show how to create a deployment in ACI. Please, ensure yo
     with open(deployment_config_path, "w") as outfile:
         outfile.write(json.dumps(deploy_config))
 
-    # Set the tracking uri as the deployment client.
-    client = get_deploy_client(mlflow.get_tracking_uri())
+    # Set the tracking uri in the deployment client.
+    client = get_deploy_client("<azureml-mlflow-tracking-url>")
 
     # MLflow requires the deployment configuration to be passed as a dictionary.
     config = {'deploy-config-file': deployment_config_path}
@@ -1383,10 +1388,11 @@ The following examples show how to create a deployment in ACI. Please, ensure yo
 .. rubric:: Example: Workflow using the MLflow CLI
 
 .. code-block:: bash
-
+    
+    echo "{ computeType: aci }" > deployment_config.json
     mlflow deployments create --name <deployment-name> -m models:/<model-name>/<model-version> -t <azureml-mlflow-tracking-url> --deploy-config-file deployment_config.json
 
-    # After the image deployment completes, requests can be posted via HTTP to the new ACI
+    # After the deployment completes, requests can be posted via HTTP to the new ACI
     # webservice's scoring URI.
 
     scoring_uri=$(az ml service show --name <deployment-name> -v | jq -r ".scoringUri")
