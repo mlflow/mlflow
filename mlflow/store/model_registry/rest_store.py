@@ -316,7 +316,7 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(GetModelVersion, req_body)
         return ModelVersion.from_proto(response_proto.model_version)
 
-    def get_model_version_download_uri(self, name, version):
+    def get_model_version_download_uri(self, name, version, use_signed_url=False):
         """
         Get the download location in Model Registry for this model version.
         NOTE: For first version of Model Registry, since the models are not copied over to another
@@ -326,7 +326,7 @@ class RestStore(AbstractStore):
         :param version: Registered model version.
         :return: A single URI location that allows reads for downloading.
         """
-        req_body = message_to_json(GetModelVersionDownloadUri(name=name, version=str(version)))
+        req_body = message_to_json(GetModelVersionDownloadUri(name=name, version=str(version), use_signed_url=use_signed_url))
         response_proto = self._call_endpoint(GetModelVersionDownloadUri, req_body)
         return response_proto.artifact_uri
 

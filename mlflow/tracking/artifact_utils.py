@@ -7,6 +7,9 @@ import posixpath
 import shutil
 import tempfile
 import urllib.parse
+import urllib.request
+import requests
+import json
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -55,12 +58,18 @@ def get_artifact_uri(run_id, artifact_path=None, tracking_uri=None):
 
 # TODO: This would be much simpler if artifact_repo.download_artifacts could take the absolute path
 # or no path.
-def _download_artifact_from_uri(artifact_uri, output_path=None):
+def _download_artifact_from_uri(artifact_uri, output_path=None, use_signed_url=False):
     """
     :param artifact_uri: The *absolute* URI of the artifact to download.
     :param output_path: The local filesystem path to which to download the artifact. If unspecified,
                         a local output path will be created.
     """
+    if use_signed_url:
+        if output_path is None:
+            output_path = tempfile.mkdtemp()
+        output_path = os.path.abspath(output_path)
+        return download_from_signed_url(json.loads(artifact_uri), output_path)
+
     if os.path.exists(artifact_uri):
         if os.name != "nt":
             # If we're dealing with local files, just reference the direct pathing.
@@ -96,6 +105,19 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
         artifact_path=artifact_path, dst_path=output_path
     )
 
+def download_from_signed_url(signed_uri_list, local_path):
+    for signed_uri in signed_uri_list:
+        name = signed_uri["name"]
+        if not name:
+            name = artifact_path
+        file_path = f'{local_path}/{name}'
+        directory = os.path.dirname(file_path)
+
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+
+        urllib.request.urlretrieve(signed_uri["uri"], file_path)
+    return local_path
 
 def _upload_artifacts_to_databricks(
     source, run_id, source_host_uri=None, target_databricks_profile_uri=None

@@ -32,8 +32,9 @@ def commands():
 @cli_args.NO_CONDA
 @cli_args.INSTALL_MLFLOW
 @cli_args.ENABLE_MLSERVER
+@cli_args.USE_SIGNED_URL
 def serve(
-    model_uri, port, host, workers, no_conda=False, install_mlflow=False, enable_mlserver=False
+    model_uri, port, host, workers, no_conda=False, install_mlflow=False, enable_mlserver=False, use_signed_url=False
 ):
     """
     Serve a model saved with MLflow by launching a webserver on the specified host and port.
@@ -54,10 +55,10 @@ def serve(
             "data": [[1, 2, 3], [4, 5, 6]]
         }'
     """
-    return _get_flavor_backend(
-        model_uri, no_conda=no_conda, workers=workers, install_mlflow=install_mlflow
-    ).serve(model_uri=model_uri, port=port, host=host, enable_mlserver=enable_mlserver)
-
+    flavor_backend, local_path = _get_flavor_backend(
+        model_uri, no_conda=no_conda, workers=workers, install_mlflow=install_mlflow, use_signed_url=use_signed_url
+    )
+    return flavor_backend.serve(model_uri=local_path, port=port, host=host, enable_mlserver=enable_mlserver)
 
 @commands.command("predict")
 @cli_args.MODEL_URI
@@ -100,8 +101,9 @@ def predict(
     """
     if content_type == "json" and json_format not in ("split", "records"):
         raise Exception("Unsupported json format '{}'.".format(json_format))
-    return _get_flavor_backend(model_uri, no_conda=no_conda, install_mlflow=install_mlflow).predict(
-        model_uri=model_uri,
+    flavor_backend, local_path = _get_flavor_backend(model_uri, no_conda=no_conda, install_mlflow=install_mlflow)
+    return flavor_backend.predict(
+        model_uri=local_path,
         input_path=input_path,
         output_path=output_path,
         content_type=content_type,
@@ -113,15 +115,17 @@ def predict(
 @cli_args.MODEL_URI
 @cli_args.NO_CONDA
 @cli_args.INSTALL_MLFLOW
-def prepare_env(model_uri, no_conda, install_mlflow):
+@cli_args.USE_SIGNED_URL
+def prepare_env(model_uri, no_conda, install_mlflow, use_signed_url=False):
     """
     Performs any preparation necessary to predict or serve the model, for example
     downloading dependencies or initializing a conda environment. After preparation,
     calling predict or serve should be fast.
     """
-    return _get_flavor_backend(
-        model_uri, no_conda=no_conda, install_mlflow=install_mlflow
-    ).prepare_env(model_uri=model_uri)
+    flavor_backend, local_path = _get_flavor_backend(
+        model_uri, no_conda=no_conda, install_mlflow=install_mlflow, use_signed_url=use_signed_url
+    )
+    return flavor_backend.prepare_env(model_uri=local_path)
 
 
 @commands.command("build-docker")
@@ -160,8 +164,9 @@ def build_docker(model_uri, name, install_mlflow, enable_mlserver):
     'python_function' flavor.
     """
     mlflow_home = os.environ.get("MLFLOW_HOME", None)
-    _get_flavor_backend(model_uri, docker_build=True).build_image(
-        model_uri,
+    flavor_backend, local_path = _get_flavor_backend(model_uri, docker_build=True)
+    flavor_backend.build_image(
+        local_path,
         name,
         mlflow_home=mlflow_home,
         install_mlflow=install_mlflow,
@@ -172,17 +177,17 @@ def build_docker(model_uri, name, install_mlflow, enable_mlserver):
 def _get_flavor_backend(model_uri, **kwargs):
     from mlflow.models.flavor_backend_registry import get_flavor_backend
 
-    with TempDir() as tmp:
+    with TempDir(remove_on_exit=False) as tmp:
         if ModelsArtifactRepository.is_models_uri(model_uri):
-            underlying_model_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
+            underlying_model_uri = ModelsArtifactRepository.get_underlying_uri(model_uri, use_signed_url=kwargs['use_signed_url'])
         else:
             underlying_model_uri = model_uri
         local_path = _download_artifact_from_uri(
-            append_to_uri_path(underlying_model_uri, MLMODEL_FILE_NAME), output_path=tmp.path()
+            underlying_model_uri, output_path=tmp.path(), use_signed_url=kwargs['use_signed_url']
         )
-        model = Model.load(local_path)
+        model = Model.load(append_to_uri_path(local_path, MLMODEL_FILE_NAME))
     flavor_name, flavor_backend = get_flavor_backend(model, **kwargs)
     if flavor_backend is None:
         raise Exception("No suitable flavor backend was found for the model.")
     _logger.info("Selected backend for flavor '%s'", flavor_name)
-    return flavor_backend
+    return flavor_backend, local_path
