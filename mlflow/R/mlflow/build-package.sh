@@ -3,7 +3,6 @@ set -ex
 
 image_name="mlflow-r-dev"
 
-# Set the default to false if R-devel is unstable
 if [ "${USE_DEVEL:-false}" = "true" ]
 then
   docker_file="Dockerfile.devel"
