@@ -178,9 +178,9 @@ dependencies:
 - python=3.7.12
 - pip=22.0.3
 - pip:
-  - mlflow
-  - pytest
-  - pyspark
+  - mlflow==1.24.0
+  - pytest==6.2.5
+  - pyspark==3.2.0
   - scikit-learn=={sklearn_log_version}
 name: test_spark_udf_log_sklearn_model_env"""
         )
