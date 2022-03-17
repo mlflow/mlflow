@@ -1,5 +1,8 @@
 FROM rocker/r-ver:devel
 
+# Daily News about R-devel:
+# https://developer.r-project.org/blosxom.cgi/R-devel
+
 WORKDIR /mlflow/mlflow/R/mlflow
 RUN apt-get update -y
 RUN apt-get install git wget libxml2-dev libgit2-dev libfontconfig1-dev \
