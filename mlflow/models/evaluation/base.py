@@ -16,7 +16,7 @@ import struct
 import sys
 import math
 import urllib
-import posixpath
+import pathlib
 from collections import OrderedDict
 from abc import ABCMeta, abstractmethod
 
@@ -109,7 +109,7 @@ class EvaluationResult:
             uri = meta["uri"]
             ArtifactCls = _get_class_from_string(meta["class_name"])
             artifact = ArtifactCls(uri=uri)
-            filename = posixpath.basename(urllib.parse.urlparse(uri).path)
+            filename = pathlib.Path(urllib.parse.urlparse(uri).path).name
             artifact._load(os.path.join(artifacts_dir, filename))
             artifacts[artifact_name] = artifact
 
@@ -135,7 +135,7 @@ class EvaluationResult:
         os.mkdir(artifacts_dir)
 
         for artifact in self.artifacts.values():
-            filename = posixpath.basename(urllib.parse.urlparse(artifact.uri).path)
+            filename = pathlib.Path(urllib.parse.urlparse(artifact.uri).path).name
             artifact._save(os.path.join(artifacts_dir, filename))
 
     @property
