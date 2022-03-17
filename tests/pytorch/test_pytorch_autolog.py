@@ -44,9 +44,9 @@ def pytorch_model_without_validation():
     return trainer, run
 
 
-@pytest.fixture
-def pytorch_model_with_every_step_logged():
-    mlflow.pytorch.autolog(log_every_n_step=1)
+@pytest.fixture(params=[1, 10])
+def pytorch_model_with_steps_logged(request):
+    mlflow.pytorch.autolog(log_every_n_step=request.param)
     model = IrisClassification()
     dm = IrisDataModule()
     dm.setup(stage="fit")
@@ -54,7 +54,7 @@ def pytorch_model_with_every_step_logged():
     trainer.fit(model, dm)
     client = mlflow.tracking.MlflowClient()
     run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
-    return trainer, run
+    return trainer, run, request.param
 
 
 @pytest.mark.parametrize("log_models", [True, False])
@@ -132,19 +132,19 @@ def test_pytorch_autolog_logs_expected_metrics_without_validation(pytorch_model_
     "LoggerConnector.cached_results was added",
 )
 def test_pytorch_autolog_logging_forked_metrics_on_step_and_epoch(
-    pytorch_model_with_every_step_logged,
+    pytorch_model_with_steps_logged,
 ):
     # When autolog is configured to log on steps as well as epochs,
     # then we only log step based metrics per step and not on epochs.
-    trainer, run = pytorch_model_with_every_step_logged
-    num_steps = trainer.global_step
+    trainer, run, log_every_n_step = pytorch_model_with_steps_logged
+    num_logged_steps = trainer.global_step / log_every_n_step
 
     client = mlflow.tracking.MlflowClient()
     for (metric_key, expected_len) in [
         ("train_acc", NUM_EPOCHS),
-        ("loss", num_steps),
+        ("loss", num_logged_steps),
         ("loss_forked", NUM_EPOCHS),
-        ("loss_forked_step", num_steps),
+        ("loss_forked_step", num_logged_steps),
         ("loss_forked_epoch", NUM_EPOCHS),
     ]:
         assert metric_key in run.data.metrics, f"Missing {metric_key} in metrics"
