@@ -156,6 +156,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None):
                         "create",
                         "--channel",
                         "conda-forge",
+                        "--yes",
                         "--override-channels",
                         "-n",
                         project_env_name,
