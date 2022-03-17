@@ -84,6 +84,11 @@ def _get_conda_executable_for_create_env():
     return conda_env_create_path
 
 
+def _list_conda_environments():
+    (_, stdout, _) = process.exec_cmd([get_conda_bin_executable("conda"), "env", "list", "--json"])
+    return [os.path.basename(env) for env in json.loads(stdout)["envs"]]
+
+
 def get_or_create_conda_env(conda_env_path, env_id=None):
     """
     Given a `Project`, creates a conda environment containing the project's dependencies if such a
@@ -126,36 +131,55 @@ def get_or_create_conda_env(conda_env_path, env_id=None):
             )
         )
 
-    (_, stdout, _) = process.exec_cmd([conda_path, "env", "list", "--json"])
-    env_names = [os.path.basename(env) for env in json.loads(stdout)["envs"]]
+    env_names = _list_conda_environments()
     project_env_name = _get_conda_env_name(conda_env_path, env_id)
     if project_env_name not in env_names:
         _logger.info("=== Creating conda environment %s ===", project_env_name)
-        if conda_env_path:
-            process.exec_cmd(
-                [
-                    conda_env_create_path,
-                    "env",
-                    "create",
-                    "-n",
+        try:
+            if conda_env_path:
+                process.exec_cmd(
+                    [
+                        conda_env_create_path,
+                        "env",
+                        "create",
+                        "-n",
+                        project_env_name,
+                        "--file",
+                        conda_env_path,
+                    ],
+                    stream_output=True,
+                )
+            else:
+                process.exec_cmd(
+                    [
+                        conda_env_create_path,
+                        "create",
+                        "--channel",
+                        "conda-forge",
+                        "--override-channels",
+                        "-n",
+                        project_env_name,
+                        "python",
+                    ],
+                    stream_output=True,
+                )
+        except Exception:
+            if project_env_name in _list_conda_environments():
+                _logger.warning(
+                    "Encountered unexpected error while creating conda environment. Removing %s",
                     project_env_name,
-                    "--file",
-                    conda_env_path,
-                ],
-                stream_output=True,
-            )
-        else:
-            process.exec_cmd(
-                [
-                    conda_env_create_path,
-                    "create",
-                    "--channel",
-                    "conda-forge",
-                    "--override-channels",
-                    "-n",
-                    project_env_name,
-                    "python",
-                ],
-                stream_output=True,
-            )
+                )
+                process.exec_cmd(
+                    [
+                        conda_path,
+                        "remove",
+                        "--yes",
+                        "--name",
+                        project_env_name,
+                        "--all",
+                    ],
+                    stream_output=True,
+                )
+            raise
+
     return project_env_name
