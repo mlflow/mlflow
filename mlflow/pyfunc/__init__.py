@@ -1086,14 +1086,6 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                 # the `row_batch` is a tuple which composes of several pd.Series/pd.DataFrame objects.
                 yield _predict_row_batch(batch_predict_fn, row_batch)
         finally:
-            # TODO: Keep scoring server running until python process exit.
-            #  Because when "spark.python.worker.reuse" is True, mutiple python UDF tasks
-            #  (one task per dataframe partition) might share one python process, so that
-            #  we can avoid to launch scoring server when every python UDF task started and
-            #  kill it when every python UDF task finished.
-
-            # TODO: use process control (prctl) to ask the system to send SIGTERM to the scoring server
-            #  process when its parent (Python worker) is dead.
             if scoring_server_proc is not None:
                 kill_server(scoring_server_proc)
 

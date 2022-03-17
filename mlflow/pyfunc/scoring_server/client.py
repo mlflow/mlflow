@@ -7,6 +7,7 @@ import sys
 import signal
 import json
 import atexit
+import warnings
 
 
 class ScoringServerClient:
@@ -99,7 +100,7 @@ def start_server(
     env=None,
     stdout=sys.stdout,
     stderr=sys.stderr,
-    kill_server_when_parent_exit=True,
+    sigterm_on_parent_death=True,
 ):
     cmd = [
         "mlflow",
@@ -126,9 +127,14 @@ def start_server(
         This handles the case when the parent is a PySpark worker process.
         If a user cancels the PySpark job, the worker process gets killed, regardless of
         PySpark daemon and worker reuse settings.
-        We use prctl to ensure the command process receives SIGTERM after job cancellation.
-        The command process itself should handle SIGTERM properly, which is true for `mpirun`.
+        We use prctl to ensure the command process receives SIGTERM after spark job cancellation.
+        The command process itself should handle SIGTERM properly.
         This is a no-op on macOS because prctl is not supported.
+
+        Note: we cannot use `atexit` registering "kill_server" handler to replace `prctl` because:
+        The functions registered via "atexit" are not called when the program is killed
+        by a signal not handled by Python, when a Python fatal internal error is detected, or
+        when os._exit().
         """
         try:
             import ctypes
@@ -137,6 +143,10 @@ def start_server(
             libc.prctl(1,  # PR_SET_PDEATHSIG, see prctl.h
                        signal.SIGTERM)
         except OSError:
+            # TODO: find approach for supporting MacOS/Windows system which does not have prctl.
+            warnings.warn(
+                "System does not support prctl, so when spark job canceled, we have no "
+                "way to kill the scoring server if the server launched inside spark UDF.")
             pass
 
     def preexec_fn():
@@ -144,7 +154,7 @@ def start_server(
         # scoring process will be assigned to this group as well. This allows child
         # processes of the scoring process to be terminated successfully.
         os.setsid()
-        if kill_server_when_parent_exit:
+        if sigterm_on_parent_death:
             sigterm_on_parent_death()
 
     if os.name != "nt":
@@ -170,16 +180,6 @@ def start_server(
             # https://stackoverflow.com/questions/47016723/windows-equivalent-for-spawning-and-killing-separate-process-group-in-python-3
             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
         )
-
-    if kill_server_when_parent_exit:
-        # Note: The functions registered via "atexit" are not called when the program is killed
-        # by a signal not handled by Python, when a Python fatal internal error is detected, or
-        # when os._exit().
-        # So we also register a preexec_fn "sigterm_on_parent_death" to kill the sub-proc when
-        # parent process exit.
-        # TODO: "sigterm_on_parent_death" only supports linux system.
-        #  We need to find approach to support macOS and windows system.
-        atexit.register(kill_server, proc)
 
     return proc
 
