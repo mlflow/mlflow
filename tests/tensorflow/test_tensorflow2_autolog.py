@@ -646,13 +646,13 @@ def create_tf_estimator_model(directory, export, training_steps=100, use_v1_esti
 
         return dataset.batch(batch_size)
 
-    my_feature_columns = []
-    for key in train.keys():
-        my_feature_columns.append(tf.feature_column.numeric_column(key=key))
+    my_feature_columns = [tf.feature_column.numeric_column(key=key) for key in train.keys()]
 
-    feature_spec = {}
-    for feature in CSV_COLUMN_NAMES:
-        feature_spec[feature] = tf.Variable([], dtype=tf.float64, name=feature)
+    feature_spec = {
+        feature: tf.Variable([], dtype=tf.float64, name=feature)
+        for feature in CSV_COLUMN_NAMES
+        if feature != "Species"
+    }
 
     receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
 
@@ -687,6 +687,170 @@ def create_tf_estimator_model(directory, export, training_steps=100, use_v1_esti
     classifier.train(input_fn=lambda: input_fn(train, train_y, training=True), steps=training_steps)
     if export:
         classifier.export_saved_model(directory, receiver_fn)
+
+
+@pytest.fixture
+def iris_dataset_spec():
+    return [
+        {
+            "name": "SepalLength",
+            "type": "tensor",
+            "tensor-spec": {"dtype": "float64", "shape": [-1]},
+        },
+        {
+            "name": "SepalWidth",
+            "type": "tensor",
+            "tensor-spec": {"dtype": "float64", "shape": [-1]},
+        },
+        {
+            "name": "PetalLength",
+            "type": "tensor",
+            "tensor-spec": {"dtype": "float64", "shape": [-1]},
+        },
+        {
+            "name": "PetalWidth",
+            "type": "tensor",
+            "tensor-spec": {"dtype": "float64", "shape": [-1]},
+        },
+    ]
+
+
+@pytest.fixture
+def tf_iris_estimator_prediction_schema():
+    return [
+        {
+            "name": "logits",
+            "type": "tensor",
+            "tensor-spec": {"dtype": "float32", "shape": [-1]},
+        },
+        {
+            "name": "probabilities",
+            "type": "tensor",
+            "tensor-spec": {"dtype": "float32", "shape": [-1]},
+        },
+        {
+            "name": "class_ids",
+            "type": "tensor",
+            "tensor-spec": {"dtype": "int64", "shape": [-1]},
+        },
+        {
+            "name": "classes",
+            "type": "tensor",
+            "tensor-spec": {"dtype": "object", "shape": [-1]},
+        },
+        {
+            "name": "all_class_ids",
+            "type": "tensor",
+            "tensor-spec": {"dtype": "int32", "shape": [-1]},
+        },
+        {
+            "name": "all_classes",
+            "type": "tensor",
+            "tensor-spec": {"dtype": "object", "shape": [-1]},
+        },
+    ]
+
+
+def train_tf_titanic_estimator(directory, input_data_type):
+    def train_input_fn():
+        titanic_file = tf.keras.utils.get_file(
+            "titanic_train.csv", "https://storage.googleapis.com/tf-datasets/titanic/train.csv"
+        )
+        input_data = {
+            k: tf.convert_to_tensor(list(v.values()))
+            for k, v in pd.read_csv(
+                titanic_file,
+                header=0,
+            )
+            .to_dict()
+            .items()
+        }
+        labels = input_data.pop("survived")
+        if input_data_type == "tuple_dict":
+            return input_data, labels
+        elif input_data_type == "dataset":
+            titanic = tf.data.experimental.make_csv_dataset(
+                titanic_file, batch_size=32, label_name="survived"
+            )
+            titanic_batches = titanic.cache().repeat().shuffle(500).prefetch(tf.data.AUTOTUNE)
+            return titanic_batches
+
+    age = tf.feature_column.numeric_column("age")
+    cls = tf.feature_column.categorical_column_with_vocabulary_list(
+        "class", ["First", "Second", "Third"]
+    )
+    embark = tf.feature_column.categorical_column_with_hash_bucket("embark_town", 32)
+
+    estimator = tf.estimator.LinearClassifier(
+        model_dir=directory, feature_columns=[embark, cls, age], n_classes=2
+    )
+
+    estimator = estimator.train(input_fn=train_input_fn, steps=100)
+
+    feature_spec = {
+        "sex": tf.Variable([], dtype=tf.string, name="sex"),
+        "age": tf.Variable([], dtype=tf.float32, name="age"),
+        "n_siblings_spouses": tf.Variable([], dtype=tf.int32, name="n_siblings_spouses"),
+        "parch": tf.Variable([], dtype=tf.int32, name="parch"),
+        "fare": tf.Variable([], dtype=tf.float32, name="fare"),
+        "class": tf.Variable([], dtype=tf.string, name="class"),
+        "deck": tf.Variable([], dtype=tf.string, name="deck"),
+        "embark_town": tf.Variable([], dtype=tf.string, name="embark_town"),
+        "alone": tf.Variable([], dtype=tf.string, name="alone"),
+    }
+
+    receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
+    estimator.export_saved_model(directory, receiver_fn)
+
+    return estimator
+
+
+@pytest.fixture
+def titanic_dataset_spec():
+    return [
+        {"name": "sex", "tensor-spec": {"dtype": "object", "shape": [-1]}, "type": "tensor"},
+        {"name": "age", "tensor-spec": {"dtype": "float32", "shape": [-1]}, "type": "tensor"},
+        {
+            "name": "n_siblings_spouses",
+            "tensor-spec": {"dtype": "int32", "shape": [-1]},
+            "type": "tensor",
+        },
+        {"name": "parch", "tensor-spec": {"dtype": "int32", "shape": [-1]}, "type": "tensor"},
+        {"name": "fare", "tensor-spec": {"dtype": "float32", "shape": [-1]}, "type": "tensor"},
+        {"name": "class", "tensor-spec": {"dtype": "object", "shape": [-1]}, "type": "tensor"},
+        {"name": "deck", "tensor-spec": {"dtype": "object", "shape": [-1]}, "type": "tensor"},
+        {
+            "name": "embark_town",
+            "tensor-spec": {"dtype": "object", "shape": [-1]},
+            "type": "tensor",
+        },
+        {"name": "alone", "tensor-spec": {"dtype": "object", "shape": [-1]}, "type": "tensor"},
+    ]
+
+
+@pytest.fixture
+def tf_titanic_estimator_prediction_schema():
+    return [
+        {"name": "logits", "tensor-spec": {"dtype": "float32", "shape": [-1]}, "type": "tensor"},
+        {"name": "logistic", "tensor-spec": {"dtype": "float32", "shape": [-1]}, "type": "tensor"},
+        {
+            "name": "probabilities",
+            "tensor-spec": {"dtype": "float32", "shape": [-1]},
+            "type": "tensor",
+        },
+        {"name": "class_ids", "tensor-spec": {"dtype": "int64", "shape": [-1]}, "type": "tensor"},
+        {"name": "classes", "tensor-spec": {"dtype": "object", "shape": [-1]}, "type": "tensor"},
+        {
+            "name": "all_class_ids",
+            "tensor-spec": {"dtype": "int32", "shape": [-1]},
+            "type": "tensor",
+        },
+        {
+            "name": "all_classes",
+            "tensor-spec": {"dtype": "object", "shape": [-1]},
+            "type": "tensor",
+        },
+    ]
 
 
 @pytest.mark.large
@@ -1061,7 +1225,7 @@ def test_import_keras_with_fluent_autolog_enables_tensorflow_autologging():
     assert autologging_is_disabled(mlflow.keras.FLAVOR_NAME)
 
 
-def _assert_keras_autolog_infers_model_signature_correctly(run, input_sig_spec, output_sig_spec):
+def _assert_autolog_infers_model_signature_correctly(run, input_sig_spec, output_sig_spec):
     artifacts_dir = run.info.artifact_uri.replace("file://", "")
     client = mlflow.tracking.MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run.info.run_id, "model")]
@@ -1116,7 +1280,7 @@ def test_keras_autolog_infers_model_signature_correctly_with_nparray(
     initial_model = create_tf_keras_model()
     with mlflow.start_run() as run:
         initial_model.fit(random_train_data, random_one_hot_labels)
-        _assert_keras_autolog_infers_model_signature_correctly(
+        _assert_autolog_infers_model_signature_correctly(
             run,
             [{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1, 4]}}],
             [{"type": "tensor", "tensor-spec": {"dtype": "float32", "shape": [-1, 3]}}],
@@ -1150,7 +1314,7 @@ def test_keras_autolog_infers_model_signature_correctly_with_tf_dataset(fashion_
     fashion_mnist_model = _create_fashion_mnist_model()
     with mlflow.start_run() as run:
         fashion_mnist_model.fit(fashion_mnist_tf_dataset)
-        _assert_keras_autolog_infers_model_signature_correctly(
+        _assert_autolog_infers_model_signature_correctly(
             run,
             [{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1, 28, 28]}}],
             [{"type": "tensor", "tensor-spec": {"dtype": "float32", "shape": [-1, 10]}}],
@@ -1190,7 +1354,7 @@ def test_keras_autolog_infers_model_signature_correctly_with_dict(
     model = _create_model_for_dict_mapping()
     with mlflow.start_run() as run:
         model.fit(random_train_dict_mapping, random_one_hot_labels)
-        _assert_keras_autolog_infers_model_signature_correctly(
+        _assert_autolog_infers_model_signature_correctly(
             run,
             [
                 {"name": "a", "type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1]}},
@@ -1229,8 +1393,106 @@ def test_keras_autolog_infers_model_signature_correctly_with_keras_sequence(
     initial_model = create_tf_keras_model()
     with mlflow.start_run() as run:
         initial_model.fit(keras_data_gen_sequence)
-        _assert_keras_autolog_infers_model_signature_correctly(
+        _assert_autolog_infers_model_signature_correctly(
             run,
             [{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1, 4]}}],
             [{"type": "tensor", "tensor-spec": {"dtype": "float32", "shape": [-1, 3]}}],
         )
+
+
+@pytest.mark.large
+def test_tf_signature_with_dataset(tmpdir, iris_dataset_spec, tf_iris_estimator_prediction_schema):
+    directory = tmpdir.mkdir("test")
+    mlflow.tensorflow.autolog(log_input_examples=True)
+    with mlflow.start_run() as run:
+        create_tf_estimator_model(str(directory), True)
+        _assert_autolog_infers_model_signature_correctly(
+            run, iris_dataset_spec, tf_iris_estimator_prediction_schema
+        )
+
+
+@pytest.mark.large
+def test_tf_input_example_with_dataset(tmpdir):
+    mlflow.tensorflow.autolog(log_input_examples=True)
+    directory = tmpdir.mkdir("test")
+    with mlflow.start_run() as run:
+        create_tf_estimator_model(directory=str(directory), export=True, use_v1_estimator=False)
+        model_path = os.path.join(run.info.artifact_uri, "model")
+        model_conf = Model.load(os.path.join(model_path, "MLmodel"))
+        input_example = _read_example(model_conf, model_path)
+        pyfunc_model = mlflow.pyfunc.load_model(os.path.join(run.info.artifact_uri, "model"))
+        pyfunc_model.predict(input_example)
+
+
+def _assert_tf_signature(
+    tmpdir, data_type, titanic_dataset_spec, tf_titanic_estimator_prediction_schema
+):
+    directory = tmpdir.mkdir("test")
+    mlflow.tensorflow.autolog(log_input_examples=True)
+    with mlflow.start_run() as run:
+        train_tf_titanic_estimator(directory=str(directory), input_data_type=data_type)
+        _assert_autolog_infers_model_signature_correctly(
+            run, titanic_dataset_spec, tf_titanic_estimator_prediction_schema
+        )
+
+
+@pytest.mark.large
+def test_tf_input_example_with_tuple_dict(tmpdir):
+    mlflow.tensorflow.autolog(log_input_examples=True)
+    directory = tmpdir.mkdir("test")
+    with mlflow.start_run() as run:
+        train_tf_titanic_estimator(directory=str(directory), input_data_type="tuple_dict")
+        model_path = os.path.join(run.info.artifact_uri, "model")
+        model_conf = Model.load(os.path.join(model_path, "MLmodel"))
+        input_example = _read_example(model_conf, model_path)
+        pyfunc_model = mlflow.pyfunc.load_model(os.path.join(run.info.artifact_uri, "model"))
+        pyfunc_model.predict(input_example)
+
+
+@pytest.mark.large
+def test_tf_signature_with_tuple_dict(
+    tmpdir, titanic_dataset_spec, tf_titanic_estimator_prediction_schema
+):
+    _assert_tf_signature(
+        tmpdir, "tuple_dict", titanic_dataset_spec, tf_titanic_estimator_prediction_schema
+    )
+
+
+@pytest.mark.large
+@pytest.mark.skipif(
+    Version(tf.__version__) >= Version("2.1.0"),
+    reason="`fit_generator()` is deprecated in TF >= 2.1.0 and simply wraps `fit()`",
+)
+def test_fit_generator_signature_autologging(random_train_data, random_one_hot_labels):
+    mlflow.tensorflow.autolog()
+    model = create_tf_keras_model()
+
+    def generator():
+        while True:
+            yield random_train_data, random_one_hot_labels
+
+    with mlflow.start_run() as run:
+        model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
+        _assert_autolog_infers_model_signature_correctly(
+            run,
+            [{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1, 4]}}],
+            [{"type": "tensor", "tensor-spec": {"dtype": "float32", "shape": [-1, 3]}}],
+        )
+
+
+@pytest.mark.large
+@pytest.mark.skipif(
+    Version(tf.__version__) >= Version("2.1.0"),
+    reason="`fit_generator()` is deprecated in TF >= 2.1.0 and simply wraps `fit()`",
+)
+def test_fit_generator_input_example_autologging(random_train_data, random_one_hot_labels):
+    mlflow.tensorflow.autolog(log_input_examples=True)
+    model = create_tf_keras_model()
+
+    def generator():
+        while True:
+            yield random_train_data, random_one_hot_labels
+
+    with mlflow.start_run() as run:
+        model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
+        _assert_keras_autolog_input_example_load_and_predict_with_nparray(run, random_train_data)

@@ -3,7 +3,7 @@ import warnings
 from tensorflow.keras.callbacks import Callback, TensorBoard
 
 import mlflow
-from mlflow.utils.autologging_utils import ExceptionSafeClass, get_autologging_config
+from mlflow.utils.autologging_utils import ExceptionSafeClass
 
 
 class _TensorBoard(TensorBoard, metaclass=ExceptionSafeClass):
@@ -51,12 +51,3 @@ class __MLflowTfKeras2Callback(Callback, metaclass=ExceptionSafeClass):
         # provides  metric logging hooks for TensorFlow Estimator & other TensorFlow APIs
         if epoch % self.log_every_n_steps == 0:
             self.metrics_logger.record_metrics(logs, epoch)
-
-    def on_train_end(self, logs=None):  # pylint: disable=unused-argument
-        if self.log_models:
-            registered_model_name = get_autologging_config(
-                mlflow.tensorflow.FLAVOR_NAME, "registered_model_name", None
-            )
-            mlflow.keras.log_model(
-                self.model, artifact_path="model", registered_model_name=registered_model_name
-            )
