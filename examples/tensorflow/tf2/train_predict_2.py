@@ -63,7 +63,7 @@ def eval_input_fn(features, labels, batch_size):
 
 
 # Enable auto-logging to MLflow to capture TensorBoard metrics.
-mlflow.tensorflow.autolog()
+mlflow.tensorflow.autolog(log_model_signatures=False)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--batch_size", default=100, type=int, help="batch size")
