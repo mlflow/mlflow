@@ -1310,6 +1310,9 @@ The resulting deployment accepts the following data formats as input:
 
 * JSON-serialized pandas DataFrames in the ``split`` orientation. For example, ``data = pandas_df.to_json(orient='split')``. This format is specified using a ``Content-Type`` request header value of ``application/json``.
 
+.. warning::
+    The ``TensorSpec`` input format is not fully supported for deployments on Azure Machine Learning at the moment. Be aware that many ``autolog()`` implementations may use ``TensorSpec`` for model's signatures when logging models and hence those deployments will fail in Azure ML.
+
 Deployments can be generated using both the Python API or MLflow CLI. On both cases, a ``JSON`` configuration file can be indicated with the details of the deployment you want to achieve. If not indicated, then a default deployment is done using Azure Container Instances (ACI) and a minimal configuration. The full specification of this configuration file can be checked at `Deployment configuration schema <https://docs.microsoft.com/en-us/azure/machine-learning/reference-azure-machine-learning-cli#deployment-configuration-schema>`_. On both cases, you will also need the Azure ML MLFlow Tracking URI of your particular Azure ML Workspace where you want to deploy your model. You can obtain this URI in several ways:
 
 * In the `Azure ML portal <https://ml.azure.com>`_, in the upper right corner, clic on the name of the workspace and on the pop-up blade that will show-up, clic on ``View all properties in Azure Portal``. In the properties panel, you will see the value corresponding to ``MLflow tracking URI``.
@@ -1323,7 +1326,7 @@ Deployments can be generated using both the Python API or MLflow CLI. On both ca
 
     {
       "computeType": "aci",
-      "containerResourceRequirements: 
+      "containerResourceRequirements": 
       {
         "cpu": 1,
         "memoryInGB": 1
