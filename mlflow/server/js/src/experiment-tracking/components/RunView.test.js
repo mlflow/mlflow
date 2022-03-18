@@ -5,11 +5,13 @@ import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import { RunView, RunViewImpl } from './RunView';
-import { Experiment, RunInfo, RunTag, Param } from '../sdk/MlflowMessages';
+import { Experiment, RunInfo, RunTag, Metric, Param } from '../sdk/MlflowMessages';
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import { mockModelVersionDetailed } from '../../model-registry/test-utils';
 import { ModelVersionStatus, Stages } from '../../model-registry/constants';
+import { GET_METRIC_HISTORY_API } from '../actions';
 import { mountWithIntl } from '../../common/utils/TestUtils';
+import { pending } from '../../common/utils/ActionUtils';
 
 describe('RunView', () => {
   let minimalProps;
@@ -65,6 +67,8 @@ describe('RunView', () => {
         tagsByRunUuid: { 'uuid-1234-5678-9012': {} },
         paramsByRunUuid: { 'uuid-1234-5678-9012': {} },
         latestMetricsByRunUuid: { 'uuid-1234-5678-9012': {} },
+        minMetricsByRunUuid: {},
+        maxMetricsByRunUuid: {},
         artifactRootUriByRunUuid: { 'uuid-1234-5678-9012': 'root/uri' },
       },
       apis: {},
@@ -208,5 +212,90 @@ describe('RunView', () => {
       .hostNodes()
       .simulate('click');
     expect(wrapper.find(RunViewImpl).instance().state.showRunRenameModal).toBe(true);
+  });
+
+  test('Requests metric history for run metrics', () => {
+    const store = mockStore({
+      ...minimalStoreRaw,
+      entities: {
+        ...minimalStoreRaw.entities,
+        latestMetricsByRunUuid: {
+          'uuid-1234-5678-9012': {
+            m1: Metric.fromJs({ key: 'm1', value: 1 }),
+            m2: Metric.fromJs({ key: 'm2', value: 2 }),
+          },
+        },
+      },
+    });
+
+    mountWithIntl(
+      <Provider store={store}>
+        <BrowserRouter>
+          <RunView {...minimalProps} />
+        </BrowserRouter>
+      </Provider>,
+    );
+
+    const actions = store.getActions();
+    ['m1', 'm2'].forEach((metricKey) => {
+      expect(
+        actions.find(
+          (action) =>
+            action.type === pending(GET_METRIC_HISTORY_API) &&
+            action.meta.key === metricKey &&
+            action.meta.runUuid === 'uuid-1234-5678-9012',
+        ),
+      ).toBeDefined();
+    });
+  });
+
+  test('Displays latest, min and max metrics', () => {
+    const store = mockStore({
+      ...minimalStoreRaw,
+      entities: {
+        ...minimalStoreRaw.entities,
+        latestMetricsByRunUuid: {
+          'uuid-1234-5678-9012': {
+            m1: Metric.fromJs({ key: 'm1', value: 2 }),
+            m2: Metric.fromJs({ key: 'm2', value: 3 }),
+          },
+        },
+        minMetricsByRunUuid: {
+          'uuid-1234-5678-9012': {
+            m1: Metric.fromJs({ key: 'm1', value: 1 }),
+            m2: Metric.fromJs({ key: 'm2', value: 3 }),
+          },
+        },
+        maxMetricsByRunUuid: {
+          'uuid-1234-5678-9012': {
+            m1: Metric.fromJs({ key: 'm1', value: 5 }),
+            m2: Metric.fromJs({ key: 'm2', value: 4 }),
+          },
+        },
+      },
+    });
+
+    wrapper = mountWithIntl(
+      <Provider store={store}>
+        <BrowserRouter>
+          <RunView {...minimalProps} />
+        </BrowserRouter>
+      </Provider>,
+    ).find(RunView);
+
+    const collapsible = wrapper.find('CollapsibleSection[data-test-id="run-metrics-section"]');
+    const table = collapsible.props().children;
+    const { columns, values } = table.props;
+
+    expect(columns.length).toBe(4);
+    expect(values.length).toBe(2);
+
+    expect(values[0].value.props.children).toBe('2');
+    expect(values[0].minValue.props.children).toBe('1');
+    expect(values[0].maxValue.props.children).toBe('5');
+
+    expect(values[1].value.props.children).toBe('3');
+    expect(values[1].minValue.props.children).toBe('3');
+    expect(values[1].maxValue.props.children).toBe('4');
   });
 });

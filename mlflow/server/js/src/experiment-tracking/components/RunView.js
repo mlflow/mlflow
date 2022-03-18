@@ -8,7 +8,7 @@ import { HtmlTableView } from './HtmlTableView';
 import { Link } from 'react-router-dom';
 import Routes from '../routes';
 import ArtifactPage from './ArtifactPage';
-import { getLatestMetrics } from '../reducers/MetricReducer';
+import { getLatestMetrics, getMinMetrics, getMaxMetrics } from '../reducers/MetricReducer';
 import { Experiment } from '../sdk/MlflowMessages';
 import Utils from '../../common/utils/Utils';
 import { NOTE_CONTENT_TAG, NoteInfo } from '../utils/NoteUtils';
@@ -17,7 +17,7 @@ import { EditableTagsTableView } from '../../common/components/EditableTagsTable
 import { Button, Descriptions, message } from 'antd';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { EditableNote } from '../../common/components/EditableNote';
-import { setTagApi, deleteTagApi } from '../actions';
+import { getMetricHistoryApi, setTagApi, deleteTagApi } from '../actions';
 import { PageHeader, OverflowMenu } from '../../shared/building_blocks/PageHeader';
 
 export class RunViewImpl extends Component {
@@ -29,10 +29,13 @@ export class RunViewImpl extends Component {
     params: PropTypes.object.isRequired,
     tags: PropTypes.object.isRequired,
     latestMetrics: PropTypes.object.isRequired,
+    minMetrics: PropTypes.object,
+    maxMetrics: PropTypes.object,
     getMetricPagePath: PropTypes.func.isRequired,
     runDisplayName: PropTypes.string.isRequired,
     runName: PropTypes.string.isRequired,
     handleSetRunTag: PropTypes.func.isRequired,
+    getMetricHistoryApi: PropTypes.func.isRequired,
     setTagApi: PropTypes.func.isRequired,
     deleteTagApi: PropTypes.func.isRequired,
     modelVersions: PropTypes.arrayOf(PropTypes.object),
@@ -51,6 +54,13 @@ export class RunViewImpl extends Component {
   componentDidMount() {
     const pageTitle = `${this.props.runDisplayName} - MLflow Run`;
     Utils.updatePageTitle(pageTitle);
+    // Request metric history for all the run metrics so that minimum
+    // and maximum values will be computed.
+    // Because the RunView is wrapped in a RequestStateWrapper, it won't be
+    // mounted until after latestMetrics data is available.
+    Object.values(this.props.latestMetrics).forEach((metric) => {
+      this.props.getMetricHistoryApi(this.props.runUuid, metric.key);
+    });
   }
 
   handleRenameRunClick = () => {
@@ -183,6 +193,8 @@ export class RunViewImpl extends Component {
       params,
       tags,
       latestMetrics,
+      minMetrics,
+      maxMetrics,
       getMetricPagePath,
       modelVersions,
     } = this.props;
@@ -462,7 +474,7 @@ export class RunViewImpl extends Component {
                   // eslint-disable-next-line max-len
                   'Label for the collapsible area to display the output metrics after the experiment run',
               }),
-              getMetricValues(latestMetrics, getMetricPagePath, plotTitle).length,
+              Object.values(latestMetrics).length,
             )}
             onChange={this.handleCollapseChange('metrics')}
             data-test-id='run-metrics-section'
@@ -481,15 +493,39 @@ export class RunViewImpl extends Component {
                 },
                 {
                   title: this.props.intl.formatMessage({
-                    defaultMessage: 'Value',
+                    defaultMessage: 'Latest',
                     description:
                       // eslint-disable-next-line max-len
-                      'Column title for value column for displaying the value of the metrics for the experiment run ',
+                      'Column title for latest value column for displaying the latest value of the metrics for the experiment run ',
                   }),
                   dataIndex: 'value',
                 },
+                {
+                  title: this.props.intl.formatMessage({
+                    defaultMessage: 'Min',
+                    description:
+                      // eslint-disable-next-line max-len
+                      'Column title for minimum value column for displaying the minimum value of the metrics for the experiment run ',
+                  }),
+                  dataIndex: 'minValue',
+                },
+                {
+                  title: this.props.intl.formatMessage({
+                    defaultMessage: 'Max',
+                    description:
+                      // eslint-disable-next-line max-len
+                      'Column title for maximum value column for displaying the maximum value of the metrics for the experiment run ',
+                  }),
+                  dataIndex: 'maxValue',
+                },
               ]}
-              values={getMetricValues(latestMetrics, getMetricPagePath, plotTitle)}
+              values={getMetricValues(
+                latestMetrics,
+                minMetrics,
+                maxMetrics,
+                getMetricPagePath,
+                plotTitle,
+              )}
             />
           </CollapsibleSection>
           <div data-test-id='tags-section'>
@@ -550,11 +586,23 @@ const mapStateToProps = (state, ownProps) => {
   const params = getParams(runUuid, state);
   const tags = getRunTags(runUuid, state);
   const latestMetrics = getLatestMetrics(runUuid, state);
+  const minMetrics = getMinMetrics(runUuid, state);
+  const maxMetrics = getMaxMetrics(runUuid, state);
   const runDisplayName = Utils.getRunDisplayName(tags, runUuid);
   const runName = Utils.getRunName(tags, runUuid);
-  return { run, experiment, params, tags, latestMetrics, runDisplayName, runName };
+  return {
+    run,
+    experiment,
+    params,
+    tags,
+    latestMetrics,
+    minMetrics,
+    maxMetrics,
+    runDisplayName,
+    runName,
+  };
 };
-const mapDispatchToProps = { setTagApi, deleteTagApi };
+const mapDispatchToProps = { getMetricHistoryApi, setTagApi, deleteTagApi };
 
 export const RunViewImplWithIntl = injectIntl(RunViewImpl);
 export const RunView = connect(mapStateToProps, mapDispatchToProps)(RunViewImplWithIntl);
@@ -567,10 +615,13 @@ const getParamValues = (params) => {
     .map((p, index) => ({ key: `params-${index}`, name: p.getKey(), value: p.getValue() }));
 };
 
-const getMetricValues = (latestMetrics, getMetricPagePath, plotTitle) => {
+const getMetricValues = (latestMetrics, minMetrics, maxMetrics, getMetricPagePath, plotTitle) => {
   return Object.values(latestMetrics)
     .sort()
     .map(({ key, value }, index) => {
+      let minValue = minMetrics && minMetrics[key] && minMetrics[key].value;
+      let maxValue = maxMetrics && maxMetrics[key] && maxMetrics[key].value;
+      let formatMaybeValue = (val) => (val === undefined ? '' : Utils.formatMetric(val));
       return {
         key: `metrics-${index}`,
         name: (
@@ -580,6 +631,8 @@ const getMetricValues = (latestMetrics, getMetricPagePath, plotTitle) => {
           </Link>
         ),
         value: <span title={value}>{Utils.formatMetric(value)}</span>,
+        minValue: <span title={minValue}>{formatMaybeValue(minValue)}</span>,
+        maxValue: <span title={maxValue}>{formatMaybeValue(maxValue)}</span>,
       };
     });
 };

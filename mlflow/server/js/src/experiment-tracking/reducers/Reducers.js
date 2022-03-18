@@ -14,7 +14,12 @@ import {
 } from '../actions';
 import { Experiment, Param, RunInfo, RunTag, ExperimentTag } from '../sdk/MlflowMessages';
 import { ArtifactNode } from '../utils/ArtifactUtils';
-import { metricsByRunUuid, latestMetricsByRunUuid } from './MetricReducer';
+import {
+  metricsByRunUuid,
+  latestMetricsByRunUuid,
+  minMetricsByRunUuid,
+  maxMetricsByRunUuid,
+} from './MetricReducer';
 import modelRegistryReducers from '../../model-registry/reducers';
 import _ from 'lodash';
 import {
@@ -362,6 +367,8 @@ export const entities = combineReducers({
   runInfosByUuid,
   metricsByRunUuid,
   latestMetricsByRunUuid,
+  minMetricsByRunUuid,
+  maxMetricsByRunUuid,
   paramsByRunUuid,
   tagsByRunUuid,
   experimentTagsByExperimentId,

@@ -1,3 +1,4 @@
+import _ from 'lodash';
 import {
   GET_METRIC_HISTORY_API,
   GET_RUN_API,
@@ -20,6 +21,14 @@ export const getMetricsByKey = (runUuid, key, state) => {
  */
 export const getLatestMetrics = (runUuid, state) => {
   return state.entities.latestMetricsByRunUuid[runUuid];
+};
+
+export const getMinMetrics = (runUuid, state) => {
+  return state.entities.minMetricsByRunUuid[runUuid];
+};
+
+export const getMaxMetrics = (runUuid, state) => {
+  return state.entities.maxMetricsByRunUuid[runUuid];
 };
 
 /**
@@ -71,6 +80,39 @@ export const latestMetricsByRunUuid = (state = {}, action) => {
       return state;
   }
 };
+
+const reducedMetricsByRunUuid = (state = {}, action, reducer) => {
+  switch (action.type) {
+    case fulfilled(GET_METRIC_HISTORY_API): {
+      const newState = { ...state };
+      const { runUuid, key } = action.meta;
+      const { metrics } = action.payload;
+      if (metrics && metrics.length > 0) {
+        const reducedMetric = Metric.fromJs(reducer(metrics));
+        if (newState[runUuid]) {
+          newState[runUuid][key] = reducedMetric;
+        } else {
+          newState[runUuid] = { [key]: reducedMetric };
+        }
+      }
+      return newState;
+    }
+    default:
+      return state;
+  }
+};
+
+/**
+ * Return minimum metrics by run UUID (object of run UUID -> object of metric key -> Metric object)
+ */
+export const minMetricsByRunUuid = (state = {}, action) =>
+  reducedMetricsByRunUuid(state, action, (metrics) => _.minBy(metrics, 'value'));
+
+/**
+ * Return maximum metrics by run UUID (object of run UUID -> object of metric key -> Metric object)
+ */
+export const maxMetricsByRunUuid = (state = {}, action) =>
+  reducedMetricsByRunUuid(state, action, (metrics) => _.maxBy(metrics, 'value'));
 
 export const metricsByRunUuid = (state = {}, action) => {
   switch (action.type) {
