@@ -48,7 +48,6 @@ class IrisClassification(IrisClassificationBase):
         self.train_acc(torch.argmax(logits, dim=1), y)
         self.log("train_acc", self.train_acc.compute(), on_step=False, on_epoch=True)
         self.log("loss", loss)
-        self.log("loss_forked", loss, on_epoch=True, on_step=True)
         return {"loss": loss}
 
     def validation_step(self, batch, batch_idx):

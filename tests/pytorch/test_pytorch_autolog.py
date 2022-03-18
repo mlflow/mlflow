@@ -9,7 +9,6 @@ from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
 from mlflow.utils.file_utils import TempDir
 from iris_data_module import IrisDataModule, IrisDataModuleWithoutValidation
-from mlflow.exceptions import MlflowException
 from mlflow.pytorch._pytorch_autolog import _get_optimizer_name
 from mlflow.tracking.client import MlflowClient
 
@@ -44,19 +43,6 @@ def pytorch_model_without_validation():
     return trainer, run
 
 
-@pytest.fixture(params=[1, 10])
-def pytorch_model_with_steps_logged(request):
-    mlflow.pytorch.autolog(log_every_n_step=request.param)
-    model = IrisClassification()
-    dm = IrisDataModule()
-    dm.setup(stage="fit")
-    trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
-    trainer.fit(model, dm)
-    client = mlflow.tracking.MlflowClient()
-    run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
-    return trainer, run, request.param
-
-
 @pytest.mark.parametrize("log_models", [True, False])
 def test_pytorch_autolog_log_models_configuration(log_models):
     mlflow.pytorch.autolog(log_models=log_models)
@@ -87,19 +73,9 @@ def test_pytorch_autolog_logs_expected_data(pytorch_model):
     _, run = pytorch_model
     data = run.data
 
-    # Checking if metrics are logged.
-    # When autolog is configured with the default configuration to not log on steps,
-    # then all metrics are logged per epoch, including step based metrics.
+    # Checking if metrics are logged
     client = mlflow.tracking.MlflowClient()
-    for metric_key in [
-        "loss",
-        "train_acc",
-        "val_loss",
-        "val_acc",
-        "loss_forked",
-        "loss_forked_step",
-        "loss_forked_epoch",
-    ]:
+    for metric_key in ["loss", "train_acc", "val_loss", "val_acc"]:
         assert metric_key in run.data.metrics
         metric_history = client.get_metric_history(run.info.run_id, metric_key)
         assert len(metric_history) == NUM_EPOCHS
@@ -124,49 +100,6 @@ def test_pytorch_autolog_logs_expected_metrics_without_validation(pytorch_model_
         assert metric_key in run.data.metrics
         metric_history = client.get_metric_history(run.info.run_id, metric_key)
         assert len(metric_history) == NUM_EPOCHS
-
-
-@pytest.mark.skipif(
-    Version(pl.__version__) < Version("1.1.0"),
-    reason="Access to step specific metrics only possible since PyTorch-lightning 1.1.0 when"
-    "LoggerConnector.cached_results was added",
-)
-def test_pytorch_autolog_logging_forked_metrics_on_step_and_epoch(
-    pytorch_model_with_steps_logged,
-):
-    # When autolog is configured to log on steps as well as epochs,
-    # then we only log step based metrics per step and not on epochs.
-    trainer, run, log_every_n_step = pytorch_model_with_steps_logged
-    num_logged_steps = trainer.global_step / log_every_n_step
-
-    client = mlflow.tracking.MlflowClient()
-    for (metric_key, expected_len) in [
-        ("train_acc", NUM_EPOCHS),
-        ("loss", num_logged_steps),
-        ("loss_forked", NUM_EPOCHS),
-        ("loss_forked_step", num_logged_steps),
-        ("loss_forked_epoch", NUM_EPOCHS),
-    ]:
-        assert metric_key in run.data.metrics, f"Missing {metric_key} in metrics"
-        metric_history = client.get_metric_history(run.info.run_id, metric_key)
-        assert (
-            len(metric_history) == expected_len
-        ), f"Expected {expected_len} values for {metric_key}, got {len(metric_history)}"
-
-
-@pytest.mark.skipif(
-    Version(pl.__version__) >= Version("1.1.0"),
-    reason="Logging step metrics is supported since PyTorch-Lightning 1.1.0",
-)
-def test_pytorch_autolog_raises_error_when_step_logging_unsupported():
-    mlflow.pytorch.autolog(log_every_n_step=1)
-    model = IrisClassification()
-    dm = IrisDataModule()
-    trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
-    with pytest.raises(
-        MlflowException, match="log_every_n_step is only supported for PyTorch-Lightning >= 1.1.0"
-    ):
-        trainer.fit(model, dm)
 
 
 # pylint: disable=unused-argument
