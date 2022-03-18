@@ -1394,6 +1394,38 @@ The following examples show how to create a deployment in ACI. Please, ensure yo
     # webservice's scoring URI. 
     print("Scoring URI is: %s", webservice.scoring_uri)
 
+    # The following example posts a sample input from the wine dataset
+    # used in the MLflow ElasticNet example:
+    # https://github.com/mlflow/mlflow/tree/master/examples/sklearn_elasticnet_wine
+
+    # `sample_input` is a JSON-serialized pandas DataFrame with the `split` orientation
+    import requests
+    import json
+    # `sample_input` is a JSON-serialized pandas DataFrame with the `split` orientation
+    sample_input = {
+        "columns": [
+            "alcohol",
+            "chlorides",
+            "citric acid",
+            "density",
+            "fixed acidity",
+            "free sulfur dioxide",
+            "pH",
+            "residual sugar",
+            "sulphates",
+            "total sulfur dioxide",
+            "volatile acidity"
+        ],
+        "data": [
+            [8.8, 0.045, 0.36, 1.001, 7, 45, 3, 20.7, 0.45, 170, 0.27]
+        ]
+    }
+    response = requests.post(
+                  url=webservice.scoring_uri, data=json.dumps(sample_input),
+                  headers={"Content-type": "application/json"})
+    response_json = json.loads(response.text)
+    print(response_json)
+
 .. rubric:: Example: Workflow using the MLflow CLI
 
 .. code-block:: bash
@@ -1405,6 +1437,36 @@ The following examples show how to create a deployment in ACI. Please, ensure yo
     # webservice's scoring URI.
 
     scoring_uri=$(az ml service show --name <deployment-name> -v | jq -r ".scoringUri")
+
+    # The following example posts a sample input from the wine dataset
+    # used in the MLflow ElasticNet example:
+    # https://github.com/mlflow/mlflow/tree/master/examples/sklearn_elasticnet_wine
+
+    # `sample_input` is a JSON-serialized pandas DataFrame with the `split` orientation
+    sample_input='
+    {
+        "columns": [
+            "alcohol",
+            "chlorides",
+            "citric acid",
+            "density",
+            "fixed acidity",
+            "free sulfur dioxide",
+            "pH",
+            "residual sugar",
+            "sulphates",
+            "total sulfur dioxide",
+            "volatile acidity"
+        ],
+        "data": [
+            [8.8, 0.045, 0.36, 1.001, 7, 45, 3, 20.7, 0.45, 170, 0.27]
+        ]
+    }'
+
+    echo $sample_input | curl -s -X POST $scoring_uri\
+    -H 'Cache-Control: no-cache'\
+    -H 'Content-Type: application/json'\
+    -d @-
 
 You can also test your deployments locally first using the option `run-local`:
 
