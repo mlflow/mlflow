@@ -3,6 +3,7 @@ import os
 import git
 import shutil
 import yaml
+import uuid
 
 import pytest
 from unittest import mock
@@ -29,6 +30,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_PROJECT_BACKEND,
     MLFLOW_PROJECT_ENV,
 )
+from mlflow.utils.process import ShellCommandException
 
 from tests.projects.utils import TEST_PROJECT_DIR, TEST_PROJECT_NAME, validate_exit_status
 
@@ -362,6 +364,38 @@ def test_create_env_with_mamba():
                 match="You have set the env variable MLFLOW_CONDA_CREATE_ENV_CMD",
             ):
                 mlflow.utils.conda.get_or_create_conda_env(conda_env_path)
+
+
+def test_conda_environment_cleaned_up_when_pip_fails(tmp_path, capfd):
+    conda_yaml = tmp_path / "conda.yaml"
+    content = """
+name: {name}
+channels:
+  - conda-forge
+dependencies:
+  - python=3.7.12
+  - pip
+  - pip:
+      - mlflow==999.999.999
+""".format(
+        # Enforce creating a new environment
+        name=uuid.uuid4().hex
+    )
+    conda_yaml.write_text(content)
+    envs_before = mlflow.utils.conda._list_conda_environments()
+
+    # `conda create` should fail because mlflow 999.999.999 doesn't exist
+    with pytest.raises(ShellCommandException, match=r".*"):
+        mlflow.utils.conda.get_or_create_conda_env(conda_yaml)
+
+    # Ensure `conda create` failed because of pip failure
+    captured = capfd.readouterr()
+    assert "ERROR: No matching distribution found for mlflow==999.999.999" in captured.err
+    assert "CondaEnvException: Pip failed" in captured.err
+
+    # Ensure the environment is cleaned up
+    envs_after = mlflow.utils.conda._list_conda_environments()
+    assert envs_before == envs_after
 
 
 def test_cancel_run():
