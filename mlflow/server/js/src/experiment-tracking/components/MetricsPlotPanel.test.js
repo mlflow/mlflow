@@ -23,6 +23,7 @@ describe('unit tests', () => {
   let instance;
   let minimalPropsForLineChart;
   let minimalPropsForBarChart;
+  let minimalStore;
   let getMetricHistoryApi;
   let getRunApi;
 
@@ -157,6 +158,15 @@ describe('unit tests', () => {
       runDisplayNames: ['runDisplayName1', 'runDisplayName2'],
       deselectedCurves: [],
     };
+
+    const mockStore = configureStore([thunk, promiseMiddleware()]);
+    minimalStore = mockStore({
+      entities: {
+        latestMetricsByRunUuid: {},
+        minMetricsByRunUuid: {},
+        maxMetricsByRunUuid: {},
+      },
+    });
   });
 
   test('should render with minimal props without exploding', () => {
@@ -414,9 +424,8 @@ describe('unit tests', () => {
   });
   test('should render the number of completed runs correctly', () => {
     const mountWithProps = (props) => {
-      const mockStore = configureStore([thunk, promiseMiddleware()]);
       return mountWithIntl(
-        <Provider store={mockStore({})}>
+        <Provider store={minimalStore}>
           <BrowserRouter>
             <MetricsPlotPanel {...props} />
           </BrowserRouter>

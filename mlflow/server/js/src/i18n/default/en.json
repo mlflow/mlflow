@@ -11,6 +11,10 @@
     "defaultMessage": "Source Run",
     "description": "Label name for source run metadata in model version page"
   },
+  "+hkg/y": {
+    "defaultMessage": "Max",
+    "description": "Column title for the column displaying the maximum metric values for a metric"
+  },
   "/2MZix": {
     "defaultMessage": "Run ID:",
     "description": "Row title for the run id on the experiment compare runs page"
@@ -687,6 +691,10 @@
     "defaultMessage": "Download artifact",
     "description": "Link to download the artifact of the experiment"
   },
+  "YINJEO": {
+    "defaultMessage": "Metric",
+    "description": "Column title for the column displaying the metric names for a run"
+  },
   "Yx7fMC": {
     "defaultMessage": "Search",
     "description": "Placeholder text for input box to search for the columns names that could be selected or unselected to be rendered on the experiment runs table"
@@ -799,6 +807,10 @@
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on the run view"
   },
+  "d1Ou4x": {
+    "defaultMessage": "Run",
+    "description": "Column title for the column displaying the run names for a metric"
+  },
   "dA5sT3": {
     "defaultMessage": "Share experiment view",
     "description": "Label for the share experiment view button"
@@ -874,6 +886,10 @@
   "gVxisd": {
     "defaultMessage": "Tag \"{value}\" already exists.",
     "description": "Validation message for tags that already exist in tags table in MLflow"
+  },
+  "iQzwqe": {
+    "defaultMessage": "Min",
+    "description": "Column title for the column displaying the minimum metric values for a metric"
   },
   "iZm6YQ": {
     "defaultMessage": "<link>Learn more</link>",
@@ -1082,6 +1098,10 @@
   "ufamzi": {
     "defaultMessage": "Comparing {runs} MLflow Runs",
     "description": "Page title for the compare runs page"
+  },
+  "umeTwG": {
+    "defaultMessage": "Latest",
+    "description": "Column title for the column displaying the latest metric values for a metric"
   },
   "vi2MM7": {
     "defaultMessage": "All",

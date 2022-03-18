@@ -1,6 +1,7 @@
 .metrics-plot-container {
   display: flex;
   width: 100%;
+  align-items: flex-start;
 }
 
 .metrics-plot-container .plot-controls .x-axis-radio {
@@ -38,7 +39,21 @@
   margin-top: 25px;
 }
 
+.metrics-plot-container .metrics-plot-data {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
 .metrics-plot-container .metrics-plot-view-container {
   min-height: 500px;
   flex: 1;
+}
+
+.metrics-plot-container .metrics-summary {
+  margin: 20px 60px;
+}
+
+.metrics-plot-container .metrics-summary .html-table-view {
+  margin-bottom: 25px;
 }
