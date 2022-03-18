@@ -1315,7 +1315,13 @@ The resulting deployment accepts the following data formats as input:
 
 Deployments can be generated using both the Python API or MLflow CLI. On both cases, a ``JSON`` configuration file can be indicated with the details of the deployment you want to achieve. If not indicated, then a default deployment is done using Azure Container Instances (ACI) and a minimal configuration. The full specification of this configuration file can be checked at `Deployment configuration schema <https://docs.microsoft.com/en-us/azure/machine-learning/reference-azure-machine-learning-cli#deployment-configuration-schema>`_. On both cases, you will also need the Azure ML MLFlow Tracking URI of your particular Azure ML Workspace where you want to deploy your model. You can obtain this URI in several ways:
 
-* In the `Azure ML portal <https://ml.azure.com>`_, in the upper right corner, clic on the name of the workspace and on the pop-up blade that will show-up, clic on ``View all properties in Azure Portal``. In the properties panel, you will see the value corresponding to ``MLflow tracking URI``.
+* Through the `Azure ML Studio <https://ml.azure.com>`_:
+
+  * Navigate to `Azure ML Studio <https://ml.azure.com>`_ and select the workspace you are working on.
+  * Click on the name of the workspace at the upper right corner of the page.
+  * Click "View all properties in Azure Portal" on the pane popup.
+  * Copy the ``MLflow tracking URI`` value from the properties section.
+
 * Programmatically, using Azure ML SDK with the method `Woskspace.get_mlflow_tracking_uri() <https://docs.microsoft.com/en-us/python/api/azureml-core/azureml.core.workspace.workspace?view=azure-ml-py#azureml-core-workspace-workspace-get-mlflow-tracking-uri>`_. If you are running inside Azure ML Compute, like for instance a Compute Instace, you can get this value also from the environment variable ``os.environ["MLFLOW_TRACKING_URI"]``.
 * Manually, for a given Subscription ID, Resource Group and Azure ML Workspace, the URI is as follows: ``azureml://eastus.api.azureml.ms/mlflow/v1.0/subscriptions/<SUBSCRIPTION_ID>/resourceGroups/<RESOURCE_GROUP_NAME>/providers/Microsoft.MachineLearningServices/workspaces/<WORKSPACE_NAME>``
 
