@@ -8,7 +8,7 @@ runs:
       shell: bash
       run: |
         echo "::set-output name=prefix::$ImageOS-$ImageVersion"
-    - uses: actions/cache@v3
+    - uses: actions/cache@v2
       with:
         path: ~/.cache/pip
         key: ${{ steps.get-cache-key-prefix.outputs.prefix }}-pip-${{ hashFiles('requirements/*-requirements.txt') }}

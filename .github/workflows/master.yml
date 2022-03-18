@@ -71,7 +71,7 @@ jobs:
         os_name=$(lsb_release -ds | sed 's/\s/-/g')
         echo "::set-output name=os-name::$os_name"
     - name: Cache R packages
-      uses: actions/cache@v3
+      uses: actions/cache@v2
       with:
         path: ${{ env.R_LIBS_USER }}
         # We cache R dependencies based on a tuple of the current OS, the R version, and the list of
