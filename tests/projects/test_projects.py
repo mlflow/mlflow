@@ -384,7 +384,7 @@ dependencies:
     conda_yaml.write_text(content)
     envs_before = mlflow.utils.conda._list_conda_environments()
 
-    # `conda create` should fail because mlflow==999.999.999 doesn't exist
+    # `conda create` should fail because mlflow 999.999.999 doesn't exist
     with pytest.raises(ShellCommandException, match=r".*"):
         mlflow.utils.conda.get_or_create_conda_env(conda_yaml)
 
