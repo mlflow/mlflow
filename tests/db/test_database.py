@@ -5,7 +5,6 @@ from pathlib import Path
 from collections import namedtuple
 
 import pytest
-import sqlalchemy
 from sqlalchemy.schema import MetaData, CreateTable
 from sqlalchemy import create_engine
 
@@ -37,7 +36,7 @@ def mock_tracking_uri_env_var(tmp_path, monkeypatch):
 
 
 def dump_schema(db_uri):
-    engine = sqlalchemy.create_engine(db_uri)
+    engine = create_engine(db_uri)
     created_tables_metadata = MetaData(bind=engine)
     created_tables_metadata.reflect()
     # Write out table schema as described in
