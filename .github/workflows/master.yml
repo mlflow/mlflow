@@ -174,7 +174,7 @@ jobs:
         docker-compose -f tests/db/docker-compose.yml run mlflow-postgres
         docker-compose -f tests/db/docker-compose.yml run mlflow-mysql
         docker-compose -f tests/db/docker-compose.yml run mlflow-mssql
-        docker-compose down --volumes --remove-orphans --rmi all
+        docker-compose -f tests/db/docker-compose.yml down --volumes --remove-orphans --rmi all
     - name: Run anaconda compatibility tests
       run: |
         ./dev/test-anaconda-compatibility.sh "anaconda3:2020.11"
