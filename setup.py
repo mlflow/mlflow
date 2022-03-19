@@ -1,5 +1,6 @@
 import os
 import logging
+import distutils
 
 from importlib.machinery import SourceFileLoader
 from setuptools import setup, find_packages
@@ -85,6 +86,39 @@ CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + [
 _is_mlflow_skinny = bool(os.environ.get(_MLFLOW_SKINNY_ENV_VAR))
 logging.debug("{} env var is set: {}".format(_MLFLOW_SKINNY_ENV_VAR, _is_mlflow_skinny))
 
+
+class ListDependencies(distutils.cmd.Command):
+    description = "List mlflow dependencies"
+    user_options = [
+        ("skinny", None, "List mlflow-skinny dependencies"),
+    ]
+
+    def initialize_options(self):
+        self.skinny = False
+
+    def finalize_options(self):
+        pass
+
+    def run(self):
+        # `--quiet` (or `-q`) flag must be specified when we pipe the output to `pip install`
+        # or `requirements.txt`. See the difference below between with and without this flag.
+        #
+        # =========== with `--quiet` ===========
+        # $ python setup.py --quiet dependencies
+        # click>=7.0
+        # ...
+        # ======================================
+        #
+        # ========== without `--quiet` =========
+        # $ python setup.py dependencies
+        # running dependencies                  <- this line is unnecessary
+        # click>=7.0
+        # ...
+        # ======================================
+        dependencies = SKINNY_REQUIREMENTS if self.skinny else CORE_REQUIREMENTS
+        print("\n".join(dependencies))
+
+
 setup(
     name="mlflow" if not _is_mlflow_skinny else "mlflow-skinny",
     version=version,
@@ -121,6 +155,7 @@ setup(
         [console_scripts]
         mlflow=mlflow.cli:cli
     """,
+    cmdclass={"dependencies": ListDependencies},
     zip_safe=False,
     author="Databricks",
     description="MLflow: A Platform for ML Development and Productionization",
