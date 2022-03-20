@@ -75,6 +75,9 @@ class ModelInfo(NamedTuple):
     #: The UTC time that the logged model is created, e.g., ``'2022-01-12 05:17:31.634689'``.
     utc_time_created: str
 
+    #: Version of MLFlow used to log the model
+    mlflow_version: str
+
 
 class Model:
     """
@@ -91,6 +94,7 @@ class Model:
         signature=None,  # ModelSignature
         saved_input_example_info: Dict[str, Any] = None,
         model_uuid: Union[str, Callable, None] = lambda: uuid.uuid4().hex,
+        mlflow_version=None,
         **kwargs,
     ):
         # store model id instead of run_id and path to avoid confusion when model gets exported
@@ -103,6 +107,7 @@ class Model:
         self.signature = signature
         self.saved_input_example_info = saved_input_example_info
         self.model_uuid = model_uuid() if callable(model_uuid) else model_uuid
+        self.mlflow_version = mlflow_version
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):
@@ -175,6 +180,7 @@ class Model:
             saved_input_example_info=self.saved_input_example_info,
             signature_dict=self.signature.to_dict() if self.signature else None,
             utc_time_created=self.utc_time_created,
+            mlflow_version=self.mlflow_version,
         )
 
     def to_dict(self):
@@ -278,7 +284,9 @@ class Model:
         with TempDir() as tmp:
             local_path = tmp.path("model")
             run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
-            mlflow_model = cls(artifact_path=artifact_path, run_id=run_id)
+            mlflow_model = cls(
+                artifact_path=artifact_path, run_id=run_id, mlflow_version=mlflow.version.VERSION
+            )
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             mlflow.tracking.fluent.log_artifacts(local_path, artifact_path)
             try:

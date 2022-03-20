@@ -110,6 +110,8 @@ def test_model_log():
         assert isinstance(loaded_example, pd.DataFrame)
         assert loaded_example.to_dict(orient="records")[0] == input_example
 
+        assert loaded_model.mlflow_version == mlflow.version.VERSION
+
 
 def test_model_info():
     with TempDir(chdr=True) as tmp:
@@ -146,6 +148,34 @@ def test_model_info():
         assert x.to_dict(orient="records")[0] == input_example
 
         assert model_info.signature_dict == sig.to_dict()
+
+        assert model_info.mlflow_version == loaded_model.mlflow_version
+
+
+def test_load_model_without_mlflow_version():
+
+    with TempDir(chdr=True) as tmp:
+        sig = ModelSignature(
+            inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
+            outputs=Schema([ColSpec(name=None, type="double")]),
+        )
+        input_example = {"x": 1, "y": 2}
+
+        experiment_id = mlflow.create_experiment("test")
+        with mlflow.start_run(experiment_id=experiment_id) as run:
+            Model.log("some/path", TestFlavor, signature=sig, input_example=input_example)
+        _download_artifact_from_uri(
+            "runs:/{}/some/path".format(run.info.run_id), output_path=tmp.path("")
+        )
+
+        loaded_model = Model.load(tmp.path("MLmodel"))
+        del loaded_model.mlflow_version
+
+        legacy_model_path = tmp.path("legacy_MLmodel")
+        loaded_model.save(legacy_model_path)
+        loaded_model_without_mlflow_version = Model.load(legacy_model_path)
+
+        assert loaded_model_without_mlflow_version.mlflow_version is None
 
 
 def test_model_log_with_databricks_runtime():
