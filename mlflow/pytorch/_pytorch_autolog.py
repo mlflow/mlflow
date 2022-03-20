@@ -8,6 +8,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.core.memory import ModelSummary
 from pytorch_lightning.utilities import rank_zero_only
 
+from mlflow.exceptions import MlflowException
 from mlflow.utils.autologging_utils import (
     ExceptionSafeAbstractClass,
     BatchMetricsLogger,
@@ -28,6 +29,9 @@ logging.basicConfig(level=logging.ERROR)
 # tracking uri, experiment_id and run_id which may lead to a race condition.
 # TODO: Replace __MlflowPLCallback with Pytorch Lightning's built-in MlflowLogger
 # once the above mentioned issues have been addressed
+
+
+_pl_version = Version(pl.__version__)
 
 
 def _get_optimizer_name(optimizer):
@@ -60,6 +64,10 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
     def __init__(
         self, client, metrics_logger, run_id, log_models, log_every_n_epoch, log_every_n_step
     ):
+        if log_every_n_step and _pl_version < Version("1.1.0"):
+            raise MlflowException(
+                "log_every_n_step is only supported for PyTorch-Lightning >= 1.1.0"
+            )
         self.early_stopping = False
         self.client = client
         self.metrics_logger = metrics_logger
@@ -186,7 +194,7 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         # metric with the non-forked name (eg. "loss" when we have "loss", "loss_step" and
         # "loss_epoch") so that this is only logged on epochs. We also record which metrics
         # we've logged per step, so we can later exclude these from metrics logged on epochs.
-        metrics = trainer.callback_metrics
+        metrics = _get_step_metrics(trainer)
         metric_items = [
             (name, val)
             for (name, val) in metrics.items()
@@ -254,6 +262,22 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
             {key: float(value) for key, value in trainer.callback_metrics.items()}
         )
         self.metrics_logger.flush()
+
+
+# PyTorch-Lightning refactored the LoggerConnector class in version 1.4.0 and made metrics
+# update on demand. Prior to this, the metrics from the current step were not available to
+# callbacks immediately, so the view of metrics was off by one step.
+# To avoid this problem, we access the metrics via the logger_connector for older versions.
+if _pl_version >= Version("1.4.0"):
+
+    def _get_step_metrics(trainer):
+        return trainer.callback_metrics
+
+
+else:
+
+    def _get_step_metrics(trainer):
+        return trainer.logger_connector.cached_results.get_latest_batch_log_metrics()
 
 
 def _log_early_stop_params(early_stop_callback, client, run_id):
