@@ -625,7 +625,7 @@ def _get_tensorboard_callback(lst):
 _TensorBoardLogDir = namedtuple("_TensorBoardLogDir", ["location", "is_temp"])
 
 
-def _setup_callbacks(lst, log_models, metrics_logger):
+def _setup_callbacks(lst, metrics_logger):
     """
     Adds TensorBoard and MlfLowTfKeras callbacks to the
     input list, and returns the new list and appropriate log directory.
@@ -641,7 +641,7 @@ def _setup_callbacks(lst, log_models, metrics_logger):
     else:
         log_dir = _TensorBoardLogDir(location=tb.log_dir, is_temp=False)
         out_list = lst
-    out_list += [__MLflowTfKeras2Callback(log_models, metrics_logger, _LOG_EVERY_N_STEPS)]
+    out_list += [__MLflowTfKeras2Callback(metrics_logger, _LOG_EVERY_N_STEPS)]
     return out_list, log_dir
 
 
@@ -1094,7 +1094,7 @@ def autolog(
                     # modifying their contents for future training invocations. Introduce
                     # TensorBoard & tf.keras callbacks if necessary
                     callbacks = list(args[5])
-                    callbacks, self.log_dir = _setup_callbacks(callbacks, False, metrics_logger)
+                    callbacks, self.log_dir = _setup_callbacks(callbacks, metrics_logger)
                     # Replace the callbacks positional entry in the copied arguments and convert
                     # the arguments back to tuple form for usage in the training function
                     args[5] = callbacks
@@ -1103,9 +1103,7 @@ def autolog(
                     # Make a shallow copy of the preexisting callbacks and introduce TensorBoard
                     # & tf.keras callbacks if necessary
                     callbacks = list(kwargs.get("callbacks") or [])
-                    kwargs["callbacks"], self.log_dir = _setup_callbacks(
-                        callbacks, False, metrics_logger
-                    )
+                    kwargs["callbacks"], self.log_dir = _setup_callbacks(callbacks, metrics_logger)
 
                 early_stop_callback = _get_early_stop_callback(callbacks)
                 _log_early_stop_callback_params(early_stop_callback)
@@ -1167,7 +1165,7 @@ def autolog(
                     # modifying their contents for future training invocations. Introduce
                     # TensorBoard & tf.keras callbacks if necessary
                     callbacks = list(args[4])
-                    callbacks, self.log_dir = _setup_callbacks(callbacks, False, metrics_logger)
+                    callbacks, self.log_dir = _setup_callbacks(callbacks, metrics_logger)
                     # Replace the callbacks positional entry in the copied arguments and convert
                     # the arguments back to tuple form for usage in the training function
                     args[4] = callbacks
@@ -1176,9 +1174,7 @@ def autolog(
                     # Make a shallow copy of the preexisting callbacks and introduce TensorBoard
                     # & tf.keras callbacks if necessary
                     callbacks = list(kwargs.get("callbacks") or [])
-                    kwargs["callbacks"], self.log_dir = _setup_callbacks(
-                        callbacks, False, metrics_logger
-                    )
+                    kwargs["callbacks"], self.log_dir = _setup_callbacks(callbacks, metrics_logger)
 
                 result = original(inst, *args, **kwargs)
                 _log_keras_model_with_warning(result, args)

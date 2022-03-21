@@ -1230,7 +1230,7 @@ def test_fluent_autolog_with_tf_keras_logs_expected_content(
 
 def test_callback_is_picklable():
     cb = __MLflowTfKeras2Callback(
-        log_models=True, metrics_logger=BatchMetricsLogger(run_id="1234"), log_every_n_steps=5
+        metrics_logger=BatchMetricsLogger(run_id="1234"), log_every_n_steps=5
     )
     pickle.dumps(cb)
 

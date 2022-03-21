@@ -16,9 +16,8 @@ class __MLflowTfKeras2Callback(Callback, metaclass=ExceptionSafeClass):
     Records model structural information as params when training starts.
     """
 
-    def __init__(self, log_models, metrics_logger, log_every_n_steps):
+    def __init__(self, metrics_logger, log_every_n_steps):
         super().__init__()
-        self.log_models = log_models
         self.metrics_logger = metrics_logger
         self.log_every_n_steps = log_every_n_steps
 
