@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import subprocess
 import sys
 
@@ -86,31 +87,14 @@ def model_path(tmpdir):
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
 
-def _gen_sklearn_model():
+@pytest.fixture(scope="session")
+def sklearn_model():
     iris = datasets.load_iris()
     X = iris.data[:, :2]  # we only take the first two features.
     y = iris.target
     knn_model = KNeighborsClassifier()
     knn_model.fit(X, y)
     return ModelWithData(model=knn_model, inference_data=X)
-
-
-def _log_sklearn_model_and_save_preditions(model_path, predictions_output_path):
-    """
-    This method is used in `test_spark_udf_with_conda_env_restored`.
-    """
-    model, infer_data = _gen_sklearn_model()
-    mlflow.sklearn.save_model(
-        sk_model=model,
-        path=model_path,
-    )
-    with open(predictions_output_path, "w") as f:
-        json.dump(model.predict(infer_data).tolist(), f)
-
-
-@pytest.fixture(scope="session")
-def sklearn_model():
-    return _gen_sklearn_model()
 
 
 @pytest.mark.large
@@ -162,7 +146,7 @@ def test_spark_udf(spark, model_path):
 
 
 @pytest.mark.large
-def test_spark_udf_with_conda_env_restored(spark, sklearn_model, model_path, tmpdir, monkeypatch):
+def test_old_spark_udf_with_conda_env_restored(spark, sklearn_model, model_path, tmpdir, monkeypatch):
     from pyspark.sql.functions import col
     from mlflow.utils.conda import get_conda_bin_executable
 
@@ -213,6 +197,61 @@ name: test_spark_udf_log_sklearn_model_env"""
     pyfunc_udf = spark_udf(spark, model_path, env_manager="conda")
     result = (
         infer_spark_df.select(pyfunc_udf(col("a"), col("b")).alias("predictions"))
+        .toPandas()
+        .predictions.to_numpy()
+    )
+
+    np.testing.assert_allclose(result, expected_pred_result, rtol=1e-5)
+
+
+@pytest.mark.parametrize("sklearn_version, expected_result", [('0.22.1', 1.0), ('0.24.0', 2.0)])
+def test_spark_udf_conda_manager_can_restore_env(spark, model_path, sklearn_version, expected_result):
+    class EnvRestoringTestModel(mlflow.pyfunc.PythonModel):
+
+        def __init__(self):
+            pass
+
+        def predict(self, context, model_input):
+            from packaging.version import Version
+            import sklearn
+            if Version(sklearn.__version__) < Version('0.23'):
+                self.is_low_version = True
+            else:
+                self.is_low_version = False
+
+            return model_input.apply(lambda row: (1.0 if self.is_low_version else 2.0), axis=1)
+
+    infer_spark_df = spark.createDataFrame(pd.DataFrame(data=[[1, 2]], columns=['a', 'b']))
+
+    mlflow.pyfunc.save_model(
+        path=model_path,
+        python_model=EnvRestoringTestModel(),
+        pip_requirements=[
+            "pyspark==3.2.0",
+            "pandas==1.4.0",
+            f"scikit-learn=={sklearn_version}",
+            "pytest==6.2.5",
+        ]
+    )
+
+    python_udf = mlflow.pyfunc.spark_udf(spark, model_path, env_manager="conda")
+    result = infer_spark_df.select(python_udf("a", "b").alias("result")).toPandas().result[0]
+
+    assert result == expected_result
+
+
+def test_spark_udf_conda_manager_predict_sklearn_model(spark, sklearn_model, model_path):
+    model, inference_data = sklearn_model
+
+    mlflow.sklearn.save_model(model, model_path)
+    expected_pred_result = model.predict(inference_data)
+
+    infer_data = pd.DataFrame(inference_data, columns=["a", "b"])
+    infer_spark_df = spark.createDataFrame(infer_data)
+
+    pyfunc_udf = spark_udf(spark, model_path, env_manager="conda")
+    result = (
+        infer_spark_df.select(pyfunc_udf("a", "b").alias("predictions"))
         .toPandas()
         .predictions.to_numpy()
     )

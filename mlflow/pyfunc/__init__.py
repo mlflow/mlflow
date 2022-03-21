@@ -208,6 +208,7 @@ You may prefer the second, lower-level workflow for the following reasons:
 """
 
 import importlib
+import signal
 
 import numpy as np
 import os
@@ -880,14 +881,17 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     from pyspark.sql.types import ArrayType, DataType as SparkDataType
     from pyspark.sql.types import DoubleType, IntegerType, FloatType, LongType, StringType
     from pyspark.sql.functions import PandasUDFType
+    from mlflow.models.cli import _get_flavor_backend
 
     # importing here to prevent circular import
     from mlflow.pyfunc.scoring_server.client import prepare_env
 
-    spark_in_local_mode = spark.conf.get("spark.master").startswith("local")
-    use_nfs = get_nfs_cache_root_dir() is not None
+    # Check whether spark is in local or local-cluster mode
+    # this case all executors and driver share the same filesystem
+    is_spark_in_local_mode = spark.conf.get("spark.master").startswith("local")
+    should_use_nfs = get_nfs_cache_root_dir() is not None
 
-    use_spark_to_broadcast_file = not (spark_in_local_mode or use_nfs)
+    should_use_spark_to_broadcast_file = not (is_spark_in_local_mode or should_use_nfs)
 
     if not isinstance(result_type, SparkDataType):
         result_type = _parse_datatype_string(result_type)
@@ -910,7 +914,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     )
     # Assume spark executor python environment is the same with spark driver side.
     _warn_dependency_requirement_mismatches(local_model_path)
-    if use_spark_to_broadcast_file:
+    if should_use_spark_to_broadcast_file:
         archive_path = SparkModelCache.add_local_model(spark, local_model_path)
     else:
         if env_manager == "conda":
@@ -985,27 +989,11 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         else:
             return result[result.columns[0]]
 
-    MLFLOW_HOME = os.environ.get("MLFLOW_HOME", None)
-    restored_env_module_version_check_dict = os.environ.get(
-        "MLFLOW_SPARK_UDF_RESTORED_ENV_MODULE_VERSION_CHECK_DICT", None
-    )
-    if restored_env_module_version_check_dict is not None:
-        restored_env_module_version_check_dict = json.loads(restored_env_module_version_check_dict)
-
     def predict(iterator):
-        # Set MLFLOW_HOME env variable on spark UDF task side,
-        # it is used when creating conda env / virtualenv env.
-        if MLFLOW_HOME is not None:
-            os.environ["MLFLOW_HOME"] = MLFLOW_HOME
-
         # importing here to prevent circular import
         from mlflow.pyfunc import scoring_server
-        from mlflow.pyfunc.scoring_server.client import (
-            ScoringServerClient,
-            start_server,
-            kill_server,
-            prepare_env,
-        )
+        from mlflow.pyfunc.scoring_server.client import ScoringServerClient, prepare_env
+        from mlflow.pyfunc.scoring_server import start_server, kill_server
 
         # Note: this is a pandas udf function in iteration style, which takes an iterator of
         # tuple of pandas.Series and outputs an iterator of pandas.Series.
@@ -1032,7 +1020,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         if env_manager == "conda":
             server_port = find_free_port()
 
-            if use_spark_to_broadcast_file:
+            if should_use_spark_to_broadcast_file:
                 local_model_path_on_executor = _SparkDirectoryDistributor.get_or_extract(
                     archive_path
                 )
@@ -1055,14 +1043,6 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
             client = ScoringServerClient("127.0.0.1", server_port)
             client.wait_server_ready(timeout=30)
 
-            # If env variable "MLFLOW_SPARK_UDF_RESTORED_ENV_MODULE_VERSION_CHECK_DICT" is set,
-            # in spark UDF task, check the restored env modules has the same version with the
-            # provided version in the given dict.
-            # This is for testing purpose.
-            if restored_env_module_version_check_dict is not None:
-                for module, expected_version in restored_env_module_version_check_dict.items():
-                    assert client.get_module_version(module) == expected_version
-
             def batch_predict_fn(pdf):
                 return client.invoke(pdf)
 
@@ -1070,7 +1050,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
             raise NotImplementedError()
         elif env_manager == "local":
 
-            if use_spark_to_broadcast_file:
+            if should_use_spark_to_broadcast_file:
                 loaded_model, _ = SparkModelCache.get_or_load(archive_path)
             else:
                 loaded_model = mlflow.pyfunc.load_model(local_model_path)

@@ -21,6 +21,9 @@ import pandas as pd
 import sys
 import traceback
 import importlib
+import subprocess
+import warnings
+import signal
 
 # NB: We need to be careful what we import form mlflow here. Scoring server is used from within
 # model's conda environment. The version of mlflow doing the serving (outside) and the version of
@@ -187,23 +190,6 @@ def predictions_to_json(raw_predictions, output):
     if wrapper_attr_name:
         predictions = {wrapper_attr_name: predictions}
     json.dump(predictions, output, cls=NumpyEncoder)
-
-
-def load_predictions_from_json_str(json_str):
-    raw_predictions = json.loads(
-        json_str
-    )  # TODO: Implement numpy decoder and set cls to be numpy decoder ?
-    wrapper_attr_name = os.environ.get(PREDICTIONS_WRAPPER_ATTR_NAME_ENV_KEY, None)
-    if wrapper_attr_name:
-        raw_predictions = raw_predictions[wrapper_attr_name]
-
-    if len(raw_predictions) == 0:
-        return raw_predictions
-
-    if isinstance(raw_predictions[0], dict):
-        return pd.DataFrame.from_records(raw_predictions)
-    else:
-        return raw_predictions
 
 
 def _handle_serving_error(error_message, error_code, include_traceback=True):
@@ -408,3 +394,108 @@ def get_cmd(
     command_env[_SERVER_MODEL_PATH] = local_uri
 
     return command, command_env
+
+
+def start_server(
+    server_port,
+    local_model_path,
+    host="127.0.0.1",
+    num_workers=1,
+    no_conda=False,
+    env=None,
+    stdout=None,
+    stderr=None,
+    send_sigterm_on_parent_death=True,
+):
+    cmd = [
+        "mlflow",
+        "models",
+        "serve",
+        "-m",
+        local_model_path,
+        "-h",
+        host,
+        "-p",
+        str(server_port),
+        "-w",
+        str(num_workers),
+    ]
+    if no_conda:
+        cmd.append("--no-conda")
+    elif "MLFLOW_HOME" in os.environ:
+        cmd.append("--install-mlflow")
+
+    def setup_sigterm_on_parent_death():
+        """
+        Uses prctl to automatically send SIGTERM to the command process when its parent is dead.
+
+        This handles the case when the parent is a PySpark worker process.
+        If a user cancels the PySpark job, the worker process gets killed, regardless of
+        PySpark daemon and worker reuse settings.
+        We use prctl to ensure the command process receives SIGTERM after spark job cancellation.
+        The command process itself should handle SIGTERM properly.
+        This is a no-op on macOS because prctl is not supported.
+
+        Note: we cannot use `atexit` registering "kill_server" handler to replace `prctl` because:
+        The functions registered via "atexit" are not called when the program is killed
+        by a signal not handled by Python, when a Python fatal internal error is detected, or
+        when os._exit().
+        """
+        try:
+            import ctypes
+            libc = ctypes.CDLL("libc.so.6")
+            # Set the parent process death signal of the command process to SIGTERM.
+            libc.prctl(1,  # PR_SET_PDEATHSIG, see prctl.h
+                       signal.SIGTERM)
+        except OSError as e:
+            # TODO: find approach for supporting MacOS/Windows system which does not support prctl.
+            warnings.warn(
+                f"Setup libc.prctl PR_SET_PDEATHSIG failed, error {repr(e)}.")
+            pass
+
+    def preexec_fn():
+        # Assign the scoring process to a process group. All child processes of the
+        # scoring process will be assigned to this group as well. This allows child
+        # processes of the scoring process to be terminated successfully.
+        os.setsid()
+        if send_sigterm_on_parent_death:
+            setup_sigterm_on_parent_death()
+
+    if os.name != "nt":
+        proc = subprocess.Popen(
+            cmd,
+            stdout=stdout,
+            stderr=stderr,
+            universal_newlines=True,
+            env=env,
+            preexec_fn=preexec_fn,
+        )
+    else:
+        proc = subprocess.Popen(
+            cmd,
+            stdout=stdout,
+            stderr=stderr,
+            universal_newlines=True,
+            env=env,
+            # On Windows, `os.setsid` and `preexec_fn` are unavailable
+            # `mlflow models serve` command creates several sub-processes,
+            # In order to kill them easily via the root process,
+            # set flag `CREATE_NEW_PROCESS_GROUP`, see
+            # https://stackoverflow.com/questions/47016723/windows-equivalent-for-spawning-and-killing-separate-process-group-in-python-3
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+        )
+
+    return proc
+
+
+def kill_server(proc):
+    if proc.poll() is None:
+        # Terminate the process group containing the scoring process.
+        # This will terminate all child processes of the scoring process
+        if os.name != "nt":
+            pgrp = os.getpgid(proc.pid)
+            os.killpg(pgrp, signal.SIGTERM)
+        else:
+            # https://stackoverflow.com/questions/47016723/windows-equivalent-for-spawning-and-killing-separate-process-group-in-python-3
+            proc.send_signal(signal.CTRL_BREAK_EVENT)
+            proc.kill()

@@ -64,7 +64,7 @@ class PyFuncBackend(FlavorBackend):
         else:
             scoring_server._predict(local_uri, input_path, output_path, content_type, json_format)
 
-    def serve(self, model_uri, port, host, enable_mlserver):  # pylint: disable=W0221
+    def serve(self, model_uri, port, host, enable_mlserver, blocking=True):  # pylint: disable=W0221
         """
         Serve pyfunc model locally.
         """
@@ -75,15 +75,25 @@ class PyFuncBackend(FlavorBackend):
 
         if not self._no_conda and ENV in self._config:
             conda_env_path = os.path.join(local_path, self._config[ENV])
-            return _execute_in_conda_env(
-                conda_env_path, command, self._install_mlflow, command_env=command_env
+            child_proc = _execute_in_conda_env(
+                conda_env_path, command, self._install_mlflow, command_env=command_env, blocking=False
             )
         else:
             _logger.info("=== Running command '%s'", command)
             if os.name != "nt":
-                subprocess.Popen(["bash", "-c", command], env=command_env).wait()
+                child_proc = subprocess.Popen(["bash", "-c", command], env=command_env)
             else:
-                subprocess.Popen(command, env=command_env).wait()
+                child_proc = subprocess.Popen(command, env=command_env)
+
+        if blocking:
+            rc = child_proc.wait()
+            if rc != 0:
+                raise Exception(
+                    "Command '{0}' returned non zero return code. Return code = {1}".format(command, rc)
+                )
+            return 0
+        else:
+            return child_proc
 
     def can_score_model(self):
         if self._no_conda:
@@ -137,7 +147,7 @@ class PyFuncBackend(FlavorBackend):
         )
 
 
-def _execute_in_conda_env(conda_env_path, command, install_mlflow, command_env=None):
+def _execute_in_conda_env(conda_env_path, command, install_mlflow, command_env=None, blocking=True):
     if command_env is None:
         command_env = os.environ
     env_id = os.environ.get("MLFLOW_HOME", VERSION) if install_mlflow else None
@@ -162,8 +172,12 @@ def _execute_in_conda_env(conda_env_path, command, install_mlflow, command_env=N
         child = subprocess.Popen(["bash", "-c", command], close_fds=True, env=command_env)
     else:
         child = subprocess.Popen(["cmd", "/c", command], close_fds=True, env=command_env)
-    rc = child.wait()
-    if rc != 0:
-        raise Exception(
-            "Command '{0}' returned non zero return code. Return code = {1}".format(command, rc)
-        )
+
+    if blocking:
+        rc = child.wait()
+        if rc != 0:
+            raise Exception(
+                "Command '{0}' returned non zero return code. Return code = {1}".format(command, rc)
+            )
+    else:
+        return child
