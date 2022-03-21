@@ -89,10 +89,10 @@ class PyFuncBackend(FlavorBackend):
                 The command process itself should handle SIGTERM properly.
                 This is a no-op on macOS because prctl is not supported.
 
-                Note: we cannot use `atexit` registering "kill_server" handler to replace `prctl` because:
-                The functions registered via "atexit" are not called when the program is killed
-                by a signal not handled by Python, when a Python fatal internal error is detected, or
-                when os._exit().
+                Note:
+                When a pyspark job canceled, the UDF python process are killed by signal "SIGKILL",
+                This case neither "atexit" nor signal handler can capture SIGKILL signal.
+                prctl is the only way to capture SIGKILL signal.
                 """
                 try:
                     import ctypes

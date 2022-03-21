@@ -209,6 +209,7 @@ You may prefer the second, lower-level workflow for the following reasons:
 
 import importlib
 import signal
+import sys
 
 import numpy as np
 import os
@@ -912,11 +913,26 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     local_model_path = _download_artifact_from_uri(
         artifact_uri=model_uri, output_path=_get_or_create_model_cache_dir()
     )
-    # Assume spark executor python environment is the same with spark driver side.
-    _warn_dependency_requirement_mismatches(local_model_path)
+
+    if env_manager == "local":
+        # Assume spark executor python environment is the same with spark driver side.
+        _warn_dependency_requirement_mismatches(local_model_path)
+    else:
+        if not sys.platform.startswith("linux"):
+            _logger.warning(
+                "In order to run inference code in restored python environment, pyspark UDF "
+                "processes spawns mlflow model server as child processes to run inference, but "
+                "due to system limitation, if spark job being canceled, these UDF processes "
+                "are killed by SIGKILL and the mlflow model server child processes cannot be "
+                "killed."
+            )
+
+    # Broadcast local model directory to remote worker if needed.
     if should_use_spark_to_broadcast_file:
         archive_path = SparkModelCache.add_local_model(spark, local_model_path)
-    else:
+
+    if not should_use_spark_to_broadcast_file:
+        # Prepare restored environment in driver side if possible.
         if env_manager == "conda":
             prepare_env(local_model_path)
         elif env_manager == "virtualenv":
