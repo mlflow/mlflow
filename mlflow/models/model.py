@@ -197,7 +197,14 @@ class Model:
 
     def to_yaml(self, stream=None):
         """Write the model as yaml string."""
-        return yaml.safe_dump(self.to_dict(), stream=stream, default_flow_style=False)
+
+        # Do not save mlflow_version attribute if it's not defined
+        info = self.to_dict()
+        mlflow_version_key = "mlflow_version"
+        if not self.mlflow_version and mlflow_version_key in info:
+            info.pop(mlflow_version_key)
+
+        return yaml.safe_dump(info, stream=stream, default_flow_style=False)
 
     def __str__(self):
         return self.to_yaml()
@@ -208,11 +215,6 @@ class Model:
 
     def save(self, path):
         """Write the model as a local YAML file."""
-
-        # Saved model must have mlflow_version set
-        if self.mlflow_version is None:
-            self.mlflow_version = mlflow.version.VERSION
-
         with open(path, "w") as out:
             self.to_yaml(out)
 

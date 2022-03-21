@@ -16,6 +16,7 @@ from mlflow.utils.proto_json_utils import _dataframe_from_json
 
 from unittest import mock
 from scipy.sparse import csc_matrix
+from packaging.version import Version
 
 
 def test_model_save_load():
@@ -149,15 +150,13 @@ def test_model_info():
 
         assert model_info.signature_dict == sig.to_dict()
 
-        assert model_info.mlflow_version == loaded_model.mlflow_version
+        assert Version(model_info.mlflow_version) == Version(loaded_model.mlflow_version)
 
 
 def test_load_model_without_mlflow_version():
 
     with TempDir(chdr=True) as tmp:
-        model = Model(artifact_path="some/path", run_id="1234")
-        del model.mlflow_version
-
+        model = Model(artifact_path="some/path", run_id="1234", mlflow_version=None)
         path = tmp.path("model")
         with open(path, "w") as out:
             model.to_yaml(out)
