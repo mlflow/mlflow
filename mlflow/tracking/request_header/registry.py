@@ -56,7 +56,13 @@ def resolve_request_headers(request_headers=None):
     for provider in _request_header_provider_registry:
         try:
             if provider.in_context():
-                all_request_headers.update(provider.request_headers())
+                # all_request_headers.update(provider.request_headers())
+                for header, value in provider.request_headers().items():
+                    all_request_headers[header] = (
+                        "{} {}".format(all_request_headers[header], value)
+                        if header in all_request_headers
+                        else value
+                    )
         except Exception as e:
             _logger.warning("Encountered unexpected error during resolving request headers: %s", e)
 
