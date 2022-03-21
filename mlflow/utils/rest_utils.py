@@ -140,7 +140,7 @@ def http_request(
             _DEFAULT_HEADERS[_USER_AGENT], request_headers.pop(_USER_AGENT)
         )
 
-    headers = dict({**_DEFAULT_HEADERS, **request_headers})
+    headers = dict(**_DEFAULT_HEADERS, **request_headers)
     if auth_str:
         headers["Authorization"] = auth_str
 
