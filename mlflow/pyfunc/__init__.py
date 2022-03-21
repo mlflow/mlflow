@@ -993,7 +993,6 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         # importing here to prevent circular import
         from mlflow.pyfunc import scoring_server
         from mlflow.pyfunc.scoring_server.client import ScoringServerClient, prepare_env
-        from mlflow.pyfunc.scoring_server import start_server, kill_server
 
         # Note: this is a pandas udf function in iteration style, which takes an iterator of
         # tuple of pandas.Series and outputs an iterator of pandas.Series.
@@ -1033,11 +1032,16 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
             else:
                 local_model_path_on_executor = local_model_path
             # launch scoring server
+
             # TODO: adjust timeout for server requests handler.
-            scoring_server_proc = start_server(
-                server_port,
-                local_model_path_on_executor,
-                num_workers=1,
+            scoring_server_proc = _get_flavor_backend(
+                local_model_path_on_executor, no_conda=False, workers=1, install_mlflow=False
+            ).serve(
+                model_uri=local_model_path_on_executor,
+                port=server_port,
+                host='127.0.0.1',
+                enable_mlserver=False,
+                blocking=False
             )
 
             client = ScoringServerClient("127.0.0.1", server_port)
@@ -1067,7 +1071,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                 yield _predict_row_batch(batch_predict_fn, row_batch)
         finally:
             if scoring_server_proc is not None:
-                kill_server(scoring_server_proc)
+                os.kill(scoring_server_proc.pid, signal.SIGTERM)
 
     udf = pandas_udf(predict, result_type, functionType=PandasUDFType.SCALAR_ITER)
     udf.metadata = model_metadata

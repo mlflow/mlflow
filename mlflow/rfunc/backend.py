@@ -37,7 +37,7 @@ class RFuncBackend(FlavorBackend):
         )
         _execute(command)
 
-    def serve(self, model_uri, port, host, enable_mlserver):
+    def serve(self, model_uri, port, host, enable_mlserver, blocking=True):
         """
         Generate R model locally.
 
@@ -47,6 +47,9 @@ class RFuncBackend(FlavorBackend):
         """
         if enable_mlserver:
             raise Exception("The MLServer inference server is not yet supported in the R backend.")
+
+        if not blocking:
+            raise Exception("RBackend does not support call with blocking=False")
 
         model_path = _download_artifact_from_uri(model_uri)
         command = "mlflow::mlflow_rfunc_serve('{0}', port = {1}, host = '{2}')".format(
