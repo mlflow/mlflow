@@ -657,9 +657,16 @@ def _warn_dependency_requirement_mismatches(model_path):
             mismatch_str = " - " + "\n - ".join(mismatch_infos)
             warning_msg = (
                 "Detected one or more mismatches between the model's dependencies and the current "
-                f"Python environment:\n{mismatch_str}"
+                f"Python environment:\n{mismatch_str}\n"
             )
+            if is_in_databricks_runtime():
+                warning_msg += (
+                    f"On databricks notebook, you can run command '%pip install -r {req_file_path}' "
+                    "to update current python environment with model’s requirements.txt, and rerun "
+                    "inference commands."
+                )
             _logger.warning(warning_msg)
+
     except Exception as e:
         _logger.warning(
             f"Encountered an unexpected error ({repr(e)}) while detecting model dependency "
@@ -720,19 +727,13 @@ def load_model(
 def print_model_dependencies(model_uri):
     """
     Given a model URL, print model dependencies provided by model’s requirements.txt file.
-    And for databricks runtime, also print an instruction to update python environment with
-    the model dependencies.
     """
     local_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=None)
     req_file_path = os.path.join(local_path, _REQUIREMENTS_FILE_NAME)
     print(f"model {model_uri} dependencies:")
-    with open(req_file_path, "r") as f:
-        print(f.read())
+    for req in _parse_requirements(req_file_path, is_constraint=False):
+        print(req.req_str)
     print("\n")
-    if is_in_databricks_runtime():
-        print(f"On databricks notebook, you can run command '%pip install -r {req_file_path}' "
-              "to update current python environment with model’s requirements.txt, and rerun "
-              "inference commands.")
 
 
 @deprecated("mlflow.pyfunc.load_model", 1.0)
