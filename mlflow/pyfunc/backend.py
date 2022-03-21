@@ -3,6 +3,8 @@ import os
 
 import subprocess
 import posixpath
+import sys
+
 from mlflow.models import FlavorBackend
 from mlflow.models.docker_utils import _build_image, DISABLE_ENV_CREATION
 from mlflow.models.container import ENABLE_MLSERVER
@@ -73,17 +75,53 @@ class PyFuncBackend(FlavorBackend):
         server_implementation = mlserver if enable_mlserver else scoring_server
         command, command_env = server_implementation.get_cmd(local_path, port, host, self._nworkers)
 
+        if sys.platform.startswith("linux"):
+            def setup_sigterm_on_parent_death():
+                """
+                Uses prctl to automatically send SIGTERM to the command process when its parent is dead.
+
+                This handles the case when the parent is a PySpark worker process.
+                If a user cancels the PySpark job, the worker process gets killed, regardless of
+                PySpark daemon and worker reuse settings.
+                We use prctl to ensure the command process receives SIGTERM after spark job cancellation.
+                The command process itself should handle SIGTERM properly.
+                This is a no-op on macOS because prctl is not supported.
+
+                Note: we cannot use `atexit` registering "kill_server" handler to replace `prctl` because:
+                The functions registered via "atexit" are not called when the program is killed
+                by a signal not handled by Python, when a Python fatal internal error is detected, or
+                when os._exit().
+                """
+                try:
+                    import ctypes
+                    libc = ctypes.CDLL("libc.so.6")
+                    # Set the parent process death signal of the command process to SIGTERM.
+                    libc.prctl(1,  # PR_SET_PDEATHSIG, see prctl.h
+                               signal.SIGTERM)
+                except OSError as e:
+                    # TODO: find approach for supporting MacOS/Windows system which does not support prctl.
+                    warnings.warn(
+                        f"Setup libc.prctl PR_SET_PDEATHSIG failed, error {repr(e)}.")
+                    pass
+        else:
+            setup_sigterm_on_parent_death = None
+
         if not self._no_conda and ENV in self._config:
             conda_env_path = os.path.join(local_path, self._config[ENV])
             child_proc = _execute_in_conda_env(
-                conda_env_path, command, self._install_mlflow, command_env=command_env, blocking=False
+                conda_env_path, command, self._install_mlflow, command_env=command_env, blocking=False,
+                preexec_fn=setup_sigterm_on_parent_death
             )
         else:
             _logger.info("=== Running command '%s'", command)
             if os.name != "nt":
-                child_proc = subprocess.Popen(["bash", "-c", command], env=command_env)
+                child_proc = subprocess.Popen(
+                    ["bash", "-c", command], env=command_env, preexec_fn=setup_sigterm_on_parent_death
+                )
             else:
-                child_proc = subprocess.Popen(command, env=command_env)
+                child_proc = subprocess.Popen(
+                    command, env=command_env, preexec_fn=setup_sigterm_on_parent_death
+                )
 
         if blocking:
             rc = child_proc.wait()
@@ -147,7 +185,9 @@ class PyFuncBackend(FlavorBackend):
         )
 
 
-def _execute_in_conda_env(conda_env_path, command, install_mlflow, command_env=None, blocking=True):
+def _execute_in_conda_env(
+        conda_env_path, command, install_mlflow, command_env=None, blocking=True, preexec_fn=None
+):
     if command_env is None:
         command_env = os.environ
     env_id = os.environ.get("MLFLOW_HOME", VERSION) if install_mlflow else None
@@ -169,9 +209,9 @@ def _execute_in_conda_env(conda_env_path, command, install_mlflow, command_env=N
     _logger.info("=== Running command '%s'", command)
 
     if os.name != "nt":
-        child = subprocess.Popen(["bash", "-c", command], close_fds=True, env=command_env)
+        child = subprocess.Popen(["bash", "-c", command], close_fds=True, env=command_env, preexec_fn=preexec_fn)
     else:
-        child = subprocess.Popen(["cmd", "/c", command], close_fds=True, env=command_env)
+        child = subprocess.Popen(["cmd", "/c", command], close_fds=True, env=command_env, preexec_fn=preexec_fn)
 
     if blocking:
         rc = child.wait()
