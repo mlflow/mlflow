@@ -4,6 +4,7 @@ import os
 import subprocess
 import posixpath
 import sys
+import warnings
 
 from mlflow.models import FlavorBackend
 from mlflow.models.docker_utils import _build_image, DISABLE_ENV_CREATION
@@ -14,6 +15,7 @@ from mlflow.utils.conda import get_or_create_conda_env, get_conda_bin_executable
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.version import VERSION
+
 
 _logger = logging.getLogger(__name__)
 
@@ -94,6 +96,7 @@ class PyFuncBackend(FlavorBackend):
                 """
                 try:
                     import ctypes
+                    import signal
                     libc = ctypes.CDLL("libc.so.6")
                     # Set the parent process death signal of the command process to SIGTERM.
                     libc.prctl(1,  # PR_SET_PDEATHSIG, see prctl.h
@@ -101,8 +104,8 @@ class PyFuncBackend(FlavorBackend):
                 except OSError as e:
                     # TODO: find approach for supporting MacOS/Windows system which does not support prctl.
                     warnings.warn(
-                        f"Setup libc.prctl PR_SET_PDEATHSIG failed, error {repr(e)}.")
-                    pass
+                        f"Setup libc.prctl PR_SET_PDEATHSIG failed, error {repr(e)}."
+                    )
         else:
             setup_sigterm_on_parent_death = None
 
