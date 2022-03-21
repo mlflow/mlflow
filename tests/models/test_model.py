@@ -110,7 +110,7 @@ def test_model_log():
         assert isinstance(loaded_example, pd.DataFrame)
         assert loaded_example.to_dict(orient="records")[0] == input_example
 
-        assert loaded_model.mlflow_version == mlflow.version.VERSION
+        assert Version(loaded_model.mlflow_version) == Version(mlflow.version.VERSION)
 
 
 def test_model_info():
