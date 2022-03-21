@@ -155,6 +155,10 @@
     "defaultMessage": "Add",
     "description": "Add button text in editable tags table view in MLflow"
   },
+  "5K7cOi": {
+    "defaultMessage": "Latest",
+    "description": "Column title for latest value column for displaying the latest value of the metrics for the experiment run "
+  },
   "5Mzn2b": {
     "defaultMessage": "Creator",
     "description": "Label name for creator metadata in model version page"
@@ -299,10 +303,6 @@
     "defaultMessage": "This model is also registered to the <link>model registry</link>.",
     "description": "Sub text to tell the users where the registered models are located "
   },
-  "BwyYS1": {
-    "defaultMessage": "Value",
-    "description": "Column title for value column for displaying the value of the metrics for the experiment run "
-  },
   "CGVHLD": {
     "defaultMessage": "Parameters",
     "description": "Label for the collapsible area to display the parameters used during the experiment run"
@@ -423,6 +423,10 @@
     "defaultMessage": "Y-axis Log Scale:",
     "description": "Label for the radio button to toggle the Log scale on the Y-axis of the metric graph for the experiment"
   },
+  "HNDOs1": {
+    "defaultMessage": "Min",
+    "description": "Column title for minimum value column for displaying the minimum value of the metrics for the experiment run "
+  },
   "HNLDYl": {
     "defaultMessage": "Failed to set tag. Error: {userVisibleError}",
     "description": "Text for user visible error when setting tag in model version view"
@@ -514,6 +518,10 @@
   "O9r1RR": {
     "defaultMessage": "Start Time:",
     "description": "Row title for the start time of runs on the experiment compare runs page"
+  },
+  "OAvz3d": {
+    "defaultMessage": "Max",
+    "description": "Column title for maximum value column for displaying the maximum value of the metrics for the experiment run "
   },
   "OEGyWZ": {
     "defaultMessage": "Predict on a Spark DataFrame.",
