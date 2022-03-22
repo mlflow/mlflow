@@ -21,9 +21,7 @@ def start_run_and_log_data():
         mlflow.log_metric("m", 1.0)
         mlflow.set_tag("t", "tag")
         mlflow.pyfunc.log_model(
-            artifact_path="model",
-            python_model=Model(),
-            registered_model_name="model"
+            artifact_path="model", python_model=Model(), registered_model_name="model"
         )
 
 
