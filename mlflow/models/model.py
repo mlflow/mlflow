@@ -26,6 +26,7 @@ _LOG_MODEL_METADATA_WARNING_TEMPLATE = (
     "mlflow server via REST, consider upgrading the server version to MLflow "
     "1.7.0 or above."
 )
+_MLFLOW_VERSION_KEY = "mlflow_version"
 
 
 class ModelInfo(NamedTuple):
@@ -94,7 +95,7 @@ class Model:
         signature=None,  # ModelSignature
         saved_input_example_info: Dict[str, Any] = None,
         model_uuid: Union[str, Callable, None] = lambda: uuid.uuid4().hex,
-        mlflow_version: Union[str, Callable, None] = lambda: mlflow.version.VERSION,
+        mlflow_version: Union[str, None] = mlflow.version.VERSION,
         **kwargs,
     ):
         # store model id instead of run_id and path to avoid confusion when model gets exported
@@ -107,7 +108,7 @@ class Model:
         self.signature = signature
         self.saved_input_example_info = saved_input_example_info
         self.model_uuid = model_uuid() if callable(model_uuid) else model_uuid
-        self.mlflow_version = mlflow_version() if callable(mlflow_version) else mlflow_version
+        self.mlflow_version = mlflow_version
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):
@@ -200,9 +201,8 @@ class Model:
 
         # Do not save mlflow_version attribute if it's not defined
         info = self.to_dict()
-        mlflow_version_key = "mlflow_version"
-        if not self.mlflow_version and mlflow_version_key in info:
-            info.pop(mlflow_version_key)
+        if not self.mlflow_version and _MLFLOW_VERSION_KEY in info:
+            info.pop(_MLFLOW_VERSION_KEY)
 
         return yaml.safe_dump(info, stream=stream, default_flow_style=False)
 
@@ -239,8 +239,8 @@ class Model:
         if "model_uuid" not in model_dict:
             model_dict["model_uuid"] = None
 
-        if "mlflow_version" not in model_dict:
-            model_dict["mlflow_version"] = None
+        if _MLFLOW_VERSION_KEY not in model_dict:
+            model_dict[_MLFLOW_VERSION_KEY] = None
 
         return cls(**model_dict)
 
