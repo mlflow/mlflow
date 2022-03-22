@@ -39,9 +39,11 @@ class ScoringServerClient:
 
         import pandas as pd
 
-        content_type = scoring_server.CONTENT_TYPE_JSON
         if isinstance(data, pd.DataFrame):
-            content_type += f"; format={scoring_server.CONTENT_TYPE_FORMAT_RECORDS_ORIENTED}"
+            content_type = scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED
+        else:
+            content_type = scoring_server.CONTENT_TYPE_JSON
+
         post_data = json.dumps(scoring_server._get_jsonable_obj(data, pandas_orient="records"))
 
         response = requests.post(

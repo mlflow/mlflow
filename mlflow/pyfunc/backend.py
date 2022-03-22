@@ -68,7 +68,9 @@ class PyFuncBackend(FlavorBackend):
         else:
             scoring_server._predict(local_uri, input_path, output_path, content_type, json_format)
 
-    def serve(self, model_uri, port, host, enable_mlserver, synchronous=True):  # pylint: disable=W0221
+    def serve(
+        self, model_uri, port, host, enable_mlserver, synchronous=True
+    ):  # pylint: disable=W0221
         """
         Serve pyfunc model locally.
         """
@@ -78,6 +80,7 @@ class PyFuncBackend(FlavorBackend):
         command, command_env = server_implementation.get_cmd(local_path, port, host, self._nworkers)
 
         if sys.platform.startswith("linux"):
+
             def setup_sigterm_on_parent_death():
                 """
                 Uses prctl to automatically send SIGTERM to the command process when its parent is dead.
@@ -97,23 +100,26 @@ class PyFuncBackend(FlavorBackend):
                 try:
                     import ctypes
                     import signal
+
                     libc = ctypes.CDLL("libc.so.6")
                     # Set the parent process death signal of the command process to SIGTERM.
-                    libc.prctl(1,  # PR_SET_PDEATHSIG, see prctl.h
-                               signal.SIGTERM)
+                    libc.prctl(1, signal.SIGTERM)  # PR_SET_PDEATHSIG, see prctl.h
                 except OSError as e:
                     # TODO: find approach for supporting MacOS/Windows system which does not support prctl.
-                    warnings.warn(
-                        f"Setup libc.prctl PR_SET_PDEATHSIG failed, error {repr(e)}."
-                    )
+                    warnings.warn(f"Setup libc.prctl PR_SET_PDEATHSIG failed, error {repr(e)}.")
+
         else:
             setup_sigterm_on_parent_death = None
 
         if not self._no_conda and ENV in self._config:
             conda_env_path = os.path.join(local_path, self._config[ENV])
             child_proc = _execute_in_conda_env(
-                conda_env_path, command, self._install_mlflow, command_env=command_env, synchronous=False,
-                preexec_fn=setup_sigterm_on_parent_death
+                conda_env_path,
+                command,
+                self._install_mlflow,
+                command_env=command_env,
+                synchronous=False,
+                preexec_fn=setup_sigterm_on_parent_death,
             )
         else:
             _logger.info("=== Running command '%s'", command)
@@ -125,7 +131,9 @@ class PyFuncBackend(FlavorBackend):
             rc = child_proc.wait()
             if rc != 0:
                 raise Exception(
-                    "Command '{0}' returned non zero return code. Return code = {1}".format(command, rc)
+                    "Command '{0}' returned non zero return code. Return code = {1}".format(
+                        command, rc
+                    )
                 )
             return 0
         else:
@@ -184,7 +192,7 @@ class PyFuncBackend(FlavorBackend):
 
 
 def _execute_in_conda_env(
-        conda_env_path, command, install_mlflow, command_env=None, synchronous=True, preexec_fn=None
+    conda_env_path, command, install_mlflow, command_env=None, synchronous=True, preexec_fn=None
 ):
     if command_env is None:
         command_env = os.environ
@@ -217,9 +225,13 @@ def _execute_in_conda_env(
     _logger.info("=== Running command '%s'", command)
 
     if os.name != "nt":
-        child = subprocess.Popen(["bash", "-c", command], close_fds=True, env=command_env, preexec_fn=preexec_fn)
+        child = subprocess.Popen(
+            ["bash", "-c", command], close_fds=True, env=command_env, preexec_fn=preexec_fn
+        )
     else:
-        child = subprocess.Popen(["cmd", "/c", command], close_fds=True, env=command_env, preexec_fn=preexec_fn)
+        child = subprocess.Popen(
+            ["cmd", "/c", command], close_fds=True, env=command_env, preexec_fn=preexec_fn
+        )
 
     if synchronous:
         rc = child.wait()

@@ -145,16 +145,16 @@ def test_spark_udf(spark, model_path):
                 assert expected == actual
 
 
-@pytest.mark.parametrize("sklearn_version", ['0.22.1', '0.24.0'])
+@pytest.mark.parametrize("sklearn_version", ["0.22.1", "0.24.0"])
 def test_spark_udf_conda_manager_can_restore_env(spark, model_path, sklearn_version):
     class EnvRestoringTestModel(mlflow.pyfunc.PythonModel):
-
         def __init__(self):
             pass
 
         def predict(self, context, model_input):
             from packaging.version import Version
             import sklearn
+
             if sklearn.__version__ == sklearn_version:
                 pred_value = 1
             else:
@@ -162,7 +162,7 @@ def test_spark_udf_conda_manager_can_restore_env(spark, model_path, sklearn_vers
 
             return model_input.apply(lambda row: pred_value, axis=1)
 
-    infer_spark_df = spark.createDataFrame(pd.DataFrame(data=[[1, 2]], columns=['a', 'b']))
+    infer_spark_df = spark.createDataFrame(pd.DataFrame(data=[[1, 2]], columns=["a", "b"]))
 
     mlflow.pyfunc.save_model(
         path=model_path,
@@ -172,7 +172,7 @@ def test_spark_udf_conda_manager_can_restore_env(spark, model_path, sklearn_vers
             "pandas==1.3.0",
             f"scikit-learn=={sklearn_version}",
             "pytest==6.2.5",
-        ]
+        ],
     )
 
     python_udf = mlflow.pyfunc.spark_udf(spark, model_path, env_manager="conda")
