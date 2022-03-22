@@ -1,6 +1,5 @@
 import os
 import re
-import tempfile
 from pathlib import Path
 from collections import namedtuple
 
