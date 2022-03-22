@@ -728,13 +728,20 @@ def load_model(
     return PyFuncModel(model_meta=model_meta, model_impl=model_impl)
 
 
+def _download_model_conda_env(model_uri):
+    model_meta_path = _download_artifact_from_uri(os.path.join(model_uri, MLMODEL_FILE_NAME))
+    model_meta = Model.load(model_meta_path)
+    conda_yml_file_name = model_meta.flavors[ENV]
+    return _download_artifact_from_uri(os.path.join(model_uri, conda_yml_file_name))
+
+
 def get_model_dependencies(model_uri, format="pip"):
     """
     Given a model URL, and format, return the downloaded dependency file path.
     Available dependency file format includes "pip" and "conda".
     """
-    req_file_uri = os.path.join(model_uri, "requirements.txt")
-    conda_yml_uri = os.path.join(model_uri, "conda.yaml")
+    req_file_uri = os.path.join(model_uri, _REQUIREMENTS_FILE_NAME)
+
     if format == "pip":
         try:
             return _download_artifact_from_uri(req_file_uri)
@@ -743,7 +750,7 @@ def get_model_dependencies(model_uri, format="pip"):
                 raise
 
             # fallback to download conda.yaml file and parse the "pip" section from it.
-            conda_yml_path = _download_artifact_from_uri(conda_yml_uri)
+            conda_yml_path = _download_model_conda_env(model_uri)
             pip_deps = None
             try:
                 with open(conda_yml_path, 'r') as yf:
@@ -772,7 +779,7 @@ def get_model_dependencies(model_uri, format="pip"):
                 )
 
     elif format == "conda":
-        return _download_artifact_from_uri(conda_yml_uri)
+        return _download_model_conda_env(model_uri)
     else:
         raise ValueError(f"Illegal format argument '{format}'.")
 
