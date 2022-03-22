@@ -10,7 +10,7 @@ This directory contains files to test MLflow tracking operations using the follo
 - Docker
 - Docker Compose
 
-# Build Services
+## Build Services
 
 ```bash
 # Build all services
@@ -21,10 +21,10 @@ docker-compose -f tests/db/docker-compose.yml build --build-arg DEPENDENCIES="$D
 docker-compose -f tests/db/docker-compose.yml build --build-arg DEPENDENCIES="$DEPENDENCIES" <service name>
 ```
 
-# Run Services
+## Run Services
 
 ```bash
-# Run the default command (`pytest tests/db`)
+# Run a service with the default command (`pytest tests/db`)
 docker-compose -f tests/db/docker-compose.yml run --rm <service name>
 
 # Run other tests

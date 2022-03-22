@@ -88,9 +88,9 @@ logging.debug("{} env var is set: {}".format(_MLFLOW_SKINNY_ENV_VAR, _is_mlflow_
 
 
 class ListDependencies(distutils.cmd.Command):
-    # `python setup.py <command name>` prints out "running <command name>" in stdout by default.
-    # This message should be hidden by specifying `--quiet` (or `-q`) when piping the output of
-    # this command to `pip install` or `requirements.txt`.
+    # `python setup.py <command name>` prints out "running <command name>" by default.
+    # This logging message must be hidden by specifying `--quiet` (or `-q`) when piping the output
+    # of this command to `pip install`.
     description = "List mlflow dependencies"
     user_options = [
         ("skinny", None, "List mlflow-skinny dependencies"),
@@ -99,7 +99,6 @@ class ListDependencies(distutils.cmd.Command):
     def initialize_options(self):
         self.skinny = False
 
-    # This method must be overridden
     def finalize_options(self):
         pass
 
