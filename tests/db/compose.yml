@@ -1,5 +1,15 @@
-version: "3"
 services:
+  base:
+    build:
+      context: .
+      args:
+        - DEPENDENCIES
+    volumes:
+      - ${PWD}:/mlflow/home
+    working_dir: /mlflow/home
+    entrypoint: /mlflow/home/tests/db/entrypoint.sh
+    command: pytest tests/db
+
   postgresql:
     image: postgres
     restart: always
@@ -9,19 +19,12 @@ services:
       POSTGRES_PASSWORD: mlflowpassword
 
   mlflow-postgresql:
+    extends:
+      service: base
     depends_on:
       - postgresql
-    build:
-      context: .
-      args:
-        - DEPENDENCIES
-    volumes:
-      - ${PWD}:/mlflow/home
-    working_dir: /mlflow/home
     environment:
       MLFLOW_TRACKING_URI: postgresql://mlflowuser:mlflowpassword@postgresql:5432/mlflowdb
-    entrypoint: /mlflow/home/tests/db/entrypoint.sh
-    command: pytest tests/db
 
   mysql:
     image: mysql
@@ -34,19 +37,12 @@ services:
     command: mysqld --default-authentication-plugin=mysql_native_password
 
   mlflow-mysql:
+    extends:
+      service: base
     depends_on:
       - mysql
-    build:
-      context: .
-      args:
-        - DEPENDENCIES
-    volumes:
-      - ${PWD}:/mlflow/home
-    working_dir: /mlflow/home
     environment:
       MLFLOW_TRACKING_URI: mysql://mlflowuser:mlflowpassword@mysql:3306/mlflowdb?charset=utf8mb4
-    entrypoint: /mlflow/home/tests/db/entrypoint.sh
-    command: pytest tests/db
 
   mssql:
     image: mcr.microsoft.com/mssql/server
@@ -56,6 +52,8 @@ services:
       SA_PASSWORD: "1Secure*Password1"
 
   mlflow-mssql:
+    extends:
+      service: base
     depends_on:
       - mssql
     build:
@@ -63,25 +61,11 @@ services:
       dockerfile: Dockerfile.mssql
       args:
         - DEPENDENCIES
-    volumes:
-      - ${PWD}:/mlflow/home
-    working_dir: /mlflow/home
     environment:
       MLFLOW_TRACKING_URI: mssql+pyodbc://mlflowuser:Mlfl*wpassword1@mssql/mlflowdb?driver=ODBC+Driver+17+for+SQL+Server
-    entrypoint: /mlflow/home/tests/db/entrypoint.sh
-    command: pytest tests/db
 
   mlflow-sqlite:
-    depends_on:
-      - postgresql
-    build:
-      context: .
-      args:
-        - DEPENDENCIES
-    volumes:
-      - ${PWD}:/mlflow/home
-    working_dir: /mlflow/home
+    extends:
+      service: base
     environment:
       MLFLOW_TRACKING_URI: "sqlite:////tmp/mlflowdb"
-    entrypoint: /mlflow/home/tests/db/entrypoint.sh
-    command: pytest tests/db

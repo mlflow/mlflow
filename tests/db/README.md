@@ -1,3 +1,5 @@
+# Instructions
+
 This directory contains files to test MLflow tracking operations using the following databases:
 
 - PostgreSQL
@@ -8,29 +10,29 @@ This directory contains files to test MLflow tracking operations using the follo
 ## Prerequisites
 
 - Docker
-- Docker Compose
+- Docker Compose V2
 
 ## Build Services
 
 ```bash
-# Build a service
-./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python setup.py -q dependencies)" <service name>
-
 # Build all services
 ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python setup.py -q dependencies)"
+
+# Build a service. Run `./tests/db/compose.sh config --services | grep '^mlflow-'` to list available services
+./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python setup.py -q dependencies)" <service>
 ```
 
 ## Run Services
 
 ```bash
 # Run a service with the default command (`pytest tests/db`)
-./tests/db/compose.sh run --rm <service name>
+./tests/db/compose.sh run --rm <service>
 
 # Run tests
-./tests/db/compose.sh run --rm <service name> pytest /path/to/directory/or/script
+./tests/db/compose.sh run --rm <service> pytest /path/to/directory/or/script
 
 # Run a python script
-./tests/db/compose.sh run --rm <service name> python /path/to/script
+./tests/db/compose.sh run --rm <service> python /path/to/script
 ```
 
 ## Clean Up Services
@@ -47,5 +49,5 @@ This directory contains files to test MLflow tracking operations using the follo
 
 ```bash
 # View database logs
-./tests/db/compose.sh logs --follow <database service name>
+./tests/db/compose.sh logs --follow <database service>
 ```

@@ -1,4 +1,4 @@
 #!/bin/bash
 set -ex
 
-docker-compose --project-directory tests/db "$@"
+docker compose --project-directory tests/db "$@"
