@@ -208,6 +208,7 @@ You may prefer the second, lower-level workflow for the following reasons:
 """
 
 import importlib
+import tempfile
 
 import numpy as np
 import os
@@ -661,9 +662,12 @@ def _warn_dependency_requirement_mismatches(model_path):
             )
             if is_in_databricks_runtime():
                 warning_msg += (
-                    f"On databricks notebook, you can run command '%pip install -r {req_file_path}' "
-                    "to update current python environment with model’s requirements.txt, and rerun "
-                    "inference commands."
+                    f"On databricks notebook, you can run command "
+                    "'%pip install -r {pip_requirements_file_path}' "
+                    "or '%conda env update -f {conda_env_file_path}' "
+                    "to update current python environment with model's dependencies, and rerun "
+                    "inference commands, to get the 'pip_requirements_file_path' or "
+                    "'conda_env_file_path', call the API `mlflow.pyfunc.get_model_dependencies`."
                 )
             _logger.warning(warning_msg)
 
@@ -724,16 +728,53 @@ def load_model(
     return PyFuncModel(model_meta=model_meta, model_impl=model_impl)
 
 
-def print_model_dependencies(model_uri):
+def get_model_dependencies(model_uri, format="pip"):
     """
-    Given a model URL, print model dependencies provided by model’s requirements.txt file.
+    Given a model URL, and format, return the downloaded dependency file path.
+    Available dependency file format includes "pip" and "conda".
     """
-    local_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=None)
-    req_file_path = os.path.join(local_path, _REQUIREMENTS_FILE_NAME)
-    print(f"model {model_uri} dependencies:")
-    for req in _parse_requirements(req_file_path, is_constraint=False):
-        print(req.req_str)
-    print("\n")
+    req_file_uri = os.path.join(model_uri, "requirements.txt")
+    conda_yml_uri = os.path.join(model_uri, "conda.yaml")
+    if format == "pip":
+        try:
+            return _download_artifact_from_uri(req_file_uri)
+        except mlflow.exceptions.MlflowException as e:
+            if 'No such file or directory' not in e.message:
+                raise
+
+            # fallback to download conda.yaml file and parse the "pip" section from it.
+            conda_yml_path = _download_artifact_from_uri(conda_yml_uri)
+            pip_deps = None
+            try:
+                with open(conda_yml_path, 'r') as yf:
+                    conda_yml = yaml.safe_load(yf)
+
+                for dep in conda_yml['dependencies']:
+                    if isinstance(dep, dict) and 'pip' in dep:
+                        pip_deps = dep['pip']
+                        break
+            except Exception as e:
+                raise RuntimeError(
+                    f"Parse conda.yaml file in the model directory failed, error: {repr(e)}."
+                )
+
+            if pip_deps is not None:
+                pip_file_fd, pip_file_path = tempfile.mkstemp()
+                try:
+                    pip_file_fd.write("\n".join(dep['pip']) + "\n")
+                finally:
+                    pip_file_fd.close()
+
+                return pip_file_path
+            else:
+                raise ValueError(
+                    "No pip section found in conda.yaml file in the model directory."
+                )
+
+    elif format == "conda":
+        return _download_artifact_from_uri(conda_yml_uri)
+    else:
+        raise ValueError(f"Illegal format argument '{format}'.")
 
 
 @deprecated("mlflow.pyfunc.load_model", 1.0)
