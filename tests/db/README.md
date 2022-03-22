@@ -1,4 +1,4 @@
-This directory contains files to test MLflow using the following database types:
+This directory contains files to test MLflow tracking operations using the following databases:
 
 - PostgreSQL
 - MySQL
@@ -10,33 +10,43 @@ This directory contains files to test MLflow using the following database types:
 - Docker
 - Docker Compose
 
-## Run tests
+# Build Services
 
 ```bash
-# Make sure the current working directory is the repository root.
-docker-compose -f tests/db/docker-compose.yml build --build-arg DEPENDENCIES="$(python setup.py -q dependencies)" <service name>
-docker-compose -f tests/db/docker-compose.yml run <service name> pytest /path/to/tests
+# Build all services
+DEPENDENCIES="$(python setup.py -q dependencies)"
+docker-compose -f tests/db/docker-compose.yml build --build-arg DEPENDENCIES="$DEPENDENCIES"
+
+# Build a specific service
+docker-compose -f tests/db/docker-compose.yml build --build-arg DEPENDENCIES="$DEPENDENCIES" <service name>
 ```
 
-For example, the following commands run `tests/db/test_db.py` using PostgreSQL as a backend store:
+# Run Services
 
 ```bash
-docker-compose -f tests/db/docker-compose.yml build --build-arg DEPENDENCIES="$(python setup.py -q dependencies)" mlflow-postgres
-docker-compose -f tests/db/docker-compose.yml run mlflow-postgres pytest tests/db/test_database.py
+# Run the default command (`pytest tests/db`)
+docker-compose -f tests/db/docker-compose.yml run --rm <service name>
+
+# Run other tests
+docker-compose -f tests/db/docker-compose.yml run --rm <service name> pytest /path/to/directory/or/script
+
+# Run a python script
+docker-compose -f tests/db/docker-compose.yml run --rm <service name> python /path/to/script
 ```
 
-Other useful commands:
+## Clean Up Services
 
 ```bash
-# Build all services (this might take a while)
-docker-compose -f tests/db/docker-compose.yml build
-
-# View database logs
-docker-compose -f tests/db/docker-compose.yml logs postgres
-```
-
-## Clean Up
-
-```bash
+# Clean up containers, networks, and volumes
 docker-compose -f tests/db/docker-compose.yml down --volumes --remove-orphans
+
+# Clean up containers, networks, volumes, and images
+docker-compose -f tests/db/docker-compose.yml down --volumes --remove-orphans --rmi all
+```
+
+## Other Useful Commands
+
+```bash
+# View database logs
+docker-compose -f tests/db/docker-compose.yml logs --follow <database service name>
 ```

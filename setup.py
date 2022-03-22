@@ -88,6 +88,9 @@ logging.debug("{} env var is set: {}".format(_MLFLOW_SKINNY_ENV_VAR, _is_mlflow_
 
 
 class ListDependencies(distutils.cmd.Command):
+    # `python setup.py <command name>` prints out "running <command name>" in stdout by default.
+    # This message should be hidden by specifying `--quiet` (or `-q`) when piping the output of
+    # this command to `pip install` or `requirements.txt`.
     description = "List mlflow dependencies"
     user_options = [
         ("skinny", None, "List mlflow-skinny dependencies"),
@@ -96,25 +99,11 @@ class ListDependencies(distutils.cmd.Command):
     def initialize_options(self):
         self.skinny = False
 
+    # This method must be overridden
     def finalize_options(self):
         pass
 
     def run(self):
-        # `--quiet` (or `-q`) flag must be specified when we pipe the output to `pip install`
-        # or `requirements.txt`. See the difference below between with and without this flag.
-        #
-        # =========== with `--quiet` ===========
-        # $ python setup.py --quiet dependencies
-        # click>=7.0
-        # ...
-        # ======================================
-        #
-        # ========== without `--quiet` =========
-        # $ python setup.py dependencies
-        # running dependencies                  <- this line is unnecessary
-        # click>=7.0
-        # ...
-        # ======================================
         dependencies = SKINNY_REQUIREMENTS if self.skinny else CORE_REQUIREMENTS
         print("\n".join(dependencies))
 

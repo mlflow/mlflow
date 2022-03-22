@@ -1,6 +1,6 @@
 version: "3"
 services:
-  postgres:
+  postgresql:
     image: postgres
     restart: always
     environment:
@@ -8,19 +8,20 @@ services:
       POSTGRES_USER: mlflowuser
       POSTGRES_PASSWORD: mlflowpassword
 
-  mlflow-postgres:
+  mlflow-postgresql:
     depends_on:
-      - postgres
+      - postgresql
     build:
       context: .
       args:
-        - DEPENDENCIES=mlflow
+        - DEPENDENCIES
     volumes:
       - ${PWD}:/mlflow/home
     working_dir: /mlflow/home
     environment:
-      MLFLOW_TRACKING_URI: postgresql://mlflowuser:mlflowpassword@postgres:5432/mlflowdb
-    command: pytest tests/db/test_database.py
+      MLFLOW_TRACKING_URI: postgresql://mlflowuser:mlflowpassword@postgresql:5432/mlflowdb
+    entrypoint: /mlflow/home/tests/db/entrypoint.sh
+    command: pytest tests/db
 
   mysql:
     image: mysql
@@ -38,13 +39,14 @@ services:
     build:
       context: .
       args:
-        - DEPENDENCIES=mlflow
+        - DEPENDENCIES
     volumes:
       - ${PWD}:/mlflow/home
     working_dir: /mlflow/home
     environment:
-      MLFLOW_TRACKING_URI: mysql://mlflowuser:mlflowpassword@mysql:3306/mlflowdb
-    command: pytest tests/db/test_database.py
+      MLFLOW_TRACKING_URI: mysql://mlflowuser:mlflowpassword@mysql:3306/mlflowdb?charset=utf8mb4
+    entrypoint: /mlflow/home/tests/db/entrypoint.sh
+    command: pytest tests/db
 
   mssql:
     image: mcr.microsoft.com/mssql/server
@@ -60,24 +62,26 @@ services:
       context: .
       dockerfile: Dockerfile.mssql
       args:
-        - DEPENDENCIES=mlflow
+        - DEPENDENCIES
     volumes:
       - ${PWD}:/mlflow/home
     working_dir: /mlflow/home
     environment:
       MLFLOW_TRACKING_URI: mssql+pyodbc://mlflowuser:Mlfl*wpassword1@mssql/mlflowdb?driver=ODBC+Driver+17+for+SQL+Server
-    command: bash -ex -c "tests/db/init-mssql-db.sh && pytest tests/db/test_database.py -s"
+    entrypoint: /mlflow/home/tests/db/entrypoint.sh
+    command: pytest tests/db
 
   mlflow-sqlite:
     depends_on:
-      - postgres
+      - postgresql
     build:
       context: .
       args:
-        - DEPENDENCIES=mlflow
+        - DEPENDENCIES
     volumes:
       - ${PWD}:/mlflow/home
     working_dir: /mlflow/home
     environment:
       MLFLOW_TRACKING_URI: "sqlite:////tmp/mlflowdb"
-    command: pytest tests/db/test_database.py
+    entrypoint: /mlflow/home/tests/db/entrypoint.sh
+    command: pytest tests/db

@@ -170,10 +170,10 @@ jobs:
         docker-compose -f tests/db/docker-compose.yml build --build-arg DEPENDENCIES="$DEPENDENCIES"
     - name: Run database tests - run
       run: |
-        docker-compose -f tests/db/docker-compose.yml run mlflow-sqlite
-        docker-compose -f tests/db/docker-compose.yml run mlflow-postgres
-        docker-compose -f tests/db/docker-compose.yml run mlflow-mysql
-        docker-compose -f tests/db/docker-compose.yml run mlflow-mssql
+        docker-compose -f tests/db/docker-compose.yml run --rm mlflow-postgresql
+        docker-compose -f tests/db/docker-compose.yml run --rm mlflow-mysql
+        docker-compose -f tests/db/docker-compose.yml run --rm mlflow-mssql
+        docker-compose -f tests/db/docker-compose.yml run --rm mlflow-sqlite
         docker-compose -f tests/db/docker-compose.yml down --volumes --remove-orphans --rmi all
     - name: Run anaconda compatibility tests
       run: |

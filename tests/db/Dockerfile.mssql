@@ -1,6 +1,6 @@
 FROM python:3.7
 
-ARG DEPENDENCIES=mlflow
+ARG DEPENDENCIES
 
 # apt-get and system utilities
 RUN apt-get update && apt-get install -y \
