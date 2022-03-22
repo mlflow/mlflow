@@ -731,7 +731,7 @@ def load_model(
 def _download_model_conda_env(model_uri):
     model_meta_path = _download_artifact_from_uri(os.path.join(model_uri, MLMODEL_FILE_NAME))
     model_meta = Model.load(model_meta_path)
-    conda_yml_file_name = model_meta.flavors[ENV]
+    conda_yml_file_name = model_meta.flavors[FLAVOR_NAME][ENV]
     return _download_artifact_from_uri(os.path.join(model_uri, conda_yml_file_name))
 
 
@@ -745,10 +745,7 @@ def get_model_dependencies(model_uri, format="pip"):
     if format == "pip":
         try:
             return _download_artifact_from_uri(req_file_uri)
-        except mlflow.exceptions.MlflowException as e:
-            if 'No such file or directory' not in e.message:
-                raise
-
+        except Exception as e:
             # fallback to download conda.yaml file and parse the "pip" section from it.
             conda_yml_path = _download_model_conda_env(model_uri)
             pip_deps = None
@@ -766,12 +763,10 @@ def get_model_dependencies(model_uri, format="pip"):
                 )
 
             if pip_deps is not None:
-                pip_file_fd, pip_file_path = tempfile.mkstemp()
-                try:
-                    pip_file_fd.write("\n".join(dep['pip']) + "\n")
-                finally:
-                    pip_file_fd.close()
-
+                tmp_dir = tempfile.mkdtemp()
+                pip_file_path = os.path.join(tmp_dir, _REQUIREMENTS_FILE_NAME)
+                with open(pip_file_path, 'w') as f:
+                    f.write("\n".join(dep['pip']) + "\n")
                 return pip_file_path
             else:
                 raise ValueError(

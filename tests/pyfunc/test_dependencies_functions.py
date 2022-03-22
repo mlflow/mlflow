@@ -1,9 +1,11 @@
+import tempfile
 from unittest import mock
 import pytest
 import cloudpickle
 import sklearn
+import os
 
-from mlflow.pyfunc import _warn_dependency_requirement_mismatches
+from mlflow.pyfunc import _warn_dependency_requirement_mismatches, get_model_dependencies
 import mlflow.utils.requirements_utils
 
 from tests.helper_functions import AnyStringWith
@@ -110,3 +112,54 @@ Detected one or more mismatches between the model's dependencies and the current
                     "detecting model dependency mismatches"
                 )
             )
+
+
+@pytest.mark.large
+def test_get_model_dependencies(tmpdir):
+    with open(os.path.join(tmpdir.strpath, 'MLmodel'), 'w') as f:
+        f.write("""
+artifact_path: model
+flavors:
+  python_function:
+    env: conda.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    python_version: 3.7.12
+model_uuid: 722a374a432f48f09ee85da92df13bca
+run_id: 765e66a5ba404650be51cb02cda66f35"""
+                )
+
+    req_file_path = os.path.join(tmpdir.strpath, 'requirements.txt')
+    with open(req_file_path, 'w') as f:
+        f.write("""
+mlflow
+cloudpickle==2.0.0
+scikit-learn==1.0.2"""
+                )
+
+    conda_yml_path = os.path.join(tmpdir.strpath, 'conda.yaml')
+    with open(conda_yml_path, 'w') as f:
+        f.write("""
+channels:
+- conda-forge
+dependencies:
+- python=3.7.12
+- pip=22.0.3
+- pip:
+  - mlflow
+  - cloudpickle==2.0.0
+  - scikit-learn==1.0.1
+name: mlflow-env"""
+                )
+
+    model_path = tmpdir.strpath
+    assert get_model_dependencies(model_path, format="pip") == req_file_path
+    assert get_model_dependencies(model_path, format="conda") == conda_yml_path
+
+    os.remove(req_file_path)
+
+    pip_file_path = get_model_dependencies(model_path, format="pip")
+    with open(pip_file_path, 'r') as f:
+        result = f.read()
+
+    assert result.strip() == "mlflow\ncloudpickle==2.0.0\nscikit-learn==1.0.1"
