@@ -32,29 +32,22 @@ class ScoringServerClient:
                 break
         raise RuntimeError("Wait scoring server ready timeout.")
 
-    def invoke(self, data, pandas_orient="records"):
+    def invoke(self, data):
         """
         Invoke inference on input data. The input data must be pandas dataframe or json instance.
         """
 
         import pandas as pd
 
-        content_type_list = [scoring_server.CONTENT_TYPE_JSON]
+        content_type = scoring_server.CONTENT_TYPE_JSON
         if isinstance(data, pd.DataFrame):
-            if pandas_orient == "records":
-                content_type_list.append(scoring_server.CONTENT_TYPE_FORMAT_RECORDS_ORIENTED)
-            elif pandas_orient == "split":
-                content_type_list.append(scoring_server.CONTENT_TYPE_FORMAT_SPLIT_ORIENTED)
-            else:
-                raise Exception(
-                    "Unexpected pandas_orient for Pandas dataframe input %s" % pandas_orient
-                )
-        post_data = json.dumps(scoring_server._get_jsonable_obj(data, pandas_orient=pandas_orient))
+            content_type += f"format={scoring_server.CONTENT_TYPE_FORMAT_RECORDS_ORIENTED}"
+        post_data = json.dumps(scoring_server._get_jsonable_obj(data, pandas_orient="records"))
 
         response = requests.post(
             url=self.url_prefix + "/invocations",
             data=post_data,
-            headers={"Content-Type": "; ".join(content_type_list)},
+            headers={"Content-Type": content_type},
         )
 
         if response.status_code != 200:

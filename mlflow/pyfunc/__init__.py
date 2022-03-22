@@ -919,6 +919,9 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         _warn_dependency_requirement_mismatches(local_model_path)
     else:
         if not sys.platform.startswith("linux"):
+            # TODO: support killing mlflow server launched in UDF task when spark job canceled
+            #  for non-linux system.
+            #  https://stackoverflow.com/questions/53208/how-do-i-automatically-destroy-child-processes-in-windows
             _logger.warning(
                 "In order to run inference code in restored python environment, pyspark UDF "
                 "processes spawns mlflow model server as child processes to run inference, but "
@@ -1061,7 +1064,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
             )
 
             client = ScoringServerClient("127.0.0.1", server_port)
-            client.wait_server_ready(timeout=30)
+            client.wait_server_ready(timeout=90)
 
             def batch_predict_fn(pdf):
                 return client.invoke(pdf)

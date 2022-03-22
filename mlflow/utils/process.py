@@ -1,7 +1,5 @@
 import os
 import subprocess
-import signal
-import sys
 
 
 class ShellCommandException(Exception):

@@ -68,7 +68,7 @@ class PyFuncBackend(FlavorBackend):
         else:
             scoring_server._predict(local_uri, input_path, output_path, content_type, json_format)
 
-    def serve(self, model_uri, port, host, enable_mlserver, blocking=True):  # pylint: disable=W0221
+    def serve(self, model_uri, port, host, enable_mlserver, synchronous=True):  # pylint: disable=W0221
         """
         Serve pyfunc model locally.
         """
@@ -112,7 +112,7 @@ class PyFuncBackend(FlavorBackend):
         if not self._no_conda and ENV in self._config:
             conda_env_path = os.path.join(local_path, self._config[ENV])
             child_proc = _execute_in_conda_env(
-                conda_env_path, command, self._install_mlflow, command_env=command_env, blocking=False,
+                conda_env_path, command, self._install_mlflow, command_env=command_env, synchronous=False,
                 preexec_fn=setup_sigterm_on_parent_death
             )
         else:
@@ -126,7 +126,7 @@ class PyFuncBackend(FlavorBackend):
                     command, env=command_env, preexec_fn=setup_sigterm_on_parent_death
                 )
 
-        if blocking:
+        if synchronous:
             rc = child_proc.wait()
             if rc != 0:
                 raise Exception(
@@ -189,7 +189,7 @@ class PyFuncBackend(FlavorBackend):
 
 
 def _execute_in_conda_env(
-        conda_env_path, command, install_mlflow, command_env=None, blocking=True, preexec_fn=None
+        conda_env_path, command, install_mlflow, command_env=None, synchronous=True, preexec_fn=None
 ):
     if command_env is None:
         command_env = os.environ
@@ -216,7 +216,7 @@ def _execute_in_conda_env(
     else:
         child = subprocess.Popen(["cmd", "/c", command], close_fds=True, env=command_env, preexec_fn=preexec_fn)
 
-    if blocking:
+    if synchronous:
         rc = child.wait()
         if rc != 0:
             raise Exception(
