@@ -171,7 +171,9 @@ jobs:
       run: |
         for service in $(./tests/db/compose.sh config --services | grep '^mlflow-')
         do
-          ./tests/db/compose.sh run --rm $service
+          # Set `--no-TTY` to show container logs on GitHub Actions:
+          # https://github.com/actions/virtual-environments/issues/5022
+          ./tests/db/compose.sh run --rm --no-TTY $service
         done
         ./tests/db/compose.sh down --volumes --remove-orphans --rmi all
     - name: Run anaconda compatibility tests
