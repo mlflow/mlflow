@@ -117,14 +117,9 @@ class PyFuncBackend(FlavorBackend):
             )
         else:
             _logger.info("=== Running command '%s'", command)
-            if os.name != "nt":
-                child_proc = subprocess.Popen(
-                    ["bash", "-c", command], env=command_env, preexec_fn=setup_sigterm_on_parent_death
-                )
-            else:
-                child_proc = subprocess.Popen(
-                    command, env=command_env, preexec_fn=setup_sigterm_on_parent_death
-                )
+            child_proc = subprocess.Popen(
+                command, env=command_env, preexec_fn=setup_sigterm_on_parent_death
+            )
 
         if synchronous:
             rc = child_proc.wait()
@@ -205,6 +200,16 @@ def _execute_in_conda_env(
         activate_conda_env += [install_mlflow]
     if os.name != "nt":
         separator = " && "
+        # Add "exec" before the starting scoring server command, so that the scoring server
+        # process replaces the bash process, otherwise the scoring server process is created
+        # as a child process of the bash process.
+        # Note we in `mlflow.pyfunc.spark_udf`, use prctl PR_SET_PDEATHSIG to ensure scoring
+        # server process being killed when UDF process exit. The PR_SET_PDEATHSIG can only
+        # send signal to the bash process, if the scoring server process is created as a
+        # child process of the bash process, then it cannot receive the signal sent by prctl.
+        # TODO: For Windows, there's no equivalent things of Unix shell's exec. Windows also
+        #  does not support prctl. We need to find an approach to address it.
+        command = "exec " + command
     else:
         separator = " & "
 
