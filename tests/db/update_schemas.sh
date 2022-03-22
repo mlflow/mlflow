@@ -1,11 +1,9 @@
-#!/usr/bin/env bash
-
+#!/bin/bash
 set -ex
 
-docker-compose -f tests/db/docker-compose.yml down --volumes --remove-orphans
-DEPENDENCIES="$(python setup.py --quiet dependencies)"
-docker-compose -f tests/db/docker-compose.yml build --build-arg DEPENDENCIES="$DEPENDENCIES"
-docker-compose -f tests/db/docker-compose.yml run --rm mlflow-sqlite python tests/db/test_schema.py
-docker-compose -f tests/db/docker-compose.yml run --rm mlflow-postgresql python tests/db/test_schema.py
-docker-compose -f tests/db/docker-compose.yml run --rm mlflow-mysql python tests/db/test_schema.py
-docker-compose -f tests/db/docker-compose.yml run --rm mlflow-mssql python tests/db/test_schema.py
+./tests/db/compose.sh down --volumes --remove-orphans
+./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python setup.py -q dependencies)"
+for service in $(./tests/db/compose.sh config --services | grep '^mlflow-')
+do
+  ./tests/db/compose.sh run --rm $service python tests/db/test_schema.py
+done

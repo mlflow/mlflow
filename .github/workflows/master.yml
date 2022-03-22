@@ -165,16 +165,15 @@ jobs:
     # Separate build and run to make it easier to explore logs
     - name: Run database tests - build
       run: |
-        docker-compose -f tests/db/docker-compose.yml pull
-        DEPENDENCIES="$(python setup.py --quiet dependencies)"
-        docker-compose -f tests/db/docker-compose.yml build --build-arg DEPENDENCIES="$DEPENDENCIES"
+        ./tests/db/compose.sh pull
+        ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python setup.py -q dependencies)"
     - name: Run database tests - run
       run: |
-        docker-compose -f tests/db/docker-compose.yml run --rm mlflow-postgresql
-        docker-compose -f tests/db/docker-compose.yml run --rm mlflow-mysql
-        docker-compose -f tests/db/docker-compose.yml run --rm mlflow-mssql
-        docker-compose -f tests/db/docker-compose.yml run --rm mlflow-sqlite
-        docker-compose -f tests/db/docker-compose.yml down --volumes --remove-orphans --rmi all
+        for service in $(./tests/db/compose.sh config --services | grep '^mlflow-')
+        do
+          ./tests/db/compose.sh run --rm $service
+        done
+        ./tests/db/compose.sh down --volumes --remove-orphans --rmi all
     - name: Run anaconda compatibility tests
       run: |
         ./dev/test-anaconda-compatibility.sh "anaconda3:2020.11"

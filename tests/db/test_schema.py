@@ -48,7 +48,7 @@ CREATE TABLE (?P<table>\S+?) \(
 )
 
 
-def parse_create_table_statements(schema):
+def parse_create_tables(schema):
     return [
         _CreateTable(
             table=m.group("table"),
@@ -59,8 +59,8 @@ def parse_create_table_statements(schema):
 
 
 def schema_equal(schema_a, schema_b):
-    create_tables_a = parse_create_table_statements(schema_a)
-    create_tables_b = parse_create_table_statements(schema_b)
+    create_tables_a = parse_create_tables(schema_a)
+    create_tables_b = parse_create_tables(schema_b)
     assert create_tables_a != []
     assert create_tables_b != []
     return create_tables_a == create_tables_b
@@ -118,22 +118,23 @@ def initialize_database():
         pass
 
 
+def get_schema_udpate_command(dialect):
+    this_script = Path(__file__).relative_to(Path.cwd())
+    docker_compose_yml = this_script.parent / "docker-compose.yml"
+    return f"docker-compose -f {docker_compose_yml} run --rm mlflow-{dialect} python {this_script}"
+
+
 def test_schema_is_up_to_date():
     initialize_database()
     tracking_uri = get_tracking_uri()
     schema_path = get_schema_path(tracking_uri)
     existing_schema = schema_path.read_text()
     latest_schema = dump_schema(tracking_uri)
-    this_script_rel = Path(__file__).relative_to(Path.cwd())
-    docker_compose_yml = this_script_rel.parent / "docker-compose.yml"
     dialect = get_database_dialect(tracking_uri)
-    schema_path_rel = schema_path.relative_to(Path.cwd())
-    update_command = (
-        f"docker-compose -f {docker_compose_yml} run --rm mlflow-{dialect} python {this_script_rel}"
-    )
+    update_command = get_schema_udpate_command(dialect)
     message = (
-        f"{schema_path_rel} is not up-to-date. "
-        f"Please run the this command to update it: {update_command}"
+        f"{schema_path.relative_to(Path.cwd())} is not up-to-date. "
+        f"Please run this command to update it: {update_command}"
     )
     assert schema_equal(existing_schema, latest_schema), message
 
