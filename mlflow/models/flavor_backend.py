@@ -35,7 +35,7 @@ class FlavorBackend:
         pass
 
     @abstractmethod
-    def serve(self, model_uri, port, host, enable_mlserver, blocking=True):
+    def serve(self, model_uri, port, host, enable_mlserver, synchronous=True):
         """
         Serve the specified MLflow model locally.
 
@@ -43,6 +43,8 @@ class FlavorBackend:
         :param port: Port to use for the model deployment.
         :param host: Host to use for the model deployment. Defaults to ``localhost``.
         :param enable_mlserver: Whether to use MLServer or the local scoring server.
+        :param synchronous: Whether to wait until server exit or return the server process
+                            `Popen` instance immediately.
         """
         pass
 

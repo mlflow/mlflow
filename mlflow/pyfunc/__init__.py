@@ -862,7 +862,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
 
         - ``ArrayType(StringType)``: All columns converted to ``string``.
 
-    :param env_manager: Available values "local", "conda", "virtualenv" (default "local").
+    :param env_manager: Available values "local", "conda" (default "local").
         Specify the environment manage used to restore the model required python environment.
         If set "local", then use current python environment.
         If set "conda", then use conda to restore model required python environment.
@@ -886,6 +886,9 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
 
     # importing here to prevent circular import
     from mlflow.pyfunc.scoring_server.client import prepare_env
+
+    if env_manager not in ["local", "conda"]:
+        raise ValueError("Illegal env_manager setting.")
 
     # Check whether spark is in local or local-cluster mode
     # this case all executors and driver share the same filesystem
@@ -923,11 +926,10 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
             #  for non-linux system.
             #  https://stackoverflow.com/questions/53208/how-do-i-automatically-destroy-child-processes-in-windows
             _logger.warning(
-                "In order to run inference code in restored python environment, pyspark UDF "
-                "processes spawns mlflow model server as child processes to run inference, but "
-                "due to system limitation, if spark job being canceled, these UDF processes "
-                "are killed by SIGKILL and the mlflow model server child processes cannot be "
-                "killed."
+                "In order to run inference code in restored python environment, PySpark UDF "
+                "processes spawn MLflow Model servers as child processes. Due to system limitations "
+                "with handling SIGKILL signals, these MLflow Model server child processes cannot be "
+                "cleaned up if the Spark Job is canceled."
             )
 
     # Broadcast local model directory to remote worker if needed.
@@ -938,8 +940,6 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         # Prepare restored environment in driver side if possible.
         if env_manager == "conda":
             prepare_env(local_model_path)
-        elif env_manager == "virtualenv":
-            raise NotImplementedError()
 
     model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
 
@@ -1060,7 +1060,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                 port=server_port,
                 host='127.0.0.1',
                 enable_mlserver=False,
-                blocking=False
+                synchronous=False
             )
 
             client = ScoringServerClient("127.0.0.1", server_port)
