@@ -169,7 +169,7 @@ def test_spark_udf_conda_manager_can_restore_env(spark, model_path, sklearn_vers
         python_model=EnvRestoringTestModel(),
         pip_requirements=[
             "pyspark==3.2.0",
-            "pandas==1.4.0",
+            "pandas==1.3.0",
             f"scikit-learn=={sklearn_version}",
             "pytest==6.2.5",
         ]
