@@ -194,17 +194,13 @@ class Model:
             res["signature"] = self.signature.to_dict()
         if self.saved_input_example_info is not None:
             res["saved_input_example_info"] = self.saved_input_example_info
+        if self.mlflow_version is None and _MLFLOW_VERSION_KEY in res:
+            res.pop(_MLFLOW_VERSION_KEY)
         return res
 
     def to_yaml(self, stream=None):
         """Write the model as yaml string."""
-
-        # Do not save mlflow_version attribute if it's not defined
-        info = self.to_dict()
-        if not self.mlflow_version and _MLFLOW_VERSION_KEY in info:
-            info.pop(_MLFLOW_VERSION_KEY)
-
-        return yaml.safe_dump(info, stream=stream, default_flow_style=False)
+        return yaml.safe_dump(self.to_dict(), stream=stream, default_flow_style=False)
 
     def __str__(self):
         return self.to_yaml()
