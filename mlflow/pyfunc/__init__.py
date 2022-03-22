@@ -658,17 +658,8 @@ def _warn_dependency_requirement_mismatches(model_path):
             mismatch_str = " - " + "\n - ".join(mismatch_infos)
             warning_msg = (
                 "Detected one or more mismatches between the model's dependencies and the current "
-                f"Python environment:\n{mismatch_str}\n"
+                f"Python environment:\n{mismatch_str}"
             )
-            if is_in_databricks_runtime():
-                warning_msg += (
-                    f"On databricks notebook, you can run command "
-                    "'%pip install -r {pip_requirements_file_path}' "
-                    "or '%conda env update -f {conda_env_file_path}' "
-                    "to update current python environment with model's dependencies, and rerun "
-                    "inference commands, to get the 'pip_requirements_file_path' or "
-                    "'conda_env_file_path', call the API `mlflow.pyfunc.get_model_dependencies`."
-                )
             _logger.warning(warning_msg)
 
     except Exception as e:
@@ -744,7 +735,7 @@ def get_model_dependencies(model_uri, format="pip"):
 
     if format == "pip":
         try:
-            return _download_artifact_from_uri(req_file_uri)
+            pip_file_path = _download_artifact_from_uri(req_file_uri)
         except Exception as e:
             # fallback to download conda.yaml file and parse the "pip" section from it.
             conda_yml_path = _download_model_conda_env(model_uri)
@@ -767,14 +758,21 @@ def get_model_dependencies(model_uri, format="pip"):
                 pip_file_path = os.path.join(tmp_dir, _REQUIREMENTS_FILE_NAME)
                 with open(pip_file_path, 'w') as f:
                     f.write("\n".join(dep['pip']) + "\n")
-                return pip_file_path
             else:
                 raise ValueError(
                     "No pip section found in conda.yaml file in the model directory."
                 )
+        if is_in_databricks_runtime():
+            print(f"On databricks notebook, you can run command '%pip install -r {pip_file_path}' "
+                  "to update current python environment with model's dependencies.")
+        return pip_file_path
 
     elif format == "conda":
-        return _download_model_conda_env(model_uri)
+        conda_yml_path = _download_model_conda_env(model_uri)
+        if is_in_databricks_runtime():
+            print(f"On databricks notebook, you can run command '%conda env update -f {conda_yml_path}' "
+                  "to update current python environment with model's dependencies.")
+        return conda_yml_path
     else:
         raise ValueError(f"Illegal format argument '{format}'.")
 
