@@ -637,16 +637,15 @@ def test_scoring_server_client(sklearn_model, model_path):
             port=port,
             host='127.0.0.1',
             enable_mlserver=False,
-            blocking=False
+            synchronous=False
         )
 
         client = ScoringServerClient(host="127.0.0.1", port=port)
         client.wait_server_ready()
 
-        for orient in ["records", "split"]:
-            data = pd.DataFrame(sklearn_model.inference_data)
-            result = client.invoke(data, orient).to_numpy()[:,0]
-            np.testing.assert_allclose(result, expected_result, rtol=1e-5)
+        data = pd.DataFrame(sklearn_model.inference_data)
+        result = client.invoke(data).to_numpy()[:,0]
+        np.testing.assert_allclose(result, expected_result, rtol=1e-5)
     finally:
         if server_proc is not None:
             os.kill(server_proc.pid, signal.SIGTERM)

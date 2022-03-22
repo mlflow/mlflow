@@ -920,6 +920,8 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     if env_manager == "local":
         # Assume spark executor python environment is the same with spark driver side.
         _warn_dependency_requirement_mismatches(local_model_path)
+        _logger.warning("You can set `mlflow.pyfunc.spark_udf` function argument `env_manager` to "
+                        "be 'conda' to run inference in restored python environment.")
     else:
         if not sys.platform.startswith("linux"):
             # TODO: support killing mlflow server launched in UDF task when spark job canceled
@@ -1068,11 +1070,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
 
             def batch_predict_fn(pdf):
                 return client.invoke(pdf)
-
-        elif env_manager == "virtualenv":
-            raise NotImplementedError()
         elif env_manager == "local":
-
             if should_use_spark_to_broadcast_file:
                 loaded_model, _ = SparkModelCache.get_or_load(archive_path)
             else:
@@ -1080,9 +1078,6 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
 
             def batch_predict_fn(pdf):
                 return loaded_model.predict(pdf)
-
-        else:
-            raise ValueError()
 
         try:
             for row_batch in iterator:
