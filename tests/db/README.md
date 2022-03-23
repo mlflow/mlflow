@@ -15,18 +15,24 @@ This directory contains files to test MLflow tracking operations using the follo
 ## Build Services
 
 ```bash
+# Build a service
+./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python setup.py -q dependencies)" <service>
+
 # Build all services
 ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python setup.py -q dependencies)"
-
-# Build a service. Run `./tests/db/compose.sh config --services | grep '^mlflow-'` to list available services
-./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python setup.py -q dependencies)" <service>
 ```
 
 ## Run Services
 
 ```bash
-# Run a service with the default command (`pytest tests/db`)
+# Run a service (`pytest tests/db` is executed by default)
 ./tests/db/compose.sh run --rm <service>
+
+# Run all services
+for service in $(./tests/db/compose.sh config --services | grep '^mlflow-')
+do
+  ./tests/db/compose.sh run --rm "$service"
+done
 
 # Run tests
 ./tests/db/compose.sh run --rm <service> pytest /path/to/directory/or/script

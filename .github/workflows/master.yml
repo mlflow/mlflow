@@ -162,9 +162,9 @@ jobs:
         SPARK_LOCAL_IP: 127.0.0.1
       run: |
         ./dev/run-large-python-tests.sh
-    - name: Database tests - pull & build
+    - name: Database tests - build
       run: |
-        ./tests/db/compose.sh pull postgresql mysql mssql
+        ./tests/db/compose.sh pull -q postgresql mysql mssql
         ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python setup.py -q dependencies)"
     - name: Database tests - run
       run: |
