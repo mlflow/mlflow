@@ -231,11 +231,6 @@ def init(model: PyFuncModel):
         status = 200 if health else 404
         return flask.Response(response="\n", status=status, mimetype="application/json")
 
-    @app.route("/version/<module>", methods=["GET"])
-    def get_module_version(module):
-        ver = importlib.import_module(module).__version__
-        return flask.Response(response=ver, status=200, mimetype="text/plain")
-
     @app.route("/invocations", methods=["POST"])
     @catch_mlflow_exception
     def transformation():  # pylint: disable=unused-variable

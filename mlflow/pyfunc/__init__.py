@@ -896,7 +896,10 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     from mlflow.models.cli import _get_flavor_backend
 
     if env_manager not in ["local", "conda"]:
-        raise ValueError("Illegal env_manager setting.")
+        raise MlflowException(
+            f"Illegal env_manager value '{env_manager}'.",
+            error_code=INVALID_PARAMETER_VALUE
+        )
 
     # Check whether spark is in local or local-cluster mode
     # this case all executors and driver share the same filesystem
