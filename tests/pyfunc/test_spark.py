@@ -367,7 +367,7 @@ def test_model_cache(spark, model_path):
 
 @pytest.mark.skipif(
     not sys.platform.startswith("linux"),
-    "Only Linux system support setting  parent process death signal via prctl lib."
+    reason="Only Linux system support setting  parent process death signal via prctl lib."
 )
 @pytest.mark.large
 def test_spark_udf_embedded_model_server_killed_when_job_canceled(spark, sklearn_model, model_path):
@@ -411,7 +411,7 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(spark, sklearn
     job_thread.join()
 
     time.sleep(5)  # waiting server to exit and release the port.
-    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
-        # try to bind on the server port, if it raises exception it means the port is in use,
-        # which means the server process is not killed.
-        s.bind(("127.0.0.1", 51234))
+
+    # assert ping failed, i.e. the server process is killed successfully.
+    with pytest.raises(ConnectionRefusedError):
+        client.ping()
