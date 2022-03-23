@@ -1,5 +1,6 @@
 import os
 import logging
+import distutils
 
 from importlib.machinery import SourceFileLoader
 from setuptools import setup, find_packages
@@ -85,6 +86,27 @@ CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + [
 _is_mlflow_skinny = bool(os.environ.get(_MLFLOW_SKINNY_ENV_VAR))
 logging.debug("{} env var is set: {}".format(_MLFLOW_SKINNY_ENV_VAR, _is_mlflow_skinny))
 
+
+class ListDependencies(distutils.cmd.Command):
+    # `python setup.py <command name>` prints out "running <command name>" by default.
+    # This logging message must be hidden by specifying `--quiet` (or `-q`) when piping the output
+    # of this command to `pip install`.
+    description = "List mlflow dependencies"
+    user_options = [
+        ("skinny", None, "List mlflow-skinny dependencies"),
+    ]
+
+    def initialize_options(self):
+        self.skinny = False
+
+    def finalize_options(self):
+        pass
+
+    def run(self):
+        dependencies = SKINNY_REQUIREMENTS if self.skinny else CORE_REQUIREMENTS
+        print("\n".join(dependencies))
+
+
 setup(
     name="mlflow" if not _is_mlflow_skinny else "mlflow-skinny",
     version=version,
@@ -121,6 +143,7 @@ setup(
         [console_scripts]
         mlflow=mlflow.cli:cli
     """,
+    cmdclass={"dependencies": ListDependencies},
     zip_safe=False,
     author="Databricks",
     description="MLflow: A Platform for ML Development and Productionization",
