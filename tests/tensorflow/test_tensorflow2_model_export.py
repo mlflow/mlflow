@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 import pandas.testing
 import tensorflow as tf
+from tensorflow import estimator as tf_estimator
 import iris_data_utils
 
 import mlflow
@@ -68,7 +69,7 @@ def saved_tf_iris_model(tmpdir):
         my_feature_columns.append(tf.feature_column.numeric_column(key=key))
 
     # Build 2 hidden layer DNN with 10, 10 units respectively.
-    estimator = tf.estimator.DNNClassifier(
+    estimator = tf_estimator.DNNClassifier(
         feature_columns=my_feature_columns,
         # Two hidden layers of 10 nodes each.
         hidden_units=[10, 10],
@@ -125,7 +126,7 @@ def saved_tf_iris_model(tmpdir):
     for name in my_feature_columns:
         feature_spec[name.key] = tf.Variable([], dtype=tf.float64, name=name.key)
 
-    receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
+    receiver_fn = tf_estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
 
     # Save the estimator and its inference function
     saved_estimator_path = str(tmpdir.mkdir("saved_model"))
@@ -179,7 +180,7 @@ def saved_tf_categorical_model(tmpdir):
 
     # Build a DNNRegressor, with 20x20-unit hidden layers, with the feature columns
     # defined above as input
-    estimator = tf.estimator.DNNRegressor(hidden_units=[20, 20], feature_columns=feature_columns)
+    estimator = tf_estimator.DNNRegressor(hidden_units=[20, 20], feature_columns=feature_columns)
 
     # Train the estimator and obtain expected predictions on the training dataset
     estimator.train(
@@ -201,7 +202,7 @@ def saved_tf_categorical_model(tmpdir):
         "curb-weight": tf.Variable([], dtype=tf.float64, name="curb-weight"),
         "highway-mpg": tf.Variable([], dtype=tf.float64, name="highway-mpg"),
     }
-    receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
+    receiver_fn = tf_estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
 
     # Save the estimator and its inference function
     saved_estimator_path = str(tmpdir.mkdir("saved_model"))
