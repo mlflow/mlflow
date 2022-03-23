@@ -442,7 +442,7 @@ def test_databricks_http_request_integration(get_config, request):
     """Confirms that the databricks http request params can in fact be used as an HTTP request"""
 
     def confirm_request_params(*args, **kwargs):
-        headers = DefaultRequestHeaderProvider.request_headers()
+        headers = DefaultRequestHeaderProvider().request_headers()
         headers["Authorization"] = "Basic dXNlcjpwYXNz"
         assert args == ("PUT", "host/clusters/list")
         assert kwargs == {
