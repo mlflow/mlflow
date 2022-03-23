@@ -862,10 +862,16 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
 
         - ``ArrayType(StringType)``: All columns converted to ``string``.
 
-    :param env_manager: Available values "local", "conda" (default "local").
-        Specify the environment manage used to restore the model required python environment.
-        If set "local", then use current python environment.
-        If set "conda", then use conda to restore model required python environment.
+    :param env_manager: The environment manager to use in order to create the
+                        software environment for model inference. Default value is ``local``,
+                        The following values are supported:
+                        - ``conda``: (Recommended) Use Conda to restore the software environment
+                          that was used to train the model. Note that environment is only restored
+                          in the context of the PySpark UDF; the software environment outside of
+                          the UDF is unaffected.
+                        - ``local``: Use the current Python environment for model inference, which
+                          may differ from the environment used to train the model and may lead to
+                          errors or invalid predictions.
 
     :return: Spark UDF that applies the model's ``predict`` method to the data and returns a
              type specified by ``result_type``, which by default is a double.
@@ -921,10 +927,17 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         # Assume spark executor python environment is the same with spark driver side.
         _warn_dependency_requirement_mismatches(local_model_path)
         _logger.warning(
-            "You can set `mlflow.pyfunc.spark_udf` function argument `env_manager` to "
-            "be 'conda' to run inference in restored python environment."
+            "Calling `spark_udf()` with `env_manager=\"local\"` does not recreate the same "
+            "environment that was used during training, which may lead to errors or inaccurate "
+            "predictions. We recommend specifying `env_manager=\"conda\"`, which automatically "
+            "recreates the environment that was used to train the model and performs inference "
+            "in the recreated environment."
         )
     else:
+        _logger.info(
+            "Conda will be used to recreate the software environment for inference so that this "
+            "may take extra time."
+        )
         if not sys.platform.startswith("linux"):
             # TODO: support killing mlflow server launched in UDF task when spark job canceled
             #  for non-linux system.
