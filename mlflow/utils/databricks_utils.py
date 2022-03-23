@@ -142,6 +142,18 @@ def is_dbfs_fuse_available():
             return False
 
 
+@_use_repl_context_if_available("isMlflowdbfsAvailable")  # todo: add repl context
+def is_mlflowdbfs_available():
+    try:
+        spark_session = _get_active_spark_session()
+        return (
+            spark_session is not None
+            and spark_session.conf.get("spark.databricks.io.mlflowdbfs.endpoint") is not None
+        )  # todo: add spark conf
+    except Exception:
+        return False
+
+
 @_use_repl_context_if_available("isInCluster")
 def is_in_cluster():
     try:

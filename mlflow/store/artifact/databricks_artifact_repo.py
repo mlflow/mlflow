@@ -41,6 +41,7 @@ from mlflow.utils.rest_utils import (
 from mlflow.utils.uri import (
     extract_and_normalize_path,
     get_databricks_profile_uri_from_artifact_uri,
+    get_mlflowdbfs_uri,
     is_databricks_acled_artifacts_uri,
     is_valid_dbfs_uri,
     remove_databricks_profile_info_from_artifact_uri,
@@ -315,6 +316,18 @@ class DatabricksArtifactRepository(ArtifactRepository):
         else:
             run_relative_artifact_path = self.run_relative_artifact_repo_root_path
         return run_relative_artifact_path
+
+    def _get_mlflowdbfs_path(self, artifact_path):
+        db_creds = get_databricks_host_creds(self.databricks_profile_uri)
+        return get_mlflowdbfs_uri(
+            netloc=db_creds.host,
+            path=artifact_path,
+            run_id=self.run_id,
+            ignore_tls_verification=db_creds.ignore_tls_verification,
+            username=db_creds.username,
+            password=db_creds.password,
+            token=db_creds.token,
+        )
 
     def log_artifact(self, local_file, artifact_path=None):
         run_relative_artifact_path = self._get_run_relative_artifact_path_for_upload(

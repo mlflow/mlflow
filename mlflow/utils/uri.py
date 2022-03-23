@@ -91,6 +91,22 @@ def get_db_info_from_uri(uri):
     return None, None
 
 
+def get_mlflowdbfs_uri(
+    netloc, path, run_id, ignore_tls_verification, username=None, password=None, token=None
+):
+    scheme = "mlflowdbfs"
+    query_list = [("run_id", run_id), ("ignore_tls_verification", ignore_tls_verification)]
+    if token is not None:
+        query_list.append(("token", token))
+    elif (username is not None) and (password is not None):
+        query_list.extend([("username", username), ("password", password)])
+    query = urllib.parse.urlencode(query_list)
+    parse_result = urllib.parse.ParseResult(
+        scheme=scheme, netloc=netloc, path=path, query=query, params="", fragment=""
+    )
+    return urllib.parse.urlunparse(parse_result)
+
+
 def get_databricks_profile_uri_from_artifact_uri(uri):
     """
     Retrieves the netloc portion of the URI as a ``databricks://`` URI,
