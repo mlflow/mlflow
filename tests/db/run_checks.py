@@ -7,6 +7,7 @@ from sqlalchemy.schema import MetaData, CreateTable
 
 import mlflow
 from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
+from mlflow.entities import ViewType
 
 
 class MockModel(mlflow.pyfunc.PythonModel):
@@ -36,6 +37,9 @@ def run_logging_operations():
     runs = mlflow.search_runs(experiment_ids=["0"], order_by=["param.start_time DESC"])
 
     run = mlflow.get_run(runs["run_id"][0])
+
+    experiments = mlflow.list_experiments(view_type=ViewType.ALL, max_results=5)
+    assert len(experiments) > 0
 
     # Ensure the following migration scripts work correctly:
     # - cfd24bdc0731_update_run_status_constraint_with_killed.py

@@ -1388,54 +1388,101 @@ For more info, see:
 Deploy a ``python_function`` model on Microsoft Azure ML
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The :py:mod:`mlflow.azureml` module can package ``python_function`` models into Azure ML container images and deploy them as a webservice. Models can be deployed to Azure Kubernetes Service (AKS) and the Azure Container Instances (ACI)
-platform for real-time serving. The resulting Azure ML ContainerImage contains a web server that
-accepts the following data formats as input:
+The MLflow plugin `azureml-mlflow <https://pypi.org/project/azureml-mlflow/>`_ can deploy models to Azure ML, either to Azure Kubernetes Service (AKS) or Azure Container Instances (ACI) for real-time serving. 
+
+The resulting deployment accepts the following data formats as input:
 
 * JSON-serialized pandas DataFrames in the ``split`` orientation. For example, ``data = pandas_df.to_json(orient='split')``. This format is specified using a ``Content-Type`` request header value of ``application/json``.
 
-* :py:func:`mlflow.azureml.deploy` registers an MLflow Model with an existing Azure ML workspace, builds an Azure ML container image and deploys the model to AKS and ACI. The `Azure ML SDK`_ is required in order to use this function. *The Azure ML SDK requires Python 3. It cannot be installed with earlier versions of Python.*
+.. warning::
+    The ``TensorSpec`` input format is not fully supported for deployments on Azure Machine Learning at the moment. Be aware that many ``autolog()`` implementations may use ``TensorSpec`` for model's signatures when logging models and hence those deployments will fail in Azure ML.
 
-.. _Azure ML SDK: https://docs.microsoft.com/python/api/overview/azure/ml/intro?view=azure-ml-py
+Deployments can be generated using both the Python API or MLflow CLI. In both cases, a ``JSON`` configuration file can be indicated with the details of the deployment you want to achieve. If not indicated, then a default deployment is done using Azure Container Instances (ACI) and a minimal configuration. The full specification of this configuration file can be checked at `Deployment configuration schema <https://docs.microsoft.com/en-us/azure/machine-learning/reference-azure-machine-learning-cli#deployment-configuration-schema>`_. Also, you will also need the Azure ML MLflow Tracking URI of your particular Azure ML Workspace where you want to deploy your model. You can obtain this URI in several ways:
 
-.. rubric:: Example workflow using the Python API
+* Through the `Azure ML Studio <https://ml.azure.com>`_:
+
+  * Navigate to `Azure ML Studio <https://ml.azure.com>`_ and select the workspace you are working on.
+  * Click on the name of the workspace at the upper right corner of the page.
+  * Click "View all properties in Azure Portal" on the pane popup.
+  * Copy the ``MLflow tracking URI`` value from the properties section.
+
+* Programmatically, using Azure ML SDK with the method `Woskspace.get_mlflow_tracking_uri() <https://docs.microsoft.com/en-us/python/api/azureml-core/azureml.core.workspace.workspace?view=azure-ml-py#azureml-core-workspace-workspace-get-mlflow-tracking-uri>`_. If you are running inside Azure ML Compute, like for instance a Compute Instace, you can get this value also from the environment variable ``os.environ["MLFLOW_TRACKING_URI"]``.
+* Manually, for a given Subscription ID, Resource Group and Azure ML Workspace, the URI is as follows: ``azureml://eastus.api.azureml.ms/mlflow/v1.0/subscriptions/<SUBSCRIPTION_ID>/resourceGroups/<RESOURCE_GROUP_NAME>/providers/Microsoft.MachineLearningServices/workspaces/<WORKSPACE_NAME>``
+
+
+.. rubric:: Configuration example for ACI deployment
+
+.. code-block:: json
+
+    {
+      "computeType": "aci",
+      "containerResourceRequirements": 
+      {
+        "cpu": 1,
+        "memoryInGB": 1
+      },
+      "location": "eastus2",
+    }
+
+Remarks:
+ * If ``containerResourceRequirements`` is not indicated, a deployment with minimal compute configuration is applied (``cpu: 0.1`` and ``memory: 0.5``).
+ * If ``location`` is not indicated, it defaults to the location of the workspace.
+
+.. rubric:: Configuration example for an AKS deployment
+
+.. code-block:: json
+
+    {
+      "computeType": "aks",
+      "computeTargetName": "aks-mlflow"
+    }
+
+Remarks:
+  * In above exmaple, ``aks-mlflow`` is the name of an Azure Kubernetes Cluster registered/created in Azure Machine Learning.
+
+The following examples show how to create a deployment in ACI. Please, ensure you have `azureml-mlflow <https://pypi.org/project/azureml-mlflow/>`_ installed before continuing.
+
+.. rubric:: Example: Workflow using the Python API
 
 .. code-block:: py
 
-    import mlflow.azureml
+    import json
+    from mlflow.deployments import get_deploy_client
 
-    from azureml.core import Workspace
-    from azureml.core.webservice import AciWebservice, Webservice
+    # Create the deployment configuration.
+    # If no deployment configuration is provided, then the deployment happens on ACI.
+    deploy_config = {
+        "computeType": "aci"
+    }
 
+    # Write the deployment configuration into a file.
+    deployment_config_path = "deployment_config.json"
+    with open(deployment_config_path, "w") as outfile:
+        outfile.write(json.dumps(deploy_config))
 
-    # Create or load an existing Azure ML workspace. You can also load an existing workspace using
-    # Workspace.get(name="<workspace_name>")
-    workspace_name = "<Name of your Azure ML workspace>"
-    subscription_id = "<Your Azure subscription ID>"
-    resource_group = "<Name of the Azure resource group in which to create Azure ML resources>"
-    location = "<Name of the Azure location (region) in which to create Azure ML resources>"
-    azure_workspace = Workspace.create(name=workspace_name,
-                                       subscription_id=subscription_id,
-                                       resource_group=resource_group,
-                                       location=location,
-                                       create_resource_group=True,
-                                       exist_okay=True)
-    # Create a deployment config
-    aci_config = AciWebservice.deploy_configuration(cpu_cores=1, memory_gb=1)
+    # Set the tracking uri in the deployment client.
+    client = get_deploy_client("<azureml-mlflow-tracking-url>")
 
-    # Register and deploy model to Azure Container Instance (ACI)
-    (webservice, model) = mlflow.azureml.deploy(model_uri='<your-model-uri>',
-                                                workspace=azure_workspace,
-                                                model_name='mymodelname',
-                                                service_name='myservice',
-                                                deployment_config=aci_config)
+    # MLflow requires the deployment configuration to be passed as a dictionary.
+    config = {'deploy-config-file': deployment_config_path}
+    model_name = "mymodel"
+    model_version = 1
+
+    # define the model path and the name is the service name
+    # if model is not registered, it gets registered automatically and a name is autogenerated using the "name" parameter below 
+    client.create_deployment(model_uri=f'models:/{model_name}/{model_version}',
+                            config=config,
+                            name="mymodel-aci-deployment")
 
     # After the model deployment completes, requests can be posted via HTTP to the new ACI
-    # webservice's scoring URI. The following example posts a sample input from the wine dataset
-    # used in the MLflow ElasticNet example:
-    # https://github.com/mlflow/mlflow/tree/master/examples/sklearn_elasticnet_wine
+    # webservice's scoring URI. 
     print("Scoring URI is: %s", webservice.scoring_uri)
 
+    # The following example posts a sample input from the wine dataset
+    # used in the MLflow ElasticNet example:
+    # https://github.com/mlflow/mlflow/tree/master/examples/sklearn_elasticnet_wine
+
+    # `sample_input` is a JSON-serialized pandas DataFrame with the `split` orientation
     import requests
     import json
     # `sample_input` is a JSON-serialized pandas DataFrame with the `split` orientation
@@ -1463,21 +1510,21 @@ accepts the following data formats as input:
     response_json = json.loads(response.text)
     print(response_json)
 
-.. rubric:: Example workflow using the MLflow CLI
+.. rubric:: Example: Workflow using the MLflow CLI
 
 .. code-block:: bash
+    
+    echo "{ computeType: aci }" > deployment_config.json
+    mlflow deployments create --name <deployment-name> -m models:/<model-name>/<model-version> -t <azureml-mlflow-tracking-url> --deploy-config-file deployment_config.json
 
-    # note mlflow azureml build-image is being deprecated, it will be replaced with a new command for model deployment soon
-    mlflow azureml build-image -w <workspace-name> -m <model-path> -d "Wine regression model 1"
-
-    az ml service create aci -n <deployment-name> --image-id <image-name>:<image-version>
-
-    # After the image deployment completes, requests can be posted via HTTP to the new ACI
-    # webservice's scoring URI. The following example posts a sample input from the wine dataset
-    # used in the MLflow ElasticNet example:
-    # https://github.com/mlflow/mlflow/tree/master/examples/sklearn_elasticnet_wine
+    # After the deployment completes, requests can be posted via HTTP to the new ACI
+    # webservice's scoring URI.
 
     scoring_uri=$(az ml service show --name <deployment-name> -v | jq -r ".scoringUri")
+
+    # The following example posts a sample input from the wine dataset
+    # used in the MLflow ElasticNet example:
+    # https://github.com/mlflow/mlflow/tree/master/examples/sklearn_elasticnet_wine
 
     # `sample_input` is a JSON-serialized pandas DataFrame with the `split` orientation
     sample_input='
@@ -1505,12 +1552,18 @@ accepts the following data formats as input:
     -H 'Content-Type: application/json'\
     -d @-
 
+You can also test your deployments locally first using the option `run-local`:
+
+.. code-block:: bash
+
+    mlflow deployments run-local --name <deployment-name> -m models:/<model-name>/<model-version> -t <azureml-mlflow-tracking-url>
+
 For more info, see:
 
 .. code-block:: bash
 
-    mlflow azureml --help
-    mlflow azureml build-image --help
+    mlflow deployments help -t azureml
+
 
 .. _sagemaker_deployment:
 
