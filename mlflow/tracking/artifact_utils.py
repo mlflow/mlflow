@@ -55,11 +55,9 @@ def get_artifact_uri(run_id, artifact_path=None, tracking_uri=None):
 
 # TODO: This would be much simpler if artifact_repo.download_artifacts could take the absolute path
 # or no path.
-def _download_artifact_from_uri(artifact_uri, output_path=None):
+def _get_root_uri_and_artifact_path(artifact_uri):
     """
     :param artifact_uri: The *absolute* URI of the artifact to download.
-    :param output_path: The local filesystem path to which to download the artifact. If unspecified,
-                        a local output path will be created.
     """
     if os.path.exists(artifact_uri):
         if os.name != "nt":
@@ -69,9 +67,7 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
             # resolve them (i.e., spaces converted to %20 within a file name or path listing)
             root_uri = os.path.dirname(artifact_uri)
             artifact_path = os.path.basename(artifact_uri)
-            return get_artifact_repository(artifact_uri=root_uri).download_artifacts(
-                artifact_path=artifact_path, dst_path=output_path
-            )
+            return root_uri, artifact_path
         else:  # if we're dealing with nt-based systems, we need to utilize pathname2url to encode.
             artifact_uri = path_to_local_file_uri(artifact_uri)
 
@@ -92,6 +88,16 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
         parsed_uri = parsed_uri._replace(path=posixpath.dirname(parsed_uri.path))
         root_uri = prefix + urllib.parse.urlunparse(parsed_uri)
 
+    return root_uri, artifact_path
+
+
+def _download_artifact_from_uri(artifact_uri, output_path=None):
+    """
+    :param artifact_uri: The *absolute* URI of the artifact to download.
+    :param output_path: The local filesystem path to which to download the artifact. If unspecified,
+                        a local output path will be created.
+    """
+    root_uri, artifact_path = _get_root_uri_and_artifact_path(artifact_uri)
     return get_artifact_repository(artifact_uri=root_uri).download_artifacts(
         artifact_path=artifact_path, dst_path=output_path
     )
