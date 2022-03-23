@@ -14,4 +14,4 @@ class DefaultRequestHeaderProvider(RequestHeaderProvider):
         return True
 
     def request_headers(self):
-        return _DEFAULT_HEADERS
+        return dict(**_DEFAULT_HEADERS)
