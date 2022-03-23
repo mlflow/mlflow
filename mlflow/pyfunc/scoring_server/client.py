@@ -60,7 +60,7 @@ class ScoringServerClient:
         return scoring_server.infer_and_parse_json_input(response.text)
 
 
-def prepare_env(local_model_path, stdout=sys.stdout, stderr=sys.stderr):
+def prepare_env(local_model_path, stdout=None, stderr=None):
     cmd = [
         "mlflow",
         "models",

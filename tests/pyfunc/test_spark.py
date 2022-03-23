@@ -3,6 +3,11 @@ import os
 import shutil
 import subprocess
 import sys
+import time
+from typing import Iterator
+import threading
+import socket
+from contextlib import closing
 
 import numpy as np
 import pandas as pd
@@ -27,6 +32,8 @@ from mlflow.types import Schema, ColSpec
 import sklearn.datasets as datasets
 from collections import namedtuple, OrderedDict
 from sklearn.neighbors import KNeighborsClassifier
+
+from pyspark.sql.functions import pandas_udf
 
 
 prediction = [int(1), int(2), "class1", float(0.1), 0.2]
@@ -356,3 +363,55 @@ def test_model_cache(spark, model_path):
     # Running again should see no newly-loaded models.
     results2 = spark.sparkContext.parallelize(range(100), 30).map(get_model).collect()
     assert min(results2) > 0
+
+
+@pytest.mark.skipif(
+    not sys.platform.startswith("linux"),
+    "Only Linux system support setting  parent process death signal via prctl lib."
+)
+@pytest.mark.large
+def test_spark_udf_embedded_model_server_killed_when_job_canceled(spark, sklearn_model, model_path):
+    from mlflow.pyfunc.scoring_server.client import ScoringServerClient, prepare_env
+
+    mlflow.sklearn.save_model(sklearn_model.model, model_path)
+
+    server_port = 51234
+
+    @pandas_udf("int")
+    def udf_with_model_server(it: Iterator[pd.Series]) -> Iterator[pd.Series]:
+        from mlflow.models.cli import _get_flavor_backend
+
+        _get_flavor_backend(
+            model_path, no_conda=False, workers=1, install_mlflow=False
+        ).serve(
+            model_uri=model_path,
+            port=server_port,
+            host="127.0.0.1",
+            enable_mlserver=False,
+            synchronous=False,
+        )
+
+        time.sleep(120)
+        for x in it:
+            yield x
+
+    def run_job():
+        # Start a spark job with only one UDF task,
+        # and the udf task starts a mlflow model server process.
+        spark.range(1).repartition(1).select(udf_with_model_server('id')).collect()
+
+    prepare_env(model_path)
+
+    job_thread = threading.Thread(target=run_job)
+    job_thread.start()
+
+    client = ScoringServerClient("127.0.0.1", server_port)
+    client.wait_server_ready(timeout=10)
+    spark.sparkContext.cancelAllJobs()
+    job_thread.join()
+
+    time.sleep(5)  # waiting server to exit and release the port.
+    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
+        # try to bind on the server port, if it raises exception it means the port is in use,
+        # which means the server process is not killed.
+        s.bind(("127.0.0.1", 51234))
