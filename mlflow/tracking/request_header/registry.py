@@ -5,6 +5,9 @@ import logging
 from mlflow.tracking.request_header.databricks_request_header_provider import (
     DatabricksRequestHeaderProvider,
 )
+from mlflow.tracking.request_header.default_request_header_provider import (
+    DefaultRequestHeaderProvider,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -35,6 +38,7 @@ class RequestHeaderProviderRegistry:
 
 _request_header_provider_registry = RequestHeaderProviderRegistry()
 _request_header_provider_registry.register(DatabricksRequestHeaderProvider)
+_request_header_provider_registry.register(DefaultRequestHeaderProvider)
 
 _request_header_provider_registry.register_entrypoints()
 

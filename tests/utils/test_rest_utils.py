@@ -10,10 +10,12 @@ from mlflow.utils.rest_utils import (
     http_request,
     http_request_safe,
     MlflowHostCreds,
-    _DEFAULT_HEADERS,
     call_endpoint,
     call_endpoints,
     _can_parse_as_json_object,
+)
+from mlflow.tracking.request_header.default_request_header_provider import (
+    DefaultRequestHeaderProvider,
     _USER_AGENT,
 )
 from mlflow.protos.service_pb2 import GetRun
@@ -117,7 +119,7 @@ def test_http_request_hostonly(request):
         "GET",
         "http://my-host/my/endpoint",
         verify=True,
-        headers=_DEFAULT_HEADERS,
+        headers=DefaultRequestHeaderProvider().request_headers(),
         timeout=120,
     )
 
@@ -134,7 +136,7 @@ def test_http_request_cleans_hostname(request):
         "GET",
         "http://my-host/my/endpoint",
         verify=True,
-        headers=_DEFAULT_HEADERS,
+        headers=DefaultRequestHeaderProvider().request_headers(),
         timeout=120,
     )
 
@@ -146,7 +148,7 @@ def test_http_request_with_basic_auth(request):
     response.status_code = 200
     request.return_value = response
     http_request(host_only, "/my/endpoint", "GET")
-    headers = dict(_DEFAULT_HEADERS)
+    headers = DefaultRequestHeaderProvider().request_headers()
     headers["Authorization"] = "Basic dXNlcjpwYXNz"
     request.assert_called_with(
         "GET",
@@ -164,7 +166,7 @@ def test_http_request_with_token(request):
     response.status_code = 200
     request.return_value = response
     http_request(host_only, "/my/endpoint", "GET")
-    headers = dict(_DEFAULT_HEADERS)
+    headers = DefaultRequestHeaderProvider().request_headers()
     headers["Authorization"] = "Bearer my-token"
     request.assert_called_with(
         "GET",
@@ -186,7 +188,7 @@ def test_http_request_with_insecure(request):
         "GET",
         "http://my-host/my/endpoint",
         verify=False,
-        headers=_DEFAULT_HEADERS,
+        headers=DefaultRequestHeaderProvider().request_headers(),
         timeout=120,
     )
 
@@ -203,7 +205,7 @@ def test_http_request_client_cert_path(request):
         "http://my-host/my/endpoint",
         verify=True,
         cert="/some/path",
-        headers=_DEFAULT_HEADERS,
+        headers=DefaultRequestHeaderProvider().request_headers(),
         timeout=120,
     )
 
@@ -219,7 +221,7 @@ def test_http_request_server_cert_path(request):
         "GET",
         "http://my-host/my/endpoint",
         verify="/some/path",
-        headers=_DEFAULT_HEADERS,
+        headers=DefaultRequestHeaderProvider().request_headers(),
         timeout=120,
     )
 
@@ -245,7 +247,7 @@ def test_http_request_request_headers(request):
             "GET",
             "http://my-host/my/endpoint",
             verify="/some/path",
-            headers={**_DEFAULT_HEADERS, "test": "header"},
+            headers={**DefaultRequestHeaderProvider().request_headers(), "test": "header"},
             timeout=120,
         )
 
@@ -269,7 +271,9 @@ def test_http_request_request_headers_user_agent(request):
     ):
         host_only = MlflowHostCreds("http://my-host", server_cert_path="/some/path")
         expected_headers = {
-            _USER_AGENT: "{} {}".format(_DEFAULT_HEADERS[_USER_AGENT], "test_user_agent")
+            _USER_AGENT: "{} {}".format(
+                DefaultRequestHeaderProvider().request_headers()[_USER_AGENT], "test_user_agent"
+            )
         }
 
         response = mock.MagicMock()
@@ -304,7 +308,9 @@ def test_http_request_request_headers_user_agent_and_extra_header(request):
     ):
         host_only = MlflowHostCreds("http://my-host", server_cert_path="/some/path")
         expected_headers = {
-            _USER_AGENT: "{} {}".format(_DEFAULT_HEADERS[_USER_AGENT], "test_user_agent"),
+            _USER_AGENT: "{} {}".format(
+                DefaultRequestHeaderProvider().request_headers()[_USER_AGENT], "test_user_agent"
+            ),
             "header": "value",
         }
 
@@ -345,7 +351,7 @@ def test_http_request_wrapper(request):
         "GET",
         "http://my-host/my/endpoint",
         verify=False,
-        headers=_DEFAULT_HEADERS,
+        headers=DefaultRequestHeaderProvider().request_headers(),
         timeout=120,
     )
     response.text = "non json"
@@ -355,7 +361,7 @@ def test_http_request_wrapper(request):
         "GET",
         "http://my-host/my/endpoint",
         verify=False,
-        headers=_DEFAULT_HEADERS,
+        headers=DefaultRequestHeaderProvider().request_headers(),
         timeout=120,
     )
     response.status_code = 400
