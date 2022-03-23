@@ -16,6 +16,7 @@ from mlflow.utils.proto_json_utils import _dataframe_from_json
 
 from unittest import mock
 from scipy.sparse import csc_matrix
+from packaging.version import Version
 
 
 def test_model_save_load():
@@ -110,6 +111,8 @@ def test_model_log():
         assert isinstance(loaded_example, pd.DataFrame)
         assert loaded_example.to_dict(orient="records")[0] == input_example
 
+        assert Version(loaded_model.mlflow_version) == Version(mlflow.version.VERSION)
+
 
 def test_model_info():
     with TempDir(chdr=True) as tmp:
@@ -146,6 +149,20 @@ def test_model_info():
         assert x.to_dict(orient="records")[0] == input_example
 
         assert model_info.signature_dict == sig.to_dict()
+
+        assert Version(model_info.mlflow_version) == Version(loaded_model.mlflow_version)
+
+
+def test_load_model_without_mlflow_version():
+
+    with TempDir(chdr=True) as tmp:
+        model = Model(artifact_path="some/path", run_id="1234", mlflow_version=None)
+        path = tmp.path("model")
+        with open(path, "w") as out:
+            model.to_yaml(out)
+        loaded_model = Model.load(path)
+
+        assert loaded_model.mlflow_version is None
 
 
 def test_model_log_with_databricks_runtime():
