@@ -121,6 +121,13 @@ def cli():
     "Note: this argument is used internally by the MLflow project APIs "
     "and should not be specified.",
 )
+@click.option(
+    "--synchronous/--asynchronous",
+    metavar="SYNCHRONOUS",
+    help="Specify whether the CLI should wait for the run to finish before returning.",
+    is_flag=True,
+    default=None,
+)
 def run(
     uri,
     entry_point,
@@ -134,6 +141,7 @@ def run(
     no_conda,
     storage_dir,
     run_id,
+    synchronous,
 ):
     """
     Run an MLflow project from the given URI.
@@ -177,7 +185,11 @@ def run(
             backend_config=backend_config,
             use_conda=(not no_conda),
             storage_dir=storage_dir,
-            synchronous=backend in ("local", "kubernetes") or backend is None,
+            synchronous=(
+                synchronous
+                if synchronous is not None
+                else (backend in ("local", "kubernetes") or backend is None)
+            ),
             run_id=run_id,
         )
     except projects.ExecutionException as e:

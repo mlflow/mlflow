@@ -189,6 +189,30 @@ def test_run_databricks_cluster_spec(tmpdir):
         assert res.exit_code != 0
 
 
+def test_mlflow_run_sync_async():
+    with mock.patch("mlflow.cli.projects") as mock_projects:
+        CliRunner().invoke(cli.run, ["--experiment-id", "51", "uri", "--synchronous"])
+        _, run_kwargs = mock_projects.run.call_args_list[0]
+        assert run_kwargs["synchronous"]
+
+    with mock.patch("mlflow.cli.projects") as mock_projects:
+        CliRunner().invoke(cli.run, ["--experiment-id", "51", "uri", "--asynchronous"])
+        _, run_kwargs = mock_projects.run.call_args_list[0]
+        assert not run_kwargs["synchronous"]
+
+    # The following two assertions test whether the default behaviour for the backends
+    # local and databricks respect the syncronous flag correctly.
+    with mock.patch("mlflow.cli.projects") as mock_projects:
+        CliRunner().invoke(cli.run, ["--experiment-id", "51", "uri", "--backend", "local"])
+        _, run_kwargs = mock_projects.run.call_args_list[0]
+        assert run_kwargs["synchronous"]
+
+    with mock.patch("mlflow.cli.projects") as mock_projects:
+        CliRunner().invoke(cli.run, ["--experiment-id", "51", "uri", "--backend", "databricks"])
+        _, run_kwargs = mock_projects.run.call_args_list[0]
+        assert not run_kwargs["synchronous"]
+
+
 def test_mlflow_run():
     with mock.patch("mlflow.cli.projects") as mock_projects:
         result = CliRunner().invoke(cli.run)
