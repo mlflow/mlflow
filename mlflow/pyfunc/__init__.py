@@ -958,13 +958,6 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     if should_use_spark_to_broadcast_file:
         archive_path = SparkModelCache.add_local_model(spark, local_model_path)
 
-    if not should_use_spark_to_broadcast_file:
-        # Prepare restored environment in driver side if possible.
-        if env_manager == "conda":
-            _get_flavor_backend(local_model_path, no_conda=False, install_mlflow=False).prepare_env(
-                model_uri=local_model_path
-            )
-
     model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
 
     def _predict_row_batch(predict_fn, args):
