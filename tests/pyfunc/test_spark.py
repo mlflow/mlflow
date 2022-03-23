@@ -366,7 +366,7 @@ def test_model_cache(spark, model_path):
 
 
 @pytest.mark.skipif(
-    False, #not sys.platform.startswith("linux"),
+    not sys.platform.startswith("linux"),
     reason="Only Linux system support setting  parent process death signal via prctl lib.",
 )
 @pytest.mark.large
