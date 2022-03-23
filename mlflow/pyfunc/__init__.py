@@ -214,13 +214,14 @@ import sys
 import numpy as np
 import os
 import pandas
+import pandas as pd
 import yaml
 from copy import deepcopy
 import logging
 import json
 import tempfile
 
-from typing import Any, Union, List, Dict
+from typing import Any, Union, List, Dict, Iterator, Tuple
 import mlflow
 import mlflow.pyfunc.model
 from mlflow.models import Model, ModelSignature, ModelInputExample
@@ -885,13 +886,14 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
     from pyspark.sql.functions import pandas_udf
     from pyspark.sql.types import _parse_datatype_string
-    from pyspark.sql.types import ArrayType, DataType as SparkDataType
+    from pyspark.sql.types import (
+        ArrayType,
+        DataType as SparkDataType,
+        StructType as SparkStructType,
+    )
     from pyspark.sql.types import DoubleType, IntegerType, FloatType, LongType, StringType
     from pyspark.sql.functions import PandasUDFType
     from mlflow.models.cli import _get_flavor_backend
-
-    # importing here to prevent circular import
-    from mlflow.pyfunc.scoring_server.client import prepare_env
 
     if env_manager not in ["local", "conda"]:
         raise ValueError("Illegal env_manager setting.")
@@ -927,9 +929,9 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         # Assume spark executor python environment is the same with spark driver side.
         _warn_dependency_requirement_mismatches(local_model_path)
         _logger.warning(
-            "Calling `spark_udf()` with `env_manager=\"local\"` does not recreate the same "
+            'Calling `spark_udf()` with `env_manager="local"` does not recreate the same '
             "environment that was used during training, which may lead to errors or inaccurate "
-            "predictions. We recommend specifying `env_manager=\"conda\"`, which automatically "
+            'predictions. We recommend specifying `env_manager="conda"`, which automatically '
             "recreates the environment that was used to train the model and performs inference "
             "in the recreated environment."
         )
@@ -956,7 +958,9 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     if not should_use_spark_to_broadcast_file:
         # Prepare restored environment in driver side if possible.
         if env_manager == "conda":
-            prepare_env(local_model_path)
+            _get_flavor_backend(local_model_path, no_conda=False, install_mlflow=False).prepare_env(
+                model_uri=local_model_path
+            )
 
     model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
 
@@ -1025,10 +1029,15 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         else:
             return result[result.columns[0]]
 
-    def predict(iterator):
+    result_type_hint = pd.DataFrame if isinstance(result_type, SparkStructType) else pd.Series
+
+    @pandas_udf(result_type)
+    def udf(
+        iterator: Iterator[Tuple[Union[pd.Series, pd.DataFrame], ...]]
+    ) -> Iterator[result_type_hint]:
         # importing here to prevent circular import
         from mlflow.pyfunc import scoring_server
-        from mlflow.pyfunc.scoring_server.client import ScoringServerClient, prepare_env
+        from mlflow.pyfunc.scoring_server.client import ScoringServerClient
 
         # Note: this is a pandas udf function in iteration style, which takes an iterator of
         # tuple of pandas.Series and outputs an iterator of pandas.Series.
@@ -1059,12 +1068,14 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                 local_model_path_on_executor = _SparkDirectoryDistributor.get_or_extract(
                     archive_path
                 )
-                # Call "prepare env" in advance in order to reduce scoring server launch time.
+                # Call "prepare_env" in advance in order to reduce scoring server launch time.
                 # So that we can use a shorter timeout when call `client.wait_server_ready`,
                 # otherwise we have to set a long timeout for `client.wait_server_ready` time,
                 # this prevents spark UDF task failing fast if other exception raised when scoring
                 # server launching.
-                prepare_env(local_model_path_on_executor)
+                _get_flavor_backend(
+                    local_model_path_on_executor, no_conda=False, install_mlflow=False
+                ).prepare_env(model_uri=local_model_path_on_executor)
             else:
                 local_model_path_on_executor = local_model_path
             # launch scoring server
@@ -1103,7 +1114,6 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
             if scoring_server_proc is not None:
                 os.kill(scoring_server_proc.pid, signal.SIGTERM)
 
-    udf = pandas_udf(predict, result_type, functionType=PandasUDFType.SCALAR_ITER)
     udf.metadata = model_metadata
 
     @functools.wraps(udf)

@@ -124,7 +124,7 @@ class PyFuncBackend(FlavorBackend):
         else:
             _logger.info("=== Running command '%s'", command)
 
-            if os.name != 'nt':
+            if os.name != "nt":
                 command = ["bash", "-c", "exec " + command]
 
             child_proc = subprocess.Popen(

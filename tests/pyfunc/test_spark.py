@@ -367,7 +367,7 @@ def test_model_cache(spark, model_path):
 
 @pytest.mark.skipif(
     not sys.platform.startswith("linux"),
-    reason="Only Linux system support setting  parent process death signal via prctl lib."
+    reason="Only Linux system support setting  parent process death signal via prctl lib.",
 )
 @pytest.mark.large
 def test_spark_udf_embedded_model_server_killed_when_job_canceled(spark, sklearn_model, model_path):
@@ -381,9 +381,7 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(spark, sklearn
     def udf_with_model_server(it: Iterator[pd.Series]) -> Iterator[pd.Series]:
         from mlflow.models.cli import _get_flavor_backend
 
-        _get_flavor_backend(
-            model_path, no_conda=False, workers=1, install_mlflow=False
-        ).serve(
+        _get_flavor_backend(model_path, no_conda=False, workers=1, install_mlflow=False).serve(
             model_uri=model_path,
             port=server_port,
             host="127.0.0.1",
@@ -398,7 +396,7 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(spark, sklearn
     def run_job():
         # Start a spark job with only one UDF task,
         # and the udf task starts a mlflow model server process.
-        spark.range(1).repartition(1).select(udf_with_model_server('id')).collect()
+        spark.range(1).repartition(1).select(udf_with_model_server("id")).collect()
 
     prepare_env(model_path)
 
