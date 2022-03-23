@@ -1,9 +1,8 @@
 services:
   base:
+    image: mlflow-base
     build:
       context: .
-      args:
-        - DEPENDENCIES
     volumes:
       - ${PWD}:/mlflow/home
     working_dir: /mlflow/home
@@ -19,10 +18,10 @@ services:
       POSTGRES_PASSWORD: mlflowpassword
 
   mlflow-postgresql:
-    extends:
-      service: base
     depends_on:
       - postgresql
+    extends:
+      service: base
     environment:
       MLFLOW_TRACKING_URI: postgresql://mlflowuser:mlflowpassword@postgresql:5432/mlflowdb
 
@@ -52,15 +51,14 @@ services:
       SA_PASSWORD: "1Secure*Password1"
 
   mlflow-mssql:
-    extends:
-      service: base
     depends_on:
       - mssql
+    extends:
+      service: base
+    image: mlflow-mssql
     build:
       context: .
       dockerfile: Dockerfile.mssql
-      args:
-        - DEPENDENCIES
     environment:
       MLFLOW_TRACKING_URI: mssql+pyodbc://mlflowuser:Mlfl*wpassword1@mssql/mlflowdb?driver=ODBC+Driver+17+for+SQL+Server
 
