@@ -1034,6 +1034,42 @@ def _get_artifact_repo(run):
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _log_batch():
+
+    def _assert_metrics_correctly_constructed(metrics):
+        for m in metrics:
+            print("This is a metric: ", m)
+            ## Key
+            k = m["key"]
+            _assert_required(k)
+            _assert_string(k)
+
+            ## Value
+            v = m["value"]
+            _assert_required(v)
+            _assert_float(v)
+
+            ## Timestamp
+            t = m["timestamp"]
+            _assert_required(t)
+            _assert_int(t)
+
+            ## Step
+            s = m["step"]
+            _assert_required(s)
+            _assert_int(s)
+
+    def _assert_params_correctly_constructed(params):
+        for p in params:
+            ## Key
+            k = p["key"]
+            _assert_required(k)
+            _assert_string(k)
+
+            ## Value
+            v = p["value"]
+            _assert_required(v)
+            _assert_string(v)
+
     _validate_batch_log_api_req(_get_request_json())
     request_message = _get_request_message(
         LogBatch(),
@@ -1044,12 +1080,14 @@ def _log_batch():
             ],
             "metrics": [
                 _assert_array,
+                _assert_metrics_correctly_constructed
             ],
             "params": [
                 _assert_array,
+                _assert_params_correctly_constructed
             ],
             "tags": [
-                _assert_array,
+                _assert_array
             ]
         }
     )
