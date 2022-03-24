@@ -20,10 +20,6 @@ import os
 import pandas as pd
 import sys
 import traceback
-import importlib
-import subprocess
-import warnings
-import signal
 
 # NB: We need to be careful what we import form mlflow here. Scoring server is used from within
 # model's conda environment. The version of mlflow doing the serving (outside) and the version of
