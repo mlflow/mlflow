@@ -904,7 +904,10 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     # Check whether spark is in local or local-cluster mode
     # this case all executors and driver share the same filesystem
     is_spark_in_local_mode = spark.conf.get("spark.master").startswith("local")
-    should_use_nfs = get_nfs_cache_root_dir() is not None
+    # TODO:
+    #  change `should_use_nfs` to be get_nfs_cache_root_dir() is not None
+    #  when NFS optimization added.
+    should_use_nfs = False
 
     should_use_spark_to_broadcast_file = not (is_spark_in_local_mode or should_use_nfs)
 
@@ -953,6 +956,13 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                 "with handling SIGKILL signals, these MLflow Model server child processes cannot be "
                 "cleaned up if the Spark Job is canceled."
             )
+
+    if not should_use_spark_to_broadcast_file:
+        # Prepare restored environment in driver side if possible.
+        if env_manager == "conda":
+            _get_flavor_backend(
+                local_model_path, no_conda=False, install_mlflow=False
+            ).prepare_env(model_uri=local_model_path)
 
     # Broadcast local model directory to remote worker if needed.
     if should_use_spark_to_broadcast_file:
