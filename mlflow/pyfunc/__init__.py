@@ -1150,11 +1150,11 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                         error_code=INVALID_PARAMETER_VALUE,
                     )
             else:
-                _logger.warning(
+                raise MlflowException(
                     "Attempting to apply udf on zero columns because no column names were "
-                    "specified as arguments or inferred from the model signature."
+                    "specified as arguments or inferred from the model signature.",
+                    error_code=INVALID_PARAMETER_VALUE
                 )
-                return udf()  # pylint: disable=no-value-for-parameter
         else:
             return udf(*args)
 
