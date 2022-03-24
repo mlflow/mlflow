@@ -125,7 +125,7 @@ def cli():
     "--run-name",
     metavar="RUN_NAME",
     help="The name to give the MLflow Run associated with the project execution. If not specified, "
-    "the MLflow Run name is left unset."
+    "the MLflow Run name is left unset.",
 )
 def run(
     uri,
