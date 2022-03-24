@@ -288,7 +288,7 @@ def _validate_param_against_schema(schema, param, value):
             f(value)
         except AssertionError as e:
             raise MlflowException(
-                message="Invalid value {} for parameter '{}' supplied.".format(value, param) + "\nSee the API docs for more information on specifying parameters.",
+                message="Invalid value {} for parameter '{}' supplied. Hint: Value was of type {}".format(value, param, type(param)) + "\nSee the API docs for more information on specifying parameters.",
                 error_code=INVALID_PARAMETER_VALUE
             )
 
