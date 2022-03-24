@@ -75,7 +75,7 @@ def get_spark_session(conf):
     conf.set(key="spark_session.python.worker.reuse", value=True)
     return (
         pyspark.sql.SparkSession.builder.config(conf=conf)
-        .master("local")  # -cluster[2, 1, 1024]")
+        .master("local-cluster[2, 1, 1024]")
         .getOrCreate()
     )
 
@@ -290,7 +290,8 @@ def test_spark_udf_autofills_no_arguments(spark):
         udf = mlflow.pyfunc.spark_udf(
             spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
         )
-        with pytest.raises(pyspark.sql.utils.PythonException, match=r".+"):
+        with pytest.raises(MlflowException,
+                           match="Attempting to apply udf on zero columns"):
             res = good_data.withColumn("res", udf()).select("res").toPandas()
 
 
