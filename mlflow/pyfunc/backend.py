@@ -200,6 +200,9 @@ def _execute_in_conda_env(
 ):
     if command_env is None:
         command_env = os.environ
+
+    command_env['PIP_NO_INPUT'] = '1'
+
     env_id = os.environ.get("MLFLOW_HOME", VERSION) if install_mlflow else None
     conda_env_name = get_or_create_conda_env(conda_env_path, env_id=env_id)
     activate_conda_env = get_conda_command(conda_env_name)
