@@ -629,6 +629,9 @@ def _update_run():
             ],
             "end_time": [
                 _assert_int
+            ],
+            "status": [
+                _assert_string
             ]
         }
     )
