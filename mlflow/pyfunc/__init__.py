@@ -892,7 +892,6 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         StructType as SparkStructType,
     )
     from pyspark.sql.types import DoubleType, IntegerType, FloatType, LongType, StringType
-    from pyspark.sql.functions import PandasUDFType
     from mlflow.models.cli import _get_flavor_backend
 
     if env_manager not in ["local", "conda"]:
@@ -1113,9 +1112,18 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                 return loaded_model.predict(pdf)
 
         try:
-            for row_batch in iterator:
-                # the `row_batch` is a tuple which composes of several pd.Series/pd.DataFrame objects.
-                yield _predict_row_batch(batch_predict_fn, row_batch)
+            for input_batch in iterator:
+                # If the UDF is called with only multiple arguments,
+                # the `input_batch` is a tuple which composes of several pd.Series/pd.DataFrame objects.
+                # If the UDF is called with only one argument,
+                # the `input_batch` instance will be an instance of `pd.Series`/`pd.DataFrame`,
+                if isinstance(input_batch, (pd.Series, pd.DataFrame)):
+                    # UDF is called with only one argument
+                    row_batch_args = tuple(input_batch)
+                else:
+                    row_batch_args = input_batch
+
+                yield _predict_row_batch(batch_predict_fn, row_batch_args)
         finally:
             if scoring_server_proc is not None:
                 os.kill(scoring_server_proc.pid, signal.SIGTERM)
