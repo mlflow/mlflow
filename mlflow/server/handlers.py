@@ -279,11 +279,8 @@ def _assert_array(x):
 def _assert_required(x):
     assert x is not None
 
-def assert_max_1k(x):
-    assert x <= 1000
-
-def _assert_max_50k(x):
-    assert x <= 50000
+def _assert_less_than_or_equal(x, max):
+    assert x <= max
 
 def _validate_param_against_schema(schema, param, value):
     for f in schema:
@@ -869,7 +866,7 @@ def _search_runs():
             ],
             "max_results": [
                 _assert_int,
-                _assert_max_50k
+                lambda x: _assert_less_than_or_equal(x, 50000)
             ],
             "order_by": [
                 _assert_array,
@@ -1271,7 +1268,7 @@ def _list_registered_models():
         schema = {
             "max_results": [
                 _assert_int,
-                _assert_max_1k
+                lambda x: _assert_less_than_or_equal(x, 1000)
             ],
             "page_token": [
                 _assert_string
@@ -1304,7 +1301,7 @@ def _search_registered_models():
             ],
             "max_results": [
                 _assert_int,
-                _assert_max_1k
+                lambda x: _assert_less_than_or_equal(x, 1000)
             ],
             "order_by": [
                 _assert_array,
