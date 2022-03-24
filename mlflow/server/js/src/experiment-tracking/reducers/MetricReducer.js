@@ -1,4 +1,4 @@
-import _ from 'lodash';
+import { minBy, maxBy } from 'lodash';
 import {
   GET_METRIC_HISTORY_API,
   GET_RUN_API,
@@ -106,13 +106,13 @@ const reducedMetricsByRunUuid = (state = {}, action, reducer) => {
  * Return minimum metrics by run UUID (object of run UUID -> object of metric key -> Metric object)
  */
 export const minMetricsByRunUuid = (state = {}, action) =>
-  reducedMetricsByRunUuid(state, action, (metrics) => _.minBy(metrics, 'value'));
+  reducedMetricsByRunUuid(state, action, (metrics) => minBy(metrics, 'value'));
 
 /**
  * Return maximum metrics by run UUID (object of run UUID -> object of metric key -> Metric object)
  */
 export const maxMetricsByRunUuid = (state = {}, action) =>
-  reducedMetricsByRunUuid(state, action, (metrics) => _.maxBy(metrics, 'value'));
+  reducedMetricsByRunUuid(state, action, (metrics) => maxBy(metrics, 'value'));
 
 export const metricsByRunUuid = (state = {}, action) => {
   switch (action.type) {
