@@ -1119,7 +1119,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                 # the `input_batch` instance will be an instance of `pd.Series`/`pd.DataFrame`,
                 if isinstance(input_batch, (pd.Series, pd.DataFrame)):
                     # UDF is called with only one argument
-                    row_batch_args = tuple(input_batch)
+                    row_batch_args = (input_batch,)
                 else:
                     row_batch_args = input_batch
 

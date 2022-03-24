@@ -75,7 +75,7 @@ def get_spark_session(conf):
     conf.set(key="spark_session.python.worker.reuse", value=True)
     return (
         pyspark.sql.SparkSession.builder.config(conf=conf)
-        .master("local-cluster[2, 1, 1024]")
+        .master("local")  # -cluster[2, 1, 1024]")
         .getOrCreate()
     )
 
@@ -205,6 +205,32 @@ def test_spark_udf_conda_manager_predict_sklearn_model(spark, sklearn_model, mod
     )
 
     np.testing.assert_allclose(result, expected_pred_result, rtol=1e-5)
+
+
+def test_spark_udf_with_single_arg(spark):
+    from pyspark.sql.functions import struct
+
+    class TestModel(PythonModel):
+        def predict(self, context, model_input):
+            return [','.join(model_input.columns.tolist())] * len(model_input)
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model("model", python_model=TestModel())
+
+        udf = mlflow.pyfunc.spark_udf(
+            spark, "runs:/{}/model".format(run.info.run_id), result_type=StringType()
+        )
+
+        data1 = spark.createDataFrame(
+            pd.DataFrame({'a': [1], 'b': [4]})
+        ).repartition(1)
+
+        result = data1.withColumn("res", udf("a")).select("res").toPandas()
+        assert result.res[0] == "0"
+
+        data2 = data1.select(struct("a", "b").alias("ab"))
+        result = data2.withColumn("res", udf("ab")).select("res").toPandas()
+        assert result.res[0] == "a,b"
 
 
 def test_spark_udf_autofills_no_arguments(spark):
