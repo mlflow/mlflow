@@ -102,7 +102,8 @@ def _run(
             tracking.MlflowClient().set_tag(
                 submitted_run.run_id, MLFLOW_PROJECT_BACKEND, backend_name
             )
-            tracking.MlflowClient().set_tag(submitted_run.run_id, MLFLOW_RUN_NAME, run_name)
+            if run_name is not None:
+                tracking.MlflowClient().set_tag(submitted_run.run_id, MLFLOW_RUN_NAME, run_name)
             return submitted_run
 
     work_dir = fetch_and_validate_project(uri, version, entry_point, parameters)
@@ -113,11 +114,13 @@ def _run(
         None, uri, experiment_id, work_dir, version, entry_point, parameters
     )
 
+    if run_name is not None:
+        tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_RUN_NAME, run_name)
+
     if backend_name == "databricks":
         tracking.MlflowClient().set_tag(
             active_run.info.run_id, MLFLOW_PROJECT_BACKEND, "databricks"
         )
-        tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_RUN_NAME, run_name)
         from mlflow.projects.databricks import run_databricks
 
         return run_databricks(
@@ -142,7 +145,6 @@ def _run(
         tracking.MlflowClient().set_tag(
             active_run.info.run_id, MLFLOW_PROJECT_BACKEND, "kubernetes"
         )
-        tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_RUN_NAME, run_name)
         validate_docker_env(project)
         validate_docker_installation()
         kube_config = _parse_kubernetes_config(backend_config)
@@ -244,7 +246,8 @@ def run(
     :param run_id: Note: this argument is used internally by the MLflow project APIs and should
                    not be specified. If specified, the run ID will be used instead of
                    creating a new run.
-    :param run_name: Name of the run (stored as a `mlflow.runName` tag).
+    :param run_name: The name to give the MLflow Run associated with the project execution.
+                     If ``None``, the MLflow Run name is left unset.
     :return: :py:class:`mlflow.projects.SubmittedRun` exposing information (e.g. run ID)
              about the launched run.
 
