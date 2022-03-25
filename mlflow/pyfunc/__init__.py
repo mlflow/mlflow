@@ -727,8 +727,11 @@ def _download_model_conda_env(model_uri):
 
 def get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefined-builtin
     """
-    Given a model URL, and format, return the downloaded dependency file path.
-    Available dependency file format includes "pip" and "conda".
+    Given a model URL, and format ("pip" or "conda", default value "pip"),
+    return the downloaded dependency file path.
+    If "pip" format specified but model does not have "requirements.txt" file,
+    fallback to parse the pip section of the model's "conda.yaml" and ignore other
+    non-pip dependencies in the "conda.yaml" file.
     """
     req_file_uri = os.path.join(model_uri, _REQUIREMENTS_FILE_NAME)
 
