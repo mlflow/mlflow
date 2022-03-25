@@ -771,7 +771,8 @@ def get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefine
                     f.write("\n".join(pip_deps) + "\n")
             else:
                 raise MlflowException(
-                    "No pip section found in conda.yaml file in the model directory."
+                    "No pip section found in conda.yaml file in the model directory.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
                 )
             if len(conda_deps) > 0:
                 _logger.warning(
