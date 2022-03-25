@@ -239,6 +239,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
+    _get_flavor_configuration_from_uri,
 )
 from mlflow.utils.environment import (
     _validate_env_arguments,
@@ -720,13 +721,11 @@ def load_model(
 
 
 def _download_model_conda_env(model_uri):
-    model_meta_path = _download_artifact_from_uri(os.path.join(model_uri, MLMODEL_FILE_NAME))
-    model_meta = Model.load(model_meta_path)
-    conda_yml_file_name = model_meta.flavors[FLAVOR_NAME][ENV]
+    conda_yml_file_name = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)[ENV]
     return _download_artifact_from_uri(os.path.join(model_uri, conda_yml_file_name))
 
 
-def get_model_dependencies(model_uri, format="pip"):
+def get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefined-builtin
     """
     Given a model URL, and format, return the downloaded dependency file path.
     Available dependency file format includes "pip" and "conda".
@@ -736,45 +735,64 @@ def get_model_dependencies(model_uri, format="pip"):
     if format == "pip":
         try:
             pip_file_path = _download_artifact_from_uri(req_file_uri)
-        except Exception as e:
+        except Exception:
             # fallback to download conda.yaml file and parse the "pip" section from it.
+            _logger.info(
+                f"Download model '{_REQUIREMENTS_FILE_NAME}' file failed. Fallback to fetch "
+                "pip requirements from the model's 'conda.yaml' file and other conda "
+                "dependencies will be ignored."
+            )
             conda_yml_path = _download_model_conda_env(model_uri)
             pip_deps = None
+            conda_deps = []
             try:
-                with open(conda_yml_path, 'r') as yf:
+                with open(conda_yml_path, "r") as yf:
                     conda_yml = yaml.safe_load(yf)
 
-                for dep in conda_yml['dependencies']:
-                    if isinstance(dep, dict) and 'pip' in dep:
-                        pip_deps = dep['pip']
+                for dep in conda_yml["dependencies"]:
+                    if (
+                        isinstance(dep, str)
+                        and not dep.startswith("python=")
+                        and not dep.startswith("pip=")
+                    ):
+                        conda_deps.append(dep)
+                    if isinstance(dep, dict) and "pip" in dep:
+                        pip_deps = dep["pip"]
                         break
             except Exception as e:
-                raise RuntimeError(
+                raise MlflowException(
                     f"Parse conda.yaml file in the model directory failed, error: {repr(e)}."
                 )
 
             if pip_deps is not None:
                 tmp_dir = tempfile.mkdtemp()
                 pip_file_path = os.path.join(tmp_dir, _REQUIREMENTS_FILE_NAME)
-                with open(pip_file_path, 'w') as f:
-                    f.write("\n".join(dep['pip']) + "\n")
+                with open(pip_file_path, "w") as f:
+                    f.write("\n".join(pip_deps) + "\n")
             else:
-                raise ValueError(
+                raise MlflowException(
                     "No pip section found in conda.yaml file in the model directory."
                 )
+            if len(conda_deps) > 0:
+                _logger.warning(
+                    f"The following conda dependencies are excluded: {', '.join(conda_deps)}."
+                )
+
         if is_in_databricks_runtime():
-            print(f"On databricks notebook, you can run command '%pip install -r {pip_file_path}' "
-                  "to update current python environment with model's dependencies.")
+            _logger.info(
+                "To install these model dependencies in your Databricks notebook, run the "
+                f"following command: '%pip install -r {pip_file_path}'."
+            )
+
         return pip_file_path
 
     elif format == "conda":
         conda_yml_path = _download_model_conda_env(model_uri)
-        if is_in_databricks_runtime():
-            print(f"On databricks notebook, you can run command '%conda env update -f {conda_yml_path}' "
-                  "to update current python environment with model's dependencies.")
         return conda_yml_path
     else:
-        raise ValueError(f"Illegal format argument '{format}'.")
+        raise MlflowException(
+            f"Illegal format argument '{format}'.", error_code=INVALID_PARAMETER_VALUE
+        )
 
 
 @deprecated("mlflow.pyfunc.load_model", 1.0)

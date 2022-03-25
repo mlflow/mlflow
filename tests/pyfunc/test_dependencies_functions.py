@@ -1,4 +1,3 @@
-import tempfile
 from unittest import mock
 import pytest
 import cloudpickle
@@ -116,8 +115,9 @@ Detected one or more mismatches between the model's dependencies and the current
 
 @pytest.mark.large
 def test_get_model_dependencies(tmpdir):
-    with open(os.path.join(tmpdir.strpath, 'MLmodel'), 'w') as f:
-        f.write("""
+    with open(os.path.join(tmpdir.strpath, "MLmodel"), "w") as f:
+        f.write(
+            """
 artifact_path: model
 flavors:
   python_function:
@@ -127,39 +127,65 @@ flavors:
     python_version: 3.7.12
 model_uuid: 722a374a432f48f09ee85da92df13bca
 run_id: 765e66a5ba404650be51cb02cda66f35"""
-                )
+        )
 
-    req_file_path = os.path.join(tmpdir.strpath, 'requirements.txt')
-    with open(req_file_path, 'w') as f:
-        f.write("""
+    req_file_path = os.path.join(tmpdir.strpath, "requirements.txt")
+    with open(req_file_path, "w") as f:
+        f.write(
+            """
 mlflow
 cloudpickle==2.0.0
 scikit-learn==1.0.2"""
-                )
+        )
 
-    conda_yml_path = os.path.join(tmpdir.strpath, 'conda.yaml')
-    with open(conda_yml_path, 'w') as f:
-        f.write("""
+    conda_yml_path = os.path.join(tmpdir.strpath, "conda.yaml")
+    with open(conda_yml_path, "w") as f:
+        f.write(
+            """
 channels:
 - conda-forge
 dependencies:
 - python=3.7.12
 - pip=22.0.3
+- scikit-learn=0.22.0
+- tensorflow=2.0.0
 - pip:
   - mlflow
   - cloudpickle==2.0.0
   - scikit-learn==1.0.1
 name: mlflow-env"""
-                )
+        )
 
     model_path = tmpdir.strpath
+
+    # Test getting pip dependencies
     assert get_model_dependencies(model_path, format="pip") == req_file_path
+
+    # Test getting pip dependencies will print instructions on databricks
+    with mock.patch("mlflow.pyfunc._logger.info") as mock_log_info:
+        get_model_dependencies(model_path, format="pip")
+        mock_log_info.assert_not_called()
+
+        mock_log_info.reset_mock()
+        with mock.patch("mlflow.pyfunc.is_in_databricks_runtime", lambda: True):
+            get_model_dependencies(model_path, format="pip")
+            mock_log_info.assert_called_once_with(
+                "To install these model dependencies in your Databricks notebook, run the "
+                f"following command: '%pip install -r {req_file_path}'."
+            )
+
+    # Test getting conda environment
     assert get_model_dependencies(model_path, format="conda") == conda_yml_path
 
     os.remove(req_file_path)
 
-    pip_file_path = get_model_dependencies(model_path, format="pip")
-    with open(pip_file_path, 'r') as f:
-        result = f.read()
+    # Test getting pip requirement file failed and fallback to extract pip section from conda.yaml
+    with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
+        pip_file_path = get_model_dependencies(model_path, format="pip")
+        with open(pip_file_path, "r") as f:
+            result = f.read()
 
-    assert result.strip() == "mlflow\ncloudpickle==2.0.0\nscikit-learn==1.0.1"
+        assert result.strip() == "mlflow\ncloudpickle==2.0.0\nscikit-learn==1.0.1"
+        mock_warning.assert_called_once_with(
+            "The following conda dependencies are excluded: scikit-learn=0.22.0, tensorflow=2.0.0."
+        )
