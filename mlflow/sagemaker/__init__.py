@@ -2518,7 +2518,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             )
             response = sage_client.invoke_endpoint(
                 EndpointName=deployment_name,
-                Body=json.dumps(_get_jsonable_obj(df)),
+                Body=json.dumps(_get_jsonable_obj(df, pandas_orient="split")),
                 ContentType="application/json",
             )
 

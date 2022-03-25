@@ -39,7 +39,11 @@ import { CSSTransition } from 'react-transition-group';
 import { Spinner } from '../../common/components/Spinner';
 import { RunsTableColumnSelectionDropdown } from './RunsTableColumnSelectionDropdown';
 import { getUUID } from '../../common/utils/ActionUtils';
-import { ExperimentTrackingDocUrl, onboarding } from '../../common/constants';
+import {
+  ExperimentSearchSyntaxDocUrl,
+  ExperimentTrackingDocUrl,
+  onboarding,
+} from '../../common/constants';
 import filterIcon from '../../common/static/filter-icon.svg';
 import { StyledDropdown } from '../../common/components/StyledDropdown';
 import { ExperimentNoteSection, ArtifactLocation } from './ExperimentViewHelpers';
@@ -497,11 +501,7 @@ export class ExperimentView extends Component {
           description='Learn more tooltip link to learn more on how to search in an experiments run table'
           values={{
             link: (chunks) => (
-              <a
-                href='https://www.mlflow.org/docs/latest/search-syntax.html'
-                target='_blank'
-                rel='noopener noreferrer'
-              >
+              <a href={ExperimentSearchSyntaxDocUrl} target='_blank' rel='noopener noreferrer'>
                 {chunks}
               </a>
             ),
