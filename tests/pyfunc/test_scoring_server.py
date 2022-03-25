@@ -9,7 +9,6 @@ from packaging.version import Version
 
 import pytest
 import random
-import sklearn
 import sklearn.datasets as datasets
 import sklearn.neighbors as knn
 

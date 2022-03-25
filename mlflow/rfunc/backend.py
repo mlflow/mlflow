@@ -53,7 +53,7 @@ class RFuncBackend(FlavorBackend):
         if not synchronous:
             raise Exception("RBackend does not support call with synchronous=False")
 
-        if not stdout or not stderr:
+        if stdout is not None or stderr is not None:
             raise Exception("RBackend does not support redirect stdout/stderr.")
 
         model_path = _download_artifact_from_uri(model_uri)

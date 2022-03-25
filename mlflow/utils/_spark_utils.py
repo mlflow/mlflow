@@ -60,9 +60,5 @@ class _SparkDirectoryDistributor:
         zip_ref.extractall(temp_dir)
         zip_ref.close()
 
-        # We must rely on a supposed cyclic import here because we want this behavior
-        # on the Spark Executors (i.e., don't try to pickle the load_model function).
-        from mlflow.pyfunc import load_pyfunc  # pylint: disable=cyclic-import
-
         _SparkDirectoryDistributor._extracted_dir_paths[archive_path] = temp_dir
         return _SparkDirectoryDistributor._extracted_dir_paths[archive_path]

@@ -90,12 +90,14 @@ class PyFuncBackend(FlavorBackend):
 
             def setup_sigterm_on_parent_death():
                 """
-                Uses prctl to automatically send SIGTERM to the command process when its parent is dead.
+                Uses prctl to automatically send SIGTERM to the command process when its parent is
+                dead.
 
                 This handles the case when the parent is a PySpark worker process.
                 If a user cancels the PySpark job, the worker process gets killed, regardless of
                 PySpark daemon and worker reuse settings.
-                We use prctl to ensure the command process receives SIGTERM after spark job cancellation.
+                We use prctl to ensure the command process receives SIGTERM after spark job
+                cancellation.
                 The command process itself should handle SIGTERM properly.
                 This is a no-op on macOS because prctl is not supported.
 
@@ -112,7 +114,8 @@ class PyFuncBackend(FlavorBackend):
                     # Set the parent process death signal of the command process to SIGTERM.
                     libc.prctl(1, signal.SIGTERM)  # PR_SET_PDEATHSIG, see prctl.h
                 except OSError as e:
-                    # TODO: find approach for supporting MacOS/Windows system which does not support prctl.
+                    # TODO: find approach for supporting MacOS/Windows system which does
+                    #  not support prctl.
                     warnings.warn(f"Setup libc.prctl PR_SET_PDEATHSIG failed, error {repr(e)}.")
 
         else:

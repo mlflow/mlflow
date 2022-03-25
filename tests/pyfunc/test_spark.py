@@ -1,13 +1,8 @@
-import json
 import os
-import shutil
-import subprocess
 import sys
 import time
 from typing import Iterator
 import threading
-import socket
-from contextlib import closing
 
 import numpy as np
 import pandas as pd
@@ -30,7 +25,7 @@ import tests
 from mlflow.types import Schema, ColSpec
 
 import sklearn.datasets as datasets
-from collections import namedtuple, OrderedDict
+from collections import namedtuple
 from sklearn.neighbors import KNeighborsClassifier
 
 from pyspark.sql.functions import pandas_udf
@@ -165,7 +160,6 @@ def test_spark_udf_conda_manager_can_restore_env(spark, model_path, sklearn_vers
             pass
 
         def predict(self, context, model_input):
-            from packaging.version import Version
             import sklearn
 
             if sklearn.__version__ == sklearn_version:
@@ -370,7 +364,8 @@ def test_model_cache(spark, model_path):
         model2 = mlflow.pyfunc.load_model(model_path_from_cache)
         for model in [model_from_cache, model2]:
             assert isinstance(model, PyFuncModel)
-            # NB: Can not use instanceof test as remote does not know about ConstantPyfuncWrapper class.
+            # NB: Can not use instanceof test as remote does not know about ConstantPyfuncWrapper
+            # class.
             assert type(model._model_impl).__name__ == constant_model_name
 
     # Ensure we can use the model locally.
@@ -444,5 +439,5 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(spark, sklearn
     time.sleep(10)  # waiting server to exit and release the port.
 
     # assert ping failed, i.e. the server process is killed successfully.
-    with pytest.raises(Exception):
+    with pytest.raises(Exception):  # pylint: disable=pytest-raises-without-match
         client.ping()

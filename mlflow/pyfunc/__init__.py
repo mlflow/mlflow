@@ -214,11 +214,9 @@ import sys
 import numpy as np
 import os
 import pandas
-import pandas as pd
 import yaml
 from copy import deepcopy
 import logging
-import json
 import tempfile
 import threading
 import collections
@@ -241,7 +239,7 @@ from mlflow.types import DataType, Schema, TensorSpec
 from mlflow.types.utils import clean_tensor_type
 from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
 from mlflow.utils.annotations import deprecated
-from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, write_to
+from mlflow.utils.file_utils import _copy_file_or_tree, write_to
 from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
@@ -872,13 +870,14 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     :param env_manager: The environment manager to use in order to create the
                         software environment for model inference. Default value is ``local``,
                         The following values are supported:
-                        - ``conda``: (Recommended) Use Conda to restore the software environment
-                          that was used to train the model. Note that environment is only restored
-                          in the context of the PySpark UDF; the software environment outside of
-                          the UDF is unaffected.
-                        - ``local``: Use the current Python environment for model inference, which
-                          may differ from the environment used to train the model and may lead to
-                          errors or invalid predictions.
+
+                         - ``conda``: (Recommended) Use Conda to restore the software environment
+                           that was used to train the model. Note that environment is only restored
+                           in the context of the PySpark UDF; the software environment outside of
+                           the UDF is unaffected.
+                         - ``local``: Use the current Python environment for model inference, which
+                           may differ from the environment used to train the model and may lead to
+                           errors or invalid predictions.
 
     :return: Spark UDF that applies the model's ``predict`` method to the data and returns a
              type specified by ``result_type``, which by default is a double.
@@ -889,7 +888,6 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     import functools
     from mlflow.pyfunc.spark_model_cache import SparkModelCache
     from mlflow.utils._spark_utils import _SparkDirectoryDistributor
-    from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
     from pyspark.sql.functions import pandas_udf
     from pyspark.sql.types import _parse_datatype_string
     from pyspark.sql.types import (
@@ -947,8 +945,8 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         )
     else:
         _logger.info(
-            "This UDF will use Conda to recreate the model's software environment for inference. This "
-            "may take extra time during execution."
+            "This UDF will use Conda to recreate the model's software environment for inference. "
+            "This may take extra time during execution."
         )
         if not sys.platform.startswith("linux"):
             # TODO: support killing mlflow server launched in UDF task when spark job canceled
@@ -956,9 +954,9 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
             #  https://stackoverflow.com/questions/53208/how-do-i-automatically-destroy-child-processes-in-windows
             _logger.warning(
                 "In order to run inference code in restored python environment, PySpark UDF "
-                "processes spawn MLflow Model servers as child processes. Due to system limitations "
-                "with handling SIGKILL signals, these MLflow Model server child processes cannot be "
-                "cleaned up if the Spark Job is canceled."
+                "processes spawn MLflow Model servers as child processes. Due to system "
+                "limitations with handling SIGKILL signals, these MLflow Model server child "
+                "processes cannot be cleaned up if the Spark Job is canceled."
             )
 
     if not should_use_spark_to_broadcast_file:
@@ -1039,14 +1037,15 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         else:
             return result[result.columns[0]]
 
-    result_type_hint = pd.DataFrame if isinstance(result_type, SparkStructType) else pd.Series
+    result_type_hint = (
+        pandas.DataFrame if isinstance(result_type, SparkStructType) else pandas.Series
+    )
 
     @pandas_udf(result_type)
     def udf(
-        iterator: Iterator[Tuple[Union[pd.Series, pd.DataFrame], ...]]
+        iterator: Iterator[Tuple[Union[pandas.Series, pandas.DataFrame], ...]]
     ) -> Iterator[result_type_hint]:
         # importing here to prevent circular import
-        from mlflow.pyfunc import scoring_server
         from mlflow.pyfunc.scoring_server.client import ScoringServerClient
 
         # Note: this is a pandas udf function in iteration style, which takes an iterator of
@@ -1125,9 +1124,12 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
             try:
                 client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
             except Exception:
-                err_msg = f"During spark UDF task execution, mlflow model server failed to launch. "
+                err_msg = "During spark UDF task execution, mlflow model server failed to launch. "
                 if len(server_tail_logs) == _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP:
-                    err_msg += f"Last {_MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP} lines of MLflow model server output:\n"
+                    err_msg += (
+                        f"Last {_MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP} "
+                        "lines of MLflow model server output:\n"
+                    )
                 else:
                     err_msg += "MLflow model server output:\n"
                 err_msg += "".join(server_tail_logs)
@@ -1148,10 +1150,11 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         try:
             for input_batch in iterator:
                 # If the UDF is called with only multiple arguments,
-                # the `input_batch` is a tuple which composes of several pd.Series/pd.DataFrame objects.
+                # the `input_batch` is a tuple which composes of several pd.Series/pd.DataFrame
+                # objects.
                 # If the UDF is called with only one argument,
                 # the `input_batch` instance will be an instance of `pd.Series`/`pd.DataFrame`,
-                if isinstance(input_batch, (pd.Series, pd.DataFrame)):
+                if isinstance(input_batch, (pandas.Series, pandas.DataFrame)):
                     # UDF is called with only one argument
                     row_batch_args = (input_batch,)
                 else:

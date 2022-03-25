@@ -1,13 +1,7 @@
 import requests
 import time
 from mlflow.pyfunc import scoring_server
-import subprocess
-import os
-import sys
-import signal
 import json
-import atexit
-import warnings
 
 
 class ScoringServerClient:
@@ -41,9 +35,6 @@ class ScoringServerClient:
         """
         Invoke inference on input data. The input data must be pandas dataframe or json instance.
         """
-
-        import pandas as pd
-
         content_type = scoring_server.CONTENT_TYPE_JSON
         post_data = json.dumps(scoring_server._get_jsonable_obj(data, pandas_orient="split"))
 
