@@ -902,8 +902,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
 
     if env_manager not in ["local", "conda"]:
         raise MlflowException(
-            f"Illegal env_manager value '{env_manager}'.",
-            error_code=INVALID_PARAMETER_VALUE
+            f"Illegal env_manager value '{env_manager}'.", error_code=INVALID_PARAMETER_VALUE
         )
 
     # Check whether spark is in local or local-cluster mode
@@ -965,9 +964,9 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     if not should_use_spark_to_broadcast_file:
         # Prepare restored environment in driver side if possible.
         if env_manager == "conda":
-            _get_flavor_backend(
-                local_model_path, no_conda=False, install_mlflow=False
-            ).prepare_env(model_uri=local_model_path)
+            _get_flavor_backend(local_model_path, no_conda=False, install_mlflow=False).prepare_env(
+                model_uri=local_model_path
+            )
 
     # Broadcast local model directory to remote worker if needed.
     if should_use_spark_to_broadcast_file:
@@ -1108,13 +1107,15 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
 
             def server_redirect_log_thread_func(child_stdout):
                 for line in child_stdout:
-                    decoded = line.decode()
+                    if isinstance(line, bytes):
+                        decoded = line.decode()
+                    else:
+                        decoded = line
                     server_tail_logs.append(decoded)
                     sys.stdout.write("[model server] " + decoded)
 
             server_redirect_log_thread = threading.Thread(
-                target=server_redirect_log_thread_func,
-                args=(scoring_server_proc.stdout,)
+                target=server_redirect_log_thread_func, args=(scoring_server_proc.stdout,)
             )
             server_redirect_log_thread.setDaemon(True)
             server_redirect_log_thread.start()
@@ -1124,12 +1125,12 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
             try:
                 client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
             except Exception:
-                err_msg = f"During spark UDF task execution, mlflow model server launching failed. "
+                err_msg = f"During spark UDF task execution, mlflow model server failed to launch. "
                 if len(server_tail_logs) == _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP:
-                    err_msg += f"Launching mlflow server command last {_MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP} lines output are:\n"
+                    err_msg += f"Last {_MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP} lines of MLflow model server output:\n"
                 else:
-                    err_msg += "Launching mlflow server command output are:\n"
-                err_msg += ''.join(server_tail_logs)
+                    err_msg += "MLflow model server output:\n"
+                err_msg += "".join(server_tail_logs)
                 raise MlflowException(err_msg)
 
             def batch_predict_fn(pdf):
@@ -1186,7 +1187,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                 raise MlflowException(
                     "Attempting to apply udf on zero columns because no column names were "
                     "specified as arguments or inferred from the model signature.",
-                    error_code=INVALID_PARAMETER_VALUE
+                    error_code=INVALID_PARAMETER_VALUE,
                 )
         else:
             return udf(*args)

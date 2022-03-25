@@ -69,7 +69,14 @@ class PyFuncBackend(FlavorBackend):
             scoring_server._predict(local_uri, input_path, output_path, content_type, json_format)
 
     def serve(
-        self, model_uri, port, host, enable_mlserver, synchronous=True, stdout=None, stderr=None,
+        self,
+        model_uri,
+        port,
+        host,
+        enable_mlserver,
+        synchronous=True,
+        stdout=None,
+        stderr=None,
     ):  # pylint: disable=W0221
         """
         Serve pyfunc model locally.
@@ -130,8 +137,11 @@ class PyFuncBackend(FlavorBackend):
                 command = ["bash", "-c", "exec " + command]
 
             child_proc = subprocess.Popen(
-                command, env=command_env, preexec_fn=setup_sigterm_on_parent_death,
-                stdout=stdout, stderr=stderr
+                command,
+                env=command_env,
+                preexec_fn=setup_sigterm_on_parent_death,
+                stdout=stdout,
+                stderr=stderr,
             )
 
         if synchronous:
@@ -199,13 +209,32 @@ class PyFuncBackend(FlavorBackend):
 
 
 def _execute_in_conda_env(
-    conda_env_path, command, install_mlflow, command_env=None, synchronous=True, preexec_fn=None,
-    stdout=None, stderr=None,
+    conda_env_path,
+    command,
+    install_mlflow,
+    command_env=None,
+    synchronous=True,
+    preexec_fn=None,
+    stdout=None,
+    stderr=None,
 ):
+    """
+    :param conda_env_path conda: conda environment file path
+    :param command: command to run on the restored conda environment.
+    :install_mlflow: whether to install mlflow
+    :command_env: environment for child process.
+    :param synchronous: If True, wait until server process exit and return 0, if process exit
+                        with non-zero return code, raise exception.
+                        If False, return the server process `Popen` instance immediately.
+    :param stdout: Redirect server stdout
+    :param stderr: Redirect server stderr
+    """
     if command_env is None:
         command_env = os.environ
 
-    command_env['PIP_NO_INPUT'] = '1'
+    # PIP_NO_INPUT=1 make pip run in non-interactive mode,
+    # otherwise pip might prompt "yes or no" and ask stdin input
+    command_env["PIP_NO_INPUT"] = "1"
 
     env_id = os.environ.get("MLFLOW_HOME", VERSION) if install_mlflow else None
     conda_env_name = get_or_create_conda_env(conda_env_path, env_id=env_id)
@@ -237,13 +266,21 @@ def _execute_in_conda_env(
 
     if os.name != "nt":
         child = subprocess.Popen(
-            ["bash", "-c", command], close_fds=True, env=command_env, preexec_fn=preexec_fn,
-            stdout=stdout, stderr=stderr
+            ["bash", "-c", command],
+            close_fds=True,
+            env=command_env,
+            preexec_fn=preexec_fn,
+            stdout=stdout,
+            stderr=stderr,
         )
     else:
         child = subprocess.Popen(
-            ["cmd", "/c", command], close_fds=True, env=command_env, preexec_fn=preexec_fn,
-            stdout=stdout, stderr=stderr
+            ["cmd", "/c", command],
+            close_fds=True,
+            env=command_env,
+            preexec_fn=preexec_fn,
+            stdout=stdout,
+            stderr=stderr,
         )
 
     if synchronous:
@@ -252,5 +289,6 @@ def _execute_in_conda_env(
             raise Exception(
                 "Command '{0}' returned non zero return code. Return code = {1}".format(command, rc)
             )
+        return 0
     else:
         return child

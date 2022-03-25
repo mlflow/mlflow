@@ -34,9 +34,7 @@ class ScoringServerClient:
             if scoring_server_proc is not None:
                 return_code = scoring_server_proc.poll()
                 if return_code is not None:
-                    raise RuntimeError(
-                        f"Server process already exit with returncode {return_code}"
-                    )
+                    raise RuntimeError(f"Server process already exit with returncode {return_code}")
         raise RuntimeError("Wait scoring server ready timeout.")
 
     def invoke(self, data):

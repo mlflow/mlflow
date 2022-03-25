@@ -35,8 +35,9 @@ class FlavorBackend:
         pass
 
     @abstractmethod
-    def serve(self, model_uri, port, host, enable_mlserver, synchronous=True,
-              stdout=None, stderr=None):
+    def serve(
+        self, model_uri, port, host, enable_mlserver, synchronous=True, stdout=None, stderr=None
+    ):
         """
         Serve the specified MLflow model locally.
 
@@ -44,10 +45,11 @@ class FlavorBackend:
         :param port: Port to use for the model deployment.
         :param host: Host to use for the model deployment. Defaults to ``localhost``.
         :param enable_mlserver: Whether to use MLServer or the local scoring server.
-        :param synchronous: Whether to wait until server exit or return the server process
-                            `Popen` instance immediately.
-        :param stdout: Redirect srever stdout
-        :param stderr: Redirect srever stderr
+        :param synchronous: If True, wait until server process exit and return 0, if process exit
+                            with non-zero return code, raise exception.
+                            If False, return the server process `Popen` instance immediately.
+        :param stdout: Redirect server stdout
+        :param stderr: Redirect server stderr
         """
         pass
 

@@ -17,6 +17,7 @@ _NFS_CACHE_ROOT_DIR = None
 
 
 def get_nfs_cache_root_dir():
+    # TODO: create isolated path for each user
     if is_in_databricks_runtime():
         return "/local_disk0/.ephemeral_nfs/mlflow/cache"
     else:

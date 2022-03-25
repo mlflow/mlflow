@@ -81,7 +81,7 @@ def get_spark_session(conf):
     return (
         pyspark.sql.SparkSession.builder.config(conf=conf)
         .master(spark_master)
-        .config('spark.task.maxFailures', '1')  # avoid retry failed spark tasks
+        .config("spark.task.maxFailures", "1")  # avoid retry failed spark tasks
         .getOrCreate()
     )
 
@@ -218,7 +218,7 @@ def test_spark_udf_with_single_arg(spark):
 
     class TestModel(PythonModel):
         def predict(self, context, model_input):
-            return [','.join(model_input.columns.tolist())] * len(model_input)
+            return [",".join(model_input.columns.tolist())] * len(model_input)
 
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model("model", python_model=TestModel())
@@ -227,9 +227,7 @@ def test_spark_udf_with_single_arg(spark):
             spark, "runs:/{}/model".format(run.info.run_id), result_type=StringType()
         )
 
-        data1 = spark.createDataFrame(
-            pd.DataFrame({'a': [1], 'b': [4]})
-        ).repartition(1)
+        data1 = spark.createDataFrame(pd.DataFrame({"a": [1], "b": [4]})).repartition(1)
 
         result = data1.withColumn("res", udf("a")).select("res").toPandas()
         assert result.res[0] == "0"
@@ -296,8 +294,7 @@ def test_spark_udf_autofills_no_arguments(spark):
         udf = mlflow.pyfunc.spark_udf(
             spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
         )
-        with pytest.raises(MlflowException,
-                           match="Attempting to apply udf on zero columns"):
+        with pytest.raises(MlflowException, match="Attempting to apply udf on zero columns"):
             res = good_data.withColumn("res", udf()).select("res").toPandas()
 
 
@@ -367,11 +364,11 @@ def test_model_cache(spark, model_path):
     # without attempting to resolve ConstantPyfuncWrapper, which is only available on the driver.
     constant_model_name = ConstantPyfuncWrapper.__name__
 
-    def check_get_or_load_return_value(_model, _path):
-        assert _path != model_path
-        assert os.path.isdir(_path)
-        model2 = mlflow.pyfunc.load_model(_path)
-        for model in [_model, model2]:
+    def check_get_or_load_return_value(model_from_cache, model_path_from_cache):
+        assert model_path_from_cache != model_path
+        assert os.path.isdir(model_path_from_cache)
+        model2 = mlflow.pyfunc.load_model(model_path_from_cache)
+        for model in [model_from_cache, model2]:
             assert isinstance(model, PyFuncModel)
             # NB: Can not use instanceof test as remote does not know about ConstantPyfuncWrapper class.
             assert type(model._model_impl).__name__ == constant_model_name
@@ -383,8 +380,8 @@ def test_model_cache(spark, model_path):
 
     # Request the model on all executors, and see how many times we got cache hits.
     def get_model(_):
-        _model, _local_model_path = SparkModelCache.get_or_load(archive_path)
-        check_get_or_load_return_value(_model, _local_model_path)
+        executor_model, executor_model_path = SparkModelCache.get_or_load(archive_path)
+        check_get_or_load_return_value(executor_model, executor_model_path)
         return SparkModelCache._cache_hits
 
     # This will run 30 distinct tasks, and we expect most to reuse an already-loaded model.
@@ -444,7 +441,7 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(spark, sklearn
     spark.sparkContext.cancelAllJobs()
     job_thread.join()
 
-    time.sleep(5)  # waiting server to exit and release the port.
+    time.sleep(10)  # waiting server to exit and release the port.
 
     # assert ping failed, i.e. the server process is killed successfully.
     with pytest.raises(Exception):
