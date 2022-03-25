@@ -69,7 +69,7 @@ class PyFuncBackend(FlavorBackend):
             scoring_server._predict(local_uri, input_path, output_path, content_type, json_format)
 
     def serve(
-        self, model_uri, port, host, enable_mlserver, synchronous=True
+        self, model_uri, port, host, enable_mlserver, synchronous=True, stdout=None, stderr=None,
     ):  # pylint: disable=W0221
         """
         Serve pyfunc model locally.
@@ -120,6 +120,8 @@ class PyFuncBackend(FlavorBackend):
                 command_env=command_env,
                 synchronous=False,
                 preexec_fn=setup_sigterm_on_parent_death,
+                stdout=stdout,
+                stderr=stderr,
             )
         else:
             _logger.info("=== Running command '%s'", command)
@@ -128,7 +130,8 @@ class PyFuncBackend(FlavorBackend):
                 command = ["bash", "-c", "exec " + command]
 
             child_proc = subprocess.Popen(
-                command, env=command_env, preexec_fn=setup_sigterm_on_parent_death
+                command, env=command_env, preexec_fn=setup_sigterm_on_parent_death,
+                stdout=stdout, stderr=stderr
             )
 
         if synchronous:
@@ -196,7 +199,8 @@ class PyFuncBackend(FlavorBackend):
 
 
 def _execute_in_conda_env(
-    conda_env_path, command, install_mlflow, command_env=None, synchronous=True, preexec_fn=None
+    conda_env_path, command, install_mlflow, command_env=None, synchronous=True, preexec_fn=None,
+    stdout=None, stderr=None,
 ):
     if command_env is None:
         command_env = os.environ
@@ -233,11 +237,13 @@ def _execute_in_conda_env(
 
     if os.name != "nt":
         child = subprocess.Popen(
-            ["bash", "-c", command], close_fds=True, env=command_env, preexec_fn=preexec_fn
+            ["bash", "-c", command], close_fds=True, env=command_env, preexec_fn=preexec_fn,
+            stdout=stdout, stderr=stderr
         )
     else:
         child = subprocess.Popen(
-            ["cmd", "/c", command], close_fds=True, env=command_env, preexec_fn=preexec_fn
+            ["cmd", "/c", command], close_fds=True, env=command_env, preexec_fn=preexec_fn,
+            stdout=stdout, stderr=stderr
         )
 
     if synchronous:

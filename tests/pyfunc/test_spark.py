@@ -73,9 +73,15 @@ def configure_environment():
 
 def get_spark_session(conf):
     conf.set(key="spark_session.python.worker.reuse", value=True)
+    # when local run test_spark.py
+    # you can set SPARK_MASTER=local[1]
+    # so that executor log will be printed as test process output
+    # which make debug easiser.
+    spark_master = os.environ.get("SPARK_MASTER", "local-cluster[2, 1, 1024]")
     return (
         pyspark.sql.SparkSession.builder.config(conf=conf)
-        .master("local-cluster[2, 1, 1024]")
+        .master(spark_master)
+        .config('spark.task.maxFailures', '1')  # avoid retry failed spark tasks
         .getOrCreate()
     )
 

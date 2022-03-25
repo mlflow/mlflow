@@ -220,6 +220,9 @@ from copy import deepcopy
 import logging
 import json
 import tempfile
+import threading
+import collections
+import subprocess
 
 from typing import Any, Union, List, Dict, Iterator, Tuple
 import mlflow
@@ -790,6 +793,9 @@ def _get_or_create_model_cache_dir():
     return tmp_model_dir
 
 
+_MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP = 200
+
+
 def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
@@ -1094,10 +1100,37 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                 host="127.0.0.1",
                 enable_mlserver=False,
                 synchronous=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
             )
 
+            server_tail_logs = collections.deque(maxlen=_MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP)
+
+            def server_redirect_log_thread_func(child_stdout):
+                for line in child_stdout:
+                    decoded = line.decode()
+                    server_tail_logs.append(decoded)
+                    sys.stdout.write("[model server] " + decoded)
+
+            server_redirect_log_thread = threading.Thread(
+                target=server_redirect_log_thread_func,
+                args=(scoring_server_proc.stdout,)
+            )
+            server_redirect_log_thread.setDaemon(True)
+            server_redirect_log_thread.start()
+
             client = ScoringServerClient("127.0.0.1", server_port)
-            client.wait_server_ready(timeout=90)
+
+            try:
+                client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
+            except Exception:
+                err_msg = f"During spark UDF task execution, mlflow model server launching failed. "
+                if len(server_tail_logs) == _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP:
+                    err_msg += f"Launching mlflow server command last {_MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP} lines output are:\n"
+                else:
+                    err_msg += "Launching mlflow server command output are:\n"
+                err_msg += ''.join(server_tail_logs)
+                raise MlflowException(err_msg)
 
             def batch_predict_fn(pdf):
                 return client.invoke(pdf)

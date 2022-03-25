@@ -19,8 +19,9 @@ class ScoringServerClient:
         if ping_status.status_code != 200:
             raise Exception(f"ping failed (error code {ping_status.status_code})")
 
-    def wait_server_ready(self, timeout=30):
+    def wait_server_ready(self, timeout=30, scoring_server_proc=None):
         begin_time = time.time()
+
         while True:
             time.sleep(0.3)
             try:
@@ -30,6 +31,12 @@ class ScoringServerClient:
                 pass
             if time.time() - begin_time > timeout:
                 break
+            if scoring_server_proc is not None:
+                return_code = scoring_server_proc.poll()
+                if return_code is not None:
+                    raise RuntimeError(
+                        f"Server process already exit with returncode {return_code}"
+                    )
         raise RuntimeError("Wait scoring server ready timeout.")
 
     def invoke(self, data):
