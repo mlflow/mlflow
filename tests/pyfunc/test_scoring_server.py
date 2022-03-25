@@ -2,6 +2,7 @@ import json
 import math
 import numpy as np
 import os
+import signal
 import pandas as pd
 from collections import namedtuple, OrderedDict
 from packaging.version import Version
@@ -613,3 +614,37 @@ def test_get_cmd(args: dict, expected: str):
     assert cmd == (
         f"gunicorn {expected} ${{GUNICORN_CMD_ARGS}} -- mlflow.pyfunc.scoring_server.wsgi:app"
     )
+
+
+@pytest.mark.large
+def test_scoring_server_client(sklearn_model, model_path):
+    from mlflow.pyfunc.scoring_server.client import ScoringServerClient
+    from mlflow.utils import find_free_port
+    from mlflow.models.cli import _get_flavor_backend
+
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
+    expected_result = sklearn_model.model.predict(sklearn_model.inference_data)
+
+    port = find_free_port()
+
+    server_proc = None
+    try:
+        server_proc = _get_flavor_backend(
+            model_path, no_conda=False, workers=1, install_mlflow=False
+        ).serve(
+            model_uri=model_path,
+            port=port,
+            host="127.0.0.1",
+            enable_mlserver=False,
+            synchronous=False,
+        )
+
+        client = ScoringServerClient(host="127.0.0.1", port=port)
+        client.wait_server_ready()
+
+        data = pd.DataFrame(sklearn_model.inference_data)
+        result = client.invoke(data).to_numpy()[:, 0]
+        np.testing.assert_allclose(result, expected_result, rtol=1e-5)
+    finally:
+        if server_proc is not None:
+            os.kill(server_proc.pid, signal.SIGTERM)
