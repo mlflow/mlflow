@@ -516,7 +516,7 @@ def process_changed_files(changed_files, matrix_base):
         if (__file__ in changed_files)
         else get_changed_flavors(changed_files, flavors)
     )
-    return set(filter(lambda x: x["flavor"] in changed_flavors, matrix_base))
+    return set(filter(lambda x: x["flavor"] in flavors, matrix_base))
 
 
 def generate_matrix(args):
