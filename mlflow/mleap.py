@@ -22,6 +22,7 @@ from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.utils import reraise
 from mlflow.utils.annotations import keyword_only
 
+
 FLAVOR_NAME = "mleap"
 
 _logger = logging.getLogger(__name__)
