@@ -35,6 +35,7 @@ from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
     MLFLOW_PARENT_RUN_ID,
     MLFLOW_RUN_NAME,
+    MLFLOW_RUN_NOTE,
 )
 from mlflow.utils.validation import _validate_run_id
 
@@ -161,6 +162,7 @@ def start_run(
     run_name: Optional[str] = None,
     nested: bool = False,
     tags: Optional[Dict[str, Any]] = None,
+    description: Optional[str] = None,
 ) -> ActiveRun:
     """
     Start a new MLflow run, setting it as the active run under which metrics and parameters
@@ -192,6 +194,9 @@ def start_run(
     :param tags: An optional dictionary of string keys and values to set as tags on the run.
                  If a run is being resumed, these tags are set on the resumed run. If a new run is
                  being created, these tags are set on the new run.
+    :param description: An optional string that populates the description box of the run.
+                        If a run is being resumed, the description is set on the resumed run.
+                        If a new run is being created, the description is set on the new run.
     :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping
              the run's state.
 
@@ -274,6 +279,12 @@ def start_run(
                 run_id=existing_run_id,
                 tags=[RunTag(key, str(value)) for key, value in tags.items()],
             )
+        if description:
+            client.set_tag(
+                run_id=existing_run_id,
+                key=MLFLOW_RUN_NOTE,
+                value=description,
+            )
         active_run_obj = client.get_run(existing_run_id)
     else:
         if len(_active_run_stack) > 0:
@@ -284,6 +295,8 @@ def start_run(
         exp_id_for_run = experiment_id if experiment_id is not None else _get_experiment_id()
 
         user_specified_tags = deepcopy(tags) or {}
+        if description:
+            user_specified_tags[MLFLOW_RUN_NOTE] = description
         if parent_run_id is not None:
             user_specified_tags[MLFLOW_PARENT_RUN_ID] = parent_run_id
         if run_name is not None:
@@ -470,6 +483,47 @@ def delete_tag(key: str) -> None:
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().delete_tag(run_id, key)
+
+
+def set_description(description: str) -> None:
+    """
+    Set a description under the current run. If no run is active, this method will create a
+    new active run.
+
+    :param description: Run description (string). Description of the experiment run.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        with mlflow.start_run():
+           mlflow.set_description("User friendly description of the run.")
+    """
+    run_id = _get_or_start_run().info.run_id
+    MlflowClient().set_tag(run_id, MLFLOW_RUN_NOTE, description)
+
+
+def delete_description() -> None:
+    """
+    Delete the description from the run. This is irreversible. If no run is active,
+    this method will create a new active run.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        description = "Temporary run description"
+
+        with mlflow.start_run() as run:
+            mlflow.set_description(description)
+
+        with mlflow.start_run(run_id=run.info.run_id):
+            mlflow.delete_description()
+    """
+    run_id = _get_or_start_run().info.run_id
+    MlflowClient().delete_tag(run_id, MLFLOW_RUN_NOTE)
 
 
 def log_metric(key: str, value: float, step: Optional[int] = None) -> None:

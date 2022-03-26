@@ -917,3 +917,19 @@ def test_delete_tag():
     with pytest.raises(MlflowException, match="No tag with name"):
         mlflow.delete_tag("b")
     mlflow.end_run()
+
+
+def test_delete_description():
+    """
+    Confirm that setting and deleting the run description works
+    :return:
+    """
+    mlflow.set_description("Random description")
+    run = MlflowClient().get_run(mlflow.active_run().info.run_id)
+    assert mlflow_tags.MLFLOW_RUN_NOTE in run.data.tags
+    mlflow.delete_description()
+    run = MlflowClient().get_run(mlflow.active_run().info.run_id)
+    assert mlflow_tags.MLFLOW_RUN_NOTE not in run.data.tags
+    with pytest.raises(MlflowException, match="No tag with name"):
+        mlflow.delete_description()
+    mlflow.end_run()

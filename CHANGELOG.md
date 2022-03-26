@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.24.1 (2022-03-26)
+MLflow 1.24.1 is a patch release containing the following features:
+
+Features:
+
+- [Tracking] Support for setting the description of a run with an optional `description` parameter in `mlflow.start_run()`. Descriptions can be set and also removed using `mlflow.set_description()` and `mlflow.delete_description()` respectively. (#5526 @dogeplusplus)
+
 ## 1.24.0 (2022-02-27)
 
 MLflow 1.24.0 includes several major features and improvements:
