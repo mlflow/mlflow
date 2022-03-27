@@ -24,6 +24,7 @@ from mlflow.utils.annotations import keyword_only
 
 FLAVOR_NAME = "mleap"
 
+
 _logger = logging.getLogger(__name__)
 
 
