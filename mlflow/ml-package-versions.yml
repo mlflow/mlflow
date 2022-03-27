@@ -344,7 +344,7 @@ mleap:
         cat $SAGEMAKER_OUT;
         exit 1
       fi
-      pytest tests/mleap/test_mleap_model_export.py -k test_model_deployment --large -s
+      pytest tests/mleap/test_mleap_model_export.py --large -s
 
 prophet:
   package_info:
