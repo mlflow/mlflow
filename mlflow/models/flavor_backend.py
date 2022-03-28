@@ -53,7 +53,7 @@ class FlavorBackend:
         """
         pass
 
-    def prepare_env(self, model_uri):
+    def prepare_env(self, model_uri, stream_output=True):
         """
         Performs any preparation necessary to predict or serve the model, for example
         downloading dependencies or initializing a conda environment. After preparation,

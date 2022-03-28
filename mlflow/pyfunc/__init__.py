@@ -963,7 +963,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         # Prepare restored environment in driver side if possible.
         if env_manager == "conda":
             _get_flavor_backend(local_model_path, no_conda=False, install_mlflow=False).prepare_env(
-                model_uri=local_model_path
+                model_uri=local_model_path, stream_output=False
             )
 
     # Broadcast local model directory to remote worker if needed.
