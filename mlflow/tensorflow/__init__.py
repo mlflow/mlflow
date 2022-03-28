@@ -521,6 +521,7 @@ class _TF2Wrapper:
                 if isinstance(val[0], (list, np.ndarray)):
                     val = np.array(val)
                 feed_dict[df_col_name] = tensorflow.constant(val)
+                print(f'DBG: feed_dict={feed_dict}')
         else:
             raise TypeError("Only dict and DataFrame input types are supported")
 
