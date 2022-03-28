@@ -1084,7 +1084,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                 # server launching.
                 _get_flavor_backend(
                     local_model_path_on_executor, no_conda=False, install_mlflow=False
-                ).prepare_env(model_uri=local_model_path_on_executor)
+                ).prepare_env(model_uri=local_model_path_on_executor, stream_output=False)
             else:
                 local_model_path_on_executor = local_model_path
             # launch scoring server
