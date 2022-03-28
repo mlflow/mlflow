@@ -271,8 +271,7 @@ def _get_param_map(instance):
 
 def _get_stage_type_params(instance):
     """
-    Returns a map of param name and param value where
-    the param value is of type pyspark.ml.param.Params
+    Get the param map of the instance where param value is of type pyspark.ml.param.Params
     """
     from pyspark.ml.param import Params
 
