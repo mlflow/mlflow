@@ -144,7 +144,7 @@ def mock_request_header_providers():
 def test_resolve_request_headers(mock_request_header_providers):
     request_headers_arg = {"two": "arg-override", "arg": "arg-val"}
     assert resolve_request_headers(request_headers_arg) == {
-        "one": "override",
+        "one": "one-val override",
         "two": "arg-override",
         "three": "three-val",
         "new": "new-val",
@@ -154,7 +154,7 @@ def test_resolve_request_headers(mock_request_header_providers):
 
 def test_resolve_request_headers_no_arg(mock_request_header_providers):
     assert resolve_request_headers() == {
-        "one": "override",
+        "one": "one-val override",
         "two": "two-val",
         "three": "three-val",
         "new": "new-val",

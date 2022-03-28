@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import tensorflow as tf
+from tensorflow import estimator as tf_estimator
 from packaging.version import Version
 from tensorflow.keras import layers
 import yaml
@@ -654,9 +655,9 @@ def create_tf_estimator_model(directory, export, training_steps=100, use_v1_esti
     for feature in CSV_COLUMN_NAMES:
         feature_spec[feature] = tf.Variable([], dtype=tf.float64, name=feature)
 
-    receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
+    receiver_fn = tf_estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
 
-    run_config = tf.estimator.RunConfig(
+    run_config = tf_estimator.RunConfig(
         # Emit loss metrics to TensorBoard every step
         save_summary_steps=1,
     )
@@ -674,7 +675,7 @@ def create_tf_estimator_model(directory, export, training_steps=100, use_v1_esti
             config=run_config,
         )
     else:
-        classifier = tf.estimator.DNNClassifier(
+        classifier = tf_estimator.DNNClassifier(
             feature_columns=my_feature_columns,
             # Two hidden layers of 10 nodes each.
             hidden_units=[30, 10],
@@ -1097,7 +1098,7 @@ def _assert_keras_autolog_input_example_load_and_predict_with_nparray(run, rando
 def test_keras_autolog_input_example_load_and_predict_with_nparray(
     random_train_data, random_one_hot_labels
 ):
-    mlflow.tensorflow.autolog()
+    mlflow.tensorflow.autolog(log_input_examples=True)
     initial_model = create_tf_keras_model()
     with mlflow.start_run() as run:
         initial_model.fit(random_train_data, random_one_hot_labels)
@@ -1129,7 +1130,7 @@ def test_keras_autolog_infers_model_signature_correctly_with_nparray(
     reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
 )
 def test_keras_autolog_input_example_load_and_predict_with_tf_dataset(fashion_mnist_tf_dataset):
-    mlflow.tensorflow.autolog()
+    mlflow.tensorflow.autolog(log_input_examples=True)
     fashion_mnist_model = _create_fashion_mnist_model()
     with mlflow.start_run() as run:
         fashion_mnist_model.fit(fashion_mnist_tf_dataset)
@@ -1165,7 +1166,7 @@ def test_keras_autolog_infers_model_signature_correctly_with_tf_dataset(fashion_
 def test_keras_autolog_input_example_load_and_predict_with_dict(
     random_train_dict_mapping, random_one_hot_labels
 ):
-    mlflow.tensorflow.autolog()
+    mlflow.tensorflow.autolog(log_input_examples=True)
     model = _create_model_for_dict_mapping()
     with mlflow.start_run() as run:
         model.fit(random_train_dict_mapping, random_one_hot_labels)
@@ -1208,7 +1209,7 @@ def test_keras_autolog_infers_model_signature_correctly_with_dict(
     reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
 )
 def test_keras_autolog_input_example_load_and_predict_with_keras_sequence(keras_data_gen_sequence):
-    mlflow.tensorflow.autolog()
+    mlflow.tensorflow.autolog(log_input_examples=True)
     model = create_tf_keras_model()
     with mlflow.start_run() as run:
         model.fit(keras_data_gen_sequence)

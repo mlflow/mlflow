@@ -294,6 +294,7 @@ class SqlAlchemyStore(AbstractStore):
                 queried_experiments = (
                     session.query(SqlExperiment)
                     .options(*query_options)
+                    .order_by(SqlExperiment.experiment_id)
                     .filter(*conditions)
                     .offset(offset)
                     .limit(max_results_for_query)
