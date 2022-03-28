@@ -477,8 +477,8 @@ def _validate_model(spark_model):
         or not isinstance(spark_model, MLWritable)
     ):
         raise MlflowException(
-            "Cannot serialize this model. MLflow can only save descendants of pyspark.Model"
-            "that implement MLWritable and MLReadable.",
+            "Cannot serialize this model. MLflow can only save descendants of pyspark.ml.Model "
+            "or pyspark.ml.Transformer that implement MLWritable and MLReadable.",
             INVALID_PARAMETER_VALUE,
         )
 
