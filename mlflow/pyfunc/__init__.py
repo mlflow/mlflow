@@ -246,6 +246,7 @@ from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration_from_uri,
 )
+from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.environment import (
     _validate_env_arguments,
     _process_pip_requirements,
@@ -729,28 +730,28 @@ def load_model(
 
 def _download_model_conda_env(model_uri):
     conda_yml_file_name = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)[ENV]
-    return _download_artifact_from_uri(os.path.join(model_uri, conda_yml_file_name))
+    return _download_artifact_from_uri(append_to_uri_path(model_uri, conda_yml_file_name))
 
 
 def get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefined-builtin
     """
-    Given a model URL, and format ("pip" or "conda", default value "pip"),
+    Given a model URI, and format ("pip" or "conda", default value "pip"),
     return the downloaded dependency file path.
     If "pip" format specified but model does not have "requirements.txt" file,
     fallback to parse the pip section of the model's "conda.yaml" and ignore other
     non-pip dependencies in the "conda.yaml" file.
     """
-    req_file_uri = os.path.join(model_uri, _REQUIREMENTS_FILE_NAME)
+    req_file_uri = append_to_uri_path(model_uri, _REQUIREMENTS_FILE_NAME)
 
     if format == "pip":
         try:
             pip_file_path = _download_artifact_from_uri(req_file_uri)
-        except Exception:
+        except Exception as e:
             # fallback to download conda.yaml file and parse the "pip" section from it.
             _logger.info(
-                f"Download model '{_REQUIREMENTS_FILE_NAME}' file failed. Fallback to fetch "
-                "pip requirements from the model's 'conda.yaml' file and other conda "
-                "dependencies will be ignored."
+                f"Download model '{_REQUIREMENTS_FILE_NAME}' file failed, error is {repr(e)}. "
+                "Fallback to fetch pip requirements from the model's 'conda.yaml' file and "
+                "other conda dependencies will be ignored."
             )
             conda_yml_path = _download_model_conda_env(model_uri)
             pip_deps = None
@@ -760,15 +761,10 @@ def get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefine
                     conda_yml = yaml.safe_load(yf)
 
                 for dep in conda_yml["dependencies"]:
-                    if (
-                        isinstance(dep, str)
-                        and not dep.startswith("python=")
-                        and not dep.startswith("pip=")
-                    ):
+                    if isinstance(dep, str):
                         conda_deps.append(dep)
                     if isinstance(dep, dict) and "pip" in dep:
                         pip_deps = dep["pip"]
-                        break
             except Exception as e:
                 raise MlflowException(
                     f"Parse conda.yaml file in the model directory failed, error: {repr(e)}."

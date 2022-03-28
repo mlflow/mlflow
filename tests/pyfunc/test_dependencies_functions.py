@@ -3,11 +3,13 @@ import pytest
 import cloudpickle
 import sklearn
 import os
+from pathlib import Path
 
 from mlflow.pyfunc import _warn_dependency_requirement_mismatches, get_model_dependencies
 import mlflow.utils.requirements_utils
 
 from tests.helper_functions import AnyStringWith
+from mlflow.exceptions import MlflowException
 
 
 @pytest.mark.large
@@ -114,10 +116,10 @@ Detected one or more mismatches between the model's dependencies and the current
 
 
 @pytest.mark.large
-def test_get_model_dependencies(tmpdir):
-    with open(os.path.join(tmpdir.strpath, "MLmodel"), "w") as f:
-        f.write(
-            """
+def test_get_model_dependencies(tmp_path):
+    MLmodel_file = tmp_path / "MLmodel"
+    MLmodel_file.write_text(
+        """
 artifact_path: model
 flavors:
   python_function:
@@ -127,21 +129,17 @@ flavors:
     python_version: 3.7.12
 model_uuid: 722a374a432f48f09ee85da92df13bca
 run_id: 765e66a5ba404650be51cb02cda66f35"""
-        )
+    )
 
-    req_file_path = os.path.join(tmpdir.strpath, "requirements.txt")
-    with open(req_file_path, "w") as f:
-        f.write(
-            """
+    req_file = tmp_path / "requirements.txt"
+    req_file_content = """
 mlflow
 cloudpickle==2.0.0
 scikit-learn==1.0.2"""
-        )
+    req_file.write_text(req_file_content)
 
-    conda_yml_path = os.path.join(tmpdir.strpath, "conda.yaml")
-    with open(conda_yml_path, "w") as f:
-        f.write(
-            """
+    conda_yml_file = tmp_path / "conda.yaml"
+    conda_yml_file_content = """
 channels:
 - conda-forge
 dependencies:
@@ -154,12 +152,13 @@ dependencies:
   - cloudpickle==2.0.0
   - scikit-learn==1.0.1
 name: mlflow-env"""
-        )
 
-    model_path = tmpdir.strpath
+    conda_yml_file.write_text(conda_yml_file_content)
+
+    model_path = str(tmp_path)
 
     # Test getting pip dependencies
-    assert get_model_dependencies(model_path, format="pip") == req_file_path
+    assert Path(get_model_dependencies(model_path, format="pip")).read_text() == req_file_content
 
     # Test getting pip dependencies will print instructions on databricks
     with mock.patch("mlflow.pyfunc._logger.info") as mock_log_info:
@@ -167,25 +166,46 @@ name: mlflow-env"""
         mock_log_info.assert_not_called()
 
         mock_log_info.reset_mock()
-        with mock.patch("mlflow.pyfunc.is_in_databricks_runtime", lambda: True):
+        with mock.patch("mlflow.pyfunc.is_in_databricks_runtime", return_value=True):
             get_model_dependencies(model_path, format="pip")
             mock_log_info.assert_called_once_with(
                 "To install these model dependencies in your Databricks notebook, run the "
-                f"following command: '%pip install -r {req_file_path}'."
+                f"following command: '%pip install -r {str(req_file)}'."
             )
 
     # Test getting conda environment
-    assert get_model_dependencies(model_path, format="conda") == conda_yml_path
+    assert (
+        Path(get_model_dependencies(model_path, format="conda")).read_text()
+        == conda_yml_file_content
+    )
 
-    os.remove(req_file_path)
+    req_file.unlink()
 
     # Test getting pip requirement file failed and fallback to extract pip section from conda.yaml
     with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
         pip_file_path = get_model_dependencies(model_path, format="pip")
-        with open(pip_file_path, "r") as f:
-            result = f.read()
-
-        assert result.strip() == "mlflow\ncloudpickle==2.0.0\nscikit-learn==1.0.1"
-        mock_warning.assert_called_once_with(
-            "The following conda dependencies are excluded: scikit-learn=0.22.0, tensorflow=2.0.0."
+        assert (
+            Path(pip_file_path).read_text().strip()
+            == "mlflow\ncloudpickle==2.0.0\nscikit-learn==1.0.1"
         )
+        mock_warning.assert_called_once_with(
+            "The following conda dependencies are excluded: python=3.7.12, pip=22.0.3, scikit-learn=0.22.0, tensorflow=2.0.0."
+        )
+
+    conda_yml_file.write_text(
+        """
+channels:
+- conda-forge
+dependencies:
+- python=3.7.12
+- pip=22.0.3
+- scikit-learn=0.22.0
+- tensorflow=2.0.0
+    """
+    )
+
+    with pytest.raises(MlflowException, match="No pip section found in conda.yaml file"):
+        get_model_dependencies(model_path, format="pip")
+
+    with pytest.raises(MlflowException, match="Illegal format argument 'abc'"):
+        get_model_dependencies(model_path, format="abc")
