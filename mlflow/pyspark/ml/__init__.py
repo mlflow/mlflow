@@ -151,7 +151,7 @@ def _should_log_hierarchy(estimator):
     return (
         isinstance(estimator, (Pipeline, OneVsRest))
         or _is_parameter_search_estimator(estimator)
-        or any(_get_params_param_map(estimator))
+        or any(_get_stage_type_params(estimator))
     )
 
 
@@ -178,7 +178,7 @@ def _traverse_stage(stage):
             yield from _traverse_stage(stage)
     else:
         # General support for params that of type Params
-        for _, param_value in _get_params_param_map(stage).items():
+        for _, param_value in _get_stage_type_params(stage).items():
             yield from _traverse_stage(param_value)
 
 
@@ -222,11 +222,11 @@ def _gen_stage_hierarchy_recursively(stage, uid_to_indexed_name_map):
                 tuned_estimator, uid_to_indexed_name_map
             ),
         }
-    elif any(_get_params_param_map(stage)):
-        sub_params = []
-        for _, param_value in _get_params_param_map(stage).items():
+    elif any(_get_stage_type_params(stage)):
+        sub_params = {}
+        for param_name, param_value in _get_stage_type_params(stage).items():
             sub_hierarchy = _gen_stage_hierarchy_recursively(param_value, uid_to_indexed_name_map)
-            sub_params.append(sub_hierarchy)
+            sub_params[param_name] = sub_hierarchy
         return {"name": stage_name, "params": sub_params}
     else:
         return {"name": stage_name}
@@ -269,7 +269,11 @@ def _get_param_map(instance):
     }
 
 
-def _get_params_param_map(instance):
+def _get_stage_type_params(instance):
+    """
+    Returns a map of param name and param value where
+    the param value is of type pyspark.ml.param.Params
+    """
     from pyspark.ml.param import Params
 
     return {
