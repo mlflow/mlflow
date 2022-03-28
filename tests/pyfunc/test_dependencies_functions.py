@@ -114,9 +114,38 @@ Detected one or more mismatches between the model's dependencies and the current
                 )
             )
 
+def test_get_model_dependencies_read_req_file(tmp_path):
+    req_file = tmp_path / "requirements.txt"
+    req_file_content = """
+mlflow
+cloudpickle==2.0.0
+scikit-learn==1.0.2"""
+    req_file.write_text(req_file_content)
+
+    model_path = str(tmp_path)
+
+    # Test getting pip dependencies
+    assert Path(get_model_dependencies(model_path, format="pip")).read_text() == req_file_content
+
+    # Test getting pip dependencies will print instructions on databricks
+    with mock.patch("mlflow.pyfunc._logger.info") as mock_log_info:
+        get_model_dependencies(model_path, format="pip")
+        mock_log_info.assert_not_called()
+
+        mock_log_info.reset_mock()
+        with mock.patch("mlflow.pyfunc.is_in_databricks_runtime", return_value=True):
+            get_model_dependencies(model_path, format="pip")
+            mock_log_info.assert_called_once_with(
+                "To install these model dependencies in your Databricks notebook, run the "
+                f"following command: '%pip install -r {str(req_file)}'."
+            )
+
+    with pytest.raises(MlflowException, match="Illegal format argument 'abc'"):
+        get_model_dependencies(model_path, format="abc")
+
 
 @pytest.mark.large
-def test_get_model_dependencies(tmp_path):
+def test_get_model_dependencies_read_conda_file(tmp_path):
     MLmodel_file = tmp_path / "MLmodel"
     MLmodel_file.write_text(
         """
@@ -130,13 +159,6 @@ flavors:
 model_uuid: 722a374a432f48f09ee85da92df13bca
 run_id: 765e66a5ba404650be51cb02cda66f35"""
     )
-
-    req_file = tmp_path / "requirements.txt"
-    req_file_content = """
-mlflow
-cloudpickle==2.0.0
-scikit-learn==1.0.2"""
-    req_file.write_text(req_file_content)
 
     conda_yml_file = tmp_path / "conda.yaml"
     conda_yml_file_content = """
@@ -157,29 +179,11 @@ name: mlflow-env"""
 
     model_path = str(tmp_path)
 
-    # Test getting pip dependencies
-    assert Path(get_model_dependencies(model_path, format="pip")).read_text() == req_file_content
-
-    # Test getting pip dependencies will print instructions on databricks
-    with mock.patch("mlflow.pyfunc._logger.info") as mock_log_info:
-        get_model_dependencies(model_path, format="pip")
-        mock_log_info.assert_not_called()
-
-        mock_log_info.reset_mock()
-        with mock.patch("mlflow.pyfunc.is_in_databricks_runtime", return_value=True):
-            get_model_dependencies(model_path, format="pip")
-            mock_log_info.assert_called_once_with(
-                "To install these model dependencies in your Databricks notebook, run the "
-                f"following command: '%pip install -r {str(req_file)}'."
-            )
-
     # Test getting conda environment
     assert (
         Path(get_model_dependencies(model_path, format="conda")).read_text()
         == conda_yml_file_content
     )
-
-    req_file.unlink()
 
     # Test getting pip requirement file failed and fallback to extract pip section from conda.yaml
     with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
@@ -206,6 +210,3 @@ dependencies:
 
     with pytest.raises(MlflowException, match="No pip section found in conda.yaml file"):
         get_model_dependencies(model_path, format="pip")
-
-    with pytest.raises(MlflowException, match="Illegal format argument 'abc'"):
-        get_model_dependencies(model_path, format="abc")
