@@ -147,6 +147,9 @@ class SqlAlchemyStore(AbstractStore):
             with self.ManagedSessionMaker() as session:
                 self._create_default_experiment(session)
 
+    def _get_dialect(self):
+        return self.engine.dialect.name
+
     def _set_zero_value_insertion_for_autoincrement_column(self, session):
         if self.db_type == MYSQL:
             # config letting MySQL override default
@@ -777,7 +780,7 @@ class SqlAlchemyStore(AbstractStore):
             cases_orderby, parsed_orderby, sorting_joins = _get_orderby_clauses(order_by, session)
 
             stmt = select(SqlRun, *cases_orderby)
-            for j in _get_sqlalchemy_filter_clauses(parsed_filters, session):
+            for j in _get_sqlalchemy_filter_clauses(parsed_filters, session, self._get_dialect()):
                 stmt = stmt.join(j)
             # using an outer join is necessary here because we want to be able to sort
             # on a column (tag, metric or param) without removing the lines that
@@ -792,7 +795,7 @@ class SqlAlchemyStore(AbstractStore):
                 .filter(
                     SqlRun.experiment_id.in_(experiment_ids),
                     SqlRun.lifecycle_stage.in_(stages),
-                    *_get_attributes_filtering_clauses(parsed_filters),
+                    *_get_attributes_filtering_clauses(parsed_filters, self._get_dialect()),
                 )
                 .order_by(*parsed_orderby)
                 .offset(offset)
@@ -846,7 +849,7 @@ class SqlAlchemyStore(AbstractStore):
             session.merge(SqlTag(key=MLFLOW_LOGGED_MODELS, value=value, run_uuid=run_id))
 
 
-def _get_attributes_filtering_clauses(parsed):
+def _get_attributes_filtering_clauses(parsed, dialect):
     clauses = []
     for sql_statement in parsed:
         key_type = sql_statement.get("type")
@@ -860,7 +863,7 @@ def _get_attributes_filtering_clauses(parsed):
             # by the call to parse_search_filter
             attribute = getattr(SqlRun, SqlRun.get_attribute_name(key_name))
             if comparator in SearchUtils.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
-                op = SearchUtils.get_sql_filter_ops(attribute, comparator)
+                op = SearchUtils.get_sql_filter_ops(attribute, comparator, dialect)
                 clauses.append(op(value))
             elif comparator in SearchUtils.filter_ops:
                 op = SearchUtils.filter_ops.get(comparator)
@@ -868,7 +871,7 @@ def _get_attributes_filtering_clauses(parsed):
     return clauses
 
 
-def _to_sqlalchemy_filtering_statement(sql_statement, session):
+def _to_sqlalchemy_filtering_statement(sql_statement, session, dialect):
     key_type = sql_statement.get("type")
     key_name = sql_statement.get("key")
     value = sql_statement.get("value")
@@ -891,7 +894,7 @@ def _to_sqlalchemy_filtering_statement(sql_statement, session):
         )
 
     if comparator in SearchUtils.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
-        op = SearchUtils.get_sql_filter_ops(entity.value, comparator)
+        op = SearchUtils.get_sql_filter_ops(entity.value, comparator, dialect)
         return session.query(entity).filter(entity.key == key_name, op(value)).subquery()
     elif comparator in SearchUtils.filter_ops:
         op = SearchUtils.filter_ops.get(comparator)
@@ -902,12 +905,12 @@ def _to_sqlalchemy_filtering_statement(sql_statement, session):
         return None
 
 
-def _get_sqlalchemy_filter_clauses(parsed, session):
+def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
     """creates SqlAlchemy subqueries
     that will be inner-joined to SQLRun to act as multi-clause filters."""
     filters = []
     for sql_statement in parsed:
-        filter_query = _to_sqlalchemy_filtering_statement(sql_statement, session)
+        filter_query = _to_sqlalchemy_filtering_statement(sql_statement, session, dialect)
         if filter_query is not None:
             filters.append(filter_query)
     return filters
@@ -967,7 +970,7 @@ def _get_orderby_clauses(order_by_list, session):
                         # the column (is_nan) is not nullable. However it could become an issue
                         # if this precondition changes in the future.
                         (subquery.c.is_nan == sqlalchemy.true(), 1),
-                        (order_value.is_(None), 1),
+                        (order_value.is_(None), 2),
                     ],
                     else_=0,
                 ).label("clause_%s" % clause_id)
@@ -978,8 +981,6 @@ def _get_orderby_clauses(order_by_list, session):
                 )
             clauses.append(case.name)
             select_clauses.append(case)
-            # Sort NULLs last
-            select_clauses.append(order_value.is_(None))
             select_clauses.append(order_value)
 
             if (key_type, key) in observed_order_by_clauses:
@@ -988,7 +989,6 @@ def _get_orderby_clauses(order_by_list, session):
                 )
             observed_order_by_clauses.add((key_type, key))
 
-            clauses.append(order_value.is_(None))
             if ascending:
                 clauses.append(order_value)
             else:

@@ -133,8 +133,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
     def create_test_run(self):
         return self._run_factory()
 
-    def setUp(self):
-        self.maxDiff = None  # print all differences on assert failures
+    def _setup_db_uri(self):
         if _TRACKING_URI_ENV_VAR in os.environ:
             self.temp_dbfile = None
             self.db_url = os.getenv(_TRACKING_URI_ENV_VAR)
@@ -143,6 +142,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             # Close handle immediately so that we can remove the file later on in Windows
             os.close(fd)
             self.db_url = "%s%s" % (DB_URI, self.temp_dbfile)
+
+    def setUp(self):
+        self._setup_db_uri()
         self.store = self._get_store(self.db_url)
 
     def get_store(self):
@@ -1546,6 +1548,10 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         assert runs[:1000] == self._search(exp)
         for n in [0, 1, 2, 4, 8, 10, 20, 50, 100, 500, 1000, 1200, 2000]:
+            if n == 0 and self.store._get_dialect() == "mssql":
+                # In SQL server, `max_results = 0` results in the following error:
+                # The number of rows provided for a FETCH clause must be greater then zero.
+                continue
             assert runs[: min(1200, n)] == self._search(exp, max_results=n)
 
         with self.assertRaises(MlflowException) as e:
@@ -1563,6 +1569,10 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             ]
         )
         for n in [0, 1, 2, 4, 8, 10, 20]:
+            if n == 0 and self.store._get_dialect() == "mssql":
+                # In SQL server, `max_results = 0` results in the following error:
+                # The number of rows provided for a FETCH clause must be greater then zero.
+                continue
             assert runs[: min(10, n)] == self._search(exp, max_results=n)
 
     def test_search_runs_pagination(self):
@@ -1978,16 +1988,11 @@ class TestSqlAlchemyStoreMigratedDB(TestSqlAlchemyStore):
     """
 
     def setUp(self):
-        fd, self.temp_dbfile = tempfile.mkstemp()
-        os.close(fd)
-        self.db_url = "%s%s" % (DB_URI, self.temp_dbfile)
+        super()._setup_db_uri()
         engine = sqlalchemy.create_engine(self.db_url)
         InitialBase.metadata.create_all(engine)
         invoke_cli_runner(mlflow.db.commands, ["upgrade", self.db_url])
         self.store = SqlAlchemyStore(self.db_url, ARTIFACT_URI)
-
-    def tearDown(self):
-        os.remove(self.temp_dbfile)
 
 
 @mock.patch("sqlalchemy.orm.session.Session", spec=True)
