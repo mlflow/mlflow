@@ -20,6 +20,7 @@ from collections import namedtuple
 import pandas
 from packaging.version import Version
 from threading import RLock
+import numpy as np
 
 import mlflow
 import mlflow.keras
@@ -512,9 +513,13 @@ class _TF2Wrapper:
                 # from the DataFrame will result in another DataFrame containing the columns
                 # with the shared name. TensorFlow cannot make eager tensors out of pandas
                 # DataFrames, so we convert the DataFrame to a numpy array here.
-                val = data[df_col_name].to_numpy()
+                val = data[df_col_name]
                 if isinstance(val, pandas.DataFrame):
                     val = val.values
+
+                val = val.to_list()
+                if isinstance(val[0], (list, np.ndarray)):
+                    val = np.array(val)
                 feed_dict[df_col_name] = tensorflow.constant(val)
         else:
             raise TypeError("Only dict and DataFrame input types are supported")
