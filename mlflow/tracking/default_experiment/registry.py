@@ -69,11 +69,11 @@ def get_experiment_id():
 
     experiment_id = "0"
     for provider in _default_experiment_provider_registry:
-        try:
-            if provider.in_context():
-                experiment_id = provider.get_experiment_id()
-                break
-        except Exception as e:
-            _logger.warning("Encountered unexpected error while getting experiment_id: %s", e)
+        # try:
+        if provider.in_context():
+            experiment_id = provider.get_experiment_id()
+            break
+        # except Exception as e:
+        #     _logger.warning("Encountered unexpected error while getting experiment_id: %s", e)
 
     return experiment_id
