@@ -5,8 +5,7 @@ module.exports = () => {
   // On windows, the timezone is not set with `TZ=GMT`. As a workaround, use `tzutil`.
   // This approach is taken from https://www.npmjs.com/package/set-tz.
   if (os.platform() === 'win32') {
-    // `_dstoff` suffix disables Daylight Saving time adjustments
-    const TZ = 'GMT Standard Time_dstoff';
+    const TZ = 'UTC';
     const previousTZ = execSync('tzutil /g').toString();
     const cleanup = () => {
       execSync(`tzutil /s "${previousTZ}"`);
