@@ -2,7 +2,6 @@ from unittest import mock
 import pytest
 import cloudpickle
 import sklearn
-import os
 from pathlib import Path
 
 from mlflow.pyfunc import _warn_dependency_requirement_mismatches, get_model_dependencies
@@ -114,6 +113,7 @@ Detected one or more mismatches between the model's dependencies and the current
                 )
             )
 
+
 def test_get_model_dependencies_read_req_file(tmp_path):
     req_file = tmp_path / "requirements.txt"
     req_file_content = """
@@ -137,7 +137,7 @@ scikit-learn==1.0.2"""
             get_model_dependencies(model_path, format="pip")
             mock_log_info.assert_called_once_with(
                 "To install these model dependencies in your Databricks notebook, run the "
-                f"following command: '%pip install -r {str(req_file)}'."
+                f"following command: '%pip install -r {req_file}'."
             )
 
     with pytest.raises(MlflowException, match="Illegal format argument 'abc'"):
@@ -193,7 +193,8 @@ name: mlflow-env"""
             == "mlflow\ncloudpickle==2.0.0\nscikit-learn==1.0.1"
         )
         mock_warning.assert_called_once_with(
-            "The following conda dependencies are excluded: python=3.7.12, pip=22.0.3, scikit-learn=0.22.0, tensorflow=2.0.0."
+            "The following conda dependencies are excluded: python=3.7.12, pip=22.0.3, "
+            "scikit-learn=0.22.0, tensorflow=2.0.0."
         )
 
     conda_yml_file.write_text(
