@@ -987,9 +987,9 @@ def _get_orderby_clauses(order_by_list, session):
             observed_order_by_clauses.add((key_type, key))
 
             if ascending:
-                clauses.append(order_value)
+                clauses.append(sqlalchemy.nulls_last(order_value))
             else:
-                clauses.append(order_value.desc())
+                clauses.append(sqlalchemy.nulls_last(order_value.desc()))
 
     if (SearchUtils._ATTRIBUTE_IDENTIFIER, SqlRun.start_time.key) not in observed_order_by_clauses:
         clauses.append(SqlRun.start_time.desc())

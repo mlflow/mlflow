@@ -47,11 +47,23 @@ from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
+from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
+from mlflow.store.tracking.dbmodels.models import (
+    SqlParam,
+    SqlTag,
+    SqlMetric,
+    SqlLatestMetric,
+    SqlRun,
+    SqlExperimentTag,
+    SqlExperiment,
+)
 from tests.integration.utils import invoke_cli_runner
 from tests.store.tracking import AbstractStoreTest
 
 DB_URI = "sqlite:///"
 ARTIFACT_URI = "artifact_folder"
+
+pytestmark = pytest.mark.notrackingurimock
 
 
 class TestParseDbUri(unittest.TestCase):
@@ -123,18 +135,35 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
     def setUp(self):
         self.maxDiff = None  # print all differences on assert failures
-        fd, self.temp_dbfile = tempfile.mkstemp()
-        # Close handle immediately so that we can remove the file later on in Windows
-        os.close(fd)
-        self.db_url = "%s%s" % (DB_URI, self.temp_dbfile)
+        if _TRACKING_URI_ENV_VAR in os.environ:
+            self.temp_dbfile = None
+            self.db_url = os.getenv(_TRACKING_URI_ENV_VAR)
+        else:
+            fd, self.temp_dbfile = tempfile.mkstemp()
+            # Close handle immediately so that we can remove the file later on in Windows
+            os.close(fd)
+            self.db_url = "%s%s" % (DB_URI, self.temp_dbfile)
         self.store = self._get_store(self.db_url)
 
     def get_store(self):
         return self.store
 
     def tearDown(self):
-        mlflow.store.db.base_sql_model.Base.metadata.drop_all(self.store.engine)
-        os.remove(self.temp_dbfile)
+        if self.temp_dbfile:
+            mlflow.store.db.base_sql_model.Base.metadata.drop_all(self.store.engine)
+            os.remove(self.temp_dbfile)
+        else:
+            with self.store.ManagedSessionMaker() as session:
+                for model in (
+                    SqlParam,
+                    SqlTag,
+                    SqlMetric,
+                    SqlLatestMetric,
+                    SqlRun,
+                    SqlExperimentTag,
+                    SqlExperiment,
+                ):
+                    session.query(model).delete()
         shutil.rmtree(ARTIFACT_URI)
 
     def _experiment_factory(self, names):
@@ -163,7 +192,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         self.store.delete_experiment(0)
 
         self.assertCountEqual(["aNothEr"], [e.name for e in self.store.list_experiments()])
-        another = self.store.get_experiment(1)
+        another = self.store.get_experiment_by_name("aNothEr")
         self.assertEqual("aNothEr", another.name)
 
         default_experiment = self.store.get_experiment(experiment_id=0)
@@ -184,7 +213,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         self.assertCountEqual(set(["aNothEr", "Default"]), set(all_experiments))
 
         # ensure that experiment ID dor active experiment is unchanged
-        another = self.store.get_experiment(1)
+        another = self.store.get_experiment_by_name("aNothEr")
         self.assertEqual("aNothEr", another.name)
 
     def test_raise_duplicate_experiments(self):
@@ -302,7 +331,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             self.assertEqual(len(result), 1)
 
         experiment_id = self.store.create_experiment(name="test exp")
-        self.assertEqual(experiment_id, "1")
         with self.store.ManagedSessionMaker() as session:
             result = session.query(models.SqlExperiment).all()
             self.assertEqual(len(result), 2)
@@ -1063,42 +1091,42 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         # the expected order in ascending sort is :
         # inf > number > -inf > None > nan
         for names in zip(
-            ["nan", None, "inf", "-inf", "-1000", "0", "0", "1000"],
+            [None, "nan", "inf", "-inf", "-1000", "0", "0", "1000"],
             ["1", "2", "3", "4", "5", "6", "7", "8"],
         ):
             create_and_log_run(names)
 
         # asc/asc
         self.assertListEqual(
-            ["-inf/4", "-1000/5", "0/6", "0/7", "1000/8", "inf/3", "None/2", "nan/1"],
+            ["-inf/4", "-1000/5", "0/6", "0/7", "1000/8", "inf/3", "nan/2", "None/1"],
             self.get_ordered_runs(["metrics.x asc", "metrics.y asc"], experiment_id),
         )
 
         self.assertListEqual(
-            ["-inf/4", "-1000/5", "0/6", "0/7", "1000/8", "inf/3", "None/2", "nan/1"],
+            ["-inf/4", "-1000/5", "0/6", "0/7", "1000/8", "inf/3", "nan/2", "None/1"],
             self.get_ordered_runs(["metrics.x asc", "tag.metric asc"], experiment_id),
         )
 
         # asc/desc
         self.assertListEqual(
-            ["-inf/4", "-1000/5", "0/7", "0/6", "1000/8", "inf/3", "None/2", "nan/1"],
+            ["-inf/4", "-1000/5", "0/7", "0/6", "1000/8", "inf/3", "nan/2", "None/1"],
             self.get_ordered_runs(["metrics.x asc", "metrics.y desc"], experiment_id),
         )
 
         self.assertListEqual(
-            ["-inf/4", "-1000/5", "0/7", "0/6", "1000/8", "inf/3", "None/2", "nan/1"],
+            ["-inf/4", "-1000/5", "0/7", "0/6", "1000/8", "inf/3", "nan/2", "None/1"],
             self.get_ordered_runs(["metrics.x asc", "tag.metric desc"], experiment_id),
         )
 
         # desc / asc
         self.assertListEqual(
-            ["inf/3", "1000/8", "0/6", "0/7", "-1000/5", "-inf/4", "nan/1", "None/2"],
+            ["inf/3", "1000/8", "0/6", "0/7", "-1000/5", "-inf/4", "nan/2", "None/1"],
             self.get_ordered_runs(["metrics.x desc", "metrics.y asc"], experiment_id),
         )
 
         # desc / desc
         self.assertListEqual(
-            ["inf/3", "1000/8", "0/7", "0/6", "-1000/5", "-inf/4", "nan/1", "None/2"],
+            ["inf/3", "1000/8", "0/7", "0/6", "-1000/5", "-inf/4", "nan/2", "None/1"],
             self.get_ordered_runs(["metrics.x desc", "param.metric desc"], experiment_id),
         )
 
@@ -1819,7 +1847,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
                     "value": i,
                     "timestamp": i * 2,
                     "step": i * 3,
-                    "is_nan": 0,
+                    "is_nan": False,
                     "run_uuid": run_id,
                 }
                 metrics_list.append(metric)
@@ -1841,7 +1869,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
                     "value": current_run,
                     "timestamp": 100 * 2,
                     "step": 100 * 3,
-                    "is_nan": 0,
+                    "is_nan": False,
                     "run_uuid": run_id,
                 }
             )
