@@ -126,7 +126,7 @@ class TestParseDbUri(unittest.TestCase):
         )
 
 
-class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
+class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
     def _get_store(self, db_uri=""):
         return SqlAlchemyStore(db_uri, ARTIFACT_URI)
 
@@ -1971,7 +1971,7 @@ def test_sqlalchemy_store_can_be_initialized_when_default_experiment_has_been_de
     SqlAlchemyStore(db_uri, ARTIFACT_URI)
 
 
-class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
+class TestSqlAlchemyStoreMigratedDB(TestSqlAlchemyStore):
     """
     Test case where user has an existing DB with schema generated before MLflow 1.0,
     then migrates their DB.
