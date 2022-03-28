@@ -54,6 +54,6 @@ def exec_cmd(
         exit_code = child.wait()
         if throw_on_error and exit_code != 0:
             raise ShellCommandException(
-                "Non-zero exit code: %s\n\nSTDOUT:\n%s\n\nSTDERR:%s" % (exit_code, stdout, stderr)
+                "Non-zero exit code: %s\n\nSTDOUT:\n%s\n\nSTDERR:\n%s" % (exit_code, stdout, stderr)
             )
         return exit_code, stdout, stderr
