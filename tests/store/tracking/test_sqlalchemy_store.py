@@ -1548,7 +1548,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         assert runs[:1000] == self._search(exp)
         for n in [0, 1, 2, 4, 8, 10, 20, 50, 100, 500, 1000, 1200, 2000]:
-            if n == 0 and self.store._get_dialect() == "mssql":
+            if n == 0 and self.store._get_dialect() == MSSQL:
                 # In SQL server, `max_results = 0` results in the following error:
                 # The number of rows provided for a FETCH clause must be greater then zero.
                 continue
@@ -1569,7 +1569,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             ]
         )
         for n in [0, 1, 2, 4, 8, 10, 20]:
-            if n == 0 and self.store._get_dialect() == "mssql":
+            if n == 0 and self.store._get_dialect() == MSSQL:
                 # In SQL server, `max_results = 0` results in the following error:
                 # The number of rows provided for a FETCH clause must be greater then zero.
                 continue

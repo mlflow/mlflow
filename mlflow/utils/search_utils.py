@@ -20,6 +20,7 @@ from sqlparse.tokens import Token as TokenType
 from mlflow.entities import RunInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.store.db.db_types import MYSQL, MSSQL
 
 import math
 
@@ -90,9 +91,9 @@ class SearchUtils:
 
     @classmethod
     def get_sql_filter_ops(cls, column, operator, dialect):
-        if dialect == "mysql":
+        if dialect == MYSQL:
             like_op = column.op("LIKE BINARY")
-        elif dialect == "mssql":
+        elif dialect == MSSQL:
             like_op = column.collate("SQL_Latin1_General_CP1_CS_AS").like
         else:
             like_op = column.like
