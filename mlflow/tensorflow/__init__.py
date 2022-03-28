@@ -512,7 +512,7 @@ class _TF2Wrapper:
                 # from the DataFrame will result in another DataFrame containing the columns
                 # with the shared name. TensorFlow cannot make eager tensors out of pandas
                 # DataFrames, so we convert the DataFrame to a numpy array here.
-                val = data[df_col_name]
+                val = data[df_col_name].to_numpy()
                 if isinstance(val, pandas.DataFrame):
                     val = val.values
                 feed_dict[df_col_name] = tensorflow.constant(val)
