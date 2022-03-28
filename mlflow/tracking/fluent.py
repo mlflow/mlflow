@@ -274,16 +274,19 @@ def start_run(
         _get_store().update_run_info(
             existing_run_id, run_status=RunStatus.RUNNING, end_time=end_time
         )
+        tags = tags or {}
+        if description:
+            if MLFLOW_RUN_NOTE in tags:
+                raise MlflowException(
+                    f"Description is already set via the tag {MLFLOW_RUN_NOTE} in tags."
+                    f"Remove the key {MLFLOW_RUN_NOTE} from the tags or omit the description."
+                )
+            tags[MLFLOW_RUN_NOTE] = description
+
         if tags:
             client.log_batch(
                 run_id=existing_run_id,
                 tags=[RunTag(key, str(value)) for key, value in tags.items()],
-            )
-        if description:
-            client.set_tag(
-                run_id=existing_run_id,
-                key=MLFLOW_RUN_NOTE,
-                value=description,
             )
         active_run_obj = client.get_run(existing_run_id)
     else:
@@ -296,6 +299,11 @@ def start_run(
 
         user_specified_tags = deepcopy(tags) or {}
         if description:
+            if MLFLOW_RUN_NOTE in user_specified_tags:
+                raise MlflowException(
+                    f"Description is already set via the tag {MLFLOW_RUN_NOTE} in tags."
+                    f"Remove the key {MLFLOW_RUN_NOTE} from the tags or omit the description."
+                )
             user_specified_tags[MLFLOW_RUN_NOTE] = description
         if parent_run_id is not None:
             user_specified_tags[MLFLOW_PARENT_RUN_ID] = parent_run_id
@@ -483,47 +491,6 @@ def delete_tag(key: str) -> None:
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().delete_tag(run_id, key)
-
-
-def set_description(description: str) -> None:
-    """
-    Set a description under the current run. If no run is active, this method will create a
-    new active run.
-
-    :param description: Run description (string). Description of the experiment run.
-
-    .. code-block:: python
-        :caption: Example
-
-        import mlflow
-
-        with mlflow.start_run():
-           mlflow.set_description("User friendly description of the run.")
-    """
-    run_id = _get_or_start_run().info.run_id
-    MlflowClient().set_tag(run_id, MLFLOW_RUN_NOTE, description)
-
-
-def delete_description() -> None:
-    """
-    Delete the description from the run. This is irreversible. If no run is active,
-    this method will create a new active run.
-
-    .. code-block:: python
-        :caption: Example
-
-        import mlflow
-
-        description = "Temporary run description"
-
-        with mlflow.start_run() as run:
-            mlflow.set_description(description)
-
-        with mlflow.start_run(run_id=run.info.run_id):
-            mlflow.delete_description()
-    """
-    run_id = _get_or_start_run().info.run_id
-    MlflowClient().delete_tag(run_id, MLFLOW_RUN_NOTE)
 
 
 def log_metric(key: str, value: float, step: Optional[int] = None) -> None:

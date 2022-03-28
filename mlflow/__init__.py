@@ -125,8 +125,6 @@ log_param = mlflow.tracking.fluent.log_param
 log_metric = mlflow.tracking.fluent.log_metric
 set_tag = mlflow.tracking.fluent.set_tag
 delete_tag = mlflow.tracking.fluent.delete_tag
-set_description = mlflow.tracking.fluent.set_description
-delete_description = mlflow.tracking.fluent.delete_description
 log_artifacts = mlflow.tracking.fluent.log_artifacts
 log_artifact = mlflow.tracking.fluent.log_artifact
 log_text = mlflow.tracking.fluent.log_text
@@ -169,8 +167,6 @@ __all__ = [
     "set_tag",
     "set_tags",
     "delete_tag",
-    "set_description",
-    "delete_description",
     "log_artifacts",
     "log_artifact",
     "log_text",
