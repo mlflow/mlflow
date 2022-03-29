@@ -109,6 +109,7 @@ For environment recreation, we automatically log ``conda.yaml`` and ``requiremen
     To manually confirm whether a model has this dependency, you can examine ``channel`` value in the ``conda.yaml`` file that is packaged with the logged model. For example, a model’s ``conda.yaml`` with a ``defaults`` channel dependency may look like this:
 
     .. code-block:: yaml
+
         channels:
         - defaults
         dependencies:
