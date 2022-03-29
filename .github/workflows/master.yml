@@ -172,7 +172,7 @@ jobs:
         do
           # Set `--no-TTY` to show container logs on GitHub Actions:
           # https://github.com/actions/virtual-environments/issues/5022
-          ./tests/db/compose.sh run --rm --no-TTY $service
+          ./tests/db/compose.sh run --rm --no-TTY $service pytest tests/store/tracking/test_sqlalchemy_store.py tests/db
         done
     - name: Database tests - clean up
       run: |
