@@ -25,7 +25,7 @@ from mlflow.projects.utils import (
 )
 from mlflow.projects.backend import loader
 from mlflow.tracking.fluent import _get_experiment_id
-from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_PROJECT_BACKEND
+from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_PROJECT_BACKEND, MLFLOW_RUN_NAME
 import mlflow.utils.uri
 
 _logger = logging.getLogger(__name__)
@@ -75,6 +75,7 @@ def _run(
     use_conda,
     storage_dir,
     synchronous,
+    run_name,
 ):
     """
     Helper that delegates to the project-running method corresponding to the passed-in backend.
@@ -101,6 +102,8 @@ def _run(
             tracking.MlflowClient().set_tag(
                 submitted_run.run_id, MLFLOW_PROJECT_BACKEND, backend_name
             )
+            if run_name is not None:
+                tracking.MlflowClient().set_tag(submitted_run.run_id, MLFLOW_RUN_NAME, run_name)
             return submitted_run
 
     work_dir = fetch_and_validate_project(uri, version, entry_point, parameters)
@@ -110,6 +113,9 @@ def _run(
     active_run = get_or_create_run(
         None, uri, experiment_id, work_dir, version, entry_point, parameters
     )
+
+    if run_name is not None:
+        tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_RUN_NAME, run_name)
 
     if backend_name == "databricks":
         tracking.MlflowClient().set_tag(
@@ -184,6 +190,7 @@ def run(
     storage_dir=None,
     synchronous=True,
     run_id=None,
+    run_name=None,
 ):
     """
     Run an MLflow project. The project can be local or stored at a Git URI.
@@ -239,6 +246,8 @@ def run(
     :param run_id: Note: this argument is used internally by the MLflow project APIs and should
                    not be specified. If specified, the run ID will be used instead of
                    creating a new run.
+    :param run_name: The name to give the MLflow Run associated with the project execution.
+                     If ``None``, the MLflow Run name is left unset.
     :return: :py:class:`mlflow.projects.SubmittedRun` exposing information (e.g. run ID)
              about the launched run.
 
@@ -302,6 +311,7 @@ def run(
         use_conda=use_conda,
         storage_dir=storage_dir,
         synchronous=synchronous,
+        run_name=run_name,
     )
     if synchronous:
         _wait_for(submitted_run_obj)

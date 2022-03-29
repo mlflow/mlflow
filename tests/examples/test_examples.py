@@ -34,7 +34,7 @@ def remove_conda_env(env_name):
 
 def get_free_disk_space():
     # https://stackoverflow.com/a/48929832/6943581
-    return shutil.disk_usage("/")[-1] / (2 ** 30)
+    return shutil.disk_usage("/")[-1] / (2**30)
 
 
 def is_conda_yaml(path):

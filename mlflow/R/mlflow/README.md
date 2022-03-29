@@ -19,7 +19,7 @@ devtools::install_github("mlflow/mlflow", subdir = "mlflow/R/mlflow")
 mlflow::install_mlflow()
 ```
 
-Notice also that [Anaconda](https://www.anaconda.com/products/individual) or
+Notice also that [Anaconda](https://www.anaconda.com/products/distribution) or
 [Miniconda](https://docs.conda.io/en/latest/miniconda.html) need to be manually
 installed.
 

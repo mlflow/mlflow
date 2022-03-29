@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import tensorflow as tf
+from tensorflow import estimator as tf_estimator
 from packaging.version import Version
 from tensorflow.keras import layers
 import yaml
@@ -654,9 +655,9 @@ def create_tf_estimator_model(directory, export, training_steps=100, use_v1_esti
     for feature in CSV_COLUMN_NAMES:
         feature_spec[feature] = tf.Variable([], dtype=tf.float64, name=feature)
 
-    receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
+    receiver_fn = tf_estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
 
-    run_config = tf.estimator.RunConfig(
+    run_config = tf_estimator.RunConfig(
         # Emit loss metrics to TensorBoard every step
         save_summary_steps=1,
     )
@@ -674,7 +675,7 @@ def create_tf_estimator_model(directory, export, training_steps=100, use_v1_esti
             config=run_config,
         )
     else:
-        classifier = tf.estimator.DNNClassifier(
+        classifier = tf_estimator.DNNClassifier(
             feature_columns=my_feature_columns,
             # Two hidden layers of 10 nodes each.
             hidden_units=[30, 10],

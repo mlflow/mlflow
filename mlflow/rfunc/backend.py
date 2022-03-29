@@ -37,7 +37,9 @@ class RFuncBackend(FlavorBackend):
         )
         _execute(command)
 
-    def serve(self, model_uri, port, host, enable_mlserver):
+    def serve(
+        self, model_uri, port, host, enable_mlserver, synchronous=True, stdout=None, stderr=None
+    ):
         """
         Generate R model locally.
 
@@ -47,6 +49,12 @@ class RFuncBackend(FlavorBackend):
         """
         if enable_mlserver:
             raise Exception("The MLServer inference server is not yet supported in the R backend.")
+
+        if not synchronous:
+            raise Exception("RBackend does not support call with synchronous=False")
+
+        if stdout is not None or stderr is not None:
+            raise Exception("RBackend does not support redirect stdout/stderr.")
 
         model_path = _download_artifact_from_uri(model_uri)
         command = "mlflow::mlflow_rfunc_serve('{0}', port = {1}, host = '{2}')".format(
