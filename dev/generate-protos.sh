@@ -10,6 +10,7 @@ fi
 PROTOS="mlflow/protos"
 protoc -I="$PROTOS" \
     --python_out="$PROTOS" \
+    --go_out="mlflow/go/client" --go-grpc_out="mlflow/go/client" --go_opt=paths=source_relative --go-grpc_opt=paths=source_relative \
     --java_out="mlflow/java/client/src/main/java" \
     "$PROTOS"/databricks.proto \
     "$PROTOS"/service.proto \
