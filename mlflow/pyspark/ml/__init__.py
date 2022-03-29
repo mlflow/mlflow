@@ -111,7 +111,12 @@ def _should_log_model(spark_model):
         elif _is_parameter_search_model(spark_model):
             return _should_log_model(spark_model.bestModel)
         else:
-            return True
+            return all(
+                _should_log_model(param_value)
+                for _, param_value in _get_param_map(spark_model).items()
+                # Transformers are logged by default as the same behavior as PipelineModel
+                if isinstance(param_value, Model)
+            )
     else:
         return False
 
@@ -143,7 +148,11 @@ def _should_log_hierarchy(estimator):
     from pyspark.ml import Pipeline
     from pyspark.ml.classification import OneVsRest
 
-    return isinstance(estimator, (Pipeline, OneVsRest)) or _is_parameter_search_estimator(estimator)
+    return (
+        isinstance(estimator, (Pipeline, OneVsRest))
+        or _is_parameter_search_estimator(estimator)
+        or any(_get_stage_type_params(estimator))
+    )
 
 
 _AutologgingEstimatorMetadata = namedtuple(
@@ -154,7 +163,6 @@ _AutologgingEstimatorMetadata = namedtuple(
 
 def _traverse_stage(stage):
     from pyspark.ml import Pipeline
-    from pyspark.ml.classification import OneVsRest
 
     yield stage
     if isinstance(stage, Pipeline):
@@ -168,11 +176,10 @@ def _traverse_stage(stage):
             )
         for stage in original_sub_stages:
             yield from _traverse_stage(stage)
-    elif isinstance(stage, OneVsRest):
-        yield from _traverse_stage(stage.getClassifier())
-    elif _is_parameter_search_estimator(stage):
-        yield from _traverse_stage(stage.getEstimator())
-        yield from _traverse_stage(stage.getEvaluator())
+    else:
+        # General support for params that of type Params
+        for _, param_value in _get_stage_type_params(stage).items():
+            yield from _traverse_stage(param_value)
 
 
 def _get_uid_to_indexed_name_map(estimator):
@@ -215,6 +222,12 @@ def _gen_stage_hierarchy_recursively(stage, uid_to_indexed_name_map):
                 tuned_estimator, uid_to_indexed_name_map
             ),
         }
+    elif any(_get_stage_type_params(stage)):
+        sub_params = {}
+        for param_name, param_value in _get_stage_type_params(stage).items():
+            sub_hierarchy = _gen_stage_hierarchy_recursively(param_value, uid_to_indexed_name_map)
+            sub_params[param_name] = sub_hierarchy
+        return {"name": stage_name, "params": sub_params}
     else:
         return {"name": stage_name}
 
@@ -253,6 +266,19 @@ def _get_param_map(instance):
         param.name: instance.getOrDefault(param)
         for param in instance.params
         if instance.isDefined(param)
+    }
+
+
+def _get_stage_type_params(instance):
+    """
+    Get the param map of the instance where param value is of type pyspark.ml.param.Params
+    """
+    from pyspark.ml.param import Params
+
+    return {
+        param.name: instance.getOrDefault(param)
+        for param in instance.params
+        if instance.isDefined(param) and isinstance(instance.getOrDefault(param), Params)
     }
 
 
