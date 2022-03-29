@@ -741,6 +741,12 @@ def get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefine
     If "pip" format specified but model does not have "requirements.txt" file,
     fallback to parse the pip section of the model's "conda.yaml" and ignore other
     non-pip dependencies in the "conda.yaml" file.
+
+    :param model_uri: The uri of the model to get dependencies from.
+    :param format: The format of the returned dependency file. If "pip" specified,
+                   return path of "requirements.txt" file which contains pip dependencies,
+                   if "conda" specified, return path of "conda.yaml" file which contains
+                   conda environment config.
     """
     req_file_uri = append_to_uri_path(model_uri, _REQUIREMENTS_FILE_NAME)
 
@@ -757,30 +763,29 @@ def get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefine
             conda_yml_path = _download_model_conda_env(model_uri)
             pip_deps = None
             conda_deps = []
-            try:
-                with open(conda_yml_path, "r") as yf:
-                    conda_yml = yaml.safe_load(yf)
 
-                for dep in conda_yml["dependencies"]:
-                    if isinstance(dep, str):
-                        conda_deps.append(dep)
-                    if isinstance(dep, dict) and "pip" in dep:
-                        pip_deps = dep["pip"]
-            except Exception as e:
-                raise MlflowException(
-                    f"Parse conda.yaml file in the model directory failed, error: {repr(e)}."
-                )
+            with open(conda_yml_path, "r") as yf:
+                conda_yml = yaml.safe_load(yf)
 
-            if pip_deps is not None:
-                tmp_dir = tempfile.mkdtemp()
-                pip_file_path = os.path.join(tmp_dir, _REQUIREMENTS_FILE_NAME)
-                with open(pip_file_path, "w") as f:
-                    f.write("\n".join(pip_deps) + "\n")
+            pip_deps_index = None
+            conda_deps = conda_yml.get("dependencies", [])
+            for index, dep in enumerate(conda_deps):
+                if isinstance(dep, dict) and "pip" in dep:
+                    pip_deps_index = index
+                    break
             else:
                 raise MlflowException(
                     "No pip section found in conda.yaml file in the model directory.",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
+
+            pip_deps = conda_deps.pop(pip_deps_index)["pip"]
+
+            tmp_dir = tempfile.mkdtemp()
+            pip_file_path = os.path.join(tmp_dir, _REQUIREMENTS_FILE_NAME)
+            with open(pip_file_path, "w") as f:
+                f.write("\n".join(pip_deps) + "\n")
+
             if len(conda_deps) > 0:
                 _logger.warning(
                     f"The following conda dependencies are excluded: {', '.join(conda_deps)}."
