@@ -17,7 +17,8 @@ def download_artifacts(artifact_uri=None, run_id=None, artifact_path=None, dst_p
     :param artifact_uri: URI pointing to the artifacts, such as
                          ``runs:/500cf58bee2b40a4a82861cc31a617b1/my_model.pkl",
                          ``models:/my_model/Production``, or ``s3://my_bucket/my/file.txt``.
-    :param run_id: ID of the MLflow Run containing the artifacts. Either ``run_id`` or
+                         Exactly one of ``artifact_uri`` or ``run_id`` must be specified.
+    :param run_id: ID of the MLflow Run containing the artifacts. Exactly one of ``run_id`` or
                    ``artifact_uri`` must be specified.
     :param artifact_path: (For use with ``run_id``) If specified, a path relative to the MLflow
                           Run's root directory to download containing the artifacts to download.

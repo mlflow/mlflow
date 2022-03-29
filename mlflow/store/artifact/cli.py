@@ -123,7 +123,7 @@ def download_artifacts(run_id, artifact_path, artifact_uri, dst_path):
     Download an artifact file or directory to a local directory.
     The output is the name of the file or directory on the local filesystem.
 
-    Either ``--run-id`` or ``--artifact-uri`` must be provided.
+    Exactly one of ``--artifact-uri`` or ``--run-id`` must be provided.
     """
 
     downloaded_local_artifact_location = download_artifacts(
