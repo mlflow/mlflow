@@ -101,7 +101,7 @@ class SearchUtils:
                 )
 
         elif dialect == MSSQL:
-            like_op = column.collate("SQL_Latin1_General_CP1_CS_AS").like
+            like_op = column.collate("Japanese_Bushu_Kakusu_100_CS_AS_KS_WS_UTF8").like
         else:
             like_op = column.like
         sql_filter_ops = {"LIKE": like_op, "ILIKE": column.ilike}
