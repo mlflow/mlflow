@@ -30,6 +30,7 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.tensorflow import _TF2Wrapper
 
 from tests.helper_functions import (
     pyfunc_serve_and_score_model,
@@ -814,3 +815,16 @@ def test_log_model_with_code_paths(saved_tf_iris_model):
         _compare_logged_code_paths(__file__, model_uri, mlflow.tensorflow.FLAVOR_NAME)
         mlflow.tensorflow.load_model(model_uri)
         add_mock.assert_called()
+
+
+def test_saved_model_support_array_type_input():
+    def infer(features):
+        res = np.expand_dims(features.numpy().sum(axis=1), axis=1)
+        return {"prediction": tf.constant(res)}
+
+    model = _TF2Wrapper(None, infer)
+    infer_df = pd.DataFrame({"features": [[1.0, 2.0, 3.0, 4.0], [5.0, 6.0, 7.0, 8.0]]})
+
+    result = model.predict(infer_df)
+
+    np.testing.assert_allclose(result["prediction"], [10.0, 26.0])
