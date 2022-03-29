@@ -21,7 +21,7 @@ def ols_model(**kwargs):
     np.random.seed(9876789)
     nsamples = 100
     x = np.linspace(0, 10, 100)
-    X = np.column_stack((x, x ** 2))
+    X = np.column_stack((x, x**2))
     beta = np.array([1, 0.1, 10])
     e = np.random.normal(size=nsamples)
     X = sm.add_constant(X)
@@ -65,7 +65,7 @@ def gls_model():
     res_fit = sm.OLS(ols_resid[1:], ols_resid[:-1]).fit()
     rho = res_fit.params
     order = toeplitz(np.arange(16))
-    sigma = rho ** order
+    sigma = rho**order
     gls = sm.GLS(data.endog, data.exog, sigma=sigma)
     model = gls.fit()
 
