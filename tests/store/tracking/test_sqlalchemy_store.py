@@ -39,7 +39,7 @@ from mlflow.store.db.utils import (
     _get_latest_schema_revision,
 )
 from mlflow.store.tracking.dbmodels import models
-from mlflow.store.db.db_types import MYSQL, MSSQL
+from mlflow.store.db.db_types import SQLITE, POSTGRES, MYSQL, MSSQL
 from mlflow import entities
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
@@ -150,22 +150,40 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
     def get_store(self):
         return self.store
 
+    def _get_query_to_reset_experiment_id(self):
+        dialect = self.store._get_dialect()
+        if dialect == POSTGRES:
+            return "ALTER SEQUENCE experiments_experiment_id_seq RESTART WITH 1"
+        elif dialect == MYSQL:
+            return "ALTER TABLE experiments AUTO_INCREMENT = 1"
+        elif dialect == MSSQL:
+            return "DBCC CHECKIDENT (experiments, RESEED, 0)"
+        elif dialect == SQLITE:
+            # In SQLite, deleting all experiments resets experiment_id
+            return None
+        raise ValueError(f"Invalid dialect: {dialect}")
+
     def tearDown(self):
         if self.temp_dbfile:
-            mlflow.store.db.base_sql_model.Base.metadata.drop_all(self.store.engine)
             os.remove(self.temp_dbfile)
         else:
             with self.store.ManagedSessionMaker() as session:
+                # Delete all rows in all tables
                 for model in (
                     SqlParam,
-                    SqlTag,
                     SqlMetric,
                     SqlLatestMetric,
+                    SqlTag,
                     SqlRun,
                     SqlExperimentTag,
                     SqlExperiment,
                 ):
                     session.query(model).delete()
+
+                # Reset experiment_id to start at 1
+                reset_experiment_id = self._get_query_to_reset_experiment_id()
+                if reset_experiment_id:
+                    session.execute(reset_experiment_id)
         shutil.rmtree(ARTIFACT_URI)
 
     def _experiment_factory(self, names):
@@ -194,7 +212,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.store.delete_experiment(0)
 
         self.assertCountEqual(["aNothEr"], [e.name for e in self.store.list_experiments()])
-        another = self.store.get_experiment_by_name("aNothEr")
+        another = self.store.get_experiment(1)
         self.assertEqual("aNothEr", another.name)
 
         default_experiment = self.store.get_experiment(experiment_id=0)
@@ -215,7 +233,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertCountEqual(set(["aNothEr", "Default"]), set(all_experiments))
 
         # ensure that experiment ID dor active experiment is unchanged
-        another = self.store.get_experiment_by_name("aNothEr")
+        another = self.store.get_experiment(1)
         self.assertEqual("aNothEr", another.name)
 
     def test_raise_duplicate_experiments(self):
@@ -333,6 +351,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             self.assertEqual(len(result), 1)
 
         experiment_id = self.store.create_experiment(name="test exp")
+        self.assertEqual(experiment_id, "1")
         with self.store.ManagedSessionMaker() as session:
             result = session.query(models.SqlExperiment).all()
             self.assertEqual(len(result), 2)
